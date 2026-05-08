@@ -84,7 +84,9 @@ class G1AgilePolicy(WBCPolicy):
         self.wbc_to_agile_input = np.array([wbc_order[name] for name in onnx_input_names])
 
         # Mapping for ONNX output: for each of the 12 agile output joints, the
-        # position in the 15-element lower_body array to write to.
+        # position in the 15-slot ``lower_body`` array (12 legs + 3 waist; see
+        # ``G1SupplementalInfo.joint_groups`` in ``g1_supplemental_info.py``).
+        # AGILE only drives the 12 leg slots; the 3 waist slots stay at zero.
         controlled_names = self.config["controlled_joint_names"]
         lower_body_indices = self.robot_model.get_joint_group_indices("lower_body")
         self.agile_idx_to_lower_body_idx = np.array(
@@ -157,15 +159,34 @@ class G1AgilePolicy(WBCPolicy):
     def set_goal(self, goal: dict[str, Any]):
         """Set the goal for the policy.
 
+        ``self.cmd`` is a 4-wide buffer ``[v_x, v_y, w_z, h]`` initialized from
+        ``cmd_init``. Each key below updates only its own slice, so callers that
+        provide one without the other (e.g. a velocity-only navigation override)
+        leave the height channel at its previous value rather than silently
+        no-op'ing.
+
         Args:
             goal: Dictionary containing goals. Supported keys:
                 - "navigate_cmd": velocity command array of shape (num_envs, 3)
                 - "base_height_command": height command of shape (num_envs, 1)
         """
         nav = goal.get("navigate_cmd")
+        if nav is not None:
+            nav = np.asarray(nav, dtype=np.float32)
+            assert nav.shape == (
+                self.num_envs,
+                3,
+            ), f"navigate_cmd must have shape ({self.num_envs}, 3), got {nav.shape}"
+            self.cmd[:, :3] = nav
+
         height = goal.get("base_height_command")
-        if nav is not None and height is not None:
-            self.cmd = np.concatenate([nav, height], axis=1).astype(np.float32)
+        if height is not None:
+            height = np.asarray(height, dtype=np.float32)
+            assert height.shape == (
+                self.num_envs,
+                1,
+            ), f"base_height_command must have shape ({self.num_envs}, 1), got {height.shape}"
+            self.cmd[:, 3:4] = height
 
     def get_action(self, time: float | None = None) -> dict[str, Any]:
         """Compute and return the next action based on current observation.

@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import math
 import torch
 from collections.abc import Sequence
 from dataclasses import MISSING
@@ -140,9 +141,9 @@ class G1WBCPinkEmbodiment(G1EmbodimentBase):
 class G1WBCAgilePinkEmbodiment(G1EmbodimentBase):
     """Embodiment for the G1 robot with AGILE WBC policy and PINK IK upperbody control.
 
-    Like :class:`G1WBCAgileJointEmbodiment`, this overrides the leg/feet/waist actuator
-    gains to match the agile training-time values; without that override the policy's
-    joint targets get amplified by the Arena's stiffer default PD loop.
+    Uses :data:`G1_AGILE_CFG` so the leg/feet/waist actuator gains match the agile
+    training-time values; without that override the policy's joint targets get
+    amplified by the Arena's stiffer default PD loop.
     """
 
     name = "g1_wbc_agile_pink"
@@ -155,6 +156,7 @@ class G1WBCAgilePinkEmbodiment(G1EmbodimentBase):
         use_tiled_camera: bool = False,
     ):
         super().__init__(enable_cameras, initial_pose)
+        self.scene_config = G1AgileSceneCfg()
         self.action_config = G1WBCAgilePinkActionCfg()
         self.observation_config = G1WBCPinkObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
@@ -164,21 +166,17 @@ class G1WBCAgilePinkEmbodiment(G1EmbodimentBase):
         self.camera_config._is_tiled_camera = use_tiled_camera
         self.camera_config._camera_offset = camera_offset
 
-        _override_actuator_gains_for_agile(self.scene_config.robot)
-
 
 @register_asset
 class G1WBCAgileJointEmbodiment(G1EmbodimentBase):
     """Embodiment for the G1 robot with AGILE WBC policy and direct joint upperbody control.
 
-    By default uses tiled camera for efficient parallel evaluation.
-
-    Overrides the leg/feet/waist actuator gains to match the agile training-time
-    values from ``unitree_g1_velocity_height_recurrent_student.yaml``. The Arena's
-    default G1 actuator stiffness is 2-4x higher than what the agile policy was
-    trained on; without this override the policy's joint targets get amplified
-    by the stiffer PD loop, manifesting as a slow yaw drift / postural twitch
-    even when the velocity command is zero.
+    By default uses tiled camera for efficient parallel evaluation. Uses
+    :data:`G1_AGILE_CFG` so the leg/feet/waist actuator gains match the agile
+    training-time values; the Arena's default G1 actuator stiffness is 2-4x higher
+    than what the agile policy was trained on, which would amplify the policy's
+    joint targets through a stiffer PD loop and produce a slow yaw drift /
+    postural twitch even when the velocity command is zero.
     """
 
     name = "g1_wbc_agile_joint"
@@ -191,6 +189,7 @@ class G1WBCAgileJointEmbodiment(G1EmbodimentBase):
         use_tiled_camera: bool = True,
     ):
         super().__init__(enable_cameras, initial_pose)
+        self.scene_config = G1AgileSceneCfg()
         self.action_config = G1WBCAgileJointActionCfg()
         self.observation_config = G1WBCJointObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
@@ -199,306 +198,278 @@ class G1WBCAgileJointEmbodiment(G1EmbodimentBase):
         self.camera_config._is_tiled_camera = use_tiled_camera
         self.camera_config._camera_offset = camera_offset
 
-        _override_actuator_gains_for_agile(self.scene_config.robot)
+
+# Default Arena G1 articulation config used by all non-AGILE G1 embodiments. Kept at
+# module level so AGILE-specific variants (see ``G1_AGILE_CFG``) can be expressed as
+# ``G1_CFG.copy()`` with targeted actuator overrides instead of mutating
+# ``scene_config`` in each embodiment constructor.
+G1_CFG = ArticulationCfg(
+    spawn=sim_utils.UsdFileCfg(
+        usd_path=f"{ISAAC_NUCLEUS_DIR}/Samples/Groot/Robots/g1_29dof_with_hand_rev_1_0.usd",
+        activate_contact_sensors=True,
+        rigid_props=sim_utils.RigidBodyPropertiesCfg(
+            disable_gravity=False,
+            retain_accelerations=False,
+            linear_damping=0.0,
+            angular_damping=0.0,
+            max_linear_velocity=1000.0,
+            max_angular_velocity=1000.0,
+            max_depenetration_velocity=1.0,
+            solver_position_iteration_count=4,
+            solver_velocity_iteration_count=0,
+        ),
+        articulation_props=sim_utils.ArticulationRootPropertiesCfg(
+            enabled_self_collisions=False, solver_position_iteration_count=4, solver_velocity_iteration_count=0
+        ),
+    ),
+    prim_path="/World/envs/env_.*/Robot",
+    init_state=ArticulationCfg.InitialStateCfg(
+        pos=(0.8, -1.38, 0.78),
+        rot=(0.0, 0.0, 1.0, 0.0),
+        joint_pos={
+            # target angles [rad]
+            "left_hip_pitch_joint": -0.1,
+            "left_hip_roll_joint": 0.0,
+            "left_hip_yaw_joint": 0.0,
+            "left_knee_joint": 0.3,
+            "left_ankle_pitch_joint": -0.2,
+            "left_ankle_roll_joint": 0.0,
+            "right_hip_pitch_joint": -0.1,
+            "right_hip_roll_joint": 0.0,
+            "right_hip_yaw_joint": 0.0,
+            "right_knee_joint": 0.3,
+            "right_ankle_pitch_joint": -0.2,
+            "right_ankle_roll_joint": 0.0,
+            "waist_yaw_joint": 0.0,
+            "waist_roll_joint": 0.0,
+            "waist_pitch_joint": 0.0,
+            "left_shoulder_pitch_joint": 0.0,
+            "left_shoulder_roll_joint": 0.0,
+            "left_shoulder_yaw_joint": 0.0,
+            "left_elbow_joint": 0.0,
+            "right_shoulder_pitch_joint": 0.0,
+            "right_shoulder_roll_joint": 0,
+            "right_shoulder_yaw_joint": 0.0,
+            "right_elbow_joint": 0.0,
+        },
+        joint_vel={".*": 0.0},
+    ),
+    actuators={
+        "legs": IdealPDActuatorCfg(
+            joint_names_expr=[
+                ".*_hip_yaw_joint",
+                ".*_hip_roll_joint",
+                ".*_hip_pitch_joint",
+                ".*_knee_joint",
+            ],
+            effort_limit={
+                ".*_hip_yaw_joint": 88.0,
+                ".*_hip_roll_joint": 88.0,
+                ".*_hip_pitch_joint": 88.0,
+                ".*_knee_joint": 139.0,
+            },
+            velocity_limit={
+                ".*_hip_yaw_joint": 32.0,
+                ".*_hip_roll_joint": 32.0,
+                ".*_hip_pitch_joint": 32.0,
+                ".*_knee_joint": 20.0,
+            },
+            stiffness={
+                ".*_hip_yaw_joint": 150.0,
+                ".*_hip_roll_joint": 150.0,
+                ".*_hip_pitch_joint": 150.0,
+                ".*_knee_joint": 300.0,
+            },
+            damping={
+                ".*_hip_yaw_joint": 2.0,
+                ".*_hip_roll_joint": 2.0,
+                ".*_hip_pitch_joint": 2.0,
+                ".*_knee_joint": 4.0,
+            },
+            armature={
+                ".*_hip_.*": 0.03,
+                ".*_knee_joint": 0.03,
+            },
+        ),
+        "feet": IdealPDActuatorCfg(
+            joint_names_expr=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"],
+            stiffness={
+                ".*_ankle_pitch_joint": 40.0,
+                ".*_ankle_roll_joint": 40.0,
+            },
+            damping={
+                ".*_ankle_pitch_joint": 2,
+                ".*_ankle_roll_joint": 2,
+            },
+            effort_limit={
+                ".*_ankle_pitch_joint": 50.0,
+                ".*_ankle_roll_joint": 50.0,
+            },
+            velocity_limit={
+                ".*_ankle_pitch_joint": 37.0,
+                ".*_ankle_roll_joint": 37.0,
+            },
+            armature=0.03,
+            friction=0.03,
+        ),
+        "waist": IdealPDActuatorCfg(
+            joint_names_expr=[
+                "waist_.*_joint",
+            ],
+            effort_limit={
+                "waist_yaw_joint": 88.0,
+                "waist_roll_joint": 50.0,
+                "waist_pitch_joint": 50.0,
+            },
+            velocity_limit={
+                "waist_yaw_joint": 32.0,
+                "waist_roll_joint": 37.0,
+                "waist_pitch_joint": 37.0,
+            },
+            stiffness={
+                "waist_yaw_joint": 250.0,
+                "waist_roll_joint": 250.0,
+                "waist_pitch_joint": 250.0,
+            },
+            damping={
+                "waist_yaw_joint": 5.0,
+                "waist_roll_joint": 5.0,
+                "waist_pitch_joint": 5.0,
+            },
+            armature=0.03,
+            friction=0.03,
+        ),
+        "arms": IdealPDActuatorCfg(
+            joint_names_expr=[
+                ".*_shoulder_pitch_joint",
+                ".*_shoulder_roll_joint",
+                ".*_shoulder_yaw_joint",
+                ".*_elbow_joint",
+                ".*_wrist_.*_joint",
+            ],
+            effort_limit={
+                ".*_shoulder_pitch_joint": 25.0,
+                ".*_shoulder_roll_joint": 25.0,
+                ".*_shoulder_yaw_joint": 25.0,
+                ".*_elbow_joint": 25.0,
+                ".*_wrist_roll_joint": 25.0,
+                ".*_wrist_pitch_joint": 5.0,
+                ".*_wrist_yaw_joint": 5.0,
+            },
+            velocity_limit={
+                ".*_shoulder_pitch_joint": 37.0,
+                ".*_shoulder_roll_joint": 37.0,
+                ".*_shoulder_yaw_joint": 37.0,
+                ".*_elbow_joint": 37.0,
+                ".*_wrist_roll_joint": 37.0,
+                ".*_wrist_pitch_joint": 22.0,
+                ".*_wrist_yaw_joint": 22.0,
+            },
+            stiffness={
+                ".*_shoulder_pitch_joint": 100.0,
+                ".*_shoulder_roll_joint": 100.0,
+                ".*_shoulder_yaw_joint": 40.0,
+                ".*_elbow_joint": 40.0,
+                ".*_wrist_.*_joint": 20.0,
+            },
+            damping={
+                ".*_shoulder_pitch_joint": 5.0,
+                ".*_shoulder_roll_joint": 5.0,
+                ".*_shoulder_yaw_joint": 2.0,
+                ".*_elbow_joint": 2.0,
+                ".*_wrist_.*_joint": 2.0,
+            },
+            armature={".*_shoulder_.*": 0.03, ".*_elbow_.*": 0.03, ".*_wrist_.*_joint": 0.03},
+            friction=0.03,
+        ),
+        # NOTE(peterd, 9/25/2025): The follow hand joint values are tested and working with Leapmotion and Mimic
+        "hands": IdealPDActuatorCfg(
+            joint_names_expr=[
+                ".*_hand_.*",
+            ],
+            effort_limit=5.0,
+            velocity_limit=10.0,
+            stiffness=4.0,
+            damping=0.5,
+            armature=0.03,
+            friction=0.03,
+        ),
+    },
+)
 
 
-# Canonical PD gains and armature from the agile recurrent-student training YAML
-# (`agile/data/policy/velocity_height_g1/unitree_g1_velocity_height_recurrent_student.yaml`).
-# Keyed by the actuator group name in `G1SceneCfg.robot.actuators` and then by
-# *exact* joint name (no regex) to avoid the IsaacLab regex resolver complaining
-# about overlapping patterns (e.g. `.*_hip_.*` vs `.*_hip_pitch_joint`).
-_AGILE_GAINS_PER_GROUP: dict[str, dict[str, dict[str, float]]] = {
-    "legs": {
-        "left_hip_pitch_joint": {
-            "stiffness": 40.179237365722656,
-            "damping": 2.557889699935913,
-            "armature": 0.010177520103752613,
-        },
-        "right_hip_pitch_joint": {
-            "stiffness": 40.179237365722656,
-            "damping": 2.557889699935913,
-            "armature": 0.010177520103752613,
-        },
-        "left_hip_roll_joint": {
-            "stiffness": 99.09842681884766,
-            "damping": 6.308801651000977,
-            "armature": 0.025101924315094948,
-        },
-        "right_hip_roll_joint": {
-            "stiffness": 99.09842681884766,
-            "damping": 6.308801651000977,
-            "armature": 0.025101924315094948,
-        },
-        "left_hip_yaw_joint": {
-            "stiffness": 40.179237365722656,
-            "damping": 2.557889699935913,
-            "armature": 0.010177520103752613,
-        },
-        "right_hip_yaw_joint": {
-            "stiffness": 40.179237365722656,
-            "damping": 2.557889699935913,
-            "armature": 0.010177520103752613,
-        },
-        "left_knee_joint": {
-            "stiffness": 99.09842681884766,
-            "damping": 6.308801651000977,
-            "armature": 0.025101924315094948,
-        },
-        "right_knee_joint": {
-            "stiffness": 99.09842681884766,
-            "damping": 6.308801651000977,
-            "armature": 0.025101924315094948,
-        },
-    },
-    "feet": {
-        "left_ankle_pitch_joint": {
-            "stiffness": 28.501245498657227,
-            "damping": 1.8144457340240479,
-            "armature": 0.007219450082629919,
-        },
-        "right_ankle_pitch_joint": {
-            "stiffness": 28.501245498657227,
-            "damping": 1.8144457340240479,
-            "armature": 0.007219450082629919,
-        },
-        "left_ankle_roll_joint": {
-            "stiffness": 28.501245498657227,
-            "damping": 1.8144457340240479,
-            "armature": 0.007219450082629919,
-        },
-        "right_ankle_roll_joint": {
-            "stiffness": 28.501245498657227,
-            "damping": 1.8144457340240479,
-            "armature": 0.007219450082629919,
-        },
-    },
-    "waist": {
-        "waist_yaw_joint": {"stiffness": 300.0, "damping": 5.0, "armature": 0.029999999329447746},
-        "waist_roll_joint": {"stiffness": 300.0, "damping": 5.0, "armature": 0.029999999329447746},
-        "waist_pitch_joint": {"stiffness": 300.0, "damping": 5.0, "armature": 0.029999999329447746},
-    },
+# Motor model constants for the AGILE recurrent-student G1 policy. Naming and
+# values mirror ``agile/rl_env/assets/robots/unitree_g1.py`` so the AGILE source
+# of truth is greppable across repos. Stiffness/damping derive from the standard
+# second-order PD form (omega_n^2 * armature, 2 * zeta * omega_n * armature).
+_G1_AGILE_NATURAL_FREQ = 10.0 * 2.0 * math.pi  # 10 Hz
+_G1_AGILE_DAMPING_RATIO = 2.0
+_G1_AGILE_ARMATURE_7520_14 = 0.010177520
+_G1_AGILE_ARMATURE_7520_22 = 0.025101925
+_G1_AGILE_ARMATURE_5020 = 0.003609725
+_G1_AGILE_STIFFNESS_7520_14 = _G1_AGILE_ARMATURE_7520_14 * _G1_AGILE_NATURAL_FREQ**2
+_G1_AGILE_STIFFNESS_7520_22 = _G1_AGILE_ARMATURE_7520_22 * _G1_AGILE_NATURAL_FREQ**2
+_G1_AGILE_STIFFNESS_5020 = _G1_AGILE_ARMATURE_5020 * _G1_AGILE_NATURAL_FREQ**2
+_G1_AGILE_DAMPING_7520_14 = 2.0 * _G1_AGILE_DAMPING_RATIO * _G1_AGILE_ARMATURE_7520_14 * _G1_AGILE_NATURAL_FREQ
+_G1_AGILE_DAMPING_7520_22 = 2.0 * _G1_AGILE_DAMPING_RATIO * _G1_AGILE_ARMATURE_7520_22 * _G1_AGILE_NATURAL_FREQ
+_G1_AGILE_DAMPING_5020 = 2.0 * _G1_AGILE_DAMPING_RATIO * _G1_AGILE_ARMATURE_5020 * _G1_AGILE_NATURAL_FREQ
+
+
+# G1 articulation tuned to match the agile training-time PD/armature values from
+# ``unitree_g1_velocity_height_recurrent_student.yaml``. Arena's default G1 has
+# 2-4x higher leg/feet stiffness; without this override the policy's joint
+# targets get amplified by the stiffer PD loop, manifesting as a slow yaw drift
+# / postural twitch even when the velocity command is zero. ``effort_limit``,
+# ``velocity_limit``, ``friction``, spawn, init pose, hands, and arm gains keep
+# the Arena defaults since they are physical limits or joint-set definitions,
+# not policy training inputs.
+G1_AGILE_CFG = G1_CFG.copy()
+G1_AGILE_CFG.actuators["legs"].stiffness = {
+    ".*_hip_pitch_joint": _G1_AGILE_STIFFNESS_7520_14,
+    ".*_hip_roll_joint": _G1_AGILE_STIFFNESS_7520_22,
+    ".*_hip_yaw_joint": _G1_AGILE_STIFFNESS_7520_14,
+    ".*_knee_joint": _G1_AGILE_STIFFNESS_7520_22,
 }
-
-
-def _override_actuator_gains_for_agile(robot_cfg: ArticulationCfg) -> None:
-    """Override the Arena G1 actuator stiffness/damping/armature in-place to match
-    the agile training-time values for joints the AGILE policy controls.
-
-    Replaces the actuator group's ``stiffness`` / ``damping`` / ``armature`` dicts
-    with exact-joint-name keys so the IsaacLab regex resolver doesn't see overlap
-    between e.g. the original ``.*_hip_.*`` armature key and the more specific
-    per-joint stiffness keys we add here.
-
-    Other parameters (``joint_names_expr``, ``effort_limit``, ``velocity_limit``,
-    ``friction``) keep their Arena defaults since they are physical limits or
-    joint-set definitions, not policy training inputs.
-    """
-    for group_name, per_joint_gains in _AGILE_GAINS_PER_GROUP.items():
-        if group_name not in robot_cfg.actuators:
-            continue
-        actuator_cfg = robot_cfg.actuators[group_name]
-        actuator_cfg.stiffness = {jn: g["stiffness"] for jn, g in per_joint_gains.items()}
-        actuator_cfg.damping = {jn: g["damping"] for jn, g in per_joint_gains.items()}
-        actuator_cfg.armature = {jn: g["armature"] for jn, g in per_joint_gains.items()}
+G1_AGILE_CFG.actuators["legs"].damping = {
+    ".*_hip_pitch_joint": _G1_AGILE_DAMPING_7520_14,
+    ".*_hip_roll_joint": _G1_AGILE_DAMPING_7520_22,
+    ".*_hip_yaw_joint": _G1_AGILE_DAMPING_7520_14,
+    ".*_knee_joint": _G1_AGILE_DAMPING_7520_22,
+}
+G1_AGILE_CFG.actuators["legs"].armature = {
+    ".*_hip_pitch_joint": _G1_AGILE_ARMATURE_7520_14,
+    ".*_hip_roll_joint": _G1_AGILE_ARMATURE_7520_22,
+    ".*_hip_yaw_joint": _G1_AGILE_ARMATURE_7520_14,
+    ".*_knee_joint": _G1_AGILE_ARMATURE_7520_22,
+}
+G1_AGILE_CFG.actuators["feet"].stiffness = 2.0 * _G1_AGILE_STIFFNESS_5020
+G1_AGILE_CFG.actuators["feet"].damping = 2.0 * _G1_AGILE_DAMPING_5020
+G1_AGILE_CFG.actuators["feet"].armature = 2.0 * _G1_AGILE_ARMATURE_5020
+# Waist gains come straight from the recurrent-student YAML; they don't fit
+# the (armature, omega_n, zeta) family above, so use the literal values.
+G1_AGILE_CFG.actuators["waist"].stiffness = {
+    "waist_yaw_joint": 300.0,
+    "waist_roll_joint": 300.0,
+    "waist_pitch_joint": 300.0,
+}
+G1_AGILE_CFG.actuators["waist"].damping = {
+    "waist_yaw_joint": 5.0,
+    "waist_roll_joint": 5.0,
+    "waist_pitch_joint": 5.0,
+}
+G1_AGILE_CFG.actuators["waist"].armature = 0.03
 
 
 @configclass
 class G1SceneCfg:
+    robot: ArticulationCfg = G1_CFG.copy()
 
-    # Gear'WBC G1 config, used in WBC training
-    robot: ArticulationCfg = ArticulationCfg(
-        spawn=sim_utils.UsdFileCfg(
-            usd_path=f"{ISAAC_NUCLEUS_DIR}/Samples/Groot/Robots/g1_29dof_with_hand_rev_1_0.usd",
-            activate_contact_sensors=True,
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(
-                disable_gravity=False,
-                retain_accelerations=False,
-                linear_damping=0.0,
-                angular_damping=0.0,
-                max_linear_velocity=1000.0,
-                max_angular_velocity=1000.0,
-                max_depenetration_velocity=1.0,
-                solver_position_iteration_count=4,
-                solver_velocity_iteration_count=0,
-            ),
-            articulation_props=sim_utils.ArticulationRootPropertiesCfg(
-                enabled_self_collisions=False, solver_position_iteration_count=4, solver_velocity_iteration_count=0
-            ),
-        ),
-        prim_path="/World/envs/env_.*/Robot",
-        init_state=ArticulationCfg.InitialStateCfg(
-            pos=(0.8, -1.38, 0.78),
-            rot=(0.0, 0.0, 1.0, 0.0),
-            joint_pos={
-                # target angles [rad]
-                "left_hip_pitch_joint": -0.1,
-                "left_hip_roll_joint": 0.0,
-                "left_hip_yaw_joint": 0.0,
-                "left_knee_joint": 0.3,
-                "left_ankle_pitch_joint": -0.2,
-                "left_ankle_roll_joint": 0.0,
-                "right_hip_pitch_joint": -0.1,
-                "right_hip_roll_joint": 0.0,
-                "right_hip_yaw_joint": 0.0,
-                "right_knee_joint": 0.3,
-                "right_ankle_pitch_joint": -0.2,
-                "right_ankle_roll_joint": 0.0,
-                "waist_yaw_joint": 0.0,
-                "waist_roll_joint": 0.0,
-                "waist_pitch_joint": 0.0,
-                "left_shoulder_pitch_joint": 0.0,
-                "left_shoulder_roll_joint": 0.0,
-                "left_shoulder_yaw_joint": 0.0,
-                "left_elbow_joint": 0.0,
-                "right_shoulder_pitch_joint": 0.0,
-                "right_shoulder_roll_joint": 0,
-                "right_shoulder_yaw_joint": 0.0,
-                "right_elbow_joint": 0.0,
-            },
-            joint_vel={".*": 0.0},
-        ),
-        actuators={
-            "legs": IdealPDActuatorCfg(
-                joint_names_expr=[
-                    ".*_hip_yaw_joint",
-                    ".*_hip_roll_joint",
-                    ".*_hip_pitch_joint",
-                    ".*_knee_joint",
-                ],
-                effort_limit={
-                    ".*_hip_yaw_joint": 88.0,
-                    ".*_hip_roll_joint": 88.0,
-                    ".*_hip_pitch_joint": 88.0,
-                    ".*_knee_joint": 139.0,
-                },
-                velocity_limit={
-                    ".*_hip_yaw_joint": 32.0,
-                    ".*_hip_roll_joint": 32.0,
-                    ".*_hip_pitch_joint": 32.0,
-                    ".*_knee_joint": 20.0,
-                },
-                stiffness={
-                    ".*_hip_yaw_joint": 150.0,
-                    ".*_hip_roll_joint": 150.0,
-                    ".*_hip_pitch_joint": 150.0,
-                    ".*_knee_joint": 300.0,
-                },
-                damping={
-                    ".*_hip_yaw_joint": 2.0,
-                    ".*_hip_roll_joint": 2.0,
-                    ".*_hip_pitch_joint": 2.0,
-                    ".*_knee_joint": 4.0,
-                },
-                armature={
-                    ".*_hip_.*": 0.03,
-                    ".*_knee_joint": 0.03,
-                },
-            ),
-            "feet": IdealPDActuatorCfg(
-                joint_names_expr=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"],
-                stiffness={
-                    ".*_ankle_pitch_joint": 40.0,
-                    ".*_ankle_roll_joint": 40.0,
-                },
-                damping={
-                    ".*_ankle_pitch_joint": 2,
-                    ".*_ankle_roll_joint": 2,
-                },
-                effort_limit={
-                    ".*_ankle_pitch_joint": 50.0,
-                    ".*_ankle_roll_joint": 50.0,
-                },
-                velocity_limit={
-                    ".*_ankle_pitch_joint": 37.0,
-                    ".*_ankle_roll_joint": 37.0,
-                },
-                armature=0.03,
-                friction=0.03,
-            ),
-            "waist": IdealPDActuatorCfg(
-                joint_names_expr=[
-                    "waist_.*_joint",
-                ],
-                effort_limit={
-                    "waist_yaw_joint": 88.0,
-                    "waist_roll_joint": 50.0,
-                    "waist_pitch_joint": 50.0,
-                },
-                velocity_limit={
-                    "waist_yaw_joint": 32.0,
-                    "waist_roll_joint": 37.0,
-                    "waist_pitch_joint": 37.0,
-                },
-                stiffness={
-                    "waist_yaw_joint": 250.0,
-                    "waist_roll_joint": 250.0,
-                    "waist_pitch_joint": 250.0,
-                },
-                damping={
-                    "waist_yaw_joint": 5.0,
-                    "waist_roll_joint": 5.0,
-                    "waist_pitch_joint": 5.0,
-                },
-                armature=0.03,
-                friction=0.03,
-            ),
-            "arms": IdealPDActuatorCfg(
-                joint_names_expr=[
-                    ".*_shoulder_pitch_joint",
-                    ".*_shoulder_roll_joint",
-                    ".*_shoulder_yaw_joint",
-                    ".*_elbow_joint",
-                    ".*_wrist_.*_joint",
-                ],
-                effort_limit={
-                    ".*_shoulder_pitch_joint": 25.0,
-                    ".*_shoulder_roll_joint": 25.0,
-                    ".*_shoulder_yaw_joint": 25.0,
-                    ".*_elbow_joint": 25.0,
-                    ".*_wrist_roll_joint": 25.0,
-                    ".*_wrist_pitch_joint": 5.0,
-                    ".*_wrist_yaw_joint": 5.0,
-                },
-                velocity_limit={
-                    ".*_shoulder_pitch_joint": 37.0,
-                    ".*_shoulder_roll_joint": 37.0,
-                    ".*_shoulder_yaw_joint": 37.0,
-                    ".*_elbow_joint": 37.0,
-                    ".*_wrist_roll_joint": 37.0,
-                    ".*_wrist_pitch_joint": 22.0,
-                    ".*_wrist_yaw_joint": 22.0,
-                },
-                stiffness={
-                    ".*_shoulder_pitch_joint": 100.0,
-                    ".*_shoulder_roll_joint": 100.0,
-                    ".*_shoulder_yaw_joint": 40.0,
-                    ".*_elbow_joint": 40.0,
-                    ".*_wrist_.*_joint": 20.0,
-                },
-                damping={
-                    ".*_shoulder_pitch_joint": 5.0,
-                    ".*_shoulder_roll_joint": 5.0,
-                    ".*_shoulder_yaw_joint": 2.0,
-                    ".*_elbow_joint": 2.0,
-                    ".*_wrist_.*_joint": 2.0,
-                },
-                armature={".*_shoulder_.*": 0.03, ".*_elbow_.*": 0.03, ".*_wrist_.*_joint": 0.03},
-                friction=0.03,
-            ),
-            # NOTE(peterd, 9/25/2025): The follow hand joint values are tested and working with Leapmotion and Mimic
-            "hands": IdealPDActuatorCfg(
-                joint_names_expr=[
-                    ".*_hand_.*",
-                ],
-                effort_limit=5.0,
-                velocity_limit=10.0,
-                stiffness=4.0,
-                damping=0.5,
-                armature=0.03,
-                friction=0.03,
-            ),
-        },
-    )
+
+@configclass
+class G1AgileSceneCfg(G1SceneCfg):
+    """G1 scene config with actuator gains tuned for the AGILE recurrent policy."""
+
+    robot: ArticulationCfg = G1_AGILE_CFG.copy()
 
 
 @configclass
@@ -784,10 +755,10 @@ class G1WBCAgilePinkActionCfg:
     """Action specifications for the MDP, for G1 AGILE WBC with PINK IK upper body.
 
     The AGILE recurrent lower-body policy only drives the 12 leg joints (it does not
-    move waist_yaw/roll/pitch -- those slots stay at zero target from the WBC). To give
-    the upper-body PINK IK more reach, we extend its active joint set to include
-    ``waist_roll_joint`` and ``waist_pitch_joint`` (waist_yaw stays fixed because the
-    AGILE policy expects it at zero).
+    move waist_yaw/roll/pitch). To give the upper-body PINK IK more reach, we extend
+    its active joint set to include ``waist_roll_joint`` and ``waist_pitch_joint``;
+    ``waist_yaw_joint`` is intentionally left out because the AGILE policy was trained
+    with waist_yaw held at zero.
     """
 
     g1_action: ActionTermCfg = G1DecoupledWBCPinkActionCfg(
