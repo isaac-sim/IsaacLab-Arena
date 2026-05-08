@@ -36,3 +36,11 @@ class G1DecoupledWBCPinkActionCfg(G1DecoupledWBCJointActionCfg):
 
     # Navigation Segment: Max navigation steps
     max_navigation_steps: int = 700
+
+    # Upper-body PINK IK active joint configuration. By default, only the "arms" joint group
+    # is moved by the IK. Extra individual joint names can be activated on top -- e.g. for
+    # the AGILE-pink combo we activate waist_roll_joint and waist_pitch_joint so the IK can
+    # use the torso (the AGILE recurrent lower-body policy doesn't drive these joints, so
+    # leaving them under PINK IK control gives the arms more reach).
+    upperbody_active_joint_groups: list[str] = ["arms"]
+    upperbody_extra_active_joints: list[str] = []

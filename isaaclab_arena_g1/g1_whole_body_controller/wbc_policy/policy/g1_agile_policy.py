@@ -15,25 +15,29 @@ from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.base import WB
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.utils.homie_utils import load_config
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.utils.onnx_utils import OnnxInferenceSession
 
-# ONNX feedback state keys and their per-environment shapes (excluding batch dim).
-_STATE_KEYS_AND_SHAPES: dict[str, tuple[int, ...]] = {
-    "last_actions": (14,),
-    "base_ang_vel_history": (5, 3),
-    "projected_gravity_history": (5, 3),
-    "velocity_commands_history": (5, 3),
-    "controlled_joint_pos_history": (5, 14),
-    "controlled_joint_vel_history": (5, 14),
-    "actions_history": (5, 14),
-}
+# LSTM hidden state shape baked into the recurrent student ONNX.
+_LSTM_NUM_LAYERS = 1
+_LSTM_HIDDEN_SIZE = 256
 
 
 class G1AgilePolicy(WBCPolicy):
-    """G1 robot policy using the WBC-AGILE end-to-end neural network.
+    """G1 robot policy using the recurrent LSTM student exported from
+    ``agile/rl_env/tasks/locomotion_height/g1/velocity_height_env_cfg.py``.
 
-    This policy uses a single ONNX model that takes raw sensor inputs and
-    manages observation history internally via feedback connections. The model
-    outputs target joint positions along with per-joint Kp/Kd gains for 14
-    controlled joints (legs + waist_roll + waist_pitch).
+    The ONNX has three inputs: a flat ``obs`` vector and the LSTM hidden/cell
+    states ``h_in``/``c_in``. ``obs`` is laid out as::
+
+        [velocity_height_commands(4),  # [v_x, v_y, w_z, h]
+         base_ang_vel(3),
+         projected_gravity(3),
+         joint_pos_rel(29) = q - q_default,
+         joint_vel_rel(29) * joint_vel_scale,
+         last_action(num_actions=12)]
+
+    The 12 outputs are the leg target joint positions (no waist roll/pitch).
+
+    Note: the ONNX has a static batch dim of 1, so this policy only supports
+    ``num_envs == 1``. Re-export with dynamic axes if batched eval is needed.
     """
 
     def __init__(self, robot_model: RobotModel, config_path: str, model_path: str, num_envs: int = 1):
@@ -44,8 +48,14 @@ class G1AgilePolicy(WBCPolicy):
             config_path: Path to policy YAML configuration file (relative to wbc_policy dir).
             model_path: Path to the ONNX model file. Can be an S3/Nucleus URL
                 (resolved and cached by retrieve_file_path) or a local path.
-            num_envs: Number of environments.
+            num_envs: Number of environments. Must be 1 for the static-batch ONNX.
         """
+        assert num_envs == 1, (
+            "G1AgilePolicy uses a recurrent LSTM ONNX with static batch=1; "
+            f"got num_envs={num_envs}. Re-export the ONNX with dynamic batch axis "
+            "to support num_envs > 1."
+        )
+
         parent_dir = pathlib.Path(__file__).parent.parent
         self.config = load_config(str(parent_dir / config_path))
         self.robot_model = robot_model
@@ -58,10 +68,10 @@ class G1AgilePolicy(WBCPolicy):
         model_full_path = parent_dir / model_local_path
         self.session = OnnxInferenceSession(str(model_full_path))
 
-        # Build joint index mappings between WBC order and agile ONNX order
+        # Build joint index mappings between WBC order and agile ONNX order.
         self._build_joint_mappings()
 
-        # Initialize state
+        # Initialize state.
         self._init_state()
 
     def _build_joint_mappings(self):
@@ -73,8 +83,10 @@ class G1AgilePolicy(WBCPolicy):
         onnx_input_names = self.config["onnx_input_joint_names"]
         self.wbc_to_agile_input = np.array([wbc_order[name] for name in onnx_input_names])
 
-        # Mapping for ONNX output: for each of the 14 agile output joints, the
-        # position in the 15-element lower_body array to write to.
+        # Mapping for ONNX output: for each of the 12 agile output joints, the
+        # position in the 15-slot ``lower_body`` array (12 legs + 3 waist; see
+        # ``G1SupplementalInfo.joint_groups`` in ``g1_supplemental_info.py``).
+        # AGILE only drives the 12 leg slots; the 3 waist slots stay at zero.
         controlled_names = self.config["controlled_joint_names"]
         lower_body_indices = self.robot_model.get_joint_group_indices("lower_body")
         self.agile_idx_to_lower_body_idx = np.array(
@@ -82,16 +94,47 @@ class G1AgilePolicy(WBCPolicy):
         )
 
         self.num_lower_body = len(lower_body_indices)
+        self.num_actions = int(self.config["num_actions"])
 
     def _init_state(self):
         """Initialize all per-environment state variables."""
         self.observation = None
-        self.cmd = np.tile(self.config["cmd_init"], (self.num_envs, 1))
 
-        # Batched ONNX feedback state: each array has shape (num_envs, ...).
-        self.state = {
-            key: np.zeros((self.num_envs, *shape), dtype=np.float32) for key, shape in _STATE_KEYS_AND_SHAPES.items()
-        }
+        # 4-dim command: [v_x, v_y, w_z, h].
+        self._cmd_init = np.array(self.config["cmd_init"], dtype=np.float32)
+        assert self._cmd_init.shape == (4,), f"cmd_init must be 4-dim, got {self._cmd_init.shape}"
+        self.cmd = np.tile(self._cmd_init, (self.num_envs, 1))
+
+        # LSTM feedback state.
+        self.h_state = np.zeros((_LSTM_NUM_LAYERS, self.num_envs, _LSTM_HIDDEN_SIZE), dtype=np.float32)
+        self.c_state = np.zeros_like(self.h_state)
+
+        # Previous action fed back as part of obs.
+        self.last_action = np.zeros((self.num_envs, self.num_actions), dtype=np.float32)
+
+        self.joint_vel_scale = float(self.config.get("joint_vel_scale", 0.1))
+
+        # Action post-processing (matches agile JointPositionActionCfg):
+        #   target_q = clip(raw_action, action_clip) * action_scale + action_offset
+        action_clip = self.config.get("action_clip")
+        if action_clip is not None:
+            self._action_clip_min = float(action_clip[0])
+            self._action_clip_max = float(action_clip[1])
+        else:
+            self._action_clip_min = -np.inf
+            self._action_clip_max = np.inf
+        action_scale = self.config.get("action_scale", [1.0] * self.num_actions)
+        action_offset = self.config.get("action_offset", [0.0] * self.num_actions)
+        self._action_scale = np.array(action_scale, dtype=np.float32).reshape(1, -1)
+        self._action_offset = np.array(action_offset, dtype=np.float32).reshape(1, -1)
+        assert self._action_scale.shape == (
+            1,
+            self.num_actions,
+        ), f"action_scale must have {self.num_actions} entries, got {self._action_scale.shape}"
+        assert self._action_offset.shape == (
+            1,
+            self.num_actions,
+        ), f"action_offset must have {self.num_actions} entries, got {self._action_offset.shape}"
 
     def reset(self, env_ids: torch.Tensor):
         """Reset the policy state for the given environment ids.
@@ -99,10 +142,11 @@ class G1AgilePolicy(WBCPolicy):
         Args:
             env_ids: The environment ids to reset.
         """
-        idx = env_ids.cpu().numpy()
-        for key, shape in _STATE_KEYS_AND_SHAPES.items():
-            self.state[key][idx] = np.zeros(shape, dtype=np.float32)
-        self.cmd[idx] = self.config["cmd_init"]
+        idx = env_ids.cpu().numpy() if isinstance(env_ids, torch.Tensor) else np.asarray(env_ids)
+        self.h_state[:, idx, :] = 0.0
+        self.c_state[:, idx, :] = 0.0
+        self.last_action[idx] = 0.0
+        self.cmd[idx] = self._cmd_init
 
     def set_observation(self, observation: dict[str, Any]):
         """Store the current observation for the next get_action call.
@@ -115,12 +159,34 @@ class G1AgilePolicy(WBCPolicy):
     def set_goal(self, goal: dict[str, Any]):
         """Set the goal for the policy.
 
+        ``self.cmd`` is a 4-wide buffer ``[v_x, v_y, w_z, h]`` initialized from
+        ``cmd_init``. Each key below updates only its own slice, so callers that
+        provide one without the other (e.g. a velocity-only navigation override)
+        leave the height channel at its previous value rather than silently
+        no-op'ing.
+
         Args:
             goal: Dictionary containing goals. Supported keys:
                 - "navigate_cmd": velocity command array of shape (num_envs, 3)
+                - "base_height_command": height command of shape (num_envs, 1)
         """
-        if "navigate_cmd" in goal:
-            self.cmd = goal["navigate_cmd"]
+        nav = goal.get("navigate_cmd")
+        if nav is not None:
+            nav = np.asarray(nav, dtype=np.float32)
+            assert nav.shape == (
+                self.num_envs,
+                3,
+            ), f"navigate_cmd must have shape ({self.num_envs}, 3), got {nav.shape}"
+            self.cmd[:, :3] = nav
+
+        height = goal.get("base_height_command")
+        if height is not None:
+            height = np.asarray(height, dtype=np.float32)
+            assert height.shape == (
+                self.num_envs,
+                1,
+            ), f"base_height_command must have shape ({self.num_envs}, 1), got {height.shape}"
+            self.cmd[:, 3:4] = height
 
     def get_action(self, time: float | None = None) -> dict[str, Any]:
         """Compute and return the next action based on current observation.
@@ -134,26 +200,38 @@ class G1AgilePolicy(WBCPolicy):
 
         obs = self.observation
 
-        # Build batched ONNX inputs (all envs at once)
-        ort_inputs = {
-            "root_link_quat_w": obs["floating_base_pose"][:, 3:7].astype(np.float32),
-            "root_ang_vel_b": obs["floating_base_vel"][:, 3:6].astype(np.float32),
-            "velocity_commands": self.cmd.astype(np.float32),
-            "joint_pos": obs["q"][:, self.wbc_to_agile_input].astype(np.float32),
-            "joint_vel": obs["dq"][:, self.wbc_to_agile_input].astype(np.float32),
-            **{key: self.state[key] for key in _STATE_KEYS_AND_SHAPES},
-        }
+        # Use root_ang_vel_b (COM frame) to match `mdp.base_ang_vel` from training.
+        ang_vel_b = obs["root_ang_vel_b"].astype(np.float32)
+        proj_grav = obs["projected_gravity_b"].astype(np.float32)
 
-        # Run batched inference
-        result = self.session.run(ort_inputs)
+        # Reorder WBC-ordered q/dq/default_q into the agile training order.
+        q_agile = obs["q"][:, self.wbc_to_agile_input].astype(np.float32)
+        dq_agile = obs["dq"][:, self.wbc_to_agile_input].astype(np.float32)
+        q_default_agile = obs["default_q"][:, self.wbc_to_agile_input].astype(np.float32)
 
-        # Update feedback state for next step
-        for key in _STATE_KEYS_AND_SHAPES:
-            self.state[key] = result[f"{key}_out"]
+        joint_pos_rel = q_agile - q_default_agile
+        joint_vel_rel = dq_agile * self.joint_vel_scale
 
-        # Map 14 agile output joints to the 15-joint lower_body array.
-        # waist_yaw (not controlled by agile) stays at 0.0.
+        flat_obs = np.concatenate(
+            [self.cmd, ang_vel_b, proj_grav, joint_pos_rel, joint_vel_rel, self.last_action],
+            axis=1,
+        )
+
+        result = self.session.run({"obs": flat_obs.astype(np.float32), "h_in": self.h_state, "c_in": self.c_state})
+
+        actions = result["actions"].astype(np.float32)  # (N, num_actions)
+        self.h_state = result["h_out"]
+        self.c_state = result["c_out"]
+
+        # Feed back the *raw* (pre-processed) action: this matches mdp.last_action
+        # which returns env.action_manager.action (the policy output before scale/offset).
+        self.last_action = actions
+
+        # Match the agile training JointPositionActionCfg post-processing:
+        #   target_q = clip(raw_action, clip_min, clip_max) * scale + offset
+        target_q = np.clip(actions, self._action_clip_min, self._action_clip_max)
+        target_q = target_q * self._action_scale + self._action_offset
+
         body_action = np.zeros((self.num_envs, self.num_lower_body), dtype=np.float32)
-        body_action[:, self.agile_idx_to_lower_body_idx] = result["action_joint_pos"]
-
+        body_action[:, self.agile_idx_to_lower_body_idx] = target_q
         return {"body_action": body_action}

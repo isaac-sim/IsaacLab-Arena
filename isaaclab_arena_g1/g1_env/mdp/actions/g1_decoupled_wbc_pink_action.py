@@ -88,11 +88,29 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
         self._navigate_cmd = torch.zeros([self.num_envs, 3], device=self.device)
         self._torso_orientation_rpy_cmd = torch.zeros([self.num_envs, 3], device=self.device)
 
-        # Create the PINK IK controller
+        # Create the PINK IK controller. By default the IK only drives the "arms" group;
+        # the embodiment may extend this via `upperbody_extra_active_joints` (e.g. AGILE-pink
+        # adds waist_roll_joint and waist_pitch_joint).
         self.upperbody_controller = G1WBCUpperbodyController(
             robot_model=self.robot_model,
-            body_active_joint_groups=["arms"],
+            body_active_joint_groups=list(self.cfg.upperbody_active_joint_groups),
+            extra_active_joints=list(self.cfg.upperbody_extra_active_joints),
         )
+
+        # Map any extra (non-"upper_body"-group) IK-active joints to their sim-side joint
+        # indices so we can splice the IK solution back into ``_processed_actions`` after
+        # the WBC postprocess (which writes only ``upper_body`` and ``lower_body`` slots).
+        self._extra_active_joint_sim_indices: list[int] = []
+        self._extra_active_joint_full_indices: list[int] = []
+        sim_joint_names = self._asset.data.joint_names
+        full_joint_names = self.robot_model.joint_names
+        for jn in self.cfg.upperbody_extra_active_joints:
+            if jn not in sim_joint_names:
+                raise ValueError(f"Extra active joint '{jn}' not found in articulation joint_names")
+            if jn not in full_joint_names:
+                raise ValueError(f"Extra active joint '{jn}' not found in robot_model joint_names")
+            self._extra_active_joint_sim_indices.append(sim_joint_names.index(jn))
+            self._extra_active_joint_full_indices.append(full_joint_names.index(jn))
 
     # Properties.
     # """
@@ -244,6 +262,9 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
         # Reformat the joint position tensor to the correct order for G1 upper body
         target_upper_body_joints = target_robot_joints[self.robot_model.get_joint_group_indices("upper_body")]
 
+        # Stash the IK solution for the post-WBC writeback of extra (non-upper_body) joints.
+        self._last_ik_target_robot_joints = target_robot_joints
+
         """
         **************************************************
         WBC closedloop
@@ -347,6 +368,16 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
         self._processed_actions = postprocess_actions(
             wbc_action, self._asset.data, self.wbc_g1_joints_order, self.device
         )
+
+        # WBC writes only ``upper_body`` and ``lower_body`` slots; for joints that the IK
+        # actively drives but live outside ``upper_body`` (e.g. waist_roll/pitch for the
+        # AGILE-pink combo), splice the IK target back into ``_processed_actions`` so they
+        # actually get applied to the simulator instead of staying at the lower-body
+        # policy's default (zero) target.
+        if self._extra_active_joint_sim_indices:
+            ik_targets = self._last_ik_target_robot_joints
+            for sim_idx, full_idx in zip(self._extra_active_joint_sim_indices, self._extra_active_joint_full_indices):
+                self._processed_actions[:, sim_idx] = float(ik_targets[full_idx])
 
     def apply_actions(self):
         """Apply the computed joint positions based on the WBC solution."""

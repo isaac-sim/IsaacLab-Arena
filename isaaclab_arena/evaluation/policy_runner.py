@@ -4,8 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import os
 import torch
 import tqdm
+from gymnasium.wrappers import RecordVideo
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
@@ -167,9 +169,10 @@ def main():
             args_cli.distributed = True
             args_cli.device = f"cuda:{local_rank}"
 
-        # Build scene
+        # Build scene. Use rgb_array render mode when recording so RecordVideo can grab frames.
         arena_builder = get_arena_builder_from_cli(args_cli)
-        env, cfg = arena_builder.make_registered_and_return_cfg()
+        render_mode = "rgb_array" if args_cli.video else None
+        env, cfg = arena_builder.make_registered_and_return_cfg(render_mode=render_mode)
 
         # Per-rank seed when distributed so each process has a different seed
         seed = args_cli.seed
@@ -196,6 +199,25 @@ def main():
                 print(f"[Rank {local_rank}/{world_size}] Simulation length: {num_episodes} episodes")
             else:
                 raise ValueError(f"[Rank {local_rank}/{world_size}] Either num_steps or num_episodes must be provided")
+
+        # Optionally wrap with RecordVideo. Mirrors the eval_runner.py wiring so the same
+        # mp4 layout works between policy_runner and eval_runner.
+        if args_cli.video:
+            os.makedirs(args_cli.video_dir, exist_ok=True)
+            if num_steps is not None:
+                video_length = num_steps
+            else:
+                # When num_episodes is set, capture exactly one episode's worth of frames.
+                # max_episode_length is in environment steps, which matches our rollout cadence.
+                video_length = num_episodes * env.unwrapped.max_episode_length
+            env = RecordVideo(
+                env,
+                video_folder=args_cli.video_dir,
+                step_trigger=lambda step: step == 0,
+                video_length=video_length,
+                disable_logger=True,
+            )
+            print(f"[Rank {local_rank}/{world_size}] Recording {video_length}-step video to: {args_cli.video_dir}")
 
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
         print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")
