@@ -10,79 +10,39 @@ Note that this tutorial assumes that you've completed the
 :doc:`preceding step (Policy Training) <step_3_policy_training>`.
 
 
-Step 0: Start the GR00T policy server
+Step 1: Start the GR00T policy server
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The server runs Arena's ``Gr00tRemoteServerSidePolicy`` (which wraps GR00T's ``Gr00tPolicy``) on top
-of the standalone Isaac-GR00T (N1.7) Python package. Start it **before** launching the client; the
-client will connect on first inference.
+The server runs GR00T's stock ``run_gr00t_server.py`` from the standalone Isaac-GR00T (N1.7) checkout.
+Start it **before** launching the client; the client will connect on first inference. Run the
+server **outside Docker** in the standalone Isaac-GR00T venv created in :doc:`index`.
 
-The server is configured by a YAML at
-``isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml``.
-
-.. dropdown:: Server-side configuration file (``g1_static_apple_gr00t_closedloop_config.yaml``)
-   :animate: fade-in
-
-   .. code-block:: yaml
-
-      # Path on the server's filesystem (or container mount) to the finetuned checkpoint dir.
-      model_path: /models/isaaclab_arena/static_apple_tutorial/static_apple_n17_finetune/checkpoint-20000
-      language_instruction: "Pick up the apple from the shelf and place it onto the plate on the same shelf next to it."
-
-      # Must match the diffusion head's action_horizon baked into the finetuned checkpoint.
-      action_horizon: 40
-
-      # The N1.7 finetune from step 3 uses the NEW_EMBODIMENT tag.
-      embodiment_tag: NEW_EMBODIMENT
-
-      video_backend: decord
-      modality_config_path: isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_gr00t_n_1_7_config.py
-
-      policy_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/gr00t_43dof_joint_space.yaml
-      action_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
-      state_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
-
-      # Number of actions to execute before next inference; <= action_horizon.
-      action_chunk_length: 40
-      pov_cam_name_sim: "robot_head_cam_rgb"
-
-      task_mode_name: g1_locomanipulation
-
-
-Run the server **outside Docker** in the standalone Isaac-GR00T (N1.7) venv created in
-:doc:`index`. This is the simplest setup once the venv exists: no container build, no
-``GROOT_DEPS_DIR`` overrides, just the standalone repo's own dependencies.
-
-From the host, with ``$ISAAC_GR00T_DIR`` and Arena both checked out:
-
-The standalone Isaac-GR00T repo provides the ``gr00t`` package; Arena provides
-``gr00t_remote_policy`` and the ZeroMQ server entrypoint. Add Arena to ``PYTHONPATH`` so the
-standalone venv can import Arena's server modules without installing Arena into the venv.
-Then launch Arena's server with the static-apple YAML from inside the standalone checkout's
-``uv``-managed environment.
+The server takes all of its configuration from CLI flags (model checkpoint, embodiment tag, the
+modality config from Arena's source tree, and bind host/port). Replace
+``/path/to/IsaacLab-Arena`` with the absolute path to your Arena clone and ``${MODEL_PATH}`` with
+the finetuned checkpoint directory from :doc:`step_3_policy_training`.
 
 .. code-block:: bash
 
-   export ISAAC_GR00T_DIR=/path/to/Isaac-GR00T
-   cd /path/to/IsaacLab-Arena
-   export PYTHONPATH=$PWD:${PYTHONPATH:-}
+   cd $ISAAC_GR00T_DIR
 
-   uv run --project $ISAAC_GR00T_DIR python -m isaaclab_arena.remote_policy.remote_policy_server_runner \
-      --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_policy.Gr00tRemoteServerSidePolicy \
-      --policy_config_yaml_path /path/to/IsaacLab-Arena/isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml \
+   uv run python gr00t/eval/run_gr00t_server.py \
+      --modality-config-path /path/to/IsaacLab-Arena/isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_gr00t_n_1_7_config.py \
+      --model-path ${MODEL_PATH} \
+      --embodiment-tag NEW_EMBODIMENT \
+      --device cuda \
       --host 0.0.0.0 \
       --port 5555
 
-The server prints ``[Gr00tRemoteServerSidePolicy] config:`` followed by the parsed YAML and
-then ``listening on 0.0.0.0:5555`` once it is ready for clients.
+The server prints ``Server Ready and listening on 0.0.0.0:5555`` once it is ready for clients.
 
 
-Step 1: Run Single Environment Evaluation (Arena container)
+Step 2: Run Single Environment Evaluation (Arena container)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-With the server from Step 0 running, launch the Arena client. The client side does not need any
+With the server from Step 1 running, launch the Arena client. The client side does not need any
 GR00T dependencies — it talks to the server over ZeroMQ — so it runs in the standard **Base**
-Arena container.
+Arena container. ``Gr00tRemoteClosedloopPolicy`` is Arena's client wrapper around the remote GR00T server.
 
 **Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
 
@@ -96,32 +56,33 @@ Once inside the container, set the dataset and models directories.
     export MODELS_DIR=/models/isaaclab_arena/static_apple_tutorial
 
 We first run the policy in a single environment with visualization via the GUI. Replace
-``<SERVER_HOST>`` below with the IP of the host running Step 0 (or ``localhost`` if it is the same
-machine).
+``<SERVER_HOST>`` below with the IP of the host running Step 1 (or ``localhost`` if it is the
+same machine).
+
+.. caution::
+
+   Before running, edit ``model_path`` in
+   ``isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml`` to point at
+   the finetuned checkpoint directory you produced in :doc:`step_3_policy_training` (for example,
+   ``/models/isaaclab_arena/static_apple_tutorial/static_apple_n17_finetune/checkpoint-20000``).
+   It must match the ``--model-path`` you passed to ``run_gr00t_server.py`` in Step 1.
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --viz kit \
-     --policy_type isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy \
-     --remote_host <SERVER_HOST> \
-     --remote_port 5555 \
-     --num_steps 600 \
-     --device cpu \
-     --enable_cameras \
-     galileo_g1_static_pick_and_place \
-     --object apple_01_objaverse_robolab \
-     --destination clay_plates_hot3d_robolab \
-     --embodiment g1_wbc_agile_joint
+   /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+      --viz kit \
+      --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
+      --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml \
+      --remote_host <SERVER_HOST> --remote_port 5555 \
+      --num_steps 600 \
+      --enable_cameras \
+      galileo_g1_static_pick_and_place \
+      --object apple_01_objaverse_robolab \
+      --destination clay_plates_hot3d_robolab \
+      --embodiment g1_wbc_agile_joint
 
 Note the lower ``--num_steps`` (600 instead of 1500): with no walking phase, a successful
 static apple-to-plate episode runs for roughly half as long as the loco-manipulation variant.
-
-Note also that the client command does **not** take a ``--policy_config_yaml_path``: the YAML is
-the server's concern, and the client only needs to know where the server is listening. The
-``ActionChunkingClientSidePolicy`` does the action-chunking buffering on the client side; it expects
-the server to emit fixed-length chunks of ``action_horizon`` actions per inference (40 here), which
-the YAML configures.
 
 The evaluation should produce the following output on the console at the end of the evaluation.
 You should see similar metrics.
@@ -131,62 +92,45 @@ by the quality of post-trained policy, the quality of the dataset, and number of
 
 .. code-block:: text
 
-   [Rank 0/1] Metrics: {'success_rate': 1.0, 'num_episodes': 1}
+   [Rank 0/1] Metrics: {'success_rate': 1.0, 'object_moved_rate': 1.0, 'num_episodes': 1}
+
 
 Run Parallel Environments Evaluation (Optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Parallel evaluation of the policy in multiple parallel environments is also supported by the policy
-runner. Both tabs below assume the server from Step 0 is still running.
+runner. The command below assumes the server from Step 1 is still running.
 
-.. tab-set::
+Test the policy in 5 parallel environments with visualization via the GUI:
 
-   .. tab-item:: Single GPU Evaluation
+.. code-block:: bash
 
-      Test the policy in 5 parallel environments with visualization via the GUI run:
-
-      .. code-block:: bash
-
-         python isaaclab_arena/evaluation/policy_runner.py \
-           --viz kit \
-           --policy_type isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy \
-           --remote_host <SERVER_HOST> \
-           --remote_port 5555 \
-           --num_steps 500 \
-           --num_envs 5 \
-           --enable_cameras \
-           --device cuda \
-           galileo_g1_static_pick_and_place \
-           --object apple_01_objaverse_robolab \
-           --destination clay_plates_hot3d_robolab \
-           --embodiment g1_wbc_agile_joint
-
-   .. tab-item:: Distribute Multi-GPU Evaluation
-
-      Test the policy in 5 parallel environments on each GPU with 2 GPUs total run:
-
-      .. code-block:: bash
-
-         python -m torch.distributed.run --nnodes=1 --nproc_per_node=2 isaaclab_arena/evaluation/policy_runner.py \
-           --policy_type isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy \
-           --remote_host <SERVER_HOST> \
-           --remote_port 5555 \
-           --num_steps 500 \
-           --num_envs 5 \
-           --enable_cameras \
-           --device cuda \
-           --distributed \
-           --headless \
-           galileo_g1_static_pick_and_place \
-           --object apple_01_objaverse_robolab \
-           --destination clay_plates_hot3d_robolab \
-           --embodiment g1_wbc_agile_joint
+   /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+      --viz kit \
+      --policy_type isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy \
+      --remote_host <SERVER_HOST> \
+      --remote_port 5555 \
+      --num_steps 500 \
+      --num_envs 5 \
+      --enable_cameras \
+      galileo_g1_static_pick_and_place \
+      --object apple_01_objaverse_robolab \
+      --destination clay_plates_hot3d_robolab \
+      --embodiment g1_wbc_agile_joint
 
 .. note::
 
-   With the server-client architecture, ``--policy_device`` is no longer a client-side concern: the
-   server places the policy on its own GPU (``policy_device`` in the server YAML, default
-   ``cuda``). The client's ``--device`` flag still controls Arena's physics backend.
+   With the server-client architecture, the policy device is a server-side concern: the server
+   places the policy on its own GPU via the ``--device`` flag passed to ``run_gr00t_server.py``
+   in Step 1. The client's ``--device`` flag (above) controls Arena's physics backend, not the
+   policy.
+
+.. note::
+
+   The parallel command uses ``ActionChunkingClientSidePolicy`` instead of
+   ``Gr00tRemoteClosedloopPolicy`` (the single-environment client) because parallel evaluation
+   needs the action-chunking buffer lifted out of the per-env policy and shared across envs.
+   Single-env evaluation works with either client; the parallel command requires this one.
 
 And during the evaluation, you should see the following output on the console at the end of the evaluation
 indicating which environments are terminated (task-specific conditions like the apple is placed onto the plate,
@@ -218,14 +162,12 @@ and the number of episodes is more than the single environment evaluation becaus
 
 .. note::
 
-   The example policy was trained on datasets recorded with CPU-based physics, so the
-   single-environment command above uses ``--device cpu`` to keep evaluation physics aligned
-   with training and give per-episode reproducibility. The parallel commands instead use
-   ``--device cuda`` for throughput -- this swaps the physics backend, so individual episodes
-   are no longer bit-for-bit reproducible against the CPU-trained policy, but aggregate
-   success-rate metrics over many episodes remain informative. If your dataset was recorded on
-   GPU physics, prefer ``--device cuda`` for both single and parallel runs to keep evaluation
-   physics aligned with training.
+   The single-environment command above does not pass ``--device``, so Arena defaults to its
+   built-in physics backend. The parallel command explicitly sets ``--device cuda`` for
+   throughput. If your dataset was recorded on GPU physics, prefer ``--device cuda`` for both
+   single and parallel runs to keep evaluation physics aligned with training; if it was recorded
+   on CPU physics, add ``--device cpu`` to the single-environment command for per-episode
+   reproducibility (parallel throughput becomes the trade-off for CPU-trained policies).
 
 .. note::
 
@@ -248,11 +190,14 @@ and the number of episodes is more than the single environment evaluation becaus
      expects a 23-D PinkIK action, but the server is returning a 43-DoF joint chunk. Make sure the
      client uses ``--embodiment g1_wbc_agile_joint`` (joint twin), not
      ``g1_wbc_agile_pink`` (PinkIK twin).
-   - ``ModuleNotFoundError: No module named '...gr00t_remote_closedloop_policy'`` on the client
-     side — the client's ``--policy_type`` is wrong. The remote-policy *client* is
-     ``isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy``;
-     ``Gr00tRemoteServerSidePolicy`` is the **server-side** class.
-   - Action shape mismatch on the server (``Action key 'left_arm''s horizon must be 50. Got 40``)
-     — the action modality registered at training time disagrees with the modality registered at
-     server boot. Re-finetune at the same horizon or update the modality config to match the
-     checkpoint (see the caution in :doc:`step_3_policy_training`).
+   - ``ModuleNotFoundError`` on the client side — the client's ``--policy_type`` is wrong. The
+     two valid client classes for this workflow are
+     ``isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy``
+     (single env, takes ``--policy_config_yaml_path``) and
+     ``isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy`` (parallel,
+     no YAML).
+   - Action shape mismatch on the server (e.g., ``Action key 'left_arm''s horizon must be 40.
+     Got 50``) — the action modality registered at training time disagrees with the modality
+     loaded by the server. Re-finetune at the same horizon or update the
+     ``--modality-config-path`` you pass to ``run_gr00t_server.py`` to match the checkpoint (see
+     the caution in :doc:`step_3_policy_training`).
