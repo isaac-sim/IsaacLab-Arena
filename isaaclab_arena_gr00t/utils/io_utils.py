@@ -207,8 +207,23 @@ def load_gr00t_modality_config_from_file(modality_config_path: str | Path, embod
     from gr00t.configs.data.embodiment_configs import MODALITY_CONFIGS
     from gr00t.data.embodiment_tags import EmbodimentTag
 
+    # Get the embodiment tag from policy config and convert to EmbodimentTag enum
+    # Handle case-insensitive lookup (e.g., "NEW_EMBODIMENT" or "new_embodiment" both work)
+    try:
+        embodiment_tag_enum = EmbodimentTag[embodiment_tag.upper()]
+    except KeyError:
+        embodiment_tag_str = embodiment_tag.upper()
+        matching_tags = [tag for tag in EmbodimentTag if tag.name == embodiment_tag_str]
+        if not matching_tags:
+            available_tags = [tag.name for tag in EmbodimentTag]
+            raise ValueError(f"Invalid embodiment tag '{embodiment_tag}'. Available tags: {available_tags}")
+        embodiment_tag_enum = matching_tags[0]
+
+    # Use the enum's value (lowercase string) to look up in MODALITY_CONFIGS
+    embodiment_tag_key = embodiment_tag_enum.value
+
     # TODO(xinjieyao, 2026-04-27): to be refactored after adding gr00t remote policy
-    if modality_config_path:
+    if modality_config_path and embodiment_tag_key not in MODALITY_CONFIGS:
         # Import the user's modality config module for its side-effect of
         # registering entries into MODALITY_CONFIGS.
         #
@@ -234,21 +249,6 @@ def load_gr00t_modality_config_from_file(modality_config_path: str | Path, embod
                 raise ImportError(f"Could not load modality config from {path}")
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-
-    # Get the embodiment tag from policy config and convert to EmbodimentTag enum
-    # Handle case-insensitive lookup (e.g., "NEW_EMBODIMENT" or "new_embodiment" both work)
-    try:
-        embodiment_tag_enum = EmbodimentTag[embodiment_tag.upper()]
-    except KeyError:
-        embodiment_tag_str = embodiment_tag.upper()
-        matching_tags = [tag for tag in EmbodimentTag if tag.name == embodiment_tag_str]
-        if not matching_tags:
-            available_tags = [tag.name for tag in EmbodimentTag]
-            raise ValueError(f"Invalid embodiment tag '{embodiment_tag}'. Available tags: {available_tags}")
-        embodiment_tag_enum = matching_tags[0]
-
-    # Use the enum's value (lowercase string) to look up in MODALITY_CONFIGS
-    embodiment_tag_key = embodiment_tag_enum.value
 
     if embodiment_tag_key not in MODALITY_CONFIGS:
         raise ValueError(

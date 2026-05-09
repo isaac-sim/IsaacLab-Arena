@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y \
   git \
   git-lfs \
   cmake \
+  ffmpeg \
   sudo \
   jq \
   ffmpeg \
@@ -113,6 +114,8 @@ COPY ./submodules/Isaac-GR00T ${WORKDIR}/submodules/Isaac-GR00T
 # gated behind INSTALL_GROOT=true below.
 RUN /isaac-sim/python.sh -m pip install msgpack==1.1.0 msgpack-numpy==0.4.8 pyzmq==27.0.1 && \
     /isaac-sim/python.sh -m pip install --no-deps --ignore-requires-python -e ${WORKDIR}/submodules/Isaac-GR00T/
+RUN /isaac-sim/python.sh -m pip install av
+
 # TODO(xinjieyao, 2026-04-27): remove this after remote policy done refactoring
 # Copy GR00T dependencies installation script
 COPY docker/setup/install_gr00t_deps.sh /tmp/install_gr00t_deps.sh
