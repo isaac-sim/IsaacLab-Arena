@@ -10,8 +10,6 @@ import torch
 import warp as wp
 from isaaclab.envs import SubTaskConstraintType
 from isaaclab.managers import TerminationTermCfg
-from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
-from isaaclab.utils import configclass
 from isaaclab_mimic.datagen.waypoint import MultiWaypoint, Waypoint
 
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.action_constants import (
@@ -22,7 +20,6 @@ from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.action_constan
 
 def patch_recorders():
     from isaaclab.envs.mdp.recorders import PreStepActionsRecorder
-    from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg
 
     # Record p-controller generated navigation commands in the action buffer
     def record_pre_step(self):
@@ -34,18 +31,6 @@ def patch_recorders():
                 ).navigate_cmd
         return "actions", actions
 
-    # Record post step action observation group
-    class PostStepFlatPolicyObservationsRecorder(RecorderTerm):
-        def record_post_step(self):
-            return "action", self._env.obs_buf["action"]
-
-    @configclass
-    class PostStepFlatPolicyObservationsRecorderCfg(RecorderTermCfg):
-        class_type: type[RecorderTerm] = PostStepFlatPolicyObservationsRecorder
-
-    ActionStateRecorderManagerCfg.record_post_step_flat_policy_observations = (
-        PostStepFlatPolicyObservationsRecorderCfg()
-    )
     PreStepActionsRecorder.record_pre_step = record_pre_step
 
     print("\nPatched recorders for G1 Locomanip Mimic\n")

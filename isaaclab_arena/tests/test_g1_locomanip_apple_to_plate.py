@@ -13,12 +13,20 @@ from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_STEPS = 10
 WARMUP_STEPS = 50
+# Steps allowed for the once-teleported apple to fall + settle into stable contact with
+# the plate (force > force_threshold AND velocity < velocity_threshold). Same tuning
+# rationale as the static-variant test: a small drop takes a few env steps, then PhysX
+# needs a handful of contact-resolution steps for the apple to come to rest.
+APPLE_SETTLE_STEPS = 50
 HEADLESS = True
 ENABLE_CAMERAS = True
 
 APPLE_INITIAL_POSITION_M = (0.15, 0.15, 0.05)
 PLATE_INITIAL_POSITION_M = (0.15, -0.40, 0.02)
-APPLE_ABOVE_PLATE_OFFSET_M = 0.05
+# Drop height for the success-case teleport. Kept small so the apple has a short,
+# contained fall onto the plate -- larger offsets risk the apple bouncing off a thin
+# plate edge before settling into stable contact.
+APPLE_ABOVE_PLATE_OFFSET_M = 0.02
 
 
 def get_test_environment(num_envs: int):
@@ -87,12 +95,17 @@ def _step_with_standing_actions(env, num_steps: int) -> list[bool]:
     terminated_list = []
     for _ in range(num_steps):
         with torch.inference_mode():
-            actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+            actions = _zero_actions(env)
             # NOTE: Set base height to 0.75m to avoid robot squatting to match 0-height command.
             actions[:, -4] = 0.75
             _, _, terminated, _, _ = env.step(actions)
             terminated_list.append(terminated.item())
     return terminated_list
+
+
+def _zero_actions(env) -> torch.Tensor:
+    """Return a ``(num_envs, action_dim)``-shaped zero action tensor on the env's device."""
+    return torch.zeros((env.unwrapped.num_envs,) + env.unwrapped.single_action_space.shape, device=env.unwrapped.device)
 
 
 def _teleport_apple(env, apple, position_xyz: tuple[float, float, float]) -> None:
@@ -137,7 +150,14 @@ def _test_initial_state_not_terminated(simulation_app) -> bool:
 
 
 def _test_apple_on_plate_succeeds(simulation_app) -> bool:
-    """Re-teleporting the apple above the plate should trigger success termination."""
+    """Teleporting the apple just above the plate once should trigger success as it settles.
+
+    Single-teleport + settle pattern: the apple falls a small distance under gravity,
+    rests on the plate, and the contact force + low velocity reliably trigger the
+    termination within ``APPLE_SETTLE_STEPS``. (An earlier "re-teleport every step"
+    pattern was flaky -- it kept the apple's velocity above the velocity threshold and
+    relied on a coincidental low-velocity moment during the post-teleport bounce.)
+    """
 
     from isaaclab.assets import RigidObject
 
@@ -149,28 +169,25 @@ def _test_apple_on_plate_succeeds(simulation_app) -> bool:
         plate_object: RigidObject = env.unwrapped.scene[plate.name]
         plate_pos_world = wp.to_torch(plate_object.data.root_pos_w)[0]
         env_origin = env.unwrapped.scene.env_origins[0]
-        plate_pos_local = plate_pos_world - env_origin
+        plate_pos_local = plate_pos_world.to(env_origin.device) - env_origin
         apple_target = (
             float(plate_pos_local[0]),
             float(plate_pos_local[1]),
             float(plate_pos_local[2]) + APPLE_ABOVE_PLATE_OFFSET_M,
         )
 
-        terminated_ever = False
-        for _ in range(NUM_STEPS * 10):
-            # Re-teleport each step so short physics drifts (bouncing off a thin plate edge)
-            # cannot push the apple outside the proximity threshold before termination fires.
-            _teleport_apple(env, apple, apple_target)
-            with torch.inference_mode():
-                actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-                actions[:, -4] = 0.75
-                _, _, terminated, _, _ = env.step(actions)
-            if terminated.item():
-                terminated_ever = True
-                break
+        # One-shot teleport: drop the apple above the plate, then run physics until it
+        # settles into stable contact (or we hit APPLE_SETTLE_STEPS).
+        _teleport_apple(env, apple, apple_target)
 
-        assert terminated_ever, "Task should terminate after apple is placed on plate"
-        print("Success: apple-on-plate termination detected")
+        terminated_list = _step_with_standing_actions(env, APPLE_SETTLE_STEPS)
+        terminated_ever = any(terminated_list)
+
+        assert terminated_ever, (
+            "Task should terminate after apple is placed on plate; got terminated_list="
+            f"{terminated_list[:10]}... (showing first 10 of {len(terminated_list)})"
+        )
+        print(f"Success: apple-on-plate termination detected (fired at step {terminated_list.index(True)})")
 
     except Exception as e:
         print(f"Error: {e}")

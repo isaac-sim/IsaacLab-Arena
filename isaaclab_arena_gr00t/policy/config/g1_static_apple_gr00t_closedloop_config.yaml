@@ -1,0 +1,41 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Server-side Gr00tRemoteServerSidePolicy config for the G1 static apple-to-plate task.
+#
+# Used with Arena's remote-policy server stack (docs: example_workflows/static_apple/step_4_evaluation).
+# The matching client is `isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy`.
+# The model is finetuned from `nvidia/GR00T-N1.7-3B` per `static_apple/step_3_policy_training`.
+#
+# Container/server path conventions:
+#   Host:      $MODELS_DIR/static_apple_n17_finetune/checkpoint-20000
+#   Docker:    /models/isaaclab_arena/static_apple_tutorial/static_apple_n17_finetune/checkpoint-20000
+#              (mount $MODELS_DIR -> /models, e.g. via `run_gr00t_server.sh -m $MODELS_DIR` or
+#               `-v $MODELS_DIR:/models` on raw `docker run`).
+model_path: /models/isaaclab_arena/static_apple_tutorial/static_apple_n17_finetune/checkpoint-20000
+language_instruction: "Pick up the apple from the shelf and place it onto the plate on the same shelf next to it."
+
+# Must match the diffusion head's action_horizon baked into the finetuned checkpoint
+# (set via the action modality's `delta_indices=list(range(N))` in
+# isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_gr00t_n_1_7_config.py).
+# step_3_policy_training trains at 40, if you change one, change both.
+action_horizon: 40
+
+# step_3_policy_training uses --embodiment-tag new_embodiment, which `gr00t` resolves to
+# EmbodimentTag.NEW_EMBODIMENT. The Arena cfg also asserts NEW_EMBODIMENT for g1_locomanipulation.
+embodiment_tag: NEW_EMBODIMENT
+
+video_backend: decord
+modality_config_path: isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_gr00t_n_1_7_config.py
+
+policy_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/gr00t_43dof_joint_space.yaml
+action_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
+state_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
+
+# Number of actions the server emits per chunk; <= action_horizon.
+action_chunk_length: 40
+pov_cam_name_sim: "robot_head_cam_rgb"
+
+task_mode_name: g1_locomanipulation

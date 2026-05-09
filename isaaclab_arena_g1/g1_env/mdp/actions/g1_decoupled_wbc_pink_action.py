@@ -48,6 +48,20 @@ if TYPE_CHECKING:
     from isaaclab_arena.embodiments.g1.mdp.actions.g1_decoupled_wbc_pink_action_cfg import G1DecoupledWBCPinkActionCfg
 
 
+# Below this 2-norm we treat an xyzw quaternion as the all-zeros sentinel produced by
+# ``torch.zeros(action_space)`` and replace it with identity. Generous enough to also
+# absorb fp32 rounding around true-zero inputs without ever hitting a normalized quat
+# (whose 2-norm is 1.0).
+_QUAT_ZERO_NORM_TOL = 1e-6
+
+
+def _identity_if_zero_norm_xyzw(quat_xyzw: torch.Tensor) -> torch.Tensor:
+    """Return ``quat_xyzw`` unchanged, or identity ``(0, 0, 0, 1)`` if its 2-norm ~= 0."""
+    if torch.linalg.vector_norm(quat_xyzw) < _QUAT_ZERO_NORM_TOL:
+        return quat_xyzw.new_tensor([0.0, 0.0, 0.0, 1.0])
+    return quat_xyzw
+
+
 class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
     """Action term for the G1 decoupled WBC policy. Upper body PINK IK control, lower body RL-based policy."""
 
@@ -236,6 +250,14 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
         left_arm_quat = actions_clone[:, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX].squeeze(0).cpu()
         right_arm_pos = actions_clone[:, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX].squeeze(0).cpu()
         right_arm_quat = actions_clone[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX].squeeze(0).cpu()
+
+        # Sanitize zero-norm wrist quaternions to xyzw=(0,0,0,1) identity so scipy's
+        # R.from_quat doesn't raise. Real teleop/Mimic/RL trajectories always produce
+        # normalized quats; this only catches bootstrapping cases like the
+        # ``zero_action`` eval policy or smoke tests stepping with ``torch.zeros(...)``,
+        # where the wrist quat slice is all zeros.
+        left_arm_quat = _identity_if_zero_norm_xyzw(left_arm_quat)
+        right_arm_quat = _identity_if_zero_norm_xyzw(right_arm_quat)
 
         # Convert from pos/quat to 4x4 transform matrix
         left_rotmat = R.from_quat(left_arm_quat).as_matrix()

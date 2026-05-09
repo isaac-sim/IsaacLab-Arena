@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y \
   cmake \
   sudo \
   jq \
+  ffmpeg \
   python3-pip
 
 ################################
@@ -64,6 +65,9 @@ RUN /isaac-sim/python.sh -m pip install -e \
 
 # Upgrade pip ahead of the editable install
 RUN /isaac-sim/python.sh -m pip install --upgrade pip
+
+# PyAV: video read/write backend used by isaaclab_arena_gr00t/lerobot/convert_hdf5_to_lerobot.py
+RUN /isaac-sim/python.sh -m pip install av
 
 # Lightwheel server
 ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
