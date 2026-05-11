@@ -8,14 +8,13 @@ from typing import Any, Union
 
 from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
+from isaaclab.managers import EventTermCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from pxr import Gf, Usd, UsdGeom
 
-from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object import Object
-from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_reference import ObjectReference
-from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
@@ -25,8 +24,8 @@ AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg
 
 class Scene:
 
-    def __init__(self, assets: list[Asset, RigidObjectSet] | None = None):
-        self.assets: dict[str, Asset | RigidObjectSet] = {}
+    def __init__(self, assets: list[ObjectBase] | None = None):
+        self.assets: dict[str, ObjectBase] = {}
         # We add these here so a user can override them if they want.
         self.observation_cfg = None
         self.events_cfg = None
@@ -37,14 +36,14 @@ class Scene:
         if assets is not None:
             self.add_assets(assets)
 
-    def add_asset(self, asset: Asset | RigidObjectSet):
+    def add_asset(self, asset: ObjectBase):
         """Add an asset to the scene.
 
         Args:
-            asset: An Asset instance or a dictionary of Assets. If a dictionary is provided,
-                   the keys will be used as the names of the assets and the values will be the list of assets.
+            asset: An :class:`~isaaclab_arena.assets.object_base.ObjectBase` instance (e.g. ``Object``,
+                ``ObjectReference``, or ``RigidObjectSet``).
         """
-        if not isinstance(asset, Asset | RigidObjectSet):
+        if not isinstance(asset, ObjectBase):
             raise ValueError(f"Invalid asset type: {type(asset)}")
 
         if asset.name is None:
@@ -53,7 +52,7 @@ class Scene:
         # if name already exists, overwrite
         self.assets[asset.name] = asset
 
-    def add_assets(self, assets: list[Asset | RigidObjectSet]):
+    def add_assets(self, assets: list[ObjectBase]):
         all_assets = set(assets)
         for asset in assets:
             if isinstance(asset, ObjectReference):
@@ -81,7 +80,7 @@ class Scene:
 
     def get_events_cfg(self) -> Any:
         # Combine the configs into a configclass.
-        fields: list[tuple[str, type, AssetCfg]] = []
+        fields: list[tuple[str, type, EventTermCfg]] = []
         for asset in self.assets.values():
             event_cfg_name, event_cfg = asset.get_event_cfg()
             if event_cfg is not None:
@@ -158,7 +157,7 @@ def export_scene_to_usd(scene: Scene, output_path: pathlib.Path, root_prim_path:
     flattened_layer.Export(output_path.as_posix())
 
 
-def _create_prim_from_asset(stage: Usd.Stage, asset: Asset) -> None:
+def _create_prim_from_asset(stage: Usd.Stage, asset: ObjectBase) -> None:
     """Adds a prim to the stage for the given asset.
 
     This is used internally by the scene.export_to_usd method.
