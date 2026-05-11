@@ -26,7 +26,9 @@ class IsaacLabArenaEnvironment:
         embodiment: EmbodimentBase | None = None,
         task: TaskBase | None = None,
         teleop_device: TeleopDeviceBase | None = None,
-        env_cfg_callback: Callable[[IsaacLabArenaManagerBasedRLEnvCfg], IsaacLabArenaManagerBasedRLEnvCfg] | None = None,
+        env_cfg_callback: (
+            Callable[[IsaacLabArenaManagerBasedRLEnvCfg], IsaacLabArenaManagerBasedRLEnvCfg] | None
+        ) = None,
         rl_framework_entry_point: str | None = None,
         rl_policy_cfg: str | None = None,
     ):

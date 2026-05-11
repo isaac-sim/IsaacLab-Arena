@@ -233,7 +233,7 @@ def test_solve_and_place_objects_handles_multiple_env_ids():
 
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params)
-    pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=10)
+    pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=12, num_envs=num_envs)
 
     solve_and_place_objects(env, env_ids, objects, pool)
 
@@ -325,7 +325,7 @@ def test_resolve_on_reset_false_applies_pose_per_env():
 
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
-    pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=20)
+    pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=21, num_envs=num_envs)
 
     layouts = pool.sample_with_replacement(num_envs)
     assert len(layouts) == num_envs
