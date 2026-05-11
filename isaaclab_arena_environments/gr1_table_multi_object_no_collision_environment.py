@@ -76,10 +76,10 @@ HETERO_VARIANT_SETS = {
         "measuring_spoon_handal_robolab",
     ],
     "boxes": [
-        "popcorn_box_hope_robolab",
-        "chocolate_pudding_mix_hope_robolab",
-        "macaroni_and_cheese_hope_robolab",
-        "granola_bars_hope_robolab",
+        "butter_hope_robolab",
+        "raisin_box_hope_robolab",
+        "yogurt_cup_hope_robolab",
+        "oatmeal_raisin_cookies_hope_robolab",
     ],
 }
 
@@ -130,10 +130,10 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
         ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
         light = self.asset_registry.get_asset_by_name("light")()
 
-        table_background = self.asset_registry.get_asset_by_name("office_table")()
+        table_background = self.asset_registry.get_asset_by_name("office_table_background")()
         tabletop_reference = ObjectReference(
             name="table",
-            prim_path="{ENV_REGEX_NS}/office_table/Geometry/sm_tabletop_a01_01/sm_tabletop_a01_top_01",
+            prim_path="{ENV_REGEX_NS}/office_table_background/Geometry/sm_tabletop_a01_01/sm_tabletop_a01_top_01",
             parent_asset=table_background,
         )
         tabletop_reference.add_relation(IsAnchor())
@@ -180,7 +180,6 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
             task=NoTask(),
             teleop_device=teleop_device,
             env_cfg_callback=env_cfg_callback,
-            force_convex_hull=(mode == "heterogeneous"),
         )
         return isaaclab_arena_environment
 
@@ -195,7 +194,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
         placeable_assets = []
         for name in names:
             obj = self.asset_registry.get_asset_by_name(name)()
-            obj.add_relation(On(tabletop_reference, clearance_m=0.001))
+            obj.add_relation(On(tabletop_reference, clearance_m=0.01))
             placeable_assets.append(obj)
         return placeable_assets
 
@@ -218,20 +217,20 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
             for name in object_names:
                 obj = self.asset_registry.get_asset_by_name(name)()
                 obj_set = RigidObjectSet(name=name, objects=[obj])
-                obj_set.add_relation(On(tabletop_reference, clearance_m=0.001))
+                obj_set.add_relation(On(tabletop_reference, clearance_m=0.01))
                 placeable_assets.append(obj_set)
         else:
             placeable_assets = []
             for name, x, y in HETERO_FIXED_OBJECTS:
                 obj = self.asset_registry.get_asset_by_name(name)()
-                obj.add_relation(On(tabletop_reference, clearance_m=0.001))
+                obj.add_relation(On(tabletop_reference, clearance_m=0.01))
                 obj.add_relation(AtPosition(x=x, y=y))
                 placeable_assets.append(obj)
 
             for set_name, variant_names in HETERO_VARIANT_SETS.items():
                 members = [self.asset_registry.get_asset_by_name(n)() for n in variant_names]
                 obj_set = RigidObjectSet(name=set_name, objects=members)
-                obj_set.add_relation(On(tabletop_reference, clearance_m=0.001))
+                obj_set.add_relation(On(tabletop_reference, clearance_m=0.01))
                 placeable_assets.append(obj_set)
 
         return placeable_assets
