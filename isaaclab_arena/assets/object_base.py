@@ -80,8 +80,15 @@ class ObjectBase(Asset, ABC):
         return self._variations[name]
 
     def get_variations(self) -> list[VariationBase]:
-        """Return all enabled variations declared on this asset."""
-        return [v for v in self._variations.values() if v.enabled]
+        """Return every variation attached to this asset, regardless of ``enabled``.
+
+        Callers that only want the active subset (e.g.
+        :meth:`~isaaclab_arena.environments.arena_env_builder.ArenaEnvBuilder._compose_variations_event_cfg`)
+        are responsible for filtering on :attr:`VariationBase.enabled` themselves.
+        The asset/scene exposes the full inventory so that Hydra-driven layers
+        can see disabled knobs and surface them as ``enabled=true`` overrides.
+        """
+        return list(self._variations.values())
 
     def get_initial_pose(self) -> Pose | PoseRange | PosePerEnv | None:
         """Return the current initial pose of this object.

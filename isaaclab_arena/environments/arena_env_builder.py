@@ -8,6 +8,9 @@ from __future__ import annotations
 import argparse
 import datetime
 import gymnasium as gym
+from copy import deepcopy
+from dataclasses import field, make_dataclass
+from typing import Any
 
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
@@ -19,6 +22,7 @@ from isaaclab_tasks.utils import parse_env_cfg
 from isaaclab_teleop import IsaacTeleopCfg
 
 from isaaclab_arena.assets.object import Object
+from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.registries import DeviceRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
@@ -38,6 +42,7 @@ from isaaclab_arena.utils.configclass import combine_configclass_instances, make
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
+from isaaclab_arena.variations.variation_base import VariationBase
 
 
 class ArenaEnvBuilder:
@@ -176,11 +181,18 @@ class ArenaEnvBuilder:
     def _compose_variations_event_cfg(self):
         """Build a configclass instance holding an :class:`EventTermCfg` per enabled variation.
 
-        Walks every enabled variation on the scene (and, later, any env-level
-        variation escape hatch) and asks it for its event term via
+        Walks every variation on the scene (and, later, any env-level variation
+        escape hatch), skips the disabled ones, and asks each enabled one for
+        its event term via
         :meth:`~isaaclab_arena.variations.variation_base.VariationBase.build_event_cfg`.
         Returns ``None`` when nothing is enabled so
         :func:`combine_configclass_instances` skips it cleanly.
+
+        The :class:`~isaaclab_arena.scene.scene.Scene` / asset surface now
+        returns every variation regardless of state (see
+        :meth:`Scene.get_variations`), so the ``enabled`` filter lives here —
+        the same builder that consumes the inventory for the structured-Hydra
+        layer (:meth:`get_variations_schema`).
 
         Raises:
             AssertionError: If two variations want the same event-term name
@@ -188,11 +200,11 @@ class ArenaEnvBuilder:
                 terms, typically by prefixing with the asset name).
         """
         variations = self.arena_env.scene.get_variations()
-        if not variations:
-            return None
         fields: list[tuple[str, type, EventTermCfg]] = []
         seen: set[str] = set()
         for variation in variations:
+            if not variation.enabled:
+                continue
             event_name, event_cfg = variation.build_event_cfg(self.arena_env.scene)
             assert event_name not in seen, (
                 f"Duplicate variation event term name '{event_name}'. "
@@ -200,8 +212,98 @@ class ArenaEnvBuilder:
             )
             seen.add(event_name)
             fields.append((event_name, EventTermCfg, event_cfg))
+        if not fields:
+            return None
         VariationsEventCfg = make_configclass("VariationsEventCfg", fields)
         return VariationsEventCfg()
+
+    def _iter_scene_variations(self) -> list[tuple[str, VariationBase]]:
+        """Walk the scene and return ``(asset_name, variation)`` pairs for every variation.
+
+        Used by both :meth:`_build_variations_schema` (where the asset name
+        becomes the top-level Hydra field) and the forthcoming
+        ``apply_hydra_variation_overrides`` (where it's the lookup key for
+        writing composed values back). We resolve the asset name here rather
+        than reading it off the variation because ``asset_name`` is an
+        :class:`~isaaclab_arena.variations.object_color.ObjectColorVariation`
+        implementation detail, not part of :class:`VariationBase`.
+        """
+        pairs: list[tuple[str, VariationBase]] = []
+        for asset in self.arena_env.scene.assets.values():
+            if not isinstance(asset, ObjectBase):
+                continue
+            for variation in asset.get_variations():
+                pairs.append((asset.name, variation))
+        return pairs
+
+    def _build_variations_schema(self, pairs: list[tuple[str, VariationBase]]) -> type:
+        """Build a dynamic dataclass mirroring the scene's variations for Hydra.
+
+        Each variation's existing ``*Cfg`` (e.g.
+        :class:`~isaaclab_arena.variations.object_color.ObjectColorVariationCfg`)
+        is used **as-is** as the per-variation schema node — it already carries
+        the ``enabled`` field via :class:`VariationBaseCfg` and its nested
+        sampler cfg (e.g.
+        :class:`~isaaclab_arena.variations.sampler.UniformSamplerCfg`), so the
+        Hydra override paths line up one-to-one with the cfg attribute paths
+        (``<asset>.<variation>.enabled=true``,
+        ``<asset>.<variation>.sampler.low=...``).
+
+        The per-variation default-factory deep-copies the live ``variation.cfg``
+        so each schema instance starts pre-populated from the variation's
+        current state — useful for inspecting what knobs are available and for
+        letting users override only what they want to change.
+
+        Args:
+            pairs: Output of :meth:`_iter_scene_variations`.
+
+        Returns:
+            A fresh ``VariationsCfg`` dataclass type with one field per asset,
+            each holding a ``<AssetName>VariationsCfg`` dataclass whose fields
+            are the per-variation cfgs.
+        """
+        per_asset: dict[str, list[tuple[str, type, Any]]] = {}
+        for asset_name, variation in pairs:
+            cfg_cls = type(variation.cfg)
+            default_cfg = deepcopy(variation.cfg)
+            per_asset.setdefault(asset_name, []).append(
+                (variation.name, cfg_cls, field(default_factory=lambda d=default_cfg: deepcopy(d)))
+            )
+
+        asset_fields: list[tuple[str, type, Any]] = []
+        for asset_name, variation_fields in per_asset.items():
+            asset_cls = make_dataclass(self._asset_class_name(asset_name), variation_fields)
+            asset_fields.append((asset_name, asset_cls, field(default_factory=asset_cls)))
+        return make_dataclass("VariationsCfg", asset_fields)
+
+    @staticmethod
+    def _asset_class_name(asset_name: str) -> str:
+        """``"cracker_box"`` -> ``"CrackerBoxVariationsCfg"``."""
+        camel = "".join(part.capitalize() for part in asset_name.split("_"))
+        return f"{camel}VariationsCfg"
+
+    def get_variations_schema(self) -> type | None:
+        """Return the dynamic :class:`dataclasses.dataclass` describing the scene's variations.
+
+        Public entry point for the Hydra-driven variation layer. The class
+        returned has one field per :class:`~isaaclab_arena.assets.object_base.ObjectBase`
+        asset that owns at least one variation; each asset field's type is itself
+        a dataclass whose fields are the variations attached to that asset, each
+        typed as a dynamically-subclassed variation cfg with an extra
+        ``enabled: bool`` field.
+
+        Typical use::
+
+            from omegaconf import OmegaConf
+            schema_cls = env_builder.get_variations_schema()
+            print(OmegaConf.to_yaml(OmegaConf.structured(schema_cls)))
+
+        Returns ``None`` when the scene has no variations attached.
+        """
+        pairs = self._iter_scene_variations()
+        if not pairs:
+            return None
+        return self._build_variations_schema(pairs)
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""

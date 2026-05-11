@@ -47,20 +47,31 @@ if TYPE_CHECKING:
 class VariationBaseCfg:
     """Base configclass for :class:`VariationBase` instances.
 
-    Intentionally empty: there are no fields shared across all variation
-    kinds today, but every concrete variation ships a cfg subclass of this
-    type so downstream code (the env builder, the forthcoming Hydra CLI
-    layer in ``hydra_dynamic_schema_example.py``) can rely on a single
-    common parent when collecting per-variation schemas from a scene.
+    Every concrete variation ships a cfg subclass of this type so downstream
+    code (the env builder, the Hydra-driven variation schema in
+    :meth:`~isaaclab_arena.environments.arena_env_builder.ArenaEnvBuilder.get_variations_schema`)
+    can rely on a single common parent — and on every variation cfg carrying
+    an ``enabled`` flag — when collecting per-variation schemas from a scene.
+
+    Attributes:
+        enabled: Whether this variation should be applied. Set to ``True`` to
+            include the variation in the env's events_cfg (typically via
+            :meth:`VariationBase.enable` or a Hydra override
+            ``<asset>.<variation>.enabled=true``); defaults to ``False`` so
+            assets attach their supported variations in a disabled state and
+            users opt in explicitly.
 
     What does **not** live on the cfg:
-        * the target asset — passed explicitly to the variation's ctor and
+        * The target asset — passed explicitly to the variation's ctor and
           stored as a *name* only (never a back-reference, to avoid the
-          reference cycles that trip ``configclass._validate``);
-        * the ``enabled`` flag and the current sampler — these are runtime
-          state toggled via :meth:`VariationBase.enable` /
-          :meth:`VariationBase.set_sampler`, not configuration.
+          reference cycles that trip ``configclass._validate``).
+        * The live :class:`~isaaclab_arena.variations.sampler.Sampler`
+          instance. The cfg stores a :class:`SamplerCfg` (Hydra-friendly,
+          plain data); the live sampler is built from it lazily and held on
+          the variation object via :meth:`VariationBase.set_sampler`.
     """
+
+    enabled: bool = False
 
 
 class VariationBase(ABC):
@@ -102,21 +113,26 @@ class VariationBase(ABC):
 
     def __init__(self, cfg: VariationBaseCfg):
         self.cfg = cfg
-        self._enabled: bool = False
         self._sampler: Sampler | None = None
 
     @property
     def enabled(self) -> bool:
-        """Whether this variation is active and should be built into ``events_cfg``."""
-        return self._enabled
+        """Whether this variation is active and should be built into ``events_cfg``.
+
+        Sourced from :attr:`VariationBaseCfg.enabled` so that the cfg is the
+        single source of truth — both for the imperative API
+        (:meth:`enable` / :meth:`disable`) and for the Hydra-driven path
+        (:meth:`~isaaclab_arena.environments.arena_env_builder.ArenaEnvBuilder.apply_hydra_variation_overrides`).
+        """
+        return self.cfg.enabled
 
     def enable(self) -> None:
         """Mark this variation as active. A sampler must still be provided via :meth:`set_sampler`."""
-        self._enabled = True
+        self.cfg.enabled = True
 
     def disable(self) -> None:
         """Mark this variation as inactive. It will be skipped by the builder."""
-        self._enabled = False
+        self.cfg.enabled = False
 
     @property
     def sampler(self) -> Sampler | None:

@@ -96,11 +96,37 @@ args_cli.num_envs = 4
 args_cli.visualizer = "kit"
 env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
 
+# %%
+
+# --- Inspecting the dynamic variations schema --------------------------------
+#
+# Before we wire Hydra CLI overrides into the variation system, sanity-check
+# the structured-config schema that ``ArenaEnvBuilder.get_variations_schema``
+# builds from the scene. The schema uses each variation's existing ``*Cfg``
+# directly as a per-variation node — ``enabled`` lives on ``VariationBaseCfg``
+# so every variation cfg already carries it. The schema therefore lists every
+# variation knob attached to the scene (enabled or not). Each entry is
+# pre-populated from the variation's current cfg, so e.g. the
+# ``cracker_box.color`` block below reflects both the ``enable()`` call and
+# the ``set_sampler`` override made earlier in this notebook.
+from omegaconf import OmegaConf  # noqa: E402
+
+variations_schema = env_builder.get_variations_schema()
+if variations_schema is None:
+    print("Scene has no variations attached.")
+else:
+    print(OmegaConf.to_yaml(OmegaConf.structured(variations_schema)))
+
+# %%
+
 # ``compose_manager_cfg`` collects every enabled variation from the scene and
 # merges their event terms into ``env_cfg.events`` automatically (see
 # ``ArenaEnvBuilder._compose_variations_event_cfg``). No manual plumbing.
 env_cfg = env_builder.compose_manager_cfg()
 assert env_cfg.scene.replicate_physics is False, "Per-env color variation requires replicate_physics=False; got True."
+
+# %%
+
 
 # %%
 
