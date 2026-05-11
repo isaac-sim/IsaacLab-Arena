@@ -7,7 +7,24 @@ architecture**. The server hosts the finetuned checkpoint outside the Arena cont
 container runs the simulation and queries the server over ZeroMQ.
 
 Note that this tutorial assumes that you've completed the
-:doc:`preceding step (Policy Training) <step_3_policy_training>`.
+:doc:`preceding step (Policy Training) <step_3_policy_training>` or downloaded the
+pre-trained model checkpoint below:
+
+.. dropdown:: Download Pre-trained Model (skip preceding steps)
+   :animate: fade-in
+
+   These commands can be used to download the pre-trained GR00T N1.7 policy checkpoint,
+   such that the preceding steps can be skipped.
+   This step requires the Hugging Face CLI, which can be installed by following the
+   `official instructions <https://huggingface.co/docs/huggingface_hub/installation>`_.
+
+   To download run:
+
+   .. code-block:: bash
+
+      hf download \
+         nvidia/GN1x-Tuned-Arena-G1-Static-PickNPlace \
+         --local-dir $MODELS_DIR/checkpoint-20000
 
 
 Step 1: Start the GR00T policy server
