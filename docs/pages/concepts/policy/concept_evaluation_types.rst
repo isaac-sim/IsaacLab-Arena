@@ -75,7 +75,7 @@ see :doc:`Policy Design <index>`.
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/policy_runner.py \
-     -- viz kit \
+     --viz kit \
      --policy_type <policy_type> \
      --num_steps 2000 \
      --num_envs 10 \
