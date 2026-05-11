@@ -43,7 +43,7 @@ class DummyObject:
         return self.bounding_box
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
-        """Get per-environment local bounding boxes (expanded from single bbox)."""
+        """Mirror ObjectBase.get_bounding_box_per_env for this test double."""
         bbox = self.get_bounding_box()
         return AxisAlignedBoundingBox(
             min_point=bbox.min_point.expand(num_envs, 3),

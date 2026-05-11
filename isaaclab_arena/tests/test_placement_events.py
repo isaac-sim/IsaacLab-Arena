@@ -91,7 +91,7 @@ def test_placement_without_seed_multi_env_gives_different_layouts():
     result = placer.place([desk, box1, box2], num_envs=num_envs)
 
     assert isinstance(result, MultiEnvPlacementResult)
-    positions_box1 = [result.results[e].positions[box1] for e in range(num_envs)]
+    positions_box1 = [result.results[env_idx].positions[box1] for env_idx in range(num_envs)]
     any_different = any(positions_box1[i] != positions_box1[j] for i in range(num_envs) for j in range(i + 1, num_envs))
     assert any_different, "Unseeded multi-env placement should produce different positions across environments"
 

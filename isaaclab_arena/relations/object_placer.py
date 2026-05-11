@@ -27,14 +27,14 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
 
 
-def _is_heterogeneous(obj: ObjectBase) -> bool:
+def _has_env_specific_bboxes(obj: ObjectBase) -> bool:
     """Return True if *obj* provides per-env variant geometry.
 
-    ``RigidObjectSet`` (and test doubles) set ``heterogeneous_bbox = True``
+    ``RigidObjectSet`` (and test doubles) set ``has_env_specific_bboxes = True``
     to signal that ``get_bounding_box_per_env`` returns different bboxes
     across environments.
     """
-    return getattr(obj, "heterogeneous_bbox", False)
+    return getattr(obj, "has_env_specific_bboxes", False)
 
 
 @dataclass
@@ -138,10 +138,10 @@ class ObjectPlacer:
         max_attempts = self.params.max_placement_attempts
         num_candidates = max_attempts * num_results
 
-        # Detect heterogeneous objects (e.g. RigidObjectSet with per-env variants).
-        heterogeneous = result_per_env and any(_is_heterogeneous(obj) for obj in objects)
+        # Detect objects such as RigidObjectSet that expose different bboxes per env.
+        uses_env_specific_bboxes = result_per_env and any(_has_env_specific_bboxes(obj) for obj in objects)
 
-        if heterogeneous:
+        if uses_env_specific_bboxes:
             results_per_env = self._place_heterogeneous(
                 objects,
                 anchor_objects_set,
@@ -222,8 +222,9 @@ class ObjectPlacer:
     ) -> list[PlacementResult]:
         """Per-env placement: each candidate is tied to its env's object variants.
 
-        Batch layout: candidates [e * max_attempts : (e+1) * max_attempts] belong
-        to env *e*. Per-row bboxes reflect each env's actual variant geometry.
+        Batch layout: candidates
+        ``[cur_env * max_attempts : (cur_env + 1) * max_attempts]`` belong
+        to ``cur_env``. Per-row bboxes reflect each env's actual variant geometry.
 
         Args:
             env_bboxes: When provided, uses these bboxes directly instead of
@@ -234,10 +235,10 @@ class ObjectPlacer:
             env_bboxes = {obj: obj.get_bounding_box_per_env(num_envs) for obj in objects}
 
         # Expand into per-candidate bboxes (num_candidates, 3): repeat each env's
-        # bbox max_attempts times so rows [e*A:(e+1)*A] share env e's geometry.
+        # bbox max_attempts times so candidates for that env share its geometry.
         candidate_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] = {}
         for obj, bbox in env_bboxes.items():
-            # bbox.min_point is (num_envs, 3) → repeat_interleave → (num_candidates, 3)
+            # bbox.min_point is (num_envs, 3) -> repeat_interleave -> (num_candidates, 3)
             min_pt = bbox.min_point.repeat_interleave(max_attempts, dim=0)
             max_pt = bbox.max_point.repeat_interleave(max_attempts, dim=0)
             candidate_bboxes[obj] = AxisAlignedBoundingBox(min_point=min_pt, max_point=max_pt)
@@ -245,14 +246,14 @@ class ObjectPlacer:
         # Generate initial positions; each candidate uses its env's bbox.
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]] = []
         for candidate_idx in range(num_candidates):
-            env_idx = candidate_idx // max_attempts
+            cur_env = candidate_idx // max_attempts
             if generator is not None:
                 generator.manual_seed(self.params.placement_seed + candidate_idx)
             # Slice single-env bboxes for this candidate's env.
             env_child_bboxes = {
                 obj: AxisAlignedBoundingBox(
-                    min_point=env_bboxes[obj].min_point[env_idx : env_idx + 1],
-                    max_point=env_bboxes[obj].max_point[env_idx : env_idx + 1],
+                    min_point=env_bboxes[obj].min_point[cur_env : cur_env + 1],
+                    max_point=env_bboxes[obj].max_point[cur_env : cur_env + 1],
                 )
                 for obj in objects
             }
@@ -266,13 +267,13 @@ class ObjectPlacer:
 
         # Select best candidate per env.
         results: list[PlacementResult] = []
-        for env_idx in range(num_envs):
-            start = env_idx * max_attempts
+        for cur_env in range(num_envs):
+            start = cur_env * max_attempts
             # Slice single-env bboxes for validation of this env's candidates.
             env_bbox_overrides = {
                 obj: AxisAlignedBoundingBox(
-                    min_point=env_bboxes[obj].min_point[env_idx : env_idx + 1],
-                    max_point=env_bboxes[obj].max_point[env_idx : env_idx + 1],
+                    min_point=env_bboxes[obj].min_point[cur_env : cur_env + 1],
+                    max_point=env_bboxes[obj].max_point[cur_env : cur_env + 1],
                 )
                 for obj in objects
             }

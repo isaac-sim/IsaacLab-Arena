@@ -54,7 +54,7 @@ class PooledObjectPlacer:
         self._objects = list(objects)
         self._placer = ObjectPlacer(params=placer_params)
         self._pool_size = pool_size
-        self._uses_env_specific_bboxes = any(getattr(obj, "heterogeneous_bbox", False) for obj in objects)
+        self._uses_env_specific_bboxes = any(getattr(obj, "has_env_specific_bboxes", False) for obj in objects)
 
         self._num_envs = num_envs if num_envs is not None else 1
         if self._num_envs < 1:
@@ -204,7 +204,7 @@ class PooledObjectPlacer:
         if total_valid < total_solved:
             failed_envs = [cur_env for cur_env in self._layout_pools if not self._layout_pools[cur_env]]
             msg = (
-                f"Placement pool (env-matched layouts): solved {total_solved} candidates,"
+                f"Placement pool (env-specific bbox layouts): solved {total_solved} candidates,"
                 f" {total_valid} valid, {total_solved - total_valid} failed validation"
             )
             if failed_envs:

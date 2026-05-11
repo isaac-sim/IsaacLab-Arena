@@ -3,6 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# pyright: reportArgumentType=false, reportPrivateUsage=false
+# DummyObject is a lightweight test double for ObjectBase; a few pool tests also
+# inspect internals directly to cover allocation edge cases.
+
 """Tests for heterogeneous object placement with per-env bounding boxes."""
 
 import torch
@@ -35,10 +39,11 @@ class HeterogeneousDummyObject(DummyObject):
     def __init__(self, name: str, bboxes: list[AxisAlignedBoundingBox], **kwargs):
         super().__init__(name=name, bounding_box=bboxes[0], **kwargs)
         self._per_env_bboxes = bboxes
-        self.heterogeneous_bbox = True
+        self.has_env_specific_bboxes = True
         self.objects = bboxes
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
+        """Return env-specific bbox variants for this test double."""
         n_variants = len(self._per_env_bboxes)
         indices = [i % n_variants for i in range(num_envs)]
         min_pts = torch.stack([self._per_env_bboxes[idx].min_point[0] for idx in indices])
@@ -57,7 +62,7 @@ def _make_desk() -> DummyObject:
 
 
 # ---------------------------------------------------------------------------
-# ObjectBase.get_bounding_box_per_env
+# get_bounding_box_per_env default behavior
 # ---------------------------------------------------------------------------
 
 
@@ -163,9 +168,9 @@ def test_placer_heterogeneous_z_height_matches_variant():
 
     desk = _make_desk()
 
-    # "tall" variant: height 0.4 → bottom at z ≈ 0.11 (desk top 0.1 + clearance 0.01)
+    # "tall" variant: height 0.4 -> bottom at z ~0.11 (desk top 0.1 + clearance 0.01)
     tall = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.4))
-    # "short" variant: height 0.1 → bottom at z ≈ 0.11 (same clearance)
+    # "short" variant: height 0.1 -> bottom at z ~0.11 (same clearance)
     short = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.1))
     hetero = HeterogeneousDummyObject(name="hetero", bboxes=[tall, short])
     hetero.add_relation(On(desk, clearance_m=0.01))

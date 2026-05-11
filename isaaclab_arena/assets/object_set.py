@@ -69,13 +69,13 @@ class RigidObjectSet(Object):
 
         self.objects: list[Object] = objects
         self.random_choice = random_choice
-        self.heterogeneous_bbox: bool = len(objects) > 1
+        self.has_env_specific_bboxes: bool = len(objects) > 1
 
-        if self.heterogeneous_bbox and self.random_choice:
+        if self.has_env_specific_bboxes and self.random_choice:
             raise ValueError(
                 f"RigidObjectSet '{name}': random_choice=True is not supported with heterogeneous "
                 "placement (len(objects) > 1). The placement pool assumes round-robin variant "
-                "assignment (env_idx % num_variants) which conflicts with random spawning order."
+                "assignment (env_index % num_variants) which conflicts with random spawning order."
             )
 
         # Set default prim_path if not provided
@@ -100,34 +100,22 @@ class RigidObjectSet(Object):
         """
         return max(self.objects, key=lambda obj: obj.get_bounding_box().size[0, 2].item()).get_bounding_box()
 
-    def get_variant_indices(self, num_envs: int, seed: int | None = None) -> list[int]:
+    def get_variant_indices(self, num_envs: int) -> list[int]:
         """Return which member object index is assigned to each environment.
 
-        When ``random_choice`` is False the mapping is round-robin
-        (``env_idx % len(objects)``).  When True, a random permutation is
-        generated (and cached so repeated calls with the same ``num_envs``
-        are deterministic within a session).
+        Multi-variant sets use round-robin assignment
+        (``env_index % len(objects)``). ``random_choice=True`` with multiple
+        variants is rejected in ``__init__`` because placement needs to know
+        the assigned variant for each env.
 
         Args:
             num_envs: Number of environments.
-            seed: Optional RNG seed for reproducible variant assignment
-                when ``random_choice`` is True. If None, uses the global
-                torch RNG.
 
         Returns:
             List of length ``num_envs`` with indices into ``self.objects``.
         """
         n = len(self.objects)
-        if not self.random_choice:
-            return [i % n for i in range(num_envs)]
-
-        if not hasattr(self, "_cached_variant_indices") or len(self._cached_variant_indices) != num_envs:
-            generator = None
-            if seed is not None:
-                generator = torch.Generator()
-                generator.manual_seed(seed)
-            self._cached_variant_indices = [int(i) for i in torch.randint(n, (num_envs,), generator=generator).tolist()]
-        return self._cached_variant_indices
+        return [i % n for i in range(num_envs)]
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
         """Get the actual bounding box for each env's variant.

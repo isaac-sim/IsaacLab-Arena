@@ -74,11 +74,12 @@ class ObjectBase(Asset, ABC):
         ...
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
-        """Get per-environment local bounding boxes.
+        """Get local bounding boxes for each environment.
 
-        For homogeneous objects the single local bbox is expanded to ``(num_envs, 3)``.
-        ``RigidObjectSet`` overrides this to return the actual bbox of each env's
-        variant, enabling heterogeneous placement.
+        This default implementation is for objects with the same geometry in
+        every environment: it expands the single local bbox to ``(num_envs, 3)``.
+        ``RigidObjectSet`` overrides this to return the bbox for each env's
+        assigned variant.
 
         Args:
             num_envs: Number of environments.
