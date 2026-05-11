@@ -22,18 +22,23 @@ execution of large-scale task libraries with complex long-horizon tasks.
 
 
 **Ecosystem**
-NVIDIA and partners are building Industrial and academic benchmarks on the unified Isaac Lab-Arena core,
-so you can reuse LEGO blocks (tasks, scenes, metrics, and datasets) for your custom evaluations.
+Isaac Lab-Arena is part of a growing ecosystem of tools and benchmarks. NVIDIA and partners are building
+industrial and academic benchmarks on the unified Isaac Lab-Arena core, so you can reuse building blocks
+(tasks, scenes, metrics, and datasets) for your custom evaluations.
 
-- `Lightwheel RoboFinals <https://lightwheel.ai/robofinals>`_ — high fidelity industrial benchmarks
+- `Lightwheel RoboFinals <https://lightwheel.ai/robofinals>`_ — High-fidelity industrial benchmarks.
 - `Lightwheel RoboCasa Tasks <https://github.com/LightwheelAI/LW-BenchHub>`_ — 138+ open-source tasks,
-  50 datasets per task, 7+ robots
-- `Lightwheel LIBERO Tasks <https://github.com/LightwheelAI/LW-BenchHub>`_ — Adapted LIBERO benchmarks
+  50 datasets per task, 7+ robots.
+- `Lightwheel LIBERO Tasks <https://github.com/LightwheelAI/LW-BenchHub>`_ — Adapted LIBERO benchmarks.
 - `RoboTwin 2.0 <https://github.com/RoboTwin-Platform/RoboTwin/tree/IsaacLab-Arena>`_ — Extended simulation
-  benchmarks using Arena (`arxiv <https://arxiv.org/abs/2603.08164>`_)
+  benchmarks using Arena; `Arxiv <https://arxiv.org/abs/2603.01229>`_.
 - `LeRobot Environment Hub <https://huggingface.co/blog/nvidia/generalist-robotpolicy-eval-isaaclab-arena-lerobot>`_ — Share
-  and discover Arena environments on Hugging Face
-- **Coming Soon:** NIST Board 1, NVIDIA Isaac GR00T Industrial Benchmarks, NVIDIA DexBench, NVIDIA RoboLab, and more.
+  and discover Arena environments on Hugging Face.
+- `Isaac for Healthcare RHEO Workflows <https://github.com/isaac-for-healthcare/i4h-workflows/tree/main/workflows/rheo>`_ — Healthcare
+  robotics benchmark workflows.
+
+NIST Board 1, NVIDIA Isaac GR00T Industrial Benchmarks, NVIDIA DexBench, NVIDIA RoboLab, and more benchmarks
+are coming soon.
 
 **Collaboration**
 
