@@ -7,10 +7,12 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import gymnasium as gym
 import torch
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import FrameType
 from typing import Any
 
 from gr00t.data.embodiment_tags import EmbodimentTag
@@ -35,6 +37,25 @@ from isaaclab_arena_gr00t.utils.io_utils import (
     load_gr00t_modality_config_from_file,
     load_robot_joints_config_from_yaml,
 )
+
+
+def _clear_stale_model_loading_frames() -> None:
+    """Clear retained GR00T/Transformers constructor frames that keep CUDA model locals alive."""
+    model_loading_frame_markers = (
+        "/gr00t/policy/gr00t_policy.py",
+        "/gr00t/model/gr00t_n1d6/gr00t_n1d6.py",
+        "/gr00t/model/modules/eagle_backbone.py",
+        "/transformers/modeling_utils.py",
+    )
+    for obj in gc.get_objects():
+        try:
+            if type(obj) is not FrameType:
+                continue
+            if any(marker in obj.f_code.co_filename for marker in model_loading_frame_markers):
+                obj.clear()
+        except (ReferenceError, RuntimeError):
+            # RuntimeError means the frame is still executing; leave it alone.
+            continue
 
 
 @dataclass
@@ -76,7 +97,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
         self.policy_config: Gr00tClosedloopPolicyConfig = create_config_from_yaml(
             config.policy_config_yaml_path, Gr00tClosedloopPolicyConfig
         )
-        self.policy: Gr00tPolicy = load_gr00t_policy_from_config(self.policy_config)
+        self.policy: Gr00tPolicy | None = load_gr00t_policy_from_config(self.policy_config)
 
         # Basic attributes
         self.num_envs = config.num_envs
@@ -229,6 +250,7 @@ class Gr00tClosedloopPolicy(PolicyBase):
         if isinstance(camera_names, str):
             camera_names = [camera_names]
         policy_observations = self.get_observations(observation, camera_names)
+        assert self.policy is not None, "GR00T policy has been closed"
         robot_action_policy, _ = self.policy.get_action(policy_observations)
 
         action_tensor = build_gr00t_action_tensor(
@@ -248,5 +270,20 @@ class Gr00tClosedloopPolicy(PolicyBase):
         if env_ids is None:
             env_ids = slice(None)
         # placeholder for future reset options from GR00T repo
+        assert self.policy is not None, "GR00T policy has been closed"
         self.policy.reset()
         self._chunking_state.reset(env_ids)
+
+    def close(self) -> None:
+        """Release local GR00T model resources before deleting the wrapper policy."""
+        gr00t_policy = self.policy
+        if gr00t_policy is not None:
+            for attr_name in ("model", "processor", "collate_fn", "modality_configs"):
+                if hasattr(gr00t_policy, attr_name):
+                    setattr(gr00t_policy, attr_name, None)
+        self.policy = None
+        self._chunking_state = None
+        self.modality_configs = None
+        _clear_stale_model_loading_frames()
+        gc.collect()
+        _clear_stale_model_loading_frames()
