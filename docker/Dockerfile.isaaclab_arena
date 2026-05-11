@@ -120,6 +120,15 @@ RUN /isaac-sim/python.sh -m pip install msgpack==1.1.0 msgpack-numpy==0.4.8 pyzm
     /isaac-sim/python.sh -m pip install --no-deps --ignore-requires-python -e ${WORKDIR}/submodules/Isaac-GR00T/
 RUN /isaac-sim/python.sh -m pip install av
 
+# openpi remote-client (lightweight). Always installed so the openpi remote
+# PolicyClient (openpi_client.websocket_client_policy) works in the base
+# container. Pin to the commit your openpi server runs at so client and
+# server speak the same wire format. --no-deps because numpy / msgpack /
+# websockets / typing_extensions are already in the base image.
+ARG OPENPI_COMMIT=main
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir --no-deps \
+    "openpi-client @ git+https://github.com/Physical-Intelligence/openpi@${OPENPI_COMMIT}#subdirectory=packages/openpi-client"
+
 # TODO(xinjieyao, 2026-04-27): remove this after remote policy done refactoring
 # Copy GR00T dependencies installation script
 COPY docker/setup/install_gr00t_deps.sh /tmp/install_gr00t_deps.sh
@@ -136,6 +145,7 @@ COPY *.* ${WORKDIR}/
 COPY isaaclab_arena ${WORKDIR}/isaaclab_arena
 COPY isaaclab_arena_g1 ${WORKDIR}/isaaclab_arena_g1
 COPY isaaclab_arena_gr00t ${WORKDIR}/isaaclab_arena_gr00t
+COPY isaaclab_arena_openpi ${WORKDIR}/isaaclab_arena_openpi
 COPY isaaclab_arena_environments ${WORKDIR}/isaaclab_arena_environments
 COPY isaaclab_arena_examples ${WORKDIR}/isaaclab_arena_examples
 COPY docs ${WORKDIR}/docs
