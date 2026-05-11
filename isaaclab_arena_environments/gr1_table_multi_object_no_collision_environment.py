@@ -63,11 +63,7 @@ HETERO_VARIANT_SETS = {
     ],
     "cans": [
         "alphabet_soup_can_hope_robolab",
-        "canned_peaches_hope_robolab",
         "corn_can_hope_robolab",
-        "tomato_sauce_can_hope_robolab",
-        "pineapple_slices_can_hope_robolab",
-        "green_beans_can_hope_robolab",
     ],
     "tools": [
         "spoon_handal_robolab",
@@ -75,11 +71,11 @@ HETERO_VARIANT_SETS = {
         "spoon_2_handal_robolab",
         "measuring_spoon_handal_robolab",
     ],
-    "boxes": [
-        "butter_hope_robolab",
-        "raisin_box_hope_robolab",
-        "yogurt_cup_hope_robolab",
-        "oatmeal_raisin_cookies_hope_robolab",
+    "fruits": [
+        "avocado01_fruits_veggies_robolab",
+        "lemon_01_fruits_veggies_robolab",
+        "orange_01_fruits_veggies_robolab",
+        "pomegranate01_fruits_veggies_robolab",
     ],
 }
 
