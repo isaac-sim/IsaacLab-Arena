@@ -75,6 +75,7 @@ see :doc:`Policy Design <index>`.
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/policy_runner.py \
+     --viz kit \
      --policy_type <policy_type> \
      --num_steps 2000 \
      --num_envs 10 \
@@ -97,6 +98,7 @@ gets a randomly chosen object from the set. Some environments may require
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/policy_runner.py \
+     --viz kit \
      --policy_type <policy_type> \
      --num_steps 2000 \
      --num_envs 4 \

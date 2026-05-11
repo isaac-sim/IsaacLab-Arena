@@ -125,20 +125,22 @@ Training Configuration:
 - **Embodiment tag:** ``new_embodiment`` (case-insensitive; resolved to
   ``EmbodimentTag.NEW_EMBODIMENT`` by ``gr00t``)
 
-To post-train the policy, run the following command **from the standalone Isaac-GR00T checkout**.
-The launcher runs inside the standalone repo's ``uv``-managed venv. Replace
-``/path/to/IsaacLab-Arena`` with the absolute path to your Arena clone so the
-``--modality-config-path`` argument can register the WBC modality from Arena's source tree.
+To post-train the policy, open another terminal **outside** the Arena Base Docker container
+and ``cd`` to ``$ISAAC_GR00T_DIR``. Set up GR00T's native ``uv`` environment by following
+the `GR00T installation guide <https://github.com/NVIDIA/Isaac-GR00T#installation-guide>`_,
+then run the finetuning command below. Replace ``/path/to/IsaacLab-Arena`` with the absolute
+path to your Arena clone so the ``--modality-config-path`` argument can register the WBC
+modality from Arena's source tree. The dataset and output paths assume the default Arena Docker
+mounts (``~/datasets`` and ``~/models`` on the host); adjust them if you launched Arena with
+custom mount directories.
 
 .. code-block:: bash
-
-   cd $ISAAC_GR00T_DIR
 
    uv run python -m torch.distributed.run --nproc_per_node=8 --standalone \
      gr00t/experiment/launch_finetune.py \
      --base-model-path nvidia/GR00T-N1.7-3B \
-     --dataset-path $DATASET_DIR/arena_g1_static_apple_dataset_recorded/lerobot \
-     --output-dir $MODELS_DIR/static_apple_n17_finetune \
+     --dataset-path ~/datasets/isaaclab_arena/static_apple_tutorial/arena_g1_static_apple_dataset_recorded/lerobot \
+     --output-dir ~/models/isaaclab_arena/static_apple_tutorial/static_apple_n17_finetune \
      --modality-config-path /path/to/IsaacLab-Arena/isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_gr00t_n_1_7_config.py \
      --embodiment-tag new_embodiment \
      --global-batch-size 96 \

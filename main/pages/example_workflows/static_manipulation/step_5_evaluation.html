@@ -477,8 +477,8 @@
 <h1>Closed-Loop Policy Inference and Evaluation<a class="headerlink" href="#closed-loop-policy-inference-and-evaluation" title="Link to this heading">#</a></h1>
 <p>This workflow demonstrates running the trained GR00T N1.6 policy in closed-loop
 and evaluating it in Arena GR1 Open Microwave Door Task environment.</p>
-<p><strong>Docker Container</strong>: Base + GR00T (see <a class="reference internal" href="../imitation_learning/index.html"><span class="doc">Imitation Learning</span></a> for more details)</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh<span class="w"> </span>-g
+<p><strong>Docker Container</strong>: Base (see <a class="reference internal" href="../../quickstart/installation.html"><span class="doc">Installation</span></a> for more details)</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
 </pre></div>
 </div>
 <p>Once inside the container, set the dataset and models directories.</p>
@@ -530,11 +530,12 @@ such that the preceding steps can be skipped.</p>
 </div>
 </div>
 </details><p><strong>Prerequisite: launch the GR00T policy server</strong></p>
-<p>The closed-loop policy connects to a GR00T policy server. The server runs out of
+<p>The Arena evaluation client runs in the Base container and connects to a GR00T policy server.
+The server runs out of
 the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T/tree/e29d8fc50b0e4745120ae3fb72447986fe638aa6">Isaac-GR00T</a>
 submodule pinned at commit <code class="docutils literal notranslate"><span class="pre">e29d8fc</span></code>; populate it with
 <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">submodule</span> <span class="pre">update</span> <span class="pre">--init</span> <span class="pre">submodules/Isaac-GR00T</span></code> if it is not already
-checked out. Then, in a separate shell from the repo root:</p>
+checked out. Then, in a separate shell with <code class="docutils literal notranslate"><span class="pre">uv</span></code> available from the repo root:</p>
 <div class="admonition-todo admonition" id="id1">
 <p class="admonition-title">Todo</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">submodules/Isaac-GR00T</span></code> submodule will be removed after the policy

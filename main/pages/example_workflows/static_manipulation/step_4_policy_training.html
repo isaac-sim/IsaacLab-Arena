@@ -477,8 +477,11 @@
 <h1>Policy Post-training<a class="headerlink" href="#policy-post-training" title="Link to this heading">#</a></h1>
 <p>This workflow covers post-training an example policy using the generated dataset,
 here we use <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T">GR00T N1.6</a> as the base model.</p>
-<p><strong>Docker Container</strong>: Base + GR00T (see <a class="reference internal" href="../imitation_learning/index.html"><span class="doc">Imitation Learning</span></a> for more details)</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh<span class="w"> </span>-g
+<p>Use the Arena <strong>Base</strong> container for dataset download and LeRobot conversion. Run GR00T
+finetuning from the native Isaac-GR00T <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment in <code class="docutils literal notranslate"><span class="pre">submodules/Isaac-GR00T</span></code>,
+not from the Arena container.</p>
+<p><strong>Docker Container for conversion</strong>: Base (see <a class="reference internal" href="../../quickstart/installation.html"><span class="doc">Installation</span></a> for more details)</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
 </pre></div>
 </div>
 <p>Once inside the container, set the dataset and models directories.</p>
@@ -589,25 +592,30 @@ longer to converge.</p>
 <li><p><strong>Batch Size:</strong> 24 (adjust based on GPU memory)</p></li>
 <li><p><strong>Training Steps:</strong> 20,000</p></li>
 </ul>
-<p>To post-train the policy, run the following command</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PYTHONPATH</span><span class="o">=</span><span class="nv">$GROOT_DEPS_DIR</span>:<span class="nv">$PYTHONPATH</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">8</span><span class="w"> </span>--standalone<span class="w"> </span><span class="se">\</span>
-submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py<span class="w"> </span><span class="se">\</span>
---dataset_path<span class="o">=</span><span class="nv">$DATASET_DIR</span>/arena_gr1_manipulation_dataset_generated/lerobot<span class="w"> </span><span class="se">\</span>
---output_dir<span class="o">=</span><span class="nv">$MODELS_DIR</span><span class="w"> </span><span class="se">\</span>
---modality_config_path<span class="o">=</span>isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py<span class="w"> </span><span class="se">\</span>
---global_batch_size<span class="o">=</span><span class="m">24</span><span class="w"> </span><span class="se">\</span>
---max_steps<span class="o">=</span><span class="m">20000</span><span class="w"> </span><span class="se">\</span>
---num_gpus<span class="o">=</span><span class="m">8</span><span class="w"> </span><span class="se">\</span>
---save_steps<span class="o">=</span><span class="m">5000</span><span class="w"> </span><span class="se">\</span>
---save_total_limit<span class="o">=</span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
---base_model_path<span class="o">=</span>nvidia/GR00T-N1.6-3B<span class="w"> </span><span class="se">\</span>
---no_tune_llm<span class="w"> </span><span class="se">\</span>
---tune_visual<span class="w"> </span><span class="se">\</span>
---tune_projector<span class="w"> </span><span class="se">\</span>
---tune_diffusion_model<span class="w"> </span><span class="se">\</span>
---dataloader_num_workers<span class="o">=</span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
---embodiment_tag<span class="o">=</span>GR1<span class="w"> </span><span class="se">\</span>
---color_jitter_params<span class="w"> </span>brightness<span class="w"> </span><span class="m">0</span>.3<span class="w"> </span>contrast<span class="w"> </span><span class="m">0</span>.4<span class="w"> </span>saturation<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>hue<span class="w"> </span><span class="m">0</span>.08
+<p>To post-train the policy, open another terminal <strong>outside</strong> the Arena Base Docker container
+and <code class="docutils literal notranslate"><span class="pre">cd</span></code> to <code class="docutils literal notranslate"><span class="pre">submodules/Isaac-GR00T</span></code>. Set up GR00T’s native <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment by
+following the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T#installation-guide">GR00T installation guide</a>,
+then run the finetuning command below. The paths assume the default Arena Docker mounts
+(<code class="docutils literal notranslate"><span class="pre">~/datasets</span></code> and <code class="docutils literal notranslate"><span class="pre">~/models</span></code> on the host); adjust them if you launched Arena with
+custom mount directories.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">8</span><span class="w"> </span>--standalone<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>gr00t/experiment/launch_finetune.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset-path<span class="w"> </span>~/datasets/isaaclab_arena/static_manipulation_tutorial/arena_gr1_manipulation_dataset_generated/lerobot<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output-dir<span class="w"> </span>~/models/isaaclab_arena/static_manipulation_tutorial<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--modality-config-path<span class="w"> </span>../../isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--global-batch-size<span class="w"> </span><span class="m">24</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--max-steps<span class="w"> </span><span class="m">20000</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num-gpus<span class="w"> </span><span class="m">8</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--save-steps<span class="w"> </span><span class="m">5000</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--save-total-limit<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--base-model-path<span class="w"> </span>nvidia/GR00T-N1.6-3B<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--no-tune-llm<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--tune-visual<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--tune-projector<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--tune-diffusion-model<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataloader-num-workers<span class="w"> </span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment-tag<span class="w"> </span>GR1<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--color-jitter-params<span class="w"> </span>brightness<span class="w"> </span><span class="m">0</span>.3<span class="w"> </span>contrast<span class="w"> </span><span class="m">0</span>.4<span class="w"> </span>saturation<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>hue<span class="w"> </span><span class="m">0</span>.08
 </pre></div>
 </div>
 </div>
@@ -624,25 +632,29 @@ Low Hardware Requirements</label><div class="sd-tab-content docutils">
 <li><p><strong>Training Steps:</strong> 30,000</p></li>
 <li><p><strong>GPUs:</strong> 1 (single-GPU training)</p></li>
 </ul>
-<p>To post-train the policy, run the following command</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PYTHONPATH</span><span class="o">=</span><span class="nv">$GROOT_DEPS_DIR</span>:<span class="nv">$PYTHONPATH</span><span class="w"> </span><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">0</span><span class="w"> </span><span class="se">\</span>
-python<span class="w"> </span>submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py<span class="w"> </span><span class="se">\</span>
---dataset_path<span class="o">=</span><span class="nv">$DATASET_DIR</span>/arena_gr1_manipulation_dataset_generated/lerobot<span class="w"> </span><span class="se">\</span>
---output_dir<span class="o">=</span><span class="nv">$MODELS_DIR</span><span class="w"> </span><span class="se">\</span>
---modality_config_path<span class="o">=</span>isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py<span class="w"> </span><span class="se">\</span>
---global_batch_size<span class="o">=</span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
---max_steps<span class="o">=</span><span class="m">30000</span><span class="w"> </span><span class="se">\</span>
---num_gpus<span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
---save_steps<span class="o">=</span><span class="m">5000</span><span class="w"> </span><span class="se">\</span>
---base_model_path<span class="o">=</span>nvidia/GR00T-N1.6-3B<span class="w"> </span><span class="se">\</span>
---no_tune_llm<span class="w"> </span><span class="se">\</span>
---tune_visual<span class="w"> </span><span class="se">\</span>
---tune_projector<span class="w"> </span><span class="se">\</span>
---tune_diffusion_model<span class="w"> </span><span class="se">\</span>
---dataloader_num_workers<span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
---embodiment_tag<span class="o">=</span>GR1<span class="w"> </span><span class="se">\</span>
---color_jitter_params<span class="w"> </span>brightness<span class="w"> </span><span class="m">0</span>.3<span class="w"> </span>contrast<span class="w"> </span><span class="m">0</span>.4<span class="w"> </span>saturation<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>hue<span class="w"> </span><span class="m">0</span>.08<span class="w"> </span><span class="se">\</span>
---save_total_limit<span class="o">=</span><span class="m">5</span>
+<p>To post-train the policy, open another terminal <strong>outside</strong> the Arena Base Docker container
+and <code class="docutils literal notranslate"><span class="pre">cd</span></code> to <code class="docutils literal notranslate"><span class="pre">submodules/Isaac-GR00T</span></code>. Set up GR00T’s native <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment by
+following the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T#installation-guide">GR00T installation guide</a>,
+then run the finetuning command below. The paths assume the default Arena Docker mounts
+(<code class="docutils literal notranslate"><span class="pre">~/datasets</span></code> and <code class="docutils literal notranslate"><span class="pre">~/models</span></code> on the host); adjust them if you launched Arena with
+custom mount directories.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">CUDA_VISIBLE_DEVICES</span><span class="o">=</span><span class="m">0</span><span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>gr00t/experiment/launch_finetune.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset-path<span class="w"> </span>~/datasets/isaaclab_arena/static_manipulation_tutorial/arena_gr1_manipulation_dataset_generated/lerobot<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output-dir<span class="w"> </span>~/models/isaaclab_arena/static_manipulation_tutorial<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--modality-config-path<span class="w"> </span>../../isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--global-batch-size<span class="w"> </span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--max-steps<span class="w"> </span><span class="m">30000</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num-gpus<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--save-steps<span class="w"> </span><span class="m">5000</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--base-model-path<span class="w"> </span>nvidia/GR00T-N1.6-3B<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--no-tune-llm<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--tune-visual<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--tune-projector<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--tune-diffusion-model<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataloader-num-workers<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--embodiment-tag<span class="w"> </span>GR1<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--color-jitter-params<span class="w"> </span>brightness<span class="w"> </span><span class="m">0</span>.3<span class="w"> </span>contrast<span class="w"> </span><span class="m">0</span>.4<span class="w"> </span>saturation<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>hue<span class="w"> </span><span class="m">0</span>.08<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--save-total-limit<span class="w"> </span><span class="m">5</span>
 </pre></div>
 </div>
 </div>

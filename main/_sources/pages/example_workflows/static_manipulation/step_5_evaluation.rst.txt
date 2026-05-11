@@ -4,9 +4,9 @@ Closed-Loop Policy Inference and Evaluation
 This workflow demonstrates running the trained GR00T N1.6 policy in closed-loop
 and evaluating it in Arena GR1 Open Microwave Door Task environment.
 
-**Docker Container**: Base + GR00T (see :doc:`../imitation_learning/index` for more details)
+**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
 
-:docker_run_gr00t:
+:docker_run_default:
 
 Once inside the container, set the dataset and models directories.
 
@@ -67,11 +67,12 @@ The GR00T model is configured by a config file at ``isaaclab_arena_gr00t/gr1_man
 
 **Prerequisite: launch the GR00T policy server**
 
-The closed-loop policy connects to a GR00T policy server. The server runs out of
+The Arena evaluation client runs in the Base container and connects to a GR00T policy server.
+The server runs out of
 the `Isaac-GR00T <https://github.com/NVIDIA/Isaac-GR00T/tree/e29d8fc50b0e4745120ae3fb72447986fe638aa6>`_
 submodule pinned at commit ``e29d8fc``; populate it with
 ``git submodule update --init submodules/Isaac-GR00T`` if it is not already
-checked out. Then, in a separate shell from the repo root:
+checked out. Then, in a separate shell with ``uv`` available from the repo root:
 
 .. todo::
 

@@ -580,17 +580,19 @@ and multiple dataloader workers requires substantial host memory</p></li>
 <li><p><strong>Embodiment tag:</strong> <code class="docutils literal notranslate"><span class="pre">new_embodiment</span></code> (case-insensitive; resolved to
 <code class="docutils literal notranslate"><span class="pre">EmbodimentTag.NEW_EMBODIMENT</span></code> by <code class="docutils literal notranslate"><span class="pre">gr00t</span></code>)</p></li>
 </ul>
-<p>To post-train the policy, run the following command <strong>from the standalone Isaac-GR00T checkout</strong>.
-The launcher runs inside the standalone repo’s <code class="docutils literal notranslate"><span class="pre">uv</span></code>-managed venv. Replace
-<code class="docutils literal notranslate"><span class="pre">/path/to/IsaacLab-Arena</span></code> with the absolute path to your Arena clone so the
-<code class="docutils literal notranslate"><span class="pre">--modality-config-path</span></code> argument can register the WBC modality from Arena’s source tree.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span><span class="nv">$ISAAC_GR00T_DIR</span>
-
-uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">8</span><span class="w"> </span>--standalone<span class="w"> </span><span class="se">\</span>
+<p>To post-train the policy, open another terminal <strong>outside</strong> the Arena Base Docker container
+and <code class="docutils literal notranslate"><span class="pre">cd</span></code> to <code class="docutils literal notranslate"><span class="pre">$ISAAC_GR00T_DIR</span></code>. Set up GR00T’s native <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment by following
+the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T#installation-guide">GR00T installation guide</a>,
+then run the finetuning command below. Replace <code class="docutils literal notranslate"><span class="pre">/path/to/IsaacLab-Arena</span></code> with the absolute
+path to your Arena clone so the <code class="docutils literal notranslate"><span class="pre">--modality-config-path</span></code> argument can register the WBC
+modality from Arena’s source tree. The dataset and output paths assume the default Arena Docker
+mounts (<code class="docutils literal notranslate"><span class="pre">~/datasets</span></code> and <code class="docutils literal notranslate"><span class="pre">~/models</span></code> on the host); adjust them if you launched Arena with
+custom mount directories.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>torch.distributed.run<span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">8</span><span class="w"> </span>--standalone<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>gr00t/experiment/launch_finetune.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--base-model-path<span class="w"> </span>nvidia/GR00T-N1.7-3B<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--dataset-path<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_static_apple_dataset_recorded/lerobot<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--output-dir<span class="w"> </span><span class="nv">$MODELS_DIR</span>/static_apple_n17_finetune<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset-path<span class="w"> </span>~/datasets/isaaclab_arena/static_apple_tutorial/arena_g1_static_apple_dataset_recorded/lerobot<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output-dir<span class="w"> </span>~/models/isaaclab_arena/static_apple_tutorial/static_apple_n17_finetune<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--modality-config-path<span class="w"> </span>/path/to/IsaacLab-Arena/isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_gr00t_n_1_7_config.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--embodiment-tag<span class="w"> </span>new_embodiment<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--global-batch-size<span class="w"> </span><span class="m">96</span><span class="w"> </span><span class="se">\</span>

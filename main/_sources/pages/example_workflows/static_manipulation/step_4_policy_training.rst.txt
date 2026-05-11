@@ -5,9 +5,13 @@ This workflow covers post-training an example policy using the generated dataset
 here we use `GR00T N1.6 <https://github.com/NVIDIA/Isaac-GR00T>`_ as the base model.
 
 
-**Docker Container**: Base + GR00T (see :doc:`../imitation_learning/index` for more details)
+Use the Arena **Base** container for dataset download and LeRobot conversion. Run GR00T
+finetuning from the native Isaac-GR00T ``uv`` environment in ``submodules/Isaac-GR00T``,
+not from the Arena container.
 
-:docker_run_gr00t:
+**Docker Container for conversion**: Base (see :doc:`../../quickstart/installation` for more details)
+
+:docker_run_default:
 
 Once inside the container, set the dataset and models directories.
 
@@ -136,28 +140,33 @@ We provide two post-training options:
       - **Batch Size:** 24 (adjust based on GPU memory)
       - **Training Steps:** 20,000
 
-      To post-train the policy, run the following command
+      To post-train the policy, open another terminal **outside** the Arena Base Docker container
+      and ``cd`` to ``submodules/Isaac-GR00T``. Set up GR00T's native ``uv`` environment by
+      following the `GR00T installation guide <https://github.com/NVIDIA/Isaac-GR00T#installation-guide>`_,
+      then run the finetuning command below. The paths assume the default Arena Docker mounts
+      (``~/datasets`` and ``~/models`` on the host); adjust them if you launched Arena with
+      custom mount directories.
 
       .. code-block:: bash
 
-         PYTHONPATH=$GROOT_DEPS_DIR:$PYTHONPATH python -m torch.distributed.run --nproc_per_node=8 --standalone \
-         submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
-         --dataset_path=$DATASET_DIR/arena_gr1_manipulation_dataset_generated/lerobot \
-         --output_dir=$MODELS_DIR \
-         --modality_config_path=isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
-         --global_batch_size=24 \
-         --max_steps=20000 \
-         --num_gpus=8 \
-         --save_steps=5000 \
-         --save_total_limit=5 \
-         --base_model_path=nvidia/GR00T-N1.6-3B \
-         --no_tune_llm \
-         --tune_visual \
-         --tune_projector \
-         --tune_diffusion_model \
-         --dataloader_num_workers=16 \
-         --embodiment_tag=GR1 \
-         --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08
+         uv run python -m torch.distributed.run --nproc_per_node=8 --standalone \
+           gr00t/experiment/launch_finetune.py \
+           --dataset-path ~/datasets/isaaclab_arena/static_manipulation_tutorial/arena_gr1_manipulation_dataset_generated/lerobot \
+           --output-dir ~/models/isaaclab_arena/static_manipulation_tutorial \
+           --modality-config-path ../../isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
+           --global-batch-size 24 \
+           --max-steps 20000 \
+           --num-gpus 8 \
+           --save-steps 5000 \
+           --save-total-limit 5 \
+           --base-model-path nvidia/GR00T-N1.6-3B \
+           --no-tune-llm \
+           --tune-visual \
+           --tune-projector \
+           --tune-diffusion-model \
+           --dataloader-num-workers 16 \
+           --embodiment-tag GR1 \
+           --color-jitter-params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08
 
    .. tab-item:: Low Hardware Requirements
 
@@ -172,28 +181,32 @@ We provide two post-training options:
       - **Training Steps:** 30,000
       - **GPUs:** 1 (single-GPU training)
 
-      To post-train the policy, run the following command
+      To post-train the policy, open another terminal **outside** the Arena Base Docker container
+      and ``cd`` to ``submodules/Isaac-GR00T``. Set up GR00T's native ``uv`` environment by
+      following the `GR00T installation guide <https://github.com/NVIDIA/Isaac-GR00T#installation-guide>`_,
+      then run the finetuning command below. The paths assume the default Arena Docker mounts
+      (``~/datasets`` and ``~/models`` on the host); adjust them if you launched Arena with
+      custom mount directories.
 
       .. code-block:: bash
 
-         PYTHONPATH=$GROOT_DEPS_DIR:$PYTHONPATH CUDA_VISIBLE_DEVICES=0 \
-         python submodules/Isaac-GR00T/gr00t/experiment/launch_finetune.py \
-         --dataset_path=$DATASET_DIR/arena_gr1_manipulation_dataset_generated/lerobot \
-         --output_dir=$MODELS_DIR \
-         --modality_config_path=isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
-         --global_batch_size=16 \
-         --max_steps=30000 \
-         --num_gpus=1 \
-         --save_steps=5000 \
-         --base_model_path=nvidia/GR00T-N1.6-3B \
-         --no_tune_llm \
-         --tune_visual \
-         --tune_projector \
-         --tune_diffusion_model \
-         --dataloader_num_workers=4 \
-         --embodiment_tag=GR1 \
-         --color_jitter_params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08 \
-         --save_total_limit=5
+         CUDA_VISIBLE_DEVICES=0 uv run python gr00t/experiment/launch_finetune.py \
+           --dataset-path ~/datasets/isaaclab_arena/static_manipulation_tutorial/arena_gr1_manipulation_dataset_generated/lerobot \
+           --output-dir ~/models/isaaclab_arena/static_manipulation_tutorial \
+           --modality-config-path ../../isaaclab_arena_gr00t/embodiments/gr1/gr1_arms_only_data_config.py \
+           --global-batch-size 16 \
+           --max-steps 30000 \
+           --num-gpus 1 \
+           --save-steps 5000 \
+           --base-model-path nvidia/GR00T-N1.6-3B \
+           --no-tune-llm \
+           --tune-visual \
+           --tune-projector \
+           --tune-diffusion-model \
+           --dataloader-num-workers 4 \
+           --embodiment-tag GR1 \
+           --color-jitter-params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08 \
+           --save-total-limit 5
 
 
 see the `GR00T fine-tuning guidelines <https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning>`_
