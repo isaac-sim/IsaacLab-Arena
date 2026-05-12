@@ -92,6 +92,40 @@ def get_policy_from_job(job: Job) -> "PolicyBase":
     return policy
 
 
+def _collect_garbage_and_clear_cuda_cache() -> None:
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
+def _close_policy(policy: "PolicyBase | None") -> None:
+    try:
+        if policy is not None:
+            policy.close()
+    finally:
+        _collect_garbage_and_clear_cuda_cache()
+
+
+def _close_env(env) -> None:
+    if env is None:
+        return
+    try:
+        teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
+    finally:
+        try:
+            # cleanup managers, including recorder manager closing hdf5 file
+            env.close()
+        finally:
+            _collect_garbage_and_clear_cuda_cache()
+
+
+def _close_job_resources(policy: "PolicyBase | None", env) -> None:
+    try:
+        _close_policy(policy)
+    finally:
+        _close_env(env)
+
+
 def main():
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli, unknown = args_parser.parse_known_args()
@@ -175,23 +209,12 @@ def main():
                         raise
 
                 finally:
-                    if policy is not None:
-                        policy.close()
-                    if policy is not None:
-                        del policy
+                    try:
+                        _close_job_resources(policy, env)
+                    finally:
                         policy = None
-                    gc.collect()
-                    if torch.cuda.is_available():
-                        torch.cuda.empty_cache()
-                    # Only stop env if it was successfully created
-                    if env is not None:
-                        teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
-                        # cleanup managers, including recorder manager closing hdf5 file
-                        env.close()
                         env = None
-                        gc.collect()
-                        if torch.cuda.is_available():
-                            torch.cuda.empty_cache()
+                        _collect_garbage_and_clear_cuda_cache()
 
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()
