@@ -223,22 +223,3 @@ wired up correctly without requiring teleoperation hardware.
    may land a frame after the first physics step, which can cause the apple to tunnel through the
    shelf surface on the very first load. Subsequent runs read the cached USD from ``/tmp/Assets/``
    and spawn correctly. If you see the apple fall through the shelf, just re-run the command once.
-
-
-Download a pre-recorded teleop dataset (optional)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-If you want to skip teleoperation hardware setup (:doc:`step_2_teleoperation`) and just validate the
-pipeline end-to-end, you can download a pre-recorded teleop HDF5 from Hugging Face and feed it
-straight into :doc:`step_3_policy_training`:
-
-.. code-block:: bash
-
-   hf download \
-       nvidia/Arena-G1-Static-PickNPlace-Task \
-       arena_g1_static_apple_dataset_recorded.hdf5 \
-       --repo-type dataset \
-       --local-dir $DATASET_DIR
-
-The HDF5 follows the same format ``record_demos.py`` produces locally, so the rest of the workflow
-(replay, LeRobot conversion, finetuning, eval) runs unchanged against it.
