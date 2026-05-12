@@ -22,15 +22,18 @@ No new sampler types, no other variations, no eval-runner / experiment-file inte
 - [x] **`compose_variations_cfg(hydra_overrides)` + `apply_hydra_variation_overrides(hydra_overrides)`.** Split into two steps after code review: compose builds the schema, registers it with `ConfigStore`, calls `hydra.compose`, and converts the result back into a typed `VariationsCfg` instance via `OmegaConf.to_object`; apply chains compose with a per-variation `variation.apply_cfg(per_variation_cfg)` write-back. `GlobalHydra.instance().clear()` is called on entry so both methods are re-entrant. [isaaclab_arena/environments/arena_env_builder.py](isaaclab_arena/environments/arena_env_builder.py)
 - [x] **`VariationBase.apply_cfg(cfg)`.** Abstraction boundary that absorbs the per-variation field knowledge the builder used to hard-code (`sampler`, `mode`, `mesh_name`, ...). The base implementation does `self.cfg = cfg` and rebuilds the live sampler via `set_sampler(cfg.sampler)` when present; subclasses with extra derived state override and call `super().apply_cfg`. The builder's apply path is now field-name-free. [isaaclab_arena/variations/variation_base.py](isaaclab_arena/variations/variation_base.py)
 - [x] **Notebook integration in `compile_env_notebook.py`.** Replaced the (sibling-notebook) plan: the existing `compile_env_notebook.py` now drives the two colour variations through `apply_hydra_variation_overrides([...])` with the imperative `enable() / set_sampler(...)` calls commented out (kept as a reference, not deleted) so the two paths sit side-by-side in one file. The schema is dumped before and after the apply call as a smoke test. [isaaclab_arena/examples/compile_env_notebook.py](isaaclab_arena/examples/compile_env_notebook.py)
-- [ ] **`@configclass` + Hydra sanity check (still in-container only).** `OmegaConf.to_object` round-tripping a `@configclass`-decorated `VariationsCfg` tree (including nested `UniformSamplerCfg`) is now load-bearing for `compose_variations_cfg`. A stdlib `@dataclass` mock of the shape passes locally; the real configclass path still needs to be exercised inside the Isaac Sim container. If `to_object` misbehaves in practice, the fallback is field-by-field dataclass reconstruction inside `compose_variations_cfg` — `apply_hydra_variation_overrides` and `VariationBase.apply_cfg` stay unchanged either way.
+- [x] **`@configclass` + Hydra sanity check.** Verified inside the Isaac Sim container by running `policy_runner.py` end-to-end with `cracker_box.color.{enabled,sampler.low,sampler.high}=...` overrides — `OmegaConf.to_object` round-trips the `@configclass`-decorated `VariationsCfg` (with nested `UniformSamplerCfg`) cleanly and the live `ObjectColorVariation` picks up the new sampler bounds without any fallback path being needed.
+- [x] **CLI rollout to `policy_runner.py`.** Added `split_hydra_overrides(unknown, parser)` plus an optional `hydra_overrides` kwarg on `get_arena_builder_from_cli`, and switched the final `parse_args()` in `policy_runner.py` to `parse_known_args()` so positional `key.path=value` Hydra tokens after the env subcommand flow into the builder. Non-Hydra leftovers (typo'd `--flag`, stray positional) still hard-fail through `parser.error`, preserving the strict-argparse error semantics. Unit test in [isaaclab_arena/tests/test_split_hydra_overrides.py](isaaclab_arena/tests/test_split_hydra_overrides.py). [isaaclab_arena_environments/cli.py](isaaclab_arena_environments/cli.py), [isaaclab_arena/evaluation/policy_runner.py](isaaclab_arena/evaluation/policy_runner.py)
 
 ## Architecture
 
 ```mermaid
 flowchart LR
     argv["sys.argv"] --> argparse["argparse.parse_known_args"]
-    argparse -->|"non-hydra flags"| envBuild["build IsaacLabArenaEnvironment\n+ ArenaEnvBuilder"]
-    argparse -->|"leftover overrides"| applyTop["builder.apply_hydra_variation_overrides"]
+    argparse -->|"args_cli"| envBuild["build IsaacLabArenaEnvironment\n+ ArenaEnvBuilder"]
+    argparse -->|"unknown tokens"| split["split_hydra_overrides\n(reject non-hydra leftovers)"]
+    split -->|"hydra-shaped"| applyTop["builder.apply_hydra_variation_overrides"]
+    split -->|"anything else"| err["parser.error / exit 2"]
     envBuild --> applyTop
     applyTop --> composeStep["builder.compose_variations_cfg\n(step 1: strings → typed cfg)"]
     composeStep --> schema["_build_variations_schema\n(make_dataclass)"]
@@ -146,6 +149,65 @@ env_builder.apply_hydra_variation_overrides(hydra_variation_overrides)
 
 In-notebook hard-coded list rather than the originally planned `parse_known_args()` leftover argv, because the notebook drives the rest of the flow with `args_cli = get_isaaclab_arena_cli_parser().parse_args([])` — there are no CLI args to "left over". The hard-coded list is structurally identical to what an eval-runner / CLI script would forward (`["a.b.c=...", ...]`), so the same `apply_hydra_variation_overrides` signature drops straight into both call sites.
 
+## Landed module changes (step 7): CLI wiring for `policy_runner.py`
+
+Promotes the in-notebook hard-coded list to a real CLI surface so a user can run
+
+```bash
+/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+    --policy_type zero_action --num_steps 10 --num_envs 4 \
+    kitchen_pick_and_place --object cracker_box --embodiment franka_ik \
+    cracker_box.color.enabled=true \
+    cracker_box.color.sampler.low=[0.2,0.2,0.2] \
+    cracker_box.color.sampler.high=[1.0,1.0,1.0]
+```
+
+and have the trailing `key.path=value` tokens land on the live variation cfgs via `ArenaEnvBuilder.apply_hydra_variation_overrides` — without changing any of the per-environment files in [isaaclab_arena_environments/](isaaclab_arena_environments/).
+
+### `isaaclab_arena_environments/cli.py`
+
+- New `split_hydra_overrides(unknown: list[str], parser: argparse.ArgumentParser) -> list[str]`. Walks the leftover list returned by `parser.parse_known_args()`, keeps tokens matching the conservative Hydra-shape regex below, and routes anything else through `parser.error(...)` so the script exits with code 2 and the same usage/error format strict `parse_args()` would have produced for a typo'd `--flag` or unbound positional. This is the hard guarantee that switching to `parse_known_args` doesn't make the CLI any more permissive than it already was.
+
+  ```python
+  _HYDRA_KEY = r"[A-Za-z_][A-Za-z0-9_.]*"
+  _HYDRA_OVERRIDE_RE = re.compile(
+      rf"^(?:~{_HYDRA_KEY}(?:=.*)?|(?:\+{{1,2}})?{_HYDRA_KEY}=.*)$"
+  )
+  ```
+
+  Accepted shapes: `key.path=value`, `+key=value` (force-add), `++key=value` (force-set), `~key` / `~key=value` (delete). The `=` is mandatory in every shape except the `~`-prefixed delete; this is what keeps bare positionals like `stray_token` from silently passing through.
+
+- `get_arena_builder_from_cli(args_cli, hydra_overrides: list[str] | None = None) -> ArenaEnvBuilder`. New optional kwarg; when non-empty the builder is constructed and then immediately fed through `env_builder.apply_hydra_variation_overrides(hydra_overrides)` before being returned. Defaults to `None`, so every existing caller (eval_runner, imitation-learning scripts, tests) stays byte-identical.
+
+### `isaaclab_arena/evaluation/policy_runner.py`
+
+The final strict `args_cli = args_parser.parse_args()` (previously line 164) becomes:
+
+```python
+args_cli, unknown = args_parser.parse_known_args()
+hydra_overrides = split_hydra_overrides(unknown, args_parser)
+...
+arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
+```
+
+The earlier `parse_known_args` calls in the same `main()` (which exist to peek at `--policy_type` before importing the policy class) are unchanged — they already silently drop unknowns and stay correct under the new flow.
+
+### `isaaclab_arena/tests/test_split_hydra_overrides.py` (new)
+
+Pure-Python unit test (no Isaac Sim dependency) covering both halves of the helper's contract:
+
+- All accepted Hydra shapes (`a.b=c`, `+a.b=c`, `++a.b=c`, `~a.b`, `~a.b=c`) pass through unchanged and in order; empty input → empty output; empty RHS (`a.b=`) accepted.
+- Parametrised rejection of `--object`, `--unknown_flag`, `stray_positional`, `1.0`, `key with space=value`, `=value_only`, `+just_plus`, and the empty token; each raises `SystemExit(2)` via `parser.error`.
+- Mixed valid + invalid batch fails the whole call.
+- Error message names the offending tokens (captured via pytest's `capsys`).
+
+### Deferred (still on `get_arena_builder_from_cli`'s `hydra_overrides=None` default)
+
+Every other entry point that builds an env via `get_arena_builder_from_cli` is unchanged in this slice and remains a one-spot diff to pick up later — the override-application lives inside the helper, so each script only needs the `parse_args() → parse_known_args() + split_hydra_overrides` swap:
+
+- [isaaclab_arena/evaluation/eval_runner.py](isaaclab_arena/evaluation/eval_runner.py) and the eval-runner JSON job-config schema (new `variation_overrides: list[str]` field on `Job`).
+- [isaaclab_arena/scripts/imitation_learning/record_demos.py](isaaclab_arena/scripts/imitation_learning/record_demos.py), [teleop.py](isaaclab_arena/scripts/imitation_learning/teleop.py), [replay_demos.py](isaaclab_arena/scripts/imitation_learning/replay_demos.py), [annotate_demos.py](isaaclab_arena/scripts/imitation_learning/annotate_demos.py), [generate_dataset.py](isaaclab_arena/scripts/imitation_learning/generate_dataset.py).
+
 ## Why this fits the existing surface
 
 - `_compose_variations_event_cfg` now filters on `v.enabled` itself (one extra line). The events_cfg it produces is identical to today, just sourced from a wider `get_variations()` and filtered locally.
@@ -155,13 +217,14 @@ In-notebook hard-coded list rather than the originally planned `parse_known_args
 
 ## Open questions / risks
 
-- **`@configclass` as a Hydra structured-config node (still container-only).** `OmegaConf.to_object` round-tripping a `@configclass`-decorated `VariationsCfg` tree is now load-bearing for `compose_variations_cfg`; the previous explicit-walk version sidestepped this by reading values straight off the `DictConfig`. A stdlib `@dataclass` mock of the shape passes locally; the real `@configclass` path still needs the Isaac Sim container. Fallback (if `to_object` misbehaves): reconstruct each per-variation cfg field-by-field inside `compose_variations_cfg` via `OmegaConf.to_container` + per-cfg-class constructor calls. `apply_hydra_variation_overrides` and `VariationBase.apply_cfg` stay unchanged.
+- **~~`@configclass` as a Hydra structured-config node.~~** Resolved: end-to-end `policy_runner.py` run with `cracker_box.color.{enabled,sampler.low,sampler.high}=...` overrides exercises `OmegaConf.to_object` round-tripping of the `@configclass`-decorated `VariationsCfg` (with nested `UniformSamplerCfg`) and the live `ObjectColorVariation` picks up the new sampler bounds. No fallback needed.
 - **Single sampler type.** `ObjectColorVariationCfg.sampler` is typed as `UniformSamplerCfg`, so the schema forces uniform RGB — exactly the POC scope. Discrete palettes (`DiscreteChoiceSampler`) will need a tagged-union extension later; out of scope here.
 - **~~Single `initialize` per process.~~** Addressed: `compose_variations_cfg` calls `GlobalHydra.instance().clear()` on entry before `hydra.initialize(...)`. Safe to call repeatedly across notebook cells / an eval-runner loop.
 
 ## Out of scope (this slice)
 
 - New variations (mass, lighting, HDR), new sampler types.
-- `policy_runner.py` / `eval_runner.py` wiring — kept to the example to keep the diff focused.
+- `eval_runner.py` wiring + JSON job-config schema extension — deferred to a follow-up PR; underlying plumbing in `get_arena_builder_from_cli` is ready.
+- Imitation-learning scripts (`record_demos.py`, `teleop.py`, `replay_demos.py`, `annotate_demos.py`, `generate_dataset.py`) — deferred for the same reason; each is a one-spot diff once we want it.
 - Experiment-config-file support.
 - Validation that disabling all variations leaves the env identical to the no-Hydra notebook (worth doing during implementation, but not a deliverable).
