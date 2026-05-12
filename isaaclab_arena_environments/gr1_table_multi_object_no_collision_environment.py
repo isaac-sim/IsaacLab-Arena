@@ -225,7 +225,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
 
             for set_name, variant_names in HETERO_VARIANT_SETS.items():
                 members = [self.asset_registry.get_asset_by_name(n)() for n in variant_names]
-                obj_set = RigidObjectSet(name=set_name, objects=members)
+                obj_set = RigidObjectSet(name=set_name, objects=members, random_choice=True)
                 obj_set.add_relation(On(tabletop_reference, clearance_m=0.01))
                 placeable_assets.append(obj_set)
 
