@@ -168,8 +168,7 @@ class RigidObjectSet(Object):
         n = len(self.objects)
         if any(idx < 0 or idx >= n for idx in variant_indices_by_env):
             raise ValueError(
-                f"RigidObjectSet '{self.name}' variant indices must be in [0, {n}); "
-                f"got {variant_indices_by_env}."
+                f"RigidObjectSet '{self.name}' variant indices must be in [0, {n}); got {variant_indices_by_env}."
             )
 
         self.variant_indices_by_env = list(variant_indices_by_env)
