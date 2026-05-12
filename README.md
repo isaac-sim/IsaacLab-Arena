@@ -249,6 +249,8 @@ If you use Isaac Lab (the underlying framework), please also cite the [Isaac Lab
 
 Isaac Lab-Arena builds on [NVIDIA Isaac Lab](https://github.com/isaac-sim/IsaacLab), with the evaluation and task layers designed in close collaboration with Lightwheel. We thank the Isaac Lab team and the broader robotics community for their foundational work.
 
+Isaac Lab-Arena was built in collaboration with the authors of Robolab ([website](https://research.nvidia.com/labs/srl/projects/robolab/), [paper](https://arxiv.org/abs/2604.09860)).
+
 ---
 
 <div align="center">

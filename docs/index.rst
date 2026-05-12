@@ -173,11 +173,17 @@ License
 ========
 This code is under an `open-source license <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/LICENSE.md>`_ (Apache 2.0).
 
-Contributing
-============
+Acknowledgments
+===============
 NVIDIA Isaac Lab-Arena is an open-source framework, available on GitHub, that provides a collaborative system for
 large-scale robot policy evaluation and benchmarking in simulation, with the evaluation and task layers designed
 in close collaboration with `Lightwheel <https://lightwheel.ai/>`_.
+
+Isaac Lab-Arena was built in collaboration with the authors of Robolab
+(`website <https://research.nvidia.com/labs/srl/projects/robolab/>`_, `paper <https://arxiv.org/abs/2604.09860>`_).
+
+Contributing
+============
 
 For more details on how to contribute to Isaac Lab Arena, please refer to the
 `Contributing Guidelines <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTING.md>`_.
