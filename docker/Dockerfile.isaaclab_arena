@@ -49,6 +49,10 @@ RUN /isaac-sim/python.sh -m pip install --no-deps -e ${WORKDIR}/submodules/Isaac
 # Install isaaclab
 RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 
+# DAQP version required for latest qpsolvers 4.12.0. Backport of IsaacLab #5556.
+# Can be dropped once the Isaac Lab submodule is bumped past 4934cd0ce5a53b86342f32d89e5491016c841769.
+RUN /isaac-sim/python.sh -m pip install --force-reinstall daqp==0.8.5
+
 # Install Isaac Teleop Python APIs (retargeters, device I/O, OpenXR bindings)
 RUN /isaac-sim/python.sh -m pip install isaacteleop~=1.1.0 --extra-index-url https://pypi.nvidia.com
 
