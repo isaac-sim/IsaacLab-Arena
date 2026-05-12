@@ -73,6 +73,10 @@ class PolicyBase(ABC):
         """
         pass
 
+    def close(self) -> None:
+        """Release resources held by the policy."""
+        pass
+
     def set_task_description(self, task_description: str | None) -> str:
         """Set the task description of the task being evaluated."""
         self.task_description = task_description

@@ -5,8 +5,10 @@
 
 import argparse
 import dataclasses
+import gc
 import json
 import os
+import torch
 import traceback
 from gymnasium.wrappers import RecordVideo
 from typing import TYPE_CHECKING
@@ -121,6 +123,7 @@ def main():
         for job in job_manager:
             if job is not None:
                 env = None
+                policy = None
                 try:
                     render_mode = "rgb_array" if args_cli.video else None
                     env = load_env(job.arena_env_args, job.name, render_mode=render_mode)
@@ -171,11 +174,25 @@ def main():
                         raise
 
                 finally:
-                    # Only stop env if it was successfully created
-                    if env is not None:
-                        teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
-                        # cleanup managers, including recorder manager closing hdf5 file
-                        env.close()
+                    try:
+                        if policy is not None:
+                            policy.close()
+                    finally:
+                        if policy is not None:
+                            del policy
+                            policy = None
+                        gc.collect()
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                        # Only stop env if it was successfully created
+                        if env is not None:
+                            teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
+                            # cleanup managers, including recorder manager closing hdf5 file
+                            env.close()
+                            env = None
+                            gc.collect()
+                            if torch.cuda.is_available():
+                                torch.cuda.empty_cache()
 
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()
