@@ -29,7 +29,8 @@ class RigidObjectSet(Object):
         objects: list[Object],
         prim_path: str | None = None,
         scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
-        random_choice: bool = False,
+        random_choice: bool = True,
+        variant_indices_by_env: list[int] | None = None,
         initial_pose: Pose | None = None,
         **kwargs,
     ):
@@ -42,7 +43,9 @@ class RigidObjectSet(Object):
             scale: The scale of the object set. Note all objects can only have the same scale, if
                 different scales are needed, considering scaling the object USD file.
             random_choice: Whether to randomly choose an object from the object set to spawn in
-                each environment. If False, object is spawned based on the order of objects in the list.
+                each environment. The assignment is sampled once when ``num_envs`` is known and
+                then reused across resets.
+            variant_indices_by_env: Optional fixed variant index for each environment.
             initial_pose: The initial pose of the object from this object set.
         """
         if not self._are_all_objects_type_rigid(objects):
@@ -65,18 +68,19 @@ class RigidObjectSet(Object):
             self.object_usd_paths = self._modify_assets(objects)
             print(f"Modified object USD paths: {self.object_usd_paths}")
         else:
-            self.object_usd_paths = [object.usd_path for object in objects]
+            self.object_usd_paths = []
+            for obj in objects:
+                assert obj.usd_path is not None
+                self.object_usd_paths.append(obj.usd_path)
 
         self.objects: list[Object] = objects
+        self._member_object_usd_paths: list[str] = list(self.object_usd_paths)
         self.random_choice = random_choice
         self.has_env_specific_bboxes: bool = len(objects) > 1
+        self.variant_indices_by_env: list[int] | None = None
 
-        if self.has_env_specific_bboxes and self.random_choice:
-            raise ValueError(
-                f"RigidObjectSet '{name}': random_choice=True is not supported with heterogeneous "
-                "placement (len(objects) > 1). The placement pool assumes round-robin variant "
-                "assignment (env_index % num_variants) which conflicts with random spawning order."
-            )
+        if variant_indices_by_env is not None:
+            self._set_variant_indices_by_env(variant_indices_by_env)
 
         # Set default prim_path if not provided
         if prim_path is None:
@@ -103,10 +107,9 @@ class RigidObjectSet(Object):
     def get_variant_indices(self, num_envs: int) -> list[int]:
         """Return which member object index is assigned to each environment.
 
-        Multi-variant sets use round-robin assignment
-        (``env_index % len(objects)``). ``random_choice=True`` with multiple
-        variants is rejected in ``__init__`` because placement needs to know
-        the assigned variant for each env.
+        Multi-variant sets use one fixed assignment for the lifetime of the
+        object set. By default, each env independently samples one variant
+        once, then keeps it across resets.
 
         Args:
             num_envs: Number of environments.
@@ -114,8 +117,15 @@ class RigidObjectSet(Object):
         Returns:
             List of length ``num_envs`` with indices into ``self.objects``.
         """
-        n = len(self.objects)
-        return [i % n for i in range(num_envs)]
+        if self.variant_indices_by_env is None:
+            self._set_variant_indices_by_env(self._generate_variant_indices(num_envs))
+        elif len(self.variant_indices_by_env) != num_envs:
+            raise ValueError(
+                f"RigidObjectSet '{self.name}' has variant assignments for "
+                f"{len(self.variant_indices_by_env)} envs, got request for {num_envs}."
+            )
+        assert self.variant_indices_by_env is not None
+        return self.variant_indices_by_env
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
         """Get the actual bounding box for each env's variant.
@@ -143,10 +153,41 @@ class RigidObjectSet(Object):
         # and we can use the first USD path to find the shallowest rigid body.
         return super().get_contact_sensor_cfg(contact_against_object, usd_path=self.object_usd_paths[0])
 
-    def _are_all_objects_type_rigid(self, objects: list[ObjectBase]) -> bool:
+    def _generate_variant_indices(self, num_envs: int) -> list[int]:
+        n = len(self.objects)
+        if n == 1:
+            return [0 for _ in range(num_envs)]
+        if not self.random_choice:
+            raise ValueError(
+                f"RigidObjectSet '{self.name}' has {n} variants and random_choice=False, "
+                "but no variant_indices_by_env were provided."
+            )
+        return torch.randint(low=0, high=n, size=(num_envs,)).tolist()
+
+    def _set_variant_indices_by_env(self, variant_indices_by_env: list[int]) -> None:
+        n = len(self.objects)
+        if any(idx < 0 or idx >= n for idx in variant_indices_by_env):
+            raise ValueError(
+                f"RigidObjectSet '{self.name}' variant indices must be in [0, {n}); "
+                f"got {variant_indices_by_env}."
+            )
+
+        self.variant_indices_by_env = list(variant_indices_by_env)
+        if self.has_env_specific_bboxes:
+            self.object_usd_paths = [self._member_object_usd_paths[idx] for idx in self.variant_indices_by_env]
+            spawn_cfg = self.object_cfg.spawn if getattr(self, "object_cfg", None) is not None else None
+            if isinstance(spawn_cfg, sim_utils.MultiUsdFileCfg):
+                spawn_cfg.usd_path = self.object_usd_paths
+                spawn_cfg.random_choice = False
+
+    def _are_all_objects_type_rigid(self, objects: list[Object]) -> bool:
         if objects is None or len(objects) == 0:
             raise ValueError(f"Object set {self.name} must contain at least 1 object.")
-        return all(detect_object_type(usd_path=object.usd_path) == ObjectType.RIGID for object in objects)
+        for obj in objects:
+            assert obj.usd_path is not None
+            if detect_object_type(usd_path=obj.usd_path) != ObjectType.RIGID:
+                return False
+        return True
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID
@@ -154,11 +195,12 @@ class RigidObjectSet(Object):
             prim_path=self.prim_path,
             spawn=sim_utils.MultiUsdFileCfg(
                 usd_path=self.object_usd_paths,
-                random_choice=self.random_choice,
+                random_choice=self.random_choice if self.variant_indices_by_env is None else False,
                 activate_contact_sensors=True,
             ),
         )
         object_cfg = self._add_initial_pose_to_cfg(object_cfg)
+        assert isinstance(object_cfg, RigidObjectCfg)
         return object_cfg
 
     def _generate_articulation_cfg(self):
@@ -191,6 +233,7 @@ class RigidObjectSet(Object):
     def _get_all_rigid_body_depths(self, objects: list[Object]) -> list[int]:
         depths = []
         for asset in objects:
+            assert asset.usd_path is not None
             shallowest_rigid_body = find_shallowest_rigid_body(asset.usd_path)
             depth = shallowest_rigid_body.count("/") - 1 if shallowest_rigid_body else -1
             depths.append(depth)

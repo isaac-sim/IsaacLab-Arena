@@ -5,6 +5,7 @@
 
 import os
 import traceback
+from unittest.mock import patch
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -14,6 +15,50 @@ OBJECT_SET_1_PRIM_PATH = "/World/envs/env_.*/ObjectSet_1"
 OBJECT_SET_2_PRIM_PATH = "/World/envs/env_.*/ObjectSet_2"
 OBJECT_SET_JUG_PRIM_PATH = "/World/envs/env_.*/ObjectSet_Jug"
 OBJECT_SET_BOTTLES_PRIM_PATH = "/World/envs/env_.*/ObjectSet_Bottles"
+
+
+def _make_object_set_variants():
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    can_a = Object(name="can_a", object_type=ObjectType.RIGID, usd_path="/tmp/can_a.usd")
+    can_b = Object(name="can_b", object_type=ObjectType.RIGID, usd_path="/tmp/can_b.usd")
+    bbox_a = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.2))
+    bbox_b = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.3))
+    can_a.bounding_box = bbox_a
+    can_b.bounding_box = bbox_b
+    return can_a, can_b, bbox_a, bbox_b
+
+
+def _test_object_set_samples_and_stores_variant_indices(simulation_app):
+    """Variant assignment should be sampled once and reused for spawning and bboxes."""
+    import torch
+
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+
+    can_a, can_b, bbox_a, bbox_b = _make_object_set_variants()
+    assigned_variant_indices = [1, 0, 1, 1]
+
+    with (
+        patch("isaaclab_arena.assets.object_set.detect_object_type", return_value=ObjectType.RIGID),
+        patch("isaaclab_arena.assets.object_set.find_shallowest_rigid_body", return_value="/rigid"),
+        patch("isaaclab_arena.assets.object_set.torch.randint", return_value=torch.tensor(assigned_variant_indices)),
+    ):
+        obj_set = RigidObjectSet(name="cans", objects=[can_a, can_b])
+        assert obj_set.variant_indices_by_env is None
+        assert obj_set.get_variant_indices(num_envs=4) == assigned_variant_indices
+
+    assert obj_set.object_usd_paths == [can_b.usd_path, can_a.usd_path, can_b.usd_path, can_b.usd_path]
+    spawn_cfg = obj_set.object_cfg.spawn
+    assert getattr(spawn_cfg, "usd_path") == obj_set.object_usd_paths
+    assert getattr(spawn_cfg, "random_choice") is False
+
+    per_env_bbox = obj_set.get_bounding_box_per_env(num_envs=4)
+    assert torch.allclose(per_env_bbox.max_point[0], bbox_b.max_point[0])
+    assert torch.allclose(per_env_bbox.max_point[1], bbox_a.max_point[0])
+    return True
 
 
 def _build_and_reset_env(simulation_app, scene_assets, env_name="object_set_test", task=None):
@@ -358,6 +403,14 @@ def test_empty_object_set():
         headless=HEADLESS,
     )
     assert result, f"Test {_test_empty_object_set.__name__} failed"
+
+
+def test_object_set_samples_and_stores_variant_indices():
+    result = run_simulation_app_function(
+        _test_object_set_samples_and_stores_variant_indices,
+        headless=HEADLESS,
+    )
+    assert result, f"Test {_test_object_set_samples_and_stores_variant_indices.__name__} failed"
 
 
 def test_articulation_object_set():
