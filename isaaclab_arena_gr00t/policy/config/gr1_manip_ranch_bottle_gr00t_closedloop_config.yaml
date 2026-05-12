@@ -23,5 +23,5 @@ task_mode_name: gr1_tabletop_manipulation
 
 pov_cam_name_sim: "robot_pov_cam_rgb"
 
-original_image_size: [512, 512, 3]
-target_image_size: [512, 512, 3]
+original_image_size: [64, 64, 3]
+target_image_size: [64, 64, 3]

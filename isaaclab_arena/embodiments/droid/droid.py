@@ -392,7 +392,7 @@ class DroidCameraCfg:
     """Configuration for cameras. DROID cameras are mounted with pre-set poses."""
 
     external_camera: CameraCfg | TiledCameraCfg = MISSING
-    external_camera_2: CameraCfg | TiledCameraCfg = MISSING
+    # external_camera_2: CameraCfg | TiledCameraCfg = MISSING
     wrist_camera: CameraCfg | TiledCameraCfg = MISSING
 
     def __post_init__(self):
@@ -405,8 +405,8 @@ class DroidCameraCfg:
 
         self.external_camera = CameraClass(
             prim_path="{ENV_REGEX_NS}/Robot/external_camera",
-            height=720,
-            width=1280,
+            height=18,
+            width=32,
             data_types=["rgb"],
             spawn=sim_utils.PinholeCameraCfg(
                 focal_length=2.1,
@@ -416,25 +416,25 @@ class DroidCameraCfg:
             ),
             offset=OffsetClass(pos=(0.05, 0.57, 0.66), rot=(-0.393, -0.195, 0.399, 0.805), convention="opengl"),
         )
-        self.external_camera_2 = CameraClass(
-            prim_path="{ENV_REGEX_NS}/Robot/external_camera_2",
-            height=720,
-            width=1280,
-            data_types=["rgb"],
-            spawn=sim_utils.PinholeCameraCfg(
-                focal_length=2.1,
-                focus_distance=28.0,
-                horizontal_aperture=5.376,
-                vertical_aperture=3.024,
-            ),
-            offset=CameraCfg.OffsetCfg(
-                pos=(0.05, -0.57, 0.66), rot=(0.805, 0.399, -0.195, -0.393), convention="opengl"
-            ),
-        )
+        # self.external_camera_2 = CameraClass(
+        #     prim_path="{ENV_REGEX_NS}/Robot/external_camera_2",
+        #     height=720,
+        #     width=1280,
+        #     data_types=["rgb"],
+        #     spawn=sim_utils.PinholeCameraCfg(
+        #         focal_length=2.1,
+        #         focus_distance=28.0,
+        #         horizontal_aperture=5.376,
+        #         vertical_aperture=3.024,
+        #     ),
+        #     offset=CameraCfg.OffsetCfg(
+        #         pos=(0.05, -0.57, 0.66), rot=(0.805, 0.399, -0.195, -0.393), convention="opengl"
+        #     ),
+        # )
         self.wrist_camera = CameraClass(
             prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link/wrist_camera",
-            height=720,
-            width=1280,
+            height=18,
+            width=32,
             data_types=["rgb"],
             spawn=sim_utils.PinholeCameraCfg(
                 focal_length=2.8,
