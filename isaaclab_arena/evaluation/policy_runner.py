@@ -200,9 +200,10 @@ def main():
             else:
                 raise ValueError(f"[Rank {local_rank}/{world_size}] Either num_steps or num_episodes must be provided")
 
-        # Optionally wrap with RecordVideo. Mirrors the eval_runner.py wiring so the same
-        # mp4 layout works between policy_runner and eval_runner.
-        if args_cli.video:
+        # Optionally wrap with RecordVideo and/or CameraObsVideoRecorder. The two flags
+        # are independent: --video records the kit viewport (via env.render()),
+        # --camera_video records the embodiment-mounted cameras (from obs["camera_obs"]).
+        if args_cli.video or args_cli.camera_video:
             os.makedirs(args_cli.video_dir, exist_ok=True)
             if num_steps is not None:
                 video_length = num_steps
@@ -210,6 +211,8 @@ def main():
                 # When num_episodes is set, capture exactly one episode's worth of frames.
                 # max_episode_length is in environment steps, which matches our rollout cadence.
                 video_length = num_episodes * env.unwrapped.max_episode_length
+
+        if args_cli.video:
             env = RecordVideo(
                 env,
                 video_folder=args_cli.video_dir,
@@ -217,16 +220,24 @@ def main():
                 video_length=video_length,
                 disable_logger=True,
             )
-            # Also capture the embodiment-mounted cameras (what the policy sees).
-            # RecordVideo above grabs the kit viewport; this wrapper writes one
-            # mp4 per camera from obs["camera_obs"] using the same encoder.
+            print(
+                f"[Rank {local_rank}/{world_size}] Recording {video_length}-step viewport video to:"
+                f" {args_cli.video_dir}"
+            )
+
+        if args_cli.camera_video:
+            # Record one mp4 per camera in obs["camera_obs"] (what the policy sees),
+            # using the same encoder as RecordVideo.
             env = CameraObsVideoRecorder(
                 env,
                 video_folder=args_cli.video_dir,
                 step_trigger=lambda step: step == 0,
                 video_length=video_length,
             )
-            print(f"[Rank {local_rank}/{world_size}] Recording {video_length}-step video to: {args_cli.video_dir}")
+            print(
+                f"[Rank {local_rank}/{world_size}] Recording {video_length}-step per-camera videos to:"
+                f" {args_cli.video_dir}"
+            )
 
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
         print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")

@@ -14,17 +14,26 @@ named ``<name_prefix>-<cam>-step-<N>.mp4``.
 policy_runner.py wraps the env with this alongside ``RecordVideo`` so
 the kit viewport mp4 (third-person scene view) and the embodiment-
 mounted camera mp4s (what the policy actually sees) are written
-together when ``--video`` is set.
+together when ``--video --camera_video`` is set.
+
+Multi-env note: Arena batches camera observations as
+``[N_envs, H, W, C]``. This wrapper records env 0 only (``frame[0]``);
+other envs are silently dropped. ``RecordVideo`` for the kit viewport
+is unaffected — the viewport shows the full scene regardless of
+``num_envs``.
 """
 
 from __future__ import annotations
 
-import os
-from collections.abc import Callable
-
 import gymnasium as gym
 import numpy as np
+import os
 import torch
+from collections.abc import Callable
+
+from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
+
+CAMERA_OBS_GROUP_KEY = "camera_obs"
 
 
 def _to_uint8(frame: torch.Tensor | np.ndarray) -> np.ndarray:
@@ -39,8 +48,17 @@ def _to_uint8(frame: torch.Tensor | np.ndarray) -> np.ndarray:
     return frame.astype(np.uint8)
 
 
+def _sanitize_cam_key(key: str) -> str:
+    """Strip path separators so a camera key can't escape video_folder."""
+    return key.replace("/", "_").replace(os.sep, "_")
+
+
 class CameraObsVideoRecorder(gym.Wrapper):
-    """Record an mp4 per camera in ``obs['camera_obs']``."""
+    """Record an mp4 per camera in ``obs['camera_obs']``.
+
+    Records env 0 only: cameras are batched as ``[N_envs, H, W, C]`` and the
+    wrapper picks ``frame[0]``. Intended for single-env evaluation rollouts.
+    """
 
     def __init__(
         self,
@@ -48,7 +66,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
         video_folder: str,
         step_trigger: Callable[[int], bool],
         video_length: int,
-        name_prefix: str = "rl-video",
+        name_prefix: str = "robot-cam",
         fps: int | None = None,
     ):
         super().__init__(env)
@@ -68,7 +86,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
         result = self.env.step(action)
         self.step_id += 1
         obs = result[0]
-        cam_obs = obs.get("camera_obs", {}) if isinstance(obs, dict) else {}
+        cam_obs = obs.get(CAMERA_OBS_GROUP_KEY, {}) if isinstance(obs, dict) else {}
 
         if not self.recording and self.step_trigger(self.step_id):
             self.recording = True
@@ -77,6 +95,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
 
         if self.recording and cam_obs:
             for k, frame in cam_obs.items():
+                # frame: [N_envs, H, W, C]; record env 0 only.
                 self.buffers.setdefault(k, []).append(_to_uint8(frame[0]))
             if self.buffers and all(len(v) >= self.video_length for v in self.buffers.values()):
                 self._flush()
@@ -84,14 +103,12 @@ class CameraObsVideoRecorder(gym.Wrapper):
         return result
 
     def _flush(self) -> None:
-        from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
-
         for cam, frames in self.buffers.items():
             if not frames:
                 continue
             path = os.path.join(
                 self.video_folder,
-                f"{self.name_prefix}-{cam}-step-{self.recording_start_step}.mp4",
+                f"{self.name_prefix}-{_sanitize_cam_key(cam)}-step-{self.recording_start_step}.mp4",
             )
             clip = ImageSequenceClip(list(frames), fps=self.fps)
             clip.write_videofile(path, logger=None, audio=False)
@@ -100,6 +117,8 @@ class CameraObsVideoRecorder(gym.Wrapper):
         self.buffers = {}
 
     def close(self) -> None:
-        if self.recording and any(len(v) > 0 for v in self.buffers.values()):
-            self._flush()
-        return self.env.close()
+        try:
+            if self.recording and any(len(v) > 0 for v in self.buffers.values()):
+                self._flush()
+        finally:
+            self.env.close()

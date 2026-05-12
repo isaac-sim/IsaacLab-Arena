@@ -43,5 +43,15 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
         "--video-dir",
         type=str,
         default="/eval/videos",
-        help="Output directory for the recorded video. Created if missing. Used only with --video.",
+        help="Output directory for recorded videos. Created if missing. Used with --video and/or --camera_video.",
+    )
+    parser.add_argument(
+        "--camera_video",
+        "--camera-video",
+        action="store_true",
+        default=False,
+        help=(
+            "Record one mp4 per camera in obs['camera_obs'] (what the policy actually sees)."
+            " Independent of --video; use either or both."
+        ),
     )
