@@ -414,7 +414,7 @@ class DroidCameraCfg:
                 horizontal_aperture=5.376,
                 vertical_aperture=3.024,
             ),
-            offset=OffsetClass(pos=(0.05, 0.57, 0.66), rot=(-0.393, -0.195, 0.399, 0.805), convention="opengl"),
+            offset=OffsetClass(pos=(0.05, 0.57, 0.66), rot=(-0.195, 0.399, 0.805, -0.393), convention="opengl"),
         )
         self.external_camera_2 = CameraClass(
             prim_path="{ENV_REGEX_NS}/Robot/external_camera_2",
@@ -428,7 +428,7 @@ class DroidCameraCfg:
                 vertical_aperture=3.024,
             ),
             offset=CameraCfg.OffsetCfg(
-                pos=(0.05, -0.57, 0.66), rot=(0.805, 0.399, -0.195, -0.393), convention="opengl"
+                pos=(0.05, -0.57, 0.66), rot=(0.399, -0.195, -0.393, 0.805), convention="opengl"
             ),
         )
         self.wrist_camera = CameraClass(
@@ -443,6 +443,6 @@ class DroidCameraCfg:
                 vertical_aperture=3.024,
             ),
             offset=CameraCfg.OffsetCfg(
-                pos=(0.011, -0.031, -0.074), rot=(-0.420, 0.570, 0.576, -0.409), convention="opengl"
+                pos=(0.011, -0.031, -0.074), rot=(0.570, 0.576, -0.409, -0.420), convention="opengl"
             ),
         )
