@@ -18,7 +18,7 @@ from isaaclab_arena.relations.loss_primitives import (
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.relations import AtPosition, NextTo, On, PositionLimits, Relation
+    from isaaclab_arena.relations.relations import AtPosition, NextTo, On, PositionLimits, Relation, UnaryRelation
 
 from isaaclab_arena.relations.relations import Side
 
@@ -71,7 +71,7 @@ class UnaryRelationLossStrategy(ABC):
     @abstractmethod
     def compute_loss(
         self,
-        relation: "Relation",
+        relation: "UnaryRelation",
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
@@ -325,11 +325,8 @@ class NoCollisionLossStrategy:
     Computes loss based on:
     1. X overlap: zero when child and parent are separated along X; else overlap length
     2. Y overlap: zero when separated along Y; else overlap length
-    3. Z overlap: zero when separated along Z; else overlap length (skipped when xy_only=True)
-    4. Loss: slope * overlap product (area when xy_only, volume otherwise)
-
-    When ``xy_only=True``, only XY overlap is used — suitable for objects on the
-    same surface where Z overlap is expected and Z gradients would fight the On constraint.
+    3. Z overlap: zero when separated along Z; else overlap length
+    4. Volume loss: slope * (overlap_x * overlap_y * overlap_z)
 
     This is a standalone strategy (not a RelationLossStrategy) because no-overlap
     is a built-in solver behavior, not a user-specified relation.
@@ -351,7 +348,6 @@ class NoCollisionLossStrategy:
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
-        xy_only: bool = False,
     ) -> torch.Tensor:
         """Compute loss for no-overlap constraint.
 
@@ -360,8 +356,6 @@ class NoCollisionLossStrategy:
             child_pos: Child object position (N, 3) in world coords.
             child_bbox: Child object local bounding box (N=1).
             parent_world_bbox: Parent bounding box in world coordinates.
-            xy_only: If True, compute 2D (XY) overlap area instead of 3D volume.
-                Use for objects on the same surface where Z overlap is expected.
 
         Returns:
             Loss tensor of shape (N,).
@@ -376,6 +370,8 @@ class NoCollisionLossStrategy:
         parent_x_max = parent_world_bbox.max_point[:, 0] + c
         parent_y_min = parent_world_bbox.min_point[:, 1] - c
         parent_y_max = parent_world_bbox.max_point[:, 1] + c
+        parent_z_min = parent_world_bbox.min_point[:, 2] - c
+        parent_z_max = parent_world_bbox.max_point[:, 2] + c
 
         # Child world extents
         child_world_min = child_pos + child_bbox.min_point
@@ -384,18 +380,11 @@ class NoCollisionLossStrategy:
         # 1. Per-axis overlap: zero when separated; else overlap length (default slope 1.0 gives length in m)
         overlap_x = interval_overlap_axis_loss(child_world_min[:, 0], child_world_max[:, 0], parent_x_min, parent_x_max)
         overlap_y = interval_overlap_axis_loss(child_world_min[:, 1], child_world_max[:, 1], parent_y_min, parent_y_max)
+        overlap_z = interval_overlap_axis_loss(child_world_min[:, 2], child_world_max[:, 2], parent_z_min, parent_z_max)
 
-        if xy_only:
-            overlap_area = overlap_x * overlap_y
-            total_loss = self.slope * overlap_area
-        else:
-            parent_z_min = parent_world_bbox.min_point[:, 2] - c
-            parent_z_max = parent_world_bbox.max_point[:, 2] + c
-            overlap_z = interval_overlap_axis_loss(
-                child_world_min[:, 2], child_world_max[:, 2], parent_z_min, parent_z_max
-            )
-            overlap_volume = overlap_x * overlap_y * overlap_z
-            total_loss = self.slope * overlap_volume
+        # 2. Volume loss: slope * product of per-axis overlap lengths (overlap volume when slope 1.0)
+        overlap_volume = overlap_x * overlap_y * overlap_z
+        total_loss = self.slope * overlap_volume
 
         if self.debug and child_pos.shape[0] == 1:
             print(
@@ -408,14 +397,12 @@ class NoCollisionLossStrategy:
                 f" {child_world_max[0, 1].item():.4f}], parent_y=[{parent_y_min[0].item():.4f},"
                 f" {parent_y_max[0].item():.4f}])"
             )
-            if not xy_only:
-                print(
-                    f"    [NoCollision] Z: overlap={overlap_z[0].item():.6f}"
-                    f" (child_z=[{child_world_min[0, 2].item():.4f},"
-                    f" {child_world_max[0, 2].item():.4f}], parent_z=[{parent_z_min[0].item():.4f},"
-                    f" {parent_z_max[0].item():.4f}])"
-                )
-            print(f"    [NoCollision] loss={total_loss[0].item():.6f}")
+            print(
+                f"    [NoCollision] Z: overlap={overlap_z[0].item():.6f} (child_z=[{child_world_min[0, 2].item():.4f},"
+                f" {child_world_max[0, 2].item():.4f}], parent_z=[{parent_z_min[0].item():.4f},"
+                f" {parent_z_max[0].item():.4f}])"
+            )
+            print(f"    [NoCollision] volume={overlap_volume[0].item():.6f}, loss={total_loss[0].item():.6f}")
 
         return total_loss.squeeze(0) if single_input else total_loss
 

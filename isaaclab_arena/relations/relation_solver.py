@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import torch
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from isaaclab_arena.relations.relation_loss_strategies import (
     NoCollisionLossStrategy,
@@ -110,7 +110,8 @@ class RelationSolver:
 
                 # Handle unary relations (no parent)
                 if isinstance(relation, UnaryRelation):
-                    loss = strategy.compute_loss(
+                    unary_strategy = cast(UnaryRelationLossStrategy, strategy)
+                    loss = unary_strategy.compute_loss(
                         relation=relation,
                         child_pos=child_pos,
                         child_bbox=child_bbox,
@@ -119,6 +120,7 @@ class RelationSolver:
                         _print_unary_relation_debug(obj, relation, child_pos[0], loss.mean())
                 # Handle binary relations (with parent) like On, NextTo
                 elif isinstance(relation, Relation):
+                    relation_strategy = cast(RelationLossStrategy, strategy)
                     parent = relation.parent
                     if parent in state.anchor_objects:
                         parent_world_bbox = parent.get_world_bounding_box().to(device)
@@ -126,7 +128,7 @@ class RelationSolver:
                         parent_pos = state.get_position(parent)
                         parent_bbox = self._get_bbox(parent, device, env_bboxes)
                         parent_world_bbox = parent_bbox.translated(parent_pos)
-                    loss = strategy.compute_loss(
+                    loss = relation_strategy.compute_loss(
                         relation=relation,
                         child_pos=child_pos,
                         child_bbox=child_bbox,
@@ -152,15 +154,12 @@ class RelationSolver:
         debug: bool = False,
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
     ) -> torch.Tensor:
-        """Compute pairwise no-overlap loss for non-anchor object pairs only.
+        """Compute pairwise no-overlap loss for all non-anchor objects against all other objects.
 
-        Anchor objects (e.g. the table) are excluded: the On relation already
-        controls Z placement relative to anchors, and adding a 3D clearance
-        envelope around the anchor would fight the On constraint in Z.
-
-        Each unique non-anchor pair is evaluated twice (once per direction) so
-        both objects receive gradient.  Uses xy_only=True because objects on the
-        same surface share Z height.
+        Each unique pair is evaluated twice (once per direction):
+        - Non-anchor vs anchor: gradient flows to the non-anchor only.
+        - Non-anchor vs non-anchor: both objects receive gradient by computing
+          the loss in both directions with the other's position detached.
 
         Args:
             state: Current optimization state with object positions.
@@ -174,14 +173,26 @@ class RelationSolver:
         total_loss = torch.zeros(state.batch_size, device=device, dtype=torch.float32)
 
         non_anchor_objects = state.optimizable_objects
+        anchor_objects = list(state.anchor_objects)
 
         for i, child in enumerate(non_anchor_objects):
             child_pos = state.get_position(child)
             child_bbox = self._get_bbox(child, device, env_bboxes)
 
-            # Against other non-anchors (unique pairs, both directions).
-            # Uses xy_only=True because objects on the same surface share Z height;
-            # 3D overlap would generate Z-gradient fighting the On constraint.
+            # Against all anchors
+            for anchor in anchor_objects:
+                anchor_world_bbox = anchor.get_world_bounding_box().to(device)
+                loss = self._no_collision_strategy.compute_loss(
+                    clearance_m=self.params.clearance_m,
+                    child_pos=child_pos,
+                    child_bbox=child_bbox,
+                    parent_world_bbox=anchor_world_bbox,
+                )
+                if debug:
+                    print(f"  [NoOverlap] {child.name} vs {anchor.name}: loss={loss.mean().item():.6f}")
+                total_loss = total_loss + loss
+
+            # Against other non-anchors (unique pairs, both directions)
             for j in range(i + 1, len(non_anchor_objects)):
                 other = non_anchor_objects[j]
                 other_pos = state.get_position(other)
@@ -194,7 +205,6 @@ class RelationSolver:
                     child_pos=child_pos,
                     child_bbox=child_bbox,
                     parent_world_bbox=other_world_bbox,
-                    xy_only=True,
                 )
 
                 # Reverse: gradient flows to other (object j)
@@ -204,7 +214,6 @@ class RelationSolver:
                     child_pos=other_pos,
                     child_bbox=other_bbox,
                     parent_world_bbox=child_world_bbox,
-                    xy_only=True,
                 )
 
                 if debug:
