@@ -18,7 +18,7 @@ nvidia-smi
 
 mkdir -p "${OUTPUT_DIR}"
 
-python gr00t/experiment/launch_finetune.py \
+uv run python gr00t/experiment/launch_finetune.py \
   --dataset-path="${DATASET_PATH}" \
   --output-dir="${OUTPUT_DIR}" \
   --modality-config-path="${MODALITY_CONFIG}" \
@@ -41,7 +41,7 @@ CHECKPOINT="${OUTPUT_DIR}/checkpoint-${MAX_STEPS}"
 [ -d "${CHECKPOINT}" ] || { echo "expected checkpoint not found at ${CHECKPOINT}"; ls -la "${OUTPUT_DIR}"; exit 1; }
 
 echo "Starting GR00T inference server with ${CHECKPOINT} on port ${SERVER_PORT}"
-exec python gr00t/eval/run_gr00t_server.py \
+exec uv run python gr00t/eval/run_gr00t_server.py \
   --model_path="${CHECKPOINT}" \
   --embodiment_tag=NEW_EMBODIMENT \
   --host=0.0.0.0 \
