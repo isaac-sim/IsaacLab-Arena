@@ -54,11 +54,7 @@ the server is ready. Leave the terminal running.
 > data transforms (we use upstream's `_polaris` configs). `--policy.dir`
 > declares where to load params + normalization stats from. Weights are
 > loaded from `--policy.dir`, and norm stats found there override the
-> config-baked path. We point at `gs://openpi-assets-simeval/...` because
-> empirically those checkpoints grasp more reliably than the
-> `gs://openpi-assets/checkpoints/polaris/...` weights the polaris
-> configs default to (same Pi0 architecture, but trained without polaris
-> cotrain data).
+> config-baked path.
 
 ### 3. Run the arena client
 
@@ -96,7 +92,7 @@ The arena IsaacSim window shows the droid arm reacting to pi0's commanded joint 
 |--------------------|----------------------------------|------------------------------------------------------|-----------------------|------------------:|
 | `pi05` (default)   | `pi05_droid_jointpos_polaris`    | `gs://openpi-assets-simeval/pi05_droid_jointpos`     | `droid_abs_joint_pos` | 15                |
 | `pi0`              | `pi0_droid_jointpos_polaris`     | `gs://openpi-assets-simeval/pi0_droid_jointpos`      | `droid_abs_joint_pos` | 10                |
-| `pi0_fast`         | `pi0_fast_droid_jointpos_polaris`| `s3://openpi-assets-simeval/pi0_fast_droid_jointpos` *(untested — needs s3fs in the image)* | `droid_rel_joint_pos` | 10 |
+| `pi0_fast`         | `pi0_fast_droid_jointpos_polaris`| `gs://openpi-assets/checkpoints/polaris/pi0_fast_droid_jointpos_polaris` *(untested)* | `droid_rel_joint_pos` | 10 |
 
 The horizon table lives in `pi0_droid_config.py`
 (`OPEN_LOOP_HORIZON_BY_VARIANT`); add a new key there if you train a new

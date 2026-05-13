@@ -35,10 +35,9 @@ class Pi0DroidRemotePolicy(PolicyBase):
 
     def __init__(self, config: Pi0DroidRemotePolicyArgs) -> None:
         super().__init__(config)
-        if config.policy_variant not in OPEN_LOOP_HORIZON_BY_VARIANT:
-            raise ValueError(
-                f"Unknown policy_variant {config.policy_variant!r}; known: {sorted(OPEN_LOOP_HORIZON_BY_VARIANT)}"
-            )
+        assert (
+            config.policy_variant in OPEN_LOOP_HORIZON_BY_VARIANT
+        ), f"Unknown policy_variant {config.policy_variant!r}; known: {sorted(OPEN_LOOP_HORIZON_BY_VARIANT)}"
         self.open_loop_horizon = OPEN_LOOP_HORIZON_BY_VARIANT[config.policy_variant]
         self.device = config.policy_device
 
@@ -95,8 +94,8 @@ class Pi0DroidRemotePolicy(PolicyBase):
             f" got num_envs={env.unwrapped.num_envs}"
         )
         assert self.task_description, (
-            "Pi0DroidRemotePolicy requires a non-empty language instruction. "
-            "Set --language_instruction or define task_description on the task."
+            "Pi0DroidRemotePolicy requires a non-empty language instruction"
+            " (set via --language_instruction or on the task definition)."
         )
 
         chunk_exhausted = self._cached_action_chunk is None or self._next_chunk_step >= self.open_loop_horizon
@@ -113,7 +112,6 @@ class Pi0DroidRemotePolicy(PolicyBase):
         self._next_chunk_step = 0
 
     def _fetch_action_chunk(self, observation: dict[str, Any]) -> np.ndarray:
-        """Round-trip to the openpi server; returns a postprocessed ``(open_loop_horizon, 8)`` chunk."""
         droid_obs = self._extract_droid_observation(observation)
         server_request = self._pack_pi0_request(droid_obs, self.task_description)
         server_response = self._call_server_with_retry(server_request)
@@ -128,7 +126,6 @@ class Pi0DroidRemotePolicy(PolicyBase):
         return action_chunk[: self.open_loop_horizon].astype(np.float32, copy=True)
 
     def _extract_droid_observation(self, observation: dict[str, Any]) -> dict[str, np.ndarray]:
-        """Pull the env-0 tensors out of the Arena gym observation dict."""
         cam = observation["camera_obs"]
         proprio = observation["policy"]
         return {
@@ -142,7 +139,6 @@ class Pi0DroidRemotePolicy(PolicyBase):
         }
 
     def _pack_pi0_request(self, droid_obs: dict[str, np.ndarray], language_instruction: str) -> dict[str, Any]:
-        """Build the request payload the openpi droid server expects."""
         target_height, target_width = TARGET_IMAGE_SIZE
         return {
             "observation/exterior_image_1_left": image_tools.resize_with_pad(
@@ -183,5 +179,4 @@ class Pi0DroidRemotePolicy(PolicyBase):
                 )
                 self._cached_action_chunk = None
                 self._next_chunk_step = 0
-        # Unreachable: the loop either returns or raises.
         raise RuntimeError("unreachable")

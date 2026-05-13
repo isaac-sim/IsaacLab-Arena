@@ -3,22 +3,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Configuration constants, variant table, and CLI args for the openpi DROID policy.
-
-Holds everything that is *not* execution logic: image / action-layout
-facts fixed by upstream pi0 droid checkpoints, Arena's DROID observation
-key names, the per-variant open-loop horizon table, and the runtime
-``Pi0DroidRemotePolicyArgs`` dataclass consumed by the policy.
-"""
-
 from dataclasses import dataclass
 
-# --- Pi0 droid checkpoint facts (fixed by upstream) ---
-# DROID action layout: 7 panda arm joints + 1 gripper command.
+# Fixed by upstream pi0 droid checkpoints: 7 panda joints + 1 gripper command.
 ACTION_DIM = 8
-# Image format the trained models expect (after letterbox padding).
 TARGET_IMAGE_SIZE = (224, 224)
-# Per-variant open-loop horizon: how many actions to replay before refetching.
+
+# How many actions to replay before refetching a new chunk from the server.
 OPEN_LOOP_HORIZON_BY_VARIANT: dict[str, int] = {
     "pi05": 15,
     "pi0": 10,
@@ -26,11 +17,9 @@ OPEN_LOOP_HORIZON_BY_VARIANT: dict[str, int] = {
 }
 DEFAULT_VARIANT = "pi05"
 
-# --- Arena DROID embodiment vocabulary ---
 ARENA_EXTERNAL_CAMERA_KEY = "external_camera_rgb"
 ARENA_WRIST_CAMERA_KEY = "wrist_camera_rgb"
 
-# --- Network knob ---
 MAX_RECONNECT_ATTEMPTS = 3
 
 
