@@ -30,6 +30,8 @@ APPLE_SETTLE_STEPS = 50
 HEADLESS = True
 ENABLE_CAMERAS = True
 
+APPLE_SCALE = (0.009, 0.009, 0.009)
+PLATE_SCALE = (0.5, 0.5, 0.5)
 APPLE_INITIAL_POSITION_M = (0.15, 0.15, 0.05)
 PLATE_INITIAL_POSITION_M = (0.15, -0.40, 0.02)
 # Drop height for the success-case teleport. Kept small so the apple has a short, contained
@@ -48,7 +50,7 @@ def get_test_environment(num_envs: int):
     the WBC stack itself.
     """
 
-    from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena.assets.asset_registry import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.g1.g1 import G1WBCAgileJointEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -59,8 +61,8 @@ def get_test_environment(num_envs: int):
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("table")()
-    apple = asset_registry.get_asset_by_name("apple_01_objaverse_robolab")()
-    plate = asset_registry.get_asset_by_name("clay_plates_hot3d_robolab")()
+    apple = asset_registry.get_asset_by_name("apple_01_objaverse_robolab")(scale=APPLE_SCALE)
+    plate = asset_registry.get_asset_by_name("clay_plates_hot3d_robolab")(scale=PLATE_SCALE)
 
     apple.set_initial_pose(Pose(position_xyz=APPLE_INITIAL_POSITION_M, rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     plate.set_initial_pose(Pose(position_xyz=PLATE_INITIAL_POSITION_M, rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
