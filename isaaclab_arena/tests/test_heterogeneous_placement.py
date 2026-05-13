@@ -40,7 +40,6 @@ class HeterogeneousDummyObject(DummyObject):
         super().__init__(name=name, bounding_box=bboxes[0], **kwargs)
         self._per_env_bboxes = bboxes
         self.has_env_specific_bboxes = True
-        self.objects = bboxes
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
         """Return env-specific bbox variants for this test double."""
@@ -99,7 +98,7 @@ def test_heterogeneous_dummy_returns_different_bboxes():
 # ---------------------------------------------------------------------------
 
 
-def test_solver_accepts_env_bboxes():
+def test_relation_solver_uses_env_bboxes():
     """Solver should accept env_bboxes and produce valid results."""
 
     desk = _make_desk()
@@ -134,7 +133,7 @@ def test_solver_accepts_env_bboxes():
 # ---------------------------------------------------------------------------
 
 
-def test_placer_heterogeneous_produces_per_env_results():
+def test_object_placer_heterogeneous_produces_per_env_results():
     """Placer should detect heterogeneous objects and solve per-env."""
 
     desk = _make_desk()
@@ -163,7 +162,7 @@ def test_placer_heterogeneous_produces_per_env_results():
         assert hetero_box in r.positions
 
 
-def test_placer_heterogeneous_z_height_matches_variant():
+def test_object_placer_heterogeneous_z_height_matches_variant():
     """Objects should be placed at z-height matching their env's variant bbox."""
 
     desk = _make_desk()
@@ -255,7 +254,7 @@ def test_mixed_heterogeneous_and_homogeneous_placement():
         ).item(), f"Env {env_idx}: A and X bboxes overlap at positions A={r.positions[obj_a]}, X={r.positions[obj_x]}"
 
 
-def test_homogeneous_path_unchanged():
+def test_object_placer_homogeneous_path_returns_multi_env_result():
     """When no heterogeneous objects exist, the homogeneous path is used."""
 
     desk = _make_desk()
@@ -340,7 +339,7 @@ def test_pooled_placer_heterogeneous_sample_with_replacement():
     assert pool.remaining == initial_remaining, "sample_with_replacement should not consume layouts"
 
 
-def test_pooled_placer_heterogeneous_refill():
+def test_pooled_placer_heterogeneous_sample_without_replacement_triggers_refill():
     """Exhausting a variant sub-pool should trigger a refill."""
     desk, hetero, placer_params = _make_hetero_pool_objects()
     pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=4, num_envs=2)
@@ -355,7 +354,7 @@ def test_pooled_placer_heterogeneous_refill():
     assert len(draws) == 2, "Pool should refill and return requested layouts"
 
 
-def test_pooled_placer_reusable_layouts_allocate_complete_env_rounds():
+def test_pooled_placer_reusable_layouts_report_complete_env_rounds():
     """Reusable layouts should still expose equal without-replacement capacity per env."""
     desk = _make_desk()
     box = DummyObject(
@@ -489,7 +488,7 @@ def test_pooled_placer_multi_set_sample_with_replacement():
     assert pool.remaining == initial_remaining
 
 
-def test_pooled_placer_multi_set_refill():
+def test_pooled_placer_multi_set_sample_without_replacement_triggers_refill():
     """Exhausting a per-env pool should trigger refill with multi-set objects."""
     desk = _make_desk()
 

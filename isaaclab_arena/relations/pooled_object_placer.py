@@ -158,8 +158,8 @@ class PooledObjectPlacer:
 
         Layouts produced by ``_solve_reusable_layouts`` are interchangeable
         across envs, so we place each one into whichever pool currently has
-        the fewest unread layouts. This keeps env pools balanced and lets
-        ``sample_without_replacement`` keep advancing in lockstep.
+        the fewest unread layouts. This keeps reusable capacity balanced
+        across env pools.
         """
         if not layouts:
             return
@@ -325,9 +325,8 @@ class PooledObjectPlacer:
         """Pick *count* layouts at random per env-slot (non-consuming).
 
         Slot ``i`` is filled by a random pick from env ``i % num_envs``'s
-        pool, so a length-``count`` request walks env indices in the same
-        round-robin order as :meth:`sample_without_replacement`. Used by
-        ``resolve_on_reset=False`` to assign initial positions that persist
+        pool, so a length-``count`` request walks env slots in order. Used
+        by ``resolve_on_reset=False`` to assign initial positions that persist
         across resets.
         """
         results: list[PlacementResult] = []
