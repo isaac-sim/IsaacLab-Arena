@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 #   shelf on the first sim tick (which would otherwise launch them upward).
 SHELF_SURFACE_Z = -0.030
 SHELF_AIRGAP = 0.005
+# Cuboid center: top face = SHELF_SURFACE_Z. This assumes procedural_table height is 0.04 m.
 SHELF_SUPPORT_PATCH_CENTER = (0.62, 0.0, SHELF_SURFACE_Z - 0.02)
 
 # Object XY spawn pose (env-local frame, shelf-relative). X mirrors the locomanip env
