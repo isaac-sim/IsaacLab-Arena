@@ -3,6 +3,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# pyright: reportPrivateUsage=false
+# This file intentionally probes RelationSolver internals for focused loss checks.
+
 """Tests for NoCollisionLossStrategy and RelationSolver built-in no-overlap behavior."""
 
 import torch

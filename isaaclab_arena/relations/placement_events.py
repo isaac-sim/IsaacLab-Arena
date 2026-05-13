@@ -56,6 +56,8 @@ def solve_and_place_objects(
         reset_results = placement_pool.sample_without_replacement(len(reset_env_ids))
         results_by_env = dict(zip(reset_env_ids, reset_results))
 
+    # PooledObjectPlacer stores only successful layouts; this pre-pass keeps
+    # reset writes atomic if a custom pool or future regression violates that invariant.
     for cur_env in reset_env_ids:
         result = results_by_env[cur_env]
         if not result.success:

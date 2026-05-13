@@ -116,6 +116,7 @@ def test_object_preserves_constructor_relations():
     obj = Object(
         name="rigid_object",
         object_type=ObjectType.RIGID,
+        # Explicit object_type avoids USD inspection; the path is never opened in this constructor-relations test.
         usd_path="/tmp/rigid_object.usd",
         relations=[anchor_relation],
     )

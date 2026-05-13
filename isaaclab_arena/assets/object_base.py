@@ -37,6 +37,8 @@ __all__ = [
 class ObjectBase(Asset, ABC):
     """Parent class for (spawnable) Object and ObjectReference."""
 
+    has_env_specific_bboxes: bool = False
+
     def __init__(
         self,
         name: str,
@@ -54,8 +56,6 @@ class ObjectBase(Asset, ABC):
         self.object_cfg = None
         self.event_cfg = None
         self.relations: list[RelationBase] = []
-        if not hasattr(self, "has_env_specific_bboxes"):
-            self.has_env_specific_bboxes: bool = False
 
     def get_initial_pose(self) -> Pose | PoseRange | PosePerEnv | None:
         """Return the current initial pose of this object.
