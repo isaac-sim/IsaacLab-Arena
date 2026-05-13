@@ -29,7 +29,7 @@ class RigidObjectSet(Object):
         objects: list[Object],
         prim_path: str | None = None,
         scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
-        random_choice: bool = True,
+        random_choice: bool = False,
         variant_indices_by_env: list[int] | None = None,
         initial_pose: Pose | None = None,
         **kwargs,
@@ -43,8 +43,8 @@ class RigidObjectSet(Object):
             scale: The scale of the object set. Note all objects can only have the same scale, if
                 different scales are needed, considering scaling the object USD file.
             random_choice: Whether to randomly choose an object from the object set to spawn in
-                each environment. The assignment is sampled once when ``num_envs`` is known and
-                then reused across resets.
+                each environment. If False, variants are assigned by repeating
+                the member order across environments.
             variant_indices_by_env: Optional fixed variant index for each environment.
             initial_pose: The initial pose of the object from this object set.
         """
@@ -158,10 +158,7 @@ class RigidObjectSet(Object):
         if n == 1:
             return [0 for _ in range(num_envs)]
         if not self.random_choice:
-            raise ValueError(
-                f"RigidObjectSet '{self.name}' has {n} variants and random_choice=False, "
-                "but no variant_indices_by_env were provided."
-            )
+            return [env_idx % n for env_idx in range(num_envs)]
         return torch.randint(low=0, high=n, size=(num_envs,)).tolist()
 
     def _set_variant_indices_by_env(self, variant_indices_by_env: list[int]) -> None:

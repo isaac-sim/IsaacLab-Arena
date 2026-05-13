@@ -46,7 +46,7 @@ def _test_object_set_samples_and_stores_variant_indices(simulation_app):
         patch("isaaclab_arena.assets.object_set.find_shallowest_rigid_body", return_value="/rigid"),
         patch("isaaclab_arena.assets.object_set.torch.randint", return_value=torch.tensor(assigned_variant_indices)),
     ):
-        obj_set = RigidObjectSet(name="cans", objects=[can_a, can_b])
+        obj_set = RigidObjectSet(name="cans", objects=[can_a, can_b], random_choice=True)
         assert obj_set.variant_indices_by_env is None
         assert obj_set.get_variant_indices(num_envs=4) == assigned_variant_indices
 
@@ -58,6 +58,32 @@ def _test_object_set_samples_and_stores_variant_indices(simulation_app):
     per_env_bbox = obj_set.get_bounding_box_per_env(num_envs=4)
     assert torch.allclose(per_env_bbox.max_point[0], bbox_b.max_point[0])
     assert torch.allclose(per_env_bbox.max_point[1], bbox_a.max_point[0])
+    return True
+
+
+def _test_object_set_default_variant_indices_follow_member_order(simulation_app):
+    """Default object-set assignment should preserve the old deterministic member order."""
+    import torch
+
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+
+    can_a, can_b, bbox_a, bbox_b = _make_object_set_variants()
+    with (
+        patch("isaaclab_arena.assets.object_set.detect_object_type", return_value=ObjectType.RIGID),
+        patch("isaaclab_arena.assets.object_set.find_shallowest_rigid_body", return_value="/rigid"),
+    ):
+        obj_set = RigidObjectSet(name="ordered_cans", objects=[can_a, can_b])
+        assert obj_set.get_variant_indices(num_envs=5) == [0, 1, 0, 1, 0]
+
+    assert obj_set.object_usd_paths == [can_a.usd_path, can_b.usd_path, can_a.usd_path, can_b.usd_path, can_a.usd_path]
+    spawn_cfg = obj_set.object_cfg.spawn
+    assert getattr(spawn_cfg, "usd_path") == obj_set.object_usd_paths
+    assert getattr(spawn_cfg, "random_choice") is False
+
+    per_env_bbox = obj_set.get_bounding_box_per_env(num_envs=5)
+    assert torch.allclose(per_env_bbox.max_point[0], bbox_a.max_point[0])
+    assert torch.allclose(per_env_bbox.max_point[1], bbox_b.max_point[0])
     return True
 
 
@@ -411,6 +437,14 @@ def test_object_set_samples_and_stores_variant_indices():
         headless=HEADLESS,
     )
     assert result, f"Test {_test_object_set_samples_and_stores_variant_indices.__name__} failed"
+
+
+def test_object_set_default_variant_indices_follow_member_order():
+    result = run_simulation_app_function(
+        _test_object_set_default_variant_indices_follow_member_order,
+        headless=HEADLESS,
+    )
+    assert result, f"Test {_test_object_set_default_variant_indices_follow_member_order.__name__} failed"
 
 
 def test_articulation_object_set():

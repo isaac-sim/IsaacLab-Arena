@@ -247,8 +247,33 @@ def test_solve_and_place_objects_handles_multiple_env_ids():
         )
 
 
-def test_pooled_object_placer_sample_without_replacement_returns_different_layouts():
-    """sample_without_replacement() should return layouts that are likely different."""
+def test_solve_and_place_objects_partial_reset_reusable_pool_consumes_only_reset_envs():
+    """Reusable layouts should not consume a full env round for a partial reset."""
+
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+    num_envs = 4
+    env_ids = torch.tensor([2])
+
+    env = _make_mock_env(num_envs=num_envs)
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
+    placer_params = ObjectPlacerParams(solver_params=solver_params)
+    pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=12, num_envs=num_envs)
+
+    available_before = pool.total_remaining
+    solve_and_place_objects(env, env_ids, objects, pool)
+    available_after = pool.total_remaining
+
+    assert available_before - available_after == len(env_ids)
+
+
+def test_pooled_placer_sample_without_replacement_returns_different_layouts():
+    """sample_without_replacement() should return layouts (likely different across draws)."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer

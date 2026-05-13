@@ -23,15 +23,14 @@ class PooledObjectPlacer:
 
     Storage: ``num_envs`` independent layout pools, each with its own read
     cursor (this replaces the single ``_layouts`` list + ``_next_idx`` cursor
-    used before heterogeneous placement). Per-env pools are needed because
-    each layout is solved against a specific env's object geometry; sampling
-    is therefore always in env-index order and ``sample_without_replacement``
-    advances every cursor by the same amount on each call.
+    used before heterogeneous placement). Env-specific layouts are solved
+    against a fixed env's object geometry and must be sampled in complete env
+    rounds. Reusable layouts can be consumed one at a time.
 
     The pool is refilled automatically when an env's queue runs out.
 
-    * :meth:`sample_without_replacement` — returns the next *count* layouts
-      in env-index order (``count`` must be a multiple of ``num_envs``).
+    * :meth:`sample_without_replacement` — returns the next *count* layouts.
+      Env-specific layouts require ``count`` to be a multiple of ``num_envs``.
     * :meth:`sample_with_replacement` — picks *count* layouts at random per
       env-slot (non-consuming). Used for static initial positions.
 
@@ -85,6 +84,10 @@ class PooledObjectPlacer:
     def _available_per_env(self) -> list[int]:
         """Number of unread layouts in each env's pool (length ``num_envs``)."""
         return [len(self._layout_pools[cur_env]) - self._layout_cursors[cur_env] for cur_env in range(self._num_envs)]
+
+    def _total_available(self) -> int:
+        """Total unread layouts across all env pools."""
+        return sum(self._available_per_env())
 
     def _discard_consumed_layouts(self) -> None:
         """Drop consumed layouts from every env pool before appending new layouts."""
@@ -248,20 +251,26 @@ class PooledObjectPlacer:
     # ------------------------------------------------------------------
 
     def sample_without_replacement(self, count: int) -> list[PlacementResult]:
-        """Return the next *count* layouts in env-index order.
+        """Return the next *count* layouts.
 
-        Layouts are returned as ``layouts_per_env`` complete rounds of
-        ``[env_0, env_1, ..., env_{num_envs-1}]``, so ``count`` must be a
-        multiple of ``num_envs``. Each round advances every env's cursor by
-        one. Refills any env pool that is short on layouts before reading.
+        Env-specific layouts are returned as complete rounds of
+        ``[env_0, env_1, ..., env_{num_envs-1}]`` so each result still maps
+        to the absolute environment it was solved for. Reusable layouts are
+        interchangeable and consume only ``count`` entries.
 
         Args:
-            count: Number of layouts to return (multiple of ``num_envs``).
+            count: Number of layouts to return.
 
         Raises:
-            ValueError: If *count* is not a complete env round.
+            ValueError: If env-specific layouts are requested without a complete env round.
             RuntimeError: If the pool cannot provide *count* layouts after refilling.
         """
+        if self._uses_env_specific_bboxes:
+            return self._sample_env_indexed_without_replacement(count)
+        return self._sample_reusable_without_replacement(count)
+
+    def _sample_env_indexed_without_replacement(self, count: int) -> list[PlacementResult]:
+        """Consume complete env rounds for layouts tied to absolute env ids."""
         if count % self._num_envs != 0:
             raise ValueError(f"count must be a multiple of num_envs ({self._num_envs}), got {count}")
 
@@ -281,6 +290,37 @@ class PooledObjectPlacer:
                 results.append(self._layout_pools[cur_env][idx])
                 self._layout_cursors[cur_env] = idx + 1
         return results
+
+    def _sample_reusable_without_replacement(self, count: int) -> list[PlacementResult]:
+        """Consume exactly ``count`` interchangeable layouts."""
+        if self._total_available() < count:
+            self._solve_and_store(max(self._pool_size, count))
+
+        available = self._available_per_env()
+        if sum(available) < count:
+            raise RuntimeError(
+                f"Placement pool has {sum(available)} reusable layouts but {count} were requested. "
+                "The solver is not producing enough valid placements."
+            )
+
+        results: list[PlacementResult] = []
+        for _ in range(count):
+            cur_env = max(range(self._num_envs), key=available.__getitem__)
+            idx = self._layout_cursors[cur_env]
+            if idx >= len(self._layout_pools[cur_env]):
+                raise RuntimeError(
+                    f"Placement pool: env {cur_env} has no more valid layouts. "
+                    "The solver is not producing enough valid placements."
+                )
+            results.append(self._layout_pools[cur_env][idx])
+            self._layout_cursors[cur_env] = idx + 1
+            available[cur_env] -= 1
+        return results
+
+    @property
+    def requires_env_indexed_layouts(self) -> bool:
+        """Whether sampled layouts must be matched back to absolute env ids."""
+        return self._uses_env_specific_bboxes
 
     def sample_with_replacement(self, count: int) -> list[PlacementResult]:
         """Pick *count* layouts at random per env-slot (non-consuming).
@@ -314,3 +354,8 @@ class PooledObjectPlacer:
     def pool_size(self) -> int:
         """Number of layouts to solve per batch. When the pool runs low, it will solve at least this number of layouts so future samples can reuse the buffer."""
         return self._pool_size
+
+    @property
+    def total_remaining(self) -> int:
+        """Total unread layouts across all env pools."""
+        return self._total_available()
