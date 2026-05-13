@@ -14,6 +14,8 @@ RUNTIME_DEPS = [
     "vuer[all]",
     "lightwheel-sdk",
     "pytest",
+    # Used lazily by isaaclab_arena/llm_env_gen/* for NV_API_KEY-based LLM calls.
+    "openai",
 ]
 
 DEV_DEPS = [
