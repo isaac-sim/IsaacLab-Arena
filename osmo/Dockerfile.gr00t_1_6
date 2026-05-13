@@ -51,3 +51,10 @@ RUN echo "alias hf='/usr/local/bin/hf'" >> /etc/bash.bashrc
 RUN curl -LO https://github.com/filebrowser/filebrowser/releases/download/v2.32.0/linux-amd64-filebrowser.tar.gz
 RUN tar -xzvf linux-amd64-filebrowser.tar.gz
 RUN mv filebrowser /usr/bin/
+
+# CI bootstrap: waits for the arena workspace bind-mount to populate, then
+# execs .github/scripts/ci_gr00t_train_and_serve.sh from the mounted repo.
+# Used as the entrypoint for the gr00t sidecar in the GitHub Actions
+# closed-loop E2E test (see .github/workflows/ci.yml).
+COPY .github/scripts/ci_gr00t_bootstrap.sh /workspace/ci_bootstrap.sh
+RUN chmod +x /workspace/ci_bootstrap.sh

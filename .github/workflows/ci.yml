@@ -199,6 +199,91 @@ jobs:
             isaaclab_arena/tests/
 
 
+  test_gr00t_closedloop_e2e:
+    name: GR00T closed-loop E2E (sidecar)
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 90
+    needs: [pre_commit]
+    # Heavy job: small finetune + GR00T server + Isaac Sim closed-loop eval.
+    # Gated to keep PR feedback fast — opt-in via PR label or manual dispatch.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       contains(github.event.pull_request.labels.*.name, 'gr00t-closedloop'))
+
+    container:
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+      options: --gpus all
+
+    services:
+      gr00t:
+        image: nvcr.io/nvidian/gr00t1_6_arena_ci:latest
+        credentials:
+          username: $oauthtoken
+          password: ${{ env.NGC_API_KEY }}
+        ports:
+          - 5555:5555
+        # Mount the runner's workspace into the gr00t container; the baked
+        # /workspace/ci_bootstrap.sh polls until checkout writes the wrapper
+        # script, then execs it. See .github/scripts/ci_gr00t_bootstrap.sh.
+        volumes:
+          - ${{ github.workspace }}:/arena_workspace
+        options: >-
+          --gpus all
+          --entrypoint /workspace/ci_bootstrap.sh
+
+    steps:
+      - *nvidia_smi
+      - *lscpu
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
+      - *install_project_step
+      - *setup_isaac_sim_kit_cache_step
+
+      # The gr00t sidecar takes ~10-30 min to finetune+load. Poll the ZMQ
+      # endpoint with the real PolicyClient — TCP-open isn't sufficient
+      # because the socket binds before the model finishes loading.
+      - name: Wait for GR00T server
+        timeout-minutes: 20
+        run: |
+          /isaac-sim/python.sh - <<'PY'
+          import sys, time
+          from gr00t.policy.server_client import PolicyClient
+          client = PolicyClient(host="gr00t", port=5555)
+          interval = 15
+          for i in range(80):  # 80 * 15s = 20 min
+              try:
+                  client.get_modality_config()
+                  print(f"GR00T server ready after {i * interval}s")
+                  sys.exit(0)
+              except Exception as e:
+                  print(f"[t={i * interval}s] not ready: {e}")
+                  time.sleep(interval)
+          sys.exit("timed out waiting for GR00T server")
+          PY
+
+      - name: Run closed-loop eval against GR00T sidecar
+        run: |
+          /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+            --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
+            --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
+            --remote_host gr00t \
+            --remote_port 5555 \
+            --num_steps 17 \
+            --num_envs 1 \
+            --headless \
+            --enable_cameras \
+            galileo_g1_locomanip_pick_and_place \
+            --object brown_box \
+            --embodiment g1_wbc_joint
+
+
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
     runs-on: [self-hosted, gpu-arena]

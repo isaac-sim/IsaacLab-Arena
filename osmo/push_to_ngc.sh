@@ -2,7 +2,7 @@
 set -e
 
 TAG_NAME=latest
-IMAGE_NAME=gr00t_1_6_finetune
+IMAGE_NAME=gr00t1_6_arena_ci
 HF_TOKEN=${1:?Usage: $0 <HF_TOKEN>}
 NGC_PATH=nvcr.io/nvidian/${IMAGE_NAME}:${TAG_NAME}
 
