@@ -1,24 +1,11 @@
 #!/usr/bin/env bash
-# Build the openpi policy server Docker image used by isaaclab_arena_openpi.
-#
-# Adapted from robolab/docker/build_openpi_server.sh: clones upstream openpi
-# at a pinned commit, builds with openpi's own serve_policy.Dockerfile, then
-# patches it so the image is self-contained (no volume mount at runtime).
+# Encapsulates the openpi inference server as a self-contained Docker image.
 #
 # Usage:
-#   ./build_server.sh                        # build at DEFAULT_COMMIT
-#   ./build_server.sh <commit>               # build at a specific commit
-#   ./build_server.sh --push                 # build and push to NGC
-#   ./build_server.sh <commit> --push
-#
-# Env overrides:
-#   IMAGE_NAME   Local image name (default: isaaclab_arena_openpi-server)
-#   NGC_PATH     Full NGC path to push to. Default mirrors push_to_ngc.sh:
-#                  nvcr.io/nvstaging/isaac-amr/<IMAGE_NAME>
-#
-# Keep DEFAULT_COMMIT in sync with the OPENPI_COMMIT ARG in
-# docker/Dockerfile.isaaclab_arena so client and server speak the same
-# wire format.
+#   ./build_openpi_server.sh                        # build at DEFAULT_COMMIT
+#   ./build_openpi_server.sh <commit>               # build at a specific commit
+#   ./build_openpi_server.sh --push                 # build and push to NGC
+#   ./build_openpi_server.sh <commit> --push
 
 set -euo pipefail
 

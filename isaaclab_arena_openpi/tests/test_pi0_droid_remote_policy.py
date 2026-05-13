@@ -3,17 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the openpi DROID remote policy.
-
-These tests import the real ``openpi_client`` package (installed per
-``README.md``) so we exercise the actual ``image_tools.resize_with_pad``,
-the real ``WebsocketClientPolicy`` class structure, and the real
-``websockets.exceptions`` types. The only things stubbed are the
-network-touching pieces: ``WebsocketClientPolicy._wait_for_server``
-(skip the connect handshake) and ``WebsocketClientPolicy.infer`` (return
-a synthetic action chunk instead of doing a round-trip).
-"""
-
 from __future__ import annotations
 
 import numpy as np

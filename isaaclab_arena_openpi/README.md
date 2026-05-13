@@ -15,7 +15,7 @@ in another.
 ### 1. Build the openpi server image (one-time)
 
 ```bash
-./isaaclab_arena_openpi/docker/build_server.sh
+./isaaclab_arena_openpi/docker/build_openpi_server.sh
 ```
 
 Clones upstream openpi at a pinned commit and builds
@@ -89,17 +89,6 @@ python isaaclab_arena/evaluation/policy_runner.py \
 If the server is on a *different* machine, replace `localhost` with that machine's reachable address.
 The server terminal will start logging connection + inference events.
 The arena IsaacSim window shows the droid arm reacting to pi0's commanded joint positions.
-
-## Batch eval via `eval_runner`
-
-For evaluating multiple object / HDR / destination combinations in one run,
-the JSON jobs-config form is supported:
-
-```bash
-python isaaclab_arena/evaluation/eval_runner.py \
-  --jobs_config isaaclab_arena_openpi/eval_jobs_configs/droid_pnp_pi05_jobs_config.json \
-  --enable_cameras
-```
 
 ## Supported variants
 
