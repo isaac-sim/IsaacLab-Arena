@@ -52,9 +52,7 @@ class PooledObjectPlacer:
         # 1. Validate params.
         if pool_size < 1:
             raise ValueError(f"pool_size must be >= 1, got {pool_size}")
-        # ``has_env_specific_bboxes`` is duck-typed (set on RigidObjectSet / DummyObject
-        # but not declared on the abstract ObjectBase), so read it via getattr.
-        self._uses_env_specific_bboxes = any(getattr(obj, "has_env_specific_bboxes", False) for obj in objects)
+        self._uses_env_specific_bboxes = any(obj.has_env_specific_bboxes for obj in objects)
         if self._uses_env_specific_bboxes:
             assert num_envs is not None, "num_envs is required when layouts use env-specific object variants."
         self._num_envs = num_envs if num_envs is not None else 1
@@ -131,9 +129,9 @@ class PooledObjectPlacer:
     def _solve_reusable_layouts(self, num_layouts: int) -> list[PlacementResult]:
         """Solve layouts that can be used by any env pool.
 
-        When no layouts pass strict validation, the best-loss layouts are
-        accepted with a warning (matching pre-pool behaviour where validation
-        failures were non-fatal).
+        Invalid candidates are discarded. If the solver cannot produce enough
+        valid layouts after the bounded refill attempts, ``_solve_and_store``
+        raises instead of letting invalid placements reach simulation.
         """
         with torch.inference_mode(False):
             result = self._placer.place(self._objects, num_envs=num_layouts, result_per_env=True)
@@ -148,11 +146,7 @@ class PooledObjectPlacer:
                 f" {len(valid_layouts)} valid, {num_layouts - len(valid_layouts)} failed validation"
             )
 
-        if valid_layouts:
-            return valid_layouts
-
-        print("Warning: No candidates passed strict validation. Accepting best-loss layouts as fallback.")
-        return all_layouts
+        return valid_layouts
 
     def _store_reusable_results(self, layouts: list[PlacementResult]) -> None:
         """Distribute reusable layouts across env pools using greedy shortest-first.
@@ -205,14 +199,7 @@ class PooledObjectPlacer:
         return all_results, layouts_per_env
 
     def _store_env_matched_results(self, all_results: list[PlacementResult], layouts_per_env: int) -> None:
-        """Store env-matched results into per-env pools, with a best-loss fallback.
-
-        Two passes:
-        1. Append every successful result to its env's pool.
-        2. For any env whose block produced zero successful results, append
-           the block's best-loss candidate (with a warning).
-        """
-        # Pass 1: store successful layouts.
+        """Store only successful env-matched results into their corresponding pools."""
         total_valid = 0
         for i, r in enumerate(all_results):
             cur_env = i // layouts_per_env
@@ -230,21 +217,6 @@ class PooledObjectPlacer:
             if failed_envs:
                 msg += f". Envs with zero valid layouts: {failed_envs}"
             print(msg)
-
-        # Pass 2: best-loss fallback for empty env blocks.
-        for cur_env in range(self._num_envs):
-            start = cur_env * layouts_per_env
-            env_block = all_results[start : start + layouts_per_env]
-            if any(r.success for r in env_block):
-                continue
-            best = min(env_block, key=lambda r: r.final_loss, default=None)
-            if best is None:
-                continue
-            print(
-                f"Warning: env {cur_env} had too few valid layouts; "
-                f"accepting best-loss fallback (loss={best.final_loss:.6f})."
-            )
-            self._layout_pools[cur_env].append(best)
 
     # ------------------------------------------------------------------
     # Public API

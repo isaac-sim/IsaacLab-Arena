@@ -148,11 +148,7 @@ class ObjectPlacer:
         #   - homogeneous: any solved layout serves any env; pick the top num_results.
         #   - heterogeneous: some objects vary per env, so each env owns a fixed slice
         #     of candidates and we pick the best within that slice.
-        # ``has_env_specific_bboxes`` is duck-typed: declared on RigidObjectSet / DummyObject
-        # but not on the abstract ObjectBase, so we read it via getattr.
-        uses_env_specific_bboxes = result_per_env and any(
-            getattr(obj, "has_env_specific_bboxes", False) for obj in objects
-        )
+        uses_env_specific_bboxes = result_per_env and any(obj.has_env_specific_bboxes for obj in objects)
 
         if uses_env_specific_bboxes:
             results_per_env = self._place_heterogeneous(
@@ -200,6 +196,7 @@ class ObjectPlacer:
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]] = []
         for candidate_idx in range(num_candidates):
             if generator is not None:
+                assert self.params.placement_seed is not None
                 generator.manual_seed(self.params.placement_seed + candidate_idx)
             initial_positions.append(self._generate_initial_positions(objects, anchor_objects_set, generator))
 
@@ -284,6 +281,7 @@ class ObjectPlacer:
         for candidate_idx in range(num_candidates):
             cur_env = candidate_idx // max_attempts
             if generator is not None:
+                assert self.params.placement_seed is not None
                 generator.manual_seed(self.params.placement_seed + candidate_idx)
             env_child_bboxes = per_env_bbox_overrides[cur_env]
             initial_positions.append(

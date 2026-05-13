@@ -32,7 +32,7 @@ class Object(ObjectBase):
         usd_path: str | None = None,
         scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
         initial_pose: Pose | None = None,
-        relations: list[RelationBase] = [],
+        relations: list[RelationBase] | None = None,
         spawner_cfg: SpawnerCfg | None = None,
         **kwargs,
     ):
@@ -55,6 +55,7 @@ class Object(ObjectBase):
         self.spawner_cfg = spawner_cfg
         self.scale = scale
         self.initial_pose = initial_pose
+        self.relations = list(relations or [])
         self.reset_pose = True
         self.spawn_cfg_addon = spawn_cfg_addon
         self.asset_cfg_addon = asset_cfg_addon

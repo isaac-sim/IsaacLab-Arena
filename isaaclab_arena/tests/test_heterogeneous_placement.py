@@ -93,6 +93,20 @@ def test_heterogeneous_dummy_returns_different_bboxes():
     assert torch.allclose(per_env.max_point[1], torch.tensor([0.3, 0.3, 0.3]))
 
 
+def test_dummy_object_preserves_constructor_relations():
+    """DummyObject should keep relations passed at construction time."""
+
+    anchor_relation = IsAnchor()
+    obj = DummyObject(
+        name="anchor",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1)),
+        relations=[anchor_relation],
+    )
+
+    assert obj.get_relations() == [anchor_relation]
+    assert obj.has_env_specific_bboxes is False
+
+
 # ---------------------------------------------------------------------------
 # Solver with per-env bboxes
 # ---------------------------------------------------------------------------

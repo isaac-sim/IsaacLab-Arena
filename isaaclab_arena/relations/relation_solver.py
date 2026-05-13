@@ -15,7 +15,7 @@ from isaaclab_arena.relations.relation_loss_strategies import (
 )
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
-from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
+from isaaclab_arena.relations.relations import On, Relation, RelationBase, UnaryRelation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
@@ -174,6 +174,12 @@ class RelationSolver:
 
         non_anchor_objects = state.optimizable_objects
         anchor_objects = list(state.anchor_objects)
+        on_pairs: set[tuple[int, int]] = set()
+        for obj in [*non_anchor_objects, *anchor_objects]:
+            for rel in obj.get_relations():
+                if isinstance(rel, On):
+                    on_pairs.add((id(obj), id(rel.parent)))
+                    on_pairs.add((id(rel.parent), id(obj)))
 
         for i, child in enumerate(non_anchor_objects):
             child_pos = state.get_position(child)
@@ -181,6 +187,8 @@ class RelationSolver:
 
             # Against all anchors
             for anchor in anchor_objects:
+                if (id(child), id(anchor)) in on_pairs:
+                    continue
                 anchor_world_bbox = anchor.get_world_bounding_box().to(device)
                 loss = self._no_collision_strategy.compute_loss(
                     clearance_m=self.params.clearance_m,
@@ -195,6 +203,8 @@ class RelationSolver:
             # Against other non-anchors (unique pairs, both directions)
             for j in range(i + 1, len(non_anchor_objects)):
                 other = non_anchor_objects[j]
+                if (id(child), id(other)) in on_pairs:
+                    continue
                 other_pos = state.get_position(other)
                 other_bbox = self._get_bbox(other, device, env_bboxes)
 

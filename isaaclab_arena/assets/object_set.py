@@ -76,7 +76,6 @@ class RigidObjectSet(Object):
         self.objects: list[Object] = objects
         self._member_object_usd_paths: list[str] = list(self.object_usd_paths)
         self.random_choice = random_choice
-        self.has_env_specific_bboxes: bool = len(objects) > 1
         self.variant_indices_by_env: list[int] | None = None
 
         if variant_indices_by_env is not None:
@@ -95,6 +94,7 @@ class RigidObjectSet(Object):
             initial_pose=initial_pose,
             **kwargs,
         )
+        self.has_env_specific_bboxes = len(objects) > 1
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get the bounding box of the object set.
@@ -170,7 +170,7 @@ class RigidObjectSet(Object):
             )
 
         self.variant_indices_by_env = list(variant_indices_by_env)
-        if self.has_env_specific_bboxes:
+        if len(self.objects) > 1:
             self.object_usd_paths = [self._member_object_usd_paths[idx] for idx in self.variant_indices_by_env]
             spawn_cfg = self.object_cfg.spawn if getattr(self, "object_cfg", None) is not None else None
             if isinstance(spawn_cfg, sim_utils.MultiUsdFileCfg):

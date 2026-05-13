@@ -62,7 +62,13 @@ def solve_and_place_objects(
     zero_velocity = torch.zeros(1, 6, device=env.device)
     for cur_env in reset_env_ids:
         env_id_tensor = torch.tensor([cur_env], device=env.device)
-        positions = results_by_env[cur_env].positions
+        result = results_by_env[cur_env]
+        if not result.success:
+            raise RuntimeError(
+                f"Placement pool returned an invalid layout for env {cur_env} "
+                f"(loss={result.final_loss:.6f}); refusing to write it to simulation."
+            )
+        positions = result.positions
         for obj, pos in positions.items():
             if obj in anchor_objects_set:
                 continue
