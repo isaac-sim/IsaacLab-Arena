@@ -8,6 +8,8 @@
 import torch
 from unittest.mock import MagicMock
 
+import pytest
+
 
 def _create_test_objects():
     """Create a desk (anchor) with two boxes (On + NextTo)."""
@@ -303,6 +305,23 @@ def test_solve_and_place_objects_writes_invalid_fallback_layout():
     assert env._assets[box2.name].write_root_pose_to_sim.call_count == 1
 
 
+def test_solve_and_place_objects_asserts_env_indexed_pool_size_matches_scene():
+    """Env-indexed pool slots must line up with absolute Isaac Lab env ids."""
+
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+    env = _make_mock_env(num_envs=2)
+
+    class MismatchedEnvIndexedPool:
+        requires_env_indexed_layouts = True
+        num_envs = 1
+
+    with pytest.raises(AssertionError, match="scene has 2 env origins"):
+        solve_and_place_objects(env, torch.tensor([0]), objects, MismatchedEnvIndexedPool())
+
+
 def test_pooled_placer_sample_without_replacement_returns_different_layouts():
     """sample_without_replacement() should return layouts (likely different across draws)."""
 
@@ -401,7 +420,7 @@ def test_resolve_on_reset_false_applies_pose_per_env():
             assert p.position_xyz is not None, f"Position should not be None for {obj.name}"
 
 
-def test_pooled_placer_falls_back_when_no_valid_layouts():
+def test_pooled_placer_falls_back_when_no_valid_layouts(capsys):
     """PooledObjectPlacer should keep best-loss fallback layouts when validation rejects all candidates."""
 
     from isaaclab_arena.assets.dummy_object import DummyObject
@@ -435,6 +454,9 @@ def test_pooled_placer_falls_back_when_no_valid_layouts():
     placer_params = ObjectPlacerParams(solver_params=solver_params, max_placement_attempts=1)
 
     pool = PooledObjectPlacer(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)
+    captured = capsys.readouterr()
 
     assert pool.remaining == 5
+    assert pool.had_fallbacks
+    assert "Accepting best-loss layouts as fallback" in captured.out
     assert not pool.sample_without_replacement(1)[0].success

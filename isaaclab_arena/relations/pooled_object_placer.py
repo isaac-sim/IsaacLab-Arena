@@ -63,6 +63,7 @@ class PooledObjectPlacer:
         self._objects = list(objects)
         self._placer = ObjectPlacer(params=placer_params)
         self._pool_size = pool_size
+        self._had_fallbacks = False
         self._layout_pools: dict[int, list[PlacementResult]] = {cur_env: [] for cur_env in range(self._num_envs)}
         self._layout_cursors: dict[int, int] = {cur_env: 0 for cur_env in range(self._num_envs)}
 
@@ -149,6 +150,7 @@ class PooledObjectPlacer:
         if valid_layouts:
             return valid_layouts
 
+        self._had_fallbacks = True
         print("Warning: No candidates passed strict validation. Accepting best-loss layouts as fallback.")
         return all_layouts
 
@@ -221,6 +223,7 @@ class PooledObjectPlacer:
             else:
                 self._layout_pools[cur_env].extend(env_results)
                 fallback_envs.append(cur_env)
+                self._had_fallbacks = True
 
         total_solved = len(all_results)
         if total_valid < total_solved:
@@ -307,6 +310,16 @@ class PooledObjectPlacer:
     def requires_env_indexed_layouts(self) -> bool:
         """Whether sampled layouts must be matched back to absolute env ids."""
         return self._uses_env_specific_bboxes
+
+    @property
+    def num_envs(self) -> int:
+        """Number of environment pools managed by this placer."""
+        return self._num_envs
+
+    @property
+    def had_fallbacks(self) -> bool:
+        """Whether any pool refill accepted best-loss layouts that failed strict validation."""
+        return self._had_fallbacks
 
     def sample_with_replacement(self, count: int) -> list[PlacementResult]:
         """Pick *count* layouts at random per env-slot (non-consuming).

@@ -55,6 +55,11 @@ def _test_object_set_samples_and_stores_variant_indices(simulation_app):
     assert getattr(spawn_cfg, "usd_path") == obj_set.object_usd_paths
     assert getattr(spawn_cfg, "random_choice") is False
 
+    with patch("isaaclab_arena.assets.object.find_shallowest_rigid_body", return_value="/rigid") as find_rigid_body:
+        contact_sensor_cfg = obj_set.get_contact_sensor_cfg()
+    find_rigid_body.assert_called_once_with(can_a.usd_path, relative_to_root=True)
+    assert contact_sensor_cfg.prim_path == f"{obj_set.prim_path}/rigid"
+
     per_env_bbox = obj_set.get_bounding_box_per_env(num_envs=4)
     assert torch.allclose(per_env_bbox.max_point[0], bbox_b.max_point[0])
     assert torch.allclose(per_env_bbox.max_point[1], bbox_a.max_point[0])

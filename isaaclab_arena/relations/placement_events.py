@@ -50,7 +50,11 @@ def solve_and_place_objects(
 
     reset_env_ids = env_ids.tolist()
     if placement_pool.requires_env_indexed_layouts:
-        all_results = placement_pool.sample_without_replacement(env.scene.env_origins.shape[0])
+        num_scene_envs = env.scene.env_origins.shape[0]
+        assert (
+            placement_pool.num_envs == num_scene_envs
+        ), f"Placement pool has {placement_pool.num_envs} envs, but scene has {num_scene_envs} env origins."
+        all_results = placement_pool.sample_without_replacement(num_scene_envs)
         results_by_env = {cur_env: all_results[cur_env] for cur_env in reset_env_ids}
     else:
         reset_results = placement_pool.sample_without_replacement(len(reset_env_ids))

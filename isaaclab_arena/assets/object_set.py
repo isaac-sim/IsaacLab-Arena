@@ -151,8 +151,8 @@ class RigidObjectSet(Object):
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         # We assume that by here, our USDs have been modified to be compatible with each other
-        # and we can use the first USD path to find the shallowest rigid body.
-        return super().get_contact_sensor_cfg(contact_against_object, usd_path=self.object_usd_paths[0])
+        # and we can use the canonical first member USD to find the shallowest rigid body.
+        return super().get_contact_sensor_cfg(contact_against_object, usd_path=self._member_object_usd_paths[0])
 
     def _generate_variant_indices(self, num_envs: int) -> list[int]:
         n = len(self.objects)
@@ -171,6 +171,7 @@ class RigidObjectSet(Object):
 
         self.variant_indices_by_env = list(variant_indices_by_env)
         if len(self.objects) > 1:
+            # Keep Isaac Lab's MultiUsdFileCfg aligned with the fixed per-env variant assignment.
             self.object_usd_paths = [self._member_object_usd_paths[idx] for idx in self.variant_indices_by_env]
             spawn_cfg = self.object_cfg.spawn if getattr(self, "object_cfg", None) is not None else None
             if isinstance(spawn_cfg, sim_utils.MultiUsdFileCfg):
