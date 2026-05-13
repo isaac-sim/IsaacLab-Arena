@@ -211,14 +211,19 @@ jobs:
       # because the socket binds before the model finishes loading.
       - name: Wait for GR00T server
         timeout-minutes: 10
+        env:
+          PYTHONUNBUFFERED: "1"
         run: |
-          /isaac-sim/python.sh - <<'PY'
-          import socket, sys, time, traceback
-          from gr00t.policy.server_client import PolicyClient
+          # -u is belt-and-suspenders alongside PYTHONUNBUFFERED so prints
+          # land in the log even if the step is killed mid-flight.
+          /isaac-sim/python.sh -u - <<'PY'
+          import socket, sys, time, zmq
+          from gr00t.policy.server_client import MsgSerializer
 
           HOST, PORT = "gr00t", 5555
-          interval = 15
-          max_iters = 40  # 40 * 15s = 10 min
+          POLL_INTERVAL_S = 15
+          MAX_ITERS = 40  # 40 * 15s = 10 min
+          REQ_TIMEOUT_MS = 5000
 
           def dns_probe():
               try:
@@ -228,39 +233,47 @@ jobs:
 
           def tcp_probe():
               try:
-                  with socket.create_connection((HOST, PORT), timeout=5) as s:
+                  with socket.create_connection((HOST, PORT), timeout=3) as s:
                       return f"OK ({s.getpeername()})"
               except Exception as e:
                   return f"FAILED: {type(e).__name__}: {e}"
 
-          # Initial reachability — tells us if the service container is even
-          # on the network before we start polling the application protocol.
-          print(f"[init] DNS  {HOST}: {dns_probe()}")
-          print(f"[init] TCP  {HOST}:{PORT}: {tcp_probe()}")
-
-          client = PolicyClient(host=HOST, port=PORT)
-          last_exc = None
-          for i in range(max_iters):
-              elapsed = i * interval
+          def ping():
+              # PolicyClient takes a timeout_ms ctor arg but never applies it
+              # to the socket — recv() would block forever if the server isn't
+              # responding. Use ZMQ directly with explicit RCVTIMEO/SNDTIMEO,
+              # and a fresh socket per attempt so a timeout doesn't leave the
+              # REQ-REP state machine wedged.
+              ctx = zmq.Context.instance()
+              sock = ctx.socket(zmq.REQ)
+              sock.setsockopt(zmq.LINGER, 0)
+              sock.setsockopt(zmq.RCVTIMEO, REQ_TIMEOUT_MS)
+              sock.setsockopt(zmq.SNDTIMEO, REQ_TIMEOUT_MS)
               try:
-                  cfg = client.get_modality_config()
-                  print(f"[t={elapsed}s] GR00T server ready (modality keys: {list(cfg.keys()) if hasattr(cfg, 'keys') else type(cfg).__name__})")
-                  sys.exit(0)
+                  sock.connect(f"tcp://{HOST}:{PORT}")
+                  sock.send(MsgSerializer.to_bytes({"endpoint": "ping"}))
+                  return True, MsgSerializer.from_bytes(sock.recv())
               except Exception as e:
-                  last_exc = e
-                  # Every ~1 min do a TCP probe so we can tell apart
-                  # "port closed / container not up" vs
-                  # "port open but server still loading model".
-                  extra = f" tcp_probe={tcp_probe()}" if i % 4 == 0 else ""
-                  print(f"[t={elapsed}s] not ready: {type(e).__name__}: {e}{extra}")
-                  time.sleep(interval)
+                  return False, f"{type(e).__name__}: {e}"
+              finally:
+                  sock.close()
 
-          print("---- final diagnostics ----")
-          print(f"DNS  {HOST}: {dns_probe()}")
-          print(f"TCP  {HOST}:{PORT}: {tcp_probe()}")
-          if last_exc is not None:
-              print("last PolicyClient.get_modality_config() traceback:")
-              traceback.print_exception(type(last_exc), last_exc, last_exc.__traceback__)
+          print(f"[init] DNS  {HOST}: {dns_probe()}", flush=True)
+          print(f"[init] TCP  {HOST}:{PORT}: {tcp_probe()}", flush=True)
+
+          for i in range(MAX_ITERS):
+              elapsed = i * POLL_INTERVAL_S
+              ok, detail = ping()
+              if ok:
+                  print(f"[t={elapsed}s] GR00T server ready (ping={detail})", flush=True)
+                  sys.exit(0)
+              extra = f" tcp_probe={tcp_probe()}" if i % 4 == 0 else ""
+              print(f"[t={elapsed}s] not ready: {detail}{extra}", flush=True)
+              time.sleep(POLL_INTERVAL_S)
+
+          print("---- final diagnostics ----", flush=True)
+          print(f"DNS  {HOST}: {dns_probe()}", flush=True)
+          print(f"TCP  {HOST}:{PORT}: {tcp_probe()}", flush=True)
           sys.exit("timed out waiting for GR00T server")
           PY
 
