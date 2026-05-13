@@ -9,6 +9,7 @@ on:
   pull_request:
   push:
     branches: [ "main" ]
+  workflow_dispatch:
 
 # Concurrency control to prevent parallel runs on the same PR
 concurrency:
