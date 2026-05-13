@@ -205,12 +205,6 @@ jobs:
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 90
     needs: [pre_commit]
-    # Heavy job: small finetune + GR00T server + Isaac Sim closed-loop eval.
-    # Gated to keep PR feedback fast — opt-in via PR label or manual dispatch.
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' &&
-       contains(github.event.pull_request.labels.*.name, 'gr00t-closedloop'))
 
     container:
       image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
