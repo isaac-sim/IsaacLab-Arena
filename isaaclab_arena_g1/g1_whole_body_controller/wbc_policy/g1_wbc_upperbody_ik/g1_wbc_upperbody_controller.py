@@ -24,8 +24,16 @@ class G1BodyIKSolverSettings:
         self.posture_cost = 0.01
         self.posture_lm_damping = 1.0
         self.link_costs = {"hand": {"orientation_cost": 0.5, "position_cost": 1.0}}
+        # Per-joint posture-task weights (relative to the default of 1.0). Higher
+        # values make the IK resist deviating that joint from its rest pose.
+        # Both `waist_pitch` and `waist_roll` are set to 10.0 because, when these
+        # joints are in the IK's active set (e.g. AGILE-pink), the iterative
+        # integration of `pink.Configuration.q` accumulates small numerical drifts
+        # that, over hundreds of steps, manifest as a slow tilt; the strong
+        # posture weight pulls them back toward the default pose each step.
         self.posture_weight = {
             "waist_pitch": 10.0,
+            "waist_roll": 10.0,
             "shoulder_pitch": 4.0,
             "shoulder_roll": 3.0,
             "shoulder_yaw": 2.0,
@@ -202,10 +210,33 @@ class G1WBCUpperbodyController:
         self,
         robot_model: RobotModel,
         body_active_joint_groups: list[str] | None = None,
+        extra_active_joints: list[str] | None = None,
     ):
+        """Initialize the upperbody controller.
+
+        Args:
+            robot_model: Full robot model.
+            body_active_joint_groups: Joint group names whose joints stay active (driven by IK).
+                All other joints are fixed. If None and ``extra_active_joints`` is also None,
+                the full robot is used (no reduction).
+            extra_active_joints: Additional individual joint names to keep active on top of
+                ``body_active_joint_groups``. Useful when you want a partial group, e.g.
+                only ``waist_roll_joint`` and ``waist_pitch_joint`` from the ``waist`` group.
+        """
         # Initialize the body
-        if body_active_joint_groups is not None:
-            self.body = ReducedRobotModel.from_active_groups(robot_model, body_active_joint_groups)
+        active_groups = body_active_joint_groups
+        extra_joints = list(extra_active_joints) if extra_active_joints else []
+        if active_groups is not None or extra_joints:
+            # Compute the union of group joints + extra joints, then derive fixed joints.
+            active_joint_names: set[str] = set(extra_joints)
+            if active_groups is not None:
+                for group_name in active_groups:
+                    if group_name not in robot_model.supplemental_info.joint_groups:
+                        raise ValueError(f"Unknown joint group: {group_name}")
+                    group_indices = robot_model.get_joint_group_indices(group_name)
+                    active_joint_names.update(robot_model.joint_names[idx] for idx in group_indices)
+            fixed_joints = [name for name in robot_model.joint_names if name not in active_joint_names]
+            self.body = ReducedRobotModel(robot_model, fixed_joints)
             self.full_robot = self.body.full_robot
             self.using_reduced_robot_model = True
         else:

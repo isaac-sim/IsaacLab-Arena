@@ -69,6 +69,13 @@ if "openxr" in args_cli.teleop_device.lower():
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
+# Patch isaaclab_physx's RTX render-update helper so the first frame's annotator
+# buffers are populated before the teleop loop renders. Without this the initial
+# pre-step render emerges black under the visualizer that record_demos.py uses.
+from isaaclab_arena.utils.isaaclab_utils.isaac_rtx_renderer_patch import patch_isaac_rtx_renderer
+
+patch_isaac_rtx_renderer()
+
 """Rest everything follows."""
 
 
@@ -94,6 +101,8 @@ from isaaclab.envs.ui import EmptyWindow
 from isaaclab.managers import DatasetExportMode
 from isaaclab_mimic.ui.instruction_display import InstructionDisplay, show_subtask_instructions
 from isaaclab_teleop import IsaacTeleopCfg, create_isaac_teleop_device, remove_camera_configs
+
+from isaaclab_arena.utils.isaaclab_utils.recorders import ArenaEnvRecorderManagerCfg
 
 # Imports have to follow simulation startup.
 
@@ -205,7 +214,10 @@ def create_environment_config(
     env_cfg.terminations.time_out = None
     env_cfg.observations.policy.concatenate_terms = False
 
-    env_cfg.recorders: ActionStateRecorderManagerCfg = ActionStateRecorderManagerCfg()
+    if args_cli.enable_cameras:
+        env_cfg.recorders = ArenaEnvRecorderManagerCfg()
+    else:
+        env_cfg.recorders = ActionStateRecorderManagerCfg()
     env_cfg.recorders.dataset_export_dir_path = output_dir
     env_cfg.recorders.dataset_filename = output_file_name
     env_cfg.recorders.dataset_export_mode = DatasetExportMode.EXPORT_SUCCEEDED_ONLY

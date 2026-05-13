@@ -206,11 +206,34 @@ def load_gr00t_modality_config_from_file(modality_config_path: str | Path, embod
     """
     from gr00t.configs.data.embodiment_configs import MODALITY_CONFIGS
     from gr00t.data.embodiment_tags import EmbodimentTag
-    from gr00t.experiment.launch_finetune import load_modality_config
 
+    # TODO(xinjieyao, 2026-04-27): to be refactored after adding gr00t remote policy
     if modality_config_path:
-        # Import module for side-effect registration
-        load_modality_config(modality_config_path)
+        # Import the user's modality config module for its side-effect of
+        # registering entries into MODALITY_CONFIGS.
+        #
+        # Prefer GR00T's own helper when available (full GR00T container),
+        # but fall back to an inlined copy so the base container — which
+        # ships GR00T as source only and does not install training deps
+        # like tyro — still works.
+        try:
+            from gr00t.experiment.launch_finetune import load_modality_config
+
+            load_modality_config(modality_config_path)
+        except ImportError:
+            import importlib.util
+
+            path = Path(modality_config_path)
+            if not (path.exists() and path.suffix == ".py"):
+                raise FileNotFoundError(f"Modality config path does not exist: {modality_config_path}")
+            # Load by file location so we (a) don't mutate sys.path and (b) always
+            # execute the module body — register_modality_config() runs every call,
+            # rather than being skipped on a sys.modules cache hit.
+            spec = importlib.util.spec_from_file_location(path.stem, path)
+            if spec is None or spec.loader is None:
+                raise ImportError(f"Could not load modality config from {path}")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
 
     # Get the embodiment tag from policy config and convert to EmbodimentTag enum
     # Handle case-insensitive lookup (e.g., "NEW_EMBODIMENT" or "new_embodiment" both work)

@@ -36,17 +36,17 @@ onnx_input_joint_names:
   - left_wrist_yaw_joint
   - right_wrist_yaw_joint
 
-# Joint ordering for ONNX model outputs (14 controlled joints in agile output order).
-# Must match the action_joint_pos element_names from unitree_g1_velocity_e2e.yaml.
+# Joint ordering for ONNX model outputs (12 leg joints in agile output order).
+# Recurrent student outputs JointPositionActionCfg(LEG_JOINT_NAMES); waist roll/pitch
+# are NOT controlled by this policy, so the leg-only ordering is the original 14-entry
+# list with waist_roll_joint and waist_pitch_joint removed.
 controlled_joint_names:
   - left_hip_pitch_joint
   - right_hip_pitch_joint
   - left_hip_roll_joint
   - right_hip_roll_joint
-  - waist_roll_joint
   - left_hip_yaw_joint
   - right_hip_yaw_joint
-  - waist_pitch_joint
   - left_knee_joint
   - right_knee_joint
   - left_ankle_pitch_joint
@@ -54,8 +54,45 @@ controlled_joint_names:
   - left_ankle_roll_joint
   - right_ankle_roll_joint
 
-num_actions: 14
+num_actions: 12
 num_body_joints: 29
 
-# Initial commands
-cmd_init: [0.0, 0.0, 0.0]
+# 4-channel velocity-height command [v_x, v_y, w_z, h]. Default pelvis height = 0.72 m
+# (matches the WBC standing-height default used by the zero-action baseline).
+cmd_init: [0.0, 0.0, 0.0, 0.72]
+
+# Matches `scale=0.1` on `joint_vel` in StudentVelocityPolicyCfg
+# (agile/rl_env/tasks/locomotion_height/g1/velocity_height_env_cfg.py).
+joint_vel_scale: 0.1
+
+# Per-joint action post-processing, mirrored from the agile training
+# JointPositionActionCfg (G1_ACTION_SCALE_LOWER, use_default_offset=True, clip=[-6, 6]).
+# Order matches `controlled_joint_names` above.
+# Final joint target = clip(raw_action, -6, 6) * action_scale + action_offset.
+action_clip: [-6.0, 6.0]
+action_scale:
+  - 0.5475464463233948  # left_hip_pitch_joint
+  - 0.5475464463233948  # right_hip_pitch_joint
+  - 0.3506614565849304  # left_hip_roll_joint
+  - 0.3506614565849304  # right_hip_roll_joint
+  - 0.5475464463233948  # left_hip_yaw_joint
+  - 0.5475464463233948  # right_hip_yaw_joint
+  - 0.3506614565849304  # left_knee_joint
+  - 0.3506614565849304  # right_knee_joint
+  - 0.4385773241519928  # left_ankle_pitch_joint
+  - 0.4385773241519928  # right_ankle_pitch_joint
+  - 0.4385773241519928  # left_ankle_roll_joint
+  - 0.4385773241519928  # right_ankle_roll_joint
+action_offset:
+  - -0.10  # left_hip_pitch_joint
+  - -0.10  # right_hip_pitch_joint
+  - 0.0    # left_hip_roll_joint
+  - 0.0    # right_hip_roll_joint
+  - 0.0    # left_hip_yaw_joint
+  - 0.0    # right_hip_yaw_joint
+  - 0.30   # left_knee_joint
+  - 0.30   # right_knee_joint
+  - -0.20  # left_ankle_pitch_joint
+  - -0.20  # right_ankle_pitch_joint
+  - 0.0    # left_ankle_roll_joint
+  - 0.0    # right_ankle_roll_joint

@@ -64,6 +64,7 @@ def prepare_observations(
     # Get robot joint observations
     sim_joint_pos = wp.to_torch(robot_data.joint_pos).cpu().numpy()
     sim_joint_vel = wp.to_torch(robot_data.joint_vel).cpu().numpy()
+    sim_default_joint_pos = wp.to_torch(robot_data.default_joint_pos).cpu().numpy()
     num_joints = len(robot_data.joint_names)
 
     # Convert joints data from Lab's order to GR00T's order saved in config yaml
@@ -72,6 +73,9 @@ def prepare_observations(
     wbc_joint_acc = np.zeros((num_envs, num_joints))
     wbc_joint_pos = convert_sim_joint_to_wbc_joint(sim_joint_pos, robot_data.joint_names, wbc_joints_order)
     wbc_joint_vel = convert_sim_joint_to_wbc_joint(sim_joint_vel, robot_data.joint_names, wbc_joints_order)
+    wbc_default_joint_pos = convert_sim_joint_to_wbc_joint(
+        sim_default_joint_pos, robot_data.joint_names, wbc_joints_order
+    )
 
     # Prepare obs dict for WBC policy input to G1DecoupledWholeBodyPolicy class
     assert wbc_joint_pos.shape == wbc_joint_vel.shape == wbc_joint_acc.shape == (num_envs, num_joints)
@@ -92,15 +96,24 @@ def prepare_observations(
 
     torso_link_ang_vel_b = math_utils.quat_apply_inverse(torso_link_quat_w_xyzw, torso_link_ang_vel_w)
 
+    projected_gravity_b = wp.to_torch(robot_data.projected_gravity_b).cpu().numpy()
+    # `mdp.base_ang_vel` returns `root_ang_vel_b` (COM frame). The AGILE recurrent policy
+    # was trained with this exact quantity, so expose it separately from the link-frame
+    # `floating_base_vel` that other WBC policies consume.
+    root_ang_vel_b = wp.to_torch(robot_data.root_ang_vel_b).cpu().numpy()
+
     # Prepare obs tmers
     wbc_obs = {
         "q": wbc_joint_pos,
         "dq": wbc_joint_vel,
+        "default_q": wbc_default_joint_pos,
         "ddq": np.zeros((num_envs, num_joints)),  # Not used by Standing Waist Height Policy
         "tau_est": np.zeros((num_envs, num_joints)),  # Not used by Standing Waist Height Policy
         "floating_base_pose": base_pose_w,  # wrt world frame, used to project gravity vector to local frame
-        "floating_base_vel": base_vel_b,  # wrt body frame
+        "floating_base_vel": base_vel_b,  # root_link_*_vel_b (link frame), used by Homie WBC
         "floating_base_acc": np.zeros((num_envs, 6)),  # Not used by Standing Waist Height Policy
+        "projected_gravity_b": projected_gravity_b,  # gravity projected into base frame, used by AGILE recurrent
+        "root_ang_vel_b": root_ang_vel_b,  # COM-frame angular velocity, used by AGILE recurrent
         "torso_quat": torso_link_quat_w_wxyz.cpu().numpy(),
         "torso_ang_vel": torso_link_ang_vel_b.cpu().numpy(),
     }

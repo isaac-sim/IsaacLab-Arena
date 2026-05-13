@@ -22,6 +22,8 @@ RUN apt-get update && apt-get install -y \
   git-lfs \
   cmake \
   sudo \
+  jq \
+  ffmpeg \
   python3-pip
 
 ################################
@@ -64,6 +66,9 @@ RUN /isaac-sim/python.sh -m pip install -e \
 # Upgrade pip ahead of the editable install
 RUN /isaac-sim/python.sh -m pip install --upgrade pip
 
+# PyAV: video read/write backend used by isaaclab_arena_gr00t/lerobot/convert_hdf5_to_lerobot.py
+RUN /isaac-sim/python.sh -m pip install av
+
 # Lightwheel server
 ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
 
@@ -91,6 +96,13 @@ RUN if [ "$INSTALL_GROOT" = "true" ]; then \
   rm -f /tmp/install_cuda.sh
 # Copy GR00T
 COPY ./submodules/Isaac-GR00T ${WORKDIR}/submodules/Isaac-GR00T
+# Always make the `gr00t` package importable so the lightweight remote
+# PolicyClient (gr00t.policy.server_client) works in the base container.
+# The full GR00T runtime (torch + flash-attn + transformers + ...) is still
+# gated behind INSTALL_GROOT=true below.
+RUN /isaac-sim/python.sh -m pip install msgpack==1.1.0 msgpack-numpy==0.4.8 pyzmq==27.0.1 && \
+    /isaac-sim/python.sh -m pip install --no-deps --ignore-requires-python -e ${WORKDIR}/submodules/Isaac-GR00T/
+# TODO(xinjieyao, 2026-04-27): remove this after remote policy done refactoring
 # Copy GR00T dependencies installation script
 COPY docker/setup/install_gr00t_deps.sh /tmp/install_gr00t_deps.sh
 RUN chmod +x /tmp/install_gr00t_deps.sh

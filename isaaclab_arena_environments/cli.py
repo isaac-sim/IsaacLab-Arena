@@ -16,6 +16,9 @@ from isaaclab_arena_environments.franka_put_and_close_door_environment import Fr
 from isaaclab_arena_environments.galileo_g1_locomanip_pick_and_place_environment import (
     GalileoG1LocomanipPickAndPlaceEnvironment,
 )
+from isaaclab_arena_environments.galileo_g1_static_pick_and_place_environment import (
+    GalileoG1StaticPickAndPlaceEnvironment,
+)
 from isaaclab_arena_environments.galileo_pick_and_place_environment import GalileoPickAndPlaceEnvironment
 from isaaclab_arena_environments.gr1_open_microwave_environment import Gr1OpenMicrowaveEnvironment
 from isaaclab_arena_environments.gr1_put_and_close_door_environment import GR1PutAndCloseDoorEnvironment
@@ -42,6 +45,7 @@ ExampleEnvironments = {
     GalileoPickAndPlaceEnvironment.name: GalileoPickAndPlaceEnvironment,
     PickAndPlaceMapleTableEnvironment.name: PickAndPlaceMapleTableEnvironment,
     GalileoG1LocomanipPickAndPlaceEnvironment.name: GalileoG1LocomanipPickAndPlaceEnvironment,
+    GalileoG1StaticPickAndPlaceEnvironment.name: GalileoG1StaticPickAndPlaceEnvironment,
     PressButtonEnvironment.name: PressButtonEnvironment,
     CubeGoalPoseEnvironment.name: CubeGoalPoseEnvironment,
     DexsuiteLiftEnvironment.name: DexsuiteLiftEnvironment,

@@ -241,7 +241,9 @@ def goal_pose_task_termination(
 
 
 def root_height_below_minimum_multi_objects(
-    env: ManagerBasedRLEnv, minimum_height: float, asset_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("robot")]
+    env: ManagerBasedRLEnv,
+    minimum_height: float,
+    asset_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("robot")],
 ) -> torch.Tensor:
     """Terminate when any asset's root height is below the minimum height.
 
