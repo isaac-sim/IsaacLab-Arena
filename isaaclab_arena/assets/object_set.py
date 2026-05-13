@@ -108,8 +108,9 @@ class RigidObjectSet(Object):
         """Return which member object index is assigned to each environment.
 
         Multi-variant sets use one fixed assignment for the lifetime of the
-        object set. By default, each env independently samples one variant
-        once, then keeps it across resets.
+        object set. When ``random_choice`` is True, each env independently
+        samples one variant once. Otherwise, assignments repeat the member
+        order across environments.
 
         Args:
             num_envs: Number of environments.
