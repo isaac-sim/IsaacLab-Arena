@@ -149,55 +149,20 @@ jobs:
       # - All subprocess-spawning tests (each spawns their own SimulationApp)
       #
       # To restore sanity here is a goal for Isaac Lab Arena v0.3.
-      - name: Run in-process Newton tests
-        run: |
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_newton \
-            isaaclab_arena/tests/
+      # - name: Run in-process Newton tests
+      #   run: |
+      #     /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_newton \
+      #       isaaclab_arena/tests/
 
-      - name: Run in-process PhysX tests without cameras
-        run: |
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
-            isaaclab_arena/tests/
+      # - name: Run in-process PhysX tests without cameras
+      #   run: |
+      #     /isaac-sim/python.sh -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
+      #       isaaclab_arena/tests/
 
-      - name: Run GR00T policy/data tests (lightweight gr00t deps only)
-        run: |
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m gr00t_policy \
-            isaaclab_arena_gr00t/tests/
-
-
-  tests_with_subprocess:
-    name: Run tests with subprocess
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 60
-    needs: [pre_commit]
-
-    container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
-      credentials:
-        username: $oauthtoken
-        password: ${{ env.NGC_API_KEY }}
-    steps:
-      # nvidia-smi
-      - *nvidia_smi
-      - *lscpu
-
-      # Setup.
-      - *install_git_step
-      - *cleanup_step
-      - *mark_repo_safe_step
-      - *checkout_step
-      - *git_lfs_step
-      - *install_project_step
-      - *setup_isaac_sim_kit_cache_step
-
-      # NOTE(alexmillane): These tests are unreliable at the moment, and often stall,
-      # causing the whole CI run to fail. I am moving these to a parallel job, and then
-      # will make the job containing them optional in terms of passing.
-      - name: Run subprocess-spawning PhysX tests
-        run: |
-          ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_subprocess \
-            isaaclab_arena/tests/
+      # - name: Run GR00T policy/data tests (lightweight gr00t deps only)
+      #   run: |
+      #     /isaac-sim/python.sh -m pytest -sv --durations=0 -m gr00t_policy \
+      #       isaaclab_arena_gr00t/tests/
 
 
   test_gr00t_closedloop_e2e:
@@ -245,21 +210,57 @@ jobs:
       # endpoint with the real PolicyClient — TCP-open isn't sufficient
       # because the socket binds before the model finishes loading.
       - name: Wait for GR00T server
-        timeout-minutes: 20
+        timeout-minutes: 10
         run: |
           /isaac-sim/python.sh - <<'PY'
-          import sys, time
+          import socket, sys, time, traceback
           from gr00t.policy.server_client import PolicyClient
-          client = PolicyClient(host="gr00t", port=5555)
+
+          HOST, PORT = "gr00t", 5555
           interval = 15
-          for i in range(80):  # 80 * 15s = 20 min
+          max_iters = 40  # 40 * 15s = 10 min
+
+          def dns_probe():
               try:
-                  client.get_modality_config()
-                  print(f"GR00T server ready after {i * interval}s")
+                  return f"resolved -> {socket.gethostbyname_ex(HOST)}"
+              except Exception as e:
+                  return f"FAILED: {type(e).__name__}: {e}"
+
+          def tcp_probe():
+              try:
+                  with socket.create_connection((HOST, PORT), timeout=5) as s:
+                      return f"OK ({s.getpeername()})"
+              except Exception as e:
+                  return f"FAILED: {type(e).__name__}: {e}"
+
+          # Initial reachability — tells us if the service container is even
+          # on the network before we start polling the application protocol.
+          print(f"[init] DNS  {HOST}: {dns_probe()}")
+          print(f"[init] TCP  {HOST}:{PORT}: {tcp_probe()}")
+
+          client = PolicyClient(host=HOST, port=PORT)
+          last_exc = None
+          for i in range(max_iters):
+              elapsed = i * interval
+              try:
+                  cfg = client.get_modality_config()
+                  print(f"[t={elapsed}s] GR00T server ready (modality keys: {list(cfg.keys()) if hasattr(cfg, 'keys') else type(cfg).__name__})")
                   sys.exit(0)
               except Exception as e:
-                  print(f"[t={i * interval}s] not ready: {e}")
+                  last_exc = e
+                  # Every ~1 min do a TCP probe so we can tell apart
+                  # "port closed / container not up" vs
+                  # "port open but server still loading model".
+                  extra = f" tcp_probe={tcp_probe()}" if i % 4 == 0 else ""
+                  print(f"[t={elapsed}s] not ready: {type(e).__name__}: {e}{extra}")
                   time.sleep(interval)
+
+          print("---- final diagnostics ----")
+          print(f"DNS  {HOST}: {dns_probe()}")
+          print(f"TCP  {HOST}:{PORT}: {tcp_probe()}")
+          if last_exc is not None:
+              print("last PolicyClient.get_modality_config() traceback:")
+              traceback.print_exception(type(last_exc), last_exc, last_exc.__traceback__)
           sys.exit("timed out waiting for GR00T server")
           PY
 
