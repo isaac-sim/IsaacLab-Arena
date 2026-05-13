@@ -11,6 +11,7 @@ from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
@@ -214,6 +215,32 @@ def test_solver_respects_clearance_m():
     assert not bbox_a.overlaps(
         bbox_b, margin=0.05
     ).item(), f"Boxes should be at least 5 cm apart; box_a at {pos_a}, box_b at {pos_b}"
+
+
+def test_no_overlap_skips_direct_on_non_anchor_pair():
+    """No-overlap should not fight an On relation whose parent is also movable."""
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+
+    support = _create_box("support")
+    child = _create_box("child")
+    support.add_relation(On(table, clearance_m=0.0))
+    child.add_relation(On(support, clearance_m=0.0))
+
+    objects = [table, support, child]
+    initial_positions = [{
+        table: (0.0, 0.0, 0.0),
+        support: (2.0, 2.0, 0.0),
+        child: (2.0, 2.0, 0.0),
+    }]
+    state = RelationSolverState(objects, initial_positions, device=torch.device("cpu"))
+    solver = RelationSolver(params=RelationSolverParams(max_iters=0))
+
+    loss = solver._compute_no_overlap_loss(state)
+
+    assert torch.isfinite(loss).all()
+    assert torch.allclose(loss, torch.zeros_like(loss))
 
 
 def test_negative_clearance_m_raises():

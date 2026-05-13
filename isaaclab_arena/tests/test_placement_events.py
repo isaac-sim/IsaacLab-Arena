@@ -304,6 +304,42 @@ def test_solve_and_place_objects_rejects_invalid_pool_layout():
     assert len(env._assets) == 0
 
 
+def test_solve_and_place_objects_rejects_invalid_layout_before_partial_write():
+    """Invalid layouts should abort the whole reset before any env is written."""
+
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+    from isaaclab_arena.relations.placement_result import PlacementResult
+
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+    env = _make_mock_env(num_envs=2)
+
+    class PartiallyInvalidPool:
+        requires_env_indexed_layouts = False
+
+        def sample_without_replacement(self, count: int) -> list[PlacementResult]:
+            assert count == 2
+            return [
+                PlacementResult(
+                    success=True,
+                    positions={box1: (0.1, 0.1, 0.1), box2: (0.2, 0.2, 0.2)},
+                    final_loss=0.0,
+                    attempts=1,
+                ),
+                PlacementResult(
+                    success=False,
+                    positions={box1: (0.0, 0.0, 0.0), box2: (0.0, 0.0, 0.0)},
+                    final_loss=float("nan"),
+                    attempts=1,
+                ),
+            ]
+
+    with pytest.raises(RuntimeError, match="invalid layout"):
+        solve_and_place_objects(env, torch.tensor([0, 1]), objects, PartiallyInvalidPool())
+
+    assert len(env._assets) == 0
+
+
 def test_pooled_placer_sample_without_replacement_returns_different_layouts():
     """sample_without_replacement() should return layouts (likely different across draws)."""
 

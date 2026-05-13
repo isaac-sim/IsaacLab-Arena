@@ -54,7 +54,8 @@ class ObjectBase(Asset, ABC):
         self.object_cfg = None
         self.event_cfg = None
         self.relations: list[RelationBase] = []
-        self.has_env_specific_bboxes: bool = False
+        if not hasattr(self, "has_env_specific_bboxes"):
+            self.has_env_specific_bboxes: bool = False
 
     def get_initial_pose(self) -> Pose | PoseRange | PosePerEnv | None:
         """Return the current initial pose of this object.

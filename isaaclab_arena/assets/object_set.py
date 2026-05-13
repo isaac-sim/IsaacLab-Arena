@@ -77,6 +77,7 @@ class RigidObjectSet(Object):
         self._member_object_usd_paths: list[str] = list(self.object_usd_paths)
         self.random_choice = random_choice
         self.variant_indices_by_env: list[int] | None = None
+        self.has_env_specific_bboxes = len(objects) > 1
 
         if variant_indices_by_env is not None:
             self._set_variant_indices_by_env(variant_indices_by_env)
@@ -94,7 +95,6 @@ class RigidObjectSet(Object):
             initial_pose=initial_pose,
             **kwargs,
         )
-        self.has_env_specific_bboxes = len(objects) > 1
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get the bounding box of the object set.

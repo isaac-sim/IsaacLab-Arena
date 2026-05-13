@@ -107,6 +107,23 @@ def test_dummy_object_preserves_constructor_relations():
     assert obj.has_env_specific_bboxes is False
 
 
+def test_object_preserves_constructor_relations():
+    """Object should keep relations passed at construction time."""
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_base import ObjectType
+
+    anchor_relation = IsAnchor()
+    obj = Object(
+        name="rigid_object",
+        object_type=ObjectType.RIGID,
+        usd_path="/tmp/rigid_object.usd",
+        relations=[anchor_relation],
+    )
+
+    assert obj.get_relations() == [anchor_relation]
+    assert obj.has_env_specific_bboxes is False
+
+
 # ---------------------------------------------------------------------------
 # Solver with per-env bboxes
 # ---------------------------------------------------------------------------
