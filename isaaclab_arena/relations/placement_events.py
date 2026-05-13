@@ -56,16 +56,6 @@ def solve_and_place_objects(
         reset_results = placement_pool.sample_without_replacement(len(reset_env_ids))
         results_by_env = dict(zip(reset_env_ids, reset_results))
 
-    # PooledObjectPlacer stores only successful layouts; this pre-pass keeps
-    # reset writes atomic if a custom pool or future regression violates that invariant.
-    for cur_env in reset_env_ids:
-        result = results_by_env[cur_env]
-        if not result.success:
-            raise RuntimeError(
-                f"Placement pool returned an invalid layout for env {cur_env} "
-                f"(loss={result.final_loss:.6f}); refusing to write it to simulation."
-            )
-
     anchor_objects_set = set(get_anchor_objects(objects))
     rotations = {obj: get_rotation_xyzw(obj) for obj in objects if obj not in anchor_objects_set}
 

@@ -8,8 +8,6 @@
 import torch
 from unittest.mock import MagicMock
 
-import pytest
-
 
 def _create_test_objects():
     """Create a desk (anchor) with two boxes (On + NextTo)."""
@@ -274,8 +272,8 @@ def test_solve_and_place_objects_partial_reset_reusable_pool_consumes_only_reset
     assert available_before - available_after == len(env_ids)
 
 
-def test_solve_and_place_objects_rejects_invalid_pool_layout():
-    """Invalid pool layouts should not be written to simulation."""
+def test_solve_and_place_objects_writes_invalid_fallback_layout():
+    """Invalid fallback layouts should still be written, matching pool fallback behavior."""
 
     from isaaclab_arena.relations.placement_events import solve_and_place_objects
     from isaaclab_arena.relations.placement_result import PlacementResult
@@ -298,46 +296,11 @@ def test_solve_and_place_objects_rejects_invalid_pool_layout():
                 )
             ]
 
-    with pytest.raises(RuntimeError, match="invalid layout"):
-        solve_and_place_objects(env, torch.tensor([0]), objects, InvalidPool())
+    solve_and_place_objects(env, torch.tensor([0]), objects, InvalidPool())
 
-    assert len(env._assets) == 0
-
-
-def test_solve_and_place_objects_rejects_invalid_layout_before_partial_write():
-    """Invalid layouts should abort the whole reset before any env is written."""
-
-    from isaaclab_arena.relations.placement_events import solve_and_place_objects
-    from isaaclab_arena.relations.placement_result import PlacementResult
-
-    desk, box1, box2 = _create_test_objects()
-    objects = [desk, box1, box2]
-    env = _make_mock_env(num_envs=2)
-
-    class PartiallyInvalidPool:
-        requires_env_indexed_layouts = False
-
-        def sample_without_replacement(self, count: int) -> list[PlacementResult]:
-            assert count == 2
-            return [
-                PlacementResult(
-                    success=True,
-                    positions={box1: (0.1, 0.1, 0.1), box2: (0.2, 0.2, 0.2)},
-                    final_loss=0.0,
-                    attempts=1,
-                ),
-                PlacementResult(
-                    success=False,
-                    positions={box1: (0.0, 0.0, 0.0), box2: (0.0, 0.0, 0.0)},
-                    final_loss=float("nan"),
-                    attempts=1,
-                ),
-            ]
-
-    with pytest.raises(RuntimeError, match="invalid layout"):
-        solve_and_place_objects(env, torch.tensor([0, 1]), objects, PartiallyInvalidPool())
-
-    assert len(env._assets) == 0
+    assert set(env._assets) == {box1.name, box2.name}
+    assert env._assets[box1.name].write_root_pose_to_sim.call_count == 1
+    assert env._assets[box2.name].write_root_pose_to_sim.call_count == 1
 
 
 def test_pooled_placer_sample_without_replacement_returns_different_layouts():
@@ -438,8 +401,8 @@ def test_resolve_on_reset_false_applies_pose_per_env():
             assert p.position_xyz is not None, f"Position should not be None for {obj.name}"
 
 
-def test_pooled_placer_raises_when_no_valid_layouts():
-    """PooledObjectPlacer should fail instead of storing invalid layouts."""
+def test_pooled_placer_falls_back_when_no_valid_layouts():
+    """PooledObjectPlacer should keep best-loss fallback layouts when validation rejects all candidates."""
 
     from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -471,5 +434,7 @@ def test_pooled_placer_raises_when_no_valid_layouts():
     solver_params = RelationSolverParams(max_iters=50, convergence_threshold=1e-6)
     placer_params = ObjectPlacerParams(solver_params=solver_params, max_placement_attempts=1)
 
-    with pytest.raises(RuntimeError, match="could not fill"):
-        PooledObjectPlacer(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)
+    pool = PooledObjectPlacer(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)
+
+    assert pool.remaining == 5
+    assert not pool.sample_without_replacement(1)[0].success

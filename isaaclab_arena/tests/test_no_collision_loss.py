@@ -3,9 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# pyright: reportPrivateUsage=false
-# This file intentionally probes RelationSolver internals for focused loss checks.
-
 """Tests for NoCollisionLossStrategy and RelationSolver built-in no-overlap behavior."""
 
 import torch
@@ -240,7 +237,7 @@ def test_no_overlap_skips_direct_on_non_anchor_pair():
     state = RelationSolverState(objects, initial_positions, device=torch.device("cpu"))
     solver = RelationSolver(params=RelationSolverParams(max_iters=0))
 
-    loss = solver._compute_no_overlap_loss(state)
+    loss = solver._compute_no_overlap_loss(state)  # pyright: ignore[reportPrivateUsage]
 
     assert torch.isfinite(loss).all()
     assert torch.allclose(loss, torch.zeros_like(loss))

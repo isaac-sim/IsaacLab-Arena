@@ -204,6 +204,8 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.relations.relations import AtPosition, On
 
+        # TODO(@zhx06): Address residual object bouncing with xy-only no-collision
+        # constraints and anchor constraint handling in a follow-up change.
         if object_names:
             print(
                 "Warning: --objects with --mode heterogeneous wraps each object as a "

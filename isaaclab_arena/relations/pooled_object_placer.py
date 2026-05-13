@@ -129,9 +129,9 @@ class PooledObjectPlacer:
     def _solve_reusable_layouts(self, num_layouts: int) -> list[PlacementResult]:
         """Solve layouts that can be used by any env pool.
 
-        Invalid candidates are discarded. If the solver cannot produce enough
-        valid layouts after the bounded refill attempts, ``_solve_and_store``
-        raises instead of letting invalid placements reach simulation.
+        Invalid candidates are discarded when at least one valid layout exists.
+        If no candidate passes strict validation, fall back to best-loss results
+        to match the pre-pool behavior used by existing environments.
         """
         with torch.inference_mode(False):
             result = self._placer.place(self._objects, num_envs=num_layouts, result_per_env=True)
@@ -146,7 +146,11 @@ class PooledObjectPlacer:
                 f" {len(valid_layouts)} valid, {num_layouts - len(valid_layouts)} failed validation"
             )
 
-        return valid_layouts
+        if valid_layouts:
+            return valid_layouts
+
+        print("Warning: No candidates passed strict validation. Accepting best-loss layouts as fallback.")
+        return all_layouts
 
     def _store_reusable_results(self, layouts: list[PlacementResult]) -> None:
         """Distribute reusable layouts across env pools using greedy shortest-first.
@@ -199,23 +203,33 @@ class PooledObjectPlacer:
         return all_results, layouts_per_env
 
     def _store_env_matched_results(self, all_results: list[PlacementResult], layouts_per_env: int) -> None:
-        """Store only successful env-matched results into their corresponding pools."""
+        """Store env-matched results into their corresponding pools.
+
+        Prefer successful layouts for each env. If a specific env has no valid
+        layouts in the batch, fall back to its best-loss results so existing
+        environments with imperfect validation can still run.
+        """
         total_valid = 0
-        for i, r in enumerate(all_results):
-            cur_env = i // layouts_per_env
-            if r.success:
-                self._layout_pools[cur_env].append(r)
-                total_valid += 1
+        fallback_envs = []
+        for cur_env in range(self._num_envs):
+            start = cur_env * layouts_per_env
+            env_results = all_results[start : start + layouts_per_env]
+            valid_results = [r for r in env_results if r.success]
+            if valid_results:
+                self._layout_pools[cur_env].extend(valid_results)
+                total_valid += len(valid_results)
+            else:
+                self._layout_pools[cur_env].extend(env_results)
+                fallback_envs.append(cur_env)
 
         total_solved = len(all_results)
         if total_valid < total_solved:
-            failed_envs = [cur_env for cur_env in self._layout_pools if not self._layout_pools[cur_env]]
             msg = (
                 f"Placement pool (env-specific bbox layouts): solved {total_solved} candidates,"
                 f" {total_valid} valid, {total_solved - total_valid} failed validation"
             )
-            if failed_envs:
-                msg += f". Envs with zero valid layouts: {failed_envs}"
+            if fallback_envs:
+                msg += f". Falling back to best-loss layouts for envs: {fallback_envs}"
             print(msg)
 
     # ------------------------------------------------------------------
