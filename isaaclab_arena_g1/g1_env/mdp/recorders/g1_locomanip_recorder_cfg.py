@@ -30,7 +30,7 @@ class PostStepG1ObservationsActionRecorderCfg(RecorderTermCfg):
 
 class PreStepG1LocomanipActionRecorder(RecorderTerm):
     def record_pre_step(self):
-        actions = self._env.action_manager.action
+        actions = self._env.action_manager.action.clone()
         for term_name in self._env.action_manager.active_terms:
             if hasattr(self._env.action_manager.get_term(term_name), "navigate_cmd"):
                 actions[:, NAVIGATE_CMD_START_IDX:NAVIGATE_CMD_END_IDX] = self._env.action_manager.get_term(
