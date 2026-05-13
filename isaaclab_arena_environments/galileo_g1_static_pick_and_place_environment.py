@@ -139,6 +139,7 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         # The imported shelf mesh has uneven/perforated collision in the task region:
         # small objects can fall through parts of the visible shelf. Add an invisible
         # kinematic cuboid flush with the shelf top so task objects see a clean support.
+        # This has only reproduced in GPU simulation; CPU runs have not shown the issue.
         shelf_support = self.asset_registry.get_asset_by_name("procedural_table")(
             instance_name="static_pick_place_shelf_support",
             prim_path="{ENV_REGEX_NS}/static_pick_place_shelf_support",
