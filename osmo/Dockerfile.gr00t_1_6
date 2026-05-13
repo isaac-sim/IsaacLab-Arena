@@ -40,7 +40,12 @@ RUN curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.d
 RUN sudo apt-get install git-lfs
 RUN git-lfs install
 
-RUN pip install huggingface-hub[cli]
+# huggingface-hub[cli] requires typer>=0.16 (for the `suggest_commands` kwarg),
+# but the pytorch base image hard-pins typer==0.15.2 in /etc/pip/constraint.txt
+# which blocks any upgrade. Drop that line first (same pattern used above for
+# dill / scipy), then install the CLI.
+RUN sed -i '/^typer==/d' /etc/pip/constraint.txt
+RUN pip install --upgrade "typer>=0.16" "huggingface-hub[cli]"
 
 # Create alias for hf command to use the system-installed version
 RUN /usr/local/bin/hf download nvidia/GR00T-N1.6-3B --local-dir /workspace/pretrained_ckpts/GR00T-N1.6-3B --token ${HF_TOKEN}
