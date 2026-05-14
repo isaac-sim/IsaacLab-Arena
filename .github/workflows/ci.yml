@@ -279,9 +279,17 @@ jobs:
 
       - name: Run closed-loop eval against GR00T sidecar
         run: |
+          # The remote Arena policy only uses this YAML for obs/action translation;
+          # the actual model was trained and loaded by the GR00T sidecar. Replace
+          # the tutorial checkpoint path with a valid HF-style id so config
+          # validation does not require /models to exist in the job container.
+          CI_POLICY_CONFIG=/tmp/g1_locomanip_ci_gr00t_closedloop_config.yaml
+          cp isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml "$CI_POLICY_CONFIG"
+          sed -i 's#^model_path:.*#model_path: nvidia/GR00T-N1.6-3B#' "$CI_POLICY_CONFIG"
+
           /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
             --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-            --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
+            --policy_config_yaml_path "$CI_POLICY_CONFIG" \
             --remote_host gr00t \
             --remote_port 5555 \
             --num_steps 17 \
