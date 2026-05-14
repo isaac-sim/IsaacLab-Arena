@@ -49,18 +49,18 @@ def solve_and_place_objects(
     num_reset_envs = len(env_ids)
     results_per_env = placement_pool.sample_without_replacement(num_reset_envs)
 
-    anchor_objects_set = set(get_anchor_objects(objects))
-    rotations = {obj: get_rotation_xyzw(obj) for obj in objects if obj not in anchor_objects_set}
+    anchor_object_names = {obj.name for obj in get_anchor_objects(objects)}
+    rotations = {obj.name: get_rotation_xyzw(obj) for obj in objects if obj.name not in anchor_object_names}
 
     zero_velocity = torch.zeros(1, 6, device=env.device)
     for local_idx, cur_env in enumerate(env_ids.tolist()):
         env_id_tensor = torch.tensor([cur_env], device=env.device)
         positions = results_per_env[local_idx].positions
         for obj, pos in positions.items():
-            if obj in anchor_objects_set:
+            if obj.name in anchor_object_names:
                 continue
             asset = env.scene[obj.name]
-            pose = Pose(position_xyz=pos, rotation_xyzw=rotations[obj])
+            pose = Pose(position_xyz=pos, rotation_xyzw=rotations[obj.name])
             pose_t_xyz_q_xyzw = pose.to_tensor(device=env.device).unsqueeze(0)
             pose_t_xyz_q_xyzw[0, :3] += env.scene.env_origins[cur_env, :]
             asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_id_tensor)

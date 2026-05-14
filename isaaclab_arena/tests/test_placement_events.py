@@ -6,6 +6,7 @@
 """Tests for placement-on-reset event: fresh layouts on successive resets."""
 
 import torch
+from copy import deepcopy
 from unittest.mock import MagicMock
 
 
@@ -174,6 +175,29 @@ def test_solve_and_place_objects_writes_poses_to_sim():
 
         pose_arg = asset.write_root_pose_to_sim.call_args[0][0]
         assert pose_arg.shape == (1, 7), f"Expected (1,7) pose tensor for {name}, got {pose_arg.shape}"
+
+
+def test_solve_and_place_objects_handles_copied_event_objects():
+    """EventTermCfg can deepcopy objects separately from placement-pool layouts."""
+
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+
+    desk, box1, box2 = _create_test_objects()
+    event_objects = deepcopy([desk, box1, box2])
+    env = _make_mock_env(num_envs=1)
+
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
+    placer_params = ObjectPlacerParams(solver_params=solver_params)
+    pool = PooledObjectPlacer(objects=[desk, box1, box2], placer_params=placer_params, pool_size=10)
+
+    solve_and_place_objects(env, torch.tensor([0]), event_objects, pool)
+
+    assert "desk" not in env._assets
+    assert env._assets["box1"].write_root_pose_to_sim.call_count == 1
+    assert env._assets["box2"].write_root_pose_to_sim.call_count == 1
 
 
 def test_solve_and_place_objects_skips_empty_env_ids():
