@@ -128,3 +128,8 @@ class PooledObjectPlacer:
     def remaining(self) -> int:
         """Number of layouts not yet consumed by :meth:`sample_without_replacement`."""
         return len(self._layouts) - self._next_idx
+
+    @property
+    def pool_size(self) -> int:
+        """Number of layouts requested when refilling the pool."""
+        return self._pool_size
