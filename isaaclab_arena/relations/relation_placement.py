@@ -426,7 +426,9 @@ def prepare_relation_placement(
     return placement_solver.prepare(objects, embodiment=embodiment)
 
 
-def _validate_no_explicit_non_anchor_pose_events(objects: list[ObjectBase], anchor_objects_set: set[ObjectBase]) -> None:
+def _validate_no_explicit_non_anchor_pose_events(
+    objects: list[ObjectBase], anchor_objects_set: set[ObjectBase]
+) -> None:
     """Reject conflicting explicit pose-reset events on relation-solved objects."""
     for obj in objects:
         if obj not in anchor_objects_set and obj.event_cfg is not None:
