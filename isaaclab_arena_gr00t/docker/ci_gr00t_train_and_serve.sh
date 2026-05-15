@@ -1,7 +1,40 @@
 #!/usr/bin/env bash
-# CI entrypoint for the GR00T sidecar. The CI image already includes the tuned
-# checkpoint, so this only starts the remote policy server.
+# CI entrypoint for the GR00T e2e smoke test. It has two explicit modes:
+#
+# - bootstrap: runs inside the prebuilt gr00t image as /workspace/ci_bootstrap.sh.
+#   It waits for GitHub Actions to mount and checkout the Arena repo, then execs
+#   this script from the mounted repo so CI can pick up script changes without
+#   rebuilding the image first.
+# - serve: runs from the mounted repo copy after bootstrap. It starts the GR00T
+#   remote policy server from the checkpoint already baked into the image.
 set -euxo pipefail
+
+CI_GR00T_ENTRYPOINT_MODE="${CI_GR00T_ENTRYPOINT_MODE:-serve}"
+ARENA_WORKSPACE="${ARENA_WORKSPACE:-/arena_workspace}"
+REPO_ENTRYPOINT="${ARENA_WORKSPACE}/isaaclab_arena_gr00t/docker/ci_gr00t_train_and_serve.sh"
+BOOTSTRAP_TIMEOUT_SECONDS="${BOOTSTRAP_TIMEOUT_SECONDS:-600}"
+
+if [ "${CI_GR00T_ENTRYPOINT_MODE}" = "bootstrap" ]; then
+  echo "[bootstrap] waiting for ${REPO_ENTRYPOINT} (timeout ${BOOTSTRAP_TIMEOUT_SECONDS}s)..."
+  deadline=$(( $(date +%s) + BOOTSTRAP_TIMEOUT_SECONDS ))
+  while [ ! -f "${REPO_ENTRYPOINT}" ]; do
+    if [ "$(date +%s)" -ge "${deadline}" ]; then
+      echo "[bootstrap] timed out waiting for ${REPO_ENTRYPOINT}"
+      echo "[bootstrap] contents of ${ARENA_WORKSPACE}:"
+      ls -la "${ARENA_WORKSPACE}" || true
+      exit 1
+    fi
+    sleep 5
+  done
+
+  echo "[bootstrap] found ${REPO_ENTRYPOINT}, executing"
+  exec bash "${REPO_ENTRYPOINT}" "$@"
+fi
+
+if [ "${CI_GR00T_ENTRYPOINT_MODE}" != "serve" ]; then
+  echo "Unsupported CI_GR00T_ENTRYPOINT_MODE=${CI_GR00T_ENTRYPOINT_MODE}. Expected 'bootstrap' or 'serve'." >&2
+  exit 1
+fi
 
 MODELS_DIR="${MODELS_DIR:-/workspace/pretrained_ckpts}"
 CHECKPOINT="${CHECKPOINT:-${MODELS_DIR}/checkpoint-20000}"

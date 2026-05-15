@@ -71,15 +71,9 @@ RUN set -eux; \
     fi
 RUN echo "alias hf='/usr/local/bin/hf'" >> /etc/bash.bashrc
 
-# Add filebrowser to access intermediate checkpoints during OSMO training
-# RUN curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash
-RUN curl -LO https://github.com/filebrowser/filebrowser/releases/download/v2.32.0/linux-amd64-filebrowser.tar.gz
-RUN tar -xzvf linux-amd64-filebrowser.tar.gz
-RUN mv filebrowser /usr/bin/
 
-# CI bootstrap: waits for the Arena workspace bind mount to populate, then
-# executes isaaclab_arena_gr00t/docker/ci_gr00t_train_and_serve.sh from the mounted repo.
-# Used as the entrypoint for the GR00T sidecar in the GitHub Actions
-# closed-loop E2E test (see .github/workflows/ci.yml).
-COPY isaaclab_arena_gr00t/docker/ci_gr00t_bootstrap.sh /workspace/ci_bootstrap.sh
+# GR00T sidecar entrypoint. When baked as /workspace/ci_bootstrap.sh, this
+# waits for the mounted checkout and then executes the repo copy.
+COPY isaaclab_arena_gr00t/docker/ci_gr00t_train_and_serve.sh /workspace/ci_bootstrap.sh
 RUN chmod +x /workspace/ci_bootstrap.sh
+ENV CI_GR00T_ENTRYPOINT_MODE=bootstrap

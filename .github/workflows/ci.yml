@@ -165,10 +165,45 @@ jobs:
             isaaclab_arena_gr00t/tests/
 
 
+  tests_with_subprocess:
+    name: Run tests with subprocess
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 60
+    needs: [pre_commit]
+
+    container:
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+    steps:
+      # nvidia-smi
+      - *nvidia_smi
+      - *lscpu
+
+      # Setup.
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
+      - *install_project_step
+      - *setup_isaac_sim_kit_cache_step
+
+      # NOTE(alexmillane): These tests are unreliable at the moment, and often stall,
+      # causing the whole CI run to fail. I am moving these to a parallel job, and then
+      # will make the job containing them optional in terms of passing.
+      - name: Run subprocess-spawning PhysX tests
+        run: |
+          ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=600 \
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_subprocess \
+            isaaclab_arena/tests/
+
+
   test_gr00t_closedloop_e2e:
     name: GR00T closed-loop E2E
     runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 90
+    timeout-minutes: 60
     needs: [pre_commit]
 
     container:
@@ -187,7 +222,7 @@ jobs:
         ports:
           - 5555:5555
         # Mount the runner's workspace into the GR00T container. The baked
-        # bootstrap polls for isaaclab_arena_gr00t/docker/ci_gr00t_train_and_serve.sh.
+        # entrypoint polls for isaaclab_arena_gr00t/docker/ci_gr00t_train_and_serve.sh.
         volumes:
           - ${{ github.workspace }}:/arena_workspace
         options: >-
@@ -205,7 +240,7 @@ jobs:
       - *install_project_step
       - *setup_isaac_sim_kit_cache_step
 
-      # The GR00T sidecar takes a few mins to fine-tune and load.
+      # The GR00T sidecar takes a few minutes to load the baked checkpoint.
       # Poll the ZMQ endpoint because the socket can bind before the model is ready.
       - name: Wait for GR00T server
         timeout-minutes: 10
@@ -223,7 +258,7 @@ jobs:
         env:
           ISAACLAB_ARENA_GR00T_REMOTE_HOST: gr00t
           ISAACLAB_ARENA_GR00T_REMOTE_PORT: "5555"
-          ISAACLAB_ARENA_GR00T_REMOTE_E2E_TIMEOUT: "900"
+          ISAACLAB_ARENA_GR00T_REMOTE_E2E_TIMEOUT: "600"
         run: |
           /isaac-sim/python.sh -m pytest -sv --durations=0 -m gr00t_remote_e2e \
             isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy_runner.py
@@ -258,7 +293,7 @@ jobs:
   build_and_push_image_post_merge:
     name: Build & push NGC image (post-merge)
     runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 90
+    timeout-minutes: 60
     needs: [test]       # only push if tests passed
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
