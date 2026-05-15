@@ -186,9 +186,9 @@ jobs:
           password: ${{ env.NGC_API_KEY }}
         ports:
           - 5555:5555
-        # Mount the runner's workspace into the GR00T container; the baked
-        # /workspace/ci_bootstrap.sh polls until checkout writes the wrapper
-        # script, then executes it. See isaaclab_arena_gr00t/docker/ci_gr00t_bootstrap.sh.
+        # Mount the runner's workspace into the GR00T container. The currently
+        # published sidecar image polls for .github/scripts/ci_gr00t_train_and_serve.sh,
+        # which forwards to isaaclab_arena_gr00t/docker/ci_gr00t_train_and_serve.sh.
         volumes:
           - ${{ github.workspace }}:/arena_workspace
         options: >-

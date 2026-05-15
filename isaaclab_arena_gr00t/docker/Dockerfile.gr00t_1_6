@@ -4,6 +4,10 @@ ENV NVIDIA_DRIVER_CAPABILITIES=graphics,utility,compute
 
 ARG LEROBOT_DATA_FOLDER
 ARG HF_TOKEN
+ARG BUILD_MODE=ci
+ARG MODELS_DIR=/workspace/pretrained_ckpts
+
+ENV MODELS_DIR=${MODELS_DIR}
 
 RUN apt-get update && \
     apt install -y tzdata && \
@@ -34,7 +38,7 @@ COPY isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py /workspace/g1
 
 RUN cd /workspace/ && uv sync && uv pip install -e .
 
-RUN mkdir -p /workspace/pretrained_ckpts
+RUN mkdir -p "${MODELS_DIR}"
 RUN curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
 RUN sudo apt-get install git-lfs
 RUN git-lfs install
@@ -46,8 +50,25 @@ RUN git-lfs install
 RUN sed -i '/^typer==/d' /etc/pip/constraint.txt
 RUN pip install --upgrade "typer>=0.16" "huggingface-hub[cli]"
 
-# Create alias for hf command to use the system-installed version
-RUN /usr/local/bin/hf download nvidia/GR00T-N1.6-3B --local-dir /workspace/pretrained_ckpts/GR00T-N1.6-3B --token ${HF_TOKEN}
+# Download the model needed by the selected image flavor.
+# - training: base GR00T model for fine-tuning.
+# - ci: tuned checkpoint used directly by the remote closed-loop smoke test.
+RUN set -eux; \
+    if [ "${BUILD_MODE}" = "training" ]; then \
+        /usr/local/bin/hf download \
+            nvidia/GR00T-N1.6-3B \
+            --local-dir "${MODELS_DIR}/GR00T-N1.6-3B" \
+            --token "${HF_TOKEN}"; \
+    elif [ "${BUILD_MODE}" = "ci" ]; then \
+        /usr/local/bin/hf download \
+            --revision gn1_6 \
+            nvidia/GN1x-Tuned-Arena-G1-Loco-Manipulation \
+            --local-dir "${MODELS_DIR}/checkpoint-20000" \
+            --token "${HF_TOKEN}"; \
+    else \
+        echo "Unsupported BUILD_MODE=${BUILD_MODE}. Expected 'ci' or 'training'." >&2; \
+        exit 1; \
+    fi
 RUN echo "alias hf='/usr/local/bin/hf'" >> /etc/bash.bashrc
 
 # Add filebrowser to access intermediate checkpoints during OSMO training
