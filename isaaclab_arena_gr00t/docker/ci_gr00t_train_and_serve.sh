@@ -27,8 +27,12 @@ if [ "${CI_GR00T_ENTRYPOINT_MODE}" = "bootstrap" ]; then
     sleep 5
   done
 
-  echo "[bootstrap] found ${REPO_ENTRYPOINT}, executing"
-  exec bash "${REPO_ENTRYPOINT}" "$@"
+  echo "[bootstrap] found ${REPO_ENTRYPOINT}, switching to serve mode"
+  # The image bakes CI_GR00T_ENTRYPOINT_MODE=bootstrap so the sidecar can wait
+  # for the mounted checkout. Override it for the repo copy; otherwise the repo
+  # script would inherit bootstrap mode and exec itself instead of starting the
+  # server.
+  exec env CI_GR00T_ENTRYPOINT_MODE=serve bash "${REPO_ENTRYPOINT}" "$@"
 fi
 
 if [ "${CI_GR00T_ENTRYPOINT_MODE}" != "serve" ]; then
