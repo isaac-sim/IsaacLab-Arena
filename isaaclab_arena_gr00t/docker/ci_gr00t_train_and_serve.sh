@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# CI variant of osmo/finetune.yaml's entry.sh: single-GPU, tiny step count,
-# all tunable heads frozen. Purpose is plumbing-level smoke (train -> serve ->
-# remote closed-loop eval), not task success. Mirrors the finetune fixture
-# pattern from release/0.2.0's test_gr00t_closedloop_policy.py.
+# CI variant of the GR00T fine-tuning recipe: single GPU, a tiny step count,
+# and all tunable heads frozen. This checks plumbing (train -> serve -> remote
+# closed-loop eval), not task success. It mirrors the fine-tuning fixture from
+# release/0.2.0's test_gr00t_closedloop_policy.py.
 set -euxo pipefail
 
 ARENA_WORKSPACE="${ARENA_WORKSPACE:-/arena_workspace}"

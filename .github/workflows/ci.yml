@@ -149,24 +149,24 @@ jobs:
       # - All subprocess-spawning tests (each spawns their own SimulationApp)
       #
       # To restore sanity here is a goal for Isaac Lab Arena v0.3.
-      # - name: Run in-process Newton tests
-      #   run: |
-      #     /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_newton \
-      #       isaaclab_arena/tests/
+      - name: Run in-process Newton tests
+        run: |
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_newton \
+            isaaclab_arena/tests/
 
-      # - name: Run in-process PhysX tests without cameras
-      #   run: |
-      #     /isaac-sim/python.sh -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
-      #       isaaclab_arena/tests/
+      - name: Run in-process PhysX tests without cameras
+        run: |
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
+            isaaclab_arena/tests/
 
-      # - name: Run GR00T policy/data tests (lightweight gr00t deps only)
-      #   run: |
-      #     /isaac-sim/python.sh -m pytest -sv --durations=0 -m gr00t_policy \
-      #       isaaclab_arena_gr00t/tests/
+      - name: Run GR00T policy/data tests (lightweight gr00t deps only)
+        run: |
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m gr00t_policy \
+            isaaclab_arena_gr00t/tests/
 
 
   test_gr00t_closedloop_e2e:
-    name: GR00T closed-loop E2E (sidecar)
+    name: GR00T closed-loop E2E
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 90
     needs: [pre_commit]
@@ -186,9 +186,9 @@ jobs:
           password: ${{ env.NGC_API_KEY }}
         ports:
           - 5555:5555
-        # Mount the runner's workspace into the gr00t container; the baked
+        # Mount the runner's workspace into the GR00T container; the baked
         # /workspace/ci_bootstrap.sh polls until checkout writes the wrapper
-        # script, then execs it. See .github/scripts/ci_gr00t_bootstrap.sh.
+        # script, then executes it. See isaaclab_arena_gr00t/docker/ci_gr00t_bootstrap.sh.
         volumes:
           - ${{ github.workspace }}:/arena_workspace
         options: >-
@@ -206,91 +206,28 @@ jobs:
       - *install_project_step
       - *setup_isaac_sim_kit_cache_step
 
-      # The gr00t sidecar takes ~10-30 min to finetune+load. Poll the ZMQ
-      # endpoint with the real PolicyClient — TCP-open isn't sufficient
-      # because the socket binds before the model finishes loading.
+      # The GR00T sidecar takes about 10-30 minutes to fine-tune and load.
+      # Poll the ZMQ endpoint because the socket can bind before the model is ready.
       - name: Wait for GR00T server
         timeout-minutes: 10
         env:
           PYTHONUNBUFFERED: "1"
         run: |
-          # -u is belt-and-suspenders alongside PYTHONUNBUFFERED so prints
-          # land in the log even if the step is killed mid-flight.
-          /isaac-sim/python.sh -u - <<'PY'
-          import socket, sys, time, zmq
-          from gr00t.policy.server_client import MsgSerializer
+          /isaac-sim/python.sh -u -m isaaclab_arena_gr00t.utils.wait_for_gr00t_server \
+            --host gr00t \
+            --port 5555 \
+            --timeout-sec 600 \
+            --poll-interval-sec 15 \
+            --request-timeout-ms 5000
 
-          HOST, PORT = "gr00t", 5555
-          POLL_INTERVAL_S = 15
-          MAX_ITERS = 40  # 40 * 15s = 10 min
-          REQ_TIMEOUT_MS = 5000
-
-          def dns_probe():
-              try:
-                  return f"resolved -> {socket.gethostbyname_ex(HOST)}"
-              except Exception as e:
-                  return f"FAILED: {type(e).__name__}: {e}"
-
-          def tcp_probe():
-              try:
-                  with socket.create_connection((HOST, PORT), timeout=3) as s:
-                      return f"OK ({s.getpeername()})"
-              except Exception as e:
-                  return f"FAILED: {type(e).__name__}: {e}"
-
-          def ping():
-              # PolicyClient takes a timeout_ms ctor arg but never applies it
-              # to the socket — recv() would block forever if the server isn't
-              # responding. Use ZMQ directly with explicit RCVTIMEO/SNDTIMEO,
-              # and a fresh socket per attempt so a timeout doesn't leave the
-              # REQ-REP state machine wedged.
-              ctx = zmq.Context.instance()
-              sock = ctx.socket(zmq.REQ)
-              sock.setsockopt(zmq.LINGER, 0)
-              sock.setsockopt(zmq.RCVTIMEO, REQ_TIMEOUT_MS)
-              sock.setsockopt(zmq.SNDTIMEO, REQ_TIMEOUT_MS)
-              try:
-                  sock.connect(f"tcp://{HOST}:{PORT}")
-                  sock.send(MsgSerializer.to_bytes({"endpoint": "ping"}))
-                  return True, MsgSerializer.from_bytes(sock.recv())
-              except Exception as e:
-                  return False, f"{type(e).__name__}: {e}"
-              finally:
-                  sock.close()
-
-          print(f"[init] DNS  {HOST}: {dns_probe()}", flush=True)
-          print(f"[init] TCP  {HOST}:{PORT}: {tcp_probe()}", flush=True)
-
-          for i in range(MAX_ITERS):
-              elapsed = i * POLL_INTERVAL_S
-              ok, detail = ping()
-              if ok:
-                  print(f"[t={elapsed}s] GR00T server ready (ping={detail})", flush=True)
-                  sys.exit(0)
-              extra = f" tcp_probe={tcp_probe()}" if i % 4 == 0 else ""
-              print(f"[t={elapsed}s] not ready: {detail}{extra}", flush=True)
-              time.sleep(POLL_INTERVAL_S)
-
-          print("---- final diagnostics ----", flush=True)
-          print(f"DNS  {HOST}: {dns_probe()}", flush=True)
-          print(f"TCP  {HOST}:{PORT}: {tcp_probe()}", flush=True)
-          sys.exit("timed out waiting for GR00T server")
-          PY
-
-      - name: Run closed-loop eval against GR00T sidecar
+      - name: Run GR00T remote closed-loop policy runner test
+        env:
+          ISAACLAB_ARENA_GR00T_REMOTE_HOST: gr00t
+          ISAACLAB_ARENA_GR00T_REMOTE_PORT: "5555"
+          ISAACLAB_ARENA_GR00T_REMOTE_E2E_TIMEOUT: "900"
         run: |
-          /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
-            --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-            --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml \
-            --remote_host gr00t \
-            --remote_port 5555 \
-            --num_steps 17 \
-            --num_envs 1 \
-            --headless \
-            --enable_cameras \
-            galileo_g1_locomanip_pick_and_place \
-            --object brown_box \
-            --embodiment g1_wbc_joint
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m gr00t_remote_e2e \
+            isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy_runner.py
 
 
   build_docs_pre_merge:

@@ -6,9 +6,9 @@ IMAGE_NAME=gr00t1_6_arena_ci
 HF_TOKEN=${1:?Usage: $0 <HF_TOKEN>}
 NGC_PATH=nvcr.io/nvidian/${IMAGE_NAME}:${TAG_NAME}
 
-# Building docker
+# Build the Docker image.
 
-docker build --build-arg HF_TOKEN=${HF_TOKEN} -t $IMAGE_NAME . -f osmo/Dockerfile.gr00t_1_6
+docker build --build-arg HF_TOKEN=${HF_TOKEN} -t $IMAGE_NAME . -f isaaclab_arena_gr00t/docker/Dockerfile.gr00t_1_6
 
 # Remove any old containers (exited or running).
 if [ "$(docker ps -a --quiet --filter name=$IMAGE_NAME)" ]; then
