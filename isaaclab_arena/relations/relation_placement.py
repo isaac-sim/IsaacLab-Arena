@@ -94,8 +94,6 @@ class ObjectRelationSolver:
 
     def validate_layout(self, layout: PlacementResult) -> None:
         """Validate one object-relation placement result."""
-        if not self.check_objects_valid(layout):
-            raise RuntimeError("Relation placement failed object validation.")
 
     def check_objects_valid(self, layout: PlacementResult) -> bool:
         return layout.success

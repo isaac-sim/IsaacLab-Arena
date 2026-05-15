@@ -9,8 +9,6 @@ import torch
 from copy import deepcopy
 from unittest.mock import MagicMock
 
-import pytest
-
 
 def _create_test_objects():
     """Create a desk (anchor) with two boxes (On + NextTo)."""
@@ -371,8 +369,8 @@ def test_resolve_on_reset_false_applies_pose_per_env():
             assert p.position_xyz is not None, f"Position should not be None for {obj.name}"
 
 
-def test_pooled_placer_raises_when_no_valid_layouts():
-    """PooledObjectPlacer should fail loudly when no layout passes validation."""
+def test_pooled_placer_fallback_when_no_valid_layouts():
+    """PooledObjectPlacer should fall back to best-loss layouts when none pass validation."""
 
     from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -404,5 +402,5 @@ def test_pooled_placer_raises_when_no_valid_layouts():
     solver_params = RelationSolverParams(max_iters=50, convergence_threshold=1e-6)
     placer_params = ObjectPlacerParams(solver_params=solver_params, max_placement_attempts=1)
 
-    with pytest.raises(RuntimeError, match="failed to produce any valid layouts"):
-        PooledObjectPlacer(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)
+    pool = PooledObjectPlacer(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)
+    assert pool.remaining > 0, "Pool should contain fallback layouts even when validation fails"

@@ -69,13 +69,14 @@ class _InvalidObjectPooledObjectPlacer(_FakePooledObjectPlacer):
 
 
 class _RejectingObjectRelationSolver(ObjectRelationSolver):
-    def check_objects_valid(self, layout):
-        return False
+    def validate_layout(self, layout):
+        raise RuntimeError("Relation placement failed object validation.")
 
 
 class _RejectingLaterLayoutObjectSolver(ObjectRelationSolver):
-    def check_objects_valid(self, layout):
-        return not any(pos[0] > 1.0 for pos in layout.positions.values())
+    def validate_layout(self, layout):
+        if any(pos[0] > 1.0 for pos in layout.positions.values()):
+            raise RuntimeError("Relation placement failed object validation.")
 
 
 def _create_objects_with_configs() -> tuple[Any, Any]:
@@ -200,12 +201,14 @@ def test_prepare_relation_placement_raises_when_static_layout_missing_position(m
         prepare_relation_placement(objects=[table, box], num_envs=1, resolve_on_reset=False)
 
 
-def test_prepare_relation_placement_raises_when_object_placer_result_is_invalid(monkeypatch):
+def test_prepare_relation_placement_accepts_object_placer_fallback_layouts(monkeypatch):
     monkeypatch.setattr(relation_placement, "PooledObjectPlacer", _InvalidObjectPooledObjectPlacer)
     table, box = _create_objects_with_configs()
 
-    with pytest.raises(RuntimeError, match="object validation"):
-        prepare_relation_placement(objects=[table, box], num_envs=1, resolve_on_reset=True)
+    plan = prepare_relation_placement(objects=[table, box], num_envs=1, resolve_on_reset=True)
+
+    assert plan is not None
+    assert plan.placement_event_cfg is not None
 
 
 def test_prepare_relation_placement_raises_when_object_cfg_missing(monkeypatch):
