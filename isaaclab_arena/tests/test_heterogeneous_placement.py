@@ -14,6 +14,7 @@ import torch
 import pytest
 
 from isaaclab_arena.assets.dummy_object import DummyObject
+from isaaclab_arena.relations.bbox_helpers import get_bounding_box_per_env, object_has_env_specific_bboxes
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
@@ -73,7 +74,7 @@ def test_dummy_object_bbox_per_env_expands_single():
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
     )
 
-    per_env = obj.get_bounding_box_per_env(4)
+    per_env = get_bounding_box_per_env(obj, 4)
     assert per_env.min_point.shape == (4, 3)
     assert per_env.max_point.shape == (4, 3)
     assert torch.allclose(per_env.min_point[0], per_env.min_point[3])
@@ -86,7 +87,7 @@ def test_heterogeneous_dummy_returns_different_bboxes():
     large = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.3))
     obj = HeterogeneousDummyObject(name="set", bboxes=[small, large])
 
-    per_env = obj.get_bounding_box_per_env(4)
+    per_env = get_bounding_box_per_env(obj, 4)
     assert per_env.max_point.shape == (4, 3)
     # env 0 and 2 should use small; env 1 and 3 should use large
     assert torch.allclose(per_env.max_point[0], torch.tensor([0.1, 0.1, 0.1]))
@@ -104,7 +105,7 @@ def test_dummy_object_preserves_constructor_relations():
     )
 
     assert obj.get_relations() == [anchor_relation]
-    assert obj.has_env_specific_bboxes is False
+    assert object_has_env_specific_bboxes(obj) is False
 
 
 def test_object_preserves_constructor_relations():
@@ -122,7 +123,7 @@ def test_object_preserves_constructor_relations():
     )
 
     assert obj.get_relations() == [anchor_relation]
-    assert obj.has_env_specific_bboxes is False
+    assert object_has_env_specific_bboxes(obj) is False
 
 
 # ---------------------------------------------------------------------------

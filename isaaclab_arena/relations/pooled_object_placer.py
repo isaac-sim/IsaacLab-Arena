@@ -9,6 +9,7 @@ import random
 import torch
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.bbox_helpers import any_object_has_env_specific_bboxes, get_bounding_box_per_env
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
@@ -22,8 +23,7 @@ class PooledObjectPlacer:
     """Object placer that keeps a pool of optimized layouts.
 
     Storage: ``num_envs`` independent layout pools, each with its own read
-    cursor (this replaces the single ``_layouts`` list + ``_next_idx`` cursor
-    used before heterogeneous placement). Env-specific layouts are solved
+    cursor. Env-specific layouts are solved
     against a fixed env's object geometry and must be sampled in complete env
     rounds. Reusable layouts can be consumed one at a time.
 
@@ -52,7 +52,7 @@ class PooledObjectPlacer:
         # 1. Validate params.
         if pool_size < 1:
             raise ValueError(f"pool_size must be >= 1, got {pool_size}")
-        self._uses_env_specific_bboxes = any(obj.has_env_specific_bboxes for obj in objects)
+        self._uses_env_specific_bboxes = any_object_has_env_specific_bboxes(objects)
         if self._uses_env_specific_bboxes:
             assert num_envs is not None, "num_envs is required when layouts use env-specific object variants."
         self._num_envs = num_envs if num_envs is not None else 1
@@ -182,7 +182,7 @@ class PooledObjectPlacer:
         layouts_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
         total_layouts = layouts_per_env * self._num_envs
 
-        real_bboxes = {obj: obj.get_bounding_box_per_env(self._num_envs) for obj in self._objects}
+        real_bboxes = {obj: get_bounding_box_per_env(obj, self._num_envs) for obj in self._objects}
 
         # (num_envs, 3) -> repeat each env's row layouts_per_env times -> (total_layouts, 3).
         tiled_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] = {
@@ -341,10 +341,9 @@ class PooledObjectPlacer:
     def remaining(self) -> int:
         """Number of complete env rounds available to :meth:`sample_without_replacement`.
 
-        Returns the minimum unread count across env pools (the previous
-        ``remaining`` was a total across one shared list; under per-env
-        storage a single round consumes one layout from every env, so the
-        minimum is what limits without-replacement capacity).
+        Returns the minimum unread count across env pools. A single round
+        consumes one layout from every env, so the minimum is what limits
+        without-replacement capacity.
         """
         return min(self._available_per_env())
 

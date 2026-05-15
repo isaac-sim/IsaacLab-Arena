@@ -37,8 +37,6 @@ __all__ = [
 class ObjectBase(Asset, ABC):
     """Parent class for (spawnable) Object and ObjectReference."""
 
-    has_env_specific_bboxes: bool = False
-
     def __init__(
         self,
         name: str,
@@ -74,27 +72,6 @@ class ObjectBase(Asset, ABC):
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get bounding box in world coordinates (local bbox rotated and translated)."""
         ...
-
-    def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
-        """Get local bounding boxes for each environment.
-
-        This default implementation is for objects with the same geometry in
-        every environment: it expands the single local bbox to ``(num_envs, 3)``.
-        ``RigidObjectSet`` overrides this to return the bbox for each env's
-        assigned variant.
-
-        Args:
-            num_envs: Number of environments.
-
-        Returns:
-            ``AxisAlignedBoundingBox`` with ``min_point`` / ``max_point`` of shape
-            ``(num_envs, 3)``.
-        """
-        bbox = self.get_bounding_box()
-        return AxisAlignedBoundingBox(
-            min_point=bbox.min_point.expand(num_envs, 3),
-            max_point=bbox.max_point.expand(num_envs, 3),
-        )
 
     def _get_initial_pose_as_pose(self) -> Pose | None:
         """Return a single ``Pose`` suitable for *init_state* and bounding-box calculations.

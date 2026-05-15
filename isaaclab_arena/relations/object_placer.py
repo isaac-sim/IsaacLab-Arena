@@ -10,6 +10,7 @@ import torch
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.bbox_helpers import any_object_has_env_specific_bboxes, get_bounding_box_per_env
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
@@ -103,7 +104,7 @@ class ObjectPlacer:
                 identically to all environments.
             env_bboxes: Pre-computed per-env bounding boxes (shape ``(num_envs, 3)``
                 per object).  When provided, ``_place_heterogeneous`` uses these
-                instead of calling ``get_bounding_box_per_env(num_envs)``.  This
+                instead of calling ``get_bounding_box_per_env(obj, num_envs)``.  This
                 allows the caller to tile real-env bboxes for pooled solving.
 
         Returns:
@@ -148,7 +149,7 @@ class ObjectPlacer:
         #   - homogeneous: any solved layout serves any env; pick the top num_results.
         #   - heterogeneous: some objects vary per env, so each env owns a fixed slice
         #     of candidates and we pick the best within that slice.
-        uses_env_specific_bboxes = result_per_env and any(obj.has_env_specific_bboxes for obj in objects)
+        uses_env_specific_bboxes = result_per_env and any_object_has_env_specific_bboxes(objects)
 
         if uses_env_specific_bboxes:
             results_per_env = self._place_heterogeneous(
@@ -251,10 +252,10 @@ class ObjectPlacer:
         Args:
             env_bboxes: Optional pre-tiled per-env bboxes of shape
                 ``(num_envs, 3)``. When ``None`` we call
-                ``get_bounding_box_per_env(num_envs)`` on each object.
+                ``get_bounding_box_per_env(obj, num_envs)`` on each object.
         """
         if env_bboxes is None:
-            env_bboxes = {obj: obj.get_bounding_box_per_env(num_envs) for obj in objects}
+            env_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
 
         # Build the per-env (1, 3) bbox views once: used both for On-guided
         # initial-position sampling and for per-env validation below.
