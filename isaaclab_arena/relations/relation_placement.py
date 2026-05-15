@@ -9,8 +9,6 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from isaaclab.managers import EventTermCfg
-
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import get_rotation_xyzw, solve_and_place_objects
 from isaaclab_arena.relations.placement_result import PlacementResult
@@ -20,6 +18,8 @@ from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
 if TYPE_CHECKING:
+    from isaaclab.managers import EventTermCfg
+
     from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 
@@ -223,6 +223,8 @@ class ArenaRelationSolver:
         if object_result.object_placer_params.resolve_on_reset:
             # Dynamic reset keeps the pool in the reset event so each reset can
             # draw a newly validated layout.
+            from isaaclab.managers import EventTermCfg
+
             self._apply_dynamic_spawn_pose(placement_pool, anchor_objects_set)
             return EventTermCfg(
                 func=solve_and_place_objects,

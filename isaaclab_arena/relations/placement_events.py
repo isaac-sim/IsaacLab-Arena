@@ -8,13 +8,13 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab.envs import ManagerBasedEnv
-
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
+    from isaaclab.envs import ManagerBasedEnv
+
     from isaaclab_arena.assets.object_base import ObjectBase
 
 IDENTITY_ROTATION_XYZW = (0.0, 0.0, 0.0, 1.0)
