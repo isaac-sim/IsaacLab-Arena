@@ -87,6 +87,23 @@ _TUNED_SCALES: dict[str, tuple[float, float, float]] = {
     TUNED_DESTINATION_NAME: (0.5, 0.5, 0.5),
 }
 
+_BACKGROUND_PRIMS_TO_DEACTIVATE: tuple[str, ...] = (
+    "galileo_locomanip/BackgroundAssets/boxes/jetson_orin_06",
+    "galileo_locomanip/BackgroundAssets/boxes/jetson_orin_03",
+    "galileo_locomanip/BackgroundAssets/boxes/hesai_box_06",
+)
+
+
+def _deactivate_background_prims(env, env_ids, prim_relative_paths: tuple[str, ...]) -> None:
+    """Deactivate selected referenced background prims before simulation starts."""
+    del env_ids
+    stage = env.sim.stage
+    for env_prim_path in env.scene.env_prim_paths:
+        for prim_relative_path in prim_relative_paths:
+            prim_path = f"{env_prim_path}/{prim_relative_path}"
+            if stage.GetPrimAtPath(prim_path).IsValid():
+                stage.OverridePrim(prim_path).SetActive(False)
+
 
 def _shelf_spawn_z(asset_name: str) -> float:
     """Return the env-local Z to spawn ``asset_name`` flush on the shelf surface.
@@ -204,6 +221,19 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 f"{destination_label} on the same shelf next to it."
             )
 
+        def env_cfg_callback(env_cfg):
+            from isaaclab.managers import EventTermCfg
+
+            # The source galileo_locomanip USD includes boxes that sit in the
+            # static task workspace. Deactivate the referenced prims at startup so
+            # they are absent from the composed scene for every cloned environment.
+            env_cfg.events.deactivate_static_pick_place_background_prims = EventTermCfg(
+                func=_deactivate_background_prims,
+                mode="prestartup",
+                params={"prim_relative_paths": _BACKGROUND_PRIMS_TO_DEACTIVATE},
+            )
+            return env_cfg
+
         scene = Scene(assets=[background, shelf_support, pick_up_object, destination])
         return IsaacLabArenaEnvironment(
             name=self.name,
@@ -220,6 +250,7 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 velocity_threshold=0.1,
             ),
             teleop_device=teleop_device,
+            env_cfg_callback=env_cfg_callback,
         )
 
     @staticmethod
