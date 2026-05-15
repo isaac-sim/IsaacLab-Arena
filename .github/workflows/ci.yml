@@ -206,7 +206,7 @@ jobs:
       - *install_project_step
       - *setup_isaac_sim_kit_cache_step
 
-      # The GR00T sidecar takes about 10-30 minutes to fine-tune and load.
+      # The GR00T sidecar takes a few mins to fine-tune and load.
       # Poll the ZMQ endpoint because the socket can bind before the model is ready.
       - name: Wait for GR00T server
         timeout-minutes: 10
@@ -297,8 +297,3 @@ jobs:
         run: |
           chmod +x ./docker/push_to_ngc* || true
           ./docker/push_to_ngc.sh -p
-
-      - name: Build & push image to NGC (GR00T Image)
-        run: |
-          chmod +x ./docker/push_to_ngc* || true
-          ./docker/push_to_ngc.sh -p -g -t cuda_gr00t_gn16
