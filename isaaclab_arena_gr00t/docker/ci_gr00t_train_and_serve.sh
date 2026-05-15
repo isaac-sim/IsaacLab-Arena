@@ -1,49 +1,20 @@
 #!/usr/bin/env bash
-# CI entrypoint for the GR00T sidecar. The CI image serves a baked checkpoint
-# directly; the training image falls back to a tiny fine-tuning run, with all
-# tunable heads frozen, before starting the server.
+# CI entrypoint for the GR00T sidecar. The CI image already includes the tuned
+# checkpoint, so this only starts the remote policy server.
 set -euxo pipefail
 
-ARENA_WORKSPACE="${ARENA_WORKSPACE:-/arena_workspace}"
-DATASET_PATH="${ARENA_WORKSPACE}/isaaclab_arena_gr00t/tests/test_data/test_g1_locomanip_lerobot"
-MODALITY_CONFIG="/workspace/g1_locomanip/g1_sim_wbc_data_config.py"
 MODELS_DIR="${MODELS_DIR:-/workspace/pretrained_ckpts}"
-BASE_MODEL_PATH="${BASE_MODEL_PATH:-${MODELS_DIR}/GR00T-N1.6-3B}"
-BAKED_CI_CHECKPOINT="${BAKED_CI_CHECKPOINT:-${MODELS_DIR}/checkpoint-20000}"
-OUTPUT_DIR="${OUTPUT_DIR:-/tmp/ci_finetune}"
-MAX_STEPS="${MAX_STEPS:-10}"
+CHECKPOINT="${CHECKPOINT:-${MODELS_DIR}/checkpoint-20000}"
 SERVER_PORT="${SERVER_PORT:-5555}"
 
 cd /workspace
 nvidia-smi
 
-if [ -d "${BAKED_CI_CHECKPOINT}" ]; then
-  CHECKPOINT="${BAKED_CI_CHECKPOINT}"
-  echo "Using baked GR00T CI checkpoint at ${CHECKPOINT}"
-else
-  mkdir -p "${OUTPUT_DIR}"
-
-  uv run python gr00t/experiment/launch_finetune.py \
-    --dataset-path="${DATASET_PATH}" \
-    --output-dir="${OUTPUT_DIR}" \
-    --modality-config-path="${MODALITY_CONFIG}" \
-    --global-batch-size=1 \
-    --max-steps="${MAX_STEPS}" \
-    --num-gpus=1 \
-    --save-total-limit=2 \
-    --save-steps="${MAX_STEPS}" \
-    --base-model-path="${BASE_MODEL_PATH}" \
-    --no-tune-llm \
-    --no-tune-visual \
-    --no-tune-projector \
-    --no-tune-diffusion-model \
-    --dataloader-num-workers=1 \
-    --embodiment-tag=NEW_EMBODIMENT \
-    --color-jitter-params brightness 0.3 contrast 0.4 saturation 0.5 hue 0.08 \
-    --no-use-wandb
-
-  CHECKPOINT="${OUTPUT_DIR}/checkpoint-${MAX_STEPS}"
-  [ -d "${CHECKPOINT}" ] || { echo "expected checkpoint not found at ${CHECKPOINT}"; ls -la "${OUTPUT_DIR}"; exit 1; }
+if [ ! -d "${CHECKPOINT}" ]; then
+  echo "Expected GR00T CI checkpoint not found at ${CHECKPOINT}" >&2
+  echo "Contents of ${MODELS_DIR}:" >&2
+  ls -la "${MODELS_DIR}" >&2 || true
+  exit 1
 fi
 
 echo "Starting GR00T inference server with ${CHECKPOINT} on port ${SERVER_PORT}"
