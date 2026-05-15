@@ -22,21 +22,21 @@ if TYPE_CHECKING:
 class PooledObjectPlacer:
     """Object placer that keeps a pool of optimized layouts.
 
-    Storage: ``num_envs`` independent layout pools, each with its own read
+    Storage: num_envs independent layout pools, each with its own read
     cursor. Env-specific layouts are solved
     against a fixed env's object geometry and must be sampled in complete env
     rounds. Reusable layouts can be consumed one at a time.
 
     The pool is refilled automatically when an env's queue runs out.
 
-    * :meth:`sample_without_replacement` — returns the next *count* layouts.
-      Env-specific layouts require ``count`` to be a multiple of ``num_envs``.
-    * :meth:`sample_with_replacement` — picks *count* layouts at random per
+    * sample_without_replacement — returns the next count layouts.
+      Env-specific layouts require count to be a multiple of num_envs.
+    * sample_with_replacement — picks count layouts at random per
       env-slot (non-consuming). Used for static initial positions.
 
     Args:
         objects: All objects (including anchors) participating in relation solving.
-        placer_params: Parameters forwarded to ``ObjectPlacer`` for the batched solve.
+        placer_params: Parameters forwarded to ObjectPlacer for the batched solve.
         pool_size: Number of layouts to solve per batch.
         num_envs: Total number of simulation environments.  Required when
             layouts use env-specific object variants and defaults to 1 otherwise.
@@ -81,7 +81,7 @@ class PooledObjectPlacer:
     # ------------------------------------------------------------------
 
     def _available_per_env(self) -> list[int]:
-        """Number of unread layouts in each env's pool (length ``num_envs``)."""
+        """Number of unread layouts in each env's pool (length num_envs)."""
         return [len(self._layout_pools[cur_env]) - self._layout_cursors[cur_env] for cur_env in range(self._num_envs)]
 
     def _total_available(self) -> int:
@@ -96,10 +96,10 @@ class PooledObjectPlacer:
             self._layout_cursors[cur_env] = 0
 
     def _solve_and_store(self, num_layouts: int) -> None:
-        """Solve layouts in batches until every env has ``target_per_env`` unread layouts.
+        """Solve layouts in batches until every env has target_per_env unread layouts.
 
         Each batch contributes (roughly) one round of layouts per env. The
-        outer loop is bounded by ``max_placement_attempts`` to avoid an
+        outer loop is bounded by max_placement_attempts to avoid an
         unbounded refill in pathological configurations.
         """
         self._discard_consumed_layouts()
@@ -157,7 +157,7 @@ class PooledObjectPlacer:
     def _store_reusable_results(self, layouts: list[PlacementResult]) -> None:
         """Distribute reusable layouts across env pools using greedy shortest-first.
 
-        Layouts produced by ``_solve_reusable_layouts`` are interchangeable
+        Layouts produced by _solve_reusable_layouts are interchangeable
         across envs, so we place each one into whichever pool currently has
         the fewest unread layouts. This keeps reusable capacity balanced
         across env pools.
@@ -174,10 +174,10 @@ class PooledObjectPlacer:
     def _solve_layouts_with_env_bboxes(self, num_layouts: int) -> tuple[list[PlacementResult], int]:
         """Solve layouts tied to each env's actual object geometry.
 
-        Computes bounding boxes for the real ``num_envs`` once, tiles them
-        to ``num_layouts`` entries, and solves everything in **one** batched
-        ``place()`` call.  Result ``i`` is mapped back to real env
-        ``i // layouts_per_env`` for pool storage.
+        Computes bounding boxes for the real num_envs once, tiles them
+        to num_layouts entries, and solves everything in one batched
+        place() call. Result i is mapped back to real env
+        i // layouts_per_env for pool storage.
         """
         layouts_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
         total_layouts = layouts_per_env * self._num_envs
@@ -240,19 +240,19 @@ class PooledObjectPlacer:
     # ------------------------------------------------------------------
 
     def sample_without_replacement(self, count: int) -> list[PlacementResult]:
-        """Return the next *count* layouts.
+        """Return the next count layouts.
 
         Env-specific layouts are returned as complete rounds of
-        ``[env_0, env_1, ..., env_{num_envs-1}]`` so each result still maps
+        [env_0, env_1, ..., env_{num_envs-1}] so each result still maps
         to the absolute environment it was solved for. Reusable layouts are
-        interchangeable and consume only ``count`` entries.
+        interchangeable and consume only count entries.
 
         Args:
             count: Number of layouts to return.
 
         Raises:
             ValueError: If env-specific layouts are requested without a complete env round.
-            RuntimeError: If the pool cannot provide *count* layouts after refilling.
+            RuntimeError: If the pool cannot provide count layouts after refilling.
         """
         if self._uses_env_specific_bboxes:
             return self._sample_env_indexed_without_replacement(count)
@@ -281,7 +281,7 @@ class PooledObjectPlacer:
         return results
 
     def _sample_reusable_without_replacement(self, count: int) -> list[PlacementResult]:
-        """Consume exactly ``count`` interchangeable layouts."""
+        """Consume exactly count interchangeable layouts."""
         if self._total_available() < count:
             self._solve_and_store(max(self._pool_size, count))
 
@@ -322,11 +322,11 @@ class PooledObjectPlacer:
         return self._had_fallbacks
 
     def sample_with_replacement(self, count: int) -> list[PlacementResult]:
-        """Pick *count* layouts at random per env-slot (non-consuming).
+        """Pick count layouts at random per env-slot (non-consuming).
 
-        Slot ``i`` is filled by a random pick from env ``i % num_envs``'s
-        pool, so a length-``count`` request walks env slots in order. Used
-        by ``resolve_on_reset=False`` to assign initial positions that persist
+        Slot i is filled by a random pick from env i % num_envs's
+        pool, so a length-count request walks env slots in order. Used
+        by resolve_on_reset=False to assign initial positions that persist
         across resets.
         """
         results: list[PlacementResult] = []

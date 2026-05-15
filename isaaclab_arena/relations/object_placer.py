@@ -75,10 +75,10 @@ class ObjectPlacer:
         obj: ObjectBase,
         overrides: dict[ObjectBase, AxisAlignedBoundingBox] | None,
     ) -> AxisAlignedBoundingBox:
-        """Return *overrides[obj]* if present, otherwise *obj*'s default bbox.
+        """Return overrides[obj] if present, otherwise the object's default bbox.
 
         Heterogeneous placement passes a single-env override bbox; the
-        homogeneous path and unit tests pass ``None`` and rely on the
+        homogeneous path and unit tests pass None and rely on the
         object's own bbox.
         """
         if overrides is not None and obj in overrides:
@@ -102,9 +102,9 @@ class ObjectPlacer:
             result_per_env: When True (default), each environment gets a distinct
                 layout. When False, a single best layout is solved and applied
                 identically to all environments.
-            env_bboxes: Pre-computed per-env bounding boxes (shape ``(num_envs, 3)``
-                per object).  When provided, ``_place_heterogeneous`` uses these
-                instead of calling ``get_bounding_box_per_env(obj, num_envs)``.  This
+            env_bboxes: Pre-computed per-env bounding boxes (shape (num_envs, 3)
+                per object). When provided, _place_heterogeneous uses these
+                instead of calling get_bounding_box_per_env(obj, num_envs). This
                 allows the caller to tile real-env bboxes for pooled solving.
 
         Returns:
@@ -189,8 +189,8 @@ class ObjectPlacer:
     ) -> list[PlacementResult]:
         """Original batched placement path.
 
-        Solves ``max_attempts * num_results`` candidates in one batched
-        ``solver.solve()`` call, then returns the best ``num_results`` ranked
+        Solves max_attempts * num_results candidates in one batched
+        solver.solve() call, then returns the best num_results ranked
         by (is_valid, loss). All envs share the same geometry, so any solved
         layout can serve any env.
         """
@@ -244,15 +244,15 @@ class ObjectPlacer:
     ) -> list[PlacementResult]:
         """Per-env placement: each candidate is tied to its env's object variants.
 
-        Candidates ``[cur_env * max_attempts : (cur_env + 1) * max_attempts]``
-        belong to ``cur_env`` and use that env's variant geometry. We solve all
-        ``num_envs * max_attempts`` candidates in one batched ``solver.solve()``
+        Candidates [cur_env * max_attempts : (cur_env + 1) * max_attempts]
+        belong to cur_env and use that env's variant geometry. We solve all
+        num_envs * max_attempts candidates in one batched solver.solve()
         call and pick the best candidate within each env's slice.
 
         Args:
             env_bboxes: Optional pre-tiled per-env bboxes of shape
-                ``(num_envs, 3)``. When ``None`` we call
-                ``get_bounding_box_per_env(obj, num_envs)`` on each object.
+                (num_envs, 3). When None we call
+                get_bounding_box_per_env(obj, num_envs) on each object.
         """
         if env_bboxes is None:
             env_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
@@ -335,7 +335,7 @@ class ObjectPlacer:
         Args:
             generator: Optional RNG generator for reproducible sampling. When None,
                 uses PyTorch's global RNG.
-            child_bboxes: Optional per-object bbox overrides with shape ``(1, 3)``.
+            child_bboxes: Optional per-object bbox overrides with shape (1, 3).
                 Used by heterogeneous placement to supply the correct variant
                 bbox when computing On-guided initial positions.
 
@@ -398,8 +398,8 @@ class ObjectPlacer:
         Args:
             generator: Optional RNG generator for reproducible sampling. When None,
                 uses PyTorch's global RNG.
-            child_bbox: Optional bbox override for the child object. When ``None``,
-                ``obj.get_bounding_box()`` is used.
+            child_bbox: Optional bbox override for the child object. When None,
+                obj.get_bounding_box() is used.
         """
         on_relation = next(r for r in obj.get_relations() if isinstance(r, On))
         parent_bbox = self._get_on_parent_world_bbox(on_relation.parent, anchor_objects, anchor_bbox)
@@ -469,7 +469,7 @@ class ObjectPlacer:
 
         Args:
             positions: Solved positions for each object.
-            bbox_overrides: Optional per-object bbox overrides (single-env, shape ``(1, 3)``).
+            bbox_overrides: Optional per-object bbox overrides (single-env, shape (1, 3)).
                 Used by heterogeneous placement to supply the correct variant bbox.
         """
         for obj in positions:
@@ -520,7 +520,7 @@ class ObjectPlacer:
 
         Args:
             positions: Solved positions for each object.
-            bbox_overrides: Optional per-object bbox overrides (single-env, shape ``(1, 3)``).
+            bbox_overrides: Optional per-object bbox overrides (single-env, shape (1, 3)).
                 Used by heterogeneous placement to supply the correct variant bbox.
         """
         # Build set of On-related pairs to skip (child, parent) and (parent, child).
@@ -568,7 +568,7 @@ class ObjectPlacer:
 
         Args:
             positions: Dictionary mapping objects to their solved (x, y, z) positions.
-            bbox_overrides: Optional per-object bbox overrides (single-env, shape ``(1, 3)``).
+            bbox_overrides: Optional per-object bbox overrides (single-env, shape (1, 3)).
                 Used by heterogeneous placement to supply the correct variant bbox.
 
         Returns:

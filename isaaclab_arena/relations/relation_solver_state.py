@@ -41,8 +41,8 @@ class RelationSolverState:
                 length > 1 = batched.
             device: Torch device for all tensors. Defaults to CPU.
             env_bboxes: Optional per-env bounding boxes keyed by object.
-                When provided, ``get_bbox(obj)`` returns the per-env bbox
-                (shape ``(batch, 3)``) instead of the object's default.
+                When provided, get_bbox(obj) returns the per-env bbox
+                (shape (batch, 3)) instead of the object's default.
         """
         assert len(initial_positions) >= 1, "initial_positions must contain at least one dict."
         anchor_objects = get_anchor_objects(objects)
@@ -150,10 +150,10 @@ class RelationSolverState:
         return self._optimizable_positions[:, opt_idx, :]
 
     def get_bbox(self, obj: ObjectBase) -> AxisAlignedBoundingBox:
-        """Return the local bounding box for *obj*, moved to the state's device.
+        """Return the local bounding box for obj, moved to the state's device.
 
-        Uses the per-env override from ``env_bboxes`` when available, otherwise
-        falls back to ``obj.get_bounding_box()``.
+        Uses the per-env override from env_bboxes when available, otherwise
+        falls back to obj.get_bounding_box().
         """
         if self._env_bboxes is not None and obj in self._env_bboxes:
             return self._env_bboxes[obj].to(self._device)

@@ -34,7 +34,7 @@ def solve_and_place_objects(
 ) -> None:
     """Coordinated reset event that draws layouts from the pool and writes poses.
 
-    Registered as a single ``EventTermCfg(mode="reset")``. Env-specific
+    Registered as a single EventTermCfg(mode="reset"). Env-specific
     layouts advance by one full env round so each result still matches its
     absolute env id. Reusable layouts draw only for the environments being
     reset.

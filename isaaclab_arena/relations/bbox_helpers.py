@@ -7,9 +7,9 @@
 
 These helpers centralise the logic that expands single-object bounding boxes
 to per-environment tensors and detects whether any object carries
-env-specific geometry (e.g. ``RigidObjectSet`` with multiple variants).
+env-specific geometry (e.g. RigidObjectSet with multiple variants).
 
-Placing this logic here (instead of on ``ObjectBase``) keeps ``num_envs``
+Placing this logic here (instead of on ObjectBase) keeps num_envs
 and other placement/simulation details out of the asset layer.
 """
 
@@ -24,34 +24,32 @@ if TYPE_CHECKING:
 
 
 def object_has_env_specific_bboxes(obj: ObjectBase) -> bool:
-    """Whether *obj* produces different bounding boxes per environment.
+    """Whether obj produces different bounding boxes per environment.
 
-    Returns ``True`` for multi-variant ``RigidObjectSet`` instances (which
-    override ``get_bounding_box_per_env``). All other objects return ``False``.
+    Returns True for multi-variant RigidObjectSet instances (which
+    override get_bounding_box_per_env). All other objects return False.
     """
     return getattr(obj, "has_env_specific_bboxes", False)
 
 
 def any_object_has_env_specific_bboxes(objects: list[ObjectBase]) -> bool:
-    """Whether any object in *objects* has env-specific bounding boxes."""
+    """Whether any object in the list has env-specific bounding boxes."""
     return any(object_has_env_specific_bboxes(obj) for obj in objects)
 
 
 def get_bounding_box_per_env(obj: ObjectBase, num_envs: int) -> AxisAlignedBoundingBox:
-    """Return per-environment local bounding boxes for *obj*.
+    """Return per-environment local bounding boxes for obj.
 
-    * For objects with env-specific variants (``RigidObjectSet``), delegates
-      to the object's own ``get_bounding_box_per_env`` override.
-    * For all other objects, expands the single local bbox to
-      ``(num_envs, 3)``.
+    For objects with env-specific variants (RigidObjectSet), delegates to the
+    object's own get_bounding_box_per_env override. For all other objects,
+    expands the single local bbox to (num_envs, 3).
 
     Args:
         obj: The object to query.
         num_envs: Number of environments.
 
     Returns:
-        ``AxisAlignedBoundingBox`` with ``min_point`` / ``max_point`` of shape
-        ``(num_envs, 3)``.
+        AxisAlignedBoundingBox with min_point / max_point of shape (num_envs, 3).
     """
     override = getattr(obj, "get_bounding_box_per_env", None)
     if override is not None:
