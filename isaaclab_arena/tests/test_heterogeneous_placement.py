@@ -14,7 +14,7 @@ import torch
 import pytest
 
 from isaaclab_arena.assets.dummy_object import DummyObject
-from isaaclab_arena.relations.bbox_helpers import get_bounding_box_per_env, object_has_env_specific_bboxes
+from isaaclab_arena.relations.bbox_helpers import get_bounding_box_per_env, is_heterogeneous
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
@@ -105,7 +105,7 @@ def test_dummy_object_preserves_constructor_relations():
     )
 
     assert obj.get_relations() == [anchor_relation]
-    assert object_has_env_specific_bboxes(obj) is False
+    assert is_heterogeneous(obj) is False
 
 
 def test_object_preserves_constructor_relations():
@@ -123,7 +123,7 @@ def test_object_preserves_constructor_relations():
     )
 
     assert obj.get_relations() == [anchor_relation]
-    assert object_has_env_specific_bboxes(obj) is False
+    assert is_heterogeneous(obj) is False
 
 
 # ---------------------------------------------------------------------------

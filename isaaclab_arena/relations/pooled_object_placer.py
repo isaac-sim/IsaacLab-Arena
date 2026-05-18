@@ -9,7 +9,7 @@ import random
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.bbox_helpers import any_object_has_env_specific_bboxes, get_bounding_box_per_env
+from isaaclab_arena.relations.bbox_helpers import get_bounding_box_per_env, has_heterogeneous_objects
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
@@ -52,7 +52,7 @@ class PooledObjectPlacer:
         # 1. Validate params.
         if pool_size < 1:
             raise ValueError(f"pool_size must be >= 1, got {pool_size}")
-        self._uses_env_specific_bboxes = any_object_has_env_specific_bboxes(objects)
+        self._uses_env_specific_bboxes = has_heterogeneous_objects(objects)
         if self._uses_env_specific_bboxes:
             assert num_envs is not None, "num_envs is required when layouts use env-specific object variants."
         self._num_envs = num_envs if num_envs is not None else 1
@@ -322,20 +322,22 @@ class PooledObjectPlacer:
         return self._had_fallbacks
 
     def sample_with_replacement(self, count: int) -> list[PlacementResult]:
-        """Pick count layouts at random per env-slot (non-consuming).
+        """Pick count layouts at random with replacement (non-consuming).
 
-        Slot i is filled by a random pick from env i % num_envs's
-        pool, so a length-count request walks env slots in order. Used
-        by resolve_on_reset=False to assign initial positions that persist
-        across resets.
+        For env-specific layouts, slot i picks from env i % num_envs's pool
+        so each result matches its absolute env. For reusable layouts, draws
+        are uniform IID from the full pool (preserving pre-heterogeneous behavior).
         """
-        results: list[PlacementResult] = []
-        for i in range(count):
-            cur_env = i % self._num_envs
-            pool = self._layout_pools[cur_env]
-            assert pool, f"Env {cur_env} has no valid layouts to sample from."
-            results.append(random.choice(pool))
-        return results
+        if self._uses_env_specific_bboxes:
+            results: list[PlacementResult] = []
+            for i in range(count):
+                cur_env = i % self._num_envs
+                pool = self._layout_pools[cur_env]
+                assert pool, f"Env {cur_env} has no valid layouts to sample from."
+                results.append(random.choice(pool))
+            return results
+        all_layouts = [layout for pool in self._layout_pools.values() for layout in pool]
+        return random.choices(all_layouts, k=count)
 
     @property
     def remaining(self) -> int:

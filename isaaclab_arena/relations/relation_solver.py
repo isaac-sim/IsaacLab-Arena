@@ -158,6 +158,10 @@ class RelationSolver:
 
         non_anchor_objects = state.optimizable_objects
         anchor_objects = list(state.anchor_objects)
+
+        # Skip no-overlap for On pairs: the On loss already pushes the child
+        # onto the parent surface, so penalizing bbox overlap between them
+        # would fight that constraint and cause oscillation.
         on_pairs: set[tuple[int, int]] = set()
         for obj in [*non_anchor_objects, *anchor_objects]:
             for rel in obj.get_relations():

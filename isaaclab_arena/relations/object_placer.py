@@ -10,7 +10,7 @@ import torch
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.bbox_helpers import any_object_has_env_specific_bboxes, get_bounding_box_per_env
+from isaaclab_arena.relations.bbox_helpers import get_bounding_box_per_env, has_heterogeneous_objects
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
@@ -149,7 +149,7 @@ class ObjectPlacer:
         #   - homogeneous: any solved layout serves any env; pick the top num_results.
         #   - heterogeneous: some objects vary per env, so each env owns a fixed slice
         #     of candidates and we pick the best within that slice.
-        uses_env_specific_bboxes = result_per_env and any_object_has_env_specific_bboxes(objects)
+        uses_env_specific_bboxes = result_per_env and has_heterogeneous_objects(objects)
 
         if uses_env_specific_bboxes:
             results_per_env = self._place_heterogeneous(

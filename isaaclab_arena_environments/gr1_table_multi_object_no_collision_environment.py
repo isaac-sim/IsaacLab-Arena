@@ -53,7 +53,7 @@ DEFAULT_TABLE_OBJECTS = [
 
 # -- Heterogeneous mode default object sets ----------------------------------
 # Each entry is a multi-variant RigidObjectSet — each env gets a different
-# variant. Objects sourced from het-viz branch gif capture script.
+# variant.
 HETERO_VARIANT_SETS = {
     "bottles": [
         "mustard_bottle_hope_robolab",
@@ -199,7 +199,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
 
         When --objects is provided, each object becomes a single-variant RigidObjectSet.
         Otherwise, uses HETERO_FIXED_OBJECTS (pinned fruits) + HETERO_VARIANT_SETS
-        (multi-variant sets from het-viz branch).
+        (multi-variant sets).
         """
         from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.relations.relations import AtPosition, On
