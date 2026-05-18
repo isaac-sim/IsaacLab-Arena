@@ -19,14 +19,14 @@ class DummyObject:
         name: str,
         bounding_box: AxisAlignedBoundingBox,
         initial_pose: Pose | None = None,
-        relations: list[RelationBase] | None = None,
+        relations: list[RelationBase] = [],
         **kwargs,
     ):
         self.name = name
         self.initial_pose = initial_pose
         self.bounding_box = bounding_box
         assert self.bounding_box is not None
-        self.relations = list(relations or [])
+        self.relations = list(relations)
 
     def add_relation(self, relation: RelationBase) -> None:
         self.relations.append(relation)

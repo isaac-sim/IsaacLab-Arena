@@ -18,7 +18,7 @@ from isaaclab_arena.relations.loss_primitives import (
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.relations import AtPosition, NextTo, On, PositionLimits, Relation, UnaryRelation
+    from isaaclab_arena.relations.relations import AtPosition, NextTo, On, PositionLimits, Relation
 
 from isaaclab_arena.relations.relations import Side
 
@@ -71,7 +71,7 @@ class UnaryRelationLossStrategy(ABC):
     @abstractmethod
     def compute_loss(
         self,
-        relation: "UnaryRelation",
+        relation: "Relation",
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
