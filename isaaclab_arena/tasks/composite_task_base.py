@@ -17,6 +17,10 @@ from isaaclab.utils import configclass
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
+from isaaclab_arena.metrics.subtask_windowed_metric import (
+    WINDOW_SCOPE_FROM_EPISODE_START,
+    SubtaskWindowedMetric,
+)
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.configclass import (
@@ -101,11 +105,17 @@ class CompositeTaskBase(TaskBase):
     Completion ordering of subtasks does not matter.
     """
 
+    # Scope used to derive each subtask's evaluation window when
+    # ``window_subtask_metrics`` is enabled. Subclasses override this — sequential
+    # tasks use the previous-subtask-completion as the start of the window.
+    SUBTASK_WINDOW_SCOPE: str = WINDOW_SCOPE_FROM_EPISODE_START
+
     def __init__(
         self,
         subtasks: list[TaskBase],
         episode_length_s: float | None = None,
         desired_subtask_success_state: list[bool | None] | None = None,
+        window_subtask_metrics: bool = False,
     ):
         super().__init__(episode_length_s)
         assert len(subtasks) > 0, "Composite task requires at least one subtask"
@@ -119,6 +129,7 @@ class CompositeTaskBase(TaskBase):
                 s is None or isinstance(s, bool) for s in desired_subtask_success_state
             ), "Desired subtask success state entries must each be True, False, or None"
         self.desired_subtask_success_state = desired_subtask_success_state
+        self.window_subtask_metrics = window_subtask_metrics
 
     @staticmethod
     def add_suffix_configclass_transform(fields: list[tuple], suffix: str) -> list[tuple]:
@@ -281,7 +292,22 @@ class CompositeTaskBase(TaskBase):
                 if metric.name != "success_rate":
                     metric.name = f"{metric.name}_subtask_{subtask_idx}"
                     metric.recorder_term_name = f"{metric.recorder_term_name}_subtask_{subtask_idx}"
-                    combined_metrics.append(copy.copy(metric))
+                    renamed_metric = copy.copy(metric)
+                    # Episode-wide reduction is always reported.
+                    combined_metrics.append(renamed_metric)
+                    # When opting into windowing, also report the subtask-scoped reduction
+                    # under a ``_windowed`` suffix so both views are available side-by-side.
+                    # The wrapper shares ``recorder_term_name`` with the unwrapped metric;
+                    # dedup happens in ``metrics_to_recorder_manager_cfg``.
+                    if self.window_subtask_metrics:
+                        combined_metrics.append(
+                            SubtaskWindowedMetric(
+                                inner_metric=copy.copy(renamed_metric),
+                                subtask_idx=subtask_idx,
+                                scope=self.SUBTASK_WINDOW_SCOPE,
+                                name=f"{renamed_metric.name}_windowed",
+                            )
+                        )
                 else:
                     if not any(m.name == "success_rate" for m in combined_metrics):
                         combined_metrics.append(copy.copy(metric))

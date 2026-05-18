@@ -22,10 +22,20 @@ def metrics_to_recorder_manager_cfg(metrics: list[MetricBase] | None) -> Recorde
     """
     if metrics is None:
         return None
-    # For each metric, grad it's RecorderTermCfg and add it to the output configclass fields list.
+    # Build the configclass field list from each metric's RecorderTermCfg. Multiple
+    # metrics may legitimately read the same underlying HDF5 stream (e.g. an episode-wide
+    # reduction plus a windowed reduction of the same per-step signal share a recorder
+    # term). Register each recorder term only once, keyed by the recorder cfg's ``name``.
     configclass_fields: list[tuple[str, type, object]] = []
+    seen_recorder_names: set[str] = set()
     for metric in metrics:
-        configclass_fields.append((metric.name, type(metric.get_recorder_term_cfg()), metric.get_recorder_term_cfg()))
+        recorder_cfg = metric.get_recorder_term_cfg()
+        if recorder_cfg is None:
+            continue
+        if recorder_cfg.name in seen_recorder_names:
+            continue
+        seen_recorder_names.add(recorder_cfg.name)
+        configclass_fields.append((metric.name, type(recorder_cfg), recorder_cfg))
     # Make a configclass for the recorder manager configuration.
     recorder_cfg_cls = make_configclass("RecorderManagerCfg", configclass_fields, bases=(RecorderManagerBaseCfg,))
     recorder_cfg = recorder_cfg_cls()
