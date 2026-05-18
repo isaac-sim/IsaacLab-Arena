@@ -13,7 +13,9 @@ import pytest
 import websockets.exceptions
 from openpi_client import websocket_client_policy
 
-from isaaclab_arena_openpi.policy.pi0_droid_remote_policy import Pi0DroidRemotePolicy, Pi0DroidRemotePolicyArgs
+from isaaclab_arena_openpi.policy.droid_adapter import Pi0DroidAdapter
+from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyArgs
+from isaaclab_arena_openpi.policy.pi0_remote_policy import Pi0RemotePolicy
 
 
 def _fake_env(num_envs: int = 1):
@@ -65,17 +67,19 @@ def make_policy(monkeypatch):
     _patch_websocket_client(monkeypatch)
 
     def _factory(policy_variant: str = "pi05"):
-        return Pi0DroidRemotePolicy(Pi0DroidRemotePolicyArgs(policy_variant=policy_variant, policy_device="cpu"))
+        return Pi0RemotePolicy(
+            Pi0RemotePolicyArgs(policy_variant=policy_variant, policy_device="cpu"),
+            embodiment_adapter=Pi0DroidAdapter(),
+        )
 
     return _factory
 
 
-def test_pack_request_uses_pi0_wire_keys(make_policy):
-    """The wire-format contract with the openpi droid server."""
-    policy = make_policy()
-    policy.set_task_description("pick up the block")
-    droid_obs = policy._extract_droid_observation(_fake_observation())
-    server_request = policy._pack_pi0_request(droid_obs, "pick up the block")
+def test_droid_adapter_uses_pi0_wire_keys():
+    """The wire-format contract between Pi0DroidAdapter and the openpi droid server."""
+    adapter = Pi0DroidAdapter()
+    extracted = adapter.extract(_fake_observation())
+    server_request = adapter.pack_request(extracted, "pick up the block")
 
     assert set(server_request.keys()) == {
         "observation/exterior_image_1_left",
@@ -121,7 +125,7 @@ def test_call_server_with_retry_reconnects_on_drop(monkeypatch):
         return successful_response
 
     _patch_websocket_client(monkeypatch, infer_impl=flaky_infer)
-    policy = Pi0DroidRemotePolicy(Pi0DroidRemotePolicyArgs(policy_device="cpu"))
+    policy = Pi0RemotePolicy(Pi0RemotePolicyArgs(policy_device="cpu"), embodiment_adapter=Pi0DroidAdapter())
     policy.set_task_description("pick up the block")
     policy._cached_action_chunk = np.zeros((15, 8), dtype=np.float32)
     policy._next_chunk_step = 5
@@ -139,7 +143,7 @@ def test_call_server_with_retry_gives_up_after_max_attempts(monkeypatch):
         raise websockets.exceptions.ConnectionClosedError(None, None)
 
     _patch_websocket_client(monkeypatch, infer_impl=always_drops)
-    policy = Pi0DroidRemotePolicy(Pi0DroidRemotePolicyArgs(policy_device="cpu"))
+    policy = Pi0RemotePolicy(Pi0RemotePolicyArgs(policy_device="cpu"), embodiment_adapter=Pi0DroidAdapter())
     policy.set_task_description("pick up the block")
 
     with pytest.raises(websockets.exceptions.ConnectionClosedError):

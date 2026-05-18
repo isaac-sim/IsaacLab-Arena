@@ -9,46 +9,61 @@ import argparse
 import gymnasium as gym
 import numpy as np
 import torch
+from abc import ABC, abstractmethod
 from typing import Any
 
 import websockets.exceptions
-from openpi_client import image_tools, websocket_client_policy
+from openpi_client import websocket_client_policy
 
 from isaaclab_arena.policy.policy_base import PolicyBase
-from isaaclab_arena_openpi.policy.pi0_droid_config import (
-    ACTION_DIM,
-    ARENA_EXTERNAL_CAMERA_KEY,
-    ARENA_WRIST_CAMERA_KEY,
-    DEFAULT_VARIANT,
-    MAX_RECONNECT_ATTEMPTS,
-    OPEN_LOOP_HORIZON_BY_VARIANT,
-    TARGET_IMAGE_SIZE,
-    Pi0DroidRemotePolicyArgs,
-)
+from isaaclab_arena_openpi.policy.pi0_remote_config import DEFAULT_VARIANT, MAX_RECONNECT_ATTEMPTS, Pi0RemotePolicyArgs
 
 
-class Pi0DroidRemotePolicy(PolicyBase):
-    """openpi remote closed-loop policy for DROID, single-env only."""
+class Pi0EmbodimentAdapter(ABC):
+    """Translates between arena's gym observation dict and the openpi wire
+    format for a specific physical embodiment (DROID, ALOHA, ...).
 
-    name = "pi0_droid_remote"
-    config_class = Pi0DroidRemotePolicyArgs
+    Subclasses declare the embodiment-specific action layout and observation
+    keys; ``Pi0RemotePolicy`` is otherwise embodiment-agnostic.
+    """
 
-    def __init__(self, config: Pi0DroidRemotePolicyArgs) -> None:
+    action_dim: int
+    open_loop_horizon_by_variant: dict[str, int]
+
+    @abstractmethod
+    def extract(self, observation: dict[str, Any]) -> dict[str, np.ndarray]:
+        """Pull env tensors out of the arena gym observation dict."""
+
+    @abstractmethod
+    def pack_request(self, extracted: dict[str, np.ndarray], language_instruction: str) -> dict[str, Any]:
+        """Build the wire-format request payload openpi server expects."""
+
+
+class Pi0RemotePolicy(PolicyBase):
+    """openpi remote closed-loop policy, parameterized by an embodiment adapter."""
+
+    name = "pi0_remote"
+    config_class = Pi0RemotePolicyArgs
+
+    def __init__(self, config: Pi0RemotePolicyArgs, embodiment_adapter: Pi0EmbodimentAdapter) -> None:
         super().__init__(config)
-        assert (
-            config.policy_variant in OPEN_LOOP_HORIZON_BY_VARIANT
-        ), f"Unknown policy_variant {config.policy_variant!r}; known: {sorted(OPEN_LOOP_HORIZON_BY_VARIANT)}"
-        self.open_loop_horizon = OPEN_LOOP_HORIZON_BY_VARIANT[config.policy_variant]
+        assert config.policy_variant in embodiment_adapter.open_loop_horizon_by_variant, (
+            f"Unknown policy_variant {config.policy_variant!r} for adapter"
+            f" {type(embodiment_adapter).__name__};"
+            f" known: {sorted(embodiment_adapter.open_loop_horizon_by_variant)}"
+        )
+        self._embodiment_adapter = embodiment_adapter
+        self.open_loop_horizon = embodiment_adapter.open_loop_horizon_by_variant[config.policy_variant]
         self.device = config.policy_device
 
         self._remote_host = config.remote_host
         self._remote_port = config.remote_port
 
-        print(f"[Pi0DroidRemotePolicy] Connecting to openpi server at {self._remote_host}:{self._remote_port} ...")
+        print(f"[Pi0RemotePolicy] Connecting to openpi server at {self._remote_host}:{self._remote_port} ...")
         self._websocket_client = websocket_client_policy.WebsocketClientPolicy(
             host=self._remote_host, port=self._remote_port
         )
-        print("[Pi0DroidRemotePolicy] Connected.")
+        print("[Pi0RemotePolicy] Connected.")
 
         self._cached_action_chunk: np.ndarray | None = None
         self._next_chunk_step: int = 0
@@ -57,15 +72,24 @@ class Pi0DroidRemotePolicy(PolicyBase):
     @staticmethod
     def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         group = parser.add_argument_group(
-            "Pi0 DROID Remote Policy",
+            "Pi0 Remote Policy",
             "Arguments for the openpi (pi0 / pi0_fast / pi05) remote client.",
+        )
+        group.add_argument(
+            "--embodiment_adapter",
+            type=str,
+            default="droid",
+            choices=sorted(EMBODIMENT_ADAPTERS),
+            help="Embodiment adapter for obs / action wire format (default: droid).",
         )
         group.add_argument(
             "--policy_variant",
             type=str,
             default=DEFAULT_VARIANT,
-            choices=sorted(OPEN_LOOP_HORIZON_BY_VARIANT),
-            help=f"openpi droid checkpoint variant (default: {DEFAULT_VARIANT}).",
+            help=(
+                f"openpi checkpoint variant (default: {DEFAULT_VARIANT})."
+                " Valid values depend on the chosen --embodiment_adapter."
+            ),
         )
         group.add_argument(
             "--policy_device",
@@ -78,23 +102,24 @@ class Pi0DroidRemotePolicy(PolicyBase):
         return parser
 
     @staticmethod
-    def from_args(args: argparse.Namespace) -> Pi0DroidRemotePolicy:
-        return Pi0DroidRemotePolicy(
-            Pi0DroidRemotePolicyArgs(
+    def from_args(args: argparse.Namespace) -> Pi0RemotePolicy:
+        embodiment_adapter = EMBODIMENT_ADAPTERS[args.embodiment_adapter]()
+        return Pi0RemotePolicy(
+            Pi0RemotePolicyArgs(
                 policy_variant=args.policy_variant,
                 policy_device=args.policy_device,
                 remote_host=args.remote_host,
                 remote_port=args.remote_port,
-            )
+            ),
+            embodiment_adapter=embodiment_adapter,
         )
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
-        assert env.unwrapped.num_envs == 1, (
-            "Pi0DroidRemotePolicy only supports num_envs=1 (openpi server limitation),"
-            f" got num_envs={env.unwrapped.num_envs}"
-        )
+        assert (
+            env.unwrapped.num_envs == 1
+        ), f"Pi0RemotePolicy only supports num_envs=1 (openpi server limitation), got num_envs={env.unwrapped.num_envs}"
         assert self.task_description, (
-            "Pi0DroidRemotePolicy requires a non-empty language instruction"
+            "Pi0RemotePolicy requires a non-empty language instruction"
             " (set via --language_instruction or on the task definition)."
         )
 
@@ -112,45 +137,18 @@ class Pi0DroidRemotePolicy(PolicyBase):
         self._next_chunk_step = 0
 
     def _fetch_action_chunk(self, observation: dict[str, Any]) -> np.ndarray:
-        droid_obs = self._extract_droid_observation(observation)
-        server_request = self._pack_pi0_request(droid_obs, self.task_description)
-        server_response = self._call_server_with_retry(server_request)
+        extracted = self._embodiment_adapter.extract(observation)
+        request = self._embodiment_adapter.pack_request(extracted, self.task_description)
+        response = self._call_server_with_retry(request)
 
-        action_chunk = np.asarray(server_response["actions"])
+        chunk = np.asarray(response["actions"])
         assert (
-            action_chunk.ndim == 2 and action_chunk.shape[1] == ACTION_DIM
-        ), f"Expected actions of shape (H, {ACTION_DIM}); got {action_chunk.shape}"
+            chunk.ndim == 2 and chunk.shape[1] == self._embodiment_adapter.action_dim
+        ), f"Expected actions of shape (H, {self._embodiment_adapter.action_dim}); got {chunk.shape}"
         assert (
-            action_chunk.shape[0] >= self.open_loop_horizon
-        ), f"Server returned horizon {action_chunk.shape[0]} < configured open_loop_horizon {self.open_loop_horizon}"
-        return action_chunk[: self.open_loop_horizon].astype(np.float32, copy=True)
-
-    def _extract_droid_observation(self, observation: dict[str, Any]) -> dict[str, np.ndarray]:
-        cam = observation["camera_obs"]
-        proprio = observation["policy"]
-        return {
-            name: tensor.detach().cpu().numpy()
-            for name, tensor in {
-                "exterior_image": cam[ARENA_EXTERNAL_CAMERA_KEY][0],
-                "wrist_image": cam[ARENA_WRIST_CAMERA_KEY][0],
-                "joint_position": proprio["joint_pos"][0],
-                "gripper_position": proprio["gripper_pos"][0],
-            }.items()
-        }
-
-    def _pack_pi0_request(self, droid_obs: dict[str, np.ndarray], language_instruction: str) -> dict[str, Any]:
-        target_height, target_width = TARGET_IMAGE_SIZE
-        return {
-            "observation/exterior_image_1_left": image_tools.resize_with_pad(
-                droid_obs["exterior_image"], target_height, target_width
-            ),
-            "observation/wrist_image_left": image_tools.resize_with_pad(
-                droid_obs["wrist_image"], target_height, target_width
-            ),
-            "observation/joint_position": droid_obs["joint_position"],
-            "observation/gripper_position": droid_obs["gripper_position"],
-            "prompt": language_instruction,
-        }
+            chunk.shape[0] >= self.open_loop_horizon
+        ), f"Server returned horizon {chunk.shape[0]} < configured open_loop_horizon {self.open_loop_horizon}"
+        return chunk[: self.open_loop_horizon].astype(np.float32, copy=True)
 
     def _call_server_with_retry(self, server_request: dict[str, Any]) -> dict[str, Any]:
         """Send the request, reconnecting up to ``MAX_RECONNECT_ATTEMPTS`` times.
@@ -171,7 +169,7 @@ class Pi0DroidRemotePolicy(PolicyBase):
                 if is_last_attempt:
                     raise
                 print(
-                    f"[Pi0DroidRemotePolicy] Connection lost ({exc}); reconnecting"
+                    f"[Pi0RemotePolicy] Connection lost ({exc}); reconnecting"
                     f" (attempt {attempt_index + 1}/{MAX_RECONNECT_ATTEMPTS - 1}) ..."
                 )
                 self._websocket_client = websocket_client_policy.WebsocketClientPolicy(
@@ -180,3 +178,12 @@ class Pi0DroidRemotePolicy(PolicyBase):
                 self._cached_action_chunk = None
                 self._next_chunk_step = 0
         raise RuntimeError("unreachable")
+
+
+# Registry populated at module bottom so adapters can import Pi0EmbodimentAdapter
+# from this module without a circular import.
+from isaaclab_arena_openpi.policy.droid_adapter import Pi0DroidAdapter  # noqa: E402
+
+EMBODIMENT_ADAPTERS: dict[str, type[Pi0EmbodimentAdapter]] = {
+    "droid": Pi0DroidAdapter,
+}

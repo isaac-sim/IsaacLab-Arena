@@ -1,9 +1,10 @@
 # isaaclab_arena_openpi
 
-`Pi0DroidRemotePolicy` — a thin client for the upstream
+`Pi0RemotePolicy` — a thin client for the upstream
 [openpi](https://github.com/Physical-Intelligence/openpi) WebSocket policy
-server, evaluated inside [Isaac Lab - Arena](../README.md) on the DROID
-embodiment.
+server, evaluated inside [Isaac Lab - Arena](../README.md). The policy is
+embodiment-agnostic and takes an embodiment adapter as a data member;
+arena currently ships the **DROID** adapter (`Pi0DroidAdapter`).
 
 ## Quickstart
 
@@ -69,7 +70,8 @@ Then, inside the container:
 ```bash
 python isaaclab_arena/evaluation/policy_runner.py \
   --viz kit \
-  --policy_type isaaclab_arena_openpi.policy.pi0_droid_remote_policy.Pi0DroidRemotePolicy \
+  --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
+  --embodiment_adapter droid \
   --policy_variant pi05 \
   --remote_host localhost --remote_port 8000 \
   --num_steps 2000 \
@@ -86,7 +88,21 @@ If the server is on a *different* machine, replace `localhost` with that machine
 The server terminal will start logging connection + inference events.
 The arena IsaacSim window shows the droid arm reacting to pi0's commanded joint positions.
 
-## Supported variants
+## Embodiments
+
+`Pi0RemotePolicy` selects an embodiment adapter via `--embodiment_adapter`.
+The adapter declares the action layout, valid `--policy_variant` keys, and
+how arena's gym observations map onto the openpi wire format.
+
+| `--embodiment_adapter` | Class | Action layout | Pair with arena embodiment |
+|---|---|---|---|
+| `droid` (default) | `Pi0DroidAdapter` | 7 panda joints + 1 gripper | `droid_abs_joint_pos` |
+
+To add a new embodiment, subclass `Pi0EmbodimentAdapter` in a new file
+and register it in `EMBODIMENT_ADAPTERS` at the bottom of
+`policy/pi0_remote_policy.py`.
+
+## Supported variants (droid adapter)
 
 | `--policy_variant` | `--policy.config`                | `--policy.dir`                                       | Pair with             | open_loop_horizon |
 |--------------------|----------------------------------|------------------------------------------------------|-----------------------|------------------:|
@@ -94,6 +110,4 @@ The arena IsaacSim window shows the droid arm reacting to pi0's commanded joint 
 | `pi0`              | `pi0_droid_jointpos_polaris`     | `gs://openpi-assets-simeval/pi0_droid_jointpos`      | `droid_abs_joint_pos` | 10                |
 | `pi0_fast`         | `pi0_fast_droid_jointpos_polaris`| `gs://openpi-assets/checkpoints/polaris/pi0_fast_droid_jointpos_polaris` *(untested)* | `droid_rel_joint_pos` | 10 |
 
-The horizon table lives in `pi0_droid_config.py`
-(`OPEN_LOOP_HORIZON_BY_VARIANT`); add a new key there if you train a new
-openpi droid checkpoint.
+The horizon table lives on the adapter (`Pi0DroidAdapter.open_loop_horizon_by_variant`).
