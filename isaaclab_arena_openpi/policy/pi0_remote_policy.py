@@ -158,6 +158,25 @@ class Pi0RemotePolicy(PolicyBase):
         self._cached_action_chunk = None
         self._next_chunk_step = 0
 
+    def close(self) -> None:
+        """Release the local websocket connection to the openpi server.
+        Does NOT stop the openpi server process that runs in a separate
+        container (or machine) and outlives this client.
+        """
+        client = self._websocket_client
+        if client is None:
+            return
+        try:
+            ws = getattr(client, "_ws", None)
+            if ws is not None:
+                ws.close()
+        except (websockets.exceptions.ConnectionClosed, OSError):
+            # Connection may already be dropped on the other side; teardown
+            # must not crash.
+            pass
+        finally:
+            self._websocket_client = None
+
     def _fetch_action_chunk(self, observation: dict[str, Any]) -> np.ndarray:
         extracted = self._openpi_embodiment_adapter.extract(observation)
         request = self._openpi_embodiment_adapter.pack_request(extracted, self.task_description)

@@ -97,6 +97,15 @@ def test_droid_adapter_uses_pi0_wire_keys():
     assert server_request["prompt"] == "pick up the block"
 
 
+def test_close_is_idempotent(make_policy):
+    """close() drops the client and tolerates a second call."""
+    policy = make_policy()
+    assert policy._websocket_client is not None
+    policy.close()
+    assert policy._websocket_client is None
+    policy.close()  # second call must not raise
+
+
 def test_get_action_caches_chunk_and_advances_index(make_policy):
     """Two consecutive get_action calls replay rows 0 and 1 from one fetched chunk."""
     policy = make_policy()
