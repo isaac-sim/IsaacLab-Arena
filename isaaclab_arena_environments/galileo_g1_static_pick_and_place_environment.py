@@ -44,6 +44,8 @@ if TYPE_CHECKING:
 #   shelf on the first sim tick (which would otherwise launch them upward).
 SHELF_SURFACE_Z = -0.030
 SHELF_AIRGAP = 0.005
+# Cuboid center: top face = SHELF_SURFACE_Z. This assumes procedural_table height is 0.04 m.
+SHELF_SUPPORT_PATCH_CENTER = (0.62, 0.0, SHELF_SURFACE_Z - 0.02)
 
 # Object XY spawn pose (env-local frame, shelf-relative). X mirrors the locomanip env
 # (the only on-shelf X we have ground-truth data for via the brown_box flow). The pickup
@@ -135,6 +137,14 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         # Reuse the locomanip background USD: it bakes in lighting and provides the same
         # shelf-in-front-of-robot geometry the locomanip env was tuned against.
         background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
+        # The imported shelf mesh has uneven/perforated collision in the task region:
+        # small objects can fall through parts of the visible shelf. Add an invisible
+        # kinematic cuboid flush with the shelf top so task objects see a clean support.
+        # This has only reproduced in GPU simulation; CPU runs have not shown the issue.
+        shelf_support = self.asset_registry.get_asset_by_name("procedural_table")(
+            instance_name="static_pick_place_shelf_support",
+            prim_path="{ENV_REGEX_NS}/static_pick_place_shelf_support",
+        )
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)(scale=_asset_scale(args_cli.object))
         destination = self.asset_registry.get_asset_by_name(args_cli.destination)(
             scale=_asset_scale(args_cli.destination)
@@ -150,6 +160,9 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         # robot up in the same shelf-relative spot. The controller dynamically lifts the
         # pelvis to ~z=0.74 at runtime; init_state.pos.z=0 is correct.
         embodiment.set_initial_pose(Pose(position_xyz=(0.3, 0.08, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+        shelf_support.set_initial_pose(
+            Pose(position_xyz=SHELF_SUPPORT_PATCH_CENTER, rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+        )
         pick_up_object_x, pick_up_object_y = PICK_UP_OBJECT_SPAWN_XY
         destination_x, destination_y = DESTINATION_SPAWN_XY
         pick_up_object_z = _shelf_spawn_z(args_cli.object)
@@ -191,7 +204,7 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 f"{destination_label} on the same shelf next to it."
             )
 
-        scene = Scene(assets=[background, pick_up_object, destination])
+        scene = Scene(assets=[background, shelf_support, pick_up_object, destination])
         return IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,

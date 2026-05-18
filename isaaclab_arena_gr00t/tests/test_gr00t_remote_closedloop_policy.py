@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import numpy as np
 import torch
-import yaml
 from typing import Any
 
 import pytest
@@ -55,18 +54,11 @@ POLICY_GROUP_SIZES = {
 
 
 @pytest.fixture
-def policy_config_yaml(tmp_path):
-    """Write a copy of the g1 locomanip test config with model_path set to a
-    HuggingFace repo id so ``Gr00tClosedloopPolicyConfig.__post_init__`` passes
-    without a real checkpoint on disk (the remote policy never loads it)."""
-    src = Gr00tTestConstants.test_data_dir + "/test_g1_locomanip_lerobot/test_g1_locomanip_gr00t_closedloop_config.yaml"
-    with open(src) as f:
-        cfg = yaml.safe_load(f)
-    cfg["model_path"] = "nvidia/GR00T-N1.6-3B"  # HF id passes _is_huggingface_model_id
-    dst = tmp_path / "remote_closedloop_config.yaml"
-    with open(dst, "w") as f:
-        yaml.dump(cfg, f)
-    return str(dst)
+def policy_config_yaml():
+    """Return the g1 locomanip test config used for Arena-side obs/action translation."""
+    return (
+        Gr00tTestConstants.test_data_dir + "/test_g1_locomanip_lerobot/test_g1_locomanip_gr00t_closedloop_config.yaml"
+    )
 
 
 @pytest.fixture

@@ -61,11 +61,8 @@ same machine).
 
 .. caution::
 
-   Before running, edit ``model_path`` in
-   ``isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml`` to point at
-   the finetuned checkpoint directory you produced in :doc:`step_3_policy_training` (for example,
-   ``/models/isaaclab_arena/static_apple_tutorial/static_apple_n17_finetune/checkpoint-20000``).
-   It must match the ``--model-path`` you passed to ``run_gr00t_server.py`` in Step 1.
+   Before running, make sure the GR00T server from Step 1 was launched with the finetuned checkpoint
+   directory you produced in :doc:`step_3_policy_training`.
 
 .. code-block:: bash
 

@@ -955,3 +955,21 @@ class G1MimicEnv(ManagerBasedRLMimicEnv):
             object_pose_matrix[obj_name] = object_pose_pelvis_frame
 
         return object_pose_matrix
+
+    def get_navigation_state(self, env_ids: Sequence[int] | None = None) -> dict[str, torch.Tensor]:
+        """
+        Gets the navigation state of the robot.
+
+        Args:
+            env_id: The environment index to get the navigation state for. If None, all envs are considered.
+
+        Returns:
+            A dictionary that of navigation state flags (False or True).
+        """
+        if env_ids is None:
+            env_ids = slice(None)
+
+        is_navigating = self.obs_buf["wbc"]["is_navigating"][env_ids].cpu()
+        navigation_goal_reached = self.obs_buf["wbc"]["navigation_goal_reached"][env_ids].cpu()
+
+        return {"is_navigating": is_navigating, "navigation_goal_reached": navigation_goal_reached}
