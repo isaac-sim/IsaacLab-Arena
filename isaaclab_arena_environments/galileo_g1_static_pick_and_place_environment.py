@@ -242,6 +242,10 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 mode="prestartup",
                 params={"prim_relative_paths": _BACKGROUND_PRIMS_TO_DEACTIVATE},
             )
+            # The GR00T policy consumes camera observations. After timeout reset,
+            # force one RTX sensor refresh so the first post-reset policy query
+            # does not see the previous episode's final rendered frame.
+            env_cfg.num_rerenders_on_reset = 1
             return env_cfg
 
         scene = Scene(assets=[background, shelf_support, pick_up_object, destination])
