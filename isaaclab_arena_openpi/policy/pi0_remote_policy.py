@@ -225,6 +225,14 @@ class Pi0RemotePolicy(PolicyBase):
                     f"[Pi0RemotePolicy] Connection lost ({exc}); reconnecting"
                     f" (attempt {attempt_index + 1}/{MAX_RECONNECT_ATTEMPTS - 1}) ..."
                 )
+                # Best-effort cleanup of the old client before replacing it.
+                try:
+                    _old = self._websocket_client
+                    ws = getattr(_old, "_ws", None)
+                    if ws is not None:
+                        ws.close()
+                except (websockets.exceptions.ConnectionClosed, OSError):
+                    pass
                 self._websocket_client = websocket_client_policy.WebsocketClientPolicy(
                     host=self._remote_host, port=self._remote_port
                 )
