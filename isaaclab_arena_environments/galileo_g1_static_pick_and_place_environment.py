@@ -87,6 +87,9 @@ _TUNED_SCALES: dict[str, tuple[float, float, float]] = {
     TUNED_DESTINATION_NAME: (0.5, 0.5, 0.5),
 }
 
+# The sim scene includes these boxes on the shelf/table workspace used by
+# the static pick-and-place task, where they can block or clutter the
+# apple-to-plate interaction area.
 _BACKGROUND_PRIMS_TO_DEACTIVATE: tuple[str, ...] = (
     "galileo_locomanip/BackgroundAssets/boxes/jetson_orin_06",
     "galileo_locomanip/BackgroundAssets/boxes/jetson_orin_03",
@@ -101,8 +104,15 @@ def _deactivate_background_prims(env, env_ids, prim_relative_paths: tuple[str, .
     for env_prim_path in env.scene.env_prim_paths:
         for prim_relative_path in prim_relative_paths:
             prim_path = f"{env_prim_path}/{prim_relative_path}"
-            if stage.GetPrimAtPath(prim_path).IsValid():
+            prim = stage.GetPrimAtPath(prim_path)
+            if prim.IsValid():
                 stage.OverridePrim(prim_path).SetActive(False)
+            else:
+                warnings.warn(
+                    f"_deactivate_background_prims: prim not found at '{prim_path}'; "
+                    "the background asset may still be visible.",
+                    stacklevel=1,
+                )
 
 
 def _shelf_spawn_z(asset_name: str) -> float:
