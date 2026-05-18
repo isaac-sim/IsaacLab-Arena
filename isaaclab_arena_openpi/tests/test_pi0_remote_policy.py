@@ -97,6 +97,20 @@ def test_droid_adapter_uses_pi0_wire_keys():
     assert server_request["prompt"] == "pick up the block"
 
 
+def test_from_dict_resolves_adapter(monkeypatch):
+    """eval_runner path: JSON dict -> Pi0RemotePolicy with adapter resolved from the dict."""
+    _patch_websocket_client(monkeypatch)
+    policy = Pi0RemotePolicy.from_dict({
+        "policy_variant": "pi05",
+        "policy_device": "cpu",
+        "remote_host": "localhost",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid",
+    })
+    assert isinstance(policy._openpi_embodiment_adapter, Pi0DroidAdapter)
+    assert policy.open_loop_horizon == 15
+
+
 def test_close_is_idempotent(make_policy):
     """close() drops the client and tolerates a second call."""
     policy = make_policy()

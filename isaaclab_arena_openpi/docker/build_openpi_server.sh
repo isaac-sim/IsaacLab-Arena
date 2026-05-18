@@ -5,29 +5,21 @@
 #   ./build_openpi_server.sh                        # build at the pinned commit
 #   ./build_openpi_server.sh --src-dir=<path>       # build from a local openpi checkout
 #                                                   # (uses whatever commit is checked out)
-#   ./build_openpi_server.sh --push                 # build and push to $NGC_PATH
 #
 # The pinned commit lives in the OPENPI_COMMIT file next to this script.
 # To bump it, edit that file. To build at a different commit ad-hoc, use --src-dir.
 #
 # Env overrides:
 #   IMAGE_NAME    Local image name (default: isaaclab_arena_openpi-server)
-#   NGC_PATH      Registry path used by --push. Default is the SRL/Arena NGC
-#                 staging org; external users must override this with their
-#                 own registry (e.g. NGC_PATH=ghcr.io/<you>/openpi-server).
-
 set -euo pipefail
 
 IMAGE_NAME="${IMAGE_NAME:-isaaclab_arena_openpi-server}"
-NGC_PATH="${NGC_PATH:-nvcr.io/nvstaging/isaac-amr/${IMAGE_NAME}}"
 OPENPI_REPO="https://github.com/Physical-Intelligence/openpi"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PUSH=false
 
 SRC_DIR=""
 for arg in "$@"; do
     case "$arg" in
-        --push) PUSH=true ;;
         --src-dir=*) SRC_DIR="${arg#*=}" ;;
         *) echo "unknown arg: $arg" >&2; exit 1 ;;
     esac
@@ -72,10 +64,3 @@ docker build \
     .
 
 echo "Built ${IMAGE_NAME}:${SHORT_HASH} (also tagged :latest)"
-
-if [ "$PUSH" = true ]; then
-    echo "Pushing to ${NGC_PATH}:${SHORT_HASH}"
-    docker tag "${IMAGE_NAME}:${SHORT_HASH}" "${NGC_PATH}:${SHORT_HASH}"
-    docker push "${NGC_PATH}:${SHORT_HASH}"
-    echo "Pushed ${NGC_PATH}:${SHORT_HASH}"
-fi

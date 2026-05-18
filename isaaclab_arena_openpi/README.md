@@ -29,15 +29,6 @@ Pass `--src-dir=<path>` to build from an existing local openpi checkout
 instead of cloning (uses whatever commit is checked out there). ~3 min,
 ~19 GB image.
 
-Pass `--push` to retag and push the image to `$NGC_PATH`. The default
-points at the SRL/Arena NGC staging org, so external users must set
-`NGC_PATH` to their own registry first:
-
-```bash
-NGC_PATH=ghcr.io/<you>/openpi-server \
-  ./isaaclab_arena_openpi/docker/build_openpi_server.sh --push
-```
-
 ### 2. Start the openpi server
 
 Pick a variant and launch the container. The first launch downloads the

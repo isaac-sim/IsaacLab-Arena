@@ -125,7 +125,7 @@ RUN /isaac-sim/python.sh -m pip install av
 # isaaclab_arena_openpi/docker/build_openpi_server.sh
 COPY isaaclab_arena_openpi/docker/OPENPI_COMMIT /tmp/openpi_commit
 RUN OPENPI_COMMIT=$(tr -d '[:space:]' < /tmp/openpi_commit) && \
-    /isaac-sim/python.sh -m pip install --no-cache-dir --no-deps \
+    /isaac-sim/python.sh -m pip install --no-cache-dir \
     "openpi-client @ git+https://github.com/Physical-Intelligence/openpi@${OPENPI_COMMIT}#subdirectory=packages/openpi-client" && \
     rm /tmp/openpi_commit
 

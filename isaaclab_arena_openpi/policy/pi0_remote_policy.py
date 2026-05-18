@@ -130,6 +130,19 @@ class Pi0RemotePolicy(PolicyBase):
             openpi_embodiment_adapter=openpi_embodiment_adapter,
         )
 
+    @classmethod
+    def from_dict(cls, config_dict: dict[str, Any]) -> Pi0RemotePolicy:
+        """JSON-jobs-config path used by ``eval_runner``.
+
+        Overrides ``PolicyBase.from_dict`` because our ``__init__`` takes an
+        adapter alongside the config dataclass.
+        # TODO(cvolk, 2026-05-18): add a RemotePolicy base class to unify this and other remote policies.
+        """
+        config_dict = dict(config_dict)
+        adapter_key = config_dict.pop("openpi_embodiment_adapter", "droid")
+        openpi_embodiment_adapter = _resolve_openpi_embodiment_adapter(adapter_key)
+        return cls(Pi0RemotePolicyArgs(**config_dict), openpi_embodiment_adapter=openpi_embodiment_adapter)
+
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
         # TODO(cvolk, 2026-05-18): extend to parallel envs once the openpi
         # server supports batched observations; today it accepts one obs
