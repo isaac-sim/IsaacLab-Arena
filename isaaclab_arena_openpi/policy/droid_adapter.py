@@ -25,7 +25,7 @@ class DroidObservation:
 
 
 class Pi0DroidAdapter(Pi0EmbodimentAdapter):
-    """Wire format for upstream openpi DROID checkpoints (pi05/pi0/pi0_fast)."""
+    """Wire format for upstream openpi DROID checkpoints (pi05/pi0)."""
 
     # Fixed by upstream pi0 droid checkpoints: 7 panda joints + 1 gripper command.
     action_dim = 8
@@ -34,7 +34,6 @@ class Pi0DroidAdapter(Pi0EmbodimentAdapter):
     open_loop_horizon_by_variant = {
         "pi05": 15,
         "pi0": 10,
-        "pi0_fast": 10,
     }
 
     target_image_size = (224, 224)

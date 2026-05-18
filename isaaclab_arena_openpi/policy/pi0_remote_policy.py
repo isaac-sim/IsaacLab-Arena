@@ -89,7 +89,7 @@ class Pi0RemotePolicy(PolicyBase):
     def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         group = parser.add_argument_group(
             "Pi0 Remote Policy",
-            "Arguments for the openpi (pi0 / pi0_fast / pi05) remote client.",
+            "Arguments for the openpi (pi0 / pi05) remote client.",
         )
         group.add_argument(
             "--openpi_embodiment_adapter",

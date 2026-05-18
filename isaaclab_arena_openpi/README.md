@@ -114,6 +114,5 @@ and register it in `OPENPI_EMBODIMENT_ADAPTERS` at the bottom of
 |--------------------|----------------------------------|------------------------------------------------------|-----------------------|------------------:|
 | `pi05` (default)   | `pi05_droid_jointpos_polaris`    | `gs://openpi-assets-simeval/pi05_droid_jointpos`     | `droid_abs_joint_pos` | 15                |
 | `pi0`              | `pi0_droid_jointpos_polaris`     | `gs://openpi-assets-simeval/pi0_droid_jointpos`      | `droid_abs_joint_pos` | 10                |
-| `pi0_fast`         | `pi0_fast_droid_jointpos_polaris`| `gs://openpi-assets/checkpoints/polaris/pi0_fast_droid_jointpos_polaris` *(untested)* | `droid_rel_joint_pos` | 10 |
 
 The horizon table lives on the adapter (`Pi0DroidAdapter.open_loop_horizon_by_variant`).

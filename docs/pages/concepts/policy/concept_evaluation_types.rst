@@ -20,7 +20,7 @@ runner choice — pass the remote-policy class as ``--policy_type`` and add
 ``--remote_host`` / ``--remote_port`` flags. End-to-end commands (including
 how to launch the GR00T server out of the
 ``submodules/Isaac-GR00T`` submodule) live in
-:doc:`../../quickstart/first_experiments/running_a_real_policy` and the
+:doc:`../../quickstart/first_experiments/running_a_real_policy/index` and the
 example workflows.
 
 Summary
