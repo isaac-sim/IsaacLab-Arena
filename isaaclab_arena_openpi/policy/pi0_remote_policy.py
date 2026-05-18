@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import argparse
 import gymnasium as gym
-import importlib
 import numpy as np
 import torch
 from abc import ABC, abstractmethod
@@ -95,7 +94,7 @@ class Pi0RemotePolicy(PolicyBase):
             "--openpi_embodiment_adapter",
             type=str,
             default="droid",
-            choices=sorted(OPENPI_EMBODIMENT_ADAPTERS),
+            choices=["droid"],
             help="Openpi-side embodiment adapter for obs / action wire format (default: droid).",
         )
         group.add_argument(
@@ -234,18 +233,15 @@ class Pi0RemotePolicy(PolicyBase):
         raise RuntimeError("unreachable")
 
 
-# Registry holds dotted import paths rather than class objects so adapters
-# can `from isaaclab_arena_openpi.policy.pi0_remote_policy import
-# Pi0EmbodimentAdapter` at module top without creating an import cycle.
-OPENPI_EMBODIMENT_ADAPTERS: dict[str, str] = {
-    "droid": "isaaclab_arena_openpi.policy.droid_adapter.Pi0DroidAdapter",
-}
-
-
 def _resolve_openpi_embodiment_adapter(key: str) -> Pi0EmbodimentAdapter:
-    """Instantiate the adapter registered under ``key``."""
-    if key not in OPENPI_EMBODIMENT_ADAPTERS:
-        raise ValueError(f"Unknown openpi_embodiment_adapter {key!r}; known: {sorted(OPENPI_EMBODIMENT_ADAPTERS)}")
-    module_path, _, class_name = OPENPI_EMBODIMENT_ADAPTERS[key].rpartition(".")
-    cls = getattr(importlib.import_module(module_path), class_name)
-    return cls()
+    """Instantiate the adapter registered under ``key``.
+
+    Imports are deferred to call time so adapter modules can ``from
+    pi0_remote_policy import Pi0EmbodimentAdapter`` at module top without
+    creating a circular import.
+    """
+    if key == "droid":
+        from isaaclab_arena_openpi.policy.droid_adapter import Pi0DroidAdapter
+
+        return Pi0DroidAdapter()
+    raise ValueError(f"Unknown openpi_embodiment_adapter {key!r}; expected 'droid'")

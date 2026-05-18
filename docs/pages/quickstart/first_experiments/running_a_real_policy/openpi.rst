@@ -111,5 +111,6 @@ three openpi checkpoint variants on DROID:
      - 10
 
 To add a new embodiment, subclass ``Pi0EmbodimentAdapter`` (in
-``isaaclab_arena_openpi/policy/pi0_remote_policy.py``) and register it in
-``OPENPI_EMBODIMENT_ADAPTERS``.
+``isaaclab_arena_openpi/policy/pi0_remote_policy.py``), then add a branch in
+``_resolve_openpi_embodiment_adapter`` and an entry to the
+``--openpi_embodiment_adapter`` argparse ``choices`` list.
