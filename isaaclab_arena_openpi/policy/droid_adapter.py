@@ -41,9 +41,19 @@ class Pi0DroidAdapter(Pi0EmbodimentAdapter):
     arena_external_camera_key = "external_camera_rgb"
     arena_wrist_camera_key = "wrist_camera_rgb"
 
+    # Top-level keys on the arena gym observation dict that this adapter
+    # consumes. Both are conventions:
+    #   arena_camera_obs_group  - set by isaaclab_arena.utils.cameras.make_camera_observation_cfg;
+    #                             every arena embodiment using that helper exposes cameras here.
+    #   arena_policy_obs_group  - standard Isaac Lab ObservationsCfg field name; every arena
+    #                             embodiment (droid, franka, galbot, agibot, ...) defines a
+    #                             `policy: PolicyCfg` group.
+    arena_camera_obs_group = "camera_obs"
+    arena_policy_obs_group = "policy"
+
     def extract(self, observation: dict[str, Any]) -> DroidObservation:
-        cam = observation["camera_obs"]
-        proprio = observation["policy"]
+        cam = observation[self.arena_camera_obs_group]
+        proprio = observation[self.arena_policy_obs_group]
         return DroidObservation(
             exterior_image=cam[self.arena_external_camera_key][0].detach().cpu().numpy(),
             wrist_image=cam[self.arena_wrist_camera_key][0].detach().cpu().numpy(),
