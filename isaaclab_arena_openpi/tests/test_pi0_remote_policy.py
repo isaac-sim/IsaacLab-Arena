@@ -69,7 +69,7 @@ def make_policy(monkeypatch):
     def _factory(policy_variant: str = "pi05"):
         return Pi0RemotePolicy(
             Pi0RemotePolicyArgs(policy_variant=policy_variant, policy_device="cpu"),
-            embodiment_adapter=Pi0DroidAdapter(),
+            openpi_embodiment_adapter=Pi0DroidAdapter(),
         )
 
     return _factory
@@ -125,7 +125,7 @@ def test_call_server_with_retry_reconnects_on_drop(monkeypatch):
         return successful_response
 
     _patch_websocket_client(monkeypatch, infer_impl=flaky_infer)
-    policy = Pi0RemotePolicy(Pi0RemotePolicyArgs(policy_device="cpu"), embodiment_adapter=Pi0DroidAdapter())
+    policy = Pi0RemotePolicy(Pi0RemotePolicyArgs(policy_device="cpu"), openpi_embodiment_adapter=Pi0DroidAdapter())
     policy.set_task_description("pick up the block")
     policy._cached_action_chunk = np.zeros((15, 8), dtype=np.float32)
     policy._next_chunk_step = 5
@@ -143,7 +143,7 @@ def test_call_server_with_retry_gives_up_after_max_attempts(monkeypatch):
         raise websockets.exceptions.ConnectionClosedError(None, None)
 
     _patch_websocket_client(monkeypatch, infer_impl=always_drops)
-    policy = Pi0RemotePolicy(Pi0RemotePolicyArgs(policy_device="cpu"), embodiment_adapter=Pi0DroidAdapter())
+    policy = Pi0RemotePolicy(Pi0RemotePolicyArgs(policy_device="cpu"), openpi_embodiment_adapter=Pi0DroidAdapter())
     policy.set_task_description("pick up the block")
 
     with pytest.raises(websockets.exceptions.ConnectionClosedError):

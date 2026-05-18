@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import gymnasium as gym
+import importlib
 import numpy as np
 import torch
 from abc import ABC, abstractmethod
@@ -23,37 +24,52 @@ class Pi0EmbodimentAdapter(ABC):
     """Translates between arena's gym observation dict and the openpi wire
     format for a specific physical embodiment (DROID, ALOHA, ...).
 
-    Subclasses declare the embodiment-specific action layout and observation
-    keys; ``Pi0RemotePolicy`` is otherwise embodiment-agnostic.
+    Subclasses declare the embodiment-specific action layout and observation keys.
     """
 
     action_dim: int
     open_loop_horizon_by_variant: dict[str, int]
 
     @abstractmethod
-    def extract(self, observation: dict[str, Any]) -> dict[str, np.ndarray]:
-        """Pull env tensors out of the arena gym observation dict."""
+    def extract(self, observation: dict[str, Any]) -> Any:
+        """Pull env tensors out of the arena gym observation dict.
+
+        Concrete return type is adapter-defined (typically a frozen dataclass);
+        the policy treats it as an opaque value to round-trip through
+        :meth:`pack_request`.
+        """
 
     @abstractmethod
-    def pack_request(self, extracted: dict[str, np.ndarray], language_instruction: str) -> dict[str, Any]:
+    def pack_request(self, extracted: Any, language_instruction: str) -> dict[str, Any]:
         """Build the wire-format request payload openpi server expects."""
 
 
 class Pi0RemotePolicy(PolicyBase):
-    """openpi remote closed-loop policy, parameterized by an embodiment adapter."""
+    """openpi remote closed-loop policy, parameterized by an embodiment adapter.
+
+    Action handling today is straight chunk replay: the policy fetches one
+    ``(open_loop_horizon, action_dim)`` chunk from the server and yields
+    rows in order. A future action scheduler (interpolation, smoothing,
+    chunk-overlap blending) belongs as a pluggable component.
+    """
+
+    # TODO(cvolk, 2026-05-18): add an action_scheduler_cls so action_chunk
+    # -> action is configurable (today it is a row-by-row replay).
+
+    # TODO(cvolk, 2026-05-18): Add a RemotePolicy base class.
 
     name = "pi0_remote"
     config_class = Pi0RemotePolicyArgs
 
-    def __init__(self, config: Pi0RemotePolicyArgs, embodiment_adapter: Pi0EmbodimentAdapter) -> None:
+    def __init__(self, config: Pi0RemotePolicyArgs, openpi_embodiment_adapter: Pi0EmbodimentAdapter) -> None:
         super().__init__(config)
-        assert config.policy_variant in embodiment_adapter.open_loop_horizon_by_variant, (
+        assert config.policy_variant in openpi_embodiment_adapter.open_loop_horizon_by_variant, (
             f"Unknown policy_variant {config.policy_variant!r} for adapter"
-            f" {type(embodiment_adapter).__name__};"
-            f" known: {sorted(embodiment_adapter.open_loop_horizon_by_variant)}"
+            f" {type(openpi_embodiment_adapter).__name__};"
+            f" known: {sorted(openpi_embodiment_adapter.open_loop_horizon_by_variant)}"
         )
-        self._embodiment_adapter = embodiment_adapter
-        self.open_loop_horizon = embodiment_adapter.open_loop_horizon_by_variant[config.policy_variant]
+        self._openpi_embodiment_adapter = openpi_embodiment_adapter
+        self.open_loop_horizon = openpi_embodiment_adapter.open_loop_horizon_by_variant[config.policy_variant]
         self.device = config.policy_device
 
         self._remote_host = config.remote_host
@@ -76,11 +92,11 @@ class Pi0RemotePolicy(PolicyBase):
             "Arguments for the openpi (pi0 / pi0_fast / pi05) remote client.",
         )
         group.add_argument(
-            "--embodiment_adapter",
+            "--openpi_embodiment_adapter",
             type=str,
             default="droid",
-            choices=sorted(EMBODIMENT_ADAPTERS),
-            help="Embodiment adapter for obs / action wire format (default: droid).",
+            choices=sorted(OPENPI_EMBODIMENT_ADAPTERS),
+            help="Openpi-side embodiment adapter for obs / action wire format (default: droid).",
         )
         group.add_argument(
             "--policy_variant",
@@ -88,7 +104,7 @@ class Pi0RemotePolicy(PolicyBase):
             default=DEFAULT_VARIANT,
             help=(
                 f"openpi checkpoint variant (default: {DEFAULT_VARIANT})."
-                " Valid values depend on the chosen --embodiment_adapter."
+                " Valid values depend on the chosen --openpi_embodiment_adapter."
             ),
         )
         group.add_argument(
@@ -103,7 +119,7 @@ class Pi0RemotePolicy(PolicyBase):
 
     @staticmethod
     def from_args(args: argparse.Namespace) -> Pi0RemotePolicy:
-        embodiment_adapter = EMBODIMENT_ADAPTERS[args.embodiment_adapter]()
+        openpi_embodiment_adapter = _resolve_openpi_embodiment_adapter(args.openpi_embodiment_adapter)
         return Pi0RemotePolicy(
             Pi0RemotePolicyArgs(
                 policy_variant=args.policy_variant,
@@ -111,10 +127,13 @@ class Pi0RemotePolicy(PolicyBase):
                 remote_host=args.remote_host,
                 remote_port=args.remote_port,
             ),
-            embodiment_adapter=embodiment_adapter,
+            openpi_embodiment_adapter=openpi_embodiment_adapter,
         )
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
+        # TODO(cvolk, 2026-05-18): extend to parallel envs once the openpi
+        # server supports batched observations; today it accepts one obs
+        # per request.
         assert (
             env.unwrapped.num_envs == 1
         ), f"Pi0RemotePolicy only supports num_envs=1 (openpi server limitation), got num_envs={env.unwrapped.num_envs}"
@@ -133,18 +152,21 @@ class Pi0RemotePolicy(PolicyBase):
         return torch.from_numpy(next_action_np).to(dtype=torch.float32, device=self.device).unsqueeze(0)
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
+        # TODO(cvolk, 2026-05-18): honor env_ids when parallel envs are
+        # supported; today the cache is single-env and we always reset the
+        # whole thing.
         self._cached_action_chunk = None
         self._next_chunk_step = 0
 
     def _fetch_action_chunk(self, observation: dict[str, Any]) -> np.ndarray:
-        extracted = self._embodiment_adapter.extract(observation)
-        request = self._embodiment_adapter.pack_request(extracted, self.task_description)
+        extracted = self._openpi_embodiment_adapter.extract(observation)
+        request = self._openpi_embodiment_adapter.pack_request(extracted, self.task_description)
         response = self._call_server_with_retry(request)
 
         chunk = np.asarray(response["actions"])
         assert (
-            chunk.ndim == 2 and chunk.shape[1] == self._embodiment_adapter.action_dim
-        ), f"Expected actions of shape (H, {self._embodiment_adapter.action_dim}); got {chunk.shape}"
+            chunk.ndim == 2 and chunk.shape[1] == self._openpi_embodiment_adapter.action_dim
+        ), f"Expected actions of shape (H, {self._openpi_embodiment_adapter.action_dim}); got {chunk.shape}"
         assert (
             chunk.shape[0] >= self.open_loop_horizon
         ), f"Server returned horizon {chunk.shape[0]} < configured open_loop_horizon {self.open_loop_horizon}"
@@ -180,10 +202,18 @@ class Pi0RemotePolicy(PolicyBase):
         raise RuntimeError("unreachable")
 
 
-# Registry populated at module bottom so adapters can import Pi0EmbodimentAdapter
-# from this module without a circular import.
-from isaaclab_arena_openpi.policy.droid_adapter import Pi0DroidAdapter  # noqa: E402
-
-EMBODIMENT_ADAPTERS: dict[str, type[Pi0EmbodimentAdapter]] = {
-    "droid": Pi0DroidAdapter,
+# Registry holds dotted import paths rather than class objects so adapters
+# can `from isaaclab_arena_openpi.policy.pi0_remote_policy import
+# Pi0EmbodimentAdapter` at module top without creating an import cycle.
+OPENPI_EMBODIMENT_ADAPTERS: dict[str, str] = {
+    "droid": "isaaclab_arena_openpi.policy.droid_adapter.Pi0DroidAdapter",
 }
+
+
+def _resolve_openpi_embodiment_adapter(key: str) -> Pi0EmbodimentAdapter:
+    """Instantiate the adapter registered under ``key``."""
+    if key not in OPENPI_EMBODIMENT_ADAPTERS:
+        raise ValueError(f"Unknown openpi_embodiment_adapter {key!r}; known: {sorted(OPENPI_EMBODIMENT_ADAPTERS)}")
+    module_path, _, class_name = OPENPI_EMBODIMENT_ADAPTERS[key].rpartition(".")
+    cls = getattr(importlib.import_module(module_path), class_name)
+    return cls()
