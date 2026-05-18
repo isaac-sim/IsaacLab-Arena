@@ -26,7 +26,7 @@ class SequentialTaskBase(CompositeTaskBase):
     def composite_task_success_func(
         env,
         subtasks: list[TaskBase],
-        desired_subtask_success_state: list[bool] | None,
+        desired_subtask_success_state: list[bool | None] | None,
     ) -> torch.Tensor:
         "Sequential task composite success function."
         # Initialize each env's subtask success state to False if not already initialized
@@ -40,7 +40,7 @@ class SequentialTaskBase(CompositeTaskBase):
 
         # Check success of subtask for each env
         for env_idx in range(env.num_envs):
-            if desired_subtask_success_state:
+            if desired_subtask_success_state is not None:
                 # Compute the success state for all subtasks
                 for subtask_idx in range(len(subtasks)):
                     subtask_success_func = subtasks[subtask_idx].get_termination_cfg().success.func
@@ -60,11 +60,18 @@ class SequentialTaskBase(CompositeTaskBase):
                 if current_subtask_idx < len(subtasks) - 1:
                     env._current_subtask_idx[env_idx] += 1
 
-        # Compute composite task success state for each env
-        if desired_subtask_success_state:
+        # Compute composite task success state for each env. 
+        # Entries in `desired_subtask_success_state` set to None are "don't cares" and 
+        # may be any state. For each subtask it must (a) have been evaluated as True 
+        # at some point and (b) currently match the desired value.
+        if desired_subtask_success_state is not None:
             per_env_success = [
-                all(env._subtask_success_state[env_idx])
-                and current_subtask_success_state[env_idx] == desired_subtask_success_state
+                all(
+                    env._subtask_success_state[env_idx][i]
+                    and current_subtask_success_state[env_idx][i] == desired
+                    for i, desired in enumerate(desired_subtask_success_state)
+                    if desired is not None
+                )
                 for env_idx in range(env.num_envs)
             ]
         else:

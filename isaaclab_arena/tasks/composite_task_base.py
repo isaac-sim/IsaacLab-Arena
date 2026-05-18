@@ -105,7 +105,7 @@ class CompositeTaskBase(TaskBase):
         self,
         subtasks: list[TaskBase],
         episode_length_s: float | None = None,
-        desired_subtask_success_state: list[bool] | None = None,
+        desired_subtask_success_state: list[bool | None] | None = None,
     ):
         super().__init__(episode_length_s)
         assert len(subtasks) > 0, "Composite task requires at least one subtask"
@@ -115,6 +115,9 @@ class CompositeTaskBase(TaskBase):
             assert len(desired_subtask_success_state) == len(
                 subtasks
             ), "Desired subtask success state must be the same length as the number of subtasks"
+            assert all(
+                s is None or isinstance(s, bool) for s in desired_subtask_success_state
+            ), "Desired subtask success state entries must each be True, False, or None"
         self.desired_subtask_success_state = desired_subtask_success_state
 
     @staticmethod
@@ -131,7 +134,7 @@ class CompositeTaskBase(TaskBase):
     def composite_task_success_func(
         env,
         subtasks: list[TaskBase],
-        desired_subtask_success_state: list[bool] | None,
+        desired_subtask_success_state: list[bool | None] | None,
     ) -> torch.Tensor:
         "Composite task composite success function."
         # Initialize each env's subtask success state to False if not already initialized
@@ -150,11 +153,18 @@ class CompositeTaskBase(TaskBase):
                     current_subtask_success_state[env_idx][subtask_idx] = True
                     env._subtask_success_state[env_idx][subtask_idx] = True
 
-        # Compute composite task success state for each env
-        if desired_subtask_success_state:
+        # Compute composite task success state for each env. 
+        # Entries in `desired_subtask_success_state` set to None are "don't cares" and 
+        # may be any state. For each subtask it must (a) have been evaluated as True 
+        # at some point and (b) currently match the desired value.
+        if desired_subtask_success_state is not None:
             per_env_success = [
-                all(env._subtask_success_state[env_idx])
-                and current_subtask_success_state[env_idx] == desired_subtask_success_state
+                all(
+                    env._subtask_success_state[env_idx][i]
+                    and current_subtask_success_state[env_idx][i] == desired
+                    for i, desired in enumerate(desired_subtask_success_state)
+                    if desired is not None
+                )
                 for env_idx in range(env.num_envs)
             ]
         else:

@@ -187,6 +187,54 @@ def _test_sequential_desired_subtask_success_state(simulation_app) -> bool:
     return True
 
 
+def _test_sequential_desired_subtask_success_state_with_none(simulation_app) -> bool:
+    """When ``desired_subtask_success_state`` contains None entries, those positions are
+    ignored and only positions with True/False are checked."""
+
+    from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
+
+    try:
+        env = _MockEnv(num_envs=1)
+        subtasks = [_MockSubtask(num_envs=1) for _ in range(3)]
+
+        # Latch subtasks 0, 1, 2 to True in order so all three are "ever succeeded".
+        subtasks[0].set_success([True])
+        SequentialTaskBase.composite_task_success_func(env, subtasks, [None, True, True])
+        subtasks[1].set_success([True])
+        SequentialTaskBase.composite_task_success_func(env, subtasks, [None, True, True])
+        subtasks[2].set_success([True])
+        result = SequentialTaskBase.composite_task_success_func(env, subtasks, [None, True, True])
+        assert env._subtask_success_state == [[True, True, True]]
+        assert result.tolist() == [True]
+
+        # Subtask 0 currently False (don't-care), 1 and 2 currently True -> success.
+        subtasks[0].set_success([False])
+        result = SequentialTaskBase.composite_task_success_func(env, subtasks, [None, True, True])
+        assert result.tolist() == [True]
+
+        # Subtask 1 currently False breaks the [None, True, True] pattern -> failure.
+        subtasks[1].set_success([False])
+        result = SequentialTaskBase.composite_task_success_func(env, subtasks, [None, True, True])
+        assert result.tolist() == [False]
+
+        # [None, False, None]: subtask 1 must be currently False AND latched True at some
+        # point. Subtask 1 is latched True and currently False -> success regardless of
+        # subtasks 0 and 2.
+        result = SequentialTaskBase.composite_task_success_func(env, subtasks, [None, False, None])
+        assert result.tolist() == [True]
+
+        # All-None desired state matches trivially.
+        result = SequentialTaskBase.composite_task_success_func(env, subtasks, [None, None, None])
+        assert result.tolist() == [True]
+
+    except Exception as e:
+        print(f"Error: {e}")
+        traceback.print_exc()
+        return False
+
+    return True
+
+
 def _test_sequential_reset_clears_state_and_index(simulation_app) -> bool:
     """``reset_subtask_success_state`` must clear both the success state vector
     and the state-machine index for the given env_ids while leaving other envs alone."""
@@ -255,6 +303,14 @@ def test_sequential_desired_subtask_success_state():
     assert result, f"Test {_test_sequential_desired_subtask_success_state.__name__} failed"
 
 
+def test_sequential_desired_subtask_success_state_with_none():
+    result = run_simulation_app_function(
+        _test_sequential_desired_subtask_success_state_with_none,
+        headless=HEADLESS,
+    )
+    assert result, f"Test {_test_sequential_desired_subtask_success_state_with_none.__name__} failed"
+
+
 def test_sequential_reset_clears_state_and_index():
     result = run_simulation_app_function(
         _test_sequential_reset_clears_state_and_index,
@@ -267,4 +323,5 @@ if __name__ == "__main__":
     test_sequential_success_advances_in_order()
     test_sequential_success_latches()
     test_sequential_desired_subtask_success_state()
+    test_sequential_desired_subtask_success_state_with_none()
     test_sequential_reset_clears_state_and_index()
