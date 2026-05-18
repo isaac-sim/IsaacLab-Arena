@@ -253,7 +253,7 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 pick_up_object=pick_up_object,
                 destination_location=destination,
                 background_scene=background,
-                episode_length_s=30.0,
+                episode_length_s=6.0,
                 task_description=task_description,
                 # Mirror the locomanip env's success thresholds so metrics are comparable.
                 force_threshold=0.5,
