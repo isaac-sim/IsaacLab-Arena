@@ -19,10 +19,15 @@ in another.
 ./isaaclab_arena_openpi/docker/build_openpi_server.sh
 ```
 
-Clones upstream openpi at a pinned commit and builds
-`isaaclab_arena_openpi-server:<short-sha>` (also tagged `:latest`). The pinned
-commit matches `OPENPI_COMMIT` in `docker/Dockerfile.isaaclab_arena` so client
-and server speak the same wire format. ~3 min, ~19 GB image.
+Clones upstream openpi at the pinned commit and builds
+`isaaclab_arena_openpi-server:<short-sha>` (also tagged `:latest`). The
+pin lives in `isaaclab_arena_openpi/docker/OPENPI_COMMIT` and is shared
+with `docker/Dockerfile.isaaclab_arena` so client and server speak the
+same wire format. To bump it, edit that file.
+
+Pass `--src-dir=<path>` to build from an existing local openpi checkout
+instead of cloning (uses whatever commit is checked out there). ~3 min,
+~19 GB image.
 
 ### 2. Start the openpi server
 

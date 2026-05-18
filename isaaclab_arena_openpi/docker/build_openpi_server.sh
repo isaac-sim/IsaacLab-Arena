@@ -2,36 +2,48 @@
 # Encapsulates the openpi inference server as a self-contained Docker image.
 #
 # Usage:
-#   ./build_openpi_server.sh                        # build at DEFAULT_COMMIT
-#   ./build_openpi_server.sh <commit>               # build at a specific commit
+#   ./build_openpi_server.sh                        # build at the pinned commit
+#   ./build_openpi_server.sh --src-dir=<path>       # build from a local openpi checkout
+#                                                   # (uses whatever commit is checked out)
 #   ./build_openpi_server.sh --push                 # build and push to NGC
-#   ./build_openpi_server.sh <commit> --push
+#
+# The pinned commit lives in the OPENPI_COMMIT file next to this script.
+# To bump it, edit that file. To build at a different commit ad-hoc, use --src-dir.
 
 set -euo pipefail
 
 IMAGE_NAME="${IMAGE_NAME:-isaaclab_arena_openpi-server}"
 NGC_PATH="${NGC_PATH:-nvcr.io/nvstaging/isaac-amr/${IMAGE_NAME}}"
 OPENPI_REPO="https://github.com/Physical-Intelligence/openpi"
-DEFAULT_COMMIT="c23745b5ad24e98f66967ea795a07b2588ed6c79"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PINNED_COMMIT="$(tr -d '[:space:]' < "${SCRIPT_DIR}/OPENPI_COMMIT")"
 PUSH=false
 
-COMMIT=""
+SRC_DIR=""
 for arg in "$@"; do
     case "$arg" in
         --push) PUSH=true ;;
-        *) COMMIT="$arg" ;;
+        --src-dir=*) SRC_DIR="${arg#*=}" ;;
+        *) echo "unknown arg: $arg" >&2; exit 1 ;;
     esac
 done
-
-COMMIT="${COMMIT:-$DEFAULT_COMMIT}"
 
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
-echo "Cloning openpi at ${COMMIT} ..."
-GIT_LFS_SKIP_SMUDGE=1 git clone --quiet "$OPENPI_REPO" "$TMPDIR/openpi"
-cd "$TMPDIR/openpi"
-git checkout "$COMMIT"
+if [ -n "$SRC_DIR" ]; then
+    OPENPI_DIR="$SRC_DIR"
+    echo "Using local openpi checkout at ${OPENPI_DIR}"
+else
+    OPENPI_DIR="$TMPDIR/openpi"
+    echo "Cloning openpi at ${PINNED_COMMIT} ..."
+    # Partial clone: skip blob objects, git fetches them on demand at checkout.
+    # Cuts the one-time clone size on a ~GB-scale repo without changing what we end up with.
+    GIT_LFS_SKIP_SMUDGE=1 git clone --quiet --filter=blob:none "$OPENPI_REPO" "$OPENPI_DIR"
+    (cd "$OPENPI_DIR" && git checkout "$PINNED_COMMIT")
+fi
+
+cd "$OPENPI_DIR"
 
 SHORT_HASH=$(git rev-parse --short HEAD)
 
