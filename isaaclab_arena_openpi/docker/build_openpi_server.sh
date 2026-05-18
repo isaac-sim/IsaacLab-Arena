@@ -5,10 +5,16 @@
 #   ./build_openpi_server.sh                        # build at the pinned commit
 #   ./build_openpi_server.sh --src-dir=<path>       # build from a local openpi checkout
 #                                                   # (uses whatever commit is checked out)
-#   ./build_openpi_server.sh --push                 # build and push to NGC
+#   ./build_openpi_server.sh --push                 # build and push to $NGC_PATH
 #
 # The pinned commit lives in the OPENPI_COMMIT file next to this script.
 # To bump it, edit that file. To build at a different commit ad-hoc, use --src-dir.
+#
+# Env overrides:
+#   IMAGE_NAME    Local image name (default: isaaclab_arena_openpi-server)
+#   NGC_PATH      Registry path used by --push. Default is the SRL/Arena NGC
+#                 staging org; external users must override this with their
+#                 own registry (e.g. NGC_PATH=ghcr.io/<you>/openpi-server).
 
 set -euo pipefail
 
@@ -16,7 +22,6 @@ IMAGE_NAME="${IMAGE_NAME:-isaaclab_arena_openpi-server}"
 NGC_PATH="${NGC_PATH:-nvcr.io/nvstaging/isaac-amr/${IMAGE_NAME}}"
 OPENPI_REPO="https://github.com/Physical-Intelligence/openpi"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PINNED_COMMIT="$(tr -d '[:space:]' < "${SCRIPT_DIR}/OPENPI_COMMIT")"
 PUSH=false
 
 SRC_DIR=""
@@ -35,6 +40,7 @@ if [ -n "$SRC_DIR" ]; then
     OPENPI_DIR="$SRC_DIR"
     echo "Using local openpi checkout at ${OPENPI_DIR}"
 else
+    PINNED_COMMIT="$(tr -d '[:space:]' < "${SCRIPT_DIR}/OPENPI_COMMIT")"
     OPENPI_DIR="$TMPDIR/openpi"
     echo "Cloning openpi at ${PINNED_COMMIT} ..."
     # Partial clone: skip blob objects, git fetches them on demand at checkout.
