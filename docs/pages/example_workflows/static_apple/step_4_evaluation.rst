@@ -81,6 +81,12 @@ same machine).
 Note the lower ``--num_steps`` (600 instead of 1500): with no walking phase, a successful
 static apple-to-plate episode runs for roughly half as long as the loco-manipulation variant.
 
+.. note::
+
+   The 600-step command is intended as a quick smoke test. To get a more representative
+   success rate, run a longer evaluation with roughly 1000 policy steps; for this task,
+   that corresponds to setting ``--num_steps 30000``.
+
 The evaluation should produce the following output on the console at the end of the evaluation.
 You should see similar metrics.
 
