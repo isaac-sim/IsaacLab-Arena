@@ -9,22 +9,11 @@ from pathlib import Path
 from isaaclab_arena_gr00t.policy.config.task_mode import TaskMode
 
 
-def _is_huggingface_model_id(model_path: str) -> bool:
-    """Return True if model_path looks like a HuggingFace Hub repo id (e.g. 'nvidia/GR00T-N1.6-3B')."""
-    if not model_path:
-        return False
-    # HF repo ids are "owner/repo_name" - no leading path sep, and not an existing local path
-    return "/" in model_path and not model_path.startswith(("/", ".")) and not Path(model_path).exists()
-
-
 @dataclass
 class Gr00tClosedloopPolicyConfig:
 
     language_instruction: str = field(
         default="", metadata={"description": "Instruction given to the policy in natural language."}
-    )
-    model_path: str = field(
-        default=None, metadata={"description": "Full path to the tuned model checkpoint directory."}
     )
     action_horizon: int = field(
         default=16, metadata={"description": "Number of actions in the policy's predictionhorizon."}
@@ -107,9 +96,6 @@ class Gr00tClosedloopPolicyConfig:
         assert Path(
             self.state_joints_config_path
         ).exists(), f"state_joints_config_path does not exist: {self.state_joints_config_path}"
-        assert Path(self.model_path).exists() or _is_huggingface_model_id(
-            self.model_path
-        ), f"model_path does not exist and is not a HuggingFace model id: {self.model_path}"
         if self.modality_config_path:
             assert Path(
                 self.modality_config_path

@@ -38,14 +38,12 @@ Step 1: Run Single Environment Evaluation
 
 We first run the policy in a single environment with visualization via the GUI.
 
-The GR00T model is configured by a config file at ``isaaclab_arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml``.
+The Arena GR00T evaluation client is configured by a config file at ``isaaclab_arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml``.
 
 .. dropdown:: Configuration file (``gr1_manip_gr00t_closedloop_config.yaml``):
    :animate: fade-in
 
    .. code-block:: yaml
-
-      model_path: /models/isaaclab_arena/static_manipulation_tutorial/checkpoint-20000
 
       language_instruction: "Reach out to the microwave and open it."
       action_horizon: 16
