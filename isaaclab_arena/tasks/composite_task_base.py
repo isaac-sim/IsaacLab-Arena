@@ -153,15 +153,14 @@ class CompositeTaskBase(TaskBase):
                     current_subtask_success_state[env_idx][subtask_idx] = True
                     env._subtask_success_state[env_idx][subtask_idx] = True
 
-        # Compute composite task success state for each env. 
-        # Entries in `desired_subtask_success_state` set to None are "don't cares" and 
-        # may be any state. For each subtask it must (a) have been evaluated as True 
+        # Compute composite task success state for each env.
+        # Entries in `desired_subtask_success_state` set to None are "don't cares" and
+        # may be any state. For each subtask it must (a) have been evaluated as True
         # at some point and (b) currently match the desired value.
         if desired_subtask_success_state is not None:
             per_env_success = [
                 all(
-                    env._subtask_success_state[env_idx][i]
-                    and current_subtask_success_state[env_idx][i] == desired
+                    env._subtask_success_state[env_idx][i] and current_subtask_success_state[env_idx][i] == desired
                     for i, desired in enumerate(desired_subtask_success_state)
                     if desired is not None
                 )
