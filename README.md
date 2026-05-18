@@ -148,6 +148,7 @@ IsaacLab-Arena/
 ├── isaaclab_arena_examples/           # Policy and relation examples
 ├── isaaclab_arena_g1/                 # Unitree G1 humanoid embodiment + examples
 ├── isaaclab_arena_gr00t/              # GR00T policy integration
+├── isaaclab_arena_openpi/             # OpenPi (pi0 / pi05) policy integration
 ├── docker/                            # Docker configurations and launch scripts
 ├── docs/                      # Sphinx documentation source
 ├── osmo/                      # Cloud deployment configs (OSMO)
