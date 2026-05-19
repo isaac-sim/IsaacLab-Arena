@@ -144,12 +144,12 @@ class CompositeTaskBase(TaskBase):
         current_subtask_success_state = [[False for _ in subtasks] for _ in range(env.num_envs)]
 
         # Check success of subtask for each env
-        for env_idx in range(env.num_envs):
-            for subtask_idx in range(len(subtasks)):
-                subtask_success_func = subtasks[subtask_idx].get_termination_cfg().success.func
-                subtask_success_params = subtasks[subtask_idx].get_termination_cfg().success.params
-                result = subtask_success_func(env, **subtask_success_params)[env_idx]
-                if result:
+        for subtask_idx in range(len(subtasks)):
+            subtask_success_func = subtasks[subtask_idx].get_termination_cfg().success.func
+            subtask_success_params = subtasks[subtask_idx].get_termination_cfg().success.params
+            results = subtask_success_func(env, **subtask_success_params)
+            for env_idx in range(env.num_envs):
+                if results[env_idx]:
                     current_subtask_success_state[env_idx][subtask_idx] = True
                     env._subtask_success_state[env_idx][subtask_idx] = True
 

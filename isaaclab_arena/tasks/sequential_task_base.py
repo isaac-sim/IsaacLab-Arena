@@ -38,24 +38,25 @@ class SequentialTaskBase(CompositeTaskBase):
 
         current_subtask_success_state = [[False for _ in subtasks] for _ in range(env.num_envs)]
 
-        # Check success of subtask for each env
+        # Determine which subtasks need their success function evaluated.
+        if desired_subtask_success_state is not None:
+            subtasks_to_evaluate = range(len(subtasks))
+        else:
+            subtasks_to_evaluate = sorted(set(env._current_subtask_idx))
+
+        # Compute the success state for the subtasks
+        for subtask_idx in subtasks_to_evaluate:
+            subtask_success_func = subtasks[subtask_idx].get_termination_cfg().success.func
+            subtask_success_params = subtasks[subtask_idx].get_termination_cfg().success.params
+            results = subtask_success_func(env, **subtask_success_params)
+            for env_idx in range(env.num_envs):
+                if results[env_idx]:
+                    current_subtask_success_state[env_idx][subtask_idx] = True
+
+        # Advance the state machine per env using the precomputed active-subtask result.
         for env_idx in range(env.num_envs):
-            if desired_subtask_success_state is not None:
-                # Compute the success state for all subtasks
-                for subtask_idx in range(len(subtasks)):
-                    subtask_success_func = subtasks[subtask_idx].get_termination_cfg().success.func
-                    subtask_success_params = subtasks[subtask_idx].get_termination_cfg().success.params
-                    result = subtask_success_func(env, **subtask_success_params)[env_idx]
-                    if result:
-                        current_subtask_success_state[env_idx][subtask_idx] = True
-
-            # Compute the success state for the current subtask
             current_subtask_idx = env._current_subtask_idx[env_idx]
-            current_subtask_success_func = subtasks[current_subtask_idx].get_termination_cfg().success.func
-            current_subtask_success_params = subtasks[current_subtask_idx].get_termination_cfg().success.params
-            result = current_subtask_success_func(env, **current_subtask_success_params)[env_idx]
-
-            if result:
+            if current_subtask_success_state[env_idx][current_subtask_idx]:
                 env._subtask_success_state[env_idx][current_subtask_idx] = True
                 if current_subtask_idx < len(subtasks) - 1:
                     env._current_subtask_idx[env_idx] += 1
