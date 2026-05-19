@@ -189,9 +189,9 @@ Step 4: Record with the headset device
 
    High-quality seed demonstrations are required because these recordings are converted directly to
    LeRobot format and used for policy post-training (see :doc:`step_3_policy_training`). The command
-   above records ``--num_demos 10`` for a fast tutorial pass. For production collection, change it to
-   ``--num_demos 400`` and keep ``--num_success_steps 10`` so each successful episode includes extra
-   stable frames after the success condition is triggered.
+   above records ``--num_demos 10`` for a fast tutorial pass. For better inference results, change it
+   to ``--num_demos 400`` and keep ``--num_success_steps 10`` so each successful episode includes
+   extra stable frames after the success condition is triggered.
 
    Policy success rate depends heavily on both dataset quality and dataset size. For better success
    rates, collect more clean demonstrations with smooth actions, stable grasps, and no unnecessary
@@ -199,7 +199,7 @@ Step 4: Record with the headset device
 
    Follow this protocol while collecting data:
 
-   * **Warm-up:** complete about 5 practice runs before recording production demonstrations so you
+   * **Warm-up:** complete about 5 practice runs before recording the main dataset so you
      are used to XR latency and the apple's contact behavior.
    * **Smoothness:** move consistently and avoid jerky motions. Jerky seed demonstrations lead to
      poor synthetic augmentations and unstable policy behavior.
