@@ -3,6 +3,13 @@ Teleoperation Data Collection
 
 This workflow covers collecting demonstrations for the Unitree G1 static apple-to-plate task using **Meta Quest 3** or **Pico 4 Ultra** supported by `Nvidia IsaacTeleop <https://github.com/NVIDIA/IsaacTeleop>`_.
 
+.. note::
+
+   For supported IsaacTeleop hardware devices, see `Supported Input Devices
+   <https://nvidia.github.io/IsaacTeleop/main/overview/ecosystem.html#supported-input-devices>`_.
+   Before starting teleoperation, also review the `IsaacTeleop system requirements
+   <https://nvidia.github.io/IsaacTeleop/main/references/requirements.html>`_.
+
 .. admonition:: No teleoperation hardware?
    :class: tip
 
