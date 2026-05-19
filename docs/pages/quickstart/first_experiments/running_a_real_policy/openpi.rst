@@ -76,6 +76,102 @@ Kit window shows the droid arm reacting to pi0's commanded joint positions.
    Arena Kit viewport during a pi05 rollout: the DROID arm above the maple table with the
    Rubik's cube and destination bowl, with the home_office_robolab HDR.
 
+**Sequential batch evaluation across object variations**
+
+To measure success rates across several variations of the environment in a single command:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/eval_runner.py \
+     --viz kit \
+     --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_openpi_jobs_config.json
+
+This runs nine jobs sequentially — each varying the object, background, and destination — and reports a per-job success rate.
+Each evaluation is run without restarting Isaac Sim to save on the startup time.
+
+.. figure:: ../../../../images/openpi_droid_3x3_grid.gif
+   :width: 100%
+   :alt: 3x3 grid of pi05 DROID runs across different objects, backgrounds, and destinations
+   :align: center
+
+   9 closed-loop evaluation runs of pi05 on the DROID embodiment — each cell varies the
+   pick-up object, background HDR, and destination.
+
+At the end of the run you will see a job summary table followed by a metrics report:
+
+.. code-block:: text
+
+   +----------------------------------------------+-----------+----------------------------------------------------------------+----------+-----------+--------------+
+   |                   Job Name                   |   Status  |                          Policy Type                           | Num Envs | Num Steps | Num Episodes |
+   +----------------------------------------------+-----------+----------------------------------------------------------------+----------+-----------+--------------+
+   |      droid_pnp_srl_openpi_billiard_hall      | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
+   | droid_pnp_srl_openpi_rubiks_cube_home_office | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
+   |    droid_pnp_srl_openpi_alphabet_soup_can    | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
+   |         droid_pnp_srl_openpi_orange          | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
+   |          droid_pnp_srl_openpi_lemon          | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
+   |    droid_pnp_srl_openpi_tomato_sauce_can     | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
+   |     droid_pnp_srl_openpi_mustard_bottle      | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
+   |        droid_pnp_srl_openpi_sugar_box        | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
+   |           droid_pnp_srl_openpi_mug           | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
+   +----------------------------------------------+-----------+----------------------------------------------------------------+----------+-----------+--------------+
+
+   ======================================================================
+   METRICS SUMMARY
+   ======================================================================
+
+   droid_pnp_srl_openpi_alphabet_soup_can:
+     num_episodes                            3
+     object_moved_rate                  0.6667
+     success_rate                       1.0000
+
+   droid_pnp_srl_openpi_billiard_hall:
+     num_episodes                            3
+     object_moved_rate                  1.0000
+     success_rate                       1.0000
+
+   droid_pnp_srl_openpi_rubiks_cube_home_office:
+     num_episodes                            3
+     object_moved_rate                  1.0000
+     success_rate                       1.0000
+
+   droid_pnp_srl_openpi_lemon:
+     num_episodes                            3
+     object_moved_rate                  1.0000
+     success_rate                       0.6667
+
+   droid_pnp_srl_openpi_mug:
+     num_episodes                            3
+     object_moved_rate                  1.0000
+     success_rate                       1.0000
+
+   droid_pnp_srl_openpi_mustard_bottle:
+     num_episodes                            3
+     object_moved_rate                  1.0000
+     success_rate                       1.0000
+
+   droid_pnp_srl_openpi_orange:
+     num_episodes                            3
+     object_moved_rate                  1.0000
+     success_rate                       1.0000
+
+   droid_pnp_srl_openpi_sugar_box:
+     num_episodes                            3
+     object_moved_rate                  1.0000
+     success_rate                       0.0000
+
+   droid_pnp_srl_openpi_tomato_sauce_can:
+     num_episodes                            3
+     object_moved_rate                  1.0000
+     success_rate                       1.0000
+
+pi05 succeeds on most of these variations zero-shot — eight of the nine jobs hit a 1.0
+success rate over three episodes, with ``sugar_box`` as the lone outright failure
+despite the object being moved in every episode. Performance is strong but not
+uniform, consistent with the broader picture that VLA models are improving but
+not yet fully robust under zero-shot distribution shift. See
+`[robolab] <https://gitlab-master.nvidia.com/xuningy/robolab/-/blob/main/docs/analysis.md>`_
+for a cross-model comparison.
+
 Supported variants
 ------------------
 
