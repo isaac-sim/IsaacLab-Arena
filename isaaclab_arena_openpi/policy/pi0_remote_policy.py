@@ -68,7 +68,7 @@ class Pi0RemotePolicy(PolicyBase):
             f" known: {sorted(openpi_embodiment_adapter.open_loop_horizon_by_variant)}"
         )
         self._openpi_embodiment_adapter = openpi_embodiment_adapter
-        self.open_loop_horizon = openpi_embodiment_adapter.open_loop_horizon_by_variant[config.policy_variant]
+        self._open_loop_horizon = openpi_embodiment_adapter.open_loop_horizon_by_variant[config.policy_variant]
         self.device = config.policy_device
 
         self._remote_host = config.remote_host
@@ -154,7 +154,7 @@ class Pi0RemotePolicy(PolicyBase):
             " (set via --language_instruction or on the task definition)."
         )
 
-        chunk_exhausted = self._cached_action_chunk is None or self._next_chunk_step >= self.open_loop_horizon
+        chunk_exhausted = self._cached_action_chunk is None or self._next_chunk_step >= self._open_loop_horizon
         if chunk_exhausted:
             self._cached_action_chunk = self._fetch_action_chunk(observation)
             self._next_chunk_step = 0
@@ -175,19 +175,8 @@ class Pi0RemotePolicy(PolicyBase):
         Does NOT stop the openpi server process that runs in a separate
         container (or machine) and outlives this client.
         """
-        client = self._websocket_client
-        if client is None:
-            return
-        try:
-            ws = getattr(client, "_ws", None)
-            if ws is not None:
-                ws.close()
-        except (websockets.exceptions.ConnectionClosed, OSError):
-            # Connection may already be dropped on the other side; teardown
-            # must not crash.
-            pass
-        finally:
-            self._websocket_client = None
+        _close_websocket_best_effort(self._websocket_client)
+        self._websocket_client = None
 
     def _fetch_action_chunk(self, observation: dict[str, Any]) -> np.ndarray:
         extracted = self._openpi_embodiment_adapter.extract(observation)
@@ -199,9 +188,9 @@ class Pi0RemotePolicy(PolicyBase):
             chunk.ndim == 2 and chunk.shape[1] == self._openpi_embodiment_adapter.action_dim
         ), f"Expected actions of shape (H, {self._openpi_embodiment_adapter.action_dim}); got {chunk.shape}"
         assert (
-            chunk.shape[0] >= self.open_loop_horizon
-        ), f"Server returned horizon {chunk.shape[0]} < configured open_loop_horizon {self.open_loop_horizon}"
-        return chunk[: self.open_loop_horizon].astype(np.float32, copy=True)
+            chunk.shape[0] >= self._open_loop_horizon
+        ), f"Server returned horizon {chunk.shape[0]} < configured open_loop_horizon {self._open_loop_horizon}"
+        return chunk[: self._open_loop_horizon].astype(np.float32, copy=True)
 
     def _call_server_with_retry(self, server_request: dict[str, Any]) -> dict[str, Any]:
         """Send the request, reconnecting up to ``MAX_RECONNECT_ATTEMPTS`` times.
@@ -225,20 +214,29 @@ class Pi0RemotePolicy(PolicyBase):
                     f"[Pi0RemotePolicy] Connection lost ({exc}); reconnecting"
                     f" (attempt {attempt_index + 1}/{MAX_RECONNECT_ATTEMPTS - 1}) ..."
                 )
-                # Best-effort cleanup of the old client before replacing it.
-                try:
-                    _old = self._websocket_client
-                    ws = getattr(_old, "_ws", None)
-                    if ws is not None:
-                        ws.close()
-                except (websockets.exceptions.ConnectionClosed, OSError):
-                    pass
+                _close_websocket_best_effort(self._websocket_client)
                 self._websocket_client = websocket_client_policy.WebsocketClientPolicy(
                     host=self._remote_host, port=self._remote_port
                 )
                 self._cached_action_chunk = None
                 self._next_chunk_step = 0
         raise RuntimeError("unreachable")
+
+
+def _close_websocket_best_effort(client: websocket_client_policy.WebsocketClientPolicy | None) -> None:
+    """Best-effort close of the websocket inside ``client``.
+
+    Swallows the typical "peer already gone" errors so the teardown and
+    reconnect paths can call this without crashing.
+    """
+    if client is None:
+        return
+    try:
+        ws = getattr(client, "_ws", None)
+        if ws is not None:
+            ws.close()
+    except (websockets.exceptions.ConnectionClosed, OSError):
+        pass
 
 
 def _resolve_openpi_embodiment_adapter(key: str) -> Pi0EmbodimentAdapter:

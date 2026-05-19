@@ -108,7 +108,7 @@ def test_from_dict_resolves_adapter(monkeypatch):
         "openpi_embodiment_adapter": "droid",
     })
     assert isinstance(policy._openpi_embodiment_adapter, Pi0DroidAdapter)
-    assert policy.open_loop_horizon == 15
+    assert policy._open_loop_horizon == 15
 
 
 def test_close_is_idempotent(make_policy):
