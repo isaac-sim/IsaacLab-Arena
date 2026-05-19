@@ -1,9 +1,7 @@
 NIST Gear Insertion Task
 ========================
 
-This example demonstrates the complete workflow for **reinforcement learning-based gear insertion**
-on the assembled NIST board. The task uses the Franka Panda robot, operational-space control,
-and RL Games, covering environment setup, policy training, and closed-loop evaluation.
+This example demonstrates **reinforcement learning-based gear insertion** on the assembled NIST board using the Franka Panda robot in Isaac Lab - Arena, covering environment setup and closed-loop evaluation.
 
 .. image:: ../../../images/nist_gear_insertion_task.gif
    :align: center
@@ -14,9 +12,7 @@ Task Overview
 
 **Task ID:** ``nist_assembled_gear_mesh_osc``
 
-**Task Description:** The robot starts with the medium gear in its gripper and learns to align and
-insert it onto the target peg on the NIST assembly board using task-space control and contact-rich
-observations that include wrist-force feedback.
+**Task Description:** The Franka Panda robot starts with the medium gear in its gripper and learns to align and insert it onto the target peg on the NIST assembly board using operational-space control and contact-rich observations that include wrist-force feedback.
 
 **Key Specifications:**
 
@@ -32,24 +28,20 @@ observations that include wrist-force feedback.
      - Align, Insert, Contact-aware manipulation
    * - **Embodiment**
      - Franka Panda (7 DOF arm + 2 DOF gripper)
-   * - **Controller**
-     - Operational-space control (7-D policy action)
    * - **Scene**
      - Table, assembled NIST board, target gear base, held medium gear, dome light
-   * - **Observations**
-     - 24-D policy observation plus task observations for critic/state
+   * - **Objects**
+     - Medium NIST gear (held), gears and base (fixed insertion target)
    * - **Policy**
-     - RL Games PPO (learned from scratch)
-   * - **Training Method**
-     - Reinforcement Learning (on-policy PPO)
+     - RL Games PPO
+   * - **Policy Source**
+     - Pre-trained checkpoint or externally trained RL Games PPO policy
    * - **Physics**
      - PhysX (default)
    * - **Closed-loop**
      - Yes (task-space control)
    * - **Action Space**
-     - 7-D task-space action [3 position, 3 rotation, 1 auxiliary scalar]
-   * - **Success Metric**
-     - ``success_rate``
+     - 7-D policy vector: 3 bounded position channels, yaw around the gear axis, and an auxiliary success scalar
    * - **Episode Length**
      - 15 seconds
 
@@ -57,34 +49,37 @@ observations that include wrist-force feedback.
 Workflow
 --------
 
-This tutorial covers the pipeline for creating an RL environment, training a policy using RL Games,
-and evaluating the trained policy in closed-loop. A user can follow the whole pipeline, or can start
-at any intermediate step by using a trained or downloaded checkpoint.
+This tutorial covers the pipeline for creating an RL environment and evaluating a trained policy in
+closed-loop. Use the provided checkpoint, or replace it with a checkpoint from an external training
+launcher.
 
 Prerequisites
 ^^^^^^^^^^^^^
 
-Start the Isaac Lab Arena docker container:
+Start the isaaclab docker container
 
 :docker_run_default:
 
-You'll need to create folders for logs, checkpoints, and models:
+We store models on Hugging Face, so you'll need log in to Hugging Face if you haven't already.
 
 .. code-block:: bash
 
-   export LOG_DIR=logs/rl_games
-   mkdir -p $LOG_DIR
-   export MODELS_DIR=models/isaaclab_arena/nist_gear_insertion
-   mkdir -p $MODELS_DIR
+    hf auth login
+
+You'll need to create a folder for model checkpoints:
+
+.. code:: bash
+
+    export MODELS_DIR=/models/isaaclab_arena/nist_gear_insertion
+    mkdir -p $MODELS_DIR
 
 Workflow Steps
 ^^^^^^^^^^^^^^
 
-Follow the steps below to complete the workflow:
+Follow the following steps to complete the workflow:
 
 - :doc:`step_1_environment_setup`
-- :doc:`step_2_policy_training`
-- :doc:`step_3_evaluation`
+- :doc:`step_2_evaluation`
 
 
 .. toctree::
@@ -92,5 +87,4 @@ Follow the steps below to complete the workflow:
    :hidden:
 
    step_1_environment_setup
-   step_2_policy_training
-   step_3_evaluation
+   step_2_evaluation
