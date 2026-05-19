@@ -8,7 +8,7 @@ This workflow covers collecting demonstrations for the Unitree G1 static apple-t
    For supported IsaacTeleop hardware devices, see `Supported Input Devices
    <https://nvidia.github.io/IsaacTeleop/main/overview/ecosystem.html#supported-input-devices>`_.
    Before starting teleoperation, also review the `IsaacTeleop system requirements
-   <https://nvidia.github.io/IsaacTeleop/main/references/requirements.html>`_.
+   <https://nvidia.github.io/IsaacTeleop/main/references/requirements.html#teleoperation-with-isaac-sim-and-isaac-lab>`_.
 
 .. admonition:: No teleoperation hardware?
    :class: tip
@@ -237,11 +237,18 @@ Step 4: Record with the headset device
 Step 5: Replay Recorded Demos (Optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Replay the recorded HDF5 to confirm the demos look correct end-to-end. This doubles as a no-XR
-sanity check on the environment: it drives the env from the recorded actions and needs no
-teleoperation device, so you can visually verify the scene, embodiment and asset placements
-without launching CloudXR. Use replay validation to reject recordings with corrupted camera frames,
-jerky actions, unnecessary collisions, or ambiguous trajectories before policy training.
+Replay the recorded HDF5 to sanity-check the saved action sequence. This doubles as a no-XR
+check on the environment: it drives the env from the recorded actions and needs no teleoperation
+device, so you can visually verify the scene, embodiment, and asset placements without launching
+CloudXR.
+
+.. note::
+
+   ``replay_demos.py`` replays the captured **actions** in simulation; it is not exact trajectory
+   or video playback. Because this is open-loop replay, small differences in contact dynamics,
+   physics backend, timing, environment configuration, or the apple's randomized initial pose can
+   make replay miss or drop the apple even when the original recorded demo succeeded. Treat replay
+   as an action-level sanity check, and inspect the recorded camera data before recollecting data.
 
 .. code-block:: bash
 
