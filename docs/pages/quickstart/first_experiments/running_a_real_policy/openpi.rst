@@ -134,35 +134,13 @@ At the end of the run you will see a job summary table followed by a metrics rep
      object_moved_rate                  1.0000
      success_rate                       1.0000
 
-   droid_pnp_srl_openpi_lemon:
-     num_episodes                            3
-     object_moved_rate                  1.0000
-     success_rate                       0.6667
-
-   droid_pnp_srl_openpi_mug:
-     num_episodes                            3
-     object_moved_rate                  1.0000
-     success_rate                       1.0000
-
-   droid_pnp_srl_openpi_mustard_bottle:
-     num_episodes                            3
-     object_moved_rate                  1.0000
-     success_rate                       1.0000
-
-   droid_pnp_srl_openpi_orange:
-     num_episodes                            3
-     object_moved_rate                  1.0000
-     success_rate                       1.0000
-
    droid_pnp_srl_openpi_sugar_box:
      num_episodes                            3
      object_moved_rate                  1.0000
      success_rate                       0.0000
 
-   droid_pnp_srl_openpi_tomato_sauce_can:
-     num_episodes                            3
-     object_moved_rate                  1.0000
-     success_rate                       1.0000
+   ...
+
 
 pi05 succeeds on most of these variations zero-shot — eight of the nine jobs hit a 1.0
 success rate over three episodes, with ``sugar_box`` as the lone outright failure
