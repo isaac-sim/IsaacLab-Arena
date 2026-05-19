@@ -15,28 +15,18 @@ Terminal 1 — openpi server
 
 **Build and run**
 
-Arena ships a build script that clones upstream openpi at a pinned commit and
-produces a self-contained Docker image to run the inference server. Build once:
+Arena ships a wrapper script that builds a self-contained Docker image (cloning
+upstream openpi at a pinned commit on first run) and starts the inference server:
 
 .. code-block:: bash
 
-   ./isaaclab_arena_openpi/docker/build_openpi_server.sh
+   ./isaaclab_arena_openpi/docker/run_openpi_server.sh
 
-This produces ``isaaclab_arena_openpi-server:<short-sha>`` (also tagged ``:latest``).
-~3 min, ~19 GB image. Pass ``--src-dir=<path>`` to build from an existing local
-openpi checkout instead of cloning.
-
-Then start the openpi server inside a container. The first launch downloads the
-~11 GB checkpoint into the container layer.
-
-.. code-block:: bash
-
-   docker run --rm -it --gpus all --network=host \
-     -e XLA_PYTHON_CLIENT_MEM_FRACTION=0.5 \
-     isaaclab_arena_openpi-server:latest \
-     uv run scripts/serve_policy.py policy:checkpoint \
-       --policy.config=pi05_droid_jointpos_polaris \
-       --policy.dir=gs://openpi-assets-simeval/pi05_droid_jointpos
+The first invocation builds ``isaaclab_arena_openpi-server:latest`` (~3 min,
+~19 GB) and then downloads the ~11 GB checkpoint into the container on startup;
+subsequent invocations reuse the cached image. Pass ``-r`` to force a rebuild,
+``-v pi0`` to serve the pi0 variant instead of pi05, or ``-s <path>`` to build
+from a local openpi checkout.
 
 When you see:
 
@@ -46,8 +36,9 @@ When you see:
 
 the server is ready. Leave the terminal running.
 
-``--policy.config`` declares the architecture and data transforms.
-``--policy.dir`` declares where to load params and normalization stats from.
+The wrapper passes ``--policy.config`` (architecture + data transforms) and
+``--policy.dir`` (params + normalization stats) for the selected variant; see
+the supported-variants table below for the exact values.
 
 Terminal 2 — arena policy runner
 ---------------------------------
@@ -61,7 +52,7 @@ Open a second terminal and point the arena policy runner at the server:
    python isaaclab_arena/evaluation/policy_runner.py \
      --viz kit \
      --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
-     --num_steps 500 \
+     --num_episodes 3 \
      --enable_cameras --num_envs 1 \
      --language_instruction "Pick up the Rubik's cube and place it in the bowl." \
      pick_and_place_maple_table \

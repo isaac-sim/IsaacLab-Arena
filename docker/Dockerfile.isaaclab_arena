@@ -120,9 +120,11 @@ RUN /isaac-sim/python.sh -m pip install msgpack==1.1.0 msgpack-numpy==0.4.8 pyzm
     /isaac-sim/python.sh -m pip install --no-deps --ignore-requires-python -e ${WORKDIR}/submodules/Isaac-GR00T/
 RUN /isaac-sim/python.sh -m pip install av
 
-# openpi remote-client. The pinned commit lives in
-# isaaclab_arena_openpi/docker/OPENPI_COMMIT and is shared with
-# isaaclab_arena_openpi/docker/build_openpi_server.sh
+# openpi remote-client. The pinned commit is read from
+# isaaclab_arena_openpi/docker/OPENPI_COMMIT, which is also consumed by
+# isaaclab_arena_openpi/docker/run_openpi_server.sh when it builds the
+# server image. Sharing the commit keeps the in-container client
+# wire-compatible with the server it talks to.
 COPY isaaclab_arena_openpi/docker/OPENPI_COMMIT /tmp/openpi_commit
 RUN OPENPI_COMMIT=$(tr -d '[:space:]' < /tmp/openpi_commit) && \
     /isaac-sim/python.sh -m pip install --no-cache-dir \
