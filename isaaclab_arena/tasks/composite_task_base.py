@@ -289,9 +289,9 @@ class CompositeTaskBase(TaskBase):
         return combined_metrics
 
     def get_metrics(self) -> list[MetricBase]:
-        "Get metrics for the sequential task."
+        "Get metrics for the composite task."
         subtask_metrics = self.combine_subtask_metrics([i for i in range(len(self.subtasks))])
-        # Add the sequential task's own metric for per-subtask success rates
+        # Add the composite task's own metric for per-subtask success rates
         subtask_metrics.append(SubtaskSuccessRateMetric())
 
         return subtask_metrics
