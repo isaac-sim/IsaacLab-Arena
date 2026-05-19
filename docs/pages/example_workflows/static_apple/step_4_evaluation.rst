@@ -86,9 +86,11 @@ static apple-to-plate episode runs for roughly half as long as the loco-manipula
    The 600-step command is intended as a quick smoke test. To get a more representative
    success rate, evaluate complete episodes instead of relying on one short rollout: use
    ``--num_episodes 100`` for a quick estimate or ``--num_episodes 1000`` for a stronger
-   estimate. If you prefer ``--num_steps``, this task's 6-second timeout is about 300
-   environment steps per episode, so 100 episodes is roughly ``--num_steps 30000`` and
-   1000 episodes is roughly ``--num_steps 300000``.
+   estimate. If you prefer ``--num_steps``, this task's 6-second timeout comes from the
+   task episode length (``episode_length_s=6.0`` in
+   ``galileo_g1_static_pick_and_place_environment.py``). At 50 Hz control, that is about
+   300 environment steps per episode, so 100 episodes is roughly ``--num_steps 30000``
+   and 1000 episodes is roughly ``--num_steps 300000``.
 
 The evaluation should produce the following output on the console at the end of the evaluation.
 You should see similar metrics.
