@@ -3,7 +3,6 @@ FROM nvcr.io/nvidia/pytorch:25.04-py3
 ENV NVIDIA_DRIVER_CAPABILITIES=graphics,utility,compute
 
 ARG HF_TOKEN
-ARG BUILD_MODE=ci
 ARG MODELS_DIR=/workspace/pretrained_ckpts
 
 ENV MODELS_DIR=${MODELS_DIR}
@@ -49,25 +48,12 @@ RUN git-lfs install
 RUN sed -i '/^typer==/d' /etc/pip/constraint.txt
 RUN pip install --upgrade "typer>=0.16" "huggingface-hub[cli]"
 
-# Download the model needed by the selected image flavor.
-# - training: base GR00T model for fine-tuning.
-# - ci: tuned checkpoint used directly by the remote closed-loop smoke test.
-RUN set -eux; \
-    if [ "${BUILD_MODE}" = "training" ]; then \
-        /usr/local/bin/hf download \
-            nvidia/GR00T-N1.6-3B \
-            --local-dir "${MODELS_DIR}/GR00T-N1.6-3B" \
-            --token "${HF_TOKEN}"; \
-    elif [ "${BUILD_MODE}" = "ci" ]; then \
-        /usr/local/bin/hf download \
-            --revision gn1_6 \
-            nvidia/GN1x-Tuned-Arena-G1-Loco-Manipulation \
-            --local-dir "${MODELS_DIR}/checkpoint-20000" \
-            --token "${HF_TOKEN}"; \
-    else \
-        echo "Unsupported BUILD_MODE=${BUILD_MODE}. Expected 'ci' or 'training'." >&2; \
-        exit 1; \
-    fi
+# Download only the base GR00T model. The CI sidecar post-trains a tiny
+# checkpoint from this base model before serving it.
+RUN /usr/local/bin/hf download \
+    nvidia/GR00T-N1.6-3B \
+    --local-dir "${MODELS_DIR}/GR00T-N1.6-3B" \
+    --token "${HF_TOKEN}"
 RUN echo "alias hf='/usr/local/bin/hf'" >> /etc/bash.bashrc
 
 

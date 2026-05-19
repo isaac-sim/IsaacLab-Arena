@@ -205,13 +205,16 @@ jobs:
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 60
     needs: [pre_commit]
+    env:
+      GR00T_REMOTE_HOST: gr00t
+      GR00T_REMOTE_PORT: "5555"
+      GR00T_REMOTE_E2E_TIMEOUT: "900"
 
     container:
       image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
-      options: --gpus all
 
     services:
       gr00t:
@@ -239,25 +242,21 @@ jobs:
       - *install_project_step
       - *setup_isaac_sim_kit_cache_step
 
-      # The GR00T sidecar takes less than 5 mins to load the baked checkpoint.
+      # The GR00T sidecar post-trains a tiny checkpoint before loading it.
       # Poll the ZMQ endpoint because the socket can bind before the model is ready.
       - name: Wait for GR00T server
-        timeout-minutes: 10
+        timeout-minutes: 20
         env:
           PYTHONUNBUFFERED: "1"
         run: |
           /isaac-sim/python.sh -u -m isaaclab_arena_gr00t.utils.wait_for_gr00t_server \
-            --host gr00t \
-            --port 5555 \
-            --timeout-sec 600 \
+            --host "${GR00T_REMOTE_HOST}" \
+            --port "${GR00T_REMOTE_PORT}" \
+            --timeout-sec 1200 \
             --poll-interval-sec 15 \
             --request-timeout-ms 5000
 
       - name: Run GR00T remote closed-loop policy runner test
-        env:
-          ISAACLAB_ARENA_GR00T_REMOTE_HOST: gr00t
-          ISAACLAB_ARENA_GR00T_REMOTE_PORT: "5555"
-          ISAACLAB_ARENA_GR00T_REMOTE_E2E_TIMEOUT: "900"
         run: |
           /isaac-sim/python.sh -m pytest -sv --durations=0 -m gr00t_remote_e2e \
             isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy_runner.py
