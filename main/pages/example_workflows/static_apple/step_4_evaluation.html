@@ -541,6 +541,12 @@ directory you produced in <a class="reference internal" href="step_3_policy_trai
 </div>
 <p>Note the lower <code class="docutils literal notranslate"><span class="pre">--num_steps</span></code> (600 instead of 1500): with no walking phase, a successful
 static apple-to-plate episode runs for roughly half as long as the loco-manipulation variant.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The 600-step command is intended as a quick smoke test. To get a more representative
+success rate, run a longer evaluation with roughly 1000 policy steps; for this task,
+that corresponds to setting <code class="docutils literal notranslate"><span class="pre">--num_steps</span> <span class="pre">30000</span></code>.</p>
+</div>
 <p>The evaluation should produce the following output on the console at the end of the evaluation.
 You should see similar metrics.</p>
 <p>Note that all these metrics are computed over the entire evaluation process, and are affected
