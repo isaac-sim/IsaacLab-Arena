@@ -193,6 +193,10 @@ Step 4: Record with the headset device
    ``--num_demos 400`` and keep ``--num_success_steps 10`` so each successful episode includes extra
    stable frames after the success condition is triggered.
 
+   Policy success rate depends heavily on both dataset quality and dataset size. For better success
+   rates, collect more clean demonstrations with smooth actions, stable grasps, and no unnecessary
+   collisions.
+
    Follow this protocol while collecting data:
 
    * **Warm-up:** complete about 5 practice runs before recording production demonstrations so you
