@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # CI entrypoint for the GR00T e2e smoke test. It has two explicit modes:
 #
-# - bootstrap: runs inside the prebuilt gr00t image as /workspace/ci_bootstrap.sh.
-#   It waits for GitHub Actions to mount and checkout the Arena repo, then execs
-#   this script from the mounted repo so CI can pick up script changes without
-#   rebuilding the image first.
+# - bootstrap: runs inside the prebuilt gr00t image from the baked
+#   /workspace/ci_gr00t_train_and_serve.sh copy. It waits for GitHub Actions to
+#   mount and checkout the Arena repo, then execs this script from the mounted
+#   repo so CI can pick up script changes without rebuilding the image first.
 # - serve: runs from the mounted repo copy after bootstrap. It starts the GR00T
 #   remote policy server from the checkpoint already baked into the image.
 set -euxo pipefail

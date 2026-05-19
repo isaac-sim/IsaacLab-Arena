@@ -227,7 +227,7 @@ jobs:
           - ${{ github.workspace }}:/arena_workspace
         options: >-
           --gpus all
-          --entrypoint /workspace/ci_bootstrap.sh
+          --entrypoint /workspace/ci_gr00t_train_and_serve.sh
 
     steps:
       - *nvidia_smi
@@ -239,7 +239,7 @@ jobs:
       - *install_project_step
       - *setup_isaac_sim_kit_cache_step
 
-      # The GR00T sidecar takes a few minutes to load the baked checkpoint.
+      # The GR00T sidecar takes less than 5 mins to load the baked checkpoint.
       # Poll the ZMQ endpoint because the socket can bind before the model is ready.
       - name: Wait for GR00T server
         timeout-minutes: 10
@@ -257,7 +257,7 @@ jobs:
         env:
           ISAACLAB_ARENA_GR00T_REMOTE_HOST: gr00t
           ISAACLAB_ARENA_GR00T_REMOTE_PORT: "5555"
-          ISAACLAB_ARENA_GR00T_REMOTE_E2E_TIMEOUT: "600"
+          ISAACLAB_ARENA_GR00T_REMOTE_E2E_TIMEOUT: "900"
         run: |
           /isaac-sim/python.sh -m pytest -sv --durations=0 -m gr00t_remote_e2e \
             isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy_runner.py

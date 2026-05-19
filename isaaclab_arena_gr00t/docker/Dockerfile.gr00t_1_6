@@ -2,7 +2,6 @@ FROM nvcr.io/nvidia/pytorch:25.04-py3
 
 ENV NVIDIA_DRIVER_CAPABILITIES=graphics,utility,compute
 
-ARG LEROBOT_DATA_FOLDER
 ARG HF_TOKEN
 ARG BUILD_MODE=ci
 ARG MODELS_DIR=/workspace/pretrained_ckpts
@@ -72,8 +71,8 @@ RUN set -eux; \
 RUN echo "alias hf='/usr/local/bin/hf'" >> /etc/bash.bashrc
 
 
-# GR00T sidecar entrypoint. When baked as /workspace/ci_bootstrap.sh, this
-# waits for the mounted checkout and then executes the repo copy.
-COPY isaaclab_arena_gr00t/docker/ci_gr00t_train_and_serve.sh /workspace/ci_bootstrap.sh
-RUN chmod +x /workspace/ci_bootstrap.sh
+# GR00T sidecar entrypoint. The baked copy waits for the mounted checkout and
+# then executes the repo copy.
+COPY isaaclab_arena_gr00t/docker/ci_gr00t_train_and_serve.sh /workspace/ci_gr00t_train_and_serve.sh
+RUN chmod +x /workspace/ci_gr00t_train_and_serve.sh
 ENV CI_GR00T_ENTRYPOINT_MODE=bootstrap

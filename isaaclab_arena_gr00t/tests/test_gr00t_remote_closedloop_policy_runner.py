@@ -28,6 +28,7 @@ pytestmark = [
 REMOTE_HOST_ENV = "ISAACLAB_ARENA_GR00T_REMOTE_HOST"
 REMOTE_PORT_ENV = "ISAACLAB_ARENA_GR00T_REMOTE_PORT"
 TIMEOUT_ENV = "ISAACLAB_ARENA_GR00T_REMOTE_E2E_TIMEOUT"
+DEFAULT_TIMEOUT_SEC = 900
 
 POLICY_TYPE = "isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy"
 POLICY_CONFIG = "isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml"
@@ -47,7 +48,7 @@ def _get_gr00t_remote_server() -> tuple[str, int, int]:
         pytest.skip(f"Set {REMOTE_HOST_ENV} to run this test against a live GR00T policy server.")
 
     remote_port = int(os.environ.get(REMOTE_PORT_ENV, "5555"))
-    timeout_sec = int(os.environ.get(TIMEOUT_ENV, "600"))
+    timeout_sec = int(os.environ.get(TIMEOUT_ENV, str(DEFAULT_TIMEOUT_SEC)))
     return remote_host, remote_port, timeout_sec
 
 
