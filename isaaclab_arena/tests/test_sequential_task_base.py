@@ -11,7 +11,7 @@ HEADLESS = True
 
 
 class _MockSuccessFunc:
-    """Callable that returns a controlled per-env boolean tensor."""
+    """Callable that can set and return a per-env boolean success state."""
 
     def __init__(self, num_envs: int):
         import torch
@@ -119,7 +119,7 @@ def _test_sequential_success_advances_in_order(simulation_app) -> bool:
 
 def _test_sequential_success_latches(simulation_app) -> bool:
     """Once a subtask succeeds, ``_subtask_success_state`` must not un-set when the
-    underlying success function later returns False — only resets clear it."""
+    underlying success function later returns False."""
 
     from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
 
@@ -153,7 +153,7 @@ def _test_sequential_success_latches(simulation_app) -> bool:
 
 def _test_sequential_desired_subtask_success_state(simulation_app) -> bool:
     """When ``desired_subtask_success_state`` is provided, overall success requires
-    both (a) all subtasks latched True AND (b) the current success state equals the desired pattern.
+    both (a) all subtasks latched True and (b) the current success state equals the desired pattern.
     """
 
     from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
