@@ -115,7 +115,8 @@ Test the policy in 5 parallel environments with visualization via the GUI:
 
    /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
       --viz kit \
-      --policy_type isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy \
+      --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
+      --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml \
       --remote_host <SERVER_HOST> \
       --remote_port 5555 \
       --num_steps 500 \
@@ -126,23 +127,10 @@ Test the policy in 5 parallel environments with visualization via the GUI:
       --destination clay_plates_hot3d_robolab \
       --embodiment g1_wbc_agile_joint
 
-.. note::
-
-   With the server-client architecture, the policy device is a server-side concern: the server
-   places the policy on its own GPU via the ``--device`` flag passed to ``run_gr00t_server.py``
-   in Step 1. The client's ``--device`` flag (above) controls Arena's physics backend, not the
-   policy.
-
-.. note::
-
-   The parallel command uses ``ActionChunkingClientSidePolicy`` instead of
-   ``Gr00tRemoteClosedloopPolicy`` (the single-environment client) because parallel evaluation
-   needs the action-chunking buffer lifted out of the per-env policy and shared across envs.
-   Single-env evaluation works with either client; the parallel command requires this one.
 
 And during the evaluation, you should see the following output on the console at the end of the evaluation
 indicating which environments are terminated (task-specific conditions like the apple is placed onto the plate,
-or the episode length is exceeded by 30 seconds),
+or the episode length is exceeded by 6 seconds),
 or truncated (if timeouts are enabled, like the maximum episode length is exceeded).
 
 .. code-block:: text
@@ -155,7 +143,7 @@ and the number of episodes is more than the single environment evaluation becaus
 
 .. code-block:: text
 
-   [Rank 0/1] Metrics: {'success_rate': 1.0, 'num_episodes': 4}
+   [Rank 0/1] Metrics: {'success_rate': 1.0, 'num_episodes': 5}
 
 .. note::
 
@@ -171,8 +159,7 @@ and the number of episodes is more than the single environment evaluation becaus
 .. note::
 
    The single-environment command above does not pass ``--device``, so Arena defaults to its
-   built-in physics backend. The parallel command explicitly sets ``--device cuda`` for
-   throughput. If your dataset was recorded on GPU physics, prefer ``--device cuda`` for both
+   built-in physics backend. If your dataset was recorded on GPU physics, prefer ``--device cuda`` for both
    single and parallel runs to keep evaluation physics aligned with training; if it was recorded
    on CPU physics, add ``--device cpu`` to the single-environment command for per-episode
    reproducibility (parallel throughput becomes the trade-off for CPU-trained policies).
@@ -198,14 +185,3 @@ and the number of episodes is more than the single environment evaluation becaus
      expects a 23-D PinkIK action, but the server is returning a 43-DoF joint chunk. Make sure the
      client uses ``--embodiment g1_wbc_agile_joint`` (joint twin), not
      ``g1_wbc_agile_pink`` (PinkIK twin).
-   - ``ModuleNotFoundError`` on the client side — the client's ``--policy_type`` is wrong. The
-     two valid client classes for this workflow are
-     ``isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy``
-     (single env, takes ``--policy_config_yaml_path``) and
-     ``isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy`` (parallel,
-     no YAML).
-   - Action shape mismatch on the server (e.g., ``Action key 'left_arm''s horizon must be 40.
-     Got 50``) — the action modality registered at training time disagrees with the modality
-     loaded by the server. Re-finetune at the same horizon or update the
-     ``--modality-config-path`` you pass to ``run_gr00t_server.py`` to match the checkpoint (see
-     the caution in :doc:`step_3_policy_training`).
