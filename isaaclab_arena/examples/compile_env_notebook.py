@@ -194,11 +194,36 @@ env.reset()
 # %%
 
 # Run some zero actions.
-NUM_STEPS = 2000
+NUM_STEPS = 100
 for _ in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
         env.step(actions)
+
+# %%
+
+# --- Variation ledger inspection ---------------------------------------------
+#
+# ``ArenaEnvBuilder`` attaches a fresh ``VariationLedger`` to ``env.cfg`` during
+# compose (see ``arena_env_builder.compose_manager_cfg``), so every enabled
+# variation has a record of the values its sampler actually produced. Each
+# record bundles the variation's source id (``<asset>.<variation>``), the cfg
+# that drove it (here, the Hydra-overridden bounds set above), and the ordered
+# list of sample tensors — one entry per ``Sampler.sample()`` call, shape
+# ``(num_envs, *event_shape)``. Useful as a quick sanity check that the
+# distribution we asked for is what the policy actually saw.
+ledger = env.unwrapped.cfg.variation_ledger
+print(f"\nVariation ledger: {len(ledger.records)} record(s)")
+for record in ledger.records:
+    print(f"\n--- {record.source_id} ---")
+    print("cfg:")
+    print(OmegaConf.to_yaml(OmegaConf.structured(record.cfg)))
+    print(f"sample calls: {len(record.samples)}")
+    if record.samples:
+        stacked = torch.stack(record.samples)  # (num_calls, num_envs, *event_shape)
+        print(f"stacked shape: {tuple(stacked.shape)}")
+        print(f"first call:   {record.samples[0].tolist()}")
+        print(f"last call:    {record.samples[-1].tolist()}")
 
 # %%
 

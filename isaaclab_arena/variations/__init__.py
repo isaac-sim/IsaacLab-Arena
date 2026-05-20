@@ -9,6 +9,7 @@ Importing this package triggers registration of all built-in variations in
 :class:`~isaaclab_arena.variations.base.VariationRegistry`.
 """
 
+from isaaclab_arena.variations.ledger import VariationLedger, VariationRecord
 from isaaclab_arena.variations.object_color import ObjectColorVariation, ObjectColorVariationCfg
 from isaaclab_arena.variations.sampler import Sampler, SamplerCfg, UniformSampler, UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import VariationBase, VariationBaseCfg
@@ -23,6 +24,8 @@ __all__ = [
     "UniformSamplerCfg",
     "VariationBase",
     "VariationBaseCfg",
+    "VariationLedger",
+    "VariationRecord",
     "VariationRegistry",
     "register_variation",
 ]

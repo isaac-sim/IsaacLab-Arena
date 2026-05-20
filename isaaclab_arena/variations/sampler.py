@@ -5,9 +5,12 @@
 
 """Samplers for the variation system.
 
-A :class:`Sampler` is a stateless description of *how* values are drawn. It
-does not own any RNG — instead, callers pass a :class:`torch.Generator` at
-sample time so the variation system can control seeding centrally.
+A :class:`Sampler` is a stateless description of *how* values are drawn.
+Randomness currently comes from torch's default global RNG; per-sampler
+generator threading was removed for now because no caller was passing one
+in. It can be re-added once the variation system grows a real seeding
+story (per-env / per-episode generators) and there is somewhere to plumb
+one through.
 
 Concrete samplers live in this module so they slot in uniformly: a variation
 receives a sampler, inspects it if it needs to translate it for a foreign
@@ -26,7 +29,7 @@ from __future__ import annotations
 
 import torch
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import field
 
 from isaaclab.utils import configclass
@@ -81,36 +84,79 @@ class UniformSamplerCfg(SamplerCfg):
 class Sampler(ABC):
     """Abstract distribution over values.
 
-    Implementations are expected to be stateless: all randomness flows
-    through the ``generator`` argument, so repeated sampling with the same
-    generator state is reproducible.
+    Implementations are expected to be stateless — they hold the
+    parameters of the distribution (e.g. ``low`` / ``high``) but no RNG
+    state. Randomness is currently pulled from torch's default global
+    generator; see the module docstring for why explicit generator
+    threading was removed.
+
+    Sample observation:
+        :class:`Sampler` exposes a small listener API
+        (:meth:`add_listener`, :meth:`remove_listener`) so external code
+        — typically the variation system's recording layer
+        (:class:`~isaaclab_arena.variations.ledger.VariationLedger`) —
+        can observe every value drawn by :meth:`sample`. The public way
+        to subscribe is through
+        :meth:`~isaaclab_arena.variations.variation_base.VariationBase.add_sample_listener`,
+        which keeps the listener bookkeeping correctly bound to the
+        variation across :meth:`~isaaclab_arena.variations.variation_base.VariationBase.set_sampler`
+        swaps; reaching past the variation to call
+        :meth:`Sampler.add_listener` directly is supported but only
+        binds to *this* sampler instance — a subsequent
+        ``set_sampler(...)`` on the owning variation will drop the
+        listener.
     """
 
-    def sample(self, num_samples: int, generator: torch.Generator | None = None) -> torch.Tensor:
+    def __init__(self) -> None:
+        self._listeners: list[Callable[[torch.Tensor], None]] = []
+
+    def add_listener(self, listener: Callable[[torch.Tensor], None]) -> None:
+        """Register ``listener`` to be called with every sample drawn from this sampler.
+
+        Listeners are invoked synchronously inside :meth:`sample`, in
+        registration order, after the underlying :meth:`_sample` call
+        returns. They receive the raw sample tensor as-is (no copy /
+        detach) — observers that want to retain it across timesteps
+        should detach / clone themselves.
+
+        Prefer subscribing via
+        :meth:`~isaaclab_arena.variations.variation_base.VariationBase.add_sample_listener`
+        unless you have a specific reason to bind to a single sampler
+        instance — see this class's docstring for the trade-off.
+        """
+        self._listeners.append(listener)
+
+    def remove_listener(self, listener: Callable[[torch.Tensor], None]) -> None:
+        """Remove ``listener`` from this sampler.
+
+        Raises:
+            ValueError: If ``listener`` is not currently registered. The
+                caller is expected to track its own registrations; we
+                fail loudly rather than silently ignoring unknown
+                listeners so bookkeeping bugs surface early.
+        """
+        self._listeners.remove(listener)
+
+    def sample(self, num_samples: int) -> torch.Tensor:
         """Draw ``num_samples`` values from this distribution.
 
         Args:
             num_samples: Number of independent samples to draw. Must be ``>= 0``.
-            generator: Optional generator to pull randomness from. If ``None``,
-                the default torch RNG is used.
 
         Returns:
             Tensor of shape ``(num_samples, *event_shape)`` where
             ``event_shape`` is empty for scalar samplers and ``(d,)`` for
             vector-valued samplers (e.g. an RGB uniform).
         """
-        sample = self._sample(num_samples, generator)
-        self.write_sample_to_ledger(sample)
+        sample = self._sample(num_samples)
+        for listener in self._listeners:
+            listener(sample)
         return sample
 
     @abstractmethod
-    def _sample(self, num_samples: int, generator: torch.Generator | None = None) -> torch.Tensor:
+    def _sample(self, num_samples: int) -> torch.Tensor:
         """Draw ``num_samples`` values from this distribution."""
         ...
-    
-    def write_sample_to_ledger(self, sample: torch.Tensor):
-        """Write the sample to the ledger."""
-        print(f"Writing sample to ledger: {sample}")
 
 
 class UniformSampler(Sampler):
@@ -132,6 +178,7 @@ class UniformSampler(Sampler):
     """
 
     def __init__(self, low: float | Sequence[float], high: float | Sequence[float]):
+        super().__init__()
         low_t = torch.as_tensor(low, dtype=torch.float32)
         high_t = torch.as_tensor(high, dtype=torch.float32)
         assert (
@@ -148,8 +195,8 @@ class UniformSampler(Sampler):
         """Shape of a single sample (empty for scalar samplers)."""
         return self.low.shape
 
-    def _sample(self, num_samples: int, generator: torch.Generator | None = None) -> torch.Tensor:
+    def _sample(self, num_samples: int) -> torch.Tensor:
         assert num_samples >= 0, f"num_samples must be non-negative; got {num_samples}."
         shape = (num_samples, *self.event_shape)
-        u = torch.rand(shape, generator=generator)
+        u = torch.rand(shape)
         return self.low + (self.high - self.low) * u

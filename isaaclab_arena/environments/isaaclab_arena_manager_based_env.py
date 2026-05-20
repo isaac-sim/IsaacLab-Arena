@@ -15,6 +15,7 @@ from isaaclab_tasks.utils import PresetCfg
 
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.metrics.metric_base import MetricBase
+from isaaclab_arena.variations.ledger import VariationLedger
 
 
 @configclass
@@ -67,6 +68,12 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
 
     # Metrics
     metrics: list[MetricBase] | None = None
+
+    # Variation ledger. Populated by :class:`ArenaEnvBuilder` after the env cfg
+    # is constructed and the ledger has been attached to the scene's enabled
+    # variations; callers can then read ``env.cfg.variation_ledger.records``
+    # after a run to recover the input factors that drove each draw.
+    variation_ledger: VariationLedger | None = None
 
     # Isaaclab Arena Env. Held as a member to allow use of internal functions
     isaaclab_arena_env: IsaacLabArenaEnvironment | None = None

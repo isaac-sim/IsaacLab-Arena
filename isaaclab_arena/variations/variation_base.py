@@ -32,6 +32,7 @@ leaf-only, CLI / Hydra-friendly dataclass.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import TYPE_CHECKING, ClassVar
 
 from isaaclab.managers import EventTermCfg
@@ -40,6 +41,8 @@ from isaaclab.utils import configclass
 from isaaclab_arena.variations.sampler import Sampler, SamplerCfg
 
 if TYPE_CHECKING:
+    import torch
+
     from isaaclab_arena.scene.scene import Scene
 
 
@@ -114,6 +117,10 @@ class VariationBase(ABC):
     def __init__(self, cfg: VariationBaseCfg):
         self.cfg = cfg
         self._sampler: Sampler | None = None
+        #: Sample observers (typically the variation ledger). Owned by the
+        #: variation rather than the sampler so they survive
+        #: :meth:`set_sampler` swaps — see :meth:`add_sample_listener`.
+        self._sample_listeners: list[Callable[[torch.Tensor], None]] = []
 
     @property
     def enabled(self) -> bool:
@@ -164,13 +171,59 @@ class VariationBase(ABC):
                 :class:`SamplerCfg`.
         """
         if isinstance(sampler, SamplerCfg):
-            self._sampler = sampler.build()
-            if hasattr(self.cfg, "sampler"):
-                self.cfg.sampler = sampler
+            new_sampler = sampler.build()
+            new_cfg_sampler: SamplerCfg | None = sampler
         elif isinstance(sampler, Sampler):
-            self._sampler = sampler
+            new_sampler = sampler
+            new_cfg_sampler = None
         else:
             raise TypeError(f"set_sampler expects a Sampler or SamplerCfg; got {type(sampler).__name__}.")
+
+        # Detach existing listeners from the outgoing sampler so it stops
+        # firing into the ledger if anyone else still holds a reference, then
+        # re-attach the variation-owned list to the incoming sampler. The
+        # variation, not the sampler, is the canonical source of truth for
+        # which listeners belong to this variation, so a sampler swap must
+        # not silently drop subscriptions.
+        if self._sampler is not None:
+            for listener in self._sample_listeners:
+                self._sampler.remove_listener(listener)
+        self._sampler = new_sampler
+        for listener in self._sample_listeners:
+            self._sampler.add_listener(listener)
+
+        if new_cfg_sampler is not None and hasattr(self.cfg, "sampler"):
+            self.cfg.sampler = new_cfg_sampler
+
+    def add_sample_listener(self, listener: Callable[[torch.Tensor], None]) -> None:
+        """Subscribe ``listener`` to every sample drawn by this variation's sampler.
+
+        Listeners are stored on the variation (not the sampler), so a
+        subsequent :meth:`set_sampler` call transparently rebinds them to
+        the new sampler — i.e. the ledger does not need to know about
+        sampler swaps.
+
+        The public entry point for the recording layer
+        (:class:`~isaaclab_arena.variations.ledger.VariationLedger`).
+        Listeners are called synchronously from inside
+        :meth:`Sampler.sample`; observers that need to retain the sample
+        across timesteps should detach / clone it themselves.
+        """
+        self._sample_listeners.append(listener)
+        if self._sampler is not None:
+            self._sampler.add_listener(listener)
+
+    def remove_sample_listener(self, listener: Callable[[torch.Tensor], None]) -> None:
+        """Unsubscribe a previously-registered ``listener``.
+
+        Raises:
+            ValueError: If ``listener`` was not registered. Mirrors
+                :meth:`Sampler.remove_listener`; bookkeeping errors fail
+                loudly rather than silently.
+        """
+        self._sample_listeners.remove(listener)
+        if self._sampler is not None:
+            self._sampler.remove_listener(listener)
 
     def apply_cfg(self, cfg: VariationBaseCfg) -> None:
         """Install ``cfg`` as the variation's new source of truth.
