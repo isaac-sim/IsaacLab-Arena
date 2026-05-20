@@ -237,6 +237,13 @@ Step 4: Record with the headset device
    Releasing a small round object onto a flat plate is noticeably harder than dropping a box into a
    bin. Keep the release height low and the orientation stable.
 
+   .. figure:: ../../../images/static_apple_pick_and_place.gif
+      :width: 100%
+      :alt: Static apple-to-plate demonstration with the Unitree G1
+      :align: center
+
+      Example static apple-to-plate demonstration trajectory.
+
 
 Step 5: Replay Recorded Demos (Optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
