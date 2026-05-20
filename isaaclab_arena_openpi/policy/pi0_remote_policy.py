@@ -30,8 +30,12 @@ class Pi0EmbodimentAdapter(ABC):
     open_loop_horizon_by_variant: dict[str, int]
 
     @abstractmethod
-    def extract(self, observation: dict[str, Any]) -> Any:
-        """Pull env tensors out of the arena gym observation dict.
+    def extract(self, observation: dict[str, Any], env_id: int) -> Any:
+        """Pull a single env's tensors out of the arena gym observation dict.
+
+        ``env_id`` selects which slice of each per-env tensor to read. openpi's
+        wire format takes one observation per request, so the policy loops over
+        envs and calls this once per env to assemble the per-env requests.
 
         Concrete return type is adapter-defined (typically a frozen dataclass);
         the policy treats it as an opaque value to round-trip through
@@ -80,8 +84,11 @@ class Pi0RemotePolicy(PolicyBase):
         )
         print("[Pi0RemotePolicy] Connected.")
 
-        self._cached_action_chunk: np.ndarray | None = None
-        self._next_chunk_step: int = 0
+        # Per-env action cache. Lazy-allocated on the first get_action call when
+        # num_envs is known. openpi's wire format is one obs per request, so we
+        # keep one chunk + one step counter per env and loop over them.
+        self._cached_action_chunks: list[np.ndarray | None] | None = None
+        self._next_chunk_steps: list[int] | None = None
         self.task_description: str | None = None
 
     @staticmethod
@@ -143,32 +150,40 @@ class Pi0RemotePolicy(PolicyBase):
         return cls(Pi0RemotePolicyArgs(**config_dict), openpi_embodiment_adapter=openpi_embodiment_adapter)
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
-        # TODO(cvolk, 2026-05-18): extend to parallel envs once the openpi
-        # server supports batched observations; today it accepts one obs
-        # per request.
-        assert (
-            env.unwrapped.num_envs == 1
-        ), f"Pi0RemotePolicy only supports num_envs=1 (openpi server limitation), got num_envs={env.unwrapped.num_envs}"
         assert self.task_description, (
             "Pi0RemotePolicy requires a non-empty language instruction"
             " (set via --language_instruction or on the task definition)."
         )
 
-        chunk_exhausted = self._cached_action_chunk is None or self._next_chunk_step >= self._open_loop_horizon
-        if chunk_exhausted:
-            self._cached_action_chunk = self._fetch_action_chunk(observation)
-            self._next_chunk_step = 0
+        num_envs = env.unwrapped.num_envs
+        self._maybe_init_per_env_state(num_envs)
 
-        next_action_np = self._cached_action_chunk[self._next_chunk_step]
-        self._next_chunk_step += 1
-        return torch.from_numpy(next_action_np).to(dtype=torch.float32, device=self.device).unsqueeze(0)
+        # TODO(cvolk): openpi server takes one obs per request, so we iterate
+        # over envs and send one inference per env that needs a fresh chunk.
+        # This is N-times slower than a single batched call but is correct
+        # for parallel envs; switch to a single batched call when openpi
+        # grows batched-inference support upstream.
+        actions = []
+        for env_id in range(num_envs):
+            chunk_exhausted = (
+                self._cached_action_chunks[env_id] is None or self._next_chunk_steps[env_id] >= self._open_loop_horizon
+            )
+            if chunk_exhausted:
+                self._cached_action_chunks[env_id] = self._fetch_action_chunk(observation, env_id)
+                self._next_chunk_steps[env_id] = 0
+            actions.append(self._cached_action_chunks[env_id][self._next_chunk_steps[env_id]])
+            self._next_chunk_steps[env_id] += 1
+
+        batch = np.stack(actions)  # (num_envs, action_dim)
+        return torch.from_numpy(batch).to(dtype=torch.float32, device=self.device)
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
-        # TODO(cvolk, 2026-05-18): honor env_ids when parallel envs are
-        # supported; today the cache is single-env and we always reset the
-        # whole thing.
-        self._cached_action_chunk = None
-        self._next_chunk_step = 0
+        if self._cached_action_chunks is None:
+            return  # not yet initialized; nothing to clear
+        ids = range(len(self._cached_action_chunks)) if env_ids is None else env_ids.reshape(-1).tolist()
+        for env_id in ids:
+            self._cached_action_chunks[env_id] = None
+            self._next_chunk_steps[env_id] = 0
 
     def close(self) -> None:
         """Release the local websocket connection to the openpi server.
@@ -178,8 +193,18 @@ class Pi0RemotePolicy(PolicyBase):
         _close_websocket_best_effort(self._websocket_client)
         self._websocket_client = None
 
-    def _fetch_action_chunk(self, observation: dict[str, Any]) -> np.ndarray:
-        extracted = self._openpi_embodiment_adapter.extract(observation)
+    def _maybe_init_per_env_state(self, num_envs: int) -> None:
+        if self._cached_action_chunks is None:
+            self._cached_action_chunks = [None] * num_envs
+            self._next_chunk_steps = [0] * num_envs
+            return
+        assert len(self._cached_action_chunks) == num_envs, (
+            f"Pi0RemotePolicy num_envs changed from {len(self._cached_action_chunks)}"
+            f" to {num_envs} mid-rollout; recreate the policy for the new num_envs."
+        )
+
+    def _fetch_action_chunk(self, observation: dict[str, Any], env_id: int) -> np.ndarray:
+        extracted = self._openpi_embodiment_adapter.extract(observation, env_id)
         request = self._openpi_embodiment_adapter.pack_request(extracted, self.task_description)
         response = self._call_server_with_retry(request)
 
@@ -218,8 +243,13 @@ class Pi0RemotePolicy(PolicyBase):
                 self._websocket_client = websocket_client_policy.WebsocketClientPolicy(
                     host=self._remote_host, port=self._remote_port
                 )
-                self._cached_action_chunk = None
-                self._next_chunk_step = 0
+                # Flush every env's cache: the reconnected server may have lost
+                # state, so we force a fresh observation on the next get_action
+                # for each env rather than replay cached actions.
+                if self._cached_action_chunks is not None:
+                    for i in range(len(self._cached_action_chunks)):
+                        self._cached_action_chunks[i] = None
+                        self._next_chunk_steps[i] = 0
         raise RuntimeError("unreachable")
 
 
