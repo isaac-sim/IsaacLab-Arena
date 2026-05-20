@@ -48,6 +48,8 @@ class RigidObjectSet(Object):
             variant_indices_by_env: Optional fixed variant index for each environment.
             initial_pose: The initial pose of the object from this object set.
         """
+        if len(objects) < 2:
+            raise ValueError(f"Object set {name} must contain at least 2 objects.")
         if not self._are_all_objects_type_rigid(objects):
             raise ValueError(f"Object set {name} must contain only rigid objects.")
 
@@ -65,24 +67,21 @@ class RigidObjectSet(Object):
                     "rigid body at the same depth so paths match after rename. "
                     f"Rigid body depths by asset: {per_asset}."
                 )
-            self.object_usd_paths = self._modify_assets(objects)
-            print(f"Modified object USD paths: {self.object_usd_paths}")
+            self.member_usd_paths: list[str] = self._modify_assets(objects)
+            print(f"Modified object USD paths: {self.member_usd_paths}")
         else:
-            self.object_usd_paths = []
+            self.member_usd_paths = []
             for obj in objects:
                 assert obj.usd_path is not None
-                self.object_usd_paths.append(obj.usd_path)
+                self.member_usd_paths.append(obj.usd_path)
 
         self.objects: list[Object] = objects
-        self._member_object_usd_paths: list[str] = list(self.object_usd_paths)
         self.random_choice = random_choice
         self.variant_indices_by_env: list[int] | None = None
-        self.has_env_specific_bboxes = len(objects) > 1
 
         if variant_indices_by_env is not None:
             self._set_variant_indices_by_env(variant_indices_by_env)
 
-        # Set default prim_path if not provided
         if prim_path is None:
             prim_path = f"{{ENV_REGEX_NS}}/{name}"
 
@@ -91,10 +90,21 @@ class RigidObjectSet(Object):
             object_type=ObjectType.RIGID,
             usd_path="",
             prim_path=prim_path,
-            scale=(1.0, 1.0, 1.0),  # We rewrite the USDs to handle scaling
+            scale=(1.0, 1.0, 1.0),
             initial_pose=initial_pose,
             **kwargs,
         )
+
+    @property
+    def object_usd_paths(self) -> list[str]:
+        """Per-env USD paths passed to MultiUsdFileCfg.
+
+        Before variant indices are assigned, returns the member list.
+        After assignment, returns one path per env based on variant_indices_by_env.
+        """
+        if self.variant_indices_by_env is not None:
+            return [self.member_usd_paths[idx] for idx in self.variant_indices_by_env]
+        return self.member_usd_paths
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get the bounding box of the object set.
@@ -104,29 +114,30 @@ class RigidObjectSet(Object):
         """
         return max(self.objects, key=lambda obj: obj.get_bounding_box().size[0, 2].item()).get_bounding_box()
 
-    def get_variant_indices(self, num_envs: int) -> list[int]:
-        """Return which member object index is assigned to each environment.
+    def assign_variants(self, num_envs: int) -> None:
+        """Assign one member-variant index per environment.
 
-        Multi-variant sets use one fixed assignment for the lifetime of the
-        object set. When ``random_choice`` is True, each env independently
-        samples one variant once. Otherwise, assignments repeat the member
-        order across environments.
+        The assignment is fixed for the lifetime of the object set: subsequent
+        calls with the same ``num_envs`` are no-ops, and a call with a
+        different ``num_envs`` raises. When ``random_choice`` is True, each
+        env independently samples one variant; otherwise assignments repeat
+        the member order across environments.
+
+        Callers (typically the placer once ``num_envs`` is known) must invoke
+        this before reading ``variant_indices_by_env`` or
+        ``get_bounding_box_per_env``.
 
         Args:
-            num_envs: Number of environments.
-
-        Returns:
-            List of length ``num_envs`` with indices into ``self.objects``.
+            num_envs: Number of environments to assign variants for.
         """
-        if self.variant_indices_by_env is None:
-            self._set_variant_indices_by_env(self._generate_variant_indices(num_envs))
-        elif len(self.variant_indices_by_env) != num_envs:
-            raise ValueError(
-                f"RigidObjectSet '{self.name}' has variant assignments for "
-                f"{len(self.variant_indices_by_env)} envs, got request for {num_envs}."
-            )
-        assert self.variant_indices_by_env is not None
-        return self.variant_indices_by_env
+        if self.variant_indices_by_env is not None:
+            if len(self.variant_indices_by_env) != num_envs:
+                raise ValueError(
+                    f"RigidObjectSet '{self.name}' has variant assignments for "
+                    f"{len(self.variant_indices_by_env)} envs, got request for {num_envs}."
+                )
+            return
+        self._set_variant_indices_by_env(self._generate_variant_indices(num_envs))
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
         """Get the actual bounding box for each env's variant.
@@ -135,52 +146,52 @@ class RigidObjectSet(Object):
         returns the real local bbox of the variant assigned to each env,
         enabling correct collision-free placement for heterogeneous scenes.
 
+        Requires ``assign_variants(num_envs)`` to have been called first.
+
         Args:
-            num_envs: Number of environments.
+            num_envs: Number of environments. Must match the assignment.
 
         Returns:
             ``AxisAlignedBoundingBox`` with ``min_point`` / ``max_point`` of
             shape ``(num_envs, 3)``.
         """
-        variant_indices = self.get_variant_indices(num_envs)
-        member_bboxes = [obj.get_bounding_box() for obj in self.objects]
+        assert self.variant_indices_by_env is not None, (
+            f"RigidObjectSet '{self.name}' has no variant assignment; "
+            "call assign_variants(num_envs) before get_bounding_box_per_env()."
+        )
+        assert len(self.variant_indices_by_env) == num_envs, (
+            f"RigidObjectSet '{self.name}' assigned for "
+            f"{len(self.variant_indices_by_env)} envs, got request for {num_envs}."
+        )
+        bounding_boxes = [obj.get_bounding_box() for obj in self.objects]
 
-        min_pts = torch.stack([member_bboxes[idx].min_point[0] for idx in variant_indices], dim=0)
-        max_pts = torch.stack([member_bboxes[idx].max_point[0] for idx in variant_indices], dim=0)
+        min_pts = torch.stack([bounding_boxes[idx].min_point[0] for idx in self.variant_indices_by_env], dim=0)
+        max_pts = torch.stack([bounding_boxes[idx].max_point[0] for idx in self.variant_indices_by_env], dim=0)
         return AxisAlignedBoundingBox(min_point=min_pts, max_point=max_pts)
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         # We assume that by here, our USDs have been modified to be compatible with each other
         # and we can use the canonical first member USD to find the shallowest rigid body.
-        return super().get_contact_sensor_cfg(contact_against_object, usd_path=self._member_object_usd_paths[0])
+        return super().get_contact_sensor_cfg(contact_against_object, usd_path=self.member_usd_paths[0])
 
     def _generate_variant_indices(self, num_envs: int) -> list[int]:
         n = len(self.objects)
-        if n == 1:
-            return [0 for _ in range(num_envs)]
         if not self.random_choice:
             return [env_idx % n for env_idx in range(num_envs)]
         return torch.randint(low=0, high=n, size=(num_envs,)).tolist()
 
     def _set_variant_indices_by_env(self, variant_indices_by_env: list[int]) -> None:
+        """Validate and store variant indices, then sync the spawn config's USD path list."""
         n = len(self.objects)
-        if any(idx < 0 or idx >= n for idx in variant_indices_by_env):
-            raise ValueError(
-                f"RigidObjectSet '{self.name}' variant indices must be in [0, {n}); got {variant_indices_by_env}."
-            )
-
+        assert all(
+            0 <= idx < n for idx in variant_indices_by_env
+        ), f"RigidObjectSet '{self.name}' variant indices must be in [0, {n}); got {variant_indices_by_env}."
         self.variant_indices_by_env = list(variant_indices_by_env)
-        if len(self.objects) > 1:
-            # Keep Isaac Lab's MultiUsdFileCfg aligned with the fixed per-env variant assignment.
-            self.object_usd_paths = [self._member_object_usd_paths[idx] for idx in self.variant_indices_by_env]
-            spawn_cfg = self.object_cfg.spawn if getattr(self, "object_cfg", None) is not None else None
-            if isinstance(spawn_cfg, sim_utils.MultiUsdFileCfg):
-                spawn_cfg.usd_path = self.object_usd_paths
-                spawn_cfg.random_choice = False
+        spawn_cfg = self.object_cfg.spawn if getattr(self, "object_cfg", None) is not None else None
+        if isinstance(spawn_cfg, sim_utils.MultiUsdFileCfg):
+            spawn_cfg.usd_path = self.object_usd_paths
 
     def _are_all_objects_type_rigid(self, objects: list[Object]) -> bool:
-        if objects is None or len(objects) == 0:
-            raise ValueError(f"Object set {self.name} must contain at least 1 object.")
         for obj in objects:
             assert obj.usd_path is not None
             if detect_object_type(usd_path=obj.usd_path) != ObjectType.RIGID:
@@ -193,12 +204,11 @@ class RigidObjectSet(Object):
             prim_path=self.prim_path,
             spawn=sim_utils.MultiUsdFileCfg(
                 usd_path=self.object_usd_paths,
-                random_choice=self.random_choice if self.variant_indices_by_env is None else False,
+                random_choice=False,
                 activate_contact_sensors=True,
             ),
         )
         object_cfg = self._add_initial_pose_to_cfg(object_cfg)
-        assert isinstance(object_cfg, RigidObjectCfg)
         return object_cfg
 
     def _generate_articulation_cfg(self):

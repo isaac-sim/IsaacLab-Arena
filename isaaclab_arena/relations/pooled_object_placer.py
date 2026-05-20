@@ -9,7 +9,11 @@ import random
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.bbox_helpers import get_bounding_box_per_env, has_heterogeneous_objects
+from isaaclab_arena.relations.bbox_helpers import (
+    assign_variants_for_envs,
+    get_bounding_box_per_env,
+    has_heterogeneous_objects,
+)
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
@@ -182,6 +186,7 @@ class PooledObjectPlacer:
         layouts_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
         total_layouts = layouts_per_env * self._num_envs
 
+        assign_variants_for_envs(self._objects, self._num_envs)
         real_bboxes = {obj: get_bounding_box_per_env(obj, self._num_envs) for obj in self._objects}
 
         # (num_envs, 3) -> repeat each env's row layouts_per_env times -> (total_layouts, 3).

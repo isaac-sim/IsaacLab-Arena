@@ -14,7 +14,8 @@ import torch
 import pytest
 
 from isaaclab_arena.assets.dummy_object import DummyObject
-from isaaclab_arena.relations.bbox_helpers import get_bounding_box_per_env, is_heterogeneous
+from isaaclab_arena.assets.object_set import RigidObjectSet
+from isaaclab_arena.relations.bbox_helpers import get_bounding_box_per_env
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
@@ -24,6 +25,39 @@ from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
+
+# ---------------------------------------------------------------------------
+# Fixture: let HeterogeneousDummyObject trigger the heterogeneous path
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _patch_bbox_helpers_for_test_doubles(monkeypatch):
+    """Allow HeterogeneousDummyObject to trigger the heterogeneous placement path."""
+    from isaaclab_arena.relations import bbox_helpers
+
+    _original_has_het = bbox_helpers.has_heterogeneous_objects
+    _original_get_bbox = bbox_helpers.get_bounding_box_per_env
+
+    def _patched_has_het(objects):
+        if _original_has_het(objects):
+            return True
+        return any(hasattr(obj, "get_bounding_box_per_env") for obj in objects)
+
+    def _patched_get_bbox(obj, num_envs):
+        if isinstance(obj, RigidObjectSet):
+            return _original_get_bbox(obj, num_envs)
+        if hasattr(obj, "get_bounding_box_per_env"):
+            return obj.get_bounding_box_per_env(num_envs)
+        return _original_get_bbox(obj, num_envs)
+
+    monkeypatch.setattr("isaaclab_arena.relations.bbox_helpers.has_heterogeneous_objects", _patched_has_het)
+    monkeypatch.setattr("isaaclab_arena.relations.bbox_helpers.get_bounding_box_per_env", _patched_get_bbox)
+    monkeypatch.setattr("isaaclab_arena.relations.object_placer.has_heterogeneous_objects", _patched_has_het)
+    monkeypatch.setattr("isaaclab_arena.relations.object_placer.get_bounding_box_per_env", _patched_get_bbox)
+    monkeypatch.setattr("isaaclab_arena.relations.pooled_object_placer.has_heterogeneous_objects", _patched_has_het)
+    monkeypatch.setattr("isaaclab_arena.relations.pooled_object_placer.get_bounding_box_per_env", _patched_get_bbox)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -40,7 +74,6 @@ class HeterogeneousDummyObject(DummyObject):
     def __init__(self, name: str, bboxes: list[AxisAlignedBoundingBox], **kwargs):
         super().__init__(name=name, bounding_box=bboxes[0], **kwargs)
         self._per_env_bboxes = bboxes
-        self.has_env_specific_bboxes = True
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
         """Return env-specific bbox variants for this test double."""
@@ -87,7 +120,7 @@ def test_heterogeneous_dummy_returns_different_bboxes():
     large = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.3))
     obj = HeterogeneousDummyObject(name="set", bboxes=[small, large])
 
-    per_env = get_bounding_box_per_env(obj, 4)
+    per_env = obj.get_bounding_box_per_env(4)
     assert per_env.max_point.shape == (4, 3)
     # env 0 and 2 should use small; env 1 and 3 should use large
     assert torch.allclose(per_env.max_point[0], torch.tensor([0.1, 0.1, 0.1]))
@@ -105,7 +138,7 @@ def test_dummy_object_preserves_constructor_relations():
     )
 
     assert obj.get_relations() == [anchor_relation]
-    assert is_heterogeneous(obj) is False
+    assert not isinstance(obj, RigidObjectSet)
 
 
 def test_object_preserves_constructor_relations():
@@ -123,7 +156,7 @@ def test_object_preserves_constructor_relations():
     )
 
     assert obj.get_relations() == [anchor_relation]
-    assert is_heterogeneous(obj) is False
+    assert not isinstance(obj, RigidObjectSet)
 
 
 # ---------------------------------------------------------------------------

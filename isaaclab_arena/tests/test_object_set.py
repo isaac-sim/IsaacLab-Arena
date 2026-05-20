@@ -48,7 +48,8 @@ def _test_object_set_samples_and_stores_variant_indices(simulation_app):
     ):
         obj_set = RigidObjectSet(name="cans", objects=[can_a, can_b], random_choice=True)
         assert obj_set.variant_indices_by_env is None
-        assert obj_set.get_variant_indices(num_envs=4) == assigned_variant_indices
+        obj_set.assign_variants(num_envs=4)
+        assert obj_set.variant_indices_by_env == assigned_variant_indices
 
     assert obj_set.object_usd_paths == [can_b.usd_path, can_a.usd_path, can_b.usd_path, can_b.usd_path]
     spawn_cfg = obj_set.object_cfg.spawn
@@ -79,7 +80,8 @@ def _test_object_set_default_variant_indices_follow_member_order(simulation_app)
         patch("isaaclab_arena.assets.object_set.find_shallowest_rigid_body", return_value="/rigid"),
     ):
         obj_set = RigidObjectSet(name="ordered_cans", objects=[can_a, can_b])
-        assert obj_set.get_variant_indices(num_envs=5) == [0, 1, 0, 1, 0]
+        obj_set.assign_variants(num_envs=5)
+        assert obj_set.variant_indices_by_env == [0, 1, 0, 1, 0]
 
     assert obj_set.object_usd_paths == [can_a.usd_path, can_b.usd_path, can_a.usd_path, can_b.usd_path, can_a.usd_path]
     spawn_cfg = obj_set.object_cfg.spawn

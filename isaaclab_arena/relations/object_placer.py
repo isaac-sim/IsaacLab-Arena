@@ -10,7 +10,11 @@ import torch
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.bbox_helpers import get_bounding_box_per_env, has_heterogeneous_objects
+from isaaclab_arena.relations.bbox_helpers import (
+    assign_variants_for_envs,
+    get_bounding_box_per_env,
+    has_heterogeneous_objects,
+)
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
@@ -254,6 +258,7 @@ class ObjectPlacer:
                 (num_envs, 3). When None we call
                 get_bounding_box_per_env(obj, num_envs) on each object.
         """
+        assign_variants_for_envs(objects, num_envs)
         if env_bboxes is None:
             env_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
 

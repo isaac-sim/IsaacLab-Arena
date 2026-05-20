@@ -197,7 +197,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
     def _build_heterogeneous_objects(self, tabletop_reference, object_names=None):
         """Build placeable objects for heterogeneous mode.
 
-        When --objects is provided, each object becomes a single-variant RigidObjectSet.
+        When --objects is provided, each object is placed directly (no per-env variance).
         Otherwise, uses HETERO_FIXED_OBJECTS (pinned fruits) + HETERO_VARIANT_SETS
         (multi-variant sets).
         """
@@ -207,16 +207,11 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
         # TODO(@zhx06): Address residual object bouncing with xy-only no-collision
         # constraints and anchor constraint handling in a follow-up change.
         if object_names:
-            print(
-                "Warning: --objects with --mode heterogeneous wraps each object as a "
-                "single-variant set (no per-env variance). Use default sets for true heterogeneity."
-            )
             placeable_assets = []
             for name in object_names:
                 obj = self.asset_registry.get_asset_by_name(name)()
-                obj_set = RigidObjectSet(name=name, objects=[obj])
-                obj_set.add_relation(On(tabletop_reference, clearance_m=0.01))
-                placeable_assets.append(obj_set)
+                obj.add_relation(On(tabletop_reference, clearance_m=0.01))
+                placeable_assets.append(obj)
         else:
             placeable_assets = []
             for name, x, y in HETERO_FIXED_OBJECTS:
