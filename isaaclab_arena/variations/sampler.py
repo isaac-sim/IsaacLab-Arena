@@ -86,7 +86,6 @@ class Sampler(ABC):
     generator state is reproducible.
     """
 
-    @abstractmethod
     def sample(self, num_samples: int, generator: torch.Generator | None = None) -> torch.Tensor:
         """Draw ``num_samples`` values from this distribution.
 
@@ -100,6 +99,13 @@ class Sampler(ABC):
             ``event_shape`` is empty for scalar samplers and ``(d,)`` for
             vector-valued samplers (e.g. an RGB uniform).
         """
+        sample = self._sample(num_samples, generator)
+        self.write_sample_to_ledger(sample)
+        return sample
+
+    @abstractmethod
+    def _sample(self, num_samples: int, generator: torch.Generator | None = None) -> torch.Tensor:
+        """Draw ``num_samples`` values from this distribution."""
         ...
     
     def write_sample_to_ledger(self, sample: torch.Tensor):
@@ -142,10 +148,8 @@ class UniformSampler(Sampler):
         """Shape of a single sample (empty for scalar samplers)."""
         return self.low.shape
 
-    def sample(self, num_samples: int, generator: torch.Generator | None = None) -> torch.Tensor:
+    def _sample(self, num_samples: int, generator: torch.Generator | None = None) -> torch.Tensor:
         assert num_samples >= 0, f"num_samples must be non-negative; got {num_samples}."
         shape = (num_samples, *self.event_shape)
         u = torch.rand(shape, generator=generator)
-        sample = self.low + (self.high - self.low) * u
-        self.write_sample_to_ledger(sample)
-        return sample
+        return self.low + (self.high - self.low) * u
