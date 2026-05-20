@@ -180,7 +180,7 @@ class Pi0RemotePolicy(PolicyBase):
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         if self._cached_action_chunks is None:
             return  # not yet initialized; nothing to clear
-        ids = range(len(self._cached_action_chunks)) if env_ids is None else env_ids.tolist()
+        ids = range(len(self._cached_action_chunks)) if env_ids is None else env_ids.reshape(-1).tolist()
         for env_id in ids:
             self._cached_action_chunks[env_id] = None
             self._next_chunk_steps[env_id] = 0
