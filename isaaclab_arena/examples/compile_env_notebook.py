@@ -17,8 +17,8 @@ print("Launching simulation app once in notebook")
 # headless=False enables the Kit viewer window so we can visually verify per-env
 # randomizations (e.g. object tints). Set headless=True for CI / non-GUI runs.
 args_cli = get_isaaclab_arena_cli_parser().parse_args([])
-args_cli.headless = False
-args_cli.visualizer = "kit"
+# args_cli.headless = False
+# args_cli.visualizer = "kit"
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
@@ -97,7 +97,7 @@ args_cli = get_isaaclab_arena_cli_parser().parse_args([])
 args_cli.solve_relations = True
 # Bump num_envs so we can visually verify per-env color variation.
 args_cli.num_envs = 4
-args_cli.visualizer = "kit"
+# args_cli.visualizer = "kit"
 env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
 
 # %%

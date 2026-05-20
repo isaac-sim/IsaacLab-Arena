@@ -23,7 +23,7 @@ from dataclasses import field
 from typing import TYPE_CHECKING
 
 import isaaclab.envs.mdp as mdp
-from isaaclab.managers import EventTermCfg, SceneEntityCfg
+from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.variations.sampler import Sampler, UniformSampler, UniformSamplerCfg
@@ -140,7 +140,7 @@ class ObjectColorVariation(VariationBase):
         colors = self._sampler_to_colors_spec()
         event_name = f"{self.asset_name}_color_variation"
         event_cfg = EventTermCfg(
-            func=mdp.randomize_visual_color,
+            func=wrap_callable_class(mdp.randomize_visual_color),
             mode=self.cfg.mode,
             params={
                 "asset_cfg": SceneEntityCfg(self.asset_name),
@@ -149,6 +149,17 @@ class ObjectColorVariation(VariationBase):
                 "event_name": event_name,
             },
         )
+        # event_cfg = EventTermCfg(
+        #     func=make_wrapper(mdp.randomize_visual_color),
+        #     mode=self.cfg.mode,
+        #     params={
+        #         "func": mdp.randomize_visual_color,
+        #         "asset_cfg": SceneEntityCfg(self.asset_name),
+        #         "colors": colors,
+        #         "mesh_name": self.cfg.mesh_name,
+        #         "event_name": event_name,
+        #     },
+        # )
         return event_name, event_cfg
 
     def _sampler_to_colors_spec(self) -> dict[str, tuple[float, float]]:
@@ -175,3 +186,42 @@ class ObjectColorVariation(VariationBase):
             "g": (low[1], high[1]),
             "b": (low[2], high[2]),
         }
+
+
+def make_wrapper(func: Callable) -> Callable:
+    def wrapped(*args, **kwargs):
+        print("before")
+        result = func(*args, **kwargs)
+        print("after")
+        return result
+
+    # Preserve the original signature
+    import inspect
+
+    wrapped.__signature__ = inspect.signature(func)
+
+    return wrapped
+
+
+def wrap_callable_class(cls: type) -> type:
+    original_call = cls.__call__
+
+    def new_call(self, *args, **kwargs) -> Any:
+        print("before")
+        result = original_call(self, *args, **kwargs)
+        print("after")
+        return result
+
+    # Copy signature of __call__
+    import inspect
+
+    new_call.__signature__ = inspect.signature(original_call)
+
+    # Optional: preserve metadata
+    new_call.__name__ = original_call.__name__
+
+    # Create new class
+    class Wrapped(cls):
+        __call__ = new_call
+
+    return Wrapped
