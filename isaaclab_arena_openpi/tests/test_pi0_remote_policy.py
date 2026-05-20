@@ -78,7 +78,7 @@ def make_policy(monkeypatch):
 def test_droid_adapter_uses_pi0_wire_keys():
     """The wire-format contract between Pi0DroidAdapter and the openpi droid server."""
     adapter = Pi0DroidAdapter()
-    extracted = adapter.extract(_fake_observation())
+    extracted = adapter.extract(_fake_observation(), env_id=0)
     server_request = adapter.pack_request(extracted, "pick up the block")
 
     assert set(server_request.keys()) == {
@@ -136,6 +136,53 @@ def test_get_action_caches_chunk_and_advances_index(make_policy):
     assert second_action[0, -1].item() == pytest.approx(0.7)
 
 
+def test_get_action_parallel_envs_loops_per_env(monkeypatch):
+    """num_envs>1: one infer per env per chunk refill, batched into (num_envs, action_dim)."""
+    call_count = {"n": 0}
+
+    def counting_infer(self, request):
+        call_count["n"] += 1
+        return {"actions": _synthetic_chunk()}
+
+    _patch_websocket_client(monkeypatch, infer_impl=counting_infer)
+    policy = Pi0RemotePolicy(Pi0RemotePolicyArgs(policy_device="cpu"), openpi_embodiment_adapter=Pi0DroidAdapter())
+    policy.set_task_description("pick up the block")
+
+    num_envs = 3
+    env = _fake_env(num_envs=num_envs)
+    obs = _fake_observation(num_envs=num_envs)
+
+    first_action = policy.get_action(env, obs)
+    second_action = policy.get_action(env, obs)
+
+    # One infer call per env on the first get_action (cache miss); none on the
+    # second (chunk row 1 is still cached for each env).
+    assert call_count["n"] == num_envs
+    assert first_action.shape == (num_envs, 8)
+    assert second_action.shape == (num_envs, 8)
+    for env_id in range(num_envs):
+        assert first_action[env_id, -1].item() == pytest.approx(0.2)
+        assert second_action[env_id, -1].item() == pytest.approx(0.7)
+
+
+def test_reset_honors_env_ids(monkeypatch):
+    """reset(env_ids) clears only those envs' caches; others keep replaying."""
+    _patch_websocket_client(monkeypatch)
+    policy = Pi0RemotePolicy(Pi0RemotePolicyArgs(policy_device="cpu"), openpi_embodiment_adapter=Pi0DroidAdapter())
+    policy.set_task_description("pick up the block")
+    env = _fake_env(num_envs=3)
+    obs = _fake_observation(num_envs=3)
+
+    policy.get_action(env, obs)  # populates caches for all 3 envs
+
+    policy.reset(env_ids=torch.tensor([0, 2]))
+
+    assert policy._cached_action_chunks[0] is None
+    assert policy._cached_action_chunks[1] is not None  # untouched
+    assert policy._cached_action_chunks[2] is None
+    assert policy._next_chunk_steps == [0, 1, 0]
+
+
 def test_call_server_with_retry_reconnects_on_drop(monkeypatch):
     """Drop the first connection; second call succeeds and cache is flushed."""
     call_count = {"n": 0}
@@ -150,15 +197,15 @@ def test_call_server_with_retry_reconnects_on_drop(monkeypatch):
     _patch_websocket_client(monkeypatch, infer_impl=flaky_infer)
     policy = Pi0RemotePolicy(Pi0RemotePolicyArgs(policy_device="cpu"), openpi_embodiment_adapter=Pi0DroidAdapter())
     policy.set_task_description("pick up the block")
-    policy._cached_action_chunk = np.zeros((15, 8), dtype=np.float32)
-    policy._next_chunk_step = 5
+    policy._cached_action_chunks = [np.zeros((15, 8), dtype=np.float32)]
+    policy._next_chunk_steps = [5]
 
     response = policy._call_server_with_retry({"prompt": "x"})
 
     assert response is successful_response
     assert call_count["n"] == 2
-    assert policy._cached_action_chunk is None
-    assert policy._next_chunk_step == 0
+    assert policy._cached_action_chunks == [None]
+    assert policy._next_chunk_steps == [0]
 
 
 def test_call_server_with_retry_gives_up_after_max_attempts(monkeypatch):

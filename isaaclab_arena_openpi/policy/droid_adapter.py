@@ -16,7 +16,7 @@ from isaaclab_arena_openpi.policy.pi0_remote_policy import Pi0EmbodimentAdapter
 
 @dataclass(frozen=True)
 class DroidObservation:
-    """env-0 tensors needed to assemble an openpi DROID request."""
+    """Per-env tensors needed to assemble an openpi DROID request."""
 
     exterior_image: np.ndarray  # (H, W, 3) uint8
     wrist_image: np.ndarray  # (H, W, 3) uint8
@@ -50,14 +50,14 @@ class Pi0DroidAdapter(Pi0EmbodimentAdapter):
     arena_camera_obs_group = "camera_obs"
     arena_policy_obs_group = "policy"
 
-    def extract(self, observation: dict[str, Any]) -> DroidObservation:
+    def extract(self, observation: dict[str, Any], env_id: int) -> DroidObservation:
         cam = observation[self.arena_camera_obs_group]
         proprio = observation[self.arena_policy_obs_group]
         return DroidObservation(
-            exterior_image=cam[self.arena_external_camera_key][0].detach().cpu().numpy(),
-            wrist_image=cam[self.arena_wrist_camera_key][0].detach().cpu().numpy(),
-            joint_position=proprio["joint_pos"][0].detach().cpu().numpy(),
-            gripper_position=proprio["gripper_pos"][0].detach().cpu().numpy(),
+            exterior_image=cam[self.arena_external_camera_key][env_id].detach().cpu().numpy(),
+            wrist_image=cam[self.arena_wrist_camera_key][env_id].detach().cpu().numpy(),
+            joint_position=proprio["joint_pos"][env_id].detach().cpu().numpy(),
+            gripper_position=proprio["gripper_pos"][env_id].detach().cpu().numpy(),
         )
 
     def pack_request(self, extracted: DroidObservation, language_instruction: str) -> dict[str, Any]:
