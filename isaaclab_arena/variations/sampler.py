@@ -101,6 +101,10 @@ class Sampler(ABC):
             vector-valued samplers (e.g. an RGB uniform).
         """
         ...
+    
+    def write_sample_to_ledger(self, sample: torch.Tensor):
+        """Write the sample to the ledger."""
+        print(f"Writing sample to ledger: {sample}")
 
 
 class UniformSampler(Sampler):
@@ -142,4 +146,6 @@ class UniformSampler(Sampler):
         assert num_samples >= 0, f"num_samples must be non-negative; got {num_samples}."
         shape = (num_samples, *self.event_shape)
         u = torch.rand(shape, generator=generator)
-        return self.low + (self.high - self.low) * u
+        sample = self.low + (self.high - self.low) * u
+        self.write_sample_to_ledger(sample)
+        return sample

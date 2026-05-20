@@ -5,32 +5,42 @@
 
 """Per-asset visual color variation.
 
-Wraps :class:`isaaclab.envs.mdp.randomize_visual_color` — the "replace the
-bound material" path validated in ``isaaclab_arena/examples/compile_env_notebook.py``.
-Each cloned env ends up with a distinct random flat color; the asset's
-original diffuse texture is dropped (the in-place tint path remains a TODO,
-see ``2026_04_21_color_variation_status.md``).
+Implements the "replace the bound material" color randomization path
+validated in ``isaaclab_arena/examples/compile_env_notebook.py`` —
+originally a thin wrapper around :class:`isaaclab.envs.mdp.randomize_visual_color`,
+now reimplemented locally as :class:`randomize_visual_color_from_sampler`
+so an Arena :class:`~isaaclab_arena.variations.sampler.Sampler` drives the
+RGB draw instead of an opaque Replicator RNG. Each cloned env ends up with
+a distinct random flat color; the asset's original diffuse texture is
+dropped (the in-place tint path remains a TODO, see
+``2026_04_21_color_variation_status.md``).
 
-Sampler support in this POC is limited to a 3D :class:`UniformSampler` over
-RGB. :class:`~isaaclab.envs.mdp.randomize_visual_color` samples internally
-from the ``colors`` dict we build here; the sampler's bounds are forwarded
-as-is.
+Pulling the sampling step out of Replicator and into our :class:`Sampler`
+gives the variation system access to the actual values drawn at run time,
+which the sensitivity-analysis effort needs in order to record per-episode
+input factors. The hook itself is not implemented here; see
+:meth:`~isaaclab_arena.variations.sampler.Sampler.write_sample_to_ledger`.
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import field
 from typing import TYPE_CHECKING
 
-import isaaclab.envs.mdp as mdp
+import torch
+
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.utils import configclass
+from isaaclab.utils.version import compare_versions
 
-from isaaclab_arena.variations.sampler import Sampler, UniformSampler, UniformSamplerCfg
+from isaaclab_arena.variations.sampler import Sampler, UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import VariationBase, VariationBaseCfg
 from isaaclab_arena.variations.variation_registry import register_variation
 
 if TYPE_CHECKING:
+    from isaaclab.envs import ManagerBasedEnv
+
     from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.scene.scene import Scene
 
@@ -54,12 +64,12 @@ class ObjectColorVariationCfg(VariationBaseCfg):
             targets all meshes under the asset's prim.
         sampler: RGB distribution. Currently pinned to
             :class:`~isaaclab_arena.variations.sampler.UniformSamplerCfg`
-            because :meth:`ObjectColorVariation.build_event_cfg` only knows how
-            to translate uniform bounds into the ``colors`` dict that
-            :class:`randomize_visual_color` expects; see
-            :meth:`_sampler_to_colors_spec` for details. A tagged-union /
-            config-group mechanism can be introduced later if other sampler
-            kinds (e.g. discrete palette) become useful here.
+            because the runtime event term
+            :func:`randomize_visual_color_from_sampler` only knows how to
+            apply per-channel RGB samples drawn from a 3D
+            :class:`~isaaclab_arena.variations.sampler.UniformSampler`. A
+            tagged-union / config-group mechanism can be introduced later if
+            other sampler kinds (e.g. discrete palette) become useful here.
     """
 
     mode: str = "reset"
@@ -137,18 +147,29 @@ class ObjectColorVariation(VariationBase):
             f"ObjectColorVariation on '{self.asset_name}' is enabled but no sampler is set; "
             "call .set_sampler(...) before building the env."
         )
-        colors = self._sampler_to_colors_spec()
         event_name = f"{self.asset_name}_color_variation"
         event_cfg = EventTermCfg(
-            func=wrap_callable_class(mdp.randomize_visual_color),
+            func=randomize_visual_color_from_sampler,
             mode=self.cfg.mode,
             params={
                 "asset_cfg": SceneEntityCfg(self.asset_name),
-                "colors": colors,
+                "sampler": self._sampler,
                 "mesh_name": self.cfg.mesh_name,
-                "event_name": event_name,
             },
         )
+
+        # event_cfg = make_variation_event(
+        #     func=mdp.randomize_visual_color,
+        #     sampler=self._sampler,
+        #     mode=self.cfg.mode,
+        #     params={
+        #         "asset_cfg": SceneEntityCfg(self.asset_name),
+        #         "colors": colors,
+        #         "mesh_name": self.cfg.mesh_name,
+        #         "event_name": event_name,
+        #     },
+        # )
+
         # event_cfg = EventTermCfg(
         #     func=make_wrapper(mdp.randomize_visual_color),
         #     mode=self.cfg.mode,
@@ -162,66 +183,152 @@ class ObjectColorVariation(VariationBase):
         # )
         return event_name, event_cfg
 
-    def _sampler_to_colors_spec(self) -> dict[str, tuple[float, float]]:
-        """Translate ``self._sampler`` into the ``colors`` dict the event term expects.
 
-        :class:`randomize_visual_color` accepts either a list of discrete
-        RGB triples or a dict ``{"r": (low, high), "g": (...), "b": (...)}``
-        of per-channel uniform ranges. We currently only produce the dict
-        form from a 3D :class:`UniformSampler`; richer sampler types (e.g.
-        a discrete choice sampler) can extend this mapping later.
-        """
-        assert isinstance(self._sampler, UniformSampler), (
-            f"ObjectColorVariation currently only supports UniformSampler; got {type(self._sampler).__name__}. "
-            "Discrete palette support (DiscreteChoiceSampler) is planned but not implemented."
+class randomize_visual_color_from_sampler(ManagerTermBase):
+    """Randomize the visual color of bodies on an asset, sampling via an Arena :class:`Sampler`.
+
+    Locally-owned variant of :class:`isaaclab.envs.mdp.randomize_visual_color`
+    that delegates RGB sampling to an Arena
+    :class:`~isaaclab_arena.variations.sampler.Sampler` instead of letting
+    Replicator's internal RNG draw the values opaquely. The sample tensor is
+    visible to Python on every call, which is what the sensitivity-analysis
+    recording layer needs in order to log per-episode input factors. Setup
+    (replicator extension load, material creation, prim binding) mirrors the
+    upstream class so the visual result is identical when the sampler matches
+    the bounds.
+
+    Only the modern Replicator code path (``omni.replicator.core >= 1.12.4``)
+    is supported: the legacy path builds a ``rep.distribution.uniform`` node
+    inside an OmniGraph and samples there, which there is no way to replace
+    with a Python-side :class:`Sampler` without forking the graph. This is
+    asserted at term init.
+
+    .. note::
+        Like the upstream variant, randomization is applied to *all* envs on
+        every call regardless of ``env_ids``; per-env subsetting on the
+        Replicator side is still an open item upstream.
+
+    .. note::
+        Scene replication (:attr:`isaaclab.scene.InteractiveSceneCfg.replicate_physics`)
+        must be ``False`` so each env owns its own material prim — same
+        constraint as the upstream variant.
+    """
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+
+        # enable replicator extension if not already enabled (local: isaacsim only available with Kit)
+        from isaacsim.core.utils.extensions import enable_extension  # noqa: PLC0415
+
+        enable_extension("omni.replicator.core")
+        import omni.replicator.core as rep  # noqa: PLC0415
+
+        asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        sampler: Sampler = cfg.params["sampler"]
+        mesh_name: str = cfg.params.get("mesh_name", "")
+
+        assert not env.cfg.scene.replicate_physics, (
+            "Cannot randomize visual color with scene replication enabled. "
+            "Set 'replicate_physics=False' on InteractiveSceneCfg."
         )
-        assert tuple(self._sampler.event_shape) == (3,), (
-            "ObjectColorVariation expects a 3D UniformSampler over RGB; got event_shape "
-            f"{tuple(self._sampler.event_shape)}."
+
+        # Match the upstream RGB-only contract: we'll be writing a (num_prims, 3)
+        # array into 'diffuse_color_constant', so the sampler must produce 3D
+        # samples. Higher-dim distributions (e.g. with alpha) can be added later
+        # alongside an extension to the upstream attribute write.
+        assert tuple(sampler.event_shape) == (3,), (
+            "randomize_visual_color_from_sampler expects a sampler with event_shape (3,) over RGB; "
+            f"got {tuple(sampler.event_shape)}."
         )
-        low = self._sampler.low.tolist()
-        high = self._sampler.high.tolist()
-        return {
-            "r": (low[0], high[0]),
-            "g": (low[1], high[1]),
-            "b": (low[2], high[2]),
-        }
+
+        asset = env.scene[asset_cfg.name]
+        if not mesh_name.startswith("/"):
+            mesh_name = "/" + mesh_name
+        mesh_prim_path = f"{asset.cfg.prim_path}{mesh_name}"
+        # TODO: Need to make it work for multiple meshes (mirrors upstream TODO).
+
+        version = re.match(r"^(\d+\.\d+\.\d+)", rep.__file__.split("/")[-5][21:]).group(1)
+        assert compare_versions(version, "1.12.4") >= 0, (
+            "randomize_visual_color_from_sampler requires omni.replicator.core >= 1.12.4 "
+            f"(found {version}); the legacy OmniGraph sampling path cannot be driven by an Arena Sampler."
+        )
+
+        stage = env.sim.stage
+        prims_group = rep.functional.get.prims(path_pattern=mesh_prim_path, stage=stage)
+        num_prims = len(prims_group)
+
+        for prim in prims_group:
+            if prim.IsInstanceable():
+                prim.SetInstanceable(False)
+
+        # TODO: Should we specify the value when creating the material? (mirrors upstream TODO).
+        self.material_prims = rep.functional.create_batch.material(
+            mdl="OmniPBR.mdl", bind_prims=prims_group, count=num_prims, project_uvw=True
+        )
+
+    def __call__(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor,
+        asset_cfg: SceneEntityCfg,
+        sampler: Sampler,
+        mesh_name: str = "",
+    ):
+        import omni.replicator.core as rep  # noqa: PLC0415
+
+        num_prims = len(self.material_prims)
+        sample = sampler.sample(num_samples=num_prims)
+        random_colors = sample.detach().cpu().numpy()
+        print("random_colors", random_colors)
+        rep.functional.modify.attribute(self.material_prims, "diffuse_color_constant", random_colors)
 
 
-def make_wrapper(func: Callable) -> Callable:
-    def wrapped(*args, **kwargs):
-        print("before")
-        result = func(*args, **kwargs)
-        print("after")
-        return result
+# def make_variation_event(func: Callable, sampler: Sampler, mode: str, params: dict) -> EventTermCfg:
 
-    # Preserve the original signature
-    import inspect
-
-    wrapped.__signature__ = inspect.signature(func)
-
-    return wrapped
+    
+#     return EventTermCfg(
+#         func=func,
+#         mode=mode,
+#         params=params,
+#     )
 
 
-def wrap_callable_class(cls: type) -> type:
-    original_call = cls.__call__
 
-    def new_call(self, *args, **kwargs) -> Any:
-        print("before")
-        result = original_call(self, *args, **kwargs)
-        print("after")
-        return result
+# def make_wrapper(func: Callable) -> Callable:
+#     def wrapped(*args, **kwargs):
+#         print("before")
+#         result = func(*args, **kwargs)
+#         print("after")
+#         return result
 
-    # Copy signature of __call__
-    import inspect
+#     # Preserve the original signature
+#     import inspect
 
-    new_call.__signature__ = inspect.signature(original_call)
+#     wrapped.__signature__ = inspect.signature(func)
 
-    # Optional: preserve metadata
-    new_call.__name__ = original_call.__name__
+#     return wrapped
 
-    # Create new class
-    class Wrapped(cls):
-        __call__ = new_call
 
-    return Wrapped
+# def wrap_callable_class(cls: type) -> type:
+#     original_call = cls.__call__
+
+#     def new_call(self, *args, **kwargs) -> Any:
+#         print("before")
+#         result = original_call(self, *args, **kwargs)
+#         print("after")
+#         return result
+
+#     # Copy signature of __call__
+#     import inspect
+
+#     new_call.__signature__ = inspect.signature(original_call)
+
+#     # Optional: preserve metadata
+#     new_call.__name__ = original_call.__name__
+
+#     # Create new class
+#     class Wrapped(cls):
+#         __call__ = new_call
+
+#     return Wrapped
+
