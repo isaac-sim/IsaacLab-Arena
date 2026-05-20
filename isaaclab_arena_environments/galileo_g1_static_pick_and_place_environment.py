@@ -15,9 +15,8 @@ HOMIE behaviour. The other differences from the locomanip env are:
 
 1. The destination plate sits on the *same* shelf as the apple (within arm's reach), so
    the robot never needs to drive its base anywhere -- WBC just holds the standing pose.
-2. The apple's spawn pose is randomized per episode within ``APPLE_SPAWN_XY_RANGE_M``
-   (XY only) so recorded demos have spatial variation; the destination plate stays at a
-   fixed pose so the place target is identical across episodes.
+2. The apple and destination plate spawn at fixed same-shelf poses, so recorded demos
+   and closed-loop evaluation start from the same object layout.
 """
 
 from __future__ import annotations
@@ -44,26 +43,17 @@ if TYPE_CHECKING:
 #   shelf on the first sim tick (which would otherwise launch them upward).
 SHELF_SURFACE_Z = -0.030
 SHELF_AIRGAP = 0.005
-# Cuboid center: top face = SHELF_SURFACE_Z. This assumes procedural_table height is 0.04 m.
-SHELF_SUPPORT_PATCH_CENTER = (0.62, 0.0, SHELF_SURFACE_Z - 0.02)
+SHELF_SUPPORT_PATCH_SIZE = (0.8, 1.5, 0.04)
+# Cuboid center: top face = SHELF_SURFACE_Z.
+SHELF_SUPPORT_PATCH_CENTER = (0.62, 0.0, SHELF_SURFACE_Z - SHELF_SUPPORT_PATCH_SIZE[2] / 2.0)
 
 # Object XY spawn pose (env-local frame, shelf-relative). X mirrors the locomanip env
-# (the only on-shelf X we have ground-truth data for via the brown_box flow). The pickup
-# Y also mirrors locomanip (Y=0.18); the destination is offset -0.24 m in Y so the
-# plate's 30 cm footprint clears the apple without collision. Earlier we tried Y=0.30
-# for the apple but a smoke test showed it rolls off the shelf edge from there.
-PICK_UP_OBJECT_SPAWN_XY = (0.5785, 0.18)
-DESTINATION_SPAWN_XY = (0.5785, -0.06)
-
-# Half-range of the apple's per-episode XY randomization at reset, in metres. Mirrors
-# the locomanip env's ``XY_RANGE_M = 0.025`` but tightened to 0.020 because the static
-# variant places the destination plate on the *same* shelf, so the spawn workspace is
-# narrower (apple at Y=0.18, plate's +Y edge at ~0.09 -> 9 cm headroom; 2 cm jitter
-# leaves 7 cm minimum gap to the plate). Without this jitter every recorded demo has
-# the apple at the exact same XY, which limits the spatial variation a finetuned policy
-# can generalize over. The destination plate is left at a fixed Pose so the place
-# target is identical across episodes.
-APPLE_SPAWN_XY_RANGE_M = 0.020
+# (the only on-shelf X we have ground-truth data for via the brown_box flow). Y values
+# are tuned for the static same-shelf apple-to-plate setup: both objects sit left on the
+# table, and the plate is close enough to reduce unnecessary reach while still clearing
+# the apple.
+PICK_UP_OBJECT_SPAWN_XY = (0.5785, 0.27)
+DESTINATION_SPAWN_XY = (0.5785, 0.06)
 
 # Per-asset Z offset from the asset's USD origin to its bottom face. Added on top of
 # ``SHELF_SURFACE_Z + SHELF_AIRGAP`` so the asset's *bottom* lands on the shelf rather
@@ -96,6 +86,25 @@ _BACKGROUND_PRIMS_TO_DEACTIVATE: tuple[str, ...] = (
     "galileo_locomanip/BackgroundAssets/boxes/hesai_box_06",
 )
 
+# Mild open-arm posture using shoulder joints only. Shoulder yaw keeps the
+# forearms in the liked orientation; shoulder roll moves the arms away from the torso.
+_G1_STATIC_OPEN_ARM_JOINT_POS: dict[str, float] = {
+    "left_shoulder_roll_joint": 0.25,
+    "right_shoulder_roll_joint": -0.25,
+    "left_shoulder_yaw_joint": 0.5,
+    "right_shoulder_yaw_joint": -0.5,
+}
+
+_G1_FINGER_FRICTION_MATERIAL_PATH = "/World/Materials/g1_static_pick_place_high_friction_fingers"
+_G1_FINGER_STATIC_FRICTION = 6.0
+_G1_FINGER_DYNAMIC_FRICTION = 5.0
+_G1_FINGER_PRIM_NAME_MARKERS: tuple[str, ...] = (
+    "hand",
+    "thumb",
+    "index",
+    "middle",
+)
+
 
 def _deactivate_background_prims(env, env_ids, prim_relative_paths: tuple[str, ...]) -> None:
     """Deactivate selected referenced background prims before simulation starts."""
@@ -113,6 +122,52 @@ def _deactivate_background_prims(env, env_ids, prim_relative_paths: tuple[str, .
                     "the background asset may still be visible.",
                     stacklevel=1,
                 )
+
+
+def _apply_high_friction_to_g1_fingers(env, env_ids) -> None:
+    """Bind a high-friction contact material to G1 hand/finger collision prims."""
+    del env_ids
+    from isaaclab.sim import bind_physics_material
+    from isaaclab.sim.spawners.materials import RigidBodyMaterialCfg
+    from pxr import UsdPhysics, UsdShade
+
+    stage = env.sim.stage
+    material_cfg = RigidBodyMaterialCfg(
+        static_friction=_G1_FINGER_STATIC_FRICTION,
+        dynamic_friction=_G1_FINGER_DYNAMIC_FRICTION,
+        friction_combine_mode="max",
+    )
+    material_cfg.func(_G1_FINGER_FRICTION_MATERIAL_PATH, material_cfg)
+
+    bound_count = 0
+    for env_prim_path in env.scene.env_prim_paths:
+        robot_prim_path = f"{env_prim_path}/Robot"
+        for prim in stage.Traverse():
+            prim_path = str(prim.GetPath())
+            if not prim_path.startswith(robot_prim_path):
+                continue
+            prim_path_lower = prim_path.lower()
+            if not any(marker in prim_path_lower for marker in _G1_FINGER_PRIM_NAME_MARKERS):
+                continue
+            applied_schemas = set(prim.GetAppliedSchemas())
+            has_collision_api = prim.HasAPI(UsdPhysics.CollisionAPI) or "PhysicsCollisionAPI" in applied_schemas
+            if not has_collision_api:
+                continue
+
+            bind_physics_material(prim_path, _G1_FINGER_FRICTION_MATERIAL_PATH, stage=stage)
+            # bind_physics_material is decorated with apply_nested and returns None, so
+            # verify the resulting direct physics material binding explicitly.
+            material_binding_api = UsdShade.MaterialBindingAPI(prim)
+            direct_binding = material_binding_api.GetDirectBinding("physics")
+            if str(direct_binding.GetMaterialPath()) == _G1_FINGER_FRICTION_MATERIAL_PATH:
+                bound_count += 1
+
+    if bound_count == 0:
+        warnings.warn(
+            "_apply_high_friction_to_g1_fingers: no G1 hand/finger collision prims were found; "
+            "apple grip friction may be unchanged.",
+            stacklevel=1,
+        )
 
 
 def _shelf_spawn_z(asset_name: str) -> float:
@@ -156,21 +211,31 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
     name: str = "galileo_g1_static_pick_and_place"
 
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+        from isaaclab import sim as sim_utils
+
+        from isaaclab_arena.assets.object import Object
+        from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-        from isaaclab_arena.utils.pose import Pose, PoseRange
+        from isaaclab_arena.utils.pose import Pose
 
         # Reuse the locomanip background USD: it bakes in lighting and provides the same
         # shelf-in-front-of-robot geometry the locomanip env was tuned against.
         background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
         # The imported shelf mesh has uneven/perforated collision in the task region:
         # small objects can fall through parts of the visible shelf. Add an invisible
-        # kinematic cuboid flush with the shelf top so task objects see a clean support.
+        # static cuboid flush with the shelf top so task objects see a clean support.
         # This has only reproduced in GPU simulation; CPU runs have not shown the issue.
-        shelf_support = self.asset_registry.get_asset_by_name("procedural_table")(
-            instance_name="static_pick_place_shelf_support",
+        shelf_support = Object(
+            name="static_pick_place_shelf_support",
             prim_path="{ENV_REGEX_NS}/static_pick_place_shelf_support",
+            object_type=ObjectType.BASE,
+            spawner_cfg=sim_utils.CuboidCfg(
+                size=SHELF_SUPPORT_PATCH_SIZE,
+                collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
+                visible=False,
+            ),
         )
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)(scale=_asset_scale(args_cli.object))
         destination = self.asset_registry.get_asset_by_name(args_cli.destination)(
@@ -186,32 +251,18 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         # Robot pose mirrors the locomanip env exactly so the WBC controller stands the
         # robot up in the same shelf-relative spot. The controller dynamically lifts the
         # pelvis to ~z=0.74 at runtime; init_state.pos.z=0 is correct.
-        embodiment.set_initial_pose(Pose(position_xyz=(0.3, 0.08, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+        embodiment.set_initial_pose(Pose(position_xyz=(0.20, 0.08, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+        embodiment.scene_config.robot.init_state.joint_pos.update(_G1_STATIC_OPEN_ARM_JOINT_POS)
         shelf_support.set_initial_pose(
             Pose(position_xyz=SHELF_SUPPORT_PATCH_CENTER, rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
         )
         pick_up_object_x, pick_up_object_y = PICK_UP_OBJECT_SPAWN_XY
         destination_x, destination_y = DESTINATION_SPAWN_XY
         pick_up_object_z = _shelf_spawn_z(args_cli.object)
-        # ``PoseRange`` registers a ``randomize_object_pose`` reset event so the apple's
-        # XY is resampled every episode within ``APPLE_SPAWN_XY_RANGE_M``. Z and rotation
-        # are pinned (rpy_min == rpy_max) so the object always lands flush on the shelf
-        # in its authored orientation; we only randomize XY. This gives recorded demos
-        # spatial variation that lets a finetuned policy generalize over the spawn range.
         pick_up_object.set_initial_pose(
-            PoseRange(
-                position_xyz_min=(
-                    pick_up_object_x - APPLE_SPAWN_XY_RANGE_M,
-                    pick_up_object_y - APPLE_SPAWN_XY_RANGE_M,
-                    pick_up_object_z,
-                ),
-                position_xyz_max=(
-                    pick_up_object_x + APPLE_SPAWN_XY_RANGE_M,
-                    pick_up_object_y + APPLE_SPAWN_XY_RANGE_M,
-                    pick_up_object_z,
-                ),
-                rpy_min=(0.0, 0.0, 0.0),
-                rpy_max=(0.0, 0.0, 0.0),
+            Pose(
+                position_xyz=(pick_up_object_x, pick_up_object_y, pick_up_object_z),
+                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
         destination.set_initial_pose(
@@ -241,6 +292,10 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 func=_deactivate_background_prims,
                 mode="prestartup",
                 params={"prim_relative_paths": _BACKGROUND_PRIMS_TO_DEACTIVATE},
+            )
+            env_cfg.events.apply_high_friction_to_g1_fingers = EventTermCfg(
+                func=_apply_high_friction_to_g1_fingers,
+                mode="prestartup",
             )
             # The GR00T policy consumes camera observations. Force one RTX sensor
             # refresh after reset so the next policy query does not see the
