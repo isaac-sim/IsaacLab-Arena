@@ -560,8 +560,13 @@ static apple-to-plate episode runs for roughly half as long as the loco-manipula
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The 600-step command is intended as a quick smoke test. To get a more representative
-success rate, run a longer evaluation with roughly 1000 policy steps; for this task,
-that corresponds to setting <code class="docutils literal notranslate"><span class="pre">--num_steps</span> <span class="pre">30000</span></code>.</p>
+success rate, evaluate complete episodes instead of relying on one short rollout: use
+<code class="docutils literal notranslate"><span class="pre">--num_episodes</span> <span class="pre">100</span></code> for a quick estimate or <code class="docutils literal notranslate"><span class="pre">--num_episodes</span> <span class="pre">1000</span></code> for a stronger
+estimate. If you prefer <code class="docutils literal notranslate"><span class="pre">--num_steps</span></code>, this task’s 6-second timeout comes from the
+task episode length (<code class="docutils literal notranslate"><span class="pre">episode_length_s=6.0</span></code> in
+<code class="docutils literal notranslate"><span class="pre">galileo_g1_static_pick_and_place_environment.py</span></code>). At 50 Hz control, that is about
+300 environment steps per episode, so 100 episodes is roughly <code class="docutils literal notranslate"><span class="pre">--num_steps</span> <span class="pre">30000</span></code>
+and 1000 episodes is roughly <code class="docutils literal notranslate"><span class="pre">--num_steps</span> <span class="pre">300000</span></code>.</p>
 </div>
 <p>The evaluation should produce the following output on the console at the end of the evaluation.
 You should see similar metrics.</p>

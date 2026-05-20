@@ -3,6 +3,13 @@ Teleoperation Data Collection
 
 This workflow covers collecting demonstrations for the Unitree G1 static apple-to-plate task using **Meta Quest 3** or **Pico 4 Ultra** supported by `Nvidia IsaacTeleop <https://github.com/NVIDIA/IsaacTeleop>`_.
 
+.. note::
+
+   For supported IsaacTeleop hardware devices, see `Supported Input Devices
+   <https://nvidia.github.io/IsaacTeleop/main/overview/ecosystem.html#supported-input-devices>`_.
+   Before starting teleoperation, also review the `IsaacTeleop system requirements
+   <https://nvidia.github.io/IsaacTeleop/main/references/requirements.html#teleoperation-with-isaac-sim-and-isaac-lab>`_.
+
 .. admonition:: No teleoperation hardware?
    :class: tip
 
@@ -178,36 +185,70 @@ Step 4: Record with the headset device
 
 #. Complete the task for each demo. Reset between demos. The script saves successful runs to the HDF5 file above.
 
+.. important::
+
+   High-quality seed demonstrations are required because these recordings are converted directly to
+   LeRobot format and used for policy post-training (see :doc:`step_3_policy_training`). The command
+   above records ``--num_demos 10`` for a fast tutorial pass. For better inference results, change it
+   to ``--num_demos 400`` and keep ``--num_success_steps 10`` so each successful episode includes
+   extra stable frames after the success condition is triggered.
+
+   Policy success rate depends heavily on both dataset quality and dataset size. For better success
+   rates, collect more clean demonstrations with smooth actions, stable grasps, and no unnecessary
+   collisions.
+
+   Follow this protocol while collecting data:
+
+   * **Warm-up:** complete about 5 practice runs before recording the main dataset so you
+     are used to XR latency and the apple's contact behavior.
+   * **Smoothness:** move consistently and avoid jerky motions. Jerky seed demonstrations lead to
+     poor synthetic augmentations and unstable policy behavior.
+   * **Body motion:** keep the robot torso and body fixed during this static task. Use only the arms
+     and hands for manipulation.
+   * **Grasp diversity:** include diverse grasp styles across the dataset, including top-down grasps
+     and side grasps, so the policy does not overfit to one approach direction.
+   * **Clean successes only:** save only runs with no unnecessary collisions, no dropped objects before
+     placement, and no recovery motions that would confuse the policy.
+   * **Trajectory length:** aim for demonstrations around 200--400 timesteps. Very long episodes slow
+     down downstream data processing, while very short episodes tend to contain abrupt motion.
+   * **Replay validation:** after recording, replay the HDF5 with Step 5 and inspect camera frames,
+     action smoothness, trajectory consistency, and overall task quality before training.
+
 .. hint::
 
-   Suggested sequence for the task:
+   Suggested sequence for good data collection:
 
-   #. Reach toward the apple with one controller — the apple is small and round, so approach it
-      from above and pinch-grasp with a fingertip grip.
-   #. Lift it 5--10 cm above the shelf to clear the plate's rim.
-   #. Move it laterally over the plate.
-   #. Open the gripper to release the apple onto the plate.
-
-   Demos for this task should be noticeably shorter than the loco-manipulation variant (no walk / turn /
-   squat phases), so you can collect 10 successful demos in around 5--10 minutes once the pipeline is
-   running.
-
-
-.. note::
+   #. **Prepare the camera view:** first move the right arm to the side and keep it still, resting near the
+      shelf/table surface if possible, to reduce visual clutter and self-occlusion.
+   #. **Move to the apple:** approach the apple smoothly with the left arm, primarily along a horizontal
+      path. A side approach is a good default trajectory for clean demonstrations.
+   #. **Grasp execution:** once the hand is aligned with the apple, close the gripper/fingers firmly
+      to establish a stable grasp.
+   #. **Lift motion:** lift the apple straight upward before translating toward the plate. Avoid
+      backtracking along the original approach path because it makes it harder for GR00T to distinguish
+      approach and retreat motions during training.
+   #. **Placement:** lower the apple until it is slightly above the plate surface, pause briefly in a
+      stable pose, then release cleanly so the apple drops naturally onto the plate.
 
    Releasing a small round object onto a flat plate is noticeably harder than dropping a box into a
-   bin. Keep the release height low and the orientation stable — these recordings are fed directly
-   into LeRobot conversion and policy post-training (see :doc:`step_3_policy_training`), so demo
-   quality is what the policy learns from.
+   bin. Keep the release height low and the orientation stable.
 
 
 Step 5: Replay Recorded Demos (Optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Replay the recorded HDF5 to confirm the demos look correct end-to-end. This doubles as a no-XR
-sanity check on the environment: it drives the env from the recorded actions and needs no
-teleoperation device, so you can visually verify the scene, embodiment and asset placements
-without launching CloudXR.
+Replay the recorded HDF5 to sanity-check the saved action sequence. This doubles as a no-XR
+check on the environment: it drives the env from the recorded actions and needs no teleoperation
+device, so you can visually verify the scene, embodiment, and asset placements without launching
+CloudXR.
+
+.. note::
+
+   ``replay_demos.py`` replays the captured **actions** in simulation; it is not exact trajectory
+   or video playback. Because this is open-loop replay, small differences in contact dynamics,
+   physics backend, timing, environment configuration, or the apple's randomized initial pose can
+   make replay miss or drop the apple even when the original recorded demo succeeded. Treat replay
+   as an action-level sanity check, and inspect the recorded camera data before recollecting data.
 
 .. code-block:: bash
 

@@ -493,6 +493,11 @@
   <section id="teleoperation-data-collection">
 <h1>Teleoperation Data Collection<a class="headerlink" href="#teleoperation-data-collection" title="Link to this heading">#</a></h1>
 <p>This workflow covers collecting demonstrations for the Unitree G1 static apple-to-plate task using <strong>Meta Quest 3</strong> or <strong>Pico 4 Ultra</strong> supported by <a class="reference external" href="https://github.com/NVIDIA/IsaacTeleop">Nvidia IsaacTeleop</a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For supported IsaacTeleop hardware devices, see <a class="reference external" href="https://nvidia.github.io/IsaacTeleop/main/overview/ecosystem.html#supported-input-devices">Supported Input Devices</a>.
+Before starting teleoperation, also review the <a class="reference external" href="https://nvidia.github.io/IsaacTeleop/main/references/requirements.html#teleoperation-with-isaac-sim-and-isaac-lab">IsaacTeleop system requirements</a>.</p>
+</div>
 <div class="tip admonition">
 <p class="admonition-title">No teleoperation hardware?</p>
 <p>The static task drops the locomotion / squat / turn channels but still needs bimanual end-effector
@@ -654,34 +659,68 @@ python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_d
 <li><p>Follow Step 3 to connect the headset again.</p></li>
 <li><p>Complete the task for each demo. Reset between demos. The script saves successful runs to the HDF5 file above.</p></li>
 </ol>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>High-quality seed demonstrations are required because these recordings are converted directly to
+LeRobot format and used for policy post-training (see <a class="reference internal" href="step_3_policy_training.html"><span class="doc">Policy Post-Training (GR00T N1.7)</span></a>). The command
+above records <code class="docutils literal notranslate"><span class="pre">--num_demos</span> <span class="pre">10</span></code> for a fast tutorial pass. For better inference results, change it
+to <code class="docutils literal notranslate"><span class="pre">--num_demos</span> <span class="pre">400</span></code> and keep <code class="docutils literal notranslate"><span class="pre">--num_success_steps</span> <span class="pre">10</span></code> so each successful episode includes
+extra stable frames after the success condition is triggered.</p>
+<p>Policy success rate depends heavily on both dataset quality and dataset size. For better success
+rates, collect more clean demonstrations with smooth actions, stable grasps, and no unnecessary
+collisions.</p>
+<p>Follow this protocol while collecting data:</p>
+<ul class="simple">
+<li><p><strong>Warm-up:</strong> complete about 5 practice runs before recording the main dataset so you
+are used to XR latency and the apple’s contact behavior.</p></li>
+<li><p><strong>Smoothness:</strong> move consistently and avoid jerky motions. Jerky seed demonstrations lead to
+poor synthetic augmentations and unstable policy behavior.</p></li>
+<li><p><strong>Body motion:</strong> keep the robot torso and body fixed during this static task. Use only the arms
+and hands for manipulation.</p></li>
+<li><p><strong>Grasp diversity:</strong> include diverse grasp styles across the dataset, including top-down grasps
+and side grasps, so the policy does not overfit to one approach direction.</p></li>
+<li><p><strong>Clean successes only:</strong> save only runs with no unnecessary collisions, no dropped objects before
+placement, and no recovery motions that would confuse the policy.</p></li>
+<li><p><strong>Trajectory length:</strong> aim for demonstrations around 200–400 timesteps. Very long episodes slow
+down downstream data processing, while very short episodes tend to contain abrupt motion.</p></li>
+<li><p><strong>Replay validation:</strong> after recording, replay the HDF5 with Step 5 and inspect camera frames,
+action smoothness, trajectory consistency, and overall task quality before training.</p></li>
+</ul>
+</div>
 <div class="admonition hint">
 <p class="admonition-title">Hint</p>
-<p>Suggested sequence for the task:</p>
+<p>Suggested sequence for good data collection:</p>
 <ol class="arabic simple">
-<li><p>Reach toward the apple with one controller — the apple is small and round, so approach it
-from above and pinch-grasp with a fingertip grip.</p></li>
-<li><p>Lift it 5–10 cm above the shelf to clear the plate’s rim.</p></li>
-<li><p>Move it laterally over the plate.</p></li>
-<li><p>Open the gripper to release the apple onto the plate.</p></li>
+<li><p><strong>Prepare the camera view:</strong> first move the right arm to the side and keep it still, resting near the
+shelf/table surface if possible, to reduce visual clutter and self-occlusion.</p></li>
+<li><p><strong>Move to the apple:</strong> approach the apple smoothly with the left arm, primarily along a horizontal
+path. A side approach is a good default trajectory for clean demonstrations.</p></li>
+<li><p><strong>Grasp execution:</strong> once the hand is aligned with the apple, close the gripper/fingers firmly
+to establish a stable grasp.</p></li>
+<li><p><strong>Lift motion:</strong> lift the apple straight upward before translating toward the plate. Avoid
+backtracking along the original approach path because it makes it harder for GR00T to distinguish
+approach and retreat motions during training.</p></li>
+<li><p><strong>Placement:</strong> lower the apple until it is slightly above the plate surface, pause briefly in a
+stable pose, then release cleanly so the apple drops naturally onto the plate.</p></li>
 </ol>
-<p>Demos for this task should be noticeably shorter than the loco-manipulation variant (no walk / turn /
-squat phases), so you can collect 10 successful demos in around 5–10 minutes once the pipeline is
-running.</p>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
 <p>Releasing a small round object onto a flat plate is noticeably harder than dropping a box into a
-bin. Keep the release height low and the orientation stable — these recordings are fed directly
-into LeRobot conversion and policy post-training (see <a class="reference internal" href="step_3_policy_training.html"><span class="doc">Policy Post-Training (GR00T N1.7)</span></a>), so demo
-quality is what the policy learns from.</p>
+bin. Keep the release height low and the orientation stable.</p>
 </div>
 </section>
 <section id="step-5-replay-recorded-demos-optional">
 <h2>Step 5: Replay Recorded Demos (Optional)<a class="headerlink" href="#step-5-replay-recorded-demos-optional" title="Link to this heading">#</a></h2>
-<p>Replay the recorded HDF5 to confirm the demos look correct end-to-end. This doubles as a no-XR
-sanity check on the environment: it drives the env from the recorded actions and needs no
-teleoperation device, so you can visually verify the scene, embodiment and asset placements
-without launching CloudXR.</p>
+<p>Replay the recorded HDF5 to sanity-check the saved action sequence. This doubles as a no-XR
+check on the environment: it drives the env from the recorded actions and needs no teleoperation
+device, so you can visually verify the scene, embodiment, and asset placements without launching
+CloudXR.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">replay_demos.py</span></code> replays the captured <strong>actions</strong> in simulation; it is not exact trajectory
+or video playback. Because this is open-loop replay, small differences in contact dynamics,
+physics backend, timing, environment configuration, or the apple’s randomized initial pose can
+make replay miss or drop the apple even when the original recorded demo succeeded. Treat replay
+as an action-level sanity check, and inspect the recorded camera data before recollecting data.</p>
+</div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Replay from the recorded HDF5 dataset</span>
 python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/replay_demos.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
