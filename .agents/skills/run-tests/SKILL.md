@@ -1,6 +1,6 @@
 ---
 name: run-tests
-description: Runs the Isaac Lab-Arena pytest suite across its three required phases (no-cameras, with-cameras, with-subprocess) inside the running isaaclab_arena Docker container. Use when the user asks to run the tests, verify the test suite passes, check whether a change broke anything, smoke-test the install, run smoke tests, or run coverage for a specific module.
+description: Runs the Isaac Lab-Arena pytest suite across its three required phases (no-cameras, with-cameras, with-subprocess) inside the running isaaclab_arena Docker container. Use when the user asks to run the tests, test their changes, verify the test suite passes, check whether a change broke anything (e.g. "did I break anything", "do the tests still pass", "is everything still working"), smoke-test the install, run smoke tests, or run coverage for a specific module.
 argument-hint: "[smoke]"
 allowed-tools: Bash(docker exec *)
 ---

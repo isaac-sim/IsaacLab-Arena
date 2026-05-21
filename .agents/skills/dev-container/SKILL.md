@@ -1,6 +1,6 @@
 ---
 name: dev-container
-description: Manages the isaaclab_arena Docker container — the single container that serves as Arena's dev, test, training, and eval environment. Covers ./docker/run_docker.sh flag combinations (-r rebuild, -g include GR00T N1.6 dependencies, -d/-m/-e custom dataset/model/eval mounts), executing commands in the running container via docker exec, and the /isaac-sim/python.sh aliasing. Use when the user asks to build, rebuild, start, attach to, or run a command inside the container.
+description: Sets up and manages the isaaclab_arena Docker container — the single environment used for Arena's development, testing, training, and evaluation. Use when the user asks to set up the dev environment, bootstrap the project, get started on a fresh clone, start developing, build or rebuild the image, start or attach to the container, or run any command inside it. Also covers ./docker/run_docker.sh flag combinations (-r rebuild, -g GR00T N1.6 dependencies, -d/-m/-e custom dataset/model/eval mounts), docker exec usage, and the /isaac-sim/python.sh aliasing.
 allowed-tools: Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker images *) Bash(docker ps *)
 ---
 
