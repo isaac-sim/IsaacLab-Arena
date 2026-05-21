@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-name: pick_and_place_maple_table_default
+env_name: pick_and_place_maple_table_default
 
 nodes:
   - id: droid_abs_joint_pos
@@ -33,9 +33,8 @@ tasks:
   - id: pick_and_place_0
     name: pick_and_place_0
     type: pick_and_place
-    state_specs:
-      initial: state_spec_0
-      final: state_spec_1
+    initial_state_spec_id: state_spec_0
+    success_state_spec_id: state_spec_1
     task_args:
       object: rubiks_cube_hot3d_robolab
       destination: bowl_ycb_robolab
@@ -45,75 +44,73 @@ tasks:
 state_specs:
   - id: state_spec_0
     name: state_spec_0
-    edges:
-      spatial_constraints:
-        - id: maple_table_robolab_table_is_anchor
-          type: is_anchor
-          parent: maple_table_robolab_table
+    spatial_constraints:
+      - id: state_spec_0_maple_table_robolab_table_is_anchor
+        type: is_anchor
+        parent: maple_table_robolab_table
 
-        - id: rubiks_cube_hot3d_robolab_on_maple_table_robolab_table
-          type: "on"
-          parent: maple_table_robolab_table
-          child: rubiks_cube_hot3d_robolab
+      - id: state_spec_0_rubiks_cube_hot3d_robolab_on_maple_table_robolab_table
+        type: "on"
+        parent: maple_table_robolab_table
+        child: rubiks_cube_hot3d_robolab
 
-        - id: rubiks_cube_hot3d_robolab_position_limits
-          type: position_limits
-          parent: rubiks_cube_hot3d_robolab
-          params:
-            x_min: 0.55
-            x_max: 0.70
-            y_min: -0.40
-            y_max: -0.10
+      - id: state_spec_0_rubiks_cube_hot3d_robolab_position_limits
+        type: position_limits
+        parent: rubiks_cube_hot3d_robolab
+        params:
+          x_min: 0.55
+          x_max: 0.70
+          y_min: -0.40
+          y_max: -0.10
 
-        - id: bowl_ycb_robolab_on_maple_table_robolab_table
-          type: "on"
-          parent: maple_table_robolab_table
-          child: bowl_ycb_robolab
+      - id: state_spec_0_bowl_ycb_robolab_on_maple_table_robolab_table
+        type: "on"
+        parent: maple_table_robolab_table
+        child: bowl_ycb_robolab
 
-        - id: bowl_ycb_robolab_position_limits
-          type: position_limits
-          parent: bowl_ycb_robolab
-          params:
-            x_min: 0.55
-            x_max: 0.70
-            y_min: -0.40
-            y_max: -0.10
+      - id: state_spec_0_bowl_ycb_robolab_position_limits
+        type: position_limits
+        parent: bowl_ycb_robolab
+        params:
+          x_min: 0.55
+          x_max: 0.70
+          y_min: -0.40
+          y_max: -0.10
 
-      task_constraints:
-        - id: droid_reach_rubiks_cube_hot3d_robolab
-          type: "reach"
-          parent: droid_abs_joint_pos
-          child: rubiks_cube_hot3d_robolab
+    task_constraints:
+      - id: state_spec_0_droid_reach_rubiks_cube_hot3d_robolab
+        type: "reach"
+        parent: droid_abs_joint_pos
+        child: rubiks_cube_hot3d_robolab
 
   - id: state_spec_1
     name: state_spec_1
-    edges:
-      spatial_constraints:
-        - id: maple_table_robolab_table_is_anchor
-          type: is_anchor
-          parent: maple_table_robolab_table
+    spatial_constraints:
+      - id: state_spec_1_maple_table_robolab_table_is_anchor
+        type: is_anchor
+        parent: maple_table_robolab_table
 
-        - id: bowl_ycb_robolab_on_maple_table_robolab_table
-          type: "on"
-          parent: maple_table_robolab_table
-          child: bowl_ycb_robolab
+      - id: state_spec_1_bowl_ycb_robolab_on_maple_table_robolab_table
+        type: "on"
+        parent: maple_table_robolab_table
+        child: bowl_ycb_robolab
 
-        - id: bowl_ycb_robolab_position_limits
-          type: position_limits
-          parent: bowl_ycb_robolab
-          params:
-            x_min: 0.55
-            x_max: 0.70
-            y_min: -0.40
-            y_max: -0.10
+      - id: state_spec_1_bowl_ycb_robolab_position_limits
+        type: position_limits
+        parent: bowl_ycb_robolab
+        params:
+          x_min: 0.55
+          x_max: 0.70
+          y_min: -0.40
+          y_max: -0.10
 
-        - id: rubiks_cube_hot3d_robolab_in_bowl_ycb_robolab
-          type: "in"
-          parent: bowl_ycb_robolab
-          child: rubiks_cube_hot3d_robolab
+      - id: state_spec_1_rubiks_cube_hot3d_robolab_in_bowl_ycb_robolab
+        type: "in"
+        parent: bowl_ycb_robolab
+        child: rubiks_cube_hot3d_robolab
 
-      task_constraints:
-        - id: droid_reach_bowl_ycb_robolab
-          type: "reach"
-          parent: droid_abs_joint_pos
-          child: bowl_ycb_robolab
+    task_constraints:
+      - id: state_spec_1_droid_reach_bowl_ycb_robolab
+        type: "reach"
+        parent: droid_abs_joint_pos
+        child: bowl_ycb_robolab
