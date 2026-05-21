@@ -9,15 +9,10 @@ import random
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.bbox_helpers import (
-    assign_variants_for_envs,
-    get_bounding_box_per_env,
-    has_heterogeneous_objects,
-)
+from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
@@ -117,8 +112,8 @@ class PooledObjectPlacer:
 
             batch_size = max_missing * self._num_envs
             if self._uses_env_specific_bboxes:
-                all_results, layouts_per_env = self._solve_layouts_with_env_bboxes(batch_size)
-                self._store_env_matched_results(all_results, layouts_per_env)
+                ranked_results_per_env, layouts_per_env = self._solve_env_ranked_layouts(batch_size)
+                self._store_env_matched_results(ranked_results_per_env, layouts_per_env)
             else:
                 layouts = self._solve_reusable_layouts(batch_size)
                 self._store_reusable_results(layouts)
@@ -175,41 +170,27 @@ class PooledObjectPlacer:
             self._layout_pools[cur_env].append(layout)
             available[cur_env] += 1
 
-    def _solve_layouts_with_env_bboxes(self, num_layouts: int) -> tuple[list[PlacementResult], int]:
-        """Solve layouts tied to each env's actual object geometry.
+    def _solve_env_ranked_layouts(self, num_layouts: int) -> tuple[list[list[PlacementResult]], int]:
+        """Solve ranked layouts tied to each env's actual object geometry.
 
-        Computes bounding boxes for the real num_envs once, tiles them
-        to num_layouts entries, and solves everything in one batched
-        place() call. Result i is mapped back to real env
-        i // layouts_per_env for pool storage.
+        Returns ranked candidate lists per real env so the pool can store
+        multiple layouts for each env without pretending extra candidate rows
+        are extra environments.
         """
         layouts_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
-        total_layouts = layouts_per_env * self._num_envs
-
-        assign_variants_for_envs(self._objects, self._num_envs)
-        real_bboxes = {obj: get_bounding_box_per_env(obj, self._num_envs) for obj in self._objects}
-
-        # (num_envs, 3) -> repeat each env's row layouts_per_env times -> (total_layouts, 3).
-        tiled_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] = {
-            obj: AxisAlignedBoundingBox(
-                min_point=bbox.min_point.repeat_interleave(layouts_per_env, dim=0),
-                max_point=bbox.max_point.repeat_interleave(layouts_per_env, dim=0),
-            )
-            for obj, bbox in real_bboxes.items()
-        }
 
         with torch.inference_mode(False):
-            result = self._placer.place(
+            ranked_results_per_env = self._placer.place_ranked_per_env(
                 self._objects,
-                num_envs=total_layouts,
-                result_per_env=True,
-                env_bboxes=tiled_bboxes,
+                num_envs=self._num_envs,
+                results_per_env=layouts_per_env,
             )
 
-        all_results = result.results if isinstance(result, MultiEnvPlacementResult) else [result]
-        return all_results, layouts_per_env
+        return ranked_results_per_env, layouts_per_env
 
-    def _store_env_matched_results(self, all_results: list[PlacementResult], layouts_per_env: int) -> None:
+    def _store_env_matched_results(
+        self, ranked_results_per_env: list[list[PlacementResult]], layouts_per_env: int
+    ) -> None:
         """Store env-matched results into their corresponding pools.
 
         Prefer successful layouts for each env. If a specific env has no valid
@@ -219,8 +200,7 @@ class PooledObjectPlacer:
         total_valid = 0
         fallback_envs = []
         for cur_env in range(self._num_envs):
-            start = cur_env * layouts_per_env
-            env_results = all_results[start : start + layouts_per_env]
+            env_results = ranked_results_per_env[cur_env][:layouts_per_env]
             valid_results = [r for r in env_results if r.success]
             if valid_results:
                 self._layout_pools[cur_env].extend(valid_results)
@@ -230,7 +210,7 @@ class PooledObjectPlacer:
                 fallback_envs.append(cur_env)
                 self._had_fallbacks = True
 
-        total_solved = len(all_results)
+        total_solved = sum(min(len(env_results), layouts_per_env) for env_results in ranked_results_per_env)
         if total_valid < total_solved:
             msg = (
                 f"Placement pool (env-specific bbox layouts): solved {total_solved} candidates,"

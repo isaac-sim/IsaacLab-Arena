@@ -14,8 +14,7 @@ import torch
 import pytest
 
 from isaaclab_arena.assets.dummy_object import DummyObject
-from isaaclab_arena.assets.object_set import RigidObjectSet
-from isaaclab_arena.relations.bbox_helpers import get_bounding_box_per_env
+from isaaclab_arena.relations.bounding_box_helpers import get_bounding_box_per_env
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
@@ -32,31 +31,25 @@ from isaaclab_arena.utils.pose import Pose
 
 
 @pytest.fixture(autouse=True)
-def _patch_bbox_helpers_for_test_doubles(monkeypatch):
-    """Allow HeterogeneousDummyObject to trigger the heterogeneous placement path."""
-    from isaaclab_arena.relations import bbox_helpers
+def _patch_bounding_box_helpers_for_test_doubles(monkeypatch):
+    """Allow HeterogeneousDummyObject to trigger the heterogeneous placement path.
 
-    _original_has_het = bbox_helpers.has_heterogeneous_objects
-    _original_get_bbox = bbox_helpers.get_bounding_box_per_env
+    Only has_heterogeneous_objects needs patching — it uses isinstance(obj, RigidObjectSet)
+    which won't match test doubles. The downstream functions (assign_variants_for_envs,
+    get_bounding_box_per_env) already duck-type via hasattr.
+    """
+    from isaaclab_arena.relations import bounding_box_helpers
+
+    _original_has_het = bounding_box_helpers.has_heterogeneous_objects
 
     def _patched_has_het(objects):
         if _original_has_het(objects):
             return True
         return any(hasattr(obj, "get_bounding_box_per_env") for obj in objects)
 
-    def _patched_get_bbox(obj, num_envs):
-        if isinstance(obj, RigidObjectSet):
-            return _original_get_bbox(obj, num_envs)
-        if hasattr(obj, "get_bounding_box_per_env"):
-            return obj.get_bounding_box_per_env(num_envs)
-        return _original_get_bbox(obj, num_envs)
-
-    monkeypatch.setattr("isaaclab_arena.relations.bbox_helpers.has_heterogeneous_objects", _patched_has_het)
-    monkeypatch.setattr("isaaclab_arena.relations.bbox_helpers.get_bounding_box_per_env", _patched_get_bbox)
+    monkeypatch.setattr("isaaclab_arena.relations.bounding_box_helpers.has_heterogeneous_objects", _patched_has_het)
     monkeypatch.setattr("isaaclab_arena.relations.object_placer.has_heterogeneous_objects", _patched_has_het)
-    monkeypatch.setattr("isaaclab_arena.relations.object_placer.get_bounding_box_per_env", _patched_get_bbox)
     monkeypatch.setattr("isaaclab_arena.relations.pooled_object_placer.has_heterogeneous_objects", _patched_has_het)
-    monkeypatch.setattr("isaaclab_arena.relations.pooled_object_placer.get_bounding_box_per_env", _patched_get_bbox)
 
 
 # ---------------------------------------------------------------------------
@@ -129,6 +122,7 @@ def test_heterogeneous_dummy_returns_different_bboxes():
 
 def test_dummy_object_preserves_constructor_relations():
     """DummyObject should keep relations passed at construction time."""
+    from isaaclab_arena.assets.object_set import RigidObjectSet
 
     anchor_relation = IsAnchor()
     obj = DummyObject(
@@ -145,6 +139,7 @@ def test_object_preserves_constructor_relations():
     """Object should keep relations passed at construction time."""
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_set import RigidObjectSet
 
     anchor_relation = IsAnchor()
     obj = Object(
@@ -318,6 +313,25 @@ def test_mixed_heterogeneous_and_homogeneous_placement():
         assert not a_world.overlaps(
             x_world
         ).item(), f"Env {env_idx}: A and X bboxes overlap at positions A={r.positions[obj_a]}, X={r.positions[obj_x]}"
+
+
+def test_heterogeneous_placement_always_returns_per_env_results():
+    """Heterogeneous placement should not fall back to one shared approximate layout."""
+
+    desk, hetero, _placer_params = _make_hetero_pool_objects()
+
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3, verbose=False)
+    params = ObjectPlacerParams(
+        solver_params=solver_params,
+        apply_positions_to_objects=False,
+        placement_seed=42,
+    )
+
+    placer = ObjectPlacer(params=params)
+    result = placer.place([desk, hetero], num_envs=4, result_per_env=False)
+
+    assert isinstance(result, MultiEnvPlacementResult)
+    assert len(result.results) == 4
 
 
 def test_object_placer_homogeneous_path_returns_multi_env_result():

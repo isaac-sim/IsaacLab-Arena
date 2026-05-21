@@ -10,7 +10,7 @@ import torch
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.bbox_helpers import (
+from isaaclab_arena.relations.bounding_box_helpers import (
     assign_variants_for_envs,
     get_bounding_box_per_env,
     has_heterogeneous_objects,
@@ -94,7 +94,6 @@ class ObjectPlacer:
         objects: list[ObjectBase],
         num_envs: int = 1,
         result_per_env: bool = True,
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
     ) -> PlacementResult | MultiEnvPlacementResult:
         """Place objects according to their spatial relations.
 
@@ -104,47 +103,18 @@ class ObjectPlacer:
             num_envs: Number of environments. 1 for single-env; > 1 for batched
                 placement (one layout per env).
             result_per_env: When True (default), each environment gets a distinct
-                layout. When False, a single best layout is solved and applied
-                identically to all environments.
-            env_bboxes: Pre-computed per-env bounding boxes (shape (num_envs, 3)
-                per object). When provided, _place_heterogeneous uses these
-                instead of calling get_bounding_box_per_env(obj, num_envs). This
-                allows the caller to tile real-env bboxes for pooled solving.
+                layout. When False, homogeneous objects use a single best layout
+                for all environments. Heterogeneous objects always use per-env
+                layouts so each env is solved with its assigned variant geometry.
 
         Returns:
-            PlacementResult when a single layout is produced (num_envs=1 or
-            result_per_env=False); MultiEnvPlacementResult otherwise.
+            PlacementResult when a single layout is produced; MultiEnvPlacementResult
+            when multiple per-env layouts are produced.
         """
-        # Validate all objects have at least one relation
-        for obj in objects:
-            assert obj.get_relations(), (
-                f"Object '{obj.name}' has no relations. All objects passed to place() must have "
-                "at least one relation (e.g., On(), NextTo(), or IsAnchor())."
-            )
+        anchor_objects_set, generator = self._prepare_placement(objects)
 
-        # Find all anchor objects
-        anchor_objects = get_anchor_objects(objects)
-        assert len(anchor_objects) > 0, (
-            "No anchor object found. Mark at least one object with IsAnchor() to serve as a fixed reference. "
-            "Example: table.add_relation(IsAnchor())"
-        )
-
-        # Validate all anchors have initial_pose set
-        for anchor in anchor_objects:
-            assert anchor.get_initial_pose() is not None, (
-                f"Anchor object '{anchor.name}' must have an initial_pose set. "
-                "Call anchor_object.set_initial_pose(...) before placing."
-            )
-
-        anchor_objects_set = set(anchor_objects)
-
-        # Create a local RNG generator from the seed so placement is reproducible without
-        # affecting the global torch RNG state (e.g. Isaac Sim's internal random streams).
-        generator: torch.Generator | None = None
-        if self.params.placement_seed is not None:
-            generator = torch.Generator()
-
-        num_results = num_envs if result_per_env else 1
+        uses_env_specific_bboxes = has_heterogeneous_objects(objects)
+        num_results = num_envs if result_per_env or uses_env_specific_bboxes else 1
         max_attempts = self.params.max_placement_attempts
         num_candidates = max_attempts * num_results
 
@@ -153,30 +123,84 @@ class ObjectPlacer:
         #   - homogeneous: any solved layout serves any env; pick the top num_results.
         #   - heterogeneous: some objects vary per env, so each env owns a fixed slice
         #     of candidates and we pick the best within that slice.
-        uses_env_specific_bboxes = result_per_env and has_heterogeneous_objects(objects)
-
         if uses_env_specific_bboxes:
-            results_per_env = self._place_heterogeneous(
+            ranked_results_per_env = self._place_heterogeneous(
                 objects,
                 anchor_objects_set,
                 num_envs,
                 max_attempts,
-                num_candidates,
                 generator,
-                env_bboxes=env_bboxes,
             )
+            results_per_env = [ranked_results[0] for ranked_results in ranked_results_per_env]
         else:
             results_per_env = self._place_homogeneous(
                 objects, anchor_objects_set, num_results, max_attempts, num_candidates, generator
             )
 
-        final_per_env = [r.positions for r in results_per_env]
+        positions_per_env = [r.positions for r in results_per_env]
         if self.params.apply_positions_to_objects:
-            self._apply_positions(final_per_env, anchor_objects_set)
+            self._apply_positions(positions_per_env, anchor_objects_set)
 
         if num_results == 1:
             return results_per_env[0]
         return MultiEnvPlacementResult(results=results_per_env)
+
+    def place_ranked_per_env(
+        self,
+        objects: list[ObjectBase],
+        num_envs: int,
+        results_per_env: int,
+    ) -> list[list[PlacementResult]]:
+        """Return ranked placement candidates per env.
+
+        This is used by PooledObjectPlacer to fill env-specific pools. The
+        return value has shape ``(num_envs, <=results_per_env)``: each outer
+        list entry corresponds to a real env, and each inner list is sorted with
+        valid lower-loss layouts first.
+        """
+        assert results_per_env > 0, f"results_per_env must be positive, got {results_per_env}"
+        anchor_objects_set, generator = self._prepare_placement(objects)
+        max_attempts = self.params.max_placement_attempts
+        ranked_results_per_env = self._place_heterogeneous(
+            objects,
+            anchor_objects_set,
+            num_envs,
+            max_attempts * results_per_env,
+            generator,
+        )
+
+        if self.params.apply_positions_to_objects:
+            top_positions_per_env = [ranked_results[0].positions for ranked_results in ranked_results_per_env]
+            self._apply_positions(top_positions_per_env, anchor_objects_set)
+
+        return [ranked_results[:results_per_env] for ranked_results in ranked_results_per_env]
+
+    def _prepare_placement(
+        self,
+        objects: list[ObjectBase],
+    ) -> tuple[set[ObjectBase], torch.Generator | None]:
+        """Validate placement inputs and create the local RNG generator."""
+        for obj in objects:
+            assert obj.get_relations(), (
+                f"Object '{obj.name}' has no relations. All objects passed to place() must have "
+                "at least one relation (e.g., On(), NextTo(), or IsAnchor())."
+            )
+
+        anchor_objects = get_anchor_objects(objects)
+        assert len(anchor_objects) > 0, (
+            "No anchor object found. Mark at least one object with IsAnchor() to serve as a fixed reference. "
+            "Example: table.add_relation(IsAnchor())"
+        )
+        for anchor in anchor_objects:
+            assert anchor.get_initial_pose() is not None, (
+                f"Anchor object '{anchor.name}' must have an initial_pose set. "
+                "Call anchor_object.set_initial_pose(...) before placing."
+            )
+
+        generator: torch.Generator | None = None
+        if self.params.placement_seed is not None:
+            generator = torch.Generator()
+        return set(anchor_objects), generator
 
     # ------------------------------------------------------------------
     # Placement strategies
@@ -208,9 +232,10 @@ class ObjectPlacer:
         all_positions = self._solver.solve(objects, initial_positions)
         assert self._solver.last_loss_per_env is not None
         all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
+        all_validations = [self._validate_placement(positions) for positions in all_positions]
 
         all_candidates = [
-            PlacementCandidate(all_losses[idx], all_positions[idx], self._validate_placement(all_positions[idx]))
+            PlacementCandidate(all_losses[idx], all_positions[idx], all_validations[idx])
             for idx in range(num_candidates)
         ]
         all_candidates.sort(key=lambda candidate: (not candidate.is_valid, candidate.loss))
@@ -241,26 +266,20 @@ class ObjectPlacer:
         objects: list[ObjectBase],
         anchor_objects_set: set[ObjectBase],
         num_envs: int,
-        max_attempts: int,
-        num_candidates: int,
+        candidates_per_env: int,
         generator: torch.Generator | None,
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
-    ) -> list[PlacementResult]:
+    ) -> list[list[PlacementResult]]:
         """Per-env placement: each candidate is tied to its env's object variants.
 
-        Candidates [cur_env * max_attempts : (cur_env + 1) * max_attempts]
+        Candidates [cur_env * candidates_per_env : (cur_env + 1) * candidates_per_env]
         belong to cur_env and use that env's variant geometry. We solve all
-        num_envs * max_attempts candidates in one batched solver.solve()
-        call and pick the best candidate within each env's slice.
-
-        Args:
-            env_bboxes: Optional pre-tiled per-env bboxes of shape
-                (num_envs, 3). When None we call
-                get_bounding_box_per_env(obj, num_envs) on each object.
+        num_envs * candidates_per_env candidates in one batched solver.solve()
+        call, rank candidates within each env slice, and return a nested list of
+        PlacementResult objects with shape (num_envs, candidates_per_env).
         """
         assign_variants_for_envs(objects, num_envs)
-        if env_bboxes is None:
-            env_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
+        env_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
+        num_candidates = num_envs * candidates_per_env
 
         # Build the per-env (1, 3) bbox views once: used both for On-guided
         # initial-position sampling and for per-env validation below.
@@ -276,16 +295,16 @@ class ObjectPlacer:
         ]
 
         # Per-candidate bboxes (num_candidates, 3): each env's row repeated
-        # max_attempts times so candidates for that env share its geometry.
+        # candidates_per_env times so candidates for that env share its geometry.
         candidate_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] = {}
         for obj, bbox in env_bboxes.items():
-            min_pt = bbox.min_point.repeat_interleave(max_attempts, dim=0)
-            max_pt = bbox.max_point.repeat_interleave(max_attempts, dim=0)
+            min_pt = bbox.min_point.repeat_interleave(candidates_per_env, dim=0)
+            max_pt = bbox.max_point.repeat_interleave(candidates_per_env, dim=0)
             candidate_bboxes[obj] = AxisAlignedBoundingBox(min_point=min_pt, max_point=max_pt)
 
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]] = []
         for candidate_idx in range(num_candidates):
-            cur_env = candidate_idx // max_attempts
+            cur_env = candidate_idx // candidates_per_env
             if generator is not None:
                 assert self.params.placement_seed is not None
                 generator.manual_seed(self.params.placement_seed + candidate_idx)
@@ -298,9 +317,9 @@ class ObjectPlacer:
         assert self._solver.last_loss_per_env is not None
         all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
 
-        results: list[PlacementResult] = []
+        ranked_results_per_env: list[list[PlacementResult]] = []
         for cur_env in range(num_envs):
-            start = cur_env * max_attempts
+            start = cur_env * candidates_per_env
             env_bbox_overrides = per_env_bbox_overrides[cur_env]
             env_candidates = [
                 PlacementCandidate(
@@ -308,21 +327,25 @@ class ObjectPlacer:
                     all_positions[start + idx],
                     self._validate_placement(all_positions[start + idx], bbox_overrides=env_bbox_overrides),
                 )
-                for idx in range(max_attempts)
+                for idx in range(candidates_per_env)
             ]
             env_candidates.sort(key=lambda candidate: (not candidate.is_valid, candidate.loss))
-            best = env_candidates[0]
-            results.append(
+            ranked_results_per_env.append([
                 PlacementResult(
-                    success=best.is_valid, positions=best.positions, final_loss=best.loss, attempts=max_attempts
+                    success=candidate.is_valid,
+                    positions=candidate.positions,
+                    final_loss=candidate.loss,
+                    attempts=candidates_per_env,
                 )
-            )
+                for candidate in env_candidates
+            ])
 
+        results = [ranked_results[0] for ranked_results in ranked_results_per_env]
         if self.params.verbose:
             n_valid = sum(1 for r in results if r.success)
             print(f"Solved {num_candidates} candidates in one batch (heterogeneous): {n_valid}/{num_envs} env(s) valid")
 
-        return results
+        return ranked_results_per_env
 
     def _generate_initial_positions(
         self,

@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
@@ -21,6 +20,8 @@ if TYPE_CHECKING:
 
 def has_heterogeneous_objects(objects: list[ObjectBase]) -> bool:
     """True if any object in the list is a RigidObjectSet."""
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+
     return any(isinstance(obj, RigidObjectSet) for obj in objects)
 
 
@@ -28,9 +29,10 @@ def assign_variants_for_envs(objects: list[ObjectBase], num_envs: int) -> None:
     """Assign per-env variants on every RigidObjectSet in the list.
 
     Placers call this at the boundary before any per-env geometry reads.
+    Only called after has_heterogeneous_objects confirms the list contains RigidObjectSets.
     """
     for obj in objects:
-        if isinstance(obj, RigidObjectSet):
+        if hasattr(obj, "assign_variants"):
             obj.assign_variants(num_envs)
 
 
@@ -39,8 +41,9 @@ def get_bounding_box_per_env(obj: ObjectBase, num_envs: int) -> AxisAlignedBound
 
     RigidObjectSet delegates to its own get_bounding_box_per_env.
     All other objects broadcast their single bbox.
+    Only called after has_heterogeneous_objects confirms heterogeneous objects exist.
     """
-    if isinstance(obj, RigidObjectSet):
+    if hasattr(obj, "get_bounding_box_per_env"):
         return obj.get_bounding_box_per_env(num_envs)
 
     bbox = obj.get_bounding_box()

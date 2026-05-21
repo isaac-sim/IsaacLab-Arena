@@ -90,7 +90,7 @@ class RigidObjectSet(Object):
             object_type=ObjectType.RIGID,
             usd_path="",
             prim_path=prim_path,
-            scale=(1.0, 1.0, 1.0),
+            scale=(1.0, 1.0, 1.0),  # We rewrite the USDs to handle scaling.
             initial_pose=initial_pose,
             **kwargs,
         )
@@ -109,8 +109,9 @@ class RigidObjectSet(Object):
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get the bounding box of the object set.
 
-        Returns the bounding box with the greatest z-extent among all objects in the set.
-        This is a heuristic to avoid objects spawning inside their support surfaces.
+        This compatibility fallback returns the member bbox with the greatest
+        z-extent. Heterogeneous placement should use get_bounding_box_per_env()
+        after assign_variants() so each env uses its actual variant geometry.
         """
         return max(self.objects, key=lambda obj: obj.get_bounding_box().size[0, 2].item()).get_bounding_box()
 
@@ -142,9 +143,9 @@ class RigidObjectSet(Object):
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
         """Get the actual bounding box for each env's variant.
 
-        Unlike ``get_bounding_box()`` (which uses a max-z heuristic), this
-        returns the real local bbox of the variant assigned to each env,
-        enabling correct collision-free placement for heterogeneous scenes.
+        Unlike the single-bbox compatibility fallback, this returns the real
+        local bbox of the variant assigned to each env, enabling correct
+        collision-free placement for heterogeneous scenes.
 
         Requires ``assign_variants(num_envs)`` to have been called first.
 
