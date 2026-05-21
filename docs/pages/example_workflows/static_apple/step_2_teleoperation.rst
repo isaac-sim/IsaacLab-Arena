@@ -184,8 +184,7 @@ Step 4: Record with the headset device
 #. Follow Step 3 to connect the headset again.
 
 #. Complete the task for each demo. After a successful placement, wait for the demo to
-   automatically end and for the simulation to freeze before pressing **Reset**. Resetting
-   early can save an incomplete or failed demonstration. The script saves successful runs
+   automatically end and for the simulation to reset. The script saves successful runs
    to the HDF5 file above.
 
 .. important::
@@ -212,8 +211,8 @@ Step 4: Record with the headset device
      and side grasps, so the policy does not overfit to one approach direction.
    * **Clean successes only:** save only runs with no unnecessary collisions, no dropped objects before
      placement, and no recovery motions that would confuse the policy.
-   * **Wait for success freeze:** after releasing the apple onto the plate, keep the scene stable and
-     wait until the recording auto-terminates/freezes. Only reset after that happens.
+   * **Wait for reset automatically after success:** after releasing the apple onto the plate, keep the scene stable and
+     wait until the recording auto-terminates and the simulation automatically resets.
    * **Trajectory length:** aim for demonstrations around 200--400 timesteps. Very long episodes slow
      down downstream data processing, while very short episodes tend to contain abrupt motion.
    * **Replay validation:** after recording, replay the HDF5 with Step 5 and inspect camera frames,
