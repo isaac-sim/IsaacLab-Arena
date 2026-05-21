@@ -2,91 +2,39 @@
 
 This file provides guidance to AI coding agents (Claude Code, OpenAI Codex, etc.) when working with code in this repository.
 
-## Docker Environment
+## Project
 
-All commands (tests, linting, training scripts, etc.) must be run inside the Docker container. The default container is `isaaclab_arena-latest`, started via:
+Isaac Lab-Arena is a composable environment-creation and policy-evaluation library for robotics simulation, built on Isaac Sim 5.1 and Isaac Lab 2.3. Status: alpha (`v0.2.x`); APIs are unstable. `develop` is the active branch; `main` is under SQA and receives only fixes.
 
-```bash
-./docker/run_docker.sh          # build image (if needed) and start/attach
-./docker/run_docker.sh -r       # force rebuild
-./docker/run_docker.sh -g       # include GR00T N1.6 dependencies
-./docker/run_docker.sh -d ~/datasets -m ~/models -e ~/eval  # custom mount dirs
-```
+## Skill library
 
-The repo root is mounted at `/workspaces/isaaclab_arena` inside the container. To run a command in the already-running container:
+Recurring multi-step workflows (container management, the three-phase test suite, commits and PRs) are captured as Agent Skills under `.agents/skills/`. When a task matches a skill, prefer invoking it over re-deriving the procedure from this file.
+
+Fresh-clone setup (run once):
 
 ```bash
-docker exec isaaclab_arena-latest bash -c "cd /workspaces/isaaclab_arena && <command>"
+ln -s ../.agents/skills .claude/skills    # so Claude Code reads the skill library
+pre-commit install                         # register git hooks
 ```
 
-**Important:** Inside the container, `python` is aliased to `/isaac-sim/python.sh`, so both forms work. Prefer `/isaac-sim/python.sh` for explicitness (e.g. in `docker exec` commands run from outside the container, where the alias is not active).
+## Docker environment
 
-```bash
-# Example: run kitchen_pick_and_place with zero_action policy
-docker exec isaaclab_arena-latest bash -c "cd /workspaces/isaaclab_arena && \
-  /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
-  --policy_type zero_action \
-  --num_steps 10 \
-  kitchen_pick_and_place \
-  --object cracker_box \
-  --embodiment franka_ik"
-```
+All commands (tests, linting, training scripts) must run inside the `isaaclab_arena-latest` Docker container. The repo root is mounted at `/workspaces/isaaclab_arena`. Inside the container, `python` is aliased to `/isaac-sim/python.sh` — prefer the explicit path in `docker exec` invocations from outside the container, where the alias is not active.
 
-## Common Commands
+Use the `dev-container` skill for build, start, attach, and exec.
 
-### Running Tests
+## Repository layout
 
-Tests require Isaac Sim and run via pytest:
+- `isaaclab_arena/` — core package: `tasks/`, `policy/`, `evaluation/`, `embodiments/`, `scene/`, `assets/`, `tests/`
+- `isaaclab_arena_environments/`, `isaaclab_arena_examples/`, `isaaclab_arena_g1/`, `isaaclab_arena_gr00t/` — first-party extension packages
+- `docker/` — container build and run scripts
+- `submodules/` — vendored dependencies (IsaacLab, Isaac-GR00T, …)
+- `osmo/` — OSMO policy-runner workflow
+- `docs/` — Sphinx documentation
 
-```bash
-# Run all tests
-# Our tests are separated into different phases of running. To run the full test suite requires three commands.
-/isaac-sim/python.sh -m pytest -sv -m "not with_cameras and not with_subprocess" isaaclab_arena/tests
-/isaac-sim/python.sh -m pytest  -sv -m "with_cameras and not with_subprocess" isaaclab_arena/tests
-/isaac-sim/python.sh -m pytest  -sv -m "with_subprocess" isaaclab_arena/tests
+## Coding style
 
-# Run a single test file
-/isaac-sim/python.sh -m pytest isaaclab_arena/tests/test_asset_registry.py
-
-# Run a specific test function
-/isaac-sim/python.sh -m pytest isaaclab_arena/tests/test_asset_registry.py::test_default_assets_registered
-
-# Run tests that require cameras
-/isaac-sim/python.sh -m pytest isaaclab_arena/tests/ -m with_cameras
-```
-
-### Linting, Formatting, and Coding Style
-
-Pre-commit hooks enforce the style guide: black (line length 120), flake8, isort, pyupgrade (py310+), and codespell. Run checks **before** committing — not after:
-
-```bash
-# Install pre-commit hooks
-pre-commit install
-
-# Run all checks (if hooks modify files, stage them and re-run before committing)
-pre-commit run --all-files
-```
-
-### Contributing
-
-All commits must be signed off per DCO requirements:
-```bash
-git commit -s -m "Your commit message"
-```
-
-**Branch naming:** `<username>/feature-desc` (e.g. `cvolk/feature-video-recording`, `cvolk/refactor-no-unwrap`).
-
-**Commit messages:**
-- Subject: imperative mood, ~50 chars, no trailing period (e.g. "Fix attribute access on wrapped env")
-- Separate subject from body with a blank line
-- Body: explain *what* and *why* (not how — the diff shows that), wrap at 72 chars
-- Do not include AI attribution lines (e.g. "Co-Authored-By: Claude...")
-
-**PR iteration:** when addressing review feedback, add new commits rather than amending existing ones — this lets reviewers easily verify each change was addressed.
-
-### Coding Style
-
-- Prefer `assert` over `if-then-raise ValueError` for internal invariant checks. Use `assert condition, "message"` instead of `if not condition: raise ValueError("message")`.
+- Prefer `assert condition, "message"` over `if not condition: raise ValueError("message")` for internal invariant checks. (Formatting, imports, and typing are enforced by `pre-commit` — see `.pre-commit-config.yaml`.)
 
 ## Conventions
 
@@ -115,3 +63,10 @@ def test_foo():  # pytest-visible outer function
     result = run_simulation_app_function(_test_foo)
     assert result
 ```
+
+## Boundaries
+
+- **Never** force-push to `main`, `develop`, or `release/*`. **Instead**, push to a `<username>/feature-desc` branch and open a PR against `develop`.
+- **Never** add AI-attribution lines to commits (no `Co-Authored-By: Claude…`, no `Generated with…`). **Instead**, sign off with `git commit -s` — DCO is the only required trailer.
+- **Never** commit models, datasets, or secrets. **Instead**, keep them on the host and mount them via `./docker/run_docker.sh -d <datasets> -m <models> -e <eval>`.
+- **Ask first** before changing `docker/`, `.github/workflows/`, `.pre-commit-config.yaml`, or `submodules/` — these affect every contributor. **Instead** of pushing directly, open a draft PR or raise it in the relevant channel before merging.
