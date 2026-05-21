@@ -5,8 +5,8 @@
 
 """Variation system public API.
 
-Importing this package triggers registration of all built-in variations in
-:class:`~isaaclab_arena.variations.base.VariationRegistry`.
+Importing this package registers all built-in variations with the
+:class:`VariationRegistry`.
 """
 
 from isaaclab_arena.variations.ledger import VariationLedger, VariationRecord

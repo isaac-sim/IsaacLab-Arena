@@ -36,25 +36,13 @@ _HYDRA_OVERRIDE_RE = re.compile(rf"^(?:~{_HYDRA_KEY}(?:=.*)?|(?:\+{{1,2}})?{_HYD
 def split_hydra_overrides(unknown: list[str], parser: argparse.ArgumentParser) -> list[str]:
     """Pull Hydra-shaped override tokens out of an argparse ``unknown`` list.
 
-    Walks the leftover tokens returned by :meth:`argparse.ArgumentParser.parse_known_args`,
-    keeping the ones that look like Hydra overrides (see :data:`_HYDRA_OVERRIDE_RE`)
-    and rejecting everything else through ``parser.error(...)`` so the script
-    exits with code 2 and the same usage / error format ``argparse`` produces
-    today for a strict :meth:`parse_args` call. The hard rule:
-
-    * If every leftover is Hydra-shaped, returns the list (possibly empty).
-    * If any leftover is not Hydra-shaped (e.g. a typo'd ``--flag``, an
-      unbound positional), the parser exits with non-zero status and a
-      message naming the offending tokens.
-
-    This preserves the property that strict argparse had before the switch
-    from :meth:`parse_args` to :meth:`parse_known_args`: typos still error
-    out, only intentional Hydra-style ``key=value`` tokens pass through.
+    Any leftover that does not match a Hydra override shape (see
+    :data:`_HYDRA_OVERRIDE_RE`) is rejected via ``parser.error``, exiting the
+    script with code 2 — the same behaviour strict :meth:`parse_args` had.
 
     Args:
         unknown: Second return value of ``parser.parse_known_args()``.
-        parser: The parser the unknowns came from; used to produce the
-            error message via :meth:`parser.error` so the usage line matches.
+        parser: The parser the unknowns came from; used to format the error.
 
     Returns:
         The Hydra override tokens, in original order.
@@ -156,16 +144,9 @@ def get_arena_builder_from_cli(
 
     Args:
         args_cli: Parsed argparse namespace; must carry ``example_environment``.
-        hydra_overrides: Optional Hydra-style variation override strings (e.g.
+        hydra_overrides: Optional Hydra variation override strings (e.g.
             ``"cracker_box.color.enabled=true"``). When non-empty, applied via
-            :meth:`ArenaEnvBuilder.apply_hydra_variation_overrides` before the
-            builder is returned, so subsequent calls to
-            :meth:`compose_manager_cfg` / :meth:`make_registered` pick up the
-            overridden variation cfgs. Defaults to ``None`` (no overrides) so
-            existing call sites stay backwards-compatible.
-
-    Returns:
-        The configured builder.
+            :meth:`ArenaEnvBuilder.apply_hydra_variation_overrides`.
     """
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 

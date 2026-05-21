@@ -54,40 +54,23 @@ class ObjectBase(Asset, ABC):
         self._variations: dict[str, VariationBase] = {}
 
     def add_variation(self, variation: VariationBase) -> None:
-        """Attach a concrete variation to this asset under its :attr:`VariationBase.name`.
+        """Attach a variation to this asset under its class-level ``name``.
 
-        Subclasses call this from their ``__init__`` (after ``super().__init__``)
-        to declare the variations they support, e.g.
-        ``self.add_variation(ObjectColorVariation(self))``. The variation's
-        class-level ``name`` is used as the key, so it matches the name the
-        variation is registered under globally (via
-        :func:`~isaaclab_arena.variations.variation_registry.register_variation`)
-        and the name users reference through :meth:`get_variation`. Each variation
-        is added in its default state (disabled, pre-configured with a sensible
-        default sampler where applicable) so that users can opt in with a single
-        :meth:`get_variation(name).enable() <isaaclab_arena.variations.variation_base.VariationBase.enable>`
-        call. Re-registering the same name overwrites the existing entry.
+        Subclasses call this from their ``__init__`` to declare the variations
+        they support. Re-registering the same name overwrites the existing entry.
         """
         self._variations[variation.name] = variation
 
     def get_variation(self, name: str) -> VariationBase:
-        """Return the variation with the given name; raises ``KeyError`` if unsupported."""
-        if name not in self._variations:
-            raise KeyError(
-                f"Asset '{self.name}' ({type(self).__name__}) does not support variation '{name}'. "
-                f"Supported variations: {sorted(self._variations)}."
-            )
+        """Return the variation with the given name."""
+        assert name in self._variations, (
+            f"Asset '{self.name}' ({type(self).__name__}) does not support variation '{name}'. "
+            f"Supported variations: {sorted(self._variations)}."
+        )
         return self._variations[name]
 
     def get_variations(self) -> list[VariationBase]:
-        """Return every variation attached to this asset, regardless of ``enabled``.
-
-        Callers that only want the active subset (e.g.
-        :meth:`~isaaclab_arena.environments.arena_env_builder.ArenaEnvBuilder._compose_variations_event_cfg`)
-        are responsible for filtering on :attr:`VariationBase.enabled` themselves.
-        The asset/scene exposes the full inventory so that Hydra-driven layers
-        can see disabled knobs and surface them as ``enabled=true`` overrides.
-        """
+        """Return every variation attached to this asset, enabled or not."""
         return list(self._variations.values())
 
     def get_initial_pose(self) -> Pose | PoseRange | PosePerEnv | None:

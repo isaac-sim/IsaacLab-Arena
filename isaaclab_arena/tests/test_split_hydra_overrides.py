@@ -5,15 +5,7 @@
 
 """Tests for :func:`isaaclab_arena_environments.cli.split_hydra_overrides`.
 
-Plain-Python unit tests: do not require Isaac Sim. Cover both halves of the
-contract documented on the helper:
-
-* Hydra-shaped tokens (``key.path=value``, ``+key=value``, ``++key=value``,
-  ``~key``) are passed through unchanged and in order.
-* Anything else left over from ``parse_known_args`` (a stray ``--flag``, an
-  unbound positional, a typo'd flag) routes through ``parser.error`` and
-  exits the process with code 2 -- matching the strict ``parse_args``
-  behaviour the entry-point scripts had before the switch.
+Plain-Python unit tests: do not require Isaac Sim.
 """
 
 import argparse

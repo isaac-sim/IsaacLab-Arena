@@ -182,23 +182,8 @@ class ArenaEnvBuilder:
     def _compose_variations_event_cfg(self):
         """Build a configclass instance holding an :class:`EventTermCfg` per enabled variation.
 
-        Walks every variation on the scene (and, later, any env-level variation
-        escape hatch), skips the disabled ones, and asks each enabled one for
-        its event term via
-        :meth:`~isaaclab_arena.variations.variation_base.VariationBase.build_event_cfg`.
-        Returns ``None`` when nothing is enabled so
-        :func:`combine_configclass_instances` skips it cleanly.
-
-        The :class:`~isaaclab_arena.scene.scene.Scene` / asset surface now
-        returns every variation regardless of state (see
-        :meth:`Scene.get_variations`), so the ``enabled`` filter lives here —
-        the same builder that consumes the inventory for the structured-Hydra
-        layer (:meth:`get_variations_schema`).
-
-        Raises:
-            AssertionError: If two variations want the same event-term name
-                (variations are responsible for uniquely namespacing their
-                terms, typically by prefixing with the asset name).
+        Walks the scene's variations, skips disabled ones, and asks each for its
+        event term. Returns ``None`` when nothing is enabled.
         """
         variations = self.arena_env.scene.get_variations()
         fields: list[tuple[str, type, EventTermCfg]] = []
@@ -219,16 +204,7 @@ class ArenaEnvBuilder:
         return VariationsEventCfg()
 
     def _iter_scene_variations(self) -> list[tuple[str, VariationBase]]:
-        """Walk the scene and return ``(asset_name, variation)`` pairs for every variation.
-
-        Used by both :meth:`_build_variations_schema` (where the asset name
-        becomes the top-level Hydra field) and the forthcoming
-        ``apply_hydra_variation_overrides`` (where it's the lookup key for
-        writing composed values back). We resolve the asset name here rather
-        than reading it off the variation because ``asset_name`` is an
-        :class:`~isaaclab_arena.variations.object_color.ObjectColorVariation`
-        implementation detail, not part of :class:`VariationBase`.
-        """
+        """Return ``(asset_name, variation)`` pairs for every variation in the scene."""
         pairs: list[tuple[str, VariationBase]] = []
         for asset in self.arena_env.scene.assets.values():
             if not isinstance(asset, ObjectBase):
@@ -238,23 +214,7 @@ class ArenaEnvBuilder:
         return pairs
 
     def _populate_variation_ledger(self, ledger: VariationLedger) -> None:
-        """Attach ``ledger`` to every *enabled* variation in the scene.
-
-        Lives on the builder (rather than on :class:`VariationLedger`)
-        so the ledger module does not have to import
-        :class:`~isaaclab_arena.scene.scene.Scene` /
-        :class:`~isaaclab_arena.assets.object_base.ObjectBase` — that
-        back-edge cycles through the variation system, since
-        ``ObjectBase.add_variation`` references ``VariationBase``. The
-        builder is the natural owner of the walk anyway: it already
-        owns :meth:`_iter_scene_variations` for the Hydra schema path
-        and knows the same identity convention (``"{asset}.{variation}"``)
-        that the override key paths use.
-
-        Disabled variations are skipped because they never fire — they
-        would just sit in the ledger as empty records and clutter the
-        downstream sensitivity-analysis output.
-        """
+        """Attach ``ledger`` to every enabled variation in the scene under ``"{asset}.{variation}"``."""
         for asset_name, variation in self._iter_scene_variations():
             if not variation.enabled:
                 continue
@@ -263,28 +223,17 @@ class ArenaEnvBuilder:
     def _build_variations_schema(self, pairs: list[tuple[str, VariationBase]]) -> type:
         """Build a dynamic dataclass mirroring the scene's variations for Hydra.
 
-        Each variation's existing ``*Cfg`` (e.g.
-        :class:`~isaaclab_arena.variations.object_color.ObjectColorVariationCfg`)
-        is used **as-is** as the per-variation schema node — it already carries
-        the ``enabled`` field via :class:`VariationBaseCfg` and its nested
-        sampler cfg (e.g.
-        :class:`~isaaclab_arena.variations.sampler.UniformSamplerCfg`), so the
-        Hydra override paths line up one-to-one with the cfg attribute paths
-        (``<asset>.<variation>.enabled=true``,
-        ``<asset>.<variation>.sampler.low=...``).
-
-        The per-variation default-factory deep-copies the live ``variation.cfg``
-        so each schema instance starts pre-populated from the variation's
-        current state — useful for inspecting what knobs are available and for
-        letting users override only what they want to change.
+        Each per-variation field is typed as the variation's own ``*Cfg`` and
+        pre-populated by deep-copying its current live cfg, so override paths
+        line up one-to-one with cfg attribute paths.
 
         Args:
             pairs: Output of :meth:`_iter_scene_variations`.
 
         Returns:
-            A fresh ``VariationsCfg`` dataclass type with one field per asset,
-            each holding a ``<AssetName>VariationsCfg`` dataclass whose fields
-            are the per-variation cfgs.
+            A ``VariationsCfg`` dataclass type with one field per asset, each
+            holding a ``<AssetName>VariationsCfg`` whose fields are the
+            per-variation cfgs.
         """
         per_asset: dict[str, list[tuple[str, type, Any]]] = {}
         for asset_name, variation in pairs:
@@ -302,27 +251,16 @@ class ArenaEnvBuilder:
 
     @staticmethod
     def _asset_class_name(asset_name: str) -> str:
-        """``"cracker_box"`` -> ``"CrackerBoxVariationsCfg"``."""
+        """Convert ``"cracker_box"`` to ``"CrackerBoxVariationsCfg"``."""
         camel = "".join(part.capitalize() for part in asset_name.split("_"))
         return f"{camel}VariationsCfg"
 
     def get_variations_schema(self) -> type | None:
-        """Return the dynamic :class:`dataclasses.dataclass` describing the scene's variations.
+        """Return the dataclass describing the scene's variations, or ``None`` if none are attached.
 
-        Public entry point for the Hydra-driven variation layer. The class
-        returned has one field per :class:`~isaaclab_arena.assets.object_base.ObjectBase`
-        asset that owns at least one variation; each asset field's type is itself
-        a dataclass whose fields are the variations attached to that asset, each
-        typed as a dynamically-subclassed variation cfg with an extra
-        ``enabled: bool`` field.
-
-        Typical use::
-
-            from omegaconf import OmegaConf
-            schema_cls = env_builder.get_variations_schema()
-            print(OmegaConf.to_yaml(OmegaConf.structured(schema_cls)))
-
-        Returns ``None`` when the scene has no variations attached.
+        The class has one field per :class:`ObjectBase` asset with at least one
+        variation; each asset field's type is a dataclass whose fields are the
+        attached variations' cfgs.
         """
         pairs = self._iter_scene_variations()
         if not pairs:
@@ -332,38 +270,18 @@ class ArenaEnvBuilder:
     def compose_variations_cfg(self, hydra_overrides: list[str]) -> Any | None:
         """Compose Hydra override strings into a typed ``VariationsCfg`` instance.
 
-        Step 1 of the two-step structured-config variation path. Builds the
-        schema returned by :meth:`get_variations_schema`, registers it with
-        Hydra's :class:`~hydra.core.config_store.ConfigStore`, composes the
-        supplied overrides against it, and converts the result from the
-        loosely-typed :class:`~omegaconf.DictConfig` form back into the
-        dataclass tree the schema describes via
-        :func:`omegaconf.OmegaConf.to_object`. The returned object is a
-        ``VariationsCfg`` instance whose per-asset fields are themselves
-        dataclass instances and whose leaf per-variation fields are typed
-        ``*Cfg`` instances (e.g.
-        :class:`~isaaclab_arena.variations.object_color.ObjectColorVariationCfg`),
-        not :class:`~omegaconf.DictConfig`.
-
-        Splitting this out from :meth:`apply_hydra_variation_overrides` lets
-        the builder's *write-back* step deal with typed cfgs only — it never
-        has to look up individual cfg fields by name, so adding a new
-        variation (with a different cfg shape) doesn't touch the builder.
+        Builds the schema from :meth:`get_variations_schema`, composes the
+        overrides against it, and converts the result to typed dataclass form
+        via :func:`omegaconf.OmegaConf.to_object`. Safe to call repeatedly:
+        :class:`~hydra.core.global_hydra.GlobalHydra` is cleared on entry.
 
         Args:
-            hydra_overrides: Hydra override strings, dotted-path syntax.
-                See :meth:`apply_hydra_variation_overrides` for examples.
+            hydra_overrides: Hydra override strings. See
+                :meth:`apply_hydra_variation_overrides` for examples.
 
         Returns:
-            The composed ``VariationsCfg`` instance, or ``None`` when the
-            scene has no variations attached.
-
-        Note:
-            :class:`~hydra.core.global_hydra.GlobalHydra` is cleared on entry
-            so this method is safe to call repeatedly in the same process
-            (e.g. across cells of a notebook, or inside an eval-runner loop).
-            See the open-questions section of ``2026_05_11_hydra_variation_plan.md``
-            for the longer-running motivation behind this.
+            The composed ``VariationsCfg`` instance, or ``None`` when the scene
+            has no variations attached.
         """
         from hydra import compose, initialize
         from hydra.core.config_store import ConfigStore
@@ -384,32 +302,12 @@ class ArenaEnvBuilder:
     def apply_hydra_variation_overrides(self, hydra_overrides: list[str]) -> None:
         """Apply Hydra-style variation overrides to the scene's variations.
 
-        Two-step:
-
-        1. **Strings → typed cfg.** :meth:`compose_variations_cfg` composes
-           the supplied override strings against the structured-config
-           schema and returns a fully-typed ``VariationsCfg`` instance.
-        2. **Typed cfg → live variation state.** For every
-           ``(asset_name, variation)`` pair the builder knows about, the
-           corresponding per-variation cfg is handed to
-           :meth:`~isaaclab_arena.variations.variation_base.VariationBase.apply_cfg`,
-           which replaces ``variation.cfg`` wholesale and rebuilds any
-           derived live state (e.g. the live sampler).
-
-        This split deliberately keeps the builder free of variation-specific
-        field names: the variation cfg dataclass *is* the enumeration of
-        the variation's tunable parameters, and
-        :meth:`VariationBase.apply_cfg` is the abstraction boundary that
-        knows how to map a cfg back onto its live variation. Adding a new
-        variation (with its own ``*Cfg`` shape) requires no changes here.
+        Composes ``hydra_overrides`` into a typed ``VariationsCfg`` and pushes
+        each per-variation cfg through :meth:`VariationBase.apply_cfg`.
 
         Args:
-            hydra_overrides: Hydra override strings, dotted-path syntax
-                mirroring the schema attribute paths (one level per asset,
-                one per variation, then per cfg field). May be empty (no-op
-                beyond a schema-defaults round-trip). Unknown asset /
-                variation / field paths are rejected by Hydra's
-                structured-config validator at compose time. Example::
+            hydra_overrides: Hydra override strings, dotted-path syntax mirroring
+                the schema attribute paths. Example::
 
                     env_builder.apply_hydra_variation_overrides([
                         "cracker_box.color.enabled=true",

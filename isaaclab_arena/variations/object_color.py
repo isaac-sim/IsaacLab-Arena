@@ -5,30 +5,18 @@
 
 """Per-asset visual color variation.
 
-Implements the "replace the bound material" color randomization path
-validated in ``isaaclab_arena/examples/compile_env_notebook.py`` —
-originally a thin wrapper around :class:`isaaclab.envs.mdp.randomize_visual_color`,
-now reimplemented locally as :class:`randomize_visual_color_from_sampler`
-so an Arena :class:`~isaaclab_arena.variations.sampler.Sampler` drives the
-RGB draw instead of an opaque Replicator RNG. Each cloned env ends up with
-a distinct random flat color; the asset's original diffuse texture is
-dropped (the in-place tint path remains a TODO, see
-``2026_04_21_color_variation_status.md``).
-
-Pulling the sampling step out of Replicator and into our :class:`Sampler`
-gives the variation system access to the actual values drawn at run time,
-which the sensitivity-analysis effort needs in order to record per-episode
-input factors. The hook itself is not implemented here; see
-:meth:`~isaaclab_arena.variations.sampler.Sampler.write_sample_to_ledger`.
+Replaces the asset's bound material with a fresh ``OmniPBR`` instance whose
+``diffuse_color_constant`` is sampled per env by an Arena
+:class:`~isaaclab_arena.variations.sampler.Sampler`. The asset's original
+diffuse texture is dropped.
 """
 
 from __future__ import annotations
 
 import re
+import torch
 from dataclasses import field
 from typing import TYPE_CHECKING
-
-import torch
 
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.utils import configclass
@@ -49,27 +37,13 @@ if TYPE_CHECKING:
 class ObjectColorVariationCfg(VariationBaseCfg):
     """Configuration for :class:`ObjectColorVariation`.
 
-    The default ``sampler`` is a 3D :class:`UniformSamplerCfg` over the full
-    ``[0, 1]^3`` RGB cube — aggressive but universally valid; users wanting
-    subtler tints can override individual bounds (e.g.
-    ``...sampler.low=[0.4,0.4,0.4]``) or replace the whole cfg via
-    :meth:`~isaaclab_arena.variations.variation_base.VariationBase.set_sampler`.
-
     Attributes:
-        mode: Event mode forwarded to :class:`EventTermCfg`. ``"reset"``
-            resamples on every episode reset; ``"prestartup"`` picks a
-            stable color per env for the whole run.
-        mesh_name: Sub-mesh selector forwarded to
-            :class:`isaaclab.envs.mdp.randomize_visual_color`. Empty string
-            targets all meshes under the asset's prim.
-        sampler: RGB distribution. Currently pinned to
-            :class:`~isaaclab_arena.variations.sampler.UniformSamplerCfg`
-            because the runtime event term
-            :func:`randomize_visual_color_from_sampler` only knows how to
-            apply per-channel RGB samples drawn from a 3D
-            :class:`~isaaclab_arena.variations.sampler.UniformSampler`. A
-            tagged-union / config-group mechanism can be introduced later if
-            other sampler kinds (e.g. discrete palette) become useful here.
+        mode: Event mode forwarded to :class:`EventTermCfg`. ``"reset"`` resamples
+            on every episode reset; ``"prestartup"`` picks a stable color per env.
+        mesh_name: Sub-mesh selector. Empty string targets all meshes under the
+            asset's prim.
+        sampler: RGB distribution. Defaults to a 3D uniform over the full
+            ``[0, 1]^3`` cube.
     """
 
     mode: str = "reset"
@@ -83,53 +57,20 @@ class ObjectColorVariationCfg(VariationBaseCfg):
 class ObjectColorVariation(VariationBase):
     """Randomize an object's visual color per env.
 
-    Emits a single :class:`EventTermCfg` bound to
-    :class:`isaaclab.envs.mdp.randomize_visual_color`. The target asset's
-    bound material is replaced with a fresh ``OmniPBR`` instance whose
-    ``diffuse_color_constant`` is sampled (uniformly over RGB) from the
-    variation's sampler. The sampler is built from
-    :attr:`ObjectColorVariationCfg.sampler` at construction time, so calling
-    :meth:`enable` alone is sufficient for reasonable behaviour; users can
-    narrow or replace the distribution either at construction time (via the
-    ``sampler`` kwarg, see below) or later via
-    :meth:`~isaaclab_arena.variations.variation_base.VariationBase.set_sampler`,
-    which accepts both :class:`~isaaclab_arena.variations.sampler.SamplerCfg`
-    (cfg-driven, keeps :attr:`cfg` in sync) and :class:`Sampler` (imperative,
-    does not touch :attr:`cfg`) inputs.
-
-    Requirements:
-        * ``scene.replicate_physics`` must be False (the Arena default).
-          With replication on, all envs share one material and per-env
-          randomization is impossible. :class:`randomize_visual_color`
-          asserts this at construction time.
+    Requires ``scene.replicate_physics=False`` (the Arena default) so each env
+    owns its own material prim.
 
     Args:
-        asset: The :class:`~isaaclab_arena.assets.object_base.ObjectBase`
-            (or subclass) instance whose visual color will be varied. The
-            asset's ``name`` is used to resolve the scene entity at event
-            time, so the same instance must also be registered on the
-            :class:`~isaaclab_arena.scene.scene.Scene`.
-        cfg: Tunable parameters (``mode``, ``mesh_name``, ``sampler``).
-            Defaults to an :class:`ObjectColorVariationCfg` with sensible
-            reset-time, all-meshes, full-RGB-uniform defaults; callers only
-            need to supply a cfg to override those.
-        sampler: Optional override for the RGB distribution. Mirrors
-            :meth:`~isaaclab_arena.variations.variation_base.VariationBase.set_sampler`:
-            a :class:`UniformSamplerCfg` is built into a live sampler **and**
-            written back onto ``self.cfg.sampler`` (declarative round-trip);
-            a bare :class:`Sampler` is stored directly without touching
-            ``self.cfg`` (imperative override). When both ``cfg.sampler`` and
-            ``sampler`` are supplied the ``sampler`` kwarg wins — the cfg's
-            sampler field is replaced for cfg-driven overrides or left as a
-            stale record for imperative overrides. When ``sampler`` is
-            ``None`` the sampler in ``cfg`` is used as-is.
+        asset: The object whose visual color will be varied. Its ``name`` is
+            used to resolve the scene entity at event time.
+        cfg: Tunable parameters. Defaults to an :class:`ObjectColorVariationCfg`
+            with full-RGB-uniform reset-time defaults.
+        sampler: Optional override for the RGB distribution. If ``None``, the
+            sampler in ``cfg`` is used.
     """
 
     name = "color"
 
-    #: Narrow the base class annotation so static checkers know
-    #: ``self.cfg.mode`` / ``self.cfg.mesh_name`` / ``self.cfg.sampler`` are
-    #: available.
     cfg: ObjectColorVariationCfg
 
     def __init__(
@@ -187,31 +128,11 @@ class ObjectColorVariation(VariationBase):
 class randomize_visual_color_from_sampler(ManagerTermBase):
     """Randomize the visual color of bodies on an asset, sampling via an Arena :class:`Sampler`.
 
-    Locally-owned variant of :class:`isaaclab.envs.mdp.randomize_visual_color`
-    that delegates RGB sampling to an Arena
-    :class:`~isaaclab_arena.variations.sampler.Sampler` instead of letting
-    Replicator's internal RNG draw the values opaquely. The sample tensor is
-    visible to Python on every call, which is what the sensitivity-analysis
-    recording layer needs in order to log per-episode input factors. Setup
-    (replicator extension load, material creation, prim binding) mirrors the
-    upstream class so the visual result is identical when the sampler matches
-    the bounds.
-
-    Only the modern Replicator code path (``omni.replicator.core >= 1.12.4``)
-    is supported: the legacy path builds a ``rep.distribution.uniform`` node
-    inside an OmniGraph and samples there, which there is no way to replace
-    with a Python-side :class:`Sampler` without forking the graph. This is
-    asserted at term init.
-
-    .. note::
-        Like the upstream variant, randomization is applied to *all* envs on
-        every call regardless of ``env_ids``; per-env subsetting on the
-        Replicator side is still an open item upstream.
-
-    .. note::
-        Scene replication (:attr:`isaaclab.scene.InteractiveSceneCfg.replicate_physics`)
-        must be ``False`` so each env owns its own material prim — same
-        constraint as the upstream variant.
+    Variant of :class:`isaaclab.envs.mdp.randomize_visual_color` that delegates
+    RGB sampling to a Python-side :class:`Sampler` so the drawn values are
+    visible to the recording layer. Requires ``omni.replicator.core >= 1.12.4``
+    and ``scene.replicate_physics=False``. Like the upstream variant,
+    randomization is applied to all envs on every call regardless of ``env_ids``.
     """
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
@@ -285,13 +206,12 @@ class randomize_visual_color_from_sampler(ManagerTermBase):
 
 # def make_variation_event(func: Callable, sampler: Sampler, mode: str, params: dict) -> EventTermCfg:
 
-    
+
 #     return EventTermCfg(
 #         func=func,
 #         mode=mode,
 #         params=params,
 #     )
-
 
 
 # def make_wrapper(func: Callable) -> Callable:
@@ -331,4 +251,3 @@ class randomize_visual_color_from_sampler(ManagerTermBase):
 #         __call__ = new_call
 
 #     return Wrapped
-

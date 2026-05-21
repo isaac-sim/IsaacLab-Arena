@@ -104,12 +104,7 @@ class Scene:
         return self.commands_cfg
 
     def get_variations(self) -> list[VariationBase]:
-        """Return every variation attached to :class:`ObjectBase` assets in the scene.
-
-        Returns enabled *and* disabled variations — callers must filter by
-        :attr:`VariationBase.enabled` themselves if they only want the active
-        subset. See :meth:`ObjectBase.get_variations` for the rationale.
-        """
+        """Return every variation attached to :class:`ObjectBase` assets in the scene, enabled or not."""
         variations: list[VariationBase] = []
         for asset in self.assets.values():
             if isinstance(asset, ObjectBase):
