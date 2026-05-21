@@ -1,14 +1,16 @@
 ---
 name: run-tests
-description: Runs the Isaac Lab-Arena pytest suite across its three required phases (no-cameras, with-cameras, with-subprocess) inside the running isaaclab_arena Docker container. Use when the user asks to run the tests, test their changes, verify the test suite passes, check whether a change broke anything (e.g. "did I break anything", "do the tests still pass", "is everything still working"), smoke-test the install, run smoke tests, or run coverage for a specific module.
-argument-hint: "[smoke]"
+description: Runs the Isaac Lab-Arena pytest suite across its three required phases (no-cameras, with-cameras, with-subprocess) inside the running isaaclab_arena Docker container. Use when the user asks to run the tests, test their changes, verify the test suite passes, check whether a change broke anything (e.g. "did I break anything", "do the tests still pass", "is everything still working"), run only one specific phase (e.g. "run Phase 1", "run only the no-camera tests", "skip the camera and subprocess tests"), or run coverage for a specific module.
+argument-hint: "[phase1|phase2|phase3]"
 allowed-tools: Bash(docker exec *)
 ---
 
 # Run Tests
 
 **Default (no argument):** run all three phases in order.
-**`smoke`:** Phase 1 only (no-cameras, no-subprocess) — the fast install / sanity check used in the first-touch journey.
+**`phase1`:** no-cameras, no-subprocess only.
+**`phase2`:** with-cameras only.
+**`phase3`:** with-subprocess only.
 
 The three phases use mutually exclusive pytest markers and must be invoked separately. For a full pre-PR run, every phase must pass before moving on to the next.
 
@@ -16,7 +18,7 @@ All commands run inside the already-running container via `docker exec`. If the 
 
 ## Phase 1 — no cameras, no subprocess
 
-The fastest phase. Suitable on its own as a smoke check after install or after small edits.
+The fastest of the three. Useful on its own when iterating on changes that don't touch rendering or subprocess paths.
 
 ```bash
 docker exec isaaclab_arena-latest bash -c \
