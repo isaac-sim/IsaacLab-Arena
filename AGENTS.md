@@ -4,7 +4,7 @@ This file provides guidance to AI coding agents (Claude Code, OpenAI Codex, etc.
 
 ## Project
 
-Isaac Lab-Arena is a composable environment-creation and policy-evaluation library for robotics simulation, built on Isaac Sim 5.1 and Isaac Lab 2.3. Status: alpha (`v0.2.x`); APIs are unstable. `develop` is the active branch; `main` is under SQA and receives only fixes.
+Isaac Lab-Arena is a composable environment-creation and policy-evaluation library for robotics simulation, built on Isaac Sim 5.1 and Isaac Lab 2.3. Status: alpha (`v0.2.x`); APIs are unstable. `main` is the active development branch.
 
 ## Skill library
 
@@ -66,7 +66,7 @@ def test_foo():  # pytest-visible outer function
 
 ## Boundaries
 
-- **Never** force-push to `main`, `develop`, or `release/*`. **Instead**, push to a `<username>/feature-desc` branch and open a PR against `develop`.
+- **Never** force-push to `main` or `release/*`. **Instead**, push to a `<username>/feature-desc` branch and open a PR against `main`.
 - **Never** add AI-attribution lines to commits (no `Co-Authored-By: Claude…`, no `Generated with…`). **Instead**, sign off with `git commit -s` — DCO is the only required trailer.
 - **Never** commit models, datasets, or secrets. **Instead**, keep them on the host and mount them via `./docker/run_docker.sh -d <datasets> -m <models> -e <eval>`.
 - **Ask first** before changing `docker/`, `.github/workflows/`, `.pre-commit-config.yaml`, or `submodules/` — these affect every contributor. **Instead** of pushing directly, open a draft PR or raise it in the relevant channel before merging.

@@ -1,6 +1,6 @@
 ---
 name: commit-and-pr
-description: Creates Arena-conformant commits and pull requests. Enforces DCO sign-off (git commit -s), no AI attribution lines (no Co-Authored-By, no Generated-with-Claude footers), <username>/<feature-desc> branch naming, separate new commits rather than --amend when iterating on PR feedback, and develop as the default base branch. Use when the user asks to commit, stage changes, push the current branch, or open a pull request.
+description: Creates Arena-conformant commits and pull requests. Enforces DCO sign-off (git commit -s), no AI attribution lines (no Co-Authored-By, no Generated-with-Claude footers), <username>/<feature-desc> branch naming, separate new commits rather than --amend when iterating on PR feedback, and main as the default base branch. Use when the user asks to commit, stage changes, push the current branch, or open a pull request.
 disable-model-invocation: true
 allowed-tools: Bash(git *) Bash(gh pr create *) Bash(gh pr view *)
 ---
@@ -52,10 +52,10 @@ Do not use `feature/...`, `fix/...`, or `docs/...` prefixes.
    git push -u origin <branch-name>
    ```
 
-2. Open the PR against `develop` (the active branch — `main` is under SQA and only receives fixes):
+2. Open the PR against `main` (the active branch):
 
    ```bash
-   gh pr create --base develop \
+   gh pr create --base main \
      --title "<short imperative subject>" \
      --body "<summary + test plan>"
    ```
@@ -87,6 +87,6 @@ gh pr view --json title,baseRefName,statusCheckRollup
 ```
 
 Confirm:
-- `baseRefName` is `develop` (not `main`).
+- `baseRefName` is `main`.
 - Title has no trailing period and is in imperative mood.
 - CI checks are running or green. Investigate any failures before requesting review.
