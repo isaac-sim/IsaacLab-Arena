@@ -408,6 +408,137 @@ def _test_state_machine_reset_clears_state(simulation_app) -> bool:
     return True
 
 
+def _test_gating_active_when_parent_subtask_idx_matches(simulation_app) -> bool:
+    """A recipe with ``parent_subtask_idx=N`` advances normally when the env's
+    ``_current_subtask_idx`` matches N. This mirrors the sequential-composite
+    case where subtask N is the currently-active parent subtask."""
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+
+    try:
+        env = _MockEnv(num_envs=1)
+        env._current_subtask_idx = [1]
+
+        pred = _MockPredicate(num_envs=1, name="p")
+        fgs = FineGrainedSubtask(name="t", conditions=pred, parent_subtask_idx=1)
+        sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=1, device="cpu")
+        sm.reset([0])
+
+        pred.set([True])
+        _advance_step(env)
+        sm.step(env, step_index=env.episode_length_buf)
+        assert sm.get_state()[0]["subtasks"]["t"]["is_complete"]
+        assert len(sm.get_events()[0]) == 1
+    except Exception as e:
+        print(f"Error: {e}")
+        traceback.print_exc()
+        return False
+    return True
+
+
+def _test_gating_blocked_when_parent_subtask_idx_mismatches(simulation_app) -> bool:
+    """A recipe with ``parent_subtask_idx=N`` is frozen when the env's
+    ``_current_subtask_idx`` differs from N — even if the underlying predicate
+    is True. Once the parent advances to N, the recipe starts advancing too."""
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+
+    try:
+        env = _MockEnv(num_envs=1)
+        env._current_subtask_idx = [0]   # parent on subtask 0, recipe targets 1
+
+        pred = _MockPredicate(num_envs=1, name="p")
+        fgs = FineGrainedSubtask(name="t", conditions=pred, parent_subtask_idx=1)
+        sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=1, device="cpu")
+        sm.reset([0])
+
+        # Predicate True, but the parent isn't at this recipe's index yet.
+        pred.set([True])
+        _advance_step(env)
+        sm.step(env, step_index=env.episode_length_buf)
+        assert not sm.get_state()[0]["subtasks"]["t"]["is_complete"]
+        assert sm.get_state()[0]["subtasks"]["t"]["score"] == 0.0
+        assert len(sm.get_events()[0]) == 0
+
+        # Parent advances to this recipe's index; the recipe catches up.
+        env._current_subtask_idx = [1]
+        _advance_step(env)
+        sm.step(env, step_index=env.episode_length_buf)
+        assert sm.get_state()[0]["subtasks"]["t"]["is_complete"]
+        assert len(sm.get_events()[0]) == 1
+    except Exception as e:
+        print(f"Error: {e}")
+        traceback.print_exc()
+        return False
+    return True
+
+
+def _test_gating_noop_when_env_has_no_current_subtask_idx(simulation_app) -> bool:
+    """For unordered composite tasks, ``env._current_subtask_idx`` is absent.
+    Recipes carry ``parent_subtask_idx`` (for namespacing) but gating is a no-op
+    and all recipes advance whenever their predicates fire."""
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+
+    try:
+        env = _MockEnv(num_envs=1)
+        # No _current_subtask_idx attribute on env -> unordered composite path.
+
+        pred = _MockPredicate(num_envs=1, name="p")
+        fgs = FineGrainedSubtask(name="t", conditions=pred, parent_subtask_idx=1)
+        sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=1, device="cpu")
+        sm.reset([0])
+
+        pred.set([True])
+        _advance_step(env)
+        sm.step(env, step_index=env.episode_length_buf)
+        assert sm.get_state()[0]["subtasks"]["t"]["is_complete"]
+        assert len(sm.get_events()[0]) == 1
+    except Exception as e:
+        print(f"Error: {e}")
+        traceback.print_exc()
+        return False
+    return True
+
+
+def _test_sequential_gating_end_to_end(simulation_app) -> bool:
+    """Two recipes targeting different parent subtask indices. The parent's
+    ``_current_subtask_idx`` advances over time. Each recipe only progresses
+    during its parent's active window."""
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+
+    try:
+        env = _MockEnv(num_envs=1)
+        env._current_subtask_idx = [0]
+
+        pred_a = _MockPredicate(num_envs=1, name="a")
+        pred_b = _MockPredicate(num_envs=1, name="b")
+        fgs_a = FineGrainedSubtask(name="a", conditions=pred_a, parent_subtask_idx=0)
+        fgs_b = FineGrainedSubtask(name="b", conditions=pred_b, parent_subtask_idx=1)
+        sm = FineGrainedStateMachine(subtasks=[fgs_a, fgs_b], num_envs=1, device="cpu")
+        sm.reset([0])
+
+        # Both predicates True, but only "a" is active (parent on subtask 0).
+        pred_a.set([True])
+        pred_b.set([True])
+        _advance_step(env)
+        sm.step(env, step_index=env.episode_length_buf)
+        assert sm.get_state()[0]["subtasks"]["a"]["is_complete"]
+        assert not sm.get_state()[0]["subtasks"]["b"]["is_complete"]
+
+        # Parent advances to subtask 1; "b" is now active.
+        env._current_subtask_idx = [1]
+        _advance_step(env)
+        sm.step(env, step_index=env.episode_length_buf)
+        assert sm.get_state()[0]["subtasks"]["b"]["is_complete"]
+    except Exception as e:
+        print(f"Error: {e}")
+        traceback.print_exc()
+        return False
+    return True
+
+
 def _test_step_func_publishes_to_extras_and_returns_no_termination(simulation_app) -> bool:
     """fine_grained_subtask_step_func writes env.extras and returns all-False."""
     from isaaclab_arena.tasks.fine_grained_state_machine import (
@@ -503,6 +634,36 @@ def _test_task_base_fine_grained_subtask_hooks(simulation_app) -> bool:
         assert len(opt_in.get_fine_grained_subtasks()) == 1
         assert opt_in.get_fine_grained_subtask_events_cfg() is not None
         assert opt_in.get_fine_grained_subtask_termination_cfg() is not None
+
+        # ---- CompositeTaskBase: concatenate child recipes with namespace + parent index ----
+        from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
+
+        class _ChildA(_Base):
+            def get_fine_grained_subtasks(self):
+                return [FineGrainedSubtask(name="open", conditions=_MockPredicate(1, name="pa"))]
+
+        class _ChildB(_Base):
+            def get_fine_grained_subtasks(self):
+                return [FineGrainedSubtask(name="close", conditions=_MockPredicate(1, name="pb"))]
+
+        composite = CompositeTaskBase(subtasks=[_ChildA(), _ChildB()])
+        recipes = composite.get_fine_grained_subtasks()
+        assert len(recipes) == 2
+        assert recipes[0].name == "subtask_0/open"
+        assert recipes[0].parent_subtask_idx == 0
+        assert recipes[1].name == "subtask_1/close"
+        assert recipes[1].parent_subtask_idx == 1
+
+        # get_own_fine_grained_subtasks adds composite-level recipes (no gating).
+        class _CompositeWithOwn(CompositeTaskBase):
+            def get_own_fine_grained_subtasks(self):
+                return [FineGrainedSubtask(name="both_done", conditions=_MockPredicate(1, name="own"))]
+
+        composite2 = _CompositeWithOwn(subtasks=[_ChildA(), _ChildB()])
+        recipes2 = composite2.get_fine_grained_subtasks()
+        assert len(recipes2) == 3
+        assert recipes2[2].name == "both_done"
+        assert recipes2[2].parent_subtask_idx is None    # composite-level: never gated
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -559,6 +720,28 @@ def test_state_machine_reset_clears_state():
     assert run_simulation_app_function(_test_state_machine_reset_clears_state, headless=HEADLESS)
 
 
+def test_gating_active_when_parent_subtask_idx_matches():
+    assert run_simulation_app_function(
+        _test_gating_active_when_parent_subtask_idx_matches, headless=HEADLESS
+    )
+
+
+def test_gating_blocked_when_parent_subtask_idx_mismatches():
+    assert run_simulation_app_function(
+        _test_gating_blocked_when_parent_subtask_idx_mismatches, headless=HEADLESS
+    )
+
+
+def test_gating_noop_when_env_has_no_current_subtask_idx():
+    assert run_simulation_app_function(
+        _test_gating_noop_when_env_has_no_current_subtask_idx, headless=HEADLESS
+    )
+
+
+def test_sequential_gating_end_to_end():
+    assert run_simulation_app_function(_test_sequential_gating_end_to_end, headless=HEADLESS)
+
+
 def test_step_func_publishes_to_extras_and_returns_no_termination():
     assert run_simulation_app_function(
         _test_step_func_publishes_to_extras_and_returns_no_termination, headless=HEADLESS
@@ -581,5 +764,9 @@ if __name__ == "__main__":
     test_state_machine_logical_all()
     test_state_machine_logical_choose()
     test_state_machine_reset_clears_state()
+    test_gating_active_when_parent_subtask_idx_matches()
+    test_gating_blocked_when_parent_subtask_idx_mismatches()
+    test_gating_noop_when_env_has_no_current_subtask_idx()
+    test_sequential_gating_end_to_end()
     test_step_func_publishes_to_extras_and_returns_no_termination()
     test_task_base_fine_grained_subtask_hooks()

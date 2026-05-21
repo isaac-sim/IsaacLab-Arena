@@ -138,6 +138,14 @@ class FineGrainedSubtask:
     logical: Literal["all", "any", "choose"] = "all"
     K: int | None = None
     description: str | None = None
+    # Index of the parent composite-task subtask this recipe belongs to. Set
+    # automatically by ``CompositeTaskBase.get_fine_grained_subtasks`` during
+    # concatenation; ``None`` for top-level recipes (atomic tasks or
+    # composite-level recipes added via ``get_own_fine_grained_subtasks``).
+    # When non-None *and* the env exposes ``_current_subtask_idx`` (i.e. the
+    # parent is a ``SequentialTaskBase``), the state machine only advances
+    # this recipe for envs whose current parent-subtask index matches.
+    parent_subtask_idx: int | None = None
     canonical_conditions: dict[str, list[tuple[Callable, float]]] = field(init=False, repr=False)
 
     def __post_init__(self):

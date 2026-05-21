@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
+import dataclasses
 import numpy as np
 import torch
 from dataclasses import MISSING
@@ -22,6 +23,7 @@ from isaaclab_arena.metrics.subtask_windowed_metric import (
     SubtaskWindowedMetric,
 )
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
+from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.configclass import (
     check_configclass_field_duplicates,
@@ -321,6 +323,42 @@ class CompositeTaskBase(TaskBase):
         subtask_metrics.append(SubtaskSuccessRateMetric())
 
         return subtask_metrics
+
+    def get_own_fine_grained_subtasks(self) -> list[FineGrainedSubtask]:
+        """Composite-level fine-grained recipes (e.g. cross-child conditions).
+
+        These are added on top of whatever recipes the children declare. They
+        carry ``parent_subtask_idx = None`` and therefore have no activation
+        gating — they remain active for the full episode.
+        """
+        return []
+
+    def get_fine_grained_subtasks(self) -> list[FineGrainedSubtask]:
+        """Concatenate children's fine-grained recipes with namespace prefixes.
+
+        Each child's recipe gets a new name (``f"subtask_{i}/{original_name}"``)
+        and a ``parent_subtask_idx = i`` tag. For ``SequentialTaskBase`` the
+        state machine reads ``parent_subtask_idx`` to gate advancement against
+        ``env._current_subtask_idx`` so a child's recipes only advance while
+        that child is the active parent subtask. For unordered
+        ``CompositeTaskBase`` (no ``_current_subtask_idx``) the gate is a no-op
+        and every recipe is always active.
+
+        Composite-level recipes from ``get_own_fine_grained_subtasks`` are
+        appended afterward and are not gated.
+        """
+        out: list[FineGrainedSubtask] = []
+        for i, child in enumerate(self.subtasks):
+            for fgs in child.get_fine_grained_subtasks():
+                out.append(
+                    dataclasses.replace(
+                        fgs,
+                        name=f"subtask_{i}/{fgs.name}",
+                        parent_subtask_idx=i,
+                    )
+                )
+        out.extend(self.get_own_fine_grained_subtasks())
+        return out
 
     def combine_mimic_subtask_configs(self, arm_mode: ArmMode) -> dict[str, list[SubTaskConfig]]:
         "Combine the Mimic subtask configs for all subtasks."

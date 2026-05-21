@@ -87,6 +87,26 @@ class FineGrainedSubtaskRunner:
             self.group_score[group] = torch.zeros(num_envs, dtype=torch.float32, device=device)
             self.group_complete[group] = torch.zeros(num_envs, dtype=torch.bool, device=device)
 
+    def _compute_gating_mask(self, env) -> torch.Tensor:
+        """Per-env mask of whether this recipe is *active* this step.
+
+        - ``parent_subtask_idx is None`` → recipe always active (returns all True).
+        - ``env._current_subtask_idx`` missing → parent is not sequential
+          (e.g. unordered ``CompositeTaskBase``), no gating, all True.
+        - Otherwise (sequential parent) → True only for envs whose current
+          parent-subtask index matches this recipe's ``parent_subtask_idx``.
+        """
+        if self.subtask.parent_subtask_idx is None:
+            return torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
+        current_idx = getattr(env, "_current_subtask_idx", None)
+        if current_idx is None:
+            return torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
+        if torch.is_tensor(current_idx):
+            ci = current_idx.to(self.device)
+        else:
+            ci = torch.as_tensor(current_idx, device=self.device)
+        return ci == int(self.subtask.parent_subtask_idx)
+
     def step(self, env, step_index: torch.Tensor | None) -> list[dict]:
         """Advance each group's pointer where its currently-targeted predicate fires.
 
@@ -94,12 +114,15 @@ class FineGrainedSubtaskRunner:
         in the ``env_idx`` key so the orchestrator can route it.
         """
         events: list[dict] = []
+        gating_mask = self._compute_gating_mask(env)
+        if not bool(gating_mask.any().item()):
+            return events
         for group, chain in self.subtask.canonical_conditions.items():
             chain_length = len(chain)
             advanced = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
 
             for chain_idx, (predicate, score_weight) in enumerate(chain):
-                at_position = (self.current_index[group] == chain_idx) & ~advanced
+                at_position = (self.current_index[group] == chain_idx) & ~advanced & gating_mask
                 if not bool(at_position.any().item()):
                     continue
 
