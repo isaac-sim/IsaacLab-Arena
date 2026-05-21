@@ -24,7 +24,6 @@ from isaaclab.utils.version import compare_versions
 
 from isaaclab_arena.variations.sampler import Sampler, UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import VariationBase, VariationBaseCfg
-from isaaclab_arena.variations.variation_registry import register_variation
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -53,7 +52,6 @@ class ObjectColorVariationCfg(VariationBaseCfg):
     )
 
 
-@register_variation
 class ObjectColorVariation(VariationBase):
     """Randomize an object's visual color per env.
 

@@ -3,17 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Variation system public API.
-
-Importing this package registers all built-in variations with the
-:class:`VariationRegistry`.
-"""
+"""Variation system public API."""
 
 from isaaclab_arena.variations.object_color import ObjectColorVariation, ObjectColorVariationCfg
 from isaaclab_arena.variations.sampler import Sampler, SamplerCfg, UniformSampler, UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import VariationBase, VariationBaseCfg
 from isaaclab_arena.variations.variation_recorder import VariationRecord, VariationRecorder
-from isaaclab_arena.variations.variation_registry import VariationRegistry, register_variation
 
 __all__ = [
     "ObjectColorVariation",
@@ -26,6 +21,4 @@ __all__ = [
     "VariationBaseCfg",
     "VariationRecord",
     "VariationRecorder",
-    "VariationRegistry",
-    "register_variation",
 ]
