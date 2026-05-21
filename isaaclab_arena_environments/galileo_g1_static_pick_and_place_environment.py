@@ -285,10 +285,11 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         else:
             teleop_device = None
 
-        # Robot pose mirrors the locomanip env exactly so the WBC controller stands the
-        # robot up in the same shelf-relative spot. The controller dynamically lifts the
-        # pelvis to ~z=0.74 at runtime; init_state.pos.z=0 is correct.
-        embodiment.set_initial_pose(Pose(position_xyz=(0.20, 0.08, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+        # Robot pose is tuned for the same-shelf static task: slightly forward toward
+        # the table while preserving the lateral offset that keeps both arms usable.
+        # The controller dynamically lifts the pelvis to ~z=0.74 at runtime;
+        # init_state.pos.z=0 is correct.
+        embodiment.set_initial_pose(Pose(position_xyz=(0.25, 0.08, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
         embodiment.scene_config.robot.init_state.joint_pos.update(_G1_STATIC_OPEN_ARM_JOINT_POS)
         shelf_support.set_initial_pose(
             Pose(position_xyz=SHELF_SUPPORT_PATCH_CENTER, rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
