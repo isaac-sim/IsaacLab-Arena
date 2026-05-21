@@ -243,6 +243,32 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         )
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
 
+        # Lock the 3 waist joints (yaw/roll/pitch) for this static task. The
+        # ``g1_wbc_agile_pink`` / ``g1_wbc_pink`` embodiments add the waist joints to
+        # the upper-body Pink IK active set so the IK can use the torso to extend arm
+        # reach. For the static apple-to-plate workflow that's undesirable: data
+        # collection is supposed to keep the torso fixed (see step_2_teleoperation.rst:
+        # "keep the robot torso and body fixed during this static task"), and the
+        # IK-driven waist motion gets baked into recorded ``robot_joint_pos`` /
+        # ``robot_joint_vel`` observations and bleeds into downstream training.
+        # Removing the waist from the IK's active set lets the lower-body AGILE
+        # policy's waist=0 command stay (see ``G1AgilePolicy._build_joint_mappings``:
+        # "AGILE only drives the 12 leg slots; the 3 waist slots stay at zero"), and
+        # the stiff waist PD (~k=300 in ``G1_AGILE_CFG``) holds the torso at the
+        # default neutral pose. Flag is opt-out so anyone wanting the IK-extended
+        # reach can disable it without editing the env.
+        if args_cli.lock_waist:
+            g1_action_cfg = getattr(embodiment.action_config, "g1_action", None)
+            if g1_action_cfg is not None and hasattr(g1_action_cfg, "upperbody_extra_active_joints"):
+                g1_action_cfg.upperbody_extra_active_joints = []
+            else:
+                warnings.warn(
+                    f"galileo_g1_static_pick_and_place: --lock_waist=True but embodiment "
+                    f"'{args_cli.embodiment}' has no 'upperbody_extra_active_joints' on its "
+                    "action config; the waist may still move via the IK.",
+                    stacklevel=1,
+                )
+
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
         else:
@@ -342,5 +368,20 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
             help=(
                 "Override the natural-language task description. Defaults to a template "
                 "derived from --object and --destination."
+            ),
+        )
+        # The static task is upper-body-only by design, so we lock the 3 waist
+        # joints by default. Pass ``--no-lock_waist`` to fall back to the default
+        # AGILE-pink behaviour (waist active in Pink IK for extended arm reach).
+        parser.add_argument(
+            "--lock_waist",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+            help=(
+                "Remove waist_yaw/roll/pitch from the upper-body Pink IK active set so "
+                "the torso stays fixed during teleoperation and recorded observations. "
+                "On by default for this static task; pass --no-lock_waist to allow the "
+                "IK to use the waist for extended arm reach (the production AGILE-pink "
+                "default)."
             ),
         )
