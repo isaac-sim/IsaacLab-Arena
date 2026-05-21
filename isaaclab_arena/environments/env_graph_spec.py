@@ -3,16 +3,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import yaml
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, TypeVar
-
-import yaml
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 
 
-@dataclass(frozen=True)
+@dataclass
 class EnvGraphNodeSpec:
     """Node in an environment graph.
 
@@ -28,7 +28,7 @@ class EnvGraphNodeSpec:
     params: dict[str, Any] = field(default_factory=dict)
 
 
-@dataclass(frozen=True)
+@dataclass
 class EnvGraphConstraintSpec:
     """Constraint edge in an environment graph state spec.
 
@@ -42,7 +42,7 @@ class EnvGraphConstraintSpec:
     params: dict[str, Any] = field(default_factory=dict)
 
 
-@dataclass(frozen=True)
+@dataclass
 class EnvGraphEdgesSpec:
     """Grouped spatial and task constraints."""
 
@@ -50,7 +50,7 @@ class EnvGraphEdgesSpec:
     task_constraints: list[EnvGraphConstraintSpec] = field(default_factory=list)
 
 
-@dataclass(frozen=True)
+@dataclass
 class EnvGraphStateSpec:
     """Snapshot of the environment state in the graph.
 
@@ -62,7 +62,7 @@ class EnvGraphStateSpec:
     edges: EnvGraphEdgesSpec = field(default_factory=EnvGraphEdgesSpec)
 
 
-@dataclass(frozen=True)
+@dataclass
 class EnvGraphTaskSpec:
     """Task entry in an environment graph."""
 
@@ -73,7 +73,7 @@ class EnvGraphTaskSpec:
     task_args: dict[str, Any] = field(default_factory=dict)
 
 
-@dataclass(frozen=True)
+@dataclass
 class EnvGraphSpec:
     """Typed representation of an environment graph YAML file."""
 
@@ -226,18 +226,18 @@ def _assert_references_exist(
 
     for task in tasks:
         for label, state_spec_id in task.state_specs.items():
-            assert state_spec_id in state_spec_ids, (
-                f"Task '{task.id}' references unknown state spec '{state_spec_id}' for '{label}'"
-            )
+            assert (
+                state_spec_id in state_spec_ids
+            ), f"Task '{task.id}' references unknown state spec '{state_spec_id}' for '{label}'"
 
     for state_spec in state_specs:
         constraints = state_spec.edges.spatial_constraints + state_spec.edges.task_constraints
         for constraint in constraints:
             if constraint.parent is not None:
-                assert constraint.parent in node_ids, (
-                    f"Constraint '{constraint.id}' references unknown parent node '{constraint.parent}'"
-                )
+                assert (
+                    constraint.parent in node_ids
+                ), f"Constraint '{constraint.id}' references unknown parent node '{constraint.parent}'"
             if constraint.child is not None:
-                assert constraint.child in node_ids, (
-                    f"Constraint '{constraint.id}' references unknown child node '{constraint.child}'"
-                )
+                assert (
+                    constraint.child in node_ids
+                ), f"Constraint '{constraint.id}' references unknown child node '{constraint.child}'"

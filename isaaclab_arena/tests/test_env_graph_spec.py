@@ -86,40 +86,30 @@ def test_env_graph_spec_rejects_missing_constraint_node_reference():
 
 
 def _minimal_env_graph_data():
-    return deepcopy(
-        {
-            "name": "minimal_env_graph",
-            "nodes": [
-                {"id": "robot", "name": "robot", "type": "embodiment"},
-                {"id": "table", "name": "table", "type": "object_reference"},
-                {"id": "cube", "name": "cube", "type": "rigid_object"},
-            ],
-            "tasks": [
-                {
-                    "id": "task_0",
-                    "name": "task_0",
-                    "type": "pick_and_place",
-                    "state_specs": {"initial": "state_0"},
-                }
-            ],
-            "state_specs": [
-                {
-                    "id": "state_0",
-                    "name": "state_0",
-                    "edges": {
-                        "spatial_constraints": [
-                            {"id": "table_is_anchor", "type": "is_anchor", "parent": "table"}
-                        ],
-                        "task_constraints": [
-                            {
-                                "id": "robot_reach_cube",
-                                "type": "reach",
-                                "parent": "robot",
-                                "child": "cube",
-                            }
-                        ],
-                    },
-                }
-            ],
-        }
-    )
+    return deepcopy({
+        "name": "minimal_env_graph",
+        "nodes": [
+            {"id": "robot", "name": "robot", "type": "embodiment"},
+            {"id": "table", "name": "table", "type": "object_reference"},
+            {"id": "cube", "name": "cube", "type": "rigid_object"},
+        ],
+        "tasks": [{
+            "id": "task_0",
+            "name": "task_0",
+            "type": "pick_and_place",
+            "state_specs": {"initial": "state_0"},
+        }],
+        "state_specs": [{
+            "id": "state_0",
+            "name": "state_0",
+            "edges": {
+                "spatial_constraints": [{"id": "table_is_anchor", "type": "is_anchor", "parent": "table"}],
+                "task_constraints": [{
+                    "id": "robot_reach_cube",
+                    "type": "reach",
+                    "parent": "robot",
+                    "child": "cube",
+                }],
+            },
+        }],
+    })
