@@ -75,6 +75,28 @@ class G1EmbodimentBase(EmbodimentBase):
         """Pelvis prim path so OpenXR teleop poses are rebased into robot base frame for IK."""
         return "/World/envs/env_0/Robot/pelvis"
 
+    def set_finger_contact_friction(
+        self,
+        *,
+        material_path: str,
+        static_friction: float,
+        dynamic_friction: float,
+        prim_name_markers: Sequence[str],
+    ) -> None:
+        """Configure a prestartup event that binds contact friction to G1 finger prims."""
+        if self.event_config is None or self.event_config is MISSING:
+            raise RuntimeError("event_config must be populated before calling `set_finger_contact_friction`.")
+        self.event_config.apply_high_friction_to_g1_fingers = EventTerm(
+            func=g1_events_mdp.apply_high_friction_to_g1_fingers,
+            mode="prestartup",
+            params={
+                "material_path": material_path,
+                "static_friction": static_friction,
+                "dynamic_friction": dynamic_friction,
+                "prim_name_markers": tuple(prim_name_markers),
+            },
+        )
+
 
 # Default camera offset pose
 _DEFAULT_G1_CAMERA_OFFSET = Pose(
@@ -776,6 +798,7 @@ class G1WBCJointEventCfg:
 
     reset_all = EventTerm(func=reset_all_articulation_joints, mode="reset")
     reset_wbc_policy = EventTerm(func=g1_events_mdp.reset_decoupled_wbc_joint_policy, mode="reset")
+    apply_high_friction_to_g1_fingers: EventTerm | None = None
 
 
 @configclass
@@ -784,6 +807,7 @@ class G1WBCPinkEventCfg:
 
     reset_all = EventTerm(func=reset_all_articulation_joints, mode="reset")
     reset_wbc_policy = EventTerm(func=g1_events_mdp.reset_decoupled_wbc_pink_policy, mode="reset")
+    apply_high_friction_to_g1_fingers: EventTerm | None = None
 
 
 class G1MimicEnv(ManagerBasedRLMimicEnv):

@@ -28,6 +28,13 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+from isaaclab_arena_environments.mdp.galileo_g1_static_pick_and_place.robot_configs import (
+    G1_STATIC_FINGER_DYNAMIC_FRICTION,
+    G1_STATIC_FINGER_FRICTION_MATERIAL_PATH,
+    G1_STATIC_FINGER_PRIM_NAME_MARKERS,
+    G1_STATIC_FINGER_STATIC_FRICTION,
+    G1_STATIC_OPEN_ARM_JOINT_POS,
+)
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -48,11 +55,11 @@ SHELF_SUPPORT_PATCH_SIZE = (0.8, 1.5, 0.04)
 # Cuboid center: top face = SHELF_SURFACE_Z.
 SHELF_SUPPORT_PATCH_CENTER = (0.62, 0.0, SHELF_SURFACE_Z - SHELF_SUPPORT_PATCH_SIZE[2] / 2.0)
 
-# Object XY spawn pose (env-local frame, shelf-relative). X mirrors the locomanip env
-# (the only on-shelf X we have ground-truth data for via the brown_box flow). Y values
-# are tuned for the static same-shelf apple-to-plate setup: both objects sit left on the
-# table, and the plate is close enough to reduce unnecessary reach while still clearing
-# the apple.
+# Object XY spawn pose (env-local frame, table-relative). X mirrors the locomanip env
+# (the only on-table X we have ground-truth data for via the brown_box flow). Y values
+# are tuned for the static apple-to-plate setup: both objects sit left on the table,
+# and the plate is close enough to reduce unnecessary reach while still clearing the
+# apple.
 PICK_UP_OBJECT_SPAWN_XY = (0.5785, 0.27)
 DESTINATION_SPAWN_XY = (0.5785, 0.06)
 
@@ -97,25 +104,6 @@ _BACKGROUND_PRIMS_TO_DEACTIVATE: tuple[str, ...] = (
     "galileo_locomanip/BackgroundAssets/boxes/hesai_box_06",
 )
 
-# Mild open-arm posture using shoulder joints only. Shoulder yaw keeps the
-# forearms in the liked orientation; shoulder roll moves the arms away from the torso.
-_G1_STATIC_OPEN_ARM_JOINT_POS: dict[str, float] = {
-    "left_shoulder_roll_joint": 0.25,
-    "right_shoulder_roll_joint": -0.25,
-    "left_shoulder_yaw_joint": 0.5,
-    "right_shoulder_yaw_joint": -0.5,
-}
-
-_G1_FINGER_FRICTION_MATERIAL_PATH = "/World/Materials/g1_static_pick_place_high_friction_fingers"
-_G1_FINGER_STATIC_FRICTION = 6.0
-_G1_FINGER_DYNAMIC_FRICTION = 5.0
-_G1_FINGER_PRIM_NAME_MARKERS: tuple[str, ...] = (
-    "hand",
-    "thumb",
-    "index",
-    "middle",
-)
-
 
 def _deactivate_background_prims(env, env_ids, prim_relative_paths: tuple[str, ...]) -> None:
     """Deactivate selected referenced background prims before simulation starts."""
@@ -133,52 +121,6 @@ def _deactivate_background_prims(env, env_ids, prim_relative_paths: tuple[str, .
                     "the background asset may still be visible.",
                     stacklevel=1,
                 )
-
-
-def _apply_high_friction_to_g1_fingers(env, env_ids) -> None:
-    """Bind a high-friction contact material to G1 hand/finger collision prims."""
-    del env_ids
-    from isaaclab.sim import bind_physics_material
-    from isaaclab.sim.spawners.materials import RigidBodyMaterialCfg
-    from pxr import UsdPhysics, UsdShade
-
-    stage = env.sim.stage
-    material_cfg = RigidBodyMaterialCfg(
-        static_friction=_G1_FINGER_STATIC_FRICTION,
-        dynamic_friction=_G1_FINGER_DYNAMIC_FRICTION,
-        friction_combine_mode="max",
-    )
-    material_cfg.func(_G1_FINGER_FRICTION_MATERIAL_PATH, material_cfg)
-
-    bound_count = 0
-    for env_prim_path in env.scene.env_prim_paths:
-        robot_prim_path = f"{env_prim_path}/Robot"
-        for prim in stage.Traverse():
-            prim_path = str(prim.GetPath())
-            if not prim_path.startswith(robot_prim_path):
-                continue
-            prim_path_lower = prim_path.lower()
-            if not any(marker in prim_path_lower for marker in _G1_FINGER_PRIM_NAME_MARKERS):
-                continue
-            applied_schemas = set(prim.GetAppliedSchemas())
-            has_collision_api = prim.HasAPI(UsdPhysics.CollisionAPI) or "PhysicsCollisionAPI" in applied_schemas
-            if not has_collision_api:
-                continue
-
-            bind_physics_material(prim_path, _G1_FINGER_FRICTION_MATERIAL_PATH, stage=stage)
-            # bind_physics_material is decorated with apply_nested and returns None, so
-            # verify the resulting direct physics material binding explicitly.
-            material_binding_api = UsdShade.MaterialBindingAPI(prim)
-            direct_binding = material_binding_api.GetDirectBinding("physics")
-            if str(direct_binding.GetMaterialPath()) == _G1_FINGER_FRICTION_MATERIAL_PATH:
-                bound_count += 1
-
-    if bound_count == 0:
-        warnings.warn(
-            "_apply_high_friction_to_g1_fingers: no G1 hand/finger collision prims were found; "
-            "apple grip friction may be unchanged.",
-            stacklevel=1,
-        )
 
 
 def _shelf_spawn_z(asset_name: str) -> float:
@@ -253,6 +195,12 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
             scale=_asset_scale(args_cli.destination)
         )
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
+        embodiment.set_finger_contact_friction(
+            material_path=G1_STATIC_FINGER_FRICTION_MATERIAL_PATH,
+            static_friction=G1_STATIC_FINGER_STATIC_FRICTION,
+            dynamic_friction=G1_STATIC_FINGER_DYNAMIC_FRICTION,
+            prim_name_markers=G1_STATIC_FINGER_PRIM_NAME_MARKERS,
+        )
 
         # Lock the 3 waist joints (yaw/roll/pitch) for this static task. The
         # ``g1_wbc_agile_pink`` / ``g1_wbc_pink`` embodiments add the waist joints to
@@ -290,7 +238,7 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         # The controller dynamically lifts the pelvis to ~z=0.74 at runtime;
         # init_state.pos.z=0 is correct.
         embodiment.set_initial_pose(Pose(position_xyz=(0.25, 0.08, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
-        embodiment.scene_config.robot.init_state.joint_pos.update(_G1_STATIC_OPEN_ARM_JOINT_POS)
+        embodiment.set_joint_initial_pos(G1_STATIC_OPEN_ARM_JOINT_POS)
         shelf_support.set_initial_pose(
             Pose(position_xyz=SHELF_SUPPORT_PATCH_CENTER, rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
         )
@@ -345,10 +293,6 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 func=_deactivate_background_prims,
                 mode="prestartup",
                 params={"prim_relative_paths": _BACKGROUND_PRIMS_TO_DEACTIVATE},
-            )
-            env_cfg.events.apply_high_friction_to_g1_fingers = EventTermCfg(
-                func=_apply_high_friction_to_g1_fingers,
-                mode="prestartup",
             )
             # The GR00T policy consumes camera observations. Force one RTX sensor
             # refresh after reset so the next policy query does not see the
