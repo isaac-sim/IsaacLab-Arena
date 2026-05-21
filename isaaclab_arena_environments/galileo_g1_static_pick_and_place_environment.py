@@ -15,8 +15,9 @@ HOMIE behaviour. The other differences from the locomanip env are:
 
 1. The destination plate sits on the *same* shelf as the apple (within arm's reach), so
    the robot never needs to drive its base anywhere -- WBC just holds the standing pose.
-2. The apple and destination plate spawn at fixed same-shelf poses, so recorded demos
-   and closed-loop evaluation start from the same object layout.
+2. The apple's spawn pose is configured through ``APPLE_SPAWN_XY_RANGE_M`` (XY only);
+   the branch sets that range to zero for deterministic demos. The destination plate
+   stays at a fixed pose so the place target is identical across episodes.
 """
 
 from __future__ import annotations
@@ -54,6 +55,16 @@ SHELF_SUPPORT_PATCH_CENTER = (0.62, 0.0, SHELF_SURFACE_Z - SHELF_SUPPORT_PATCH_S
 # the apple.
 PICK_UP_OBJECT_SPAWN_XY = (0.5785, 0.27)
 DESTINATION_SPAWN_XY = (0.5785, 0.06)
+
+# Half-range of the apple's per-episode XY randomization at reset, in metres. Mirrors
+# the locomanip env's ``XY_RANGE_M = 0.025`` but tightened to 0.020 because the static
+# variant places the destination plate on the *same* shelf, so the spawn workspace is
+# narrower (apple at Y=0.18, plate's +Y edge at ~0.09 -> 9 cm headroom; 2 cm jitter
+# leaves 7 cm minimum gap to the plate). Without this jitter every recorded demo has
+# the apple at the exact same XY, which limits the spatial variation a finetuned policy
+# can generalize over. The destination plate is left at a fixed Pose so the place
+# target is identical across episodes.
+APPLE_SPAWN_XY_RANGE_M = 0.0
 
 # Per-asset Z offset from the asset's USD origin to its bottom face. Added on top of
 # ``SHELF_SURFACE_Z + SHELF_AIRGAP`` so the asset's *bottom* lands on the shelf rather
@@ -218,7 +229,7 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-        from isaaclab_arena.utils.pose import Pose
+        from isaaclab_arena.utils.pose import Pose, PoseRange
 
         # Reuse the locomanip background USD: it bakes in lighting and provides the same
         # shelf-in-front-of-robot geometry the locomanip env was tuned against.
@@ -263,7 +274,7 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 g1_action_cfg.upperbody_extra_active_joints = []
             else:
                 warnings.warn(
-                    f"galileo_g1_static_pick_and_place: --lock_waist=True but embodiment "
+                    "galileo_g1_static_pick_and_place: --lock_waist=True but embodiment "
                     f"'{args_cli.embodiment}' has no 'upperbody_extra_active_joints' on its "
                     "action config; the waist may still move via the IK.",
                     stacklevel=1,
@@ -285,10 +296,25 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         pick_up_object_x, pick_up_object_y = PICK_UP_OBJECT_SPAWN_XY
         destination_x, destination_y = DESTINATION_SPAWN_XY
         pick_up_object_z = _shelf_spawn_z(args_cli.object)
+        # ``PoseRange`` registers a ``randomize_object_pose`` reset event so the apple's
+        # XY is resampled every episode within ``APPLE_SPAWN_XY_RANGE_M``. Z and rotation
+        # are pinned (rpy_min == rpy_max) so the object always lands flush on the shelf
+        # in its authored orientation; we only randomize XY. This gives recorded demos
+        # spatial variation that lets a finetuned policy generalize over the spawn range.
         pick_up_object.set_initial_pose(
-            Pose(
-                position_xyz=(pick_up_object_x, pick_up_object_y, pick_up_object_z),
-                rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
+            PoseRange(
+                position_xyz_min=(
+                    pick_up_object_x - APPLE_SPAWN_XY_RANGE_M,
+                    pick_up_object_y - APPLE_SPAWN_XY_RANGE_M,
+                    pick_up_object_z,
+                ),
+                position_xyz_max=(
+                    pick_up_object_x + APPLE_SPAWN_XY_RANGE_M,
+                    pick_up_object_y + APPLE_SPAWN_XY_RANGE_M,
+                    pick_up_object_z,
+                ),
+                rpy_min=(0.0, 0.0, 0.0),
+                rpy_max=(0.0, 0.0, 0.0),
             )
         )
         destination.set_initial_pose(
