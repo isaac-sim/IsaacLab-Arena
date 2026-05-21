@@ -657,7 +657,9 @@ python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_d
 </li>
 <li><p>In the running application, start the session from the <strong>XR</strong> tab in the application window.</p></li>
 <li><p>Follow Step 3 to connect the headset again.</p></li>
-<li><p>Complete the task for each demo. Reset between demos. The script saves successful runs to the HDF5 file above.</p></li>
+<li><p>Complete the task for each demo. After a successful placement, wait for the demo to
+automatically end and for the simulation to reset. The script saves successful runs
+to the HDF5 file above.</p></li>
 </ol>
 <div class="admonition important">
 <p class="admonition-title">Important</p>
@@ -681,6 +683,8 @@ and hands for manipulation.</p></li>
 and side grasps, so the policy does not overfit to one approach direction.</p></li>
 <li><p><strong>Clean successes only:</strong> save only runs with no unnecessary collisions, no dropped objects before
 placement, and no recovery motions that would confuse the policy.</p></li>
+<li><p><strong>Wait for reset automatically after success:</strong> after releasing the apple onto the plate, keep the scene stable and
+wait until the recording auto-terminates and the simulation automatically resets.</p></li>
 <li><p><strong>Trajectory length:</strong> aim for demonstrations around 200–400 timesteps. Very long episodes slow
 down downstream data processing, while very short episodes tend to contain abrupt motion.</p></li>
 <li><p><strong>Replay validation:</strong> after recording, replay the HDF5 with Step 5 and inspect camera frames,

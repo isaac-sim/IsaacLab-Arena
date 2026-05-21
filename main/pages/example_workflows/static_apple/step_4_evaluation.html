@@ -583,7 +583,8 @@ runner. The command below assumes the server from Step 1 is still running.</p>
 <p>Test the policy in 5 parallel environments with visualization via the GUI:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/isaac-sim/python.sh<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--policy_type<span class="w"> </span>isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--remote_host<span class="w"> </span>&lt;SERVER_HOST&gt;<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--remote_port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--num_steps<span class="w"> </span><span class="m">500</span><span class="w"> </span><span class="se">\</span>
@@ -595,23 +596,9 @@ runner. The command below assumes the server from Step 1 is still running.</p>
 <span class="w">   </span>--embodiment<span class="w"> </span>g1_wbc_agile_joint
 </pre></div>
 </div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>With the server-client architecture, the policy device is a server-side concern: the server
-places the policy on its own GPU via the <code class="docutils literal notranslate"><span class="pre">--device</span></code> flag passed to <code class="docutils literal notranslate"><span class="pre">run_gr00t_server.py</span></code>
-in Step 1. The client’s <code class="docutils literal notranslate"><span class="pre">--device</span></code> flag (above) controls Arena’s physics backend, not the
-policy.</p>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The parallel command uses <code class="docutils literal notranslate"><span class="pre">ActionChunkingClientSidePolicy</span></code> instead of
-<code class="docutils literal notranslate"><span class="pre">Gr00tRemoteClosedloopPolicy</span></code> (the single-environment client) because parallel evaluation
-needs the action-chunking buffer lifted out of the per-env policy and shared across envs.
-Single-env evaluation works with either client; the parallel command requires this one.</p>
-</div>
 <p>And during the evaluation, you should see the following output on the console at the end of the evaluation
 indicating which environments are terminated (task-specific conditions like the apple is placed onto the plate,
-or the episode length is exceeded by 30 seconds),
+or the episode length is exceeded by 6 seconds),
 or truncated (if timeouts are enabled, like the maximum episode length is exceeded).</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Resetting policy for terminated env_ids: tensor([3], device=&#39;cuda:0&#39;) and truncated env_ids: tensor([], device=&#39;cuda:0&#39;, dtype=torch.int64)
 </pre></div>
@@ -619,7 +606,7 @@ or truncated (if timeouts are enabled, like the maximum episode length is exceed
 <p>At the end of the evaluation, you should see the following output on the console indicating the metrics.
 You can see that the success rate might not be 1.0 as more trials are being evaluated and randomizations are being introduced,
 and the number of episodes is more than the single environment evaluation because of the parallelization.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[Rank 0/1] Metrics: {&#39;success_rate&#39;: 1.0, &#39;num_episodes&#39;: 4}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[Rank 0/1] Metrics: {&#39;success_rate&#39;: 1.0, &#39;num_episodes&#39;: 5}
 </pre></div>
 </div>
 <div class="admonition note">
@@ -636,8 +623,7 @@ PinkIK.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The single-environment command above does not pass <code class="docutils literal notranslate"><span class="pre">--device</span></code>, so Arena defaults to its
-built-in physics backend. The parallel command explicitly sets <code class="docutils literal notranslate"><span class="pre">--device</span> <span class="pre">cuda</span></code> for
-throughput. If your dataset was recorded on GPU physics, prefer <code class="docutils literal notranslate"><span class="pre">--device</span> <span class="pre">cuda</span></code> for both
+built-in physics backend. If your dataset was recorded on GPU physics, prefer <code class="docutils literal notranslate"><span class="pre">--device</span> <span class="pre">cuda</span></code> for both
 single and parallel runs to keep evaluation physics aligned with training; if it was recorded
 on CPU physics, add <code class="docutils literal notranslate"><span class="pre">--device</span> <span class="pre">cpu</span></code> to the single-environment command for per-episode
 reproducibility (parallel throughput becomes the trade-off for CPU-trained policies).</p>
@@ -663,17 +649,6 @@ criterion for a new pick-up object or destination.</p>
 expects a 23-D PinkIK action, but the server is returning a 43-DoF joint chunk. Make sure the
 client uses <code class="docutils literal notranslate"><span class="pre">--embodiment</span> <span class="pre">g1_wbc_agile_joint</span></code> (joint twin), not
 <code class="docutils literal notranslate"><span class="pre">g1_wbc_agile_pink</span></code> (PinkIK twin).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">ModuleNotFoundError</span></code> on the client side — the client’s <code class="docutils literal notranslate"><span class="pre">--policy_type</span></code> is wrong. The
-two valid client classes for this workflow are
-<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy</span></code>
-(single env, takes <code class="docutils literal notranslate"><span class="pre">--policy_config_yaml_path</span></code>) and
-<code class="docutils literal notranslate"><span class="pre">isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy</span></code> (parallel,
-no YAML).</p></li>
-<li><p>Action shape mismatch on the server (e.g., <code class="docutils literal notranslate"><span class="pre">Action</span> <span class="pre">key</span> <span class="pre">'left_arm''s</span> <span class="pre">horizon</span> <span class="pre">must</span> <span class="pre">be</span> <span class="pre">40.</span>
-<span class="pre">Got</span> <span class="pre">50</span></code>) — the action modality registered at training time disagrees with the modality
-loaded by the server. Re-finetune at the same horizon or update the
-<code class="docutils literal notranslate"><span class="pre">--modality-config-path</span></code> you pass to <code class="docutils literal notranslate"><span class="pre">run_gr00t_server.py</span></code> to match the checkpoint (see
-the caution in <a class="reference internal" href="step_3_policy_training.html"><span class="doc">Policy Post-Training (GR00T N1.7)</span></a>).</p></li>
 </ul>
 </div>
 </section>
