@@ -8,7 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from isaaclab_arena.environments.env_graph_spec import EnvGraphSpec, EnvGraphStateSpec
+from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.environments.env_graph_spec import (
+    EnvGraphNodeType,
+    EnvGraphSpatialConstraintType,
+    EnvGraphSpec,
+    EnvGraphStateSpec,
+)
 
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
 
@@ -22,10 +28,13 @@ def test_env_graph_spec_loads_pick_and_place_yaml():
     assert len(spec.state_specs) == 2
 
     table = spec.nodes_by_id["maple_table_robolab_table"]
-    assert table.type == "object_reference"
+    assert table.type == EnvGraphNodeType.OBJECT_REFERENCE
     assert table.parent == "maple_table_robolab"
     assert table.prim_path == "{ENV_REGEX_NS}/maple_table_robolab/table"
-    assert table.object_type == "rigid"
+    assert table.object_type == ObjectType.RIGID
+
+    assert spec.nodes_by_id["rubiks_cube_hot3d_robolab"].type == EnvGraphNodeType.OBJECT
+    assert spec.nodes_by_id["bowl_ycb_robolab"].type == EnvGraphNodeType.OBJECT
 
     task = spec.tasks_by_id["pick_and_place_0"]
     assert task.state_specs == {"initial": "state_spec_0", "final": "state_spec_1"}
@@ -39,8 +48,9 @@ def test_env_graph_spec_loads_pick_and_place_yaml():
     assert len(initial_state.edges.task_constraints) == 1
 
     cube_limits = initial_state.edges.spatial_constraints[2]
-    assert cube_limits.type == "position_limits"
-    assert cube_limits.child == "rubiks_cube_hot3d_robolab"
+    assert cube_limits.type == EnvGraphSpatialConstraintType.POSITION_LIMITS
+    assert cube_limits.parent == "rubiks_cube_hot3d_robolab"
+    assert cube_limits.child is None
     assert cube_limits.params == {
         "x_min": 0.55,
         "x_max": 0.70,
@@ -51,7 +61,7 @@ def test_env_graph_spec_loads_pick_and_place_yaml():
     final_state = spec.state_specs_by_id["state_spec_1"]
     assert isinstance(final_state, EnvGraphStateSpec)
     in_constraint = final_state.edges.spatial_constraints[3]
-    assert in_constraint.type == "in"
+    assert in_constraint.type == EnvGraphSpatialConstraintType.IN
     assert in_constraint.parent == "bowl_ycb_robolab"
     assert in_constraint.child == "rubiks_cube_hot3d_robolab"
 
@@ -63,7 +73,7 @@ def test_env_graph_spec_loads_pick_and_place_yaml():
 
 def test_env_graph_spec_rejects_duplicate_ids():
     data = _minimal_env_graph_data()
-    data["nodes"].append({"id": "table", "name": "duplicate_table", "type": "object_reference"})
+    data["nodes"].append({"id": "table", "name": "duplicate_table", "type": "objectReference"})
 
     with pytest.raises(AssertionError, match="Duplicate node ids"):
         EnvGraphSpec.from_dict(data)
@@ -85,13 +95,53 @@ def test_env_graph_spec_rejects_missing_constraint_node_reference():
         EnvGraphSpec.from_dict(data)
 
 
+def test_env_graph_spec_rejects_missing_spatial_constraint_parent():
+    data = _minimal_env_graph_data()
+    del data["state_specs"][0]["edges"]["spatial_constraints"][0]["parent"]
+
+    with pytest.raises(AssertionError, match="Missing required string field 'parent'"):
+        EnvGraphSpec.from_dict(data)
+
+
+def test_env_graph_spec_rejects_missing_node_parent_reference():
+    data = _minimal_env_graph_data()
+    data["nodes"][1]["parent"] = "missing_background"
+
+    with pytest.raises(AssertionError, match="unknown parent 'missing_background'"):
+        EnvGraphSpec.from_dict(data)
+
+
+def test_env_graph_spec_rejects_unknown_object_type():
+    data = _minimal_env_graph_data()
+    data["nodes"][1]["object_type"] = "unknown"
+
+    with pytest.raises(AssertionError, match="Unknown object_type 'unknown'"):
+        EnvGraphSpec.from_dict(data)
+
+
+def test_env_graph_spec_rejects_unknown_node_type():
+    data = _minimal_env_graph_data()
+    data["nodes"][0]["type"] = "unknown"
+
+    with pytest.raises(AssertionError, match="Unknown type 'unknown'"):
+        EnvGraphSpec.from_dict(data)
+
+
+def test_env_graph_spec_rejects_unknown_spatial_constraint_type():
+    data = _minimal_env_graph_data()
+    data["state_specs"][0]["edges"]["spatial_constraints"][0]["type"] = "unknown"
+
+    with pytest.raises(AssertionError, match="Unknown type 'unknown'"):
+        EnvGraphSpec.from_dict(data)
+
+
 def _minimal_env_graph_data():
     return deepcopy({
         "name": "minimal_env_graph",
         "nodes": [
             {"id": "robot", "name": "robot", "type": "embodiment"},
-            {"id": "table", "name": "table", "type": "object_reference"},
-            {"id": "cube", "name": "cube", "type": "rigid_object"},
+            {"id": "table", "name": "table", "type": "objectReference"},
+            {"id": "cube", "name": "cube", "type": "object"},
         ],
         "tasks": [{
             "id": "task_0",

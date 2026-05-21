@@ -6,10 +6,30 @@
 import yaml
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any
 
-T = TypeVar("T")
+from isaaclab_arena.assets.object_base import ObjectType
+
+
+class EnvGraphNodeType(Enum):
+    EMBODIMENT = "embodiment"
+    BACKGROUND = "background"
+    OBJECT = "object"
+    OBJECT_REFERENCE = "objectReference"
+    LIGHTING = "lighting"
+
+
+class EnvGraphSpatialConstraintType(Enum):
+    IS_ANCHOR = "is_anchor"
+    NEXT_TO = "next_to"
+    ON = "on"
+    AT_POSITION = "at_position"
+    POSITION_LIMITS = "position_limits"
+    RANDOM_AROUND_SOLUTION = "random_around_solution"
+    ROTATE_AROUND_SOLUTION = "rotate_around_solution"
+    IN = "in"
 
 
 @dataclass
@@ -21,19 +41,30 @@ class EnvGraphNodeSpec:
 
     id: str
     name: str
-    type: str
-    parent: str | None = None
-    prim_path: str | None = None
-    object_type: str | None = None
+    type: EnvGraphNodeType
+    parent: str | None = None  # Optional, only need for object references
+    prim_path: str | None = None  # Optional, only need for object references
+    object_type: ObjectType | None = None  # Optional, only need for type=object
     params: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
-class EnvGraphConstraintSpec:
-    """Constraint edge in an environment graph state spec.
+class EnvGraphSpatialConstraintSpec:
+    """Spatial constraint edge in an environment graph state spec.
 
-    It defines a spatial or task constraint between two nodes.
+    It defines a relation between two nodes.
     """
+
+    id: str
+    type: EnvGraphSpatialConstraintType
+    parent: str
+    child: str | None = None  # Optional, e.g. is_anchor constraint does not have a child
+    params: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class EnvGraphTaskConstraintSpec:
+    """Task-dependent constraint edge in an environment graph state spec."""
 
     id: str
     type: str
@@ -46,8 +77,8 @@ class EnvGraphConstraintSpec:
 class EnvGraphEdgesSpec:
     """Grouped spatial and task constraints."""
 
-    spatial_constraints: list[EnvGraphConstraintSpec] = field(default_factory=list)
-    task_constraints: list[EnvGraphConstraintSpec] = field(default_factory=list)
+    spatial_constraints: list[EnvGraphSpatialConstraintSpec] = field(default_factory=list)
+    task_constraints: list[EnvGraphTaskConstraintSpec] = field(default_factory=list)
 
 
 @dataclass
@@ -124,17 +155,28 @@ def _parse_node(data: Any) -> EnvGraphNodeSpec:
     return EnvGraphNodeSpec(
         id=_required_str(data, "id"),
         name=_required_str(data, "name"),
-        type=_required_str(data, "type"),
+        type=_required_enum(data, "type", EnvGraphNodeType),
         parent=_optional_str(data, "parent"),
         prim_path=_optional_str(data, "prim_path"),
-        object_type=_optional_str(data, "object_type"),
+        object_type=_optional_enum(data, "object_type", ObjectType),
         params=_optional_dict(data, "params"),
     )
 
 
-def _parse_constraint(data: Any) -> EnvGraphConstraintSpec:
-    data = _as_dict(data, "Constraint spec")
-    return EnvGraphConstraintSpec(
+def _parse_spatial_constraint(data: Any) -> EnvGraphSpatialConstraintSpec:
+    data = _as_dict(data, "Spatial constraint spec")
+    return EnvGraphSpatialConstraintSpec(
+        id=_required_str(data, "id"),
+        type=_required_enum(data, "type", EnvGraphSpatialConstraintType),
+        parent=_required_str(data, "parent"),
+        child=_optional_str(data, "child"),
+        params=_optional_dict(data, "params"),
+    )
+
+
+def _parse_task_constraint(data: Any) -> EnvGraphTaskConstraintSpec:
+    data = _as_dict(data, "Task constraint spec")
+    return EnvGraphTaskConstraintSpec(
         id=_required_str(data, "id"),
         type=_required_str(data, "type"),
         parent=_optional_str(data, "parent"),
@@ -148,8 +190,8 @@ def _parse_edges(data: dict[str, Any] | None) -> EnvGraphEdgesSpec:
         data = {}
     data = _as_dict(data, "Edges spec")
     return EnvGraphEdgesSpec(
-        spatial_constraints=_parse_list(data, "spatial_constraints", _parse_constraint),
-        task_constraints=_parse_list(data, "task_constraints", _parse_constraint),
+        spatial_constraints=_parse_list(data, "spatial_constraints", _parse_spatial_constraint),
+        task_constraints=_parse_list(data, "task_constraints", _parse_task_constraint),
     )
 
 
@@ -178,7 +220,7 @@ def _as_dict(data: Any, spec_name: str) -> dict[str, Any]:
     return data
 
 
-def _parse_list(data: dict[str, Any], key: str, parser: Callable[[Any], T]) -> list[T]:
+def _parse_list(data: dict[str, Any], key: str, parser: Callable[[Any], Any]) -> list[Any]:
     values = data.get(key, [])
     assert isinstance(values, list), f"Field '{key}' must be a list"
     return [parser(value) for value in values]
@@ -206,6 +248,29 @@ def _optional_str_map(data: dict[str, Any], key: str) -> dict[str, str]:
     return {str(k): str(v) for k, v in _optional_dict(data, key).items()}
 
 
+def _required_enum(data: dict[str, Any], key: str, enum_type: type[Enum]) -> Enum:
+    value = data.get(key)
+    assert value is not None, f"Missing required field '{key}'"
+    parsed = _parse_enum(value, key, enum_type)
+    assert parsed is not None
+    return parsed
+
+
+def _optional_enum(data: dict[str, Any], key: str, enum_type: type[Enum]) -> Enum | None:
+    return _parse_enum(data.get(key), key, enum_type)
+
+
+def _parse_enum(value: Any, key: str, enum_type: type[Enum]) -> Enum | None:
+    if value is None or isinstance(value, enum_type):
+        return value
+    assert isinstance(value, str), f"Field '{key}' must be a string when set"
+    try:
+        return enum_type(value)
+    except ValueError:
+        valid_values = [enum_value.value for enum_value in enum_type]
+        raise AssertionError(f"Unknown {key} '{value}'. Expected one of {valid_values}") from None
+
+
 def _assert_unique_ids(specs: list[Any], spec_name: str) -> None:
     seen: set[str] = set()
     duplicates: set[str] = set()
@@ -224,6 +289,10 @@ def _assert_references_exist(
     node_ids = {node.id for node in nodes}
     state_spec_ids = {state_spec.id for state_spec in state_specs}
 
+    for node in nodes:
+        if node.parent is not None:
+            assert node.parent in node_ids, f"Node '{node.id}' references unknown parent '{node.parent}'"
+
     for task in tasks:
         for label, state_spec_id in task.state_specs.items():
             assert (
@@ -231,8 +300,16 @@ def _assert_references_exist(
             ), f"Task '{task.id}' references unknown state spec '{state_spec_id}' for '{label}'"
 
     for state_spec in state_specs:
-        constraints = state_spec.edges.spatial_constraints + state_spec.edges.task_constraints
-        for constraint in constraints:
+        for constraint in state_spec.edges.spatial_constraints:
+            assert (
+                constraint.parent in node_ids
+            ), f"Constraint '{constraint.id}' references unknown parent node '{constraint.parent}'"
+            if constraint.child is not None:
+                assert (
+                    constraint.child in node_ids
+                ), f"Constraint '{constraint.id}' references unknown child node '{constraint.child}'"
+
+        for constraint in state_spec.edges.task_constraints:
             if constraint.parent is not None:
                 assert (
                     constraint.parent in node_ids
