@@ -377,6 +377,7 @@ def handle_reset(
         int: Reset success step count (0)
     """
     print("Resetting environment...")
+    env.sim.reset()
     env.recorder_manager.reset()
     env.reset()
     success_step_count = 0
