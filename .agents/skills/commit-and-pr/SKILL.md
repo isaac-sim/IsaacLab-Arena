@@ -2,7 +2,7 @@
 name: commit-and-pr
 description: Creates Arena-conformant commits and pull requests. Enforces DCO sign-off (git commit -s), no AI attribution lines (no Co-Authored-By, no Generated-with-Claude footers), <username>/<feature-desc> branch naming, separate new commits rather than --amend when iterating on PR feedback, and main as the default base branch. Use when the user asks to commit, stage changes, push the current branch, or open a pull request.
 disable-model-invocation: true
-allowed-tools: Bash(git *) Bash(gh pr create *) Bash(gh pr view *)
+allowed-tools: Bash(git *) Bash(pre-commit *) Bash(gh pr create *) Bash(gh pr view *)
 ---
 
 # Commit and Pull Request
