@@ -34,9 +34,6 @@ from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-from isaaclab_arena.examples.tint_events import (  # noqa: F401  (kept for the commented-out in-place tint notes below)
-    randomize_visual_diffuse_tint,
-)
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.utils.pose import Pose

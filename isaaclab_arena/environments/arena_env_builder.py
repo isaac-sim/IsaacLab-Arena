@@ -8,8 +8,6 @@ from __future__ import annotations
 import argparse
 import datetime
 import gymnasium as gym
-from copy import deepcopy
-from dataclasses import field, make_dataclass
 from typing import Any
 
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
@@ -22,7 +20,6 @@ from isaaclab_tasks.utils import parse_env_cfg
 from isaaclab_teleop import IsaacTeleopCfg
 
 from isaaclab_arena.assets.object import Object
-from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.registries import DeviceRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
@@ -42,8 +39,8 @@ from isaaclab_arena.utils.configclass import combine_configclass_instances, make
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
+from isaaclab_arena.variations import variations_hydra
 from isaaclab_arena.variations.ledger import VariationLedger
-from isaaclab_arena.variations.variation_base import VariationBase
 
 
 class ArenaEnvBuilder:
@@ -179,16 +176,15 @@ class ArenaEnvBuilder:
             else:
                 obj.set_initial_pose(PosePerEnv(poses=poses))
 
-    def _compose_variations_event_cfg(self):
+    def _compose_variations_event_cfg(self) -> Any | None:
         """Build a configclass instance holding an :class:`EventTermCfg` per enabled variation.
 
         Walks the scene's variations, skips disabled ones, and asks each for its
         event term. Returns ``None`` when nothing is enabled.
         """
-        variations = self.arena_env.scene.get_variations()
         fields: list[tuple[str, type, EventTermCfg]] = []
         seen: set[str] = set()
-        for variation in variations:
+        for variation in self.arena_env.scene.get_variations():
             if not variation.enabled:
                 continue
             event_name, event_cfg = variation.build_event_cfg(self.arena_env.scene)
@@ -203,124 +199,27 @@ class ArenaEnvBuilder:
         VariationsEventCfg = make_configclass("VariationsEventCfg", fields)
         return VariationsEventCfg()
 
-    def _iter_scene_variations(self) -> list[tuple[str, VariationBase]]:
-        """Return ``(asset_name, variation)`` pairs for every variation in the scene."""
-        pairs: list[tuple[str, VariationBase]] = []
-        for asset in self.arena_env.scene.assets.values():
-            if not isinstance(asset, ObjectBase):
-                continue
-            for variation in asset.get_variations():
-                pairs.append((asset.name, variation))
-        return pairs
-
-    def _populate_variation_ledger(self, ledger: VariationLedger) -> None:
-        """Attach ``ledger`` to every enabled variation in the scene under ``"{asset}.{variation}"``."""
-        for asset_name, variation in self._iter_scene_variations():
-            if not variation.enabled:
-                continue
-            ledger.attach(f"{asset_name}.{variation.name}", variation)
-
-    def _build_variations_schema(self, pairs: list[tuple[str, VariationBase]]) -> type:
-        """Build a dynamic dataclass mirroring the scene's variations for Hydra.
-
-        Each per-variation field is typed as the variation's own ``*Cfg`` and
-        pre-populated by deep-copying its current live cfg, so override paths
-        line up one-to-one with cfg attribute paths.
-
-        Args:
-            pairs: Output of :meth:`_iter_scene_variations`.
-
-        Returns:
-            A ``VariationsCfg`` dataclass type with one field per asset, each
-            holding a ``<AssetName>VariationsCfg`` whose fields are the
-            per-variation cfgs.
-        """
-        per_asset: dict[str, list[tuple[str, type, Any]]] = {}
-        for asset_name, variation in pairs:
-            cfg_cls = type(variation.cfg)
-            default_cfg = deepcopy(variation.cfg)
-            per_asset.setdefault(asset_name, []).append(
-                (variation.name, cfg_cls, field(default_factory=lambda d=default_cfg: deepcopy(d)))
-            )
-
-        asset_fields: list[tuple[str, type, Any]] = []
-        for asset_name, variation_fields in per_asset.items():
-            asset_cls = make_dataclass(self._asset_class_name(asset_name), variation_fields)
-            asset_fields.append((asset_name, asset_cls, field(default_factory=asset_cls)))
-        return make_dataclass("VariationsCfg", asset_fields)
-
-    @staticmethod
-    def _asset_class_name(asset_name: str) -> str:
-        """Convert ``"cracker_box"`` to ``"CrackerBoxVariationsCfg"``."""
-        camel = "".join(part.capitalize() for part in asset_name.split("_"))
-        return f"{camel}VariationsCfg"
-
     def get_variations_schema(self) -> type | None:
         """Return the dataclass describing the scene's variations, or ``None`` if none are attached.
 
-        The class has one field per :class:`ObjectBase` asset with at least one
-        variation; each asset field's type is a dataclass whose fields are the
-        attached variations' cfgs.
+        Thin wrapper around :func:`variations_hydra.build_schema`.
         """
-        pairs = self._iter_scene_variations()
-        if not pairs:
-            return None
-        return self._build_variations_schema(pairs)
+        return variations_hydra.build_schema(self.arena_env.scene.get_asset_variations())
 
-    def compose_variations_cfg(self, hydra_overrides: list[str]) -> Any | None:
+    def load_variations_cfg_from_flags(self, hydra_overrides: list[str]) -> Any | None:
         """Compose Hydra override strings into a typed ``VariationsCfg`` instance.
 
-        Builds the schema from :meth:`get_variations_schema`, composes the
-        overrides against it, and converts the result to typed dataclass form
-        via :func:`omegaconf.OmegaConf.to_object`. Safe to call repeatedly:
-        :class:`~hydra.core.global_hydra.GlobalHydra` is cleared on entry.
-
-        Args:
-            hydra_overrides: Hydra override strings. See
-                :meth:`apply_hydra_variation_overrides` for examples.
-
-        Returns:
-            The composed ``VariationsCfg`` instance, or ``None`` when the scene
-            has no variations attached.
+        Thin wrapper around :func:`variations_hydra.load_cfg_from_flags`.
         """
-        from hydra import compose, initialize
-        from hydra.core.config_store import ConfigStore
-        from hydra.core.global_hydra import GlobalHydra
-        from omegaconf import OmegaConf
-
-        pairs = self._iter_scene_variations()
-        if not pairs:
-            return None
-        schema_cls = self._build_variations_schema(pairs)
-        ConfigStore.instance().store(name="arena_variations_schema", node=schema_cls)
-        if GlobalHydra.instance().is_initialized():
-            GlobalHydra.instance().clear()
-        with initialize(version_base=None, config_path=None):
-            composed = compose(config_name="arena_variations_schema", overrides=hydra_overrides)
-        return OmegaConf.to_object(composed)
+        return variations_hydra.load_cfg_from_flags(self.arena_env.scene.get_asset_variations(), hydra_overrides)
 
     def apply_hydra_variation_overrides(self, hydra_overrides: list[str]) -> None:
         """Apply Hydra-style variation overrides to the scene's variations.
 
-        Composes ``hydra_overrides`` into a typed ``VariationsCfg`` and pushes
-        each per-variation cfg through :meth:`VariationBase.apply_cfg`.
-
-        Args:
-            hydra_overrides: Hydra override strings, dotted-path syntax mirroring
-                the schema attribute paths. Example::
-
-                    env_builder.apply_hydra_variation_overrides([
-                        "cracker_box.color.enabled=true",
-                        "cracker_box.color.sampler.low=[0.2,0.2,0.0]",
-                        "cracker_box.color.sampler.high=[1.0,1.0,0.0]",
-                    ])
+        Thin wrapper around :func:`variations_hydra.apply_overrides`. See
+        that function for the override syntax.
         """
-        composed = self.compose_variations_cfg(hydra_overrides)
-        if composed is None:
-            return
-        for asset_name, variation in self._iter_scene_variations():
-            variation_cfg = getattr(getattr(composed, asset_name), variation.name)
-            variation.apply_cfg(variation_cfg)
+        variations_hydra.apply_overrides(self.arena_env.scene.get_asset_variations(), hydra_overrides)
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""
@@ -497,7 +396,7 @@ class ArenaEnvBuilder:
         # enough; this also runs before ``env_cfg_callback`` so callbacks can
         # observe / extend the ledger if they want to.
         env_cfg.variation_ledger = VariationLedger()
-        self._populate_variation_ledger(env_cfg.variation_ledger)
+        env_cfg.variation_ledger.attach_from_scene(self.arena_env.scene)
 
         # Apply the environment configuration callback if it is set
         # This can be used to modify the simulation configuration, etc.

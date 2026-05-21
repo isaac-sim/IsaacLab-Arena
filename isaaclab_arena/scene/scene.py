@@ -111,6 +111,15 @@ class Scene:
                 variations.extend(asset.get_variations())
         return variations
 
+    def get_asset_variations(self) -> list[tuple[str, VariationBase]]:
+        """Return ``(asset_name, variation)`` pairs for every variation in the scene, enabled or not."""
+        pairs: list[tuple[str, VariationBase]] = []
+        for asset in self.assets.values():
+            if isinstance(asset, ObjectBase):
+                for variation in asset.get_variations():
+                    pairs.append((asset.name, variation))
+        return pairs
+
     def get_objects_with_relations(self) -> list[Object | ObjectReference]:
         """Return all objects in the scene that have at least one relation."""
         objects_with_relations: list[Object | ObjectReference] = []

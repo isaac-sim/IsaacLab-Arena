@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import torch
 
+    from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.variations.variation_base import VariationBase, VariationBaseCfg
 
 
@@ -75,6 +76,13 @@ class VariationLedger:
             record.samples.append(sample.detach().cpu())
 
         variation.add_sample_listener(on_sample)
+
+    def attach_from_scene(self, scene: Scene) -> None:
+        """Attach every enabled variation in ``scene`` under ``"{asset}.{variation}"``."""
+        for asset_name, variation in scene.get_asset_variations():
+            if not variation.enabled:
+                continue
+            self.attach(f"{asset_name}.{variation.name}", variation)
 
     @property
     def records(self) -> list[VariationRecord]:
