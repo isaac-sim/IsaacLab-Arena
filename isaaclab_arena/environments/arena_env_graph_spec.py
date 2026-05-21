@@ -54,7 +54,7 @@ class ArenaEnvGraphNodeSpec:
     """
 
     id: str
-    name: str
+    name: str   # Name registered in the asset registry
     type: ArenaEnvGraphNodeType
     parent: str | None = None  # Optional, only need for object references
     prim_path: str | None = None  # Optional, only need for object references
