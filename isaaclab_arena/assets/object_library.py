@@ -870,6 +870,8 @@ class GreenContainer(LibraryObject):
 
 @register_asset
 class BlueBlockBasicRobolab(LibraryObject):
+    # TODO(cvolk): pick_and_place success termination does not consistently trigger
+    # with this asset even when the block is placed in the destination.
     name = "blue_block_basic_robolab"
     tags = ["object", "graspable", "robolab"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/basic/blue_block.usd"

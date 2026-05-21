@@ -3,6 +3,13 @@ Teleoperation Data Collection
 
 This workflow covers collecting demonstrations using Isaac Teleop with an XR device, supported by `Nvidia IsaacTeleop <https://github.com/NVIDIA/IsaacTeleop>`_.
 
+.. note::
+
+   For supported IsaacTeleop hardware devices, see `Supported Input Devices
+   <https://nvidia.github.io/IsaacTeleop/main/overview/ecosystem.html#supported-input-devices>`_.
+   Before starting teleoperation, also review the `IsaacTeleop system requirements
+   <https://nvidia.github.io/IsaacTeleop/main/references/requirements.html#teleoperation-with-isaac-sim-and-isaac-lab>`_.
+
 Step 1: Start the CloudXR Runtime
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
