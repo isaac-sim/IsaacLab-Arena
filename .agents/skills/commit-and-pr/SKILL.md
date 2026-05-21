@@ -40,7 +40,7 @@ EOF
 
 ## Branch
 
-Branch naming: `<username>/<feature-desc>` — e.g. `cvolk/feature-video-recording`, `cvolk/refactor-no-unwrap`, `mimil/create-arena-external-workflow-skill`.
+Branch naming: `<username>/<feature-desc>` with a kebab-case feature description — e.g. `<username>/feature-video-recording`, `<username>/refactor-no-unwrap`.
 
 Do not use `feature/...`, `fix/...`, or `docs/...` prefixes.
 
