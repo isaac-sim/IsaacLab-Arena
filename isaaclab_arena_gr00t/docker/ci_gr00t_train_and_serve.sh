@@ -51,6 +51,29 @@ OUTPUT_DIR="${OUTPUT_DIR:-/tmp/ci_finetune}"
 MAX_STEPS="${MAX_STEPS:-10}"
 CHECKPOINT="${CHECKPOINT:-${OUTPUT_DIR}/checkpoint-${MAX_STEPS}}"
 SERVER_PORT="${SERVER_PORT:-5555}"
+DATASET_READY_TIMEOUT_SECONDS="${DATASET_READY_TIMEOUT_SECONDS:-600}"
+DATASET_READY_FILE="${DATASET_READY_FILE:-${DATASET_PATH}/videos/chunk-000/observation.images.ego_view/episode_000000.mp4}"
+
+echo "Waiting for GR00T CI dataset media at ${DATASET_READY_FILE}"
+deadline=$(( $(date +%s) + DATASET_READY_TIMEOUT_SECONDS ))
+while true; do
+  if [ -f "${DATASET_READY_FILE}" ] && ! grep -q "git-lfs.github.com/spec" "${DATASET_READY_FILE}"; then
+    break
+  fi
+
+  if [ "$(date +%s)" -ge "${deadline}" ]; then
+    echo "Timed out waiting for LFS-backed dataset media at ${DATASET_READY_FILE}" >&2
+    if [ -f "${DATASET_READY_FILE}" ]; then
+      echo "Current file size: $(wc -c < "${DATASET_READY_FILE}") bytes" >&2
+      head -n 3 "${DATASET_READY_FILE}" >&2 || true
+    else
+      echo "File does not exist yet." >&2
+    fi
+    exit 1
+  fi
+
+  sleep 5
+done
 
 cd /workspace
 nvidia-smi

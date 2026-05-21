@@ -239,10 +239,13 @@ jobs:
       - *cleanup_step
       - *mark_repo_safe_step
       - *checkout_step
+      - *git_lfs_step
       - *install_project_step
       - *setup_isaac_sim_kit_cache_step
 
-      # The GR00T sidecar post-trains a tiny checkpoint before loading it.
+      # The GR00T sidecar post-trains a tiny checkpoint before loading it. Its
+      # entrypoint waits for the LFS-backed dataset media fetched above before
+      # starting training.
       # Poll the ZMQ endpoint because the socket can bind before the model is ready.
       - name: Wait for GR00T server
         timeout-minutes: 20
