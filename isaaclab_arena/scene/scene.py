@@ -103,22 +103,20 @@ class Scene:
     def get_commands_cfg(self) -> Any:
         return self.commands_cfg
 
-    def get_variations(self) -> list[VariationBase]:
-        """Return every variation attached to :class:`ObjectBase` assets in the scene, enabled or not."""
-        variations: list[VariationBase] = []
-        for asset in self.assets.values():
-            if isinstance(asset, ObjectBase):
-                variations.extend(asset.get_variations())
-        return variations
+    def get_asset_variations(self) -> dict[str, list[VariationBase]]:
+        """Return a ``{asset_name: [variation, ...]}`` mapping for every asset that has variations.
 
-    def get_asset_variations(self) -> list[tuple[str, VariationBase]]:
-        """Return ``(asset_name, variation)`` pairs for every variation in the scene, enabled or not."""
-        pairs: list[tuple[str, VariationBase]] = []
+        Assets without any attached variation are omitted. Variations are
+        returned enabled-or-not.
+        """
+        by_asset: dict[str, list[VariationBase]] = {}
         for asset in self.assets.values():
-            if isinstance(asset, ObjectBase):
-                for variation in asset.get_variations():
-                    pairs.append((asset.name, variation))
-        return pairs
+            if not isinstance(asset, ObjectBase):
+                continue
+            variations = asset.get_variations()
+            if variations:
+                by_asset[asset.name] = list(variations)
+        return by_asset
 
     def get_objects_with_relations(self) -> list[Object | ObjectReference]:
         """Return all objects in the scene that have at least one relation."""

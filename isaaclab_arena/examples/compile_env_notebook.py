@@ -206,10 +206,10 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
 # variation has a record of the values its sampler actually produced. Each
 # record bundles the variation's source id (``<asset>.<variation>``), the cfg
 # that drove it (here, the Hydra-overridden bounds set above), and the ordered
-# list of sample tensors — one entry per ``Sampler.sample()`` call, shape
+# list of sample tensors — one entry per ``SamplerBase.sample()`` call, shape
 # ``(num_envs, *event_shape)``. Useful as a quick sanity check that the
 # distribution we asked for is what the policy actually saw.
-print(env.unwrapped.cfg.variation_recorder)
+print(env.unwrapped.cfg.variations_recorder)
 
 # %%
 

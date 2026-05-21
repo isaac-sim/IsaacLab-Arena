@@ -6,15 +6,16 @@
 """Variation system public API."""
 
 from isaaclab_arena.variations.object_color import ObjectColorVariation, ObjectColorVariationCfg
-from isaaclab_arena.variations.sampler import Sampler, SamplerCfg, UniformSampler, UniformSamplerCfg
+from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
+from isaaclab_arena.variations.uniform_sampler import UniformSampler, UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import VariationBase, VariationBaseCfg
-from isaaclab_arena.variations.variation_recorder import VariationRecord, VariationRecorder
+from isaaclab_arena.variations.variations_recorder import VariationRecord, VariationRecorder
 
 __all__ = [
     "ObjectColorVariation",
     "ObjectColorVariationCfg",
-    "Sampler",
-    "SamplerCfg",
+    "SamplerBase",
+    "SamplerBaseCfg",
     "UniformSampler",
     "UniformSamplerCfg",
     "VariationBase",

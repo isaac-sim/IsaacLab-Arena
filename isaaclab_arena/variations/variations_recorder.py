@@ -38,7 +38,7 @@ class VariationRecord:
         #: is attached after Hydra overrides have been applied, so the cfg is
         #: treated as finalized; deep-copy if a frozen archival snapshot is needed.
         self.cfg = cfg
-        #: One entry per :meth:`~isaaclab_arena.variations.sampler.Sampler.sample`
+        #: One entry per :meth:`~isaaclab_arena.variations.sampler_base.SamplerBase.sample`
         #: call. Each is a detached CPU tensor of shape ``(num_samples, *event_shape)``.
         self.samples: list[torch.Tensor] = []
 
@@ -97,10 +97,11 @@ class VariationRecorder:
 
     def attach_to_scene(self, scene: Scene) -> None:
         """Attach every enabled variation in ``scene`` under ``"{asset}.{variation}"``."""
-        for asset_name, variation in scene.get_asset_variations():
-            if not variation.enabled:
-                continue
-            self.attach(f"{asset_name}.{variation.name}", variation)
+        for asset_name, asset_variations in scene.get_asset_variations().items():
+            for variation in asset_variations:
+                if not variation.enabled:
+                    continue
+                self.attach(f"{asset_name}.{variation.name}", variation)
 
     @property
     def records(self) -> list[VariationRecord]:

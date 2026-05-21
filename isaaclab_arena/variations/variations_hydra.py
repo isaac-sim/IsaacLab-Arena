@@ -5,9 +5,9 @@
 
 """Hydra-overridable cfg composition for a scene's variations.
 
-These helpers build a typed Hydra schema from a list of
-``(asset_name, variation)`` pairs, compose override strings against that
-schema, and push the resulting per-variation cfgs back through
+These helpers build a typed Hydra schema from a ``{asset_name: [variation, ...]}``
+mapping, compose override strings against that schema, and push the
+resulting per-variation cfgs back through
 :meth:`~isaaclab_arena.variations.variation_base.VariationBase.apply_cfg`.
 """
 
@@ -32,18 +32,18 @@ def _asset_class_name(asset_name: str) -> str:
     return f"{camel}VariationsCfg"
 
 
-def build_schema(variations: list[tuple[str, VariationBase]]) -> type | None:
-    """Return the dataclass describing ``variations``, or ``None`` if the list is empty.
+def build_schema(variations: dict[str, list[VariationBase]]) -> type | None:
+    """Return the dataclass describing ``variations``, or ``None`` if the mapping is empty.
 
-    The class has one field per asset with at least one variation; each
-    asset field's type is a dataclass whose fields are the attached
-    variations' cfgs. Each per-variation field is typed as the variation's
-    own ``*Cfg`` and pre-populated by deep-copying its current live cfg,
-    so override paths line up one-to-one with cfg attribute paths.
+    The class has one field per asset; each asset field's type is a
+    dataclass whose fields are the attached variations' cfgs. Each
+    per-variation field is typed as the variation's own ``*Cfg`` and
+    pre-populated by deep-copying its current live cfg, so override paths
+    line up one-to-one with cfg attribute paths.
 
     Args:
-        variations: ``(asset_name, variation)`` pairs, typically from
-            :meth:`~isaaclab_arena.scene.scene.Scene.get_asset_variations`.
+        variations: ``{asset_name: [variation, ...]}`` mapping, typically
+            from :meth:`~isaaclab_arena.scene.scene.Scene.get_asset_variations`.
 
     Returns:
         The dynamically-built ``VariationsCfg`` dataclass type, or ``None``
@@ -52,23 +52,20 @@ def build_schema(variations: list[tuple[str, VariationBase]]) -> type | None:
     if not variations:
         return None
 
-    per_asset: dict[str, list[tuple[str, type, Any]]] = {}
-    for asset_name, variation in variations:
-        cfg_cls = type(variation.cfg)
-        default_cfg = deepcopy(variation.cfg)
-        per_asset.setdefault(asset_name, []).append(
-            (variation.name, cfg_cls, field(default_factory=lambda d=default_cfg: deepcopy(d)))
-        )
-
     asset_fields: list[tuple[str, type, Any]] = []
-    for asset_name, variation_fields in per_asset.items():
+    for asset_name, asset_variations in variations.items():
+        variation_fields: list[tuple[str, type, Any]] = []
+        for variation in asset_variations:
+            cfg_cls = type(variation.cfg)
+            default_cfg = deepcopy(variation.cfg)
+            variation_fields.append((variation.name, cfg_cls, field(default_factory=lambda d=default_cfg: deepcopy(d))))
         asset_cls = make_dataclass(_asset_class_name(asset_name), variation_fields)
         asset_fields.append((asset_name, asset_cls, field(default_factory=asset_cls)))
     return make_dataclass("VariationsCfg", asset_fields)
 
 
 def load_cfg_from_flags(
-    variations: list[tuple[str, VariationBase]],
+    variations: dict[str, list[VariationBase]],
     hydra_overrides: list[str],
 ) -> Any | None:
     """Compose Hydra override strings into a typed ``VariationsCfg`` instance.
@@ -79,10 +76,10 @@ def load_cfg_from_flags(
     :class:`~hydra.core.global_hydra.GlobalHydra` is cleared on entry.
 
     Args:
-        variations: ``(asset_name, variation)`` pairs that define the
-            schema shape.
-        hydra_overrides: Hydra override strings. See
-            :func:`apply_overrides` for examples.
+        variations: ``{asset_name: [variation, ...]}`` mapping that defines
+            the schema shape.
+        hydra_overrides: Hydra override strings. See :func:`apply_overrides`
+            for examples.
 
     Returns:
         The composed ``VariationsCfg`` instance, or ``None`` when
@@ -100,7 +97,7 @@ def load_cfg_from_flags(
 
 
 def apply_overrides(
-    variations: list[tuple[str, VariationBase]],
+    variations: dict[str, list[VariationBase]],
     hydra_overrides: list[str],
 ) -> None:
     """Apply Hydra-style overrides to ``variations`` in-place.
@@ -110,8 +107,8 @@ def apply_overrides(
     :meth:`~isaaclab_arena.variations.variation_base.VariationBase.apply_cfg`.
 
     Args:
-        variations: ``(asset_name, variation)`` pairs whose cfgs will be
-            replaced by the composed values.
+        variations: ``{asset_name: [variation, ...]}`` mapping whose cfgs
+            will be replaced by the composed values.
         hydra_overrides: Hydra override strings, dotted-path syntax
             mirroring the schema attribute paths. Example::
 
@@ -124,7 +121,8 @@ def apply_overrides(
     composed = load_cfg_from_flags(variations, hydra_overrides)
     if composed is None:
         return
-    for asset_name, variation in variations:
+    for asset_name, asset_variations in variations.items():
         asset_cfg = getattr(composed, asset_name)
-        variation_cfg = getattr(asset_cfg, variation.name)
-        variation.apply_cfg(variation_cfg)
+        for variation in asset_variations:
+            variation_cfg = getattr(asset_cfg, variation.name)
+            variation.apply_cfg(variation_cfg)

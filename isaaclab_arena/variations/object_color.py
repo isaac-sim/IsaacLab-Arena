@@ -7,8 +7,8 @@
 
 Replaces the asset's bound material with a fresh ``OmniPBR`` instance whose
 ``diffuse_color_constant`` is sampled per env by an Arena
-:class:`~isaaclab_arena.variations.sampler.Sampler`. The asset's original
-diffuse texture is dropped.
+:class:`~isaaclab_arena.variations.sampler_base.SamplerBase`. The asset's
+original diffuse texture is dropped.
 """
 
 from __future__ import annotations
@@ -22,7 +22,8 @@ from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.version import compare_versions
 
-from isaaclab_arena.variations.sampler import Sampler, UniformSamplerCfg
+from isaaclab_arena.variations.sampler_base import SamplerBase
+from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import VariationBase, VariationBaseCfg
 
 if TYPE_CHECKING:
@@ -75,7 +76,7 @@ class ObjectColorVariation(VariationBase):
         self,
         asset: ObjectBase,
         cfg: ObjectColorVariationCfg | None = None,
-        sampler: Sampler | UniformSamplerCfg | None = None,
+        sampler: SamplerBase | UniformSamplerCfg | None = None,
     ):
         super().__init__(cfg=cfg if cfg is not None else ObjectColorVariationCfg())
         self.asset_name = asset.name
@@ -97,37 +98,14 @@ class ObjectColorVariation(VariationBase):
             },
         )
 
-        # event_cfg = make_variation_event(
-        #     func=mdp.randomize_visual_color,
-        #     sampler=self._sampler,
-        #     mode=self.cfg.mode,
-        #     params={
-        #         "asset_cfg": SceneEntityCfg(self.asset_name),
-        #         "colors": colors,
-        #         "mesh_name": self.cfg.mesh_name,
-        #         "event_name": event_name,
-        #     },
-        # )
-
-        # event_cfg = EventTermCfg(
-        #     func=make_wrapper(mdp.randomize_visual_color),
-        #     mode=self.cfg.mode,
-        #     params={
-        #         "func": mdp.randomize_visual_color,
-        #         "asset_cfg": SceneEntityCfg(self.asset_name),
-        #         "colors": colors,
-        #         "mesh_name": self.cfg.mesh_name,
-        #         "event_name": event_name,
-        #     },
-        # )
         return event_name, event_cfg
 
 
 class randomize_visual_color_from_sampler(ManagerTermBase):
-    """Randomize the visual color of bodies on an asset, sampling via an Arena :class:`Sampler`.
+    """Randomize the visual color of bodies on an asset, sampling via an Arena :class:`SamplerBase`.
 
     Variant of :class:`isaaclab.envs.mdp.randomize_visual_color` that delegates
-    RGB sampling to a Python-side :class:`Sampler` so the drawn values are
+    RGB sampling to a Python-side :class:`SamplerBase` so the drawn values are
     visible to the recording layer. Requires ``omni.replicator.core >= 1.12.4``
     and ``scene.replicate_physics=False``. Like the upstream variant,
     randomization is applied to all envs on every call regardless of ``env_ids``.
@@ -143,7 +121,7 @@ class randomize_visual_color_from_sampler(ManagerTermBase):
         import omni.replicator.core as rep  # noqa: PLC0415
 
         asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
-        sampler: Sampler = cfg.params["sampler"]
+        sampler: SamplerBase = cfg.params["sampler"]
         mesh_name: str = cfg.params.get("mesh_name", "")
 
         assert not env.cfg.scene.replicate_physics, (
@@ -169,7 +147,7 @@ class randomize_visual_color_from_sampler(ManagerTermBase):
         version = re.match(r"^(\d+\.\d+\.\d+)", rep.__file__.split("/")[-5][21:]).group(1)
         assert compare_versions(version, "1.12.4") >= 0, (
             "randomize_visual_color_from_sampler requires omni.replicator.core >= 1.12.4 "
-            f"(found {version}); the legacy OmniGraph sampling path cannot be driven by an Arena Sampler."
+            f"(found {version}); the legacy OmniGraph sampling path cannot be driven by an Arena SamplerBase."
         )
 
         stage = env.sim.stage
@@ -190,7 +168,7 @@ class randomize_visual_color_from_sampler(ManagerTermBase):
         env: ManagerBasedEnv,
         env_ids: torch.Tensor,
         asset_cfg: SceneEntityCfg,
-        sampler: Sampler,
+        sampler: SamplerBase,
         mesh_name: str = "",
     ):
         import omni.replicator.core as rep  # noqa: PLC0415
@@ -198,54 +176,4 @@ class randomize_visual_color_from_sampler(ManagerTermBase):
         num_prims = len(self.material_prims)
         sample = sampler.sample(num_samples=num_prims)
         random_colors = sample.detach().cpu().numpy()
-        print("random_colors", random_colors)
         rep.functional.modify.attribute(self.material_prims, "diffuse_color_constant", random_colors)
-
-
-# def make_variation_event(func: Callable, sampler: Sampler, mode: str, params: dict) -> EventTermCfg:
-
-
-#     return EventTermCfg(
-#         func=func,
-#         mode=mode,
-#         params=params,
-#     )
-
-
-# def make_wrapper(func: Callable) -> Callable:
-#     def wrapped(*args, **kwargs):
-#         print("before")
-#         result = func(*args, **kwargs)
-#         print("after")
-#         return result
-
-#     # Preserve the original signature
-#     import inspect
-
-#     wrapped.__signature__ = inspect.signature(func)
-
-#     return wrapped
-
-
-# def wrap_callable_class(cls: type) -> type:
-#     original_call = cls.__call__
-
-#     def new_call(self, *args, **kwargs) -> Any:
-#         print("before")
-#         result = original_call(self, *args, **kwargs)
-#         print("after")
-#         return result
-
-#     # Copy signature of __call__
-#     import inspect
-
-#     new_call.__signature__ = inspect.signature(original_call)
-
-#     # Optional: preserve metadata
-#     new_call.__name__ = original_call.__name__
-
-#     # Create new class
-#     class Wrapped(cls):
-#         __call__ = new_call
-
-#     return Wrapped

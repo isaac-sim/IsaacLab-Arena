@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, ClassVar
 from isaaclab.managers import EventTermCfg
 from isaaclab.utils import configclass
 
-from isaaclab_arena.variations.sampler import Sampler, SamplerCfg
+from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
 
 if TYPE_CHECKING:
     import torch
@@ -46,10 +46,10 @@ class VariationBase(ABC):
     """Abstract variation.
 
     A variation binds a target asset and a
-    :class:`~isaaclab_arena.variations.sampler.Sampler` to an event term that
-    applies it at reset / prestartup. Concrete subclasses declare a class-level
-    :attr:`name`, pair themselves with a :class:`VariationBaseCfg` subclass,
-    and implement :meth:`build_event_cfg`.
+    :class:`~isaaclab_arena.variations.sampler_base.SamplerBase` to an event
+    term that applies it at reset / prestartup. Concrete subclasses declare
+    a class-level :attr:`name`, pair themselves with a
+    :class:`VariationBaseCfg` subclass, and implement :meth:`build_event_cfg`.
     """
 
     #: Short, unique identifier for this variation kind (e.g. ``"color"``).
@@ -60,7 +60,7 @@ class VariationBase(ABC):
 
     def __init__(self, cfg: VariationBaseCfg):
         self.cfg = cfg
-        self._sampler: Sampler | None = None
+        self._sampler: SamplerBase | None = None
         self._sample_listeners: list[Callable[[torch.Tensor], None]] = []
 
     @property
@@ -77,24 +77,24 @@ class VariationBase(ABC):
         self.cfg.enabled = False
 
     @property
-    def sampler(self) -> Sampler | None:
+    def sampler(self) -> SamplerBase | None:
         """The sampler driving this variation, or ``None`` if not yet set."""
         return self._sampler
 
-    def set_sampler(self, sampler: Sampler | SamplerCfg) -> None:
+    def set_sampler(self, sampler: SamplerBase | SamplerBaseCfg) -> None:
         """Replace this variation's sampler.
 
-        A :class:`SamplerCfg` is built into a live sampler and written back to
+        A :class:`SamplerBaseCfg` is built into a live sampler and written back to
         ``self.cfg.sampler`` if the cfg has one (the declarative path). A bare
-        :class:`Sampler` is stored directly without touching ``self.cfg`` (the
+        :class:`SamplerBase` is stored directly without touching ``self.cfg`` (the
         imperative escape hatch).
         """
         assert isinstance(
-            sampler, (Sampler, SamplerCfg)
-        ), f"set_sampler expects a Sampler or SamplerCfg; got {type(sampler).__name__}."
-        if isinstance(sampler, SamplerCfg):
+            sampler, (SamplerBase, SamplerBaseCfg)
+        ), f"set_sampler expects a SamplerBase or SamplerBaseCfg; got {type(sampler).__name__}."
+        if isinstance(sampler, SamplerBaseCfg):
             new_sampler = sampler.build()
-            new_cfg_sampler: SamplerCfg | None = sampler
+            new_cfg_sampler: SamplerBaseCfg | None = sampler
         else:
             new_sampler = sampler
             new_cfg_sampler = None
@@ -129,7 +129,7 @@ class VariationBase(ABC):
     def apply_cfg(self, cfg: VariationBaseCfg) -> None:
         """Install ``cfg`` as the variation's new source of truth.
 
-        Replaces :attr:`cfg` wholesale and rebuilds the live :class:`Sampler`
+        Replaces :attr:`cfg` wholesale and rebuilds the live :class:`SamplerBase`
         from the new sampler cfg if the cfg carries one. Subclasses with
         additional derived state should override and call ``super().apply_cfg(cfg)``
         first.
@@ -140,7 +140,7 @@ class VariationBase(ABC):
         """
         self.cfg = cfg
         sampler_cfg = getattr(cfg, "sampler", None)
-        if isinstance(sampler_cfg, SamplerCfg):
+        if isinstance(sampler_cfg, SamplerBaseCfg):
             self.set_sampler(sampler_cfg)
 
     @abstractmethod

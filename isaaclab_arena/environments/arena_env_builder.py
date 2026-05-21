@@ -40,7 +40,7 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cf
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.variations import variations_hydra
-from isaaclab_arena.variations.variation_recorder import VariationRecorder
+from isaaclab_arena.variations.variations_recorder import VariationRecorder
 
 
 class ArenaEnvBuilder:
@@ -184,16 +184,17 @@ class ArenaEnvBuilder:
         """
         fields: list[tuple[str, type, EventTermCfg]] = []
         seen: set[str] = set()
-        for variation in self.arena_env.scene.get_variations():
-            if not variation.enabled:
-                continue
-            event_name, event_cfg = variation.build_event_cfg(self.arena_env.scene)
-            assert event_name not in seen, (
-                f"Duplicate variation event term name '{event_name}'. "
-                "Each variation must produce a unique name; consider prefixing with the asset name."
-            )
-            seen.add(event_name)
-            fields.append((event_name, EventTermCfg, event_cfg))
+        for asset_variations in self.arena_env.scene.get_asset_variations().values():
+            for variation in asset_variations:
+                if not variation.enabled:
+                    continue
+                event_name, event_cfg = variation.build_event_cfg(self.arena_env.scene)
+                assert event_name not in seen, (
+                    f"Duplicate variation event term name '{event_name}'. "
+                    "Each variation must produce a unique name; consider prefixing with the asset name."
+                )
+                seen.add(event_name)
+                fields.append((event_name, EventTermCfg, event_cfg))
         if not fields:
             return None
         VariationsEventCfg = make_configclass("VariationsEventCfg", fields)

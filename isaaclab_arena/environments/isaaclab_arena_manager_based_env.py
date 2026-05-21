@@ -15,7 +15,7 @@ from isaaclab_tasks.utils import PresetCfg
 
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.variations.variation_recorder import VariationRecorder
+from isaaclab_arena.variations.variations_recorder import VariationRecorder
 
 
 @configclass
@@ -69,9 +69,9 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     # Metrics
     metrics: list[MetricBase] | None = None
 
-    # Variation recorder. Callers can then read ``env.cfg.variation_recorder.records``
+    # Variation recorder. Callers can then read ``env.cfg.variations_recorder.records``
     # after a run to recover the sampled variations.
-    variation_recorder: VariationRecorder | None = None
+    variations_recorder: VariationRecorder | None = None
 
     # Isaaclab Arena Env. Held as a member to allow use of internal functions
     isaaclab_arena_env: IsaacLabArenaEnvironment | None = None
