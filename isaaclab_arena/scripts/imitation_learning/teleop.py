@@ -77,9 +77,9 @@ def main() -> None:
         env_cfg.terminations.object_reached_goal = DoneTerm(func=mdp.object_reached_goal)
 
     if args_cli.xr:
-        # External cameras are not supported with XR teleop
-        # Check for any camera configs and disable them
-        env_cfg = remove_camera_configs(env_cfg)
+        # If cameras are not enabled and XR is enabled, remove camera configs
+        if not args_cli.enable_cameras:
+            env_cfg = remove_camera_configs(env_cfg)
         env_cfg.sim.render.antialiasing_mode = "DLSS"
 
     try:
