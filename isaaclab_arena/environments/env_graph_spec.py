@@ -3,17 +3,21 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import annotations
-
-import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, TypeVar
+
+import yaml
+
+T = TypeVar("T")
 
 
 @dataclass(frozen=True)
 class EnvGraphNodeSpec:
-    """Node in an environment graph. Could be an object, an object reference, an embodiment, a background, etc."""
+    """Node in an environment graph.
+
+    Could be an object, an object reference, an embodiment, a background, etc.
+    """
 
     id: str
     name: str
@@ -23,40 +27,19 @@ class EnvGraphNodeSpec:
     object_type: str | None = None
     params: dict[str, Any] = field(default_factory=dict)
 
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> EnvGraphNodeSpec:
-        assert isinstance(data, dict), f"Node spec must be a dict, got {type(data).__name__}"
-        return cls(
-            id=_required_str(data, "id"),
-            name=_required_str(data, "name"),
-            type=_required_str(data, "type"),
-            parent=_optional_str(data, "parent"),
-            prim_path=_optional_str(data, "prim_path"),
-            object_type=_optional_str(data, "object_type"),
-            params=_optional_dict(data, "params"),
-        )
-
 
 @dataclass(frozen=True)
 class EnvGraphConstraintSpec:
-    """Constraint edge in an environment graph state spec. It defines a spatial or task constraint between two nodes."""
+    """Constraint edge in an environment graph state spec.
+
+    It defines a spatial or task constraint between two nodes.
+    """
 
     id: str
     type: str
     parent: str | None = None
     child: str | None = None
     params: dict[str, Any] = field(default_factory=dict)
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> EnvGraphConstraintSpec:
-        assert isinstance(data, dict), f"Constraint spec must be a dict, got {type(data).__name__}"
-        return cls(
-            id=_required_str(data, "id"),
-            type=_required_str(data, "type"),
-            parent=_optional_str(data, "parent"),
-            child=_optional_str(data, "child"),
-            params=_optional_dict(data, "params"),
-        )
 
 
 @dataclass(frozen=True)
@@ -66,39 +49,22 @@ class EnvGraphEdgesSpec:
     spatial_constraints: list[EnvGraphConstraintSpec] = field(default_factory=list)
     task_constraints: list[EnvGraphConstraintSpec] = field(default_factory=list)
 
-    @classmethod
-    def from_dict(cls, data: dict[str, Any] | None) -> EnvGraphEdgesSpec:
-        data = data or {}
-        assert isinstance(data, dict), f"Edges spec must be a dict, got {type(data).__name__}"
-        return cls(
-            spatial_constraints=[
-                EnvGraphConstraintSpec.from_dict(edge) for edge in data.get("spatial_constraints", [])
-            ],
-            task_constraints=[EnvGraphConstraintSpec.from_dict(edge) for edge in data.get("task_constraints", [])],
-        )
-
 
 @dataclass(frozen=True)
 class EnvGraphStateSpec:
-    """Snapshots of the environment state in the graph. Could be an initial, or intermediate, or final state."""
+    """Snapshot of the environment state in the graph.
+
+    Could be an initial, intermediate, or final state.
+    """
 
     id: str
     name: str
     edges: EnvGraphEdgesSpec = field(default_factory=EnvGraphEdgesSpec)
 
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> EnvGraphStateSpec:
-        assert isinstance(data, dict), f"State spec must be a dict, got {type(data).__name__}"
-        return cls(
-            id=_required_str(data, "id"),
-            name=_required_str(data, "name"),
-            edges=EnvGraphEdgesSpec.from_dict(data.get("edges")),
-        )
-
 
 @dataclass(frozen=True)
 class EnvGraphTaskSpec:
-    """Task entry in an environment graph. It defines the task to be completed in the environment."""
+    """Task entry in an environment graph."""
 
     id: str
     name: str
@@ -106,23 +72,10 @@ class EnvGraphTaskSpec:
     state_specs: dict[str, str] = field(default_factory=dict)
     task_args: dict[str, Any] = field(default_factory=dict)
 
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> EnvGraphTaskSpec:
-        assert isinstance(data, dict), f"Task spec must be a dict, got {type(data).__name__}"
-        state_specs = data.get("state_specs", {})
-        assert isinstance(state_specs, dict), "Task state_specs must be a dict"
-        return cls(
-            id=_required_str(data, "id"),
-            name=_required_str(data, "name"),
-            type=_required_str(data, "type"),
-            state_specs={str(k): str(v) for k, v in state_specs.items()},
-            task_args=_optional_dict(data, "task_args"),
-        )
-
 
 @dataclass(frozen=True)
 class EnvGraphSpec:
-    """Typed representation of an environment graph YAML file. It defines the nodes, tasks, and states of the environment graph."""
+    """Typed representation of an environment graph YAML file."""
 
     name: str
     nodes: list[EnvGraphNodeSpec] = field(default_factory=list)
@@ -130,36 +83,105 @@ class EnvGraphSpec:
     state_specs: list[EnvGraphStateSpec] = field(default_factory=list)
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> EnvGraphSpec:
-        """Load an environment graph spec from a YAML file."""
+    def from_yaml(cls, path: str | Path) -> "EnvGraphSpec":
         with Path(path).open("r", encoding="utf-8") as f:
             return cls.from_dict(yaml.safe_load(f))
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> EnvGraphSpec:
-        """Build an environment graph spec from parsed YAML data."""
-        assert isinstance(data, dict), f"Env graph spec must be a dict, got {type(data).__name__}"
+    def from_dict(cls, data: dict[str, Any]) -> "EnvGraphSpec":
+        data = _as_dict(data, "Env graph spec")
+        nodes = _parse_list(data, "nodes", _parse_node)
+        tasks = _parse_list(data, "tasks", _parse_task)
+        state_specs = _parse_list(data, "state_specs", _parse_state_spec)
+
+        _assert_unique_ids(nodes, "node")
+        _assert_unique_ids(tasks, "task")
+        _assert_unique_ids(state_specs, "state spec")
+        _assert_references_exist(nodes, tasks, state_specs)
+
         return cls(
             name=_required_str(data, "name"),
-            nodes=[EnvGraphNodeSpec.from_dict(node) for node in data.get("nodes", [])],
-            tasks=[EnvGraphTaskSpec.from_dict(task) for task in data.get("tasks", [])],
-            state_specs=[EnvGraphStateSpec.from_dict(state_spec) for state_spec in data.get("state_specs", [])],
+            nodes=nodes,
+            tasks=tasks,
+            state_specs=state_specs,
         )
 
     @property
     def nodes_by_id(self) -> dict[str, EnvGraphNodeSpec]:
-        """Return nodes keyed by id."""
         return {node.id: node for node in self.nodes}
 
     @property
     def tasks_by_id(self) -> dict[str, EnvGraphTaskSpec]:
-        """Return tasks keyed by id."""
         return {task.id: task for task in self.tasks}
 
     @property
     def state_specs_by_id(self) -> dict[str, EnvGraphStateSpec]:
-        """Return state specs keyed by id."""
         return {state_spec.id: state_spec for state_spec in self.state_specs}
+
+
+def _parse_node(data: Any) -> EnvGraphNodeSpec:
+    data = _as_dict(data, "Node spec")
+    return EnvGraphNodeSpec(
+        id=_required_str(data, "id"),
+        name=_required_str(data, "name"),
+        type=_required_str(data, "type"),
+        parent=_optional_str(data, "parent"),
+        prim_path=_optional_str(data, "prim_path"),
+        object_type=_optional_str(data, "object_type"),
+        params=_optional_dict(data, "params"),
+    )
+
+
+def _parse_constraint(data: Any) -> EnvGraphConstraintSpec:
+    data = _as_dict(data, "Constraint spec")
+    return EnvGraphConstraintSpec(
+        id=_required_str(data, "id"),
+        type=_required_str(data, "type"),
+        parent=_optional_str(data, "parent"),
+        child=_optional_str(data, "child"),
+        params=_optional_dict(data, "params"),
+    )
+
+
+def _parse_edges(data: dict[str, Any] | None) -> EnvGraphEdgesSpec:
+    if data is None:
+        data = {}
+    data = _as_dict(data, "Edges spec")
+    return EnvGraphEdgesSpec(
+        spatial_constraints=_parse_list(data, "spatial_constraints", _parse_constraint),
+        task_constraints=_parse_list(data, "task_constraints", _parse_constraint),
+    )
+
+
+def _parse_state_spec(data: Any) -> EnvGraphStateSpec:
+    data = _as_dict(data, "State spec")
+    return EnvGraphStateSpec(
+        id=_required_str(data, "id"),
+        name=_required_str(data, "name"),
+        edges=_parse_edges(data.get("edges")),
+    )
+
+
+def _parse_task(data: Any) -> EnvGraphTaskSpec:
+    data = _as_dict(data, "Task spec")
+    return EnvGraphTaskSpec(
+        id=_required_str(data, "id"),
+        name=_required_str(data, "name"),
+        type=_required_str(data, "type"),
+        state_specs=_optional_str_map(data, "state_specs"),
+        task_args=_optional_dict(data, "task_args"),
+    )
+
+
+def _as_dict(data: Any, spec_name: str) -> dict[str, Any]:
+    assert isinstance(data, dict), f"{spec_name} must be a dict, got {type(data).__name__}"
+    return data
+
+
+def _parse_list(data: dict[str, Any], key: str, parser: Callable[[Any], T]) -> list[T]:
+    values = data.get(key, [])
+    assert isinstance(values, list), f"Field '{key}' must be a list"
+    return [parser(value) for value in values]
 
 
 def _required_str(data: dict[str, Any], key: str) -> str:
@@ -178,3 +200,44 @@ def _optional_dict(data: dict[str, Any], key: str) -> dict[str, Any]:
     value = data.get(key, {})
     assert value is None or isinstance(value, dict), f"Optional field '{key}' must be a dict when set"
     return dict(value or {})
+
+
+def _optional_str_map(data: dict[str, Any], key: str) -> dict[str, str]:
+    return {str(k): str(v) for k, v in _optional_dict(data, key).items()}
+
+
+def _assert_unique_ids(specs: list[Any], spec_name: str) -> None:
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for spec in specs:
+        if spec.id in seen:
+            duplicates.add(spec.id)
+        seen.add(spec.id)
+    assert not duplicates, f"Duplicate {spec_name} ids found: {sorted(duplicates)}"
+
+
+def _assert_references_exist(
+    nodes: list[EnvGraphNodeSpec],
+    tasks: list[EnvGraphTaskSpec],
+    state_specs: list[EnvGraphStateSpec],
+) -> None:
+    node_ids = {node.id for node in nodes}
+    state_spec_ids = {state_spec.id for state_spec in state_specs}
+
+    for task in tasks:
+        for label, state_spec_id in task.state_specs.items():
+            assert state_spec_id in state_spec_ids, (
+                f"Task '{task.id}' references unknown state spec '{state_spec_id}' for '{label}'"
+            )
+
+    for state_spec in state_specs:
+        constraints = state_spec.edges.spatial_constraints + state_spec.edges.task_constraints
+        for constraint in constraints:
+            if constraint.parent is not None:
+                assert constraint.parent in node_ids, (
+                    f"Constraint '{constraint.id}' references unknown parent node '{constraint.parent}'"
+                )
+            if constraint.child is not None:
+                assert constraint.child in node_ids, (
+                    f"Constraint '{constraint.id}' references unknown child node '{constraint.child}'"
+                )

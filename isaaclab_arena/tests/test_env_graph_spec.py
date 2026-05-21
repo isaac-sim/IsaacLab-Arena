@@ -3,7 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from copy import deepcopy
 from pathlib import Path
+
+import pytest
 
 from isaaclab_arena.environments.env_graph_spec import EnvGraphSpec, EnvGraphStateSpec
 
@@ -56,3 +59,67 @@ def test_env_graph_spec_loads_pick_and_place_yaml():
     assert reach_constraint.type == "reach"
     assert reach_constraint.parent == "droid_abs_joint_pos"
     assert reach_constraint.child == "bowl_ycb_robolab"
+
+
+def test_env_graph_spec_rejects_duplicate_ids():
+    data = _minimal_env_graph_data()
+    data["nodes"].append({"id": "table", "name": "duplicate_table", "type": "object_reference"})
+
+    with pytest.raises(AssertionError, match="Duplicate node ids"):
+        EnvGraphSpec.from_dict(data)
+
+
+def test_env_graph_spec_rejects_missing_task_state_reference():
+    data = _minimal_env_graph_data()
+    data["tasks"][0]["state_specs"]["initial"] = "missing_state"
+
+    with pytest.raises(AssertionError, match="unknown state spec 'missing_state'"):
+        EnvGraphSpec.from_dict(data)
+
+
+def test_env_graph_spec_rejects_missing_constraint_node_reference():
+    data = _minimal_env_graph_data()
+    data["state_specs"][0]["edges"]["task_constraints"][0]["child"] = "missing_cube"
+
+    with pytest.raises(AssertionError, match="unknown child node 'missing_cube'"):
+        EnvGraphSpec.from_dict(data)
+
+
+def _minimal_env_graph_data():
+    return deepcopy(
+        {
+            "name": "minimal_env_graph",
+            "nodes": [
+                {"id": "robot", "name": "robot", "type": "embodiment"},
+                {"id": "table", "name": "table", "type": "object_reference"},
+                {"id": "cube", "name": "cube", "type": "rigid_object"},
+            ],
+            "tasks": [
+                {
+                    "id": "task_0",
+                    "name": "task_0",
+                    "type": "pick_and_place",
+                    "state_specs": {"initial": "state_0"},
+                }
+            ],
+            "state_specs": [
+                {
+                    "id": "state_0",
+                    "name": "state_0",
+                    "edges": {
+                        "spatial_constraints": [
+                            {"id": "table_is_anchor", "type": "is_anchor", "parent": "table"}
+                        ],
+                        "task_constraints": [
+                            {
+                                "id": "robot_reach_cube",
+                                "type": "reach",
+                                "parent": "robot",
+                                "child": "cube",
+                            }
+                        ],
+                    },
+                }
+            ],
+        }
+    )
