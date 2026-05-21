@@ -83,10 +83,9 @@ The exception: if a single commit is *purely* a typo fix in your own as-yet-unme
 Before declaring the work done:
 
 ```bash
-gh pr view --json title,baseRefName,statusCheckRollup
+gh pr view --json title,baseRefName
 ```
 
 Confirm:
 - `baseRefName` is `main`.
 - Title has no trailing period and is in imperative mood.
-- CI checks are running or green. Investigate any failures before requesting review.
