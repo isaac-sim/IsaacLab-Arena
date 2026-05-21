@@ -69,10 +69,8 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     # Metrics
     metrics: list[MetricBase] | None = None
 
-    # Variation recorder. Populated by :class:`ArenaEnvBuilder` after the env cfg
-    # is constructed and the recorder has been attached to the scene's enabled
-    # variations; callers can then read ``env.cfg.variation_recorder.records``
-    # after a run to recover the input factors that drove each draw.
+    # Variation recorder. Callers can then read ``env.cfg.variation_recorder.records``
+    # after a run to recover the sampled variations.
     variation_recorder: VariationRecorder | None = None
 
     # Isaaclab Arena Env. Held as a member to allow use of internal functions

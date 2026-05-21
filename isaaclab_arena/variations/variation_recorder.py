@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from omegaconf import OmegaConf
+
 if TYPE_CHECKING:
     import torch
 
@@ -39,6 +41,22 @@ class VariationRecord:
         #: One entry per :meth:`~isaaclab_arena.variations.sampler.Sampler.sample`
         #: call. Each is a detached CPU tensor of shape ``(num_samples, *event_shape)``.
         self.samples: list[torch.Tensor] = []
+
+    def summary(self) -> str:
+        """Return a multi-line human-readable summary of this record."""
+        lines = [f"--- {self.source_id} ---", "cfg:"]
+        lines.append(OmegaConf.to_yaml(OmegaConf.structured(self.cfg)).rstrip())
+        lines.append(f"sample calls: {len(self.samples)}")
+        if self.samples:
+            first = self.samples[0]
+            stacked_shape = (len(self.samples), *tuple(first.shape))
+            lines.append(f"stacked shape: {stacked_shape}")
+            lines.append(f"first call:   {first.tolist()}")
+            lines.append(f"last call:    {self.samples[-1].tolist()}")
+        return "\n".join(lines)
+
+    def __str__(self) -> str:
+        return self.summary()
 
 
 class VariationRecorder:
@@ -77,7 +95,7 @@ class VariationRecorder:
 
         variation.add_sample_listener(on_sample)
 
-    def attach_from_scene(self, scene: Scene) -> None:
+    def attach_to_scene(self, scene: Scene) -> None:
         """Attach every enabled variation in ``scene`` under ``"{asset}.{variation}"``."""
         for asset_name, variation in scene.get_asset_variations():
             if not variation.enabled:
@@ -88,6 +106,17 @@ class VariationRecorder:
     def records(self) -> list[VariationRecord]:
         """All per-variation records, in attach order."""
         return list(self._records.values())
+
+    def summary(self) -> str:
+        """Return a multi-line human-readable summary of every attached record."""
+        parts = [f"VariationRecorder: {len(self._records)} record(s)"]
+        for record in self._records.values():
+            parts.append("")
+            parts.append(record.summary())
+        return "\n".join(parts)
+
+    def __str__(self) -> str:
+        return self.summary()
 
     def __getitem__(self, source_id: str) -> VariationRecord:
         return self._records[source_id]

@@ -200,25 +200,15 @@ class ArenaEnvBuilder:
         return VariationsEventCfg()
 
     def get_variations_schema(self) -> type | None:
-        """Return the dataclass describing the scene's variations, or ``None`` if none are attached.
-
-        Thin wrapper around :func:`variations_hydra.build_schema`.
-        """
+        """Return the dataclass describing the scene's variations, or ``None`` if none are attached."""
         return variations_hydra.build_schema(self.arena_env.scene.get_asset_variations())
 
     def load_variations_cfg_from_flags(self, hydra_overrides: list[str]) -> Any | None:
-        """Compose Hydra override strings into a typed ``VariationsCfg`` instance.
-
-        Thin wrapper around :func:`variations_hydra.load_cfg_from_flags`.
-        """
+        """Compose Hydra override strings into a typed ``VariationsCfg`` instance."""
         return variations_hydra.load_cfg_from_flags(self.arena_env.scene.get_asset_variations(), hydra_overrides)
 
     def apply_hydra_variation_overrides(self, hydra_overrides: list[str]) -> None:
-        """Apply Hydra-style variation overrides to the scene's variations.
-
-        Thin wrapper around :func:`variations_hydra.apply_overrides`. See
-        that function for the override syntax.
-        """
+        """Apply Hydra-style variation overrides to the scene's variations."""
         variations_hydra.apply_overrides(self.arena_env.scene.get_asset_variations(), hydra_overrides)
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
@@ -332,6 +322,9 @@ class ArenaEnvBuilder:
             task.get_commands_cfg(),
         )
 
+        variations_recorder = VariationRecorder()
+        variations_recorder.attach_to_scene(self.arena_env.scene)
+
         isaaclab_arena_env = self.arena_env
 
         viewer_cfg = task.get_viewer_cfg()
@@ -354,6 +347,7 @@ class ArenaEnvBuilder:
                 teleop_devices=teleop_devices_cfg,
                 recorders=recorder_manager_cfg,
                 metrics=metrics,
+                variations_recorder=variations_recorder,
                 isaaclab_arena_env=isaaclab_arena_env,
                 viewer=viewer_cfg,
             )
@@ -383,20 +377,10 @@ class ArenaEnvBuilder:
                 # I assume that they're not needed for the mimic env.
                 # recorders=recorder_manager_cfg,
                 # metrics=metrics,
+                # variations_recorder=variations_recorder,
                 isaaclab_arena_env=isaaclab_arena_env,
                 viewer=viewer_cfg,
             )
-
-        # Variation recording layer. The recorder is created here (rather than
-        # held on the builder) so it lives on the same cfg object as the rest
-        # of the env state — callers can recover the input factors that drove
-        # each draw via ``env.cfg.variation_recorder.records``. Listeners live on
-        # :class:`~isaaclab_arena.variations.variation_base.VariationBase` and
-        # survive subsequent sampler swaps, so attaching once after compose is
-        # enough; this also runs before ``env_cfg_callback`` so callbacks can
-        # observe / extend the recorder if they want to.
-        env_cfg.variation_recorder = VariationRecorder()
-        env_cfg.variation_recorder.attach_from_scene(self.arena_env.scene)
 
         # Apply the environment configuration callback if it is set
         # This can be used to modify the simulation configuration, etc.

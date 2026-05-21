@@ -209,18 +209,7 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
 # list of sample tensors — one entry per ``Sampler.sample()`` call, shape
 # ``(num_envs, *event_shape)``. Useful as a quick sanity check that the
 # distribution we asked for is what the policy actually saw.
-recorder = env.unwrapped.cfg.variation_recorder
-print(f"\nVariation recorder: {len(recorder.records)} record(s)")
-for record in recorder.records:
-    print(f"\n--- {record.source_id} ---")
-    print("cfg:")
-    print(OmegaConf.to_yaml(OmegaConf.structured(record.cfg)))
-    print(f"sample calls: {len(record.samples)}")
-    if record.samples:
-        stacked = torch.stack(record.samples)  # (num_calls, num_envs, *event_shape)
-        print(f"stacked shape: {tuple(stacked.shape)}")
-        print(f"first call:   {record.samples[0].tolist()}")
-        print(f"last call:    {record.samples[-1].tolist()}")
+print(env.unwrapped.cfg.variation_recorder)
 
 # %%
 
