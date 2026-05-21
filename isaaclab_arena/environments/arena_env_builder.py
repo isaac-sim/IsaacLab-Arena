@@ -40,7 +40,7 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cf
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.variations import variations_hydra
-from isaaclab_arena.variations.ledger import VariationLedger
+from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 
 class ArenaEnvBuilder:
@@ -387,16 +387,16 @@ class ArenaEnvBuilder:
                 viewer=viewer_cfg,
             )
 
-        # Variation recording layer. The ledger is created here (rather than
+        # Variation recording layer. The recorder is created here (rather than
         # held on the builder) so it lives on the same cfg object as the rest
         # of the env state — callers can recover the input factors that drove
-        # each draw via ``env.cfg.variation_ledger.records``. Listeners live on
+        # each draw via ``env.cfg.variation_recorder.records``. Listeners live on
         # :class:`~isaaclab_arena.variations.variation_base.VariationBase` and
         # survive subsequent sampler swaps, so attaching once after compose is
         # enough; this also runs before ``env_cfg_callback`` so callbacks can
-        # observe / extend the ledger if they want to.
-        env_cfg.variation_ledger = VariationLedger()
-        env_cfg.variation_ledger.attach_from_scene(self.arena_env.scene)
+        # observe / extend the recorder if they want to.
+        env_cfg.variation_recorder = VariationRecorder()
+        env_cfg.variation_recorder.attach_from_scene(self.arena_env.scene)
 
         # Apply the environment configuration callback if it is set
         # This can be used to modify the simulation configuration, etc.

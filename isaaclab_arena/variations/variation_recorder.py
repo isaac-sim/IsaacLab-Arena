@@ -5,9 +5,9 @@
 
 """In-memory recording of variation samples.
 
-A :class:`VariationLedger` collects every value drawn by an enabled variation's
+A :class:`VariationRecorder` collects every value drawn by an enabled variation's
 sampler so downstream sensitivity-analysis tooling has the input factors that
-produced each episode. The ledger is explicitly attached by the caller: there
+produced each episode. The recorder is explicitly attached by the caller: there
 is no singleton or global lookup.
 """
 
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 
 class VariationRecord:
-    """Per-variation slice of a :class:`VariationLedger`.
+    """Per-variation slice of a :class:`VariationRecorder`.
 
     Bundles a variation's identity (:attr:`source_id`), the cfg driving its
     sampler at attach time (:attr:`cfg`), and the ordered sequence of samples
@@ -32,7 +32,7 @@ class VariationRecord:
 
     def __init__(self, source_id: str, cfg: VariationBaseCfg) -> None:
         self.source_id = source_id
-        #: Cfg reference captured at :meth:`VariationLedger.attach` time. The ledger
+        #: Cfg reference captured at :meth:`VariationRecorder.attach` time. The recorder
         #: is attached after Hydra overrides have been applied, so the cfg is
         #: treated as finalized; deep-copy if a frozen archival snapshot is needed.
         self.cfg = cfg
@@ -41,7 +41,7 @@ class VariationRecord:
         self.samples: list[torch.Tensor] = []
 
 
-class VariationLedger:
+class VariationRecorder:
     """Records every sample drawn by attached variations, grouped per variation.
 
     Records are keyed by ``source_id`` (by convention ``"{asset}.{variation}"``).
@@ -52,7 +52,7 @@ class VariationLedger:
         self._records: dict[str, VariationRecord] = {}
 
     def attach(self, source_id: str, variation: VariationBase) -> None:
-        """Subscribe this ledger to ``variation`` under ``source_id``.
+        """Subscribe this recorder to ``variation`` under ``source_id``.
 
         The listener is registered via
         :meth:`~isaaclab_arena.variations.variation_base.VariationBase.add_sample_listener`
@@ -64,7 +64,7 @@ class VariationLedger:
             variation: The variation to observe.
         """
         assert source_id not in self._records, (
-            f"VariationLedger: source_id '{source_id}' is already attached. "
+            f"VariationRecorder: source_id '{source_id}' is already attached. "
             "Re-attaching the same variation would create two independent records and "
             "double-record subsequent samples; detach or use a different source_id instead."
         )
