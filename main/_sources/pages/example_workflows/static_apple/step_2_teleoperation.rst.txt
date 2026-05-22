@@ -174,6 +174,7 @@ Step 4: Record with the headset device
         --dataset_file $DATASET_DIR/arena_g1_static_apple_dataset_recorded.hdf5 \
         --num_demos 20 \
         --num_success_steps 10 \
+        --disable_full_sim_buffer_reset \
         galileo_g1_static_pick_and_place \
         --object apple_01_objaverse_robolab \
         --destination clay_plates_hot3d_robolab \
