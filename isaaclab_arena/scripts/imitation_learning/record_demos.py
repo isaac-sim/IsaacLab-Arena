@@ -57,9 +57,7 @@ parser.add_argument(
     dest="disable_full_sim_buffer_reset",
     action="store_true",
     default=False,
-    help=(
-        "Disable calling env.sim.reset() to fully clear sim context buffers before each episode recording."
-    ),
+    help="Disable calling env.sim.reset() to fully clear sim context buffers before each episode recording.",
 )
 # Add the example environments CLI args
 # NOTE(alexmillane, 2025.09.04): This has to be added last, because
