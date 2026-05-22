@@ -31,7 +31,7 @@ jobs:
 
   pre_commit:
     name: Pre-commit
-    runs-on: [self-hosted, gpu]
+    runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 30
 
     container:
@@ -96,7 +96,7 @@ jobs:
 
   test:
     name: Run tests
-    runs-on: [self-hosted, gpu]
+    runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 80
     needs: [pre_commit]
 
@@ -112,6 +112,10 @@ jobs:
         name: nvidia-smi
         run: nvidia-smi
 
+      - &lscpu
+        name: lscpu
+        run: lscpu
+
       # Setup
       - *install_git_step
       - *cleanup_step
@@ -124,6 +128,10 @@ jobs:
         run: |
           /isaac-sim/python.sh -m pip install --no-cache-dir -e .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
+
+      - &setup_isaac_sim_kit_cache_step
+        name: Setup Isaac Sim kit cache (shader warmup on miss)
+        uses: ./.github/actions/setup-isaac-sim-kit-cache
 
       # Run the tests.
       #
@@ -150,11 +158,35 @@ jobs:
           /isaac-sim/python.sh -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
-      - name: Run in-process PhysX tests with cameras
-        run: |
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
-            isaaclab_arena/tests/
 
+  tests_with_subprocess:
+    name: Run tests with subprocess
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 60
+    needs: [pre_commit]
+
+    container:
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+    steps:
+      # nvidia-smi
+      - *nvidia_smi
+      - *lscpu
+
+      # Setup.
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
+      - *install_project_step
+      - *setup_isaac_sim_kit_cache_step
+
+      # NOTE(alexmillane): These tests are unreliable at the moment, and often stall,
+      # causing the whole CI run to fail. I am moving these to a parallel job, and then
+      # will make the job containing them optional in terms of passing.
       - name: Run subprocess-spawning PhysX tests
         run: |
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
@@ -164,7 +196,7 @@ jobs:
 
   test_policy:
     name: Run policy-related tests with GR00T & cuda12_8 deps
-    runs-on: [self-hosted, gpu]
+    runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 60
     needs: [pre_commit]
 
@@ -178,6 +210,7 @@ jobs:
     steps:
       # nvidia-smi
       - *nvidia_smi
+      - *lscpu
 
       # Setup.
       - *install_git_step
@@ -186,6 +219,7 @@ jobs:
       - *checkout_step
       - *git_lfs_step
       - *install_project_step
+      - *setup_isaac_sim_kit_cache_step
 
       # Run the policy (GR00T) related tests.
       - name: Run policy-related pytest
@@ -196,7 +230,7 @@ jobs:
 
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
-    runs-on: [self-hosted, gpu]
+    runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 30
     needs: [pre_commit]
 
@@ -222,7 +256,7 @@ jobs:
 
   build_and_push_image_post_merge:
     name: Build & push NGC image (post-merge)
-    runs-on: [self-hosted, gpu]
+    runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 90
     needs: [test, test_policy]       # only push if tests passed
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
