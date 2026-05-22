@@ -646,7 +646,7 @@ python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_d
 <span class="w">  </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_static_apple_dataset_recorded.hdf5<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_demos<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_demos<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_success_steps<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>galileo_g1_static_pick_and_place<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--object<span class="w"> </span>apple_01_objaverse_robolab<span class="w"> </span><span class="se">\</span>
@@ -658,7 +658,8 @@ python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_d
 <li><p>In the running application, start the session from the <strong>XR</strong> tab in the application window.</p></li>
 <li><p>Follow Step 3 to connect the headset again.</p></li>
 <li><p>Complete the task for each demo. After a successful placement, wait for the demo to
-automatically end and for the simulation to reset. The script saves successful runs
+automatically end and for the simulation to freeze before pressing <strong>Reset</strong>. Resetting
+early can save an incomplete or failed demonstration. The script saves successful runs
 to the HDF5 file above.</p></li>
 </ol>
 <div class="admonition important">
@@ -683,8 +684,8 @@ and hands for manipulation.</p></li>
 and side grasps, so the policy does not overfit to one approach direction.</p></li>
 <li><p><strong>Clean successes only:</strong> save only runs with no unnecessary collisions, no dropped objects before
 placement, and no recovery motions that would confuse the policy.</p></li>
-<li><p><strong>Wait for reset automatically after success:</strong> after releasing the apple onto the plate, keep the scene stable and
-wait until the recording auto-terminates and the simulation automatically resets.</p></li>
+<li><p><strong>Wait for success freeze:</strong> after releasing the apple onto the plate, keep the scene stable and
+wait until the recording auto-terminates/freezes. Only reset after that happens.</p></li>
 <li><p><strong>Trajectory length:</strong> aim for demonstrations around 200–400 timesteps. Very long episodes slow
 down downstream data processing, while very short episodes tend to contain abrupt motion.</p></li>
 <li><p><strong>Replay validation:</strong> after recording, replay the HDF5 with Step 5 and inspect camera frames,
@@ -709,6 +710,13 @@ stable pose, then release cleanly so the apple drops naturally onto the plate.</
 </ol>
 <p>Releasing a small round object onto a flat plate is noticeably harder than dropping a box into a
 bin. Keep the release height low and the orientation stable.</p>
+<figure class="align-center" id="id4">
+<a class="reference internal image-reference" href="../../../_images/static_apple_pick_and_place.gif"><img alt="Static apple-to-plate demonstration with the Unitree G1" src="../../../_images/static_apple_pick_and_place.gif" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Example static apple-to-plate demonstration trajectory.</span><a class="headerlink" href="#id4" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
 </div>
 </section>
 <section id="step-5-replay-recorded-demos-optional">
