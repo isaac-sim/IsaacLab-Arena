@@ -22,7 +22,7 @@ Compared to upstream ``submodules/IsaacLab/scripts/tools/merge_hdf5_datasets.py`
 - Uses a recursive ``h5py.Group.copy`` so new recorder terms added by future Isaac Lab versions
   (new ``obs/*`` keys, new sensor groups, new metadata attrs) round-trip unchanged.
 
-The script has zero simulation dependency and only requires ``h5py`` + ``numpy``.
+The script has zero simulation dependency and only requires ``h5py``.
 
 Example
 -------
@@ -59,6 +59,7 @@ class _FileInfo:
     success_count: int = 0
     no_success_attr_count: int = 0
     failed_count: int = 0
+    untracked_step_demos: list[str] = field(default_factory=list)
 
 
 def _format_bytes(num_bytes: float) -> str:
@@ -132,18 +133,25 @@ def _inspect_file(path: str) -> _FileInfo:
         if num_demos == 0:
             raise ValueError(f"{path}: contains no 'demo_*' groups; nothing to merge")
 
+        # Sample the schema from the first demo only. record_demos.py writes a uniform
+        # recorder stack within a single file, so this is the fast path. Intra-file
+        # inconsistency (e.g. a file that was manually edited mid-session) is not detected
+        # here; cross-file consistency is what _validate_compatibility checks.
         schema_fingerprint = _build_schema_fingerprint(data_group[demo_names[0]])
 
         total_steps = 0
         success_count = 0
         no_success_attr_count = 0
         failed_count = 0
+        untracked_step_demos: list[str] = []
         for name in demo_names:
             demo = data_group[name]
             if "num_samples" in demo.attrs:
                 total_steps += int(demo.attrs["num_samples"])
             elif "actions" in demo:
                 total_steps += int(demo["actions"].shape[0])
+            else:
+                untracked_step_demos.append(name)
 
             if "success" in demo.attrs:
                 if bool(demo.attrs["success"]):
@@ -164,6 +172,7 @@ def _inspect_file(path: str) -> _FileInfo:
         success_count=success_count,
         no_success_attr_count=no_success_attr_count,
         failed_count=failed_count,
+        untracked_step_demos=untracked_step_demos,
     )
 
 
@@ -256,6 +265,13 @@ def _validate_compatibility(
         if i.no_success_attr_count > 0:
             report.info.append(
                 f"{i.path}: {i.no_success_attr_count} demo(s) without @success attribute (legacy format)."
+            )
+        if i.untracked_step_demos:
+            shown = ", ".join(i.untracked_step_demos[:3])
+            suffix = ", ..." if len(i.untracked_step_demos) > 3 else ""
+            report.warnings.append(
+                f"{i.path}: {len(i.untracked_step_demos)} demo(s) without 'num_samples' attribute"
+                f" or 'actions' dataset ({shown}{suffix}); contributed 0 to the reported step total."
             )
 
     return report
@@ -354,7 +370,16 @@ def _merge(infos: list[_FileInfo], output_path: str) -> tuple[int, int, int]:
                 src_data = src["data"]
                 for src_demo_name in _sorted_demo_names(src_data):
                     dst_demo_name = f"demo_{total_demos_written}"
-                    src.copy(src_data[src_demo_name], data_out, name=dst_demo_name)
+                    try:
+                        src.copy(src_data[src_demo_name], data_out, name=dst_demo_name)
+                    except (OSError, RuntimeError, ValueError) as e:
+                        # h5py error messages from deep recursive copies are notoriously opaque;
+                        # surface the offending source file and demo so the operator can
+                        # repair / drop the bad input without guessing.
+                        raise RuntimeError(
+                            f"Failed to copy {info.path}::{src_demo_name} into the merged"
+                            f" dataset as {dst_demo_name}: {e}"
+                        ) from e
                     dst_demo = data_out[dst_demo_name]
                     if "num_samples" in dst_demo.attrs:
                         total_steps_written += int(dst_demo.attrs["num_samples"])
@@ -462,6 +487,12 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
+
+    # Create the output directory if it doesn't exist; otherwise h5py.File(..., "w") raises
+    # an opaque "Unable to open file" OSError, which is unhelpful for operators who typed a
+    # nested path like $DATASET_DIR/merged/combined.hdf5 without first mkdir'ing the parent.
+    output_dir = os.path.dirname(output_abs) or "."
+    os.makedirs(output_dir, exist_ok=True)
 
     output_size, total_steps, total_demos = _merge(infos, args.output_file)
     _print_summary(

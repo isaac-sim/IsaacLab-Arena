@@ -281,7 +281,10 @@ def test_env_args_sim_dt_mismatch(tmp_path, capsys):
     _make_dataset(str(a), sim_dt=0.01)
     _make_dataset(str(b), sim_dt=0.02)
     assert _run_merge([str(a), str(b), "-o", str(out)]) == 0
-    combined = capsys.readouterr().out + capsys.readouterr().err
+    # Single readouterr() — calling it twice clears the buffer and the second call returns
+    # empty strings, so any stderr output would be silently dropped.
+    captured = capsys.readouterr()
+    combined = captured.out + captured.err
     # The mismatch should surface as a WARNING or in the validation status row
     assert "sim_args" in combined or "WARN" in combined
 
@@ -361,6 +364,35 @@ def test_total_attr_recomputed_from_truth(tmp_path):
     assert _run_merge([str(a), "-o", str(out)]) == 0
     with h5py.File(out, "r") as f:
         assert int(f["data"].attrs["total"]) == 50 + 51
+
+
+def test_output_parent_directory_created(tmp_path):
+    """The script should mkdir -p the output's parent directory automatically."""
+    a = tmp_path / "a.hdf5"
+    _make_dataset(str(a))
+    nested_out = tmp_path / "fresh" / "subdir" / "merged.hdf5"
+    assert not nested_out.parent.exists()
+
+    assert _run_merge([str(a), "-o", str(nested_out)]) == 0
+    assert nested_out.exists()
+
+
+def test_demo_without_step_info_warns(tmp_path, capsys):
+    """A demo with no num_samples attr and no actions dataset should produce a warning."""
+    a = tmp_path / "a.hdf5"
+    _make_dataset(str(a), num_demos=2)
+    # Strip num_samples and remove the actions dataset from demo_1 to simulate a broken demo
+    with h5py.File(a, "r+") as f:
+        demo = f["data/demo_1"]
+        del demo.attrs["num_samples"]
+        del demo["actions"]
+
+    out = tmp_path / "merged.hdf5"
+    assert _run_merge([str(a), "-o", str(out)]) == 0
+    captured = capsys.readouterr()
+    combined = captured.out + captured.err
+    assert "demo_1" in combined
+    assert "num_samples" in combined or "actions" in combined
 
 
 def test_merged_file_loads_via_isaaclab_handler(tmp_path):
