@@ -104,8 +104,9 @@ class ObjectPlacer:
                 placement (one layout per env).
             result_per_env: When True (default), each environment gets a distinct
                 layout. When False, homogeneous objects use a single best layout
-                for all environments. Heterogeneous objects always use per-env
-                layouts so each env is solved with its assigned variant geometry.
+                for all environments. Ignored for heterogeneous scenes; those
+                always produce one layout per env so each env is solved with its
+                assigned variant geometry.
 
         Returns:
             PlacementResult when a single layout is produced; MultiEnvPlacementResult
@@ -215,7 +216,7 @@ class ObjectPlacer:
         num_candidates: int,
         generator: torch.Generator | None,
     ) -> list[PlacementResult]:
-        """Original batched placement path.
+        """Batched placement path for objects with shared geometry.
 
         Solves max_attempts * num_results candidates in one batched
         solver.solve() call, then returns the best num_results ranked

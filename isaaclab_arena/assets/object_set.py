@@ -132,11 +132,10 @@ class RigidObjectSet(Object):
             num_envs: Number of environments to assign variants for.
         """
         if self.variant_indices_by_env is not None:
-            if len(self.variant_indices_by_env) != num_envs:
-                raise ValueError(
-                    f"RigidObjectSet '{self.name}' has variant assignments for "
-                    f"{len(self.variant_indices_by_env)} envs, got request for {num_envs}."
-                )
+            assert len(self.variant_indices_by_env) == num_envs, (
+                f"RigidObjectSet '{self.name}' has variant assignments for "
+                f"{len(self.variant_indices_by_env)} envs, got request for {num_envs}."
+            )
             return
         self._set_variant_indices_by_env(self._generate_variant_indices(num_envs))
 

@@ -94,6 +94,25 @@ def _test_object_set_default_variant_indices_follow_member_order(simulation_app)
     return True
 
 
+def _test_object_set_rejects_variant_reassignment_with_different_num_envs(simulation_app):
+    """Variant assignment should remain fixed for the original env count."""
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+
+    can_a, can_b, _bbox_a, _bbox_b = _make_object_set_variants()
+    with (
+        patch("isaaclab_arena.assets.object_set.detect_object_type", return_value=ObjectType.RIGID),
+        patch("isaaclab_arena.assets.object_set.find_shallowest_rigid_body", return_value="/rigid"),
+    ):
+        obj_set = RigidObjectSet(name="preassigned_cans", objects=[can_a, can_b], variant_indices_by_env=[0, 1, 0])
+
+    try:
+        obj_set.assign_variants(num_envs=4)
+    except AssertionError:
+        return True
+    return False
+
+
 def _build_and_reset_env(simulation_app, scene_assets, env_name="object_set_test", task=None):
     """Build arena env with given scene and optional task, then reset. Returns env (caller must close)."""
     from isaaclab_arena.assets.registries import AssetRegistry
@@ -452,6 +471,14 @@ def test_object_set_default_variant_indices_follow_member_order():
         headless=HEADLESS,
     )
     assert result, f"Test {_test_object_set_default_variant_indices_follow_member_order.__name__} failed"
+
+
+def test_object_set_rejects_variant_reassignment_with_different_num_envs():
+    result = run_simulation_app_function(
+        _test_object_set_rejects_variant_reassignment_with_different_num_envs,
+        headless=HEADLESS,
+    )
+    assert result, f"Test {_test_object_set_rejects_variant_reassignment_with_different_num_envs.__name__} failed"
 
 
 def test_articulation_object_set():

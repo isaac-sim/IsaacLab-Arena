@@ -334,6 +334,31 @@ def test_heterogeneous_placement_always_returns_per_env_results():
     assert len(result.results) == 4
 
 
+def test_object_placer_place_ranked_per_env_returns_sorted_env_lists():
+    """place_ranked_per_env should return ranked candidate lists for each env."""
+
+    desk, hetero, _placer_params = _make_hetero_pool_objects()
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3, verbose=False)
+    params = ObjectPlacerParams(
+        solver_params=solver_params,
+        apply_positions_to_objects=False,
+        placement_seed=42,
+    )
+
+    placer = ObjectPlacer(params=params)
+    ranked_results = placer.place_ranked_per_env([desk, hetero], num_envs=3, results_per_env=2)
+
+    assert len(ranked_results) == 3
+    for env_results in ranked_results:
+        assert len(env_results) == 2
+        assert all(hetero in result.positions for result in env_results)
+        sort_keys = [(not result.success, result.final_loss) for result in env_results]
+        assert sort_keys == sorted(sort_keys)
+
+    with pytest.raises(AssertionError):
+        placer.place_ranked_per_env([desk, hetero], num_envs=3, results_per_env=0)
+
+
 def test_object_placer_homogeneous_path_returns_multi_env_result():
     """When no heterogeneous objects exist, the homogeneous path is used."""
 
@@ -413,9 +438,16 @@ def test_pooled_placer_heterogeneous_sample_with_replacement():
     desk, hetero, placer_params = _make_hetero_pool_objects()
     pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=20, num_envs=4)
 
+    pool._layout_pools = {
+        env_id: [
+            PlacementResult(success=True, positions={hetero: (float(env_id), 0.0, 0.0)}, final_loss=0.0, attempts=1)
+        ]
+        for env_id in range(4)
+    }
+    pool._layout_cursors = {env_id: 0 for env_id in range(4)}
     initial_remaining = pool.remaining
-    samples = pool.sample_with_replacement(4)
-    assert len(samples) == 4
+    samples = pool.sample_with_replacement(8)
+    assert [sample.positions[hetero][0] for sample in samples] == [0.0, 1.0, 2.0, 3.0, 0.0, 1.0, 2.0, 3.0]
     assert pool.remaining == initial_remaining, "sample_with_replacement should not consume layouts"
 
 
