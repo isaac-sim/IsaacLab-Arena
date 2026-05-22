@@ -114,10 +114,7 @@ def _inspect_file(path: str) -> _FileInfo:
         raise FileNotFoundError(f"Input file does not exist: {path}")
     size_bytes = os.path.getsize(path)
 
-    # h5py.File raises OSError ("file signature not found", "truncated file", ...) for
-    # non-HDF5, corrupted, or locked inputs. The native message omits the path, leaving
-    # operators guessing which of N inputs is bad, so re-raise as ValueError with the
-    # path prepended for the same shape as the other inspection errors below.
+    # Prepend the path to h5py's bare OSError on non-HDF5/truncated/locked inputs.
     try:
         h5_file = h5py.File(path, "r")
     except OSError as e:
@@ -216,12 +213,7 @@ class _ValidationReport:
     env_args_status: str = "OK"
 
 
-def _validate_compatibility(
-    infos: list[_FileInfo],
-    *,
-    allow_schema_mismatch: bool = False,
-    allow_env_mismatch: bool = False,
-) -> _ValidationReport:
+def _validate_compatibility(infos: list[_FileInfo]) -> _ValidationReport:
     """Compare input files for compatibility and produce a :class:`_ValidationReport`."""
     report = _ValidationReport()
 
@@ -242,29 +234,24 @@ def _validate_compatibility(
                 continue
             any_schema_diff = True
             msg = f"Schema mismatch between {ref.path} and {other.path}:\n  " + "\n  ".join(diffs)
-            if allow_schema_mismatch:
-                report.warnings.append(msg)
-            else:
-                report.errors.append(msg)
+            report.errors.append(msg)
         if any_schema_diff:
-            report.schema_status = "WARN" if allow_schema_mismatch else "MISMATCH"
+            report.schema_status = "MISMATCH"
 
     env_names = {i.env_args.get("env_name", "") for i in infos}
     sim_args_set = {json.dumps(i.env_args.get("sim_args", {}), sort_keys=True) for i in infos}
     if len(env_names) > 1:
         report.env_args_status = "WARN"
-        if not allow_env_mismatch:
-            report.warnings.append(
-                f"env_args.env_name differs across inputs: {sorted(env_names)}. "
-                "record_demos.py typically writes an empty env_name, so this is often expected."
-            )
+        report.warnings.append(
+            f"env_args.env_name differs across inputs: {sorted(env_names)}. "
+            "record_demos.py typically writes an empty env_name, so this is often expected."
+        )
     if len(sim_args_set) > 1:
         report.env_args_status = "WARN"
-        if not allow_env_mismatch:
-            report.warnings.append(
-                "env_args.sim_args differ across inputs (e.g. dt, decimation, render_interval, "
-                "num_envs). The first file's values will be written to the merged output."
-            )
+        report.warnings.append(
+            "env_args.sim_args differ across inputs (e.g. dt, decimation, render_interval, "
+            "num_envs). The first file's values will be written to the merged output."
+        )
 
     for i in infos:
         if i.failed_count > 0:
@@ -435,19 +422,6 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Validate inputs and print the merge report without writing the output file.",
     )
-    parser.add_argument(
-        "--allow_schema_mismatch",
-        action="store_true",
-        help=(
-            "Downgrade per-demo dataset schema mismatches (different shapes, missing keys) from"
-            " hard errors to warnings. The format_version check is always hard."
-        ),
-    )
-    parser.add_argument(
-        "--allow_env_mismatch",
-        action="store_true",
-        help="Suppress env_args (env_name, sim_args) mismatch warnings.",
-    )
     return parser
 
 
@@ -457,10 +431,21 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     output_abs = os.path.abspath(args.output_file)
+    tmp_abs = output_abs + ".tmp"
     for inp in args.input_files:
-        if os.path.exists(inp) and os.path.abspath(inp) == output_abs:
+        if not os.path.exists(inp):
+            continue
+        inp_abs = os.path.abspath(inp)
+        if inp_abs == output_abs:
             print(
                 f"ERROR: --output_file path equals an input path: {inp}",
+                file=sys.stderr,
+            )
+            return 2
+        if inp_abs == tmp_abs:
+            print(
+                f"ERROR: input path {inp} collides with the internal temp path "
+                f"{args.output_file}.tmp. Rename the input or choose a different --output_file.",
                 file=sys.stderr,
             )
             return 2
@@ -476,18 +461,10 @@ def main(argv: list[str] | None = None) -> int:
         try:
             infos.append(_inspect_file(path))
         except (FileNotFoundError, ValueError, OSError) as e:
-            # OSError is the defense-in-depth catch: _inspect_file converts h5py's
-            # OSError into ValueError, but if any future code path leaks an OSError
-            # (permission denied on getsize, etc.) we still produce a clean ERROR line
-            # instead of an h5py/Python traceback.
             print(f"ERROR: {e}", file=sys.stderr)
             return 2
 
-    report = _validate_compatibility(
-        infos,
-        allow_schema_mismatch=args.allow_schema_mismatch,
-        allow_env_mismatch=args.allow_env_mismatch,
-    )
+    report = _validate_compatibility(infos)
 
     if args.dry_run:
         _print_summary(infos, args.output_file, report=report, dry_run=True)
@@ -496,28 +473,17 @@ def main(argv: list[str] | None = None) -> int:
     if report.errors:
         _print_summary(infos, args.output_file, report=report, dry_run=True)
         print(
-            "Merge aborted due to validation errors. Re-run with --dry_run to inspect, or pass"
-            " --allow_schema_mismatch / --allow_env_mismatch to override.",
+            "Merge aborted due to validation errors. Re-run with --dry_run to inspect.",
             file=sys.stderr,
         )
         return 1
 
-    # Create the output directory if it doesn't exist; otherwise h5py.File(..., "w") raises
-    # an opaque "Unable to open file" OSError, which is unhelpful for operators who typed a
-    # nested path like $DATASET_DIR/merged/combined.hdf5 without first mkdir'ing the parent.
     output_dir = os.path.dirname(output_abs) or "."
     os.makedirs(output_dir, exist_ok=True)
 
-    # Atomic write: stream into <output>.tmp and rename on success. This protects against
-    # two failure modes flagged in review:
-    # 1. An uncaught OSError/RuntimeError mid-merge (corrupt source, disk full, h5py
-    #    copy bailing out) leaves a partial file at <output> whose missing
-    #    `data.attrs["total"]` blocks a clean re-run without --overwrite.
-    # 2. With --overwrite, opening h5py.File(<output>, "w") truncates the existing file
-    #    immediately, so a mid-merge failure silently destroys the operator's previous
-    #    output. The tmp+rename pattern keeps the original intact until the merge
-    #    succeeds and os.replace swaps it in atomically (POSIX guarantee within the
-    #    same filesystem, which holds because tmp is in the same directory).
+    # Atomic write: stream into <output>.tmp and rename on success so a mid-merge
+    # failure does not leave a partial output or, under --overwrite, destroy the
+    # prior file.
     tmp_path = args.output_file + ".tmp"
     success = False
     try:

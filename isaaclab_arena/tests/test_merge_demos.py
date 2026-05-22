@@ -195,6 +195,18 @@ def test_output_equals_input_rejected(tmp_path):
     assert _h5_demo_names(a) == ["demo_0", "demo_1"]
 
 
+def test_input_collides_with_tmp_path_rejected(tmp_path):
+    """An input named <output>.tmp must be rejected before _merge truncates it."""
+    out = tmp_path / "merged.hdf5"
+    sneaky_input = tmp_path / "merged.hdf5.tmp"
+    _make_dataset(str(sneaky_input), num_demos=2)
+
+    assert _run_merge([str(sneaky_input), "-o", str(out)]) != 0
+    # The sneaky input must still be intact and readable.
+    assert _h5_demo_names(sneaky_input) == ["demo_0", "demo_1"]
+    assert not out.exists()
+
+
 def test_single_input_file_works(tmp_path):
     a = tmp_path / "a.hdf5"
     out = tmp_path / "merged.hdf5"
@@ -213,16 +225,6 @@ def test_format_version_mismatch(tmp_path):
     assert not out.exists()
 
 
-def test_format_version_mismatch_not_silenced_by_schema_flag(tmp_path):
-    """format_version is always hard, even with --allow_schema_mismatch."""
-    a = tmp_path / "a.hdf5"
-    b = tmp_path / "b.hdf5"
-    out = tmp_path / "merged.hdf5"
-    _make_dataset(str(a), format_version=0)
-    _make_dataset(str(b), format_version=1)
-    assert _run_merge([str(a), str(b), "-o", str(out), "--allow_schema_mismatch"]) != 0
-
-
 def test_action_dim_mismatch_strict(tmp_path):
     a = tmp_path / "a.hdf5"
     b = tmp_path / "b.hdf5"
@@ -231,19 +233,6 @@ def test_action_dim_mismatch_strict(tmp_path):
     _make_dataset(str(b), action_dim=6)
     assert _run_merge([str(a), str(b), "-o", str(out)]) != 0
     assert not out.exists()
-
-
-def test_action_dim_mismatch_allowed(tmp_path):
-    a = tmp_path / "a.hdf5"
-    b = tmp_path / "b.hdf5"
-    out = tmp_path / "merged.hdf5"
-    _make_dataset(str(a), action_dim=8, num_demos=3)
-    _make_dataset(str(b), action_dim=6, num_demos=2)
-
-    assert _run_merge([str(a), str(b), "-o", str(out), "--allow_schema_mismatch"]) == 0
-    with h5py.File(out, "r") as f:
-        assert f["data/demo_0/actions"].shape[1] == 8
-        assert f["data/demo_3/actions"].shape[1] == 6
 
 
 def test_missing_obs_key_strict(tmp_path):
@@ -404,9 +393,7 @@ def test_non_hdf5_input_produces_clean_error(tmp_path, capsys):
     assert _run_merge([str(bogus), "-o", str(out)]) == 2
     captured = capsys.readouterr()
     combined = captured.out + captured.err
-    # No bare Python/h5py traceback should be surfaced to operators.
     assert "Traceback" not in combined
-    # The error must identify the offending file by name so operators don't have to guess.
     assert "ERROR" in combined
     assert "not_actually_hdf5.hdf5" in combined
     assert not out.exists()
@@ -419,17 +406,12 @@ def test_merge_failure_cleans_up_partial_output(tmp_path, monkeypatch, capsys):
     _make_dataset(str(a))
 
     def _failing_merge(infos, output_path):
-        # Simulate _merge having streamed some bytes before failing (corrupt source,
-        # disk full, h5py copy error, ...). The output_path arg is the .tmp path.
         with open(output_path, "wb") as f:
             f.write(b"partial garbage")
         raise OSError("simulated disk full")
 
     monkeypatch.setattr(merge_demos, "_merge", _failing_merge)
     assert _run_merge([str(a), "-o", str(out)]) == 1
-
-    # Neither the renamed output nor the partial tmp file should be left behind, so the
-    # operator can simply re-run without --overwrite once they've fixed the root cause.
     assert not out.exists()
     assert not (tmp_path / "merged.hdf5.tmp").exists()
 
@@ -444,8 +426,7 @@ def test_overwrite_failure_preserves_existing_output(tmp_path, monkeypatch):
     a = tmp_path / "a.hdf5"
     out = tmp_path / "merged.hdf5"
     _make_dataset(str(a), num_demos=2, base_episode_len=10)
-    # Pre-existing output the operator wants to replace. Use a sentinel episode length
-    # that can't appear in a from the new merge so we can prove the file is untouched.
+    # Sentinel episode length proves the original file is untouched after the failure.
     _make_dataset(str(out), num_demos=1, base_episode_len=4242)
 
     def _failing_merge(infos, output_path):
@@ -455,9 +436,6 @@ def test_overwrite_failure_preserves_existing_output(tmp_path, monkeypatch):
 
     monkeypatch.setattr(merge_demos, "_merge", _failing_merge)
     assert _run_merge([str(a), "-o", str(out), "--overwrite"]) == 1
-
-    # Original output preserved: the atomic-write pattern means os.replace never ran,
-    # so the operator hasn't lost their previous merged dataset.
     assert out.exists()
     with h5py.File(out, "r") as f:
         assert int(f["data/demo_0"].attrs["num_samples"]) == 4242

@@ -252,8 +252,8 @@ Step 4: Record with the headset device
 Step 4b: Merge Multiple Recording Sessions (Optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Collecting 100+ clean demonstrations in a single sitting is impractical because of XR latency,
-operator fatigue, and the realities of stopping and starting the Arena app for breaks. The
+Collecting 100+ clean demonstrations in a single sitting is impractical because of operator fatigue,
+and the realities of stopping and starting the Arena app for breaks. The
 recommended workflow is to record one HDF5 per session by pointing ``--dataset_file`` at a fresh
 path each time:
 
@@ -303,9 +303,8 @@ geometry, and prints a per-file summary with the demo and step counts:
 
 If a session was recorded against a slightly different environment (e.g. a different physics
 timestep) the merge will warn but still proceed. Schema-level differences (different action
-dimensions, missing observation keys, different camera resolutions) are hard errors by default —
-pass ``--allow_schema_mismatch`` to downgrade them to warnings if you understand the consequences
-for downstream training.
+dimensions, missing observation keys, different camera resolutions) are hard errors: re-record
+the offending session against the canonical environment instead.
 
 
 Step 5: Replay Recorded Demos (Optional)
