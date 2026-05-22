@@ -28,13 +28,6 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
-from isaaclab_arena_environments.mdp.galileo_g1_static_pick_and_place.robot_configs import (
-    G1_STATIC_FINGER_DYNAMIC_FRICTION,
-    G1_STATIC_FINGER_FRICTION_MATERIAL_PATH,
-    G1_STATIC_FINGER_PRIM_NAME_MARKERS,
-    G1_STATIC_FINGER_STATIC_FRICTION,
-    G1_STATIC_OPEN_ARM_JOINT_POS,
-)
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -172,6 +165,13 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
         from isaaclab_arena.utils.pose import Pose, PoseRange
+        from isaaclab_arena_environments.mdp.galileo_g1_static_pick_and_place.robot_configs import (
+            G1_STATIC_FINGER_DYNAMIC_FRICTION,
+            G1_STATIC_FINGER_FRICTION_MATERIAL_PATH,
+            G1_STATIC_FINGER_PRIM_NAME_MARKERS,
+            G1_STATIC_FINGER_STATIC_FRICTION,
+            G1_STATIC_OPEN_ARM_JOINT_POS,
+        )
 
         # Reuse the locomanip background USD: it bakes in lighting and provides the same
         # shelf-in-front-of-robot geometry the locomanip env was tuned against.
