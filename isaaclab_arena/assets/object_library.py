@@ -1815,44 +1815,6 @@ class TableMapleRobolab(LibraryObject):
 # Procedural assets (Newton-safe, single-geometry cuboids)
 # ---------------------------------------------------------------------------
 
-_STATIC_PICK_PLACE_SHELF_SUPPORT_SPAWN_CFG = sim_utils.CuboidCfg(
-    size=(0.8, 1.5, 0.04),
-    collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
-    visible=False,
-)
-
-
-@register_asset
-class StaticPickPlaceShelfSupport(LibraryObject):
-    """Invisible shelf support used by ``galileo_g1_static_pick_and_place``.
-
-    The referenced ``galileo_locomanip`` shelf has uneven/perforated collision in
-    the static pick-and-place workspace, so this cuboid gives small task objects
-    a clean support surface without changing the visible scene.
-    """
-
-    name = "static_pick_place_shelf_support"
-    tags = ["background", "procedural", "support"]
-    object_type = ObjectType.BASE
-    size = _STATIC_PICK_PLACE_SHELF_SUPPORT_SPAWN_CFG.size
-    default_prim_path = "{ENV_REGEX_NS}/static_pick_place_shelf_support"
-    default_spawner_cfg = _STATIC_PICK_PLACE_SHELF_SUPPORT_SPAWN_CFG
-
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = default_prim_path,
-        initial_pose: Pose | None = None,
-        spawner_cfg: sim_utils.CuboidCfg = default_spawner_cfg,
-    ):
-        super().__init__(
-            instance_name=instance_name,
-            prim_path=prim_path,
-            initial_pose=initial_pose,
-            spawner_cfg=spawner_cfg,
-        )
-
-
 _PROCEDURAL_TABLE_SPAWN_CFG = sim_utils.CuboidCfg(
     size=(0.8, 1.5, 0.04),
     rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
