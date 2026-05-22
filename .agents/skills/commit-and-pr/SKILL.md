@@ -1,6 +1,6 @@
 ---
 name: commit-and-pr
-description: Creates Arena-conformant commits and pull requests. Enforces DCO sign-off (git commit -s), no AI attribution lines (no Co-Authored-By, no Generated-with-Claude footers), <username>/<feature-desc> branch naming, separate new commits rather than --amend when iterating on PR feedback, and main as the default base branch. Use when the user asks to commit, stage changes, push the current branch, open a pull request, make a PR, submit changes, or mark work as ready to merge.
+description: Creates Arena-conformant commits and pull requests. Enforces DCO sign-off (git commit -s), no AI attribution lines (no Co-Authored-By, no Generated-with-Claude footers), <username>/<type>/<short-description> branch naming, separate new commits rather than --amend when iterating on PR feedback, and main as the default base branch. Use when the user asks to commit, stage changes, push the current branch, open a pull request, make a PR, submit changes, or mark work as ready to merge.
 disable-model-invocation: true
 allowed-tools: Bash(git *) Bash(pre-commit *) Bash(gh pr create *) Bash(gh pr view *)
 ---
@@ -11,9 +11,9 @@ Creates commits and PRs that follow Arena's contributor guidelines.
 
 ## Commit
 
-1. Run the `pre-commit-check` skill (or `pre-commit run --all-files`) until the working tree is clean. Do not commit through hook failures.
+1. Run the `pre-commit-check` skill (or `pre-commit run --all-files` on the host — pre-commit is not installed in the container) until the working tree is clean. Do not commit through hook failures.
 2. Stage **specific files** rather than using `git add -A` — this avoids accidentally committing dotfiles, credentials, or large untracked artifacts.
-3. Sign off the commit (DCO is required by Arena):
+3. Sign off the commit (per `CONTRIBUTING.md` — Arena currently requires DCO sign-off; the policy is on the books but not yet CI-enforced):
 
    ```bash
    git commit -s -m "<subject>"
@@ -40,9 +40,11 @@ EOF
 
 ## Branch
 
-Branch naming: `<username>/<feature-desc>` with a kebab-case feature description — e.g. `<username>/feature-video-recording`, `<username>/refactor-no-unwrap`.
+Branch naming: `<username>/<type>/<short-description>` where `<type>` is one of `feature`, `fix`, `docs`, `refactor`, `chore`, `ci`, and `<short-description>` is kebab-case.
 
-Do not use `feature/...`, `fix/...`, or `docs/...` prefixes.
+Examples: `<username>/feature/video-recording`, `<username>/fix/eval-runner-teardown`, `<username>/docs/update-readme`.
+
+Do not use top-level type prefixes that omit the username (e.g. `feature/foo`, `fix/bar`).
 
 ## Pull request
 
@@ -57,10 +59,24 @@ Do not use `feature/...`, `fix/...`, or `docs/...` prefixes.
    ```bash
    gh pr create --base main \
      --title "<short imperative subject>" \
-     --body "<summary + test plan>"
+     --body "<see body format below>"
    ```
 
 3. PR title follows the same rules as a commit subject: imperative, ~70 chars max, no trailing period.
+
+4. PR body follows `.github/pull_request_template.md`:
+
+   ```markdown
+   ## Summary
+   <one-line description of the change, ≤50 chars>
+
+   ## Detailed description
+   - <why the change was needed>
+   - <what was changed>
+   - <impact / what to watch for>
+   ```
+
+   Keep it terse — 2–5 detail bullets total. Agent-generated PR bodies tend toward 5+ sections and 500+ words; resist that. The template's bullet form is the standard.
 
 ## Iterating on review feedback
 

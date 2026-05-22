@@ -12,7 +12,7 @@ allowed-tools: Bash(docker exec *)
 **`phase2`:** with-cameras only.
 **`phase3`:** with-subprocess only.
 
-The three phases use mutually exclusive pytest markers and must be invoked separately. For a full pre-PR run, every phase must pass before moving on to the next.
+The three phases run mutually exclusive sets of tests (selected via different pytest marker filters) and must be invoked separately. For a full pre-PR run, every phase must pass before moving on to the next.
 
 All commands run inside the already-running container via `docker exec`. If the container is not running, use the `dev-container` skill first.
 
