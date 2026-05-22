@@ -196,16 +196,6 @@ Step 4: Record with the headset device
    to ``--num_demos 400`` and keep ``--num_success_steps 10`` so each successful episode includes
    extra stable frames after the success condition is triggered.
 
-.. note::
-
-   **Record in smaller batches.** Rather than collecting all demonstrations in a single
-   ``record_demos.py`` session, split the run into smaller batches (ideally **50 or fewer demos per
-   batch**). Use a different ``--dataset_file`` path per batch (e.g.
-   ``arena_g1_static_apple_dataset_recorded_batch01.hdf5``,
-   ``..._batch02.hdf5``, ...) and merge the HDF5 files afterward. Smaller batches reduce the risk
-   of losing all progress to a long-session crash, keep simulator state cleaner across episodes,
-   and let you take breaks between batches so demonstration quality stays consistent.
-
    Policy success rate depends heavily on both dataset quality and dataset size. For better success
    rates, collect more clean demonstrations with smooth actions, stable grasps, and no unnecessary
    collisions.
