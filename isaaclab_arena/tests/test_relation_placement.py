@@ -51,6 +51,7 @@ def test_build_problem_uses_object_only_path_params():
     assert problem.object_placer_params.placement_seed == 11
     assert problem.object_placer_params.resolve_on_reset is False
     assert problem.object_placer_params.apply_positions_to_objects is False
+    assert problem.pool_size == 15
 
 
 def test_static_arena_relation_solver_reuses_object_only_placement():
@@ -70,6 +71,7 @@ def test_static_arena_relation_solver_reuses_object_only_placement():
     result = solver.solve()
 
     assert result.object_placer_params is not None
+    assert result.object_placer_params.resolve_on_reset is False
     assert result.placement_candidate_pool is not None
     assert result.placement_event_cfg is None
 

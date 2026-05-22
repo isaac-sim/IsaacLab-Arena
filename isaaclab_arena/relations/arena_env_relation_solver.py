@@ -37,16 +37,10 @@ class PlacementProblem:
     num_envs: int
     """Number of environments that the solver must prepare."""
 
-
-@dataclass
-class ObjectRelationSolveResult:
-    """Pool produced by solving object-object spatial relations."""
-
-    placement_candidate_pool: PlacementCandidatePool
-    """Pool of optimized object-layout candidates."""
-
-    object_placer_params: ObjectPlacerParams
-    """Object placement parameters used to build the layout pool."""
+    @property
+    def pool_size(self) -> int:
+        """Number of object-layout candidates to pre-solve."""
+        return self.num_envs * self.object_placer_params.min_unique_layouts_per_env
 
 
 @dataclass
@@ -69,30 +63,22 @@ class ArenaRelationSolveResult:
 class ObjectRelationSolver:
     """Solve and validate object-object spatial relations using the v0.2 object placer."""
 
-    def solve(self, problem: PlacementProblem) -> ObjectRelationSolveResult:
+    def solve(self, problem: PlacementProblem) -> PlacementCandidatePool:
         """Solve object-only relation placement and return a layout pool."""
-        pool_size = problem.num_envs * problem.object_placer_params.min_unique_layouts_per_env
         placement_candidate_pool = PlacementCandidatePool(
             objects=problem.objects,
             placer_params=problem.object_placer_params,
-            pool_size=pool_size,
+            pool_size=problem.pool_size,
             candidate_validator=self.validate_layout,
         )
         self.validate_placement_candidate_pool(placement_candidate_pool)
-        return ObjectRelationSolveResult(
-            placement_candidate_pool=placement_candidate_pool,
-            object_placer_params=problem.object_placer_params,
-        )
+        return placement_candidate_pool
 
     def validate_placement_candidate_pool(self, placement_candidate_pool: PlacementCandidatePool) -> None:
         """Hook for subclasses that need to validate the solved placement candidate pool."""
 
     def validate_layout(self, layout: PlacementResult) -> None:
         """Hook for subclasses that need to validate one sampled layout."""
-
-    def check_objects_valid(self, layout: PlacementResult) -> bool:
-        """Return whether the sampled object layout is valid."""
-        return layout.success
 
 
 class ArenaRelationSolver:
@@ -136,8 +122,8 @@ class ArenaRelationSolver:
 
         # TODO(xinjieyao, 2026-05-22): Add joint object/embodiment placement once task-dependent
         # reachability constraints are available. For now this always uses the object-only placer.
-        placement_candidates = self._solve_object_only_placement(problem)
-        return self._apply_result(problem, placement_candidates)
+        placement_candidate_pool = self.object_solver.solve(problem)
+        return self._apply_result(problem, placement_candidate_pool)
 
     def _collect_related_objects(self) -> list[ObjectBase]:
         """Collect objects with spatial predicates from explicit input or the scene."""
@@ -155,27 +141,22 @@ class ArenaRelationSolver:
             num_envs=self.num_envs,
         )
 
-    def _solve_object_only_placement(self, problem: PlacementProblem) -> ObjectRelationSolveResult:
-        """Reuse the existing v0.2 object relation placer."""
-        return self.object_solver.solve(problem)
-
     def _apply_result(
         self,
         problem: PlacementProblem,
-        placement_candidates: ObjectRelationSolveResult,
+        placement_candidate_pool: PlacementCandidatePool,
     ) -> ArenaRelationSolveResult:
         """Apply selected candidates to object spawn state and build reset event config."""
         anchor_objects_set = set(get_anchor_objects(problem.objects))
         # Prevent external pose-reset events from conflicting with relation-solved objects.
         self._validate_no_conflicting_pose_reset_events(problem.objects, anchor_objects_set)
 
-        placement_candidate_pool = placement_candidates.placement_candidate_pool
         placement_event_cfg = None
         # Anchor objects do not move, so no need to apply reset event.
         if anchor_objects_set == set(problem.objects):
             pass
         # Apply reset event to spawn new poses for each environment.
-        elif placement_candidates.object_placer_params.resolve_on_reset:
+        elif problem.object_placer_params.resolve_on_reset:
             placement_event_cfg = self._apply_dynamic_spawn_pose(
                 problem.objects,
                 placement_candidate_pool,
@@ -191,7 +172,7 @@ class ArenaRelationSolver:
 
         return ArenaRelationSolveResult(
             objects=problem.objects,
-            object_placer_params=placement_candidates.object_placer_params,
+            object_placer_params=problem.object_placer_params,
             placement_candidate_pool=placement_candidate_pool,
             placement_event_cfg=placement_event_cfg,
         )
