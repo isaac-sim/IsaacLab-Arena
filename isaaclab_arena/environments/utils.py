@@ -42,9 +42,9 @@ def required_number_sequence(data: dict[str, Any], key: str, length: int) -> tup
     value = data.get(key)
     assert isinstance(value, (list, tuple)), f"Missing required numeric sequence field '{key}'"
     assert len(value) == length, f"Field '{key}' must contain {length} numbers"
-    assert all(isinstance(item, Real) and not isinstance(item, bool) for item in value), (
-        f"Field '{key}' must contain only numbers"
-    )
+    assert all(
+        isinstance(item, Real) and not isinstance(item, bool) for item in value
+    ), f"Field '{key}' must contain only numbers"
     return tuple(float(item) for item in value)
 
 

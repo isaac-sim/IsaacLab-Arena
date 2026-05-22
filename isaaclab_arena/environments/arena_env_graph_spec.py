@@ -3,12 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import yaml
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
-
-import yaml
 
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.environments.utils import (
@@ -37,8 +36,8 @@ class ArenaEnvGraphSpatialConstraintType(Enum):
     IS_ANCHOR = "is_anchor"
     NEXT_TO = "next_to"
     ON = "on"
-    AT_POSE = "at_pose"     # through set_initial_pose()
-    AT_POSITION = "at_position"     # through object relation solver: AtPosition
+    AT_POSE = "at_pose"  # through set_initial_pose()
+    AT_POSITION = "at_position"  # through object relation solver: AtPosition
     POSITION_LIMITS = "position_limits"
     RANDOM_AROUND_SOLUTION = "random_around_solution"
     ROTATE_AROUND_SOLUTION = "rotate_around_solution"
@@ -54,7 +53,7 @@ class ArenaEnvGraphNodeSpec:
     """
 
     id: str
-    name: str   # Name registered in the asset registry
+    name: str  # Name registered in the asset registry
     type: ArenaEnvGraphNodeType
     parent: str | None = None  # Optional, only need for object references
     prim_path: str | None = None  # Optional, only need for object references
