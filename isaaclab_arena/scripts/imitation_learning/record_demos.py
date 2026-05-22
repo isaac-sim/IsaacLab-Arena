@@ -424,11 +424,10 @@ def run_simulation_loop(
     # Callback closures for the teleop device
     def reset_recording_instance():
         nonlocal should_reset_recording_instance
-        # Block manual reset while post-success steps are still being recorded.
         if success_step_count > 0:
             print(
-                "Manual reset ignored. Success has fired and post-success steps are still recording"
-                f" ({success_step_count}/{args_cli.num_success_steps}). Please wait for the auto-reset."
+                "Manual reset ignored. Success has fired and post-success steps are still recording. Please wait for"
+                " the auto-reset."
             )
             return
         should_reset_recording_instance = True
