@@ -38,6 +38,8 @@ from isaaclab_arena_g1.g1_env.mdp import g1_observations as g1_observations_mdp
 from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_joint_action_cfg import G1DecoupledWBCJointActionCfg
 from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_pink_action_cfg import G1DecoupledWBCPinkActionCfg
 
+_G1_WAIST_JOINT_NAMES = ("waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint")
+
 
 class G1EmbodimentBase(EmbodimentBase):
     """Embodiment for the G1 robot."""
@@ -51,8 +53,10 @@ class G1EmbodimentBase(EmbodimentBase):
         initial_pose: Pose | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        lock_waist: bool = False,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
+        self.lock_waist = lock_waist
         # Configuration structs
         self.scene_config = G1SceneCfg()
         self.camera_config = G1CameraCfg()
@@ -74,6 +78,22 @@ class G1EmbodimentBase(EmbodimentBase):
     def get_teleop_target_frame_prim_path(self) -> str | None:
         """Pelvis prim path so OpenXR teleop poses are rebased into robot base frame for IK."""
         return "/World/envs/env_0/Robot/pelvis"
+
+    def _apply_waist_lock_to_action_config(self) -> None:
+        """Remove waist joints from Pink IK's extra active joint set when requested."""
+        if not self.lock_waist:
+            return
+        g1_action_cfg = getattr(self.action_config, "g1_action", None)
+        if g1_action_cfg is None or not hasattr(g1_action_cfg, "upperbody_extra_active_joints"):
+            return
+        # Static manipulation tasks can keep the torso fixed by passing
+        # lock_waist=True while still preserving any future non-waist extra
+        # active joints an embodiment may add for Pink IK reach.
+        g1_action_cfg.upperbody_extra_active_joints = [
+            joint_name
+            for joint_name in g1_action_cfg.upperbody_extra_active_joints
+            if joint_name not in _G1_WAIST_JOINT_NAMES
+        ]
 
     def set_finger_contact_friction(
         self,
@@ -119,13 +139,15 @@ class G1WBCJointEmbodiment(G1EmbodimentBase):
         initial_pose: Pose | None = None,
         camera_offset: Pose | None = _DEFAULT_G1_CAMERA_OFFSET,
         use_tiled_camera: bool = True,  # Default to tiled for parallel evaluation
+        lock_waist: bool = False,
     ):
-        super().__init__(enable_cameras, initial_pose)
+        super().__init__(enable_cameras, initial_pose, lock_waist=lock_waist)
         self.action_config = G1WBCJointActionCfg()
         self.observation_config = G1WBCJointObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.observation_config.wbc.concatenate_terms = self.concatenate_observation_terms
         self.event_config = G1WBCJointEventCfg()
+        self._apply_waist_lock_to_action_config()
         # Create camera config with private attributes to avoid scene parser issues
         self.camera_config._is_tiled_camera = use_tiled_camera
         self.camera_config._camera_offset = camera_offset
@@ -146,14 +168,16 @@ class G1WBCPinkEmbodiment(G1EmbodimentBase):
         initial_pose: Pose | None = None,
         camera_offset: Pose | None = _DEFAULT_G1_CAMERA_OFFSET,
         use_tiled_camera: bool = False,  # Default to regular for single env
+        lock_waist: bool = False,
     ):
-        super().__init__(enable_cameras, initial_pose)
+        super().__init__(enable_cameras, initial_pose, lock_waist=lock_waist)
         self.action_config = G1WBCPinkActionCfg()
         self.observation_config = G1WBCPinkObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.observation_config.wbc.concatenate_terms = self.concatenate_observation_terms
         self.observation_config.action.concatenate_terms = self.concatenate_observation_terms
         self.event_config = G1WBCPinkEventCfg()
+        self._apply_waist_lock_to_action_config()
         # Create camera config with private attributes to avoid scene parser issues
         self.camera_config._is_tiled_camera = use_tiled_camera
         self.camera_config._camera_offset = camera_offset
@@ -176,8 +200,9 @@ class G1WBCAgilePinkEmbodiment(G1EmbodimentBase):
         initial_pose: Pose | None = None,
         camera_offset: Pose | None = _DEFAULT_G1_CAMERA_OFFSET,
         use_tiled_camera: bool = False,
+        lock_waist: bool = False,
     ):
-        super().__init__(enable_cameras, initial_pose)
+        super().__init__(enable_cameras, initial_pose, lock_waist=lock_waist)
         self.scene_config = G1AgileSceneCfg()
         self.action_config = G1WBCAgilePinkActionCfg()
         self.observation_config = G1WBCPinkObservationsCfg()
@@ -185,6 +210,7 @@ class G1WBCAgilePinkEmbodiment(G1EmbodimentBase):
         self.observation_config.wbc.concatenate_terms = self.concatenate_observation_terms
         self.observation_config.action.concatenate_terms = self.concatenate_observation_terms
         self.event_config = G1WBCPinkEventCfg()
+        self._apply_waist_lock_to_action_config()
         self.camera_config._is_tiled_camera = use_tiled_camera
         self.camera_config._camera_offset = camera_offset
 
@@ -209,14 +235,16 @@ class G1WBCAgileJointEmbodiment(G1EmbodimentBase):
         initial_pose: Pose | None = None,
         camera_offset: Pose | None = _DEFAULT_G1_CAMERA_OFFSET,
         use_tiled_camera: bool = True,
+        lock_waist: bool = False,
     ):
-        super().__init__(enable_cameras, initial_pose)
+        super().__init__(enable_cameras, initial_pose, lock_waist=lock_waist)
         self.scene_config = G1AgileSceneCfg()
         self.action_config = G1WBCAgileJointActionCfg()
         self.observation_config = G1WBCJointObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.observation_config.wbc.concatenate_terms = self.concatenate_observation_terms
         self.event_config = G1WBCJointEventCfg()
+        self._apply_waist_lock_to_action_config()
         self.camera_config._is_tiled_camera = use_tiled_camera
         self.camera_config._camera_offset = camera_offset
 
