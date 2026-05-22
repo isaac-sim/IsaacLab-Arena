@@ -53,10 +53,8 @@ class G1EmbodimentBase(EmbodimentBase):
         initial_pose: Pose | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
-        lock_waist: bool = False,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
-        self.lock_waist = lock_waist
         # Configuration structs
         self.scene_config = G1SceneCfg()
         self.camera_config = G1CameraCfg()
@@ -78,22 +76,6 @@ class G1EmbodimentBase(EmbodimentBase):
     def get_teleop_target_frame_prim_path(self) -> str | None:
         """Pelvis prim path so OpenXR teleop poses are rebased into robot base frame for IK."""
         return "/World/envs/env_0/Robot/pelvis"
-
-    def _apply_waist_lock_to_action_config(self) -> None:
-        """Remove waist joints from Pink IK's extra active joint set when requested."""
-        if not self.lock_waist:
-            return
-        g1_action_cfg = getattr(self.action_config, "g1_action", None)
-        if g1_action_cfg is None or not hasattr(g1_action_cfg, "upperbody_extra_active_joints"):
-            return
-        # Static manipulation tasks can keep the torso fixed by passing
-        # lock_waist=True while still preserving any future non-waist extra
-        # active joints an embodiment may add for Pink IK reach.
-        g1_action_cfg.upperbody_extra_active_joints = [
-            joint_name
-            for joint_name in g1_action_cfg.upperbody_extra_active_joints
-            if joint_name not in _G1_WAIST_JOINT_NAMES
-        ]
 
     def set_finger_contact_friction(
         self,
@@ -141,13 +123,12 @@ class G1WBCJointEmbodiment(G1EmbodimentBase):
         use_tiled_camera: bool = True,  # Default to tiled for parallel evaluation
         lock_waist: bool = False,
     ):
-        super().__init__(enable_cameras, initial_pose, lock_waist=lock_waist)
+        super().__init__(enable_cameras, initial_pose)
         self.action_config = G1WBCJointActionCfg()
         self.observation_config = G1WBCJointObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.observation_config.wbc.concatenate_terms = self.concatenate_observation_terms
         self.event_config = G1WBCJointEventCfg()
-        self._apply_waist_lock_to_action_config()
         # Create camera config with private attributes to avoid scene parser issues
         self.camera_config._is_tiled_camera = use_tiled_camera
         self.camera_config._camera_offset = camera_offset
@@ -170,14 +151,15 @@ class G1WBCPinkEmbodiment(G1EmbodimentBase):
         use_tiled_camera: bool = False,  # Default to regular for single env
         lock_waist: bool = False,
     ):
-        super().__init__(enable_cameras, initial_pose, lock_waist=lock_waist)
+        super().__init__(enable_cameras, initial_pose)
         self.action_config = G1WBCPinkActionCfg()
+        if lock_waist:
+            _remove_waist_from_pink_ik_action_config(self.action_config)
         self.observation_config = G1WBCPinkObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.observation_config.wbc.concatenate_terms = self.concatenate_observation_terms
         self.observation_config.action.concatenate_terms = self.concatenate_observation_terms
         self.event_config = G1WBCPinkEventCfg()
-        self._apply_waist_lock_to_action_config()
         # Create camera config with private attributes to avoid scene parser issues
         self.camera_config._is_tiled_camera = use_tiled_camera
         self.camera_config._camera_offset = camera_offset
@@ -202,15 +184,16 @@ class G1WBCAgilePinkEmbodiment(G1EmbodimentBase):
         use_tiled_camera: bool = False,
         lock_waist: bool = False,
     ):
-        super().__init__(enable_cameras, initial_pose, lock_waist=lock_waist)
+        super().__init__(enable_cameras, initial_pose)
         self.scene_config = G1AgileSceneCfg()
         self.action_config = G1WBCAgilePinkActionCfg()
+        if lock_waist:
+            _remove_waist_from_pink_ik_action_config(self.action_config)
         self.observation_config = G1WBCPinkObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.observation_config.wbc.concatenate_terms = self.concatenate_observation_terms
         self.observation_config.action.concatenate_terms = self.concatenate_observation_terms
         self.event_config = G1WBCPinkEventCfg()
-        self._apply_waist_lock_to_action_config()
         self.camera_config._is_tiled_camera = use_tiled_camera
         self.camera_config._camera_offset = camera_offset
 
@@ -237,14 +220,13 @@ class G1WBCAgileJointEmbodiment(G1EmbodimentBase):
         use_tiled_camera: bool = True,
         lock_waist: bool = False,
     ):
-        super().__init__(enable_cameras, initial_pose, lock_waist=lock_waist)
+        super().__init__(enable_cameras, initial_pose)
         self.scene_config = G1AgileSceneCfg()
         self.action_config = G1WBCAgileJointActionCfg()
         self.observation_config = G1WBCJointObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.observation_config.wbc.concatenate_terms = self.concatenate_observation_terms
         self.event_config = G1WBCJointEventCfg()
-        self._apply_waist_lock_to_action_config()
         self.camera_config._is_tiled_camera = use_tiled_camera
         self.camera_config._camera_offset = camera_offset
 
@@ -818,6 +800,17 @@ class G1WBCAgilePinkActionCfg:
         upperbody_active_joint_groups=["arms"],
         upperbody_extra_active_joints=["waist_roll_joint", "waist_yaw_joint", "waist_pitch_joint"],
     )
+
+
+def _remove_waist_from_pink_ik_action_config(
+    action_config: G1WBCPinkActionCfg | G1WBCAgilePinkActionCfg,
+) -> None:
+    """Remove waist joints from a Pink IK action config's extra active joint set."""
+    action_config.g1_action.upperbody_extra_active_joints = [
+        joint_name
+        for joint_name in action_config.g1_action.upperbody_extra_active_joints
+        if joint_name not in _G1_WAIST_JOINT_NAMES
+    ]
 
 
 @configclass
