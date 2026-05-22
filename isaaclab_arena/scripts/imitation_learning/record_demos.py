@@ -24,6 +24,8 @@ optional arguments:
     --step_hz                 Environment stepping rate in Hz. (default: 30)
     --num_demos               Number of demonstrations to record. (default: 0)
     --num_success_steps       Number of continuous steps with task success for concluding a demo as successful. (default: 10)
+    --disable_full_sim_buffer_reset
+                              Disable env.sim.reset() calls that fully clear sim context buffers before each episode. (default: False)
 """
 
 """Launch Isaac Sim Simulator first."""
@@ -49,6 +51,13 @@ parser.add_argument(
     type=int,
     default=10,
     help="Number of continuous steps with task success for concluding a demo as successful. Default is 10.",
+)
+parser.add_argument(
+    "--disable_full_sim_buffer_reset",
+    dest="disable_full_sim_buffer_reset",
+    action="store_true",
+    default=False,
+    help="Disable calling env.sim.reset() to fully clear sim context buffers before each episode recording.",
 )
 # Add the example environments CLI args
 # NOTE(alexmillane, 2025.09.04): This has to be added last, because
@@ -377,7 +386,8 @@ def handle_reset(
         int: Reset success step count (0)
     """
     print("Resetting environment...")
-    env.sim.reset()
+    if not args_cli.disable_full_sim_buffer_reset:
+        env.sim.reset()
     env.recorder_manager.reset()
     env.reset()
     success_step_count = 0
@@ -414,6 +424,12 @@ def run_simulation_loop(
     # Callback closures for the teleop device
     def reset_recording_instance():
         nonlocal should_reset_recording_instance
+        if success_step_count > 0:
+            print(
+                "Manual reset ignored. Success has fired and post-success steps are still recording. Please wait for"
+                " the auto-reset."
+            )
+            return
         should_reset_recording_instance = True
         print("Recording instance reset requested")
 
@@ -448,7 +464,8 @@ def run_simulation_loop(
         nonlocal running_recording_instance, label_text
 
         # Reset before starting
-        env.sim.reset()
+        if not args_cli.disable_full_sim_buffer_reset:
+            env.sim.reset()
         env.reset()
         teleop_interface.reset()
 
