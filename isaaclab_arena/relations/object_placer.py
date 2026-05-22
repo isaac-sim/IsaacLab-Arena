@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 import torch
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from isaaclab_arena.relations.bounding_box_helpers import (
     assign_variants_for_envs,
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class PlacementCandidate:
-    """A single solver result, ranked and selected in ObjectPlacer.place()."""
+    """A scored solver result used for ranking inside ObjectPlacer."""
 
     loss: float
     """Loss value returned by the solver."""
@@ -66,11 +66,6 @@ class ObjectPlacer:
     """
 
     def __init__(self, params: ObjectPlacerParams | None = None):
-        """Initialize the ObjectPlacer.
-
-        Args:
-            params: Configuration parameters. If None, uses defaults.
-        """
         self.params = params or ObjectPlacerParams()
         self._solver = RelationSolver(params=self.params.solver_params)
 
@@ -79,12 +74,7 @@ class ObjectPlacer:
         obj: ObjectBase,
         overrides: dict[ObjectBase, AxisAlignedBoundingBox] | None,
     ) -> AxisAlignedBoundingBox:
-        """Return overrides[obj] if present, otherwise the object's default bbox.
-
-        Heterogeneous placement passes a single-env override bbox; the
-        homogeneous path and unit tests pass None and rely on the
-        object's own bbox.
-        """
+        """Return overrides[obj] if present, otherwise the object's default bbox."""
         if overrides is not None and obj in overrides:
             return overrides[obj]
         return obj.get_bounding_box()
@@ -115,33 +105,39 @@ class ObjectPlacer:
         anchor_objects_set, generator = self._prepare_placement(objects)
 
         uses_env_specific_bboxes = has_heterogeneous_objects(objects)
+        # Env-specific variants cannot share one solved layout because each env
+        # must be solved against its assigned object geometry.
         num_results = num_envs if result_per_env or uses_env_specific_bboxes else 1
         max_attempts = self.params.max_placement_attempts
-        num_candidates = max_attempts * num_results
-
-        # Two solve paths produce a list[PlacementResult] of length num_results, sorted by
-        # (is_valid, loss):
-        #   - homogeneous: any solved layout serves any env; pick the top num_results.
-        #   - heterogeneous: some objects vary per env, so each env owns a fixed slice
-        #     of candidates and we pick the best within that slice.
+        # Solve max_attempts candidates per result so we can pick the best survivor.
         if uses_env_specific_bboxes:
-            ranked_results_per_env = self._place_heterogeneous(
+            ranked_results = self._place_ranked(
                 objects,
                 anchor_objects_set,
                 num_envs,
-                max_attempts,
-                generator,
+                candidates_per_env=max_attempts,
+                attempts_per_result=max_attempts,
+                ranking_mode="env_specific_geometry",
+                generator=generator,
             )
-            results_per_env = [ranked_results[0] for ranked_results in ranked_results_per_env]
+            results_per_env = [env_results[0] for env_results in ranked_results]
         else:
-            results_per_env = self._place_homogeneous(
-                objects, anchor_objects_set, num_results, max_attempts, num_candidates, generator
+            ranked_results = self._place_ranked(
+                objects,
+                anchor_objects_set,
+                num_envs=num_results,
+                candidates_per_env=max_attempts,
+                attempts_per_result=max_attempts,
+                ranking_mode="shared_geometry",
+                generator=generator,
             )
+            results_per_env = ranked_results[0][:num_results]
 
         positions_per_env = [r.positions for r in results_per_env]
         if self.params.apply_positions_to_objects:
             self._apply_positions(positions_per_env, anchor_objects_set)
 
+        # Single layout when callers don't need per-env results; otherwise return per-env layouts.
         if num_results == 1:
             return results_per_env[0]
         return MultiEnvPlacementResult(results=results_per_env)
@@ -154,25 +150,26 @@ class ObjectPlacer:
     ) -> list[list[PlacementResult]]:
         """Return ranked placement candidates per env.
 
-        This is used by PooledObjectPlacer to fill env-specific pools. The
-        return value has shape ``(num_envs, <=results_per_env)``: each outer
-        list entry corresponds to a real env, and each inner list is sorted with
-        valid lower-loss layouts first.
+        Use this for PooledObjectPlacer, where each env pool needs multiple
+        candidate layouts and will apply poses later when sampled. Use place()
+        for the normal public API that returns the selected placement result.
+        The return value has shape ``(num_envs, <=results_per_env)``: each
+        outer list entry corresponds to a real env, and each inner list is
+        sorted with valid lower-loss layouts first.
         """
         assert results_per_env > 0, f"results_per_env must be positive, got {results_per_env}"
         anchor_objects_set, generator = self._prepare_placement(objects)
         max_attempts = self.params.max_placement_attempts
-        ranked_results_per_env = self._place_heterogeneous(
+        # Callers ask for independent candidate lists per env, not one shared-geometry top-N list.
+        ranked_results_per_env = self._place_ranked(
             objects,
             anchor_objects_set,
             num_envs,
-            max_attempts * results_per_env,
-            generator,
+            candidates_per_env=max_attempts * results_per_env,
+            attempts_per_result=max_attempts,
+            ranking_mode="env_specific_geometry",
+            generator=generator,
         )
-
-        if self.params.apply_positions_to_objects:
-            top_positions_per_env = [ranked_results[0].positions for ranked_results in ranked_results_per_env]
-            self._apply_positions(top_positions_per_env, anchor_objects_set)
 
         return [ranked_results[:results_per_env] for ranked_results in ranked_results_per_env]
 
@@ -180,7 +177,7 @@ class ObjectPlacer:
         self,
         objects: list[ObjectBase],
     ) -> tuple[set[ObjectBase], torch.Generator | None]:
-        """Validate placement inputs and create the local RNG generator."""
+        """Validate placement inputs and allocate an RNG seeded per candidate later."""
         for obj in objects:
             assert obj.get_relations(), (
                 f"Object '{obj.name}' has no relations. All objects passed to place() must have "
@@ -207,101 +204,34 @@ class ObjectPlacer:
     # Placement strategies
     # ------------------------------------------------------------------
 
-    def _place_homogeneous(
-        self,
-        objects: list[ObjectBase],
-        anchor_objects_set: set[ObjectBase],
-        num_results: int,
-        max_attempts: int,
-        num_candidates: int,
-        generator: torch.Generator | None,
-    ) -> list[PlacementResult]:
-        """Batched placement path for objects with shared geometry.
-
-        Solves max_attempts * num_results candidates in one batched
-        solver.solve() call, then returns the best num_results ranked
-        by (is_valid, loss). All envs share the same geometry, so any solved
-        layout can serve any env.
-        """
-        initial_positions: list[dict[ObjectBase, tuple[float, float, float]]] = []
-        for candidate_idx in range(num_candidates):
-            if generator is not None:
-                assert self.params.placement_seed is not None
-                generator.manual_seed(self.params.placement_seed + candidate_idx)
-            initial_positions.append(self._generate_initial_positions(objects, anchor_objects_set, generator))
-
-        all_positions = self._solver.solve(objects, initial_positions)
-        assert self._solver.last_loss_per_env is not None
-        all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
-        all_validations = [self._validate_placement(positions) for positions in all_positions]
-
-        all_candidates = [
-            PlacementCandidate(all_losses[idx], all_positions[idx], all_validations[idx])
-            for idx in range(num_candidates)
-        ]
-        all_candidates.sort(key=lambda candidate: (not candidate.is_valid, candidate.loss))
-        selected = all_candidates[:num_results]
-
-        if self.params.verbose:
-            total_valid = sum(1 for candidate in all_candidates if candidate.is_valid)
-            finite_losses = [candidate.loss for candidate in all_candidates if math.isfinite(candidate.loss)]
-            mean_loss = sum(finite_losses) / len(finite_losses) if finite_losses else float("inf")
-            n_valid = sum(1 for candidate in selected if candidate.is_valid)
-            print(
-                f"Solved {num_candidates} candidates in one batch: mean loss = {mean_loss:.6f},"
-                f" {total_valid} valid, selected best {num_results} ({n_valid} valid)"
-            )
-
-        return [
-            PlacementResult(
-                success=candidate.is_valid,
-                positions=candidate.positions,
-                final_loss=candidate.loss,
-                attempts=max_attempts,
-            )
-            for candidate in selected
-        ]
-
-    def _place_heterogeneous(
+    def _place_ranked(
         self,
         objects: list[ObjectBase],
         anchor_objects_set: set[ObjectBase],
         num_envs: int,
         candidates_per_env: int,
+        attempts_per_result: int,
+        ranking_mode: Literal["shared_geometry", "env_specific_geometry"],
         generator: torch.Generator | None,
     ) -> list[list[PlacementResult]]:
-        """Per-env placement: each candidate is tied to its env's object variants.
+        """Solve and rank placement candidates.
 
-        Candidates [cur_env * candidates_per_env : (cur_env + 1) * candidates_per_env]
-        belong to cur_env and use that env's variant geometry. We solve all
-        num_envs * candidates_per_env candidates in one batched solver.solve()
-        call, rank candidates within each env slice, and return a nested list of
-        PlacementResult objects with shape (num_envs, candidates_per_env).
+        Shared-geometry ranking is used only when every candidate is
+        interchangeable. Env-specific-geometry ranking keeps candidates tied to
+        their env's assigned variants.
         """
+        if ranking_mode == "shared_geometry":
+            assert not has_heterogeneous_objects(objects), (
+                "Shared-geometry ranking requires homogeneous objects; candidates are not interchangeable across"
+                " variants."
+            )
+
         assign_variants_for_envs(objects, num_envs)
         env_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
         num_candidates = num_envs * candidates_per_env
-
-        # Build the per-env (1, 3) bbox views once: used both for On-guided
-        # initial-position sampling and for per-env validation below.
-        per_env_bbox_overrides: list[dict[ObjectBase, AxisAlignedBoundingBox]] = [
-            {
-                obj: AxisAlignedBoundingBox(
-                    min_point=env_bboxes[obj].min_point[cur_env : cur_env + 1],
-                    max_point=env_bboxes[obj].max_point[cur_env : cur_env + 1],
-                )
-                for obj in objects
-            }
-            for cur_env in range(num_envs)
-        ]
-
-        # Per-candidate bboxes (num_candidates, 3): each env's row repeated
-        # candidates_per_env times so candidates for that env share its geometry.
-        candidate_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] = {}
-        for obj, bbox in env_bboxes.items():
-            min_pt = bbox.min_point.repeat_interleave(candidates_per_env, dim=0)
-            max_pt = bbox.max_point.repeat_interleave(candidates_per_env, dim=0)
-            candidate_bboxes[obj] = AxisAlignedBoundingBox(min_point=min_pt, max_point=max_pt)
+        candidate_bboxes, per_env_bbox_overrides = self._build_candidate_bboxes(
+            env_bboxes, num_envs, candidates_per_env
+        )
 
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]] = []
         for candidate_idx in range(num_candidates):
@@ -315,38 +245,112 @@ class ObjectPlacer:
             )
 
         all_positions = self._solver.solve(objects, initial_positions, env_bboxes=candidate_bboxes)
+        # solver.solve() populates last_loss_per_env; assert documents the contract.
         assert self._solver.last_loss_per_env is not None
         all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
 
-        ranked_results_per_env: list[list[PlacementResult]] = []
-        for cur_env in range(num_envs):
-            start = cur_env * candidates_per_env
+        candidates: list[PlacementCandidate] = []
+        for candidate_idx in range(num_candidates):
+            cur_env = candidate_idx // candidates_per_env
             env_bbox_overrides = per_env_bbox_overrides[cur_env]
-            env_candidates = [
+            candidates.append(
                 PlacementCandidate(
-                    all_losses[start + idx],
-                    all_positions[start + idx],
-                    self._validate_placement(all_positions[start + idx], bbox_overrides=env_bbox_overrides),
+                    all_losses[candidate_idx],
+                    all_positions[candidate_idx],
+                    self._validate_placement(all_positions[candidate_idx], bbox_overrides=env_bbox_overrides),
                 )
-                for idx in range(candidates_per_env)
-            ]
-            env_candidates.sort(key=lambda candidate: (not candidate.is_valid, candidate.loss))
-            ranked_results_per_env.append([
+            )
+
+        ranked_candidate_slices = self._rank_candidates(candidates, ranking_mode, num_envs, candidates_per_env)
+        ranked_results = [
+            [
                 PlacementResult(
                     success=candidate.is_valid,
                     positions=candidate.positions,
                     final_loss=candidate.loss,
-                    attempts=candidates_per_env,
+                    attempts=attempts_per_result,
                 )
-                for candidate in env_candidates
-            ])
+                for candidate in candidate_slice
+            ]
+            for candidate_slice in ranked_candidate_slices
+        ]
 
-        results = [ranked_results[0] for ranked_results in ranked_results_per_env]
         if self.params.verbose:
-            n_valid = sum(1 for r in results if r.success)
-            print(f"Solved {num_candidates} candidates in one batch (heterogeneous): {n_valid}/{num_envs} env(s) valid")
+            self._print_ranked_summary(ranked_candidate_slices, ranking_mode, num_candidates, num_envs)
 
-        return ranked_results_per_env
+        return ranked_results
+
+    @staticmethod
+    def _build_candidate_bboxes(
+        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        num_envs: int,
+        candidates_per_env: int,
+    ) -> tuple[dict[ObjectBase, AxisAlignedBoundingBox], list[dict[ObjectBase, AxisAlignedBoundingBox]]]:
+        """Build solver bboxes with shape (num_envs * candidates_per_env, 3) and per-env views."""
+        per_env_bbox_overrides: list[dict[ObjectBase, AxisAlignedBoundingBox]] = [
+            {
+                obj: AxisAlignedBoundingBox(
+                    min_point=bbox.min_point[cur_env : cur_env + 1],
+                    max_point=bbox.max_point[cur_env : cur_env + 1],
+                )
+                for obj, bbox in env_bboxes.items()
+            }
+            for cur_env in range(num_envs)
+        ]
+
+        candidate_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] = {}
+        for obj, bbox in env_bboxes.items():
+            candidate_bboxes[obj] = AxisAlignedBoundingBox(
+                min_point=bbox.min_point.repeat_interleave(candidates_per_env, dim=0),
+                max_point=bbox.max_point.repeat_interleave(candidates_per_env, dim=0),
+            )
+
+        return candidate_bboxes, per_env_bbox_overrides
+
+    @staticmethod
+    def _rank_candidates(
+        candidates: list[PlacementCandidate],
+        ranking_mode: Literal["shared_geometry", "env_specific_geometry"],
+        num_envs: int,
+        candidates_per_env: int,
+    ) -> list[list[PlacementCandidate]]:
+        """Return one shared-geometry sorted slice or one sorted slice per env."""
+        if ranking_mode == "shared_geometry":
+            return [sorted(candidates, key=lambda candidate: (not candidate.is_valid, candidate.loss))]
+
+        ranked_candidate_slices: list[list[PlacementCandidate]] = []
+        for cur_env in range(num_envs):
+            start = cur_env * candidates_per_env
+            env_candidates = candidates[start : start + candidates_per_env]
+            ranked_candidate_slices.append(
+                sorted(env_candidates, key=lambda candidate: (not candidate.is_valid, candidate.loss))
+            )
+        return ranked_candidate_slices
+
+    def _print_ranked_summary(
+        self,
+        ranked_candidate_slices: list[list[PlacementCandidate]],
+        ranking_mode: Literal["shared_geometry", "env_specific_geometry"],
+        num_candidates: int,
+        num_envs: int,
+    ) -> None:
+        if ranking_mode == "shared_geometry":
+            candidates = ranked_candidate_slices[0]
+            total_valid = sum(1 for candidate in candidates if candidate.is_valid)
+            finite_losses = [candidate.loss for candidate in candidates if math.isfinite(candidate.loss)]
+            mean_loss = sum(finite_losses) / len(finite_losses) if finite_losses else float("inf")
+            n_valid = sum(1 for candidate in candidates[:num_envs] if candidate.is_valid)
+            print(
+                f"Solved {num_candidates} candidates in one batch: mean loss = {mean_loss:.6f},"
+                f" {total_valid} valid, selected best {num_envs} ({n_valid} valid)"
+            )
+            return
+
+        n_valid = sum(1 for candidate_slice in ranked_candidate_slices if candidate_slice[0].is_valid)
+        print(
+            f"Solved {num_candidates} candidates in one batch (env-specific geometry): "
+            f"{n_valid}/{num_envs} env(s) valid"
+        )
 
     def _generate_initial_positions(
         self,
@@ -365,8 +369,7 @@ class ObjectPlacer:
             generator: Optional RNG generator for reproducible sampling. When None,
                 uses PyTorch's global RNG.
             child_bboxes: Optional per-object bbox overrides with shape (1, 3).
-                Used by heterogeneous placement to supply the correct variant
-                bbox when computing On-guided initial positions.
+                Used to supply the correct env bbox for On-guided initialization.
 
         Returns:
             Dictionary mapping all objects to their starting positions.
@@ -379,7 +382,12 @@ class ObjectPlacer:
         positions: dict[ObjectBase, tuple[float, float, float]] = {}
         for obj in objects:
             if obj in anchor_objects:
-                positions[obj] = obj.get_initial_pose().position_xyz
+                initial_pose = obj.get_initial_pose()
+                assert isinstance(initial_pose, Pose), (
+                    f"Anchor object '{obj.name}' must have a fixed Pose before placement, got"
+                    f" {type(initial_pose).__name__}."
+                )
+                positions[obj] = initial_pose.position_xyz
             elif any(isinstance(r, On) for r in obj.get_relations()):
                 bbox_override = child_bboxes.get(obj) if child_bboxes else None
                 positions[obj] = self._compute_on_guided_position(
@@ -400,7 +408,7 @@ class ObjectPlacer:
         If the parent is an anchor, return its world bbox directly.
         If the parent is a non-anchor with its own On(anchor) relation, use the anchor's
         world bbox as a proxy. Only one level of indirection is resolved; deeper chains
-        fall back to anchor_bbox. Otherwise fall back to anchor_bbox.
+        fall back to anchor_bbox.
 
         TODO(cvolk): Support full On-relation chains (e.g. spoon -> On(bowl) -> On(plate) -> On(table)).
         """
@@ -450,7 +458,7 @@ class ObjectPlacer:
             generator,
         )
 
-        # Z: place child's bottom face at parent top + clearance
+        # Convert from child-origin Z to child-bottom Z so the bottom face lands on the parent top.
         z = float(parent_bbox.max_point[0, 2] + on_relation.clearance_m - child_bbox.min_point[0, 2])
 
         return (x, y, z)
@@ -490,7 +498,7 @@ class ObjectPlacer:
         positions: dict[ObjectBase, tuple[float, float, float]],
         bbox_overrides: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
     ) -> bool:
-        """Validate each On relation; logic matches OnLossStrategy (relation_loss_strategies.py).
+        """Validate each On relation; keep in sync with OnLossStrategy in relation_loss_strategies.py.
 
         1. X: child's footprint entirely within parent's X extent.
         2. Y: child's footprint entirely within parent's Y extent.
@@ -498,8 +506,7 @@ class ObjectPlacer:
 
         Args:
             positions: Solved positions for each object.
-            bbox_overrides: Optional per-object bbox overrides (single-env, shape (1, 3)).
-                Used by heterogeneous placement to supply the correct variant bbox.
+            bbox_overrides: Optional per-object bbox overrides with shape (1, 3).
         """
         for obj in positions:
             for rel in obj.get_relations():
@@ -512,7 +519,6 @@ class ObjectPlacer:
                 parent_bbox = self._resolve_bbox(parent, bbox_overrides)
                 child_world = child_bbox.translated(positions[obj])
                 parent_world = parent_bbox.translated(positions[parent])
-                # 1 & 2: Same as OnLossStrategy X/Y band (child's footprint within parent).
                 if (
                     child_world.min_point[0, 0] < parent_world.min_point[0, 0]
                     or child_world.max_point[0, 0] > parent_world.max_point[0, 0]
@@ -522,7 +528,6 @@ class ObjectPlacer:
                     if self.params.verbose:
                         print(f"  On relation: '{obj.name}' XY outside parent (retrying)")
                     return False
-                # 3. Z: same as OnLossStrategy; child_bottom in (parent_top, parent_top+clearance_m], within on_relation_z_tolerance_m.
                 parent_local_top_z: float = parent_bbox.max_point[0, 2].item()
                 child_local_bottom_z: float = child_bbox.min_point[0, 2].item()
                 parent_top_z = parent_local_top_z + positions[parent][2]
@@ -549,31 +554,30 @@ class ObjectPlacer:
 
         Args:
             positions: Solved positions for each object.
-            bbox_overrides: Optional per-object bbox overrides (single-env, shape (1, 3)).
-                Used by heterogeneous placement to supply the correct variant bbox.
+            bbox_overrides: Optional per-object bbox overrides with shape (1, 3).
         """
-        # Build set of On-related pairs to skip (child, parent) and (parent, child).
         on_pairs: set[tuple] = set()
         anchor_ids: set[int] = set()
         for obj in positions:
             for rel in obj.get_relations():
                 if isinstance(rel, On) and rel.parent in positions:
+                    # The lookup below sees pairs in object-list order, so store
+                    # both directions for symmetric On-pair skipping.
                     on_pairs.add((id(obj), id(rel.parent)))
                     on_pairs.add((id(rel.parent), id(obj)))
             if any(isinstance(r, IsAnchor) for r in obj.get_relations()):
                 anchor_ids.add(id(obj))
 
         clearance_m = self.params.solver_params.clearance_m
+        # Allow tiny residuals from the differentiable solver around the clearance boundary.
         margin = max(0.0, clearance_m - 1e-6)
 
         objects = list(positions.keys())
         for i in range(len(objects)):
             for j in range(i + 1, len(objects)):
                 a, b = objects[i], objects[j]
-                # Skip anchor-anchor pairs (anchors are fixed, solver does not move them).
                 if id(a) in anchor_ids and id(b) in anchor_ids:
                     continue
-                # Pairs related by an On relation are excluded from the overlap check.
                 if (id(a), id(b)) in on_pairs:
                     continue
 
@@ -597,8 +601,7 @@ class ObjectPlacer:
 
         Args:
             positions: Dictionary mapping objects to their solved (x, y, z) positions.
-            bbox_overrides: Optional per-object bbox overrides (single-env, shape (1, 3)).
-                Used by heterogeneous placement to supply the correct variant bbox.
+            bbox_overrides: Optional per-object bbox overrides with shape (1, 3).
 
         Returns:
             True if no overlaps exist and On relations hold, False otherwise.
@@ -621,9 +624,7 @@ class ObjectPlacer:
         Rotation is taken from RotateAroundSolution marker if present, otherwise identity.
         """
         num_envs = len(positions_per_env)
-        # Objects are the same for every environment. Extract them.
         objects = list(positions_per_env[0])
-        # Apply pose for each object.
         for obj in objects:
             if obj in anchor_objects:
                 continue
@@ -646,28 +647,12 @@ class ObjectPlacer:
                 obj.set_initial_pose(PosePerEnv(poses=poses))
 
     def _get_random_around_solution(self, obj: ObjectBase) -> RandomAroundSolution | None:
-        """Get RandomAroundSolution marker from object if present.
-
-        Args:
-            obj: Object to check for the marker.
-
-        Returns:
-            The RandomAroundSolution marker if found, None otherwise.
-        """
         for rel in obj.get_relations():
             if isinstance(rel, RandomAroundSolution):
                 return rel
         return None
 
     def _get_rotate_around_solution(self, obj: ObjectBase) -> RotateAroundSolution | None:
-        """Get RotateAroundSolution marker from object if present.
-
-        Args:
-            obj: Object to check for the marker.
-
-        Returns:
-            The RotateAroundSolution marker if found, None otherwise.
-        """
         for rel in obj.get_relations():
             if isinstance(rel, RotateAroundSolution):
                 return rel

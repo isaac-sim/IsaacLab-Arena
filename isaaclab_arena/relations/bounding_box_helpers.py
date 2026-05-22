@@ -29,7 +29,7 @@ def assign_variants_for_envs(objects: list[ObjectBase], num_envs: int) -> None:
     """Assign per-env variants on every RigidObjectSet in the list.
 
     Placers call this at the boundary before any per-env geometry reads.
-    Only called after has_heterogeneous_objects confirms the list contains RigidObjectSets.
+    Objects without variants are ignored.
     """
     for obj in objects:
         if hasattr(obj, "assign_variants"):
@@ -41,7 +41,6 @@ def get_bounding_box_per_env(obj: ObjectBase, num_envs: int) -> AxisAlignedBound
 
     RigidObjectSet delegates to its own get_bounding_box_per_env.
     All other objects broadcast their single bbox.
-    Only called after has_heterogeneous_objects confirms heterogeneous objects exist.
     """
     if hasattr(obj, "get_bounding_box_per_env"):
         return obj.get_bounding_box_per_env(num_envs)

@@ -358,6 +358,16 @@ def test_object_placer_place_ranked_per_env_returns_sorted_env_lists():
     with pytest.raises(AssertionError):
         placer.place_ranked_per_env([desk, hetero], num_envs=3, results_per_env=0)
 
+    apply_params = ObjectPlacerParams(
+        solver_params=solver_params,
+        apply_positions_to_objects=True,
+    )
+    apply_results = ObjectPlacer(params=apply_params).place_ranked_per_env(
+        [desk, hetero], num_envs=3, results_per_env=1
+    )
+    assert len(apply_results) == 3
+    assert hetero.get_initial_pose() is None
+
 
 def test_object_placer_homogeneous_path_returns_multi_env_result():
     """When no heterogeneous objects exist, the homogeneous path is used."""
