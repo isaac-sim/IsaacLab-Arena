@@ -147,8 +147,8 @@ def test_solve_and_place_objects_writes_poses_to_sim():
     """solve_and_place_objects should call write_root_pose_to_sim for non-anchor objects."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_candidate_pool import PlacementCandidatePool
     from isaaclab_arena.relations.placement_events import solve_and_place_objects
-    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
     desk, box1, box2 = _create_test_objects()
@@ -159,7 +159,7 @@ def test_solve_and_place_objects_writes_poses_to_sim():
 
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params)
-    pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=10)
+    pool = PlacementCandidatePool(objects=objects, placer_params=placer_params, pool_size=10)
 
     solve_and_place_objects(env, env_ids, objects, pool)
 
@@ -180,8 +180,8 @@ def test_solve_and_place_objects_skips_empty_env_ids():
     """solve_and_place_objects should return immediately for an empty env_ids tensor."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_candidate_pool import PlacementCandidatePool
     from isaaclab_arena.relations.placement_events import solve_and_place_objects
-    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
     desk, box1, box2 = _create_test_objects()
@@ -189,7 +189,7 @@ def test_solve_and_place_objects_skips_empty_env_ids():
 
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params)
-    pool = PooledObjectPlacer(objects=[desk, box1, box2], placer_params=placer_params, pool_size=10)
+    pool = PlacementCandidatePool(objects=[desk, box1, box2], placer_params=placer_params, pool_size=10)
 
     solve_and_place_objects(env, torch.tensor([], dtype=torch.int64), [desk, box1, box2], pool)
 
@@ -200,8 +200,8 @@ def test_solve_and_place_objects_skips_none_env_ids():
     """solve_and_place_objects should return immediately when env_ids is None."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_candidate_pool import PlacementCandidatePool
     from isaaclab_arena.relations.placement_events import solve_and_place_objects
-    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
     desk, box1, box2 = _create_test_objects()
@@ -209,7 +209,7 @@ def test_solve_and_place_objects_skips_none_env_ids():
 
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params)
-    pool = PooledObjectPlacer(objects=[desk, box1, box2], placer_params=placer_params, pool_size=10)
+    pool = PlacementCandidatePool(objects=[desk, box1, box2], placer_params=placer_params, pool_size=10)
 
     solve_and_place_objects(env, None, [desk, box1, box2], pool)
 
@@ -220,8 +220,8 @@ def test_solve_and_place_objects_handles_multiple_env_ids():
     """solve_and_place_objects should write poses for each resetting environment."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_candidate_pool import PlacementCandidatePool
     from isaaclab_arena.relations.placement_events import solve_and_place_objects
-    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
     desk, box1, box2 = _create_test_objects()
@@ -233,7 +233,7 @@ def test_solve_and_place_objects_handles_multiple_env_ids():
 
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params)
-    pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=10)
+    pool = PlacementCandidatePool(objects=objects, placer_params=placer_params, pool_size=10)
 
     solve_and_place_objects(env, env_ids, objects, pool)
 
@@ -247,17 +247,17 @@ def test_solve_and_place_objects_handles_multiple_env_ids():
         )
 
 
-def test_pooled_placer_sample_without_replacement_returns_different_layouts():
+def test_placement_candidate_pool_sample_without_replacement_returns_different_layouts():
     """sample_without_replacement() should return layouts (likely different across draws)."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.placement_candidate_pool import PlacementCandidatePool
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
     desk, box1, box2 = _create_test_objects()
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
-    pool = PooledObjectPlacer(objects=[desk, box1, box2], placer_params=placer_params, pool_size=20)
+    pool = PlacementCandidatePool(objects=[desk, box1, box2], placer_params=placer_params, pool_size=20)
 
     assert pool.remaining == 20
 
@@ -270,17 +270,17 @@ def test_pooled_placer_sample_without_replacement_returns_different_layouts():
     assert any_different, "Pool draws should produce different layouts"
 
 
-def test_pooled_placer_sample_with_replacement_does_not_consume():
+def test_placement_candidate_pool_sample_with_replacement_does_not_consume():
     """sample_with_replacement() should return layouts without consuming them."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.placement_candidate_pool import PlacementCandidatePool
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
     desk, box1, box2 = _create_test_objects()
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
-    pool = PooledObjectPlacer(objects=[desk, box1, box2], placer_params=placer_params, pool_size=10)
+    pool = PlacementCandidatePool(objects=[desk, box1, box2], placer_params=placer_params, pool_size=10)
 
     initial_available = pool.remaining
 
@@ -289,17 +289,17 @@ def test_pooled_placer_sample_with_replacement_does_not_consume():
     assert pool.remaining == initial_available, "sample_with_replacement() should not consume from available queue"
 
 
-def test_pooled_placer_sample_without_replacement_triggers_refill():
+def test_placement_candidate_pool_sample_without_replacement_triggers_refill():
     """Exhausting the pool and requesting more should trigger a refill."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.placement_candidate_pool import PlacementCandidatePool
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
     desk, box1, box2 = _create_test_objects()
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
-    pool = PooledObjectPlacer(objects=[desk, box1, box2], placer_params=placer_params, pool_size=5)
+    pool = PlacementCandidatePool(objects=[desk, box1, box2], placer_params=placer_params, pool_size=5)
 
     # Exhaust the pool, then request more
     pool.sample_without_replacement(5)
@@ -313,8 +313,8 @@ def test_resolve_on_reset_false_applies_pose_per_env():
     """Simulates the resolve_on_reset=False path: sample layouts and build PosePerEnv per object."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_candidate_pool import PlacementCandidatePool
     from isaaclab_arena.relations.placement_events import get_rotation_xyzw
-    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import get_anchor_objects
     from isaaclab_arena.utils.pose import Pose, PosePerEnv
@@ -325,7 +325,7 @@ def test_resolve_on_reset_false_applies_pose_per_env():
 
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
-    pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=20)
+    pool = PlacementCandidatePool(objects=objects, placer_params=placer_params, pool_size=20)
 
     layouts = pool.sample_with_replacement(num_envs)
     assert len(layouts) == num_envs
@@ -345,12 +345,12 @@ def test_resolve_on_reset_false_applies_pose_per_env():
             assert p.position_xyz is not None, f"Position should not be None for {obj.name}"
 
 
-def test_pooled_placer_fallback_when_no_valid_layouts():
-    """PooledObjectPlacer should fall back to best-loss layouts when none pass validation."""
+def test_placement_candidate_pool_fallback_when_no_valid_layouts():
+    """PlacementCandidatePool should fall back to best-loss layouts when none pass validation."""
 
     from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.placement_candidate_pool import PlacementCandidatePool
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor, On
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -378,5 +378,5 @@ def test_pooled_placer_fallback_when_no_valid_layouts():
     solver_params = RelationSolverParams(max_iters=50, convergence_threshold=1e-6)
     placer_params = ObjectPlacerParams(solver_params=solver_params, max_placement_attempts=1)
 
-    pool = PooledObjectPlacer(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)
+    pool = PlacementCandidatePool(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)
     assert pool.remaining > 0, "Pool should contain fallback layouts even when validation fails"
