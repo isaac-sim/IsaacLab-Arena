@@ -395,6 +395,75 @@ def test_demo_without_step_info_warns(tmp_path, capsys):
     assert "num_samples" in combined or "actions" in combined
 
 
+def test_non_hdf5_input_produces_clean_error(tmp_path, capsys):
+    """A plain-text file with .hdf5 extension should produce a clean ERROR, not a traceback."""
+    bogus = tmp_path / "not_actually_hdf5.hdf5"
+    bogus.write_text("this is plain text, not an HDF5 file")
+    out = tmp_path / "merged.hdf5"
+
+    assert _run_merge([str(bogus), "-o", str(out)]) == 2
+    captured = capsys.readouterr()
+    combined = captured.out + captured.err
+    # No bare Python/h5py traceback should be surfaced to operators.
+    assert "Traceback" not in combined
+    # The error must identify the offending file by name so operators don't have to guess.
+    assert "ERROR" in combined
+    assert "not_actually_hdf5.hdf5" in combined
+    assert not out.exists()
+
+
+def test_merge_failure_cleans_up_partial_output(tmp_path, monkeypatch, capsys):
+    """If _merge raises mid-write, neither the final output nor the .tmp partial may linger."""
+    a = tmp_path / "a.hdf5"
+    out = tmp_path / "merged.hdf5"
+    _make_dataset(str(a))
+
+    def _failing_merge(infos, output_path):
+        # Simulate _merge having streamed some bytes before failing (corrupt source,
+        # disk full, h5py copy error, ...). The output_path arg is the .tmp path.
+        with open(output_path, "wb") as f:
+            f.write(b"partial garbage")
+        raise OSError("simulated disk full")
+
+    monkeypatch.setattr(merge_demos, "_merge", _failing_merge)
+    assert _run_merge([str(a), "-o", str(out)]) == 1
+
+    # Neither the renamed output nor the partial tmp file should be left behind, so the
+    # operator can simply re-run without --overwrite once they've fixed the root cause.
+    assert not out.exists()
+    assert not (tmp_path / "merged.hdf5.tmp").exists()
+
+    captured = capsys.readouterr()
+    combined = captured.out + captured.err
+    assert "Traceback" not in combined
+    assert "ERROR" in combined
+
+
+def test_overwrite_failure_preserves_existing_output(tmp_path, monkeypatch):
+    """With --overwrite, a mid-merge failure must not destroy the operator's prior output."""
+    a = tmp_path / "a.hdf5"
+    out = tmp_path / "merged.hdf5"
+    _make_dataset(str(a), num_demos=2, base_episode_len=10)
+    # Pre-existing output the operator wants to replace. Use a sentinel episode length
+    # that can't appear in a from the new merge so we can prove the file is untouched.
+    _make_dataset(str(out), num_demos=1, base_episode_len=4242)
+
+    def _failing_merge(infos, output_path):
+        with open(output_path, "wb") as f:
+            f.write(b"partial garbage")
+        raise OSError("simulated mid-merge failure")
+
+    monkeypatch.setattr(merge_demos, "_merge", _failing_merge)
+    assert _run_merge([str(a), "-o", str(out), "--overwrite"]) == 1
+
+    # Original output preserved: the atomic-write pattern means os.replace never ran,
+    # so the operator hasn't lost their previous merged dataset.
+    assert out.exists()
+    with h5py.File(out, "r") as f:
+        assert int(f["data/demo_0"].attrs["num_samples"]) == 4242
+    assert not (tmp_path / "merged.hdf5.tmp").exists()
+
+
 def test_merged_file_loads_via_isaaclab_handler(tmp_path):
     """Property test: merged file must be readable by isaaclab's HDF5DatasetFileHandler."""
     try:

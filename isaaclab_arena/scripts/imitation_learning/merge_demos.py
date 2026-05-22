@@ -36,6 +36,7 @@ Example
 from __future__ import annotations
 
 import argparse
+import contextlib
 import h5py
 import json
 import os
@@ -113,7 +114,16 @@ def _inspect_file(path: str) -> _FileInfo:
         raise FileNotFoundError(f"Input file does not exist: {path}")
     size_bytes = os.path.getsize(path)
 
-    with h5py.File(path, "r") as f:
+    # h5py.File raises OSError ("file signature not found", "truncated file", ...) for
+    # non-HDF5, corrupted, or locked inputs. The native message omits the path, leaving
+    # operators guessing which of N inputs is bad, so re-raise as ValueError with the
+    # path prepended for the same shape as the other inspection errors below.
+    try:
+        h5_file = h5py.File(path, "r")
+    except OSError as e:
+        raise ValueError(f"{path}: cannot open as HDF5 ({e})") from e
+
+    with h5_file as f:
         if "data" not in f:
             raise ValueError(f"{path}: missing top-level 'data' group; not a record_demos HDF5 file")
 
@@ -465,7 +475,11 @@ def main(argv: list[str] | None = None) -> int:
     for path in args.input_files:
         try:
             infos.append(_inspect_file(path))
-        except (FileNotFoundError, ValueError) as e:
+        except (FileNotFoundError, ValueError, OSError) as e:
+            # OSError is the defense-in-depth catch: _inspect_file converts h5py's
+            # OSError into ValueError, but if any future code path leaks an OSError
+            # (permission denied on getsize, etc.) we still produce a clean ERROR line
+            # instead of an h5py/Python traceback.
             print(f"ERROR: {e}", file=sys.stderr)
             return 2
 
@@ -494,7 +508,30 @@ def main(argv: list[str] | None = None) -> int:
     output_dir = os.path.dirname(output_abs) or "."
     os.makedirs(output_dir, exist_ok=True)
 
-    output_size, total_steps, total_demos = _merge(infos, args.output_file)
+    # Atomic write: stream into <output>.tmp and rename on success. This protects against
+    # two failure modes flagged in review:
+    # 1. An uncaught OSError/RuntimeError mid-merge (corrupt source, disk full, h5py
+    #    copy bailing out) leaves a partial file at <output> whose missing
+    #    `data.attrs["total"]` blocks a clean re-run without --overwrite.
+    # 2. With --overwrite, opening h5py.File(<output>, "w") truncates the existing file
+    #    immediately, so a mid-merge failure silently destroys the operator's previous
+    #    output. The tmp+rename pattern keeps the original intact until the merge
+    #    succeeds and os.replace swaps it in atomically (POSIX guarantee within the
+    #    same filesystem, which holds because tmp is in the same directory).
+    tmp_path = args.output_file + ".tmp"
+    success = False
+    try:
+        output_size, total_steps, total_demos = _merge(infos, tmp_path)
+        os.replace(tmp_path, args.output_file)
+        success = True
+    except Exception as e:
+        print(f"ERROR: Merge failed: {e}", file=sys.stderr)
+        return 1
+    finally:
+        if not success and os.path.exists(tmp_path):
+            with contextlib.suppress(OSError):
+                os.unlink(tmp_path)
+
     _print_summary(
         infos,
         args.output_file,
