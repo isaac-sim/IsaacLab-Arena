@@ -101,6 +101,14 @@ def rollout_policy(
                     # Break if number of episodes is reached
                     completed_episodes = env_ids.shape[0]
                     num_episodes_completed += completed_episodes
+                    if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
+                        from isaaclab_arena.metrics.metrics import compute_metrics
+
+                        metrics = compute_metrics(env.unwrapped)
+                        tqdm.tqdm.write(
+                            f"[Rank {get_local_rank()}/{get_world_size()}] Metrics:"
+                            f" {metrics_to_plain_python_types(metrics)}"
+                        )
                     if num_episodes is not None:
                         pbar.update(completed_episodes)
                         if num_episodes_completed >= num_episodes:

@@ -3,6 +3,10 @@ Unitree G1 Static Apple-to-Plate Task
 
 This example demonstrates the complete workflow for the **Unitree G1 static (no-locomotion) apple-to-plate task** in Isaac Lab - Arena, covering environment setup and validation, teleoperation data collection (OpenXR with Meta Quest 3 or Pico 4 Ultra), policy post-training directly on the recorded teleop demonstrations, and closed-loop evaluation.
 
+.. image:: ../../../images/static_apple_pick_and_place.gif
+   :align: center
+   :height: 400px
+
 The training step uses a **standalone clone of NVIDIA's Isaac-GR00T (N1.7) repository** rather than
 the GR00T submodule pinned inside Arena, and evaluation runs over Arena's
 **server-client (remote-policy) architecture**: the GR00T server hosts the finetuned checkpoint in
