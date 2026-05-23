@@ -238,6 +238,10 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 mode="prestartup",
                 params={"prim_relative_paths": _BACKGROUND_PRIMS_TO_DEACTIVATE},
             )
+            # The GR00T policy consumes camera observations. Force one RTX sensor
+            # refresh after reset so the next policy query does not see the
+            # previous episode's final rendered frame.
+            env_cfg.num_rerenders_on_reset = 1
             return env_cfg
 
         scene = Scene(assets=[background, shelf_support, pick_up_object, destination])
@@ -249,7 +253,7 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 pick_up_object=pick_up_object,
                 destination_location=destination,
                 background_scene=background,
-                episode_length_s=30.0,
+                episode_length_s=6.0,
                 task_description=task_description,
                 # Mirror the locomanip env's success thresholds so metrics are comparable.
                 force_threshold=0.5,
