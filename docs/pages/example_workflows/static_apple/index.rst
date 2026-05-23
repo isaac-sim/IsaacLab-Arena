@@ -102,7 +102,7 @@ Standalone Isaac-GR00T (N1.7) checkout (used in :doc:`step_3_policy_training` an
     # Pin to the commit this workflow was validated against.
     git clone https://github.com/NVIDIA/Isaac-GR00T.git /path/to/Isaac-GR00T
     export ISAAC_GR00T_DIR=/path/to/Isaac-GR00T
-    cd $ISAAC_GR00T_DIR && git checkout 3df8b3825d67f755e69141446f4315f281b9b7e6
+    cd $ISAAC_GR00T_DIR && git checkout 4b1dca9d88d2a0b9ea5a65aa61c82ff89f5c4f0e
 
     # Create the venv (uv-managed).
     uv sync
@@ -110,9 +110,11 @@ Standalone Isaac-GR00T (N1.7) checkout (used in :doc:`step_3_policy_training` an
 See the `Isaac-GR00T README <https://github.com/NVIDIA/Isaac-GR00T#readme>`_ for alternatives to
 ``uv-managed`` environment.
 
-This venv is **separate** from Arena's container. Finetuning and the policy server both run from
-this standalone checkout so you can pick up new GR00T releases (e.g. N1.7 → next) without rebuilding
-Arena's GR00T-flavoured container or bumping ``submodules/Isaac-GR00T``.
+This venv is **separate** from Arena's container, but Arena's policy runner still imports the
+GR00T ``PolicyClient`` from the Arena-pinned ``submodules/Isaac-GR00T`` checkout. Keep the
+standalone GR00T checkout at the pinned commit above for this workflow. If you move the standalone
+checkout to a newer GR00T commit, the GR00T server and Arena's GR00T client may be incompatible
+unless Arena's GR00T client/submodule is updated as well.
 
 
 Workflow Steps
