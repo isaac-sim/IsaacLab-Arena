@@ -172,7 +172,7 @@ Step 4: Record with the headset device
         --device cpu \
         --enable_cameras \
         --dataset_file $DATASET_DIR/arena_g1_static_apple_dataset_recorded.hdf5 \
-        --num_demos 10 \
+        --num_demos 20 \
         --num_success_steps 10 \
         --disable_full_sim_buffer_reset \
         galileo_g1_static_pick_and_place \
@@ -184,7 +184,10 @@ Step 4: Record with the headset device
 
 #. Follow Step 3 to connect the headset again.
 
-#. Complete the task for each demo. Reset between demos. The script saves successful runs to the HDF5 file above.
+#. Complete the task for each demo. After a successful placement, wait for the demo to
+   automatically end and for the simulation to freeze before pressing **Reset**. Resetting
+   early can save an incomplete or failed demonstration. The script saves successful runs
+   to the HDF5 file above.
 
 .. important::
 
@@ -210,6 +213,8 @@ Step 4: Record with the headset device
      and side grasps, so the policy does not overfit to one approach direction.
    * **Clean successes only:** save only runs with no unnecessary collisions, no dropped objects before
      placement, and no recovery motions that would confuse the policy.
+   * **Wait for success freeze:** after releasing the apple onto the plate, keep the scene stable and
+     wait until the recording auto-terminates/freezes. Only reset after that happens.
    * **Trajectory length:** aim for demonstrations around 200--400 timesteps. Very long episodes slow
      down downstream data processing, while very short episodes tend to contain abrupt motion.
    * **Replay validation:** after recording, replay the HDF5 with Step 5 and inspect camera frames,
@@ -233,6 +238,13 @@ Step 4: Record with the headset device
 
    Releasing a small round object onto a flat plate is noticeably harder than dropping a box into a
    bin. Keep the release height low and the orientation stable.
+
+   .. figure:: ../../../images/static_apple_pick_and_place.gif
+      :width: 100%
+      :alt: Static apple-to-plate demonstration with the Unitree G1
+      :align: center
+
+      Example static apple-to-plate demonstration trajectory.
 
 
 Step 5: Replay Recorded Demos (Optional)
