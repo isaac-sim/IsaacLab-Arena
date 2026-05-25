@@ -1,4 +1,4 @@
-# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -58,6 +58,9 @@ class ArenaEnvGraphNodeSpec:
     parent: str | None = None  # Optional, only need for object references
     prim_path: str | None = None  # Optional, only need for object references
     object_type: ObjectType | None = None  # Optional, only need for type=object
+    # Asset-type specific optional kwargs (e.g. scale, spawn_cfg_addon) — distinct from
+    # the typed graph metadata above. The Arena environment builder forwards these when
+    # instantiating the asset class.
     params: dict[str, Any] = field(default_factory=dict)
 
 
@@ -72,6 +75,9 @@ class ArenaEnvGraphSpatialConstraintSpec:
     type: ArenaEnvGraphSpatialConstraintType
     parent: str
     child: str | None = None  # Optional, e.g. is_anchor constraint does not have a child
+    # Type-specific optional kwargs for the underlying RelationBase subclass selected by `type`
+    # (e.g. {x_min, x_max, y_min, y_max} for position_limits; {side, distance} for next_to etc.).
+    # The Arena environment builder forwards these when constructing the Relation instance.
     params: dict[str, Any] = field(default_factory=dict)
 
 
@@ -83,6 +89,9 @@ class ArenaEnvGraphTaskConstraintSpec:
     type: str
     parent: str
     child: str | None = None  # Optional, could be a robot keeps gripper open or closed, or a single object
+    # Type-specific optional kwargs for the underlying TaskConstraintBase subclass selected by `type`
+    # (e.g. grasp pose offset the reach constraint.).
+    # The Arena environment builder forwards these when constructing the TaskConstraint instance.
     params: dict[str, Any] = field(default_factory=dict)
 
 
