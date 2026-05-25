@@ -227,7 +227,7 @@ def _parse_task_constraint(data: Any) -> ArenaEnvGraphTaskConstraintSpec:
     return ArenaEnvGraphTaskConstraintSpec(
         id=required_str(data, "id"),
         type=required_enum(data, "type", ArenaEnvGraphTaskConstraintType),
-        parent=optional_str(data, "parent"),
+        parent=required_str(data, "parent"),
         child=optional_str(data, "child"),
         params=optional_dict(data, "params"),
     )
