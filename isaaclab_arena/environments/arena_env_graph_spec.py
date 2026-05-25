@@ -12,8 +12,8 @@ from typing import Any
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.environments.graph_spec_utils import (
     as_dict,
-    assert_env_graph_references_exist,
-    assert_env_graph_universal_ids,
+    assert_references_exist,
+    assert_unique_ids,
     optional_dict,
     optional_str,
     parse_list,
@@ -161,8 +161,8 @@ class ArenaEnvGraphSpec:
         tasks = parse_list(data, "tasks", _parse_task)
         state_specs = parse_list(data, "state_specs", _parse_state_spec)
 
-        assert_env_graph_universal_ids(nodes, tasks, state_specs)
-        assert_env_graph_references_exist(nodes, tasks, state_specs)
+        assert_unique_ids(nodes, tasks, state_specs)
+        assert_references_exist(nodes, tasks, state_specs)
 
         return cls(
             env_name=required_str(data, "env_name"),

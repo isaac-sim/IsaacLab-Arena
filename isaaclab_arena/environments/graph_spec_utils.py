@@ -71,7 +71,7 @@ def parse_enum(value: Any, key: str, enum_type: type[Enum]) -> Enum | None:
         raise AssertionError(f"Unknown {key} '{value}'. Expected one of {valid_values}") from None
 
 
-def assert_env_graph_universal_ids(nodes: list[Any], tasks: list[Any], state_specs: list[Any]) -> None:
+def assert_unique_ids(nodes: list[Any], tasks: list[Any], state_specs: list[Any]) -> None:
     id_locations: dict[str, list[str]] = {}
     for node in nodes:
         _add_id_location(id_locations, node.id, f"node '{node.id}'")
@@ -88,7 +88,7 @@ def assert_env_graph_universal_ids(nodes: list[Any], tasks: list[Any], state_spe
     assert not duplicates, f"Duplicate env graph ids found: {duplicates}"
 
 
-def assert_env_graph_references_exist(nodes: list[Any], tasks: list[Any], state_specs: list[Any]) -> None:
+def assert_references_exist(nodes: list[Any], tasks: list[Any], state_specs: list[Any]) -> None:
     node_ids = {node.id for node in nodes}
     state_spec_ids = {state_spec.id for state_spec in state_specs}
 
