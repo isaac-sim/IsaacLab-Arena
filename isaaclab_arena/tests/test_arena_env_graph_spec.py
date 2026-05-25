@@ -203,14 +203,12 @@ def _minimal_env_graph_data():
         ],
         "tasks": [{
             "id": "task_0",
-            "name": "task_0",
             "type": "pick_and_place",
             "initial_state_spec_id": "state_0",
             "success_state_spec_id": "state_0",
         }],
         "state_specs": [{
             "id": "state_0",
-            "name": "state_0",
             "spatial_constraints": [{"id": "table_is_anchor", "type": "is_anchor", "parent": "table"}],
             "task_constraints": [{
                 "id": "robot_reach_cube",

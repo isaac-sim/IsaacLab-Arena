@@ -31,7 +31,6 @@ nodes:
 
 tasks:
   - id: pick_and_place_0
-    name: pick_and_place_0
     type: pick_and_place
     initial_state_spec_id: state_spec_0
     success_state_spec_id: state_spec_1
@@ -43,7 +42,6 @@ tasks:
 
 state_specs:
   - id: state_spec_0
-    name: state_spec_0
     spatial_constraints:
       - id: state_spec_0_maple_table_robolab_table_is_anchor
         type: is_anchor
@@ -84,7 +82,6 @@ state_specs:
         child: rubiks_cube_hot3d_robolab
 
   - id: state_spec_1
-    name: state_spec_1
     spatial_constraints:
       - id: state_spec_1_maple_table_robolab_table_is_anchor
         type: is_anchor

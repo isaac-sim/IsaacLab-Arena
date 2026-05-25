@@ -123,7 +123,6 @@ class ArenaEnvGraphStateSpec:
     """
 
     id: str
-    name: str
     spatial_constraints: list[ArenaEnvGraphSpatialConstraintSpec] = field(default_factory=list)
     task_constraints: list[ArenaEnvGraphTaskConstraintSpec] = field(default_factory=list)
 
@@ -133,7 +132,6 @@ class ArenaEnvGraphTaskSpec:
     """Task entry in an environment graph."""
 
     id: str
-    name: str
     type: str  # Task class name, could be a custom task class or a built-in task class
     initial_state_spec_id: str
     success_state_spec_id: str
@@ -238,7 +236,6 @@ def _parse_state_spec(data: Any) -> ArenaEnvGraphStateSpec:
     assert "edges" not in data, "State spec must define spatial_constraints and task_constraints directly"
     return ArenaEnvGraphStateSpec(
         id=required_str(data, "id"),
-        name=required_str(data, "name"),
         spatial_constraints=parse_list(data, "spatial_constraints", _parse_spatial_constraint),
         task_constraints=parse_list(data, "task_constraints", _parse_task_constraint),
     )
@@ -250,7 +247,6 @@ def _parse_task(data: Any) -> ArenaEnvGraphTaskSpec:
         assert old_key not in data, "Task spec must use initial_state_spec_id and success_state_spec_id"
     return ArenaEnvGraphTaskSpec(
         id=required_str(data, "id"),
-        name=required_str(data, "name"),
         type=required_str(data, "type"),
         initial_state_spec_id=required_str(data, "initial_state_spec_id"),
         success_state_spec_id=required_str(data, "success_state_spec_id"),
