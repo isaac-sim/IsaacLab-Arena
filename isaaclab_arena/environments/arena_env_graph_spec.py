@@ -207,8 +207,10 @@ def _parse_spatial_constraint(data: Any) -> ArenaEnvGraphSpatialConstraintSpec:
     data = as_dict(data, "Spatial constraint spec")
     constraint_type = required_enum(data, "type", ArenaEnvGraphSpatialConstraintType)
     params = optional_dict(data, "params")
-    if constraint_type == ArenaEnvGraphSpatialConstraintType.AT_POSE:
+    # Parse optional position_xyz and rotation_xyzw fields and check their lengths.
+    if params and "position_xyz" in params:
         params["position_xyz"] = required_number_sequence(params, "position_xyz", 3)
+    if params and "rotation_xyzw" in params:
         params["rotation_xyzw"] = required_number_sequence(params, "rotation_xyzw", 4)
 
     return ArenaEnvGraphSpatialConstraintSpec(
