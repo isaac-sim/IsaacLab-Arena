@@ -44,6 +44,10 @@ class ArenaEnvGraphSpatialConstraintType(Enum):
     IN = "in"
 
 
+class ArenaEnvGraphTaskConstraintType(Enum):
+    REACH = "reach"
+
+
 @dataclass
 class ArenaEnvGraphNodeSpec:
     """Node in an environment graph.
@@ -102,7 +106,7 @@ class ArenaEnvGraphTaskConstraintSpec:
     """Task-dependent constraint edge in an environment graph state spec."""
 
     id: str
-    type: str
+    type: ArenaEnvGraphTaskConstraintType
     parent: str
     child: str | None = None  # Optional, could be a robot keeps gripper open or closed, or a single object
     # Type-specific optional kwargs for the underlying TaskConstraintBase subclass selected by `type`
@@ -222,7 +226,7 @@ def _parse_task_constraint(data: Any) -> ArenaEnvGraphTaskConstraintSpec:
     data = as_dict(data, "Task constraint spec")
     return ArenaEnvGraphTaskConstraintSpec(
         id=required_str(data, "id"),
-        type=required_str(data, "type"),
+        type=required_enum(data, "type", ArenaEnvGraphTaskConstraintType),
         parent=optional_str(data, "parent"),
         child=optional_str(data, "child"),
         params=optional_dict(data, "params"),

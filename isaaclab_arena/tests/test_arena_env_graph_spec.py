@@ -159,6 +159,11 @@ def test_arena_env_graph_spec_rejects_invalid_data():
             "Unknown type 'unknown'",
         ),
         (
+            "unknown task constraint type",
+            lambda data: data["state_specs"][0]["task_constraints"][0].__setitem__("type", "unknown"),
+            "Unknown type 'unknown'",
+        ),
+        (
             "invalid at_pose position",
             lambda data: data["state_specs"][0]["spatial_constraints"].append(
                 _at_pose_constraint(position_xyz=[0.1, 0.2])
