@@ -81,12 +81,20 @@ class ArenaEnvBuilder:
         placer_params = ObjectPlacerParams(
             placement_seed=self.args.placement_seed,
             apply_positions_to_objects=False,
-            solver_params=RelationSolverParams(save_position_history=False, verbose=False),
+            solver_params=RelationSolverParams(
+                save_position_history=False,
+                verbose=False,
+                no_collision_xy_only=getattr(self.args, "no_collision_xy_only", True),
+                no_collision_include_anchors=getattr(self.args, "no_collision_include_anchors", False),
+            ),
         )
+        placement_max_attempts = getattr(self.args, "placement_max_attempts", None)
+        if placement_max_attempts is not None:
+            placer_params.max_placement_attempts = placement_max_attempts
         if cli_resolve is not None:
             placer_params.resolve_on_reset = cli_resolve
 
-        pool_size = num_envs * placer_params.min_unique_layouts_per_env
+        pool_size = getattr(self.args, "placement_pool_size", num_envs * placer_params.min_unique_layouts_per_env)
 
         placement_pool = PooledObjectPlacer(
             objects=objects_with_relations,
@@ -388,7 +396,30 @@ class ArenaEnvBuilder:
     ) -> tuple[ManagerBasedEnv, IsaacLabArenaManagerBasedRLEnvCfg]:
         name, cfg = self.build_registered(env_cfg)
         env = gym.make(name, cfg=cfg, render_mode=render_mode)
+        if self.arena_env.force_convex_hull:
+            _force_convex_hull(env)
         # ViewportCameraController sets the camera before KitVisualizer.initialize() is called,
         # so the call is silently ignored. Re-apply here once the visualizers are fully initialized.
         reapply_viewer_cfg(env)
         return env, cfg
+
+
+def _force_convex_hull(env: ManagerBasedEnv) -> None:
+    """Replace ``convexDecomposition`` with ``convexHull`` on all MeshCollision prims.
+
+    ``convexDecomposition`` on raw scanned meshes (e.g. robolab assets) creates
+    irregular contact surfaces that are unstable in multi-object scenarios.
+    ``convexHull`` produces a single convex shape that behaves predictably.
+    """
+    from pxr import UsdPhysics
+
+    stage = env.unwrapped.sim.stage
+    for prim in stage.Traverse():
+        if not prim.HasAPI(UsdPhysics.MeshCollisionAPI):
+            continue
+        mesh_col = UsdPhysics.MeshCollisionAPI(prim)
+        approx_attr = mesh_col.GetApproximationAttr()
+        if not approx_attr or not approx_attr.HasValue():
+            continue
+        if approx_attr.Get() == "convexDecomposition":
+            approx_attr.Set("convexHull")

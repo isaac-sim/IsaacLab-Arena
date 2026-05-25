@@ -73,13 +73,13 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
         )
 
         ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
-        table_background = self.asset_registry.get_asset_by_name("office_table")()
+        table_background = self.asset_registry.get_asset_by_name("office_table_background")()
         light = self.asset_registry.get_asset_by_name("light")()
 
         # Table surface as anchor for On relations
         tabletop_reference = ObjectReference(
             name="table",
-            prim_path="{ENV_REGEX_NS}/office_table/Geometry/sm_tabletop_a01_01/sm_tabletop_a01_top_01",
+            prim_path="{ENV_REGEX_NS}/office_table_background/Geometry/sm_tabletop_a01_01/sm_tabletop_a01_top_01",
             parent_asset=table_background,
         )
         tabletop_reference.add_relation(IsAnchor())

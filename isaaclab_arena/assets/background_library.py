@@ -139,6 +139,22 @@ class Table(LibraryBackground):
 
 
 @register_asset
+class OfficeTableBackground(LibraryBackground):
+    """
+    A basic office table.
+    """
+
+    name = "office_table_background"
+    tags = ["background"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Mimic/nut_pour_task/nut_pour_assets/table.usd"
+    object_min_z = -0.05
+    scale = (1.0, 1.0, 0.7)
+
+    def __init__(self):
+        super().__init__(scale=self.scale)
+
+
+@register_asset
 class LightwheelKitchenBackground(LibraryBackground):
     """
     Encapsulates the background scene for the Lightwheel Robocasa kitchen.
