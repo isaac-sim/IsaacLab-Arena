@@ -73,7 +73,7 @@ def test_arena_env_graph_spec_rejects_invalid_data():
     cases = [
         (
             "duplicate node id",
-            lambda data: data["nodes"].append({"id": "table", "name": "duplicate_table", "type": "objectReference"}),
+            lambda data: data["nodes"].append({"id": "table", "name": "duplicate_table", "type": "object_reference"}),
             "Duplicate env graph ids",
         ),
         (
@@ -167,7 +167,7 @@ def _minimal_env_graph_data():
         "env_name": "minimal_env_graph",
         "nodes": [
             {"id": "robot", "name": "robot", "type": "embodiment"},
-            {"id": "table", "name": "table", "type": "objectReference"},
+            {"id": "table", "name": "table", "type": "object_reference"},
             {"id": "cube", "name": "cube", "type": "object"},
         ],
         "tasks": [{

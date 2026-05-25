@@ -28,7 +28,7 @@ class ArenaEnvGraphNodeType(Enum):
     EMBODIMENT = "embodiment"
     BACKGROUND = "background"
     OBJECT = "object"
-    OBJECT_REFERENCE = "objectReference"
+    OBJECT_REFERENCE = "object_reference"
     LIGHTING = "lighting"
 
 

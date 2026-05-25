@@ -16,7 +16,7 @@ nodes:
 
   - id: maple_table_robolab_table
     name: table
-    type: objectReference
+    type: object_reference
     parent: maple_table_robolab
     prim_path: "{ENV_REGEX_NS}/maple_table_robolab/table"
     object_type: rigid
