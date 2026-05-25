@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from isaaclab_arena.assets.object_base import ObjectType
-from isaaclab_arena.environments.utils import (
+from isaaclab_arena.environments.graph_spec_utils import (
     as_dict,
     assert_env_graph_references_exist,
     assert_env_graph_universal_ids,
