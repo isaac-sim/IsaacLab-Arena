@@ -179,7 +179,7 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
 
         class StaticShelfSupport(Object):
             def __init__(self):
-                self.spawner_cfg = sim_utils.CuboidCfg(
+                spawner_cfg = sim_utils.CuboidCfg(
                     size=SHELF_SUPPORT_PATCH_SIZE,
                     collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
                     visible=False,
@@ -187,7 +187,8 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 super().__init__(
                     name="static_pick_place_shelf_support",
                     prim_path="{ENV_REGEX_NS}/static_pick_place_shelf_support",
-                    object_type=ObjectType.SPAWNER,
+                    object_type=ObjectType.BASE,
+                    spawner_cfg=spawner_cfg,
                     initial_pose=Pose(
                         position_xyz=SHELF_SUPPORT_PATCH_CENTER,
                         rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
