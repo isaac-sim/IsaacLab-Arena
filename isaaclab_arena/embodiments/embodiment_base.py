@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from collections.abc import Mapping
 from typing import Any
 
 from isaaclab.envs import ManagerBasedRLMimicEnv
@@ -47,6 +48,12 @@ class EmbodimentBase(Asset):
 
     def set_initial_pose(self, pose: Pose) -> None:
         self.initial_pose = pose
+
+    def set_joint_initial_pos(self, joint_pos: Mapping[str, float]) -> None:
+        """Update the robot's initial joint positions by joint name."""
+        if self.scene_config is None or not hasattr(self.scene_config, "robot"):
+            raise RuntimeError("scene_config must be populated with a `robot` before calling `set_joint_initial_pos`.")
+        self.scene_config.robot.init_state.joint_pos.update(joint_pos)
 
     def get_scene_cfg(self) -> Any:
         if self.initial_pose is not None:

@@ -38,6 +38,8 @@ from isaaclab_arena_g1.g1_env.mdp import g1_observations as g1_observations_mdp
 from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_joint_action_cfg import G1DecoupledWBCJointActionCfg
 from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_pink_action_cfg import G1DecoupledWBCPinkActionCfg
 
+_G1_WAIST_JOINT_NAMES = ("waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint")
+
 
 class G1EmbodimentBase(EmbodimentBase):
     """Embodiment for the G1 robot."""
@@ -75,6 +77,28 @@ class G1EmbodimentBase(EmbodimentBase):
         """Pelvis prim path so OpenXR teleop poses are rebased into robot base frame for IK."""
         return "/World/envs/env_0/Robot/pelvis"
 
+    def set_finger_contact_friction(
+        self,
+        *,
+        material_path: str,
+        static_friction: float,
+        dynamic_friction: float,
+        prim_name_markers: Sequence[str],
+    ) -> None:
+        """Configure a prestartup event that binds contact friction to G1 finger prims."""
+        if self.event_config is None or self.event_config is MISSING:
+            raise RuntimeError("event_config must be populated before calling `set_finger_contact_friction`.")
+        self.event_config.apply_high_friction_to_g1_fingers = EventTerm(
+            func=g1_events_mdp.apply_high_friction_to_g1_fingers,
+            mode="prestartup",
+            params={
+                "material_path": material_path,
+                "static_friction": static_friction,
+                "dynamic_friction": dynamic_friction,
+                "prim_name_markers": tuple(prim_name_markers),
+            },
+        )
+
 
 # Default camera offset pose
 _DEFAULT_G1_CAMERA_OFFSET = Pose(
@@ -97,6 +121,7 @@ class G1WBCJointEmbodiment(G1EmbodimentBase):
         initial_pose: Pose | None = None,
         camera_offset: Pose | None = _DEFAULT_G1_CAMERA_OFFSET,
         use_tiled_camera: bool = True,  # Default to tiled for parallel evaluation
+        lock_waist: bool = False,
     ):
         super().__init__(enable_cameras, initial_pose)
         self.action_config = G1WBCJointActionCfg()
@@ -124,9 +149,12 @@ class G1WBCPinkEmbodiment(G1EmbodimentBase):
         initial_pose: Pose | None = None,
         camera_offset: Pose | None = _DEFAULT_G1_CAMERA_OFFSET,
         use_tiled_camera: bool = False,  # Default to regular for single env
+        lock_waist: bool = False,
     ):
         super().__init__(enable_cameras, initial_pose)
         self.action_config = G1WBCPinkActionCfg()
+        if lock_waist:
+            _remove_waist_from_pink_ik_action_config(self.action_config)
         self.observation_config = G1WBCPinkObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.observation_config.wbc.concatenate_terms = self.concatenate_observation_terms
@@ -154,10 +182,13 @@ class G1WBCAgilePinkEmbodiment(G1EmbodimentBase):
         initial_pose: Pose | None = None,
         camera_offset: Pose | None = _DEFAULT_G1_CAMERA_OFFSET,
         use_tiled_camera: bool = False,
+        lock_waist: bool = False,
     ):
         super().__init__(enable_cameras, initial_pose)
         self.scene_config = G1AgileSceneCfg()
         self.action_config = G1WBCAgilePinkActionCfg()
+        if lock_waist:
+            _remove_waist_from_pink_ik_action_config(self.action_config)
         self.observation_config = G1WBCPinkObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.observation_config.wbc.concatenate_terms = self.concatenate_observation_terms
@@ -187,6 +218,7 @@ class G1WBCAgileJointEmbodiment(G1EmbodimentBase):
         initial_pose: Pose | None = None,
         camera_offset: Pose | None = _DEFAULT_G1_CAMERA_OFFSET,
         use_tiled_camera: bool = True,
+        lock_waist: bool = False,
     ):
         super().__init__(enable_cameras, initial_pose)
         self.scene_config = G1AgileSceneCfg()
@@ -770,12 +802,24 @@ class G1WBCAgilePinkActionCfg:
     )
 
 
+def _remove_waist_from_pink_ik_action_config(
+    action_config: G1WBCPinkActionCfg | G1WBCAgilePinkActionCfg,
+) -> None:
+    """Remove waist joints from a Pink IK action config's extra active joint set."""
+    action_config.g1_action.upperbody_extra_active_joints = [
+        joint_name
+        for joint_name in action_config.g1_action.upperbody_extra_active_joints
+        if joint_name not in _G1_WAIST_JOINT_NAMES
+    ]
+
+
 @configclass
 class G1WBCJointEventCfg:
     """Configuration for events."""
 
     reset_all = EventTerm(func=reset_all_articulation_joints, mode="reset")
     reset_wbc_policy = EventTerm(func=g1_events_mdp.reset_decoupled_wbc_joint_policy, mode="reset")
+    apply_high_friction_to_g1_fingers: EventTerm | None = None
 
 
 @configclass
@@ -784,6 +828,7 @@ class G1WBCPinkEventCfg:
 
     reset_all = EventTerm(func=reset_all_articulation_joints, mode="reset")
     reset_wbc_policy = EventTerm(func=g1_events_mdp.reset_decoupled_wbc_pink_policy, mode="reset")
+    apply_high_friction_to_g1_fingers: EventTerm | None = None
 
 
 class G1MimicEnv(ManagerBasedRLMimicEnv):
