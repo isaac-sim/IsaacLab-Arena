@@ -9,7 +9,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environments.graph_spec_utils import (
     as_dict,
     assert_references_exist,

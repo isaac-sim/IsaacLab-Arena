@@ -5,7 +5,7 @@
 
 from pathlib import Path
 
-from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environments.arena_env_graph_spec import (
     ArenaEnvGraphNodeType,
     ArenaEnvGraphObjectReferenceNodeSpec,
