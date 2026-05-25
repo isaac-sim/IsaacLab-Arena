@@ -93,8 +93,11 @@ def assert_env_graph_references_exist(nodes: list[Any], tasks: list[Any], state_
     state_spec_ids = {state_spec.id for state_spec in state_specs}
 
     for node in nodes:
-        if node.parent is not None:
-            assert node.parent in node_ids, f"Node '{node.id}' references unknown parent '{node.parent}'"
+        # `parent` only exists on ArenaEnvGraphObjectReferenceNodeSpec; getattr keeps this
+        # helper generic so it doesn't need to import the subclass.
+        parent = getattr(node, "parent", None)
+        if parent is not None:
+            assert parent in node_ids, f"Node '{node.id}' references unknown parent '{parent}'"
 
     for task in tasks:
         for label, state_spec_id in (

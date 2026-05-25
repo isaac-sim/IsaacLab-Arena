@@ -8,6 +8,7 @@ from pathlib import Path
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.environments.arena_env_graph_spec import (
     ArenaEnvGraphNodeType,
+    ArenaEnvGraphObjectReferenceNodeSpec,
     ArenaEnvGraphSpatialConstraintType,
     ArenaEnvGraphSpec,
     ArenaEnvGraphStateSpec,
@@ -25,6 +26,7 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
     assert len(spec.state_specs) == 2
 
     table = spec.nodes_by_id["maple_table_robolab_table"]
+    assert isinstance(table, ArenaEnvGraphObjectReferenceNodeSpec)
     assert table.type == ArenaEnvGraphNodeType.OBJECT_REFERENCE
     assert table.parent == "maple_table_robolab"
     assert table.prim_path == "{ENV_REGEX_NS}/maple_table_robolab/table"
@@ -73,7 +75,7 @@ def test_arena_env_graph_spec_rejects_invalid_data():
     cases = [
         (
             "duplicate node id",
-            lambda data: data["nodes"].append({"id": "table", "name": "duplicate_table", "type": "object_reference"}),
+            lambda data: data["nodes"].append({"id": "table", "name": "duplicate_table", "type": "background"}),
             "Duplicate env graph ids",
         ),
         (
@@ -132,6 +134,21 @@ def test_arena_env_graph_spec_rejects_invalid_data():
             "Unknown object_type 'unknown'",
         ),
         (
+            "object_reference missing parent",
+            lambda data: data["nodes"][1].pop("parent"),
+            "Missing required string field 'parent'",
+        ),
+        (
+            "object_reference missing prim_path",
+            lambda data: data["nodes"][1].pop("prim_path"),
+            "Missing required string field 'prim_path'",
+        ),
+        (
+            "object_reference missing object_type",
+            lambda data: data["nodes"][1].pop("object_type"),
+            "Missing required field 'object_type'",
+        ),
+        (
             "unknown node type",
             lambda data: data["nodes"][0].__setitem__("type", "unknown"),
             "Unknown type 'unknown'",
@@ -167,7 +184,16 @@ def _minimal_env_graph_data():
         "env_name": "minimal_env_graph",
         "nodes": [
             {"id": "robot", "name": "robot", "type": "embodiment"},
-            {"id": "table", "name": "table", "type": "object_reference"},
+            # Kept at index 1 so the bad-data mutation lambdas below can address it.
+            {
+                "id": "table",
+                "name": "table",
+                "type": "object_reference",
+                "parent": "background",
+                "prim_path": "{ENV_REGEX_NS}/background/table",
+                "object_type": "rigid",
+            },
+            {"id": "background", "name": "background", "type": "background"},
             {"id": "cube", "name": "cube", "type": "object"},
         ],
         "tasks": [{

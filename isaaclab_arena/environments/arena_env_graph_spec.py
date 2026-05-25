@@ -15,7 +15,6 @@ from isaaclab_arena.environments.utils import (
     assert_env_graph_references_exist,
     assert_env_graph_universal_ids,
     optional_dict,
-    optional_enum,
     optional_str,
     parse_list,
     required_enum,
@@ -49,19 +48,36 @@ class ArenaEnvGraphSpatialConstraintType(Enum):
 class ArenaEnvGraphNodeSpec:
     """Node in an environment graph.
 
-    Could be an object, an object reference, an embodiment, a background, etc.
+    Could be an object, an embodiment, a background, etc. Object references — USD prims
+    inside a parent background asset — are represented by the
+    :class:`ArenaEnvGraphObjectReferenceNodeSpec` subclass, which adds the extra fields
+    needed to locate and type the referenced prim.
     """
 
     id: str
     name: str  # Name registered in the asset registry
     type: ArenaEnvGraphNodeType
-    parent: str | None = None  # Optional, only need for object references
-    prim_path: str | None = None  # Optional, only need for object references
-    object_type: ObjectType | None = None  # Optional, only need for type=object
     # Asset-type specific optional kwargs (e.g. scale, spawn_cfg_addon) — distinct from
     # the typed graph metadata above. The Arena environment builder forwards these when
     # instantiating the asset class.
     params: dict[str, Any] = field(default_factory=dict)
+
+
+# kw_only=True forces the three new fields to be keyword-only in __init__. Required because
+# the base class ends with a defaulted field (`params`) and Python forbids non-default args
+# from following default ones — placing the new required fields after `*` sidesteps that rule
+# and lets us declare them as required (no default) instead of Optional with runtime checks.
+@dataclass(kw_only=True)
+class ArenaEnvGraphObjectReferenceNodeSpec(ArenaEnvGraphNodeSpec):
+    """Object-reference node: a USD prim inside a parent background asset.
+
+    All three extra fields are required for this node type — without them the
+    builder cannot bind to the referenced prim or know how to wrap it.
+    """
+
+    parent: str  # id of the parent (typically background) node that owns the prim
+    prim_path: str  # USD prim path of the referenced prim (may contain {ENV_REGEX_NS})
+    object_type: ObjectType  # how to wrap the prim (rigid, articulation, etc.)
 
 
 @dataclass
@@ -168,15 +184,21 @@ class ArenaEnvGraphSpec:
 
 def _parse_node(data: Any) -> ArenaEnvGraphNodeSpec:
     data = as_dict(data, "Node spec")
-    return ArenaEnvGraphNodeSpec(
+    node_type = required_enum(data, "type", ArenaEnvGraphNodeType)
+    common = dict(
         id=required_str(data, "id"),
         name=required_str(data, "name"),
-        type=required_enum(data, "type", ArenaEnvGraphNodeType),
-        parent=optional_str(data, "parent"),
-        prim_path=optional_str(data, "prim_path"),
-        object_type=optional_enum(data, "object_type", ObjectType),
+        type=node_type,
         params=optional_dict(data, "params"),
     )
+    if node_type == ArenaEnvGraphNodeType.OBJECT_REFERENCE:
+        return ArenaEnvGraphObjectReferenceNodeSpec(
+            **common,
+            parent=required_str(data, "parent"),
+            prim_path=required_str(data, "prim_path"),
+            object_type=required_enum(data, "object_type", ObjectType),
+        )
+    return ArenaEnvGraphNodeSpec(**common)
 
 
 def _parse_spatial_constraint(data: Any) -> ArenaEnvGraphSpatialConstraintSpec:
