@@ -21,7 +21,7 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
     spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml")
 
     assert spec.env_name == "pick_and_place_maple_table_default"
-    assert len(spec.nodes) == 5
+    assert len(spec.nodes) == 6
     assert len(spec.tasks) == 1
     assert len(spec.state_specs) == 2
 
@@ -32,6 +32,9 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
     assert table.prim_path == "{ENV_REGEX_NS}/maple_table_robolab/table"
     assert table.object_type == ObjectType.RIGID
 
+    mug = spec.nodes_by_id["mug_ycb_robolab"]
+    assert mug.type == ArenaEnvGraphNodeType.OBJECT
+
     task = spec.tasks_by_id["pick_and_place_0"]
     assert task.initial_state_spec_id == "state_spec_0"
     assert task.success_state_spec_id == "state_spec_1"
@@ -40,7 +43,7 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
 
     initial_state = spec.state_specs_by_id["state_spec_0"]
     assert isinstance(initial_state, ArenaEnvGraphStateSpec)
-    assert len(initial_state.spatial_constraints) == 5
+    assert len(initial_state.spatial_constraints) == 6
     assert len(initial_state.task_constraints) == 1
 
     cube_limits = initial_state.spatial_constraints[2]
@@ -48,11 +51,24 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
     assert cube_limits.parent == "rubiks_cube_hot3d_robolab"
     assert cube_limits.params == {"x_min": 0.55, "x_max": 0.70, "y_min": -0.40, "y_max": -0.10}
 
+    initial_mug_pose = initial_state.spatial_constraints[5]
+    assert initial_mug_pose.type == ArenaEnvGraphSpatialConstraintType.AT_POSE
+    assert initial_mug_pose.parent == "mug_ycb_robolab"
+    assert initial_mug_pose.child is None
+    assert initial_mug_pose.params["position_xyz"] == (0.65, 0.25, 0.85)
+    assert initial_mug_pose.params["rotation_xyzw"] == (0.0, 0.0, 0.0, 1.0)
+
     final_state = spec.state_specs_by_id["state_spec_1"]
     in_constraint = final_state.spatial_constraints[3]
     assert in_constraint.type == ArenaEnvGraphSpatialConstraintType.IN
     assert in_constraint.parent == "bowl_ycb_robolab"
     assert in_constraint.child == "rubiks_cube_hot3d_robolab"
+
+    final_mug_pose = final_state.spatial_constraints[4]
+    assert final_mug_pose.type == ArenaEnvGraphSpatialConstraintType.AT_POSE
+    assert final_mug_pose.parent == "mug_ycb_robolab"
+    assert final_mug_pose.params["position_xyz"] == (0.65, 0.25, 0.85)
+    assert final_mug_pose.params["rotation_xyzw"] == (0.0, 0.0, 0.0, 1.0)
 
 
 def test_arena_env_graph_spec_parses_optional_task_constraints_and_at_pose():
