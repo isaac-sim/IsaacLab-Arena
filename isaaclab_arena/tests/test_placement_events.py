@@ -274,7 +274,7 @@ def test_solve_and_place_objects_partial_reset_reusable_pool_consumes_only_reset
     assert available_before - available_after == len(env_ids)
 
 
-def test_solve_and_place_objects_writes_invalid_fallback_layout():
+def test_solve_and_place_objects_writes_invalid_fallback_layout(capsys):
     """Invalid fallback layouts should still be written, matching pool fallback behavior."""
 
     from isaaclab_arena.relations.placement_events import solve_and_place_objects
@@ -299,10 +299,53 @@ def test_solve_and_place_objects_writes_invalid_fallback_layout():
             ]
 
     solve_and_place_objects(env, torch.tensor([0]), objects, InvalidPool())
+    captured = capsys.readouterr()
 
     assert set(env._assets) == {box1.name, box2.name}
     assert env._assets[box1.name].write_root_pose_to_sim.call_count == 1
     assert env._assets[box2.name].write_root_pose_to_sim.call_count == 1
+    assert "Writing best-loss fallback placement" in captured.out
+
+
+def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_result():
+    """Env-indexed partial resets should write the result for each absolute env id."""
+
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+    from isaaclab_arena.relations.placement_result import PlacementResult
+
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+    env = _make_mock_env(num_envs=4)
+
+    class EnvIndexedPool:
+        requires_env_indexed_layouts = True
+        num_envs = 4
+
+        def sample_without_replacement(self, count: int) -> list[PlacementResult]:
+            assert count == 4
+            return [
+                PlacementResult(
+                    success=True,
+                    positions={
+                        box1: (float(cur_env), 0.0, 0.0),
+                        box2: (float(cur_env), 1.0, 0.0),
+                    },
+                    final_loss=0.0,
+                    attempts=1,
+                )
+                for cur_env in range(4)
+            ]
+
+    solve_and_place_objects(env, torch.tensor([2]), objects, EnvIndexedPool())
+
+    box1_pose = env._assets[box1.name].write_root_pose_to_sim.call_args[0][0]
+    box2_pose = env._assets[box2.name].write_root_pose_to_sim.call_args[0][0]
+    box1_env_id = env._assets[box1.name].write_root_pose_to_sim.call_args.kwargs["env_ids"]
+    box2_env_id = env._assets[box2.name].write_root_pose_to_sim.call_args.kwargs["env_ids"]
+    assert box1_pose[0, 0].item() == 2.0
+    assert box2_pose[0, 0].item() == 2.0
+    assert box1_env_id.tolist() == [2]
+    assert box2_env_id.tolist() == [2]
 
 
 def test_solve_and_place_objects_asserts_env_indexed_pool_size_matches_scene():
@@ -318,7 +361,7 @@ def test_solve_and_place_objects_asserts_env_indexed_pool_size_matches_scene():
         requires_env_indexed_layouts = True
         num_envs = 1
 
-    with pytest.raises(AssertionError, match="scene has 2 env origins"):
+    with pytest.raises(ValueError, match="scene has 2 env origins"):
         solve_and_place_objects(env, torch.tensor([0]), objects, MismatchedEnvIndexedPool())
 
 

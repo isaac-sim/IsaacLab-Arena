@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import random
 import torch
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
@@ -19,20 +19,54 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
 
 
-class PooledObjectPlacer:
-    """Object placer that keeps a pool of optimized layouts.
+@dataclass
+class EnvLayoutPool:
+    """Unread layout queue for one absolute environment."""
 
-    Storage: num_envs independent layout pools, each with its own read
-    cursor. Env-specific layouts are solved
-    against a fixed env's object geometry and must be sampled in complete env
-    rounds. Reusable layouts can be consumed one at a time.
+    layouts: list[PlacementResult]
+    cursor: int = 0
+
+    @property
+    def available(self) -> int:
+        return len(self.layouts) - self.cursor
+
+    def discard_consumed(self) -> None:
+        self.layouts = self.layouts[self.cursor :]
+        self.cursor = 0
+
+    def append(self, layout: PlacementResult) -> None:
+        self.layouts.append(layout)
+
+    def extend(self, layouts: list[PlacementResult]) -> None:
+        self.layouts.extend(layouts)
+
+    def next(self) -> PlacementResult:
+        if self.cursor >= len(self.layouts):
+            raise IndexError("No unread layouts remain in this env pool.")
+        layout = self.layouts[self.cursor]
+        self.cursor += 1
+        return layout
+
+
+class PooledObjectPlacer:
+    """Object placer that maintains solved placement layouts.
+
+    Storage is organized as one queue per environment. Env-specific layouts
+    are solved for a fixed env's object geometry and must be consumed in
+    complete env rounds. Reusable layouts are interchangeable and can be
+    consumed one at a time from the pooled queues.
+
+    Strictly valid layouts are preferred. If no valid layout is available for
+    a solve batch, the best-loss solver result is kept as a visible fallback.
 
     The pool is refilled automatically when an env's queue runs out.
 
-    * sample_without_replacement — returns the next count layouts.
-      Env-specific layouts require count to be a multiple of num_envs.
-    * sample_with_replacement — picks count layouts at random per
-      env-slot (non-consuming). Used for static initial positions.
+    * ``sample_without_replacement(count)`` consumes ``count`` layouts. For
+      env-specific layouts, ``count`` must be a multiple of ``num_envs`` and
+      may cover multiple complete env rounds.
+    * ``sample_with_replacement(count)`` is non-consuming. Env-specific layouts
+      are sampled from matching env slots; reusable layouts are sampled IID from
+      all stored layouts.
 
     Args:
         objects: All objects (including anchors) participating in relation solving.
@@ -52,25 +86,25 @@ class PooledObjectPlacer:
         if pool_size < 1:
             raise ValueError(f"pool_size must be >= 1, got {pool_size}")
         self._uses_env_specific_bboxes = has_heterogeneous_objects(objects)
-        if self._uses_env_specific_bboxes:
-            assert num_envs is not None, "num_envs is required when layouts use env-specific object variants."
+        if self._uses_env_specific_bboxes and num_envs is None:
+            raise ValueError("num_envs is required when layouts use env-specific object variants.")
         self._num_envs = num_envs if num_envs is not None else 1
         if self._num_envs < 1:
             raise ValueError(f"num_envs must be >= 1, got {self._num_envs}")
 
-        # 2. Configure dependencies and per-env storage.
         self._objects = list(objects)
         # Pool construction ranks several candidate layouts per env and applies
         # poses only when a sampled layout is used.
         self._placer = ObjectPlacer(params=replace(placer_params, apply_positions_to_objects=False))
         self._pool_size = pool_size
         self._had_fallbacks = False
-        self._layout_pools: dict[int, list[PlacementResult]] = {cur_env: [] for cur_env in range(self._num_envs)}
-        self._layout_cursors: dict[int, int] = {cur_env: 0 for cur_env in range(self._num_envs)}
+        self._base_placement_seed = placer_params.placement_seed
+        self._next_seed_offset = 0
+        self._env_pools: list[EnvLayoutPool] = [EnvLayoutPool([]) for _ in range(self._num_envs)]
 
         self._solve_and_store(pool_size)
-        for cur_env, pool in self._layout_pools.items():
-            if not pool:
+        for cur_env, pool in enumerate(self._env_pools):
+            if not pool.layouts:
                 raise RuntimeError(
                     f"Placement pool failed to produce any valid layouts for env {cur_env} "
                     f"from {pool_size} attempts. Check object relations and constraints."
@@ -82,7 +116,7 @@ class PooledObjectPlacer:
 
     def _available_per_env(self) -> list[int]:
         """Number of unread layouts in each env's pool (length num_envs)."""
-        return [len(self._layout_pools[cur_env]) - self._layout_cursors[cur_env] for cur_env in range(self._num_envs)]
+        return [pool.available for pool in self._env_pools]
 
     def _total_available(self) -> int:
         """Total unread layouts across all env pools."""
@@ -90,10 +124,15 @@ class PooledObjectPlacer:
 
     def _discard_consumed_layouts(self) -> None:
         """Drop consumed layouts from every env pool before appending new layouts."""
-        for cur_env in self._layout_pools:
-            idx = self._layout_cursors[cur_env]
-            self._layout_pools[cur_env] = self._layout_pools[cur_env][idx:]
-            self._layout_cursors[cur_env] = 0
+        for pool in self._env_pools:
+            pool.discard_consumed()
+
+    def _prepare_seeded_solve(self, num_candidates: int) -> None:
+        """Avoid replaying the same candidate sequence on seeded refills."""
+        if self._base_placement_seed is None:
+            return
+        self._placer.params.placement_seed = self._base_placement_seed + self._next_seed_offset
+        self._next_seed_offset += num_candidates
 
     def _solve_and_store(self, num_layouts: int) -> None:
         """Solve layouts in batches until every env has target_per_env unread layouts.
@@ -134,6 +173,7 @@ class PooledObjectPlacer:
         If no candidate passes strict validation, fall back to best-loss results
         to match the pre-pool behavior used by existing environments.
         """
+        self._prepare_seeded_solve(num_layouts * self._placer.params.max_placement_attempts)
         with torch.inference_mode(False):
             result = self._placer.place(self._objects, num_envs=num_layouts, result_per_env=True)
 
@@ -168,7 +208,7 @@ class PooledObjectPlacer:
         available = self._available_per_env()
         for layout in layouts:
             cur_env = min(range(self._num_envs), key=available.__getitem__)
-            self._layout_pools[cur_env].append(layout)
+            self._env_pools[cur_env].append(layout)
             available[cur_env] += 1
 
     def _solve_env_ranked_layouts(self, num_layouts: int) -> tuple[list[list[PlacementResult]], int]:
@@ -179,6 +219,10 @@ class PooledObjectPlacer:
         are extra environments.
         """
         layouts_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
+        # ObjectPlacer seeds each candidate as placement_seed + candidate_idx.
+        # Keep this count aligned with place_ranked_per_env's candidate layout.
+        num_candidates = self._num_envs * layouts_per_env * self._placer.params.max_placement_attempts
+        self._prepare_seeded_solve(num_candidates)
 
         with torch.inference_mode(False):
             ranked_results_per_env = self._placer.place_ranked_per_env(
@@ -204,17 +248,17 @@ class PooledObjectPlacer:
             env_results = ranked_results_per_env[cur_env][:layouts_per_env]
             valid_results = [r for r in env_results if r.success]
             if valid_results:
-                self._layout_pools[cur_env].extend(valid_results)
+                self._env_pools[cur_env].extend(valid_results)
                 total_valid += len(valid_results)
             else:
-                self._layout_pools[cur_env].extend(env_results)
+                self._env_pools[cur_env].extend(env_results)
                 fallback_envs.append(cur_env)
                 self._had_fallbacks = True
 
         total_solved = sum(min(len(env_results), layouts_per_env) for env_results in ranked_results_per_env)
         if total_valid < total_solved:
             msg = (
-                f"Placement pool (env-specific bbox layouts): solved {total_solved} candidates,"
+                f"Warning: Placement pool (env-specific bbox layouts) solved {total_solved} candidates,"
                 f" {total_valid} valid, {total_solved - total_valid} failed validation"
             )
             if fallback_envs:
@@ -226,12 +270,12 @@ class PooledObjectPlacer:
     # ------------------------------------------------------------------
 
     def sample_without_replacement(self, count: int) -> list[PlacementResult]:
-        """Return the next count layouts.
+        """Return the next ``count`` layouts.
 
         Env-specific layouts are returned as complete rounds of
-        [env_0, env_1, ..., env_{num_envs-1}] so each result still maps
-        to the absolute environment it was solved for. Reusable layouts are
-        interchangeable and consume only count entries.
+        ``[env_0, env_1, ..., env_{num_envs-1}]`` so each result still maps
+        to the absolute environment it was solved for. Reusable layouts consume
+        exactly ``count`` interchangeable entries.
 
         Args:
             count: Number of layouts to return.
@@ -256,14 +300,13 @@ class PooledObjectPlacer:
         results: list[PlacementResult] = []
         for _ in range(layouts_per_env):
             for cur_env in range(self._num_envs):
-                idx = self._layout_cursors[cur_env]
-                if idx >= len(self._layout_pools[cur_env]):
+                pool = self._env_pools[cur_env]
+                if pool.available <= 0:
                     raise RuntimeError(
                         f"Placement pool: env {cur_env} has no more valid layouts. "
                         "The solver is not producing enough valid placements."
                     )
-                results.append(self._layout_pools[cur_env][idx])
-                self._layout_cursors[cur_env] = idx + 1
+                results.append(pool.next())
         return results
 
     def _sample_reusable_without_replacement(self, count: int) -> list[PlacementResult]:
@@ -281,14 +324,13 @@ class PooledObjectPlacer:
         results: list[PlacementResult] = []
         for _ in range(count):
             cur_env = max(range(self._num_envs), key=available.__getitem__)
-            idx = self._layout_cursors[cur_env]
-            if idx >= len(self._layout_pools[cur_env]):
+            pool = self._env_pools[cur_env]
+            if pool.available <= 0:
                 raise RuntimeError(
                     f"Placement pool: env {cur_env} has no more valid layouts. "
                     "The solver is not producing enough valid placements."
                 )
-            results.append(self._layout_pools[cur_env][idx])
-            self._layout_cursors[cur_env] = idx + 1
+            results.append(pool.next())
             available[cur_env] -= 1
         return results
 
@@ -318,11 +360,11 @@ class PooledObjectPlacer:
             results: list[PlacementResult] = []
             for i in range(count):
                 cur_env = i % self._num_envs
-                pool = self._layout_pools[cur_env]
+                pool = self._env_pools[cur_env].layouts
                 assert pool, f"Env {cur_env} has no valid layouts to sample from."
                 results.append(random.choice(pool))
             return results
-        all_layouts = [layout for pool in self._layout_pools.values() for layout in pool]
+        all_layouts = [layout for pool in self._env_pools for layout in pool.layouts]
         return random.choices(all_layouts, k=count)
 
     @property

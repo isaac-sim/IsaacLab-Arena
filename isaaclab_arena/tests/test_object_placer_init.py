@@ -68,6 +68,33 @@ def test_on_init_z_places_bottom_at_parent_top():
     assert abs(child_bottom - expected_bottom) < 1e-6
 
 
+def test_on_init_uses_env_specific_parent_bbox_override():
+    """Object with On(anchor set) should initialize against that env's assigned bbox."""
+    table_set = DummyObject(
+        name="table_set",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 2.0, 0.5)),
+    )
+    table_set.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table_set.add_relation(IsAnchor())
+
+    small_table_bbox = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.1))
+    box_bbox = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.05, 0.05, 0.05))
+    box = DummyObject(name="box", bounding_box=box_bbox)
+    box.add_relation(On(table_set, clearance_m=0.02))
+
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    positions = placer._generate_initial_positions(
+        [table_set, box],
+        {table_set},
+        child_bboxes={table_set: small_table_bbox, box: box_bbox},
+    )
+
+    x, y, z = positions[box]
+    assert small_table_bbox.min_point[0, 0] <= x <= small_table_bbox.max_point[0, 0]
+    assert small_table_bbox.min_point[0, 1] <= y <= small_table_bbox.max_point[0, 1]
+    assert abs(z - (small_table_bbox.max_point[0, 2] + 0.02 - box_bbox.min_point[0, 2])) < 1e-6
+
+
 def test_on_init_clamps_to_center_when_child_wider_than_parent():
     """Object wider than its On parent in X/Y is clamped to parent center, not an invalid range."""
     desk = DummyObject(

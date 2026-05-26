@@ -17,23 +17,30 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
 
+VARIANT_SEED_STRIDE = 1_000_003
+
 
 def has_heterogeneous_objects(objects: list[ObjectBase]) -> bool:
-    """True if any object in the list is a RigidObjectSet."""
+    """Return whether placement must use env-specific object geometry."""
     from isaaclab_arena.assets.object_set import RigidObjectSet
 
     return any(isinstance(obj, RigidObjectSet) for obj in objects)
 
 
-def assign_variants_for_envs(objects: list[ObjectBase], num_envs: int) -> None:
+def assign_variants_for_envs(objects: list[ObjectBase], num_envs: int, placement_seed: int | None = None) -> None:
     """Assign per-env variants on every RigidObjectSet in the list.
 
-    Placers call this at the boundary before any per-env geometry reads.
-    Objects without variants are ignored.
+    Placers call this once they know the real environment count, before
+    requesting per-env bounding boxes. Objects without variants are ignored.
     """
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+
+    variant_set_idx = 0
     for obj in objects:
-        if hasattr(obj, "assign_variants"):
-            obj.assign_variants(num_envs)
+        if isinstance(obj, RigidObjectSet):
+            variant_seed = None if placement_seed is None else placement_seed + VARIANT_SEED_STRIDE * variant_set_idx
+            obj.assign_variants(num_envs, variant_seed=variant_seed)
+            variant_set_idx += 1
 
 
 def get_bounding_box_per_env(obj: ObjectBase, num_envs: int) -> AxisAlignedBoundingBox:
@@ -42,7 +49,9 @@ def get_bounding_box_per_env(obj: ObjectBase, num_envs: int) -> AxisAlignedBound
     RigidObjectSet delegates to its own get_bounding_box_per_env.
     All other objects broadcast their single bbox.
     """
-    if hasattr(obj, "get_bounding_box_per_env"):
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+
+    if isinstance(obj, RigidObjectSet):
         return obj.get_bounding_box_per_env(num_envs)
 
     bbox = obj.get_bounding_box()

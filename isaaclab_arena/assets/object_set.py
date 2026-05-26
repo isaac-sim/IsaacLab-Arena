@@ -19,9 +19,7 @@ from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
 
 
 class RigidObjectSet(Object):
-    """
-    A set of rigid objects.
-    """
+    """A set of rigid objects with one member selected per environment."""
 
     def __init__(
         self,
@@ -97,26 +95,27 @@ class RigidObjectSet(Object):
 
     @property
     def object_usd_paths(self) -> list[str]:
-        """Per-env USD paths passed to MultiUsdFileCfg.
+        """USD paths passed to MultiUsdFileCfg.
 
-        Before variant indices are assigned, returns the member list.
-        After assignment, returns one path per env based on variant_indices_by_env.
+        Before assignment this is the member USD list. After assignment this
+        returns one USD path per environment based on ``variant_indices_by_env``.
         """
         if self.variant_indices_by_env is not None:
             return [self.member_usd_paths[idx] for idx in self.variant_indices_by_env]
         return self.member_usd_paths
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Get the bounding box of the object set.
+        """Return one conservative local bbox for callers that cannot vary by env.
 
-        This compatibility fallback returns the member bbox with the greatest
-        z-extent. Heterogeneous placement should use get_bounding_box_per_env()
-        after assign_variants() so each env uses its actual variant geometry.
+        The returned bbox has shape ``(1, 3)`` and uses the member with the
+        greatest z-extent. Heterogeneous placement uses
+        ``get_bounding_box_per_env()`` after ``assign_variants()`` so each env
+        uses its actual variant geometry.
         """
         return max(self.objects, key=lambda obj: obj.get_bounding_box().size[0, 2].item()).get_bounding_box()
 
-    def assign_variants(self, num_envs: int) -> None:
-        """Assign one member-variant index per environment.
+    def assign_variants(self, num_envs: int, variant_seed: int | None = None) -> None:
+        """Fix one member-variant index per environment.
 
         The assignment is fixed for the lifetime of the object set: subsequent
         calls with the same ``num_envs`` are no-ops, and a call with a
@@ -124,12 +123,12 @@ class RigidObjectSet(Object):
         env independently samples one variant; otherwise assignments repeat
         the member order across environments.
 
-        Callers (typically the placer once ``num_envs`` is known) must invoke
-        this before reading ``variant_indices_by_env`` or
-        ``get_bounding_box_per_env``.
+        Callers invoke this once ``num_envs`` is known, before reading
+        ``variant_indices_by_env`` or ``get_bounding_box_per_env``.
 
         Args:
             num_envs: Number of environments to assign variants for.
+            variant_seed: Optional seed used when random_choice=True.
         """
         if self.variant_indices_by_env is not None:
             assert len(self.variant_indices_by_env) == num_envs, (
@@ -137,16 +136,17 @@ class RigidObjectSet(Object):
                 f"{len(self.variant_indices_by_env)} envs, got request for {num_envs}."
             )
             return
-        self._set_variant_indices_by_env(self._generate_variant_indices(num_envs))
+        self._set_variant_indices_by_env(self._generate_variant_indices(num_envs, variant_seed=variant_seed))
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
-        """Get the actual bounding box for each env's variant.
+        """Return the local bbox for each env's assigned variant.
 
         Unlike the single-bbox compatibility fallback, this returns the real
         local bbox of the variant assigned to each env, enabling correct
         collision-free placement for heterogeneous scenes.
 
-        Requires ``assign_variants(num_envs)`` to have been called first.
+        Requires ``assign_variants(num_envs)`` to have been called first. The
+        returned bbox has shape ``(num_envs, 3)``.
 
         Args:
             num_envs: Number of environments. Must match the assignment.
@@ -174,19 +174,30 @@ class RigidObjectSet(Object):
         # and we can use the canonical first member USD to find the shallowest rigid body.
         return super().get_contact_sensor_cfg(contact_against_object, usd_path=self.member_usd_paths[0])
 
-    def _generate_variant_indices(self, num_envs: int) -> list[int]:
+    def _generate_variant_indices(self, num_envs: int, variant_seed: int | None = None) -> list[int]:
+        """Return one member index per env.
+
+        Ordered sets repeat member order. Random sets sample independently per
+        env, using a local generator when variant_seed is set.
+        """
         n = len(self.objects)
         if not self.random_choice:
             return [env_idx % n for env_idx in range(num_envs)]
-        return torch.randint(low=0, high=n, size=(num_envs,)).tolist()
+        if variant_seed is None:
+            return torch.randint(low=0, high=n, size=(num_envs,)).tolist()
+        generator = torch.Generator()
+        generator.manual_seed(variant_seed)
+        return torch.randint(low=0, high=n, size=(num_envs,), generator=generator).tolist()
 
     def _set_variant_indices_by_env(self, variant_indices_by_env: list[int]) -> None:
-        """Validate and store variant indices, then sync the spawn config's USD path list."""
+        """Validate and store variant indices, then sync spawn config when it exists."""
         n = len(self.objects)
         assert all(
             0 <= idx < n for idx in variant_indices_by_env
         ), f"RigidObjectSet '{self.name}' variant indices must be in [0, {n}); got {variant_indices_by_env}."
         self.variant_indices_by_env = list(variant_indices_by_env)
+        # During __init__, Object.object_cfg has not been built yet; _generate_rigid_cfg()
+        # reads object_usd_paths after this assignment.
         spawn_cfg = self.object_cfg.spawn if getattr(self, "object_cfg", None) is not None else None
         if isinstance(spawn_cfg, sim_utils.MultiUsdFileCfg):
             spawn_cfg.usd_path = self.object_usd_paths

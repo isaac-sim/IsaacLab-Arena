@@ -94,6 +94,24 @@ def _test_object_set_default_variant_indices_follow_member_order(simulation_app)
     return True
 
 
+def _test_object_set_random_variant_indices_use_placement_seed(simulation_app):
+    """Random variant assignment should be repeatable with the same placement seed."""
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+
+    def _assigned_indices():
+        can_a, can_b, _bbox_a, _bbox_b = _make_object_set_variants()
+        with (
+            patch("isaaclab_arena.assets.object_set.detect_object_type", return_value=ObjectType.RIGID),
+            patch("isaaclab_arena.assets.object_set.find_shallowest_rigid_body", return_value="/rigid"),
+        ):
+            obj_set = RigidObjectSet(name="seeded_cans", objects=[can_a, can_b], random_choice=True)
+            obj_set.assign_variants(num_envs=8, variant_seed=123)
+        return obj_set.variant_indices_by_env
+
+    return _assigned_indices() == _assigned_indices()
+
+
 def _test_object_set_rejects_variant_reassignment_with_different_num_envs(simulation_app):
     """Variant assignment should remain fixed for the original env count."""
     from isaaclab_arena.assets.object_base import ObjectType
@@ -211,15 +229,15 @@ def _test_empty_object_set(simulation_app):
 
 
 def _test_articulation_object_set(simulation_app):
+    from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_set import RigidObjectSet
-    from isaaclab_arena.assets.registries import AssetRegistry
 
-    asset_registry = AssetRegistry()
-    microwave = asset_registry.get_asset_by_name("microwave")()
+    can_a, can_b, _bbox_a, _bbox_b = _make_object_set_variants()
     try:
-        RigidObjectSet(name="articulation_object_set", objects=[microwave])
-    except Exception:
-        return True
+        with patch("isaaclab_arena.assets.object_set.detect_object_type", return_value=ObjectType.ARTICULATION):
+            RigidObjectSet(name="articulation_object_set", objects=[can_a, can_b])
+    except ValueError as exc:
+        return "contain only rigid objects" in str(exc)
     return False
 
 
@@ -471,6 +489,14 @@ def test_object_set_default_variant_indices_follow_member_order():
         headless=HEADLESS,
     )
     assert result, f"Test {_test_object_set_default_variant_indices_follow_member_order.__name__} failed"
+
+
+def test_object_set_random_variant_indices_use_placement_seed():
+    result = run_simulation_app_function(
+        _test_object_set_random_variant_indices_use_placement_seed,
+        headless=HEADLESS,
+    )
+    assert result, f"Test {_test_object_set_random_variant_indices_use_placement_seed.__name__} failed"
 
 
 def test_object_set_rejects_variant_reassignment_with_different_num_envs():

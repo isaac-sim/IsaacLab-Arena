@@ -32,24 +32,38 @@ from isaaclab_arena.utils.pose import Pose
 
 @pytest.fixture(autouse=True)
 def _patch_bounding_box_helpers_for_test_doubles(monkeypatch):
-    """Allow HeterogeneousDummyObject to trigger the heterogeneous placement path.
+    """Let ``HeterogeneousDummyObject`` flow through the heterogeneous placement path.
 
-    Only has_heterogeneous_objects needs patching — it uses isinstance(obj, RigidObjectSet)
-    which won't match test doubles. The downstream functions (assign_variants_for_envs,
-    get_bounding_box_per_env) already duck-type via hasattr.
+    Production dispatch uses ``isinstance(RigidObjectSet)``, but these tests use
+    lightweight ``DummyObject`` subclasses with ``get_bounding_box_per_env(...)``.
+    Patch every module that binds the helper by name at import time.
     """
     from isaaclab_arena.relations import bounding_box_helpers
 
-    _original_has_het = bounding_box_helpers.has_heterogeneous_objects
+    original_has_het = bounding_box_helpers.has_heterogeneous_objects
+    original_bbox_per_env = bounding_box_helpers.get_bounding_box_per_env
 
-    def _patched_has_het(objects):
-        if _original_has_het(objects):
-            return True
-        return any(hasattr(obj, "get_bounding_box_per_env") for obj in objects)
+    def has_het_with_doubles(objects):
+        return original_has_het(objects) or any(hasattr(obj, "get_bounding_box_per_env") for obj in objects)
 
-    monkeypatch.setattr("isaaclab_arena.relations.bounding_box_helpers.has_heterogeneous_objects", _patched_has_het)
-    monkeypatch.setattr("isaaclab_arena.relations.object_placer.has_heterogeneous_objects", _patched_has_het)
-    monkeypatch.setattr("isaaclab_arena.relations.pooled_object_placer.has_heterogeneous_objects", _patched_has_het)
+    def bbox_per_env_with_doubles(obj, num_envs):
+        if hasattr(obj, "get_bounding_box_per_env"):
+            return obj.get_bounding_box_per_env(num_envs)
+        return original_bbox_per_env(obj, num_envs)
+
+    has_het_sites = [
+        "isaaclab_arena.relations.bounding_box_helpers.has_heterogeneous_objects",
+        "isaaclab_arena.relations.object_placer.has_heterogeneous_objects",
+        "isaaclab_arena.relations.pooled_object_placer.has_heterogeneous_objects",
+    ]
+    bbox_per_env_sites = [
+        "isaaclab_arena.relations.bounding_box_helpers.get_bounding_box_per_env",
+        "isaaclab_arena.relations.object_placer.get_bounding_box_per_env",
+    ]
+    for site in has_het_sites:
+        monkeypatch.setattr(site, has_het_with_doubles)
+    for site in bbox_per_env_sites:
+        monkeypatch.setattr(site, bbox_per_env_with_doubles)
 
 
 # ---------------------------------------------------------------------------
@@ -448,13 +462,11 @@ def test_pooled_placer_heterogeneous_sample_with_replacement():
     desk, hetero, placer_params = _make_hetero_pool_objects()
     pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=20, num_envs=4)
 
-    pool._layout_pools = {
-        env_id: [
+    for env_id in range(4):
+        pool._env_pools[env_id].layouts = [
             PlacementResult(success=True, positions={hetero: (float(env_id), 0.0, 0.0)}, final_loss=0.0, attempts=1)
         ]
-        for env_id in range(4)
-    }
-    pool._layout_cursors = {env_id: 0 for env_id in range(4)}
+        pool._env_pools[env_id].cursor = 0
     initial_remaining = pool.remaining
     samples = pool.sample_with_replacement(8)
     assert [sample.positions[hetero][0] for sample in samples] == [0.0, 1.0, 2.0, 3.0, 0.0, 1.0, 2.0, 3.0]
@@ -474,6 +486,53 @@ def test_pooled_placer_heterogeneous_sample_without_replacement_triggers_refill(
     # Pool should be exhausted now; request more to trigger refill
     draws = pool.sample_without_replacement(2)
     assert len(draws) == 2, "Pool should refill and return requested layouts"
+
+
+def test_pooled_placer_seeded_refills_are_reproducible():
+    """Two seeded pools should produce the same layout sequence across a refill."""
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3, verbose=False)
+    placer_params = ObjectPlacerParams(
+        solver_params=solver_params,
+        placement_seed=11,
+        max_placement_attempts=2,
+    )
+
+    def _draw_sequence():
+        desk, hetero, _placer_params = _make_hetero_pool_objects()
+        pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=2, num_envs=2)
+        first_round = pool.sample_without_replacement(2)
+        refill_round = pool.sample_without_replacement(2)
+        return [result.positions[hetero] for result in first_round + refill_round]
+
+    assert _draw_sequence() == _draw_sequence()
+
+
+def test_pooled_placer_env_specific_fallbacks_are_reported(capsys):
+    """Env-specific best-loss fallbacks should be visible to callers."""
+    desk, hetero, placer_params = _make_hetero_pool_objects()
+    pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=2, num_envs=2)
+    for env_pool in pool._env_pools:
+        env_pool.layouts = []
+        env_pool.cursor = 0
+
+    fallback_results = [
+        [
+            PlacementResult(
+                success=False,
+                positions={hetero: (float(cur_env), 0.0, 0.0)},
+                final_loss=1.0,
+                attempts=1,
+            )
+        ]
+        for cur_env in range(2)
+    ]
+
+    pool._store_env_matched_results(fallback_results, layouts_per_env=1)
+    captured = capsys.readouterr()
+
+    assert pool.had_fallbacks
+    assert "Falling back to best-loss layouts" in captured.out
+    assert [env_pool.available for env_pool in pool._env_pools] == [1, 1]
 
 
 def test_pooled_placer_reusable_layouts_report_complete_env_rounds():
@@ -508,8 +567,9 @@ def test_pooled_placer_reusable_layouts_keep_partial_valid_results():
     placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
 
     pool = PooledObjectPlacer(objects=[desk, box], placer_params=placer_params, pool_size=4, num_envs=4)
-    pool._layout_pools = {env_id: [] for env_id in range(4)}
-    pool._layout_cursors = {env_id: 0 for env_id in range(4)}
+    for env_pool in pool._env_pools:
+        env_pool.layouts = []
+        env_pool.cursor = 0
 
     layouts = [
         PlacementResult(success=True, positions={box: (float(i), 0.0, 0.0)}, final_loss=0.0, attempts=1)
@@ -517,7 +577,7 @@ def test_pooled_placer_reusable_layouts_keep_partial_valid_results():
     ]
     pool._store_reusable_results(layouts)
 
-    assert sum(len(pool._layout_pools[env_id]) for env_id in range(4)) == 3
+    assert sum(len(env_pool.layouts) for env_pool in pool._env_pools) == 3
     assert pool.remaining == 0
 
 

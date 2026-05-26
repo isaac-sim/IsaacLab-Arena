@@ -94,22 +94,20 @@ class ObjectPlacer:
                 placement (one layout per env).
             result_per_env: When True (default), each environment gets a distinct
                 layout. When False, homogeneous objects use a single best layout
-                for all environments. Ignored for heterogeneous scenes; those
-                always produce one layout per env so each env is solved with its
-                assigned variant geometry.
+                for all environments. Heterogeneous object sets always return
+                one layout per env, even when this flag is False, because each
+                env must be solved against its assigned variant geometry.
 
         Returns:
-            PlacementResult when a single layout is produced; MultiEnvPlacementResult
-            when multiple per-env layouts are produced.
+            ``PlacementResult`` for one produced layout, otherwise
+            ``MultiEnvPlacementResult``. A heterogeneous multi-env call produces
+            ``MultiEnvPlacementResult`` even when ``result_per_env`` is False.
         """
         anchor_objects_set, generator = self._prepare_placement(objects)
 
         uses_env_specific_bboxes = has_heterogeneous_objects(objects)
-        # Env-specific variants cannot share one solved layout because each env
-        # must be solved against its assigned object geometry.
         num_results = num_envs if result_per_env or uses_env_specific_bboxes else 1
         max_attempts = self.params.max_placement_attempts
-        # Solve max_attempts candidates per result so we can pick the best survivor.
         if uses_env_specific_bboxes:
             ranked_results = self._place_ranked(
                 objects,
@@ -137,7 +135,6 @@ class ObjectPlacer:
         if self.params.apply_positions_to_objects:
             self._apply_positions(positions_per_env, anchor_objects_set)
 
-        # Single layout when callers don't need per-env results; otherwise return per-env layouts.
         if num_results == 1:
             return results_per_env[0]
         return MultiEnvPlacementResult(results=results_per_env)
@@ -160,7 +157,6 @@ class ObjectPlacer:
         assert results_per_env > 0, f"results_per_env must be positive, got {results_per_env}"
         anchor_objects_set, generator = self._prepare_placement(objects)
         max_attempts = self.params.max_placement_attempts
-        # Callers ask for independent candidate lists per env, not one shared-geometry top-N list.
         ranked_results_per_env = self._place_ranked(
             objects,
             anchor_objects_set,
@@ -226,7 +222,7 @@ class ObjectPlacer:
                 " variants."
             )
 
-        assign_variants_for_envs(objects, num_envs)
+        assign_variants_for_envs(objects, num_envs, placement_seed=self.params.placement_seed)
         env_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
         num_candidates = num_envs * candidates_per_env
         candidate_bboxes, per_env_bbox_overrides = self._build_candidate_bboxes(
@@ -245,7 +241,6 @@ class ObjectPlacer:
             )
 
         all_positions = self._solver.solve(objects, initial_positions, env_bboxes=candidate_bboxes)
-        # solver.solve() populates last_loss_per_env; assert documents the contract.
         assert self._solver.last_loss_per_env is not None
         all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
 
@@ -375,7 +370,7 @@ class ObjectPlacer:
             Dictionary mapping all objects to their starting positions.
         """
         first_anchor = next(obj for obj in objects if obj in anchor_objects)
-        anchor_bbox = first_anchor.get_world_bounding_box()
+        anchor_bbox = self._get_world_bbox_for_init(first_anchor, child_bboxes)
 
         cx, cy, cz = float(anchor_bbox.center[0, 0]), float(anchor_bbox.center[0, 1]), float(anchor_bbox.center[0, 2])
 
@@ -383,25 +378,44 @@ class ObjectPlacer:
         for obj in objects:
             if obj in anchor_objects:
                 initial_pose = obj.get_initial_pose()
-                assert isinstance(initial_pose, Pose), (
-                    f"Anchor object '{obj.name}' must have a fixed Pose before placement, got"
-                    f" {type(initial_pose).__name__}."
-                )
+                if not isinstance(initial_pose, Pose):
+                    raise TypeError(
+                        f"Anchor object '{obj.name}' must have a fixed Pose before placement, got"
+                        f" {type(initial_pose).__name__}."
+                    )
                 positions[obj] = initial_pose.position_xyz
             elif any(isinstance(r, On) for r in obj.get_relations()):
                 bbox_override = child_bboxes.get(obj) if child_bboxes else None
                 positions[obj] = self._compute_on_guided_position(
-                    obj, anchor_objects, anchor_bbox, generator, child_bbox=bbox_override
+                    obj, anchor_objects, anchor_bbox, generator, child_bbox=bbox_override, bbox_overrides=child_bboxes
                 )
             else:
                 positions[obj] = (cx, cy, cz)
         return positions
+
+    @staticmethod
+    def _get_world_bbox_for_init(
+        obj: ObjectBase,
+        bbox_overrides: dict[ObjectBase, AxisAlignedBoundingBox] | None,
+    ) -> AxisAlignedBoundingBox:
+        bbox_override = bbox_overrides.get(obj) if bbox_overrides else None
+        if bbox_override is None:
+            return obj.get_world_bounding_box()
+
+        initial_pose = obj.get_initial_pose()
+        if not isinstance(initial_pose, Pose):
+            raise TypeError(
+                f"Object '{obj.name}' must have a fixed Pose to use an env-specific world bbox,"
+                f" got {type(initial_pose).__name__}."
+            )
+        return bbox_override.translated(initial_pose.position_xyz)
 
     def _get_on_parent_world_bbox(
         self,
         parent: ObjectBase,
         anchor_objects: set[ObjectBase],
         anchor_bbox: AxisAlignedBoundingBox,
+        bbox_overrides: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
     ) -> AxisAlignedBoundingBox:
         """Resolve the world bbox of an On relation's parent for initialization purposes.
 
@@ -413,10 +427,10 @@ class ObjectPlacer:
         TODO(cvolk): Support full On-relation chains (e.g. spoon -> On(bowl) -> On(plate) -> On(table)).
         """
         if parent in anchor_objects:
-            return parent.get_world_bounding_box()
+            return self._get_world_bbox_for_init(parent, bbox_overrides)
         for rel in parent.get_relations():
             if isinstance(rel, On) and rel.parent in anchor_objects:
-                return rel.parent.get_world_bounding_box()
+                return self._get_world_bbox_for_init(rel.parent, bbox_overrides)
         return anchor_bbox
 
     def _compute_on_guided_position(
@@ -426,6 +440,7 @@ class ObjectPlacer:
         anchor_bbox: AxisAlignedBoundingBox,
         generator: torch.Generator | None = None,
         child_bbox: AxisAlignedBoundingBox | None = None,
+        bbox_overrides: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
     ) -> tuple[float, float, float]:
         """Compute an initial position for an object with an On relation.
 
@@ -437,9 +452,13 @@ class ObjectPlacer:
                 uses PyTorch's global RNG.
             child_bbox: Optional bbox override for the child object. When None,
                 obj.get_bounding_box() is used.
+            bbox_overrides: Optional per-object bbox overrides for resolving
+                heterogeneous On parents.
         """
         on_relation = next(r for r in obj.get_relations() if isinstance(r, On))
-        parent_bbox = self._get_on_parent_world_bbox(on_relation.parent, anchor_objects, anchor_bbox)
+        parent_bbox = self._get_on_parent_world_bbox(
+            on_relation.parent, anchor_objects, anchor_bbox, bbox_overrides=bbox_overrides
+        )
         if child_bbox is None:
             child_bbox = obj.get_bounding_box()
 

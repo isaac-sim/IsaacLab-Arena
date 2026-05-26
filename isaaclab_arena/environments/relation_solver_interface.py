@@ -53,14 +53,19 @@ def solve_and_apply_relation_placement(
     if resolve_on_reset is not None:
         placer_params.resolve_on_reset = resolve_on_reset
 
-    # TODO(xinjieyao, 2026-05-22): Add joint object/embodiment placement once task-dependent
-    # reachability constraints are available. For now this always uses the object-only placer.
     placement_pool = PooledObjectPlacer(
         objects=objects,
         placer_params=placer_params,
         pool_size=num_envs * placer_params.min_unique_layouts_per_env,
         num_envs=num_envs,
     )
+
+    if placement_pool.had_fallbacks:
+        print(
+            "Warning: Relation placement pool accepted best-loss fallback layouts "
+            "that failed strict placement validation."
+        )
+
     return _apply_relation_placement_result(
         objects=objects,
         placer_params=placer_params,
@@ -77,10 +82,8 @@ def _apply_relation_placement_result(
 ) -> EventTermCfg | None:
     """Apply selected layouts to object spawn state and build reset event config."""
     anchor_objects_set = set(get_anchor_objects(objects))
-    # Prevent external pose-reset events from conflicting with relation-solved objects.
     _validate_no_conflicting_pose_reset_events(objects, anchor_objects_set)
 
-    # Anchor objects do not move, so no need to apply reset event.
     if anchor_objects_set == set(objects):
         return None
 
@@ -108,18 +111,21 @@ def _apply_dynamic_spawn_pose(
     """Set initial spawn pose from one layout and return the reset placement event."""
     from isaaclab.managers import EventTermCfg
 
-    layout = placement_pool.sample_with_replacement(1)[0]
-    for obj in objects:
-        if obj in anchor_objects_set:
-            continue
-        pos = layout.positions.get(obj)
-        if pos is None:
-            continue
-        object_cfg = getattr(obj, "object_cfg", None)
-        if object_cfg is None:
-            raise RuntimeError(f"Object '{obj.name}' must have object_cfg initialized before placement.")
-        object_cfg.init_state.pos = pos
-        object_cfg.init_state.rot = get_rotation_xyzw(obj)
+    if placement_pool.requires_env_indexed_layouts:
+        print("Warning: Skipping static init_state seeding for env-indexed placement layouts.")
+    else:
+        layout = placement_pool.sample_with_replacement(1)[0]
+        for obj in objects:
+            if obj in anchor_objects_set:
+                continue
+            pos = layout.positions.get(obj)
+            if pos is None:
+                raise RuntimeError(f"Pool layout is missing object '{obj.name}'.")
+            object_cfg = getattr(obj, "object_cfg", None)
+            if object_cfg is None:
+                raise RuntimeError(f"Object '{obj.name}' must have object_cfg initialized before placement.")
+            object_cfg.init_state.pos = pos
+            object_cfg.init_state.rot = get_rotation_xyzw(obj)
 
     return EventTermCfg(
         func=solve_and_place_objects,
@@ -147,10 +153,9 @@ def _apply_static_initial_poses(
         for env_idx in range(num_envs):
             pos = layouts[env_idx].positions.get(obj)
             if pos is None:
-                break
+                raise RuntimeError(f"Placement layout for env {env_idx} is missing object '{obj.name}'.")
             poses.append(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
-        else:
-            obj.set_initial_pose(PosePerEnv(poses=poses))
+        obj.set_initial_pose(PosePerEnv(poses=poses))
 
 
 def _validate_no_conflicting_pose_reset_events(

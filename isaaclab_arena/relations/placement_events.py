@@ -34,10 +34,10 @@ def solve_and_place_objects(
 ) -> None:
     """Coordinated reset event that draws layouts from the pool and writes poses.
 
-    Registered as a single EventTermCfg(mode="reset"). Env-specific
-    layouts advance by one full env round so each result still matches its
-    absolute env id. Reusable layouts draw only for the environments being
-    reset.
+    Registered as a single EventTermCfg(mode="reset"). Env-indexed pools
+    consume one complete scene round, then write only the resetting subset so
+    each result still matches its absolute env id. Reusable pools consume only
+    the number of resetting envs because those layouts are interchangeable.
 
     Args:
         env: The Isaac Lab environment.
@@ -51,9 +51,10 @@ def solve_and_place_objects(
     reset_env_ids = env_ids.tolist()
     if placement_pool.requires_env_indexed_layouts:
         num_scene_envs = env.scene.env_origins.shape[0]
-        assert (
-            placement_pool.num_envs == num_scene_envs
-        ), f"Placement pool has {placement_pool.num_envs} envs, but scene has {num_scene_envs} env origins."
+        if placement_pool.num_envs != num_scene_envs:
+            raise ValueError(
+                f"Placement pool has {placement_pool.num_envs} envs, but scene has {num_scene_envs} env origins."
+            )
         all_results = placement_pool.sample_without_replacement(num_scene_envs)
         results_by_env = {cur_env: all_results[cur_env] for cur_env in reset_env_ids}
     else:
@@ -67,6 +68,11 @@ def solve_and_place_objects(
     for cur_env in reset_env_ids:
         env_id_tensor = torch.tensor([cur_env], device=env.device)
         result = results_by_env[cur_env]
+        if not result.success:
+            print(
+                "Warning: Writing best-loss fallback placement for "
+                f"env {cur_env}; layout failed strict placement validation."
+            )
         positions = result.positions
         for obj, pos in positions.items():
             if obj in anchor_objects_set:
