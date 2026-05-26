@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import torch
 from abc import ABC, abstractmethod
-from enum import Enum
 
 import warp as wp
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
@@ -17,17 +16,22 @@ from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events import randomize_object_pose
 
 from isaaclab_arena.assets.asset import Asset
+
+# Re-export ObjectType from the lightweight module so existing
+# `from isaaclab_arena.assets.object_base import ObjectType` consumers keep working,
+# while pure-Python spec modules can import from `object_type` directly without
+# pulling in isaaclab/omni/pxr at module-load time.
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
 from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
 
-
-class ObjectType(Enum):
-    BASE = "base"
-    RIGID = "rigid"
-    ARTICULATION = "articulation"
+__all__ = [
+    "ObjectBase",
+    "ObjectType",
+]
 
 
 class ObjectBase(Asset, ABC):

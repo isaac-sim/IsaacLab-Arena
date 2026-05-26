@@ -223,3 +223,10 @@ at ``$DATASET_DIR/arena_gr1_manipulation_dataset_recorded.hdf5``.
    - Keep hands within tracking volume
    - Ensure good lighting for hand tracking
    - Complete at least 10 successful demonstrations
+
+.. hint::
+
+   Collecting a large dataset across several sittings? Record one HDF5 per session by varying
+   ``--dataset_file``, then concatenate the per-session files with
+   :ref:`static_apple_merge_demos`. The merge script is task-agnostic and works for every
+   Arena teleop workflow.

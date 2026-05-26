@@ -129,9 +129,14 @@ env.reset()
 
 Explore more examples in the [documentation](https://isaac-sim.github.io/IsaacLab-Arena/main/index.html), including:
 
+<p align="center">
+  <img src="docs/images/static_apple_pick_and_place.gif" alt="G1 static apple-to-plate pick and place" width="80%">
+</p>
+
 | Example | Description |
 |---------|-------------|
 | **Imitation Learning** | |
+| [G1 Static Apple-to-Plate](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/static_apple/index.html) | G1 humanoid picks an apple and places it onto a plate on the same shelf without locomotion |
 | [G1 Loco-Manipulation Pick & Place](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/locomanipulation/index.html) | G1 humanoid navigates, picks up a box, and places it in a bin |
 | [GR1 Open Microwave Door](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/static_manipulation/index.html) | GR1 upper-body manipulation of an articulated microwave door |
 | [GR1 Sequential Pick & Place and Close Door](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/sequential_static_manipulation/index.html) | GR1 picks an object, places it in a fridge, and closes the door |
@@ -147,12 +152,8 @@ IsaacLab-Arena/
 ├── isaaclab_arena_environments/       # Concrete environment definitions
 ├── isaaclab_arena_examples/           # Policy and relation examples
 ├── isaaclab_arena_g1/                 # Unitree G1 humanoid embodiment + examples
-<<<<<<< HEAD
 ├── isaaclab_arena_gr00t/              # GR00T policy integration
 ├── isaaclab_arena_openpi/             # OpenPi (pi0 / pi05) policy integration
-=======
-├── isaaclab_arena_gr00t/              # GR00T policy integration and CI Docker assets
->>>>>>> 7d6fe6cb3 (Modularize GR00T remote CI smoke test)
 ├── docker/                            # Docker configurations and launch scripts
 ├── docs/                              # Sphinx documentation source
 ├── osmo/                              # Cloud deployment configs (OSMO)

@@ -172,8 +172,9 @@ Step 4: Record with the headset device
         --device cpu \
         --enable_cameras \
         --dataset_file $DATASET_DIR/arena_g1_static_apple_dataset_recorded.hdf5 \
-        --num_demos 10 \
+        --num_demos 20 \
         --num_success_steps 10 \
+        --disable_full_sim_buffer_reset \
         galileo_g1_static_pick_and_place \
         --object apple_01_objaverse_robolab \
         --destination clay_plates_hot3d_robolab \
@@ -184,7 +185,8 @@ Step 4: Record with the headset device
 #. Follow Step 3 to connect the headset again.
 
 #. Complete the task for each demo. After a successful placement, wait for the demo to
-   automatically end and for the simulation to reset. The script saves successful runs
+   automatically end and for the simulation to freeze before pressing **Reset**. Resetting
+   early can save an incomplete or failed demonstration. The script saves successful runs
    to the HDF5 file above.
 
 .. important::
@@ -211,8 +213,8 @@ Step 4: Record with the headset device
      and side grasps, so the policy does not overfit to one approach direction.
    * **Clean successes only:** save only runs with no unnecessary collisions, no dropped objects before
      placement, and no recovery motions that would confuse the policy.
-   * **Wait for reset automatically after success:** after releasing the apple onto the plate, keep the scene stable and
-     wait until the recording auto-terminates and the simulation automatically resets.
+   * **Wait for success freeze:** after releasing the apple onto the plate, keep the scene stable and
+     wait until the recording auto-terminates/freezes. Only reset after that happens.
    * **Trajectory length:** aim for demonstrations around 200--400 timesteps. Very long episodes slow
      down downstream data processing, while very short episodes tend to contain abrupt motion.
    * **Replay validation:** after recording, replay the HDF5 with Step 5 and inspect camera frames,
@@ -236,6 +238,73 @@ Step 4: Record with the headset device
 
    Releasing a small round object onto a flat plate is noticeably harder than dropping a box into a
    bin. Keep the release height low and the orientation stable.
+
+   .. figure:: ../../../images/static_apple_pick_and_place.gif
+      :width: 100%
+      :alt: Static apple-to-plate demonstration with the Unitree G1
+      :align: center
+
+      Example static apple-to-plate demonstration trajectory.
+
+
+.. _static_apple_merge_demos:
+
+Step 4b: Merge Multiple Recording Sessions (Optional)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Collecting 100+ clean demonstrations in a single sitting is impractical because of operator fatigue,
+and the realities of stopping and starting the Arena app for breaks. The
+recommended workflow is to record one HDF5 per session by pointing ``--dataset_file`` at a fresh
+path each time:
+
+.. code-block:: bash
+
+   # Session 1 (e.g. morning)
+   python isaaclab_arena/scripts/imitation_learning/record_demos.py \
+     ... --dataset_file $DATASET_DIR/session_a.hdf5 --num_demos 50 ...
+
+   # Session 2 (after lunch)
+   python isaaclab_arena/scripts/imitation_learning/record_demos.py \
+     ... --dataset_file $DATASET_DIR/session_b.hdf5 --num_demos 50 ...
+
+Then concatenate the per-session files into the single training-ready dataset that
+:doc:`step_3_policy_training` expects:
+
+.. code-block:: bash
+
+   python isaaclab_arena/scripts/imitation_learning/merge_demos.py \
+     -o $DATASET_DIR/arena_g1_static_apple_dataset_recorded.hdf5 \
+     $DATASET_DIR/session_a.hdf5 $DATASET_DIR/session_b.hdf5
+
+The script is pure ``h5py`` (no Isaac Sim startup), so it returns in seconds. It validates
+that all inputs share the same ``format_version``, action shape, observation keys, and camera
+geometry, and prints a per-file summary with the demo and step counts:
+
+.. code-block:: text
+
+   [1/2] session_a.hdf5             demos=  50  steps=    12,805  size= 187.3 MiB  env=""  v=1  keys=14
+   [2/2] session_b.hdf5             demos=  50  steps=    11,422  size= 171.0 MiB  env=""  v=1  keys=14
+   ------------------------------------------------------------------------------------------
+           arena_g1_static_apple_dataset_recorded.hdf5 (output)   demos= 100  steps=    24,227  size= 358.3 MiB
+   Validation: format_version OK, schema OK, env_args OK
+   Demo numbering: demo_0..demo_99 (input order preserved)
+
+.. tip::
+
+   Pass ``--dry_run`` to inspect the report without writing the output file. This is a quick
+   compatibility check before clobbering an existing combined dataset, and it returns a non-zero
+   exit code if any input would block the merge.
+
+.. tip::
+
+   Successful demos are renumbered sequentially (``demo_0``, ``demo_1``, ...) in the order the
+   input files are listed, so list the sessions chronologically if you want the merged file to
+   reflect the order of collection.
+
+If a session was recorded against a slightly different environment (e.g. a different physics
+timestep) the merge will warn but still proceed. Schema-level differences (different action
+dimensions, missing observation keys, different camera resolutions) are hard errors: re-record
+the offending session against the canonical environment instead.
 
 
 Step 5: Replay Recorded Demos (Optional)
