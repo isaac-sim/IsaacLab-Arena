@@ -195,7 +195,7 @@ class RigidObjectSet(Object):
         assert all(
             0 <= idx < n for idx in variant_indices_by_env
         ), f"RigidObjectSet '{self.name}' variant indices must be in [0, {n}); got {variant_indices_by_env}."
-        self.variant_indices_by_env = list(variant_indices_by_env)
+        self.variant_indices_by_env = variant_indices_by_env
         # During __init__, Object.object_cfg has not been built yet; _generate_rigid_cfg()
         # reads object_usd_paths after this assignment.
         spawn_cfg = self.object_cfg.spawn if getattr(self, "object_cfg", None) is not None else None
