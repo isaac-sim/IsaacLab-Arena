@@ -77,6 +77,13 @@ Once inside the container, set the dataset and models directories.
     export DATASET_DIR=/datasets/isaaclab_arena/static_apple_tutorial
     export MODELS_DIR=/models/isaaclab_arena/static_apple_tutorial
 
+.. note::
+
+   If Kit reports permission errors while writing
+   ``/isaac-sim/kit/data/Kit/IsaacLab/3.0/user.config.json`` or cache files, start from a clean
+   Arena container/cache or rebuild the Docker image. This can happen when stale Isaac Sim / Kit
+   state from another setup is reused with incompatible ownership.
+
 We first run the policy in a single environment with visualization via the GUI. Replace
 ``<SERVER_HOST>`` below with the IP of the host running Step 1 (or ``localhost`` if it is the
 same machine).
