@@ -1,0 +1,168 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: two_pick_and_place_maple_table_default
+
+nodes:
+  - id: droid_abs_joint_pos
+    name: droid_abs_joint_pos
+    type: embodiment
+
+  - id: maple_table_robolab
+    name: maple_table_robolab
+    type: background
+
+  - id: maple_table_robolab_table
+    name: table
+    type: object_reference
+    parent: maple_table_robolab
+    prim_path: "{ENV_REGEX_NS}/maple_table_robolab/table"
+    object_type: rigid
+
+  - id: rubiks_cube_hot3d_robolab
+    name: rubiks_cube_hot3d_robolab
+    type: object
+
+  - id: bowl_ycb_robolab
+    name: bowl_ycb_robolab
+    type: object
+
+  - id: mug_ycb_robolab
+    name: mug_ycb_robolab
+    type: object
+
+tasks:
+  - id: pick_and_place_0
+    type: pick_and_place
+    initial_state_spec_id: state_spec_0
+    success_state_spec_id: state_spec_1
+    task_args:
+      object: rubiks_cube_hot3d_robolab
+      destination: bowl_ycb_robolab
+      background: maple_table_robolab
+      episode_length_s: 20.0
+
+  - id: pick_and_place_1
+    type: pick_and_place
+    initial_state_spec_id: state_spec_1
+    success_state_spec_id: state_spec_2
+    task_args:
+      object: mug_ycb_robolab
+      destination: bowl_ycb_robolab
+      background: maple_table_robolab
+      episode_length_s: 20.0
+
+state_specs:
+  - id: state_spec_0
+    spatial_constraints:
+      - id: state_spec_0_maple_table_robolab_table_is_anchor
+        type: is_anchor
+        parent: maple_table_robolab_table
+
+      - id: state_spec_0_rubiks_cube_hot3d_robolab_on_maple_table_robolab_table
+        type: "on"
+        parent: maple_table_robolab_table
+        child: rubiks_cube_hot3d_robolab
+
+      - id: state_spec_0_rubiks_cube_hot3d_robolab_position_limits
+        type: position_limits
+        parent: rubiks_cube_hot3d_robolab
+        params:
+          x_min: 0.55
+          x_max: 0.70
+          y_min: -0.40
+          y_max: -0.10
+
+      - id: state_spec_0_bowl_ycb_robolab_on_maple_table_robolab_table
+        type: "on"
+        parent: maple_table_robolab_table
+        child: bowl_ycb_robolab
+
+      - id: state_spec_0_bowl_ycb_robolab_position_limits
+        type: position_limits
+        parent: bowl_ycb_robolab
+        params:
+          x_min: 0.55
+          x_max: 0.70
+          y_min: -0.40
+          y_max: -0.10
+
+      - id: state_spec_0_mug_ycb_robolab_at_pose
+        type: at_pose
+        parent: mug_ycb_robolab
+        params:
+          position_xyz: [0.65, 0.25, 0.85]
+          rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+
+    task_constraints:
+      - id: state_spec_0_droid_reach_rubiks_cube_hot3d_robolab
+        type: "reach"
+        parent: droid_abs_joint_pos
+        child: rubiks_cube_hot3d_robolab
+
+  - id: state_spec_1
+    spatial_constraints:
+      - id: state_spec_1_maple_table_robolab_table_is_anchor
+        type: is_anchor
+        parent: maple_table_robolab_table
+
+      - id: state_spec_1_bowl_ycb_robolab_on_maple_table_robolab_table
+        type: "on"
+        parent: maple_table_robolab_table
+        child: bowl_ycb_robolab
+
+      - id: state_spec_1_bowl_ycb_robolab_position_limits
+        type: position_limits
+        parent: bowl_ycb_robolab
+        params:
+          x_min: 0.55
+          x_max: 0.70
+          y_min: -0.40
+          y_max: -0.10
+
+      - id: state_spec_1_rubiks_cube_hot3d_robolab_in_bowl_ycb_robolab
+        type: "in"
+        parent: bowl_ycb_robolab
+        child: rubiks_cube_hot3d_robolab
+
+      - id: state_spec_1_mug_ycb_robolab_at_pose
+        type: at_pose
+        parent: mug_ycb_robolab
+        params:
+          position_xyz: [0.65, 0.25, 0.85]
+          rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+
+    task_constraints:
+      - id: state_spec_1_droid_reach_mug_ycb_robolab
+        type: "reach"
+        parent: droid_abs_joint_pos
+        child: mug_ycb_robolab
+
+  - id: state_spec_2
+    spatial_constraints:
+      - id: state_spec_2_maple_table_robolab_table_is_anchor
+        type: is_anchor
+        parent: maple_table_robolab_table
+
+      - id: state_spec_2_bowl_ycb_robolab_on_maple_table_robolab_table
+        type: "on"
+        parent: maple_table_robolab_table
+        child: bowl_ycb_robolab
+
+      - id: state_spec_2_rubiks_cube_hot3d_robolab_in_bowl_ycb_robolab
+        type: "in"
+        parent: bowl_ycb_robolab
+        child: rubiks_cube_hot3d_robolab
+
+      - id: state_spec_2_mug_ycb_robolab_in_bowl_ycb_robolab
+        type: "in"
+        parent: bowl_ycb_robolab
+        child: mug_ycb_robolab
+
+    task_constraints:
+      - id: state_spec_2_droid_reach_bowl_ycb_robolab
+        type: "reach"
+        parent: droid_abs_joint_pos
+        child: bowl_ycb_robolab
