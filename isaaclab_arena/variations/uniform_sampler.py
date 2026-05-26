@@ -59,7 +59,7 @@ class UniformSampler(SamplerBase):
         """Shape of a single sample."""
         return self.low.shape
 
-    def _sample(self, num_samples: int) -> torch.Tensor:
+    def _sample(self, num_samples: int, **kwargs) -> torch.Tensor:  # noqa: ARG002
         assert num_samples >= 0, f"num_samples must be non-negative; got {num_samples}."
         shape = (num_samples, *self.event_shape)
         u = torch.rand(shape)

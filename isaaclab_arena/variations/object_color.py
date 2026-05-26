@@ -24,13 +24,12 @@ from isaaclab.utils.version import compare_versions
 
 from isaaclab_arena.variations.sampler_base import SamplerBase
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
-from isaaclab_arena.variations.variation_base import VariationBase, VariationBaseCfg
+from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
     from isaaclab_arena.assets.object_base import ObjectBase
-    from isaaclab_arena.scene.scene import Scene
 
 
 @configclass
@@ -53,7 +52,7 @@ class ObjectColorVariationCfg(VariationBaseCfg):
     )
 
 
-class ObjectColorVariation(VariationBase):
+class ObjectColorVariation(RunTimeVariationBase):
     """Randomize an object's visual color per env.
 
     Requires ``scene.replicate_physics=False`` (the Arena default) so each env
@@ -82,7 +81,7 @@ class ObjectColorVariation(VariationBase):
         self.asset_name = asset.name
         self.set_sampler(sampler if sampler is not None else self.cfg.sampler)
 
-    def build_event_cfg(self, scene: Scene) -> tuple[str, EventTermCfg]:  # noqa: ARG002
+    def build_event_cfg(self) -> tuple[str, EventTermCfg]:
         assert self._sampler is not None, (
             f"ObjectColorVariation on '{self.asset_name}' is enabled but no sampler is set; "
             "call .set_sampler(...) before building the env."

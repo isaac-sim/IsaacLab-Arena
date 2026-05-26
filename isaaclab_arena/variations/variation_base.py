@@ -3,30 +3,33 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Variation abstract base class.
+"""Variation abstract base classes.
 
 A :class:`VariationBase` describes one knob to turn on the scene: a sampler
-that drives it and the event term that realises it. Variations are attached
+that drives it together with a hook that realises it. Variations are attached
 to assets via :meth:`~isaaclab_arena.assets.object_base.ObjectBase.add_variation`,
 start disabled, and are flipped on either imperatively (:meth:`VariationBase.enable`)
 or via Hydra overrides.
+
+Concrete variations subclass one of two flavors:
+
+* :class:`RunTimeVariationBase` for variations realised via an event term
+  that runs during simulation (e.g. per-reset randomization).
+* :class:`BuildTimeVariationBase` for variations that sample once and mutate
+  asset configs before the env cfg is composed (e.g. picking an HDR for a
+  dome light).
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import TYPE_CHECKING, ClassVar
+from typing import Any, ClassVar
 
 from isaaclab.managers import EventTermCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
-
-if TYPE_CHECKING:
-    import torch
-
-    from isaaclab_arena.scene.scene import Scene
 
 
 @configclass
@@ -46,10 +49,11 @@ class VariationBase(ABC):
     """Abstract variation.
 
     A variation binds a target asset and a
-    :class:`~isaaclab_arena.variations.sampler_base.SamplerBase` to an event
-    term that applies it at reset / prestartup. Concrete subclasses declare
-    a class-level :attr:`name`, pair themselves with a
-    :class:`VariationBaseCfg` subclass, and implement :meth:`build_event_cfg`.
+    :class:`~isaaclab_arena.variations.sampler_base.SamplerBase` together with
+    a hook that realises the variation. Concrete subclasses declare a
+    class-level :attr:`name`, pair themselves with a :class:`VariationBaseCfg`
+    subclass, and inherit from one of the two flavored bases
+    (:class:`RunTimeVariationBase` or :class:`BuildTimeVariationBase`).
     """
 
     #: Short, unique identifier for this variation kind (e.g. ``"color"``).
@@ -61,7 +65,7 @@ class VariationBase(ABC):
     def __init__(self, cfg: VariationBaseCfg):
         self.cfg = cfg
         self._sampler: SamplerBase | None = None
-        self._sample_listeners: list[Callable[[torch.Tensor], None]] = []
+        self._sample_listeners: list[Callable[[Any], None]] = []
 
     @property
     def enabled(self) -> bool:
@@ -110,7 +114,7 @@ class VariationBase(ABC):
         if new_cfg_sampler is not None and hasattr(self.cfg, "sampler"):
             self.cfg.sampler = new_cfg_sampler
 
-    def add_sample_listener(self, listener: Callable[[torch.Tensor], None]) -> None:
+    def add_sample_listener(self, listener: Callable[[Any], None]) -> None:
         """Subscribe ``listener`` to every sample drawn by this variation's sampler.
 
         Listeners are stored on the variation, so they survive subsequent
@@ -120,7 +124,7 @@ class VariationBase(ABC):
         if self._sampler is not None:
             self._sampler.add_listener(listener)
 
-    def remove_sample_listener(self, listener: Callable[[torch.Tensor], None]) -> None:
+    def remove_sample_listener(self, listener: Callable[[Any], None]) -> None:
         """Unsubscribe a previously-registered ``listener``."""
         self._sample_listeners.remove(listener)
         if self._sampler is not None:
@@ -143,16 +147,46 @@ class VariationBase(ABC):
         if isinstance(sampler_cfg, SamplerBaseCfg):
             self.set_sampler(sampler_cfg)
 
-    @abstractmethod
-    def build_event_cfg(self, scene: Scene) -> tuple[str, EventTermCfg]:
-        """Return the event term that realises this variation.
 
-        Args:
-            scene: The arena scene; passed in case the variation needs to
-                resolve other assets.
+class RunTimeVariationBase(VariationBase):
+    """Variation that is applied during simulation via an ``EventTermCfg``.
+
+    Concrete subclasses produce an event term that the env's event manager
+    invokes at ``reset`` / ``prestartup`` / ``interval``. Use this flavor when
+    the underlying property can be flipped at run time (e.g. visual color,
+    initial pose, mass).
+    """
+
+    @abstractmethod
+    def build_event_cfg(self) -> tuple[str, EventTermCfg]:
+        """Return the event term that realises this variation.
 
         Returns:
             A ``(name, cfg)`` pair. ``name`` must be unique across all enabled
             variations in the scene.
+        """
+        ...
+
+
+class BuildTimeVariationBase(VariationBase):
+    """Variation that is sampled once and applied before env build.
+
+    Use this flavor for properties that can't (or shouldn't) be changed
+    in-flight during simulation: HDR environment maps, USD asset swaps,
+    spawner parameters baked into a config, etc.
+
+    :meth:`apply` is invoked by
+    :class:`~isaaclab_arena.environments.arena_env_builder.ArenaEnvBuilder`
+    after Hydra overrides have been pushed through :meth:`apply_cfg` and
+    before the scene cfg is materialised, so mutations to asset configs are
+    visible to env cfg composition. Subclasses are expected to hold direct
+    references to the asset(s) they mutate (captured at construction time).
+    """
+
+    @abstractmethod
+    def apply(self) -> None:
+        """Sample and mutate the bound asset(s) in place to realise this variation.
+
+        Called exactly once per env build, while the variation is enabled.
         """
         ...

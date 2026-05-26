@@ -40,6 +40,7 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cf
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.variations import variations_hydra
+from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase
 from isaaclab_arena.variations.variations_recorder import VariationRecorder
 
 
@@ -177,10 +178,12 @@ class ArenaEnvBuilder:
                 obj.set_initial_pose(PosePerEnv(poses=poses))
 
     def _compose_variations_event_cfg(self) -> Any | None:
-        """Build a configclass instance holding an :class:`EventTermCfg` per enabled variation.
+        """Build a configclass instance holding an :class:`EventTermCfg` per enabled run-time variation.
 
-        Walks the scene's variations, skips disabled ones, and asks each for its
-        event term. Returns ``None`` when nothing is enabled.
+        Walks the scene's variations, skips disabled ones and any build-time
+        variations (which are applied via :meth:`_apply_build_time_variations`),
+        and asks each remaining variation for its event term. Returns ``None``
+        when nothing is enabled.
         """
         fields: list[tuple[str, type, EventTermCfg]] = []
         seen: set[str] = set()
@@ -188,7 +191,9 @@ class ArenaEnvBuilder:
             for variation in asset_variations:
                 if not variation.enabled:
                     continue
-                event_name, event_cfg = variation.build_event_cfg(self.arena_env.scene)
+                if not isinstance(variation, RunTimeVariationBase):
+                    continue
+                event_name, event_cfg = variation.build_event_cfg()
                 assert event_name not in seen, (
                     f"Duplicate variation event term name '{event_name}'. "
                     "Each variation must produce a unique name; consider prefixing with the asset name."
@@ -199,6 +204,22 @@ class ArenaEnvBuilder:
             return None
         VariationsEventCfg = make_configclass("VariationsEventCfg", fields)
         return VariationsEventCfg()
+
+    def _apply_build_time_variations(self) -> None:
+        """Sample and apply every enabled :class:`BuildTimeVariationBase` to the scene.
+
+        Build-time variations mutate asset configs in place (e.g. swapping
+        a dome light's spawner texture), so this must run before ``scene_cfg``
+        is materialised. The :class:`VariationRecorder` is attached earlier in
+        ``compose_manager_cfg`` so it captures the samples drawn here.
+        """
+        for asset_variations in self.arena_env.scene.get_asset_variations().values():
+            for variation in asset_variations:
+                if not variation.enabled:
+                    continue
+                if not isinstance(variation, BuildTimeVariationBase):
+                    continue
+                variation.apply()
 
     def get_variations_schema(self) -> type | None:
         """Return the dataclass describing the scene's variations, or ``None`` if none are attached."""
@@ -239,6 +260,16 @@ class ArenaEnvBuilder:
         # Solve relations before building scene config so positions are captured correctly.
         if self.args.solve_relations:
             self._solve_relations()
+
+        # Attach the variation recorder before any sampling happens so it can
+        # observe both build-time variation samples (drawn below) and run-time
+        # variation samples (drawn during simulation).
+        variations_recorder = VariationRecorder()
+        variations_recorder.attach_to_scene(self.arena_env.scene)
+
+        # Apply build-time variations now: they mutate asset configs (e.g.
+        # DomeLight.spawner_cfg) and must run before scene_cfg is materialised.
+        self._apply_build_time_variations()
 
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
         embodiment = self.arena_env.embodiment or NoEmbodiment()
@@ -322,9 +353,6 @@ class ArenaEnvBuilder:
             embodiment.get_commands_cfg(),
             task.get_commands_cfg(),
         )
-
-        variations_recorder = VariationRecorder()
-        variations_recorder.attach_to_scene(self.arena_env.scene)
 
         isaaclab_arena_env = self.arena_env
 

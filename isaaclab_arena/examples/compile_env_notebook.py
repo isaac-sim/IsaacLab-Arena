@@ -49,6 +49,7 @@ background = asset_registry.get_asset_by_name("kitchen")()
 embodiment = asset_registry.get_asset_by_name("franka_ik")()
 cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
+dome_light = asset_registry.get_asset_by_name("light")()
 
 cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 cracker_box.add_relation(IsAnchor())
@@ -83,7 +84,7 @@ tomato_soup_can.add_relation(On(cracker_box))
 # tomato_soup_can_color.set_sampler(UniformSamplerCfg(low=[0.0, 0.2, 0.2], high=[0.0, 1.0, 1.0]))
 # tomato_soup_can_color.enable()
 
-scene = Scene(assets=[background, cracker_box, tomato_soup_can])
+scene = Scene(assets=[background, cracker_box, tomato_soup_can, dome_light])
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
     name="reference_object_test",
     embodiment=embodiment,

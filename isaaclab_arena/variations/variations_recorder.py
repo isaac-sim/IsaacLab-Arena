@@ -13,13 +13,12 @@ is no singleton or global lookup.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+import torch
 from omegaconf import OmegaConf
 
 if TYPE_CHECKING:
-    import torch
-
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.variations.variation_base import VariationBase, VariationBaseCfg
 
@@ -39,8 +38,9 @@ class VariationRecord:
         #: treated as finalized; deep-copy if a frozen archival snapshot is needed.
         self.cfg = cfg
         #: One entry per :meth:`~isaaclab_arena.variations.sampler_base.SamplerBase.sample`
-        #: call. Each is a detached CPU tensor of shape ``(num_samples, *event_shape)``.
-        self.samples: list[torch.Tensor] = []
+        #: call. Tensor samples are stored detached on CPU; non-tensor samples
+        #: (e.g. a list returned by a categorical sampler) are stored as-is.
+        self.samples: list[Any] = []
 
     def summary(self) -> str:
         """Return a multi-line human-readable summary of this record."""
@@ -49,10 +49,14 @@ class VariationRecord:
         lines.append(f"sample calls: {len(self.samples)}")
         if self.samples:
             first = self.samples[0]
-            stacked_shape = (len(self.samples), *tuple(first.shape))
-            lines.append(f"stacked shape: {stacked_shape}")
-            lines.append(f"first call:   {first.tolist()}")
-            lines.append(f"last call:    {self.samples[-1].tolist()}")
+            if isinstance(first, torch.Tensor):
+                stacked_shape = (len(self.samples), *tuple(first.shape))
+                lines.append(f"stacked shape: {stacked_shape}")
+                lines.append(f"first call:   {first.tolist()}")
+                lines.append(f"last call:    {self.samples[-1].tolist()}")
+            else:
+                lines.append(f"first call:   {first!r}")
+                lines.append(f"last call:    {self.samples[-1]!r}")
         return "\n".join(lines)
 
     def __str__(self) -> str:
@@ -90,8 +94,11 @@ class VariationRecorder:
         record = VariationRecord(source_id=source_id, cfg=variation.cfg)
         self._records[source_id] = record
 
-        def on_sample(sample: torch.Tensor) -> None:
-            record.samples.append(sample.detach().cpu())
+        def on_sample(sample: Any) -> None:
+            if isinstance(sample, torch.Tensor):
+                record.samples.append(sample.detach().cpu())
+            else:
+                record.samples.append(sample)
 
         variation.add_sample_listener(on_sample)
 
