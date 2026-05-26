@@ -5,6 +5,10 @@
 
 """Variation system public API."""
 
+from isaaclab_arena.variations.camera_decalibration import (
+    CameraDecalibrationVariation,
+    CameraDecalibrationVariationCfg,
+)
 from isaaclab_arena.variations.categorical_sampler import CategoricalSampler, CategoricalSamplerCfg
 from isaaclab_arena.variations.hdr_image_variation import HDRImageVariation, HDRImageVariationCfg
 from isaaclab_arena.variations.object_color import ObjectColorVariation, ObjectColorVariationCfg
@@ -20,6 +24,8 @@ from isaaclab_arena.variations.variations_recorder import VariationRecord, Varia
 
 __all__ = [
     "BuildTimeVariationBase",
+    "CameraDecalibrationVariation",
+    "CameraDecalibrationVariationCfg",
     "CategoricalSampler",
     "CategoricalSamplerCfg",
     "HDRImageVariation",

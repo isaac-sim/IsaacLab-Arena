@@ -17,8 +17,8 @@ print("Launching simulation app once in notebook")
 # headless=False enables the Kit viewer window so we can visually verify per-env
 # randomizations (e.g. object tints). Set headless=True for CI / non-GUI runs.
 args_cli = get_isaaclab_arena_cli_parser().parse_args([])
-# args_cli.headless = False
-# args_cli.visualizer = "kit"
+args_cli.headless = False
+args_cli.visualizer = "kit"
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
@@ -95,7 +95,7 @@ args_cli = get_isaaclab_arena_cli_parser().parse_args([])
 args_cli.solve_relations = True
 # Bump num_envs so we can visually verify per-env color variation.
 args_cli.num_envs = 4
-# args_cli.visualizer = "kit"
+args_cli.visualizer = "kit"
 env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
 
 # %%
@@ -150,6 +150,7 @@ hydra_variation_overrides = [
     "tomato_soup_can.color.enabled=true",
     "tomato_soup_can.color.sampler.low=[0.2,0.2,0.2]",
     "tomato_soup_can.color.sampler.high=[1.0,1.0,1.0]",
+    "light.hdr_image.enabled=true",
 ]
 env_builder.apply_hydra_variation_overrides(hydra_variation_overrides)
 
@@ -192,7 +193,7 @@ env.reset()
 # %%
 
 # Run some zero actions.
-NUM_STEPS = 100
+NUM_STEPS = 200
 for _ in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
