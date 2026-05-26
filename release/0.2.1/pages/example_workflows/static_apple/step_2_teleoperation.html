@@ -716,6 +716,56 @@ bin. Keep the release height low and the orientation stable.</p>
 </figure>
 </div>
 </section>
+<section id="step-4b-merge-multiple-recording-sessions-optional">
+<span id="static-apple-merge-demos"></span><h2>Step 4b: Merge Multiple Recording Sessions (Optional)<a class="headerlink" href="#step-4b-merge-multiple-recording-sessions-optional" title="Link to this heading">#</a></h2>
+<p>Collecting 100+ clean demonstrations in a single sitting is impractical because of operator fatigue,
+and the realities of stopping and starting the Arena app for breaks. The
+recommended workflow is to record one HDF5 per session by pointing <code class="docutils literal notranslate"><span class="pre">--dataset_file</span></code> at a fresh
+path each time:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Session 1 (e.g. morning)</span>
+python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>...<span class="w"> </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/session_a.hdf5<span class="w"> </span>--num_demos<span class="w"> </span><span class="m">50</span><span class="w"> </span>...
+
+<span class="c1"># Session 2 (after lunch)</span>
+python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>...<span class="w"> </span>--dataset_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/session_b.hdf5<span class="w"> </span>--num_demos<span class="w"> </span><span class="m">50</span><span class="w"> </span>...
+</pre></div>
+</div>
+<p>Then concatenate the per-session files into the single training-ready dataset that
+<a class="reference internal" href="step_3_policy_training.html"><span class="doc">Policy Post-Training (GR00T N1.7)</span></a> expects:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/merge_demos.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-o<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_static_apple_dataset_recorded.hdf5<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="nv">$DATASET_DIR</span>/session_a.hdf5<span class="w"> </span><span class="nv">$DATASET_DIR</span>/session_b.hdf5
+</pre></div>
+</div>
+<p>The script is pure <code class="docutils literal notranslate"><span class="pre">h5py</span></code> (no Isaac Sim startup), so it returns in seconds. It validates
+that all inputs share the same <code class="docutils literal notranslate"><span class="pre">format_version</span></code>, action shape, observation keys, and camera
+geometry, and prints a per-file summary with the demo and step counts:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[1/2] session_a.hdf5             demos=  50  steps=    12,805  size= 187.3 MiB  env=&quot;&quot;  v=1  keys=14
+[2/2] session_b.hdf5             demos=  50  steps=    11,422  size= 171.0 MiB  env=&quot;&quot;  v=1  keys=14
+------------------------------------------------------------------------------------------
+        arena_g1_static_apple_dataset_recorded.hdf5 (output)   demos= 100  steps=    24,227  size= 358.3 MiB
+Validation: format_version OK, schema OK, env_args OK
+Demo numbering: demo_0..demo_99 (input order preserved)
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Pass <code class="docutils literal notranslate"><span class="pre">--dry_run</span></code> to inspect the report without writing the output file. This is a quick
+compatibility check before clobbering an existing combined dataset, and it returns a non-zero
+exit code if any input would block the merge.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Successful demos are renumbered sequentially (<code class="docutils literal notranslate"><span class="pre">demo_0</span></code>, <code class="docutils literal notranslate"><span class="pre">demo_1</span></code>, …) in the order the
+input files are listed, so list the sessions chronologically if you want the merged file to
+reflect the order of collection.</p>
+</div>
+<p>If a session was recorded against a slightly different environment (e.g. a different physics
+timestep) the merge will warn but still proceed. Schema-level differences (different action
+dimensions, missing observation keys, different camera resolutions) are hard errors: re-record
+the offending session against the canonical environment instead.</p>
+</section>
 <section id="step-5-replay-recorded-demos-optional">
 <h2>Step 5: Replay Recorded Demos (Optional)<a class="headerlink" href="#step-5-replay-recorded-demos-optional" title="Link to this heading">#</a></h2>
 <p>Replay the recorded HDF5 to sanity-check the saved action sequence. This doubles as a no-XR
@@ -796,6 +846,7 @@ python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/replay_d
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-start-arena-teleop">Step 2: Start Arena Teleop</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-connect-from-the-headset-device">Step 3: Connect from the headset device</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-record-with-the-headset-device">Step 4: Record with the headset device</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4b-merge-multiple-recording-sessions-optional">Step 4b: Merge Multiple Recording Sessions (Optional)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-5-replay-recorded-demos-optional">Step 5: Replay Recorded Demos (Optional)</a></li>
 </ul>
   </nav></div>
