@@ -151,24 +151,11 @@ class ArenaRelationSolver:
         # Prevent external pose-reset events from conflicting with relation-solved objects.
         self._validate_no_conflicting_pose_reset_events(problem.objects, anchor_objects_set)
 
-        placement_event_cfg = None
-        # Anchor objects do not move, so no need to apply reset event.
-        if anchor_objects_set == set(problem.objects):
-            pass
-        # Apply reset event to spawn new poses for each environment.
-        elif problem.object_placer_params.resolve_on_reset:
-            placement_event_cfg = self._apply_dynamic_spawn_pose(
-                problem.objects,
-                placement_candidate_pool,
-                anchor_objects_set,
-            )
-        # Static initial poses for each environment.
-        else:
-            self._apply_static_initial_poses(
-                problem.objects,
-                placement_candidate_pool,
-                anchor_objects_set,
-            )
+        placement_event_cfg = self._apply_object_placement_result(
+            problem,
+            placement_candidate_pool,
+            anchor_objects_set,
+        )
 
         return ArenaRelationSolveResult(
             objects=problem.objects,
@@ -176,6 +163,33 @@ class ArenaRelationSolver:
             placement_candidate_pool=placement_candidate_pool,
             placement_event_cfg=placement_event_cfg,
         )
+
+    def _apply_object_placement_result(
+        self,
+        problem: PlacementProblem,
+        placement_candidate_pool: PlacementCandidatePool,
+        anchor_objects_set: set[ObjectBase],
+    ) -> EventTermCfg | None:
+        """Apply object placement poses and return a reset event config when needed."""
+        # Anchor objects do not move, so no need to apply reset event.
+        if anchor_objects_set == set(problem.objects):
+            return None
+
+        # Apply reset event to spawn new poses for each environment.
+        if problem.object_placer_params.resolve_on_reset:
+            return self._apply_dynamic_spawn_pose(
+                problem.objects,
+                placement_candidate_pool,
+                anchor_objects_set,
+            )
+
+        # Static initial poses for each environment.
+        self._apply_static_initial_poses(
+            problem.objects,
+            placement_candidate_pool,
+            anchor_objects_set,
+        )
+        return None
 
     def _apply_dynamic_spawn_pose(
         self,
