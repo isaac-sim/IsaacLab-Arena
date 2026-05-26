@@ -38,6 +38,9 @@ Once inside the container, set the dataset directory:
 
    These commands can be used to download the pre-recorded static apple HDF5 dataset ready for
    LeRobot conversion, such that the teleoperation step can be skipped.
+   Run them where ``$DATASET_DIR`` points to the target directory; use the ``/datasets/...`` path
+   inside Docker, or the matching host path outside Docker. The Hugging Face CLI from
+   ``huggingface_hub`` must be installed in that environment.
 
    To download run:
 
