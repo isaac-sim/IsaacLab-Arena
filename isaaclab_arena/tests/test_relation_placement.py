@@ -14,7 +14,7 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
 
-def _make_fast_object_placer_params(*, placement_seed: int | None = None, resolve_on_reset: bool = False):
+def _make_object_placer_params(*, placement_seed: int | None = None, resolve_on_reset: bool = False):
     return ObjectPlacerParams(
         placement_seed=placement_seed,
         resolve_on_reset=resolve_on_reset,
@@ -45,7 +45,7 @@ def test_solve_and_apply_relation_placement_with_no_objects_returns_empty_result
 
 
 def test_solve_and_apply_relation_placement_uses_object_only_path_params():
-    params = _make_fast_object_placer_params(placement_seed=11, resolve_on_reset=False)
+    params = _make_object_placer_params(placement_seed=11, resolve_on_reset=False)
     result = solve_and_apply_relation_placement(
         [_make_desk()],
         num_envs=3,
@@ -72,7 +72,7 @@ def test_static_solve_and_apply_relation_placement_reuses_object_only_placement(
     result = solve_and_apply_relation_placement(
         [desk, box],
         num_envs=2,
-        object_placer_params=_make_fast_object_placer_params(placement_seed=7, resolve_on_reset=False),
+        object_placer_params=_make_object_placer_params(placement_seed=7, resolve_on_reset=False),
     )
 
     assert result.object_placer_params is not None
