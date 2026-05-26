@@ -22,7 +22,6 @@ from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
-from isaaclab_arena.variations.variation_base import VariationBase
 
 
 class ObjectType(Enum):
@@ -51,27 +50,6 @@ class ObjectBase(Asset, ABC):
         self.object_cfg = None
         self.event_cfg = None
         self.relations: list[RelationBase] = []
-        self._variations: dict[str, VariationBase] = {}
-
-    def add_variation(self, variation: VariationBase) -> None:
-        """Attach a variation to this asset under its class-level ``name``.
-
-        Subclasses call this from their ``__init__`` to declare the variations
-        they support. Re-registering the same name overwrites the existing entry.
-        """
-        self._variations[variation.name] = variation
-
-    def get_variation(self, name: str) -> VariationBase:
-        """Return the variation with the given name."""
-        assert name in self._variations, (
-            f"Asset '{self.name}' ({type(self).__name__}) does not support variation '{name}'. "
-            f"Supported variations: {sorted(self._variations)}."
-        )
-        return self._variations[name]
-
-    def get_variations(self) -> list[VariationBase]:
-        """Return every variation attached to this asset, enabled or not."""
-        return list(self._variations.values())
 
     def get_initial_pose(self) -> Pose | PoseRange | PosePerEnv | None:
         """Return the current initial pose of this object.

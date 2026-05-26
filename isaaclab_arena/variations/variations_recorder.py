@@ -73,7 +73,24 @@ class VariationRecorder:
     def __init__(self) -> None:
         self._records: dict[str, VariationRecord] = {}
 
-    def attach(self, source_id: str, variation: VariationBase) -> None:
+    def attach(self, variations: dict[str, list[VariationBase]]) -> None:
+        """Attach every enabled variation in ``variations`` under ``"{asset}.{variation}"``.
+
+        Used by :class:`~isaaclab_arena.environments.arena_env_builder.ArenaEnvBuilder`
+        to attach variations sourced from both the scene and the embodiment.
+        Disabled variations are skipped.
+        """
+        for asset_name, asset_variations in variations.items():
+            for variation in asset_variations:
+                if not variation.enabled:
+                    continue
+                self._attach(f"{asset_name}.{variation.name}", variation)
+
+    def attach_to_scene(self, scene: Scene) -> None:
+        """Attach every enabled variation in ``scene`` under ``"{asset}.{variation}"``."""
+        self.attach(scene.get_asset_variations())
+
+    def _attach(self, source_id: str, variation: VariationBase) -> None:
         """Subscribe this recorder to ``variation`` under ``source_id``.
 
         The listener is registered via
@@ -101,14 +118,6 @@ class VariationRecorder:
                 record.samples.append(sample)
 
         variation.add_sample_listener(on_sample)
-
-    def attach_to_scene(self, scene: Scene) -> None:
-        """Attach every enabled variation in ``scene`` under ``"{asset}.{variation}"``."""
-        for asset_name, asset_variations in scene.get_asset_variations().items():
-            for variation in asset_variations:
-                if not variation.enabled:
-                    continue
-                self.attach(f"{asset_name}.{variation.name}", variation)
 
     @property
     def records(self) -> list[VariationRecord]:

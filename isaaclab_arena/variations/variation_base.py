@@ -7,7 +7,8 @@
 
 A :class:`VariationBase` describes one knob to turn on the scene: a sampler
 that drives it together with a hook that realises it. Variations are attached
-to assets via :meth:`~isaaclab_arena.assets.object_base.ObjectBase.add_variation`,
+to any :class:`~isaaclab_arena.assets.asset.Asset` (scene objects or
+embodiments) via :meth:`~isaaclab_arena.assets.asset.Asset.add_variation`,
 start disabled, and are flipped on either imperatively (:meth:`VariationBase.enable`)
 or via Hydra overrides.
 

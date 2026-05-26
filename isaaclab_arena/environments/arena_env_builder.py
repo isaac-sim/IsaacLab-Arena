@@ -40,7 +40,7 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cf
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.variations import variations_hydra
-from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase
+from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variations_recorder import VariationRecorder
 
 
@@ -177,17 +177,40 @@ class ArenaEnvBuilder:
             else:
                 obj.set_initial_pose(PosePerEnv(poses=poses))
 
+    def get_all_variations(self) -> dict[str, list[VariationBase]]:
+        """Return ``{asset_name: [variation, ...]}`` for every variation host in the env.
+
+        Combines variations attached to scene assets (via
+        :meth:`~isaaclab_arena.scene.scene.Scene.get_asset_variations`) with
+        any variations attached to the embodiment, keyed by
+        :attr:`~isaaclab_arena.embodiments.embodiment_base.EmbodimentBase.name`.
+        Embodiment-level variations let the embodiment own its own knobs (e.g.
+        camera decalibration on a robot's wrist cam) without needing to be
+        registered as a scene-side ``ObjectBase``.
+        """
+        by_asset: dict[str, list[VariationBase]] = dict(self.arena_env.scene.get_asset_variations())
+        embodiment = self.arena_env.embodiment
+        if embodiment is not None:
+            embodiment_variations = embodiment.get_variations()
+            if embodiment_variations:
+                assert embodiment.name not in by_asset, (
+                    f"Embodiment name '{embodiment.name}' collides with a scene asset that also has variations; "
+                    "rename the scene asset or the embodiment so variation namespaces stay unique."
+                )
+                by_asset[embodiment.name] = list(embodiment_variations)
+        return by_asset
+
     def _compose_variations_event_cfg(self) -> Any | None:
         """Build a configclass instance holding an :class:`EventTermCfg` per enabled run-time variation.
 
-        Walks the scene's variations, skips disabled ones and any build-time
-        variations (which are applied via :meth:`_apply_build_time_variations`),
-        and asks each remaining variation for its event term. Returns ``None``
-        when nothing is enabled.
+        Walks every variation host (scene assets + embodiment), skips disabled
+        ones and any build-time variations (which are applied via
+        :meth:`_apply_build_time_variations`), and asks each remaining
+        variation for its event term. Returns ``None`` when nothing is enabled.
         """
         fields: list[tuple[str, type, EventTermCfg]] = []
         seen: set[str] = set()
-        for asset_variations in self.arena_env.scene.get_asset_variations().values():
+        for asset_variations in self.get_all_variations().values():
             for variation in asset_variations:
                 if not variation.enabled:
                     continue
@@ -206,14 +229,14 @@ class ArenaEnvBuilder:
         return VariationsEventCfg()
 
     def _apply_build_time_variations(self) -> None:
-        """Sample and apply every enabled :class:`BuildTimeVariationBase` to the scene.
+        """Sample and apply every enabled :class:`BuildTimeVariationBase` from scene + embodiment.
 
         Build-time variations mutate asset configs in place (e.g. swapping
         a dome light's spawner texture), so this must run before ``scene_cfg``
         is materialised. The :class:`VariationRecorder` is attached earlier in
         ``compose_manager_cfg`` so it captures the samples drawn here.
         """
-        for asset_variations in self.arena_env.scene.get_asset_variations().values():
+        for asset_variations in self.get_all_variations().values():
             for variation in asset_variations:
                 if not variation.enabled:
                     continue
@@ -222,16 +245,16 @@ class ArenaEnvBuilder:
                 variation.apply()
 
     def get_variations_schema(self) -> type | None:
-        """Return the dataclass describing the scene's variations, or ``None`` if none are attached."""
-        return variations_hydra.build_schema(self.arena_env.scene.get_asset_variations())
+        """Return the dataclass describing every variation in the env, or ``None`` if none."""
+        return variations_hydra.build_schema(self.get_all_variations())
 
     def load_variations_cfg_from_flags(self, hydra_overrides: list[str]) -> Any | None:
         """Compose Hydra override strings into a typed ``VariationsCfg`` instance."""
-        return variations_hydra.load_cfg_from_flags(self.arena_env.scene.get_asset_variations(), hydra_overrides)
+        return variations_hydra.load_cfg_from_flags(self.get_all_variations(), hydra_overrides)
 
     def apply_hydra_variation_overrides(self, hydra_overrides: list[str]) -> None:
-        """Apply Hydra-style variation overrides to the scene's variations."""
-        variations_hydra.apply_overrides(self.arena_env.scene.get_asset_variations(), hydra_overrides)
+        """Apply Hydra-style variation overrides across scene + embodiment variations."""
+        variations_hydra.apply_overrides(self.get_all_variations(), hydra_overrides)
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""
@@ -263,9 +286,10 @@ class ArenaEnvBuilder:
 
         # Attach the variation recorder before any sampling happens so it can
         # observe both build-time variation samples (drawn below) and run-time
-        # variation samples (drawn during simulation).
+        # variation samples (drawn during simulation). The combined dict covers
+        # both scene-side assets and the embodiment.
         variations_recorder = VariationRecorder()
-        variations_recorder.attach_to_scene(self.arena_env.scene)
+        variations_recorder.attach(self.get_all_variations())
 
         # Apply build-time variations now: they mutate asset configs (e.g.
         # DomeLight.spawner_cfg) and must run before scene_cfg is materialised.
