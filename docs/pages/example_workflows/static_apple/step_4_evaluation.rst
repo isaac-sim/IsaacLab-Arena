@@ -212,8 +212,7 @@ computed over more episodes because multiple environments are stepped in paralle
    - ``ModuleNotFoundError`` on the client side — check the client's ``--policy_type``. This
      workflow must use the remote client wrapper
      ``isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy``,
-     together with ``--policy_config_yaml_path``. Do not use the local closed-loop policy or
-     server-side policy classes in the Arena client command.
+     together with ``--policy_config_yaml_path``.
    - Action shape mismatch on the server (e.g., ``Action key 'left_arm''s horizon must be 40.
      Got 50``) — the action modality used to launch the server does not match the checkpoint's
      training horizon. This workflow trains and serves GR00T N1.7 with ``action_horizon: 40``.
