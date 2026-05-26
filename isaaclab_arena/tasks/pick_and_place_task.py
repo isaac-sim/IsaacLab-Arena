@@ -6,6 +6,7 @@
 import numpy as np
 from collections.abc import Callable
 from dataclasses import MISSING
+from functools import partial
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
@@ -20,6 +21,8 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
+from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+from isaaclab_arena.tasks.predicates import object_settled_on, object_lifted
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.terminations import object_on_destination
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
@@ -52,6 +55,8 @@ class PickAndPlaceTask(TaskBase):
         task_description: str | None = None,
         force_threshold: float = 1.0,
         velocity_threshold: float = 0.1,
+        surface_height: float = 0.0,
+        lift_distance: float = 0.05,
         mimic_env_cfg_factory: Callable[[ArmMode], MimicEnvCfg] | None = None,
     ):
         super().__init__(episode_length_s=episode_length_s)
@@ -66,6 +71,8 @@ class PickAndPlaceTask(TaskBase):
         )
         self.force_threshold = force_threshold
         self.velocity_threshold = velocity_threshold
+        self.surface_height = surface_height
+        self.lift_distance = lift_distance
         self.mimic_env_cfg_factory = mimic_env_cfg_factory
         self.events_cfg = None
         self.termination_cfg = self.make_termination_cfg()
@@ -123,6 +130,28 @@ class PickAndPlaceTask(TaskBase):
 
     def get_metrics(self) -> list[MetricBase]:
         return [SuccessRateMetric(), ObjectMovedRateMetric(self.pick_up_object)]
+
+    def get_fine_grained_subtasks(self) -> list[FineGrainedSubtask]:
+        return [
+            FineGrainedSubtask(
+                name="pick_and_place",
+                conditions=[
+                    partial(
+                        object_lifted,
+                        object_name=self.pick_up_object.name,
+                        surface_height=self.surface_height,
+                        distance=self.lift_distance,
+                    ),
+                    partial(
+                        object_settled_on,
+                        object_name=self.pick_up_object.name,
+                        contact_sensor_name="pick_up_object_contact_sensor",
+                        force_threshold=self.force_threshold,
+                        velocity_threshold=self.velocity_threshold,
+                    ),
+                ],
+            )
+        ]
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(

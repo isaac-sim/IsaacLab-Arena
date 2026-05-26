@@ -22,7 +22,8 @@ import warp as wp
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 
 from isaaclab_arena.tasks.predicates.decorators import atomic, composite
-from isaaclab_arena.tasks.predicates.geometry import get_env, logical_not, select
+from isaaclab_arena.tasks.predicates.geometry import get_env, logical_and, logical_not, select
+from isaaclab_arena.tasks.predicates.pose import object_stationary
 
 
 def _contact_force_norm(env, sensor_name: str) -> torch.Tensor:
@@ -62,6 +63,32 @@ def object_grabbed(
     return object_in_contact(
         env, contact_sensor_name=sensor_name, force_threshold=force_threshold, env_id=env_id
     )
+
+
+@composite
+def object_settled_on(
+    env,
+    object_name: str,
+    contact_sensor_name: str | None = None,
+    force_threshold: float = 1.0,
+    velocity_threshold: float = 0.5,
+    env_id: int | None = None,
+) -> torch.Tensor:
+    """True when ``object_name`` is in stable contact with its desired surface.
+
+    """
+    sensor_name = contact_sensor_name or f"{object_name}_contact_sensor"
+    in_contact = object_in_contact(
+        env, contact_sensor_name=sensor_name, force_threshold=force_threshold, env_id=None
+    )
+    stationary = object_stationary(
+        env,
+        object_name=object_name,
+        linear_threshold=velocity_threshold,
+        check_angular=False,
+        env_id=None,
+    )
+    return select(logical_and(in_contact, stationary), env_id)
 
 
 @composite

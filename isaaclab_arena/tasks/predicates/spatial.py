@@ -90,7 +90,7 @@ def object_near(
 
 
 @composite
-def object_picked_up(
+def object_lifted(
     env,
     object_name: str,
     surface_object_name: str | None = None,
