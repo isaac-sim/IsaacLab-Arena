@@ -74,11 +74,6 @@ _RELATION_KIND_TO_CONSTRAINT_TYPE: dict[str, ArenaEnvGraphSpatialConstraintType]
     "is_anchor": ArenaEnvGraphSpatialConstraintType.IS_ANCHOR,
 }
 
-# Relation kinds whose semantic anchor is the *subject* (no child). For these
-# we set parent=subject and leave child=None. Everything else uses
-# parent=target, child=subject (e.g. on/in/next_to).
-_SUBJECT_AS_PARENT_KINDS: frozenset[str] = frozenset({"is_anchor", "at_position"})
-
 
 @dataclass
 class TraceEvent:
@@ -251,19 +246,13 @@ class Resolver:
             return None
 
         constraint_type = _RELATION_KIND_TO_CONSTRAINT_TYPE[rel.kind]
-        if rel.kind in _SUBJECT_AS_PARENT_KINDS:
+        # ``target is None`` is the unary signal from the schema (e.g. ``is_anchor``,
+        # ``at_position``) — see ``Relation.target`` in ``schema.py``. Binary
+        # relations (on / in / next_to / ...) provide a target; the subject
+        # becomes the child anchored on the target.
+        if rel.target is None:
             parent, child = rel.subject, None
         else:
-            if rel.target is None:
-                self.trace.append(
-                    TraceEvent(
-                        f"{stage_prefix}.missing_target",
-                        rel.subject,
-                        None,
-                        note=f"kind={rel.kind!r} requires a target; skipping",
-                    )
-                )
-                return None
             parent, child = rel.target, rel.subject
 
         child_part = f"_{child}" if child is not None else ""

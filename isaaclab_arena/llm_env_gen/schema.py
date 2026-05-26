@@ -50,10 +50,22 @@ class Item(BaseModel):
 
 
 class Relation(BaseModel):
-    """A spatial / structural relation between two items (or on one item)."""
+    """A spatial / structural relation between items.
+
+    Binary kinds (``on``, ``in``, ``next_to``, ...) must set ``target`` to the
+    other item — semantics is "subject is in relation to target". Unary kinds
+    (``is_anchor``, ``at_position``, ...) describe an intrinsic property of
+    ``subject`` alone and must leave ``target`` as ``None``. The downstream
+    resolver uses ``target is None`` as the single signal to distinguish the
+    two — see ``Resolver._build_spatial_constraint``.
+    """
 
     kind: RelationKind
     subject: str
+    # ``None`` for unary relations (the subject is the anchor); a string for
+    # binary relations (subject is anchored on this target). The resolver
+    # branches on this field rather than maintaining a kind-specific allowlist,
+    # so populating it correctly is part of the LLM's contract.
     target: str | None = None
     params: dict = Field(default_factory=dict)
 
