@@ -48,7 +48,8 @@ instead of mirroring every placement constant or scene utility in the source fil
    * - Environment name
      - ``galileo_g1_static_pick_and_place``
    * - Background
-     - ``galileo_locomanip`` provides the Galileo shelf scene reused from the locomotion workflow.
+     - ``galileo_locomanip`` provides the Galileo shelf scene reused from the
+       :doc:`loco-manipulation workflow <../locomanipulation/index>`.
    * - Embodiment
      - ``g1_wbc_agile_pink`` is the recording default; ``g1_wbc_agile_joint`` is used for policy
        evaluation after training.
