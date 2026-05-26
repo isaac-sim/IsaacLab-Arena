@@ -589,7 +589,7 @@ mkdir<span class="w"> </span>-p<span class="w"> </span><span class="nv">$MODELS_
 <span class="c1"># Pin to the commit this workflow was validated against.</span>
 git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NVIDIA/Isaac-GR00T.git<span class="w"> </span>/path/to/Isaac-GR00T
 <span class="nb">export</span><span class="w"> </span><span class="nv">ISAAC_GR00T_DIR</span><span class="o">=</span>/path/to/Isaac-GR00T
-<span class="nb">cd</span><span class="w"> </span><span class="nv">$ISAAC_GR00T_DIR</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>checkout<span class="w"> </span>3df8b3825d67f755e69141446f4315f281b9b7e6
+<span class="nb">cd</span><span class="w"> </span><span class="nv">$ISAAC_GR00T_DIR</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>checkout<span class="w"> </span>4b1dca9d88d2a0b9ea5a65aa61c82ff89f5c4f0e
 
 <span class="c1"># Create the venv (uv-managed).</span>
 uv<span class="w"> </span>sync
@@ -597,9 +597,11 @@ uv<span class="w"> </span>sync
 </div>
 <p>See the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T#readme">Isaac-GR00T README</a> for alternatives to
 <code class="docutils literal notranslate"><span class="pre">uv-managed</span></code> environment.</p>
-<p>This venv is <strong>separate</strong> from Arena’s container. Finetuning and the policy server both run from
-this standalone checkout so you can pick up new GR00T releases (e.g. N1.7 → next) without rebuilding
-Arena’s GR00T-flavoured container or bumping <code class="docutils literal notranslate"><span class="pre">submodules/Isaac-GR00T</span></code>.</p>
+<p>This venv is <strong>separate</strong> from Arena’s container, but Arena’s policy runner still imports the
+GR00T <code class="docutils literal notranslate"><span class="pre">PolicyClient</span></code> from the Arena-pinned <code class="docutils literal notranslate"><span class="pre">submodules/Isaac-GR00T</span></code> checkout. Keep the
+standalone GR00T checkout at the pinned commit above for this workflow. If you move the standalone
+checkout to a newer GR00T commit, the GR00T server and Arena’s GR00T client may be incompatible
+unless Arena’s GR00T client/submodule is updated as well.</p>
 </section>
 <section id="workflow-steps">
 <h3>Workflow Steps<a class="headerlink" href="#workflow-steps" title="Link to this heading">#</a></h3>
