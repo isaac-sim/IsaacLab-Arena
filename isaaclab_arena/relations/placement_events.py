@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab.envs import ManagerBasedEnv
 
-from isaaclab_arena.relations.placement_candidate_pool import PlacementCandidatePool
+from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.pose import Pose
 
@@ -30,7 +30,7 @@ def solve_and_place_objects(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor | None,
     objects: list[ObjectBase],
-    placement_candidate_pool: PlacementCandidatePool,
+    placement_pool: PooledObjectPlacer,
 ) -> None:
     """Coordinated reset event that draws candidate layouts from the pool and writes poses.
 
@@ -41,13 +41,13 @@ def solve_and_place_objects(
         env: The Isaac Lab environment.
         env_ids: 1-D tensor of environment indices being reset.
         objects: All objects (including anchors) participating in relation solving.
-        placement_candidate_pool: Placement candidate pool to draw layouts from.
+        placement_pool: Pooled object placer to draw layouts from.
     """
     if env_ids is None or len(env_ids) == 0:
         return
 
     num_reset_envs = len(env_ids)
-    results_per_env = placement_candidate_pool.sample_without_replacement(num_reset_envs)
+    results_per_env = placement_pool.sample_without_replacement(num_reset_envs)
 
     anchor_objects_set = set(get_anchor_objects(objects))
     rotations = {obj: get_rotation_xyzw(obj) for obj in objects if obj not in anchor_objects_set}

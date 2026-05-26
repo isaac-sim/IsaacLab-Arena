@@ -18,8 +18,8 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
 
 
-class PlacementCandidatePool:
-    """Pool of optimized placement candidates.
+class PooledObjectPlacer:
+    """Object placer that keeps a pool of optimized placement candidates.
 
     Wraps :class:`ObjectPlacer` and solves candidate layouts in batches of
     ``pool_size``, keeping only those that pass validation. The pool is refilled
@@ -58,7 +58,7 @@ class PlacementCandidatePool:
         self._solve_and_store(pool_size)
         if not self._candidates:
             raise RuntimeError(
-                f"Placement candidate pool failed to produce any valid candidates from {pool_size} attempts. "
+                f"Pooled object placer failed to produce any valid candidates from {pool_size} attempts. "
                 "Check object relations and constraints."
             )
 
@@ -87,7 +87,7 @@ class PlacementCandidatePool:
 
         if len(valid_results) < num_candidates:
             print(
-                f"Placement candidate pool: solved {num_candidates} candidates,"
+                f"Pooled object placer: solved {num_candidates} candidates,"
                 f" {len(valid_results)} valid, {num_candidates - len(valid_results)} failed validation"
             )
 
@@ -111,7 +111,7 @@ class PlacementCandidatePool:
 
         if self.remaining < count:
             raise RuntimeError(
-                f"Placement candidate pool has {self.remaining} valid candidates but {count} were requested. "
+                f"Pooled object placer has {self.remaining} valid candidates but {count} were requested. "
                 "The solver is not producing enough valid placements."
             )
 

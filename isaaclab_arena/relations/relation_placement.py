@@ -1,0 +1,204 @@
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+from __future__ import annotations
+
+from copy import deepcopy
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.placement_events import get_rotation_xyzw, solve_and_place_objects
+from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+from isaaclab_arena.relations.relations import get_anchor_objects
+from isaaclab_arena.utils.pose import Pose, PosePerEnv
+
+if TYPE_CHECKING:
+    from isaaclab.managers import EventTermCfg
+
+    from isaaclab_arena.assets.object_base import ObjectBase
+
+
+@dataclass
+class RelationPlacementResult:
+    """Result returned after solving and applying relation placement."""
+
+    objects: list[ObjectBase]
+    """Objects considered by relation placement."""
+
+    object_placer_params: ObjectPlacerParams | None = None
+    """Object placer params used for solving, or None when no solve was needed."""
+
+    placement_pool: PooledObjectPlacer | None = None
+    """Placement pool used by reset-time placement, when one exists."""
+
+    placement_event_cfg: EventTermCfg | None = None
+    """Reset event config to attach to the environment, if needed."""
+
+
+def solve_and_apply_relation_placement(
+    objects: list[ObjectBase],
+    *,
+    num_envs: int,
+    placement_seed: int | None = None,
+    resolve_on_reset: bool | None = None,
+    object_placer_params: ObjectPlacerParams | None = None,
+) -> RelationPlacementResult:
+    """Solve relation placement and apply the result to object reset/static state."""
+    objects = list(objects)
+    if not objects:
+        print("No objects with relations found in scene. Skipping relation solving.")
+        return RelationPlacementResult(objects=[])
+
+    object_placer_params = _make_object_placer_params(
+        placement_seed=placement_seed,
+        resolve_on_reset=resolve_on_reset,
+        object_placer_params=object_placer_params,
+    )
+
+    # TODO(xinjieyao, 2026-05-22): Add joint object/embodiment placement once task-dependent
+    # reachability constraints are available. For now this always uses the object-only placer.
+    placement_pool = PooledObjectPlacer(
+        objects=objects,
+        placer_params=object_placer_params,
+        pool_size=num_envs * object_placer_params.min_unique_layouts_per_env,
+    )
+    placement_event_cfg = _apply_relation_placement_result(
+        objects=objects,
+        object_placer_params=object_placer_params,
+        placement_pool=placement_pool,
+        num_envs=num_envs,
+    )
+
+    return RelationPlacementResult(
+        objects=objects,
+        object_placer_params=object_placer_params,
+        placement_pool=placement_pool,
+        placement_event_cfg=placement_event_cfg,
+    )
+
+
+def _make_object_placer_params(
+    *,
+    placement_seed: int | None,
+    resolve_on_reset: bool | None,
+    object_placer_params: ObjectPlacerParams | None,
+) -> ObjectPlacerParams:
+    if object_placer_params is None:
+        object_placer_params = ObjectPlacerParams(
+            placement_seed=placement_seed,
+            apply_positions_to_objects=False,
+            solver_params=RelationSolverParams(save_position_history=False, verbose=False),
+        )
+    else:
+        object_placer_params = deepcopy(object_placer_params)
+        object_placer_params.apply_positions_to_objects = False
+        if placement_seed is not None:
+            object_placer_params.placement_seed = placement_seed
+
+    if resolve_on_reset is not None:
+        object_placer_params.resolve_on_reset = resolve_on_reset
+    return object_placer_params
+
+
+def _apply_relation_placement_result(
+    *,
+    objects: list[ObjectBase],
+    object_placer_params: ObjectPlacerParams,
+    placement_pool: PooledObjectPlacer,
+    num_envs: int,
+) -> EventTermCfg | None:
+    """Apply selected candidates to object spawn state and build reset event config."""
+    anchor_objects_set = set(get_anchor_objects(objects))
+    # Prevent external pose-reset events from conflicting with relation-solved objects.
+    _validate_no_conflicting_pose_reset_events(objects, anchor_objects_set)
+
+    # Anchor objects do not move, so no need to apply reset event.
+    if anchor_objects_set == set(objects):
+        return None
+
+    if object_placer_params.resolve_on_reset:
+        return _apply_dynamic_spawn_pose(
+            objects=objects,
+            placement_pool=placement_pool,
+            anchor_objects_set=anchor_objects_set,
+        )
+
+    _apply_static_initial_poses(
+        objects=objects,
+        placement_pool=placement_pool,
+        anchor_objects_set=anchor_objects_set,
+        num_envs=num_envs,
+    )
+    return None
+
+
+def _apply_dynamic_spawn_pose(
+    *,
+    objects: list[ObjectBase],
+    placement_pool: PooledObjectPlacer,
+    anchor_objects_set: set[ObjectBase],
+) -> EventTermCfg:
+    """Set initial spawn pose from one layout and return the reset placement event."""
+    from isaaclab.managers import EventTermCfg
+
+    layout = placement_pool.sample_with_replacement(1)[0]
+    for obj in objects:
+        if obj in anchor_objects_set:
+            continue
+        pos = layout.positions.get(obj)
+        if pos is None:
+            raise RuntimeError(f"Placement candidate is missing a solved position for '{obj.name}'.")
+        object_cfg = getattr(obj, "object_cfg", None)
+        if object_cfg is None:
+            raise RuntimeError(f"Object '{obj.name}' must have object_cfg initialized before placement.")
+        object_cfg.init_state.pos = pos
+        object_cfg.init_state.rot = get_rotation_xyzw(obj)
+
+    return EventTermCfg(
+        func=solve_and_place_objects,
+        mode="reset",
+        params={
+            "objects": objects,
+            "placement_pool": placement_pool,
+        },
+    )
+
+
+def _apply_static_initial_poses(
+    *,
+    objects: list[ObjectBase],
+    placement_pool: PooledObjectPlacer,
+    anchor_objects_set: set[ObjectBase],
+    num_envs: int,
+) -> None:
+    """Apply fixed per-environment poses for ``resolve_on_reset=False``."""
+    layouts = placement_pool.sample_with_replacement(num_envs)
+    for obj in objects:
+        if obj in anchor_objects_set:
+            continue
+        rotation_xyzw = get_rotation_xyzw(obj)
+        poses = []
+        for env_idx in range(num_envs):
+            pos = layouts[env_idx].positions.get(obj)
+            if pos is None:
+                raise RuntimeError(f"Placement candidate is missing a solved position for '{obj.name}'.")
+            poses.append(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
+        obj.set_initial_pose(PosePerEnv(poses=poses))
+
+
+def _validate_no_conflicting_pose_reset_events(
+    objects: list[ObjectBase],
+    anchor_objects_set: set[ObjectBase],
+) -> None:
+    """Reject conflicting explicit pose-reset events on relation-solved objects."""
+    for obj in objects:
+        if obj not in anchor_objects_set and getattr(obj, "event_cfg", None) is not None:
+            raise RuntimeError(
+                f"Non-anchor object '{obj.name}' has an explicit pose-reset event. "
+                "Relational solving should not be combined with explicit setting of "
+                "poses on non-anchor objects."
+            )

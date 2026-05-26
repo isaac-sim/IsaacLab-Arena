@@ -26,7 +26,7 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
     IsaacLabArenaManagerBasedRLEnvCfg,
 )
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
-from isaaclab_arena.relations.arena_env_relation_solver import ArenaRelationSolver
+from isaaclab_arena.relations.relation_placement import solve_and_apply_relation_placement
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
@@ -49,7 +49,7 @@ class ArenaEnvBuilder:
 
         This method:
         1. Collects all objects from the scene that have relations
-        2. Builds an Arena relation placement problem
+        2. Builds an object-placement pool
         3. Reuses the object-only relation placer
         4. Applies solved positions either by writing fixed per-object initial poses
            or by registering a pooled reset placement event
@@ -62,13 +62,13 @@ class ArenaEnvBuilder:
         * **False** — applies one layout per environment via ``set_initial_pose``
           so per-object reset events restore the same layout every time.
         """
-        relation_solver = ArenaRelationSolver(
-            scene=self.arena_env.scene,
+        objects_with_relations = self.arena_env.scene.get_objects_with_relations()
+        relation_result = solve_and_apply_relation_placement(
+            objects_with_relations,
             num_envs=self.args.num_envs,
             placement_seed=self.args.placement_seed,
             resolve_on_reset=self.args.resolve_on_reset,
         )
-        relation_result = relation_solver.solve()
         self._placement_event_cfg = relation_result.placement_event_cfg
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
