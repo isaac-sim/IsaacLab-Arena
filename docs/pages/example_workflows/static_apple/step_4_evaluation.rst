@@ -2,13 +2,13 @@ Closed-Loop Policy Inference and Evaluation
 -------------------------------------------
 
 This workflow demonstrates running the finetuned GR00T N1.7 policy in closed-loop and evaluating it
-in the Arena Unitree G1 Static Apple-to-Plate Task environment using Arena's **server-client (remote-policy)
-architecture**. The server hosts the finetuned checkpoint outside the Arena container; the Arena
-container runs the simulation and queries the server over ZeroMQ.
+in the Arena Unitree G1 Static Apple-to-Plate Task environment using Arena's **server-client
+(remote-policy) architecture**. The GR00T policy server, which hosts the finetuned checkpoint, runs
+outside the Arena container. The Arena container itself runs only the simulation and a thin GR00T
+client that queries the server for actions.
 
-Note that this tutorial assumes that you've completed the
-:doc:`preceding step (Policy Training) <step_3_policy_training>`.
-
+This tutorial uses the dataset you collected in :doc:`step_2_teleoperation` and the model
+you trained in :doc:`step_3_policy_training`.
 
 Step 1: Start the GR00T policy server
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -61,8 +61,11 @@ same machine).
 
 .. caution::
 
-   Before running, make sure the GR00T server from Step 1 was launched with the finetuned checkpoint
-   directory you produced in :doc:`step_3_policy_training`.
+   Before running, edit ``model_path`` in
+   ``isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml`` to point at
+   the finetuned checkpoint directory you produced in :doc:`step_3_policy_training` (for example,
+   ``/models/isaaclab_arena/static_apple_tutorial/static_apple_n17_finetune/checkpoint-20000``).
+   It must match the ``--model-path`` you passed to ``run_gr00t_server.py`` in Step 1.
 
 .. code-block:: bash
 
@@ -106,8 +109,8 @@ by the quality of post-trained policy, the quality of the dataset, and number of
 Run Parallel Environments Evaluation (Optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Parallel evaluation of the policy in multiple parallel environments is also supported by the policy
-runner. The command below assumes the server from Step 1 is still running.
+Parallel evaluation of the policy in multiple environments is also supported by the policy runner.
+The command below assumes the GR00T server from Step 1 is still running.
 
 Test the policy in 5 parallel environments with visualization via the GUI:
 
@@ -127,19 +130,15 @@ Test the policy in 5 parallel environments with visualization via the GUI:
       --destination clay_plates_hot3d_robolab \
       --embodiment g1_wbc_agile_joint
 
-
-And during the evaluation, you should see the following output on the console at the end of the evaluation
-indicating which environments are terminated (task-specific conditions like the apple is placed onto the plate,
-or the episode length is exceeded by 6 seconds),
-or truncated (if timeouts are enabled, like the maximum episode length is exceeded).
+During evaluation, the console prints which environments terminated because the task succeeded or
+timed out, and which environments were truncated by runner-level limits.
 
 .. code-block:: text
 
    Resetting policy for terminated env_ids: tensor([3], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
 
-At the end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate might not be 1.0 as more trials are being evaluated and randomizations are being introduced,
-and the number of episodes is more than the single environment evaluation because of the parallelization.
+At the end of the evaluation, you should see metrics similar to the single-environment run, but
+computed over more episodes because multiple environments are stepped in parallel.
 
 .. code-block:: text
 
@@ -155,14 +154,6 @@ and the number of episodes is more than the single environment evaluation becaus
    policy inputs, so we use the joint-control twin (``g1_wbc_agile_joint``) for closed-loop policy
    inference -- it shares the AGILE lower-body backend with the recording embodiment, just bypasses
    PinkIK.
-
-.. note::
-
-   The single-environment command above does not pass ``--device``, so Arena defaults to its
-   built-in physics backend. If your dataset was recorded on GPU physics, prefer ``--device cuda`` for both
-   single and parallel runs to keep evaluation physics aligned with training; if it was recorded
-   on CPU physics, add ``--device cpu`` to the single-environment command for per-episode
-   reproducibility (parallel throughput becomes the trade-off for CPU-trained policies).
 
 .. note::
 
@@ -185,3 +176,15 @@ and the number of episodes is more than the single environment evaluation becaus
      expects a 23-D PinkIK action, but the server is returning a 43-DoF joint chunk. Make sure the
      client uses ``--embodiment g1_wbc_agile_joint`` (joint twin), not
      ``g1_wbc_agile_pink`` (PinkIK twin).
+   - ``ModuleNotFoundError`` on the client side — check the client's ``--policy_type``. This
+     workflow must use the remote client wrapper
+     ``isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy``,
+     together with ``--policy_config_yaml_path``. Do not use the local closed-loop policy or
+     server-side policy classes in the Arena client command.
+   - Action shape mismatch on the server (e.g., ``Action key 'left_arm''s horizon must be 40.
+     Got 50``) — the action modality used to launch the server does not match the checkpoint's
+     training horizon. This workflow trains and serves GR00T N1.7 with ``action_horizon: 40``.
+     Re-finetune with the same action ``delta_indices`` horizon, or launch
+     ``run_gr00t_server.py`` with the same ``--modality-config-path`` used during finetuning. Keep
+     the Arena client YAML's ``action_horizon`` and ``action_chunk_length`` in sync as well (see
+     the caution in :doc:`step_3_policy_training`).
