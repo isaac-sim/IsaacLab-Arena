@@ -105,6 +105,45 @@ by the quality of post-trained policy, the quality of the dataset, and number of
 
    [Rank 0/1] Metrics: {'success_rate': 1.0, 'object_moved_rate': 1.0, 'num_episodes': 1}
 
+
+Run Parallel Environments Evaluation (Optional)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Parallel evaluation of the policy in multiple environments is also supported by the policy runner.
+The command below assumes the GR00T server from Step 1 is still running.
+
+Test the policy in 5 parallel environments with visualization via the GUI:
+
+.. code-block:: bash
+
+   /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+      --viz kit \
+      --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
+      --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml \
+      --remote_host <SERVER_HOST> \
+      --remote_port 5555 \
+      --num_steps 500 \
+      --num_envs 5 \
+      --enable_cameras \
+      galileo_g1_static_pick_and_place \
+      --object apple_01_objaverse_robolab \
+      --destination clay_plates_hot3d_robolab \
+      --embodiment g1_wbc_agile_joint
+
+During evaluation, the console prints which environments terminated because the task succeeded or
+timed out, and which environments were truncated by runner-level limits.
+
+.. code-block:: text
+
+   Resetting policy for terminated env_ids: tensor([3], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
+
+At the end of the evaluation, you should see metrics similar to the single-environment run, but
+computed over more episodes because multiple environments are stepped in parallel.
+
+.. code-block:: text
+
+   [Rank 0/1] Metrics: {'success_rate': 1.0, 'num_episodes': 5}
+
 .. note::
 
    Note that the embodiment used in closed-loop policy inference is ``g1_wbc_agile_joint``, which is
@@ -137,12 +176,15 @@ by the quality of post-trained policy, the quality of the dataset, and number of
      expects a 23-D PinkIK action, but the server is returning a 43-DoF joint chunk. Make sure the
      client uses ``--embodiment g1_wbc_agile_joint`` (joint twin), not
      ``g1_wbc_agile_pink`` (PinkIK twin).
-   - ``ModuleNotFoundError`` on the client side — the client's ``--policy_type`` is wrong. The
-     valid client class for this workflow is
+   - ``ModuleNotFoundError`` on the client side — check the client's ``--policy_type``. This
+     workflow must use the remote client wrapper
      ``isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy``,
-     which takes ``--policy_config_yaml_path``.
+     together with ``--policy_config_yaml_path``. Do not use the local closed-loop policy or
+     server-side policy classes in the Arena client command.
    - Action shape mismatch on the server (e.g., ``Action key 'left_arm''s horizon must be 40.
-     Got 50``) — the action modality registered at training time disagrees with the modality
-     loaded by the server. Re-finetune at the same horizon or update the
-     ``--modality-config-path`` you pass to ``run_gr00t_server.py`` to match the checkpoint (see
+     Got 50``) — the action modality used to launch the server does not match the checkpoint's
+     training horizon. This workflow trains and serves GR00T N1.7 with ``action_horizon: 40``.
+     Re-finetune with the same action ``delta_indices`` horizon, or launch
+     ``run_gr00t_server.py`` with the same ``--modality-config-path`` used during finetuning. Keep
+     the Arena client YAML's ``action_horizon`` and ``action_chunk_length`` in sync as well (see
      the caution in :doc:`step_3_policy_training`).

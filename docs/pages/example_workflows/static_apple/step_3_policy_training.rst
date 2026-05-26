@@ -125,10 +125,21 @@ Training Configuration:
 - **Embodiment tag:** ``new_embodiment`` (case-insensitive; resolved to
   ``EmbodimentTag.NEW_EMBODIMENT`` by ``gr00t``)
 
-To post-train the policy, run the following command **from the standalone Isaac-GR00T checkout**.
-The launcher runs inside the standalone repo's ``uv``-managed venv. Replace
+To post-train the policy, open another terminal **outside** the Arena Base Docker container, set up
+GR00T's native ``uv`` environment by following the
+`GR00T installation guide <https://github.com/NVIDIA/Isaac-GR00T#installation-guide>`_, and ``cd``
+to ``$ISAAC_GR00T_DIR``. The launcher runs inside the standalone repo's ``uv``-managed venv. Replace
 ``/path/to/IsaacLab-Arena`` with the absolute path to your Arena clone so the
 ``--modality-config-path`` argument can register the WBC modality from Arena's source tree.
+
+Because finetuning runs outside the Arena Docker container, set ``DATASET_DIR`` and ``MODELS_DIR``
+in the standalone GR00T terminal to the host paths that correspond to the Docker mounts. With the
+default Arena Docker mounts, these are usually:
+
+.. code-block:: bash
+
+   export DATASET_DIR=~/datasets/isaaclab_arena/static_apple_tutorial
+   export MODELS_DIR=~/models/isaaclab_arena/static_apple_tutorial
 
 .. code-block:: bash
 
