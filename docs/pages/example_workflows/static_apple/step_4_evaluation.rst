@@ -88,17 +88,6 @@ We first run the policy in a single environment with visualization via the GUI. 
 ``<SERVER_HOST>`` below with the IP of the host running Step 1 (or ``localhost`` if it is the
 same machine).
 
-.. caution::
-
-   Before running, edit ``model_path`` in
-   ``isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml`` to point at
-   the checkpoint directory you are serving (for example,
-   ``/models/isaaclab_arena/static_apple_tutorial/gn1x_tuned_static_apple`` for the Hugging Face
-   checkpoint, or
-   ``/models/isaaclab_arena/static_apple_tutorial/static_apple_n17_finetune/checkpoint-20000`` for
-   a locally trained checkpoint).
-   It must match the ``--model-path`` you passed to ``run_gr00t_server.py`` in Step 1.
-
 .. code-block:: bash
 
    /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
