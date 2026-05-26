@@ -38,6 +38,8 @@ Once inside the container, set the dataset directory:
 
    These commands can be used to download the pre-recorded static apple HDF5 dataset ready for
    LeRobot conversion, such that the teleoperation step can be skipped.
+   Run them in the same Arena container terminal where you set ``$DATASET_DIR`` above. This
+   requires the Hugging Face CLI from ``huggingface_hub`` to be installed in that environment.
 
    To download run:
 
