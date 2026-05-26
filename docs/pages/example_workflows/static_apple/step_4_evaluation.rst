@@ -32,11 +32,17 @@ the finetuned checkpoint directory from :doc:`step_3_policy_training`.
    .. code-block:: bash
 
       export MODELS_DIR=~/models/isaaclab_arena/static_apple_tutorial
-      export MODEL_PATH=$MODELS_DIR/static_apple_n17_finetune/checkpoint-20000
+      export MODEL_PATH=$MODELS_DIR/gn1x_tuned_static_apple
 
+      mkdir -p "$MODEL_PATH"
       hf download \
          nvidia/GN1x-Tuned-Arena-G1-Static-PickNPlace \
+         --repo-type model \
          --local-dir $MODEL_PATH
+
+   If you trained your own checkpoint in :doc:`step_3_policy_training`, set ``MODEL_PATH`` to that
+   trainer output instead, for example
+   ``$MODELS_DIR/static_apple_n17_finetune/checkpoint-20000``.
 
 .. code-block:: bash
 
@@ -79,8 +85,11 @@ same machine).
 
    Before running, edit ``model_path`` in
    ``isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml`` to point at
-   the finetuned checkpoint directory you produced in :doc:`step_3_policy_training` (for example,
-   ``/models/isaaclab_arena/static_apple_tutorial/static_apple_n17_finetune/checkpoint-20000``).
+   the checkpoint directory you are serving (for example,
+   ``/models/isaaclab_arena/static_apple_tutorial/gn1x_tuned_static_apple`` for the Hugging Face
+   checkpoint, or
+   ``/models/isaaclab_arena/static_apple_tutorial/static_apple_n17_finetune/checkpoint-20000`` for
+   a locally trained checkpoint).
    It must match the ``--model-path`` you passed to ``run_gr00t_server.py`` in Step 1.
 
 .. code-block:: bash
@@ -138,7 +147,7 @@ Test the policy in 5 parallel environments with visualization via the GUI:
       --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml \
       --remote_host <SERVER_HOST> \
       --remote_port 5555 \
-      --num_steps 500 \
+      --num_steps 600 \
       --num_envs 5 \
       --enable_cameras \
       galileo_g1_static_pick_and_place \
