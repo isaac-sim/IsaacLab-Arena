@@ -128,6 +128,16 @@ A strong wireless connection is essential for a high-quality streaming experienc
          :alt: IsaacSim view
          :align: center
 
+   .. note::
+
+      If the robot does not align with your body direction after connecting the headset, reset the
+      headset view before recording. On Meta Quest, hold the Meta/Oculus button or use
+      **Quick controls** > **Reset view**. On PICO 4 Ultra, look straight ahead and hold the
+      controller **Home** button for at least 1 second. See Meta's
+      `Quest guide <https://www.meta.com/help/quest/149215193811647/>`_ and the
+      `PICO 4 Ultra User Guide
+      <https://p16-platform-static-va.ibyteimg.com/tos-maliva-i-jo6vmmv194-us/pico4-ultra-user-guide-apac.pdf>`_.
+
 #. **Teleoperation Controls**:
 
    * **Left joystick**: Move the body forward/backward/left/right.
