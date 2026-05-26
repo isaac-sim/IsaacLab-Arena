@@ -7,7 +7,7 @@ name: GitHub Pages
 
 on:
   push:
-    branches: [ "main", "feature/isaac_lab_3_newton" ]
+    branches: [ "main" ]
 
 # Concurrency control to prevent parallel runs on the same PR
 concurrency:
