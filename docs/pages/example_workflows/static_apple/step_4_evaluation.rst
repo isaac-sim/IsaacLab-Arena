@@ -8,7 +8,7 @@ outside the Arena container. The Arena container itself runs only the simulation
 client that queries the server for actions.
 
 This tutorial uses the dataset you collected in :doc:`step_2_teleoperation` and the model
-you trained in :doc:`step_3_policy_training`.
+you trained in :doc:`step_3_policy_training`, or the released checkpoint downloaded below.
 
 Step 1: Start the GR00T policy server
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -21,6 +21,22 @@ The server takes all of its configuration from CLI flags (model checkpoint, embo
 modality config from Arena's source tree, and bind host/port). Replace
 ``/path/to/IsaacLab-Arena`` with the absolute path to your Arena clone and ``${MODEL_PATH}`` with
 the finetuned checkpoint directory from :doc:`step_3_policy_training`.
+
+.. dropdown:: Download Pre-trained Model (skip policy post-training)
+   :animate: fade-in
+
+   These commands can be used to download the pre-trained GR00T N1.7 static apple checkpoint,
+   such that the policy post-training step can be skipped. Run them **outside Docker** in the
+   standalone Isaac-GR00T venv before starting the server.
+
+   .. code-block:: bash
+
+      export MODELS_DIR=~/models/isaaclab_arena/static_apple_tutorial
+      export MODEL_PATH=$MODELS_DIR/static_apple_n17_finetune/checkpoint-20000
+
+      hf download \
+         nvidia/GN1x-Tuned-Arena-G1-Static-PickNPlace \
+         --local-dir $MODEL_PATH
 
 .. code-block:: bash
 
