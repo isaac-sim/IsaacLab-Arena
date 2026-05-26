@@ -46,11 +46,6 @@ IK_DEFAULTS: dict[str, str] = {
     "gr1": "gr1_pink",
 }
 
-# SceneSpec relation kinds that have no ArenaEnvGraphSpatialConstraintType
-# counterpart yet. Open/closed are task-state goals on articulated assets and
-# only become meaningful inside the task class, not as scene-graph edges.
-_UNSUPPORTED_RELATION_KINDS: frozenset[str] = frozenset({"open", "closed"})
-
 # id used for the single initial state spec the resolver emits.
 _INITIAL_STATE_SPEC_ID = "state_initial"
 
@@ -61,18 +56,6 @@ _INITIAL_STATE_SPEC_ID = "state_initial"
 # responsible for populating them.
 def _success_state_spec_id(task_index: int) -> str:
     return f"state_success_{task_index}"
-
-
-# Mapping from SceneSpec relation kinds to the spatial-constraint types used
-# inside an ArenaEnvGraphStateSpec. Keys must stay in sync with
-# isaaclab_arena.llm_env_gen.schema.RelationKind.
-_RELATION_KIND_TO_CONSTRAINT_TYPE: dict[str, ArenaEnvGraphSpatialConstraintType] = {
-    "on": ArenaEnvGraphSpatialConstraintType.ON,
-    "in": ArenaEnvGraphSpatialConstraintType.IN,
-    "next_to": ArenaEnvGraphSpatialConstraintType.NEXT_TO,
-    "at_position": ArenaEnvGraphSpatialConstraintType.AT_POSITION,
-    "is_anchor": ArenaEnvGraphSpatialConstraintType.IS_ANCHOR,
-}
 
 
 @dataclass
@@ -208,16 +191,6 @@ class Resolver:
         self, rel: Relation, index: int, known_ids: set[str]
     ) -> ArenaEnvGraphSpatialConstraintSpec | None:
         stage_prefix = "relation.initial"
-        if rel.kind in _UNSUPPORTED_RELATION_KINDS:
-            self.trace.append(
-                TraceEvent(
-                    f"{stage_prefix}.unsupported_kind",
-                    rel.subject,
-                    None,
-                    note=f"kind={rel.kind!r} has no spatial-constraint counterpart; skipping",
-                )
-            )
-            return None
         if rel.kind == "in":
             self.trace.append(
                 TraceEvent(
@@ -228,13 +201,21 @@ class Resolver:
                 )
             )
             return None
-        if rel.kind not in _RELATION_KIND_TO_CONSTRAINT_TYPE:
+        # ``ArenaEnvGraphSpatialConstraintType(value)`` is the built-in value-based
+        # enum lookup — the schema's ``RelationKind`` literal strings are kept in
+        # 1:1 sync with this enum's values, so this single call replaces what used
+        # to be a hand-maintained dict + membership check. A ``ValueError`` here
+        # means the LLM produced a kind that pydantic's ``Literal`` should have
+        # rejected upstream — we still trace defensively in case of bypass.
+        try:
+            constraint_type = ArenaEnvGraphSpatialConstraintType(rel.kind)
+        except ValueError:
             self.trace.append(
                 TraceEvent(
-                    f"{stage_prefix}.unknown_kind",
+                    f"{stage_prefix}.unsupported_kind",
                     rel.subject,
                     None,
-                    note=f"kind={rel.kind!r} has no constraint mapping; skipping",
+                    note=f"kind={rel.kind!r} has no ArenaEnvGraphSpatialConstraintType counterpart; skipping",
                 )
             )
             return None
@@ -245,7 +226,6 @@ class Resolver:
             self.trace.append(TraceEvent(f"{stage_prefix}.unknown_target", rel.target, None, note=rel.kind))
             return None
 
-        constraint_type = _RELATION_KIND_TO_CONSTRAINT_TYPE[rel.kind]
         # ``target is None`` is the unary signal from the schema (e.g. ``is_anchor``,
         # ``at_position``) — see ``Relation.target`` in ``schema.py``. Binary
         # relations (on / in / next_to / ...) provide a target; the subject
