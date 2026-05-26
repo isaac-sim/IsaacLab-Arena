@@ -12,7 +12,7 @@ the GR00T submodule pinned inside Arena, and evaluation runs over Arena's
 **server-client (remote-policy) architecture**: the GR00T server hosts the finetuned checkpoint in
 its own venv, and Arena's client runs the simulation in the standard Arena container and queries the
 server over ZeroMQ. This decoupling means you can iterate on the model side without bumping Arena's
-submodule or rebuilding the GR00T-flavoured Arena container.
+submodule or rebuilding the Arena container.
 
 This workflow is the no-locomotion sibling of the :doc:`Unitree G1 Loco-Manipulation Box Pick and Place Task <../locomanipulation/index>`. The robot stands in place using the same Whole Body Controller (WBC) for balance, but the destination plate sits on the *same* shelf as the apple — within arm's reach — so the lower body never moves. If you want a tabletop manipulation surface for upper-body data collection without the complexity of full-body locomotion, this is the workflow to use.
 
