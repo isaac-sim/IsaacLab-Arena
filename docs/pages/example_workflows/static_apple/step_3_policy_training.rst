@@ -1,7 +1,9 @@
 Policy Post-Training (GR00T N1.7)
 ---------------------------------
 
-This workflow covers post-training a `GR00T N1.7 <https://github.com/NVIDIA/Isaac-GR00T>`_ policy
+This workflow covers post-training a
+`GR00T N1.7 <https://github.com/NVIDIA/Isaac-GR00T/tree/4b1dca9d88d2a0b9ea5a65aa61c82ff89f5c4f0e>`_
+policy
 directly on the **teleoperated demonstrations** exported in HDF5 from :doc:`step_2_teleoperation`.
 The recorded HDF5 is converted to LeRobot format inside the Arena container, then handed off to a
 **standalone Isaac-GR00T checkout** (``$ISAAC_GR00T_DIR`` from :doc:`index`) for finetuning. The
@@ -12,9 +14,9 @@ The N1.7 finetune script lives in the standalone Isaac-GR00T repo, not in Arena'
 ``submodules/Isaac-GR00T``. This lets you train on the latest GR00T release without bumping the
 Arena submodule.
 
-This page assumes you have a successful recording at
+This page assumes you have either a successful recording at
 ``$DATASET_DIR/arena_g1_static_apple_dataset_recorded.hdf5`` from
-:doc:`step_2_teleoperation`.
+:doc:`step_2_teleoperation` or the pre-generated HDF5 dataset downloaded below.
 
 
 Step 1: Convert to LeRobot Format
@@ -33,6 +35,28 @@ Once inside the container, set the dataset directory:
 
     export DATASET_DIR=/datasets/isaaclab_arena/static_apple_tutorial
 
+.. dropdown:: Download Pre-generated Dataset (skip teleoperation)
+   :animate: fade-in
+
+   These commands can be used to download the pre-recorded static apple HDF5 dataset ready for
+   LeRobot conversion, such that the teleoperation step can be skipped.
+   Run them where ``$DATASET_DIR`` points to the target directory; use the ``/datasets/...`` path
+   inside Docker, or the matching host path outside Docker. The Hugging Face CLI from
+   ``huggingface_hub`` must be installed in that environment.
+
+   To download run:
+
+   .. code-block:: bash
+
+      hf download \
+         nvidia/Arena-G1-Static-PickNPlace-Task \
+         arena_g1_static_apple_dataset_recorded_200_demos.hdf5 \
+         --repo-type dataset \
+         --local-dir $DATASET_DIR
+
+      mv "$DATASET_DIR/arena_g1_static_apple_dataset_recorded_200_demos.hdf5" \
+         "$DATASET_DIR/arena_g1_static_apple_dataset_recorded.hdf5"
+
 .. caution::
 
    ``isaaclab_arena_gr00t/lerobot/convert_hdf5_to_lerobot.py`` expects each episode to include
@@ -42,7 +66,8 @@ Once inside the container, set the dataset directory:
 
 Edit ``isaaclab_arena_gr00t/lerobot/config/g1_static_apple_config.yaml`` so ``hdf5_name`` matches
 your recorded file (``arena_g1_static_apple_dataset_recorded.hdf5``) and ``data_root`` matches
-``$DATASET_DIR``.
+``$DATASET_DIR``. The Hugging Face download command above renames the released HDF5 to this local
+tutorial filename so the default config can be used unchanged.
 
 Convert the HDF5 dataset to LeRobot format for policy post-training:
 
@@ -104,46 +129,57 @@ We post-train the GR00T N1.7 policy on the task using the **standalone Isaac-GR0
 GR00T's dependencies do not have to coexist with the Arena/Isaac Sim ones.
 
 The GR00T N1.7 policy has 3 billion parameters so post-training is an expensive operation.
-We provide one post-training option, 8 GPUs with 48 GB memory, to achieve the best quality.
+The command below is the tested single-GPU configuration for this workflow.
 
-Training takes approximately 4-8 hours on 8x L40s GPUs.
+Training takes approximately 2-3 hours for 20,000 steps on a single NVIDIA RTX 6000 Ada GPU.
 
 Compute Requirements:
 
-- **GPUs:** 8x with at least 48 GB VRAM each (e.g. L40s, GB200, etc.)
-- **System RAM:** 256 GB or more recommended — multi-GPU training with large batch sizes
-  and multiple dataloader workers requires substantial host memory
+- **GPUs:** 1x NVIDIA RTX 6000 Ada or another GPU with at least 48 GB VRAM
+- **System RAM:** 128 GB or more recommended
 
 Training Configuration:
 
 - **Base Model:** GR00T-N1.7-3B (foundation model, downloaded from Hugging Face on first run)
 - **Tuned Modules:** Visual backbone, projector, diffusion model
 - **Frozen Modules:** LLM (language model)
-- **Batch Size:** 96 (adjust based on GPU memory)
+- **Batch Size:** 12 (adjust based on GPU memory)
 - **Training Steps:** 20,000
 - **Action horizon:** 40 (must match the diffusion head value used at evaluation; see note below)
 - **Embodiment tag:** ``new_embodiment`` (case-insensitive; resolved to
   ``EmbodimentTag.NEW_EMBODIMENT`` by ``gr00t``)
 
-To post-train the policy, run the following command **from the standalone Isaac-GR00T checkout**.
-The launcher runs inside the standalone repo's ``uv``-managed venv. Replace
+To post-train the policy, open another terminal **outside** the Arena Base Docker container, set up
+GR00T's native ``uv`` environment by following the
+`GR00T installation guide
+<https://github.com/NVIDIA/Isaac-GR00T/blob/4b1dca9d88d2a0b9ea5a65aa61c82ff89f5c4f0e/README.md#installation-guide>`_,
+and ``cd`` to ``$ISAAC_GR00T_DIR``. The launcher runs inside the standalone repo's ``uv``-managed venv. Replace
 ``/path/to/IsaacLab-Arena`` with the absolute path to your Arena clone so the
 ``--modality-config-path`` argument can register the WBC modality from Arena's source tree.
+
+Because finetuning runs outside the Arena Docker container, set ``DATASET_DIR`` and ``MODELS_DIR``
+in the standalone GR00T terminal to the host paths that correspond to the Docker mounts. With the
+default Arena Docker mounts, these are usually:
+
+.. code-block:: bash
+
+   export DATASET_DIR=~/datasets/isaaclab_arena/static_apple_tutorial
+   export MODELS_DIR=~/models/isaaclab_arena/static_apple_tutorial
 
 .. code-block:: bash
 
    cd $ISAAC_GR00T_DIR
 
-   uv run python -m torch.distributed.run --nproc_per_node=8 --standalone \
+   uv run python -m torch.distributed.run --nproc_per_node=1 --standalone \
      gr00t/experiment/launch_finetune.py \
      --base-model-path nvidia/GR00T-N1.7-3B \
      --dataset-path $DATASET_DIR/arena_g1_static_apple_dataset_recorded/lerobot \
      --output-dir $MODELS_DIR/static_apple_n17_finetune \
      --modality-config-path /path/to/IsaacLab-Arena/isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_gr00t_n_1_7_config.py \
      --embodiment-tag new_embodiment \
-     --global-batch-size 96 \
+     --global-batch-size 12 \
      --max-steps 20000 \
-     --num-gpus 8 \
+     --num-gpus 1 \
      --save-steps 5000 \
      --save-total-limit 5 \
      --no-tune-llm \
@@ -184,8 +220,9 @@ The launcher runs inside the standalone repo's ``uv``-managed venv. Replace
       server-side YAML at
       ``isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml``.
 
-If you have less powerful GPUs, please see the
-`GR00T fine-tuning guidelines <https://github.com/NVIDIA/Isaac-GR00T#3-fine-tuning>`_ for
+If you have more powerful GPUs, please see the
+`GR00T fine-tuning guidelines
+<https://github.com/NVIDIA/Isaac-GR00T/blob/4b1dca9d88d2a0b9ea5a65aa61c82ff89f5c4f0e/README.md#3-fine-tuning>`_ for
 information on how to adjust the training configuration to your hardware. We recommend fine-tuning
 the visual backbone, projector, and diffusion model for better results.
 
