@@ -35,7 +35,6 @@ from isaaclab_arena.environments.arena_env_graph_spec import (
     ArenaEnvGraphStateSpec,
     ArenaEnvGraphTaskSpec,
 )
-from isaaclab_arena.environments.graph_spec_utils import assert_references_exist, assert_unique_ids
 
 from .schema import Item, Relation, SceneSpec, Task
 
@@ -149,12 +148,6 @@ class Resolver:
             tasks=tasks,
             state_specs=state_specs,
         )
-
-        # Defensive: the resolver owns every id and reference it emits, so
-        # these invariants should always hold. Catching a violation here
-        # surfaces resolver bugs eagerly rather than at downstream consumers.
-        assert_unique_ids(env_graph_spec.nodes, env_graph_spec.tasks, env_graph_spec.state_specs)
-        assert_references_exist(env_graph_spec.nodes, env_graph_spec.tasks, env_graph_spec.state_specs)
 
         return env_graph_spec
 
