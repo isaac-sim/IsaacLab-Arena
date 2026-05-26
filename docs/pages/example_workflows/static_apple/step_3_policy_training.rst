@@ -129,22 +129,21 @@ We post-train the GR00T N1.7 policy on the task using the **standalone Isaac-GR0
 GR00T's dependencies do not have to coexist with the Arena/Isaac Sim ones.
 
 The GR00T N1.7 policy has 3 billion parameters so post-training is an expensive operation.
-We provide one post-training option, 8 GPUs with 48 GB memory, to achieve the best quality.
+The command below is the tested single-GPU configuration for this workflow.
 
-Training takes approximately 4-8 hours on 8x L40s GPUs.
+Training takes approximately 2-3 hours for 20,000 steps on a single NVIDIA RTX 6000 Ada GPU.
 
 Compute Requirements:
 
-- **GPUs:** 8x with at least 48 GB VRAM each (e.g. L40s, GB200, etc.)
-- **System RAM:** 256 GB or more recommended — multi-GPU training with large batch sizes
-  and multiple dataloader workers requires substantial host memory
+- **GPUs:** 1x NVIDIA RTX 6000 Ada or another GPU with at least 48 GB VRAM
+- **System RAM:** 128 GB or more recommended
 
 Training Configuration:
 
 - **Base Model:** GR00T-N1.7-3B (foundation model, downloaded from Hugging Face on first run)
 - **Tuned Modules:** Visual backbone, projector, diffusion model
 - **Frozen Modules:** LLM (language model)
-- **Batch Size:** 96 (adjust based on GPU memory)
+- **Batch Size:** 12 (adjust based on GPU memory)
 - **Training Steps:** 20,000
 - **Action horizon:** 40 (must match the diffusion head value used at evaluation; see note below)
 - **Embodiment tag:** ``new_embodiment`` (case-insensitive; resolved to
@@ -171,16 +170,16 @@ default Arena Docker mounts, these are usually:
 
    cd $ISAAC_GR00T_DIR
 
-   uv run python -m torch.distributed.run --nproc_per_node=8 --standalone \
+   uv run python -m torch.distributed.run --nproc_per_node=1 --standalone \
      gr00t/experiment/launch_finetune.py \
      --base-model-path nvidia/GR00T-N1.7-3B \
      --dataset-path $DATASET_DIR/arena_g1_static_apple_dataset_recorded/lerobot \
      --output-dir $MODELS_DIR/static_apple_n17_finetune \
      --modality-config-path /path/to/IsaacLab-Arena/isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_gr00t_n_1_7_config.py \
      --embodiment-tag new_embodiment \
-     --global-batch-size 96 \
+     --global-batch-size 12 \
      --max-steps 20000 \
-     --num-gpus 8 \
+     --num-gpus 1 \
      --save-steps 5000 \
      --save-total-limit 5 \
      --no-tune-llm \
@@ -221,7 +220,7 @@ default Arena Docker mounts, these are usually:
       server-side YAML at
       ``isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml``.
 
-If you have less powerful GPUs, please see the
+If you have more powerful GPUs, please see the
 `GR00T fine-tuning guidelines
 <https://github.com/NVIDIA/Isaac-GR00T/blob/4b1dca9d88d2a0b9ea5a65aa61c82ff89f5c4f0e/README.md#3-fine-tuning>`_ for
 information on how to adjust the training configuration to your hardware. We recommend fine-tuning
