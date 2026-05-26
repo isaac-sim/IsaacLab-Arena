@@ -63,13 +63,12 @@ class ArenaEnvBuilder:
           so per-object reset events restore the same layout every time.
         """
         objects_with_relations = self.arena_env.scene.get_objects_with_relations()
-        relation_result = solve_and_apply_relation_placement(
+        self._placement_event_cfg = solve_and_apply_relation_placement(
             objects_with_relations,
             num_envs=self.args.num_envs,
             placement_seed=self.args.placement_seed,
             resolve_on_reset=self.args.resolve_on_reset,
         )
-        self._placement_event_cfg = relation_result.placement_event_cfg
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""

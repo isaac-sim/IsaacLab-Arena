@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -22,36 +21,34 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
 
 
-@dataclass
-class RelationPlacementResult:
-    """Result returned after solving and applying relation placement."""
-
-    objects: list[ObjectBase]
-    """Objects considered by relation placement."""
-
-    object_placer_params: ObjectPlacerParams | None = None
-    """Object placer params used for solving, or None when no solve was needed."""
-
-    placement_pool: PooledObjectPlacer | None = None
-    """Placement pool used by reset-time placement, when one exists."""
-
-    placement_event_cfg: EventTermCfg | None = None
-    """Reset event config to attach to the environment, if needed."""
-
-
 def solve_and_apply_relation_placement(
     objects: list[ObjectBase],
-    *,
     num_envs: int,
     placement_seed: int | None = None,
     resolve_on_reset: bool | None = None,
     object_placer_params: ObjectPlacerParams | None = None,
-) -> RelationPlacementResult:
-    """Solve relation placement and apply the result to object reset/static state."""
+) -> EventTermCfg | None:
+    """Solve relation placement and apply the result to object reset/static state.
+
+    Args:
+        objects: Objects with spatial predicates that should be relation-solved.
+        num_envs: Number of environments to prepare placements for.
+        placement_seed: Optional random seed for reproducible object placement.
+        resolve_on_reset: Optional override for whether to draw fresh layouts from
+            the placement pool on reset. When ``False``, fixed per-environment
+            initial poses are applied immediately.
+        object_placer_params: Optional base object-placer params. A defensive copy
+            is used, and ``apply_positions_to_objects`` is forced to ``False`` so
+            this function owns how solved positions are applied.
+
+    Returns:
+        Reset event config to attach to the environment when placement should be
+        resolved on reset. Returns ``None`` when no reset event is needed.
+    """
     objects = list(objects)
     if not objects:
         print("No objects with relations found in scene. Skipping relation solving.")
-        return RelationPlacementResult(objects=[])
+        return None
 
     object_placer_params = _make_object_placer_params(
         placement_seed=placement_seed,
@@ -66,23 +63,15 @@ def solve_and_apply_relation_placement(
         placer_params=object_placer_params,
         pool_size=num_envs * object_placer_params.min_unique_layouts_per_env,
     )
-    placement_event_cfg = _apply_relation_placement_result(
+    return _apply_relation_placement_result(
         objects=objects,
         object_placer_params=object_placer_params,
         placement_pool=placement_pool,
         num_envs=num_envs,
     )
 
-    return RelationPlacementResult(
-        objects=objects,
-        object_placer_params=object_placer_params,
-        placement_pool=placement_pool,
-        placement_event_cfg=placement_event_cfg,
-    )
-
 
 def _make_object_placer_params(
-    *,
     placement_seed: int | None,
     resolve_on_reset: bool | None,
     object_placer_params: ObjectPlacerParams | None,
@@ -105,13 +94,12 @@ def _make_object_placer_params(
 
 
 def _apply_relation_placement_result(
-    *,
     objects: list[ObjectBase],
     object_placer_params: ObjectPlacerParams,
     placement_pool: PooledObjectPlacer,
     num_envs: int,
 ) -> EventTermCfg | None:
-    """Apply selected candidates to object spawn state and build reset event config."""
+    """Apply selected layouts to object spawn state and build reset event config."""
     anchor_objects_set = set(get_anchor_objects(objects))
     # Prevent external pose-reset events from conflicting with relation-solved objects.
     _validate_no_conflicting_pose_reset_events(objects, anchor_objects_set)
@@ -137,7 +125,6 @@ def _apply_relation_placement_result(
 
 
 def _apply_dynamic_spawn_pose(
-    *,
     objects: list[ObjectBase],
     placement_pool: PooledObjectPlacer,
     anchor_objects_set: set[ObjectBase],
@@ -151,7 +138,7 @@ def _apply_dynamic_spawn_pose(
             continue
         pos = layout.positions.get(obj)
         if pos is None:
-            raise RuntimeError(f"Placement candidate is missing a solved position for '{obj.name}'.")
+            raise RuntimeError(f"Placement layout is missing a solved position for '{obj.name}'.")
         object_cfg = getattr(obj, "object_cfg", None)
         if object_cfg is None:
             raise RuntimeError(f"Object '{obj.name}' must have object_cfg initialized before placement.")
@@ -169,7 +156,6 @@ def _apply_dynamic_spawn_pose(
 
 
 def _apply_static_initial_poses(
-    *,
     objects: list[ObjectBase],
     placement_pool: PooledObjectPlacer,
     anchor_objects_set: set[ObjectBase],
@@ -185,7 +171,7 @@ def _apply_static_initial_poses(
         for env_idx in range(num_envs):
             pos = layouts[env_idx].positions.get(obj)
             if pos is None:
-                raise RuntimeError(f"Placement candidate is missing a solved position for '{obj.name}'.")
+                raise RuntimeError(f"Placement layout is missing a solved position for '{obj.name}'.")
             poses.append(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
         obj.set_initial_pose(PosePerEnv(poses=poses))
 
