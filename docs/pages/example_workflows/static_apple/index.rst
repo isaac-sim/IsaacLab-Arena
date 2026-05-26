@@ -104,11 +104,9 @@ Standalone Isaac-GR00T (N1.7) checkout (used in :doc:`step_3_policy_training` an
     export ISAAC_GR00T_DIR=/path/to/Isaac-GR00T
     cd $ISAAC_GR00T_DIR && git checkout 4b1dca9d88d2a0b9ea5a65aa61c82ff89f5c4f0e
 
-    # Create the venv (uv-managed).
-    uv sync
-
-See the `Isaac-GR00T README <https://github.com/NVIDIA/Isaac-GR00T#readme>`_ for alternatives to
-``uv-managed`` environment.
+Open another terminal outside the Arena Base Docker container and set up the native GR00T
+``uv`` environment from ``$ISAAC_GR00T_DIR`` by following the
+`GR00T installation guide <https://github.com/NVIDIA/Isaac-GR00T#installation-guide>`_.
 
 This venv is **separate** from Arena's container, but Arena's policy runner still imports the
 GR00T ``PolicyClient`` from the Arena-pinned ``submodules/Isaac-GR00T`` checkout. Keep the
