@@ -8,7 +8,7 @@ outside the Arena container. The Arena container itself runs only the simulation
 client that queries the server for actions.
 
 This tutorial uses the dataset you collected in :doc:`step_2_teleoperation` and the model
-you trained in :doc:`step_3_policy_training`.
+you trained in :doc:`step_3_policy_training`, or the released checkpoint downloaded below.
 
 Step 1: Start the GR00T policy server
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -21,6 +21,28 @@ The server takes all of its configuration from CLI flags (model checkpoint, embo
 modality config from Arena's source tree, and bind host/port). Replace
 ``/path/to/IsaacLab-Arena`` with the absolute path to your Arena clone and ``${MODEL_PATH}`` with
 the finetuned checkpoint directory from :doc:`step_3_policy_training`.
+
+.. dropdown:: Download Pre-trained Model (skip policy post-training)
+   :animate: fade-in
+
+   These commands can be used to download the pre-trained GR00T N1.7 static apple checkpoint,
+   such that the policy post-training step can be skipped. Run them **outside Docker** in the
+   standalone Isaac-GR00T venv before starting the server.
+
+   .. code-block:: bash
+
+      export MODELS_DIR=~/models/isaaclab_arena/static_apple_tutorial
+      export MODEL_PATH=$MODELS_DIR/gn1x_tuned_static_apple
+
+      mkdir -p "$MODEL_PATH"
+      hf download \
+         nvidia/GN1x-Tuned-Arena-G1-Static-PickNPlace \
+         --repo-type model \
+         --local-dir $MODEL_PATH
+
+   If you trained your own checkpoint in :doc:`step_3_policy_training`, set ``MODEL_PATH`` to that
+   trainer output instead, for example
+   ``$MODELS_DIR/static_apple_n17_finetune/checkpoint-20000``.
 
 .. code-block:: bash
 
@@ -55,6 +77,13 @@ Once inside the container, set the dataset and models directories.
     export DATASET_DIR=/datasets/isaaclab_arena/static_apple_tutorial
     export MODELS_DIR=/models/isaaclab_arena/static_apple_tutorial
 
+.. note::
+
+   If Kit reports permission errors while writing
+   ``/isaac-sim/kit/data/Kit/IsaacLab/3.0/user.config.json`` or cache files, start from a clean
+   Arena container/cache or rebuild the Docker image. This can happen when stale Isaac Sim / Kit
+   state from another setup is reused with incompatible ownership.
+
 We first run the policy in a single environment with visualization via the GUI. Replace
 ``<SERVER_HOST>`` below with the IP of the host running Step 1 (or ``localhost`` if it is the
 same machine).
@@ -63,8 +92,11 @@ same machine).
 
    Before running, edit ``model_path`` in
    ``isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml`` to point at
-   the finetuned checkpoint directory you produced in :doc:`step_3_policy_training` (for example,
-   ``/models/isaaclab_arena/static_apple_tutorial/static_apple_n17_finetune/checkpoint-20000``).
+   the checkpoint directory you are serving (for example,
+   ``/models/isaaclab_arena/static_apple_tutorial/gn1x_tuned_static_apple`` for the Hugging Face
+   checkpoint, or
+   ``/models/isaaclab_arena/static_apple_tutorial/static_apple_n17_finetune/checkpoint-20000`` for
+   a locally trained checkpoint).
    It must match the ``--model-path`` you passed to ``run_gr00t_server.py`` in Step 1.
 
 .. code-block:: bash
@@ -105,6 +137,45 @@ by the quality of post-trained policy, the quality of the dataset, and number of
 
    [Rank 0/1] Metrics: {'success_rate': 1.0, 'object_moved_rate': 1.0, 'num_episodes': 1}
 
+
+Run Parallel Environments Evaluation (Optional)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Parallel evaluation of the policy in multiple environments is also supported by the policy runner.
+The command below assumes the GR00T server from Step 1 is still running.
+
+Test the policy in 5 parallel environments with visualization via the GUI:
+
+.. code-block:: bash
+
+   /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+      --viz kit \
+      --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
+      --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml \
+      --remote_host <SERVER_HOST> \
+      --remote_port 5555 \
+      --num_steps 600 \
+      --num_envs 5 \
+      --enable_cameras \
+      galileo_g1_static_pick_and_place \
+      --object apple_01_objaverse_robolab \
+      --destination clay_plates_hot3d_robolab \
+      --embodiment g1_wbc_agile_joint
+
+During evaluation, the console prints which environments terminated because the task succeeded or
+timed out, and which environments were truncated by runner-level limits.
+
+.. code-block:: text
+
+   Resetting policy for terminated env_ids: tensor([3], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
+
+At the end of the evaluation, you should see metrics similar to the single-environment run, but
+computed over more episodes because multiple environments are stepped in parallel.
+
+.. code-block:: text
+
+   [Rank 0/1] Metrics: {'success_rate': 1.0, 'num_episodes': 5}
+
 .. note::
 
    Note that the embodiment used in closed-loop policy inference is ``g1_wbc_agile_joint``, which is
@@ -137,12 +208,14 @@ by the quality of post-trained policy, the quality of the dataset, and number of
      expects a 23-D PinkIK action, but the server is returning a 43-DoF joint chunk. Make sure the
      client uses ``--embodiment g1_wbc_agile_joint`` (joint twin), not
      ``g1_wbc_agile_pink`` (PinkIK twin).
-   - ``ModuleNotFoundError`` on the client side — the client's ``--policy_type`` is wrong. The
-     valid client class for this workflow is
+   - ``ModuleNotFoundError`` on the client side — check the client's ``--policy_type``. This
+     workflow must use the remote client wrapper
      ``isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy``,
-     which takes ``--policy_config_yaml_path``.
+     together with ``--policy_config_yaml_path``.
    - Action shape mismatch on the server (e.g., ``Action key 'left_arm''s horizon must be 40.
-     Got 50``) — the action modality registered at training time disagrees with the modality
-     loaded by the server. Re-finetune at the same horizon or update the
-     ``--modality-config-path`` you pass to ``run_gr00t_server.py`` to match the checkpoint (see
+     Got 50``) — the action modality used to launch the server does not match the checkpoint's
+     training horizon. This workflow trains and serves GR00T N1.7 with ``action_horizon: 40``.
+     Re-finetune with the same action ``delta_indices`` horizon, or launch
+     ``run_gr00t_server.py`` with the same ``--modality-config-path`` used during finetuning. Keep
+     the Arena client YAML's ``action_horizon`` and ``action_chunk_length`` in sync as well (see
      the caution in :doc:`step_3_policy_training`).

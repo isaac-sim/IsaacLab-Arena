@@ -13,16 +13,13 @@ and validate that we can load it in Isaac Lab.
 Environment Description
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-The static apple-to-plate workflow ships its own ``GalileoG1StaticPickAndPlaceEnvironment`` registered
-under ``galileo_g1_static_pick_and_place``. It reuses the same ``galileo_locomanip`` background USD
-and the same OpenXR retargeter as the loco-manipulation apple-to-plate environment, but defaults to
-the ``g1_wbc_agile_pink`` embodiment (AGILE end-to-end velocity policy) instead of ``g1_wbc_pink``
-(HOMIE stand+walk pair). The static task never walks, so AGILE's single-policy backend is a better
-fit than HOMIE's stand/walk model split — both share the same 23-D action layout and OpenXR
-retargeter pipeline, so only the lower-body ONNX backend changes. Both the apple and the destination
-plate are placed on the *same* shelf so the robot never needs to drive its base anywhere — WBC just
-holds the standing pose. The ``g1_wbc_pink`` embodiment is still accepted as an override for users
-who specifically want HOMIE.
+The static apple-to-plate workflow ships its own ``GalileoG1StaticPickAndPlaceEnvironment``,
+exposed by the example-environment registry as ``galileo_g1_static_pick_and_place``. It reuses the
+same ``galileo_locomanip`` shelf scene and the same OpenXR retargeter as the loco-manipulation
+apple-to-plate environment, but defaults to the ``g1_wbc_agile_pink`` embodiment for recording. The
+static task never walks, so AGILE's single-policy lower-body backend is a better fit than HOMIE's
+stand/walk model split. Both the apple and destination plate are placed on the same shelf, so the
+WBC only needs to hold the standing pose.
 
 .. note::
 
@@ -30,177 +27,85 @@ who specifically want HOMIE.
    default ``g1_wbc_agile_pink`` (PinkIK + AGILE), while closed-loop policy evaluation in
    :doc:`step_4_evaluation` uses ``g1_wbc_agile_joint`` (direct joint control + AGILE). Both share
    the same AGILE lower-body backend; the ``_joint`` twin just bypasses PinkIK at inference because
-   the policy is trained on the joint-space targets that PinkIK *produced* during recording. This
+   the policy is trained on the joint-space targets that PinkIK produced during recording. This
    matters for finetuning: see :doc:`step_3_policy_training` for the rationale.
 
-.. dropdown:: The Galileo G1 Static Pick-and-Place Environment
-   :animate: fade-in
 
-   .. code-block:: python
-
-       from isaaclab_arena.assets.register import register_environment
-       from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
-
-       SHELF_SURFACE_Z = -0.030
-       SHELF_AIRGAP = 0.005
-       PICK_UP_OBJECT_SPAWN_XY = (0.5785, 0.18)
-       DESTINATION_SPAWN_XY = (0.5785, -0.06)
-
-       _USD_ORIGIN_ABOVE_BOTTOM_M = {
-           "apple_01_objaverse_robolab": 0.019,
-           "clay_plates_hot3d_robolab": 0.0,
-       }
-
-       TUNED_PICK_UP_OBJECT_NAME = "apple_01_objaverse_robolab"
-       TUNED_DESTINATION_NAME = "clay_plates_hot3d_robolab"
-
-
-       @register_environment
-       class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
-
-           name: str = "galileo_g1_static_pick_and_place"
-
-           def get_env(self, args_cli):
-               from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-               from isaaclab_arena.scene.scene import Scene
-               from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-               from isaaclab_arena.utils.pose import Pose
-
-               background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
-               pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-               destination = self.asset_registry.get_asset_by_name(args_cli.destination)()
-               embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
-                   enable_cameras=args_cli.enable_cameras
-               )
-
-               teleop_device = (
-                   self.device_registry.get_device_by_name(args_cli.teleop_device)()
-                   if args_cli.teleop_device is not None else None
-               )
-
-               embodiment.set_initial_pose(
-                   Pose(position_xyz=(0.0, 0.18, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
-               )
-               px, py = PICK_UP_OBJECT_SPAWN_XY
-               dx, dy = DESTINATION_SPAWN_XY
-               pick_up_object.set_initial_pose(
-                   Pose(position_xyz=(px, py, _shelf_spawn_z(args_cli.object)),
-                        rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
-               )
-               destination.set_initial_pose(
-                   Pose(position_xyz=(dx, dy, _shelf_spawn_z(args_cli.destination)),
-                        rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
-               )
-
-               scene = Scene(assets=[background, pick_up_object, destination])
-               return IsaacLabArenaEnvironment(
-                   name=self.name,
-                   embodiment=embodiment,
-                   scene=scene,
-                   task=PickAndPlaceTask(
-                       pick_up_object=pick_up_object,
-                       destination_location=destination,
-                       background_scene=background,
-                       force_threshold=0.5,
-                       velocity_threshold=0.1,
-                   ),
-                   teleop_device=teleop_device,
-               )
-
-
-Step-by-Step Breakdown
+Environment Composition
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-**1. Interact with the Asset and Device Registry**
+The full implementation lives in
+``isaaclab_arena_environments/galileo_g1_static_pick_and_place_environment.py``. This page keeps the
+breakdown at the composition level so the docs stay focused on how an Arena environment is assembled
+instead of mirroring every placement constant or scene utility in the source file.
+
+.. list-table::
+   :widths: 28 72
+   :header-rows: 1
+
+   * - Component
+     - Role in this workflow
+   * - Environment name
+     - ``galileo_g1_static_pick_and_place``
+   * - Background
+     - ``galileo_locomanip`` provides the Galileo shelf scene reused from the
+       :doc:`loco-manipulation workflow <../locomanipulation/index>`.
+   * - Embodiment
+     - ``g1_wbc_agile_pink`` is the recording default; ``g1_wbc_agile_joint`` is used for policy
+       evaluation after training.
+   * - Pick-up object
+     - ``apple_01_objaverse_robolab`` by default, selected through ``--object``.
+   * - Destination
+     - ``clay_plates_hot3d_robolab`` by default, selected through ``--destination``.
+   * - Scene utilities
+     - The registered environment handles tuned object placement, object scale, shelf support,
+       finger contact friction, and background cleanup internally.
+   * - Task
+     - ``PickAndPlaceTask`` checks whether the apple is moved onto the plate and provides the
+       success metrics used later in evaluation.
+   * - Teleop device
+     - ``openxr`` is attached only when ``--teleop_device openxr`` is passed, so the same
+       environment can also be used for replay and policy evaluation without XR.
+
+At a high level, defining an Arena environment is just selecting assets, composing a scene, choosing
+a task, and returning an ``IsaacLabArenaEnvironment``:
 
 .. code-block:: python
 
-    background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
-    pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-    destination = self.asset_registry.get_asset_by_name(args_cli.destination)()
-    embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
-        enable_cameras=args_cli.enable_cameras
-    )
-
-The static workflow shares the ``galileo_locomanip`` background with the loco-manipulation variant
-on purpose: the lighting, shelf geometry and 23-D action layout are already tuned, so the only
-thing that changes is *where* the destination sits and which lower-body WBC backend balances the
-robot. The default ``g1_wbc_agile_pink`` embodiment swaps HOMIE's stand+walk pair for AGILE's
-single end-to-end velocity policy, which is a better fit for a no-locomotion task; ``g1_wbc_pink`` is
-accepted as an override for users who want HOMIE behaviour. ``teleop_device`` is left as ``None``
-when ``--teleop_device`` is not supplied so that scripts like ``replay_demos.py`` and
-``policy_runner.py`` can launch the same environment without instantiating an XR runtime.
-
-
-**2. Position the Objects**
-
-.. code-block:: python
-
-   embodiment.set_initial_pose(
-       Pose(position_xyz=(0.0, 0.18, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+   background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
+   pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+   destination = self.asset_registry.get_asset_by_name(args_cli.destination)()
+   embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
+       enable_cameras=args_cli.enable_cameras
    )
-   pick_up_object.set_initial_pose(
-       Pose(position_xyz=(0.5785, 0.18, _shelf_spawn_z(args_cli.object)),
-            rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
-   )
-   destination.set_initial_pose(
-       Pose(position_xyz=(0.5785, -0.06, _shelf_spawn_z(args_cli.destination)),
-            rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+   teleop_device = (
+       self.device_registry.get_device_by_name(args_cli.teleop_device)()
+       if args_cli.teleop_device is not None else None
    )
 
-The robot pose mirrors the loco-manipulation env exactly so the WBC controller stands the robot up
-in the same shelf-relative spot. The apple is placed at a measured on-shelf X/Y, and the plate is
-offset 24 cm in -Y so its 30 cm footprint clears the apple without collision. ``_shelf_spawn_z``
-consults a per-asset USD-origin table so each asset's *bottom face* — not its USD origin — lands
-flush on the shelf surface; assets not in the table fall back to ``SHELF_SURFACE_Z + SHELF_AIRGAP``
-and emit a warning so you know to verify the spawn pose visually before recording demonstrations.
+   scene = Scene(assets=[background, pick_up_object, destination])
+   task = PickAndPlaceTask(
+       pick_up_object=pick_up_object,
+       destination_location=destination,
+       background_scene=background,
+   )
 
+   return IsaacLabArenaEnvironment(
+       name=self.name,
+       embodiment=embodiment,
+       scene=scene,
+       task=task,
+       teleop_device=teleop_device,
+   )
 
-**3. Compose the Scene**
+The production environment adds task-specific defaults around this core composition: same-shelf
+poses for the apple and plate, a short episode timeout, an invisible shelf support surface, tuned
+contact/friction settings, and cleanup of a few reused background props. Those details are handled
+inside the registered environment so workflow users can run it through the CLI without editing the
+scene setup code.
 
-.. code-block:: python
-
-    scene = Scene(assets=[background, pick_up_object, destination])
-
-The static env uses a single shelf-anchored background plus the pick-up object and the destination;
-no second table is needed because the destination plate sits on the same shelf as the apple.
-See :doc:`../../concepts/scene/index` for scene composition details.
-
-
-**4. Create the Pick and Place Task**
-
-.. code-block:: python
-
-    task = PickAndPlaceTask(
-        pick_up_object=pick_up_object,
-        destination_location=destination,
-        background_scene=background,
-        force_threshold=0.5,
-        velocity_threshold=0.1,
-    )
-
-The static env uses ``PickAndPlaceTask`` directly. The task wires the apple,
-plate, and background into the standard pick-and-place termination logic;
-``force_threshold`` / ``velocity_threshold`` mirror the locomanip env so success
-metrics are directly comparable.
-
-See :doc:`../../concepts/task/index` for task creation details.
-
-
-**5. Create the IsaacLab Arena Environment**
-
-.. code-block:: python
-
-    isaaclab_arena_environment = IsaacLabArenaEnvironment(
-        name=self.name,
-        embodiment=embodiment,
-        scene=scene,
-        task=task,
-        teleop_device=teleop_device,
-    )
-
-Finally, we assemble all the pieces into a complete, runnable environment.
-See :doc:`../../concepts/concept_overview` for environment composition details.
+See :doc:`../../concepts/concept_overview`, :doc:`../../concepts/scene/index`, and
+:doc:`../../concepts/task/index` for more details on Arena environment composition.
 
 
 Validate Environment with Automated Tests

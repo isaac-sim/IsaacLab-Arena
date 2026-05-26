@@ -494,7 +494,7 @@ in the Arena Unitree G1 Static Apple-to-Plate Task environment using Arena’s <
 outside the Arena container. The Arena container itself runs only the simulation and a thin GR00T
 client that queries the server for actions.</p>
 <p>This tutorial uses the dataset you collected in <a class="reference internal" href="step_2_teleoperation.html"><span class="doc">Teleoperation Data Collection</span></a> and the model
-you trained in <a class="reference internal" href="step_3_policy_training.html"><span class="doc">Policy Post-Training (GR00T N1.7)</span></a>.</p>
+you trained in <a class="reference internal" href="step_3_policy_training.html"><span class="doc">Policy Post-Training (GR00T N1.7)</span></a>, or the released checkpoint downloaded below.</p>
 <section id="step-1-start-the-gr00t-policy-server">
 <h2>Step 1: Start the GR00T policy server<a class="headerlink" href="#step-1-start-the-gr00t-policy-server" title="Link to this heading">#</a></h2>
 <p>The server runs GR00T’s stock <code class="docutils literal notranslate"><span class="pre">run_gr00t_server.py</span></code> from the standalone Isaac-GR00T (N1.7) checkout.
@@ -504,7 +504,27 @@ server <strong>outside Docker</strong> in the standalone Isaac-GR00T venv create
 modality config from Arena’s source tree, and bind host/port). Replace
 <code class="docutils literal notranslate"><span class="pre">/path/to/IsaacLab-Arena</span></code> with the absolute path to your Arena clone and <code class="docutils literal notranslate"><span class="pre">${MODEL_PATH}</span></code> with
 the finetuned checkpoint directory from <a class="reference internal" href="step_3_policy_training.html"><span class="doc">Policy Post-Training (GR00T N1.7)</span></a>.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span><span class="nv">$ISAAC_GR00T_DIR</span>
+<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
+<summary class="sd-summary-title sd-card-header">
+<span class="sd-summary-text">Download Pre-trained Model (skip policy post-training)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<p class="sd-card-text">These commands can be used to download the pre-trained GR00T N1.7 static apple checkpoint,
+such that the policy post-training step can be skipped. Run them <strong>outside Docker</strong> in the
+standalone Isaac-GR00T venv before starting the server.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">MODELS_DIR</span><span class="o">=</span>~/models/isaaclab_arena/static_apple_tutorial
+<span class="nb">export</span><span class="w"> </span><span class="nv">MODEL_PATH</span><span class="o">=</span><span class="nv">$MODELS_DIR</span>/gn1x_tuned_static_apple
+
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$MODEL_PATH</span><span class="s2">&quot;</span>
+hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>nvidia/GN1x-Tuned-Arena-G1-Static-PickNPlace<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--repo-type<span class="w"> </span>model<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--local-dir<span class="w"> </span><span class="nv">$MODEL_PATH</span>
+</pre></div>
+</div>
+<p class="sd-card-text">If you trained your own checkpoint in <a class="reference internal" href="step_3_policy_training.html"><span class="doc">Policy Post-Training (GR00T N1.7)</span></a>, set <code class="docutils literal notranslate"><span class="pre">MODEL_PATH</span></code> to that
+trainer output instead, for example
+<code class="docutils literal notranslate"><span class="pre">$MODELS_DIR/static_apple_n17_finetune/checkpoint-20000</span></code>.</p>
+</div>
+</details><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span><span class="nv">$ISAAC_GR00T_DIR</span>
 
 uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>gr00t/eval/run_gr00t_server.py<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--modality-config-path<span class="w"> </span>/path/to/IsaacLab-Arena/isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_gr00t_n_1_7_config.py<span class="w"> </span><span class="se">\</span>
@@ -531,6 +551,13 @@ Arena container. <code class="docutils literal notranslate"><span class="pre">Gr
 <span class="nb">export</span><span class="w"> </span><span class="nv">MODELS_DIR</span><span class="o">=</span>/models/isaaclab_arena/static_apple_tutorial
 </pre></div>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If Kit reports permission errors while writing
+<code class="docutils literal notranslate"><span class="pre">/isaac-sim/kit/data/Kit/IsaacLab/3.0/user.config.json</span></code> or cache files, start from a clean
+Arena container/cache or rebuild the Docker image. This can happen when stale Isaac Sim / Kit
+state from another setup is reused with incompatible ownership.</p>
+</div>
 <p>We first run the policy in a single environment with visualization via the GUI. Replace
 <code class="docutils literal notranslate"><span class="pre">&lt;SERVER_HOST&gt;</span></code> below with the IP of the host running Step 1 (or <code class="docutils literal notranslate"><span class="pre">localhost</span></code> if it is the
 same machine).</p>
@@ -538,8 +565,11 @@ same machine).</p>
 <p class="admonition-title">Caution</p>
 <p>Before running, edit <code class="docutils literal notranslate"><span class="pre">model_path</span></code> in
 <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml</span></code> to point at
-the finetuned checkpoint directory you produced in <a class="reference internal" href="step_3_policy_training.html"><span class="doc">Policy Post-Training (GR00T N1.7)</span></a> (for example,
-<code class="docutils literal notranslate"><span class="pre">/models/isaaclab_arena/static_apple_tutorial/static_apple_n17_finetune/checkpoint-20000</span></code>).
+the checkpoint directory you are serving (for example,
+<code class="docutils literal notranslate"><span class="pre">/models/isaaclab_arena/static_apple_tutorial/gn1x_tuned_static_apple</span></code> for the Hugging Face
+checkpoint, or
+<code class="docutils literal notranslate"><span class="pre">/models/isaaclab_arena/static_apple_tutorial/static_apple_n17_finetune/checkpoint-20000</span></code> for
+a locally trained checkpoint).
 It must match the <code class="docutils literal notranslate"><span class="pre">--model-path</span></code> you passed to <code class="docutils literal notranslate"><span class="pre">run_gr00t_server.py</span></code> in Step 1.</p>
 </div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/isaac-sim/python.sh<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
@@ -575,6 +605,37 @@ by the quality of post-trained policy, the quality of the dataset, and number of
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[Rank 0/1] Metrics: {&#39;success_rate&#39;: 1.0, &#39;object_moved_rate&#39;: 1.0, &#39;num_episodes&#39;: 1}
 </pre></div>
 </div>
+</section>
+<section id="run-parallel-environments-evaluation-optional">
+<h2>Run Parallel Environments Evaluation (Optional)<a class="headerlink" href="#run-parallel-environments-evaluation-optional" title="Link to this heading">#</a></h2>
+<p>Parallel evaluation of the policy in multiple environments is also supported by the policy runner.
+The command below assumes the GR00T server from Step 1 is still running.</p>
+<p>Test the policy in 5 parallel environments with visualization via the GUI:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/isaac-sim/python.sh<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--remote_host<span class="w"> </span>&lt;SERVER_HOST&gt;<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--remote_port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--num_steps<span class="w"> </span><span class="m">600</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--num_envs<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>galileo_g1_static_pick_and_place<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--object<span class="w"> </span>apple_01_objaverse_robolab<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--destination<span class="w"> </span>clay_plates_hot3d_robolab<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--embodiment<span class="w"> </span>g1_wbc_agile_joint
+</pre></div>
+</div>
+<p>During evaluation, the console prints which environments terminated because the task succeeded or
+timed out, and which environments were truncated by runner-level limits.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Resetting policy for terminated env_ids: tensor([3], device=&#39;cuda:0&#39;) and truncated env_ids: tensor([], device=&#39;cuda:0&#39;, dtype=torch.int64)
+</pre></div>
+</div>
+<p>At the end of the evaluation, you should see metrics similar to the single-environment run, but
+computed over more episodes because multiple environments are stepped in parallel.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[Rank 0/1] Metrics: {&#39;success_rate&#39;: 1.0, &#39;num_episodes&#39;: 5}
+</pre></div>
+</div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Note that the embodiment used in closed-loop policy inference is <code class="docutils literal notranslate"><span class="pre">g1_wbc_agile_joint</span></code>, which is
@@ -607,14 +668,16 @@ criterion for a new pick-up object or destination.</p>
 expects a 23-D PinkIK action, but the server is returning a 43-DoF joint chunk. Make sure the
 client uses <code class="docutils literal notranslate"><span class="pre">--embodiment</span> <span class="pre">g1_wbc_agile_joint</span></code> (joint twin), not
 <code class="docutils literal notranslate"><span class="pre">g1_wbc_agile_pink</span></code> (PinkIK twin).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">ModuleNotFoundError</span></code> on the client side — the client’s <code class="docutils literal notranslate"><span class="pre">--policy_type</span></code> is wrong. The
-valid client class for this workflow is
+<li><p><code class="docutils literal notranslate"><span class="pre">ModuleNotFoundError</span></code> on the client side — check the client’s <code class="docutils literal notranslate"><span class="pre">--policy_type</span></code>. This
+workflow must use the remote client wrapper
 <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy</span></code>,
-which takes <code class="docutils literal notranslate"><span class="pre">--policy_config_yaml_path</span></code>.</p></li>
+together with <code class="docutils literal notranslate"><span class="pre">--policy_config_yaml_path</span></code>.</p></li>
 <li><p>Action shape mismatch on the server (e.g., <code class="docutils literal notranslate"><span class="pre">Action</span> <span class="pre">key</span> <span class="pre">'left_arm''s</span> <span class="pre">horizon</span> <span class="pre">must</span> <span class="pre">be</span> <span class="pre">40.</span>
-<span class="pre">Got</span> <span class="pre">50</span></code>) — the action modality registered at training time disagrees with the modality
-loaded by the server. Re-finetune at the same horizon or update the
-<code class="docutils literal notranslate"><span class="pre">--modality-config-path</span></code> you pass to <code class="docutils literal notranslate"><span class="pre">run_gr00t_server.py</span></code> to match the checkpoint (see
+<span class="pre">Got</span> <span class="pre">50</span></code>) — the action modality used to launch the server does not match the checkpoint’s
+training horizon. This workflow trains and serves GR00T N1.7 with <code class="docutils literal notranslate"><span class="pre">action_horizon:</span> <span class="pre">40</span></code>.
+Re-finetune with the same action <code class="docutils literal notranslate"><span class="pre">delta_indices</span></code> horizon, or launch
+<code class="docutils literal notranslate"><span class="pre">run_gr00t_server.py</span></code> with the same <code class="docutils literal notranslate"><span class="pre">--modality-config-path</span></code> used during finetuning. Keep
+the Arena client YAML’s <code class="docutils literal notranslate"><span class="pre">action_horizon</span></code> and <code class="docutils literal notranslate"><span class="pre">action_chunk_length</span></code> in sync as well (see
 the caution in <a class="reference internal" href="step_3_policy_training.html"><span class="doc">Policy Post-Training (GR00T N1.7)</span></a>).</p></li>
 </ul>
 </div>
@@ -672,6 +735,7 @@ the caution in <a class="reference internal" href="step_3_policy_training.html">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-start-the-gr00t-policy-server">Step 1: Start the GR00T policy server</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-run-single-environment-evaluation-arena-container">Step 2: Run Single Environment Evaluation (Arena container)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-parallel-environments-evaluation-optional">Run Parallel Environments Evaluation (Optional)</a></li>
 </ul>
   </nav></div>
 

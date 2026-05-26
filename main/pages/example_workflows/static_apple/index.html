@@ -543,10 +543,10 @@ balances the standing pose (no locomotion, no squat), and PinkIK drives the uppe
 <td><p>Imitation Learning</p></td>
 </tr>
 <tr class="row-even"><td><p><strong>Dataset</strong></p></td>
-<td><p>Self-recorded (collect via Step 2)</p></td>
+<td><p><a class="reference external" href="https://huggingface.co/datasets/nvidia/Arena-G1-Static-PickNPlace-Task">Arena-G1-Static-PickNPlace-Task</a></p></td>
 </tr>
 <tr class="row-odd"><td><p><strong>Checkpoint</strong></p></td>
-<td><p>Self-trained (post-train via Step 4)</p></td>
+<td><p><a class="reference external" href="https://huggingface.co/nvidia/GN1x-Tuned-Arena-G1-Static-PickNPlace">GN1x-Tuned-Arena-G1-Static-PickNPlace</a></p></td>
 </tr>
 <tr class="row-even"><td><p><strong>Physics</strong></p></td>
 <td><p>PhysX (200Hz &#64; 4 decimation)</p></td>
@@ -598,7 +598,7 @@ git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NVIDI
 </div>
 <p>Open another terminal outside the Arena Base Docker container and set up the native GR00T
 <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment from <code class="docutils literal notranslate"><span class="pre">$ISAAC_GR00T_DIR</span></code> by following the
-<a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T#installation-guide">GR00T installation guide</a>.</p>
+<a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T/blob/4b1dca9d88d2a0b9ea5a65aa61c82ff89f5c4f0e/README.md#installation-guide">GR00T installation guide</a>.</p>
 <p>This venv is <strong>separate</strong> from Arena’s container, but Arena’s policy runner still imports the
 GR00T <code class="docutils literal notranslate"><span class="pre">PolicyClient</span></code> from the Arena-pinned <code class="docutils literal notranslate"><span class="pre">submodules/Isaac-GR00T</span></code> checkout. Keep the
 standalone GR00T checkout at the pinned commit above for this workflow. If you move the standalone

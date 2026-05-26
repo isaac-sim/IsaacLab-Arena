@@ -500,163 +500,93 @@ and validate that we can load it in Isaac Lab.</p>
 </div>
 <section id="environment-description">
 <h2>Environment Description<a class="headerlink" href="#environment-description" title="Link to this heading">#</a></h2>
-<p>The static apple-to-plate workflow ships its own <code class="docutils literal notranslate"><span class="pre">GalileoG1StaticPickAndPlaceEnvironment</span></code> registered
-under <code class="docutils literal notranslate"><span class="pre">galileo_g1_static_pick_and_place</span></code>. It reuses the same <code class="docutils literal notranslate"><span class="pre">galileo_locomanip</span></code> background USD
-and the same OpenXR retargeter as the loco-manipulation apple-to-plate environment, but defaults to
-the <code class="docutils literal notranslate"><span class="pre">g1_wbc_agile_pink</span></code> embodiment (AGILE end-to-end velocity policy) instead of <code class="docutils literal notranslate"><span class="pre">g1_wbc_pink</span></code>
-(HOMIE stand+walk pair). The static task never walks, so AGILE’s single-policy backend is a better
-fit than HOMIE’s stand/walk model split — both share the same 23-D action layout and OpenXR
-retargeter pipeline, so only the lower-body ONNX backend changes. Both the apple and the destination
-plate are placed on the <em>same</em> shelf so the robot never needs to drive its base anywhere — WBC just
-holds the standing pose. The <code class="docutils literal notranslate"><span class="pre">g1_wbc_pink</span></code> embodiment is still accepted as an override for users
-who specifically want HOMIE.</p>
+<p>The static apple-to-plate workflow ships its own <code class="docutils literal notranslate"><span class="pre">GalileoG1StaticPickAndPlaceEnvironment</span></code>,
+exposed by the example-environment registry as <code class="docutils literal notranslate"><span class="pre">galileo_g1_static_pick_and_place</span></code>. It reuses the
+same <code class="docutils literal notranslate"><span class="pre">galileo_locomanip</span></code> shelf scene and the same OpenXR retargeter as the loco-manipulation
+apple-to-plate environment, but defaults to the <code class="docutils literal notranslate"><span class="pre">g1_wbc_agile_pink</span></code> embodiment for recording. The
+static task never walks, so AGILE’s single-policy lower-body backend is a better fit than HOMIE’s
+stand/walk model split. Both the apple and destination plate are placed on the same shelf, so the
+WBC only needs to hold the standing pose.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p><strong>Recording vs. evaluation embodiment.</strong> Teleoperation in <a class="reference internal" href="step_2_teleoperation.html"><span class="doc">Teleoperation Data Collection</span></a> uses the
 default <code class="docutils literal notranslate"><span class="pre">g1_wbc_agile_pink</span></code> (PinkIK + AGILE), while closed-loop policy evaluation in
 <a class="reference internal" href="step_4_evaluation.html"><span class="doc">Closed-Loop Policy Inference and Evaluation</span></a> uses <code class="docutils literal notranslate"><span class="pre">g1_wbc_agile_joint</span></code> (direct joint control + AGILE). Both share
 the same AGILE lower-body backend; the <code class="docutils literal notranslate"><span class="pre">_joint</span></code> twin just bypasses PinkIK at inference because
-the policy is trained on the joint-space targets that PinkIK <em>produced</em> during recording. This
+the policy is trained on the joint-space targets that PinkIK produced during recording. This
 matters for finetuning: see <a class="reference internal" href="step_3_policy_training.html"><span class="doc">Policy Post-Training (GR00T N1.7)</span></a> for the rationale.</p>
 </div>
-<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
-<summary class="sd-summary-title sd-card-header">
-<span class="sd-summary-text">The Galileo G1 Static Pick-and-Place Environment</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.assets.register</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_environment</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena_environments.example_environment_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExampleEnvironmentBase</span>
-
-<span class="n">SHELF_SURFACE_Z</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.030</span>
-<span class="n">SHELF_AIRGAP</span> <span class="o">=</span> <span class="mf">0.005</span>
-<span class="n">PICK_UP_OBJECT_SPAWN_XY</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.5785</span><span class="p">,</span> <span class="mf">0.18</span><span class="p">)</span>
-<span class="n">DESTINATION_SPAWN_XY</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.5785</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.06</span><span class="p">)</span>
-
-<span class="n">_USD_ORIGIN_ABOVE_BOTTOM_M</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;apple_01_objaverse_robolab&quot;</span><span class="p">:</span> <span class="mf">0.019</span><span class="p">,</span>
-    <span class="s2">&quot;clay_plates_hot3d_robolab&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
-<span class="p">}</span>
-
-<span class="n">TUNED_PICK_UP_OBJECT_NAME</span> <span class="o">=</span> <span class="s2">&quot;apple_01_objaverse_robolab&quot;</span>
-<span class="n">TUNED_DESTINATION_NAME</span> <span class="o">=</span> <span class="s2">&quot;clay_plates_hot3d_robolab&quot;</span>
-
-
-<span class="nd">@register_environment</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">GalileoG1StaticPickAndPlaceEnvironment</span><span class="p">(</span><span class="n">ExampleEnvironmentBase</span><span class="p">):</span>
-
-    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;galileo_g1_static_pick_and_place&quot;</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">):</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.scene.scene</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scene</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.pick_and_place_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">PickAndPlaceTask</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.utils.pose</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pose</span>
-
-        <span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;galileo_locomanip&quot;</span><span class="p">)()</span>
-        <span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
-        <span class="n">destination</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">destination</span><span class="p">)()</span>
-        <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span>
-            <span class="n">enable_cameras</span><span class="o">=</span><span class="n">args_cli</span><span class="o">.</span><span class="n">enable_cameras</span>
-        <span class="p">)</span>
-
-        <span class="n">teleop_device</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
-            <span class="k">if</span> <span class="n">args_cli</span><span class="o">.</span><span class="n">teleop_device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="p">)</span>
-
-        <span class="n">embodiment</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
-            <span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.18</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
-        <span class="p">)</span>
-        <span class="n">px</span><span class="p">,</span> <span class="n">py</span> <span class="o">=</span> <span class="n">PICK_UP_OBJECT_SPAWN_XY</span>
-        <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span> <span class="o">=</span> <span class="n">DESTINATION_SPAWN_XY</span>
-        <span class="n">pick_up_object</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
-            <span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="n">px</span><span class="p">,</span> <span class="n">py</span><span class="p">,</span> <span class="n">_shelf_spawn_z</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">object</span><span class="p">)),</span>
-                 <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
-        <span class="p">)</span>
-        <span class="n">destination</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
-            <span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">_shelf_spawn_z</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">destination</span><span class="p">)),</span>
-                 <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
-        <span class="p">)</span>
-
-        <span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">pick_up_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">])</span>
-        <span class="k">return</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
-            <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-            <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
-            <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
-            <span class="n">task</span><span class="o">=</span><span class="n">PickAndPlaceTask</span><span class="p">(</span>
-                <span class="n">pick_up_object</span><span class="o">=</span><span class="n">pick_up_object</span><span class="p">,</span>
-                <span class="n">destination_location</span><span class="o">=</span><span class="n">destination</span><span class="p">,</span>
-                <span class="n">background_scene</span><span class="o">=</span><span class="n">background</span><span class="p">,</span>
-                <span class="n">force_threshold</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
-                <span class="n">velocity_threshold</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
-            <span class="p">),</span>
-            <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span><span class="p">,</span>
-        <span class="p">)</span>
-</pre></div>
+</section>
+<section id="environment-composition">
+<h2>Environment Composition<a class="headerlink" href="#environment-composition" title="Link to this heading">#</a></h2>
+<p>The full implementation lives in
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/galileo_g1_static_pick_and_place_environment.py</span></code>. This page keeps the
+breakdown at the composition level so the docs stay focused on how an Arena environment is assembled
+instead of mirroring every placement constant or scene utility in the source file.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 28.0%" />
+<col style="width: 72.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Component</p></th>
+<th class="head"><p>Role in this workflow</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Environment name</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">galileo_g1_static_pick_and_place</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Background</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">galileo_locomanip</span></code> provides the Galileo shelf scene reused from the
+<a class="reference internal" href="../locomanipulation/index.html"><span class="doc">loco-manipulation workflow</span></a>.</p></td>
+</tr>
+<tr class="row-even"><td><p>Embodiment</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">g1_wbc_agile_pink</span></code> is the recording default; <code class="docutils literal notranslate"><span class="pre">g1_wbc_agile_joint</span></code> is used for policy
+evaluation after training.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Pick-up object</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">apple_01_objaverse_robolab</span></code> by default, selected through <code class="docutils literal notranslate"><span class="pre">--object</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p>Destination</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">clay_plates_hot3d_robolab</span></code> by default, selected through <code class="docutils literal notranslate"><span class="pre">--destination</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Scene utilities</p></td>
+<td><p>The registered environment handles tuned object placement, object scale, shelf support,
+finger contact friction, and background cleanup internally.</p></td>
+</tr>
+<tr class="row-even"><td><p>Task</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code> checks whether the apple is moved onto the plate and provides the
+success metrics used later in evaluation.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Teleop device</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">openxr</span></code> is attached only when <code class="docutils literal notranslate"><span class="pre">--teleop_device</span> <span class="pre">openxr</span></code> is passed, so the same
+environment can also be used for replay and policy evaluation without XR.</p></td>
+</tr>
+</tbody>
+</table>
 </div>
-</div>
-</details></section>
-<section id="step-by-step-breakdown">
-<h2>Step-by-Step Breakdown<a class="headerlink" href="#step-by-step-breakdown" title="Link to this heading">#</a></h2>
-<p><strong>1. Interact with the Asset and Device Registry</strong></p>
+<p>At a high level, defining an Arena environment is just selecting assets, composing a scene, choosing
+a task, and returning an <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;galileo_locomanip&quot;</span><span class="p">)()</span>
 <span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
 <span class="n">destination</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">destination</span><span class="p">)()</span>
 <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span>
     <span class="n">enable_cameras</span><span class="o">=</span><span class="n">args_cli</span><span class="o">.</span><span class="n">enable_cameras</span>
 <span class="p">)</span>
-</pre></div>
-</div>
-<p>The static workflow shares the <code class="docutils literal notranslate"><span class="pre">galileo_locomanip</span></code> background with the loco-manipulation variant
-on purpose: the lighting, shelf geometry and 23-D action layout are already tuned, so the only
-thing that changes is <em>where</em> the destination sits and which lower-body WBC backend balances the
-robot. The default <code class="docutils literal notranslate"><span class="pre">g1_wbc_agile_pink</span></code> embodiment swaps HOMIE’s stand+walk pair for AGILE’s
-single end-to-end velocity policy, which is a better fit for a no-locomotion task; <code class="docutils literal notranslate"><span class="pre">g1_wbc_pink</span></code> is
-accepted as an override for users who want HOMIE behaviour. <code class="docutils literal notranslate"><span class="pre">teleop_device</span></code> is left as <code class="docutils literal notranslate"><span class="pre">None</span></code>
-when <code class="docutils literal notranslate"><span class="pre">--teleop_device</span></code> is not supplied so that scripts like <code class="docutils literal notranslate"><span class="pre">replay_demos.py</span></code> and
-<code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code> can launch the same environment without instantiating an XR runtime.</p>
-<p><strong>2. Position the Objects</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">embodiment</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
-    <span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.18</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+<span class="n">teleop_device</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
+    <span class="k">if</span> <span class="n">args_cli</span><span class="o">.</span><span class="n">teleop_device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
 <span class="p">)</span>
-<span class="n">pick_up_object</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
-    <span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5785</span><span class="p">,</span> <span class="mf">0.18</span><span class="p">,</span> <span class="n">_shelf_spawn_z</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">object</span><span class="p">)),</span>
-         <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
-<span class="p">)</span>
-<span class="n">destination</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
-    <span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5785</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.06</span><span class="p">,</span> <span class="n">_shelf_spawn_z</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">destination</span><span class="p">)),</span>
-         <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p>The robot pose mirrors the loco-manipulation env exactly so the WBC controller stands the robot up
-in the same shelf-relative spot. The apple is placed at a measured on-shelf X/Y, and the plate is
-offset 24 cm in -Y so its 30 cm footprint clears the apple without collision. <code class="docutils literal notranslate"><span class="pre">_shelf_spawn_z</span></code>
-consults a per-asset USD-origin table so each asset’s <em>bottom face</em> — not its USD origin — lands
-flush on the shelf surface; assets not in the table fall back to <code class="docutils literal notranslate"><span class="pre">SHELF_SURFACE_Z</span> <span class="pre">+</span> <span class="pre">SHELF_AIRGAP</span></code>
-and emit a warning so you know to verify the spawn pose visually before recording demonstrations.</p>
-<p><strong>3. Compose the Scene</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">pick_up_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">])</span>
-</pre></div>
-</div>
-<p>The static env uses a single shelf-anchored background plus the pick-up object and the destination;
-no second table is needed because the destination plate sits on the same shelf as the apple.
-See <a class="reference internal" href="../../concepts/scene/index.html"><span class="doc">Scene</span></a> for scene composition details.</p>
-<p><strong>4. Create the Pick and Place Task</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span>
+
+<span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">pick_up_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">])</span>
+<span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span>
     <span class="n">pick_up_object</span><span class="o">=</span><span class="n">pick_up_object</span><span class="p">,</span>
     <span class="n">destination_location</span><span class="o">=</span><span class="n">destination</span><span class="p">,</span>
     <span class="n">background_scene</span><span class="o">=</span><span class="n">background</span><span class="p">,</span>
-    <span class="n">force_threshold</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
-    <span class="n">velocity_threshold</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
 <span class="p">)</span>
-</pre></div>
-</div>
-<p>The static env uses <code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code> directly. The task wires the apple,
-plate, and background into the standard pick-and-place termination logic;
-<code class="docutils literal notranslate"><span class="pre">force_threshold</span></code> / <code class="docutils literal notranslate"><span class="pre">velocity_threshold</span></code> mirror the locomanip env so success
-metrics are directly comparable.</p>
-<p>See <a class="reference internal" href="../../concepts/task/index.html"><span class="doc">Task</span></a> for task creation details.</p>
-<p><strong>5. Create the IsaacLab Arena Environment</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">isaaclab_arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
+
+<span class="k">return</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
@@ -665,8 +595,13 @@ metrics are directly comparable.</p>
 <span class="p">)</span>
 </pre></div>
 </div>
-<p>Finally, we assemble all the pieces into a complete, runnable environment.
-See <a class="reference internal" href="../../concepts/concept_overview.html"><span class="doc">Concept Overview</span></a> for environment composition details.</p>
+<p>The production environment adds task-specific defaults around this core composition: same-shelf
+poses for the apple and plate, a short episode timeout, an invisible shelf support surface, tuned
+contact/friction settings, and cleanup of a few reused background props. Those details are handled
+inside the registered environment so workflow users can run it through the CLI without editing the
+scene setup code.</p>
+<p>See <a class="reference internal" href="../../concepts/concept_overview.html"><span class="doc">Concept Overview</span></a>, <a class="reference internal" href="../../concepts/scene/index.html"><span class="doc">Scene</span></a>, and
+<a class="reference internal" href="../../concepts/task/index.html"><span class="doc">Task</span></a> for more details on Arena environment composition.</p>
 </section>
 <section id="validate-environment-with-automated-tests">
 <h2>Validate Environment with Automated Tests<a class="headerlink" href="#validate-environment-with-automated-tests" title="Link to this heading">#</a></h2>
@@ -740,7 +675,7 @@ and spawn correctly. If you see the apple fall through the shelf, just re-run th
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#environment-description">Environment Description</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-by-step-breakdown">Step-by-Step Breakdown</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#environment-composition">Environment Composition</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#validate-environment-with-automated-tests">Validate Environment with Automated Tests</a></li>
 </ul>
   </nav></div>
