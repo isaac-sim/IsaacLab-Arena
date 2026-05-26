@@ -51,9 +51,9 @@ balances the standing pose (no locomotion, no squat), and PinkIK drives the uppe
    * - **Post-training**
      - Imitation Learning
    * - **Dataset**
-     - Self-recorded (collect via Step 2)
+     - `Arena-G1-Static-PickNPlace-Task <https://huggingface.co/datasets/nvidia/Arena-G1-Static-PickNPlace-Task>`_
    * - **Checkpoint**
-     - Self-trained (post-train via Step 4)
+     - `GN1x-Tuned-Arena-G1-Static-PickNPlace <https://huggingface.co/nvidia/GN1x-Tuned-Arena-G1-Static-PickNPlace>`_
    * - **Physics**
      - PhysX (200Hz @ 4 decimation)
    * - **Closed-loop**

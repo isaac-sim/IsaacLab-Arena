@@ -125,22 +125,31 @@ Training Configuration:
 - **Embodiment tag:** ``new_embodiment`` (case-insensitive; resolved to
   ``EmbodimentTag.NEW_EMBODIMENT`` by ``gr00t``)
 
-To post-train the policy, open another terminal **outside** the Arena Base Docker container
-and ``cd`` to ``$ISAAC_GR00T_DIR``. Set up GR00T's native ``uv`` environment by following
-the `GR00T installation guide <https://github.com/NVIDIA/Isaac-GR00T#installation-guide>`_,
-then run the finetuning command below. Replace ``/path/to/IsaacLab-Arena`` with the absolute
-path to your Arena clone so the ``--modality-config-path`` argument can register the WBC
-modality from Arena's source tree. The dataset and output paths assume the default Arena Docker
-mounts (``~/datasets`` and ``~/models`` on the host); adjust them if you launched Arena with
-custom mount directories.
+To post-train the policy, open another terminal **outside** the Arena Base Docker container, set up
+GR00T's native ``uv`` environment by following the
+`GR00T installation guide <https://github.com/NVIDIA/Isaac-GR00T#installation-guide>`_, and ``cd``
+to ``$ISAAC_GR00T_DIR``. The launcher runs inside the standalone repo's ``uv``-managed venv. Replace
+``/path/to/IsaacLab-Arena`` with the absolute path to your Arena clone so the
+``--modality-config-path`` argument can register the WBC modality from Arena's source tree.
+
+Because finetuning runs outside the Arena Docker container, set ``DATASET_DIR`` and ``MODELS_DIR``
+in the standalone GR00T terminal to the host paths that correspond to the Docker mounts. With the
+default Arena Docker mounts, these are usually:
 
 .. code-block:: bash
+
+   export DATASET_DIR=~/datasets/isaaclab_arena/static_apple_tutorial
+   export MODELS_DIR=~/models/isaaclab_arena/static_apple_tutorial
+
+.. code-block:: bash
+
+   cd $ISAAC_GR00T_DIR
 
    uv run python -m torch.distributed.run --nproc_per_node=8 --standalone \
      gr00t/experiment/launch_finetune.py \
      --base-model-path nvidia/GR00T-N1.7-3B \
-     --dataset-path ~/datasets/isaaclab_arena/static_apple_tutorial/arena_g1_static_apple_dataset_recorded/lerobot \
-     --output-dir ~/models/isaaclab_arena/static_apple_tutorial/static_apple_n17_finetune \
+     --dataset-path $DATASET_DIR/arena_g1_static_apple_dataset_recorded/lerobot \
+     --output-dir $MODELS_DIR/static_apple_n17_finetune \
      --modality-config-path /path/to/IsaacLab-Arena/isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_gr00t_n_1_7_config.py \
      --embodiment-tag new_embodiment \
      --global-batch-size 96 \
@@ -217,11 +226,12 @@ whether the finetuned policy actually works in the AGILE-joint runtime:
    between training and serving.
 
 #. **Pick** ``action_horizon`` **deliberately.** The default (40) gives an 800 ms inference chunk at
-   50 Hz, which trades responsiveness against compute. For static apple-to-plate (~600 step
-   episodes) 40 is a good default. Going lower (e.g., 20) gives more responsive closed-loop control
-   at the cost of more frequent policy queries; going higher (e.g., 60) gives a longer inference
-   horizon at the cost of more compute per step. Whichever value you pick, **keep the modality
-   config and the server YAML in sync** (see the caution above).
+   50 Hz, which trades responsiveness against compute, and is the maximum supported by the released
+   GR00T N1.7 base model (``max_action_horizon = 40`` is baked into the checkpoint). For static
+   apple-to-plate (~600 step episodes) 40 is a good default. You can go lower (e.g., 20) for more
+   responsive closed-loop control at the cost of more frequent policy queries; you cannot go higher
+   without retraining the base model. Whichever value you pick, **keep the modality config and the
+   server YAML in sync** (see the caution above).
 
 If you adjust any of these and the resulting checkpoint behaves badly at evaluation, the most
 common culprits in order are: (i) too few or low-quality demonstrations, (ii) modality config /
