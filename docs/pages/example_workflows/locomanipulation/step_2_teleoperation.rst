@@ -174,6 +174,13 @@ Step 4: Record with Quest 3
    #. Use the **right joystick** (up) to stand the robot back up.
    #. Use the control panel to **Reset**, then **Play** to start the next demo.
 
+.. hint::
+
+   Collecting a large dataset across several sittings? Record one HDF5 per session by varying
+   ``--dataset_file``, then concatenate the per-session files with
+   :ref:`static_apple_merge_demos`. The merge script is task-agnostic and works for every
+   Arena teleop workflow.
+
 
 Step 5: Replay Recorded Demos (Optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
