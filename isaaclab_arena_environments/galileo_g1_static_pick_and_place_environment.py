@@ -174,19 +174,29 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         # Reuse the locomanip background USD: it bakes in lighting and provides the same
         # shelf-in-front-of-robot geometry the locomanip env was tuned against.
         background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
-        # This is a local collision patch for this exact scene rather than a reusable
-        # library asset. The imported shelf mesh has uneven/perforated collision in the
-        # static task region, so small objects can fall through parts of the visible shelf.
-        shelf_support = Object(
-            name="static_pick_place_shelf_support",
-            prim_path="{ENV_REGEX_NS}/static_pick_place_shelf_support",
-            object_type=ObjectType.BASE,
-            spawner_cfg=sim_utils.CuboidCfg(
-                size=SHELF_SUPPORT_PATCH_SIZE,
-                collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
-                visible=False,
-            ),
-        )
+
+        class StaticShelfSupport(Object):
+            def __init__(self):
+                self.spawner_cfg = sim_utils.CuboidCfg(
+                    size=SHELF_SUPPORT_PATCH_SIZE,
+                    collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
+                    visible=False,
+                )
+                super().__init__(
+                    name="static_pick_place_shelf_support",
+                    prim_path="{ENV_REGEX_NS}/static_pick_place_shelf_support",
+                    object_type=ObjectType.SPAWNER,
+                    initial_pose=Pose(
+                        position_xyz=SHELF_SUPPORT_PATCH_CENTER,
+                        rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
+                    ),
+                    tags=["background", "procedural"],
+                )
+
+        # The imported shelf mesh has uneven/perforated collision in the task region:
+        # small objects can fall through parts of the visible shelf. Add an invisible
+        # static cuboid flush with the shelf top so task objects see a clean support.
+        shelf_support = StaticShelfSupport()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)(scale=_asset_scale(args_cli.object))
         destination = self.asset_registry.get_asset_by_name(args_cli.destination)(
             scale=_asset_scale(args_cli.destination)
@@ -213,9 +223,6 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         # init_state.pos.z=0 is correct.
         embodiment.set_initial_pose(Pose(position_xyz=(0.25, 0.08, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
         embodiment.set_joint_initial_pos(G1_STATIC_OPEN_ARM_JOINT_POS)
-        shelf_support.set_initial_pose(
-            Pose(position_xyz=SHELF_SUPPORT_PATCH_CENTER, rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
-        )
         pick_up_object_x, pick_up_object_y = PICK_UP_OBJECT_SPAWN_XY
         destination_x, destination_y = DESTINATION_SPAWN_XY
         pick_up_object_z = _shelf_spawn_z(args_cli.object)
