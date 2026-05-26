@@ -12,9 +12,9 @@ The N1.7 finetune script lives in the standalone Isaac-GR00T repo, not in Arena'
 ``submodules/Isaac-GR00T``. This lets you train on the latest GR00T release without bumping the
 Arena submodule.
 
-This page assumes you have a successful recording at
+This page assumes you have either a successful recording at
 ``$DATASET_DIR/arena_g1_static_apple_dataset_recorded.hdf5`` from
-:doc:`step_2_teleoperation`.
+:doc:`step_2_teleoperation` or the pre-generated HDF5 dataset downloaded below.
 
 
 Step 1: Convert to LeRobot Format
@@ -32,6 +32,23 @@ Once inside the container, set the dataset directory:
 .. code:: bash
 
     export DATASET_DIR=/datasets/isaaclab_arena/static_apple_tutorial
+
+.. dropdown:: Download Pre-generated Dataset (skip teleoperation)
+   :animate: fade-in
+
+   These commands can be used to download the pre-recorded static apple HDF5 dataset ready for
+   LeRobot conversion, such that the teleoperation step can be skipped.
+
+   To download run:
+
+   .. code-block:: bash
+
+      hf download \
+         nvidia/Arena-G1-Static-PickNPlace-Task \
+         arena_g1_static_apple_dataset_recorded.hdf5 \
+         --repo-type dataset \
+         --revision arena_v0.2_lab_v3.0 \
+         --local-dir $DATASET_DIR
 
 .. caution::
 
