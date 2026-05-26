@@ -19,6 +19,7 @@ print("Launching simulation app once in notebook")
 args_cli = get_isaaclab_arena_cli_parser().parse_args([])
 args_cli.headless = False
 args_cli.visualizer = "kit"
+args_cli.enable_cameras = True
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
@@ -41,12 +42,19 @@ from isaaclab_arena.utils.pose import Pose
 # UniformSampler / UniformSamplerCfg are referenced only by the commented-out
 # imperative-path block below; kept around so uncommenting that block is a
 # single edit rather than a "and re-add the import" combo.
-from isaaclab_arena.variations import UniformSampler, UniformSamplerCfg  # noqa: F401
+from isaaclab_arena.variations import (  # noqa: F401
+    CameraDecalibrationVariation,
+    UniformSampler,
+    UniformSamplerCfg,
+)
 
 asset_registry = AssetRegistry()
 
 background = asset_registry.get_asset_by_name("kitchen")()
-embodiment = asset_registry.get_asset_by_name("franka_ik")()
+# embodiment = asset_registry.get_asset_by_name("franka_ik")()
+# enable_cameras=True spawns the droid camera rig (incl. ``wrist_camera``) so
+# the camera-decalibration variation attached below has something to act on.
+embodiment = asset_registry.get_asset_by_name("droid_differential_ik")(enable_cameras=True)
 cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
 dome_light = asset_registry.get_asset_by_name("light")()
@@ -54,6 +62,16 @@ dome_light = asset_registry.get_asset_by_name("light")()
 cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 cracker_box.add_relation(IsAnchor())
 tomato_soup_can.add_relation(On(cracker_box))
+
+# --- Embodiment-level variation: wrist-camera decalibration -----------------
+#
+# Embodiments are :class:`~isaaclab_arena.assets.asset.Asset` instances, so they
+# host variations the same way scene assets do — via ``add_variation``.
+# ``ArenaEnvBuilder.get_all_variations`` then merges these into the same
+# ``{asset_name: [variation, ...]}`` dict the Hydra schema and the variation
+# recorder consume. The override path is keyed on the embodiment's ``name``
+# (``"droid_differential_ik"`` here), shown two cells below.
+embodiment.add_variation(CameraDecalibrationVariation("wrist_camera"))
 
 # --- Variation configuration --------------------------------------------------
 #
@@ -96,6 +114,7 @@ args_cli.solve_relations = True
 # Bump num_envs so we can visually verify per-env color variation.
 args_cli.num_envs = 4
 args_cli.visualizer = "kit"
+args_cli.enable_cameras = True
 env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
 
 # %%
@@ -151,6 +170,13 @@ hydra_variation_overrides = [
     "tomato_soup_can.color.sampler.low=[0.2,0.2,0.2]",
     "tomato_soup_can.color.sampler.high=[1.0,1.0,1.0]",
     "light.hdr_image.enabled=true",
+    # Wrist-camera decalibration: ±5 cm per axis (deliberately exaggerated vs.
+    # the default ±5 mm so the per-env offsets are obvious in the viewport).
+    "droid_differential_ik.camera_decalibration.enabled=true",
+    # "droid_differential_ik.camera_decalibration.sampler.low=[-0.05,-0.05,-0.05]",
+    # "droid_differential_ik.camera_decalibration.sampler.high=[0.05,0.05,0.05]",
+    "droid_differential_ik.camera_decalibration.sampler.low=[0.0,0.0,0.0]",
+    "droid_differential_ik.camera_decalibration.sampler.high=[0.0,0.0,0.30]",
 ]
 env_builder.apply_hydra_variation_overrides(hydra_variation_overrides)
 
@@ -192,12 +218,16 @@ env.reset()
 
 # %%
 
+RESET_EVERY_N_STEPS = 10
+
 # Run some zero actions.
 NUM_STEPS = 200
-for _ in tqdm.tqdm(range(NUM_STEPS)):
+for step in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
         env.step(actions)
+    if step % RESET_EVERY_N_STEPS == 0:
+        env.reset()
 
 # %%
 

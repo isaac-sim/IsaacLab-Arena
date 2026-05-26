@@ -376,15 +376,16 @@ class DroidEventCfg:
             ],
         },
     )
-    randomize_franka_joint_state = EventTerm(
-        func=franka_stack_events.randomize_joint_by_gaussian_offset,
-        mode="reset",
-        params={
-            "mean": 0.0,
-            "std": 0.02,
-            "asset_cfg": SceneEntityCfg("robot"),
-        },
-    )
+    randomize_franka_joint_state = None
+    # EventTerm(
+    #     func=franka_stack_events.randomize_joint_by_gaussian_offset,
+    #     mode="reset",
+    #     params={
+    #         "mean": 0.0,
+    #         "std": 0.02,
+    #         "asset_cfg": SceneEntityCfg("robot"),
+    #     },
+    # )
 
 
 @configclass
