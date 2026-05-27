@@ -51,12 +51,13 @@ class PooledObjectPlacer:
     """Object placer that maintains solved placement layouts.
 
     Storage is organized as one queue per environment. Env-specific layouts
-    are solved for a fixed env's object geometry and must be consumed in
-    complete env rounds. Reusable layouts are interchangeable and can be
-    consumed one at a time from the pooled queues.
+    are solved for fixed env geometry. sample_without_replacement consumes
+    complete env rounds; sample_for_envs consumes only the requested absolute
+    env ids. Reusable layouts are interchangeable and can be consumed one at a
+    time from the pooled queues.
 
-    Strictly valid layouts are preferred. If no valid layout is available for
-    a solve batch, the best-loss solver result is kept as a fallback.
+    Strictly valid layouts are preferred. On the final retry batch, best-loss
+    solver results may be kept as a fallback.
 
     The pool is refilled automatically when an env's queue runs out.
 
@@ -144,17 +145,23 @@ class PooledObjectPlacer:
         target_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
         max_solve_batches = max(1, self._placer.params.max_placement_attempts)
 
-        for _ in range(max_solve_batches):
+        for batch_idx in range(max_solve_batches):
             max_missing = target_per_env - min(self._available_per_env())
             if max_missing <= 0:
                 return
 
             batch_size = max_missing * self._num_envs
+            allow_fallback = batch_idx == max_solve_batches - 1
             if self._uses_env_specific_bboxes:
                 ranked_results_per_env, layouts_per_env = self._solve_env_ranked_layouts(batch_size)
-                self._store_env_matched_results(ranked_results_per_env, layouts_per_env)
+                self._store_env_matched_results(
+                    ranked_results_per_env,
+                    layouts_per_env,
+                    allow_fallback=allow_fallback,
+                    target_per_env=target_per_env,
+                )
             else:
-                layouts = self._solve_reusable_layouts(batch_size)
+                layouts = self._solve_reusable_layouts(batch_size, allow_fallback=allow_fallback)
                 self._store_reusable_results(layouts)
 
             if min(self._available_per_env()) >= target_per_env:
@@ -165,12 +172,13 @@ class PooledObjectPlacer:
             f"{max_solve_batches} solve batches. Available per env: {self._available_per_env()}."
         )
 
-    def _solve_reusable_layouts(self, num_layouts: int) -> list[PlacementResult]:
+    def _solve_reusable_layouts(self, num_layouts: int, allow_fallback: bool = False) -> list[PlacementResult]:
         """Solve layouts that can be used by any env pool.
 
         Invalid candidates are discarded when at least one valid layout exists.
-        If no candidate passes strict validation, fall back to best-loss results
-        to match the pre-pool behavior used by existing environments.
+        If no candidate passes strict validation on the final retry batch, fall
+        back to best-loss results to match the pre-pool behavior used by
+        existing environments.
         """
         self._prepare_seeded_solve(num_layouts * self._placer.params.max_placement_attempts)
         with torch.inference_mode(False):
@@ -188,6 +196,9 @@ class PooledObjectPlacer:
 
         if valid_layouts:
             return valid_layouts
+
+        if not allow_fallback:
+            return []
 
         self._had_fallbacks = True
         print("Warning: No candidates passed strict validation. Accepting best-loss layouts as fallback.")
@@ -233,24 +244,32 @@ class PooledObjectPlacer:
         return ranked_results_per_env, layouts_per_env
 
     def _store_env_matched_results(
-        self, ranked_results_per_env: list[list[PlacementResult]], layouts_per_env: int
+        self,
+        ranked_results_per_env: list[list[PlacementResult]],
+        layouts_per_env: int,
+        allow_fallback: bool = False,
+        target_per_env: int | None = None,
     ) -> None:
         """Store env-matched results into their corresponding pools.
 
-        Prefer successful layouts for each env. If a specific env has no valid
-        layouts in the batch, fall back to its best-loss results so existing
-        environments with imperfect validation can still run.
+        Prefer successful layouts for each env. If allow_fallback is set and a
+        specific env has no valid layouts, fall back to its best-loss results
+        so existing environments with imperfect validation can still run.
         """
         total_valid = 0
         fallback_envs = []
         for cur_env in range(self._num_envs):
             env_results = ranked_results_per_env[cur_env][:layouts_per_env]
             valid_results = [r for r in env_results if r.success]
+            missing = None if target_per_env is None else target_per_env - self._env_pools[cur_env].available
             if valid_results:
-                self._env_pools[cur_env].extend(valid_results)
                 total_valid += len(valid_results)
-            else:
-                self._env_pools[cur_env].extend(env_results)
+                if missing is None:
+                    self._env_pools[cur_env].extend(valid_results)
+                elif missing > 0:
+                    self._env_pools[cur_env].extend(valid_results[:missing])
+            elif allow_fallback and (missing is None or missing > 0):
+                self._env_pools[cur_env].extend(env_results if missing is None else env_results[:missing])
                 fallback_envs.append(cur_env)
                 self._had_fallbacks = True
 
@@ -306,6 +325,29 @@ class PooledObjectPlacer:
                         "The solver is not producing enough valid placements."
                     )
                 results.append(pool.next())
+        return results
+
+    def sample_for_envs(self, env_ids: list[int]) -> dict[int, PlacementResult]:
+        """Consume one layout for each requested absolute env id."""
+        if not self._uses_env_specific_bboxes:
+            layouts = self._sample_reusable_without_replacement(len(env_ids))
+            return dict(zip(env_ids, layouts))
+
+        if any(env_id < 0 or env_id >= self._num_envs for env_id in env_ids):
+            raise ValueError(f"env_ids must be in [0, {self._num_envs}); got {env_ids}")
+
+        if any(self._env_pools[env_id].available < 1 for env_id in env_ids):
+            self._solve_and_store(max(self._pool_size, len(env_ids)))
+
+        results: dict[int, PlacementResult] = {}
+        for env_id in env_ids:
+            pool = self._env_pools[env_id]
+            if pool.available <= 0:
+                raise RuntimeError(
+                    f"Placement pool: env {env_id} has no more valid layouts. "
+                    "The solver is not producing enough valid placements."
+                )
+            results[env_id] = pool.next()
         return results
 
     def _sample_reusable_without_replacement(self, count: int) -> list[PlacementResult]:

@@ -24,6 +24,10 @@ def _make_desk():
     return desk
 
 
+def _env_bboxes(objects):
+    return {obj: obj.get_bounding_box() for obj in objects}
+
+
 def test_on_init_x_y_within_parent_footprint():
     """Object with On(anchor) is initialized with its bbox fully within parent's X/Y footprint."""
     desk = _make_desk()
@@ -34,7 +38,8 @@ def test_on_init_x_y_within_parent_footprint():
     box.add_relation(On(desk, clearance_m=0.01))
 
     placer = ObjectPlacer(params=ObjectPlacerParams())
-    positions = placer._generate_initial_positions([desk, box], {desk})
+    objects = [desk, box]
+    positions = placer._generate_initial_positions(objects, {desk}, _env_bboxes(objects))
 
     x, y, _ = positions[box]
     child_bbox = box.get_bounding_box()
@@ -57,7 +62,8 @@ def test_on_init_z_places_bottom_at_parent_top():
     box.add_relation(On(desk, clearance_m=clearance_m))
 
     placer = ObjectPlacer(params=ObjectPlacerParams())
-    positions = placer._generate_initial_positions([desk, box], {desk})
+    objects = [desk, box]
+    positions = placer._generate_initial_positions(objects, {desk}, _env_bboxes(objects))
 
     _, _, z = positions[box]
     child_bbox = box.get_bounding_box()
@@ -68,7 +74,7 @@ def test_on_init_z_places_bottom_at_parent_top():
     assert abs(child_bottom - expected_bottom) < 1e-6
 
 
-def test_on_init_uses_env_specific_parent_bbox_override():
+def test_on_init_uses_env_specific_parent_bbox():
     """Object with On(anchor set) should initialize against that env's assigned bbox."""
     table_set = DummyObject(
         name="table_set",
@@ -86,7 +92,7 @@ def test_on_init_uses_env_specific_parent_bbox_override():
     positions = placer._generate_initial_positions(
         [table_set, box],
         {table_set},
-        child_bboxes={table_set: small_table_bbox, box: box_bbox},
+        {table_set: small_table_bbox, box: box_bbox},
     )
 
     x, y, z = positions[box]
@@ -111,7 +117,8 @@ def test_on_init_clamps_to_center_when_child_wider_than_parent():
     big_box.add_relation(On(desk, clearance_m=0.0))
 
     placer = ObjectPlacer(params=ObjectPlacerParams())
-    positions = placer._generate_initial_positions([desk, big_box], {desk})
+    objects = [desk, big_box]
+    positions = placer._generate_initial_positions(objects, {desk}, _env_bboxes(objects))
 
     x, y, _ = positions[big_box]
     desk_world = desk.get_world_bounding_box()
@@ -132,7 +139,8 @@ def test_no_on_relation_initializes_at_anchor_center():
     box.add_relation(NextTo(desk, side=Side.POSITIVE_X, distance_m=0.05))
 
     placer = ObjectPlacer(params=ObjectPlacerParams())
-    positions = placer._generate_initial_positions([desk, box], {desk})
+    objects = [desk, box]
+    positions = placer._generate_initial_positions(objects, {desk}, _env_bboxes(objects))
 
     x, y, z = positions[box]
     desk_world = desk.get_world_bounding_box()
@@ -159,7 +167,8 @@ def test_on_non_anchor_parent_with_anchor_grandparent_uses_proxy():
     mug.add_relation(On(plate, clearance_m=0.0))
 
     placer = ObjectPlacer(params=ObjectPlacerParams())
-    positions = placer._generate_initial_positions([desk, plate, mug], {desk})
+    objects = [desk, plate, mug]
+    positions = placer._generate_initial_positions(objects, {desk}, _env_bboxes(objects))
 
     x, y, z = positions[mug]
     desk_world = desk.get_world_bounding_box()
@@ -188,7 +197,8 @@ def test_on_non_anchor_parent_without_on_uses_fallback_bbox():
     mug.add_relation(On(stand, clearance_m=0.0))
 
     placer = ObjectPlacer(params=ObjectPlacerParams())
-    positions = placer._generate_initial_positions([desk, stand, mug], {desk})
+    objects = [desk, stand, mug]
+    positions = placer._generate_initial_positions(objects, {desk}, _env_bboxes(objects))
 
     x, y, z = positions[mug]
     desk_world = desk.get_world_bounding_box()

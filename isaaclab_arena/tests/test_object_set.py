@@ -122,7 +122,8 @@ def _test_object_set_rejects_variant_reassignment_with_different_num_envs(simula
         patch("isaaclab_arena.assets.object_set.detect_object_type", return_value=ObjectType.RIGID),
         patch("isaaclab_arena.assets.object_set.find_shallowest_rigid_body", return_value="/rigid"),
     ):
-        obj_set = RigidObjectSet(name="preassigned_cans", objects=[can_a, can_b], variant_indices_by_env=[0, 1, 0])
+        obj_set = RigidObjectSet(name="assigned_cans", objects=[can_a, can_b])
+        obj_set.assign_variants(num_envs=3)
 
     try:
         obj_set.assign_variants(num_envs=4)
@@ -264,9 +265,7 @@ def _test_single_object_in_one_object_set(simulation_app):
         prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
         parent_asset=background,
     )
-    obj_set = RigidObjectSet(
-        name="single_object_set", objects=[cracker_box, cracker_box], prim_path=OBJECT_SET_1_PRIM_PATH
-    )
+    obj_set = RigidObjectSet(name="single_object_set", objects=[cracker_box], prim_path=OBJECT_SET_1_PRIM_PATH)
     obj_set.set_initial_pose(Pose(position_xyz=(0.1, 0.0, 0.1), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     scene = Scene(assets=[background, obj_set])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(

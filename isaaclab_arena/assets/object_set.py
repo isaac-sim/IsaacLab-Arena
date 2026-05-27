@@ -28,7 +28,6 @@ class RigidObjectSet(Object):
         prim_path: str | None = None,
         scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
         random_choice: bool = False,
-        variant_indices_by_env: list[int] | None = None,
         initial_pose: Pose | None = None,
         **kwargs,
     ):
@@ -43,11 +42,10 @@ class RigidObjectSet(Object):
             random_choice: Whether to randomly choose an object from the object set to spawn in
                 each environment. If False, variants are assigned by repeating
                 the member order across environments.
-            variant_indices_by_env: Optional fixed variant index for each environment.
             initial_pose: The initial pose of the object from this object set.
         """
-        if len(objects) < 2:
-            raise ValueError(f"Object set {name} must contain at least 2 objects.")
+        if len(objects) < 1:
+            raise ValueError(f"Object set {name} must contain at least 1 object.")
         if not self._are_all_objects_type_rigid(objects):
             raise ValueError(f"Object set {name} must contain only rigid objects.")
 
@@ -77,9 +75,6 @@ class RigidObjectSet(Object):
         self.random_choice = random_choice
         self.variant_indices_by_env: list[int] | None = None
 
-        if variant_indices_by_env is not None:
-            self._set_variant_indices_by_env(variant_indices_by_env)
-
         if prim_path is None:
             prim_path = f"{{ENV_REGEX_NS}}/{name}"
 
@@ -105,7 +100,7 @@ class RigidObjectSet(Object):
         return self.member_usd_paths
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Return one conservative local bbox for callers that cannot vary by env.
+        """Return one local bbox for callers that cannot vary by env.
 
         The returned bbox has shape (1, 3) and uses the member with the
         greatest z-extent. Heterogeneous placement uses
@@ -117,11 +112,12 @@ class RigidObjectSet(Object):
     def assign_variants(self, num_envs: int, variant_seed: int | None = None) -> None:
         """Fix one member-variant index per environment.
 
-        The assignment is fixed for the lifetime of the object set: subsequent
-        calls with the same num_envs are no-ops, and a call with a
-        different num_envs raises. When random_choice is True, each
-        env independently samples one variant; otherwise assignments repeat
-        the member order across environments.
+        The assignment is fixed for the lifetime of the object set so spawned
+        USDs and per-env bboxes stay aligned across placement refills.
+        Subsequent calls with the same num_envs are no-ops, and a call with a
+        different num_envs raises. When random_choice is True, each env
+        independently samples one variant; otherwise assignments repeat the
+        member order across environments.
 
         Callers invoke this once num_envs is known, before reading
         variant_indices_by_env or get_bounding_box_per_env.
@@ -130,13 +126,13 @@ class RigidObjectSet(Object):
             num_envs: Number of environments to assign variants for.
             variant_seed: Optional seed used when random_choice=True.
         """
-        if self.variant_indices_by_env is not None:
+        if self.variant_indices_by_env is None:
+            self._set_variant_indices_by_env(self._generate_variant_indices(num_envs, variant_seed=variant_seed))
+        else:
             assert len(self.variant_indices_by_env) == num_envs, (
-                f"RigidObjectSet '{self.name}' has variant assignments for "
-                f"{len(self.variant_indices_by_env)} envs, got request for {num_envs}."
+                f"RigidObjectSet '{self.name}' got request for {num_envs} envs, "
+                f"but has variant assignments for {len(self.variant_indices_by_env)} envs."
             )
-            return
-        self._set_variant_indices_by_env(self._generate_variant_indices(num_envs, variant_seed=variant_seed))
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
         """Return the local bbox for each env's assigned variant.
@@ -160,8 +156,8 @@ class RigidObjectSet(Object):
             "call assign_variants(num_envs) before get_bounding_box_per_env()."
         )
         assert len(self.variant_indices_by_env) == num_envs, (
-            f"RigidObjectSet '{self.name}' assigned for "
-            f"{len(self.variant_indices_by_env)} envs, got request for {num_envs}."
+            f"RigidObjectSet '{self.name}' got request for {num_envs} envs, "
+            f"but is assigned for {len(self.variant_indices_by_env)} envs."
         )
         bounding_boxes = [obj.get_bounding_box() for obj in self.objects]
 
@@ -215,6 +211,8 @@ class RigidObjectSet(Object):
             prim_path=self.prim_path,
             spawn=sim_utils.MultiUsdFileCfg(
                 usd_path=self.object_usd_paths,
+                # Arena owns per-env variant assignment so bbox selection and
+                # spawned USDs stay aligned.
                 random_choice=False,
                 activate_contact_sensors=True,
             ),

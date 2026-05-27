@@ -111,21 +111,18 @@ def _apply_dynamic_spawn_pose(
     """Set initial spawn pose from one layout and return the reset placement event."""
     from isaaclab.managers import EventTermCfg
 
-    if placement_pool.requires_env_indexed_layouts:
-        print("Warning: Skipping static init_state seeding for env-indexed placement layouts.")
-    else:
-        layout = placement_pool.sample_with_replacement(1)[0]
-        for obj in objects:
-            if obj in anchor_objects_set:
-                continue
-            pos = layout.positions.get(obj)
-            if pos is None:
-                raise RuntimeError(f"Pool layout is missing object '{obj.name}'.")
-            object_cfg = getattr(obj, "object_cfg", None)
-            if object_cfg is None:
-                raise RuntimeError(f"Object '{obj.name}' must have object_cfg initialized before placement.")
-            object_cfg.init_state.pos = pos
-            object_cfg.init_state.rot = get_rotation_xyzw(obj)
+    layout = placement_pool.sample_with_replacement(1)[0]
+    for obj in objects:
+        if obj in anchor_objects_set:
+            continue
+        pos = layout.positions.get(obj)
+        if pos is None:
+            raise RuntimeError(f"Pool layout is missing object '{obj.name}'.")
+        object_cfg = getattr(obj, "object_cfg", None)
+        if object_cfg is None:
+            raise RuntimeError(f"Object '{obj.name}' must have object_cfg initialized before placement.")
+        object_cfg.init_state.pos = pos
+        object_cfg.init_state.rot = get_rotation_xyzw(obj)
 
     return EventTermCfg(
         func=solve_and_place_objects,

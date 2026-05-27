@@ -266,9 +266,10 @@ def test_validation_accepts_on_parent_overlap():
     # the expanded table extends to 0.11, so they just touch. The On pair
     # should be skipped by validation.
     positions = {table: (0.0, 0.0, 0.0), box: (0.4, 0.4, 0.11)}
+    env_bboxes = {obj: obj.get_bounding_box() for obj in positions}
 
     placer = ObjectPlacer(ObjectPlacerParams())
-    assert placer._validate_no_overlap(positions)
+    assert placer._validate_no_overlap(positions, env_bboxes)
 
 
 def test_validation_rejects_non_anchor_overlap():
@@ -286,9 +287,10 @@ def test_validation_rejects_non_anchor_overlap():
 
     # Both boxes at nearly the same position -- they overlap
     positions = {table: (0.0, 0.0, 0.0), box_a: (0.3, 0.3, 0.11), box_b: (0.35, 0.35, 0.11)}
+    env_bboxes = {obj: obj.get_bounding_box() for obj in positions}
 
     placer = ObjectPlacer(ObjectPlacerParams())
-    assert not placer._validate_no_overlap(positions)
+    assert not placer._validate_no_overlap(positions, env_bboxes)
 
 
 def test_relation_solver_no_collision_same_inputs_reproducible():

@@ -69,16 +69,6 @@ class ObjectPlacer:
         self.params = params or ObjectPlacerParams()
         self._solver = RelationSolver(params=self.params.solver_params)
 
-    @staticmethod
-    def _resolve_bbox(
-        obj: ObjectBase,
-        overrides: dict[ObjectBase, AxisAlignedBoundingBox] | None,
-    ) -> AxisAlignedBoundingBox:
-        """Return overrides[obj] if present, otherwise the object's default bbox."""
-        if overrides is not None and obj in overrides:
-            return overrides[obj]
-        return obj.get_bounding_box()
-
     def place(
         self,
         objects: list[ObjectBase],
@@ -223,11 +213,8 @@ class ObjectPlacer:
 
         # Variant assignment fixes the env-to-USD mapping before bbox expansion.
         assign_variants_for_envs(objects, num_envs, placement_seed=self.params.placement_seed)
-        env_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
         num_candidates = num_envs * candidates_per_env
-        candidate_bboxes, per_env_bbox_overrides = self._build_candidate_bboxes(
-            env_bboxes, num_envs, candidates_per_env
-        )
+        candidate_bboxes, per_env_bboxes = self._build_candidate_bboxes(objects, num_envs, candidates_per_env)
 
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]] = []
         for candidate_idx in range(num_candidates):
@@ -235,9 +222,8 @@ class ObjectPlacer:
             if generator is not None:
                 assert self.params.placement_seed is not None
                 generator.manual_seed(self.params.placement_seed + candidate_idx)
-            env_child_bboxes = per_env_bbox_overrides[cur_env]
             initial_positions.append(
-                self._generate_initial_positions(objects, anchor_objects_set, generator, child_bboxes=env_child_bboxes)
+                self._generate_initial_positions(objects, anchor_objects_set, per_env_bboxes[cur_env], generator)
             )
 
         all_positions = self._solver.solve(objects, initial_positions, env_bboxes=candidate_bboxes)
@@ -247,12 +233,11 @@ class ObjectPlacer:
         candidates: list[PlacementCandidate] = []
         for candidate_idx in range(num_candidates):
             cur_env = candidate_idx // candidates_per_env
-            env_bbox_overrides = per_env_bbox_overrides[cur_env]
             candidates.append(
                 PlacementCandidate(
                     all_losses[candidate_idx],
                     all_positions[candidate_idx],
-                    self._validate_placement(all_positions[candidate_idx], bbox_overrides=env_bbox_overrides),
+                    self._validate_placement(all_positions[candidate_idx], per_env_bboxes[cur_env]),
                 )
             )
 
@@ -277,21 +262,22 @@ class ObjectPlacer:
 
     @staticmethod
     def _build_candidate_bboxes(
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        objects: list[ObjectBase],
         num_envs: int,
         candidates_per_env: int,
     ) -> tuple[dict[ObjectBase, AxisAlignedBoundingBox], list[dict[ObjectBase, AxisAlignedBoundingBox]]]:
         """Build solver bboxes with shape (num_envs * candidates_per_env, 3) and per-env views."""
-        per_env_bbox_overrides: list[dict[ObjectBase, AxisAlignedBoundingBox]] = [
-            {
-                obj: AxisAlignedBoundingBox(
+        env_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
+
+        per_env_bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]] = []
+        for cur_env in range(num_envs):
+            cur_env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] = {}
+            for obj, bbox in env_bboxes.items():
+                cur_env_bboxes[obj] = AxisAlignedBoundingBox(
                     min_point=bbox.min_point[cur_env : cur_env + 1],
                     max_point=bbox.max_point[cur_env : cur_env + 1],
                 )
-                for obj, bbox in env_bboxes.items()
-            }
-            for cur_env in range(num_envs)
-        ]
+            per_env_bboxes.append(cur_env_bboxes)
 
         candidate_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] = {}
         for obj, bbox in env_bboxes.items():
@@ -300,7 +286,7 @@ class ObjectPlacer:
                 max_point=bbox.max_point.repeat_interleave(candidates_per_env, dim=0),
             )
 
-        return candidate_bboxes, per_env_bbox_overrides
+        return candidate_bboxes, per_env_bboxes
 
     @staticmethod
     def _rank_candidates(
@@ -351,8 +337,8 @@ class ObjectPlacer:
         self,
         objects: list[ObjectBase],
         anchor_objects: set[ObjectBase],
+        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
         generator: torch.Generator | None = None,
-        child_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
     ) -> dict[ObjectBase, tuple[float, float, float]]:
         """Generate initial positions for all objects.
 
@@ -361,16 +347,15 @@ class ObjectPlacer:
         anchor's center; the solver handles their placement from there.
 
         Args:
+            env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
             generator: Optional RNG generator for reproducible sampling. When None,
                 uses PyTorch's global RNG.
-            child_bboxes: Optional per-object bbox overrides with shape (1, 3).
-                Used to supply the correct env bbox for On-guided initialization.
 
         Returns:
             Dictionary mapping all objects to their starting positions.
         """
         first_anchor = next(obj for obj in objects if obj in anchor_objects)
-        anchor_bbox = self._get_world_bbox_for_init(first_anchor, child_bboxes)
+        anchor_bbox = self._get_world_bbox_for_init(first_anchor, env_bboxes)
 
         cx, cy, cz = float(anchor_bbox.center[0, 0]), float(anchor_bbox.center[0, 1]), float(anchor_bbox.center[0, 2])
 
@@ -378,16 +363,14 @@ class ObjectPlacer:
         for obj in objects:
             if obj in anchor_objects:
                 initial_pose = obj.get_initial_pose()
-                if not isinstance(initial_pose, Pose):
-                    raise TypeError(
-                        f"Anchor object '{obj.name}' must have a fixed Pose before placement, got"
-                        f" {type(initial_pose).__name__}."
-                    )
+                assert isinstance(initial_pose, Pose), (
+                    f"Anchor object '{obj.name}' must have a fixed Pose before placement, got"
+                    f" {type(initial_pose).__name__}."
+                )
                 positions[obj] = initial_pose.position_xyz
             elif any(isinstance(r, On) for r in obj.get_relations()):
-                bbox_override = child_bboxes.get(obj) if child_bboxes else None
                 positions[obj] = self._compute_on_guided_position(
-                    obj, anchor_objects, anchor_bbox, generator, child_bbox=bbox_override, bbox_overrides=child_bboxes
+                    obj, anchor_objects, anchor_bbox, env_bboxes, generator
                 )
             else:
                 positions[obj] = (cx, cy, cz)
@@ -396,26 +379,20 @@ class ObjectPlacer:
     @staticmethod
     def _get_world_bbox_for_init(
         obj: ObjectBase,
-        bbox_overrides: dict[ObjectBase, AxisAlignedBoundingBox] | None,
+        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
     ) -> AxisAlignedBoundingBox:
-        bbox_override = bbox_overrides.get(obj) if bbox_overrides else None
-        if bbox_override is None:
-            return obj.get_world_bounding_box()
-
         initial_pose = obj.get_initial_pose()
-        if not isinstance(initial_pose, Pose):
-            raise TypeError(
-                f"Object '{obj.name}' must have a fixed Pose to use an env-specific world bbox,"
-                f" got {type(initial_pose).__name__}."
-            )
-        return bbox_override.translated(initial_pose.position_xyz)
+        assert isinstance(
+            initial_pose, Pose
+        ), f"Object '{obj.name}' must have a fixed Pose to use its env bbox, got {type(initial_pose).__name__}."
+        return env_bboxes[obj].translated(initial_pose.position_xyz)
 
     def _get_on_parent_world_bbox(
         self,
         parent: ObjectBase,
         anchor_objects: set[ObjectBase],
         anchor_bbox: AxisAlignedBoundingBox,
-        bbox_overrides: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
+        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
     ) -> AxisAlignedBoundingBox:
         """Resolve the world bbox of an On relation's parent for initialization purposes.
 
@@ -427,10 +404,10 @@ class ObjectPlacer:
         TODO(cvolk): Support full On-relation chains (e.g. spoon -> On(bowl) -> On(plate) -> On(table)).
         """
         if parent in anchor_objects:
-            return self._get_world_bbox_for_init(parent, bbox_overrides)
+            return self._get_world_bbox_for_init(parent, env_bboxes)
         for rel in parent.get_relations():
             if isinstance(rel, On) and rel.parent in anchor_objects:
-                return self._get_world_bbox_for_init(rel.parent, bbox_overrides)
+                return self._get_world_bbox_for_init(rel.parent, env_bboxes)
         return anchor_bbox
 
     def _compute_on_guided_position(
@@ -438,9 +415,8 @@ class ObjectPlacer:
         obj: ObjectBase,
         anchor_objects: set[ObjectBase],
         anchor_bbox: AxisAlignedBoundingBox,
+        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
         generator: torch.Generator | None = None,
-        child_bbox: AxisAlignedBoundingBox | None = None,
-        bbox_overrides: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
     ) -> tuple[float, float, float]:
         """Compute an initial position for an object with an On relation.
 
@@ -448,19 +424,13 @@ class ObjectPlacer:
         so the solver starts from a valid region.
 
         Args:
+            env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
             generator: Optional RNG generator for reproducible sampling. When None,
                 uses PyTorch's global RNG.
-            child_bbox: Optional bbox override for the child object. When None,
-                obj.get_bounding_box() is used.
-            bbox_overrides: Optional per-object bbox overrides for resolving
-                heterogeneous On parents.
         """
         on_relation = next(r for r in obj.get_relations() if isinstance(r, On))
-        parent_bbox = self._get_on_parent_world_bbox(
-            on_relation.parent, anchor_objects, anchor_bbox, bbox_overrides=bbox_overrides
-        )
-        if child_bbox is None:
-            child_bbox = obj.get_bounding_box()
+        parent_bbox = self._get_on_parent_world_bbox(on_relation.parent, anchor_objects, anchor_bbox, env_bboxes)
+        child_bbox = env_bboxes[obj]
 
         x = self._sample_axis_position(
             parent_bbox.min_point[0, 0],
@@ -493,8 +463,8 @@ class ObjectPlacer:
         """Sample a child origin along one axis so the child's extent stays within the parent's extent.
 
         The valid range for the child origin is [parent_min - child_min, parent_max - child_max].
-        When low >= high, the child is wider than the parent on this axis — there's no position
-        where it fits completely, so we fall back to centering it over the parent.
+        When low >= high, the child is wider than the parent on this axis, so
+        return the parent center as a stable seed.
 
         Args:
             parent_min: Parent world-space min extent on this axis.
@@ -515,7 +485,7 @@ class ObjectPlacer:
     def _validate_on_relations(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
-        bbox_overrides: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
+        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
     ) -> bool:
         """Validate each On relation; keep in sync with OnLossStrategy in relation_loss_strategies.py.
 
@@ -525,7 +495,7 @@ class ObjectPlacer:
 
         Args:
             positions: Solved positions for each object.
-            bbox_overrides: Optional per-object bbox overrides with shape (1, 3).
+            env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
         """
         for obj in positions:
             for rel in obj.get_relations():
@@ -534,8 +504,8 @@ class ObjectPlacer:
                 parent = rel.parent
                 if parent not in positions:
                     continue
-                child_bbox = self._resolve_bbox(obj, bbox_overrides)
-                parent_bbox = self._resolve_bbox(parent, bbox_overrides)
+                child_bbox = env_bboxes[obj]
+                parent_bbox = env_bboxes[parent]
                 child_world = child_bbox.translated(positions[obj])
                 parent_world = parent_bbox.translated(positions[parent])
                 if (
@@ -562,7 +532,7 @@ class ObjectPlacer:
     def _validate_no_overlap(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
-        bbox_overrides: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
+        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
     ) -> bool:
         """Validate that no two objects overlap in 3D (axis-aligned bbox with margin).
 
@@ -573,7 +543,7 @@ class ObjectPlacer:
 
         Args:
             positions: Solved positions for each object.
-            bbox_overrides: Optional per-object bbox overrides with shape (1, 3).
+            env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
         """
         on_pairs: set[tuple] = set()
         anchor_ids: set[int] = set()
@@ -600,8 +570,8 @@ class ObjectPlacer:
                 if (id(a), id(b)) in on_pairs:
                     continue
 
-                a_bbox = self._resolve_bbox(a, bbox_overrides)
-                b_bbox = self._resolve_bbox(b, bbox_overrides)
+                a_bbox = env_bboxes[a]
+                b_bbox = env_bboxes[b]
                 a_world = a_bbox.translated(positions[a])
                 b_world = b_bbox.translated(positions[b])
 
@@ -614,20 +584,18 @@ class ObjectPlacer:
     def _validate_placement(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
-        bbox_overrides: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
+        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
     ) -> bool:
         """Validate that no two objects overlap in 3D and On relations are satisfied.
 
         Args:
             positions: Dictionary mapping objects to their solved (x, y, z) positions.
-            bbox_overrides: Optional per-object bbox overrides with shape (1, 3).
+            env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
 
         Returns:
             True if no overlaps exist and On relations hold, False otherwise.
         """
-        return self._validate_no_overlap(positions, bbox_overrides) and self._validate_on_relations(
-            positions, bbox_overrides
-        )
+        return self._validate_no_overlap(positions, env_bboxes) and self._validate_on_relations(positions, env_bboxes)
 
     def _apply_positions(
         self,

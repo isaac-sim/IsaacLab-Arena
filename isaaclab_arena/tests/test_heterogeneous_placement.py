@@ -457,8 +457,32 @@ def test_pooled_placer_heterogeneous_sample_without_replacement_requires_complet
         pool.sample_without_replacement(2)
 
 
+def test_pooled_placer_sample_for_envs_consumes_only_requested_envs():
+    """sample_for_envs should advance only the requested absolute env pools."""
+    desk, hetero, placer_params = _make_hetero_pool_objects()
+    pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=20, num_envs=4)
+
+    for env_id in range(4):
+        pool._env_pools[env_id].layouts = [
+            PlacementResult(
+                success=True,
+                positions={hetero: (float(env_id), 0.0, 0.0)},
+                final_loss=0.0,
+                attempts=1,
+            )
+        ]
+        pool._env_pools[env_id].cursor = 0
+
+    results = pool.sample_for_envs([2, 0])
+
+    assert list(results) == [2, 0]
+    assert results[2].positions[hetero][0] == 2.0
+    assert results[0].positions[hetero][0] == 0.0
+    assert [env_pool.available for env_pool in pool._env_pools] == [0, 1, 0, 1]
+
+
 def test_pooled_placer_heterogeneous_sample_with_replacement():
-    """sample_with_replacement should return per-variant layouts without consuming."""
+    """sample_with_replacement should return env-matched layouts without consuming."""
     desk, hetero, placer_params = _make_hetero_pool_objects()
     pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=20, num_envs=4)
 
@@ -474,7 +498,7 @@ def test_pooled_placer_heterogeneous_sample_with_replacement():
 
 
 def test_pooled_placer_heterogeneous_sample_without_replacement_triggers_refill():
-    """Exhausting a variant sub-pool should trigger a refill."""
+    """Exhausting an env pool should trigger a refill."""
     desk, hetero, placer_params = _make_hetero_pool_objects()
     pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=4, num_envs=2)
 
@@ -514,6 +538,36 @@ def test_pooled_placer_env_specific_fallbacks_are_reported(capsys):
     for env_pool in pool._env_pools:
         env_pool.layouts = []
         env_pool.cursor = 0
+    pool._had_fallbacks = False
+
+    fallback_results = [
+        [
+            PlacementResult(
+                success=False,
+                positions={hetero: (float(cur_env), 0.0, 0.0)},
+                final_loss=1.0,
+                attempts=1,
+            )
+        ]
+        for cur_env in range(2)
+    ]
+
+    pool._store_env_matched_results(fallback_results, layouts_per_env=1, allow_fallback=True)
+    captured = capsys.readouterr()
+
+    assert pool.had_fallbacks
+    assert "Falling back to best-loss layouts" in captured.out
+    assert [env_pool.available for env_pool in pool._env_pools] == [1, 1]
+
+
+def test_pooled_placer_env_specific_fallbacks_wait_for_final_retry(capsys):
+    """Invalid env-specific candidates should not fill pools before fallback is allowed."""
+    desk, hetero, placer_params = _make_hetero_pool_objects()
+    pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=2, num_envs=2)
+    for env_pool in pool._env_pools:
+        env_pool.layouts = []
+        env_pool.cursor = 0
+    pool._had_fallbacks = False
 
     fallback_results = [
         [
@@ -530,9 +584,89 @@ def test_pooled_placer_env_specific_fallbacks_are_reported(capsys):
     pool._store_env_matched_results(fallback_results, layouts_per_env=1)
     captured = capsys.readouterr()
 
+    assert not pool.had_fallbacks
+    assert "Falling back to best-loss layouts" not in captured.out
+    assert [env_pool.available for env_pool in pool._env_pools] == [0, 0]
+
+
+def test_pooled_placer_env_specific_fallback_only_fills_short_env(capsys):
+    """Final-batch fallback should not overfill env pools that already met the target."""
+    desk, hetero, placer_params = _make_hetero_pool_objects()
+    pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=2, num_envs=2)
+    for env_pool in pool._env_pools:
+        env_pool.layouts = []
+        env_pool.cursor = 0
+    pool._had_fallbacks = False
+
+    existing_layout = PlacementResult(
+        success=True,
+        positions={hetero: (10.0, 0.0, 0.0)},
+        final_loss=0.0,
+        attempts=1,
+    )
+    pool._env_pools[0].append(existing_layout)
+
+    fallback_results = [
+        [
+            PlacementResult(
+                success=False,
+                positions={hetero: (float(cur_env), 0.0, 0.0)},
+                final_loss=1.0,
+                attempts=1,
+            )
+        ]
+        for cur_env in range(2)
+    ]
+
+    pool._store_env_matched_results(
+        fallback_results,
+        layouts_per_env=1,
+        allow_fallback=True,
+        target_per_env=1,
+    )
+    captured = capsys.readouterr()
+
     assert pool.had_fallbacks
-    assert "Falling back to best-loss layouts" in captured.out
+    assert "envs: [1]" in captured.out
     assert [env_pool.available for env_pool in pool._env_pools] == [1, 1]
+    assert pool._env_pools[0].layouts == [existing_layout]
+    assert pool._env_pools[1].layouts[0] is fallback_results[1][0]
+
+
+def test_pooled_placer_env_specific_valid_results_only_fill_short_envs():
+    """Refills should not grow env pools that already met the target."""
+    desk, hetero, placer_params = _make_hetero_pool_objects()
+    pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=2, num_envs=2)
+    for env_pool in pool._env_pools:
+        env_pool.layouts = []
+        env_pool.cursor = 0
+
+    existing_layout = PlacementResult(
+        success=True,
+        positions={hetero: (10.0, 0.0, 0.0)},
+        final_loss=0.0,
+        attempts=1,
+    )
+    pool._env_pools[0].append(existing_layout)
+
+    ranked_results = [
+        [
+            PlacementResult(
+                success=True,
+                positions={hetero: (float(cur_env), float(candidate_idx), 0.0)},
+                final_loss=0.0,
+                attempts=1,
+            )
+            for candidate_idx in range(2)
+        ]
+        for cur_env in range(2)
+    ]
+
+    pool._store_env_matched_results(ranked_results, layouts_per_env=2, target_per_env=1)
+
+    assert [env_pool.available for env_pool in pool._env_pools] == [1, 1]
+    assert pool._env_pools[0].layouts == [existing_layout]
+    assert pool._env_pools[1].layouts == [ranked_results[1][0]]
 
 
 def test_pooled_placer_reusable_layouts_report_complete_env_rounds():

@@ -320,11 +320,15 @@ def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_res
     class EnvIndexedPool:
         requires_env_indexed_layouts = True
         num_envs = 4
+        requested_env_ids = None
 
         def sample_without_replacement(self, count: int) -> list[PlacementResult]:
-            assert count == 4
-            return [
-                PlacementResult(
+            raise AssertionError(f"partial reset should not consume a full env round, got count={count}")
+
+        def sample_for_envs(self, env_ids: list[int]) -> dict[int, PlacementResult]:
+            self.requested_env_ids = env_ids
+            return {
+                cur_env: PlacementResult(
                     success=True,
                     positions={
                         box1: (float(cur_env), 0.0, 0.0),
@@ -333,10 +337,11 @@ def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_res
                     final_loss=0.0,
                     attempts=1,
                 )
-                for cur_env in range(4)
-            ]
+                for cur_env in env_ids
+            }
 
-    solve_and_place_objects(env, torch.tensor([2]), objects, EnvIndexedPool())
+    pool = EnvIndexedPool()
+    solve_and_place_objects(env, torch.tensor([2]), objects, pool)
 
     box1_pose = env._assets[box1.name].write_root_pose_to_sim.call_args[0][0]
     box2_pose = env._assets[box2.name].write_root_pose_to_sim.call_args[0][0]
@@ -346,6 +351,7 @@ def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_res
     assert box2_pose[0, 0].item() == 2.0
     assert box1_env_id.tolist() == [2]
     assert box2_env_id.tolist() == [2]
+    assert pool.requested_env_ids == [2]
 
 
 def test_solve_and_place_objects_asserts_env_indexed_pool_size_matches_scene():
@@ -461,6 +467,56 @@ def test_resolve_on_reset_false_applies_pose_per_env():
         assert len(pose_per_env.poses) == num_envs, f"Expected {num_envs} poses for {obj.name}"
         for p in pose_per_env.poses:
             assert p.position_xyz is not None, f"Position should not be None for {obj.name}"
+
+
+def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
+    """Env-indexed resolve-on-reset path should seed non-anchor initial poses."""
+    from types import SimpleNamespace
+
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.relations.placement_result import PlacementResult
+
+    class MinimalObject:
+        def __init__(self, name: str):
+            self.name = name
+            self.event_cfg = None
+            self.object_cfg = SimpleNamespace(init_state=SimpleNamespace(pos=(0.0, 0.0, 0.0), rot=(0.0, 0.0, 0.0, 1.0)))
+
+        def get_relations(self):
+            return []
+
+        def set_initial_pose(self, pose):
+            raise AssertionError("resolve_on_reset init seeding must not register per-object reset events")
+
+    class EnvIndexedPool:
+        requires_env_indexed_layouts = True
+        num_envs = 3
+        sample_count = None
+
+        def sample_with_replacement(self, count: int):
+            self.sample_count = count
+            assert count == 1
+            return [
+                PlacementResult(
+                    success=True,
+                    positions={box: (float(env_id), 0.0, 0.1)},
+                    final_loss=0.0,
+                    attempts=1,
+                )
+                for env_id in range(self.num_envs)
+            ]
+
+    anchor = MinimalObject("desk")
+    box = MinimalObject("box")
+    pool = EnvIndexedPool()
+    builder = ArenaEnvBuilder.__new__(ArenaEnvBuilder)
+
+    builder._set_init_state_from_pool([anchor, box], pool, {anchor})
+
+    assert pool.sample_count == 1
+    assert anchor.object_cfg.init_state.pos == (0.0, 0.0, 0.0)
+    assert box.object_cfg.init_state.pos == (0.0, 0.0, 0.1)
+    assert box.event_cfg is None
 
 
 def test_pooled_placer_falls_back_when_no_valid_layouts(capsys):

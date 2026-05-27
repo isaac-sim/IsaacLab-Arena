@@ -237,10 +237,9 @@ class RelationSolver:
             initial_positions: List of dicts (one per env). Use a single-element list
                 for single-env placement.
             env_bboxes: Optional per-env bounding boxes keyed by object.
-                When provided, each AxisAlignedBoundingBox has shape
-                (batch, 3) so different batch rows can use different
-                geometry (heterogeneous placement). If None, every row
-                uses the object's default get_bounding_box().
+                ObjectPlacer always supplies these, with each
+                AxisAlignedBoundingBox shaped (batch, 3). Direct solver calls
+                may omit them to use each object's default get_bounding_box().
 
         Returns:
             List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
