@@ -149,16 +149,6 @@ class ArenaEnvGraphSpec:
     tasks: list[ArenaEnvGraphTaskSpec] = field(default_factory=list)
     state_specs: list[ArenaEnvGraphStateSpec] = field(default_factory=list)
 
-    def __post_init__(self) -> None:
-        # Enforce graph invariants on EVERY construction path (YAML parse, direct
-        # dataclass instantiation, programmatic build, ...). Centralizing here means
-        # downstream consumers — including ``nodes_by_id`` / ``tasks_by_id`` /
-        # ``state_specs_by_id``, which collapse duplicates silently in their dict
-        # comprehensions — can rely on globally-unique ids and valid references
-        # without re-validating.
-        assert_unique_ids(self.nodes, self.tasks, self.state_specs)
-        assert_references_exist(self.nodes, self.tasks, self.state_specs)
-
     @classmethod
     def from_yaml(cls, path: str | Path) -> "ArenaEnvGraphSpec":
         with Path(path).open("r", encoding="utf-8") as f:
@@ -167,11 +157,18 @@ class ArenaEnvGraphSpec:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ArenaEnvGraphSpec":
         data = as_dict(data, "Env graph spec")
+        nodes = parse_list(data, "nodes", _parse_node)
+        tasks = parse_list(data, "tasks", _parse_task)
+        state_specs = parse_list(data, "state_specs", _parse_state_spec)
+
+        assert_unique_ids(nodes, tasks, state_specs)
+        assert_references_exist(nodes, tasks, state_specs)
+
         return cls(
             env_name=required_str(data, "env_name"),
-            nodes=parse_list(data, "nodes", _parse_node),
-            tasks=parse_list(data, "tasks", _parse_task),
-            state_specs=parse_list(data, "state_specs", _parse_state_spec),
+            nodes=nodes,
+            tasks=tasks,
+            state_specs=state_specs,
         )
 
     def to_dict(self) -> dict[str, Any]:
