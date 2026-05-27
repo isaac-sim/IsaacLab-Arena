@@ -81,9 +81,7 @@ def test_static_solve_and_apply_relation_placement_reuses_object_only_placement(
 def test_dynamic_spawn_pose_skips_objects_missing_from_fallback_layout():
     desk = _make_desk()
     box = _make_box()
-    placement_pool = _FakePlacementPool(
-        [PlacementResult(success=False, positions={}, final_loss=1.0, attempts=1)]
-    )
+    placement_pool = _FakePlacementPool([PlacementResult(success=False, positions={}, final_loss=1.0, attempts=1)])
 
     _apply_dynamic_spawn_pose(
         objects=[desk, box],
@@ -98,22 +96,20 @@ def test_static_initial_poses_skip_object_when_any_layout_is_missing_position():
     desk = _make_desk()
     missing_box = _make_box("missing_box")
     placed_box = _make_box("placed_box")
-    placement_pool = _FakePlacementPool(
-        [
-            PlacementResult(
-                success=False,
-                positions={placed_box: (0.1, 0.0, 0.2)},
-                final_loss=1.0,
-                attempts=1,
-            ),
-            PlacementResult(
-                success=False,
-                positions={placed_box: (0.2, 0.0, 0.2)},
-                final_loss=1.0,
-                attempts=1,
-            ),
-        ]
-    )
+    placement_pool = _FakePlacementPool([
+        PlacementResult(
+            success=False,
+            positions={placed_box: (0.1, 0.0, 0.2)},
+            final_loss=1.0,
+            attempts=1,
+        ),
+        PlacementResult(
+            success=False,
+            positions={placed_box: (0.2, 0.0, 0.2)},
+            final_loss=1.0,
+            attempts=1,
+        ),
+    ])
 
     _apply_static_initial_poses(
         objects=[desk, missing_box, placed_box],
