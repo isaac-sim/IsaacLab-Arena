@@ -18,6 +18,7 @@ from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.affordances.turnable import Turnable
+from isaaclab_arena.assets.lightwheel_utils import acquire_lightwheel_asset
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_utils import (
@@ -176,8 +177,13 @@ class Microwave(LibraryObject, Openable):
 
     name = "microwave"
     tags = ["object", "openable"]
-    file_path, object_name, metadata = object_loader.acquire_by_registry(
-        registry_type="fixtures", file_name="Microwave039", file_type="USD"
+    file_path, object_name, metadata = acquire_lightwheel_asset(
+        object_loader,
+        object_loader.acquire_by_registry,
+        description="microwave asset",
+        registry_type="fixtures",
+        file_name="Microwave039",
+        file_type="USD",
     )
     usd_path = file_path
     object_type = ObjectType.ARTICULATION
@@ -209,8 +215,13 @@ class CoffeeMachine(LibraryObject, Pressable):
 
     name = "coffee_machine"
     tags = ["object", "pressable"]
-    file_path, object_name, metadata = object_loader.acquire_by_registry(
-        registry_type="fixtures", file_name="CoffeeMachine108", file_type="USD"
+    file_path, object_name, metadata = acquire_lightwheel_asset(
+        object_loader,
+        object_loader.acquire_by_registry,
+        description="coffee_machine asset",
+        registry_type="fixtures",
+        file_name="CoffeeMachine108",
+        file_type="USD",
     )
     usd_path = file_path
     object_type = ObjectType.ARTICULATION
@@ -677,8 +688,13 @@ class Broccoli(LibraryObject):
 
     name = "broccoli"
     tags = ["object", "vegetable", "graspable"]
-    file_path, object_name, metadata = object_loader.acquire_by_registry(
-        registry_type="objects", registry_name=["broccoli"], file_type="USD"
+    file_path, object_name, metadata = acquire_lightwheel_asset(
+        object_loader,
+        object_loader.acquire_by_registry,
+        description="broccoli asset",
+        registry_type="objects",
+        registry_name=["broccoli"],
+        file_type="USD",
     )
     usd_path = file_path
     object_type = ObjectType.RIGID
@@ -704,8 +720,13 @@ class SweetPotato(LibraryObject):
 
     name = "sweet_potato"
     tags = ["object", "vegetable", "graspable"]
-    file_path, object_name, metadata = object_loader.acquire_by_registry(
-        registry_type="objects", file_name="SweetPotato005", file_type="USD"
+    file_path, object_name, metadata = acquire_lightwheel_asset(
+        object_loader,
+        object_loader.acquire_by_registry,
+        description="sweet_potato asset",
+        registry_type="objects",
+        file_name="SweetPotato005",
+        file_type="USD",
     )
     usd_path = file_path
     object_type = ObjectType.RIGID
@@ -732,8 +753,13 @@ class Jug(LibraryObject):
 
     name = "jug"
     tags = ["object", "graspable"]
-    file_path, object_name, metadata = object_loader.acquire_by_registry(
-        registry_type="objects", file_name="Jug005", file_type="USD"
+    file_path, object_name, metadata = acquire_lightwheel_asset(
+        object_loader,
+        object_loader.acquire_by_registry,
+        description="jug asset",
+        registry_type="objects",
+        file_name="Jug005",
+        file_type="USD",
     )
     usd_path = file_path
     object_type = ObjectType.RIGID
@@ -760,8 +786,13 @@ class BeerBottle(LibraryObject):
 
     name = "beer_bottle"
     tags = ["object", "graspable"]
-    file_path, object_name, metadata = object_loader.acquire_by_registry(
-        registry_type="objects", file_name="beer016", file_type="USD"
+    file_path, object_name, metadata = acquire_lightwheel_asset(
+        object_loader,
+        object_loader.acquire_by_registry,
+        description="beer_bottle asset",
+        registry_type="objects",
+        file_name="beer016",
+        file_type="USD",
     )
     usd_path = file_path
     object_type = ObjectType.RIGID
