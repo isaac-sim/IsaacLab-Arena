@@ -21,6 +21,21 @@ from .schema import RelationKind, SceneSpec, TaskKind
 DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
 DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
 
+# Truncate raw LLM responses to this many characters when including them in
+# error messages — long enough to diagnose the failure, short enough to keep
+# stack traces readable.
+_RAW_RESPONSE_PREVIEW_CHARS = 500
+
+
+class LLMResponseParseError(ValueError):
+    """Raised when an LLM response cannot be parsed into a JSON object.
+
+    Subclasses ``ValueError`` so existing ``except ValueError`` clauses
+    (e.g. around ``SceneSpec.model_validate``) still catch it, but the
+    distinct type lets callers that want to retry the LLM call separate
+    parse failures from validation failures.
+    """
+
 
 def build_catalog_text() -> str:
     """Introspect AssetRegistry and build the vocabulary the LLM is allowed to use."""
@@ -161,8 +176,16 @@ class LLMAgent:
         with contextlib.suppress(json.JSONDecodeError):
             return json.loads(content)
 
+        # ``raise LLMResponseParseError`` rather than ``assert`` so the guard
+        # survives ``python -O`` (which strips asserts), and so callers can
+        # distinguish parse failures from validation failures by exception
+        # type. The truncated raw response is the most useful field for
+        # debugging a misbehaving prompt.
         start = content.find("{")
-        assert start != -1, f"No JSON object in LLM response: {content!r}"
+        if start == -1:
+            raise LLMResponseParseError(
+                f"No JSON object found in LLM response: {content[:_RAW_RESPONSE_PREVIEW_CHARS]!r}"
+            )
         depth = 0
         for i in range(start, len(content)):
             if content[i] == "{":
@@ -171,4 +194,4 @@ class LLMAgent:
                 depth -= 1
                 if depth == 0:
                     return json.loads(content[start : i + 1])
-        raise AssertionError(f"Unbalanced JSON in LLM response: {content!r}")
+        raise LLMResponseParseError(f"Unbalanced braces in LLM response: {content[:_RAW_RESPONSE_PREVIEW_CHARS]!r}")
