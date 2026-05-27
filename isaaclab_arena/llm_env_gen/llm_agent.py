@@ -14,8 +14,9 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+from typing import get_args
 
-from .schema import SceneSpec
+from .schema import RelationKind, SceneSpec, TaskKind
 
 DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
 DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
@@ -95,6 +96,14 @@ class LLMAgent:
 
     def _system_prompt(self) -> str:
         schema = json.dumps(SceneSpec.model_json_schema(), indent=2)
+        # Derive the enumerations the LLM is allowed to emit directly from
+        # the pydantic literal types so the prompt cannot drift out of sync
+        # when RelationKind / TaskKind change. Bare identifiers for
+        # relation kinds (e.g. ``on``), JSON-style quoted strings for task
+        # kinds (e.g. ``"pick_and_place"``) — matching the surrounding
+        # prose style.
+        relation_kinds = ", ".join(get_args(RelationKind))
+        task_kinds = ", ".join(f'"{k}"' for k in get_args(TaskKind))
         return (
             "You are a scene-generation parser for robot manipulation tasks.\n"
             "Convert a natural-language prompt into a SceneSpec JSON object that matches the schema below.\n\n"
@@ -108,7 +117,7 @@ class LLMAgent:
             "  tags. This is a PREFERENCE, not a hard filter — the resolver will fall back to the full\n"
             "  catalog if the tag pool is empty or yields no close match. Err toward emitting useful tags;\n"
             "  the trace will report what was relaxed.\n"
-            "- relation.kind ∈ {on, in, next_to, at_position, at_pose, is_anchor}. Spatial relations only —\n"
+            f"- relation.kind ∈ {{{relation_kinds}}}. Spatial relations only —\n"
             "  articulated-state changes are expressed via tasks below, not as relations.\n"
             "  subject/target reference items by their query string or the background name.\n"
             "  * Articulated objects (microwave, fridge, cabinet) still need a spatial\n"
@@ -118,7 +127,7 @@ class LLMAgent:
             "  relation (e.g. bowl on table, distractors present) must appear here. Relations that change\n"
             "  via tasks are still listed here in their starting form.\n"
             "- tasks: a list of atomic actions to perform in order. Each task has:\n"
-            '    * kind ∈ {"pick_and_place", "open_door", "close_door"}\n'
+            f"    * kind ∈ {{{task_kinds}}}\n"
             "    * subject: the primary object being acted on (e.g. 'avocado', 'microwave')\n"
             "    * target: the secondary object/location (e.g. 'bowl' for pick_and_place, null for open/close)\n"
             "    * description: natural-language summary of the task\n"
