@@ -5,12 +5,7 @@
 
 """Run the LLM parser on a prompt and dump the resolved ArenaEnvGraphSpec.
 
-Must run inside the Docker container (needs AssetRegistry). Requires
-NV_API_KEY and the `openai` pip package.
-
-Output: the resolved spec is always written to
-``isaaclab_arena_environments/llm_generated/<env_name>_proposal.yaml`` (in
-addition to being printed to stdout).
+Requires NV_API_KEY environment variable.
 
 Examples:
     # Print the Pydantic LLMEnvSpec JSON schema (no LLM call):

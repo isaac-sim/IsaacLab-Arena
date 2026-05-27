@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import yaml
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -171,27 +171,6 @@ class ArenaEnvGraphSpec:
             state_specs=state_specs,
         )
 
-    def to_dict(self) -> dict[str, Any]:
-        """Return a YAML/JSON-serializable dict.
-
-        Output shape round-trips through :meth:`from_dict` / :meth:`from_yaml`:
-        enums become their ``.value`` strings and ``None`` / empty-dict fields
-        are omitted so the optional-field parsers fall back to their defaults.
-        """
-        return asdict(self, dict_factory=_yaml_dict_factory)
-
-    def to_yaml(self, path: str | Path) -> Path:
-        """Write this spec to ``path`` as YAML. Creates parent dirs as needed.
-
-        Returns the resolved :class:`Path` written. Symmetric with
-        :meth:`from_yaml`.
-        """
-        out_path = Path(path)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        with out_path.open("w", encoding="utf-8") as f:
-            yaml.safe_dump(self.to_dict(), f, sort_keys=False)
-        return out_path
-
     @property
     def nodes_by_id(self) -> dict[str, ArenaEnvGraphNodeSpec]:
         return {node.id: node for node in self.nodes}
@@ -275,23 +254,3 @@ def _parse_task(data: Any) -> ArenaEnvGraphTaskSpec:
         success_state_spec_id=required_str(data, "success_state_spec_id"),
         task_args=optional_dict(data, "task_args"),
     )
-
-
-def _yaml_dict_factory(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-    """``dataclasses.asdict`` hook used by :meth:`ArenaEnvGraphSpec.to_dict`.
-
-    Two responsibilities:
-      * convert :class:`Enum` field values to their ``.value`` strings so
-        ``yaml.safe_dump`` can serialize them, and
-      * drop ``None`` / empty-dict fields so the emitted YAML stays clean
-        and ``optional_str`` / ``optional_dict`` parsers pick up defaults
-        instead of seeing redundant keys.
-    """
-    out: dict[str, Any] = {}
-    for key, value in pairs:
-        if isinstance(value, Enum):
-            value = value.value
-        if value is None or (isinstance(value, dict) and not value):
-            continue
-        out[key] = value
-    return out
