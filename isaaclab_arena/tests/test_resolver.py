@@ -198,6 +198,68 @@ def test_resolve_with_empty_initial_scene_graph():
 
 
 # ---------------------------------------------------------------------------
+# Resolution-error reporting
+# ---------------------------------------------------------------------------
+
+
+def _clean_scene_kwargs() -> dict:
+    """Scene where every node resolves and every task arg references a known node.
+
+    The default ``_make_scene`` uses a "placeholder" task subject/target that
+    deliberately doesn't resolve — fine for tests that only care about node
+    counts but unsuitable for resolution-error tests where we need a baseline
+    where the resolver succeeds completely.
+    """
+    return dict(
+        items=[Item(query="bowl", role="foreground", category_tags=["bowl"])],
+        tasks=[Task(kind="pick_and_place", subject="bowl", target="maple_table", description="d")],
+    )
+
+
+def test_has_resolution_errors_false_on_clean_run():
+    # Fully resolvable env; no error-bearing trace events should appear.
+    resolver = _make_resolver()
+    resolver.resolve(_make_scene(**_clean_scene_kwargs()))
+    assert resolver.resolution_errors == []
+    assert resolver.has_resolution_errors is False
+
+
+def test_has_resolution_errors_true_when_item_unresolvable():
+    # Add an unresolvable item on top of the clean baseline so the *only*
+    # error stage that fires is ``item.miss``.
+    kwargs = _clean_scene_kwargs()
+    kwargs["items"] = kwargs["items"] + [
+        Item(query="zzz_no_match_anywhere", role="foreground", category_tags=["object"])
+    ]
+    resolver = _make_resolver()
+    resolver.resolve(_make_scene(**kwargs))
+    assert resolver.has_resolution_errors is True
+    assert [e.stage for e in resolver.resolution_errors] == ["item.miss"]
+
+
+def test_has_resolution_errors_false_when_only_relaxation_or_fallback():
+    # Both events the bot's heuristic would mistakenly flag: tag-pool
+    # relaxation (successful) and embodiment fallback (franka_ik). Neither
+    # drops data from the resolved spec, so neither should count as an
+    # error. ``cracker`` is in the default catalog but tagged ``graspable``,
+    # not ``fruit`` — so the fruit-tag pool yields no match and the resolver
+    # relaxes to the full object pool.
+    kwargs = _clean_scene_kwargs()
+    kwargs["items"] = [Item(query="cracker", role="foreground", category_tags=["fruit"])]
+    # Switch the task subject to match the new item id so task args still resolve.
+    kwargs["tasks"] = [Task(kind="pick_and_place", subject="cracker", target="maple_table", description="d")]
+    resolver = _make_resolver()
+    resolver.resolve(_make_scene(embodiment="totally_unknown_robot", **kwargs))
+    trace_stages = [e.stage for e in resolver.trace]
+    # Sanity: the warning events actually fired in this run.
+    assert "item.no_match_in_tags" in trace_stages
+    assert "embodiment.miss" in trace_stages
+    # But neither shows up as an error.
+    assert resolver.has_resolution_errors is False
+    assert resolver.resolution_errors == []
+
+
+# ---------------------------------------------------------------------------
 # Item resolution strategies
 # ---------------------------------------------------------------------------
 

@@ -82,13 +82,49 @@ class Resolver:
         record the relaxation in the trace.
       * The trace lives on the Resolver instance (``self.trace``) and is
         cleared at the start of every ``resolve()`` call.
+      * Callers that want to bail out / retry on bad resolutions can poll
+        ``has_resolution_errors`` / ``resolution_errors`` after
+        ``resolve()``; relaxation events and the embodiment-fallback miss
+        are NOT considered errors because the resolver still produced
+        usable output for them.
     """
+
+    # Trace stages emitted only when the resolver had to drop or invalidate
+    # data — i.e. the resulting spec is semantically incomplete. Distinct
+    # from advisory stages like ``item.tag_pool_empty`` (successful
+    # relaxation) and ``embodiment.miss`` (falls back to a usable
+    # embodiment). Updated alongside ``_resolve_*`` / ``_build_*`` whenever
+    # a new failure mode is added.
+    _ERROR_TRACE_STAGES: frozenset[str] = frozenset({
+        "item.miss",
+        "name.wrong_tag",
+        "name.miss",
+        "relation.initial.unsupported_kind",
+        "relation.initial.unknown_subject",
+        "relation.initial.unknown_target",
+        "task.unknown_subject",
+        "task.unknown_target",
+    })
 
     def __init__(self, registry: AssetRegistry | None = None):
         self.registry = registry or AssetRegistry()
         # Populated incrementally by every resolution call. Caller reads after
         # ``resolve()`` returns.
         self.trace: list[TraceEvent] = []
+
+    @property
+    def resolution_errors(self) -> list[TraceEvent]:
+        """Trace events flagged as failures of the last ``resolve()`` call.
+
+        See ``_ERROR_TRACE_STAGES`` for the exact set. The list preserves
+        trace order so callers can show "what went wrong, in order".
+        """
+        return [e for e in self.trace if e.stage in self._ERROR_TRACE_STAGES]
+
+    @property
+    def has_resolution_errors(self) -> bool:
+        """``True`` iff the last ``resolve()`` produced an incomplete spec."""
+        return bool(self.resolution_errors)
 
     def resolve(self, spec: LLMEnvSpec, env_name: str | None = None) -> ArenaEnvGraphSpec:
         """Resolve an LLMEnvSpec into a full :class:`ArenaEnvGraphSpec`.
