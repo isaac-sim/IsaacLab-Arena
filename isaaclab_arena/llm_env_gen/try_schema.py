@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 
 DEFAULT_PROMPT = (
     "franka pick up avocado from the table and place it into a bowl on the table. "
@@ -38,11 +37,6 @@ SEQUENTIAL_PROMPT = (
     "franka opens a microwave, picks up avocado on the table, place it into the microwave and close the microwave door."
     " There are other utensils on the table as distractor"
 )
-
-# Resolved-spec dumps land here so they're easy to find next to the existing
-# auto-generated env modules. Path is computed from this file so it works
-# inside the container (/workspaces/isaaclab_arena) and outside.
-_LLM_GENERATED_DIR = Path(__file__).resolve().parents[2] / "isaaclab_arena_environments" / "llm_generated"
 
 
 def main() -> None:
@@ -109,47 +103,6 @@ def main() -> None:
 
     print("\n=== parsed LLMEnvSpec ===")
     print(spec.model_dump_json(indent=2))
-
-    from isaaclab_arena.llm_env_gen.resolver import Resolver
-
-    resolver = Resolver()
-    env_graph_spec = resolver.resolve(spec)
-
-    print(f"\n=== resolved ArenaEnvGraphSpec (env_name={env_graph_spec.env_name!r}) ===")
-
-    print("\nnodes:")
-    for node in env_graph_spec.nodes:
-        params_str = f"  params={node.params}" if node.params else ""
-        print(f"  {node.id:24s} type={node.type.value:18s} name={node.name}{params_str}")
-
-    print("\nstate_specs:")
-    for state_spec in env_graph_spec.state_specs:
-        s_count = len(state_spec.spatial_constraints)
-        t_count = len(state_spec.task_constraints)
-        print(f"  {state_spec.id:24s} spatial={s_count} task={t_count}")
-        for c in state_spec.spatial_constraints:
-            child_str = f", child={c.child}" if c.child else ""
-            params_str = f"  params={c.params}" if c.params else ""
-            print(f"    {c.type.value:16s} parent={c.parent}{child_str}{params_str}")
-        for c in state_spec.task_constraints:
-            print(f"    {c.type.value:16s} parent={c.parent}  child={c.child}")
-
-    print("\ntasks:")
-    for task in env_graph_spec.tasks:
-        print(
-            f"  {task.id:28s} type={task.type:18s} "
-            f"initial={task.initial_state_spec_id!r} success={task.success_state_spec_id!r}"
-        )
-        print(f"    task_args: {task.task_args}")
-
-    print("\n=== trace ===")
-    for t in resolver.trace:
-        chosen = t.chosen if t.chosen is not None else "<none>"
-        extra = f"  [{t.note}]" if t.note else ""
-        print(f"  {t.stage:34s} {t.query!s:24s} -> {chosen}{extra}")
-
-    out_path = env_graph_spec.to_yaml(_LLM_GENERATED_DIR / f"{env_graph_spec.env_name}_proposal.yaml")
-    print(f"\n=== wrote ArenaEnvGraphSpec YAML to {out_path} ===")
 
 
 if __name__ == "__main__":
