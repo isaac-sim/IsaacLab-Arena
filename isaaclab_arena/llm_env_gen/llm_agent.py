@@ -88,6 +88,13 @@ class LLMAgent:
                 override to point at a self-hosted vLLM / Ollama / etc.
                 deployment that exposes the same OpenAI chat-completions
                 wire format.
+
+        Raises:
+            ValueError: when no API key is available (neither argument
+                nor ``NV_API_KEY`` env var).
+            Any exception raised by the underlying ``openai`` client
+                during the startup ``ping()``. See :meth:`ping` for the
+                common failure modes.
         """
         from openai import OpenAI
 
@@ -99,6 +106,12 @@ class LLMAgent:
             raise ValueError("API key required: set NV_API_KEY or pass api_key.")
         self.model = model
         self.client = OpenAI(api_key=self.api_key, base_url=base_url)
+        # Fail-fast connection check. Costs ~hundreds of ms on hot paths and
+        # converts a deferred ``AuthenticationError`` (or ``NotFoundError`` /
+        # ``APIConnectionError``) into a constructor-time failure with a clear
+        # call stack, which is much easier to diagnose than the same error
+        # surfacing mid-pipeline inside ``generate_spec``.
+        self.ping()
 
     def generate_spec(
         self,

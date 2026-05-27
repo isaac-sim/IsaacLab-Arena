@@ -129,6 +129,34 @@ class TestInit:
         assert a.model == "custom-model"
         stub_openai.assert_called_once_with(api_key="k", base_url="http://localhost:8000")
 
+    def test_init_pings_to_verify_connection(self, stub_openai):
+        # ``__init__`` is contracted to run a ping round-trip before returning
+        # so a bad key / wrong model / dead endpoint fails at construction time
+        # rather than deep inside the first generate_spec. Locking in the
+        # request shape (single user message, max_tokens=8, temperature=0)
+        # guarantees we don't accidentally inflate the startup cost.
+        a = LLMAgent(api_key="k")
+        a.client.chat.completions.create.assert_called_once()
+        kwargs = a.client.chat.completions.create.call_args.kwargs
+        assert kwargs["temperature"] == 0
+        assert kwargs["max_tokens"] == 8
+        assert len(kwargs["messages"]) == 1
+
+    def test_init_propagates_ping_failure(self):
+        # If the openai client raises during the constructor ping (bad key,
+        # unreachable endpoint, ...), the exception must surface from
+        # ``LLMAgent()`` itself — not be swallowed into a silently-broken
+        # instance that fails later when generate_spec is called.
+        class FakeAuthError(Exception):
+            pass
+
+        with patch("openai.OpenAI") as mock_cls:
+            client = MagicMock()
+            client.chat.completions.create.side_effect = FakeAuthError("bad key")
+            mock_cls.return_value = client
+            with pytest.raises(FakeAuthError, match="bad key"):
+                LLMAgent(api_key="k")
+
 
 # ---------------------------------------------------------------------------
 # _extract_json
