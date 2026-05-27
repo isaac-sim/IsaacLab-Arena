@@ -5,14 +5,17 @@
 
 from __future__ import annotations
 
+import torch
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from isaaclab.utils.math import euler_xyz_from_quat
+
 from isaaclab_arena.assets.register import register_object_relation
+from isaaclab_arena.utils.pose import PoseRange
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
-    from isaaclab_arena.utils.pose import PoseRange
 
 
 class Side(Enum):
@@ -32,10 +35,7 @@ class RelationBase:
     in its relations list.
     """
 
-    @staticmethod
-    def is_unary() -> bool:
-        """Return whether the relation constrains a single object."""
-        return True
+    pass
 
 
 class UnaryRelation(RelationBase):
@@ -45,7 +45,10 @@ class UnaryRelation(RelationBase):
     without referencing another object (e.g., AtPosition, PositionLimits).
     """
 
-    pass
+    @staticmethod
+    def is_unary() -> bool:
+        """Return whether the relation constrains a single object."""
+        return True
 
 
 class Relation(RelationBase):
@@ -221,12 +224,6 @@ class RandomAroundSolution(RelationBase):
         Returns:
             PoseRange spanning ± half-extents around the position and rotation.
         """
-        import torch
-
-        from isaaclab.utils.math import euler_xyz_from_quat
-
-        from isaaclab_arena.utils.pose import PoseRange
-
         # Convert quaternion to euler angles (roll, pitch, yaw)
         quat_tensor = torch.tensor([rotation_xyzw])
         roll, pitch, yaw = euler_xyz_from_quat(quat_tensor)
