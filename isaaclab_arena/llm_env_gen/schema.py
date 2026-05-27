@@ -18,15 +18,18 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 # Relation kinds currently surfaced to the LLM. Mirror the subset of
-# isaaclab_arena.relations.relations that makes sense for tabletop prompts.
-# Values must match the corresponding ``ArenaEnvGraphSpatialConstraintType``
-# enum values one-to-one — the resolver looks the constraint type up via
+# ``ArenaEnvGraphSpatialConstraintType`` that makes sense for tabletop
+# prompts; values must match the enum's values one-to-one because the
+# resolver looks the constraint type up via
 # ``ArenaEnvGraphSpatialConstraintType(kind)`` rather than maintaining a
-# parallel dict.
+# parallel dict. Solver-internal kinds (``position_limits``,
+# ``random_around_solution``, ``rotate_around_solution``) are intentionally
+# omitted — they describe how the placement solver explores poses and are
+# not natural for an LLM to emit.
 # "in" has no In class in isaaclab_arena.relations.relations yet — see the
 # TODO there. The scene builder materializes goal-state "in" relations as
 # the task's success predicate.
-RelationKind = Literal["on", "in", "next_to", "at_position", "is_anchor"]
+RelationKind = Literal["on", "in", "next_to", "at_position", "at_pose", "is_anchor"]
 
 ItemRole = Literal["foreground", "distractor", "anchor"]
 

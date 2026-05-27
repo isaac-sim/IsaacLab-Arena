@@ -108,7 +108,7 @@ class LLMAgent:
             "  tags. This is a PREFERENCE, not a hard filter — the resolver will fall back to the full\n"
             "  catalog if the tag pool is empty or yields no close match. Err toward emitting useful tags;\n"
             "  the trace will report what was relaxed.\n"
-            "- relation.kind ∈ {on, in, next_to, at_position, is_anchor}. Spatial relations only —\n"
+            "- relation.kind ∈ {on, in, next_to, at_position, at_pose, is_anchor}. Spatial relations only —\n"
             "  articulated-state changes are expressed via tasks below, not as relations.\n"
             "  subject/target reference items by their query string or the background name.\n"
             "  * Articulated objects (microwave, fridge, cabinet) still need a spatial\n"
