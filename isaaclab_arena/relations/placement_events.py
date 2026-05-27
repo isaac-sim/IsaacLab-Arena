@@ -34,8 +34,10 @@ def solve_and_place_objects(
 ) -> None:
     """Coordinated reset event that draws layouts from the pooled placer and writes poses.
 
-    Registered as a single ``EventTermCfg(mode="reset")``. Each call draws one
-    layout per resetting environment from the pool and writes the poses to sim.
+    Registered as a single ``EventTermCfg(mode="reset")``. Env-specific
+    layouts advance by one full env round so each result still matches its
+    absolute env id. Reusable layouts draw only for the environments being
+    reset.
 
     Args:
         env: The Isaac Lab environment.
@@ -46,16 +48,21 @@ def solve_and_place_objects(
     if env_ids is None or len(env_ids) == 0:
         return
 
-    num_reset_envs = len(env_ids)
-    results_per_env = placement_pool.sample_without_replacement(num_reset_envs)
+    reset_env_ids = env_ids.tolist()
+    if placement_pool.requires_env_indexed_layouts:
+        all_results = placement_pool.sample_without_replacement(env.scene.env_origins.shape[0])
+        results_by_env = {cur_env: all_results[cur_env] for cur_env in reset_env_ids}
+    else:
+        reset_results = placement_pool.sample_without_replacement(len(reset_env_ids))
+        results_by_env = dict(zip(reset_env_ids, reset_results))
 
     anchor_objects_set = set(get_anchor_objects(objects))
     rotations = {obj: get_rotation_xyzw(obj) for obj in objects if obj not in anchor_objects_set}
 
     zero_velocity = torch.zeros(1, 6, device=env.device)
-    for local_idx, cur_env in enumerate(env_ids.tolist()):
+    for cur_env in reset_env_ids:
         env_id_tensor = torch.tensor([cur_env], device=env.device)
-        positions = results_per_env[local_idx].positions
+        positions = results_by_env[cur_env].positions
         for obj, pos in positions.items():
             if obj in anchor_objects_set:
                 continue

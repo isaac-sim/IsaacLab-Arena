@@ -5,6 +5,7 @@
 
 from typing import Any
 
+import isaaclab.sim as sim_utils
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 
 from isaaclab_arena.assets.background import Background
@@ -136,6 +137,25 @@ class Table(LibraryBackground):
 
     def __init__(self):
         super().__init__()
+
+
+@register_asset
+class OfficeTableBackground(LibraryBackground):
+    """
+    A basic office table.
+    """
+
+    name = "office_table_background"
+    tags = ["background"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Mimic/nut_pour_task/nut_pour_assets/table.usd"
+    object_min_z = -0.05
+    scale = (1.0, 1.0, 0.7)
+    spawn_cfg_addon = {
+        "rigid_props": sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
+    }
+
+    def __init__(self):
+        super().__init__(scale=self.scale)
 
 
 @register_asset
