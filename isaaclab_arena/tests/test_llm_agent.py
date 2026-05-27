@@ -22,7 +22,6 @@ without ever hitting the wire:
 from __future__ import annotations
 
 import json
-import os
 from typing import get_args
 from unittest.mock import MagicMock, patch
 
@@ -320,7 +319,6 @@ class TestSystemPrompt:
 
 
 @pytest.mark.llm_remote_e2e
-@pytest.mark.skipif(not os.getenv("NV_API_KEY"), reason="NV_API_KEY not set; skipping live LLM endpoint test")
 def test_generate_spec_against_live_endpoint():
     """End-to-end smoke test against the real OpenAI-compatible endpoint.
 
