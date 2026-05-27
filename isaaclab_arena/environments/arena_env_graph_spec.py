@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -188,26 +187,16 @@ class ArenaEnvGraphSpec:
     def state_specs_by_id(self) -> dict[str, ArenaEnvGraphStateSpec]:
         return {state_spec.id: state_spec for state_spec in self.state_specs}
 
-    def to_arena_env(
-        self,
-        state_spec_id: str | None = None,
-        task_factories: dict[str, Callable[[ArenaEnvGraphTaskSpec, dict[str, Any]], Any]] | None = None,
-    ) -> "IsaacLabArenaEnvironment":
+    def to_arena_env(self, state_spec_id: str | None = None) -> "IsaacLabArenaEnvironment":
         """Convert this graph spec into an :class:`IsaacLabArenaEnvironment`.
 
         Args:
             state_spec_id: Optional state spec id to apply as the initial scene state. Defaults to
                 the first graph task's ``initial_state_spec_id``.
-            task_factories: Optional mapping from graph task type to a factory. Factories receive
-                the task spec and a ``node id -> instantiated asset`` map.
         """
         from isaaclab_arena.environments.arena_env_graph_conversion_utils import build_arena_env_from_graph_spec
 
-        return build_arena_env_from_graph_spec(
-            self,
-            state_spec_id=state_spec_id,
-            task_factories=task_factories,
-        )
+        return build_arena_env_from_graph_spec(self, state_spec_id=state_spec_id)
 
 
 def _parse_node(data: Any) -> ArenaEnvGraphNodeSpec:

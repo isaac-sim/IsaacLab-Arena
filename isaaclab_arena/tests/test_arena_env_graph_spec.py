@@ -35,8 +35,8 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
 
     assert spec.env_name == "pick_and_place_maple_table_default"
     assert len(spec.nodes) == 6
-    assert len(spec.tasks) == 1
-    assert len(spec.state_specs) == 2
+    assert len(spec.tasks) == 2
+    assert len(spec.state_specs) == 3
 
     table = spec.nodes_by_id["maple_table_robolab_table"]
     assert isinstance(table, ArenaEnvGraphObjectReferenceNodeSpec)
@@ -53,6 +53,11 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
     assert task.success_state_spec_id == "state_spec_1"
     assert task.task_args["object"] == "rubiks_cube_hot3d_robolab"
     assert task.task_args["destination"] == "bowl_ycb_robolab"
+
+    second_task = spec.tasks_by_id["pick_and_place_1"]
+    assert second_task.initial_state_spec_id == "state_spec_1"
+    assert second_task.success_state_spec_id == "state_spec_2"
+    assert second_task.task_args["object"] == "mug_ycb_robolab"
 
     initial_state = spec.state_specs_by_id["state_spec_0"]
     assert isinstance(initial_state, ArenaEnvGraphStateSpec)
@@ -134,14 +139,39 @@ def test_arena_env_graph_spec_parses_optional_task_constraints_and_at_pose():
     assert fixed_pose.params["rotation_xyzw"] == (0.0, 0.0, 0.0, 1.0)
 
 
+def test_arena_env_graph_conversion_validates_references_before_instantiation():
+    spec = ArenaEnvGraphSpec.from_dict(_minimal_env_graph_data())
+    spec.state_specs[0].spatial_constraints[0].parent = "missing_table"
+
+    with pytest.raises(AssertionError, match="unknown parent node 'missing_table'"):
+        spec.to_arena_env()
+
+
+def test_arena_env_graph_conversion_validates_relationship_shape_before_instantiation():
+    spec = ArenaEnvGraphSpec.from_dict(_minimal_env_graph_data())
+    constraint = spec.state_specs[0].spatial_constraints[0]
+    constraint.type = ArenaEnvGraphSpatialConstraintType.ON
+
+    with pytest.raises(AssertionError, match="requires a child node"):
+        spec.to_arena_env()
+
+
+def test_arena_env_graph_conversion_validates_task_arg_node_references_before_instantiation():
+    spec = ArenaEnvGraphSpec.from_dict(_minimal_env_graph_data())
+    spec.tasks[0].task_args = {"object": "missing_cube"}
+
+    with pytest.raises(AssertionError, match="unknown node 'missing_cube'"):
+        spec.to_arena_env()
+
+
 def _test_arena_env_graph_conversion_builds_sequential_pick_and_place_task(simulation_app):
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
 
-    spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "two_pick_and_place_maple_table_env_graph.yaml")
+    spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml")
     arena_env = spec.to_arena_env()
 
-    assert arena_env.name == "two_pick_and_place_maple_table_default"
+    assert arena_env.name == "pick_and_place_maple_table_default"
     assert isinstance(arena_env.task, SequentialTaskBase)
     assert arena_env.task.desired_subtask_success_state == [True, True]
     assert len(arena_env.task.subtasks) == 2
