@@ -265,6 +265,53 @@ jobs:
             isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy_runner.py
 
 
+  test_llm_remote_e2e:
+    name: LLM remote E2E
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 20
+    needs: [pre_commit]
+    env:
+      # NV_API_KEY is the variable LLMAgent reads at runtime (see
+      # isaaclab_arena/llm_env_gen/llm_agent.py). The repo-level secret is
+      # named ARENA_NV_API_KEY to mirror ARENA_NGC_API_KEY and avoid
+      # collisions with other consumers of NV_API_KEY in the runner env.
+      NV_API_KEY: ${{ secrets.ARENA_NV_API_KEY }}
+
+    container:
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+
+    steps:
+      # No nvidia-smi / kit cache setup: this job is pure-Python (openai +
+      # pydantic) and never touches Isaac Sim. We reuse the arena image
+      # only because it already has the deps + the /isaac-sim/python.sh
+      # interpreter the rest of the suite calls into.
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
+      - *install_project_step
+
+      # Fail loudly when the secret isn't wired up — the test itself
+      # ``skipif``s when NV_API_KEY is empty, so without this guard a
+      # missing secret would silently produce a green job with zero LLM
+      # coverage.
+      - name: Verify ARENA_NV_API_KEY is configured
+        run: |
+          if [ -z "${NV_API_KEY}" ]; then
+            echo "::error::ARENA_NV_API_KEY repo secret is not set; cannot run llm_remote_e2e tests."
+            exit 1
+          fi
+
+      - name: Run LLM remote E2E test
+        run: |
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m llm_remote_e2e \
+            isaaclab_arena/tests/test_llm_agent.py
+
+
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
     runs-on: [self-hosted, gpu-arena]
