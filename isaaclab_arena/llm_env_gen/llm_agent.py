@@ -72,6 +72,22 @@ class LLMAgent:
         model: str = DEFAULT_MODEL,
         base_url: str = DEFAULT_BASE_URL,
     ):
+        """Configure the OpenAI-compatible client used to call the LLM.
+
+        Args:
+            api_key: Bearer token for the inference endpoint. Falls back
+                to the ``NV_API_KEY`` environment variable when ``None``;
+                raises ``ValueError`` if neither is set.
+            model: Model identifier as understood by the endpoint at
+                ``base_url`` (e.g. ``"nvidia/deepseek-ai/deepseek-v4-flash"``).
+                See https://build.nvidia.com for the catalogue of NVIDIA-hosted
+                models.
+            base_url: OpenAI-compatible API root. Defaults to
+                ``DEFAULT_BASE_URL`` (NVIDIA's hosted inference endpoint);
+                override to point at a self-hosted vLLM / Ollama / etc.
+                deployment that exposes the same OpenAI chat-completions
+                wire format.
+        """
         from openai import OpenAI
 
         self.api_key = api_key or os.getenv("NV_API_KEY")
@@ -90,7 +106,37 @@ class LLMAgent:
         temperature: float = 0.2,
         max_tokens: int = 2000,
     ) -> tuple[SceneSpec, str]:
-        """Return (validated SceneSpec, raw LLM response)."""
+        """Call the LLM and return the parsed SceneSpec plus the raw response.
+
+        Args:
+            prompt: Natural-language scene description from the end user.
+                Concatenated with the asset catalog and the JSON-only
+                instruction to form the chat ``user`` message.
+            catalog_text: Pre-built asset vocabulary (the output of
+                ``build_catalog_text()``). When ``None``, the catalog is
+                rebuilt from the live ``AssetRegistry``. Pass an explicit
+                value to (a) avoid the cost of rebuilding it across
+                repeated calls, or (b) experiment with a restricted /
+                augmented catalog without mutating the registry.
+            temperature: Sampling temperature forwarded to the LLM. Kept
+                low by default (0.2) because SceneSpec generation is a
+                deterministic-ish translation task — high temperature
+                yields creative but invalid schemas.
+            max_tokens: Hard cap on the response length. Set generously
+                (2000) so multi-task SceneSpecs aren't truncated mid-JSON;
+                shrink if the endpoint enforces a tighter quota.
+
+        Returns:
+            A ``(SceneSpec, raw_response)`` tuple. The raw text is useful
+            for debugging when ``model_validate`` rejects the parsed
+            JSON.
+
+        Raises:
+            LLMResponseParseError: when the response can't be parsed as a
+                JSON object (no opening brace, unbalanced braces).
+            pydantic.ValidationError: when the parsed JSON is well-formed
+                but doesn't match the SceneSpec schema.
+        """
         catalog_text = catalog_text or build_catalog_text()
         system = self._system_prompt()
         user = f"{catalog_text}\n\nUSER PROMPT:\n{prompt}\n\nReturn ONLY a JSON object matching the SceneSpec schema."
