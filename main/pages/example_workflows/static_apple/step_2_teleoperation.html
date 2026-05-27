@@ -582,6 +582,52 @@ galileo_g1_static_pick_and_place<span class="w"> </span><span class="se">\</span
 </li>
 </ol>
 </section>
+<section id="step-2b-monitor-recording-with-a-second-viewport-optional">
+<h2>Step 2b: Monitor Recording with a Second Viewport (Optional)<a class="headerlink" href="#step-2b-monitor-recording-with-a-second-viewport-optional" title="Link to this heading">#</a></h2>
+<p>For higher-quality datasets, we recommend a two-person workflow when collecting demonstrations in
+Step 4: one person teleoperates from the headset, while a second person watches the host monitor
+to confirm each trajectory stays inside the robot’s head-camera field of view. Anything that
+drifts outside the recording FOV is absent from the saved HDF5 and absent from the policy’s view
+at training time, so catching it live saves a re-record.</p>
+<p>The Arena application’s default viewport shows the <em>teleoperator’s</em> stereoscopic perspective —
+what the headset wearer sees, not what <code class="docutils literal notranslate"><span class="pre">record_demos.py</span></code> will store. To watch both side-by-side,
+open a second viewport bound to the robot’s head camera:</p>
+<ol class="arabic">
+<li><p>In the running Arena application, open the <strong>Window</strong> menu and toggle on <strong>Viewport 2</strong>.</p>
+<figure class="align-center" id="id3">
+<a class="reference internal image-reference" href="../../../_images/xr_enable_second_viewport.jpg"><img alt="Isaac Lab Window menu with the Viewport 2 toggle highlighted." src="../../../_images/xr_enable_second_viewport.jpg" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Enable a second viewport from the <strong>Window</strong> menu.</span><a class="headerlink" href="#id3" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</li>
+<li><p>In the new Viewport 2, click the camera selector in the viewport toolbar and choose the
+robot’s head-mounted camera (<code class="docutils literal notranslate"><span class="pre">RobotHeadCam</span></code>, under
+<code class="docutils literal notranslate"><span class="pre">/World/envs/env_0/Robot/head_link</span></code>). This is the camera that <code class="docutils literal notranslate"><span class="pre">record_demos.py</span></code> writes
+to the HDF5 file in Step 4, so any motion that leaves this frame will be absent from the
+dataset.</p>
+<figure class="align-center" id="id4">
+<a class="reference internal image-reference" href="../../../_images/xr_second_viewport_robot_camera.jpg"><img alt="Two viewports side-by-side: stereoscopic XR view (left) and the robot head-camera view (right)." src="../../../_images/xr_second_viewport_robot_camera.jpg" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Dual-viewport layout: the stereoscopic XR view (left) is the teleoperator’s perspective,
+and the head-camera view (right) is what the dataset captures. The observer keeps every
+grasp and placement inside the right viewport and gives the teleoperator live feedback
+(“move a touch to your right — your hand is at the edge of frame”).</span><a class="headerlink" href="#id4" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">RobotHeadCam</span></code> is only spawned when <code class="docutils literal notranslate"><span class="pre">--enable_cameras</span></code> is set. The <code class="docutils literal notranslate"><span class="pre">record_demos.py</span></code>
+command in Step 4 enables it by default, so the camera shows up in the camera selector once
+you are recording. The smoke-test <code class="docutils literal notranslate"><span class="pre">teleop.py</span></code> command above omits <code class="docutils literal notranslate"><span class="pre">--enable_cameras</span></code> for
+performance; pass it there too if you want to validate the dual-viewport layout before
+entering VR.</p>
+</div>
+</section>
 <section id="step-3-connect-from-the-headset-device">
 <h2>Step 3: Connect from the headset device<a class="headerlink" href="#step-3-connect-from-the-headset-device" title="Link to this heading">#</a></h2>
 <p>For detailed instructions please refer to <a class="reference external" href="https://isaac-sim.github.io/IsaacLab/develop/source/how-to/cloudxr_teleoperation.html#start-cloudxr-runtime">Connect an XR Device</a>:</p>
@@ -625,11 +671,11 @@ controller <strong>Home</strong> button for at least 1 second. See Meta’s
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>If the simulation runs at too low FPS and makes the teleoperation feel laggy, you can try to reduce the XR resolution from the XR tab / Advanced Settings / Render Resolution.</p>
-<figure class="align-center" id="id3">
+<figure class="align-center" id="id5">
 <a class="reference internal image-reference" href="../../../_images/xr_resolution.png"><img alt="XR resolution panel" src="../../../_images/xr_resolution.png" style="width: 40%;" />
 </a>
 <figcaption>
-<p><span class="caption-text">Reducing render resolution from 1 (default) to 0.2.</span><a class="headerlink" href="#id3" title="Link to this image">#</a></p>
+<p><span class="caption-text">Reducing render resolution from 1 (default) to 0.2.</span><a class="headerlink" href="#id5" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 </div>
@@ -720,11 +766,11 @@ stable pose, then release cleanly so the apple drops naturally onto the plate.</
 </ol>
 <p>Releasing a small round object onto a flat plate is noticeably harder than dropping a box into a
 bin. Keep the release height low and the orientation stable.</p>
-<figure class="align-center" id="id4">
+<figure class="align-center" id="id6">
 <a class="reference internal image-reference" href="../../../_images/static_apple_pick_and_place.gif"><img alt="Static apple-to-plate demonstration with the Unitree G1" src="../../../_images/static_apple_pick_and_place.gif" style="width: 100%;" />
 </a>
 <figcaption>
-<p><span class="caption-text">Example static apple-to-plate demonstration trajectory.</span><a class="headerlink" href="#id4" title="Link to this image">#</a></p>
+<p><span class="caption-text">Example static apple-to-plate demonstration trajectory.</span><a class="headerlink" href="#id6" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 </div>
@@ -857,6 +903,7 @@ python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/replay_d
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-start-the-cloudxr-runtime">Step 1: Start the CloudXR Runtime</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-start-arena-teleop">Step 2: Start Arena Teleop</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2b-monitor-recording-with-a-second-viewport-optional">Step 2b: Monitor Recording with a Second Viewport (Optional)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-connect-from-the-headset-device">Step 3: Connect from the headset device</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-record-with-the-headset-device">Step 4: Record with the headset device</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4b-merge-multiple-recording-sessions-optional">Step 4b: Merge Multiple Recording Sessions (Optional)</a></li>
