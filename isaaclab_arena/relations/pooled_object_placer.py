@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import random
 import torch
-from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.object_placer import ObjectPlacer
@@ -32,9 +31,8 @@ class PooledObjectPlacer:
 
     Args:
         objects: All objects (including anchors) participating in relation solving.
-        placer_params: Parameters forwarded to ``ObjectPlacer`` for the batched solve.
+        object_placer_params: Parameters forwarded to ``ObjectPlacer`` for the batched solve.
         pool_size: Number of layouts to solve per batch.
-        layout_validator: Optional callback invoked on every sampled layout.
     """
 
     def __init__(
@@ -42,7 +40,6 @@ class PooledObjectPlacer:
         objects: list[ObjectBase],
         placer_params: ObjectPlacerParams,
         pool_size: int = 100,
-        layout_validator: Callable[[PlacementResult], None] | None = None,
     ) -> None:
         if pool_size < 1:
             raise ValueError(f"pool_size must be >= 1, got {pool_size}")
@@ -50,7 +47,6 @@ class PooledObjectPlacer:
         self._objects = objects
         self._placer = ObjectPlacer(params=placer_params)
         self._pool_size = pool_size
-        self._layout_validator = layout_validator
         self._layouts: list[PlacementResult] = []
         self._next_idx: int = 0
 
@@ -97,15 +93,8 @@ class PooledObjectPlacer:
             print("Warning: No layouts passed strict validation. Accepting best-loss layouts as fallback.")
             self._layouts.extend(all_layouts)
 
-    def _validate_sampled_layouts(self, layouts: list[PlacementResult]) -> None:
-        """Run the optional validation callback on each sampled layout."""
-        if self._layout_validator is None:
-            return
-        for layout in layouts:
-            self._layout_validator(layout)
-
-    def _ensure_layouts_available(self, count: int) -> None:
-        """Refill the pool when fewer than *count* layouts are available."""
+    def _refill_pool_via_solve_if_required(self, count: int) -> None:
+        """Refill the pool via solve when fewer than *count* layouts are available."""
         if self.remaining < count:
             self._solve_and_store(max(self._pool_size, count))
 
@@ -123,12 +112,11 @@ class PooledObjectPlacer:
         Raises:
             RuntimeError: If the pool cannot provide *count* layouts after refilling.
         """
-        self._ensure_layouts_available(count)
+        self._refill_pool_via_solve_if_required(count)
 
         start = self._next_idx
         self._next_idx += count
         layouts = self._layouts[start : self._next_idx]
-        self._validate_sampled_layouts(layouts)
         return layouts
 
     def sample_with_replacement(self, count: int) -> list[PlacementResult]:
@@ -137,9 +125,7 @@ class PooledObjectPlacer:
         Used by ``resolve_on_reset=False`` to assign initial positions
         that persist across resets.
         """
-        layouts = random.choices(self._layouts, k=count)
-        self._validate_sampled_layouts(layouts)
-        return layouts
+        return random.choices(self._layouts, k=count)
 
     @property
     def remaining(self) -> int:
@@ -148,5 +134,5 @@ class PooledObjectPlacer:
 
     @property
     def pool_size(self) -> int:
-        """Number of layouts requested for each pool refill solve."""
+        """Number of layouts to solve per batch. When the pool runs low, we solve at least this number of layouts so future samples can reuse the buffer."""
         return self._pool_size

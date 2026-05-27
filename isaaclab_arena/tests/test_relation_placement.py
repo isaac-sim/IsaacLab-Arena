@@ -6,7 +6,7 @@
 """Tests for the relation placement orchestration API."""
 
 from isaaclab_arena.assets.dummy_object import DummyObject
-from isaaclab_arena.relations.relation_placement import solve_and_apply_relation_placement
+from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv

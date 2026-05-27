@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -26,7 +25,6 @@ def solve_and_apply_relation_placement(
     num_envs: int,
     placement_seed: int | None = None,
     resolve_on_reset: bool | None = None,
-    object_placer_params: ObjectPlacerParams | None = None,
 ) -> EventTermCfg | None:
     """Solve relation placement and apply the result to object reset/static state.
 
@@ -37,9 +35,6 @@ def solve_and_apply_relation_placement(
         resolve_on_reset: Optional override for whether to draw fresh layouts from
             the placement pool on reset. When ``False``, fixed per-environment
             initial poses are applied immediately.
-        object_placer_params: Optional base object-placer params. A defensive copy
-            is used, and ``apply_positions_to_objects`` is forced to ``False`` so
-            this function owns how solved positions are applied.
 
     Returns:
         Reset event config to attach to the environment when placement should be
@@ -50,52 +45,32 @@ def solve_and_apply_relation_placement(
         print("No objects with relations found in scene. Skipping relation solving.")
         return None
 
-    object_placer_params = _make_object_placer_params(
+    placer_params = ObjectPlacerParams(
         placement_seed=placement_seed,
-        resolve_on_reset=resolve_on_reset,
-        object_placer_params=object_placer_params,
+        apply_positions_to_objects=False,
+        solver_params=RelationSolverParams(save_position_history=False, verbose=False),
     )
+    if resolve_on_reset is not None:
+        placer_params.resolve_on_reset = resolve_on_reset
 
     # TODO(xinjieyao, 2026-05-22): Add joint object/embodiment placement once task-dependent
     # reachability constraints are available. For now this always uses the object-only placer.
     placement_pool = PooledObjectPlacer(
         objects=objects,
-        placer_params=object_placer_params,
-        pool_size=num_envs * object_placer_params.min_unique_layouts_per_env,
+        placer_params=placer_params,
+        pool_size=num_envs * placer_params.min_unique_layouts_per_env,
     )
     return _apply_relation_placement_result(
         objects=objects,
-        object_placer_params=object_placer_params,
+        placer_params=placer_params,
         placement_pool=placement_pool,
         num_envs=num_envs,
     )
 
 
-def _make_object_placer_params(
-    placement_seed: int | None,
-    resolve_on_reset: bool | None,
-    object_placer_params: ObjectPlacerParams | None,
-) -> ObjectPlacerParams:
-    if object_placer_params is None:
-        object_placer_params = ObjectPlacerParams(
-            placement_seed=placement_seed,
-            apply_positions_to_objects=False,
-            solver_params=RelationSolverParams(save_position_history=False, verbose=False),
-        )
-    else:
-        object_placer_params = deepcopy(object_placer_params)
-        object_placer_params.apply_positions_to_objects = False
-        if placement_seed is not None:
-            object_placer_params.placement_seed = placement_seed
-
-    if resolve_on_reset is not None:
-        object_placer_params.resolve_on_reset = resolve_on_reset
-    return object_placer_params
-
-
 def _apply_relation_placement_result(
     objects: list[ObjectBase],
-    object_placer_params: ObjectPlacerParams,
+    placer_params: ObjectPlacerParams,
     placement_pool: PooledObjectPlacer,
     num_envs: int,
 ) -> EventTermCfg | None:
@@ -108,7 +83,7 @@ def _apply_relation_placement_result(
     if anchor_objects_set == set(objects):
         return None
 
-    if object_placer_params.resolve_on_reset:
+    if placer_params.resolve_on_reset:
         return _apply_dynamic_spawn_pose(
             objects=objects,
             placement_pool=placement_pool,
