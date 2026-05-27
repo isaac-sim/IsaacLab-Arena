@@ -31,7 +31,7 @@ class PooledObjectPlacer:
 
     Args:
         objects: All objects (including anchors) participating in relation solving.
-        object_placer_params: Parameters forwarded to ``ObjectPlacer`` for the batched solve.
+        placer_params: Parameters forwarded to ``ObjectPlacer`` for the batched solve.
         pool_size: Number of layouts to solve per batch.
     """
 
@@ -134,5 +134,5 @@ class PooledObjectPlacer:
 
     @property
     def pool_size(self) -> int:
-        """Number of layouts to solve per batch. When the pool runs low, we solve at least this number of layouts so future samples can reuse the buffer."""
+        """Number of layouts to solve per batch. When the pool runs low, it will solve at least this number of layouts so future samples can reuse the buffer."""
         return self._pool_size

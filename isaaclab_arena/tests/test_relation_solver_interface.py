@@ -6,7 +6,12 @@
 """Tests for the relation placement orchestration API."""
 
 from isaaclab_arena.assets.dummy_object import DummyObject
-from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+from isaaclab_arena.environments.relation_solver_interface import (
+    _apply_dynamic_spawn_pose,
+    _apply_static_initial_poses,
+    solve_and_apply_relation_placement,
+)
+from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
@@ -20,6 +25,21 @@ def _make_desk():
     desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     desk.add_relation(IsAnchor())
     return desk
+
+
+def _make_box(name: str = "box") -> DummyObject:
+    return DummyObject(
+        name=name,
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+    )
+
+
+class _FakePlacementPool:
+    def __init__(self, layouts: list[PlacementResult]) -> None:
+        self._layouts = layouts
+
+    def sample_with_replacement(self, count: int) -> list[PlacementResult]:
+        return self._layouts[:count]
 
 
 def test_solve_and_apply_relation_placement_with_no_objects_returns_empty_result():
@@ -41,10 +61,7 @@ def test_solve_and_apply_relation_placement_with_only_anchors_returns_no_reset_e
 
 def test_static_solve_and_apply_relation_placement_reuses_object_only_placement():
     desk = _make_desk()
-    box = DummyObject(
-        name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
-    )
+    box = _make_box()
     box.add_relation(On(desk, clearance_m=0.01))
 
     placement_event_cfg = solve_and_apply_relation_placement(
@@ -59,3 +76,53 @@ def test_static_solve_and_apply_relation_placement_reuses_object_only_placement(
     initial_pose = box.get_initial_pose()
     assert isinstance(initial_pose, PosePerEnv)
     assert len(initial_pose.poses) == 2
+
+
+def test_dynamic_spawn_pose_skips_objects_missing_from_fallback_layout():
+    desk = _make_desk()
+    box = _make_box()
+    placement_pool = _FakePlacementPool(
+        [PlacementResult(success=False, positions={}, final_loss=1.0, attempts=1)]
+    )
+
+    _apply_dynamic_spawn_pose(
+        objects=[desk, box],
+        placement_pool=placement_pool,
+        anchor_objects_set={desk},
+    )
+
+    assert box.get_initial_pose() is None
+
+
+def test_static_initial_poses_skip_object_when_any_layout_is_missing_position():
+    desk = _make_desk()
+    missing_box = _make_box("missing_box")
+    placed_box = _make_box("placed_box")
+    placement_pool = _FakePlacementPool(
+        [
+            PlacementResult(
+                success=False,
+                positions={placed_box: (0.1, 0.0, 0.2)},
+                final_loss=1.0,
+                attempts=1,
+            ),
+            PlacementResult(
+                success=False,
+                positions={placed_box: (0.2, 0.0, 0.2)},
+                final_loss=1.0,
+                attempts=1,
+            ),
+        ]
+    )
+
+    _apply_static_initial_poses(
+        objects=[desk, missing_box, placed_box],
+        placement_pool=placement_pool,
+        anchor_objects_set={desk},
+        num_envs=2,
+    )
+
+    assert missing_box.get_initial_pose() is None
+    placed_box_initial_pose = placed_box.get_initial_pose()
+    assert isinstance(placed_box_initial_pose, PosePerEnv)
+    assert len(placed_box_initial_pose.poses) == 2

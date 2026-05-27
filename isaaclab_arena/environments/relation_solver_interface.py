@@ -113,7 +113,7 @@ def _apply_dynamic_spawn_pose(
             continue
         pos = layout.positions.get(obj)
         if pos is None:
-            raise RuntimeError(f"Placement layout is missing a solved position for '{obj.name}'.")
+            continue
         object_cfg = getattr(obj, "object_cfg", None)
         if object_cfg is None:
             raise RuntimeError(f"Object '{obj.name}' must have object_cfg initialized before placement.")
@@ -146,9 +146,10 @@ def _apply_static_initial_poses(
         for env_idx in range(num_envs):
             pos = layouts[env_idx].positions.get(obj)
             if pos is None:
-                raise RuntimeError(f"Placement layout is missing a solved position for '{obj.name}'.")
+                break
             poses.append(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
-        obj.set_initial_pose(PosePerEnv(poses=poses))
+        else:
+            obj.set_initial_pose(PosePerEnv(poses=poses))
 
 
 def _validate_no_conflicting_pose_reset_events(
