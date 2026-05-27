@@ -2,13 +2,13 @@ Closed-Loop Policy Inference and Evaluation
 -------------------------------------------
 
 This workflow demonstrates running the finetuned GR00T N1.7 policy in closed-loop and evaluating it
-in the Arena Unitree G1 Static Apple-to-Plate Task environment using Arena's **server-client (remote-policy)
-architecture**. The server hosts the finetuned checkpoint outside the Arena container; the Arena
-container runs the simulation and queries the server over ZeroMQ.
+in the Arena Unitree G1 Static Apple-to-Plate Task environment using Arena's **server-client
+(remote-policy) architecture**. The GR00T policy server, which hosts the finetuned checkpoint, runs
+outside the Arena container. The Arena container itself runs only the simulation and a thin GR00T
+client that queries the server for actions.
 
-Note that this tutorial assumes that you've completed the
-:doc:`preceding step (Policy Training) <step_3_policy_training>`.
-
+This tutorial uses the dataset you collected in :doc:`step_2_teleoperation` and the model
+you trained in :doc:`step_3_policy_training`, or the released checkpoint downloaded below.
 
 Step 1: Start the GR00T policy server
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -21,6 +21,28 @@ The server takes all of its configuration from CLI flags (model checkpoint, embo
 modality config from Arena's source tree, and bind host/port). Replace
 ``/path/to/IsaacLab-Arena`` with the absolute path to your Arena clone and ``${MODEL_PATH}`` with
 the finetuned checkpoint directory from :doc:`step_3_policy_training`.
+
+.. dropdown:: Download Pre-trained Model (skip policy post-training)
+   :animate: fade-in
+
+   These commands can be used to download the pre-trained GR00T N1.7 static apple checkpoint,
+   such that the policy post-training step can be skipped. Run them **outside Docker** in the
+   standalone Isaac-GR00T venv before starting the server.
+
+   .. code-block:: bash
+
+      export MODELS_DIR=~/models/isaaclab_arena/static_apple_tutorial
+      export MODEL_PATH=$MODELS_DIR/gn1x_tuned_static_apple
+
+      mkdir -p "$MODEL_PATH"
+      hf download \
+         nvidia/GN1x-Tuned-Arena-G1-Static-PickNPlace \
+         --repo-type model \
+         --local-dir $MODEL_PATH
+
+   If you trained your own checkpoint in :doc:`step_3_policy_training`, set ``MODEL_PATH`` to that
+   trainer output instead, for example
+   ``$MODELS_DIR/static_apple_n17_finetune/checkpoint-20000``.
 
 .. code-block:: bash
 
@@ -55,14 +77,16 @@ Once inside the container, set the dataset and models directories.
     export DATASET_DIR=/datasets/isaaclab_arena/static_apple_tutorial
     export MODELS_DIR=/models/isaaclab_arena/static_apple_tutorial
 
+.. note::
+
+   If Kit reports permission errors while writing
+   ``/isaac-sim/kit/data/Kit/IsaacLab/3.0/user.config.json`` or cache files, start from a clean
+   Arena container/cache or rebuild the Docker image. This can happen when stale Isaac Sim / Kit
+   state from another setup is reused with incompatible ownership.
+
 We first run the policy in a single environment with visualization via the GUI. Replace
 ``<SERVER_HOST>`` below with the IP of the host running Step 1 (or ``localhost`` if it is the
 same machine).
-
-.. caution::
-
-   Before running, make sure the GR00T server from Step 1 was launched with the finetuned checkpoint
-   directory you produced in :doc:`step_3_policy_training`.
 
 .. code-block:: bash
 
@@ -81,6 +105,17 @@ same machine).
 Note the lower ``--num_steps`` (600 instead of 1500): with no walking phase, a successful
 static apple-to-plate episode runs for roughly half as long as the loco-manipulation variant.
 
+.. note::
+
+   The 600-step command is intended as a quick smoke test. To get a more representative
+   success rate, evaluate complete episodes instead of relying on one short rollout: use
+   ``--num_episodes 100`` for a quick estimate or ``--num_episodes 1000`` for a stronger
+   estimate. If you prefer ``--num_steps``, this task's 6-second timeout comes from the
+   task episode length (``episode_length_s=6.0`` in
+   ``galileo_g1_static_pick_and_place_environment.py``). At 50 Hz control, that is about
+   300 environment steps per episode, so 100 episodes is roughly ``--num_steps 30000``
+   and 1000 episodes is roughly ``--num_steps 300000``.
+
 The evaluation should produce the following output on the console at the end of the evaluation.
 You should see similar metrics.
 
@@ -95,19 +130,21 @@ by the quality of post-trained policy, the quality of the dataset, and number of
 Run Parallel Environments Evaluation (Optional)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Parallel evaluation of the policy in multiple parallel environments is also supported by the policy
-runner. The command below assumes the server from Step 1 is still running.
+Parallel evaluation of the policy in multiple environments is also supported by the policy runner.
+The command below assumes the GR00T server from Step 1 is still running.
 
-Test the policy in 5 parallel environments with visualization via the GUI:
+Test the policy in 5 parallel environments with visualization via the GUI. The 600-step smoke test
+gives each environment enough steps to complete at least one full 6-second episode.
 
 .. code-block:: bash
 
    /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
       --viz kit \
-      --policy_type isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy \
+      --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
+      --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/g1_static_apple_gr00t_closedloop_config.yaml \
       --remote_host <SERVER_HOST> \
       --remote_port 5555 \
-      --num_steps 500 \
+      --num_steps 600 \
       --num_envs 5 \
       --enable_cameras \
       galileo_g1_static_pick_and_place \
@@ -115,36 +152,19 @@ Test the policy in 5 parallel environments with visualization via the GUI:
       --destination clay_plates_hot3d_robolab \
       --embodiment g1_wbc_agile_joint
 
-.. note::
-
-   With the server-client architecture, the policy device is a server-side concern: the server
-   places the policy on its own GPU via the ``--device`` flag passed to ``run_gr00t_server.py``
-   in Step 1. The client's ``--device`` flag (above) controls Arena's physics backend, not the
-   policy.
-
-.. note::
-
-   The parallel command uses ``ActionChunkingClientSidePolicy`` instead of
-   ``Gr00tRemoteClosedloopPolicy`` (the single-environment client) because parallel evaluation
-   needs the action-chunking buffer lifted out of the per-env policy and shared across envs.
-   Single-env evaluation works with either client; the parallel command requires this one.
-
-And during the evaluation, you should see the following output on the console at the end of the evaluation
-indicating which environments are terminated (task-specific conditions like the apple is placed onto the plate,
-or the episode length is exceeded by 30 seconds),
-or truncated (if timeouts are enabled, like the maximum episode length is exceeded).
+During evaluation, the console prints which environments terminated because the task succeeded or
+timed out, and which environments were truncated by runner-level limits.
 
 .. code-block:: text
 
    Resetting policy for terminated env_ids: tensor([3], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
 
-At the end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate might not be 1.0 as more trials are being evaluated and randomizations are being introduced,
-and the number of episodes is more than the single environment evaluation because of the parallelization.
+At the end of the evaluation, you should see metrics similar to the single-environment run, but
+computed over more episodes because multiple environments are stepped in parallel.
 
 .. code-block:: text
 
-   [Rank 0/1] Metrics: {'success_rate': 1.0, 'num_episodes': 4}
+   [Rank 0/1] Metrics: {'success_rate': 1.0, 'num_episodes': 5}
 
 .. note::
 
@@ -156,15 +176,6 @@ and the number of episodes is more than the single environment evaluation becaus
    policy inputs, so we use the joint-control twin (``g1_wbc_agile_joint``) for closed-loop policy
    inference -- it shares the AGILE lower-body backend with the recording embodiment, just bypasses
    PinkIK.
-
-.. note::
-
-   The single-environment command above does not pass ``--device``, so Arena defaults to its
-   built-in physics backend. The parallel command explicitly sets ``--device cuda`` for
-   throughput. If your dataset was recorded on GPU physics, prefer ``--device cuda`` for both
-   single and parallel runs to keep evaluation physics aligned with training; if it was recorded
-   on CPU physics, add ``--device cpu`` to the single-environment command for per-episode
-   reproducibility (parallel throughput becomes the trade-off for CPU-trained policies).
 
 .. note::
 
@@ -187,14 +198,14 @@ and the number of episodes is more than the single environment evaluation becaus
      expects a 23-D PinkIK action, but the server is returning a 43-DoF joint chunk. Make sure the
      client uses ``--embodiment g1_wbc_agile_joint`` (joint twin), not
      ``g1_wbc_agile_pink`` (PinkIK twin).
-   - ``ModuleNotFoundError`` on the client side — the client's ``--policy_type`` is wrong. The
-     two valid client classes for this workflow are
-     ``isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy``
-     (single env, takes ``--policy_config_yaml_path``) and
-     ``isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy`` (parallel,
-     no YAML).
+   - ``ModuleNotFoundError`` on the client side — check the client's ``--policy_type``. This
+     workflow must use the remote client wrapper
+     ``isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy``,
+     together with ``--policy_config_yaml_path``.
    - Action shape mismatch on the server (e.g., ``Action key 'left_arm''s horizon must be 40.
-     Got 50``) — the action modality registered at training time disagrees with the modality
-     loaded by the server. Re-finetune at the same horizon or update the
-     ``--modality-config-path`` you pass to ``run_gr00t_server.py`` to match the checkpoint (see
+     Got 50``) — the action modality used to launch the server does not match the checkpoint's
+     training horizon. This workflow trains and serves GR00T N1.7 with ``action_horizon: 40``.
+     Re-finetune with the same action ``delta_indices`` horizon, or launch
+     ``run_gr00t_server.py`` with the same ``--modality-config-path`` used during finetuning. Keep
+     the Arena client YAML's ``action_horizon`` and ``action_chunk_length`` in sync as well (see
      the caution in :doc:`step_3_policy_training`).

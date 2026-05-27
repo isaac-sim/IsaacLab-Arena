@@ -31,7 +31,7 @@ _PERSISTENT_INIT_ARGS = None  # store (headless, enable_cameras) used at first i
 _AT_LEAST_ONE_TEST_FAILED = False
 
 
-_SUBPROCESS_TIMEOUT_SEC = int(os.environ.get("ISAACLAB_ARENA_SUBPROCESS_TIMEOUT", "600"))
+_SUBPROCESS_TIMEOUT_SEC = int(os.environ.get("ISAACLAB_ARENA_SUBPROCESS_TIMEOUT", "900"))
 
 
 def run_subprocess(
@@ -52,7 +52,7 @@ def run_subprocess(
         cmd: Command to run (list of strings).
         env: Optional environment dict.  Defaults to inheriting the parent env.
         timeout_sec: Per-subprocess wall-clock timeout in seconds.
-            Defaults to ``_SUBPROCESS_TIMEOUT_SEC`` (env ``ISAACLAB_ARENA_SUBPROCESS_TIMEOUT``, fallback 600).
+            Defaults to ``_SUBPROCESS_TIMEOUT_SEC`` (env ``ISAACLAB_ARENA_SUBPROCESS_TIMEOUT``, fallback 900).
         capture_output: If True, capture stdout/stderr and return a
             ``CompletedProcess``.  When False (default) output streams to
             the parent process and the function returns None on success.

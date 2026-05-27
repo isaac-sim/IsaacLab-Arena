@@ -3,6 +3,13 @@ Teleoperation Data Collection
 
 This workflow covers collecting demonstrations for the G1 loco-manipulation task using **Meta Quest 3** supported by `Nvidia IsaacTeleop <https://github.com/NVIDIA/IsaacTeleop>`_.
 
+.. note::
+
+   For supported IsaacTeleop hardware devices, see `Supported Input Devices
+   <https://nvidia.github.io/IsaacTeleop/main/overview/ecosystem.html#supported-input-devices>`_.
+   Before starting teleoperation, also review the `IsaacTeleop system requirements
+   <https://nvidia.github.io/IsaacTeleop/main/references/requirements.html#teleoperation-with-isaac-sim-and-isaac-lab>`_.
+
 Step 1: Start the CloudXR Runtime
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -166,6 +173,13 @@ Step 4: Record with Quest 3
 
    #. Use the **right joystick** (up) to stand the robot back up.
    #. Use the control panel to **Reset**, then **Play** to start the next demo.
+
+.. hint::
+
+   Collecting a large dataset across several sittings? Record one HDF5 per session by varying
+   ``--dataset_file``, then concatenate the per-session files with
+   :ref:`static_apple_merge_demos`. The merge script is task-agnostic and works for every
+   Arena teleop workflow.
 
 
 Step 5: Replay Recorded Demos (Optional)

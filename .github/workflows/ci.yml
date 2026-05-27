@@ -9,6 +9,7 @@ on:
   pull_request:
   push:
     branches: [ "main" ]
+  workflow_dispatch:
 
 # Concurrency control to prevent parallel runs on the same PR
 concurrency:
@@ -199,6 +200,71 @@ jobs:
             isaaclab_arena/tests/
 
 
+  test_gr00t_closedloop_e2e:
+    name: GR00T closed-loop E2E
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 60
+    needs: [pre_commit]
+    env:
+      GR00T_REMOTE_HOST: gr00t
+      GR00T_REMOTE_PORT: "5555"
+      GR00T_REMOTE_E2E_TIMEOUT: "900"
+
+    container:
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+
+    services:
+      gr00t:
+        image: nvcr.io/nvidian/gr00t1_6_arena_ci:latest
+        credentials:
+          username: $oauthtoken
+          password: ${{ env.NGC_API_KEY }}
+        ports:
+          - 5555:5555
+        # Mount the runner's workspace into the GR00T container. The baked
+        # entrypoint polls for isaaclab_arena_gr00t/docker/ci_gr00t_train_and_serve.sh.
+        volumes:
+          - ${{ github.workspace }}:/arena_workspace
+        options: >-
+          --gpus all
+          --entrypoint /workspace/ci_gr00t_train_and_serve.sh
+
+    steps:
+      - *nvidia_smi
+      - *lscpu
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
+      - *install_project_step
+      - *setup_isaac_sim_kit_cache_step
+
+      # The GR00T sidecar post-trains a tiny checkpoint before loading it. Its
+      # entrypoint waits for the LFS-backed dataset media fetched above before
+      # starting training.
+      # Poll the ZMQ endpoint because the socket can bind before the model is ready.
+      - name: Wait for GR00T server
+        timeout-minutes: 20
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: |
+          /isaac-sim/python.sh -u -m isaaclab_arena_gr00t.utils.wait_for_gr00t_server \
+            --host "${GR00T_REMOTE_HOST}" \
+            --port "${GR00T_REMOTE_PORT}" \
+            --timeout-sec 1200 \
+            --poll-interval-sec 15 \
+            --request-timeout-ms 5000
+
+      - name: Run GR00T remote closed-loop policy runner test
+        run: |
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m gr00t_remote_e2e \
+            isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy_runner.py
+
+
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
     runs-on: [self-hosted, gpu-arena]
@@ -228,7 +294,7 @@ jobs:
   build_and_push_image_post_merge:
     name: Build & push NGC image (post-merge)
     runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 90
+    timeout-minutes: 60
     needs: [test]       # only push if tests passed
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
@@ -266,8 +332,3 @@ jobs:
         run: |
           chmod +x ./docker/push_to_ngc* || true
           ./docker/push_to_ngc.sh -p
-
-      - name: Build & push image to NGC (GR00T Image)
-        run: |
-          chmod +x ./docker/push_to_ngc* || true
-          ./docker/push_to_ngc.sh -p -g -t cuda_gr00t_gn16

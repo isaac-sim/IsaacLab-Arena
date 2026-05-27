@@ -36,8 +36,9 @@ class G1AgilePolicy(WBCPolicy):
 
     The 12 outputs are the leg target joint positions (no waist roll/pitch).
 
-    Note: the ONNX has a static batch dim of 1, so this policy only supports
-    ``num_envs == 1``. Re-export with dynamic axes if batched eval is needed.
+    The upstream ONNX is exported with a static batch dimension of 1. For
+    ``num_envs > 1``, this adapter creates a cached dynamic-batch copy of the
+    model so all environments still run in a single ONNXRuntime call.
     """
 
     def __init__(self, robot_model: RobotModel, config_path: str, model_path: str, num_envs: int = 1):
@@ -48,14 +49,8 @@ class G1AgilePolicy(WBCPolicy):
             config_path: Path to policy YAML configuration file (relative to wbc_policy dir).
             model_path: Path to the ONNX model file. Can be an S3/Nucleus URL
                 (resolved and cached by retrieve_file_path) or a local path.
-            num_envs: Number of environments. Must be 1 for the static-batch ONNX.
+            num_envs: Number of environments.
         """
-        assert num_envs == 1, (
-            "G1AgilePolicy uses a recurrent LSTM ONNX with static batch=1; "
-            f"got num_envs={num_envs}. Re-export the ONNX with dynamic batch axis "
-            "to support num_envs > 1."
-        )
-
         parent_dir = pathlib.Path(__file__).parent.parent
         self.config = load_config(str(parent_dir / config_path))
         self.robot_model = robot_model
@@ -66,6 +61,7 @@ class G1AgilePolicy(WBCPolicy):
         # (absolute for S3 cache, relative for local files), then join with parent_dir.
         model_local_path = retrieve_file_path(model_path, force_download=False)
         model_full_path = parent_dir / model_local_path
+        model_full_path = self._get_compatible_model_path(model_full_path)
         self.session = OnnxInferenceSession(str(model_full_path))
 
         # Build joint index mappings between WBC order and agile ONNX order.
@@ -73,6 +69,67 @@ class G1AgilePolicy(WBCPolicy):
 
         # Initialize state.
         self._init_state()
+
+    def _get_compatible_model_path(self, model_path: pathlib.Path) -> pathlib.Path:
+        """Return an ONNX path whose batch axes accept ``self.num_envs``."""
+        if self.num_envs == 1:
+            return model_path
+
+        try:
+            import onnx
+        except ImportError as exc:
+            raise ImportError(
+                "G1AgilePolicy requires the 'onnx' package to inspect batch dimensions for num_envs > 1."
+            ) from exc
+
+        model = onnx.load(str(model_path))
+        if self._model_supports_num_envs(model):
+            return model_path
+
+        dynamic_model_path = model_path.with_name(f"{model_path.stem}_dynamic_batch{model_path.suffix}")
+        if dynamic_model_path.exists() and dynamic_model_path.stat().st_mtime >= model_path.stat().st_mtime:
+            return dynamic_model_path
+
+        def set_dynamic_dim(value_info: Any, axis: int, dim_param: str):
+            shape = value_info.type.tensor_type.shape
+            if len(shape.dim) <= axis:
+                return
+            dim = shape.dim[axis]
+            dim.ClearField("dim_value")
+            dim.dim_param = dim_param
+
+        for value_info in list(model.graph.input) + list(model.graph.output):
+            if value_info.name in {"obs", "actions"}:
+                set_dynamic_dim(value_info, 0, "batch_size")
+            elif value_info.name in {"h_in", "c_in", "h_out", "c_out"}:
+                set_dynamic_dim(value_info, 1, "batch_size")
+
+        onnx.save(model, str(dynamic_model_path))
+        return dynamic_model_path
+
+    def _model_supports_num_envs(self, model: Any) -> bool:
+        """Check whether all known environment batch axes accept ``self.num_envs``."""
+
+        def dim_supports_num_envs(value_info: Any, axis: int) -> bool:
+            shape = value_info.type.tensor_type.shape
+            if len(shape.dim) <= axis:
+                return True
+            dim = shape.dim[axis]
+            return dim.HasField("dim_param") or not dim.HasField("dim_value") or dim.dim_value == self.num_envs
+
+        batch_axes = {
+            "obs": 0,
+            "actions": 0,
+            "h_in": 1,
+            "c_in": 1,
+            "h_out": 1,
+            "c_out": 1,
+        }
+        for value_info in list(model.graph.input) + list(model.graph.output):
+            axis = batch_axes.get(value_info.name)
+            if axis is not None and not dim_supports_num_envs(value_info, axis):
+                return False
+        return True
 
     def _build_joint_mappings(self):
         """Build index mappings between WBC joint order and agile ONNX joint order."""

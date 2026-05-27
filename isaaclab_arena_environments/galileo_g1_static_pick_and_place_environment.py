@@ -15,9 +15,9 @@ HOMIE behaviour. The other differences from the locomanip env are:
 
 1. The destination plate sits on the *same* shelf as the apple (within arm's reach), so
    the robot never needs to drive its base anywhere -- WBC just holds the standing pose.
-2. The apple's spawn pose is randomized per episode within ``APPLE_SPAWN_XY_RANGE_M``
-   (XY only) so recorded demos have spatial variation; the destination plate stays at a
-   fixed pose so the place target is identical across episodes.
+2. The apple's spawn pose is configured through ``APPLE_SPAWN_XY_RANGE_M`` (XY only);
+   the branch sets that range to zero for deterministic demos. The destination plate
+   stays at a fixed pose so the place target is identical across episodes.
 """
 
 from __future__ import annotations
@@ -44,16 +44,17 @@ if TYPE_CHECKING:
 #   shelf on the first sim tick (which would otherwise launch them upward).
 SHELF_SURFACE_Z = -0.030
 SHELF_AIRGAP = 0.005
-# Cuboid center: top face = SHELF_SURFACE_Z. This assumes procedural_table height is 0.04 m.
-SHELF_SUPPORT_PATCH_CENTER = (0.62, 0.0, SHELF_SURFACE_Z - 0.02)
+SHELF_SUPPORT_PATCH_SIZE = (0.8, 1.5, 0.04)
+# Cuboid center: top face = SHELF_SURFACE_Z.
+SHELF_SUPPORT_PATCH_CENTER = (0.62, 0.0, SHELF_SURFACE_Z - SHELF_SUPPORT_PATCH_SIZE[2] / 2.0)
 
-# Object XY spawn pose (env-local frame, shelf-relative). X mirrors the locomanip env
-# (the only on-shelf X we have ground-truth data for via the brown_box flow). The pickup
-# Y also mirrors locomanip (Y=0.18); the destination is offset -0.24 m in Y so the
-# plate's 30 cm footprint clears the apple without collision. Earlier we tried Y=0.30
-# for the apple but a smoke test showed it rolls off the shelf edge from there.
-PICK_UP_OBJECT_SPAWN_XY = (0.5785, 0.18)
-DESTINATION_SPAWN_XY = (0.5785, -0.06)
+# Object XY spawn pose (env-local frame, table-relative). X mirrors the locomanip env
+# (the only on-table X we have ground-truth data for via the brown_box flow). Y values
+# are tuned for the static apple-to-plate setup: both objects sit left on the table,
+# and the plate is close enough to reduce unnecessary reach while still clearing the
+# apple.
+PICK_UP_OBJECT_SPAWN_XY = (0.5785, 0.27)
+DESTINATION_SPAWN_XY = (0.5785, 0.06)
 
 # Half-range of the apple's per-episode XY randomization at reset, in metres. Mirrors
 # the locomanip env's ``XY_RANGE_M = 0.025`` but tightened to 0.020 because the static
@@ -63,7 +64,7 @@ DESTINATION_SPAWN_XY = (0.5785, -0.06)
 # the apple at the exact same XY, which limits the spatial variation a finetuned policy
 # can generalize over. The destination plate is left at a fixed Pose so the place
 # target is identical across episodes.
-APPLE_SPAWN_XY_RANGE_M = 0.020
+APPLE_SPAWN_XY_RANGE_M = 0.0
 
 # Per-asset Z offset from the asset's USD origin to its bottom face. Added on top of
 # ``SHELF_SURFACE_Z + SHELF_AIRGAP`` so the asset's *bottom* lands on the shelf rather
@@ -86,6 +87,33 @@ _TUNED_SCALES: dict[str, tuple[float, float, float]] = {
     TUNED_PICK_UP_OBJECT_NAME: (0.009, 0.009, 0.009),
     TUNED_DESTINATION_NAME: (0.5, 0.5, 0.5),
 }
+
+# The sim scene includes these boxes on the shelf/table workspace used by
+# the static pick-and-place task, where they can block or clutter the
+# apple-to-plate interaction area.
+_BACKGROUND_PRIMS_TO_DEACTIVATE: tuple[str, ...] = (
+    "galileo_locomanip/BackgroundAssets/boxes/jetson_orin_06",
+    "galileo_locomanip/BackgroundAssets/boxes/jetson_orin_03",
+    "galileo_locomanip/BackgroundAssets/boxes/hesai_box_06",
+)
+
+
+def _deactivate_background_prims(env, env_ids, prim_relative_paths: tuple[str, ...]) -> None:
+    """Deactivate selected referenced background prims before simulation starts."""
+    del env_ids
+    stage = env.sim.stage
+    for env_prim_path in env.scene.env_prim_paths:
+        for prim_relative_path in prim_relative_paths:
+            prim_path = f"{env_prim_path}/{prim_relative_path}"
+            prim = stage.GetPrimAtPath(prim_path)
+            if prim.IsValid():
+                stage.OverridePrim(prim_path).SetActive(False)
+            else:
+                warnings.warn(
+                    f"_deactivate_background_prims: prim not found at '{prim_path}'; "
+                    "the background asset may still be visible.",
+                    stacklevel=1,
+                )
 
 
 def _shelf_spawn_z(asset_name: str) -> float:
@@ -129,40 +157,75 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
     name: str = "galileo_g1_static_pick_and_place"
 
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+        from isaaclab import sim as sim_utils
+
+        from isaaclab_arena.assets.object import Object
+        from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
         from isaaclab_arena.utils.pose import Pose, PoseRange
+        from isaaclab_arena_environments.mdp.galileo_g1_static_pick_and_place.robot_configs import (
+            G1_STATIC_FINGER_DYNAMIC_FRICTION,
+            G1_STATIC_FINGER_FRICTION_MATERIAL_PATH,
+            G1_STATIC_FINGER_PRIM_NAME_MARKERS,
+            G1_STATIC_FINGER_STATIC_FRICTION,
+            G1_STATIC_OPEN_ARM_JOINT_POS,
+        )
 
         # Reuse the locomanip background USD: it bakes in lighting and provides the same
         # shelf-in-front-of-robot geometry the locomanip env was tuned against.
         background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
+
+        class StaticShelfSupport(Object):
+            def __init__(self):
+                spawner_cfg = sim_utils.CuboidCfg(
+                    size=SHELF_SUPPORT_PATCH_SIZE,
+                    collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
+                    visible=False,
+                )
+                super().__init__(
+                    name="static_pick_place_shelf_support",
+                    prim_path="{ENV_REGEX_NS}/static_pick_place_shelf_support",
+                    object_type=ObjectType.BASE,
+                    spawner_cfg=spawner_cfg,
+                    initial_pose=Pose(
+                        position_xyz=SHELF_SUPPORT_PATCH_CENTER,
+                        rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
+                    ),
+                    tags=["background", "procedural"],
+                )
+
         # The imported shelf mesh has uneven/perforated collision in the task region:
         # small objects can fall through parts of the visible shelf. Add an invisible
-        # kinematic cuboid flush with the shelf top so task objects see a clean support.
-        # This has only reproduced in GPU simulation; CPU runs have not shown the issue.
-        shelf_support = self.asset_registry.get_asset_by_name("procedural_table")(
-            instance_name="static_pick_place_shelf_support",
-            prim_path="{ENV_REGEX_NS}/static_pick_place_shelf_support",
-        )
+        # static cuboid flush with the shelf top so task objects see a clean support.
+        shelf_support = StaticShelfSupport()
         pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)(scale=_asset_scale(args_cli.object))
         destination = self.asset_registry.get_asset_by_name(args_cli.destination)(
             scale=_asset_scale(args_cli.destination)
         )
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
+        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
+            enable_cameras=args_cli.enable_cameras,
+            lock_waist=args_cli.lock_waist,
+        )
+        embodiment.set_finger_contact_friction(
+            material_path=G1_STATIC_FINGER_FRICTION_MATERIAL_PATH,
+            static_friction=G1_STATIC_FINGER_STATIC_FRICTION,
+            dynamic_friction=G1_STATIC_FINGER_DYNAMIC_FRICTION,
+            prim_name_markers=G1_STATIC_FINGER_PRIM_NAME_MARKERS,
+        )
 
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
         else:
             teleop_device = None
 
-        # Robot pose mirrors the locomanip env exactly so the WBC controller stands the
-        # robot up in the same shelf-relative spot. The controller dynamically lifts the
-        # pelvis to ~z=0.74 at runtime; init_state.pos.z=0 is correct.
-        embodiment.set_initial_pose(Pose(position_xyz=(0.3, 0.08, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
-        shelf_support.set_initial_pose(
-            Pose(position_xyz=SHELF_SUPPORT_PATCH_CENTER, rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
-        )
+        # Robot pose is tuned for the same-shelf static task: slightly forward toward
+        # the table while preserving the lateral offset that keeps both arms usable.
+        # The controller dynamically lifts the pelvis to ~z=0.74 at runtime;
+        # init_state.pos.z=0 is correct.
+        embodiment.set_initial_pose(Pose(position_xyz=(0.25, 0.08, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+        embodiment.set_joint_initial_pos(G1_STATIC_OPEN_ARM_JOINT_POS)
         pick_up_object_x, pick_up_object_y = PICK_UP_OBJECT_SPAWN_XY
         destination_x, destination_y = DESTINATION_SPAWN_XY
         pick_up_object_z = _shelf_spawn_z(args_cli.object)
@@ -204,6 +267,23 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 f"{destination_label} on the same shelf next to it."
             )
 
+        def env_cfg_callback(env_cfg):
+            from isaaclab.managers import EventTermCfg
+
+            # The source galileo_locomanip USD includes boxes that sit in the
+            # static task workspace. Deactivate the referenced prims at startup so
+            # they are absent from the composed scene for every cloned environment.
+            env_cfg.events.deactivate_static_pick_place_background_prims = EventTermCfg(
+                func=_deactivate_background_prims,
+                mode="prestartup",
+                params={"prim_relative_paths": _BACKGROUND_PRIMS_TO_DEACTIVATE},
+            )
+            # The GR00T policy consumes camera observations. Force one RTX sensor
+            # refresh after reset so the next policy query does not see the
+            # previous episode's final rendered frame.
+            env_cfg.num_rerenders_on_reset = 1
+            return env_cfg
+
         scene = Scene(assets=[background, shelf_support, pick_up_object, destination])
         return IsaacLabArenaEnvironment(
             name=self.name,
@@ -213,13 +293,14 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 pick_up_object=pick_up_object,
                 destination_location=destination,
                 background_scene=background,
-                episode_length_s=30.0,
+                episode_length_s=6.0,
                 task_description=task_description,
                 # Mirror the locomanip env's success thresholds so metrics are comparable.
                 force_threshold=0.5,
                 velocity_threshold=0.1,
             ),
             teleop_device=teleop_device,
+            env_cfg_callback=env_cfg_callback,
         )
 
     @staticmethod
@@ -242,5 +323,20 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
             help=(
                 "Override the natural-language task description. Defaults to a template "
                 "derived from --object and --destination."
+            ),
+        )
+        # The static task is upper-body-only by design, so we lock the 3 waist
+        # joints by default. Pass ``--no-lock_waist`` to fall back to the default
+        # AGILE-pink behaviour (waist active in Pink IK for extended arm reach).
+        parser.add_argument(
+            "--lock_waist",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+            help=(
+                "Remove waist_yaw/roll/pitch from the upper-body Pink IK active set so "
+                "the torso stays fixed during teleoperation and recorded observations. "
+                "On by default for this static task; pass --no-lock_waist to allow the "
+                "IK to use the waist for extended arm reach (the production AGILE-pink "
+                "default)."
             ),
         )

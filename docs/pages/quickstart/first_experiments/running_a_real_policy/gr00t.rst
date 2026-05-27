@@ -1,12 +1,10 @@
-Running a Real Policy
-======================
+GR00T
+=====
 
-The zero-action experiments keep the robot still and success rates at zero.
-In this section we will see an actual
-model in action, `GR00T N1.6 <https://github.com/NVIDIA/Isaac-GR00T/>`_, a pre-trained
-robotic foundation model. No fine-tuning or separate model download is required —
-the weights fetch automatically from
-`HuggingFace <https://huggingface.co/nvidia/GR00T-N1.6-DROID>`_ on first use.
+`GR00T N1.6 <https://github.com/NVIDIA/Isaac-GR00T/>`_ is a pre-trained robotic
+foundation model. No fine-tuning or separate model download is required — the weights
+fetch automatically from `HuggingFace <https://huggingface.co/nvidia/GR00T-N1.6-DROID>`_
+on first use.
 
 **Prerequisite: start a GR00T policy server**
 
@@ -87,7 +85,7 @@ To measure success rates across several variations of the environment in a singl
 This runs nine jobs sequentially — each varying the object, background, and destination — and reports a per-job success rate.
 Each evaluation is run without restarting Isaac Sim to save on the startup time.
 
-.. figure:: ../../../images/gr00t_droid_3x3_grid.gif
+.. figure:: ../../../../images/gr00t_droid_3x3_grid.gif
    :width: 100%
    :alt: 3x3 grid of GR00T N1.6 DROID runs across different objects, backgrounds, and destinations
    :align: center
@@ -150,5 +148,5 @@ Next Steps
 ----------
 
 To go beyond the pre-trained GR00T N1.6 foundation model — for example, fine-tuning on your own
-teleoperation data — see :doc:`../../../pages/example_workflows/imitation_learning/index` for
+teleoperation data — see :doc:`/pages/example_workflows/imitation_learning/index` for
 end-to-end imitation learning workflows.
