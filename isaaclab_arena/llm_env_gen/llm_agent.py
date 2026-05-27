@@ -59,7 +59,11 @@ class LLMAgent:
         from openai import OpenAI
 
         self.api_key = api_key or os.getenv("NV_API_KEY")
-        assert self.api_key, "API key required: set NV_API_KEY or pass api_key."
+        # Use an explicit raise instead of ``assert`` so the guard survives
+        # ``python -O`` (which strips asserts) — missing-key failures must be
+        # loud regardless of interpreter flags.
+        if not self.api_key:
+            raise ValueError("API key required: set NV_API_KEY or pass api_key.")
         self.model = model
         self.client = OpenAI(api_key=self.api_key, base_url=base_url)
 
