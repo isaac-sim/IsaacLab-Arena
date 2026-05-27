@@ -311,10 +311,22 @@ geometry, and prints a per-file summary with the demo and step counts:
    input files are listed, so list the sessions chronologically if you want the merged file to
    reflect the order of collection.
 
+.. note::
+
+   Empty demos (no ``actions`` dataset or zero-length actions) are filtered out automatically
+   — they can appear after an interrupted recording session and would silently break
+   ``replay_demos.py`` and the LeRobot conversion downstream. Dropped demos are listed by
+   source file in the merge summary, and the surviving demos are renumbered contiguously.
+   The script also works with a single input file (it copies the file, drops empties, and
+   recomputes ``data.attrs["total"]``), which is a quick way to sanitize a single
+   half-finished session before training.
+
 If a session was recorded against a slightly different environment (e.g. a different physics
-timestep) the merge will warn but still proceed. Schema-level differences (different action
-dimensions, missing observation keys, different camera resolutions) are hard errors: re-record
-the offending session against the canonical environment instead.
+timestep) the merge will warn but still proceed. Cross-file schema-level differences (different
+action dimensions, missing observation keys, different camera resolutions) and intra-file
+inconsistencies on non-empty demos (one valid demo lacks a key the others have, e.g. a
+missing camera observation) are hard errors — re-record the offending session against the
+canonical environment.
 
 
 Step 5: Replay Recorded Demos (Optional)
