@@ -88,11 +88,18 @@ def main() -> None:
 
     if args.background and args.background != spec.background:
         # Swap the background name wherever it appears so downstream code
-        # (resolver, proposer) sees a consistent scene. Relations whose
-        # target was the old background get rewired to the new one.
+        # (resolver, proposer) sees a consistent scene. Rewrite both
+        # ``rel.target`` (binary relations like ``on(bowl, table)``) AND
+        # ``rel.subject`` (unary relations like ``is_anchor(table)``);
+        # missing the subject case would leave the unary constraint
+        # pointing at the old background name, after which the resolver
+        # would emit a ``relation.initial.unknown_subject`` trace and
+        # silently drop the constraint.
         old_bg = spec.background
         new_bg = args.background
         for rel in spec.initial_scene_graph:
+            if rel.subject == old_bg:
+                rel.subject = new_bg
             if rel.target == old_bg:
                 rel.target = new_bg
         # Note: tasks don't directly reference background in target (typically None or items),
