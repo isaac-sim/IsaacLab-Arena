@@ -53,7 +53,7 @@ def _test_sanitize_single_callable(simulation_app) -> bool:
 
     try:
         pred = _MockPredicate(num_envs=1)
-        fgs = FineGrainedSubtask(name="t", conditions=pred)
+        fgs = FineGrainedSubtask(name="t", predicate_groups=pred)
         assert fgs.group_names == [DEFAULT_GROUP_NAME]
         chain = fgs.get_chain(DEFAULT_GROUP_NAME)
         assert len(chain) == 1
@@ -75,7 +75,7 @@ def _test_sanitize_list_of_callables(simulation_app) -> bool:
 
     try:
         preds = [_MockPredicate(num_envs=1, name=f"p{i}") for i in range(3)]
-        fgs = FineGrainedSubtask(name="t", conditions=preds)
+        fgs = FineGrainedSubtask(name="t", predicate_groups=preds)
         chain = fgs.get_chain(DEFAULT_GROUP_NAME)
         assert [c[0] for c in chain] == preds
         # Equal scores normalize to 1/3 each, summing to 1.0.
@@ -99,7 +99,7 @@ def _test_sanitize_weighted_tuples(simulation_app) -> bool:
     try:
         p1 = _MockPredicate(num_envs=1, name="p1")
         p2 = _MockPredicate(num_envs=1, name="p2")
-        fgs = FineGrainedSubtask(name="t", conditions=[(p1, 1.0), (p2, 3.0)])
+        fgs = FineGrainedSubtask(name="t", predicate_groups=[(p1, 1.0), (p2, 3.0)])
         chain = fgs.get_chain(DEFAULT_GROUP_NAME)
         # 1.0/4.0 = 0.25, 3.0/4.0 = 0.75
         assert abs(chain[0][1] - 0.25) < 1e-6
@@ -121,7 +121,7 @@ def _test_sanitize_dict_groups(simulation_app) -> bool:
         p_b = _MockPredicate(num_envs=1, name="b")
         fgs = FineGrainedSubtask(
             name="t",
-            conditions={
+            predicate_groups={
                 "obj_a": [p_a1, p_a2],
                 "obj_b": p_b,
             },
@@ -150,7 +150,7 @@ def _test_sanitize_rejects_invalid_inputs(simulation_app) -> bool:
     try:
         for bad in ([], {}, 42, "string"):
             try:
-                FineGrainedSubtask(name="t", conditions=bad)
+                FineGrainedSubtask(name="t", predicate_groups=bad)
             except (ValueError, TypeError):
                 continue
             print(f"Expected error for input {bad!r}")
@@ -159,7 +159,7 @@ def _test_sanitize_rejects_invalid_inputs(simulation_app) -> bool:
         try:
             FineGrainedSubtask(
                 name="t",
-                conditions=_MockPredicate(num_envs=1),
+                predicate_groups=_MockPredicate(num_envs=1),
                 logical="choose",
             )
         except ValueError:
@@ -182,7 +182,7 @@ def _test_state_machine_advances_sequentially(simulation_app) -> bool:
     try:
         env = _MockEnv(num_envs=1)
         preds = [_MockPredicate(num_envs=1, name=f"p{i}") for i in range(3)]
-        fgs = FineGrainedSubtask(name="lift", conditions=preds)
+        fgs = FineGrainedSubtask(name="lift", predicate_groups=preds)
         sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
@@ -229,7 +229,7 @@ def _test_state_machine_ignores_out_of_order_success(simulation_app) -> bool:
     try:
         env = _MockEnv(num_envs=1)
         preds = [_MockPredicate(num_envs=1, name=f"p{i}") for i in range(3)]
-        fgs = FineGrainedSubtask(name="lift", conditions=preds)
+        fgs = FineGrainedSubtask(name="lift", predicate_groups=preds)
         sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
@@ -272,7 +272,7 @@ def _test_state_machine_logical_any(simulation_app) -> bool:
         p_b = _MockPredicate(num_envs=1, name="b")
         fgs = FineGrainedSubtask(
             name="either",
-            conditions={"a": p_a, "b": p_b},
+            predicate_groups={"a": p_a, "b": p_b},
             logical="any",
         )
         sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=1, device="cpu")
@@ -306,7 +306,7 @@ def _test_state_machine_logical_all(simulation_app) -> bool:
         p_b = _MockPredicate(num_envs=1, name="b")
         fgs = FineGrainedSubtask(
             name="both",
-            conditions={"a": p_a, "b": p_b},
+            predicate_groups={"a": p_a, "b": p_b},
             logical="all",
         )
         sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=1, device="cpu")
@@ -342,7 +342,7 @@ def _test_state_machine_logical_choose(simulation_app) -> bool:
         p_c = _MockPredicate(num_envs=1, name="c")
         fgs = FineGrainedSubtask(
             name="any_two",
-            conditions={"a": p_a, "b": p_b, "c": p_c},
+            predicate_groups={"a": p_a, "b": p_b, "c": p_c},
             logical="choose",
             K=2,
         )
@@ -375,7 +375,7 @@ def _test_state_machine_reset_clears_state(simulation_app) -> bool:
     try:
         env = _MockEnv(num_envs=2)
         preds = [_MockPredicate(num_envs=2, name=f"p{i}") for i in range(2)]
-        fgs = FineGrainedSubtask(name="t", conditions=preds)
+        fgs = FineGrainedSubtask(name="t", predicate_groups=preds)
         sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=2, device="cpu")
         sm.reset([0, 1])
 
@@ -420,7 +420,7 @@ def _test_gating_active_when_parent_subtask_idx_matches(simulation_app) -> bool:
         env._current_subtask_idx = [1]
 
         pred = _MockPredicate(num_envs=1, name="p")
-        fgs = FineGrainedSubtask(name="t", conditions=pred, parent_subtask_idx=1)
+        fgs = FineGrainedSubtask(name="t", predicate_groups=pred, parent_subtask_idx=1)
         sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
@@ -448,7 +448,7 @@ def _test_gating_blocked_when_parent_subtask_idx_mismatches(simulation_app) -> b
         env._current_subtask_idx = [0]   # parent on subtask 0, recipe targets 1
 
         pred = _MockPredicate(num_envs=1, name="p")
-        fgs = FineGrainedSubtask(name="t", conditions=pred, parent_subtask_idx=1)
+        fgs = FineGrainedSubtask(name="t", predicate_groups=pred, parent_subtask_idx=1)
         sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
@@ -485,7 +485,7 @@ def _test_gating_noop_when_env_has_no_current_subtask_idx(simulation_app) -> boo
         # No _current_subtask_idx attribute on env -> unordered composite path.
 
         pred = _MockPredicate(num_envs=1, name="p")
-        fgs = FineGrainedSubtask(name="t", conditions=pred, parent_subtask_idx=1)
+        fgs = FineGrainedSubtask(name="t", predicate_groups=pred, parent_subtask_idx=1)
         sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
@@ -514,8 +514,8 @@ def _test_sequential_gating_end_to_end(simulation_app) -> bool:
 
         pred_a = _MockPredicate(num_envs=1, name="a")
         pred_b = _MockPredicate(num_envs=1, name="b")
-        fgs_a = FineGrainedSubtask(name="a", conditions=pred_a, parent_subtask_idx=0)
-        fgs_b = FineGrainedSubtask(name="b", conditions=pred_b, parent_subtask_idx=1)
+        fgs_a = FineGrainedSubtask(name="a", predicate_groups=pred_a, parent_subtask_idx=0)
+        fgs_b = FineGrainedSubtask(name="b", predicate_groups=pred_b, parent_subtask_idx=1)
         sm = FineGrainedStateMachine(subtasks=[fgs_a, fgs_b], num_envs=1, device="cpu")
         sm.reset([0])
 
@@ -550,7 +550,7 @@ def _test_step_func_publishes_to_extras_and_returns_no_termination(simulation_ap
     try:
         env = _MockEnv(num_envs=2)
         pred = _MockPredicate(num_envs=2, name="p")
-        fgs = FineGrainedSubtask(name="t", conditions=pred)
+        fgs = FineGrainedSubtask(name="t", predicate_groups=pred)
 
         fine_grained_subtask_reset_func(env, env_ids=[0, 1], subtasks=[fgs])
 
@@ -628,7 +628,7 @@ def _test_task_base_fine_grained_subtask_hooks(simulation_app) -> bool:
         class _OptIn(_Base):
             def get_fine_grained_subtasks(self):
                 pred = _MockPredicate(num_envs=1, name="p")
-                return [FineGrainedSubtask(name="lift", conditions=pred)]
+                return [FineGrainedSubtask(name="lift", predicate_groups=pred)]
 
         opt_in = _OptIn()
         assert len(opt_in.get_fine_grained_subtasks()) == 1
@@ -640,11 +640,11 @@ def _test_task_base_fine_grained_subtask_hooks(simulation_app) -> bool:
 
         class _ChildA(_Base):
             def get_fine_grained_subtasks(self):
-                return [FineGrainedSubtask(name="open", conditions=_MockPredicate(1, name="pa"))]
+                return [FineGrainedSubtask(name="open", predicate_groups=_MockPredicate(1, name="pa"))]
 
         class _ChildB(_Base):
             def get_fine_grained_subtasks(self):
-                return [FineGrainedSubtask(name="close", conditions=_MockPredicate(1, name="pb"))]
+                return [FineGrainedSubtask(name="close", predicate_groups=_MockPredicate(1, name="pb"))]
 
         composite = CompositeTaskBase(subtasks=[_ChildA(), _ChildB()])
         recipes = composite.get_fine_grained_subtasks()
@@ -657,7 +657,7 @@ def _test_task_base_fine_grained_subtask_hooks(simulation_app) -> bool:
         # get_own_fine_grained_subtasks adds composite-level recipes (no gating).
         class _CompositeWithOwn(CompositeTaskBase):
             def get_own_fine_grained_subtasks(self):
-                return [FineGrainedSubtask(name="both_done", conditions=_MockPredicate(1, name="own"))]
+                return [FineGrainedSubtask(name="both_done", predicate_groups=_MockPredicate(1, name="own"))]
 
         composite2 = _CompositeWithOwn(subtasks=[_ChildA(), _ChildB()])
         recipes2 = composite2.get_fine_grained_subtasks()

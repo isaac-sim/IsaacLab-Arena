@@ -19,9 +19,9 @@ object-specific arguments::
 
     FineGrainedSubtask(
         name="lift_cracker_box",
-        conditions=[
+        predicate_groups=[
             partial(object_grabbed, object_name="cracker_box"),
-            partial(object_picked_up, object_name="cracker_box",
+            partial(object_lifted, object_name="cracker_box",
                     surface_object_name="table", distance=0.1),
         ],
     )

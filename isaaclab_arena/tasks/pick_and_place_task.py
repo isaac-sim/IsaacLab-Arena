@@ -135,7 +135,7 @@ class PickAndPlaceTask(TaskBase):
         return [
             FineGrainedSubtask(
                 name="pick_and_place",
-                conditions=[
+                predicate_groups=[
                     partial(
                         object_lifted,
                         object_name=self.pick_up_object.name,

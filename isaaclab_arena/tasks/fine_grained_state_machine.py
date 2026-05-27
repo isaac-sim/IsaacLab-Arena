@@ -117,7 +117,7 @@ class FineGrainedSubtaskRunner:
         gating_mask = self._compute_gating_mask(env)
         if not bool(gating_mask.any().item()):
             return events
-        for group, chain in self.subtask.canonical_conditions.items():
+        for group, chain in self.subtask.canonical_predicate_groups.items():
             chain_length = len(chain)
             advanced = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
 
@@ -228,7 +228,7 @@ class FineGrainedStateMachine:
                 active_predicates: dict[str, str | None] = {}
                 for group in subtask.group_names:
                     cur = int(runner.current_index[group][env_idx].item())
-                    chain = subtask.canonical_conditions[group]
+                    chain = subtask.canonical_predicate_groups[group]
                     if cur >= len(chain):
                         active_predicates[group] = None
                         completed_groups += 1
