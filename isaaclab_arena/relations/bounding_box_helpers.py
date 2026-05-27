@@ -17,8 +17,6 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
 
-VARIANT_SEED_STRIDE = 1_000_003
-
 
 def has_heterogeneous_objects(objects: list[ObjectBase]) -> bool:
     """Return whether placement must use env-specific object geometry."""
@@ -31,14 +29,16 @@ def assign_variants_for_envs(objects: list[ObjectBase], num_envs: int, placement
     """Assign per-env variants on every RigidObjectSet in the list.
 
     Placers call this once they know the real environment count, before
-    requesting per-env bounding boxes. Objects without variants are ignored.
+    requesting per-env bounding boxes. Non-RigidObjectSet objects are skipped.
+    Seeded assignments offset each set by its index so multiple sets do not
+    reuse the same random sequence.
     """
     from isaaclab_arena.assets.object_set import RigidObjectSet
 
     variant_set_idx = 0
     for obj in objects:
         if isinstance(obj, RigidObjectSet):
-            variant_seed = None if placement_seed is None else placement_seed + VARIANT_SEED_STRIDE * variant_set_idx
+            variant_seed = None if placement_seed is None else placement_seed + variant_set_idx
             obj.assign_variants(num_envs, variant_seed=variant_seed)
             variant_set_idx += 1
 

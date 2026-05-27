@@ -32,10 +32,10 @@ from isaaclab_arena.utils.pose import Pose
 
 @pytest.fixture(autouse=True)
 def _patch_bounding_box_helpers_for_test_doubles(monkeypatch):
-    """Let ``HeterogeneousDummyObject`` flow through the heterogeneous placement path.
+    """Let HeterogeneousDummyObject flow through the heterogeneous placement path.
 
-    Production dispatch uses ``isinstance(RigidObjectSet)``, but these tests use
-    lightweight ``DummyObject`` subclasses with ``get_bounding_box_per_env(...)``.
+    Production dispatch uses isinstance(RigidObjectSet), but these tests use
+    lightweight DummyObject subclasses with get_bounding_box_per_env(...).
     Patch every module that binds the helper by name at import time.
     """
     from isaaclab_arena.relations import bounding_box_helpers
@@ -508,7 +508,7 @@ def test_pooled_placer_seeded_refills_are_reproducible():
 
 
 def test_pooled_placer_env_specific_fallbacks_are_reported(capsys):
-    """Env-specific best-loss fallbacks should be visible to callers."""
+    """Env-specific best-loss fallbacks should be reported to callers."""
     desk, hetero, placer_params = _make_hetero_pool_objects()
     pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=2, num_envs=2)
     for env_pool in pool._env_pools:

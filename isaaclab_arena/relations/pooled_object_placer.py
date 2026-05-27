@@ -41,8 +41,7 @@ class EnvLayoutPool:
         self.layouts.extend(layouts)
 
     def next(self) -> PlacementResult:
-        if self.cursor >= len(self.layouts):
-            raise IndexError("No unread layouts remain in this env pool.")
+        assert self.cursor < len(self.layouts), "No unread layouts remain in this env pool."
         layout = self.layouts[self.cursor]
         self.cursor += 1
         return layout
@@ -57,14 +56,14 @@ class PooledObjectPlacer:
     consumed one at a time from the pooled queues.
 
     Strictly valid layouts are preferred. If no valid layout is available for
-    a solve batch, the best-loss solver result is kept as a visible fallback.
+    a solve batch, the best-loss solver result is kept as a fallback.
 
     The pool is refilled automatically when an env's queue runs out.
 
-    * ``sample_without_replacement(count)`` consumes ``count`` layouts. For
-      env-specific layouts, ``count`` must be a multiple of ``num_envs`` and
+    * sample_without_replacement(count) consumes count layouts. For
+      env-specific layouts, count must be a multiple of num_envs and
       may cover multiple complete env rounds.
-    * ``sample_with_replacement(count)`` is non-consuming. Env-specific layouts
+    * sample_with_replacement(count) is non-consuming. Env-specific layouts
       are sampled from matching env slots; reusable layouts are sampled IID from
       all stored layouts.
 
@@ -137,8 +136,8 @@ class PooledObjectPlacer:
     def _solve_and_store(self, num_layouts: int) -> None:
         """Solve layouts in batches until every env has target_per_env unread layouts.
 
-        Each batch contributes (roughly) one round of layouts per env. The
-        outer loop is bounded by max_placement_attempts to avoid an
+        Each batch contributes one or more layout rounds per env. The outer
+        loop is bounded by max_placement_attempts to avoid an
         unbounded refill in pathological configurations.
         """
         self._discard_consumed_layouts()
@@ -215,8 +214,8 @@ class PooledObjectPlacer:
         """Solve ranked layouts tied to each env's actual object geometry.
 
         Returns ranked candidate lists per real env so the pool can store
-        multiple layouts for each env without pretending extra candidate rows
-        are extra environments.
+        multiple layouts for each env without treating candidate rows as
+        environments.
         """
         layouts_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
         # ObjectPlacer seeds each candidate as placement_seed + candidate_idx.
@@ -270,12 +269,12 @@ class PooledObjectPlacer:
     # ------------------------------------------------------------------
 
     def sample_without_replacement(self, count: int) -> list[PlacementResult]:
-        """Return the next ``count`` layouts.
+        """Return the next count layouts.
 
         Env-specific layouts are returned as complete rounds of
-        ``[env_0, env_1, ..., env_{num_envs-1}]`` so each result still maps
+        [env_0, env_1, ..., env_{num_envs-1}] so each result still maps
         to the absolute environment it was solved for. Reusable layouts consume
-        exactly ``count`` interchangeable entries.
+        exactly count interchangeable entries.
 
         Args:
             count: Number of layouts to return.

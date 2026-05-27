@@ -99,9 +99,9 @@ class ObjectPlacer:
                 env must be solved against its assigned variant geometry.
 
         Returns:
-            ``PlacementResult`` for one produced layout, otherwise
-            ``MultiEnvPlacementResult``. A heterogeneous multi-env call produces
-            ``MultiEnvPlacementResult`` even when ``result_per_env`` is False.
+            PlacementResult for one produced layout, otherwise
+            MultiEnvPlacementResult. A heterogeneous multi-env call produces
+            MultiEnvPlacementResult even when result_per_env is False.
         """
         anchor_objects_set, generator = self._prepare_placement(objects)
 
@@ -147,10 +147,9 @@ class ObjectPlacer:
     ) -> list[list[PlacementResult]]:
         """Return ranked placement candidates per env.
 
-        Use this for PooledObjectPlacer, where each env pool needs multiple
-        candidate layouts and will apply poses later when sampled. Use place()
-        for the normal public API that returns the selected placement result.
-        The return value has shape ``(num_envs, <=results_per_env)``: each
+        Use this for PooledObjectPlacer, where each env pool stores multiple
+        candidate layouts. Use place() for selected placement results.
+        The return value has shape (num_envs, <=results_per_env): each
         outer list entry corresponds to a real env, and each inner list is
         sorted with valid lower-loss layouts first.
         """
@@ -222,6 +221,7 @@ class ObjectPlacer:
                 " variants."
             )
 
+        # Variant assignment fixes the env-to-USD mapping before bbox expansion.
         assign_variants_for_envs(objects, num_envs, placement_seed=self.params.placement_seed)
         env_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
         num_candidates = num_envs * candidates_per_env

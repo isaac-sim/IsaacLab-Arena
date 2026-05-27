@@ -98,7 +98,7 @@ class RigidObjectSet(Object):
         """USD paths passed to MultiUsdFileCfg.
 
         Before assignment this is the member USD list. After assignment this
-        returns one USD path per environment based on ``variant_indices_by_env``.
+        returns one USD path per environment based on variant_indices_by_env.
         """
         if self.variant_indices_by_env is not None:
             return [self.member_usd_paths[idx] for idx in self.variant_indices_by_env]
@@ -107,9 +107,9 @@ class RigidObjectSet(Object):
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return one conservative local bbox for callers that cannot vary by env.
 
-        The returned bbox has shape ``(1, 3)`` and uses the member with the
+        The returned bbox has shape (1, 3) and uses the member with the
         greatest z-extent. Heterogeneous placement uses
-        ``get_bounding_box_per_env()`` after ``assign_variants()`` so each env
+        get_bounding_box_per_env() after assign_variants() so each env
         uses its actual variant geometry.
         """
         return max(self.objects, key=lambda obj: obj.get_bounding_box().size[0, 2].item()).get_bounding_box()
@@ -118,13 +118,13 @@ class RigidObjectSet(Object):
         """Fix one member-variant index per environment.
 
         The assignment is fixed for the lifetime of the object set: subsequent
-        calls with the same ``num_envs`` are no-ops, and a call with a
-        different ``num_envs`` raises. When ``random_choice`` is True, each
+        calls with the same num_envs are no-ops, and a call with a
+        different num_envs raises. When random_choice is True, each
         env independently samples one variant; otherwise assignments repeat
         the member order across environments.
 
-        Callers invoke this once ``num_envs`` is known, before reading
-        ``variant_indices_by_env`` or ``get_bounding_box_per_env``.
+        Callers invoke this once num_envs is known, before reading
+        variant_indices_by_env or get_bounding_box_per_env.
 
         Args:
             num_envs: Number of environments to assign variants for.
@@ -145,15 +145,15 @@ class RigidObjectSet(Object):
         local bbox of the variant assigned to each env, enabling correct
         collision-free placement for heterogeneous scenes.
 
-        Requires ``assign_variants(num_envs)`` to have been called first. The
-        returned bbox has shape ``(num_envs, 3)``.
+        Requires assign_variants(num_envs) to have been called first. The
+        returned bbox has shape (num_envs, 3).
 
         Args:
             num_envs: Number of environments. Must match the assignment.
 
         Returns:
-            ``AxisAlignedBoundingBox`` with ``min_point`` / ``max_point`` of
-            shape ``(num_envs, 3)``.
+            AxisAlignedBoundingBox with min_point / max_point of
+            shape (num_envs, 3).
         """
         assert self.variant_indices_by_env is not None, (
             f"RigidObjectSet '{self.name}' has no variant assignment; "
