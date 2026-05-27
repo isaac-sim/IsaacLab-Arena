@@ -157,6 +157,49 @@ class LLMAgent:
         spec = LLMEnvSpec.model_validate(data)
         return spec, raw
 
+    def ping(self) -> str:
+        """Smoke-test the configured endpoint + API key with a minimal request.
+
+        Sends a one-shot chat completion to verify:
+          * the API key authenticates,
+          * the configured model exists at ``base_url``,
+          * the network path is reachable.
+
+        Intended for CI startup probes and local key-setup checks; the
+        success signal is "we got a response without raising". The
+        response *content* is returned for diagnostics but intentionally
+        not asserted on — different models phrase the acknowledgment
+        differently, and a quirky reply still means the wire is working.
+
+        Returns:
+            The model's response text (typically "OK" or similar). Empty
+            string if the model returned no content (still a successful
+            round-trip).
+
+        Raises:
+            Any exception raised by the underlying ``openai`` client.
+            Common ones at this layer are ``AuthenticationError``
+            (bad key), ``NotFoundError`` (wrong ``model``),
+            ``APIConnectionError`` (unreachable endpoint), and
+            ``RateLimitError`` (quota exhausted). Callers typically
+            ``except Exception`` here and report the failure to the
+            operator.
+
+        Example:
+            >>> agent = LLMAgent()
+            >>> try:
+            ...     agent.ping()
+            ... except Exception as e:
+            ...     sys.exit(f"LLM endpoint health-check failed: {e}")
+        """
+        resp = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": "Respond with exactly: OK"}],
+            temperature=0,
+            max_tokens=8,
+        )
+        return resp.choices[0].message.content or ""
+
     def _system_prompt(self) -> str:
         schema = json.dumps(LLMEnvSpec.model_json_schema(), indent=2)
         # Derive the enumerations the LLM is allowed to emit directly from
