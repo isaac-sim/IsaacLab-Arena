@@ -14,7 +14,7 @@ import torch
 import pytest
 
 from isaaclab_arena.assets.dummy_object import DummyObject
-from isaaclab_arena.relations.bounding_box_helpers import get_bounding_box_per_env
+from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes, get_bounding_box_per_env
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
@@ -36,7 +36,7 @@ def _patch_bounding_box_helpers_for_test_doubles(monkeypatch):
 
     Production dispatch uses isinstance(RigidObjectSet), but these tests use
     lightweight DummyObject subclasses with get_bounding_box_per_env(...).
-    Patch every module that binds the helper by name at import time.
+    Patch modules that bind the heterogeneous check by name at import time.
     """
     from isaaclab_arena.relations import bounding_box_helpers
 
@@ -56,14 +56,11 @@ def _patch_bounding_box_helpers_for_test_doubles(monkeypatch):
         "isaaclab_arena.relations.object_placer.has_heterogeneous_objects",
         "isaaclab_arena.relations.pooled_object_placer.has_heterogeneous_objects",
     ]
-    bbox_per_env_sites = [
-        "isaaclab_arena.relations.bounding_box_helpers.get_bounding_box_per_env",
-        "isaaclab_arena.relations.object_placer.get_bounding_box_per_env",
-    ]
     for site in has_het_sites:
         monkeypatch.setattr(site, has_het_with_doubles)
-    for site in bbox_per_env_sites:
-        monkeypatch.setattr(site, bbox_per_env_with_doubles)
+    monkeypatch.setattr(
+        "isaaclab_arena.relations.bounding_box_helpers.get_bounding_box_per_env", bbox_per_env_with_doubles
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -118,6 +115,24 @@ def test_dummy_object_bbox_per_env_expands_single():
     assert per_env.min_point.shape == (4, 3)
     assert per_env.max_point.shape == (4, 3)
     assert torch.allclose(per_env.min_point[0], per_env.min_point[3])
+
+
+def test_per_env_bounding_boxes_formats_solver_and_env_views():
+    """PerEnvBoundingBoxes should expose solver and one-env bbox formats."""
+    obj = DummyObject(
+        name="box",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.3, 0.4)),
+    )
+
+    env_bboxes = build_per_env_bounding_boxes([obj], num_envs=3)
+    solver_bboxes = env_bboxes.solver_candidate_bboxes(candidates_per_env=2)
+    per_env_bboxes = env_bboxes.all_env_bboxes()
+
+    assert solver_bboxes[obj].min_point.shape == (6, 3)
+    assert solver_bboxes[obj].max_point.shape == (6, 3)
+    assert len(per_env_bboxes) == 3
+    assert per_env_bboxes[1][obj].min_point.shape == (1, 3)
+    assert torch.allclose(per_env_bboxes[1][obj].max_point[0], torch.tensor([0.2, 0.3, 0.4]))
 
 
 def test_heterogeneous_dummy_returns_different_bboxes():

@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Literal
 
 from isaaclab_arena.relations.bounding_box_helpers import (
     assign_variants_for_envs,
-    get_bounding_box_per_env,
+    build_per_env_bounding_boxes,
     has_heterogeneous_objects,
 )
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -214,7 +214,9 @@ class ObjectPlacer:
         # Variant assignment fixes the env-to-USD mapping before bbox expansion.
         assign_variants_for_envs(objects, num_envs, placement_seed=self.params.placement_seed)
         num_candidates = num_envs * candidates_per_env
-        candidate_bboxes, per_env_bboxes = self._build_candidate_bboxes(objects, num_envs, candidates_per_env)
+        env_bboxes = build_per_env_bounding_boxes(objects, num_envs)
+        candidate_bboxes = env_bboxes.solver_candidate_bboxes(candidates_per_env)
+        per_env_bboxes = env_bboxes.all_env_bboxes()
 
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]] = []
         for candidate_idx in range(num_candidates):
@@ -229,15 +231,18 @@ class ObjectPlacer:
         all_positions = self._solver.solve(objects, initial_positions, env_bboxes=candidate_bboxes)
         assert self._solver.last_loss_per_env is not None
         all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
+        all_validations = [
+            self._validate_placement(positions, per_env_bboxes[candidate_idx // candidates_per_env])
+            for candidate_idx, positions in enumerate(all_positions)
+        ]
 
         candidates: list[PlacementCandidate] = []
         for candidate_idx in range(num_candidates):
-            cur_env = candidate_idx // candidates_per_env
             candidates.append(
                 PlacementCandidate(
                     all_losses[candidate_idx],
                     all_positions[candidate_idx],
-                    self._validate_placement(all_positions[candidate_idx], per_env_bboxes[cur_env]),
+                    all_validations[candidate_idx],
                 )
             )
 
@@ -259,34 +264,6 @@ class ObjectPlacer:
             self._print_ranked_summary(ranked_candidate_slices, ranking_mode, num_candidates, num_envs)
 
         return ranked_results
-
-    @staticmethod
-    def _build_candidate_bboxes(
-        objects: list[ObjectBase],
-        num_envs: int,
-        candidates_per_env: int,
-    ) -> tuple[dict[ObjectBase, AxisAlignedBoundingBox], list[dict[ObjectBase, AxisAlignedBoundingBox]]]:
-        """Build solver bboxes with shape (num_envs * candidates_per_env, 3) and per-env views."""
-        env_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
-
-        per_env_bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]] = []
-        for cur_env in range(num_envs):
-            cur_env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] = {}
-            for obj, bbox in env_bboxes.items():
-                cur_env_bboxes[obj] = AxisAlignedBoundingBox(
-                    min_point=bbox.min_point[cur_env : cur_env + 1],
-                    max_point=bbox.max_point[cur_env : cur_env + 1],
-                )
-            per_env_bboxes.append(cur_env_bboxes)
-
-        candidate_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] = {}
-        for obj, bbox in env_bboxes.items():
-            candidate_bboxes[obj] = AxisAlignedBoundingBox(
-                min_point=bbox.min_point.repeat_interleave(candidates_per_env, dim=0),
-                max_point=bbox.max_point.repeat_interleave(candidates_per_env, dim=0),
-            )
-
-        return candidate_bboxes, per_env_bboxes
 
     @staticmethod
     def _rank_candidates(

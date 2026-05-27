@@ -114,10 +114,12 @@ class RigidObjectSet(Object):
 
         The assignment is fixed for the lifetime of the object set so spawned
         USDs and per-env bboxes stay aligned across placement refills.
-        Subsequent calls with the same num_envs are no-ops, and a call with a
-        different num_envs raises. When random_choice is True, each env
+        Subsequent calls with the same num_envs are no-ops. A call with a
+        different num_envs regenerates with a warning. When random_choice is True, each env
         independently samples one variant; otherwise assignments repeat the
         member order across environments.
+        Regeneration is safe before the scene is spawned; afterwards, per-env
+        bboxes can desync from the spawned USDs.
 
         Callers invoke this once num_envs is known, before reading
         variant_indices_by_env or get_bounding_box_per_env.
@@ -126,13 +128,11 @@ class RigidObjectSet(Object):
             num_envs: Number of environments to assign variants for.
             variant_seed: Optional seed used when random_choice=True.
         """
-        if self.variant_indices_by_env is None:
-            self._set_variant_indices_by_env(self._generate_variant_indices(num_envs, variant_seed=variant_seed))
-        else:
-            assert len(self.variant_indices_by_env) == num_envs, (
-                f"RigidObjectSet '{self.name}' got request for {num_envs} envs, "
-                f"but has variant assignments for {len(self.variant_indices_by_env)} envs."
-            )
+        if self.variant_indices_by_env is not None:
+            if len(self.variant_indices_by_env) == num_envs:
+                return
+            print(f"Warning: RigidObjectSet '{self.name}' regenerating variant assignments for {num_envs} envs.")
+        self._set_variant_indices_by_env(self._generate_variant_indices(num_envs, variant_seed=variant_seed))
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
         """Return the local bbox for each env's assigned variant.

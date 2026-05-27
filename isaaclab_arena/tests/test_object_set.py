@@ -112,8 +112,11 @@ def _test_object_set_random_variant_indices_use_placement_seed(simulation_app):
     return _assigned_indices() == _assigned_indices()
 
 
-def _test_object_set_rejects_variant_reassignment_with_different_num_envs(simulation_app):
-    """Variant assignment should remain fixed for the original env count."""
+def _test_object_set_regenerates_variants_with_different_num_envs(simulation_app):
+    """Calling assign_variants with a different num_envs should regenerate indices."""
+    import io
+    from contextlib import redirect_stdout
+
     from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_set import RigidObjectSet
 
@@ -124,12 +127,16 @@ def _test_object_set_rejects_variant_reassignment_with_different_num_envs(simula
     ):
         obj_set = RigidObjectSet(name="assigned_cans", objects=[can_a, can_b])
         obj_set.assign_variants(num_envs=3)
+        assert obj_set.variant_indices_by_env is not None
+        assert len(obj_set.variant_indices_by_env) == 3
 
-    try:
-        obj_set.assign_variants(num_envs=4)
-    except AssertionError:
-        return True
-    return False
+        output = io.StringIO()
+        with redirect_stdout(output):
+            obj_set.assign_variants(num_envs=4)
+        assert obj_set.variant_indices_by_env is not None
+        assert len(obj_set.variant_indices_by_env) == 4
+        assert "regenerating variant assignments" in output.getvalue()
+    return True
 
 
 def _build_and_reset_env(simulation_app, scene_assets, env_name="object_set_test", task=None):
@@ -498,12 +505,12 @@ def test_object_set_random_variant_indices_use_placement_seed():
     assert result, f"Test {_test_object_set_random_variant_indices_use_placement_seed.__name__} failed"
 
 
-def test_object_set_rejects_variant_reassignment_with_different_num_envs():
+def test_object_set_regenerates_variants_with_different_num_envs():
     result = run_simulation_app_function(
-        _test_object_set_rejects_variant_reassignment_with_different_num_envs,
+        _test_object_set_regenerates_variants_with_different_num_envs,
         headless=HEADLESS,
     )
-    assert result, f"Test {_test_object_set_rejects_variant_reassignment_with_different_num_envs.__name__} failed"
+    assert result, f"Test {_test_object_set_regenerates_variants_with_different_num_envs.__name__} failed"
 
 
 def test_articulation_object_set():

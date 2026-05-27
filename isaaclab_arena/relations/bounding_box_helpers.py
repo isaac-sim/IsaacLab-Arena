@@ -10,6 +10,7 @@ Keeps num_envs and per-env geometry logic out of ObjectBase.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.object_set import RigidObjectSet
@@ -54,3 +55,41 @@ def get_bounding_box_per_env(obj: ObjectBase, num_envs: int) -> AxisAlignedBound
         min_point=bbox.min_point.expand(num_envs, 3),
         max_point=bbox.max_point.expand(num_envs, 3),
     )
+
+
+@dataclass
+class PerEnvBoundingBoxes:
+    """Per-env object bboxes with solver and validation formats."""
+
+    object_bboxes: dict[ObjectBase, AxisAlignedBoundingBox]
+    num_envs: int
+
+    def env_bboxes(self, env_id: int) -> dict[ObjectBase, AxisAlignedBoundingBox]:
+        """Return one-env bboxes for initialization and validation."""
+        return {
+            obj: AxisAlignedBoundingBox(
+                min_point=bbox.min_point[env_id : env_id + 1],
+                max_point=bbox.max_point[env_id : env_id + 1],
+            )
+            for obj, bbox in self.object_bboxes.items()
+        }
+
+    def all_env_bboxes(self) -> list[dict[ObjectBase, AxisAlignedBoundingBox]]:
+        """Return one-env bboxes for every env."""
+        return [self.env_bboxes(env_id) for env_id in range(self.num_envs)]
+
+    def solver_candidate_bboxes(self, candidates_per_env: int) -> dict[ObjectBase, AxisAlignedBoundingBox]:
+        """Return bboxes expanded to match candidate rows passed to the solver."""
+        return {
+            obj: AxisAlignedBoundingBox(
+                min_point=bbox.min_point.repeat_interleave(candidates_per_env, dim=0),
+                max_point=bbox.max_point.repeat_interleave(candidates_per_env, dim=0),
+            )
+            for obj, bbox in self.object_bboxes.items()
+        }
+
+
+def build_per_env_bounding_boxes(objects: list[ObjectBase], num_envs: int) -> PerEnvBoundingBoxes:
+    """Build per-env bboxes for each placement object."""
+    object_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
+    return PerEnvBoundingBoxes(object_bboxes=object_bboxes, num_envs=num_envs)
