@@ -3,10 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Schema the LLM must fill in when parsing a natural-language scene prompt.
+"""Schema the LLM must fill in when parsing a natural-language env-generation prompt.
 
 The LLM sees a list of the *available* asset tags / embodiment names pulled
-from the registries at call time, and must return a SceneSpec that only uses
+from the registries at call time, and must return a LLMEnvSpec that only uses
 those vocabularies. Concrete asset names are resolved by the Resolver in a
 second, deterministic step — the LLM never invents USD paths.
 """
@@ -27,8 +27,8 @@ from pydantic import BaseModel, Field, model_validator
 # omitted — they describe how the placement solver explores poses and are
 # not natural for an LLM to emit.
 # "in" has no In class in isaaclab_arena.relations.relations yet — see the
-# TODO there. The scene builder materializes goal-state "in" relations as
-# the task's success predicate.
+# TODO there. The downstream env builder materializes goal-state "in"
+# relations as the task's success predicate.
 RelationKind = Literal["on", "in", "next_to", "at_position", "at_pose", "is_anchor"]
 
 ItemRole = Literal["foreground", "distractor", "anchor"]
@@ -82,7 +82,7 @@ class Relation(BaseModel):
 
 
 class Task(BaseModel):
-    """One atomic task in the plan that transforms the scene state.
+    """One atomic task in the plan that transforms the env state.
 
     A task specifies what action to perform (kind), what object it acts on
     (subject), and optionally where it goes (target). The description provides
@@ -95,18 +95,21 @@ class Task(BaseModel):
     description: str  # natural-language task description
 
 
-class SceneSpec(BaseModel):
-    """LLM output — a structured plan for the scene and a list of tasks.
+class LLMEnvSpec(BaseModel):
+    """LLM output — a structured plan for the env and a list of tasks.
 
     The language prompt is decomposed into:
 
       * ``initial_scene_graph`` — every relation that holds at env reset.
         This configures where objects spawn. This is a FULL snapshot
-        including all relations that persist throughout all tasks.
+        including all relations that persist throughout all tasks. (Field
+        name kept as ``initial_scene_graph`` even though the class is now
+        ``LLMEnvSpec`` — renaming the field would change the JSON schema
+        the LLM is prompted against and is out of scope here.)
       * ``tasks`` — a list of atomic actions to execute in sequence. Each
         task specifies what to do (kind), what object(s) it acts on
         (subject/target), and a natural-language description. The task
-        sequence implicitly defines the intermediate scene graphs by applying
+        sequence implicitly defines the intermediate env graphs by applying
         each task's transformations in order.
     """
 
@@ -118,9 +121,9 @@ class SceneSpec(BaseModel):
     tasks: list[Task]
 
     @model_validator(mode="after")
-    def _tasks_must_be_non_empty(self) -> SceneSpec:
+    def _tasks_must_be_non_empty(self) -> LLMEnvSpec:
         if not self.tasks:
             raise ValueError(
-                "tasks list is empty — at least one task must be specified to define the scene transformation."
+                "tasks list is empty — at least one task must be specified to define the env transformation."
             )
         return self

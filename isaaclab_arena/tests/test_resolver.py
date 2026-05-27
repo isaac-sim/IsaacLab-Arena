@@ -19,8 +19,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphNodeType, ArenaEnvGraphSpatialConstraintType
+from isaaclab_arena.llm_env_gen.llm_schema import Item, LLMEnvSpec, Relation, Task
 from isaaclab_arena.llm_env_gen.resolver import IK_DEFAULTS, Resolver
-from isaaclab_arena.llm_env_gen.schema import Item, Relation, SceneSpec, Task
 
 # ---------------------------------------------------------------------------
 # Test fixtures
@@ -98,15 +98,15 @@ def _make_scene(
     items: list[Item] | None = None,
     initial_scene_graph: list[Relation] | None = None,
     tasks: list[Task] | None = None,
-) -> SceneSpec:
-    """Build a :class:`SceneSpec` with sane defaults for tests that don't care."""
-    return SceneSpec(
+) -> LLMEnvSpec:
+    """Build a :class:`LLMEnvSpec` with sane defaults for tests that don't care."""
+    return LLMEnvSpec(
         task_description="test scene",
         background=background,
         embodiment=embodiment,
         items=items or [],
         initial_scene_graph=initial_scene_graph or [],
-        # ``tasks`` must be non-empty per SceneSpec validator.
+        # ``tasks`` must be non-empty per LLMEnvSpec validator.
         tasks=tasks
         or [Task(kind="pick_and_place", subject="placeholder", target="placeholder", description="placeholder")],
     )

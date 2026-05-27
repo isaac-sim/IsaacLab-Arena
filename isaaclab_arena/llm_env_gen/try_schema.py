@@ -13,7 +13,7 @@ Output: the resolved spec is always written to
 addition to being printed to stdout).
 
 Examples:
-    # Print the Pydantic SceneSpec JSON schema (no LLM call):
+    # Print the Pydantic LLMEnvSpec JSON schema (no LLM call):
     /isaac-sim/python.sh -m isaaclab_arena.llm_env_gen.try_schema --print-schema
 
     # Print the catalog sent to the LLM (no LLM call):
@@ -66,10 +66,10 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    from isaaclab_arena.llm_env_gen.schema import SceneSpec
+    from isaaclab_arena.llm_env_gen.llm_schema import LLMEnvSpec
 
     if args.print_schema:
-        print(json.dumps(SceneSpec.model_json_schema(), indent=2))
+        print(json.dumps(LLMEnvSpec.model_json_schema(), indent=2))
         return
 
     from isaaclab_arena.llm_env_gen.llm_agent import LLMAgent, build_catalog_text
@@ -107,7 +107,7 @@ def main() -> None:
         spec.background = new_bg
         print(f"\n=== background override applied: {old_bg!r} -> {new_bg!r} ===")
 
-    print("\n=== parsed SceneSpec ===")
+    print("\n=== parsed LLMEnvSpec ===")
     print(spec.model_dump_json(indent=2))
 
     from isaaclab_arena.llm_env_gen.resolver import Resolver

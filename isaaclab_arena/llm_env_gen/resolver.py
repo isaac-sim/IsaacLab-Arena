@@ -3,15 +3,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Deterministic resolver that turns a SceneSpec into an ArenaEnvGraphSpec.
+"""Deterministic resolver that turns an LLMEnvSpec into an ArenaEnvGraphSpec.
 
-The LLM emits a SceneSpec. Resolver.resolve() walks that spec, binds each
+The LLM emits an LLMEnvSpec. Resolver.resolve() walks that spec, binds each
 query string to a registered Asset (preferring exact name, then fuzzy match
 filtered by tags), and emits a fully-formed :class:`ArenaEnvGraphSpec`:
 
   * ``nodes`` — background, embodiment, and objects.
   * ``state_specs`` — one initial state spec derived from
-    ``SceneSpec.initial_scene_graph``, plus one empty success state spec
+    ``LLMEnvSpec.initial_scene_graph``, plus one empty success state spec
     per task as a placeholder for downstream synthesis.
   * ``tasks`` — one task per LLM task, wired to its initial / success
     state spec ids.
@@ -36,7 +36,7 @@ from isaaclab_arena.environments.arena_env_graph_spec import (
     ArenaEnvGraphTaskSpec,
 )
 
-from .schema import Item, Relation, SceneSpec, Task
+from .llm_schema import Item, LLMEnvSpec, Relation, Task
 
 # When the LLM emits a bare robot family name, pick the IK variant.
 IK_DEFAULTS: dict[str, str] = {
@@ -70,7 +70,7 @@ class TraceEvent:
 
 
 class Resolver:
-    """Resolves SceneSpec fields against AssetRegistry.
+    """Resolves LLMEnvSpec fields against AssetRegistry.
 
     Design notes:
       * Never raises on LLM mistakes — instead records a trace event with
@@ -90,8 +90,8 @@ class Resolver:
         # ``resolve()`` returns.
         self.trace: list[TraceEvent] = []
 
-    def resolve(self, spec: SceneSpec, env_name: str | None = None) -> ArenaEnvGraphSpec:
-        """Resolve a SceneSpec into a full :class:`ArenaEnvGraphSpec`.
+    def resolve(self, spec: LLMEnvSpec, env_name: str | None = None) -> ArenaEnvGraphSpec:
+        """Resolve an LLMEnvSpec into a full :class:`ArenaEnvGraphSpec`.
 
         ``env_name`` is derived from the first task and background if not
         provided. The success state of each task is NOT derived here —
@@ -130,7 +130,7 @@ class Resolver:
         return env_graph_spec
 
     @staticmethod
-    def _derive_env_name(spec: SceneSpec) -> str:
+    def _derive_env_name(spec: LLMEnvSpec) -> str:
         first_kind = spec.tasks[0].kind if spec.tasks else "task"
         return f"llm_gen_{spec.background}_{first_kind}"
 
