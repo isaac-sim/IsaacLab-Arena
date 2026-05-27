@@ -16,6 +16,9 @@ RUNTIME_DEPS = [
     "pytest",
     # Used lazily by isaaclab_arena/llm_env_gen/* for NV_API_KEY-based LLM calls.
     "openai",
+    # Hard dependency of isaaclab_arena/llm_env_gen/schema.py (BaseModel / Field /
+    # model_validator imported at module load — not lazy).
+    "pydantic>=2.0",
 ]
 
 DEV_DEPS = [
