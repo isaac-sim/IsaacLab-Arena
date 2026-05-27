@@ -3,17 +3,18 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import yaml
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import yaml
-
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environments.graph_spec_utils import (
     as_dict,
     assert_references_exist,
+    assert_spatial_constraint_shapes,
+    assert_task_arg_node_references_exist,
     assert_unique_ids,
     optional_dict,
     optional_str,
@@ -165,15 +166,21 @@ class ArenaEnvGraphSpec:
         tasks = parse_list(data, "tasks", _parse_task)
         state_specs = parse_list(data, "state_specs", _parse_state_spec)
 
-        assert_unique_ids(nodes, tasks, state_specs)
-        assert_references_exist(nodes, tasks, state_specs)
-
-        return cls(
+        spec = cls(
             env_name=required_str(data, "env_name"),
             nodes=nodes,
             tasks=tasks,
             state_specs=state_specs,
         )
+        spec.validate()
+        return spec
+
+    def validate(self) -> None:
+        """Validate graph-level ids, references, and relationship shapes."""
+        assert_unique_ids(self.nodes, self.tasks, self.state_specs)
+        assert_references_exist(self.nodes, self.tasks, self.state_specs)
+        assert_task_arg_node_references_exist(self.nodes, self.tasks)
+        assert_spatial_constraint_shapes(self.state_specs)
 
     @property
     def nodes_by_id(self) -> dict[str, ArenaEnvGraphNodeSpec]:
@@ -188,11 +195,11 @@ class ArenaEnvGraphSpec:
         return {state_spec.id: state_spec for state_spec in self.state_specs}
 
     def to_arena_env(self, state_spec_id: str | None = None) -> "IsaacLabArenaEnvironment":
-        """Convert this graph spec into an :class:`IsaacLabArenaEnvironment`.
+        """Convert this graph spec into an `IsaacLabArenaEnvironment`.
 
         Args:
             state_spec_id: Optional state spec id to apply as the initial scene state. Defaults to
-                the first graph task's ``initial_state_spec_id``.
+                the first graph task's `initial_state_spec_id`.
         """
         from isaaclab_arena.environments.arena_env_graph_conversion_utils import build_arena_env_from_graph_spec
 

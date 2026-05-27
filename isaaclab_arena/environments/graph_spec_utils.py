@@ -3,8 +3,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from enum import Enum
+from functools import cache
 from numbers import Real
 from typing import TYPE_CHECKING, Any
 
@@ -16,35 +17,41 @@ if TYPE_CHECKING:
 
 
 def as_dict(data: Any, spec_name: str) -> dict[str, Any]:
+    """Require a YAML section to be a mapping before parsing it."""
     assert isinstance(data, dict), f"{spec_name} must be a dict, got {type(data).__name__}"
     return data
 
 
 def parse_list(data: dict[str, Any], key: str, parser: Callable[[Any], Any]) -> list[Any]:
+    """Parse a list field, treating a missing field as an empty list."""
     values = data.get(key, [])
     assert isinstance(values, list), f"Field '{key}' must be a list"
     return [parser(value) for value in values]
 
 
 def required_str(data: dict[str, Any], key: str) -> str:
+    """Read a required non-empty string field."""
     value = data.get(key)
     assert isinstance(value, str) and value, f"Missing required string field '{key}'"
     return value
 
 
 def optional_str(data: dict[str, Any], key: str) -> str | None:
+    """Read an optional string field without inventing a default value."""
     value = data.get(key)
     assert value is None or isinstance(value, str), f"Optional field '{key}' must be a string when set"
     return value
 
 
 def optional_dict(data: dict[str, Any], key: str) -> dict[str, Any]:
+    """Read an optional mapping field and return a mutable copy."""
     value = data.get(key, {})
     assert value is None or isinstance(value, dict), f"Optional field '{key}' must be a dict when set"
     return dict(value or {})
 
 
 def required_number_sequence(data: dict[str, Any], key: str, length: int) -> tuple[float, ...]:
+    """Read a fixed-length numeric list such as a position or quaternion."""
     value = data.get(key)
     assert isinstance(value, (list, tuple)), f"Missing required numeric sequence field '{key}'"
     assert len(value) == length, f"Field '{key}' must contain {length} numbers"
@@ -55,6 +62,7 @@ def required_number_sequence(data: dict[str, Any], key: str, length: int) -> tup
 
 
 def required_enum(data: dict[str, Any], key: str, enum_type: type[Enum]) -> Enum:
+    """Read a required enum field from its YAML string value."""
     value = data.get(key)
     assert value is not None, f"Missing required field '{key}'"
     parsed = parse_enum(value, key, enum_type)
@@ -63,10 +71,12 @@ def required_enum(data: dict[str, Any], key: str, enum_type: type[Enum]) -> Enum
 
 
 def optional_enum(data: dict[str, Any], key: str, enum_type: type[Enum]) -> Enum | None:
+    """Read an optional enum field from its YAML string value."""
     return parse_enum(data.get(key), key, enum_type)
 
 
 def parse_enum(value: Any, key: str, enum_type: type[Enum]) -> Enum | None:
+    """Convert a YAML string to an enum value and show valid options on failure."""
     if value is None or isinstance(value, enum_type):
         return value
     assert isinstance(value, str), f"Field '{key}' must be a string when set"
@@ -78,6 +88,7 @@ def parse_enum(value: Any, key: str, enum_type: type[Enum]) -> Enum | None:
 
 
 def assert_unique_ids(nodes: list[Any], tasks: list[Any], state_specs: list[Any]) -> None:
+    """Ensure every graph id is unique, including constraint ids inside states."""
     id_locations: dict[str, list[str]] = {}
     for node in nodes:
         _add_id_location(id_locations, node.id, f"node '{node.id}'")
@@ -95,6 +106,7 @@ def assert_unique_ids(nodes: list[Any], tasks: list[Any], state_specs: list[Any]
 
 
 def assert_references_exist(nodes: list[Any], tasks: list[Any], state_specs: list[Any]) -> None:
+    """Ensure every graph reference points to a node or state spec that exists."""
     node_ids = {node.id for node in nodes}
     state_spec_ids = {state_spec.id for state_spec in state_specs}
 
@@ -135,8 +147,95 @@ def assert_references_exist(nodes: list[Any], tasks: list[Any], state_specs: lis
                 ), f"Constraint '{constraint.id}' references unknown child node '{constraint.child}'"
 
 
+def assert_task_arg_node_references_exist(nodes: list[Any], tasks: list[Any]) -> None:
+    """Validate task args that use known node-reference names, even when nested."""
+    node_ids = {node.id for node in nodes}
+    node_ref_keys = {
+        "background",
+        "backgroundscene",
+        "destination",
+        "destinationlocation",
+        "destinationobject",
+        "object",
+        "pickupobject",
+    }
+
+    for task in tasks:
+        for key, value in task.task_args.items():
+            if normalize_identifier(key) in node_ref_keys:
+                for arg_path, arg_value in iter_nested_leaf_values(value, key):
+                    if isinstance(arg_value, str):
+                        assert (
+                            arg_value in node_ids
+                        ), f"Task '{task.id}' arg '{arg_path}' references unknown node '{arg_value}'"
+
+
+def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
+    """Check each spatial constraint has the parent/child shape its relation expects."""
+    relation_classes = spatial_constraint_relation_classes()
+
+    for state_spec in state_specs:
+        for constraint in state_spec.spatial_constraints:
+            constraint_type = _enum_value(constraint.type)
+            if constraint_type == "at_pose":
+                assert (
+                    constraint.child is None
+                ), f"Spatial constraint '{constraint.id}' of type '{constraint_type}' must not define a child node"
+                assert (
+                    "position_xyz" in constraint.params
+                ), f"Spatial constraint '{constraint.id}' of type 'at_pose' requires params.position_xyz"
+                continue
+            if constraint_type == "in":
+                assert (
+                    constraint.child is not None
+                ), f"Spatial constraint '{constraint.id}' of type '{constraint_type}' requires a child node"
+                continue
+
+            relation_cls = relation_classes.get(constraint.type)
+            assert (
+                relation_cls is not None
+            ), f"Spatial constraint type '{constraint_type}' is not mapped to a relation class"
+            if relation_cls.is_unary():
+                assert (
+                    constraint.child is None
+                ), f"Spatial constraint '{constraint.id}' of type '{constraint_type}' must not define a child node"
+            else:
+                assert (
+                    constraint.child is not None
+                ), f"Spatial constraint '{constraint.id}' of type '{constraint_type}' requires a child node"
+
+
+@cache
+def spatial_constraint_relation_classes() -> dict[Any, type[Any]]:
+    """Map graph spatial constraint types to the relation classes that implement them."""
+    from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpatialConstraintType
+    from isaaclab_arena.relations.relations import (
+        AtPosition,
+        IsAnchor,
+        NextTo,
+        On,
+        PositionLimits,
+        RandomAroundSolution,
+        RotateAroundSolution,
+    )
+
+    return {
+        ArenaEnvGraphSpatialConstraintType.IS_ANCHOR: IsAnchor,
+        ArenaEnvGraphSpatialConstraintType.NEXT_TO: NextTo,
+        ArenaEnvGraphSpatialConstraintType.ON: On,
+        ArenaEnvGraphSpatialConstraintType.AT_POSITION: AtPosition,
+        ArenaEnvGraphSpatialConstraintType.POSITION_LIMITS: PositionLimits,
+        ArenaEnvGraphSpatialConstraintType.RANDOM_AROUND_SOLUTION: RandomAroundSolution,
+        ArenaEnvGraphSpatialConstraintType.ROTATE_AROUND_SOLUTION: RotateAroundSolution,
+    }
+
+
 def _add_id_location(id_locations: dict[str, list[str]], spec_id: str, location: str) -> None:
     id_locations.setdefault(spec_id, []).append(location)
+
+
+def _enum_value(value: Any) -> Any:
+    return getattr(value, "value", value)
 
 
 def relation_class_for_spatial_constraint_type(
@@ -152,3 +251,48 @@ def relation_class_for_spatial_constraint_type(
     if registry.is_registered(constraint_type.value):
         return registry.get_object_relation_by_name(constraint_type.value)
     return None
+
+
+def iter_nested_leaf_values(value: Any, key_path: str = "") -> Iterator[tuple[str, Any]]:
+    """Walk nested task-arg values while keeping a readable path for errors."""
+    if isinstance(value, dict):
+        for key, item in value.items():
+            nested_key_path = f"{key_path}.{key}" if key_path else str(key)
+            yield from iter_nested_leaf_values(item, nested_key_path)
+    elif isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            nested_key_path = f"{key_path}[{index}]" if key_path else f"[{index}]"
+            yield from iter_nested_leaf_values(item, nested_key_path)
+    else:
+        yield key_path, value
+
+
+def map_nested_leaf_values(value: Any, transform: Callable[[Any], Any]) -> Any:
+    """Apply a transform to nested task-arg leaves while preserving container shape."""
+    if isinstance(value, dict):
+        return {key: map_nested_leaf_values(item, transform) for key, item in value.items()}
+    if isinstance(value, list):
+        return [map_nested_leaf_values(item, transform) for item in value]
+    if isinstance(value, tuple):
+        return tuple(map_nested_leaf_values(item, transform) for item in value)
+    return transform(value)
+
+
+def normalize_identifier(identifier: str) -> str:
+    """Normalize names so YAML keys can be matched across casing and separators."""
+    return "".join(char for char in identifier.lower() if char.isalnum())
+
+
+def camel_to_snake(identifier: str) -> str:
+    """Turn a class-like name into the module-style name we try during discovery."""
+    chars: list[str] = []
+    for index, char in enumerate(identifier):
+        if char.isupper() and index > 0 and (identifier[index - 1].islower() or identifier[index - 1].isdigit()):
+            chars.append("_")
+        chars.append(char.lower())
+    return "".join(chars)
+
+
+def strip_suffix(value: str, suffix: str) -> str:
+    """Remove a suffix only when the value actually has it."""
+    return value[: -len(suffix)] if value.endswith(suffix) else value

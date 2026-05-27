@@ -139,29 +139,36 @@ def test_arena_env_graph_spec_parses_optional_task_constraints_and_at_pose():
     assert fixed_pose.params["rotation_xyzw"] == (0.0, 0.0, 0.0, 1.0)
 
 
-def test_arena_env_graph_conversion_validates_references_before_instantiation():
+def test_arena_env_graph_spec_validate_rejects_mutated_missing_reference():
     spec = ArenaEnvGraphSpec.from_dict(_minimal_env_graph_data())
     spec.state_specs[0].spatial_constraints[0].parent = "missing_table"
 
     with pytest.raises(AssertionError, match="unknown parent node 'missing_table'"):
-        spec.to_arena_env()
+        spec.validate()
 
 
-def test_arena_env_graph_conversion_validates_relationship_shape_before_instantiation():
+def test_arena_env_graph_spec_validate_rejects_mutated_invalid_relationship_shape():
     spec = ArenaEnvGraphSpec.from_dict(_minimal_env_graph_data())
     constraint = spec.state_specs[0].spatial_constraints[0]
     constraint.type = ArenaEnvGraphSpatialConstraintType.ON
 
     with pytest.raises(AssertionError, match="requires a child node"):
-        spec.to_arena_env()
+        spec.validate()
 
 
-def test_arena_env_graph_conversion_validates_task_arg_node_references_before_instantiation():
-    spec = ArenaEnvGraphSpec.from_dict(_minimal_env_graph_data())
-    spec.tasks[0].task_args = {"object": "missing_cube"}
+def test_arena_env_graph_spec_validates_task_arg_node_references_at_construction():
+    data = _minimal_env_graph_data()
+    data["tasks"][0]["task_args"] = {"object": "missing_cube"}
 
     with pytest.raises(AssertionError, match="unknown node 'missing_cube'"):
-        spec.to_arena_env()
+        ArenaEnvGraphSpec.from_dict(data)
+
+
+def test_arena_env_graph_conversion_validates_selected_initial_state_before_instantiation():
+    spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml")
+
+    with pytest.raises(AssertionError, match="not supported for initial state conversion"):
+        spec.to_arena_env(state_spec_id="state_spec_1")
 
 
 def _test_arena_env_graph_conversion_builds_sequential_pick_and_place_task(simulation_app):
@@ -239,6 +246,16 @@ def test_arena_env_graph_spec_rejects_invalid_data():
             "missing spatial parent",
             lambda data: data["state_specs"][0]["spatial_constraints"][0].pop("parent"),
             "Missing required string field 'parent'",
+        ),
+        (
+            "relationship missing child",
+            lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("type", "on"),
+            "requires a child node",
+        ),
+        (
+            "unary relationship with child",
+            lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("child", "cube"),
+            "must not define a child node",
         ),
         (
             "old state edges wrapper",
