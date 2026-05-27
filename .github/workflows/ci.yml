@@ -156,7 +156,8 @@ jobs:
 
       - name: Run in-process PhysX tests without cameras
         run: |
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
+          /isaac-sim/python.sh -m pytest -sv --durations=0 \
+            -m "not with_cameras and not with_subprocess and not with_newton and not llm_remote_e2e" \
             isaaclab_arena/tests/
 
       - name: Run GR00T policy/data tests (lightweight gr00t deps only)

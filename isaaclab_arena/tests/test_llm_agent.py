@@ -360,8 +360,6 @@ def test_generate_spec_against_live_endpoint():
       * ``llm_remote_e2e`` marker — registered in ``pytest.ini`` next to
         ``gr00t_remote_e2e``. Run explicitly with
         ``pytest -m llm_remote_e2e isaaclab_arena/tests/test_llm_agent.py``.
-      * ``skipif`` on ``NV_API_KEY`` — belt-and-braces so a forgotten
-        marker filter still skips when no key is configured locally.
 
     The asset catalog is supplied inline rather than via ``AssetRegistry``
     so the test doesn't depend on Isaac Lab asset registration state — we
