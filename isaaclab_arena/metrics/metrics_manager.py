@@ -17,11 +17,6 @@ if TYPE_CHECKING:
 class MetricsManager:
     """Run-time manager that computes metrics.
 
-    Mirrors the Isaac Lab manager pattern (:class:`isaaclab.managers.RewardManager`,
-    :class:`isaaclab.managers.TerminationManager`, ...) but is intentionally lightweight:
-    metric computation runs *after* a rollout has finished, so there is no need for
-    per-step hooks or the full :class:`isaaclab.managers.ManagerBase` machinery.
-
     The manager parses a configclass container of `MetricTermCfg` instances --
     one field per metric -- and exposes a method `compute` to load the recorded data for
     each term and compute the metric.
@@ -45,8 +40,6 @@ class MetricsManager:
         if cfg is None:
             return
         for term_name, term_cfg in cfg.__dict__.items():
-            if term_cfg is None:
-                continue
             self._term_names.append(term_name)
             self._term_cfgs.append(term_cfg)
 
