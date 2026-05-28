@@ -11,7 +11,7 @@ HEADLESS = True
 
 
 def _test_add_suffix_configclass_transform(simulation_app) -> bool:
-    """Test that add_suffix_configclass_transform correctly renames fields with suffix."""
+    """Test that _add_suffix_configclass_transform correctly renames fields with suffix."""
 
     from functools import partial
 
@@ -31,7 +31,7 @@ def _test_add_suffix_configclass_transform(simulation_app) -> bool:
         original_cfg = FooCfg()
         edited_cfg = transform_configclass_instance(
             original_cfg,
-            partial(CompositeTaskBase.add_suffix_configclass_transform, suffix="_suffix"),
+            partial(CompositeTaskBase._add_suffix_configclass_transform, suffix="_suffix"),
         )
 
         # Check that new fields exist with suffix
@@ -61,7 +61,7 @@ def _test_add_suffix_configclass_transform(simulation_app) -> bool:
         # Test None input
         edited_cfg = transform_configclass_instance(
             None,
-            partial(CompositeTaskBase.add_suffix_configclass_transform, suffix="_suffix"),
+            partial(CompositeTaskBase._add_suffix_configclass_transform, suffix="_suffix"),
         )
         assert edited_cfg is None
 
@@ -74,7 +74,7 @@ def _test_add_suffix_configclass_transform(simulation_app) -> bool:
 
 
 def _test_remove_configclass_transform(simulation_app) -> bool:
-    """Test that remove_configclass_transform correctly removes specified fields."""
+    """Test that _remove_configclass_transform correctly removes specified fields."""
 
     from functools import partial
 
@@ -93,7 +93,7 @@ def _test_remove_configclass_transform(simulation_app) -> bool:
         original_cfg = FooCfg()
         edited_cfg = transform_configclass_instance(
             original_cfg,
-            partial(CompositeTaskBase.remove_configclass_transform, exclude_fields={"field_b"}),
+            partial(CompositeTaskBase._remove_configclass_transform, exclude_fields={"field_b"}),
         )
 
         # Check that remaining fields exist
@@ -111,7 +111,7 @@ def _test_remove_configclass_transform(simulation_app) -> bool:
         original_cfg = FooCfg()
         edited_cfg = transform_configclass_instance(
             original_cfg,
-            partial(CompositeTaskBase.remove_configclass_transform, exclude_fields={"field_a", "field_c"}),
+            partial(CompositeTaskBase._remove_configclass_transform, exclude_fields={"field_a", "field_c"}),
         )
 
         # Check that only field_b remains
@@ -123,7 +123,7 @@ def _test_remove_configclass_transform(simulation_app) -> bool:
         # Test None input
         edited_cfg = transform_configclass_instance(
             None,
-            partial(CompositeTaskBase.remove_configclass_transform, exclude_fields=set()),
+            partial(CompositeTaskBase._remove_configclass_transform, exclude_fields=set()),
         )
         assert edited_cfg is None
 
@@ -131,7 +131,7 @@ def _test_remove_configclass_transform(simulation_app) -> bool:
         original_cfg = FooCfg()
         edited_cfg = transform_configclass_instance(
             original_cfg,
-            partial(CompositeTaskBase.remove_configclass_transform, exclude_fields={"field_a", "field_b", "field_c"}),
+            partial(CompositeTaskBase._remove_configclass_transform, exclude_fields={"field_a", "field_b", "field_c"}),
         )
         assert edited_cfg is None
 
@@ -211,7 +211,7 @@ def _test_composite_desired_subtask_success_state_with_none(simulation_app) -> b
         subtasks[1].set_success([True])
         subtasks[2].set_success([True])
         result = CompositeTaskBase.composite_task_success_func(env, subtasks, [None, True, True])
-        assert env._subtask_success_state == [[True, True, True]]
+        assert env._subtask_ever_succeeded == [[True, True, True]]
         assert result.tolist() == [True]
 
         # Subtask 0 currently False (don't-care) -> still success.

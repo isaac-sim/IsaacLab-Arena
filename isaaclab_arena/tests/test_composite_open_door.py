@@ -26,23 +26,6 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
     from isaaclab_arena.tasks.open_door_task import OpenDoorTask
     from isaaclab_arena.utils.pose import Pose
 
-    class CompositeOpenDoorTask(CompositeTaskBase):
-        def __init__(
-            self,
-            subtasks,
-            episode_length_s=None,
-        ):
-            super().__init__(subtasks=subtasks, episode_length_s=episode_length_s)
-
-        def get_metrics(self):
-            return []
-
-        def get_prompt(self):
-            return ""
-
-        def get_mimic_env_cfg(self, embodiment_name: str):
-            return None
-
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli = args_parser.parse_args(["--num_envs", str(num_envs)])
 
@@ -77,7 +60,7 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
         name="composite_open_door",
         embodiment=FrankaIKEmbodiment(),
         scene=scene,
-        task=CompositeOpenDoorTask([subtask_1, subtask_2]),
+        task=CompositeTaskBase([subtask_1, subtask_2]),
     )
 
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)

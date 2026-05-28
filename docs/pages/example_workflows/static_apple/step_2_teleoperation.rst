@@ -99,6 +99,53 @@ Step 2: Start Arena Teleop
       Arena teleop session with XR running. Stereoscopic view (left) and OpenXR settings in the XR tab (right).
 
 
+Step 2b: Monitor Recording with a Second Viewport (Optional)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For higher-quality datasets, we recommend a two-person workflow when collecting demonstrations in
+Step 4: one person teleoperates from the headset, while a second person watches the host monitor
+to confirm each trajectory stays inside the robot's head-camera field of view. Anything that
+drifts outside the recording FOV is absent from the saved HDF5 and absent from the policy's view
+at training time, so catching it live saves a re-record.
+
+The Arena application's default viewport shows the *teleoperator's* stereoscopic perspective —
+what the headset wearer sees, not what ``record_demos.py`` will store. To watch both side-by-side,
+open a second viewport bound to the robot's head camera:
+
+#. In the running Arena application, open the **Window** menu and toggle on **Viewport 2**.
+
+   .. figure:: ../../../images/xr_enable_second_viewport.jpg
+      :width: 100%
+      :alt: Isaac Lab Window menu with the Viewport 2 toggle highlighted.
+      :align: center
+
+      Enable a second viewport from the **Window** menu.
+
+#. In the new Viewport 2, click the camera selector in the viewport toolbar and choose the
+   robot's head-mounted camera (``RobotHeadCam``, under
+   ``/World/envs/env_0/Robot/head_link``). This is the camera that ``record_demos.py`` writes
+   to the HDF5 file in Step 4, so any motion that leaves this frame will be absent from the
+   dataset.
+
+   .. figure:: ../../../images/xr_second_viewport_robot_camera.jpg
+      :width: 100%
+      :alt: Two viewports side-by-side: stereoscopic XR view (left) and the robot head-camera view (right).
+      :align: center
+
+      Dual-viewport layout: the stereoscopic XR view (left) is the teleoperator's perspective,
+      and the head-camera view (right) is what the dataset captures. The observer keeps every
+      grasp and placement inside the right viewport and gives the teleoperator live feedback
+      ("move a touch to your right — your hand is at the edge of frame").
+
+.. note::
+
+   ``RobotHeadCam`` is only spawned when ``--enable_cameras`` is set. The ``record_demos.py``
+   command in Step 4 enables it by default, so the camera shows up in the camera selector once
+   you are recording. The smoke-test ``teleop.py`` command above omits ``--enable_cameras`` for
+   performance; pass it there too if you want to validate the dual-viewport layout before
+   entering VR.
+
+
 Step 3: Connect from the headset device
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -127,6 +174,16 @@ A strong wireless connection is essential for a high-quality streaming experienc
          :width: 40%
          :alt: IsaacSim view
          :align: center
+
+   .. note::
+
+      If the robot does not align with your body direction after connecting the headset, reset the
+      headset view before recording. On Meta Quest, hold the Meta/Oculus button or use
+      **Quick controls** > **Reset view**. On PICO 4 Ultra, look straight ahead and hold the
+      controller **Home** button for at least 1 second. See Meta's
+      `Quest guide <https://www.meta.com/help/quest/149215193811647/>`_ and the
+      `PICO 4 Ultra User Guide
+      <https://p16-platform-static-va.ibyteimg.com/tos-maliva-i-jo6vmmv194-us/pico4-ultra-user-guide-apac.pdf>`_.
 
 #. **Teleoperation Controls**:
 

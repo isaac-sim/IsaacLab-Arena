@@ -218,7 +218,7 @@ def _test_windowed_metric_passes_through_to_inner(simulation_app) -> bool:
 
 
 def _test_composite_wraps_metrics_when_enabled(simulation_app) -> bool:
-    """``combine_subtask_metrics`` wraps subtask metrics in ``SubtaskWindowedMetric``
+    """``_combine_subtask_metrics`` wraps subtask metrics in ``SubtaskWindowedMetric``
     only when ``window_subtask_metrics=True``, and uses the class-level scope."""
 
     from isaaclab_arena.metrics.metric_base import MetricBase
@@ -246,7 +246,7 @@ def _test_composite_wraps_metrics_when_enabled(simulation_app) -> bool:
 
         def get_metrics(self):
             # Return a fresh instance per call (matches expected TaskBase contract that
-            # ``combine_subtask_metrics`` mutates the returned objects).
+            # ``_combine_subtask_metrics`` mutates the returned objects).
             m = _FakeMetric()
             m.name = "object_moved_rate"
             m.recorder_term_name = "object_linear_velocity"
@@ -254,7 +254,7 @@ def _test_composite_wraps_metrics_when_enabled(simulation_app) -> bool:
 
     def _make_composite(cls, *, window: bool):
         # Bypass __init__ to avoid building real Isaac Lab event/termination configs —
-        # ``combine_subtask_metrics`` only needs ``subtasks`` and the flag.
+        # ``_combine_subtask_metrics`` only needs ``subtasks`` and the flag.
         obj = cls.__new__(cls)
         obj.subtasks = [_FakeSubtask(), _FakeSubtask()]
         obj.window_subtask_metrics = window
@@ -262,7 +262,7 @@ def _test_composite_wraps_metrics_when_enabled(simulation_app) -> bool:
 
     try:
         # Flag off: metrics are renamed but not wrapped — one entry per subtask metric.
-        unwrapped = _make_composite(CompositeTaskBase, window=False).combine_subtask_metrics([0, 1])
+        unwrapped = _make_composite(CompositeTaskBase, window=False)._combine_subtask_metrics([0, 1])
         assert len(unwrapped) == 2
         for m in unwrapped:
             assert not isinstance(m, SubtaskWindowedMetric)
@@ -270,7 +270,7 @@ def _test_composite_wraps_metrics_when_enabled(simulation_app) -> bool:
 
         # Flag on: BOTH the episode-wide bare metric and the windowed wrapper appear,
         # side-by-side, under distinct ``name``s but sharing ``recorder_term_name``.
-        both = _make_composite(CompositeTaskBase, window=True).combine_subtask_metrics([0, 1])
+        both = _make_composite(CompositeTaskBase, window=True)._combine_subtask_metrics([0, 1])
         assert len(both) == 4
         bare = [m for m in both if not isinstance(m, SubtaskWindowedMetric)]
         wrapped = [m for m in both if isinstance(m, SubtaskWindowedMetric)]
@@ -291,7 +291,7 @@ def _test_composite_wraps_metrics_when_enabled(simulation_app) -> bool:
             }
 
         # Sequential: same shape, but wrappers use FROM_PREV_DONE scope.
-        both_seq = _make_composite(SequentialTaskBase, window=True).combine_subtask_metrics([0, 1])
+        both_seq = _make_composite(SequentialTaskBase, window=True)._combine_subtask_metrics([0, 1])
         assert len(both_seq) == 4
         wrapped_seq = [m for m in both_seq if isinstance(m, SubtaskWindowedMetric)]
         assert len(wrapped_seq) == 2
