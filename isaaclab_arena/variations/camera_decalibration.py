@@ -6,10 +6,13 @@
 """Per-env camera decalibration variation.
 
 Adds a small sampler-drawn translation on top of a camera's nominal local
-position so its observed pose drifts from the calibrated reference. The
-nominal (un-decalibrated) local translation is snapshotted on the first event
-tick, and each subsequent tick rewrites the local translation to
-``nominal + delta`` for the envs being touched, so deltas don't compound
+position so its observed pose drifts from the calibrated reference. Deltas are
+sampled in the camera's own frame (see
+:class:`CameraDecalibrationVariationCfg` for the axis convention) and rotated
+into the camera's parent (USD local) frame before being applied as a local
+translation. The nominal (un-decalibrated) local translation is snapshotted on
+the first event tick, and each subsequent tick rewrites the local translation
+to ``nominal + R · delta`` for the envs being touched, so deltas don't compound
 across resets.
 """
 
@@ -22,6 +25,7 @@ from typing import TYPE_CHECKING
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.sensors import Camera, TiledCamera
 from isaaclab.utils import configclass
+from isaaclab.utils.math import quat_apply
 
 from isaaclab_arena.variations.sampler_base import SamplerBase
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
@@ -39,8 +43,10 @@ class CameraDecalibrationVariationCfg(VariationBaseCfg):
         mode: Event mode forwarded to :class:`EventTermCfg`. ``"reset"`` resamples
             the decalibration on every episode reset; ``"prestartup"`` picks a
             stable per-env offset that persists for the run.
-        sampler: 3D translation distribution in the camera's parent (USD local)
-            frame. Defaults to a uniform over ``[-5 mm, +5 mm]`` on every axis.
+        sampler: 3D translation distribution in the camera's own frame, with
+            axes interpreted as ``(x_right_in_image, y_down_in_image,
+            z_forward_into_scene)`` (ROS optical-frame convention). Defaults
+            to a uniform over ``[-5 mm, +5 mm]`` on every axis.
     """
 
     mode: str = "reset"
@@ -105,13 +111,14 @@ class CameraDecalibrationVariation(RunTimeVariationBase):
 
 
 class decalibrate_camera_from_sampler(ManagerTermBase):
-    """Add a sampler-drawn translation to a camera's nominal local position.
+    """Add a sampler-drawn camera-frame translation to a camera's nominal local position.
 
-    Snapshots the camera's factory local translation on first call, then on
-    every subsequent call writes ``nominal + delta`` per env so decalibrations
-    don't compound across resets. Operates on the camera's underlying
-    :class:`~isaaclab.sim.views.XformPrimView` via ``set_local_poses`` so
-    wrist-mounted cameras keep tracking their parent body.
+    Snapshots the camera's factory local pose on first call and rewrites the
+    local translation to ``nominal + R · delta`` per env on subsequent calls
+    so decalibrations don't compound across resets. Operates on the camera's
+    underlying :class:`~isaaclab.sim.views.XformPrimView` via
+    ``set_local_poses`` so wrist-mounted cameras keep tracking their parent
+    body.
     """
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
@@ -131,9 +138,10 @@ class decalibrate_camera_from_sampler(ManagerTermBase):
         )
 
         self._camera = camera
-        # Snapshot lazily on first __call__ so the camera's view has been
-        # initialised by the sensor's lifecycle hooks before we read from it.
-        self._nominal_local_pos: torch.Tensor | None = None
+        # Snapshotted on first ``__call__`` (the camera's view is only
+        # initialised by the sensor's lifecycle hooks at that point).
+        self._t_parent_C: torch.Tensor | None = None
+        self._q_parent_C_xyzw: torch.Tensor | None = None
 
     def __call__(
         self,
@@ -143,11 +151,23 @@ class decalibrate_camera_from_sampler(ManagerTermBase):
         sampler: SamplerBase,
     ):
         view = self._camera._view
-        if self._nominal_local_pos is None:
-            nominal_pos, _ = view.get_local_poses()
-            self._nominal_local_pos = nominal_pos.detach().clone()
+        if self._t_parent_C is None:
+            t_parent_C, q_parent_C_wxyz = view.get_local_poses()
+            self._t_parent_C = t_parent_C.detach().clone()
+            self._q_parent_C_xyzw = torch.roll(q_parent_C_wxyz.detach(), shifts=-1, dims=-1).clone()
+
+        assert self._t_parent_C is not None
+        assert self._q_parent_C_xyzw is not None
 
         sample = sampler.sample(num_samples=len(env_ids))
-        deltas = sample.to(device=self._nominal_local_pos.device, dtype=self._nominal_local_pos.dtype)
-        new_local_pos = self._nominal_local_pos[env_ids] + deltas
+        deltas_input = sample.to(device=self._t_parent_C.device, dtype=self._t_parent_C.dtype)
+        # Empirical sign mapping from the sampler's ROS-style input axes to the
+        # camera's OpenGL local frame for the droid wrist mount. The textbook
+        # ROS -> OpenGL conversion is ``(+x, -y, -z)``; the mapping below was
+        # verified visually. TODO: replace with the standard conversion once
+        # the underlying discrepancy (suspected spawn-path quaternion order or
+        # renderer-side image flip) is understood.
+        deltas_opengl = deltas_input * deltas_input.new_tensor((-1.0, 1.0, -1.0))
+        deltas_parent = quat_apply(self._q_parent_C_xyzw[env_ids], deltas_opengl)
+        new_local_pos = self._t_parent_C[env_ids] + deltas_parent
         view.set_local_poses(translations=new_local_pos, orientations=None, indices=env_ids)
