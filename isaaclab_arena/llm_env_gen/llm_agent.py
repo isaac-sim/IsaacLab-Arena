@@ -15,9 +15,8 @@ from __future__ import annotations
 import contextlib
 import json
 import os
-from typing import get_args
 
-from .llm_schema import LLMEnvSpec, RelationKind, TaskKind
+from .llm_schema import LLMEnvSpec
 
 DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
 DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
@@ -215,53 +214,31 @@ class LLMAgent:
 
     def _system_prompt(self) -> str:
         schema = json.dumps(LLMEnvSpec.model_json_schema(), indent=2)
-        # Derive the enumerations the LLM is allowed to emit directly from
-        # the pydantic literal types so the prompt cannot drift out of sync
-        # when RelationKind / TaskKind change. Bare identifiers for
-        # relation kinds (e.g. ``on``), JSON-style quoted strings for task
-        # kinds (e.g. ``"pick_and_place"``) — matching the surrounding
-        # prose style.
-        relation_kinds = ", ".join(get_args(RelationKind))
-        task_kinds = ", ".join(f'"{k}"' for k in get_args(TaskKind))
+        # Per-field guidance (what each field means, enum members, default
+        # behaviours) lives on the ``Field(description=...)`` entries in
+        # llm_schema.py and is surfaced to the LLM via the SCHEMA block
+        # below. Only cross-cutting rules (those that span multiple fields
+        # or change LLM output behaviour globally) and few-shot examples
+        # belong here.
         return (
             "You are an env-generation parser for robot manipulation tasks.\n"
             "Convert a natural-language prompt into an LLMEnvSpec JSON object that matches the schema below.\n\n"
-            "RULES:\n"
-            "- item.query: the short human name as it appears in the prompt (e.g. 'avocado', 'bowl').\n"
-            "  The resolver fuzzy-matches this against the OBJECTS catalog; you do NOT need to emit the\n"
-            "  exact registered name.\n"
-            "- item.role: 'foreground' for objects the task acts on; 'distractor' for extras mentioned as\n"
-            "  clutter; 'anchor' for reference surfaces (rare — the background usually covers this).\n"
-            "- item.category_tags: tags that semantically narrow the query, preferring assets with those\n"
-            "  tags. This is a PREFERENCE, not a hard filter — the resolver will fall back to the full\n"
-            "  catalog if the tag pool is empty or yields no close match. Err toward emitting useful tags;\n"
-            "  the trace will report what was relaxed.\n"
-            f"- relation.kind ∈ {{{relation_kinds}}}. Spatial relations only —\n"
-            "  articulated-state changes are expressed via tasks below, not as relations.\n"
-            "  subject/target reference items by their query string or the background name.\n"
-            "  * Articulated objects (microwave, fridge, cabinet) still need a spatial\n"
-            "    'on(<object>, background)' relation to anchor them.\n"
-            "  * Distractor items around the appliance need 'on(distractor, background)' relations.\n"
-            "- initial_scene_graph: FULL snapshot of all relations in the starting state. Every persistent\n"
-            "  relation (e.g. bowl on table, distractors present) must appear here. Relations that change\n"
-            "  via tasks are still listed here in their starting form.\n"
-            "- tasks: a list of atomic tasks to perform in order. Each task has:\n"
-            f"    * kind ∈ {{{task_kinds}}}\n"
-            "    * subject: the primary object being acted on (e.g. 'avocado', 'microwave')\n"
-            "    * target: the secondary object/location (e.g. 'bowl' for pick_and_place, null for open/close)\n"
-            "    * description: natural-language summary of the task\n"
-            "  Examples:\n"
+            "GUIDANCE:\n"
+            "- Follow the per-field ``description`` strings in SCHEMA for what each field expects.\n"
+            "- If the prompt does not specify a value for an optional field, output null.\n"
+            "  Do NOT hallucinate values — the resolver tolerates nulls; it cannot fix invented data.\n"
+            "- Articulated objects (microwave, fridge, cabinet) still need a spatial\n"
+            "  'on(<object>, background)' relation in initial_scene_graph to anchor them; their\n"
+            "  open/close behaviour is expressed via tasks, not via relations.\n"
+            "- Distractor items around the appliance need 'on(distractor, background)' relations\n"
+            "  in initial_scene_graph as well.\n"
+            "- Task examples (showing kind + subject + target + description shape):\n"
             '    * Pick-and-place: {"kind": "pick_and_place", "subject": "avocado", "target": "bowl",\n'
             '                       "description": "pick up the avocado and place it in the bowl"}\n'
             '    * Open door: {"kind": "open_door", "subject": "microwave", "target": null,\n'
             '                  "description": "open the microwave door"}\n'
             '    * Close door: {"kind": "close_door", "subject": "microwave", "target": null,\n'
             '                   "description": "close the microwave door"}\n'
-            "  The tasks implicitly define the final scene: apply each task's transformation in order\n"
-            "  to determine what relations hold at completion.\n"
-            "- embodiment: use a bare robot family name ('franka', 'droid', 'g1', 'gr1') when the prompt\n"
-            "  does not specify a control mode — the resolver defaults each to its IK variant. Use a\n"
-            "  full registered name (e.g. 'franka_joint_pos') only when the prompt requests joint control.\n"
             "- Emit ONLY the JSON object. No prose, no markdown fences.\n\n"
             f"SCHEMA:\n{schema}"
         )
