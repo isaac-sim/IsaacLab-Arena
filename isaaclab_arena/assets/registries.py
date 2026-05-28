@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
     from isaaclab_arena.policy.policy_base import PolicyBase
     from isaaclab_arena.relations.relations import RelationBase
+    from isaaclab_arena.tasks.task_base import TaskBase
 
 
 # Have to define all classes here in order to avoid circular import.
@@ -52,6 +53,7 @@ class Registry(metaclass=SingletonMeta):
                 PolicyRegistry,
                 HDRImageRegistry,
                 ObjectRelationLibraryRegistry,
+                TaskRegistry,
             ),
         ):
             ensure_assets_registered()
@@ -76,6 +78,7 @@ class Registry(metaclass=SingletonMeta):
                 PolicyRegistry,
                 HDRImageRegistry,
                 ObjectRelationLibraryRegistry,
+                TaskRegistry,
             ),
         ):
             ensure_assets_registered()
@@ -98,6 +101,7 @@ class Registry(metaclass=SingletonMeta):
                 PolicyRegistry,
                 HDRImageRegistry,
                 ObjectRelationLibraryRegistry,
+                TaskRegistry,
             ),
         ):
             ensure_assets_registered()
@@ -264,6 +268,22 @@ class ObjectRelationLibraryRegistry(Registry):
         return self.get_component_by_name(name)
 
 
+class TaskRegistry(Registry):
+    """Registry for TaskBase subclasses."""
+
+    def __init__(self):
+        super().__init__()
+
+    def get_task_by_name(self, name: str) -> type["TaskBase"]:
+        """Gets a task class by name.
+
+        Args:
+            name (str): The name of the task class (typically the class __name__).
+        """
+        ensure_assets_registered()
+        return self.get_component_by_name(name)
+
+
 # Lazy registration to avoid circular imports
 _assets_registered = False
 
@@ -281,5 +301,6 @@ def ensure_assets_registered():
         import isaaclab_arena.embodiments  # noqa: F401
         import isaaclab_arena.policy  # noqa: F401
         import isaaclab_arena.relations.relations  # noqa: F401
+        import isaaclab_arena.tasks  # noqa: F401
 
         _assets_registered = True

@@ -11,6 +11,7 @@ from isaaclab_arena.assets.registries import (
     ObjectRelationLibraryRegistry,
     PolicyRegistry,
     RetargeterRegistry,
+    TaskRegistry,
 )
 
 
@@ -78,4 +79,16 @@ def register_object_relation(cls):
         print(f"WARNING: Object relation {cls.name} is already registered. Doing nothing.")
     else:
         registry.register(cls, cls.name)
+    return cls
+
+
+# Decorator to register a TaskBase subclass with the TaskRegistry.
+# Keyed by `cls.__name__` so the YAML `type: PascalCase` lookups match without
+# requiring a separate `name` attribute on every task class.
+def register_task(cls):
+    registry = TaskRegistry()
+    if registry.is_registered(cls.__name__):
+        print(f"WARNING: Task {cls.__name__} is already registered. Doing nothing.")
+    else:
+        registry.register(cls, cls.__name__)
     return cls
