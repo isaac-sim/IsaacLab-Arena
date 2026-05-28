@@ -17,7 +17,7 @@ from isaaclab_arena.environments.arena_env_graph_types import (
     ArenaEnvGraphSpatialConstraintType,
     ArenaEnvGraphStateSpec,
 )
-from isaaclab_arena.environments.graph_spec_utils import spatial_constraint_relation_classes
+from isaaclab_arena.environments.graph_spec_utils import relation_class_for_spatial_constraint_type
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.utils.pose import Pose
@@ -83,7 +83,6 @@ def _instantiate_node_assets(nodes: list[ArenaEnvGraphNodeSpec], asset_registry:
 
 def _apply_state_spatial_constraints(state_spec: ArenaEnvGraphStateSpec, assets_by_id: dict[str, Any]) -> None:
     """Attach relation entities or fixed poses to the environment's initial state."""
-    relation_classes = spatial_constraint_relation_classes()
     for constraint in state_spec.spatial_constraints:
         parent_asset = assets_by_id[constraint.parent]
         # Note(xinjieyao, 2026-05-26): at_pose constraint is a special case that is handled differently.
@@ -97,12 +96,8 @@ def _apply_state_spatial_constraints(state_spec: ArenaEnvGraphStateSpec, assets_
             parent_asset.set_initial_pose(Pose(position_xyz=position_xyz, rotation_xyzw=rotation_xyzw))
             continue
 
-        relation_cls = relation_classes.get(constraint.type)
-        if relation_cls is None:
-            raise NotImplementedError(f"Unsupported spatial constraint type '{constraint.type.value}'")
-        # Upstream contract: `constraint.params` is emitted in the relation constructor's exact
-        # kwarg form — e.g. AT_POSITION uses `x`/`y`/`z` (not `position_xyz`), and NEXT_TO's
-        # `side` is already a value the constructor accepts. No per-type rewriting happens here.
+        relation_cls = relation_class_for_spatial_constraint_type(constraint.type)
+        assert relation_cls is not None, f"Unsupported spatial constraint type '{constraint.type.value}'"
         # unary relation: parent_asset is the only endpoint
         # non-unary relation: parent_asset and child_asset are both endpoints
         if relation_cls.is_unary():

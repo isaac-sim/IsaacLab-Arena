@@ -5,7 +5,6 @@
 
 from collections.abc import Callable, Iterator
 from enum import Enum
-from functools import cache
 from numbers import Real
 from typing import TYPE_CHECKING, Any
 
@@ -149,8 +148,6 @@ def assert_references_exist(nodes: list[Any], tasks: list[Any], state_specs: lis
 
 def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
     """Check each spatial constraint has the parent/child shape its relation expects."""
-    relation_classes = spatial_constraint_relation_classes()
-
     for state_spec in state_specs:
         for constraint in state_spec.spatial_constraints:
             constraint_type = _enum_value(constraint.type)
@@ -162,10 +159,10 @@ def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
                 is_unary = True
             elif constraint_type == "in":
                 # Special: no relation class; semantically a binary parent/child constraint.
-                # TODO(xinjieyao, 2026-05-27): add an `In` relation class so this can go through the relation_classes lookup.
+                # TODO(xinjieyao, 2026-05-27): add an `In` relation class so this can resolve through the registry.
                 is_unary = False
             else:
-                relation_cls = relation_classes.get(constraint.type)
+                relation_cls = relation_class_for_spatial_constraint_type(constraint.type)
                 assert (
                     relation_cls is not None
                 ), f"Spatial constraint type '{constraint_type}' is not mapped to a relation class"
@@ -179,31 +176,6 @@ def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
                 assert (
                     constraint.child is not None
                 ), f"Spatial constraint '{constraint.id}' of type '{constraint_type}' requires a child node"
-
-
-@cache
-def spatial_constraint_relation_classes() -> dict[Any, type[Any]]:
-    """Map graph spatial constraint types to the relation classes that implement them."""
-    from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphSpatialConstraintType
-    from isaaclab_arena.relations.relations import (
-        AtPosition,
-        IsAnchor,
-        NextTo,
-        On,
-        PositionLimits,
-        RandomAroundSolution,
-        RotateAroundSolution,
-    )
-
-    return {
-        ArenaEnvGraphSpatialConstraintType.IS_ANCHOR: IsAnchor,
-        ArenaEnvGraphSpatialConstraintType.NEXT_TO: NextTo,
-        ArenaEnvGraphSpatialConstraintType.ON: On,
-        ArenaEnvGraphSpatialConstraintType.AT_POSITION: AtPosition,
-        ArenaEnvGraphSpatialConstraintType.POSITION_LIMITS: PositionLimits,
-        ArenaEnvGraphSpatialConstraintType.RANDOM_AROUND_SOLUTION: RandomAroundSolution,
-        ArenaEnvGraphSpatialConstraintType.ROTATE_AROUND_SOLUTION: RotateAroundSolution,
-    }
 
 
 def _add_id_location(id_locations: dict[str, list[str]], spec_id: str, location: str) -> None:
