@@ -7,8 +7,8 @@
 
 The LLM sees a list of the *available* asset tags / embodiment names pulled
 from the registries at call time, and must return a LLMEnvSpec that only uses
-those vocabularies. Concrete asset names are resolved by the Resolver in a
-second, deterministic step — the LLM never invents USD paths.
+those vocabularies. Concrete asset names are resolved in a second, deterministic
+step — the LLM never invents USD paths.
 """
 
 from __future__ import annotations
@@ -62,17 +62,11 @@ class Relation(BaseModel):
     Binary kinds (``on``, ``in``, ``next_to``, ...) must set ``target`` to the
     other item — semantics is "subject is in relation to target". Unary kinds
     (``is_anchor``, ``at_position``, ...) describe an intrinsic property of
-    ``subject`` alone and must leave ``target`` as ``None``. The downstream
-    resolver uses ``target is None`` as the single signal to distinguish the
-    two — see ``Resolver._build_spatial_constraint``.
+    ``subject`` alone and must leave ``target`` as ``None``.
     """
 
     kind: RelationKind
     subject: str
-    # ``None`` for unary relations (the subject is the anchor); a string for
-    # binary relations (subject is anchored on this target). The resolver
-    # branches on this field rather than maintaining a kind-specific allowlist,
-    # so populating it correctly is part of the LLM's contract.
     target: str | None = None
     params: dict = Field(default_factory=dict)
 
