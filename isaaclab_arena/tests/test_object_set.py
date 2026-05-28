@@ -244,7 +244,7 @@ def _test_articulation_object_set(simulation_app):
     try:
         with patch("isaaclab_arena.assets.object_set.detect_object_type", return_value=ObjectType.ARTICULATION):
             RigidObjectSet(name="articulation_object_set", objects=[can_a, can_b])
-    except ValueError as exc:
+    except AssertionError as exc:
         return "contain only rigid objects" in str(exc)
     return False
 

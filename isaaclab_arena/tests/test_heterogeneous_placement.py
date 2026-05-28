@@ -865,3 +865,56 @@ def test_pooled_placer_per_env_pools_advance_in_complete_rounds():
     assert len(draws) == 4
     for d in draws:
         assert hetero in d.positions
+
+
+# ---------------------------------------------------------------------------
+# End-to-end with real RigidObjectSet
+# ---------------------------------------------------------------------------
+
+
+def test_real_rigid_object_set_through_pooled_placer():
+    """Real RigidObjectSet should flow through PooledObjectPlacer without monkey-patching.
+
+    This is an integration test that verifies the actual isinstance(RigidObjectSet)
+    dispatch in bounding_box_helpers.py triggers correctly, unlike the other tests
+    in this file that monkey-patch has_heterogeneous_objects.
+    """
+    from unittest.mock import patch
+
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+    from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
+
+    desk = _make_desk()
+
+    can_a = Object(name="can_a", object_type=ObjectType.RIGID, usd_path="/tmp/can_a.usd")
+    can_b = Object(name="can_b", object_type=ObjectType.RIGID, usd_path="/tmp/can_b.usd")
+    can_a.bounding_box = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.15))
+    can_b.bounding_box = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.2))
+
+    with (
+        patch("isaaclab_arena.assets.object_set.detect_object_type", return_value=ObjectType.RIGID),
+        patch("isaaclab_arena.assets.object_set.find_shallowest_rigid_body", return_value="/rigid"),
+    ):
+        obj_set = RigidObjectSet(name="cans", objects=[can_a, can_b])
+
+    obj_set.add_relation(On(desk, clearance_m=0.01))
+
+    assert has_heterogeneous_objects([desk, obj_set])
+
+    num_envs = 4
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3, verbose=False)
+    placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=42)
+
+    pool = PooledObjectPlacer(objects=[desk, obj_set], placer_params=placer_params, pool_size=20, num_envs=num_envs)
+
+    assert pool.requires_env_indexed_layouts
+    assert pool.remaining > 0
+
+    draws = pool.sample_without_replacement(num_envs)
+    assert len(draws) == num_envs
+    for draw in draws:
+        assert obj_set in draw.positions
+        z = draw.positions[obj_set][2]
+        assert abs(z - 0.11) < 0.05, f"z={z:.4f}, expected ~0.11"

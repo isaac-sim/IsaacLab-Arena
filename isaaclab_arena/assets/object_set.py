@@ -44,10 +44,8 @@ class RigidObjectSet(Object):
                 the member order across environments.
             initial_pose: The initial pose of the object from this object set.
         """
-        if len(objects) < 1:
-            raise ValueError(f"Object set {name} must contain at least 1 object.")
-        if not self._are_all_objects_type_rigid(objects):
-            raise ValueError(f"Object set {name} must contain only rigid objects.")
+        assert len(objects) >= 1, f"Object set {name} must contain at least 1 object."
+        assert self._are_all_objects_type_rigid(objects), f"Object set {name} must contain only rigid objects."
 
         # Isaac Lab support for MultiUsdFileCfg is limited. It applies the same scale and pose to all objects.
         # Furthermore it relies on the rigid body being at the root of the USD file, or at the same
@@ -135,11 +133,7 @@ class RigidObjectSet(Object):
         self._set_variant_indices_by_env(self._generate_variant_indices(num_envs, variant_seed=variant_seed))
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
-        """Return the local bbox for each env's assigned variant.
-
-        Unlike the single-bbox compatibility fallback, this returns the real
-        local bbox of the variant assigned to each env, enabling correct
-        collision-free placement for heterogeneous scenes.
+        """Return each env's actual variant bbox.
 
         Requires assign_variants(num_envs) to have been called first. The
         returned bbox has shape (num_envs, 3).

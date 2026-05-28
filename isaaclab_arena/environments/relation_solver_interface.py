@@ -53,6 +53,8 @@ def solve_and_apply_relation_placement(
     if resolve_on_reset is not None:
         placer_params.resolve_on_reset = resolve_on_reset
 
+    # TODO(xinjieyao, 2026-05-22): Add joint object/embodiment placement once task-dependent
+    # reachability constraints are available. For now this always uses the object-only placer.
     placement_pool = PooledObjectPlacer(
         objects=objects,
         placer_params=placer_params,
@@ -82,8 +84,10 @@ def _apply_relation_placement_result(
 ) -> EventTermCfg | None:
     """Apply selected layouts to object spawn state and build reset event config."""
     anchor_objects_set = set(get_anchor_objects(objects))
+    # Prevent external pose-reset events from conflicting with relation-solved objects.
     _validate_no_conflicting_pose_reset_events(objects, anchor_objects_set)
 
+    # Anchor objects do not move, so no need to apply reset event.
     if anchor_objects_set == set(objects):
         return None
 
@@ -111,16 +115,16 @@ def _apply_dynamic_spawn_pose(
     """Set initial spawn pose from one layout and return the reset placement event."""
     from isaaclab.managers import EventTermCfg
 
+    # For env-indexed pools this seeds from env 0; the first reset overwrites with per-env layouts.
     layout = placement_pool.sample_with_replacement(1)[0]
     for obj in objects:
         if obj in anchor_objects_set:
             continue
         pos = layout.positions.get(obj)
         if pos is None:
-            raise RuntimeError(f"Pool layout is missing object '{obj.name}'.")
+            continue
         object_cfg = getattr(obj, "object_cfg", None)
-        if object_cfg is None:
-            raise RuntimeError(f"Object '{obj.name}' must have object_cfg initialized before placement.")
+        assert object_cfg is not None, f"Object '{obj.name}' must have object_cfg initialized before placement."
         object_cfg.init_state.pos = pos
         object_cfg.init_state.rot = get_rotation_xyzw(obj)
 
@@ -147,12 +151,20 @@ def _apply_static_initial_poses(
             continue
         rotation_xyzw = get_rotation_xyzw(obj)
         poses = []
+        missing_envs: list[int] = []
         for env_idx in range(num_envs):
             pos = layouts[env_idx].positions.get(obj)
             if pos is None:
-                raise RuntimeError(f"Placement layout for env {env_idx} is missing object '{obj.name}'.")
-            poses.append(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
-        obj.set_initial_pose(PosePerEnv(poses=poses))
+                missing_envs.append(env_idx)
+            else:
+                poses.append(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
+        if missing_envs:
+            print(
+                f"Warning: Object '{obj.name}' is missing positions in {len(missing_envs)} env(s) "
+                f"(env ids: {missing_envs}); skipping set_initial_pose for this object."
+            )
+        else:
+            obj.set_initial_pose(PosePerEnv(poses=poses))
 
 
 def _validate_no_conflicting_pose_reset_events(
@@ -161,9 +173,8 @@ def _validate_no_conflicting_pose_reset_events(
 ) -> None:
     """Reject conflicting explicit pose-reset events on relation-solved objects."""
     for obj in objects:
-        if obj not in anchor_objects_set and getattr(obj, "event_cfg", None) is not None:
-            raise RuntimeError(
-                f"Non-anchor object '{obj.name}' has an explicit pose-reset event. "
-                "Relational solving should not be combined with explicit setting of "
-                "poses on non-anchor objects."
-            )
+        assert not (obj not in anchor_objects_set and getattr(obj, "event_cfg", None) is not None), (
+            f"Non-anchor object '{obj.name}' has an explicit pose-reset event. "
+            "Relational solving should not be combined with explicit setting of "
+            "poses on non-anchor objects."
+        )

@@ -473,7 +473,7 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
     """Env-indexed resolve-on-reset path should seed non-anchor initial poses."""
     from types import SimpleNamespace
 
-    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.relation_solver_interface import _apply_dynamic_spawn_pose
     from isaaclab_arena.relations.placement_result import PlacementResult
 
     class MinimalObject:
@@ -509,14 +509,70 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
     anchor = MinimalObject("desk")
     box = MinimalObject("box")
     pool = EnvIndexedPool()
-    builder = ArenaEnvBuilder.__new__(ArenaEnvBuilder)
 
-    builder._set_init_state_from_pool([anchor, box], pool, {anchor})
+    _apply_dynamic_spawn_pose(
+        objects=[anchor, box],
+        placement_pool=pool,
+        anchor_objects_set={anchor},
+    )
 
     assert pool.sample_count == 1
     assert anchor.object_cfg.init_state.pos == (0.0, 0.0, 0.0)
     assert box.object_cfg.init_state.pos == (0.0, 0.0, 0.1)
     assert box.event_cfg is None
+
+
+def test_env_indexed_static_poses_apply_per_env_positions():
+    """Static initial poses should apply per-env positions from env-indexed layouts."""
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.environments.relation_solver_interface import _apply_static_initial_poses
+    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.relations import IsAnchor, On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.pose import Pose, PosePerEnv
+
+    desk = DummyObject(
+        name="desk",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
+    )
+    desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    desk.add_relation(IsAnchor())
+
+    box = DummyObject(
+        name="box",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+    )
+    box.add_relation(On(desk, clearance_m=0.01))
+
+    num_envs = 3
+
+    class PerEnvPool:
+        requires_env_indexed_layouts = True
+        num_envs = 3
+
+        def sample_with_replacement(self, count: int):
+            return [
+                PlacementResult(
+                    success=True,
+                    positions={box: (0.1 * env_id, 0.2 * env_id, 0.11)},
+                    final_loss=0.0,
+                    attempts=1,
+                )
+                for env_id in range(count)
+            ]
+
+    _apply_static_initial_poses(
+        objects=[desk, box],
+        placement_pool=PerEnvPool(),
+        anchor_objects_set={desk},
+        num_envs=num_envs,
+    )
+
+    pose = box.get_initial_pose()
+    assert isinstance(pose, PosePerEnv)
+    assert len(pose.poses) == num_envs
+    for env_id in range(num_envs):
+        assert pose.poses[env_id].position_xyz == (0.1 * env_id, 0.2 * env_id, 0.11)
 
 
 def test_pooled_placer_falls_back_when_no_valid_layouts(capsys):

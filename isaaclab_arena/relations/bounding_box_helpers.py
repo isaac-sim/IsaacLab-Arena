@@ -62,12 +62,22 @@ def get_bounding_box_per_env(obj: ObjectBase, num_envs: int) -> AxisAlignedBound
     )
 
 
-@dataclass
+@dataclass(frozen=True)
 class PerEnvBoundingBoxes:
     """Per-env object bboxes with solver and validation formats."""
 
     object_bboxes: dict[ObjectBase, AxisAlignedBoundingBox]
     num_envs: int
+
+    def __post_init__(self) -> None:
+        assert self.num_envs >= 1, f"num_envs must be >= 1, got {self.num_envs}"
+        for obj, bbox in self.object_bboxes.items():
+            assert (
+                bbox.min_point.shape[0] == self.num_envs
+            ), f"Object '{obj.name}' bbox min_point has {bbox.min_point.shape[0]} envs, expected {self.num_envs}."
+            assert (
+                bbox.max_point.shape[0] == self.num_envs
+            ), f"Object '{obj.name}' bbox max_point has {bbox.max_point.shape[0]} envs, expected {self.num_envs}."
 
     def env_bboxes(self, env_id: int) -> dict[ObjectBase, AxisAlignedBoundingBox]:
         """Return one-env bboxes for initialization and validation."""

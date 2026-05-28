@@ -83,14 +83,13 @@ class PooledObjectPlacer:
         pool_size: int = 100,
         num_envs: int | None = None,
     ) -> None:
-        if pool_size < 1:
-            raise ValueError(f"pool_size must be >= 1, got {pool_size}")
+        assert pool_size >= 1, f"pool_size must be >= 1, got {pool_size}"
         self._uses_env_specific_bboxes = has_heterogeneous_objects(objects)
-        if self._uses_env_specific_bboxes and num_envs is None:
-            raise ValueError("num_envs is required when layouts use env-specific object variants.")
+        assert not (
+            self._uses_env_specific_bboxes and num_envs is None
+        ), "num_envs is required when layouts use env-specific object variants."
         self._num_envs = num_envs if num_envs is not None else 1
-        if self._num_envs < 1:
-            raise ValueError(f"num_envs must be >= 1, got {self._num_envs}")
+        assert self._num_envs >= 1, f"num_envs must be >= 1, got {self._num_envs}"
 
         self._objects = list(objects)
         # Pool construction ranks several candidate layouts per env and applies
@@ -177,8 +176,8 @@ class PooledObjectPlacer:
 
         Invalid candidates are discarded when at least one valid layout exists.
         If no candidate passes strict validation on the final retry batch, fall
-        back to best-loss results to match the pre-pool behavior used by
-        existing environments.
+        back to best-loss results so environments with imperfect validation can
+        still run.
         """
         self._prepare_seeded_solve(num_layouts * self._placer.params.max_placement_attempts)
         with torch.inference_mode(False):
@@ -263,11 +262,15 @@ class PooledObjectPlacer:
             valid_results = [r for r in env_results if r.success]
             missing = None if target_per_env is None else target_per_env - self._env_pools[cur_env].available
             if valid_results:
-                total_valid += len(valid_results)
                 if missing is None:
+                    total_valid += len(valid_results)
                     self._env_pools[cur_env].extend(valid_results)
                 elif missing > 0:
-                    self._env_pools[cur_env].extend(valid_results[:missing])
+                    enqueued = valid_results[:missing]
+                    total_valid += len(enqueued)
+                    self._env_pools[cur_env].extend(enqueued)
+                else:
+                    total_valid += len(valid_results)
             elif allow_fallback and (missing is None or missing > 0):
                 self._env_pools[cur_env].extend(env_results if missing is None else env_results[:missing])
                 fallback_envs.append(cur_env)
@@ -276,7 +279,7 @@ class PooledObjectPlacer:
         total_solved = sum(min(len(env_results), layouts_per_env) for env_results in ranked_results_per_env)
         if total_valid < total_solved:
             msg = (
-                f"Warning: Placement pool (env-specific bbox layouts) solved {total_solved} candidates,"
+                f"Placement pool (env-specific bbox layouts) solved {total_solved} candidates,"
                 f" {total_valid} valid, {total_solved - total_valid} failed validation"
             )
             if fallback_envs:
@@ -395,7 +398,7 @@ class PooledObjectPlacer:
 
         For env-specific layouts, slot i picks from env i % num_envs's pool
         so each result matches its absolute env. For reusable layouts, draws
-        are uniform IID from the full pool (preserving pre-heterogeneous behavior).
+        are uniform IID from the full pool.
         """
         if self._uses_env_specific_bboxes:
             results: list[PlacementResult] = []
