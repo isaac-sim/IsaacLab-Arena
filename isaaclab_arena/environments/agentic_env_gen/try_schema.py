@@ -9,13 +9,13 @@ Requires NV_API_KEY environment variable.
 
 Examples:
     # Print the Pydantic LLMEnvSpec JSON schema (no LLM call):
-    /isaac-sim/python.sh -m isaaclab_arena.llm_env_gen.try_schema --print-schema
+    /isaac-sim/python.sh -m isaaclab_arena.environments.agentic_env_gen.try_schema --print-schema
 
     # Print the catalog sent to the LLM (no LLM call):
-    /isaac-sim/python.sh -m isaaclab_arena.llm_env_gen.try_schema --print-catalog
+    /isaac-sim/python.sh -m isaaclab_arena.environments.agentic_env_gen.try_schema --print-catalog
 
     # Call the LLM, resolve, print, and dump YAML:
-    /isaac-sim/python.sh -m isaaclab_arena.llm_env_gen.try_schema \
+    /isaac-sim/python.sh -m isaaclab_arena.environments.agentic_env_gen.try_schema \
         --prompt "franka pick up avocado from the table and place it into a bowl on the table. there are other veggies on the table as distractor"
 """
 
@@ -55,13 +55,13 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    from isaaclab_arena.llm_env_gen.llm_schema import LLMEnvSpec
+    from isaaclab_arena.environments.agentic_env_gen.llm_schema import LLMEnvSpec
 
     if args.print_schema:
         print(json.dumps(LLMEnvSpec.model_json_schema(), indent=2))
         return
 
-    from isaaclab_arena.llm_env_gen.llm_agent import LLMAgent, build_catalog_text
+    from isaaclab_arena.environments.agentic_env_gen.llm_agent import LLMAgent, build_catalog_text
 
     catalog = build_catalog_text()
     if args.print_catalog:

@@ -273,7 +273,7 @@ jobs:
     needs: [pre_commit]
     env:
       # NV_API_KEY is the variable LLMAgent reads at runtime (see
-      # isaaclab_arena/llm_env_gen/llm_agent.py). The repo-level secret is
+      # isaaclab_arena/environments/agentic_env_gen/llm_agent.py). The repo-level secret is
       # named ARENA_NV_API_KEY to mirror ARENA_NGC_API_KEY and avoid
       # collisions with other consumers of NV_API_KEY in the runner env.
       NV_API_KEY: ${{ secrets.ARENA_NV_API_KEY }}

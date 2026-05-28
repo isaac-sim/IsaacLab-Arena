@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for :class:`isaaclab_arena.llm_env_gen.llm_agent.LLMAgent`.
+"""Unit tests for :class:`isaaclab_arena.environments.agentic_env_gen.llm_agent.LLMAgent`.
 
 The agent's behaviour decomposes into four pure-Python concerns that we exercise
 without ever hitting the wire:
@@ -28,14 +28,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
-from isaaclab_arena.llm_env_gen.llm_agent import (
+from isaaclab_arena.environments.agentic_env_gen.llm_agent import (
     _RAW_RESPONSE_PREVIEW_CHARS,
     DEFAULT_BASE_URL,
     DEFAULT_MODEL,
     LLMAgent,
     LLMResponseParseError,
 )
-from isaaclab_arena.llm_env_gen.llm_schema import RelationKind, TaskKind
+from isaaclab_arena.environments.agentic_env_gen.llm_schema import RelationKind, TaskKind
 
 # ---------------------------------------------------------------------------
 # Fixtures
