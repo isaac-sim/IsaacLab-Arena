@@ -5,19 +5,13 @@
 
 """Tests for the relation placement orchestration API."""
 
-from isaaclab_arena.assets.dummy_object import DummyObject
-from isaaclab_arena.environments.relation_solver_interface import (
-    _apply_dynamic_spawn_pose,
-    _apply_static_initial_poses,
-    solve_and_apply_relation_placement,
-)
-from isaaclab_arena.relations.placement_result import PlacementResult
-from isaaclab_arena.relations.relations import IsAnchor, On
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.pose import Pose, PosePerEnv
-
 
 def _make_desk():
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.relations.relations import IsAnchor
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.pose import Pose
+
     desk = DummyObject(
         name="desk",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
@@ -27,7 +21,10 @@ def _make_desk():
     return desk
 
 
-def _make_box(name: str = "box") -> DummyObject:
+def _make_box(name: str = "box"):
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
     return DummyObject(
         name=name,
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
@@ -35,20 +32,24 @@ def _make_box(name: str = "box") -> DummyObject:
 
 
 class _FakePlacementPool:
-    def __init__(self, layouts: list[PlacementResult]) -> None:
+    def __init__(self, layouts) -> None:
         self._layouts = layouts
 
-    def sample_with_replacement(self, count: int) -> list[PlacementResult]:
+    def sample_with_replacement(self, count: int):
         return self._layouts[:count]
 
 
 def test_solve_and_apply_relation_placement_with_no_objects_returns_empty_result():
+    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+
     placement_event_cfg = solve_and_apply_relation_placement([], num_envs=1)
 
     assert placement_event_cfg is None
 
 
 def test_solve_and_apply_relation_placement_with_only_anchors_returns_no_reset_event():
+    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+
     placement_event_cfg = solve_and_apply_relation_placement(
         [_make_desk()],
         num_envs=3,
@@ -60,6 +61,10 @@ def test_solve_and_apply_relation_placement_with_only_anchors_returns_no_reset_e
 
 
 def test_static_solve_and_apply_relation_placement_reuses_object_only_placement():
+    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+    from isaaclab_arena.relations.relations import On
+    from isaaclab_arena.utils.pose import PosePerEnv
+
     desk = _make_desk()
     box = _make_box()
     box.add_relation(On(desk, clearance_m=0.01))
@@ -79,6 +84,9 @@ def test_static_solve_and_apply_relation_placement_reuses_object_only_placement(
 
 
 def test_dynamic_spawn_pose_skips_objects_missing_from_fallback_layout():
+    from isaaclab_arena.environments.relation_solver_interface import _apply_dynamic_spawn_pose
+    from isaaclab_arena.relations.placement_result import PlacementResult
+
     desk = _make_desk()
     box = _make_box()
     placement_pool = _FakePlacementPool([PlacementResult(success=False, positions={}, final_loss=1.0, attempts=1)])
@@ -93,6 +101,10 @@ def test_dynamic_spawn_pose_skips_objects_missing_from_fallback_layout():
 
 
 def test_static_initial_poses_skip_object_when_any_layout_is_missing_position():
+    from isaaclab_arena.environments.relation_solver_interface import _apply_static_initial_poses
+    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.utils.pose import PosePerEnv
+
     desk = _make_desk()
     missing_box = _make_box("missing_box")
     placed_box = _make_box("placed_box")
