@@ -117,8 +117,6 @@ args_cli.visualizer = "kit"
 args_cli.enable_cameras = True
 env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
 
-# %%
-
 # --- Inspecting the dynamic variations schema --------------------------------
 #
 # Before applying any overrides, dump the structured-config schema that
@@ -138,8 +136,6 @@ if variations_schema is None:
     print("Scene has no variations attached.")
 else:
     print(OmegaConf.to_yaml(OmegaConf.structured(variations_schema)))
-
-# %%
 
 # --- Structured / Hydra-driven variation overrides ---------------------------
 #
@@ -172,7 +168,7 @@ hydra_variation_overrides = [
     "light.hdr_image.enabled=true",
     # Wrist-camera decalibration: ±5 cm per axis (deliberately exaggerated vs.
     # the default ±5 mm so the per-env offsets are obvious in the viewport).
-    "droid_differential_ik.camera_decalibration.enabled=true",
+    "droid_differential_ik.camera_decalibration.enabled=false",
     # "droid_differential_ik.camera_decalibration.sampler.low=[-0.05,-0.05,-0.05]",
     # "droid_differential_ik.camera_decalibration.sampler.high=[0.05,0.05,0.05]",
     "droid_differential_ik.camera_decalibration.sampler.low=[0.0,0.0,0.0]",
@@ -184,18 +180,12 @@ env_builder.apply_hydra_variation_overrides(hydra_variation_overrides)
 # variation cfgs (``enabled: true`` plus the narrowed sampler bounds).
 print(OmegaConf.to_yaml(OmegaConf.structured(env_builder.get_variations_schema())))
 
-# %%
-
 # ``compose_manager_cfg`` collects every enabled variation from the scene and
 # merges their event terms into ``env_cfg.events`` automatically (see
 # ``ArenaEnvBuilder._compose_variations_event_cfg``). No manual plumbing.
 env_cfg = env_builder.compose_manager_cfg()
 assert env_cfg.scene.replicate_physics is False, "Per-env color variation requires replicate_physics=False; got True."
 
-# %%
-
-
-# %%
 
 # --- In-place diffuse tint (still a TODO, see 2026_04_21_color_variation_status.md) --
 #
@@ -211,7 +201,6 @@ assert env_cfg.scene.replicate_physics is False, "Per-env color variation requir
 #     },
 # )
 
-# %%
 
 env = env_builder.make_registered(env_cfg)
 env.reset()
@@ -221,13 +210,62 @@ env.reset()
 RESET_EVERY_N_STEPS = 10
 
 # Run some zero actions.
-NUM_STEPS = 200
+NUM_STEPS = 100
 for step in tqdm.tqdm(range(NUM_STEPS)):
     with torch.inference_mode():
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
         env.step(actions)
-    if step % RESET_EVERY_N_STEPS == 0:
-        env.reset()
+    # if step % RESET_EVERY_N_STEPS == 0:
+    #     env.reset()
+
+#%%
+
+camera = env.unwrapped.scene['wrist_camera']
+t_parent_C, q_parent_C_wxyz = camera._view.get_local_poses()
+
+#%%
+
+import torch
+
+from isaaclab.utils.math import quat_apply, quat_inv
+
+camera_decalibration_ROS = torch.tensor([0.0, 0.0, 0.0], device=env.unwrapped.device)
+camera_decalibration_OpenGL = torch.tensor([
+    -camera_decalibration_ROS[0],
+    camera_decalibration_ROS[1],
+    -camera_decalibration_ROS[2],
+], device=env.unwrapped.device)
+# camera_decalibration_OpenGL = camera_decalibration_ROS
+t_Cnew_C_in_C = camera_decalibration_OpenGL.repeat(4, 1)
+# t_Cnew_C_in_C = torch.tensor(
+#     [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], device=env.unwrapped.device)
+
+# Local pose of the camera relative to its parent prim.
+# Convention: get_local_poses returns (translation, quaternion) where the quaternion
+# is in (w, x, y, z) and represents the camera's OpenGL frame (-Z forward, +Y up)
+# expressed in the parent prim's frame, i.e. R_parent_cameraOpenGL.
+# camera = env.unwrapped.scene['wrist_camera']
+# t_parent_C, q_parent_C_wxyz = camera._view.get_local_poses()
+
+q_parent_C_xyzw = torch.roll(q_parent_C_wxyz, shifts=-1, dims=-1)
+
+t_Cnew_C_in_parent = quat_apply(q_parent_C_xyzw, t_Cnew_C_in_C)
+t_parent_Cnew = t_parent_C + t_Cnew_C_in_parent
+
+# dummy_local_translation = torch.tensor([0.01, 0.0, -0.070], device=env.unwrapped.device).repeat(4, 1)
+camera._view.set_local_poses(translations=t_parent_Cnew, orientations=None, indices=None)
+# camera._view.set_local_poses(translations=dummy_local_translation, orientations=q_parent_C_wxyz, indices=None)
+
+# Run some zero actions.
+# env.reset()
+NUM_STEPS = 10
+for step in tqdm.tqdm(range(NUM_STEPS)):
+    with torch.inference_mode():
+        actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+        env.step(actions)
+
+#%%
+
 
 # %%
 
