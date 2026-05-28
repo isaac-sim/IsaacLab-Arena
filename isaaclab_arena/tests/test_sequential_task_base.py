@@ -81,7 +81,7 @@ def _test_sequential_success_advances_in_order(simulation_app) -> bool:
 
         assert result.tolist() == [False]
         assert env._current_subtask_idx == [0]
-        assert env._subtask_success_state == [[False, False, False]]
+        assert env._subtask_ever_succeeded == [[False, False, False]]
 
         # Subtask 0 succeeds, index advances to 1, state[0] becomes True.
         subtasks[0].set_success([True])
@@ -90,7 +90,7 @@ def _test_sequential_success_advances_in_order(simulation_app) -> bool:
 
         assert result.tolist() == [False]
         assert env._current_subtask_idx == [1]
-        assert env._subtask_success_state == [[True, False, False]]
+        assert env._subtask_ever_succeeded == [[True, False, False]]
 
         # Subtask 1 succeeds, index advances to 2, state[1] becomes True.
         subtasks[1].set_success([True])
@@ -98,7 +98,7 @@ def _test_sequential_success_advances_in_order(simulation_app) -> bool:
 
         assert result.tolist() == [False]
         assert env._current_subtask_idx == [2]
-        assert env._subtask_success_state == [[True, True, False]]
+        assert env._subtask_ever_succeeded == [[True, True, False]]
 
         # Subtask 2 succeeds, state[2] becomes True, overall success is True. Index does
         # not advance past the last subtask (it caps at len-1).
@@ -107,7 +107,7 @@ def _test_sequential_success_advances_in_order(simulation_app) -> bool:
 
         assert result.tolist() == [True]
         assert env._current_subtask_idx == [2]
-        assert env._subtask_success_state == [[True, True, True]]
+        assert env._subtask_ever_succeeded == [[True, True, True]]
 
     except Exception as e:
         print(f"Error: {e}")
@@ -118,7 +118,7 @@ def _test_sequential_success_advances_in_order(simulation_app) -> bool:
 
 
 def _test_sequential_success_latches(simulation_app) -> bool:
-    """Once a subtask succeeds, ``_subtask_success_state`` must not un-set when the
+    """Once a subtask succeeds, ``_subtask_ever_succeeded`` must not un-set when the
     underlying success function later returns False."""
 
     from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
@@ -133,14 +133,14 @@ def _test_sequential_success_latches(simulation_app) -> bool:
         subtasks[1].set_success([True])
         result = SequentialTaskBase.composite_task_success_func(env, subtasks, None)
         assert result.tolist() == [True]
-        assert env._subtask_success_state == [[True, True]]
+        assert env._subtask_ever_succeeded == [[True, True]]
 
         # Even when the underlying success goes False, latched state stays True and
         # overall success stays True.
         subtasks[0].set_success([False])
         subtasks[1].set_success([False])
         result = SequentialTaskBase.composite_task_success_func(env, subtasks, None)
-        assert env._subtask_success_state == [[True, True]]
+        assert env._subtask_ever_succeeded == [[True, True]]
         assert result.tolist() == [True]
 
     except Exception as e:
@@ -176,7 +176,7 @@ def _test_sequential_desired_subtask_success_state(simulation_app) -> bool:
         subtasks[0].set_success([False])
         subtasks[1].set_success([True])
         result = SequentialTaskBase.composite_task_success_func(env, subtasks, [True, True])
-        assert env._subtask_success_state == [[True, True]]
+        assert env._subtask_ever_succeeded == [[True, True]]
         assert result.tolist() == [False]
 
     except Exception as e:
@@ -204,7 +204,7 @@ def _test_sequential_desired_subtask_success_state_with_none(simulation_app) -> 
         SequentialTaskBase.composite_task_success_func(env, subtasks, [None, True, True])
         subtasks[2].set_success([True])
         result = SequentialTaskBase.composite_task_success_func(env, subtasks, [None, True, True])
-        assert env._subtask_success_state == [[True, True, True]]
+        assert env._subtask_ever_succeeded == [[True, True, True]]
         assert result.tolist() == [True]
 
         # Subtask 0 currently False (don't-care), 1 and 2 currently True -> success.
@@ -252,23 +252,23 @@ def _test_sequential_reset_clears_state_and_index(simulation_app) -> bool:
         subtasks[1].set_success([False, True])
         SequentialTaskBase.composite_task_success_func(env, subtasks, None)
 
-        assert env._subtask_success_state == [[True, False], [True, True]]
+        assert env._subtask_ever_succeeded == [[True, False], [True, True]]
         assert env._current_subtask_idx == [1, 1]
 
         # Reset only env 0.
         SequentialTaskBase.reset_subtask_success_state(env, env_ids=[0], subtasks=subtasks)
-        assert env._subtask_success_state == [[False, False], [True, True]]
+        assert env._subtask_ever_succeeded == [[False, False], [True, True]]
         assert env._current_subtask_idx == [0, 1]
 
         # Reset env 1 too.
         SequentialTaskBase.reset_subtask_success_state(env, env_ids=[1], subtasks=subtasks)
-        assert env._subtask_success_state == [[False, False], [False, False]]
+        assert env._subtask_ever_succeeded == [[False, False], [False, False]]
         assert env._current_subtask_idx == [0, 0]
 
-        del env._subtask_success_state
+        del env._subtask_ever_succeeded
         del env._current_subtask_idx
         SequentialTaskBase.reset_subtask_success_state(env, env_ids=[], subtasks=subtasks)
-        assert env._subtask_success_state == [[False, False], [False, False]]
+        assert env._subtask_ever_succeeded == [[False, False], [False, False]]
         assert env._current_subtask_idx == [0, 0]
 
     except Exception as e:
