@@ -142,6 +142,58 @@ class On(Relation):
 
 
 @register_object_relation
+class NotOn(Relation):
+    """Forbids the child from sitting on the parent.
+
+    The inverse of ``On``: penalizes any child position inside the
+    parent's XY footprint and contributes zero loss once the child has
+    cleared the footprint along X or Y. Z is ignored — with no XY
+    overlap there is nothing to stack on.
+
+    Note: Loss computation is handled by NotOnLossStrategy in relation_loss_strategies.py.
+    """
+
+    def __init__(self, parent: ObjectBase, relation_loss_weight: float = 1.0):
+        """
+        Args:
+            parent: The asset the child must NOT be on.
+            relation_loss_weight: Weight for the relationship loss function.
+        """
+        super().__init__(parent, relation_loss_weight)
+
+
+class NotNextTo(Relation):
+    """Forbids the child from sitting in the NextTo zone on the given side of the parent.
+
+    The inverse of ``NextTo``: the child must be far from the target
+    position on the primary axis, *or* outside the perpendicular band,
+    *or* on the wrong side of the parent's edge. Any one escape is
+    sufficient for zero loss.
+
+    Note: Loss computation is handled by NotNextToLossStrategy in relation_loss_strategies.py.
+    """
+
+    def __init__(
+        self,
+        parent: ObjectBase,
+        relation_loss_weight: float = 1.0,
+        distance_m: float = 0.05,
+        side: Side = Side.POSITIVE_X,
+    ):
+        """
+        Args:
+            parent: The parent asset whose NextTo zone is forbidden.
+            relation_loss_weight: Weight for the relationship loss function.
+            distance_m: Target distance from parent's boundary in meters (default: 5cm).
+                Defines where the forbidden zone is centered along the primary axis.
+            side: Which axis direction (default: Side.POSITIVE_X).
+        """
+        super().__init__(parent, relation_loss_weight)
+        assert distance_m > 0.0, f"Distance must be positive, got {distance_m}"
+        self.distance_m = distance_m
+        self.side = side
+
+
 class IsAnchor(RelationBase):
     """Marker indicating this object is an anchor for relation solving.
 
