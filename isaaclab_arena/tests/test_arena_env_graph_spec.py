@@ -249,27 +249,27 @@ def test_arena_env_graph_spec_rejects_invalid_data():
         ),
         (
             "missing node parent reference",
-            lambda data: data["nodes"][1].__setitem__("parent", "missing_background"),
+            lambda data: data["nodes"][2].__setitem__("parent", "missing_background"),
             "unknown parent 'missing_background'",
         ),
         (
             "unknown object type",
-            lambda data: data["nodes"][1].__setitem__("object_type", "unknown"),
+            lambda data: data["nodes"][2].__setitem__("object_type", "unknown"),
             "Unknown object_type 'unknown'",
         ),
         (
             "object_reference missing parent",
-            lambda data: data["nodes"][1].pop("parent"),
+            lambda data: data["nodes"][2].pop("parent"),
             "Missing required string field 'parent'",
         ),
         (
             "object_reference missing prim_path",
-            lambda data: data["nodes"][1].pop("prim_path"),
+            lambda data: data["nodes"][2].pop("prim_path"),
             "Missing required string field 'prim_path'",
         ),
         (
             "object_reference missing object_type",
-            lambda data: data["nodes"][1].pop("object_type"),
+            lambda data: data["nodes"][2].pop("object_type"),
             "Missing required field 'object_type'",
         ),
         (
@@ -313,7 +313,9 @@ def _minimal_env_graph_data():
         "env_name": "minimal_env_graph",
         "nodes": [
             {"id": "robot", "name": "robot", "type": "embodiment"},
-            # Kept at index 1 so the bad-data mutation lambdas below can address it.
+            {"id": "background", "name": "background", "type": "background"},
+            # Kept at index 2 (after its parent at index 1) so the bad-data mutation lambdas
+            # below can address it, and so the order satisfies the upstream ordering contract.
             {
                 "id": "table",
                 "name": "table",
@@ -322,12 +324,11 @@ def _minimal_env_graph_data():
                 "prim_path": "{ENV_REGEX_NS}/background/table",
                 "object_type": "rigid",
             },
-            {"id": "background", "name": "background", "type": "background"},
             {"id": "cube", "name": "cube", "type": "object"},
         ],
         "tasks": [{
             "id": "task_0",
-            "type": "pick_and_place",
+            "type": "PickAndPlaceTask",
             "initial_state_spec_id": "state_0",
             "success_state_spec_id": "state_0",
         }],

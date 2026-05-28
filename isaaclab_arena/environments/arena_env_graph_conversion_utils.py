@@ -9,23 +9,21 @@ from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.registries import AssetRegistry
-from isaaclab_arena.environments.arena_env_graph_spec import (
+from isaaclab_arena.environments.arena_env_graph_task_conversion_utils import build_task_or_sequence
+from isaaclab_arena.environments.arena_env_graph_types import (
+    ArenaEnvGraphNodeSpec,
     ArenaEnvGraphNodeType,
     ArenaEnvGraphObjectReferenceNodeSpec,
     ArenaEnvGraphSpatialConstraintType,
+    ArenaEnvGraphStateSpec,
 )
-from isaaclab_arena.environments.arena_env_graph_task_conversion_utils import build_task_or_sequence
 from isaaclab_arena.environments.graph_spec_utils import spatial_constraint_relation_classes
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
-    from isaaclab_arena.environments.arena_env_graph_spec import (
-        ArenaEnvGraphNodeSpec,
-        ArenaEnvGraphSpec,
-        ArenaEnvGraphStateSpec,
-    )
+    from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 
 
 def build_arena_env_from_graph_spec(spec: ArenaEnvGraphSpec) -> Any:

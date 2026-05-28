@@ -16,7 +16,7 @@ from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
 from isaaclab_arena.tasks.task_base import TaskBase
 
 if TYPE_CHECKING:
-    from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphTaskSpec
+    from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphTaskSpec
 
 
 def build_task_or_sequence(task_specs: list[ArenaEnvGraphTaskSpec], assets_by_id: dict[str, Any]) -> Any | None:

@@ -184,7 +184,7 @@ def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
 @cache
 def spatial_constraint_relation_classes() -> dict[Any, type[Any]]:
     """Map graph spatial constraint types to the relation classes that implement them."""
-    from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpatialConstraintType
+    from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphSpatialConstraintType
     from isaaclab_arena.relations.relations import (
         AtPosition,
         IsAnchor,
