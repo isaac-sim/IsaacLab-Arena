@@ -245,7 +245,7 @@ class LLMAgent:
             "- initial_scene_graph: FULL snapshot of all relations in the starting state. Every persistent\n"
             "  relation (e.g. bowl on table, distractors present) must appear here. Relations that change\n"
             "  via tasks are still listed here in their starting form.\n"
-            "- tasks: a list of atomic actions to perform in order. Each task has:\n"
+            "- tasks: a list of atomic tasks to perform in order. Each task has:\n"
             f"    * kind ∈ {{{task_kinds}}}\n"
             "    * subject: the primary object being acted on (e.g. 'avocado', 'microwave')\n"
             "    * target: the secondary object/location (e.g. 'bowl' for pick_and_place, null for open/close)\n"

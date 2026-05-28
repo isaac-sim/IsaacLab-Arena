@@ -33,7 +33,7 @@ RelationKind = Literal["on", "in", "next_to", "at_position", "at_pose", "is_anch
 
 ItemRole = Literal["foreground", "distractor", "anchor"]
 
-# Task kinds the LLM can propose as atomic actions in a plan.
+# Task kinds the LLM can propose as an atomic task.
 TaskKind = Literal["pick_and_place", "open_door", "close_door"]
 
 
@@ -106,7 +106,7 @@ class LLMEnvSpec(BaseModel):
         name kept as ``initial_scene_graph`` even though the class is now
         ``LLMEnvSpec`` — renaming the field would change the JSON schema
         the LLM is prompted against and is out of scope here.)
-      * ``tasks`` — a list of atomic actions to execute in sequence. Each
+      * ``tasks`` — a list of atomic tasks to execute in sequence. Each
         task specifies what to do (kind), what object(s) it acts on
         (subject/target), and a natural-language description. The task
         sequence implicitly defines the intermediate env graphs by applying
