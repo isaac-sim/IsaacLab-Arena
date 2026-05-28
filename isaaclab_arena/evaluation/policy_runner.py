@@ -127,7 +127,7 @@ def rollout_policy(
 
     else:
 
-        # Only compute metrics if env has a non-None metrics container (e.g. NoTask leaves metrics as None).
+        # Only compute metrics if env has non-None metrics.
         # Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing)
         if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
             return env.unwrapped.compute_metrics()

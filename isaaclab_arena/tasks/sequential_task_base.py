@@ -98,13 +98,10 @@ class SubtaskSuccessRateMetric(MetricBase):
     def get_metric_term_cfg(self) -> MetricTermCfg:
         """Return the metric term configuration for the subtask success rate metric."""
         return MetricTermCfg(
-            func=compute_subtask_success_rate,
+            compute_metric_func=compute_subtask_success_rate,
             params={},
             recorder_term_name=self.recorder_term_name,
         )
-
-    def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> list:
-        return compute_subtask_success_rate(recorded_metric_data)
 
 
 class SequentialTaskBase(TaskBase):

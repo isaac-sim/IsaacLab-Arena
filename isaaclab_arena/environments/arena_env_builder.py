@@ -21,7 +21,7 @@ from isaaclab_teleop import IsaacTeleopCfg
 from isaaclab_arena.assets.registries import DeviceRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
+from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     IsaacArenaManagerBasedMimicEnvCfg,
     IsaacLabArenaManagerBasedRLEnvCfg,
 )
@@ -82,12 +82,7 @@ class ArenaEnvBuilder:
 
     @staticmethod
     def _metrics_to_metrics_cfg(metrics: list[MetricBase] | None) -> object | None:
-        """Build a configclass container with one ``MetricTermCfg`` field per metric.
-
-        Mirrors how Isaac Lab shapes ``cfg.rewards`` / ``cfg.terminations`` so that
-        the runtime :class:`MetricsManager` can iterate the container's fields the
-        same way ``RewardManager`` / ``TerminationManager`` do.
-        """
+        """Build a configclass container with one ``MetricTermCfg`` field per metric."""
         if not metrics:
             return None
         fields = [(m.name, MetricTermCfg, m.get_metric_term_cfg()) for m in metrics]
@@ -247,7 +242,7 @@ class ArenaEnvBuilder:
         # This runs after the callback so the user's CLI choice is the final authority.
         presets = getattr(self.args, "presets", None)
         if presets is not None:
-            from isaaclab_arena.environments.isaaclab_arena_manager_based_env import ArenaPhysicsCfg
+            from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
 
             env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), presets)
 

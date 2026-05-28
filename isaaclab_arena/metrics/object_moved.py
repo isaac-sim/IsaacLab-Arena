@@ -39,9 +39,7 @@ class ObjectVelocityRecorderCfg(RecorderTermCfg):
     object_name: str = MISSING
 
 
-def compute_object_moved_rate(
-    recorded_metric_data: list[np.ndarray], object_velocity_threshold: float
-) -> float:
+def compute_object_moved_rate(recorded_metric_data: list[np.ndarray], object_velocity_threshold: float) -> float:
     """Computes the object-moved rate from the recorded metric data.
 
     Args:
@@ -92,10 +90,7 @@ class ObjectMovedRateMetric(MetricBase):
     def get_metric_term_cfg(self) -> MetricTermCfg:
         """Return the metric term configuration for the object-moved rate metric."""
         return MetricTermCfg(
-            func=compute_object_moved_rate,
+            compute_metric_func=compute_object_moved_rate,
             params={"object_velocity_threshold": self.object_velocity_threshold},
             recorder_term_name=self.recorder_term_name,
         )
-
-    def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
-        return compute_object_moved_rate(recorded_metric_data, self.object_velocity_threshold)

@@ -98,17 +98,10 @@ class RevoluteJointMovedRateMetric(MetricBase):
     def get_metric_term_cfg(self) -> MetricTermCfg:
         """Return the metric term configuration for the revolute joint moved rate metric."""
         return MetricTermCfg(
-            func=compute_revolute_joint_moved_rate,
+            compute_metric_func=compute_revolute_joint_moved_rate,
             params={
                 "reset_joint_percentage": self.reset_joint_percentage,
                 "joint_percentage_delta_threshold": self.joint_percentage_delta_threshold,
             },
             recorder_term_name=self.recorder_term_name,
-        )
-
-    def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
-        return compute_revolute_joint_moved_rate(
-            recorded_metric_data,
-            self.reset_joint_percentage,
-            self.joint_percentage_delta_threshold,
         )

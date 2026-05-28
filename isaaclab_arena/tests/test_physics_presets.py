@@ -9,7 +9,7 @@ import pytest
 from isaaclab_newton.physics.newton_manager_cfg import NewtonCfg
 from isaaclab_physx.physics import PhysxCfg
 
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env import ArenaPhysicsCfg
+from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 HEADLESS = True
