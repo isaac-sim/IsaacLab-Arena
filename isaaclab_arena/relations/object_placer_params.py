@@ -16,7 +16,8 @@ class ObjectPlacerParams:
     """Parameters for the underlying RelationSolver."""
 
     max_placement_attempts: int = 10
-    """Maximum number of placement attempts (random init + solve + validate) before failure."""
+    """Number of candidate layouts solved and ranked per result. Higher values raise the chance a valid
+    layout is found in the batched solve. Also bounds the refill batches in PooledObjectPlacer."""
 
     apply_positions_to_objects: bool = True
     """If True, automatically set solved positions on objects after placement."""

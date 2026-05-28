@@ -5,16 +5,11 @@
 
 from __future__ import annotations
 
-import math
 import torch
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.bounding_box_helpers import (
-    assign_variants_for_envs,
-    build_per_env_bounding_boxes,
-    has_heterogeneous_objects,
-)
+from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
@@ -50,11 +45,11 @@ class ObjectPlacer:
     """High-level API for placing objects according to their spatial relations.
 
     Encapsulates the workflow of:
-    1. Random initialization of object positions
-    2. Running the RelationSolver
-    3. Validating the result
-    4. Retrying if necessary
-    5. Applying solved positions to objects
+    1. Random initialization of candidate positions per environment
+    2. Running the RelationSolver on all candidates in one batch
+    3. Validating each candidate
+    4. Ranking candidates per environment (valid first, then by loss)
+    5. Applying the best layout per environment to the objects
 
     Supports single-env (num_envs=1) and batched (num_envs>1) placement.
 
@@ -73,59 +68,41 @@ class ObjectPlacer:
         self,
         objects: list[ObjectBase],
         num_envs: int = 1,
-        result_per_env: bool = True,
     ) -> PlacementResult | MultiEnvPlacementResult:
         """Place objects according to their spatial relations.
+
+        Every environment is solved against its own per-env bounding boxes and
+        receives its own best-ranked layout. Homogeneous objects share the same
+        bbox across envs; heterogeneous object sets use their assigned variant
+        geometry per env.
 
         Args:
             objects: List of objects to place. Must include at least one object
                 marked with IsAnchor() which serves as a fixed reference.
             num_envs: Number of environments. 1 for single-env; > 1 for batched
                 placement (one layout per env).
-            result_per_env: When True (default), each environment gets a distinct
-                layout. When False, homogeneous objects use a single best layout
-                for all environments. Heterogeneous object sets always return
-                one layout per env, even when this flag is False, because each
-                env must be solved against its assigned variant geometry.
 
         Returns:
-            PlacementResult for one produced layout, otherwise
-            MultiEnvPlacementResult. A heterogeneous multi-env call produces
-            MultiEnvPlacementResult even when result_per_env is False.
+            PlacementResult when num_envs == 1, otherwise a
+            MultiEnvPlacementResult with one layout per environment.
         """
         anchor_objects_set, generator = self._prepare_placement(objects)
-
-        uses_env_specific_bboxes = has_heterogeneous_objects(objects)
-        num_results = num_envs if result_per_env or uses_env_specific_bboxes else 1
         max_attempts = self.params.max_placement_attempts
-        if uses_env_specific_bboxes:
-            ranked_results = self._place_ranked(
-                objects,
-                anchor_objects_set,
-                num_envs,
-                candidates_per_env=max_attempts,
-                attempts_per_result=max_attempts,
-                ranking_mode="env_specific_geometry",
-                generator=generator,
-            )
-            results_per_env = [env_results[0] for env_results in ranked_results]
-        else:
-            ranked_results = self._place_ranked(
-                objects,
-                anchor_objects_set,
-                num_envs=num_results,
-                candidates_per_env=max_attempts,
-                attempts_per_result=max_attempts,
-                ranking_mode="shared_geometry",
-                generator=generator,
-            )
-            results_per_env = ranked_results[0][:num_results]
+        ranked_results_per_env = self._place_ranked(
+            objects,
+            anchor_objects_set,
+            num_envs,
+            candidates_per_env=max_attempts,
+            attempts_per_result=max_attempts,
+            generator=generator,
+        )
+        results_per_env = [env_results[0] for env_results in ranked_results_per_env]
 
-        positions_per_env = [r.positions for r in results_per_env]
         if self.params.apply_positions_to_objects:
+            positions_per_env = [r.positions for r in results_per_env]
             self._apply_positions(positions_per_env, anchor_objects_set)
 
-        if num_results == 1:
+        if num_envs == 1:
             return results_per_env[0]
         return MultiEnvPlacementResult(results=results_per_env)
 
@@ -139,7 +116,7 @@ class ObjectPlacer:
 
         Use this for PooledObjectPlacer, where each env pool stores multiple
         candidate layouts. Use place() for selected placement results.
-        The return value has shape (num_envs, <=results_per_env): each
+        The return value has shape (num_envs, results_per_env): each
         outer list entry corresponds to a real env, and each inner list is
         sorted with valid lower-loss layouts first.
         """
@@ -152,7 +129,6 @@ class ObjectPlacer:
             num_envs,
             candidates_per_env=max_attempts * results_per_env,
             attempts_per_result=max_attempts,
-            ranking_mode="env_specific_geometry",
             generator=generator,
         )
 
@@ -196,21 +172,14 @@ class ObjectPlacer:
         num_envs: int,
         candidates_per_env: int,
         attempts_per_result: int,
-        ranking_mode: Literal["shared_geometry", "env_specific_geometry"],
         generator: torch.Generator | None,
     ) -> list[list[PlacementResult]]:
-        """Solve and rank placement candidates.
+        """Solve and rank placement candidates per environment.
 
-        Shared-geometry ranking is used only when every candidate is
-        interchangeable. Env-specific-geometry ranking keeps candidates tied to
-        their env's assigned variants.
+        Each env is solved against its own per-env bounding boxes, and its
+        candidates are ranked independently (valid first, then by loss), so a
+        candidate is never compared against another env's geometry.
         """
-        if ranking_mode == "shared_geometry":
-            assert not has_heterogeneous_objects(objects), (
-                "Shared-geometry ranking requires homogeneous objects; candidates are not interchangeable across"
-                " variants."
-            )
-
         # Variant assignment fixes the env-to-USD mapping before bbox expansion.
         assign_variants_for_envs(objects, num_envs, placement_seed=self.params.placement_seed)
         num_candidates = num_envs * candidates_per_env
@@ -246,7 +215,7 @@ class ObjectPlacer:
                 )
             )
 
-        ranked_candidate_slices = self._rank_candidates(candidates, ranking_mode, num_envs, candidates_per_env)
+        ranked_candidate_slices = self._rank_candidates(candidates, num_envs, candidates_per_env)
         ranked_results = [
             [
                 PlacementResult(
@@ -261,21 +230,17 @@ class ObjectPlacer:
         ]
 
         if self.params.verbose:
-            self._print_ranked_summary(ranked_candidate_slices, ranking_mode, num_candidates, num_envs)
+            self._print_ranked_summary(ranked_candidate_slices, num_candidates, num_envs)
 
         return ranked_results
 
     @staticmethod
     def _rank_candidates(
         candidates: list[PlacementCandidate],
-        ranking_mode: Literal["shared_geometry", "env_specific_geometry"],
         num_envs: int,
         candidates_per_env: int,
     ) -> list[list[PlacementCandidate]]:
-        """Return one shared-geometry sorted slice or one sorted slice per env."""
-        if ranking_mode == "shared_geometry":
-            return [sorted(candidates, key=lambda candidate: (not candidate.is_valid, candidate.loss))]
-
+        """Return one loss-sorted candidate slice per env (valid candidates first)."""
         ranked_candidate_slices: list[list[PlacementCandidate]] = []
         for cur_env in range(num_envs):
             start = cur_env * candidates_per_env
@@ -288,27 +253,11 @@ class ObjectPlacer:
     def _print_ranked_summary(
         self,
         ranked_candidate_slices: list[list[PlacementCandidate]],
-        ranking_mode: Literal["shared_geometry", "env_specific_geometry"],
         num_candidates: int,
         num_envs: int,
     ) -> None:
-        if ranking_mode == "shared_geometry":
-            candidates = ranked_candidate_slices[0]
-            total_valid = sum(1 for candidate in candidates if candidate.is_valid)
-            finite_losses = [candidate.loss for candidate in candidates if math.isfinite(candidate.loss)]
-            mean_loss = sum(finite_losses) / len(finite_losses) if finite_losses else float("inf")
-            n_valid = sum(1 for candidate in candidates[:num_envs] if candidate.is_valid)
-            print(
-                f"Solved {num_candidates} candidates in one batch: mean loss = {mean_loss:.6f},"
-                f" {total_valid} valid, selected best {num_envs} ({n_valid} valid)"
-            )
-            return
-
         n_valid = sum(1 for candidate_slice in ranked_candidate_slices if candidate_slice[0].is_valid)
-        print(
-            f"Solved {num_candidates} candidates in one batch (env-specific geometry): "
-            f"{n_valid}/{num_envs} env(s) valid"
-        )
+        print(f"Solved {num_candidates} candidates in one batch: {n_valid}/{num_envs} env(s) valid")
 
     def _generate_initial_positions(
         self,

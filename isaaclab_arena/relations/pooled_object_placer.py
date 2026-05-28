@@ -64,6 +64,8 @@ class PooledObjectPlacer:
     * sample_without_replacement(count) consumes count layouts. For
       env-specific layouts, count must be a multiple of num_envs and
       may cover multiple complete env rounds.
+    * sample_for_envs(env_ids) consumes one layout for each requested
+      absolute env id (used for partial resets).
     * sample_with_replacement(count) is non-consuming. Env-specific layouts
       are sampled from matching env slots; reusable layouts are sampled IID from
       all stored layouts.
@@ -181,9 +183,9 @@ class PooledObjectPlacer:
         """
         self._prepare_seeded_solve(num_layouts * self._placer.params.max_placement_attempts)
         with torch.inference_mode(False):
-            result = self._placer.place(self._objects, num_envs=num_layouts, result_per_env=True)
+            result = self._placer.place(self._objects, num_envs=num_layouts)
 
-        # TODO(@zhx06): Simplify once ObjectPlacer.place() always returns MultiEnvPlacementResult.
+        # place() returns a single PlacementResult only when num_envs == 1.
         all_layouts = result.results if isinstance(result, MultiEnvPlacementResult) else [result]
         valid_layouts = [layout for layout in all_layouts if layout.success]
 
@@ -246,33 +248,32 @@ class PooledObjectPlacer:
         self,
         ranked_results_per_env: list[list[PlacementResult]],
         layouts_per_env: int,
+        target_per_env: int,
         allow_fallback: bool = False,
-        target_per_env: int | None = None,
     ) -> None:
         """Store env-matched results into their corresponding pools.
 
-        Prefer successful layouts for each env. If allow_fallback is set and a
-        specific env has no valid layouts, fall back to its best-loss results
-        so existing environments with imperfect validation can still run.
+        Each env is filled only up to target_per_env unread layouts, so envs
+        that already met the target are not overfilled. Successful layouts are
+        preferred; if allow_fallback is set and an env has no valid layouts,
+        fall back to its best-loss results so environments with imperfect
+        validation can still run.
         """
         total_valid = 0
         fallback_envs = []
         for cur_env in range(self._num_envs):
             env_results = ranked_results_per_env[cur_env][:layouts_per_env]
             valid_results = [r for r in env_results if r.success]
-            missing = None if target_per_env is None else target_per_env - self._env_pools[cur_env].available
+            missing = target_per_env - self._env_pools[cur_env].available
             if valid_results:
-                if missing is None:
-                    total_valid += len(valid_results)
-                    self._env_pools[cur_env].extend(valid_results)
-                elif missing > 0:
+                if missing > 0:
                     enqueued = valid_results[:missing]
                     total_valid += len(enqueued)
                     self._env_pools[cur_env].extend(enqueued)
                 else:
                     total_valid += len(valid_results)
-            elif allow_fallback and (missing is None or missing > 0):
-                self._env_pools[cur_env].extend(env_results if missing is None else env_results[:missing])
+            elif allow_fallback and missing > 0:
+                self._env_pools[cur_env].extend(env_results[:missing])
                 fallback_envs.append(cur_env)
                 self._had_fallbacks = True
 
@@ -400,6 +401,7 @@ class PooledObjectPlacer:
         so each result matches its absolute env. For reusable layouts, draws
         are uniform IID from the full pool.
         """
+        # With-replacement samples from all stored layouts, ignoring the consumption cursor.
         if self._uses_env_specific_bboxes:
             results: list[PlacementResult] = []
             for i in range(count):
@@ -423,7 +425,7 @@ class PooledObjectPlacer:
 
     @property
     def pool_size(self) -> int:
-        """Number of layouts to solve per batch. When the pool runs low, it will solve at least this number of layouts so future samples can reuse the buffer."""
+        """Number of layouts solved per batch when the pool is refilled."""
         return self._pool_size
 
     @property

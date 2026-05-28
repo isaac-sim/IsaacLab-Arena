@@ -53,7 +53,6 @@ def _patch_bounding_box_helpers_for_test_doubles(monkeypatch):
 
     has_het_sites = [
         "isaaclab_arena.relations.bounding_box_helpers.has_heterogeneous_objects",
-        "isaaclab_arena.relations.object_placer.has_heterogeneous_objects",
         "isaaclab_arena.relations.pooled_object_placer.has_heterogeneous_objects",
     ]
     for site in has_het_sites:
@@ -244,7 +243,7 @@ def test_object_placer_heterogeneous_produces_per_env_results():
     )
 
     placer = ObjectPlacer(params=params)
-    result = placer.place(objects, num_envs=num_envs, result_per_env=True)
+    result = placer.place(objects, num_envs=num_envs)
 
     assert isinstance(result, MultiEnvPlacementResult)
     assert len(result.results) == num_envs
@@ -275,7 +274,7 @@ def test_object_placer_heterogeneous_z_height_matches_variant():
     )
 
     placer = ObjectPlacer(params=params)
-    result = placer.place(objects, num_envs=num_envs, result_per_env=True)
+    result = placer.place(objects, num_envs=num_envs)
 
     assert isinstance(result, MultiEnvPlacementResult)
     # Both envs should have solved z near the desk top + clearance (0.11).
@@ -321,7 +320,7 @@ def test_mixed_heterogeneous_and_homogeneous_placement():
     )
 
     placer = ObjectPlacer(params=params)
-    result = placer.place(objects, num_envs=num_envs, result_per_env=True)
+    result = placer.place(objects, num_envs=num_envs)
 
     assert isinstance(result, MultiEnvPlacementResult)
     assert len(result.results) == num_envs
@@ -345,7 +344,7 @@ def test_mixed_heterogeneous_and_homogeneous_placement():
 
 
 def test_heterogeneous_placement_always_returns_per_env_results():
-    """Heterogeneous placement should not fall back to one shared approximate layout."""
+    """Heterogeneous placement returns one layout per env solved against its variant geometry."""
 
     desk, hetero, _placer_params = _make_hetero_pool_objects()
 
@@ -357,7 +356,7 @@ def test_heterogeneous_placement_always_returns_per_env_results():
     )
 
     placer = ObjectPlacer(params=params)
-    result = placer.place([desk, hetero], num_envs=4, result_per_env=False)
+    result = placer.place([desk, hetero], num_envs=4)
 
     assert isinstance(result, MultiEnvPlacementResult)
     assert len(result.results) == 4
@@ -398,8 +397,8 @@ def test_object_placer_place_ranked_per_env_returns_sorted_env_lists():
     assert hetero.get_initial_pose() is None
 
 
-def test_object_placer_homogeneous_path_returns_multi_env_result():
-    """When no heterogeneous objects exist, the homogeneous path is used."""
+def test_object_placer_homogeneous_objects_return_multi_env_result():
+    """Homogeneous objects return one layout per env (bboxes identical across envs)."""
 
     desk = _make_desk()
     box = DummyObject(
@@ -416,10 +415,11 @@ def test_object_placer_homogeneous_path_returns_multi_env_result():
     )
 
     placer = ObjectPlacer(params=params)
-    result = placer.place([desk, box], num_envs=2, result_per_env=True)
+    result = placer.place([desk, box], num_envs=2)
 
     assert isinstance(result, MultiEnvPlacementResult)
     assert len(result.results) == 2
+    assert all(r.success for r in result.results)
 
 
 # ---------------------------------------------------------------------------
@@ -567,7 +567,7 @@ def test_pooled_placer_env_specific_fallbacks_are_reported(capsys):
         for cur_env in range(2)
     ]
 
-    pool._store_env_matched_results(fallback_results, layouts_per_env=1, allow_fallback=True)
+    pool._store_env_matched_results(fallback_results, layouts_per_env=1, target_per_env=1, allow_fallback=True)
     captured = capsys.readouterr()
 
     assert pool.had_fallbacks
@@ -596,7 +596,7 @@ def test_pooled_placer_env_specific_fallbacks_wait_for_final_retry(capsys):
         for cur_env in range(2)
     ]
 
-    pool._store_env_matched_results(fallback_results, layouts_per_env=1)
+    pool._store_env_matched_results(fallback_results, layouts_per_env=1, target_per_env=1)
     captured = capsys.readouterr()
 
     assert not pool.had_fallbacks

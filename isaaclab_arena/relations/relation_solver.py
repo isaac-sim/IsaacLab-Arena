@@ -138,9 +138,9 @@ class RelationSolver:
         state: RelationSolverState,
         debug: bool = False,
     ) -> torch.Tensor:
-        """Compute pairwise no-overlap loss for all non-anchor objects against all other objects.
+        """Compute pairwise no-overlap loss, skipping On-linked pairs.
 
-        Each unique pair is evaluated twice (once per direction):
+        Each unique non-On pair is evaluated twice (once per direction):
         - Non-anchor vs anchor: gradient flows to the non-anchor only.
         - Non-anchor vs non-anchor: both objects receive gradient by computing
           the loss in both directions with the other's position detached.
