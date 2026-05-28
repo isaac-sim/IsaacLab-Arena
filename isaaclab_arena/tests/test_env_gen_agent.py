@@ -98,9 +98,8 @@ def agent(stub_openai):
     return a
 
 
-# Minimal EnvIntentSpec payload — exercises every required field plus one task so
-# the ``tasks_must_be_non_empty`` validator passes. Reused across the
-# generate_spec happy-path tests.
+# Minimal EnvIntentSpec payload — exercises every required field plus one
+# task. Reused across the generate_spec happy-path tests.
 _MINIMAL_SPEC: dict = {
     "reasoning": (
         "User wants a pick-and-place: foreground object is 'avocado', "

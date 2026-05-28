@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 # Relation kinds currently surfaced to the agent. Mirror the subset of
 # ``ArenaEnvGraphSpatialConstraintType`` that makes sense for tabletop
@@ -194,14 +194,11 @@ class EnvIntentSpec(BaseModel):
         description=(
             "Tasks to execute in sequence. The task sequence implicitly "
             "defines the intermediate env graphs by applying each task's "
-            "transformations in order."
+            "transformations in order. An empty list is valid and means "
+            "the env has no task — at the arena layer this maps to the "
+            "``NoTask`` null object (e.g. a static playground / sandbox "
+            "env). Prefer an empty list over inventing a placeholder "
+            "task when the user prompt genuinely describes a task-less "
+            "scene."
         ),
     )
-
-    @model_validator(mode="after")
-    def _tasks_must_be_non_empty(self) -> EnvIntentSpec:
-        if not self.tasks:
-            raise ValueError(
-                "tasks list is empty — at least one task must be specified to define the env transformation."
-            )
-        return self

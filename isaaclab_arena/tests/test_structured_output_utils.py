@@ -59,8 +59,8 @@ def _chat_response(content: str | None = None, reasoning_content: str | None = N
     return resp
 
 
-# Minimal EnvIntentSpec payload that satisfies the ``tasks_must_be_non_empty``
-# validator — reused across the ``check_structured_output_support`` happy-path
+# Minimal EnvIntentSpec payload exercising every required field plus one
+# task — reused across the ``check_structured_output_support`` happy-path
 # tests so they exercise the real production schema rather than a toy stub.
 _MINIMAL_SPEC: dict = {
     "reasoning": (
