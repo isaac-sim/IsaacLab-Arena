@@ -34,6 +34,7 @@ def build_catalog_text() -> str:
     backgrounds: list[str] = []
     objects: list[dict] = []
     embodiments: list[str] = []
+    # TODO(qianl): handle optional lights and hdr images.
     for name in registry.get_all_keys():
         cls = registry.get_asset_by_name(name)
         tags = list(getattr(cls, "tags", []))
