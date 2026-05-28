@@ -12,9 +12,9 @@ This workflow covers collecting demonstrations using Isaac Teleop with an XR dev
 
 .. important::
 
-   For the best experience, review the `CloudXR network requirements
+   A stable network connection meeting the `CloudXR network requirements
    <https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html#network-requirements>`_
-   before starting the steps below.
+   is required before starting the steps below.
 
 Step 1: Start the CloudXR Runtime
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

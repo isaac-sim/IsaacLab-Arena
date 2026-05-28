@@ -12,9 +12,9 @@ This workflow covers collecting demonstrations for the Unitree G1 static apple-t
 
 .. important::
 
-   For the best experience, review the `CloudXR network requirements
+   A stable network connection meeting the `CloudXR network requirements
    <https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html#network-requirements>`_
-   before starting the steps below.
+   is required before starting the steps below.
 
 .. admonition:: No teleoperation hardware?
    :class: tip
