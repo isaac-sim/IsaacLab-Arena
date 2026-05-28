@@ -75,7 +75,7 @@ def rollout_policy(
         policy.reset()
         # Determine language instruction: CLI/job-level override takes precedence over the task's own
         # description. Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing).
-        task_description = language_instruction or env.unwrapped.cfg.isaaclab_arena_env.task.get_task_description()
+        task_description = language_instruction or env.unwrapped.arena_env.task.get_task_description()
         policy.set_task_description(task_description)
 
         # Setup progress bar based on num_steps or num_episodes
@@ -125,7 +125,7 @@ def rollout_policy(
 
         # Only compute metrics if env has a non-None metrics list (e.g. NoTask leaves metrics as None).
         # Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing)
-        if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
+        if getattr(env.unwrapped, "metrics", None) is not None:
             # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
             from isaaclab_arena.metrics.metrics import compute_metrics
 

@@ -233,15 +233,16 @@ for step in tqdm.tqdm(range(NUM_STEPS)):
 
 # --- Variation recorder inspection -------------------------------------------
 #
-# ``ArenaEnvBuilder`` attaches a fresh ``VariationRecorder`` to ``env.cfg`` during
-# compose (see ``arena_env_builder.compose_manager_cfg``), so every enabled
+# ``ArenaEnvBuilder`` attaches a fresh ``VariationRecorder`` to
+# ``env.unwrapped`` after ``gym.make`` (see
+# ``arena_env_builder.make_registered_and_return_cfg``), so every enabled
 # variation has a record of the values its sampler actually produced. Each
 # record bundles the variation's source id (``<asset>.<variation>``), the cfg
 # that drove it (here, the Hydra-overridden bounds set above), and the ordered
 # list of sample tensors — one entry per ``SamplerBase.sample()`` call, shape
 # ``(num_envs, *event_shape)``. Useful as a quick sanity check that the
 # distribution we asked for is what the policy actually saw.
-print(env.unwrapped.cfg.variations_recorder)
+print(env.unwrapped.variations_recorder)
 
 # %%
 

@@ -53,7 +53,13 @@ class ArenaEnvBuilder:
         self.interactive_scene_cfg = InteractiveSceneCfg(
             num_envs=args.num_envs, env_spacing=args.env_spacing, replicate_physics=False
         )
-        self._placement_event_cfg: EventTermCfg | None = None
+        self.placement_event_cfg: EventTermCfg | None = None
+        # Runtime objects produced during ``compose_manager_cfg`` and attached to
+        # ``env.unwrapped`` in ``make_registered_and_return_cfg``. Stashing them
+        # here keeps them off the configclass (which would otherwise deep-copy
+        # them in ``__post_init__``; see :class:`IsaacLabArenaManagerBasedRLEnvCfg`).
+        self.variations_recorder: VariationRecorder | None = None
+        self.metrics: list | None = None
 
     def orchestrate(self) -> None:
         """Orchestrate the environment member interaction"""
@@ -288,8 +294,12 @@ class ArenaEnvBuilder:
         # observe both build-time variation samples (drawn below) and run-time
         # variation samples (drawn during simulation). The combined dict covers
         # both scene-side assets and the embodiment.
+        # Stash on the builder rather than the cfg: configclass ``__post_init__``
+        # deep-copies its attributes, which would orphan the listener closures.
+        # :meth:`make_registered_and_return_cfg` attaches it to ``env.unwrapped``.
         variations_recorder = VariationRecorder()
         variations_recorder.attach(self.get_all_variations())
+        self.variations_recorder = variations_recorder
 
         # Apply build-time variations now: they mutate asset configs (e.g.
         # DomeLight.spawner_cfg) and must run before scene_cfg is materialised.
@@ -345,6 +355,8 @@ class ArenaEnvBuilder:
             elif isinstance(device_cfg, DeviceCfg):
                 teleop_devices_cfg = DevicesCfg(devices={self.arena_env.teleop_device.name: device_cfg})
         metrics = task.get_metrics()
+        # Stash on the builder; attached to ``env.unwrapped`` after ``gym.make``.
+        self.metrics = metrics
         metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
 
         # Base has to be specified explicitly to avoid type errors and not lose inheritance.
@@ -378,8 +390,6 @@ class ArenaEnvBuilder:
             task.get_commands_cfg(),
         )
 
-        isaaclab_arena_env = self.arena_env
-
         viewer_cfg = task.get_viewer_cfg()
 
         episode_length_s = task.get_episode_length_s()
@@ -399,9 +409,6 @@ class ArenaEnvBuilder:
                 isaac_teleop=isaac_teleop_cfg,
                 teleop_devices=teleop_devices_cfg,
                 recorders=recorder_manager_cfg,
-                metrics=metrics,
-                variations_recorder=variations_recorder,
-                isaaclab_arena_env=isaaclab_arena_env,
                 viewer=viewer_cfg,
             )
             if episode_length_s is not None:
@@ -429,9 +436,6 @@ class ArenaEnvBuilder:
                 # NOTE(alexmillane, 2025-09-25): Metric + recorders excluded from mimic env,
                 # I assume that they're not needed for the mimic env.
                 # recorders=recorder_manager_cfg,
-                # metrics=metrics,
-                # variations_recorder=variations_recorder,
-                isaaclab_arena_env=isaaclab_arena_env,
                 viewer=viewer_cfg,
             )
 
@@ -513,4 +517,11 @@ class ArenaEnvBuilder:
         # ViewportCameraController sets the camera before KitVisualizer.initialize() is called,
         # so the call is silently ignored. Re-apply here once the visualizers are fully initialized.
         reapply_viewer_cfg(env)
+        # Attach Arena-side runtime objects as flat attributes on the unwrapped
+        # env. Hosting them on the configclass deep-copies (and breaks) the
+        # listener wiring inside ``VariationRecorder``; see the docstring on
+        # :class:`IsaacLabArenaManagerBasedRLEnvCfg`.
+        env.unwrapped.arena_env = self.arena_env
+        env.unwrapped.metrics = self.metrics
+        env.unwrapped.variations_recorder = self.variations_recorder
         return env, cfg

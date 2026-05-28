@@ -20,12 +20,12 @@ def compute_metrics(env: ManagerBasedRLEnv) -> dict[str, float]:
     Returns:
         A dictionary of metrics. Maps metric name to metric value.
     """
-    assert hasattr(env.unwrapped.cfg, "metrics")
+    assert hasattr(env.unwrapped, "metrics")
     # Get the path where the recorded data is stored
     dataset_path = get_metric_recorder_dataset_path(env)
     # For each registered metric
     metrics_data = {}
-    for metric in env.unwrapped.cfg.metrics:
+    for metric in env.unwrapped.metrics:
         # Load the recorded data from disk for this metric
         recorded_metric_data = get_recorded_metric_data(dataset_path, metric.recorder_term_name)
         # Compute the metric value from the recorded data
