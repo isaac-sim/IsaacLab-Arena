@@ -10,6 +10,14 @@ This workflow covers collecting demonstrations using Isaac Teleop with an XR dev
    Before starting teleoperation, also review the `IsaacTeleop system requirements
    <https://nvidia.github.io/IsaacTeleop/main/references/requirements.html#teleoperation-with-isaac-sim-and-isaac-lab>`_.
 
+.. important::
+
+   **Set up your network before you begin.** CloudXR streams the rendered simulation to your
+   headset in real time, so a misconfigured network is the most common cause of laggy or frozen
+   video, dropped sessions, and failed connections. Review the `CloudXR network requirements
+   <https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html#network-requirements>`_
+   and complete your network setup before starting the steps below.
+
 Step 1: Start the CloudXR Runtime
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -133,9 +141,6 @@ Step 3: Connect XR Device and Record
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For detailed instructions, refer to `Connect an XR Device <https://isaac-sim.github.io/IsaacLab/develop/source/how-to/cloudxr_teleoperation.html#start-cloudxr-runtime>`_.
-
-A strong wireless connection is essential for a high-quality streaming experience. Refer to the `CloudXR Network Setup <https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html>`_ guide for router configuration.
-
 
 .. tab-set::
 
