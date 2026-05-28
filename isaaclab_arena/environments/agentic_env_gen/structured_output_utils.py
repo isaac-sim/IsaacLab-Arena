@@ -246,8 +246,27 @@ def check_structured_output_support(
             sample_payload=None,
         )
 
-    finish_reason = resp.choices[0].finish_reason
-    text, route = extract_response_text(resp.choices[0].message)
+    # Some providers (e.g. Azure content-filter trips, Bedrock guardrail
+    # rejections) succeed at the HTTP level but return an empty ``choices``
+    # list — no candidates were emitted. ``resp.choices[0]`` would raise
+    # ``IndexError`` and break our always-return-a-value contract, so
+    # surface it as a parse_error with a distinct message that operators
+    # can tell apart from the "envelope returned but content empty" case
+    # handled further down.
+    choices = getattr(resp, "choices", None) or []
+    if not choices:
+        return StructuredOutputSupport(
+            supported=False,
+            model=model,
+            finish_reason=None,
+            response_route="empty",
+            api_error=None,
+            parse_error="Response contained no choices (model emitted zero candidates).",
+            sample_payload=None,
+        )
+
+    finish_reason = choices[0].finish_reason
+    text, route = extract_response_text(choices[0].message)
     sample = text[:_RESPONSE_PREVIEW_CHARS] if text else None
     if not text:
         return StructuredOutputSupport(

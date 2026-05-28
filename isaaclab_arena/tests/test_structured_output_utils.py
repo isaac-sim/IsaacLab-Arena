@@ -335,6 +335,28 @@ class TestCheckStructuredOutputSupport:
         assert result.response_route == "empty"
         assert result.finish_reason == "stop"  # forwarded so callers can correlate
 
+    def test_reports_parse_error_when_choices_list_is_empty(self):
+        # Real provider behaviour: HTTP returns 200 OK but ``choices`` is
+        # an empty list. Seen on Azure when a content-filter trips, and
+        # on Bedrock when a guardrail rejects the response post-hoc.
+        # Naive ``resp.choices[0]`` access would IndexError and break
+        # the always-return-a-StructuredOutputSupport contract; the
+        # function must instead surface it as a ``parse_error`` with
+        # ``response_route="empty"`` so callers route it the same way
+        # they route an empty envelope.
+        resp = MagicMock()
+        resp.choices = []
+        client = MagicMock()
+        client.chat.completions.create.return_value = resp
+        result = check_structured_output_support(client, "guardrailed", EnvIntentSpec)
+        assert result.supported is False
+        assert result.api_error is None
+        assert result.parse_error is not None
+        assert "no choices" in result.parse_error
+        assert result.response_route == "empty"
+        assert result.finish_reason is None
+        assert result.sample_payload is None
+
     def test_reports_parse_error_on_invalid_json(self):
         client = MagicMock()
         client.chat.completions.create.return_value = _chat_response(content="not json")
