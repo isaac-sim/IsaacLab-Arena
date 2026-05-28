@@ -440,6 +440,14 @@ class TestCheckStructuredOutputSupport:
 # ---------------------------------------------------------------------------
 
 
+# The probe hits a real model on every run. NVIDIA's hosted DeepSeek-v4-flash
+# is intermittently quirky under structured outputs (occasional blank
+# ``content``, transient 429 / 5xx from the proxy, etc.); a single failed
+# attempt does NOT mean the deployment is actually broken. Allow up to 2
+# reruns so a transient blip doesn't fail CI. Real breakage will fail all 3.
+# TODO(qianl): drop the flaky marker once production-side retry is wired
+# into ``check_structured_output_support`` (see TODO in structured_output_utils.py).
+@pytest.mark.flaky(max_runs=3, min_passes=1)
 @pytest.mark.agent_remote_e2e
 def test_default_model_supports_structured_output():
     """The default ``EnvGenAgent`` model must support structured outputs.

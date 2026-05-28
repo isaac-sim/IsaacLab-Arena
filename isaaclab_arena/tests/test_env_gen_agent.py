@@ -367,6 +367,15 @@ class TestSystemPrompt:
 # ---------------------------------------------------------------------------
 
 
+# The test exercises a real wire call against NVIDIA's hosted DeepSeek-v4-flash,
+# which has intermittent quirks under structured outputs (occasional blank
+# content, transient 429 / 5xx, etc.). A single failed attempt does NOT
+# mean ``generate_spec`` is broken — allow up to 2 reruns so the transport
+# layer's intermittency doesn't fail CI. Real breakage will still fail all 3.
+# TODO(qianl): drop the flaky marker once production-side retry is wired
+# into ``generate_spec`` / ``check_structured_output_support`` (see TODOs in
+# env_gen_agent.py and structured_output_utils.py).
+@pytest.mark.flaky(max_runs=3, min_passes=1)
 @pytest.mark.agent_remote_e2e
 def test_generate_spec_against_live_endpoint():
     """End-to-end smoke test against the real OpenAI-compatible endpoint.

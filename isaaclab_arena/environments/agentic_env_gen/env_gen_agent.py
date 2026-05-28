@@ -201,6 +201,14 @@ class EnvGenAgent:
         system = self._system_prompt()
         user = f"{catalog_text}\n\nUSER PROMPT:\n{prompt}"
 
+        # TODO(qianl): wrap with transient-error retry (exponential backoff
+        # + jitter) for ``APIConnectionError`` / ``APITimeoutError`` / 429
+        # / 5xx, plus self-correction on ``pydantic.ValidationError`` (feed
+        # the .errors() report back to the model so it can fix the violation
+        # on retry). Deterministic 4xx errors must still propagate
+        # immediately. Until then, ``test_generate_spec_against_live_endpoint``
+        # carries ``@pytest.mark.flaky`` to absorb transport-layer hiccups
+        # at the test layer.
         resp = self.client.chat.completions.create(
             model=self.model,
             messages=[

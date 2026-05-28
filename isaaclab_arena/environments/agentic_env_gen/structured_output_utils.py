@@ -139,6 +139,11 @@ def ping(client: Any, model: str) -> str:
         ``APIConnectionError`` (unreachable endpoint), and
         ``RateLimitError`` (quota exhausted).
     """
+    # TODO(qianl): wrap with transient-error retry (exponential backoff +
+    # jitter) for ``APIConnectionError`` / ``APITimeoutError`` / 429 / 5xx.
+    # Deterministic errors (401/403/404) must still propagate immediately.
+    # Until then, the affected live tests carry ``@pytest.mark.flaky`` to
+    # absorb intermittent wire-level hiccups at the test layer.
     resp = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": "Respond with exactly: OK"}],
@@ -219,6 +224,14 @@ def check_structured_output_support(
         f"Return a valid {spec_class.__name__} JSON object. Every required field must be "
         "populated — use realistic dummy values where the prompt doesn't specify one."
     )
+    # TODO(qianl): wrap with transient-error retry (exponential backoff +
+    # jitter) for ``APIConnectionError`` / ``APITimeoutError`` / 429 / 5xx.
+    # Deterministic errors (400/401/403/404/422) must still propagate
+    # immediately so genuinely-unsupported endpoints fail fast. Currently
+    # this is the primary source of e2e flakes (provider occasionally
+    # returns blank ``content`` in the structured-outputs envelope) —
+    # affected live tests carry ``@pytest.mark.flaky`` as the short-term
+    # mitigation.
     try:
         resp = client.chat.completions.create(
             model=model,
