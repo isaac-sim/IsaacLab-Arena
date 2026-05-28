@@ -3,12 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Schema the LLM must fill in when parsing a natural-language env-generation prompt.
+"""Schema the agent must fill in when parsing a natural-language env-generation prompt.
 
-The LLM sees a list of the *available* asset tags / embodiment names pulled
+The agent sees a list of the *available* asset tags / embodiment names pulled
 from the registries at call time, and must return an EnvIntentSpec that only uses
 those vocabularies. Concrete asset names are resolved in a second, deterministic
-step — the LLM never invents USD paths.
+step — the agent never invents USD paths.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-# Relation kinds currently surfaced to the LLM. Mirror the subset of
+# Relation kinds currently surfaced to the agent. Mirror the subset of
 # ``ArenaEnvGraphSpatialConstraintType`` that makes sense for tabletop
 # prompts; values must match the enum's values one-to-one because the
 # resolver looks the constraint type up via
@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field, model_validator
 # parallel dict. Solver-internal kinds (``position_limits``,
 # ``random_around_solution``, ``rotate_around_solution``) are intentionally
 # omitted — they describe how the placement solver explores poses and are
-# not natural for an LLM to emit.
+# not natural for an agent to emit.
 # "in" has no In class in isaaclab_arena.relations.relations yet — see the
 # TODO there. The downstream env builder materializes goal-state "in"
 # relations as the task's success predicate.
@@ -33,12 +33,12 @@ RelationKind = Literal["on", "in", "next_to", "at_position", "at_pose", "is_anch
 
 ItemRole = Literal["foreground", "distractor", "anchor"]
 
-# Task kinds the LLM can propose as an atomic task.
+# Task kinds the agent can propose as an atomic task.
 TaskKind = Literal["pick_and_place", "open_door", "close_door"]
 
 
 class Item(BaseModel):
-    """One object the LLM wants in the scene."""
+    """One object the agent wants in the scene."""
 
     query: str = Field(
         description=(
@@ -140,12 +140,12 @@ class EnvIntentSpec(BaseModel):
     """Agent output — a structured "env intent" (blueprint) for the env and a list of tasks.
 
     Field-level guidance lives on the individual ``Field(description=...)``
-    entries below and is surfaced to the LLM via ``model_json_schema()``;
+    entries below and is surfaced to the agent via ``model_json_schema()``;
     only cross-cutting rules and few-shot examples are kept in the
-    prompt text (see ``LLMAgent._system_prompt``).
+    prompt text (see ``EnvGenAgent._system_prompt``).
     """
 
-    # Forced chain-of-thought field, listed FIRST so the LLM emits its
+    # Forced chain-of-thought field, listed FIRST so the agent emits its
     # analysis before committing to any structured field. Instruction-tuned
     # models respect schema field order, and writing reasoning before
     # answers measurably improves structured-output quality (the
@@ -188,10 +188,6 @@ class EnvIntentSpec(BaseModel):
             "persistent relation (e.g. bowl on table, distractors present) "
             "must appear here. Relations that change via tasks are still "
             "listed here in their starting form."
-            # NOTE: field name kept as ``initial_scene_graph`` even though
-            # the class has been renamed (SceneSpec -> LLMEnvSpec ->
-            # EnvIntentSpec) — renaming the field would change the JSON
-            # schema the agent is prompted against and is out of scope here.
         ),
     )
     tasks: list[Task] = Field(

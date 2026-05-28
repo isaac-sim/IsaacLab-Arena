@@ -3,18 +3,18 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Run the LLM parser on a prompt and dump the resolved ArenaEnvGraphSpec.
+"""Run the agent on a prompt and dump the resolved ArenaEnvGraphSpec.
 
 Requires NV_API_KEY environment variable.
 
 Examples:
-    # Print the Pydantic EnvIntentSpec JSON schema (no LLM call):
+    # Print the Pydantic EnvIntentSpec JSON schema (no agent call):
     /isaac-sim/python.sh -m isaaclab_arena.environments.agentic_env_gen.try_schema --print-schema
 
-    # Print the catalog sent to the LLM (no LLM call):
+    # Print the catalog sent to the agent (no agent call):
     /isaac-sim/python.sh -m isaaclab_arena.environments.agentic_env_gen.try_schema --print-catalog
 
-    # Call the LLM, resolve, print, and dump YAML:
+    # Call the agent, resolve, print, and dump YAML:
     /isaac-sim/python.sh -m isaaclab_arena.environments.agentic_env_gen.try_schema \
         --prompt "franka pick up avocado from the table and place it into a bowl on the table. there are other veggies on the table as distractor"
 """
@@ -46,11 +46,11 @@ def main() -> None:
         type=str,
         default="maple_table_robolab",
         help=(
-            "Override the background chosen by the LLM (e.g. 'office_table' "
+            "Override the background chosen by the agent (e.g. 'office_table' "
             "or 'kitchen'). Default is 'maple_table_robolab' because its "
             "tabletop ObjectReference yields a clean bbox and stable "
             "placement, unlike the rotated plain 'table' background. Pass "
-            "an empty string ('') to keep the LLM's choice."
+            "an empty string ('') to keep the agent's choice."
         ),
     )
     args = parser.parse_args()
@@ -61,7 +61,7 @@ def main() -> None:
         print(json.dumps(EnvIntentSpec.model_json_schema(), indent=2))
         return
 
-    from isaaclab_arena.environments.agentic_env_gen.llm_agent import LLMAgent, build_catalog_text
+    from isaaclab_arena.environments.agentic_env_gen.env_gen_agent import EnvGenAgent, build_catalog_text
 
     catalog = build_catalog_text()
     if args.print_catalog:
@@ -69,16 +69,16 @@ def main() -> None:
         return
 
     kwargs = {"model": args.model} if args.model else {}
-    agent = LLMAgent(**kwargs)
+    agent = EnvGenAgent(**kwargs)
     spec, raw = agent.generate_spec(args.prompt, catalog_text=catalog, temperature=args.temperature)
 
-    print("=== raw LLM response ===")
+    print("=== raw agent response ===")
     print(raw)
 
     # Surface the forced chain-of-thought field on its own so it's easy to
     # spot when debugging a bad spec — without this, ``reasoning`` is
     # buried inside the multi-hundred-line model_dump_json below.
-    print("\n=== LLM reasoning ===")
+    print("\n=== agent reasoning ===")
     print(spec.reasoning)
 
     if args.background and args.background != spec.background:

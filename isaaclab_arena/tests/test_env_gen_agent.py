@@ -3,14 +3,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for :class:`isaaclab_arena.environments.agentic_env_gen.llm_agent.LLMAgent`.
+"""Unit tests for :class:`isaaclab_arena.environments.agentic_env_gen.env_gen_agent.EnvGenAgent`.
 
 The agent's behaviour decomposes into four pure-Python concerns that we exercise
 without ever hitting the wire:
 
 * ``__init__`` argument / env-var precedence and the missing-key guard.
 * ``_extract_json`` parsing of well-behaved, fenced, prosed, and malformed
-  LLM responses (including the ``LLMResponseParseError`` → ``ValueError`` MRO
+  agent responses (including the ``AgentResponseParseError`` → ``ValueError`` MRO
   contract so callers can still ``except ValueError``).
 * ``generate_spec`` / ``ping`` — the openai client is replaced with a
   ``MagicMock`` so we assert on the request shape (model, messages,
@@ -28,14 +28,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
-from isaaclab_arena.environments.agentic_env_gen.env_intent_spec import RelationKind, TaskKind
-from isaaclab_arena.environments.agentic_env_gen.llm_agent import (
+from isaaclab_arena.environments.agentic_env_gen.env_gen_agent import (
     _RAW_RESPONSE_PREVIEW_CHARS,
     DEFAULT_BASE_URL,
     DEFAULT_MODEL,
-    LLMAgent,
-    LLMResponseParseError,
+    AgentResponseParseError,
+    EnvGenAgent,
 )
+from isaaclab_arena.environments.agentic_env_gen.env_intent_spec import RelationKind, TaskKind
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -44,12 +44,12 @@ from isaaclab_arena.environments.agentic_env_gen.llm_agent import (
 
 @pytest.fixture
 def stub_openai():
-    """Patch the ``openai.OpenAI`` constructor so ``LLMAgent()`` never hits the wire.
+    """Patch the ``openai.OpenAI`` constructor so ``EnvGenAgent()`` never hits the wire.
 
     The agent does a deferred ``from openai import OpenAI`` inside
     ``__init__`` to avoid pulling the dependency at module import time, so we
     patch the symbol on the ``openai`` module itself rather than on the
-    ``llm_agent`` namespace.
+    ``env_gen_agent`` namespace.
     """
     with patch("openai.OpenAI") as mock_cls:
         mock_cls.return_value = MagicMock()
@@ -58,12 +58,12 @@ def stub_openai():
 
 @pytest.fixture
 def agent(stub_openai):
-    """A constructed ``LLMAgent`` with a fully mocked openai client.
+    """A constructed ``EnvGenAgent`` with a fully mocked openai client.
 
     Tests should set ``agent.client.chat.completions.create.return_value`` (or
-    ``.side_effect``) to control the simulated LLM response.
+    ``.side_effect``) to control the simulated agent response.
     """
-    return LLMAgent(api_key="test-key")
+    return EnvGenAgent(api_key="test-key")
 
 
 def _chat_response(content: str | None):
@@ -110,26 +110,26 @@ _MINIMAL_SPEC: dict = {
 class TestInit:
     def test_explicit_api_key_overrides_env(self, monkeypatch, stub_openai):
         monkeypatch.setenv("NV_API_KEY", "env-key")
-        a = LLMAgent(api_key="explicit-key")
+        a = EnvGenAgent(api_key="explicit-key")
         assert a.api_key == "explicit-key"
 
     def test_falls_back_to_env_var(self, monkeypatch, stub_openai):
         monkeypatch.setenv("NV_API_KEY", "env-key")
-        a = LLMAgent()
+        a = EnvGenAgent()
         assert a.api_key == "env-key"
 
     def test_raises_when_no_key_anywhere(self, monkeypatch, stub_openai):
         monkeypatch.delenv("NV_API_KEY", raising=False)
         with pytest.raises(ValueError, match="API key required"):
-            LLMAgent()
+            EnvGenAgent()
 
     def test_default_model_and_base_url(self, stub_openai):
-        a = LLMAgent(api_key="k")
+        a = EnvGenAgent(api_key="k")
         assert a.model == DEFAULT_MODEL
         stub_openai.assert_called_once_with(api_key="k", base_url=DEFAULT_BASE_URL)
 
     def test_custom_model_and_base_url(self, stub_openai):
-        a = LLMAgent(api_key="k", model="custom-model", base_url="http://localhost:8000")
+        a = EnvGenAgent(api_key="k", model="custom-model", base_url="http://localhost:8000")
         assert a.model == "custom-model"
         stub_openai.assert_called_once_with(api_key="k", base_url="http://localhost:8000")
 
@@ -139,7 +139,7 @@ class TestInit:
         # rather than deep inside the first generate_spec. Locking in the
         # request shape (single user message, max_tokens=8, temperature=0)
         # guarantees we don't accidentally inflate the startup cost.
-        a = LLMAgent(api_key="k")
+        a = EnvGenAgent(api_key="k")
         a.client.chat.completions.create.assert_called_once()
         kwargs = a.client.chat.completions.create.call_args.kwargs
         assert kwargs["temperature"] == 0
@@ -149,7 +149,7 @@ class TestInit:
     def test_init_propagates_ping_failure(self):
         # If the openai client raises during the constructor ping (bad key,
         # unreachable endpoint, ...), the exception must surface from
-        # ``LLMAgent()`` itself — not be swallowed into a silently-broken
+        # ``EnvGenAgent()`` itself — not be swallowed into a silently-broken
         # instance that fails later when generate_spec is called.
         class FakeAuthError(Exception):
             pass
@@ -159,7 +159,7 @@ class TestInit:
             client.chat.completions.create.side_effect = FakeAuthError("bad key")
             mock_cls.return_value = client
             with pytest.raises(FakeAuthError, match="bad key"):
-                LLMAgent(api_key="k")
+                EnvGenAgent(api_key="k")
 
 
 # ---------------------------------------------------------------------------
@@ -169,46 +169,46 @@ class TestInit:
 
 class TestExtractJson:
     def test_plain_json_object(self):
-        assert LLMAgent._extract_json('{"a": 1}') == {"a": 1}
+        assert EnvGenAgent._extract_json('{"a": 1}') == {"a": 1}
 
     def test_strips_fenced_json_block(self):
-        assert LLMAgent._extract_json('```json\n{"a": 1}\n```') == {"a": 1}
+        assert EnvGenAgent._extract_json('```json\n{"a": 1}\n```') == {"a": 1}
 
     def test_strips_bare_triple_backticks(self):
-        assert LLMAgent._extract_json('```\n{"a": 1}\n```') == {"a": 1}
+        assert EnvGenAgent._extract_json('```\n{"a": 1}\n```') == {"a": 1}
 
     def test_extracts_object_from_prose(self):
         text = 'Sure! Here is the JSON: {"a": 1} -- hope that helps.'
-        assert LLMAgent._extract_json(text) == {"a": 1}
+        assert EnvGenAgent._extract_json(text) == {"a": 1}
 
     def test_handles_nested_braces(self):
         text = 'prefix {"outer": {"inner": [1, 2, 3]}} suffix'
-        assert LLMAgent._extract_json(text) == {"outer": {"inner": [1, 2, 3]}}
+        assert EnvGenAgent._extract_json(text) == {"outer": {"inner": [1, 2, 3]}}
 
     def test_raises_when_no_opening_brace(self):
-        with pytest.raises(LLMResponseParseError, match="No JSON object found"):
-            LLMAgent._extract_json("plain text with no braces at all")
+        with pytest.raises(AgentResponseParseError, match="No JSON object found"):
+            EnvGenAgent._extract_json("plain text with no braces at all")
 
     def test_raises_on_unbalanced_braces(self):
-        with pytest.raises(LLMResponseParseError, match="Unbalanced braces"):
-            LLMAgent._extract_json('prefix {"a": 1 with no closing brace')
+        with pytest.raises(AgentResponseParseError, match="Unbalanced braces"):
+            EnvGenAgent._extract_json('prefix {"a": 1 with no closing brace')
 
     def test_parse_error_is_a_value_error(self):
-        # MRO contract: LLMResponseParseError subclasses ValueError so existing
+        # MRO contract: AgentResponseParseError subclasses ValueError so existing
         # ``except ValueError`` clauses (e.g. wrapping model_validate) still
         # catch parse failures. Asserting via ``except ValueError`` rather than
         # ``issubclass`` keeps the test grounded in how callers actually use it.
         with pytest.raises(ValueError):
-            LLMAgent._extract_json("no braces here")
+            EnvGenAgent._extract_json("no braces here")
 
     def test_truncates_long_raw_response_in_error(self):
         # Confirm the preview cap really clips the embedded raw response —
-        # otherwise a megabyte-scale LLM hallucination would bury the
+        # otherwise a megabyte-scale agent hallucination would bury the
         # stack trace. We allow a small wrapper budget for the surrounding
         # error message (repr quotes + "No JSON object found in ..." prefix).
         huge = "x" * 5000
-        with pytest.raises(LLMResponseParseError) as exc_info:
-            LLMAgent._extract_json(huge)
+        with pytest.raises(AgentResponseParseError) as exc_info:
+            EnvGenAgent._extract_json(huge)
         msg = str(exc_info.value)
         wrapper_budget = 200
         assert len(msg) <= _RAW_RESPONSE_PREVIEW_CHARS + wrapper_budget
@@ -239,7 +239,7 @@ class TestGenerateSpec:
 
     def test_propagates_parse_error_for_garbage_response(self, agent):
         agent.client.chat.completions.create.return_value = _chat_response("not json at all")
-        with pytest.raises(LLMResponseParseError):
+        with pytest.raises(AgentResponseParseError):
             agent.generate_spec("p", catalog_text="catalog")
 
     def test_propagates_validation_error_for_schema_violation(self, agent):
@@ -271,7 +271,7 @@ class TestGenerateSpec:
         assert "<<CATALOG-MARKER>>" in user_msg
         assert "user wants avocado on kitchen" in user_msg
         # The "JSON-only" instruction is the contract that lets _extract_json
-        # work — if it disappears the LLM tends to wrap in prose.
+        # work — if it disappears the agent tends to wrap in prose.
         assert "JSON" in user_msg
 
 
@@ -323,7 +323,7 @@ class TestSystemPrompt:
     def test_enumerates_every_relation_kind(self, agent):
         # The prompt derives its bullet list from ``get_args(RelationKind)``;
         # this assertion fails the moment someone adds a kind to the literal
-        # without rebuilding the prompt, which would silently teach the LLM a
+        # without rebuilding the prompt, which would silently teach the agent a
         # vocabulary the resolver doesn't accept.
         prompt = agent._system_prompt()
         for kind in get_args(RelationKind):
@@ -358,7 +358,7 @@ class TestSystemPrompt:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.llm_remote_e2e
+@pytest.mark.agent_remote_e2e
 def test_generate_spec_against_live_endpoint():
     """End-to-end smoke test against the real OpenAI-compatible endpoint.
 
@@ -369,19 +369,19 @@ def test_generate_spec_against_live_endpoint():
 
     Two layers gate this from default ``pytest`` runs:
 
-      * ``llm_remote_e2e`` marker — registered in ``pytest.ini`` next to
+      * ``agent_remote_e2e`` marker — registered in ``pytest.ini`` next to
         ``gr00t_remote_e2e``. Run explicitly with
-        ``pytest -m llm_remote_e2e isaaclab_arena/tests/test_llm_agent.py``.
+        ``pytest -m agent_remote_e2e isaaclab_arena/tests/test_env_gen_agent.py``.
 
     The asset catalog is supplied inline rather than via ``AssetRegistry``
     so the test doesn't depend on Isaac Lab asset registration state — we
-    only want to validate the LLM wire here, not the catalog builder.
+    only want to validate the agent wire here, not the catalog builder.
 
     Assertions are intentionally loose: we check shape (non-empty raw,
     non-empty tasks, populated background/embodiment) rather than exact
-    content, since LLM output drifts between model versions.
+    content, since agent output drifts between model versions.
     """
-    agent = LLMAgent()
+    agent = EnvGenAgent()
     catalog = (
         "EMBODIMENTS: franka_ik\n\n"
         "BACKGROUNDS: maple_table_kitchen\n\n"
@@ -393,7 +393,7 @@ def test_generate_spec_against_live_endpoint():
         "pick up the avocado and place it in the bowl on the kitchen table",
         catalog_text=catalog,
     )
-    assert isinstance(raw, str) and raw, "LLM returned empty raw response"
+    assert isinstance(raw, str) and raw, "agent returned empty raw response"
     assert spec.tasks, "EnvIntentSpec must contain at least one task"
     assert spec.background, "EnvIntentSpec.background must be populated"
     assert spec.embodiment, "EnvIntentSpec.embodiment must be populated"

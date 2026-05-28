@@ -14,7 +14,7 @@ RUNTIME_DEPS = [
     "vuer[all]",
     "lightwheel-sdk",
     "pytest",
-    # Used lazily by isaaclab_arena/environments/agentic_env_gen/* for NV_API_KEY-based LLM calls.
+    # Used lazily by isaaclab_arena/environments/agentic_env_gen/* for NV_API_KEY-based agent calls.
     "openai",
     # Hard dependency of isaaclab_arena/environments/agentic_env_gen/env_intent_spec.py (BaseModel / Field /
     # model_validator imported at module load — not lazy).

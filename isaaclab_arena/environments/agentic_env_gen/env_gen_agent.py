@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""LLM agent for parsing natural-language env-generation prompts into an EnvIntentSpec.
+"""Agent for parsing natural-language env-generation prompts into an EnvIntentSpec.
 
 Calls an OpenAI-compatible chat-completions endpoint (NVIDIA's hosted
 inference by default) and validates the response against the EnvIntentSpec
@@ -21,24 +21,34 @@ from .env_intent_spec import EnvIntentSpec
 DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
 DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
 
-# Truncate raw LLM responses to this many characters when including them in
+# Truncate raw agent responses to this many characters when including them in
 # error messages — long enough to diagnose the failure, short enough to keep
 # stack traces readable.
 _RAW_RESPONSE_PREVIEW_CHARS = 500
 
 
-class LLMResponseParseError(ValueError):
-    """Raised when an LLM response cannot be parsed into a JSON object.
+class AgentResponseParseError(ValueError):
+    """Raised when an agent's response envelope cannot be located in the model output.
+
+    This is distinct from (and not a subclass of) ``json.JSONDecodeError``:
+      * ``JSONDecodeError`` means we found a JSON-shaped payload but it's
+        malformed (unbalanced quotes, trailing comma, …) — that's the
+        model emitting bad JSON.
+      * ``AgentResponseParseError`` means we couldn't even *find* a JSON
+        payload to hand to ``json.loads`` — the model returned prose,
+        a refusal, a partial response, or an unbalanced ``{...}`` block.
+
+    Keeping the two non-overlapping lets callers attribute failures
+    correctly (retry the agent vs. fix the schema) without disambiguating
+    error messages by string-matching.
 
     Subclasses ``ValueError`` so existing ``except ValueError`` clauses
-    (e.g. around ``EnvIntentSpec.model_validate``) still catch it, but the
-    distinct type lets callers that want to retry the LLM call separate
-    parse failures from validation failures.
+    (e.g. around ``EnvIntentSpec.model_validate``) still catch it.
     """
 
 
 def build_catalog_text() -> str:
-    """Introspect AssetRegistry and build the vocabulary the LLM is allowed to use."""
+    """Introspect AssetRegistry and build the vocabulary the agent is allowed to use."""
     from isaaclab_arena.assets.registries import AssetRegistry
 
     registry = AssetRegistry()
@@ -63,7 +73,7 @@ def build_catalog_text() -> str:
     )
 
 
-class LLMAgent:
+class EnvGenAgent:
     """Parses a natural-language env-generation prompt into an EnvIntentSpec."""
 
     def __init__(
@@ -72,7 +82,7 @@ class LLMAgent:
         model: str = DEFAULT_MODEL,
         base_url: str = DEFAULT_BASE_URL,
     ):
-        """Configure the OpenAI-compatible client used to call the LLM.
+        """Configure the OpenAI-compatible client used to call the model.
 
         Args:
             api_key: Bearer token for the inference endpoint. Falls back
@@ -119,7 +129,7 @@ class LLMAgent:
         temperature: float = 0.2,
         max_tokens: int = 2000,
     ) -> tuple[EnvIntentSpec, str]:
-        """Call the LLM and return the parsed EnvIntentSpec plus the raw response.
+        """Call the model and return the parsed EnvIntentSpec plus the raw response.
 
         Args:
             prompt: Natural-language env description from the end user.
@@ -131,7 +141,7 @@ class LLMAgent:
                 value to (a) avoid the cost of rebuilding it across
                 repeated calls, or (b) experiment with a restricted /
                 augmented catalog without mutating the registry.
-            temperature: Sampling temperature forwarded to the LLM. Kept
+            temperature: Sampling temperature forwarded to the model. Kept
                 low by default (0.2) because EnvIntentSpec generation is a
                 deterministic-ish translation task — high temperature
                 yields creative but invalid schemas.
@@ -146,7 +156,7 @@ class LLMAgent:
             JSON.
 
         Raises:
-            LLMResponseParseError: when the response can't be parsed as a
+            AgentResponseParseError: when the response can't be parsed as a
                 JSON object (no opening brace, unbalanced braces).
             pydantic.ValidationError: when the parsed JSON is well-formed
                 but doesn't match the EnvIntentSpec schema.
@@ -200,11 +210,11 @@ class LLMAgent:
             operator.
 
         Example:
-            >>> agent = LLMAgent()
+            >>> agent = EnvGenAgent()
             >>> try:
             ...     agent.ping()
             ... except Exception as e:
-            ...     sys.exit(f"LLM endpoint health-check failed: {e}")
+            ...     sys.exit(f"Agent endpoint health-check failed: {e}")
         """
         resp = self.client.chat.completions.create(
             model=self.model,
@@ -218,9 +228,9 @@ class LLMAgent:
         schema = json.dumps(EnvIntentSpec.model_json_schema(), indent=2)
         # Per-field guidance (what each field means, enum members, default
         # behaviours) lives on the ``Field(description=...)`` entries in
-        # env_intent_spec.py and is surfaced to the LLM via the SCHEMA block
+        # env_intent_spec.py and is surfaced to the agent via the SCHEMA block
         # below. Only cross-cutting rules (those that span multiple fields
-        # or change LLM output behaviour globally) and few-shot examples
+        # or change agent output behaviour globally) and few-shot examples
         # belong here.
         return (
             "You are an env-generation parser for robot manipulation tasks.\n"
@@ -259,15 +269,15 @@ class LLMAgent:
         with contextlib.suppress(json.JSONDecodeError):
             return json.loads(content)
 
-        # ``raise LLMResponseParseError`` rather than ``assert`` so the guard
+        # ``raise AgentResponseParseError`` rather than ``assert`` so the guard
         # survives ``python -O`` (which strips asserts), and so callers can
         # distinguish parse failures from validation failures by exception
         # type. The truncated raw response is the most useful field for
         # debugging a misbehaving prompt.
         start = content.find("{")
         if start == -1:
-            raise LLMResponseParseError(
-                f"No JSON object found in LLM response: {content[:_RAW_RESPONSE_PREVIEW_CHARS]!r}"
+            raise AgentResponseParseError(
+                f"No JSON object found in agent response: {content[:_RAW_RESPONSE_PREVIEW_CHARS]!r}"
             )
         depth = 0
         for i in range(start, len(content)):
@@ -277,4 +287,4 @@ class LLMAgent:
                 depth -= 1
                 if depth == 0:
                     return json.loads(content[start : i + 1])
-        raise LLMResponseParseError(f"Unbalanced braces in LLM response: {content[:_RAW_RESPONSE_PREVIEW_CHARS]!r}")
+        raise AgentResponseParseError(f"Unbalanced braces in agent response: {content[:_RAW_RESPONSE_PREVIEW_CHARS]!r}")

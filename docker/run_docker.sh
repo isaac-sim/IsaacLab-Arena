@@ -185,7 +185,7 @@ else
         fi
     fi
 
-    # pass through API keys used by the LLM scene-gen prototype; values are
+    # pass through API keys used by the agentic env-gen prototype; values are
     # inherited from the host shell so the key never lives in the repo.
     if [ -n "$NV_API_KEY" ]; then
         DOCKER_RUN_ARGS+=("--env" "NV_API_KEY")
