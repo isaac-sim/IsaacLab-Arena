@@ -104,6 +104,10 @@ class Relation(BaseModel):
             "unary kinds (is_anchor)."
         ),
     )
+    # TODO(qianl): free-form ``dict`` emits ``additionalProperties: true``,
+    # which strict-mode structured-outputs endpoints (OpenAI strict /
+    # Bedrock-Claude) reject with a 400. The default NVIDIA DeepSeek is
+    # lenient and accepts it, so this is a latent portability landmine.
     params: dict = Field(
         default_factory=dict,
         description="Optional kind-specific parameters; leave empty by default.",
