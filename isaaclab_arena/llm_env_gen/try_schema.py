@@ -75,6 +75,12 @@ def main() -> None:
     print("=== raw LLM response ===")
     print(raw)
 
+    # Surface the forced chain-of-thought field on its own so it's easy to
+    # spot when debugging a bad spec — without this, ``reasoning`` is
+    # buried inside the multi-hundred-line model_dump_json below.
+    print("\n=== LLM reasoning ===")
+    print(spec.reasoning)
+
     if args.background and args.background != spec.background:
         # Swap the background name wherever it appears so downstream code
         # (resolver, proposer) sees a consistent scene. Rewrite both

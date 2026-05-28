@@ -78,6 +78,10 @@ def _chat_response(content: str | None):
 # the ``tasks_must_be_non_empty`` validator passes. Reused across the
 # generate_spec happy-path tests.
 _MINIMAL_SPEC: dict = {
+    "reasoning": (
+        "User wants a pick-and-place: foreground object is 'avocado', "
+        "target container is 'bowl', background is the kitchen table."
+    ),
     "task_description": "pick up the avocado and place it in the bowl",
     "background": "kitchen",
     "embodiment": "franka_ik",
@@ -337,7 +341,15 @@ class TestSystemPrompt:
         # the test isn't brittle to pydantic's schema-generation tweaks across
         # versions.
         prompt = agent._system_prompt()
-        for field in ("task_description", "background", "embodiment", "items", "initial_scene_graph", "tasks"):
+        for field in (
+            "reasoning",
+            "task_description",
+            "background",
+            "embodiment",
+            "items",
+            "initial_scene_graph",
+            "tasks",
+        ):
             assert field in prompt
 
 

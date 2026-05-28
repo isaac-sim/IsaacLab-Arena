@@ -145,6 +145,26 @@ class LLMEnvSpec(BaseModel):
     prompt text (see ``LLMAgent._system_prompt``).
     """
 
+    # Forced chain-of-thought field, listed FIRST so the LLM emits its
+    # analysis before committing to any structured field. Instruction-tuned
+    # models respect schema field order, and writing reasoning before
+    # answers measurably improves structured-output quality (the
+    # "think step by step then commit" pattern). Bonus debuggability:
+    # when a downstream resolver step fails, the reasoning trace shows
+    # which step the model got wrong (e.g. it picked "tomato" because
+    # it misidentified the foreground object as a vegetable) — without
+    # this, the only signal is the malformed spec itself.
+    reasoning: str = Field(
+        description=(
+            "Step-by-step analysis of the user prompt, written BEFORE the "
+            "structured fields below. Identify (1) the task / intent, (2) "
+            "the foreground objects the task acts on, (3) the background "
+            "surface or scene, (4) any distractors. For each object, "
+            "briefly justify the catalog query and tags you will pick. "
+            "Resolve any ambiguity here before filling the structured "
+            "fields — do not restate this analysis in ``task_description``."
+        ),
+    )
     task_description: str = Field(
         description="One-sentence natural-language summary of what the env exercises overall."
     )
