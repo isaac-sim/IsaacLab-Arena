@@ -14,7 +14,8 @@ This workflow covers collecting demonstrations using Isaac Teleop with an XR dev
 
    **Set up your network before you begin.** CloudXR streams the rendered simulation to your
    headset in real time, so a misconfigured network is the most common cause of laggy or frozen
-   video, dropped sessions, and failed connections. Review the `CloudXR network requirements
+   video, dropped sessions, and failed connections. For the best experience, review the
+   `CloudXR network requirements
    <https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html#network-requirements>`_
    and complete your network setup before starting the steps below.
 
