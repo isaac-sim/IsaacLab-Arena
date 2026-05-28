@@ -10,12 +10,15 @@ import inspect
 import pkgutil
 from typing import TYPE_CHECKING, Any
 
+import isaaclab_arena.tasks as tasks_package
 from isaaclab_arena.environments.graph_spec_utils import (
     camel_to_snake,
     map_nested_leaf_values,
     normalize_identifier,
     strip_suffix,
 )
+from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
+from isaaclab_arena.tasks.task_base import TaskBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphTaskSpec
@@ -32,9 +35,6 @@ def build_task_or_sequence(task_specs: list[ArenaEnvGraphTaskSpec], assets_by_id
     subtasks = [_build_task(task_spec, assets_by_id) for task_spec in task_specs]
     if len(subtasks) == 1:
         return subtasks[0]
-
-    from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
-
     return SequentialTaskBase(subtasks=subtasks, desired_subtask_success_state=[True for _ in subtasks])
 
 
@@ -84,9 +84,6 @@ def _discover_task_classes(task_type: str) -> list[type]:
     Checks the most likely modules first, then walks the whole tasks package if
     nothing turned up — keeps the common case fast.
     """
-    import isaaclab_arena.tasks as tasks_package
-    from isaaclab_arena.tasks.task_base import TaskBase
-
     requested = _normalize_task_name(task_type)
     candidates = _task_module_candidates(task_type, tasks_package.__name__)
     matches = _discover_task_classes_from_modules(candidates, requested, TaskBase)
