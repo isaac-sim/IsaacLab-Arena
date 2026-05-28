@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.registries import AssetRegistry
-from isaaclab_arena.environments.arena_env_graph_task_conversion_utils import build_task_or_sequence
+from isaaclab_arena.environments.arena_env_graph_task_conversion_utils import build_task_from_specs
 from isaaclab_arena.environments.arena_env_graph_types import (
     ArenaEnvGraphNodeSpec,
     ArenaEnvGraphNodeType,
@@ -26,81 +26,111 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 
 
-def build_arena_env_from_graph_spec(spec: ArenaEnvGraphSpec) -> Any:
-    """Create an IsaacLabArenaEnvironment from an already-validated graph spec."""
+def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec) -> Any:
+    """Build an IsaacLabArenaEnvironment from a validated ``ArenaEnvGraphSpec``.
+
+    Precondition: ``graph_spec`` is already validated (node refs exist, ids unique, etc.).
+    """
     # TODO(xinjieyao, 2026-05-26): aggregate every state_spec into a single combined initial state instead of
     # picking one. For now we just take the first state_spec, which is the initial state
     # for the first task — this matches the previous default behavior.
-    state_spec = spec.state_specs[0] if spec.state_specs else None
+    initial_state_spec = graph_spec.state_specs[0] if graph_spec.state_specs else None
 
-    assets_by_id = _instantiate_node_assets(spec.nodes, AssetRegistry())
-    if state_spec is not None:
-        _apply_state_spatial_constraints(state_spec, assets_by_id)
+    # 1. Materialize every graph node into a live asset, keyed by node id so spatial
+    #    constraints and task args can reference each node by its graph-local id.
+    assets_by_node_id = _instantiate_assets_from_nodes(graph_spec.nodes, AssetRegistry())
 
-    embodiment = None
+    # 2. Wire the initial state's spatial relations / fixed poses into those assets.
+    if initial_state_spec is not None:
+        _attach_spatial_constraints_to_assets(initial_state_spec, assets_by_node_id)
+
+    # 3. Partition nodes into the env's embodiment (exactly one) and its scene assets.
+    embodiment_asset = None
     scene_assets: list[Any] = []
     # TODO(xinjieyao, 2026-05-26): include lighting later
-    for node in spec.nodes:
-        if node.type == ArenaEnvGraphNodeType.EMBODIMENT:
-            assert embodiment is None, "Only one embodiment node can be converted to an IsaacLabArenaEnvironment"
-            embodiment = assets_by_id[node.id]
-        elif node.type in (ArenaEnvGraphNodeType.OBJECT, ArenaEnvGraphNodeType.OBJECT_REFERENCE):
-            scene_assets.append(assets_by_id[node.id])
+    for node_spec in graph_spec.nodes:
+        if node_spec.type == ArenaEnvGraphNodeType.EMBODIMENT:
+            assert embodiment_asset is None, "Only one embodiment node can be converted to an IsaacLabArenaEnvironment"
+            embodiment_asset = assets_by_node_id[node_spec.id]
+        elif node_spec.type in (ArenaEnvGraphNodeType.OBJECT, ArenaEnvGraphNodeType.OBJECT_REFERENCE):
+            scene_assets.append(assets_by_node_id[node_spec.id])
 
+    # 4. Resolve task specs against the same assets_by_node_id so task args bind to the
+    #    actual asset instances created in step 1 (not duplicates).
     return IsaacLabArenaEnvironment(
-        name=spec.env_name,
+        name=graph_spec.env_name,
         scene=Scene(assets=scene_assets),
-        embodiment=embodiment,
-        task=build_task_or_sequence(spec.tasks, assets_by_id),
+        embodiment=embodiment_asset,
+        task=build_task_from_specs(graph_spec.tasks, assets_by_node_id),
     )
 
 
-def _instantiate_node_assets(nodes: list[ArenaEnvGraphNodeSpec], asset_registry: Any) -> dict[str, Any]:
-    """Create concrete asset entities for graph nodes and wire object-reference nodes.
+def _instantiate_assets_from_nodes(node_specs: list[ArenaEnvGraphNodeSpec], asset_registry: Any) -> dict[str, Any]:
+    """Return ``{node.id: live_asset}`` after a single pass over ``node_specs``.
 
-    Upstream contract:
-      * Nodes are ordered so an OBJECT_REFERENCE appears after its parent — a single pass is
-        enough; the parent lookup in `assets_by_id` would `KeyError` otherwise.
-      * `node.params` is emitted in the asset constructor's exact kwarg form, including any
-        `instance_name` needed to disambiguate duplicate assets.
+    Each ``node_spec.params`` is forwarded verbatim to the asset constructor. KeyError if
+    an OBJECT_REFERENCE node appears before its parent in ``node_specs``.
     """
-    assets_by_id: dict[str, Any] = {}
-    for node in nodes:
-        if node.type == ArenaEnvGraphNodeType.OBJECT_REFERENCE:
-            assert isinstance(node, ArenaEnvGraphObjectReferenceNodeSpec)
-            assets_by_id[node.id] = ObjectReference(
-                name=node.name,
-                prim_path=node.prim_path,
-                parent_asset=assets_by_id[node.parent],
-                object_type=node.object_type,
-                **node.params,
+    assets_by_node_id: dict[str, Any] = {}
+    for node_spec in node_specs:
+        # OBJECT_REFERENCE wraps a USD prim inside an already-instantiated parent asset
+        # (e.g. a table inside a kitchen background) — the parent must already be in
+        # assets_by_node_id, which is why the spec ordering matters.
+        if node_spec.type == ArenaEnvGraphNodeType.OBJECT_REFERENCE:
+            assert isinstance(node_spec, ArenaEnvGraphObjectReferenceNodeSpec)
+            assets_by_node_id[node_spec.id] = ObjectReference(
+                name=node_spec.name,
+                prim_path=node_spec.prim_path,
+                parent_asset=assets_by_node_id[node_spec.parent],
+                object_type=node_spec.object_type,
+                **node_spec.params,
             )
             continue
-        asset_cls = asset_registry.get_asset_by_name(node.name)
-        assets_by_id[node.id] = asset_cls(**node.params)
-    return assets_by_id
+        # Standard nodes (object / background / embodiment): look up the registered class
+        # by name and instantiate with the spec's verbatim kwargs.
+        asset_class = asset_registry.get_asset_by_name(node_spec.name)
+        assets_by_node_id[node_spec.id] = asset_class(**node_spec.params)
+    return assets_by_node_id
 
 
-def _apply_state_spatial_constraints(state_spec: ArenaEnvGraphStateSpec, assets_by_id: dict[str, Any]) -> None:
-    """Attach relation entities or fixed poses to the environment's initial state."""
-    for constraint in state_spec.spatial_constraints:
-        parent_asset = assets_by_id[constraint.parent]
-        # Note(xinjieyao, 2026-05-26): at_pose constraint is a special case that is handled differently.
-        # Ideally it shall be handled within the placer module.
-        if constraint.type == ArenaEnvGraphSpatialConstraintType.AT_POSE:
-            params = dict(constraint.params)
-            position_xyz = params.pop("position_xyz", None)
-            rotation_xyzw = params.pop("rotation_xyzw", (0.0, 0.0, 0.0, 1.0))
-            assert position_xyz is not None, f"at_pose constraint '{constraint.id}' requires params.position_xyz"
-            assert not params, f"Unsupported at_pose params for constraint '{constraint.id}': {sorted(params)}"
+def _attach_spatial_constraints_to_assets(
+    state_spec: ArenaEnvGraphStateSpec, assets_by_node_id: dict[str, Any]
+) -> None:
+    """Attach one Relation per spatial constraint to the asset(s) it targets, in place.
+
+    AT_POSE is special-cased to ``set_initial_pose`` since it has no Relation class.
+    Raises AssertionError on unsupported constraint types or malformed AT_POSE params.
+    """
+    for spatial_constraint in state_spec.spatial_constraints:
+        parent_asset = assets_by_node_id[spatial_constraint.parent]
+
+        # AT_POSE has no Relation class — it pins the parent's initial pose directly,
+        # bypassing the solver. Pop the two known fields and reject any extras so a typo
+        # in the spec ('postion_xyz') raises here instead of silently being ignored.
+        # TODO(xinjieyao, 2026-05-26): move at_pose handling into the placer module.
+        if spatial_constraint.type == ArenaEnvGraphSpatialConstraintType.AT_POSE:
+            at_pose_params = dict(spatial_constraint.params)
+            position_xyz = at_pose_params.pop("position_xyz", None)
+            rotation_xyzw = at_pose_params.pop("rotation_xyzw", (0.0, 0.0, 0.0, 1.0))
+            assert (
+                position_xyz is not None
+            ), f"at_pose constraint '{spatial_constraint.id}' requires params.position_xyz"
+            assert (
+                not at_pose_params
+            ), f"Unsupported at_pose params for constraint '{spatial_constraint.id}': {sorted(at_pose_params)}"
             parent_asset.set_initial_pose(Pose(position_xyz=position_xyz, rotation_xyzw=rotation_xyzw))
             continue
 
-        relation_cls = relation_class_for_spatial_constraint_type(constraint.type)
-        assert relation_cls is not None, f"Unsupported spatial constraint type '{constraint.type.value}'"
-        # unary relation: parent_asset is the only endpoint
-        # non-unary relation: parent_asset and child_asset are both endpoints
-        if relation_cls.is_unary():
-            parent_asset.add_relation(relation_cls(**constraint.params))
+        # All other constraint types resolve through ObjectRelationLibraryRegistry. The
+        # registry returning None signals an enum value with no registered class — would
+        # be a programming error, not a YAML error.
+        relation_class = relation_class_for_spatial_constraint_type(spatial_constraint.type)
+        assert relation_class is not None, f"Unsupported spatial constraint type '{spatial_constraint.type.value}'"
+        # Unary relations (IS_ANCHOR, POSITION_LIMITS, ...) attach to the parent asset.
+        # Binary relations (ON, NEXT_TO, ...) attach to the *child* asset, with parent
+        # as the relation's first constructor arg — matches how add_relation is wired.
+        if relation_class.is_unary():
+            parent_asset.add_relation(relation_class(**spatial_constraint.params))
         else:
-            assets_by_id[constraint.child].add_relation(relation_cls(parent_asset, **constraint.params))
+            child_asset = assets_by_node_id[spatial_constraint.child]
+            child_asset.add_relation(relation_class(parent_asset, **spatial_constraint.params))

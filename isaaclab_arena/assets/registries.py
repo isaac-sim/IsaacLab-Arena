@@ -58,23 +58,7 @@ class Registry(metaclass=SingletonMeta):
                 pytest collection (before ``SimulationApp()`` starts) the simulator
                 segfaults, because those packages must be imported only after it starts.
         """
-<<<<<<< HEAD
         if ensure_loaded and isinstance(self, REGISTRIES):
-=======
-        # For AssetRegistry and DeviceRegistry, ensure assets are registered before checking
-        if isinstance(
-            self,
-            (
-                AssetRegistry,
-                DeviceRegistry,
-                RetargeterRegistry,
-                PolicyRegistry,
-                HDRImageRegistry,
-                ObjectRelationLibraryRegistry,
-                TaskRegistry,
-            ),
-        ):
->>>>>>> 70ff4c26c (add task registry)
             ensure_assets_registered()
         return key in self._components
 
