@@ -194,16 +194,16 @@ class ArenaEnvGraphSpec:
     def state_specs_by_id(self) -> dict[str, ArenaEnvGraphStateSpec]:
         return {state_spec.id: state_spec for state_spec in self.state_specs}
 
-    def to_arena_env(self, state_spec_id: str | None = None) -> "IsaacLabArenaEnvironment":
+    def to_arena_env(self) -> "IsaacLabArenaEnvironment":
         """Convert this graph spec into an `IsaacLabArenaEnvironment`.
 
-        Args:
-            state_spec_id: Optional state spec id to apply as the initial scene state. Defaults to
-                the first graph task's `initial_state_spec_id`.
+        The first ``state_spec`` is used as the scene's initial state.
         """
+        # TODO(xinjieyao, 2026-05-26): once `build_arena_env_from_graph_spec` aggregates across all state_specs,
+        # this wrapper stays single-arg — no caller-side selection is needed.
         from isaaclab_arena.environments.arena_env_graph_conversion_utils import build_arena_env_from_graph_spec
 
-        return build_arena_env_from_graph_spec(self, state_spec_id=state_spec_id)
+        return build_arena_env_from_graph_spec(self)
 
 
 def _parse_node(data: Any) -> ArenaEnvGraphNodeSpec:

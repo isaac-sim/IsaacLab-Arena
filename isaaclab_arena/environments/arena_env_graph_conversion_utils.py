@@ -17,16 +17,15 @@ if TYPE_CHECKING:
         ArenaEnvGraphSpatialConstraintSpec,
         ArenaEnvGraphSpec,
         ArenaEnvGraphStateSpec,
-        ArenaEnvGraphTaskSpec,
     )
 
 
-def build_arena_env_from_graph_spec(
-    spec: ArenaEnvGraphSpec,
-    state_spec_id: str | None = None,
-) -> Any:
+def build_arena_env_from_graph_spec(spec: ArenaEnvGraphSpec) -> Any:
     """Create an IsaacLabArenaEnvironment from an already-validated graph spec."""
-    state_spec = _select_state_spec(spec, spec.tasks, state_spec_id)
+    # TODO(xinjieyao, 2026-05-26): aggregate every state_spec into a single combined initial state instead of
+    # picking one. For now we just take the first state_spec, which is the initial state
+    # for the first task — this matches the previous default behavior.
+    state_spec = spec.state_specs[0] if spec.state_specs else None
     if state_spec is not None:
         _validate_initial_state_supported_for_conversion(state_spec)
 
@@ -42,7 +41,13 @@ def build_arena_env_from_graph_spec(
     return IsaacLabArenaEnvironment(
         name=spec.env_name,
         scene=Scene(
-            assets=[assets_by_id[node.id] for node in spec.nodes if node.type != ArenaEnvGraphNodeType.EMBODIMENT]
+            # Only object-library nodes (objects and object references) go into `scene.assets`;
+            # background, lighting, and embodiment nodes are handled through their own slots.
+            assets=[
+                assets_by_id[node.id]
+                for node in spec.nodes
+                if node.type in (ArenaEnvGraphNodeType.OBJECT, ArenaEnvGraphNodeType.OBJECT_REFERENCE)
+            ]
         ),
         embodiment=_select_embodiment(spec.nodes, assets_by_id),
         task=build_task_or_sequence(spec.tasks, assets_by_id),
@@ -60,24 +65,6 @@ def _validate_initial_state_supported_for_conversion(state_spec: ArenaEnvGraphSt
         assert (
             relation_classes.get(constraint.type) is not None
         ), f"Spatial constraint type '{constraint.type.value}' is not supported for initial state conversion"
-
-
-def _select_state_spec(
-    spec: ArenaEnvGraphSpec,
-    task_specs: list[ArenaEnvGraphTaskSpec],
-    state_spec_id: str | None,
-) -> ArenaEnvGraphStateSpec | None:
-    """Choose which graph state becomes the scene's initial layout."""
-    if state_spec_id is None and task_specs:
-        state_spec_id = task_specs[0].initial_state_spec_id
-    if state_spec_id is None:
-        if not spec.state_specs:
-            return None
-        assert len(spec.state_specs) == 1, "state_spec_id is required when multiple state specs exist"
-        return spec.state_specs[0]
-    state_spec = spec.state_specs_by_id.get(state_spec_id)
-    assert state_spec is not None, f"Unknown state spec id '{state_spec_id}'"
-    return state_spec
 
 
 def _instantiate_node_assets(nodes: list[ArenaEnvGraphNodeSpec], asset_registry: Any) -> dict[str, Any]:

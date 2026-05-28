@@ -164,13 +164,6 @@ def test_arena_env_graph_spec_validates_task_arg_node_references_at_construction
         ArenaEnvGraphSpec.from_dict(data)
 
 
-def test_arena_env_graph_conversion_validates_selected_initial_state_before_instantiation():
-    spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml")
-
-    with pytest.raises(AssertionError, match="not supported for initial state conversion"):
-        spec.to_arena_env(state_spec_id="state_spec_1")
-
-
 def _test_arena_env_graph_conversion_builds_sequential_pick_and_place_task(simulation_app):
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase

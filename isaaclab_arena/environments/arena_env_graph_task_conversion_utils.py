@@ -22,7 +22,11 @@ if TYPE_CHECKING:
 
 
 def build_task_or_sequence(task_specs: list[ArenaEnvGraphTaskSpec], assets_by_id: dict[str, Any]) -> Any | None:
-    """Return no task, one task, or a sequential task using every graph task entry."""
+    """Build the env's task from the graph's task specs.
+
+    Returns None if there are no specs, a single task instance if there's one,
+    or a SequentialTaskBase wrapping all of them in order.
+    """
     if not task_specs:
         return None
     subtasks = [_build_task(task_spec, assets_by_id) for task_spec in task_specs]
@@ -35,14 +39,18 @@ def build_task_or_sequence(task_specs: list[ArenaEnvGraphTaskSpec], assets_by_id
 
 
 def _build_task(task_spec: ArenaEnvGraphTaskSpec, assets_by_id: dict[str, Any]) -> Any:
-    """Instantiate one task after resolving graph node ids to asset objects."""
+    """Build one task instance, swapping node-id strings in its args for the live asset objects."""
     task_cls = _resolve_task_class(task_spec.type)
     task_args = _resolve_task_args(task_spec.task_args, assets_by_id)
     return task_cls(**_align_task_kwargs(task_cls, task_args))
 
 
 def _resolve_task_class(task_type: str) -> Any:
-    """Find the task class named by a graph task type."""
+    """Look up the task class for a YAML ``type:`` string.
+
+    Tries an explicit ``pkg.module:Class`` (or dotted) path first, then falls back
+    to walking the tasks package for a class matching by name or module stem.
+    """
     task_cls = _import_symbol(task_type)
     if task_cls is not None:
         return task_cls
@@ -56,7 +64,10 @@ def _resolve_task_class(task_type: str) -> Any:
 
 
 def _import_symbol(import_path: str) -> Any | None:
-    """Load an explicit module path such as package.module:Class."""
+    """Import a qualified ``pkg.module:Class`` (or dotted) path.
+
+    Returns None for bare class names, which then go through discovery instead.
+    """
     if ":" in import_path:
         module_name, class_name = import_path.split(":", 1)
     elif "." in import_path:
@@ -68,7 +79,11 @@ def _import_symbol(import_path: str) -> Any | None:
 
 
 def _discover_task_classes(task_type: str) -> list[type]:
-    """Search first-party task modules for a class matching the YAML task type."""
+    """Find task classes matching the YAML ``type:`` string.
+
+    Checks the most likely modules first, then walks the whole tasks package if
+    nothing turned up — keeps the common case fast.
+    """
     import isaaclab_arena.tasks as tasks_package
     from isaaclab_arena.tasks.task_base import TaskBase
 
@@ -85,7 +100,11 @@ def _discover_task_classes(task_type: str) -> list[type]:
 
 
 def _discover_task_classes_from_modules(module_names: list[str], requested: str, task_base_cls: type) -> list[type]:
-    """Return task classes whose class name or module name matches the request."""
+    """Pick task classes from these modules that match ``requested``.
+
+    Class-name matches win; if there are none, fall back to all task classes in
+    a module whose stem matches.
+    """
     class_matches: list[type] = []
     module_matches: list[type] = []
     for module_name in module_names:
@@ -104,7 +123,7 @@ def _discover_task_classes_from_modules(module_names: list[str], requested: str,
 
 
 def _task_module_candidates(task_type: str, package_name: str) -> list[str]:
-    """Try the most likely module names before walking the whole task package."""
+    """Best-guess module names for a task type, e.g. ``ReachTask`` -> ``reach`` and ``reach_task``."""
     module_stem = camel_to_snake(task_type)
     module_stems = [module_stem]
     if not module_stem.endswith("_task"):
@@ -113,7 +132,7 @@ def _task_module_candidates(task_type: str, package_name: str) -> list[str]:
 
 
 def _get_module_task_classes(module: Any, task_base_cls: type) -> list[type]:
-    """Collect task classes owned by one module, excluding imported classes."""
+    """Task subclasses defined in this module — re-exported imports are skipped."""
     return [
         cls
         for _, cls in inspect.getmembers(module, inspect.isclass)
@@ -122,7 +141,7 @@ def _get_module_task_classes(module: Any, task_base_cls: type) -> list[type]:
 
 
 def _resolve_task_args(value: Any, assets_by_id: dict[str, Any]) -> Any:
-    """Replace node-id strings in task args with the instantiated assets they name."""
+    """Swap node-id strings in task args for the live asset objects they refer to."""
     return map_nested_leaf_values(
         value,
         lambda item: assets_by_id[item] if isinstance(item, str) and item in assets_by_id else item,
@@ -130,7 +149,11 @@ def _resolve_task_args(value: Any, assets_by_id: dict[str, Any]) -> Any:
 
 
 def _align_task_kwargs(task_cls: type, task_args: dict[str, Any]) -> dict[str, Any]:
-    """Match YAML task-arg keys to the task constructor's parameter names."""
+    """Map YAML ``task_args`` keys onto the task constructor's parameters.
+
+    Matches are loose (case- and separator-insensitive, with substring fallback) so
+    YAML can use friendly names like ``pickup_object`` for a parameter named ``pickup_object_asset``.
+    """
     parameters = {
         name: parameter
         for name, parameter in inspect.signature(task_cls).parameters.items()
@@ -151,7 +174,11 @@ def _match_task_arg_to_parameter(
     required_params: set[str],
     assigned_params: set[str],
 ) -> str:
-    """Choose the single constructor parameter that best matches one YAML key."""
+    """Pick the constructor parameter this YAML key maps to.
+
+    Prefers exact matches, then normalized/substring matches, and biases toward
+    required parameters when several would fit. Asserts on ambiguity.
+    """
     if key in parameters and key not in assigned_params:
         return key
     normalized_key = normalize_identifier(key)
@@ -174,5 +201,9 @@ def _match_task_arg_to_parameter(
 
 
 def _normalize_task_name(name: str) -> str:
-    """Put task class names, module names, and YAML names in the same form."""
+    """Reduce a class name, module stem, or YAML string to one comparable form.
+
+    Lowercased, alnum-only, with a trailing ``task`` stripped — so ``ReachTask``,
+    ``reach_task``, and ``Reach`` all collapse to ``reach``.
+    """
     return strip_suffix(normalize_identifier(name), "task")

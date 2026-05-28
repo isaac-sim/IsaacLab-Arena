@@ -12,10 +12,10 @@ from typing import TYPE_CHECKING
 from isaaclab.utils.math import euler_xyz_from_quat
 
 from isaaclab_arena.assets.register import register_object_relation
-from isaaclab_arena.utils.pose import PoseRange
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.utils.pose import PoseRange
 
 
 class Side(Enum):

@@ -253,7 +253,12 @@ def relation_class_for_spatial_constraint_type(
 
 
 def iter_nested_leaf_values(value: Any, key_path: str = "") -> Iterator[tuple[str, Any]]:
-    """Walk nested task-arg values while keeping a readable path for errors."""
+    """Walk nested task-arg values while keeping a readable path for errors.
+
+    Example:
+        >>> list(iter_nested_leaf_values({"object": "mug", "destination": ["table", "shelf"]}))
+        [('object', 'mug'), ('destination[0]', 'table'), ('destination[1]', 'shelf')]
+    """
     if isinstance(value, dict):
         for key, item in value.items():
             nested_key_path = f"{key_path}.{key}" if key_path else str(key)
@@ -267,7 +272,12 @@ def iter_nested_leaf_values(value: Any, key_path: str = "") -> Iterator[tuple[st
 
 
 def map_nested_leaf_values(value: Any, transform: Callable[[Any], Any]) -> Any:
-    """Apply a transform to nested task-arg leaves while preserving container shape."""
+    """Apply a transform to nested task-arg leaves while preserving container shape.
+
+    Example:
+        >>> map_nested_leaf_values({"a": [1, 2], "b": (3, 4)}, lambda x: x * 10)
+        {'a': [10, 20], 'b': (30, 40)}
+    """
     if isinstance(value, dict):
         return {key: map_nested_leaf_values(item, transform) for key, item in value.items()}
     if isinstance(value, list):
@@ -278,12 +288,22 @@ def map_nested_leaf_values(value: Any, transform: Callable[[Any], Any]) -> Any:
 
 
 def normalize_identifier(identifier: str) -> str:
-    """Normalize names so YAML keys can be matched across casing and separators."""
+    """Normalize names so YAML keys can be matched across casing and separators.
+
+    Example:
+        >>> normalize_identifier("Pickup_Object")
+        'pickupobject'
+    """
     return "".join(char for char in identifier.lower() if char.isalnum())
 
 
 def camel_to_snake(identifier: str) -> str:
-    """Turn a class-like name into the module-style name we try during discovery."""
+    """Turn a class-like name into the module-style name we try during discovery.
+
+    Example:
+        >>> camel_to_snake("AtPosition")
+        'at_position'
+    """
     chars: list[str] = []
     for index, char in enumerate(identifier):
         if char.isupper() and index > 0 and (identifier[index - 1].islower() or identifier[index - 1].isdigit()):
@@ -293,5 +313,12 @@ def camel_to_snake(identifier: str) -> str:
 
 
 def strip_suffix(value: str, suffix: str) -> str:
-    """Remove a suffix only when the value actually has it."""
+    """Remove a suffix only when the value actually has it.
+
+    Example:
+        >>> strip_suffix("AtPositionSpec", "Spec")
+        'AtPosition'
+        >>> strip_suffix("AtPosition", "Spec")
+        'AtPosition'
+    """
     return value[: -len(suffix)] if value.endswith(suffix) else value
