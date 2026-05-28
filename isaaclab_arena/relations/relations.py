@@ -162,6 +162,11 @@ class IsAnchor(RelationBase):
 
     name = "is_anchor"
 
+    @staticmethod
+    def is_unary() -> bool:
+        """Return whether the relation constrains a single object."""
+        return True
+
 
 @register_object_relation
 class RandomAroundSolution(RelationBase):
@@ -183,6 +188,11 @@ class RandomAroundSolution(RelationBase):
     """
 
     name = "random_around_solution"
+
+    @staticmethod
+    def is_unary() -> bool:
+        """Return whether the relation constrains a single object."""
+        return True
 
     def __init__(
         self,
@@ -273,6 +283,11 @@ class RotateAroundSolution(RelationBase):
     """
 
     name = "rotate_around_solution"
+
+    @staticmethod
+    def is_unary() -> bool:
+        """Return whether the relation constrains a single object."""
+        return True
 
     def __init__(
         self,

@@ -178,24 +178,23 @@ def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
         for constraint in state_spec.spatial_constraints:
             constraint_type = _enum_value(constraint.type)
             if constraint_type == "at_pose":
-                assert (
-                    constraint.child is None
-                ), f"Spatial constraint '{constraint.id}' of type '{constraint_type}' must not define a child node"
+                # Special: no relation class; pose is supplied directly via params.
                 assert (
                     "position_xyz" in constraint.params
                 ), f"Spatial constraint '{constraint.id}' of type 'at_pose' requires params.position_xyz"
-                continue
-            if constraint_type == "in":
+                is_unary = True
+            elif constraint_type == "in":
+                # Special: no relation class; semantically a binary parent/child constraint.
+                # TODO(xinjieyao, 2026-05-27): add an `In` relation class so this can go through the relation_classes lookup.
+                is_unary = False
+            else:
+                relation_cls = relation_classes.get(constraint.type)
                 assert (
-                    constraint.child is not None
-                ), f"Spatial constraint '{constraint.id}' of type '{constraint_type}' requires a child node"
-                continue
+                    relation_cls is not None
+                ), f"Spatial constraint type '{constraint_type}' is not mapped to a relation class"
+                is_unary = relation_cls.is_unary()
 
-            relation_cls = relation_classes.get(constraint.type)
-            assert (
-                relation_cls is not None
-            ), f"Spatial constraint type '{constraint_type}' is not mapped to a relation class"
-            if relation_cls.is_unary():
+            if is_unary:
                 assert (
                     constraint.child is None
                 ), f"Spatial constraint '{constraint.id}' of type '{constraint_type}' must not define a child node"
