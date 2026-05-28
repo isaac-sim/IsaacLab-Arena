@@ -140,17 +140,10 @@ class EnvGenAgent:
         # 2) Structured-output capability check. ``generate_spec`` is
         # structured-outputs-only, so a model that can't honour
         # ``response_format=json_schema`` is fundamentally unusable for
-        # this agent. Surface the failure at construction time with the
-        # full diagnostic payload from the probe (api_error vs
-        # parse_error vs route) so deployment validators can attribute
-        # the cause without grepping logs.
-        support = check_structured_output_support(self.client, self.model, EnvIntentSpec)
-        if not support.supported:
-            raise RuntimeError(
-                f"Model {self.model!r} at {base_url!r} does not support structured outputs: "
-                f"api_error={support.api_error!r} parse_error={support.parse_error!r} "
-                f"route={support.response_route!r}"
-            )
+        # this agent. The probe raises ``RuntimeError`` with a multi-line
+        # diagnostic (route / finish_reason / cause / sample_payload) on
+        # any failure mode — no caller-side wrapping needed.
+        check_structured_output_support(self.client, self.model, EnvIntentSpec)
 
     def generate_spec(
         self,

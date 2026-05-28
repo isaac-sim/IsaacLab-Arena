@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import copy
 import json
-from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel
@@ -31,34 +30,29 @@ from pydantic import BaseModel
 _RESPONSE_PREVIEW_CHARS = 500
 
 
-@dataclass(frozen=True)
-class StructuredOutputSupport:
-    """Result of probing a model for structured-outputs capability.
+def _format_failure_message(
+    *,
+    model: str,
+    response_route: str,
+    finish_reason: str | None,
+    cause: str,
+    sample_payload: str | None,
+) -> str:
+    """Build the multi-line diagnostic message for a structured-output failure.
 
-    The probe sends a one-shot request asking the configured model to
-    return a payload matching ``spec_class``'s strict schema. The
-    result captures every signal a deployment validator needs to
-    decide "is this model usable?":
-
-      * ``supported``: True iff a valid ``spec_class`` instance came
-        back end-to-end (wire ok, schema honoured, pydantic
-        validation passed).
-      * ``response_route``: which channel held the structured output
-        (``"content"`` for OpenAI-compatible models,
-        ``"reasoning_content"`` for NVIDIA DeepSeek, ``"empty"`` when
-        the model dropped the request).
-      * ``api_error`` / ``parse_error``: filled in (mutually
-        exclusively, in that order) when ``supported`` is False so
-        the caller can attribute the failure correctly.
+    The format pairs every signal the probe captured into a layout that
+    grep/CI logs can read at a glance. ``sample_payload`` is the
+    single most useful field — it turns a cryptic ``JSONDecodeError:
+    Expecting value`` into a debuggable failure by showing what the
+    model actually returned (prose preamble? HTML error page? empty?).
     """
-
-    supported: bool
-    model: str
-    finish_reason: str | None
-    response_route: str
-    api_error: str | None
-    parse_error: str | None
-    sample_payload: str | None
+    return (
+        f"Model {model!r} does not support structured outputs:\n"
+        f"  response_route = {response_route!r}\n"
+        f"  finish_reason  = {finish_reason!r}\n"
+        f"  cause          = {cause}\n"
+        f"  sample_payload = {sample_payload!r}"
+    )
 
 
 def build_strict_schema(model_cls: type[BaseModel]) -> dict[str, Any]:
@@ -179,27 +173,21 @@ def check_structured_output_support(
     client: Any,
     model: str,
     spec_class: type[BaseModel],
-) -> StructuredOutputSupport:
+) -> bool:
     """Probe whether ``model`` can produce ``spec_class``-shaped structured outputs.
 
     Sends a single chat-completion against ``client`` with
     ``response_format=json_schema`` carrying ``spec_class``'s strict
     schema and a minimal user prompt asking the model to fabricate a
-    valid instance. Reports diagnostics rather than raising so
-    deployment validators can decide how to react (warn, fall back,
-    abort).
+    valid instance. Returns ``True`` if the model successfully
+    produced a valid ``spec_class`` instance end-to-end.
 
-    Two failure modes are reported separately:
-
-      * ``api_error`` — the request was rejected at the wire
-        (400/401/etc). The endpoint or its proxy doesn't understand
-        ``response_format``, or the schema violates a
-        provider-specific constraint (e.g. Bedrock requiring
-        ``additionalProperties: false`` everywhere — we munge for
-        this, but other constraints can still surface here).
-      * ``parse_error`` — the request succeeded and the model
-        returned a payload, but it doesn't parse as JSON or doesn't
-        validate against the schema.
+    Every failure mode raises ``RuntimeError`` with a multi-line
+    diagnostic that names the failed channel, ``finish_reason``,
+    the underlying cause, and a preview of the model's response.
+    When the failure has an originating SDK exception (HTTP error,
+    JSONDecodeError, ValidationError) it is chained via
+    ``__cause__`` so the traceback retains the full context.
 
     Args:
         client: An OpenAI-compatible client (typically
@@ -211,7 +199,17 @@ def check_structured_output_support(
             sent to the endpoint.
 
     Returns:
-        A :class:`StructuredOutputSupport` capturing the outcome.
+        ``True`` when the probe round-trips successfully (wire ok,
+        schema honoured, pydantic validation passed).
+
+    Raises:
+        RuntimeError: for any failure mode — API rejection at the
+            wire (400/401/etc.), empty ``choices`` list (Azure
+            content-filter / Bedrock guardrail rejection), empty
+            envelope on both ``content`` and ``reasoning_content``,
+            JSON parse failure, or pydantic schema-validation
+            failure. The exception's ``__cause__`` (when populated)
+            is the originating SDK / parser exception.
     """
     schema = build_strict_schema(spec_class)
     # The user prompt is deliberately content-free; the schema itself
@@ -236,67 +234,58 @@ def check_structured_output_support(
             max_tokens=2000,
         )
     except Exception as exc:
-        return StructuredOutputSupport(
-            supported=False,
-            model=model,
-            finish_reason=None,
-            response_route="empty",
-            api_error=f"{type(exc).__name__}: {str(exc)[:_RESPONSE_PREVIEW_CHARS]}",
-            parse_error=None,
-            sample_payload=None,
-        )
+        raise RuntimeError(
+            _format_failure_message(
+                model=model,
+                response_route="empty",
+                finish_reason=None,
+                cause=f"{type(exc).__name__}: {str(exc)[:_RESPONSE_PREVIEW_CHARS]}",
+                sample_payload=None,
+            )
+        ) from exc
 
     # Some providers (e.g. Azure content-filter trips, Bedrock guardrail
     # rejections) succeed at the HTTP level but return an empty ``choices``
     # list — no candidates were emitted. ``resp.choices[0]`` would raise
-    # ``IndexError`` and break our always-return-a-value contract, so
-    # surface it as a parse_error with a distinct message that operators
-    # can tell apart from the "envelope returned but content empty" case
-    # handled further down.
+    # ``IndexError``; surface it with a distinct ``cause`` message that
+    # operators can tell apart from the "envelope returned but content
+    # empty" case handled further down.
     choices = getattr(resp, "choices", None) or []
     if not choices:
-        return StructuredOutputSupport(
-            supported=False,
-            model=model,
-            finish_reason=None,
-            response_route="empty",
-            api_error=None,
-            parse_error="Response contained no choices (model emitted zero candidates).",
-            sample_payload=None,
+        raise RuntimeError(
+            _format_failure_message(
+                model=model,
+                response_route="empty",
+                finish_reason=None,
+                cause="Response contained no choices (model emitted zero candidates).",
+                sample_payload=None,
+            )
         )
 
     finish_reason = choices[0].finish_reason
     text, route = extract_response_text(choices[0].message)
     sample = text[:_RESPONSE_PREVIEW_CHARS] if text else None
     if not text:
-        return StructuredOutputSupport(
-            supported=False,
-            model=model,
-            finish_reason=finish_reason,
-            response_route=route,
-            api_error=None,
-            parse_error="Model returned an empty envelope on both content and reasoning_content.",
-            sample_payload=None,
+        raise RuntimeError(
+            _format_failure_message(
+                model=model,
+                response_route=route,
+                finish_reason=finish_reason,
+                cause="Model returned an empty envelope on both content and reasoning_content.",
+                sample_payload=None,
+            )
         )
     try:
         data = json.loads(text, strict=False)
         spec_class.model_validate(data)
     except Exception as exc:
-        return StructuredOutputSupport(
-            supported=False,
-            model=model,
-            finish_reason=finish_reason,
-            response_route=route,
-            api_error=None,
-            parse_error=f"{type(exc).__name__}: {str(exc)[:_RESPONSE_PREVIEW_CHARS]}",
-            sample_payload=sample,
-        )
-    return StructuredOutputSupport(
-        supported=True,
-        model=model,
-        finish_reason=finish_reason,
-        response_route=route,
-        api_error=None,
-        parse_error=None,
-        sample_payload=sample,
-    )
+        raise RuntimeError(
+            _format_failure_message(
+                model=model,
+                response_route=route,
+                finish_reason=finish_reason,
+                cause=f"{type(exc).__name__}: {str(exc)[:_RESPONSE_PREVIEW_CHARS]}",
+                sample_payload=sample,
+            )
+        ) from exc
+    return True

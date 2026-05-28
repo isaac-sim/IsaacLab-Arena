@@ -199,9 +199,12 @@ class TestInit:
         # The agent is structured-outputs-only — a model that can't honour
         # ``response_format=json_schema`` is fundamentally unusable. The
         # constructor must refuse rather than letting downstream
-        # ``generate_spec`` blow up later. The error message must surface
-        # the diagnostic fields from the probe so the operator can attribute
-        # the cause (api_error vs parse_error vs empty envelope).
+        # ``generate_spec`` blow up later. ``check_structured_output_support``
+        # raises the diagnostic RuntimeError directly, so all the
+        # informative fields are baked into the probe's exception — no
+        # caller-side message construction. This test just confirms the
+        # probe's exception reaches the caller verbatim (no swallow,
+        # no rewrap that drops fields).
         with patch("openai.OpenAI") as mock_cls:
             client = MagicMock()
             client.chat.completions.create.side_effect = [
@@ -212,12 +215,16 @@ class TestInit:
             with pytest.raises(RuntimeError, match="does not support structured outputs") as exc_info:
                 EnvGenAgent(api_key="k")
             msg = str(exc_info.value)
-            # Empty-envelope probe → parse_error populated, api_error None,
-            # route="empty". All three should appear in the message so the
-            # caller can distinguish from a 4xx (api_error populated) case.
-            assert "parse_error=" in msg
-            assert "api_error=" in msg
-            assert "route='empty'" in msg
+            # Diagnostic fields from the probe must reach the operator —
+            # ``sample_payload`` in particular is what turns cryptic JSON /
+            # validation errors into debuggable failures.
+            assert "response_route" in msg
+            assert "finish_reason" in msg
+            assert "cause" in msg
+            assert "sample_payload" in msg
+            # The empty-envelope route signal — keeps callers able to
+            # attribute "empty" vs "content" vs "reasoning_content".
+            assert "'empty'" in msg
 
     def test_init_caches_strict_schema(self, stub_openai):
         # The strict schema munging walks ~10 nested object nodes; caching it

@@ -36,7 +36,6 @@ from pydantic import BaseModel
 from isaaclab_arena.environments.agentic_env_gen.env_gen_agent import DEFAULT_BASE_URL, DEFAULT_MODEL
 from isaaclab_arena.environments.agentic_env_gen.env_intent_spec import EnvIntentSpec
 from isaaclab_arena.environments.agentic_env_gen.structured_output_utils import (
-    StructuredOutputSupport,
     apply_strict_constraints,
     build_strict_schema,
     check_structured_output_support,
@@ -274,108 +273,139 @@ class TestPing:
 
 
 class TestCheckStructuredOutputSupport:
-    def test_reports_supported_on_valid_envelope(self):
+    """Bool-or-raise contract: returns True on a clean round-trip, raises
+    ``RuntimeError`` with a multi-line diagnostic on every failure mode.
+
+    Each failure-mode test pins three things:
+      1. ``RuntimeError`` (not the original SDK exception) reaches the
+         caller — so callers have a single exception type to catch.
+      2. The model name appears in the message (the most-grepped field).
+      3. The ``cause`` field carries the upstream classifier
+         (``BadRequestError`` vs ``JSONDecodeError`` vs ``ValidationError``)
+         so the failure attribution survives the wrapping.
+
+    Where the underlying SDK / parser exception is preserved on
+    ``__cause__``, we assert that too — it's what makes
+    ``raise ... from exc`` worth doing.
+    """
+
+    def test_returns_true_on_valid_envelope(self):
         client = MagicMock()
         client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
-        result = check_structured_output_support(client, "some-model", EnvIntentSpec)
-        assert isinstance(result, StructuredOutputSupport)
-        assert result.supported is True
-        assert result.model == "some-model"
-        assert result.response_route == "content"
-        assert result.api_error is None
-        assert result.parse_error is None
-        assert result.sample_payload  # truncated text echoed for diagnostics
+        # The whole public contract collapses to: ``True`` or it raises.
+        # ``is True`` rather than truthy so a future regression that
+        # returns a dict/tuple/etc fails this test.
+        assert check_structured_output_support(client, "some-model", EnvIntentSpec) is True
 
-    def test_reports_reasoning_content_route(self):
-        # NVIDIA DeepSeek envelope — the canonical reason this helper
-        # exists. We must report ``supported=True`` AND surface the
-        # route so deployment validators can flag the model as "works
-        # but uses the non-standard channel".
+    def test_returns_true_on_reasoning_content_envelope(self):
+        # NVIDIA DeepSeek envelope — content empty, structured output
+        # on the ``reasoning_content`` channel. Must NOT raise; the
+        # ``extract_response_text`` fallback handles this transparently.
+        # The previous dataclass surfaced ``response_route`` so callers
+        # could distinguish; the new API hides that detail (callers
+        # don't need it — both channels are equivalent for our purposes).
         client = MagicMock()
         client.chat.completions.create.return_value = _chat_response(
             content=None, reasoning_content=json.dumps(_MINIMAL_SPEC)
         )
-        result = check_structured_output_support(client, "deepseek", EnvIntentSpec)
-        assert result.supported is True
-        assert result.response_route == "reasoning_content"
+        assert check_structured_output_support(client, "deepseek", EnvIntentSpec) is True
 
-    def test_reports_api_error_on_4xx(self):
+    def test_raises_on_4xx_with_underlying_exception_chained(self):
         # The most common "model doesn't support structured outputs"
-        # signal at the wire level: a 4xx rejecting the
-        # ``response_format`` parameter or the schema. Surface it as
-        # ``api_error``, leave ``parse_error`` empty, so callers can
-        # attribute correctly.
+        # signal at the wire level: a 4xx rejecting ``response_format``
+        # or the schema. The original SDK exception must reach the
+        # caller via ``__cause__`` so the traceback retains the HTTP
+        # status / body — otherwise debugging "why did construction
+        # fail?" requires re-running locally.
         class FakeBadRequest(Exception):
             pass
 
         client = MagicMock()
-        client.chat.completions.create.side_effect = FakeBadRequest("Error code: 400 - additionalProperties")
-        result = check_structured_output_support(client, "claude", EnvIntentSpec)
-        assert result.supported is False
-        assert result.api_error is not None
-        assert "FakeBadRequest" in result.api_error
-        assert "400" in result.api_error
-        assert result.parse_error is None
-        # On an api_error, no payload is available to echo.
-        assert result.sample_payload is None
-        assert result.finish_reason is None
+        original = FakeBadRequest("Error code: 400 - additionalProperties")
+        client.chat.completions.create.side_effect = original
+        with pytest.raises(RuntimeError, match="does not support structured outputs") as exc_info:
+            check_structured_output_support(client, "claude", EnvIntentSpec)
+        msg = str(exc_info.value)
+        # Model name surfaces (most-grepped field) and the cause type
+        # classifies the failure (4xx wire error, not parse / validation).
+        assert "'claude'" in msg
+        assert "FakeBadRequest" in msg
+        assert "400" in msg
+        # On an api_error there's no response payload to echo.
+        assert "sample_payload = None" in msg
+        # Exception chaining preserves the original for traceback drill-down.
+        assert exc_info.value.__cause__ is original
 
-    def test_reports_parse_error_on_empty_envelope(self):
+    def test_raises_on_empty_envelope(self):
         # Wire accepts the request, model produces nothing on either
         # channel. The endpoint silently dropped the structured output
         # — the most insidious failure mode, since ``finish_reason``
-        # still reads ``stop``.
+        # still reads ``stop``. No underlying exception to chain.
         client = MagicMock()
         client.chat.completions.create.return_value = _chat_response(content=None, reasoning_content=None)
-        result = check_structured_output_support(client, "broken", EnvIntentSpec)
-        assert result.supported is False
-        assert result.api_error is None
-        assert result.parse_error is not None
-        assert "empty envelope" in result.parse_error
-        assert result.response_route == "empty"
-        assert result.finish_reason == "stop"  # forwarded so callers can correlate
+        with pytest.raises(RuntimeError, match="does not support structured outputs") as exc_info:
+            check_structured_output_support(client, "broken", EnvIntentSpec)
+        msg = str(exc_info.value)
+        assert "empty envelope" in msg
+        # finish_reason forwarded so the operator can correlate with
+        # provider logs (was it a content-filter stop, a length cap, etc.).
+        assert "finish_reason  = 'stop'" in msg
+        # No upstream exception to chain on this branch (the function
+        # itself synthesises the failure from a structurally-OK response).
+        assert exc_info.value.__cause__ is None
 
-    def test_reports_parse_error_when_choices_list_is_empty(self):
+    def test_raises_when_choices_list_is_empty(self):
         # Real provider behaviour: HTTP returns 200 OK but ``choices`` is
         # an empty list. Seen on Azure when a content-filter trips, and
         # on Bedrock when a guardrail rejects the response post-hoc.
         # Naive ``resp.choices[0]`` access would IndexError and break
-        # the always-return-a-StructuredOutputSupport contract; the
-        # function must instead surface it as a ``parse_error`` with
-        # ``response_route="empty"`` so callers route it the same way
-        # they route an empty envelope.
+        # the contract — surface it as a structured RuntimeError with
+        # a distinct ``cause`` message that operators can tell apart
+        # from the "envelope returned but content empty" case.
         resp = MagicMock()
         resp.choices = []
         client = MagicMock()
         client.chat.completions.create.return_value = resp
-        result = check_structured_output_support(client, "guardrailed", EnvIntentSpec)
-        assert result.supported is False
-        assert result.api_error is None
-        assert result.parse_error is not None
-        assert "no choices" in result.parse_error
-        assert result.response_route == "empty"
-        assert result.finish_reason is None
-        assert result.sample_payload is None
+        with pytest.raises(RuntimeError, match="does not support structured outputs") as exc_info:
+            check_structured_output_support(client, "guardrailed", EnvIntentSpec)
+        msg = str(exc_info.value)
+        assert "no choices" in msg
+        assert "response_route = 'empty'" in msg
 
-    def test_reports_parse_error_on_invalid_json(self):
+    def test_raises_on_invalid_json_with_payload_preview(self):
+        # The JSON-decode failure is the case where ``sample_payload``
+        # earns its keep — without it the operator sees only
+        # "Expecting value: line 1 column 1" and has to re-run locally
+        # to discover the model emitted a prose preamble. With the
+        # preview in the message the failure is debuggable from CI logs.
         client = MagicMock()
         client.chat.completions.create.return_value = _chat_response(content="not json")
-        result = check_structured_output_support(client, "m", EnvIntentSpec)
-        assert result.supported is False
-        assert result.parse_error is not None
-        assert "JSONDecodeError" in result.parse_error
-        assert result.sample_payload == "not json"
+        with pytest.raises(RuntimeError, match="does not support structured outputs") as exc_info:
+            check_structured_output_support(client, "m", EnvIntentSpec)
+        msg = str(exc_info.value)
+        assert "JSONDecodeError" in msg
+        assert "'not json'" in msg  # the literal response preview
+        # Original JSONDecodeError preserved on ``__cause__``.
+        assert exc_info.value.__cause__ is not None
+        assert type(exc_info.value.__cause__).__name__ == "JSONDecodeError"
 
-    def test_reports_parse_error_on_validation_failure(self):
+    def test_raises_on_validation_failure_with_payload_preview(self):
         # JSON parses fine, but doesn't match the schema. The probe
         # exists to detect this exact class of "model returns
-        # something, but it's wrong" failure.
+        # something, but it's wrong" failure. The original
+        # ValidationError chains via ``__cause__`` so ``.errors()``
+        # is still reachable for callers that want the structured
+        # error list.
+        from pydantic import ValidationError
+
         client = MagicMock()
         client.chat.completions.create.return_value = _chat_response(content='{"missing": "fields"}')
-        result = check_structured_output_support(client, "m", EnvIntentSpec)
-        assert result.supported is False
-        assert result.parse_error is not None
-        assert "ValidationError" in result.parse_error
+        with pytest.raises(RuntimeError, match="does not support structured outputs") as exc_info:
+            check_structured_output_support(client, "m", EnvIntentSpec)
+        msg = str(exc_info.value)
+        assert "ValidationError" in msg
+        assert '{"missing": "fields"}' in msg  # payload preview echoed
+        assert isinstance(exc_info.value.__cause__, ValidationError)
 
     def test_request_shape(self):
         client = MagicMock()
@@ -400,8 +430,7 @@ class TestCheckStructuredOutputSupport:
 
         client = MagicMock()
         client.chat.completions.create.return_value = _chat_response(content='{"ok": true}')
-        result = check_structured_output_support(client, "m", TinySpec)
-        assert result.supported is True
+        assert check_structured_output_support(client, "m", TinySpec) is True
         kwargs = client.chat.completions.create.call_args.kwargs
         assert kwargs["response_format"]["json_schema"]["name"] == "TinySpec"
 
@@ -423,9 +452,10 @@ def test_default_model_supports_structured_output():
     outputs into, or pulled the model from the default-models
     catalogue.
 
-    Asserts only ``supported=True``; the route may be either
-    ``content`` (standard OpenAI) or ``reasoning_content`` (NVIDIA
-    DeepSeek quirk) — both are handled transparently downstream.
+    The probe's ``RuntimeError`` already carries a multi-line
+    diagnostic (model / route / finish_reason / cause /
+    sample_payload), so test-failure output is self-describing — no
+    extra error-message construction needed here.
     """
     api_key = os.environ.get("NV_API_KEY")
     assert api_key, "NV_API_KEY env var required to run live tests"
@@ -433,11 +463,4 @@ def test_default_model_supports_structured_output():
     from openai import OpenAI
 
     client = OpenAI(api_key=api_key, base_url=DEFAULT_BASE_URL)
-    result = check_structured_output_support(client, DEFAULT_MODEL, EnvIntentSpec)
-    assert result.supported, (
-        f"Default model {result.model!r} does not support structured outputs against "
-        f"{DEFAULT_BASE_URL!r}: api_error={result.api_error!r} "
-        f"parse_error={result.parse_error!r} route={result.response_route!r} "
-        f"payload={result.sample_payload!r}"
-    )
-    assert result.response_route in {"content", "reasoning_content"}
+    assert check_structured_output_support(client, DEFAULT_MODEL, EnvIntentSpec) is True
