@@ -43,7 +43,17 @@ class Registry(metaclass=SingletonMeta):
             key (str): The name of the component.
         """
         # For AssetRegistry and DeviceRegistry, ensure assets are registered before checking
-        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry, PolicyRegistry, HDRImageRegistry)):
+        if isinstance(
+            self,
+            (
+                AssetRegistry,
+                DeviceRegistry,
+                RetargeterRegistry,
+                PolicyRegistry,
+                HDRImageRegistry,
+                ObjectRelationLibraryRegistry,
+            ),
+        ):
             ensure_assets_registered()
         return key in self._components
 
@@ -57,7 +67,17 @@ class Registry(metaclass=SingletonMeta):
             Any: The component.
         """
         # For AssetRegistry and DeviceRegistry, ensure assets are registered before accessing
-        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry, PolicyRegistry, HDRImageRegistry)):
+        if isinstance(
+            self,
+            (
+                AssetRegistry,
+                DeviceRegistry,
+                RetargeterRegistry,
+                PolicyRegistry,
+                HDRImageRegistry,
+                ObjectRelationLibraryRegistry,
+            ),
+        ):
             ensure_assets_registered()
         assert key in self._components, f"component {key} not found, please check if requested component is registered"
         return self._components[key]
@@ -69,7 +89,17 @@ class Registry(metaclass=SingletonMeta):
             list[str]: The list of keys.
         """
         # For AssetRegistry and DeviceRegistry, ensure assets are registered before accessing
-        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry, PolicyRegistry, HDRImageRegistry)):
+        if isinstance(
+            self,
+            (
+                AssetRegistry,
+                DeviceRegistry,
+                RetargeterRegistry,
+                PolicyRegistry,
+                HDRImageRegistry,
+                ObjectRelationLibraryRegistry,
+            ),
+        ):
             ensure_assets_registered()
         return list(self._components.keys())
 
