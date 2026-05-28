@@ -16,7 +16,7 @@ NUM_STEPS = 100
 # sampling sometime you don't get both objects. This caused us to not
 # reliably catch issues when we had a bug.
 NUM_ENVS = 10
-HEADLESS = False
+HEADLESS = True
 
 
 def _test_object_set_on_destination_termination(simulation_app) -> bool:
