@@ -6,7 +6,7 @@
 """Schema the LLM must fill in when parsing a natural-language env-generation prompt.
 
 The LLM sees a list of the *available* asset tags / embodiment names pulled
-from the registries at call time, and must return a LLMEnvSpec that only uses
+from the registries at call time, and must return an EnvIntentSpec that only uses
 those vocabularies. Concrete asset names are resolved in a second, deterministic
 step — the LLM never invents USD paths.
 """
@@ -136,8 +136,8 @@ class Task(BaseModel):
     )
 
 
-class LLMEnvSpec(BaseModel):
-    """LLM output — a structured plan for the env and a list of tasks.
+class EnvIntentSpec(BaseModel):
+    """Agent output — a structured "env intent" (blueprint) for the env and a list of tasks.
 
     Field-level guidance lives on the individual ``Field(description=...)``
     entries below and is surfaced to the LLM via ``model_json_schema()``;
@@ -189,9 +189,9 @@ class LLMEnvSpec(BaseModel):
             "must appear here. Relations that change via tasks are still "
             "listed here in their starting form."
             # NOTE: field name kept as ``initial_scene_graph`` even though
-            # the class is now ``LLMEnvSpec`` — renaming the field would
-            # change the JSON schema the LLM is prompted against and is
-            # out of scope here.
+            # the class has been renamed (SceneSpec -> LLMEnvSpec ->
+            # EnvIntentSpec) — renaming the field would change the JSON
+            # schema the agent is prompted against and is out of scope here.
         ),
     )
     tasks: list[Task] = Field(
@@ -203,7 +203,7 @@ class LLMEnvSpec(BaseModel):
     )
 
     @model_validator(mode="after")
-    def _tasks_must_be_non_empty(self) -> LLMEnvSpec:
+    def _tasks_must_be_non_empty(self) -> EnvIntentSpec:
         if not self.tasks:
             raise ValueError(
                 "tasks list is empty — at least one task must be specified to define the env transformation."

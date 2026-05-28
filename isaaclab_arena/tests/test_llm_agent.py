@@ -28,6 +28,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
+from isaaclab_arena.environments.agentic_env_gen.env_intent_spec import RelationKind, TaskKind
 from isaaclab_arena.environments.agentic_env_gen.llm_agent import (
     _RAW_RESPONSE_PREVIEW_CHARS,
     DEFAULT_BASE_URL,
@@ -35,7 +36,6 @@ from isaaclab_arena.environments.agentic_env_gen.llm_agent import (
     LLMAgent,
     LLMResponseParseError,
 )
-from isaaclab_arena.environments.agentic_env_gen.llm_schema import RelationKind, TaskKind
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -74,7 +74,7 @@ def _chat_response(content: str | None):
     return resp
 
 
-# Minimal LLMEnvSpec payload — exercises every required field plus one task so
+# Minimal EnvIntentSpec payload — exercises every required field plus one task so
 # the ``tasks_must_be_non_empty`` validator passes. Reused across the
 # generate_spec happy-path tests.
 _MINIMAL_SPEC: dict = {
@@ -243,7 +243,7 @@ class TestGenerateSpec:
             agent.generate_spec("p", catalog_text="catalog")
 
     def test_propagates_validation_error_for_schema_violation(self, agent):
-        # Well-formed JSON but missing every required LLMEnvSpec field — pydantic
+        # Well-formed JSON but missing every required EnvIntentSpec field — pydantic
         # surfaces this as a ``ValidationError`` distinct from a parse error.
         agent.client.chat.completions.create.return_value = _chat_response('{"missing": "fields"}')
         with pytest.raises(ValidationError):
@@ -336,7 +336,7 @@ class TestSystemPrompt:
         for kind in get_args(TaskKind):
             assert f'"{kind}"' in prompt, f"task kind {kind!r} missing from system prompt"
 
-    def test_embeds_llm_env_spec_schema(self, agent):
+    def test_embeds_env_intent_spec_schema(self, agent):
         # We assert on field names rather than diffing the full JSON schema so
         # the test isn't brittle to pydantic's schema-generation tweaks across
         # versions.
@@ -365,7 +365,7 @@ def test_generate_spec_against_live_endpoint():
     Exercises the full pipeline with default ``model`` / ``base_url`` /
     system prompt:
 
-        auth → HTTPS → model response → JSON extract → LLMEnvSpec validation
+        auth → HTTPS → model response → JSON extract → EnvIntentSpec validation
 
     Two layers gate this from default ``pytest`` runs:
 
@@ -394,6 +394,6 @@ def test_generate_spec_against_live_endpoint():
         catalog_text=catalog,
     )
     assert isinstance(raw, str) and raw, "LLM returned empty raw response"
-    assert spec.tasks, "LLMEnvSpec must contain at least one task"
-    assert spec.background, "LLMEnvSpec.background must be populated"
-    assert spec.embodiment, "LLMEnvSpec.embodiment must be populated"
+    assert spec.tasks, "EnvIntentSpec must contain at least one task"
+    assert spec.background, "EnvIntentSpec.background must be populated"
+    assert spec.embodiment, "EnvIntentSpec.embodiment must be populated"

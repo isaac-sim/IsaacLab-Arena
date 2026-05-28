@@ -8,7 +8,7 @@
 Requires NV_API_KEY environment variable.
 
 Examples:
-    # Print the Pydantic LLMEnvSpec JSON schema (no LLM call):
+    # Print the Pydantic EnvIntentSpec JSON schema (no LLM call):
     /isaac-sim/python.sh -m isaaclab_arena.environments.agentic_env_gen.try_schema --print-schema
 
     # Print the catalog sent to the LLM (no LLM call):
@@ -55,10 +55,10 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    from isaaclab_arena.environments.agentic_env_gen.llm_schema import LLMEnvSpec
+    from isaaclab_arena.environments.agentic_env_gen.env_intent_spec import EnvIntentSpec
 
     if args.print_schema:
-        print(json.dumps(LLMEnvSpec.model_json_schema(), indent=2))
+        print(json.dumps(EnvIntentSpec.model_json_schema(), indent=2))
         return
 
     from isaaclab_arena.environments.agentic_env_gen.llm_agent import LLMAgent, build_catalog_text
@@ -102,7 +102,7 @@ def main() -> None:
         spec.background = new_bg
         print(f"\n=== background override applied: {old_bg!r} -> {new_bg!r} ===")
 
-    print("\n=== parsed LLMEnvSpec ===")
+    print("\n=== parsed EnvIntentSpec ===")
     print(spec.model_dump_json(indent=2))
 
 

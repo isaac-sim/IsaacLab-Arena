@@ -3,10 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""LLM agent for parsing natural-language env-generation prompts into an LLMEnvSpec.
+"""LLM agent for parsing natural-language env-generation prompts into an EnvIntentSpec.
 
 Calls an OpenAI-compatible chat-completions endpoint (NVIDIA's hosted
-inference by default) and validates the response against the LLMEnvSpec
+inference by default) and validates the response against the EnvIntentSpec
 pydantic bundle so asset resolution stays deterministic.
 """
 
@@ -16,7 +16,7 @@ import contextlib
 import json
 import os
 
-from .llm_schema import LLMEnvSpec
+from .env_intent_spec import EnvIntentSpec
 
 DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
 DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
@@ -31,7 +31,7 @@ class LLMResponseParseError(ValueError):
     """Raised when an LLM response cannot be parsed into a JSON object.
 
     Subclasses ``ValueError`` so existing ``except ValueError`` clauses
-    (e.g. around ``LLMEnvSpec.model_validate``) still catch it, but the
+    (e.g. around ``EnvIntentSpec.model_validate``) still catch it, but the
     distinct type lets callers that want to retry the LLM call separate
     parse failures from validation failures.
     """
@@ -64,7 +64,7 @@ def build_catalog_text() -> str:
 
 
 class LLMAgent:
-    """Parses a natural-language env-generation prompt into an LLMEnvSpec."""
+    """Parses a natural-language env-generation prompt into an EnvIntentSpec."""
 
     def __init__(
         self,
@@ -118,8 +118,8 @@ class LLMAgent:
         catalog_text: str | None = None,
         temperature: float = 0.2,
         max_tokens: int = 2000,
-    ) -> tuple[LLMEnvSpec, str]:
-        """Call the LLM and return the parsed LLMEnvSpec plus the raw response.
+    ) -> tuple[EnvIntentSpec, str]:
+        """Call the LLM and return the parsed EnvIntentSpec plus the raw response.
 
         Args:
             prompt: Natural-language env description from the end user.
@@ -132,16 +132,16 @@ class LLMAgent:
                 repeated calls, or (b) experiment with a restricted /
                 augmented catalog without mutating the registry.
             temperature: Sampling temperature forwarded to the LLM. Kept
-                low by default (0.2) because LLMEnvSpec generation is a
+                low by default (0.2) because EnvIntentSpec generation is a
                 deterministic-ish translation task — high temperature
                 yields creative but invalid schemas.
             max_tokens: Hard cap on the response length. Set generously
-                (2000) so multi-task LLMEnvSpecs aren't truncated
+                (2000) so multi-task EnvIntentSpecs aren't truncated
                 mid-JSON; shrink if the endpoint enforces a tighter
                 quota.
 
         Returns:
-            A ``(LLMEnvSpec, raw_response)`` tuple. The raw text is useful
+            A ``(EnvIntentSpec, raw_response)`` tuple. The raw text is useful
             for debugging when ``model_validate`` rejects the parsed
             JSON.
 
@@ -149,11 +149,13 @@ class LLMAgent:
             LLMResponseParseError: when the response can't be parsed as a
                 JSON object (no opening brace, unbalanced braces).
             pydantic.ValidationError: when the parsed JSON is well-formed
-                but doesn't match the LLMEnvSpec schema.
+                but doesn't match the EnvIntentSpec schema.
         """
         catalog_text = catalog_text or build_catalog_text()
         system = self._system_prompt()
-        user = f"{catalog_text}\n\nUSER PROMPT:\n{prompt}\n\nReturn ONLY a JSON object matching the LLMEnvSpec schema."
+        user = (
+            f"{catalog_text}\n\nUSER PROMPT:\n{prompt}\n\nReturn ONLY a JSON object matching the EnvIntentSpec schema."
+        )
 
         resp = self.client.chat.completions.create(
             model=self.model,
@@ -166,7 +168,7 @@ class LLMAgent:
         )
         raw = resp.choices[0].message.content
         data = self._extract_json(raw)
-        spec = LLMEnvSpec.model_validate(data)
+        spec = EnvIntentSpec.model_validate(data)
         return spec, raw
 
     def ping(self) -> str:
@@ -213,16 +215,16 @@ class LLMAgent:
         return resp.choices[0].message.content or ""
 
     def _system_prompt(self) -> str:
-        schema = json.dumps(LLMEnvSpec.model_json_schema(), indent=2)
+        schema = json.dumps(EnvIntentSpec.model_json_schema(), indent=2)
         # Per-field guidance (what each field means, enum members, default
         # behaviours) lives on the ``Field(description=...)`` entries in
-        # llm_schema.py and is surfaced to the LLM via the SCHEMA block
+        # env_intent_spec.py and is surfaced to the LLM via the SCHEMA block
         # below. Only cross-cutting rules (those that span multiple fields
         # or change LLM output behaviour globally) and few-shot examples
         # belong here.
         return (
             "You are an env-generation parser for robot manipulation tasks.\n"
-            "Convert a natural-language prompt into an LLMEnvSpec JSON object that matches the schema below.\n\n"
+            "Convert a natural-language prompt into an EnvIntentSpec JSON object that matches the schema below.\n\n"
             "GUIDANCE:\n"
             "- Follow the per-field ``description`` strings in SCHEMA for what each field expects.\n"
             "- If the prompt does not specify a value for an optional field, output null.\n"
