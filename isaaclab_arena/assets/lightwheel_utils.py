@@ -34,10 +34,7 @@ def acquire_lightwheel_asset(
         except Exception as exc:
             if not _looks_like_timeout(exc) or attempt == attempts:
                 raise
-            print(
-                f"[isaaclab-arena] {description} timed out; retrying {attempt + 1}/{attempts} "
-                f"in {delay_sec:g}s."
-            )
+            print(f"[isaaclab-arena] {description} timed out; retrying {attempt + 1}/{attempts} in {delay_sec:g}s.")
             if delay_sec > 0:
                 time.sleep(delay_sec)
         finally:
