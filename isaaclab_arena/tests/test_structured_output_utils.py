@@ -266,6 +266,25 @@ class TestPing:
         with pytest.raises(FakeAuthError, match="invalid api key"):
             ping(client, "m")
 
+    def test_raises_runtime_error_when_choices_list_is_empty(self):
+        # Real provider behaviour: HTTP returns 200 OK but ``choices`` is an
+        # empty list. Seen on Azure when a content-filter trips, on Bedrock
+        # when a guardrail rejects post-hoc, and on certain rate-limit
+        # responses. Naive ``resp.choices[0]`` would raise ``IndexError`` —
+        # an opaque crash that breaks the documented ``Raises`` contract.
+        # The function must instead surface a structured ``RuntimeError``
+        # so callers (notably ``EnvGenAgent.__init__``) see a diagnosable
+        # ping failure with the model name baked in.
+        resp = MagicMock()
+        resp.choices = []
+        client = MagicMock()
+        client.chat.completions.create.return_value = resp
+        with pytest.raises(RuntimeError, match="no choices") as exc_info:
+            ping(client, "guardrailed-model")
+        # Model name surfaces in the message — most-grepped field when
+        # triaging a CI ping failure.
+        assert "'guardrailed-model'" in str(exc_info.value)
+
 
 # ---------------------------------------------------------------------------
 # check_structured_output_support (mocked)

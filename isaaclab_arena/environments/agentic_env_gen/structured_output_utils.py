@@ -133,6 +133,13 @@ def ping(client: Any, model: str) -> str:
         round-trip).
 
     Raises:
+        RuntimeError: when the request succeeded at the HTTP level but
+            the response contained no choices (e.g. Azure content-filter
+            trips, Bedrock guardrail rejections, certain rate-limit
+            responses that return 200 OK with an empty ``choices``
+            list). The wire is healthy but the model declined to
+            answer — surfaced as a clean ping failure rather than the
+            ``IndexError`` a naive ``choices[0]`` access would raise.
         Any exception raised by the underlying ``openai`` client.
         Common ones at this layer are ``AuthenticationError``
         (bad key), ``NotFoundError`` (wrong ``model``),
@@ -150,7 +157,20 @@ def ping(client: Any, model: str) -> str:
         temperature=0,
         max_tokens=8,
     )
-    return resp.choices[0].message.content or ""
+    # Mirror the guard in ``check_structured_output_support``: some
+    # providers return HTTP 200 with an empty ``choices`` list (content
+    # filter, guardrail, or rate-limit cases). The unguarded
+    # ``resp.choices[0]`` would raise ``IndexError`` here, breaking the
+    # documented ``Raises`` contract and surfacing as an opaque crash
+    # from ``EnvGenAgent.__init__``. Re-raise as a structured
+    # RuntimeError so callers see a diagnosable ping failure.
+    choices = getattr(resp, "choices", None) or []
+    if not choices:
+        raise RuntimeError(
+            f"ping to model {model!r} returned HTTP 200 with no choices "
+            "(content filter / guardrail / rate-limit response with empty body)."
+        )
+    return choices[0].message.content or ""
 
 
 def extract_response_text(message: Any) -> tuple[str, str]:
