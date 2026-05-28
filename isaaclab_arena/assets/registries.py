@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.hdr_image import HDRImage
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
     from isaaclab_arena.policy.policy_base import PolicyBase
+    from isaaclab_arena.relations.relations import RelationBase
 
 
 # Have to define all classes here in order to avoid circular import.
@@ -217,6 +218,22 @@ class EnvironmentRegistry(Registry):
         super().__init__()
 
 
+class ObjectRelationLibraryRegistry(Registry):
+    """Registry for object relation classes."""
+
+    def __init__(self):
+        super().__init__()
+
+    def get_object_relation_by_name(self, name: str) -> type["RelationBase"]:
+        """Gets an object relation by name.
+
+        Args:
+            name (str): The name of the object relation.
+        """
+        ensure_assets_registered()
+        return self.get_component_by_name(name)
+
+
 # Lazy registration to avoid circular imports
 _assets_registered = False
 
@@ -233,5 +250,6 @@ def ensure_assets_registered():
         import isaaclab_arena.assets.retargeter_library  # noqa: F401
         import isaaclab_arena.embodiments  # noqa: F401
         import isaaclab_arena.policy  # noqa: F401
+        import isaaclab_arena.relations.relations  # noqa: F401
 
         _assets_registered = True

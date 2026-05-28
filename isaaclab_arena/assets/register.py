@@ -8,6 +8,7 @@ from isaaclab_arena.assets.registries import (
     DeviceRegistry,
     EnvironmentRegistry,
     HDRImageRegistry,
+    ObjectRelationLibraryRegistry,
     PolicyRegistry,
     RetargeterRegistry,
 )
@@ -65,6 +66,16 @@ def register_environment(cls):
     registry = EnvironmentRegistry()
     if registry.is_registered(cls.name):
         print(f"WARNING: Environment {cls.name} is already registered. Doing nothing.")
+    else:
+        registry.register(cls, cls.name)
+    return cls
+
+
+# Decorator to register a RelationBase subclass with the ObjectRelationLibraryRegistry.
+def register_object_relation(cls):
+    registry = ObjectRelationLibraryRegistry()
+    if registry.is_registered(cls.name):
+        print(f"WARNING: Object relation {cls.name} is already registered. Doing nothing.")
     else:
         registry.register(cls, cls.name)
     return cls
