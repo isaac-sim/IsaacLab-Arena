@@ -31,7 +31,6 @@ def _test_revolute_joint_moved_rate(simulation_app):
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.metrics.metrics import compute_metrics
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.open_door_task import OpenDoorTask
     from isaaclab_arena.utils.pose import Pose
@@ -71,7 +70,7 @@ def _test_revolute_joint_moved_rate(simulation_app):
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 env.step(actions)
 
-        metrics = compute_metrics(env)
+        metrics = env.unwrapped.compute_metrics()
         print(f"Metrics: {metrics}")
 
         # Calculate the expected door moved rate.

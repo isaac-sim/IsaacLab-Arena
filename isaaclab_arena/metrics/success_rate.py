@@ -10,6 +10,7 @@ from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.metrics.metric_base import MetricBase
+from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 
 
 class SuccessRecorder(RecorderTerm):
@@ -45,6 +46,26 @@ class SuccessRecorderCfg(RecorderTermCfg):
     name: str = "success"
 
 
+def compute_success_rate(recorded_metric_data: list[np.ndarray]) -> float:
+    """Gets the average success rate from a list of recorded success flags.
+
+    Args:
+        recorded_metric_data(list[np.ndarray]): The recorded success flags per simulated episode.
+
+    Returns:
+        The success rate(float). Value between 0 and 1. The proportion of episodes in
+            which the environment was successful.
+    """
+    num_demos = len(recorded_metric_data)
+    if num_demos == 0:
+        return 0.0
+    all_demos_success_flags = np.concatenate(recorded_metric_data)
+    assert all_demos_success_flags.ndim == 1
+    assert all_demos_success_flags.shape[0] == num_demos
+    success_rate = np.mean(all_demos_success_flags)
+    return success_rate
+
+
 class SuccessRateMetric(MetricBase):
     """Computes the success rate.
 
@@ -59,21 +80,13 @@ class SuccessRateMetric(MetricBase):
         """Return the recorder term configuration for the success rate metric."""
         return SuccessRecorderCfg(name=self.recorder_term_name)
 
+    def get_metric_term_cfg(self) -> MetricTermCfg:
+        """Return the metric term configuration for the success rate metric."""
+        return MetricTermCfg(
+            func=compute_success_rate,
+            params={},
+            recorder_term_name=self.recorder_term_name,
+        )
+
     def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
-        """Gets the average success rate from a list of recorded success flags.
-
-        Args:
-            recorded_metric_data(list[np.ndarray]): The recorded success flags per simulated episode.
-
-        Returns:
-            The success rate(float). Value between 0 and 1. The proportion of episodes in
-                which the environment was successful.
-        """
-        num_demos = len(recorded_metric_data)
-        if num_demos == 0:
-            return 0.0
-        all_demos_success_flags = np.concatenate(recorded_metric_data)
-        assert all_demos_success_flags.ndim == 1
-        assert all_demos_success_flags.shape[0] == num_demos
-        success_rate = np.mean(all_demos_success_flags)
-        return success_rate
+        return compute_success_rate(recorded_metric_data)

@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
-from isaaclab.envs import ManagerBasedRLEnvCfg
+from typing import Any
+
+from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLEnvCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
 from isaaclab.sim import SimulationCfg
 from isaaclab.utils import configclass
@@ -14,7 +16,7 @@ from isaaclab_physx.physics import PhysxCfg
 from isaaclab_tasks.utils import PresetCfg
 
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-from isaaclab_arena.metrics.metric_base import MetricBase
+from isaaclab_arena.metrics.metrics_manager import MetricsManager
 
 
 @configclass
@@ -65,8 +67,9 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     rewards = None
     curriculum = None
 
-    # Metrics
-    metrics: list[MetricBase] | None = None
+    # Metrics: a configclass container with one ``MetricTermCfg`` field per metric (or ``None``).
+    # Mirrors how ``rewards`` / ``terminations`` are shaped on ``ManagerBasedRLEnvCfg``.
+    metrics: object | None = None
 
     # Isaaclab Arena Env. Held as a member to allow use of internal functions
     isaaclab_arena_env: IsaacLabArenaEnvironment | None = None
@@ -88,3 +91,29 @@ class IsaacArenaManagerBasedMimicEnvCfg(IsaacLabArenaManagerBasedRLEnvCfg, Mimic
     # subtask_configs: dict[str, list[SubTaskConfig]] = {}
     # task_constraint_configs: list[SubTaskConstraintConfig] = []
     pass
+
+
+class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
+    """Arena run-time env that adds an offline :class:`MetricsManager` to the base class.
+
+    Mirrors how Isaac Lab attaches a :class:`isaaclab.managers.RewardManager` /
+    :class:`isaaclab.managers.TerminationManager` in :meth:`load_managers`. The metrics
+    manager itself is lightweight and only runs after rollout (see
+    :class:`isaaclab_arena.metrics.metrics_manager.MetricsManager`).
+    """
+
+    cfg: IsaacLabArenaManagerBasedRLEnvCfg
+
+    def load_managers(self) -> None:
+        super().load_managers()
+        self.metrics_manager = MetricsManager(self.cfg.metrics, self)
+        print("[INFO] Metrics Manager: ", self.metrics_manager)
+
+    def compute_metrics(self) -> dict[str, Any]:
+        """Compute all registered metrics from the recorded HDF5 dataset.
+
+        Returns:
+            A dictionary mapping metric name to metric value. Always includes a
+            ``"num_episodes"`` entry.
+        """
+        return self.metrics_manager.compute()
