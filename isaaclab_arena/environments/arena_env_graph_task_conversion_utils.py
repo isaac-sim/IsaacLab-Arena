@@ -11,12 +11,7 @@ import pkgutil
 from typing import TYPE_CHECKING, Any
 
 import isaaclab_arena.tasks as tasks_package
-from isaaclab_arena.environments.graph_spec_utils import (
-    camel_to_snake,
-    map_nested_leaf_values,
-    normalize_identifier,
-    strip_suffix,
-)
+from isaaclab_arena.environments.graph_spec_utils import map_nested_leaf_values
 from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
 from isaaclab_arena.tasks.task_base import TaskBase
 
@@ -39,23 +34,28 @@ def build_task_or_sequence(task_specs: list[ArenaEnvGraphTaskSpec], assets_by_id
 
 
 def _build_task(task_spec: ArenaEnvGraphTaskSpec, assets_by_id: dict[str, Any]) -> Any:
-    """Build one task instance, swapping node-id strings in its args for the live asset objects."""
+    """Build one task instance, swapping node-id strings in its args for the live asset objects.
+
+    Upstream contract: `task_args` keys are emitted in the task constructor's exact parameter
+    names — no loose / case-insensitive matching is performed here.
+    """
     task_cls = _resolve_task_class(task_spec.type)
     task_args = _resolve_task_args(task_spec.task_args, assets_by_id)
-    return task_cls(**_align_task_kwargs(task_cls, task_args))
+    return task_cls(**task_args)
 
 
 def _resolve_task_class(task_type: str) -> Any:
-    """Look up the task class for a YAML ``type:`` string.
+    """Resolve a YAML ``type:`` string to a concrete task class.
 
-    Tries an explicit ``pkg.module:Class`` (or dotted) path first, then falls back
-    to walking the tasks package for a class matching by name or module stem.
+    Two forms are supported:
+      * Qualified import path — ``pkg.module:Class`` or ``pkg.module.Class``.
+      * Bare class name — searched for in the tasks package by exact ``__name__``.
     """
     task_cls = _import_symbol(task_type)
     if task_cls is not None:
         return task_cls
     matches = _discover_task_classes(task_type)
-    assert matches, f"Unknown task type '{task_type}'. Use a TaskBase subclass name, tasks module stem, or import path."
+    assert matches, f"Unknown task type '{task_type}'. Use the exact TaskBase subclass name or an import path."
     assert len(matches) == 1, (
         f"Task type '{task_type}' matched multiple task classes: "
         f"{[match.__module__ + ':' + match.__name__ for match in matches]}"
@@ -66,7 +66,7 @@ def _resolve_task_class(task_type: str) -> Any:
 def _import_symbol(import_path: str) -> Any | None:
     """Import a qualified ``pkg.module:Class`` (or dotted) path.
 
-    Returns None for bare class names, which then go through discovery instead.
+    Returns None for bare class names; those go through `_discover_task_classes` instead.
     """
     if ":" in import_path:
         module_name, class_name = import_path.split(":", 1)
@@ -74,62 +74,30 @@ def _import_symbol(import_path: str) -> Any | None:
         module_name, class_name = import_path.rsplit(".", 1)
     else:
         return None
-    module = importlib.import_module(module_name)
-    return getattr(module, class_name)
+    return getattr(importlib.import_module(module_name), class_name)
 
 
 def _discover_task_classes(task_type: str) -> list[type]:
-    """Find task classes matching the YAML ``type:`` string.
+    """Walk the tasks package looking for a class named exactly ``task_type``.
 
-    Checks the most likely modules first, then walks the whole tasks package if
-    nothing turned up — keeps the common case fast.
+    Upstream contract: ``task_type`` is the exact class name (e.g. ``PickAndPlaceTask``).
     """
-    requested = _normalize_task_name(task_type)
-    candidates = _task_module_candidates(task_type, tasks_package.__name__)
-    matches = _discover_task_classes_from_modules(candidates, requested, TaskBase)
-    if matches:
-        return matches
-
-    module_names = [
-        module_info.name for module_info in pkgutil.walk_packages(tasks_package.__path__, tasks_package.__name__ + ".")
-    ]
-    return _discover_task_classes_from_modules(module_names, requested, TaskBase)
-
-
-def _discover_task_classes_from_modules(module_names: list[str], requested: str, task_base_cls: type) -> list[type]:
-    """Pick task classes from these modules that match ``requested``.
-
-    Class-name matches win; if there are none, fall back to all task classes in
-    a module whose stem matches.
-    """
-    class_matches: list[type] = []
-    module_matches: list[type] = []
-    for module_name in module_names:
+    matches: list[type] = []
+    for module_info in pkgutil.walk_packages(tasks_package.__path__, tasks_package.__name__ + "."):
         try:
-            module = importlib.import_module(module_name)
+            module = importlib.import_module(module_info.name)
         except ModuleNotFoundError as exc:
-            if exc.name == module_name:
+            if exc.name == module_info.name:
                 continue
             raise
-
-        task_classes = _get_module_task_classes(module, task_base_cls)
-        class_matches.extend(cls for cls in task_classes if _normalize_task_name(cls.__name__) == requested)
-        if _normalize_task_name(module_name.rsplit(".", 1)[-1]) == requested:
-            module_matches.extend(task_classes)
-    return class_matches or module_matches
-
-
-def _task_module_candidates(task_type: str, package_name: str) -> list[str]:
-    """Best-guess module names for a task type, e.g. ``ReachTask`` -> ``reach`` and ``reach_task``."""
-    module_stem = camel_to_snake(task_type)
-    module_stems = [module_stem]
-    if not module_stem.endswith("_task"):
-        module_stems.append(f"{module_stem}_task")
-    return [f"{package_name}.{stem}" for stem in module_stems]
+        for cls in _get_module_task_classes(module, TaskBase):
+            if cls.__name__ == task_type:
+                matches.append(cls)
+    return matches
 
 
 def _get_module_task_classes(module: Any, task_base_cls: type) -> list[type]:
-    """Task subclasses defined in this module — re-exported imports are skipped."""
+    """TaskBase subclasses defined in this module (re-exported imports are skipped)."""
     return [
         cls
         for _, cls in inspect.getmembers(module, inspect.isclass)
@@ -143,64 +111,3 @@ def _resolve_task_args(value: Any, assets_by_id: dict[str, Any]) -> Any:
         value,
         lambda item: assets_by_id[item] if isinstance(item, str) and item in assets_by_id else item,
     )
-
-
-def _align_task_kwargs(task_cls: type, task_args: dict[str, Any]) -> dict[str, Any]:
-    """Map YAML ``task_args`` keys onto the task constructor's parameters.
-
-    Matches are loose (case- and separator-insensitive, with substring fallback) so
-    YAML can use friendly names like ``pickup_object`` for a parameter named ``pickup_object_asset``.
-    """
-    parameters = {
-        name: parameter
-        for name, parameter in inspect.signature(task_cls).parameters.items()
-        if name != "self"
-        and parameter.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
-    }
-    required = {name for name, parameter in parameters.items() if parameter.default is inspect.Parameter.empty}
-    kwargs: dict[str, Any] = {}
-    for key, value in task_args.items():
-        parameter_name = _match_task_arg_to_parameter(key, parameters, required, set(kwargs))
-        kwargs[parameter_name] = value
-    return kwargs
-
-
-def _match_task_arg_to_parameter(
-    key: str,
-    parameters: dict[str, inspect.Parameter],
-    required_params: set[str],
-    assigned_params: set[str],
-) -> str:
-    """Pick the constructor parameter this YAML key maps to.
-
-    Prefers exact matches, then normalized/substring matches, and biases toward
-    required parameters when several would fit. Asserts on ambiguity.
-    """
-    if key in parameters and key not in assigned_params:
-        return key
-    normalized_key = normalize_identifier(key)
-    candidates = [
-        name
-        for name in parameters
-        if name not in assigned_params
-        and (
-            normalize_identifier(name) == normalized_key
-            or normalized_key in normalize_identifier(name)
-            or normalize_identifier(name) in normalized_key
-        )
-    ]
-    required_candidates = [name for name in candidates if name in required_params]
-    candidates = required_candidates or candidates
-    assert (
-        len(candidates) == 1
-    ), f"Task arg '{key}' does not map cleanly to constructor parameters. Candidates: {candidates}."
-    return candidates[0]
-
-
-def _normalize_task_name(name: str) -> str:
-    """Reduce a class name, module stem, or YAML string to one comparable form.
-
-    Lowercased, alnum-only, with a trailing ``task`` stripped — so ``ReachTask``,
-    ``reach_task``, and ``Reach`` all collapse to ``reach``.
-    """
-    return strip_suffix(normalize_identifier(name), "task")

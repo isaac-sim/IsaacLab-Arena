@@ -147,29 +147,6 @@ def assert_references_exist(nodes: list[Any], tasks: list[Any], state_specs: lis
                 ), f"Constraint '{constraint.id}' references unknown child node '{constraint.child}'"
 
 
-def assert_task_arg_node_references_exist(nodes: list[Any], tasks: list[Any]) -> None:
-    """Validate task args that use known node-reference names, even when nested."""
-    node_ids = {node.id for node in nodes}
-    node_ref_keys = {
-        "background",
-        "backgroundscene",
-        "destination",
-        "destinationlocation",
-        "destinationobject",
-        "object",
-        "pickupobject",
-    }
-
-    for task in tasks:
-        for key, value in task.task_args.items():
-            if normalize_identifier(key) in node_ref_keys:
-                for arg_path, arg_value in iter_nested_leaf_values(value, key):
-                    if isinstance(arg_value, str):
-                        assert (
-                            arg_value in node_ids
-                        ), f"Task '{task.id}' arg '{arg_path}' references unknown node '{arg_value}'"
-
-
 def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
     """Check each spatial constraint has the parent/child shape its relation expects."""
     relation_classes = spatial_constraint_relation_classes()

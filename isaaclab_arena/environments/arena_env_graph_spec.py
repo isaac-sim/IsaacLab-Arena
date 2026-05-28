@@ -14,7 +14,6 @@ from isaaclab_arena.environments.graph_spec_utils import (
     as_dict,
     assert_references_exist,
     assert_spatial_constraint_shapes,
-    assert_task_arg_node_references_exist,
     assert_unique_ids,
     optional_dict,
     optional_str,
@@ -179,7 +178,6 @@ class ArenaEnvGraphSpec:
         """Validate graph-level ids, references, and relationship shapes."""
         assert_unique_ids(self.nodes, self.tasks, self.state_specs)
         assert_references_exist(self.nodes, self.tasks, self.state_specs)
-        assert_task_arg_node_references_exist(self.nodes, self.tasks)
         assert_spatial_constraint_shapes(self.state_specs)
 
     @property

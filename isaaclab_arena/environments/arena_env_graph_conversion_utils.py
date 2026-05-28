@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import inspect
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.object_reference import ObjectReference
@@ -61,8 +60,11 @@ def build_arena_env_from_graph_spec(spec: ArenaEnvGraphSpec) -> Any:
 def _instantiate_node_assets(nodes: list[ArenaEnvGraphNodeSpec], asset_registry: Any) -> dict[str, Any]:
     """Create concrete asset entities for graph nodes and wire object-reference nodes.
 
-    Upstream contract: nodes are ordered so an OBJECT_REFERENCE appears after its parent —
-    a single pass is enough; the parent lookup in `assets_by_id` would `KeyError` otherwise.
+    Upstream contract:
+      * Nodes are ordered so an OBJECT_REFERENCE appears after its parent — a single pass is
+        enough; the parent lookup in `assets_by_id` would `KeyError` otherwise.
+      * `node.params` is emitted in the asset constructor's exact kwarg form, including any
+        `instance_name` needed to disambiguate duplicate assets.
     """
     assets_by_id: dict[str, Any] = {}
     for node in nodes:
@@ -77,27 +79,8 @@ def _instantiate_node_assets(nodes: list[ArenaEnvGraphNodeSpec], asset_registry:
             )
             continue
         asset_cls = asset_registry.get_asset_by_name(node.name)
-        kwargs = dict(node.params)
-        if (
-            node.id != node.name
-            and "instance_name" not in kwargs
-            and _explicitly_accepts_kwarg(asset_cls, "instance_name")
-        ):
-            kwargs["instance_name"] = node.id
-        assets_by_id[node.id] = asset_cls(**kwargs)
+        assets_by_id[node.id] = asset_cls(**node.params)
     return assets_by_id
-
-
-def _explicitly_accepts_kwarg(callable_obj: Any, name: str) -> bool:
-    """Check whether a constructor can accept a named keyword directly."""
-    try:
-        parameter = inspect.signature(callable_obj).parameters.get(name)
-    except (TypeError, ValueError):
-        return False
-    return parameter is not None and parameter.kind in (
-        inspect.Parameter.POSITIONAL_OR_KEYWORD,
-        inspect.Parameter.KEYWORD_ONLY,
-    )
 
 
 def _apply_state_spatial_constraints(state_spec: ArenaEnvGraphStateSpec, assets_by_id: dict[str, Any]) -> None:
