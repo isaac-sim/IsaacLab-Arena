@@ -142,33 +142,20 @@ class On(Relation):
 
 
 @register_object_relation
-class NotOn(Relation):
-    """Forbids the child from sitting on the parent.
-
-    The inverse of ``On``: penalizes any child position inside the
-    parent's XY footprint and contributes zero loss once the child has
-    cleared the footprint along X or Y. Z is ignored — with no XY
-    overlap there is nothing to stack on.
-
-    Note: Loss computation is handled by NotOnLossStrategy in relation_loss_strategies.py.
-    """
-
-    def __init__(self, parent: ObjectBase, relation_loss_weight: float = 1.0):
-        """
-        Args:
-            parent: The asset the child must NOT be on.
-            relation_loss_weight: Weight for the relationship loss function.
-        """
-        super().__init__(parent, relation_loss_weight)
-
-
 class NotNextTo(Relation):
-    """Forbids the child from sitting in the NextTo zone on the given side of the parent.
+    """Forbids the child from being placed next to the parent on the given side.
 
-    The inverse of ``NextTo``: the child must be far from the target
-    position on the primary axis, *or* outside the perpendicular band,
-    *or* on the wrong side of the parent's edge. Any one escape is
-    sufficient for zero loss.
+    The inverse of ``NextTo``. ``NextTo`` pins the child to one spot beside the
+    parent: ``distance_m`` off the chosen edge, aligned within the parent's
+    perpendicular extent. ``NotNextTo`` only asks the child to vacate that spot,
+    by any one of three routes:
+
+    - move away from the target distance along the primary axis, or
+    - step outside the parent's perpendicular extent, or
+    - cross back over the parent's edge to the opposite side (the side NextTo
+      never sits it on — toward the parent rather than out beyond the edge).
+
+    Satisfying a single route is enough — the child need not escape all three.
 
     Note: Loss computation is handled by NotNextToLossStrategy in relation_loss_strategies.py.
     """
@@ -177,16 +164,20 @@ class NotNextTo(Relation):
         self,
         parent: ObjectBase,
         relation_loss_weight: float = 1.0,
-        distance_m: float = 0.05,
+        distance_m: float = 0.1,
         side: Side = Side.POSITIVE_X,
     ):
         """
         Args:
             parent: The parent asset whose NextTo zone is forbidden.
             relation_loss_weight: Weight for the relationship loss function.
-            distance_m: Target distance from parent's boundary in meters (default: 5cm).
-                Defines where the forbidden zone is centered along the primary axis.
-            side: Which axis direction (default: Side.POSITIVE_X).
+            distance_m: Distance off the parent's edge, in meters, where the
+                forbidden spot sits along the primary axis (default: 10cm).
+                Rule of thumb: keep this equal to the loss strategy's ``margin_m``
+                so the keep-out zone reaches back to the parent's edge — if
+                ``margin_m < distance_m`` a gap opens up where the child can sit
+                right against the parent unpenalized. See NotNextToLossStrategy.
+            side: Which side of the parent the forbidden spot is on (default: Side.POSITIVE_X).
         """
         super().__init__(parent, relation_loss_weight)
         assert distance_m > 0.0, f"Distance must be positive, got {distance_m}"

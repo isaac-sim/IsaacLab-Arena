@@ -18,7 +18,7 @@ from isaaclab_arena.relations.loss_primitives import (
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.relations import AtPosition, NextTo, NotNextTo, NotOn, On, PositionLimits, Relation
+    from isaaclab_arena.relations.relations import AtPosition, NextTo, NotNextTo, On, PositionLimits, Relation
 
 from isaaclab_arena.relations.relations import Side
 
@@ -319,110 +319,44 @@ class OnLossStrategy(RelationLossStrategy):
         return result.squeeze(0) if single_input else result
 
 
-class NotOnLossStrategy(RelationLossStrategy):
-    """Loss strategy for ``NotOn`` — push child out of parent's XY footprint.
-
-    The inverse of ``OnLossStrategy``. ``NotOn`` is satisfied as soon
-    as either the X or Y footprint has *escaped* the parent — Z is
-    incidental, since with no XY overlap there is nothing to stack on.
-
-    Loss = ``slope * min(inside_x, inside_y)``, where ``inside_axis``
-    is the child center's "depth inside" the placement band along that
-    axis (0 when outside, > 0 when inside). The ``min`` means a
-    single-axis escape is sufficient. The gradient on the smaller
-    inside-axis points toward the nearer edge — the optimizer pops
-    the child out along the path of least travel.
-
-    If ``margin_m > 0``, the parent's effective footprint is widened
-    by ``margin_m`` along both XY axes, so the loss does not drop to
-    zero until the child has cleared the parent by that margin.
-    """
-
-    def __init__(self, slope: float = 100.0, margin_m: float = 0.0, debug: bool = False):
-        """
-        Args:
-            slope: Loss magnitude per meter of inside-penetration.
-                Matches the default of ``OnLossStrategy``.
-            margin_m: Optional safety margin (meters) added to each XY
-                extent of the parent's footprint. The loss falls to
-                zero only when the child has cleared the widened
-                footprint. Default 0.0.
-            debug: If True, print the per-axis inside-penetration.
-        """
-        assert slope >= 0.0, f"slope must be non-negative, got {slope}"
-        assert margin_m >= 0.0, f"margin_m must be non-negative, got {margin_m}"
-        self.slope = slope
-        self.margin_m = margin_m
-        self.debug = debug
-
-    def compute_loss(
-        self,
-        relation: "NotOn",
-        child_pos: torch.Tensor,
-        child_bbox: AxisAlignedBoundingBox,
-        parent_world_bbox: AxisAlignedBoundingBox,
-    ) -> torch.Tensor:
-        """Compute loss for ``NotOn``."""
-        single_input = child_pos.dim() == 1
-        if single_input:
-            child_pos = child_pos.unsqueeze(0)
-
-        # The On-valid band: child center positions for which the
-        # child's footprint is entirely inside the parent's footprint.
-        # Inflated by margin_m so Not(On) keeps pushing past the rim.
-        m = self.margin_m
-        valid_x_min = parent_world_bbox.min_point[:, 0] - child_bbox.min_point[:, 0] - m
-        valid_x_max = parent_world_bbox.max_point[:, 0] - child_bbox.max_point[:, 0] + m
-        valid_y_min = parent_world_bbox.min_point[:, 1] - child_bbox.min_point[:, 1] - m
-        valid_y_max = parent_world_bbox.max_point[:, 1] - child_bbox.max_point[:, 1] + m
-
-        # Inside-band penetration: distance from child center to the
-        # nearer edge, clamped to >= 0. Zero when the child has
-        # escaped the band along that axis.
-        zero = torch.zeros((), dtype=child_pos.dtype, device=child_pos.device)
-        inside_x = torch.maximum(zero, torch.minimum(child_pos[:, 0] - valid_x_min, valid_x_max - child_pos[:, 0]))
-        inside_y = torch.maximum(zero, torch.minimum(child_pos[:, 1] - valid_y_min, valid_y_max - child_pos[:, 1]))
-
-        # min(): a single-axis escape is enough to satisfy Not(On).
-        loss = self.slope * torch.minimum(inside_x, inside_y)
-
-        if self.debug and child_pos.shape[0] == 1:
-            print(
-                f"    [NotOn] inside_x={inside_x[0].item():.6f} inside_y={inside_y[0].item():.6f} "
-                f"-> loss={loss[0].item():.6f}"
-            )
-
-        result = relation.relation_loss_weight * loss
-        return result.squeeze(0) if single_input else result
-
-
 class NotNextToLossStrategy(RelationLossStrategy):
-    """Loss strategy for ``NotNextTo`` — push child out of the NextTo zone on the given side.
+    """Loss strategy for ``NotNextTo`` — push the child out of the parent's NextTo zone.
 
-    The inverse of ``NextToLossStrategy``. The NextTo "satisfied
-    region" is the conjunction of three conditions:
-      1. **Half-plane:** child on the correct side of the parent edge.
-      2. **Cross band:** child's perpendicular position inside the
-         parent's perpendicular extent.
-      3. **Target distance:** primary-axis position equals
-         ``parent_edge + direction * distance_m``.
+    The inverse of ``NextToLossStrategy``. ``NextTo`` holds only where all three
+    conditions are met at once:
 
-    ``NotNextTo`` is satisfied as soon as *any one* condition is
-    violated by at least ``margin_m`` meters.
+      1. **Half-plane** — child on the outward side of the parent's edge
+         (beyond it in the chosen direction, not back across it).
+      2. **Cross band** — child within the parent's perpendicular extent.
+      3. **Target distance** — child at ``parent_edge + direction * distance_m``
+         along the primary axis.
 
-    Loss = ``slope * min(relu(margin_m - escape_side),
-    relu(margin_m - escape_cross), relu(margin_m - escape_dist))``.
-    The gradient points along whichever escape is cheapest, so the
-    optimizer naturally escapes by the easiest of the three directions.
+    ``NotNextTo`` is the negation: breaking *any one* condition by at least
+    ``margin_m`` meters drives the loss to zero.
+
+    Per condition we measure an ``escape`` — how far it is currently broken, in
+    meters (0 while the condition still holds) — and the still-unmet margin
+    ``gap = relu(margin_m - escape)``::
+
+        loss = slope * min(gap_side, gap_cross, gap_dist)
+
+    The ``min`` follows the single cheapest escape, so the gradient points the
+    child out along whichever of the three directions is closest to clearing the
+    margin.
     """
 
-    def __init__(self, slope: float = 10.0, margin_m: float = 0.05, debug: bool = False):
+    def __init__(self, slope: float = 10.0, margin_m: float = 0.1, debug: bool = False):
         """
         Args:
             slope: Loss magnitude per meter inside the safety margin.
                 Matches the default of ``NextToLossStrategy``.
-            margin_m: Meters of clearance required along whichever
-                escape axis the optimizer takes. Default 5 cm.
+            margin_m: Meters of clearance required along whichever escape axis the
+                optimizer takes (default 10 cm). Rule of thumb: set ``margin_m``
+                >= the relation's ``distance_m`` (and ideally equal to it) so the
+                keep-out zone spans from the parent's edge out past the forbidden
+                spot; with ``margin_m < distance_m`` the penalized tent floats past
+                the edge and leaves a gap where the child can sit right next to the
+                parent at zero loss.
             debug: If True, print the per-condition escape distances.
         """
         assert slope >= 0.0, f"slope must be non-negative, got {slope}"
@@ -446,13 +380,18 @@ class NotNextToLossStrategy(RelationLossStrategy):
         cfg = SIDE_CONFIGS[relation.side]
         distance = relation.distance_m
 
-        # Mirror NextToLossStrategy's target-position derivation.
+        # Mirror NextToLossStrategy's target-position derivation. NextTo places the
+        # child on the OUTWARD side of this edge (beyond it in `direction`).
+        # opposite_side_penalty flags the other side — back across the edge, toward
+        # the parent — which is where the child must go to escape via the half-plane.
         if cfg.direction == Direction.POSITIVE:
             parent_edge = parent_world_bbox.max_point[:, cfg.primary_axis]
             child_offset = child_bbox.min_point[:, cfg.primary_axis]
+            opposite_side_penalty = "less"  # child is on the opposite side when primary < parent_edge
         else:
             parent_edge = parent_world_bbox.min_point[:, cfg.primary_axis]
             child_offset = child_bbox.max_point[:, cfg.primary_axis]
+            opposite_side_penalty = "greater"  # child is on the opposite side when primary > parent_edge
         target_pos = parent_edge + cfg.direction * distance - child_offset
 
         # Cross band: child placed at target position within parent's perpendicular extent.
@@ -463,23 +402,26 @@ class NotNextToLossStrategy(RelationLossStrategy):
 
         primary = child_pos[:, cfg.primary_axis]
         cross = child_pos[:, cfg.band_axis]
-        zero = torch.zeros((), dtype=child_pos.dtype, device=child_pos.device)
 
-        # escape_side: how far on the WRONG side of parent's edge (0 if on correct side).
-        # direction = +1 means child should be > parent_edge; wrong-side amount = parent_edge - child.
-        escape_side = torch.maximum(zero, (parent_edge - primary) * cfg.direction)
+        # Each numbered block mirrors the matching term in NextToLossStrategy, but
+        # measures how far that NextTo condition is ESCAPED (broken) rather than met.
+        # escape = meters the condition is broken (0 while still met, slope=1.0 -> meters);
+        # gap = relu(margin_m - escape) = margin still left to fill (0 once escape clears margin).
 
-        # escape_cross: how far OUTSIDE the perpendicular band (0 inside).
-        escape_cross = torch.maximum(zero, valid_band_min - cross) + torch.maximum(zero, cross - valid_band_max)
+        # 1. Half-plane escape: how far the child has crossed to the side opposite where
+        #    NextTo sits it (inverse of NextTo's half-plane loss; 0 on the outward side).
+        escape_side = single_boundary_linear_loss(primary, parent_edge, slope=1.0, penalty_side=opposite_side_penalty)
+        gap_side = single_boundary_linear_loss(escape_side, self.margin_m, slope=1.0, penalty_side="less")
 
-        # escape_dist: how far the primary-axis position is from the target distance (always >= 0).
-        escape_dist = torch.abs(primary - target_pos)
+        # 2. Cross-band escape: how far the child is OUTSIDE the parent's perpendicular
+        #    extent (inverse of NextTo's band loss; 0 inside the band).
+        escape_cross = linear_band_loss(cross, valid_band_min, valid_band_max, slope=1.0)
+        gap_cross = single_boundary_linear_loss(escape_cross, self.margin_m, slope=1.0, penalty_side="less")
 
-        # Per-condition "how much of the margin is unfilled". Zero once that escape passes margin.
-        margin = self.margin_m
-        gap_side = torch.maximum(zero, margin - escape_side)
-        gap_cross = torch.maximum(zero, margin - escape_cross)
-        gap_dist = torch.maximum(zero, margin - escape_dist)
+        # 3. Distance escape: how far the primary-axis position is from the target distance
+        #    (inverse of NextTo's distance loss; 0 exactly at the target).
+        escape_dist = single_point_linear_loss(primary, target_pos, slope=1.0)
+        gap_dist = single_boundary_linear_loss(escape_dist, self.margin_m, slope=1.0, penalty_side="less")
 
         # min(): a single escape past the margin is enough to satisfy Not(NextTo).
         loss = self.slope * torch.minimum(torch.minimum(gap_side, gap_cross), gap_dist)

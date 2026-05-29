@@ -3,16 +3,19 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for relation loss strategies (OnLossStrategy, NextToLossStrategy)."""
+"""Tests for relation loss strategies (OnLossStrategy, NextToLossStrategy, NotNextToLossStrategy)."""
 
 import torch
 
 import pytest
 
 from isaaclab_arena.assets.dummy_object import DummyObject
-from isaaclab_arena.relations.relation_loss_strategies import NextToLossStrategy, OnLossStrategy
-from isaaclab_arena.relations.relations import NextTo, On, Side
+from isaaclab_arena.relations.relation_loss_strategies import NextToLossStrategy, NotNextToLossStrategy, OnLossStrategy
+from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+from isaaclab_arena.relations.relations import IsAnchor, NextTo, NotNextTo, On, Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.pose import Pose
 
 
 def _create_table():
@@ -260,3 +263,150 @@ def test_next_to_loss_strategy_multi_env_shape_and_values():
     assert loss.shape == (2,)
     assert torch.isclose(loss[0], torch.tensor(0.0), atol=1e-4)
     assert loss[1] > 0.0
+
+
+# =============================================================================
+# NotNextToLossStrategy tests
+# =============================================================================
+
+
+def test_not_next_to_loss_strategy_positive_at_forbidden_spot():
+    """Test that NotNextTo loss is positive at the NextTo target spot (no escape made)."""
+
+    parent_obj = _create_table()
+    child_obj = _create_box()
+    relation = NotNextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.05)
+    strategy = NotNextToLossStrategy(slope=10.0, margin_m=0.05)
+
+    child_pos = torch.tensor([1.05, 0.4, 0.5])
+
+    # All three escapes = 0, all gaps = margin = 0.05. loss = slope * min(0.05, 0.05, 0.05) = 0.5.
+    loss = strategy.compute_loss(relation, child_pos, child_obj.bounding_box, parent_obj.bounding_box)
+    assert torch.isclose(loss, torch.tensor(0.5), atol=1e-4)
+
+
+def test_not_next_to_loss_strategy_zero_when_far_past_target():
+    """Test that NotNextTo loss is zero when the child escapes far past the target distance."""
+
+    parent_obj = _create_table()
+    child_obj = _create_box()
+    relation = NotNextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.05)
+    strategy = NotNextToLossStrategy(slope=10.0, margin_m=0.05)
+
+    child_pos = torch.tensor([2.0, 0.4, 0.5])
+
+    loss = strategy.compute_loss(relation, child_pos, child_obj.bounding_box, parent_obj.bounding_box)
+    assert torch.isclose(loss, torch.tensor(0.0), atol=1e-6)
+
+
+def test_not_next_to_loss_strategy_zero_when_crossed_to_opposite_side():
+    """Test that NotNextTo loss is zero when the child crosses to the opposite side of the edge."""
+
+    parent_obj = _create_table()
+    child_obj = _create_box()
+    relation = NotNextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.05)
+    strategy = NotNextToLossStrategy(slope=10.0, margin_m=0.05)
+
+    child_pos = torch.tensor([0.3, 0.4, 0.5])
+
+    loss = strategy.compute_loss(relation, child_pos, child_obj.bounding_box, parent_obj.bounding_box)
+    assert torch.isclose(loss, torch.tensor(0.0), atol=1e-6)
+
+
+def test_not_next_to_loss_strategy_zero_when_outside_cross_band():
+    """Test that NotNextTo loss is zero when the child is outside the parent's cross band."""
+
+    parent_obj = _create_table()
+    child_obj = _create_box()
+    relation = NotNextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.05)
+    strategy = NotNextToLossStrategy(slope=10.0, margin_m=0.05)
+
+    child_pos = torch.tensor([1.05, 5.0, 0.5])
+
+    loss = strategy.compute_loss(relation, child_pos, child_obj.bounding_box, parent_obj.bounding_box)
+    assert torch.isclose(loss, torch.tensor(0.0), atol=1e-6)
+
+
+@pytest.mark.parametrize(
+    "side,target",
+    [
+        (Side.POSITIVE_X, (1.05, 0.4, 0.5)),
+        (Side.NEGATIVE_X, (-0.25, 0.4, 0.5)),
+        (Side.POSITIVE_Y, (0.4, 1.05, 0.5)),
+        (Side.NEGATIVE_Y, (0.4, -0.25, 0.5)),
+    ],
+)
+def test_not_next_to_loss_strategy_positive_at_each_side_target(side, target):
+    """Test that all four Side variants give a positive loss at their respective NextTo target."""
+
+    parent_obj = _create_table()
+    child_obj = _create_box()
+    relation = NotNextTo(parent_obj, side=side, distance_m=0.05)
+    strategy = NotNextToLossStrategy(slope=10.0, margin_m=0.05)
+
+    loss = strategy.compute_loss(relation, torch.tensor(target), child_obj.bounding_box, parent_obj.bounding_box)
+    assert loss > 0.0
+
+
+def test_not_next_to_loss_strategy_respects_relation_weight():
+    """Test that NotNextTo loss is scaled by relation_loss_weight."""
+
+    parent_obj = _create_table()
+    child_obj = _create_box()
+    relation_normal = NotNextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.05, relation_loss_weight=1.0)
+    relation_double = NotNextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.05, relation_loss_weight=2.0)
+    strategy = NotNextToLossStrategy(slope=10.0, margin_m=0.05)
+
+    child_pos = torch.tensor([1.05, 0.4, 0.5])
+
+    loss_normal = strategy.compute_loss(relation_normal, child_pos, child_obj.bounding_box, parent_obj.bounding_box)
+    loss_double = strategy.compute_loss(relation_double, child_pos, child_obj.bounding_box, parent_obj.bounding_box)
+
+    assert torch.isclose(loss_double, 2.0 * loss_normal, rtol=1e-5)
+
+
+def test_not_next_to_loss_strategy_multi_env_shape_and_values():
+    """Test that NotNextTo with batched (N,3) input returns (N,) loss with correct per-env values."""
+
+    parent_obj = _create_table()
+    child_obj = _create_box()
+    relation = NotNextTo(parent_obj, side=Side.POSITIVE_X, distance_m=0.05)
+    strategy = NotNextToLossStrategy(slope=10.0, margin_m=0.05)
+
+    # Env 0: sitting at the forbidden spot. Env 1: escaped far past the target.
+    child_pos = torch.tensor([[1.05, 0.4, 0.5], [2.0, 0.4, 0.5]])
+
+    loss = strategy.compute_loss(relation, child_pos, child_obj.bounding_box, parent_obj.bounding_box)
+    assert loss.shape == (2,)
+    assert loss[0] > 0.0
+    assert torch.isclose(loss[1], torch.tensor(0.0), atol=1e-6)
+
+
+# =============================================================================
+# RelationSolver integration (NotNextTo) tests
+# =============================================================================
+
+
+def test_solver_drives_box_out_of_forbidden_next_to_zone():
+    """Test that the solver drives a box out of the NextTo zone on the table's +X side."""
+
+    table = _create_table()
+    box = _create_box()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    box.add_relation(NotNextTo(table, side=Side.POSITIVE_X, distance_m=0.05))
+
+    # Box starts inside the forbidden zone, just short of the target distance so the
+    # distance-escape gradient is non-zero (the exact target is a flat saddle point).
+    initial = {table: (0.0, 0.0, 0.0), box: (1.08, 0.4, 0.13)}
+    solver = RelationSolver(params=RelationSolverParams(verbose=False, save_position_history=False, max_iters=400))
+    final = solver.solve(objects=[table, box], initial_positions=[initial])[0]
+
+    # The solved placement should no longer be penalized by NotNextTo.
+    loss = NotNextToLossStrategy(slope=10.0, margin_m=0.05).compute_loss(
+        NotNextTo(table, side=Side.POSITIVE_X, distance_m=0.05),
+        torch.tensor(final[box]),
+        box.bounding_box,
+        table.bounding_box,
+    )
+    assert torch.isclose(loss, torch.tensor(0.0), atol=1e-4), f"Box should escape the forbidden zone; got {final[box]}"
