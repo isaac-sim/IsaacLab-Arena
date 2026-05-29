@@ -286,12 +286,18 @@ class TaskRegistry(Registry):
 
 # Lazy registration to avoid circular imports
 _assets_registered = False
+# Blocks re-entry: registration decorators call is_registered() -> ensure_assets_registered()
+# mid-import, which would re-import a partial module and raise a circular ImportError.
+_registration_in_progress = False
 
 
 def ensure_assets_registered():
     """Ensure all assets are registered. Call this before accessing the registry."""
-    global _assets_registered
-    if not _assets_registered:
+    global _assets_registered, _registration_in_progress
+    if _assets_registered or _registration_in_progress:
+        return
+    _registration_in_progress = True
+    try:
         # Import modules to trigger asset registration via decorators
         import isaaclab_arena.assets.background_library  # noqa: F401
         import isaaclab_arena.assets.device_library  # noqa: F401
@@ -304,3 +310,5 @@ def ensure_assets_registered():
         import isaaclab_arena.tasks  # noqa: F401
 
         _assets_registered = True
+    finally:
+        _registration_in_progress = False
