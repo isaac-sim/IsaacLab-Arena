@@ -3,10 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import numpy as np
 from abc import ABC, abstractmethod
 
 from isaaclab.managers.recorder_manager import RecorderTermCfg
+
+from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 
 
 class MetricBase(ABC):
@@ -19,5 +20,12 @@ class MetricBase(ABC):
         raise NotImplementedError("Function not implemented yet.")
 
     @abstractmethod
-    def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
+    def get_metric_term_cfg(self) -> MetricTermCfg:
+        """Return the metric term configuration.
+
+        The returned config carries a pointer to the module-level offline compute
+        function (``compute_metric_func``) together with the parameters needed to call
+        it. Used by the runtime ``MetricsManager`` to compute the metric value once a
+        rollout has finished.
+        """
         raise NotImplementedError("Function not implemented yet.")

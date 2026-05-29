@@ -31,7 +31,7 @@ embodiment = asset_registry.get_asset_by_name("franka_ik")()
 cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
 
-cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_wxyz=(1.0, 0.0, 0.0, 0.0)))
+cracker_box.set_initial_pose(Pose(position_xyz=(0.4, 0.0, 0.1), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 cracker_box.add_relation(IsAnchor())
 tomato_soup_can.add_relation(On(cracker_box))
 

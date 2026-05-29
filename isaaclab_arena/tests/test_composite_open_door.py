@@ -22,8 +22,8 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
     from isaaclab_arena.tasks.open_door_task import OpenDoorTask
-    from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
     from isaaclab_arena.utils.pose import Pose
 
     args_parser = get_isaaclab_arena_cli_parser()
@@ -57,10 +57,10 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
     scene = Scene(assets=[background, microwave_0, microwave_1])
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
-        name="sequential_open_door",
+        name="composite_open_door",
         embodiment=FrankaIKEmbodiment(),
         scene=scene,
-        task=SequentialTaskBase([subtask_1, subtask_2]),
+        task=CompositeTaskBase([subtask_1, subtask_2]),
     )
 
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
@@ -76,7 +76,7 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
     return env, microwave_0, microwave_1
 
 
-def _test_sequential_open_door_microwave(simulation_app) -> bool:
+def _test_composite_open_door_microwave(simulation_app) -> bool:
     from isaaclab.envs.manager_based_env import ManagerBasedEnv
 
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
@@ -121,7 +121,9 @@ def _test_sequential_open_door_microwave(simulation_app) -> bool:
     return True
 
 
-def _test_out_of_order_sequential_open_door_microwave(simulation_app) -> bool:
+def _test_reverse_order_composite_open_door_microwave(simulation_app) -> bool:
+    """Composite tasks complete regardless of subtask completion order — open microwave 1
+    first, then microwave 0, and the composite task should still complete."""
     from isaaclab.envs.manager_based_env import ManagerBasedEnv
 
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
@@ -147,7 +149,7 @@ def _test_out_of_order_sequential_open_door_microwave(simulation_app) -> bool:
         microwave_1.close(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
 
-        print("Opening microwave 1")
+        print("Opening microwave 1 (completing subtask 1)")
         microwave_1.open(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
 
@@ -155,20 +157,8 @@ def _test_out_of_order_sequential_open_door_microwave(simulation_app) -> bool:
         microwave_1.close(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
 
-        print("Opening microwave 0 (out of order, composite task should remain incomplete)")
+        print("Opening microwave 0 (completing subtask 0, composite task should be complete)")
         microwave_0.open(env, env_ids=None)
-        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
-
-        print("Closing microwave 0")
-        microwave_0.close(env, env_ids=None)
-        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
-
-        print("Opening microwave 0 (completing subtask 0)")
-        microwave_0.open(env, env_ids=None)
-        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
-
-        print("Opening microwave 1 (completing subtask 1, composite task should be complete)")
-        microwave_1.open(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_composite_task_complete)
 
     except Exception as e:
@@ -182,7 +172,7 @@ def _test_out_of_order_sequential_open_door_microwave(simulation_app) -> bool:
     return True
 
 
-def _test_sequential_open_door_microwave_multiple_envs(simulation_app) -> bool:
+def _test_composite_open_door_microwave_multiple_envs(simulation_app) -> bool:
     from isaaclab.envs.manager_based_env import ManagerBasedEnv
 
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
@@ -227,7 +217,8 @@ def _test_sequential_open_door_microwave_multiple_envs(simulation_app) -> bool:
     return True
 
 
-def _test_out_of_order_sequential_open_door_microwave_multiple_envs(simulation_app) -> bool:
+def _test_reverse_order_composite_open_door_microwave_multiple_envs(simulation_app) -> bool:
+    """Multi-env version of the reverse-order test: order independence must hold for every env."""
     from isaaclab.envs.manager_based_env import ManagerBasedEnv
 
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
@@ -253,7 +244,7 @@ def _test_out_of_order_sequential_open_door_microwave_multiple_envs(simulation_a
         microwave_1.close(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
 
-        print("Opening microwave 1")
+        print("Opening microwave 1 (completing subtask 1)")
         microwave_1.open(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
 
@@ -261,20 +252,8 @@ def _test_out_of_order_sequential_open_door_microwave_multiple_envs(simulation_a
         microwave_1.close(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
 
-        print("Opening microwave 0 (out of order, composite task should remain incomplete)")
+        print("Opening microwave 0 (completing subtask 0, composite task should be complete)")
         microwave_0.open(env, env_ids=None)
-        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
-
-        print("Closing microwave 0")
-        microwave_0.close(env, env_ids=None)
-        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
-
-        print("Opening microwave 0 (completing subtask 0)")
-        microwave_0.open(env, env_ids=None)
-        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_incomplete)
-
-        print("Opening microwave 1 (completing subtask 1, composite task should be complete)")
-        microwave_1.open(env, env_ids=None)
         step_zeros_and_call(env, NUM_STEPS, assert_composite_task_complete)
 
     except Exception as e:
@@ -288,7 +267,7 @@ def _test_out_of_order_sequential_open_door_microwave_multiple_envs(simulation_a
     return True
 
 
-def _test_sequential_open_door_microwave_reset_condition(simulation_app) -> bool:
+def _test_composite_open_door_microwave_reset_condition(simulation_app) -> bool:
     from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
 
     # Get the scene
@@ -305,7 +284,7 @@ def _test_sequential_open_door_microwave_reset_condition(simulation_app) -> bool
         assert torch.all(is_open_0 == torch.tensor([False], device=env.device))
         assert torch.all(is_open_1 == torch.tensor([False], device=env.device))
 
-        print("Opening microwave 0(completing subtask 0)")
+        print("Opening microwave 0 (completing subtask 0)")
         microwave_0.open(env, None)
         step_zeros_and_call(env, NUM_STEPS)
         is_open_0 = microwave_0.is_open(env)
@@ -315,7 +294,7 @@ def _test_sequential_open_door_microwave_reset_condition(simulation_app) -> bool
         assert torch.all(is_open_1 == torch.tensor([False], device=env.device))
 
         # Check that envs automatically reset to closed.
-        print("Opening microwave (completing subtask 1)")
+        print("Opening microwave 1 (completing subtask 1, composite task completes and env resets)")
         microwave_1.open(env, None)
         step_zeros_and_call(env, NUM_STEPS)
         is_open_0 = microwave_0.is_open(env)
@@ -335,49 +314,49 @@ def _test_sequential_open_door_microwave_reset_condition(simulation_app) -> bool
     return True
 
 
-def test_sequential_open_door_microwave():
+def test_composite_open_door_microwave():
     result = run_simulation_app_function(
-        _test_sequential_open_door_microwave,
+        _test_composite_open_door_microwave,
         headless=HEADLESS,
     )
-    assert result, f"Test {_test_sequential_open_door_microwave.__name__} failed"
+    assert result, f"Test {_test_composite_open_door_microwave.__name__} failed"
 
 
-def test_out_of_order_sequential_open_door_microwave():
+def test_reverse_order_composite_open_door_microwave():
     result = run_simulation_app_function(
-        _test_out_of_order_sequential_open_door_microwave,
+        _test_reverse_order_composite_open_door_microwave,
         headless=HEADLESS,
     )
-    assert result, f"Test {_test_out_of_order_sequential_open_door_microwave.__name__} failed"
+    assert result, f"Test {_test_reverse_order_composite_open_door_microwave.__name__} failed"
 
 
-def test_sequential_open_door_microwave_multiple_envs():
+def test_composite_open_door_microwave_multiple_envs():
     result = run_simulation_app_function(
-        _test_sequential_open_door_microwave_multiple_envs,
+        _test_composite_open_door_microwave_multiple_envs,
         headless=HEADLESS,
     )
-    assert result, f"Test {_test_sequential_open_door_microwave_multiple_envs.__name__} failed"
+    assert result, f"Test {_test_composite_open_door_microwave_multiple_envs.__name__} failed"
 
 
-def test_out_of_order_sequential_open_door_microwave_multiple_envs():
+def test_reverse_order_composite_open_door_microwave_multiple_envs():
     result = run_simulation_app_function(
-        _test_out_of_order_sequential_open_door_microwave_multiple_envs,
+        _test_reverse_order_composite_open_door_microwave_multiple_envs,
         headless=HEADLESS,
     )
-    assert result, f"Test {_test_out_of_order_sequential_open_door_microwave_multiple_envs.__name__} failed"
+    assert result, f"Test {_test_reverse_order_composite_open_door_microwave_multiple_envs.__name__} failed"
 
 
-def test_sequential_open_door_microwave_reset_condition():
+def test_composite_open_door_microwave_reset_condition():
     result = run_simulation_app_function(
-        _test_sequential_open_door_microwave_reset_condition,
+        _test_composite_open_door_microwave_reset_condition,
         headless=HEADLESS,
     )
-    assert result, f"Test {_test_sequential_open_door_microwave_reset_condition.__name__} failed"
+    assert result, f"Test {_test_composite_open_door_microwave_reset_condition.__name__} failed"
 
 
 if __name__ == "__main__":
-    test_sequential_open_door_microwave()
-    test_out_of_order_sequential_open_door_microwave()
-    test_sequential_open_door_microwave_multiple_envs()
-    test_out_of_order_sequential_open_door_microwave_multiple_envs()
-    test_sequential_open_door_microwave_reset_condition()
+    test_composite_open_door_microwave()
+    test_reverse_order_composite_open_door_microwave()
+    test_composite_open_door_microwave_multiple_envs()
+    test_reverse_order_composite_open_door_microwave_multiple_envs()
+    test_composite_open_door_microwave_reset_condition()

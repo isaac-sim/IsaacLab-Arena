@@ -18,11 +18,11 @@ if TYPE_CHECKING:
 
 
 class PooledObjectPlacer:
-    """Object placer that maintains a pool of valid placement layouts.
+    """Object placer that keeps a pool of optimized layouts.
 
-    Wraps :class:`ObjectPlacer` and solves layouts in batches of ``pool_size``,
-    keeping only those that pass validation.  The pool is refilled automatically
-    when consumed layouts run out.
+    Wraps :class:`ObjectPlacer` and solves object layouts in batches of
+    ``pool_size``, keeping only those that pass validation. The pool is refilled
+    automatically when consumed layouts run out.
 
     * :meth:`sample_without_replacement` — returns the next *count* layouts
       sequentially.  Auto-refills when exhausted.
@@ -54,7 +54,7 @@ class PooledObjectPlacer:
         self._solve_and_store(pool_size)
         if not self._layouts:
             raise RuntimeError(
-                f"Placement pool failed to produce any valid layouts from {pool_size} attempts. "
+                f"Pooled object placer failed to produce any valid layouts from {pool_size} attempts. "
                 "Check object relations and constraints."
             )
 
@@ -64,9 +64,9 @@ class PooledObjectPlacer:
         self._next_idx = 0
 
     def _solve_and_store(self, num_layouts: int) -> None:
-        """Solve *num_layouts* placements and append valid ones to the pool.
+        """Solve *num_layouts* placements and append valid layouts to the pool.
 
-        When no candidates pass strict validation, the best-loss candidates are
+        When no layouts pass strict validation, the best-loss layouts are
         accepted with a warning (matching pre-pool behaviour where validation
         failures were non-fatal).
         """
@@ -78,20 +78,31 @@ class PooledObjectPlacer:
             result = self._placer.place(self._objects, num_envs=num_layouts, result_per_env=True)
 
         # TODO(@zhx06): Simplify once ObjectPlacer.place() always returns MultiEnvPlacementResult.
-        all_results = result.results if isinstance(result, MultiEnvPlacementResult) else [result]
-        valid_results = [r for r in all_results if r.success]
+        all_layouts = result.results if isinstance(result, MultiEnvPlacementResult) else [result]
+        valid_layouts = [layout for layout in all_layouts if layout.success]
 
-        if len(valid_results) < num_layouts:
+        if len(valid_layouts) < num_layouts:
             print(
-                f"Placement pool: solved {num_layouts} candidates,"
-                f" {len(valid_results)} valid, {num_layouts - len(valid_results)} failed validation"
+                f"Pooled object placer: solved {num_layouts} layouts,"
+                f" {len(valid_layouts)} valid, {num_layouts - len(valid_layouts)} failed validation"
             )
 
-        if valid_results:
-            self._layouts.extend(valid_results)
+        if valid_layouts:
+            self._layouts.extend(valid_layouts)
         else:
-            print("Warning: No candidates passed strict validation. Accepting best-loss layouts as fallback.")
-            self._layouts.extend(all_results)
+            print("Warning: No layouts passed strict validation. Accepting best-loss layouts as fallback.")
+            self._layouts.extend(all_layouts)
+
+    def _refill_pool_via_solve_if_required(self, count: int) -> None:
+        """Refill the pool via solve when fewer than *count* layouts are available."""
+        if self.remaining < count:
+            self._solve_and_store(max(self._pool_size, count))
+
+        if self.remaining < count:
+            raise RuntimeError(
+                f"Pooled object placer has {self.remaining} valid layouts but {count} were requested. "
+                "The solver is not producing enough valid placements."
+            )
 
     def sample_without_replacement(self, count: int) -> list[PlacementResult]:
         """Return the next *count* layouts sequentially (without replacement).
@@ -101,20 +112,12 @@ class PooledObjectPlacer:
         Raises:
             RuntimeError: If the pool cannot provide *count* layouts after refilling.
         """
-        remaining = len(self._layouts) - self._next_idx
-        if remaining < count:
-            self._solve_and_store(max(self._pool_size, count))  # solve a fresh batch
-
-        remaining = len(self._layouts) - self._next_idx
-        if remaining < count:  # still not enough after refill (solver producing too few valid layouts)
-            raise RuntimeError(
-                f"Placement pool has {remaining} valid layouts but {count} were requested. "
-                "The solver is not producing enough valid placements."
-            )
+        self._refill_pool_via_solve_if_required(count)
 
         start = self._next_idx
         self._next_idx += count
-        return self._layouts[start : self._next_idx]
+        layouts = self._layouts[start : self._next_idx]
+        return layouts
 
     def sample_with_replacement(self, count: int) -> list[PlacementResult]:
         """Pick *count* layouts at random with replacement (non-consuming).
@@ -128,3 +131,8 @@ class PooledObjectPlacer:
     def remaining(self) -> int:
         """Number of layouts not yet consumed by :meth:`sample_without_replacement`."""
         return len(self._layouts) - self._next_idx
+
+    @property
+    def pool_size(self) -> int:
+        """Number of layouts to solve per batch. When the pool runs low, it will solve at least this number of layouts so future samples can reuse the buffer."""
+        return self._pool_size

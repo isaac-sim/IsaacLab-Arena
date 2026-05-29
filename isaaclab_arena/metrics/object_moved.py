@@ -13,6 +13,7 @@ from isaaclab.utils import configclass
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.metrics.metric_base import MetricBase
+from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 
 
 class ObjectVelocityRecorder(RecorderTerm):
@@ -36,6 +37,29 @@ class ObjectVelocityRecorderCfg(RecorderTermCfg):
     class_type: type[RecorderTerm] = ObjectVelocityRecorder
     name: str = "object_linear_velocity"
     object_name: str = MISSING
+
+
+def compute_object_moved_rate(recorded_metric_data: list[np.ndarray], object_velocity_threshold: float) -> float:
+    """Computes the object-moved rate from the recorded metric data.
+
+    Args:
+        recorded_metric_data(list[np.ndarray]): The recorded object velocity per simulated episode.
+        object_velocity_threshold(float): The threshold for the object velocity to be considered moved.
+
+    Returns:
+        The object-moved rate(float). Value between 0 and 1. The proportion of episodes
+            in which the object moved.
+    """
+    object_velocity_per_demo = recorded_metric_data
+    object_moved_per_demo = []
+    for object_velocity in object_velocity_per_demo:
+        assert object_velocity.ndim == 2
+        assert object_velocity.shape[1] == 3
+        object_linear_velocity_magnitude = np.linalg.norm(object_velocity, axis=-1)
+        object_moved = np.any(object_linear_velocity_magnitude > object_velocity_threshold)
+        object_moved_per_demo.append(object_moved)
+    object_moved_rate = np.mean(object_moved_per_demo)
+    return object_moved_rate
 
 
 class ObjectMovedRateMetric(MetricBase):
@@ -63,23 +87,10 @@ class ObjectMovedRateMetric(MetricBase):
         """Return the recorder term configuration for the object-moved rate metric."""
         return ObjectVelocityRecorderCfg(name=self.recorder_term_name, object_name=self.object.name)
 
-    def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
-        """Computes the object-moved rate from the recorded metric data.
-
-        Args:
-            recorded_metric_data(list[np.ndarray]): The recorded object velocity per simulated episode.
-
-        Returns:
-            The object-moved rate(float). Value between 0 and 1. The proportion of episodes
-                in which the object moved.
-        """
-        object_velocity_per_demo = recorded_metric_data
-        object_moved_per_demo = []
-        for object_velocity in object_velocity_per_demo:
-            assert object_velocity.ndim == 2
-            assert object_velocity.shape[1] == 3
-            object_linear_velocity_magnitude = np.linalg.norm(object_velocity, axis=-1)
-            object_moved = np.any(object_linear_velocity_magnitude > self.object_velocity_threshold)
-            object_moved_per_demo.append(object_moved)
-        object_moved_rate = np.mean(object_moved_per_demo)
-        return object_moved_rate
+    def get_metric_term_cfg(self) -> MetricTermCfg:
+        """Return the metric term configuration for the object-moved rate metric."""
+        return MetricTermCfg(
+            compute_metric_func=compute_object_moved_rate,
+            params={"object_velocity_threshold": self.object_velocity_threshold},
+            recorder_term_name=self.recorder_term_name,
+        )

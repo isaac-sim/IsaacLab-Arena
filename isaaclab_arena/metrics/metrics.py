@@ -11,30 +11,6 @@ from isaaclab.envs.manager_based_rl_env import ManagerBasedRLEnv
 from isaaclab.utils.datasets import HDF5DatasetFileHandler
 
 
-def compute_metrics(env: ManagerBasedRLEnv) -> dict[str, float]:
-    """Computes the metrics registered in the environment.
-
-    Args:
-        env: The environment to compute the metrics for.
-
-    Returns:
-        A dictionary of metrics. Maps metric name to metric value.
-    """
-    assert hasattr(env.unwrapped.cfg, "metrics")
-    # Get the path where the recorded data is stored
-    dataset_path = get_metric_recorder_dataset_path(env)
-    # For each registered metric
-    metrics_data = {}
-    for metric in env.unwrapped.cfg.metrics:
-        # Load the recorded data from disk for this metric
-        recorded_metric_data = get_recorded_metric_data(dataset_path, metric.recorder_term_name)
-        # Compute the metric value from the recorded data
-        metrics_data[metric.name] = metric.compute_metric_from_recording(recorded_metric_data)
-    # Also add the number of episodes as a metric
-    metrics_data["num_episodes"] = get_num_episodes(dataset_path)
-    return metrics_data
-
-
 def get_recorded_metric_data(dataset_path: pathlib.Path, recorder_term_name: str) -> list[np.ndarray]:
     """Gets the recorded metric data for a given metric name.
 

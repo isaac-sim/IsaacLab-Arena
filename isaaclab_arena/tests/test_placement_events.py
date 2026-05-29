@@ -247,8 +247,8 @@ def test_solve_and_place_objects_handles_multiple_env_ids():
         )
 
 
-def test_pooled_placer_sample_without_replacement_returns_different_layouts():
-    """sample_without_replacement() should return layouts (likely different across draws)."""
+def test_pooled_object_placer_sample_without_replacement_returns_different_layouts():
+    """sample_without_replacement() should return layouts that are likely different."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
@@ -261,16 +261,16 @@ def test_pooled_placer_sample_without_replacement_returns_different_layouts():
 
     assert pool.remaining == 20
 
-    draws = pool.sample_without_replacement(5)
-    assert len(draws) == 5
-    positions = [d.positions[box1] for d in draws]
+    layouts = pool.sample_without_replacement(5)
+    assert len(layouts) == 5
+    positions = [layout.positions[box1] for layout in layouts]
     any_different = any(
         positions[i] != positions[j] for i in range(len(positions)) for j in range(i + 1, len(positions))
     )
-    assert any_different, "Pool draws should produce different layouts"
+    assert any_different, "Pool should produce different layouts"
 
 
-def test_pooled_placer_sample_with_replacement_does_not_consume():
+def test_pooled_object_placer_sample_with_replacement_does_not_consume():
     """sample_with_replacement() should return layouts without consuming them."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -284,12 +284,12 @@ def test_pooled_placer_sample_with_replacement_does_not_consume():
 
     initial_available = pool.remaining
 
-    samples = pool.sample_with_replacement(5)
-    assert len(samples) == 5
+    layouts = pool.sample_with_replacement(5)
+    assert len(layouts) == 5
     assert pool.remaining == initial_available, "sample_with_replacement() should not consume from available queue"
 
 
-def test_pooled_placer_sample_without_replacement_triggers_refill():
+def test_pooled_object_placer_sample_without_replacement_triggers_refill():
     """Exhausting the pool and requesting more should trigger a refill."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -305,8 +305,8 @@ def test_pooled_placer_sample_without_replacement_triggers_refill():
     pool.sample_without_replacement(5)
     assert pool.remaining == 0
 
-    draws = pool.sample_without_replacement(3)
-    assert len(draws) == 3, "sample_without_replacement() should refill and return the requested count"
+    layouts = pool.sample_without_replacement(3)
+    assert len(layouts) == 3, "sample_without_replacement() should refill and return the requested count"
 
 
 def test_resolve_on_reset_false_applies_pose_per_env():
@@ -345,7 +345,7 @@ def test_resolve_on_reset_false_applies_pose_per_env():
             assert p.position_xyz is not None, f"Position should not be None for {obj.name}"
 
 
-def test_pooled_placer_fallback_when_no_valid_layouts():
+def test_pooled_object_placer_fallback_when_no_valid_layouts():
     """PooledObjectPlacer should fall back to best-loss layouts when none pass validation."""
 
     from isaaclab_arena.assets.dummy_object import DummyObject
