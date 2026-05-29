@@ -36,6 +36,7 @@
 
 # IDE stuff
 *.vscode
+.idea/
 *.*~
 TAGS
 
