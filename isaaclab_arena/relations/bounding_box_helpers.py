@@ -64,10 +64,12 @@ def get_bounding_box_per_env(obj: ObjectBase, num_envs: int) -> AxisAlignedBound
 
 @dataclass(frozen=True)
 class PerEnvBoundingBoxes:
-    """Per-env object bboxes with solver and validation formats.
+    """Per-env object bboxes, exposed in three layouts:
 
-    The same data is exposed as one env's bbox dict, a list of per-env bbox
-    dicts, or one solver-candidate bbox dict with rows grouped by env.
+    - get_bounding_boxes_for_env_id: one dict for a single env, bboxes (1, 3).
+    - get_bounding_boxes_for_all_envs: list[dict] of length num_envs, each bbox (1, 3).
+    - get_bounding_boxes_for_solver_candidates: one dict tiled to
+      (num_envs * candidates_per_env, 3), grouped contiguously by env.
     """
 
     object_bboxes: dict[ObjectBase, AxisAlignedBoundingBox]
@@ -84,7 +86,7 @@ class PerEnvBoundingBoxes:
             ), f"Object '{obj.name}' bbox max_point has {bbox.max_point.shape[0]} envs, expected {self.num_envs}."
 
     def get_bounding_boxes_for_env_id(self, env_id: int) -> dict[ObjectBase, AxisAlignedBoundingBox]:
-        """Return object bboxes for one env, each with shape (1, 3)."""
+        """Return object bboxes for a single env (each (1, 3)), used for per-env initialization and validation."""
         return {
             obj: AxisAlignedBoundingBox(
                 min_point=bbox.min_point[env_id : env_id + 1],
@@ -104,12 +106,11 @@ class PerEnvBoundingBoxes:
     def get_bounding_boxes_for_solver_candidates(
         self, candidates_per_env: int
     ) -> dict[ObjectBase, AxisAlignedBoundingBox]:
-        """Return bboxes for solver candidate rows.
+        """Return bboxes tiled to one row per solver candidate.
 
-        Each bbox has min_point/max_point shape
-        (num_envs * candidates_per_env, 3). Rows are grouped by env: rows
-        [i * candidates_per_env : (i + 1) * candidates_per_env] hold env i's
-        bbox.
+        Each bbox has shape (num_envs * candidates_per_env, 3). Rows are grouped
+        contiguously by env: rows [i * candidates_per_env : (i + 1) * candidates_per_env]
+        all hold env i's bbox. Callers recover the env via candidate_idx // candidates_per_env.
         """
         return {
             obj: AxisAlignedBoundingBox(
