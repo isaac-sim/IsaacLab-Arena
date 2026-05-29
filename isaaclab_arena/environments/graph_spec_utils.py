@@ -109,12 +109,20 @@ def assert_references_exist(nodes: list[Any], tasks: list[Any], state_specs: lis
     node_ids = {node.id for node in nodes}
     state_spec_ids = {state_spec.id for state_spec in state_specs}
 
+    # Track ids seen so far so a node's parent must be defined *earlier* in the list. The
+    # conversion process (_instantiate_assets_from_nodes) materializes nodes in order and looks
+    # up the parent, so a parent listed after its reference would otherwise only fail
+    # there with a raw KeyError.
+    seen_node_ids: set[str] = set()
     for node in nodes:
-        # `parent` only exists on ArenaEnvGraphObjectReferenceNodeSpec; getattr keeps this
-        # helper generic so it doesn't need to import the subclass.
         parent = getattr(node, "parent", None)
         if parent is not None:
             assert parent in node_ids, f"Node '{node.id}' references unknown parent '{parent}'"
+            assert parent in seen_node_ids, (
+                f"Node '{node.id}' references parent '{parent}' defined later in the node list; "
+                "a parent must appear before any node that references it"
+            )
+        seen_node_ids.add(node.id)
 
     for task in tasks:
         for label, state_spec_id in (
