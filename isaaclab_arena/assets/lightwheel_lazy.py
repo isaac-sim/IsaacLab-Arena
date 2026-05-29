@@ -71,10 +71,6 @@ class LightwheelLazyPath:
     issues the registry query, caches the resolved path on the descriptor, and
     returns it. Subsequent accesses return the cached value without further work.
 
-    Resolution failures are re-raised with a message that names the asset and
-    registry parameters, so the caller can tell *which* Lightwheel asset failed
-    rather than getting a bare SDK exception.
-
     Args:
         registry_type: Lightwheel registry partition (``"fixtures"``, ``"objects"``, …).
         file_name: File-name lookup key. Mutually exclusive with ``registry_name``;
@@ -94,10 +90,13 @@ class LightwheelLazyPath:
         assert (file_name is None) != (
             registry_name is None
         ), "Provide exactly one of file_name= or registry_name= (matches acquire_by_registry's signature)."
-        self._registry_type = registry_type
-        self._file_name = file_name
-        self._registry_name = registry_name
-        self._file_type = file_type
+        identifier = file_name if file_name is not None else registry_name
+        self._description = f"Lightwheel asset {identifier!r}"
+        self._query_kwargs: dict = {"registry_type": registry_type, "file_type": file_type}
+        if file_name is not None:
+            self._query_kwargs["file_name"] = file_name
+        else:
+            self._query_kwargs["registry_name"] = registry_name
         self._cached_path: str | None = None
 
     def __get__(self, instance, owner):
@@ -105,22 +104,11 @@ class LightwheelLazyPath:
             return self._cached_path
         from lightwheel_sdk.loader import object_loader
 
-        identifier = self._file_name if self._file_name is not None else self._registry_name
-        query_kwargs: dict = {"registry_type": self._registry_type, "file_type": self._file_type}
-        if self._file_name is not None:
-            query_kwargs["file_name"] = self._file_name
-        else:
-            query_kwargs["registry_name"] = self._registry_name
-        try:
-            file_path, _, _ = acquire_lightwheel_asset(
-                object_loader,
-                object_loader.acquire_by_registry,
-                description=f"Lightwheel asset {identifier!r}",
-                **query_kwargs,
-            )
-        except Exception as error:
-            raise RuntimeError(
-                f"Failed to resolve Lightwheel asset {identifier!r} (registry_type={self._registry_type!r}): {error}"
-            ) from error
+        file_path, _, _ = acquire_lightwheel_asset(
+            object_loader,
+            object_loader.acquire_by_registry,
+            description=self._description,
+            **self._query_kwargs,
+        )
         self._cached_path = file_path
         return file_path
