@@ -93,7 +93,7 @@ The converter is controlled by a config file at
       hdf5_name: "arena_g1_static_apple_dataset_recorded.hdf5"
 
       # Task description
-      language_instruction: "Pick up the apple from the shelf and place it onto the plate on the same shelf next to it."
+      language_instruction: "move the apple to the plate"
       task_index: 3
 
       # Data field mappings
