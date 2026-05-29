@@ -43,19 +43,7 @@ class Registry(metaclass=SingletonMeta):
         Args:
             key (str): The name of the component.
         """
-        # For AssetRegistry and DeviceRegistry, ensure assets are registered before checking
-        if isinstance(
-            self,
-            (
-                AssetRegistry,
-                DeviceRegistry,
-                RetargeterRegistry,
-                PolicyRegistry,
-                HDRImageRegistry,
-                ObjectRelationLibraryRegistry,
-                TaskRegistry,
-            ),
-        ):
+        if isinstance(self, REGISTRIES):
             ensure_assets_registered()
         return key in self._components
 
@@ -68,19 +56,7 @@ class Registry(metaclass=SingletonMeta):
         Returns:
             Any: The component.
         """
-        # For AssetRegistry and DeviceRegistry, ensure assets are registered before accessing
-        if isinstance(
-            self,
-            (
-                AssetRegistry,
-                DeviceRegistry,
-                RetargeterRegistry,
-                PolicyRegistry,
-                HDRImageRegistry,
-                ObjectRelationLibraryRegistry,
-                TaskRegistry,
-            ),
-        ):
+        if isinstance(self, REGISTRIES):
             ensure_assets_registered()
         assert key in self._components, f"component {key} not found, please check if requested component is registered"
         return self._components[key]
@@ -91,19 +67,7 @@ class Registry(metaclass=SingletonMeta):
         Returns:
             list[str]: The list of keys.
         """
-        # For AssetRegistry and DeviceRegistry, ensure assets are registered before accessing
-        if isinstance(
-            self,
-            (
-                AssetRegistry,
-                DeviceRegistry,
-                RetargeterRegistry,
-                PolicyRegistry,
-                HDRImageRegistry,
-                ObjectRelationLibraryRegistry,
-                TaskRegistry,
-            ),
-        ):
+        if isinstance(self, REGISTRIES):
             ensure_assets_registered()
         return list(self._components.keys())
 
@@ -282,6 +246,19 @@ class TaskRegistry(Registry):
         """
         ensure_assets_registered()
         return self.get_component_by_name(name)
+
+
+# Registries populated lazily by ensure_assets_registered(). EnvironmentRegistry is
+# excluded: triggering the cascade during env registration causes an env<->tasks cycle.
+REGISTRIES = (
+    AssetRegistry,
+    DeviceRegistry,
+    RetargeterRegistry,
+    PolicyRegistry,
+    HDRImageRegistry,
+    ObjectRelationLibraryRegistry,
+    TaskRegistry,
+)
 
 
 # Lazy registration to avoid circular imports
