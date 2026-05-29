@@ -137,13 +137,6 @@ jobs:
         name: Setup Isaac Sim kit cache (shader warmup on miss)
         uses: ./.github/actions/setup-isaac-sim-kit-cache
 
-      - name: Verify ARENA_NV_API_KEY is configured
-        run: |
-          if [ -z "${NV_API_KEY}" ]; then
-            echo "::error::ARENA_NV_API_KEY repo secret is not set."
-            exit 1
-          fi
-
       # Run the tests.
       #
       # Note(alexmillane): We have to run the tests in a specific way. To achieve a reasonable test speed,
