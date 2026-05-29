@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
-from isaaclab.sim import SimulationCfg
+from isaaclab.sim import RenderCfg, SimulationCfg
 from isaaclab.utils import configclass
 from isaaclab_newton.physics.newton_manager_cfg import MJWarpSolverCfg, NewtonCfg
 from isaaclab_physx.physics import PhysxCfg
@@ -70,7 +70,19 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     isaaclab_arena_env: IsaacLabArenaEnvironment | None = None
 
     # Overriding defaults from base class
-    sim: SimulationCfg = SimulationCfg(dt=1 / 200, render_interval=2)
+    # Override the RTX renderer's built-in scene ambient (carb /rtx/sceneDb/ambientLightIntensity, default 1.0 with
+    # color [0.1, 0.1, 0.1]) so that USD light prims fully control scene illumination. Without this, Arena scenes
+    # carry a ~10%-gray ambient floor independent of any UsdLuxLight, which silently confounds vision-policy evals.
+    sim: SimulationCfg = SimulationCfg(
+        dt=1 / 200,
+        render_interval=2,
+        render=RenderCfg(
+            carb_settings={
+                "/rtx/sceneDb/ambientLightIntensity": 0.0,
+                "/rtx/sceneDb/ambientLightColor": [0.0, 0.0, 0.0],
+            },
+        ),
+    )
     decimation: int = 4
     episode_length_s: float = 50.0
     wait_for_textures: bool = False
