@@ -101,26 +101,26 @@ def find_node_ref_params_in_signature(task_class: type) -> dict[str, bool]:
     # get_type_hints resolves stringified / forward-ref annotations into real classes so issubclass works.
     # e.g. `pick_up_object: "Asset"` (a str under `from __future__ import annotations`) becomes the Asset class.
     for param_name, param_annotation in typing.get_type_hints(task_class.__init__).items():
-        if param_name in ("self", "return"):
-            continue
-        # Walk Union members so `Asset | None` is recognized via its Asset branch.
-        # First matching branch wins; later branches in the same param are ignored.
-        for annotation_branch in _strip_none(param_annotation):
-            # Scalar node ref: annotation is itself an Asset / AffordanceBase subclass.
-            if isinstance(annotation_branch, type) and issubclass(annotation_branch, NODE_REF_BASES):
-                is_collection_by_param_name[param_name] = False
-                break
-            # Collection node ref: list[X] where X is an Asset / AffordanceBase subclass.
-            # The isinstance(args[0], type) guard rejects parametrized generics like list[list[Asset]].
-            if typing.get_origin(annotation_branch) is list:
-                list_element_args = typing.get_args(annotation_branch)
-                if (
-                    list_element_args
-                    and isinstance(list_element_args[0], type)
-                    and issubclass(list_element_args[0], NODE_REF_BASES)
-                ):
-                    is_collection_by_param_name[param_name] = True
+        # Skip the implicit `self` slot and any `return` annotation — neither is a kwarg.
+        if param_name not in ("self", "return"):
+            # Walk Union members so `Asset | None` is recognized via its Asset branch.
+            # First matching branch wins; later branches in the same param are ignored.
+            for annotation_branch in _strip_none(param_annotation):
+                # Scalar node ref: annotation is itself an Asset / AffordanceBase subclass.
+                if isinstance(annotation_branch, type) and issubclass(annotation_branch, NODE_REF_BASES):
+                    is_collection_by_param_name[param_name] = False
                     break
+                # Collection node ref: list[X] where X is an Asset / AffordanceBase subclass.
+                # The isinstance(args[0], type) guard rejects parametrized generics like list[list[Asset]].
+                if typing.get_origin(annotation_branch) is list:
+                    list_element_args = typing.get_args(annotation_branch)
+                    if (
+                        list_element_args
+                        and isinstance(list_element_args[0], type)
+                        and issubclass(list_element_args[0], NODE_REF_BASES)
+                    ):
+                        is_collection_by_param_name[param_name] = True
+                        break
     return is_collection_by_param_name
 
 

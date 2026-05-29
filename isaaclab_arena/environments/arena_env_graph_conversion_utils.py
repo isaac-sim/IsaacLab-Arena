@@ -85,11 +85,11 @@ def _instantiate_assets_from_nodes(node_specs: list[ArenaEnvGraphNodeSpec], asse
                 object_type=node_spec.object_type,
                 **node_spec.params,
             )
-            continue
-        # Standard nodes (object / background / embodiment): look up the registered class
-        # by name and instantiate with the spec's verbatim kwargs.
-        asset_class = asset_registry.get_asset_by_name(node_spec.name)
-        assets_by_node_id[node_spec.id] = asset_class(**node_spec.params)
+        else:
+            # Standard nodes (object / background / embodiment): look up the registered class
+            # by name and instantiate with the spec's verbatim kwargs.
+            asset_class = asset_registry.get_asset_by_name(node_spec.name)
+            assets_by_node_id[node_spec.id] = asset_class(**node_spec.params)
     return assets_by_node_id
 
 
@@ -119,18 +119,17 @@ def _attach_spatial_constraints_to_assets(
                 not at_pose_params
             ), f"Unsupported at_pose params for constraint '{spatial_constraint.id}': {sorted(at_pose_params)}"
             parent_asset.set_initial_pose(Pose(position_xyz=position_xyz, rotation_xyzw=rotation_xyzw))
-            continue
-
-        # All other constraint types resolve through ObjectRelationLibraryRegistry. The
-        # registry returning None signals an enum value with no registered class — would
-        # be a programming error, not a YAML error.
-        relation_class = relation_class_for_spatial_constraint_type(spatial_constraint.type)
-        assert relation_class is not None, f"Unsupported spatial constraint type '{spatial_constraint.type.value}'"
-        # Unary relations (IS_ANCHOR, POSITION_LIMITS, ...) attach to the parent asset.
-        # Binary relations (ON, NEXT_TO, ...) attach to the *child* asset, with parent
-        # as the relation's first constructor arg — matches how add_relation is wired.
-        if relation_class.is_unary():
-            parent_asset.add_relation(relation_class(**spatial_constraint.params))
         else:
-            child_asset = assets_by_node_id[spatial_constraint.child]
-            child_asset.add_relation(relation_class(parent_asset, **spatial_constraint.params))
+            # All other constraint types resolve through ObjectRelationLibraryRegistry. The
+            # registry returning None signals an enum value with no registered class — would
+            # be a programming error, not a YAML error.
+            relation_class = relation_class_for_spatial_constraint_type(spatial_constraint.type)
+            assert relation_class is not None, f"Unsupported spatial constraint type '{spatial_constraint.type.value}'"
+            # Unary relations (IS_ANCHOR, POSITION_LIMITS, ...) attach to the parent asset.
+            # Binary relations (ON, NEXT_TO, ...) attach to the *child* asset, with parent
+            # as the relation's first constructor arg — matches how add_relation is wired.
+            if relation_class.is_unary():
+                parent_asset.add_relation(relation_class(**spatial_constraint.params))
+            else:
+                child_asset = assets_by_node_id[spatial_constraint.child]
+                child_asset.add_relation(relation_class(parent_asset, **spatial_constraint.params))
