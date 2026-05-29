@@ -17,23 +17,14 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-# Relation kinds currently surfaced to the agent. Mirror the subset of
-# ``ArenaEnvGraphSpatialConstraintType`` that makes sense for tabletop
-# prompts; values must match the enum's values one-to-one because the
-# resolver looks the constraint type up via
-# ``ArenaEnvGraphSpatialConstraintType(kind)`` rather than maintaining a
-# parallel dict. Solver-internal kinds (``position_limits``,
-# ``random_around_solution``, ``rotate_around_solution``) are intentionally
-# omitted — they describe how the placement solver explores poses and are
-# not natural for an agent to emit.
-# "in" has no In class in isaaclab_arena.relations.relations yet — see the
-# TODO there. The downstream env builder materializes goal-state "in"
-# relations as the task's success predicate.
+# Relation kinds currently surfaced to the agent.
+# Should be a subset of ``ArenaEnvGraphSpatialConstraintType``.
 RelationKind = Literal["on", "in", "next_to", "at_position", "at_pose", "is_anchor"]
 
 ItemRole = Literal["foreground", "distractor", "anchor"]
 
 # Task kinds the agent can propose as an atomic task.
+# Should be a subset of ``ArenaEnvGraphTaskConstraintType``.
 TaskKind = Literal["pick_and_place", "open_door", "close_door"]
 
 
@@ -80,7 +71,7 @@ class Item(BaseModel):
 
 
 class Relation(BaseModel):
-    """A spatial / structural relation between items.
+    """A spatial relation between items.
 
     Binary kinds (``on``, ``in``, ``next_to``, ...) must set ``target`` to the
     other item — semantics is "subject is in relation to target". Unary kinds
