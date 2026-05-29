@@ -184,8 +184,8 @@ class ObjectPlacer:
         assign_variants_for_envs(objects, num_envs, placement_seed=self.params.placement_seed)
         num_candidates = num_envs * candidates_per_env
         env_bboxes = build_per_env_bounding_boxes(objects, num_envs)
-        candidate_bboxes = env_bboxes.solver_candidate_bboxes(candidates_per_env)
-        per_env_bboxes = env_bboxes.all_env_bboxes()
+        candidate_bboxes = env_bboxes.get_bounding_boxes_for_solver_candidates(candidates_per_env)
+        per_env_bboxes = env_bboxes.get_bounding_boxes_for_all_envs()
 
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]] = []
         for candidate_idx in range(num_candidates):

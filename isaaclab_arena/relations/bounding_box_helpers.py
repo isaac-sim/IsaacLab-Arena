@@ -64,7 +64,11 @@ def get_bounding_box_per_env(obj: ObjectBase, num_envs: int) -> AxisAlignedBound
 
 @dataclass(frozen=True)
 class PerEnvBoundingBoxes:
-    """Per-env object bboxes with solver and validation formats."""
+    """Per-env object bboxes with solver and validation formats.
+
+    The same data is exposed as one env's bbox dict, a list of per-env bbox
+    dicts, or one solver-candidate bbox dict with rows grouped by env.
+    """
 
     object_bboxes: dict[ObjectBase, AxisAlignedBoundingBox]
     num_envs: int
@@ -79,8 +83,8 @@ class PerEnvBoundingBoxes:
                 bbox.max_point.shape[0] == self.num_envs
             ), f"Object '{obj.name}' bbox max_point has {bbox.max_point.shape[0]} envs, expected {self.num_envs}."
 
-    def env_bboxes(self, env_id: int) -> dict[ObjectBase, AxisAlignedBoundingBox]:
-        """Return one-env bboxes for initialization and validation."""
+    def get_bounding_boxes_for_env_id(self, env_id: int) -> dict[ObjectBase, AxisAlignedBoundingBox]:
+        """Return object bboxes for one env, each with shape (1, 3)."""
         return {
             obj: AxisAlignedBoundingBox(
                 min_point=bbox.min_point[env_id : env_id + 1],
@@ -89,12 +93,24 @@ class PerEnvBoundingBoxes:
             for obj, bbox in self.object_bboxes.items()
         }
 
-    def all_env_bboxes(self) -> list[dict[ObjectBase, AxisAlignedBoundingBox]]:
-        """Return one-env bboxes for every env."""
-        return [self.env_bboxes(env_id) for env_id in range(self.num_envs)]
+    def get_bounding_boxes_for_all_envs(self) -> list[dict[ObjectBase, AxisAlignedBoundingBox]]:
+        """Return one-env bbox dicts for every env.
 
-    def solver_candidate_bboxes(self, candidates_per_env: int) -> dict[ObjectBase, AxisAlignedBoundingBox]:
-        """Return bboxes expanded to match candidate rows passed to the solver."""
+        The outer list has length num_envs. Each bbox has min_point/max_point
+        shape (1, 3).
+        """
+        return [self.get_bounding_boxes_for_env_id(env_id) for env_id in range(self.num_envs)]
+
+    def get_bounding_boxes_for_solver_candidates(
+        self, candidates_per_env: int
+    ) -> dict[ObjectBase, AxisAlignedBoundingBox]:
+        """Return bboxes for solver candidate rows.
+
+        Each bbox has min_point/max_point shape
+        (num_envs * candidates_per_env, 3). Rows are grouped by env: rows
+        [i * candidates_per_env : (i + 1) * candidates_per_env] hold env i's
+        bbox.
+        """
         return {
             obj: AxisAlignedBoundingBox(
                 min_point=bbox.min_point.repeat_interleave(candidates_per_env, dim=0),

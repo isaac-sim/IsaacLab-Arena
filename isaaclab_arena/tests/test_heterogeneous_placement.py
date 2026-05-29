@@ -124,8 +124,8 @@ def test_per_env_bounding_boxes_formats_solver_and_env_views():
     )
 
     env_bboxes = build_per_env_bounding_boxes([obj], num_envs=3)
-    solver_bboxes = env_bboxes.solver_candidate_bboxes(candidates_per_env=2)
-    per_env_bboxes = env_bboxes.all_env_bboxes()
+    solver_bboxes = env_bboxes.get_bounding_boxes_for_solver_candidates(candidates_per_env=2)
+    per_env_bboxes = env_bboxes.get_bounding_boxes_for_all_envs()
 
     assert solver_bboxes[obj].min_point.shape == (6, 3)
     assert solver_bboxes[obj].max_point.shape == (6, 3)
