@@ -246,9 +246,12 @@ Step 4: Record with the headset device
 #. Follow Step 3 to connect the headset again.
 
 #. Complete the task for each demo. After a successful placement, wait for the demo to
-   automatically end and for the simulation to freeze before pressing **Reset**. Resetting
-   early can save an incomplete or failed demonstration. The script saves successful runs
-   to the HDF5 file above.
+   end automatically and for the environment to reset automatically. The script saves
+   successful runs to the HDF5 file above. Pressing **Reset** early can save an
+   incomplete or failed demonstration.
+
+#. After the automatic reset, place your hands back in the initial starting position and
+   press **Reset** on the control panel to start the next demo.
 
 .. important::
 
@@ -296,6 +299,8 @@ Step 4: Record with the headset device
       approach and retreat motions during training.
    #. **Placement:** lower the apple until it is slightly above the plate surface, pause briefly in a
       stable pose, then release cleanly so the apple drops naturally onto the plate.
+   #. **Reset:** after the automatic reset finishes, return your hands to the initial starting
+      position, then press **Reset** on the control panel to start the next demo.
 
    Releasing a small round object onto a flat plate is noticeably harder than dropping a box into a
    bin. Keep the release height low and the orientation stable.
