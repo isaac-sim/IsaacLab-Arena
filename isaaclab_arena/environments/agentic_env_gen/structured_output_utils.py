@@ -3,18 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Utilities for OpenAI-compatible structured outputs (``response_format=json_schema``).
-
-The functions here are the building blocks the env-gen agent uses to
-send strict-mode-compatible schemas, handle provider-specific response
-routing (NVIDIA DeepSeek's ``reasoning_content`` quirk), and probe a
-candidate model's structured-output capability before deployment.
-
-They are intentionally pydantic-model-agnostic: pass any
-``pydantic.BaseModel`` subclass as ``spec_class`` and the utility
-adapts. The agent module wires :class:`EnvIntentSpec` in as the
-production default.
-"""
+"""Utilities for agents with OpenAI-compatible structured outputs."""
 
 from __future__ import annotations
 
@@ -24,9 +13,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
-# Truncate echoed response payloads in diagnostic results to this many
-# characters — long enough to diagnose a failure, short enough to keep
-# error messages and probe results readable.
+# Truncate echoed response payloads in diagnostic to keep
+# error messages readable.
 _RESPONSE_PREVIEW_CHARS = 500
 
 
@@ -38,14 +26,6 @@ def _format_failure_message(
     cause: str,
     sample_payload: str | None,
 ) -> str:
-    """Build the multi-line diagnostic message for a structured-output failure.
-
-    The format pairs every signal the probe captured into a layout that
-    grep/CI logs can read at a glance. ``sample_payload`` is the
-    single most useful field — it turns a cryptic ``JSONDecodeError:
-    Expecting value`` into a debuggable failure by showing what the
-    model actually returned (prose preamble? HTML error page? empty?).
-    """
     return (
         f"Model {model!r} does not support structured outputs:\n"
         f"  response_route = {response_route!r}\n"
@@ -56,36 +36,14 @@ def _format_failure_message(
 
 
 def build_strict_schema(model_cls: type[BaseModel]) -> dict[str, Any]:
-    """Return ``model_cls``'s JSON schema munged for OpenAI strict mode.
-
-    OpenAI's structured outputs strict mode (and AWS Bedrock's
-    Anthropic models, which surface the same constraint) require:
-
-      * ``additionalProperties: false`` on every object schema.
-      * Every property listed in ``required`` (use a nullable type
-        union — e.g. ``str | None`` — for fields that should be
-        emittable as ``null``).
-      * No ``default`` keys in the schema (defaults are nonsensical
-        when every field is required).
-
-    Pydantic's default ``model_json_schema()`` honours the first
-    constraint only. We deep-walk the schema and apply the other two
-    so the schema flies past both NVIDIA and Bedrock validation.
-
-    The returned dict is a deep copy — mutating it never leaks back
-    into pydantic's internal schema cache.
-    """
+    """Return ``model_cls``'s JSON schema munged for OpenAI strict mode."""
     schema = copy.deepcopy(model_cls.model_json_schema())
     apply_strict_constraints(schema)
     return schema
 
 
 def apply_strict_constraints(node: Any) -> None:
-    """Recursively apply OpenAI strict-mode constraints to a JSON-schema node.
-
-    Mutates ``node`` in place. Safe to call on an already-munged schema
-    (the operation is idempotent).
-    """
+    """Recursively apply OpenAI strict-mode constraints to a JSON-schema node."""
     if isinstance(node, dict):
         if node.get("type") == "object" and "properties" in node:
             node["additionalProperties"] = False
@@ -103,24 +61,6 @@ def apply_strict_constraints(node: Any) -> None:
 def ping(client: Any, model: str) -> str:
     """Smoke-test the endpoint + API key + model with a minimal request.
 
-    Sends a one-shot chat completion (no structured outputs) to verify:
-
-      * the API key authenticates,
-      * the configured model exists at the client's ``base_url``,
-      * the network path is reachable.
-
-    Intended for CI startup probes and constructor-time fail-fast
-    checks; the success signal is "we got a response without
-    raising". The response *content* is returned for diagnostics but
-    intentionally not asserted on — different models phrase the
-    acknowledgment differently, and a quirky reply still means the
-    wire is working.
-
-    This is the *cheap* probe; pair with
-    :func:`check_structured_output_support` for a full deployment
-    validation (ping confirms the wire, the probe confirms the
-    model can actually produce structured outputs).
-
     Args:
         client: An OpenAI-compatible client (typically
             ``openai.OpenAI`` or a compatible mock).
@@ -128,42 +68,20 @@ def ping(client: Any, model: str) -> str:
             ``client.chat.completions.create(model=...)``.
 
     Returns:
-        The model's response text (typically "OK" or similar). Empty
-        string if the model returned no content (still a successful
-        round-trip).
+        The model's response text.
 
     Raises:
         RuntimeError: when the request succeeded at the HTTP level but
-            the response contained no choices (e.g. Azure content-filter
-            trips, Bedrock guardrail rejections, certain rate-limit
-            responses that return 200 OK with an empty ``choices``
-            list). The wire is healthy but the model declined to
-            answer — surfaced as a clean ping failure rather than the
-            ``IndexError`` a naive ``choices[0]`` access would raise.
+            the response contained no choices.
         Any exception raised by the underlying ``openai`` client.
-        Common ones at this layer are ``AuthenticationError``
-        (bad key), ``NotFoundError`` (wrong ``model``),
-        ``APIConnectionError`` (unreachable endpoint), and
-        ``RateLimitError`` (quota exhausted).
     """
-    # TODO(qianl): wrap with transient-error retry (exponential backoff +
-    # jitter) for ``APIConnectionError`` / ``APITimeoutError`` / 429 / 5xx.
-    # Deterministic errors (401/403/404) must still propagate immediately.
-    # Until then, the affected live tests carry ``@pytest.mark.flaky`` to
-    # absorb intermittent wire-level hiccups at the test layer.
+    # TODO(qianl): wrap with transient-error retry.
     resp = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": "Respond with exactly: OK"}],
         temperature=0,
         max_tokens=8,
     )
-    # Mirror the guard in ``check_structured_output_support``: some
-    # providers return HTTP 200 with an empty ``choices`` list (content
-    # filter, guardrail, or rate-limit cases). The unguarded
-    # ``resp.choices[0]`` would raise ``IndexError`` here, breaking the
-    # documented ``Raises`` contract and surfacing as an opaque crash
-    # from ``EnvGenAgent.__init__``. Re-raise as a structured
-    # RuntimeError so callers see a diagnosable ping failure.
     choices = getattr(resp, "choices", None) or []
     if not choices:
         raise RuntimeError(
@@ -201,25 +119,9 @@ def check_structured_output_support(
 ) -> bool:
     """Probe whether ``model`` can produce ``spec_class``-shaped structured outputs.
 
-    Sends a single chat-completion against ``client`` with
-    ``response_format=json_schema`` carrying ``spec_class``'s strict
-    schema and a minimal user prompt asking the model to fabricate a
-    valid instance. Returns ``True`` if the model successfully
-    produced a valid ``spec_class`` instance end-to-end.
-
-    Every failure mode raises ``RuntimeError`` with a multi-line
-    diagnostic that names the failed channel, ``finish_reason``,
-    the underlying cause, and a preview of the model's response.
-    When the failure has an originating SDK exception (HTTP error,
-    JSONDecodeError, ValidationError) it is chained via
-    ``__cause__`` so the traceback retains the full context.
-
     Args:
-        client: An OpenAI-compatible client (typically
-            ``openai.OpenAI`` or a compatible mock).
-        model: Model identifier as understood by the client's
-            base_url. Forwarded verbatim to
-            ``client.chat.completions.create(model=...)``.
+        client: An OpenAI-compatible client.
+        model: Model identifier as understood by the client's base_url.
         spec_class: The pydantic model whose strict schema will be
             sent to the endpoint.
 
@@ -228,30 +130,16 @@ def check_structured_output_support(
         schema honoured, pydantic validation passed).
 
     Raises:
-        RuntimeError: for any failure mode — API rejection at the
-            wire (400/401/etc.), empty ``choices`` list (Azure
-            content-filter / Bedrock guardrail rejection), empty
-            envelope on both ``content`` and ``reasoning_content``,
-            JSON parse failure, or pydantic schema-validation
-            failure. The exception's ``__cause__`` (when populated)
-            is the originating SDK / parser exception.
+        RuntimeError: for any failure mode.
     """
     schema = build_strict_schema(spec_class)
-    # The user prompt is deliberately content-free; the schema itself
-    # plus the system prompt below carry all the structural
-    # information. We just want a valid envelope back.
     system = (
         f"Return a valid {spec_class.__name__} JSON object. Every required field must be "
         "populated — use realistic dummy values where the prompt doesn't specify one."
     )
-    # TODO(qianl): wrap with transient-error retry (exponential backoff +
-    # jitter) for ``APIConnectionError`` / ``APITimeoutError`` / 429 / 5xx.
-    # Deterministic errors (400/401/403/404/422) must still propagate
-    # immediately so genuinely-unsupported endpoints fail fast. Currently
-    # this is the primary source of e2e flakes (provider occasionally
-    # returns blank ``content`` in the structured-outputs envelope) —
-    # affected live tests carry ``@pytest.mark.flaky`` as the short-term
-    # mitigation.
+    # TODO(qianl): wrap with transient-error retry.
+
+    # API call returns exception.
     try:
         resp = client.chat.completions.create(
             model=model,
@@ -277,12 +165,7 @@ def check_structured_output_support(
             )
         ) from exc
 
-    # Some providers (e.g. Azure content-filter trips, Bedrock guardrail
-    # rejections) succeed at the HTTP level but return an empty ``choices``
-    # list — no candidates were emitted. ``resp.choices[0]`` would raise
-    # ``IndexError``; surface it with a distinct ``cause`` message that
-    # operators can tell apart from the "envelope returned but content
-    # empty" case handled further down.
+    # API call returns no choices.
     choices = getattr(resp, "choices", None) or []
     if not choices:
         raise RuntimeError(
@@ -295,6 +178,7 @@ def check_structured_output_support(
             )
         )
 
+    # API call returns empty message envelope.
     finish_reason = choices[0].finish_reason
     text, route = extract_response_text(choices[0].message)
     sample = text[:_RESPONSE_PREVIEW_CHARS] if text else None
@@ -308,6 +192,8 @@ def check_structured_output_support(
                 sample_payload=None,
             )
         )
+
+    # API call returns invalid JSON.
     try:
         data = json.loads(text, strict=False)
         spec_class.model_validate(data)
@@ -321,4 +207,5 @@ def check_structured_output_support(
                 sample_payload=sample,
             )
         ) from exc
+
     return True

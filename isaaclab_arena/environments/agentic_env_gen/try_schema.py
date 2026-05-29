@@ -5,8 +5,6 @@
 
 """Run the agent on a prompt and dump the resolved ArenaEnvGraphSpec.
 
-Requires NV_API_KEY environment variable.
-
 Examples:
     # Print the Pydantic EnvIntentSpec JSON schema (no agent call):
     /isaac-sim/python.sh -m isaaclab_arena.environments.agentic_env_gen.try_schema --print-schema
@@ -75,21 +73,13 @@ def main() -> None:
     print("=== raw agent response ===")
     print(raw)
 
-    # Surface the forced chain-of-thought field on its own so it's easy to
-    # spot when debugging a bad spec — without this, ``reasoning`` is
-    # buried inside the multi-hundred-line model_dump_json below.
+    # Surface the forced chain-of-thought field.
     print("\n=== agent reasoning ===")
     print(spec.reasoning)
 
     if args.background and args.background != spec.background:
         # Swap the background name wherever it appears so downstream code
-        # (resolver, proposer) sees a consistent scene. Rewrite both
-        # ``rel.target`` (binary relations like ``on(bowl, table)``) AND
-        # ``rel.subject`` (unary relations like ``is_anchor(table)``);
-        # missing the subject case would leave the unary constraint
-        # pointing at the old background name, after which the resolver
-        # would emit a ``relation.initial.unknown_subject`` trace and
-        # silently drop the constraint.
+        # (resolver, proposer) sees a consistent scene.
         old_bg = spec.background
         new_bg = args.background
         for rel in spec.initial_state_graph:
@@ -97,8 +87,6 @@ def main() -> None:
                 rel.subject = new_bg
             if rel.target == old_bg:
                 rel.target = new_bg
-        # Note: tasks don't directly reference background in target (typically None or items),
-        # so no background substitution needed in task.target
         spec.background = new_bg
         print(f"\n=== background override applied: {old_bg!r} -> {new_bg!r} ===")
 

@@ -3,13 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Schema the agent must fill in when parsing a natural-language env-generation prompt.
-
-The agent sees a list of the *available* asset tags / embodiment names pulled
-from the registries at call time, and must return an EnvIntentSpec that only uses
-those vocabularies. Concrete asset names are resolved in a second, deterministic
-step — the agent never invents USD paths.
-"""
+"""Schema the agent must fill in when parsing a natural-language env-generation prompt."""
 
 from __future__ import annotations
 
