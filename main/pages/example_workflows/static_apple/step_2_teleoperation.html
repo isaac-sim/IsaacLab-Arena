@@ -498,6 +498,11 @@
 <p>For supported IsaacTeleop hardware devices, see <a class="reference external" href="https://nvidia.github.io/IsaacTeleop/main/overview/ecosystem.html#supported-input-devices">Supported Input Devices</a>.
 Before starting teleoperation, also review the <a class="reference external" href="https://nvidia.github.io/IsaacTeleop/main/references/requirements.html#teleoperation-with-isaac-sim-and-isaac-lab">IsaacTeleop system requirements</a>.</p>
 </div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>A stable network connection meeting the <a class="reference external" href="https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html#network-requirements">CloudXR network requirements</a>
+is required before starting the steps below.</p>
+</div>
 <div class="tip admonition">
 <p class="admonition-title">No teleoperation hardware?</p>
 <p>The static task drops the locomotion / squat / turn channels but still needs bimanual end-effector
@@ -631,7 +636,6 @@ entering VR.</p>
 <section id="step-3-connect-from-the-headset-device">
 <h2>Step 3: Connect from the headset device<a class="headerlink" href="#step-3-connect-from-the-headset-device" title="Link to this heading">#</a></h2>
 <p>For detailed instructions please refer to <a class="reference external" href="https://isaac-sim.github.io/IsaacLab/develop/source/how-to/cloudxr_teleoperation.html#start-cloudxr-runtime">Connect an XR Device</a>:</p>
-<p>A strong wireless connection is essential for a high-quality streaming experience. Refer to the <a class="reference external" href="https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html">CloudXR Network Setup</a> guide for router configuration.</p>
 <ol class="arabic">
 <li><p>Open the browser on your headset and navigate to <a class="reference external" href="https://nvidia.github.io/IsaacTeleop/client">https://nvidia.github.io/IsaacTeleop/client</a>.</p></li>
 <li><p>Enter the IP address of your Isaac Lab host machine in the <strong>Server IP</strong> field.</p></li>
