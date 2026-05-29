@@ -14,15 +14,12 @@ HEADLESS = True
 
 def _test_g1_locomanip_object_on_destination_termination(simulation_app) -> bool:
 
-    from isaaclab.managers import SceneEntityCfg
-
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import G1PickAndPlaceMimicEnvCfg, PickAndPlaceTask
-    from isaaclab_arena.tasks.terminations import object_on_destination
     from isaaclab_arena.utils.pose import Pose
 
     args_parser = get_isaaclab_arena_cli_parser()
@@ -75,22 +72,16 @@ def _test_g1_locomanip_object_on_destination_termination(simulation_app) -> bool
     env.reset()
 
     try:
-        condition_met_vec = []
+        success_vec = []
         terminated_vec = []
         for _ in range(NUM_STEPS):
             with torch.inference_mode():
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 _, _, terminated, _, _ = env.step(actions)
 
-                condition_met_vec.append(
-                    object_on_destination(
-                        env,
-                        object_cfg=SceneEntityCfg(brown_box.name),
-                        contact_sensor_cfg=SceneEntityCfg("pick_up_object_contact_sensor"),
-                        force_threshold=0.5,
-                        velocity_threshold=0.1,
-                    )
-                )
+                # Read the task's success signal
+                success = env.unwrapped.termination_manager.get_term("success")
+                success_vec.append(success.clone())
                 terminated_vec.append(terminated.item())
 
     except Exception:
@@ -101,10 +92,10 @@ def _test_g1_locomanip_object_on_destination_termination(simulation_app) -> bool
     finally:
         env.close()
 
-    assert condition_met_vec[0].item() is False, "Object started in the bin"
-    assert any(condition_met_vec), "Object did not end in the bin"
+    assert success_vec[0].item() is False, "Object started in the bin"
+    assert any(success_vec), "Object did not end in the bin"
     assert any(terminated_vec), "The task was not terminated"
-    assert condition_met_vec[-1].item() is False, "Object was not moved above the bin"
+    assert success_vec[-1].item() is False, "Object was not moved above the bin"
 
     return True
 

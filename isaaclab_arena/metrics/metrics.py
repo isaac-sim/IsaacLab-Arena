@@ -11,47 +11,6 @@ from isaaclab.envs.manager_based_rl_env import ManagerBasedRLEnv
 from isaaclab.utils.datasets import HDF5DatasetFileHandler
 
 
-def compute_metrics(env: ManagerBasedRLEnv) -> dict[str, float]:
-    """Computes the metrics registered in the environment.
-
-    Args:
-        env: The environment to compute the metrics for.
-
-    Returns:
-        A dictionary of metrics. Maps metric name to metric value.
-    """
-    assert hasattr(env.unwrapped.cfg, "metrics")
-    # Get the path where the recorded data is stored
-    dataset_path = get_metric_recorder_dataset_path(env)
-
-    # Collect every recorder term that any metric needs (its own term plus any extra
-    # dependencies declared via ``extra_recorder_term_dependencies``) and load them once.
-    needed_term_names: set[str] = set()
-    for metric in env.unwrapped.cfg.metrics:
-        needed_term_names.add(metric.recorder_term_name)
-        needed_term_names.update(metric.extra_recorder_term_dependencies)
-    recorder_data_cache: dict[str, list] = {
-        term_name: get_recorded_metric_data(dataset_path, term_name) for term_name in needed_term_names
-    }
-
-    # For each registered metric
-    metrics_data = {}
-    for metric in env.unwrapped.cfg.metrics:
-        recorded_metric_data = recorder_data_cache[metric.recorder_term_name]
-        deps = metric.extra_recorder_term_dependencies
-        # Pass ``context`` only to metrics that opted in by declaring dependencies. This
-        # keeps the legacy single-argument signature working unchanged for every existing
-        # metric implementation.
-        if deps:
-            context = {dep_name: recorder_data_cache[dep_name] for dep_name in deps}
-            metrics_data[metric.name] = metric.compute_metric_from_recording(recorded_metric_data, context=context)
-        else:
-            metrics_data[metric.name] = metric.compute_metric_from_recording(recorded_metric_data)
-    # Also add the number of episodes as a metric
-    metrics_data["num_episodes"] = get_num_episodes(dataset_path)
-    return metrics_data
-
-
 def get_recorded_metric_data(dataset_path: pathlib.Path, recorder_term_name: str) -> list[np.ndarray]:
     """Gets the recorded metric data for a given metric name.
 

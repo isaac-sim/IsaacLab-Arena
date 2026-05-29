@@ -19,10 +19,7 @@ from isaaclab.utils import configclass
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.subtask_windowed_metric import (
-    WINDOW_SCOPE_FROM_EPISODE_START,
-    SubtaskWindowedMetric,
-)
+from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 from isaaclab_arena.tasks.task_base import TaskBase
@@ -62,6 +59,30 @@ class SubtaskSuccessStateRecorderCfg(RecorderTermCfg):
     name: str = "subtask_success_rate"
 
 
+def compute_subtask_success_rate(recorded_metric_data: list[np.ndarray]) -> list:
+    """Computes per-subtask success rates.
+
+    Args:
+        recorded_metric_data: List of arrays, each shape (num_subtasks,) with bool values.
+
+    Returns:
+        List of success rates for each subtask.
+    """
+    num_demos = len(recorded_metric_data)
+    if num_demos == 0:
+        return [0.0]
+
+    num_subtasks = recorded_metric_data[0].shape[1]
+    subtask_successes = np.zeros(num_subtasks, dtype=float)
+
+    for ep in range(num_demos):
+        ep_subtask_success_result = np.any(recorded_metric_data[ep], axis=0).astype(float)
+        subtask_successes += ep_subtask_success_result
+    subtask_success_rates = subtask_successes / num_demos
+
+    return subtask_success_rates.tolist()
+
+
 class SubtaskSuccessRateMetric(MetricBase):
     """Computes the per-subtask success rates.
 
@@ -78,28 +99,13 @@ class SubtaskSuccessRateMetric(MetricBase):
         """Return the recorder term configuration for the subtask success state metric."""
         return SubtaskSuccessStateRecorderCfg(name=self.recorder_term_name)
 
-    def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> list:
-        """Computes per-subtask success rates.
-
-        Args:
-            recorded_metric_data: List of arrays, each shape (num_subtasks,) with bool values.
-
-        Returns:
-            List of success rates for each subtask.
-        """
-        num_demos = len(recorded_metric_data)
-        if num_demos == 0:
-            return [0.0]
-
-        num_subtasks = recorded_metric_data[0].shape[1]
-        subtask_successes = np.zeros(num_subtasks, dtype=float)
-
-        for ep in range(num_demos):
-            ep_subtask_success_result = np.any(recorded_metric_data[ep], axis=0).astype(float)
-            subtask_successes += ep_subtask_success_result
-        subtask_success_rates = subtask_successes / num_demos
-
-        return subtask_success_rates.tolist()
+    def get_metric_term_cfg(self) -> MetricTermCfg:
+        """Return the metric term configuration for the subtask success rate metric."""
+        return MetricTermCfg(
+            compute_metric_func=compute_subtask_success_rate,
+            params={},
+            recorder_term_name=self.recorder_term_name,
+        )
 
 
 class CompositeTaskBase(TaskBase):
@@ -107,26 +113,19 @@ class CompositeTaskBase(TaskBase):
     A base class for composite tasks composed of multiple subtasks.
     Completion ordering of subtasks does not matter.
 
+
     Args:
         subtasks: List of TaskBase instances representing the subtasks that compose this composite task.
         episode_length_s: Maximum duration of a single episode in seconds. If None, no time limit is enforced.
         desired_subtask_success_state: (Optional) Precise success state for each subtask during the final time step.
             Can be used to enforce a specific current state for each subtask at the end of the episode.
-        window_subtask_metrics: If True, each per-subtask metric is also reported under a ``_windowed`` suffix
-            evaluated only over the subtask's own window (see ``SUBTASK_WINDOW_SCOPE``).
     """
-
-    # Scope used to derive each subtask's evaluation window when
-    # ``window_subtask_metrics`` is enabled. Subclasses override this — sequential
-    # tasks use the previous-subtask-completion as the start of the window.
-    SUBTASK_WINDOW_SCOPE: str = WINDOW_SCOPE_FROM_EPISODE_START
 
     def __init__(
         self,
         subtasks: list[TaskBase],
         episode_length_s: float | None = None,
         desired_subtask_success_state: list[bool | None] | None = None,
-        window_subtask_metrics: bool = False,
     ):
         super().__init__(episode_length_s)
         assert len(subtasks) > 0, "Composite task requires at least one subtask"
@@ -140,7 +139,6 @@ class CompositeTaskBase(TaskBase):
                 s is None or isinstance(s, bool) for s in desired_subtask_success_state
             ), "Desired subtask success state entries must each be True, False, or None"
         self.desired_subtask_success_state = desired_subtask_success_state
-        self.window_subtask_metrics = window_subtask_metrics
 
     @staticmethod
     def _add_suffix_configclass_transform(fields: list[tuple], suffix: str) -> list[tuple]:
@@ -337,10 +335,9 @@ class CompositeTaskBase(TaskBase):
     def _combine_subtask_metrics(self, subtask_idxs: list[int]) -> list[MetricBase]:
         """Combine metrics from subtasks with the given ids.
 
-        Per-subtask "success_rate" metrics are intentionally collapsed into a single shared entry —
-        per-subtask success is reported separately via SubtaskSuccessRateMetric (added in get_metrics).
-        When ``self.window_subtask_metrics`` is True, each non-success-rate metric is additionally
-        reported under a ``_windowed`` suffix evaluated over the subtask's own window.
+        Per-subtask "success_rate" metrics are intentionally collapsed into a single shared entry as
+        the composite task should only have one success rate metric.
+        Individual per-subtask success is reported separately via SubtaskSuccessRateMetric (added in get_metrics).
         """
         combined_metrics = []
 
@@ -350,22 +347,7 @@ class CompositeTaskBase(TaskBase):
                 if metric.name != "success_rate":
                     metric.name = f"{metric.name}_subtask_{subtask_idx}"
                     metric.recorder_term_name = f"{metric.recorder_term_name}_subtask_{subtask_idx}"
-                    renamed_metric = copy.copy(metric)
-                    # Episode-wide reduction is always reported.
-                    combined_metrics.append(renamed_metric)
-                    # When opting into windowing, also report the subtask-scoped reduction
-                    # under a ``_windowed`` suffix so both views are available side-by-side.
-                    # The wrapper shares ``recorder_term_name`` with the unwrapped metric;
-                    # dedup happens in ``metrics_to_recorder_manager_cfg``.
-                    if self.window_subtask_metrics:
-                        combined_metrics.append(
-                            SubtaskWindowedMetric(
-                                inner_metric=copy.copy(renamed_metric),
-                                subtask_idx=subtask_idx,
-                                scope=self.SUBTASK_WINDOW_SCOPE,
-                                name=f"{renamed_metric.name}_windowed",
-                            )
-                        )
+                    combined_metrics.append(copy.copy(metric))
                 else:
                     if not any(m.name == "success_rate" for m in combined_metrics):
                         combined_metrics.append(copy.copy(metric))
@@ -417,7 +399,7 @@ class CompositeTaskBase(TaskBase):
         return out
 
     def _validate_consistent_mimic_eef_names(self, arm_mode: ArmMode) -> set[str]:
-        "Check that all subtasks have the same Mimic eef_names; return that set."
+        "Check that all subtasks have the same Mimic eef_names."
         mimic_eef_names = set(self.subtasks[0].get_mimic_env_cfg(arm_mode).subtask_configs.keys())
         for i, subtask in enumerate(self.subtasks[1:], start=1):
             subtask_eef_names_set = set(subtask.get_mimic_env_cfg(arm_mode).subtask_configs.keys())

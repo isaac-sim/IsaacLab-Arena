@@ -6,7 +6,6 @@
 import copy
 import torch
 
-from isaaclab_arena.metrics.subtask_windowed_metric import WINDOW_SCOPE_FROM_PREV_DONE
 from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
 from isaaclab_arena.tasks.task_base import TaskBase
 
@@ -22,9 +21,6 @@ class SequentialTaskBase(CompositeTaskBase):
         - Once a subtask is complete once (success = True), it's success state can go back to False
           without affecting the completeness of the overall sequential task.
     """
-
-    # Sequential subtasks are only "active" once the previous subtask has completed.
-    SUBTASK_WINDOW_SCOPE = WINDOW_SCOPE_FROM_PREV_DONE
 
     @staticmethod
     def composite_task_success_func(
@@ -51,8 +47,6 @@ class SequentialTaskBase(CompositeTaskBase):
             env._current_subtask_idx = [0 for _ in range(env.num_envs)]
 
         # Determine which subtasks need their success function evaluated.
-        # When desired_subtask_success_state is set we need every subtask's current state; otherwise
-        # only the active subtask per env matters for advancing the state machine.
         if desired_subtask_success_state is not None:
             subtasks_to_evaluate = range(len(subtasks))
         else:

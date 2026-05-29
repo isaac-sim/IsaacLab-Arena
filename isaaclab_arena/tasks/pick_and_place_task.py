@@ -53,7 +53,7 @@ class PickAndPlaceTask(TaskBase):
         destination_object: Asset | None = None,
         episode_length_s: float | None = None,
         task_description: str | None = None,
-        force_threshold: float = 1.0,
+        force_threshold: float = 0.1,
         velocity_threshold: float = 0.1,
         surface_height: float = 0.0,
         lift_distance: float = 0.05,

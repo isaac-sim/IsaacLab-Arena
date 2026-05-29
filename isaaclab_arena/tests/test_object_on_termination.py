@@ -19,8 +19,6 @@ PLOT = False
 
 def _test_object_on_destination_termination(simulation_app) -> bool:
 
-    from isaaclab.managers import SceneEntityCfg
-
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
@@ -29,7 +27,6 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-    from isaaclab_arena.tasks.terminations import object_on_destination
     from isaaclab_arena.utils.pose import Pose
 
     args_parser = get_isaaclab_arena_cli_parser()
@@ -51,7 +48,6 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     )
 
     scene = Scene(assets=[background, cracker_box, destination_location])
-    # scene = Scene(assets=[background, cracker_box])
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="kitchen",
@@ -71,7 +67,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
         forces_vec = []
         force_matrix_vec = []
         velocities_vec = []
-        condition_met_vec = []
+        success_vec = []
         terminated_vec = []
         sensor = env.unwrapped.scene.sensors["pick_up_object_contact_sensor"]
         for _ in tqdm.tqdm(range(NUM_STEPS)):
@@ -83,14 +79,9 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
                 force_matrix_vec.append(wp.to_torch(sensor.data.force_matrix_w))
                 velocities_vec.append(wp.to_torch(env.unwrapped.scene[cracker_box.name].data.root_lin_vel_w))
 
-                # Try the termination.
-                condition_met_vec.append(
-                    object_on_destination(
-                        env,
-                        object_cfg=SceneEntityCfg(cracker_box.name),
-                        contact_sensor_cfg=SceneEntityCfg("pick_up_object_contact_sensor"),
-                    )
-                )
+                # Read the task's success signal.
+                success = env.unwrapped.termination_manager.get_term("success")
+                success_vec.append(success.clone())
                 terminated_vec.append(terminated.item())
 
     except Exception as e:
@@ -101,19 +92,19 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     finally:
         env.close()
 
-    # Check that the termination condition is:
+    # Check that the success term is:
     # - not met at the start (object above the drawer)
     # - met at the end (object in the drawer)
     print("Checking the object started out of the drawer")
-    assert condition_met_vec[0].item() is False, "Object started in the drawer"
+    assert success_vec[0].item() is False, "Object started in the drawer"
     # Check if the object was in the drawer at any point.
     print("Checking the object ended in the drawer")
-    assert any(condition_met_vec), "Object did not end in the drawer"
+    assert any(success_vec), "Object did not end in the drawer"
     print("Checking the task was terminated")
     assert any(terminated_vec), "The task was not terminated"
     # Check that the reset fired and moved the object above the drawer
     print("Checking the reset fired and the object was moved above the drawer")
-    assert condition_met_vec[-1].item() is False, "Object was not moved above the drawer"
+    assert success_vec[-1].item() is False, "Object was not moved above the drawer"
 
     # NOTE(alexmillane, 2025-08-04): Plot viewing is currently not working. It's complaining
     # about some non-interactive backend. For now I'm just saving the figure in the current
@@ -124,7 +115,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
         forces_np = torch.stack([torch.squeeze(f) for f in forces_vec]).cpu().numpy()
         force_matrix_np = torch.stack([torch.squeeze(f) for f in force_matrix_vec]).cpu().numpy()
         velocities_np = torch.stack([torch.squeeze(v) for v in velocities_vec]).cpu().numpy()
-        condition_met_np = torch.stack([torch.squeeze(c) for c in condition_met_vec]).cpu().numpy()
+        success_np = torch.stack([torch.squeeze(c) for c in success_vec]).cpu().numpy()
 
         ax = plt.subplot(2, 2, 1)
         ax.plot(forces_np)
@@ -136,8 +127,8 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
         ax.plot(velocities_np)
         ax.set_title("Object velocities")
         ax = plt.subplot(2, 2, 4)
-        ax.plot(condition_met_np)
-        ax.set_title("Condition met")
+        ax.plot(success_np)
+        ax.set_title("Success term")
         plt.tight_layout()
         plot_path = os.path.join(os.path.dirname(__file__), "test_object_on_destination_termination.png")
         print(f"Saving plot to {plot_path}")
