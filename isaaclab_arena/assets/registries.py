@@ -37,13 +37,28 @@ class Registry(metaclass=SingletonMeta):
         assert key is not None, "component name is not set"
         self._components[key] = component
 
-    def is_registered(self, key: str) -> bool:
-        """Check if an component is registered.
+    def is_registered(self, key: str, ensure_loaded: bool = True) -> bool:
+        """Check whether a component is already registered under ``key``.
 
         Args:
-            key (str): The name of the component.
+            key: The name to look up.
+            ensure_loaded: Whether to load every component before answering.
+
+                Components register themselves lazily: nothing is in the registry until
+                ``ensure_assets_registered()`` imports all the library modules. So a plain
+                membership check can say "not registered" simply because the libraries
+                haven't been imported yet. With ``ensure_loaded=True`` (the default) we
+                import them first, so the answer reflects everything that exists.
+
+                The ``register_*`` decorators pass ``False``. They run *while* those
+                library modules are being imported, and all they need is to spot a
+                duplicate key. Forcing a full load at that moment would re-enter the
+                import that's already in progress and pull in the task/environment modules
+                — which import Isaac Sim's ``pxr``/USD packages. If that happens during
+                pytest collection (before ``SimulationApp()`` starts) the simulator
+                segfaults, because those packages must be imported only after it starts.
         """
-        if isinstance(self, REGISTRIES):
+        if ensure_loaded and isinstance(self, REGISTRIES):
             ensure_assets_registered()
         return key in self._components
 
@@ -284,7 +299,7 @@ def ensure_assets_registered():
         import isaaclab_arena.embodiments  # noqa: F401
         import isaaclab_arena.policy  # noqa: F401
         import isaaclab_arena.relations.relations  # noqa: F401
-        import isaaclab_arena.tasks  # noqa: F401
+        import isaaclab_arena.tasks.task_library  # noqa: F401
 
         _assets_registered = True
     finally:
