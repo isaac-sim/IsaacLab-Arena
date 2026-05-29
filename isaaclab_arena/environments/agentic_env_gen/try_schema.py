@@ -92,7 +92,7 @@ def main() -> None:
         # silently drop the constraint.
         old_bg = spec.background
         new_bg = args.background
-        for rel in spec.initial_scene_graph:
+        for rel in spec.initial_state_graph:
             if rel.subject == old_bg:
                 rel.subject = new_bg
             if rel.target == old_bg:

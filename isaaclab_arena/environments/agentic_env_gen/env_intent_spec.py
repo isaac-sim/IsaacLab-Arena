@@ -177,7 +177,7 @@ class EnvIntentSpec(BaseModel):
         ),
     )
     items: list[Item] = Field(description="Objects to place in the env.")
-    initial_scene_graph: list[Relation] = Field(
+    initial_state_graph: list[Relation] = Field(
         description=(
             "FULL snapshot of all relations in the starting state. Every "
             "persistent relation (e.g. bowl on table, distractors present) "

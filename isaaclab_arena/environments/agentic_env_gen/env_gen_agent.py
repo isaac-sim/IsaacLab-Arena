@@ -154,10 +154,10 @@ class EnvGenAgent:
             "- If the prompt does not specify a value for an optional field, output null.\n"
             "  Do NOT hallucinate values — the resolver tolerates nulls; it cannot fix invented data.\n"
             "- Articulated objects (microwave, fridge, cabinet) still need a spatial\n"
-            "  'on(<object>, background)' relation in initial_scene_graph to anchor them; their\n"
+            "  'on(<object>, background)' relation in initial_state_graph to anchor them; their\n"
             "  open/close behaviour is expressed via tasks, not via relations.\n"
             "- Distractor items around the appliance need 'on(distractor, background)' relations\n"
-            "  in initial_scene_graph as well.\n"
+            "  in initial_state_graph as well.\n"
             "- Task examples (showing kind + subject + target + description shape):\n"
             '    * Pick-and-place: {"kind": "pick_and_place", "subject": "avocado", "target": "bowl",\n'
             '                       "description": "pick up the avocado and place it in the bowl"}\n'
