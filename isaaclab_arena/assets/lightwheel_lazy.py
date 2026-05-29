@@ -46,9 +46,14 @@ silently corrupting unrelated registrations.
 Caching is per-descriptor: the resolved path is stored on the descriptor instance
 after the first successful resolution, so subsequent accesses are free and the
 underlying SDK call is made at most once per process.
+
+The actual SDK call is routed through :func:`isaaclab_arena.assets.lightwheel_utils.acquire_lightwheel_asset`,
+which applies a longer scoped timeout and retries transient timeout failures.
 """
 
 from __future__ import annotations
+
+from isaaclab_arena.assets.lightwheel_utils import acquire_lightwheel_asset
 
 
 class LightwheelLazyPath:
@@ -100,18 +105,22 @@ class LightwheelLazyPath:
             return self._cached_path
         from lightwheel_sdk.loader import object_loader
 
+        identifier = self._file_name if self._file_name is not None else self._registry_name
         query_kwargs: dict = {"registry_type": self._registry_type, "file_type": self._file_type}
         if self._file_name is not None:
             query_kwargs["file_name"] = self._file_name
         else:
             query_kwargs["registry_name"] = self._registry_name
         try:
-            file_path, _, _ = object_loader.acquire_by_registry(**query_kwargs)
+            file_path, _, _ = acquire_lightwheel_asset(
+                object_loader,
+                object_loader.acquire_by_registry,
+                description=f"Lightwheel asset {identifier!r}",
+                **query_kwargs,
+            )
         except Exception as error:
-            identifier = self._file_name if self._file_name is not None else self._registry_name
             raise RuntimeError(
-                f"Failed to resolve Lightwheel asset {identifier!r}"
-                f" (registry_type={self._registry_type!r}): {error}"
+                f"Failed to resolve Lightwheel asset {identifier!r} (registry_type={self._registry_type!r}): {error}"
             ) from error
         self._cached_path = file_path
         return file_path
