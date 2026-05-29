@@ -56,29 +56,31 @@ def _resolve_node_refs_in_task_args(
         assets_by_node_id = {"cube": <Object>, ...}
         # -> {"pick_up_object": <Object: cube>, ..., "episode_length_s": 5.0}
 
-    Misspelled / non-string node ids raise AssertionError instead of silently passing through.
+    Misspelled / non-string node ids raise AssertionError.
     """
-    # Introspect __init__ once — the task class is the single source of truth for which
-    # params come from graph nodes. `None` from .get() below means "not a node-ref param".
+    # The task class is the single source of truth for which params come from graph nodes.
+    # Params absent from this map aren't node refs.
     is_collection_by_param_name = find_node_ref_params_in_signature(task_class)
 
-    resolved_task_kwargs: dict[str, Any] = {}
-    for param_name, raw_param_value in raw_task_args.items():
-        is_collection = is_collection_by_param_name.get(param_name)
-        if is_collection is None:
-            # Not annotated as a node ref (e.g. floats, strings, tuples) — forward unchanged.
-            resolved_task_kwargs[param_name] = raw_param_value
-        elif is_collection:
-            # list[Asset]-typed param: resolve each element to its live asset.
-            resolved_task_kwargs[param_name] = [
-                _lookup_asset_by_node_id(raw_node_id, assets_by_node_id, task_class, param_name)
-                for raw_node_id in raw_param_value
-            ]
-        else:
-            # Asset-typed param: resolve the single node id to its live asset.
-            resolved_task_kwargs[param_name] = _lookup_asset_by_node_id(
-                raw_param_value, assets_by_node_id, task_class, param_name
-            )
+    # Non-node-ref params (floats, strings, tuples) pass through unchanged; start with the exact raw copy.
+    #   e.g. "minimum_height_to_lift": 0.1  ->  "minimum_height_to_lift": 0.1
+    resolved_task_kwargs: dict[str, Any] = dict(raw_task_args)
+    for param_name, is_collection in is_collection_by_param_name.items():
+        if param_name in raw_task_args:
+            raw_param_value = raw_task_args[param_name]
+            if is_collection:
+                # list[Asset]-typed param: resolve each element to its live asset.
+                #   e.g. "targets": ["cube", "ball"]  ->  "targets": [<Object: cube>, <Object: ball>]
+                resolved_task_kwargs[param_name] = [
+                    _lookup_asset_by_node_id(raw_node_id, assets_by_node_id, task_class, param_name)
+                    for raw_node_id in raw_param_value
+                ]
+            else:
+                # Asset-typed param: resolve the single node id to its live asset.
+                #   e.g. "pick_up_object": "cube"  ->  "pick_up_object": <Object: cube>
+                resolved_task_kwargs[param_name] = _lookup_asset_by_node_id(
+                    raw_param_value, assets_by_node_id, task_class, param_name
+                )
     return resolved_task_kwargs
 
 
@@ -91,41 +93,41 @@ def _lookup_asset_by_node_id(node_id: Any, assets_by_node_id: dict[str, Any], ta
 
 
 def find_node_ref_params_in_signature(task_class: type) -> dict[str, bool]:
-    """Return ``{param_name: is_collection}`` for ``__init__`` params annotated as a NODE_REF_BASES subclass.
+    """Map each node-ref ``__init__`` param to is_collection, where True means list[Asset], False means Asset, and None means non-refs.
 
-    Optional / ``X | None`` counts as a node ref. ``is_collection=True`` for ``list[X]``
-    (``tuple[X, ...]`` is intentionally unsupported — no task uses it). Single source of
-    truth for what's a graph-node ref; also consumable by validators / YAML generators.
+    e.g. ``(obj: Asset, group: list[Asset], height: float)`` -> ``{"obj": False, "group": True}``.
     """
-    is_collection_by_param_name: dict[str, bool] = {}
-    # get_type_hints resolves stringified / forward-ref annotations into real classes so issubclass works.
-    # e.g. `pick_up_object: "Asset"` (a str under `from __future__ import annotations`) becomes the Asset class.
-    for param_name, param_annotation in typing.get_type_hints(task_class.__init__).items():
-        # Skip the implicit `self` slot and any `return` annotation — neither is a kwarg.
-        if param_name not in ("self", "return"):
-            # Walk Union members so `Asset | None` is recognized via its Asset branch.
-            # First matching branch wins; later branches in the same param are ignored.
-            for annotation_branch in _strip_none(param_annotation):
-                # Scalar node ref: annotation is itself an Asset / AffordanceBase subclass.
-                if isinstance(annotation_branch, type) and issubclass(annotation_branch, NODE_REF_BASES):
-                    is_collection_by_param_name[param_name] = False
-                    break
-                # Collection node ref: list[X] where X is an Asset / AffordanceBase subclass.
-                # The isinstance(args[0], type) guard rejects parametrized generics like list[list[Asset]].
-                if typing.get_origin(annotation_branch) is list:
-                    list_element_args = typing.get_args(annotation_branch)
-                    if (
-                        list_element_args
-                        and isinstance(list_element_args[0], type)
-                        and issubclass(list_element_args[0], NODE_REF_BASES)
-                    ):
-                        is_collection_by_param_name[param_name] = True
-                        break
-    return is_collection_by_param_name
+    node_ref_params: dict[str, bool] = {}
+    for param_name, annotation in typing.get_type_hints(task_class.__init__).items():
+        is_collection = _classify_node_ref(annotation)
+        # Keep only node refs.
+        if is_collection is not None:
+            node_ref_params[param_name] = is_collection
+    return node_ref_params
+
+
+def _classify_node_ref(annotation: Any) -> bool | None:
+    """Match node-ref type to a bool: False=scalar, True=list, None=not a ref. e.g. ``list[Asset] | None`` -> True."""
+    # Look at non-None members of a union, like list[Asset] | None.
+    for branch in _strip_none(annotation):
+        # For a scalar ref: the branch is itself an Asset / AffordanceBase subclass. e.g. Asset.
+        if _is_node_ref_type(branch):
+            return False
+        # For a list ref: list[X] with X a ref. e.g. list[Asset].
+        if typing.get_origin(branch) is list and _is_node_ref_type(next(iter(typing.get_args(branch)), None)):
+            return True
+    return None
+
+
+def _is_node_ref_type(annotation: Any) -> bool:
+    """True if annotation is an Asset / AffordanceBase subclass. e.g. Asset -> True, list[Asset] / None -> False."""
+    # The isinstance(..., type) guard rejects non-classes (None, generics like list[Asset]) so issubclass won't raise.
+    return isinstance(annotation, type) and issubclass(annotation, NODE_REF_BASES)
 
 
 def _strip_none(annotation: Any) -> tuple[Any, ...]:
-    """Non-None members of a ``X | None`` / ``Optional[X]``; ``(annotation,)`` otherwise."""
+    """Non-None members of a union, else the annotation alone. e.g. ``Asset | None`` -> ``(Asset,)``; ``float`` -> ``(float,)``."""
+    # Only unions branch; everything else is wrapped in a 1-tuple so callers iterate uniformly.
     if typing.get_origin(annotation) in (typing.Union, types.UnionType):
         return tuple(member for member in typing.get_args(annotation) if member is not type(None))
     return (annotation,)
