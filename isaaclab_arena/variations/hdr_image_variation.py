@@ -1,0 +1,95 @@
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""Build-time variation that picks an HDR environment map for a dome light.
+
+The HDR is sampled once before env-cfg composition (it can't be swapped on a
+running dome light without rebuilding its spawner), and applied via
+:meth:`~isaaclab_arena.assets.object_library.DomeLight.add_hdr`.
+"""
+
+from __future__ import annotations
+
+from dataclasses import field
+from typing import TYPE_CHECKING
+
+from isaaclab.utils import configclass
+
+from isaaclab_arena.variations.categorical_sampler import CategoricalSamplerCfg
+from isaaclab_arena.variations.sampler_base import SamplerBase
+from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
+
+if TYPE_CHECKING:
+    from isaaclab_arena.assets.object_library import DomeLight
+
+
+@configclass
+class HDRImageVariationCfg(VariationBaseCfg):
+    """Configuration for :class:`HDRImageVariation`.
+
+    Attributes:
+        hdr_names: Registered HDR names to sample from (see
+            :class:`~isaaclab_arena.assets.registries.HDRImageRegistry`). When
+            empty, the variation samples uniformly across every registered HDR.
+        sampler: Categorical distribution over indices into the resolved HDR
+            list. The pool size is passed at :meth:`HDRImageVariation.apply`
+            time, so the default empty :class:`CategoricalSamplerCfg` works
+            out of the box.
+    """
+
+    hdr_names: list[str] = field(default_factory=list)
+    sampler: CategoricalSamplerCfg = field(default_factory=CategoricalSamplerCfg)
+
+
+class HDRImageVariation(BuildTimeVariationBase):
+    """Sample a single HDR and attach it to a :class:`DomeLight` at build time.
+
+    Args:
+        light: The dome light whose HDR will be set. A reference is captured;
+            ``apply`` mutates this exact instance.
+        cfg: Tunable parameters. Defaults to an :class:`HDRImageVariationCfg`
+            with an empty ``hdr_names`` (i.e. sample over every registered HDR)
+            and the default categorical sampler.
+        sampler: Optional override for the categorical distribution. If
+            ``None``, the sampler in ``cfg`` is used.
+    """
+
+    name = "hdr_image"
+
+    cfg: HDRImageVariationCfg
+
+    def __init__(
+        self,
+        light: DomeLight,
+        cfg: HDRImageVariationCfg | None = None,
+        sampler: SamplerBase | CategoricalSamplerCfg | None = None,
+    ):
+        super().__init__(cfg=cfg if cfg is not None else HDRImageVariationCfg())
+        self._light = light
+        self.set_sampler(sampler if sampler is not None else self.cfg.sampler)
+
+    def apply(self) -> None:
+        from isaaclab_arena.assets.hdr_image import HDRImage  # noqa: PLC0415
+        from isaaclab_arena.assets.registries import HDRImageRegistry  # noqa: PLC0415
+
+        registry = HDRImageRegistry()
+        if self.cfg.hdr_names:
+            for name in self.cfg.hdr_names:
+                assert registry.is_registered(name), (
+                    f"HDRImageVariation: HDR name '{name}' is not registered. "
+                    f"Registered HDRs: {sorted(registry.get_all_keys())}."
+                )
+            hdr_names = list(self.cfg.hdr_names)
+        else:
+            hdr_names = registry.get_all_keys()
+            assert hdr_names, "HDRImageVariation: no HDRs are registered; cannot sample."
+
+        assert self.sampler is not None, "HDRImageVariation: sampler not set."
+        # Pass HDR *names* (not indices) as the categorical sampler's choices,
+        # so the recorder logs the chosen HDR by name instead of an opaque
+        # index.
+        [chosen_name] = self.sampler.sample(num_samples=1, choices=hdr_names)
+        hdr_cls: type[HDRImage] = registry.get_hdr_by_name(chosen_name)
+        self._light.add_hdr(hdr_cls())

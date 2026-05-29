@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import gymnasium as gym
+from typing import Any
 
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
@@ -31,6 +32,7 @@ from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
+from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBase
 
 
 class ArenaEnvBuilder:
@@ -70,6 +72,72 @@ class ArenaEnvBuilder:
             resolve_on_reset=self.args.resolve_on_reset,
         )
 
+    def get_all_variations(self) -> dict[str, list[VariationBase]]:
+        """Return ``{asset_name: [variation, ...]}`` for every variation host in the env.
+
+        Combines variations attached to scene assets (via
+        :meth:`~isaaclab_arena.scene.scene.Scene.get_asset_variations`) with
+        any variations attached to the embodiment, keyed by
+        :attr:`~isaaclab_arena.embodiments.embodiment_base.EmbodimentBase.name`.
+        Embodiment-level variations let the embodiment own its own knobs (e.g.
+        camera decalibration on a robot's wrist cam) without needing to be
+        registered as a scene-side ``ObjectBase``.
+        """
+        by_asset: dict[str, list[VariationBase]] = dict(self.arena_env.scene.get_asset_variations())
+        embodiment = self.arena_env.embodiment
+        if embodiment is not None:
+            embodiment_variations = embodiment.get_variations()
+            if embodiment_variations:
+                assert embodiment.name not in by_asset, (
+                    f"Embodiment name '{embodiment.name}' collides with a scene asset that also has variations; "
+                    "rename the scene asset or the embodiment so variation namespaces stay unique."
+                )
+                by_asset[embodiment.name] = list(embodiment_variations)
+        return by_asset
+
+    def _compose_variations_event_cfg(self) -> Any | None:
+        """Build a configclass instance holding an :class:`EventTermCfg` per enabled run-time variation.
+
+        Walks every variation host (scene assets + embodiment), skips disabled
+        ones and any build-time variations (which are applied via
+        :meth:`_apply_build_time_variations`), and asks each remaining
+        variation for its event term. Returns ``None`` when nothing is enabled.
+        """
+        fields: list[tuple[str, type, EventTermCfg]] = []
+        seen: set[str] = set()
+        for asset_variations in self.get_all_variations().values():
+            for variation in asset_variations:
+                if not variation.enabled:
+                    continue
+                if not isinstance(variation, RunTimeVariationBase):
+                    continue
+                event_name, event_cfg = variation.build_event_cfg()
+                assert event_name not in seen, (
+                    f"Duplicate variation event term name '{event_name}'. "
+                    "Each variation must produce a unique name; consider prefixing with the asset name."
+                )
+                seen.add(event_name)
+                fields.append((event_name, EventTermCfg, event_cfg))
+        if not fields:
+            return None
+        VariationsEventCfg = make_configclass("VariationsEventCfg", fields)
+        return VariationsEventCfg()
+
+    def _apply_build_time_variations(self) -> None:
+        """Sample and apply every enabled :class:`BuildTimeVariationBase` from scene + embodiment.
+
+        Build-time variations mutate asset configs in place (e.g. swapping
+        a dome light's spawner texture), so this must run before ``scene_cfg``
+        is materialised.
+        """
+        for asset_variations in self.get_all_variations().values():
+            for variation in asset_variations:
+                if not variation.enabled:
+                    continue
+                if not isinstance(variation, BuildTimeVariationBase):
+                    continue
+                variation.apply()
+
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""
         base = getattr(recorder_cfg, "dataset_filename", "dataset")
@@ -84,6 +152,10 @@ class ArenaEnvBuilder:
         # Solve relations before building scene config so positions are captured correctly.
         if self.args.solve_relations:
             self._solve_relations()
+
+        # Apply build-time variations now: they mutate asset configs (e.g.
+        # DomeLight.spawner_cfg) and must run before scene_cfg is materialised.
+        self._apply_build_time_variations()
 
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
         embodiment = self.arena_env.embodiment or NoEmbodiment()
@@ -108,12 +180,14 @@ class ArenaEnvBuilder:
                 [("placement_reset", EventTermCfg, self._placement_event_cfg)],
             )
             placement_event_cfg = PlacementEventCfg()
+        variations_event_cfg = self._compose_variations_event_cfg()
         events_cfg = combine_configclass_instances(
             "EventsCfg",
             embodiment.get_events_cfg(),
             self.arena_env.scene.get_events_cfg(),
             task.get_events_cfg(),
             placement_event_cfg,
+            variations_event_cfg,
         )
         termination_cfg = combine_configclass_instances(
             "TerminationCfg",
