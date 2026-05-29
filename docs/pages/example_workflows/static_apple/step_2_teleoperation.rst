@@ -10,6 +10,12 @@ This workflow covers collecting demonstrations for the Unitree G1 static apple-t
    Before starting teleoperation, also review the `IsaacTeleop system requirements
    <https://nvidia.github.io/IsaacTeleop/main/references/requirements.html#teleoperation-with-isaac-sim-and-isaac-lab>`_.
 
+.. important::
+
+   A stable network connection meeting the `CloudXR network requirements
+   <https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html#network-requirements>`_
+   is required before starting the steps below.
+
 .. admonition:: No teleoperation hardware?
    :class: tip
 
@@ -150,8 +156,6 @@ Step 3: Connect from the headset device
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For detailed instructions please refer to `Connect an XR Device <https://isaac-sim.github.io/IsaacLab/develop/source/how-to/cloudxr_teleoperation.html#start-cloudxr-runtime>`_:
-
-A strong wireless connection is essential for a high-quality streaming experience. Refer to the `CloudXR Network Setup <https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html>`_ guide for router configuration.
 
 #. Open the browser on your headset and navigate to `<https://nvidia.github.io/IsaacTeleop/client>`_.
 

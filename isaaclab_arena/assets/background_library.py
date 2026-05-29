@@ -8,6 +8,7 @@ from typing import Any
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 
 from isaaclab_arena.assets.background import Background
+from isaaclab_arena.assets.lightwheel_utils import acquire_lightwheel_asset
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
 
@@ -155,8 +156,14 @@ class LightwheelKitchenBackground(LibraryBackground):
 
         # Lazily download the USD
         self.usd_path = str(
-            floorplan_loader.get_usd(
-                scene="robocasakitchen", layout_id=layout_id, style_id=style_id, backend="robocasa"
+            acquire_lightwheel_asset(
+                floorplan_loader,
+                floorplan_loader.get_usd,
+                description=f"{self.name} background layout={layout_id} style={style_id}",
+                scene="robocasakitchen",
+                layout_id=layout_id,
+                style_id=style_id,
+                backend="robocasa",
             )[0]
         )
         super().__init__()
