@@ -11,14 +11,13 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+ItemRole = Literal["foreground", "distractor", "anchor"]
+
 # Relation kinds currently surfaced to the agent.
 # Should be a subset of ``ArenaEnvGraphSpatialConstraintType``.
 RelationKind = Literal["on", "in", "next_to", "at_position", "at_pose", "is_anchor"]
 
-ItemRole = Literal["foreground", "distractor", "anchor"]
-
 # Task kinds the agent can propose as an atomic task.
-# Should be a subset of ``ArenaEnvGraphTaskConstraintType``.
 TaskKind = Literal["pick_and_place", "open_door", "close_door"]
 
 
@@ -65,38 +64,26 @@ class Item(BaseModel):
 
 
 class Relation(BaseModel):
-    """A spatial relation between items.
+    """A spatial relation between items."""
 
-    Binary kinds (``on``, ``in``, ``next_to``, ...) must set ``target`` to the
-    other item — semantics is "subject is in relation to target". Unary kinds
-    (``is_anchor``, ``at_position``, ...) describe an intrinsic property of
-    ``subject`` alone and must leave ``target`` as ``None``.
-    """
-
-    kind: RelationKind = Field(
-        description=(
-            "Spatial relation only — articulated-state changes (open/close) are expressed via tasks, not via relations."
-        ),
-    )
+    kind: RelationKind = Field(description="Spatial relation only.")
     subject: str = Field(
         description="Item the relation applies to, named by its Item.query string or the background name.",
     )
+    # TODO(qianl): make sure the binary & unary relations in description matches the actual relation classes.
     target: str | None = Field(
         default=None,
         description=(
             "The other item the relation is anchored on for binary kinds "
-            "(on / in / next_to / at_position / at_pose); leave null for "
-            "unary kinds (is_anchor)."
+            "(on / in / next_to), semantics is subject is in relation to target; "
+            "leave null for unary kinds (is_anchor, at_position, at_pose)."
         ),
     )
     # TODO(qianl): free-form ``dict`` emits ``additionalProperties: true``,
     # which strict-mode structured-outputs endpoints (OpenAI strict /
     # Bedrock-Claude) reject with a 400. The default NVIDIA DeepSeek is
     # lenient and accepts it, so this is a latent portability landmine.
-    params: dict = Field(
-        default_factory=dict,
-        description="Optional kind-specific parameters; leave empty by default.",
-    )
+    params: dict = Field(default_factory=dict, description="Optional kind-specific parameters; leave empty by default.")
 
     def identity(self) -> tuple[str, str, str | None]:
         """Hashable identity for diffing scene graphs — ignores params."""
@@ -135,14 +122,7 @@ class EnvIntentSpec(BaseModel):
     """
 
     # Forced chain-of-thought field, listed FIRST so the agent emits its
-    # analysis before committing to any structured field. Instruction-tuned
-    # models respect schema field order, and writing reasoning before
-    # answers measurably improves structured-output quality (the
-    # "think step by step then commit" pattern). Bonus debuggability:
-    # when a downstream resolver step fails, the reasoning trace shows
-    # which step the model got wrong (e.g. it picked "tomato" because
-    # it misidentified the foreground object as a vegetable) — without
-    # this, the only signal is the malformed spec itself.
+    # analysis before committing to any structured field.
     reasoning: str = Field(
         description=(
             "Step-by-step analysis of the user prompt, written BEFORE the "
@@ -155,7 +135,7 @@ class EnvIntentSpec(BaseModel):
         ),
     )
     task_description: str = Field(
-        description="One-sentence natural-language summary of what the env exercises overall."
+        description="One-sentence natural-language summary of what the env exercises overall.",
     )
     background: str = Field(
         description="Background asset name from the BACKGROUNDS catalog (e.g. 'maple_table_kitchen').",
@@ -174,20 +154,21 @@ class EnvIntentSpec(BaseModel):
     initial_state_graph: list[Relation] = Field(
         description=(
             "FULL snapshot of all relations in the starting state. Every "
-            "persistent relation (e.g. bowl on table, distractors present) "
+            "persistent relation (e.g. bowl on table, distractors on table) "
             "must appear here. Relations that change via tasks are still "
             "listed here in their starting form."
         ),
     )
+    # TODO(v0.4+): Add support for composite tasks (parallel/unordered execution)
+    # Currently v0.3 only supports sequential task chains.
     tasks: list[Task] = Field(
         description=(
             "Tasks to execute in sequence. The task sequence implicitly "
-            "defines the intermediate env graphs by applying each task's "
+            "defines the intermediate state graphs by applying each task's "
             "transformations in order. An empty list is valid and means "
             "the env has no task — at the arena layer this maps to the "
-            "``NoTask`` null object (e.g. a static playground / sandbox "
-            "env). Prefer an empty list over inventing a placeholder "
-            "task when the user prompt genuinely describes a task-less "
-            "scene."
+            "``NoTask`` null object (e.g. a static scene). Prefer an empty "
+            "list over inventing a placeholder task when the user prompt "
+            "genuinely describes a task-less scene."
         ),
     )
