@@ -376,9 +376,10 @@ class TestSystemPrompt:
 # into ``generate_spec`` / ``check_structured_output_support`` (see TODOs in
 # env_gen_agent.py and structured_output_utils.py).
 @pytest.mark.flaky(max_runs=3, min_passes=1)
-@pytest.mark.agent_remote_e2e
 def test_generate_spec_against_live_endpoint():
     """End-to-end smoke test against the real OpenAI-compatible endpoint.
+
+    ``NV_API_KEY`` is required.
 
     Exercises the full structured-outputs pipeline with default
     ``model`` / ``base_url`` / system prompt:
@@ -386,21 +387,6 @@ def test_generate_spec_against_live_endpoint():
         auth → HTTPS → response_format=json_schema → channel fallback
         → json.loads(strict=False) → EnvIntentSpec.model_validate
 
-    Two layers gate this from default ``pytest`` runs:
-
-      * ``agent_remote_e2e`` marker — registered in ``pytest.ini`` next to
-        ``gr00t_remote_e2e``. Run explicitly with
-        ``pytest -m agent_remote_e2e isaaclab_arena/tests/test_env_gen_agent.py``.
-
-    The asset catalog is supplied inline rather than via ``AssetRegistry``
-    so the test doesn't depend on Isaac Lab asset registration state — we
-    only want to validate the agent wire here, not the catalog builder.
-
-    The structured-outputs *capability* of the default model is
-    pinned separately by
-    :func:`test_structured_output_utils.test_default_model_supports_structured_output`;
-    this test exercises the higher-level ``generate_spec`` pipeline
-    end-to-end.
 
     Assertions are intentionally loose: we check shape (non-empty raw,
     non-empty tasks, populated background/embodiment, populated

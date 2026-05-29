@@ -467,7 +467,6 @@ class TestCheckStructuredOutputSupport:
 # TODO(qianl): drop the flaky marker once production-side retry is wired
 # into ``check_structured_output_support`` (see TODO in structured_output_utils.py).
 @pytest.mark.flaky(max_runs=3, min_passes=1)
-@pytest.mark.agent_remote_e2e
 def test_default_model_supports_structured_output():
     """The default ``EnvGenAgent`` model must support structured outputs.
 
