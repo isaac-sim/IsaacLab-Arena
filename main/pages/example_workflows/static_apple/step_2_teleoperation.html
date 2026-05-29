@@ -718,9 +718,11 @@ python<span class="w"> </span>isaaclab_arena/scripts/imitation_learning/record_d
 <li><p>In the running application, start the session from the <strong>XR</strong> tab in the application window.</p></li>
 <li><p>Follow Step 3 to connect the headset again.</p></li>
 <li><p>Complete the task for each demo. After a successful placement, wait for the demo to
-automatically end and for the simulation to freeze before pressing <strong>Reset</strong>. Resetting
-early can save an incomplete or failed demonstration. The script saves successful runs
-to the HDF5 file above.</p></li>
+end automatically and for the environment to reset automatically. The script saves
+successful runs to the HDF5 file above. Pressing <strong>Reset</strong> early can save an
+incomplete or failed demonstration.</p></li>
+<li><p>After the automatic reset, place your hands back in the initial starting position and
+press <strong>Reset</strong> on the control panel to start the next demo.</p></li>
 </ol>
 <div class="admonition important">
 <p class="admonition-title">Important</p>
@@ -767,6 +769,8 @@ backtracking along the original approach path because it makes it harder for GR0
 approach and retreat motions during training.</p></li>
 <li><p><strong>Placement:</strong> lower the apple until it is slightly above the plate surface, pause briefly in a
 stable pose, then release cleanly so the apple drops naturally onto the plate.</p></li>
+<li><p><strong>Reset:</strong> after the automatic reset finishes, return your hands to the initial starting
+position, then press <strong>Reset</strong> on the control panel to start the next demo.</p></li>
 </ol>
 <p>Releasing a small round object onto a flat plate is noticeably harder than dropping a box into a
 bin. Keep the release height low and the orientation stable.</p>
