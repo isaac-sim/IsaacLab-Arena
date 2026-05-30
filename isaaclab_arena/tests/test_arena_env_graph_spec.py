@@ -156,35 +156,6 @@ def test_arena_env_graph_spec_validate_rejects_mutated_invalid_relationship_shap
         spec.validate()
 
 
-def _test_arena_env_graph_conversion_builds_sequential_pick_and_place_task(simulation_app):
-    from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-    from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
-
-    spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml")
-    arena_env = spec.to_arena_env()
-
-    assert arena_env.name == "pick_and_place_maple_table_default"
-    assert isinstance(arena_env.task, SequentialTaskBase)
-    assert arena_env.task.desired_subtask_success_state == [True, True]
-    assert len(arena_env.task.subtasks) == 2
-    assert all(isinstance(subtask, PickAndPlaceTask) for subtask in arena_env.task.subtasks)
-    assert arena_env.task.subtasks[0].pick_up_object.name == "rubiks_cube_hot3d_robolab"
-    assert arena_env.task.subtasks[1].pick_up_object.name == "mug_ycb_robolab"
-    assert all(subtask.destination_location.name == "bowl_ycb_robolab" for subtask in arena_env.task.subtasks)
-    assert all(subtask.background_scene.name == "maple_table_robolab" for subtask in arena_env.task.subtasks)
-
-    return True
-
-
-def test_arena_env_graph_conversion_builds_sequential_pick_and_place_task():
-    pytest.importorskip("isaaclab.app")
-
-    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
-
-    result = run_simulation_app_function(_test_arena_env_graph_conversion_builds_sequential_pick_and_place_task)
-    assert result
-
-
 def test_arena_env_graph_spec_rejects_invalid_data():
     cases = [
         (

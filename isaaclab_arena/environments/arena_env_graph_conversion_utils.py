@@ -63,8 +63,8 @@ def _partition_nodes_into_embodiment_and_scene(
 ) -> tuple[Any, list[Asset]]:
     """Split materialized nodes into the single embodiment asset and the list of scene assets.
 
-    Asserts exactly one EMBODIMENT node. OBJECT / OBJECT_REFERENCE nodes become scene assets;
-    any other node type raises. Lighting is not handled yet.
+    Asserts exactly one EMBODIMENT node. BACKGROUND / OBJECT / OBJECT_REFERENCE nodes become
+    scene assets; any other node type raises. Lighting is not handled yet.
     """
     embodiment = None
     scene_assets: list[Asset] = []
@@ -73,7 +73,11 @@ def _partition_nodes_into_embodiment_and_scene(
         if node_spec.type == ArenaEnvGraphNodeType.EMBODIMENT:
             assert embodiment is None, "Only one embodiment node can be converted to an IsaacLabArenaEnvironment"
             embodiment = assets_by_node_id[node_spec.id]
-        elif node_spec.type in (ArenaEnvGraphNodeType.OBJECT, ArenaEnvGraphNodeType.OBJECT_REFERENCE):
+        elif node_spec.type in (
+            ArenaEnvGraphNodeType.BACKGROUND,
+            ArenaEnvGraphNodeType.OBJECT,
+            ArenaEnvGraphNodeType.OBJECT_REFERENCE,
+        ):
             scene_assets.append(assets_by_node_id[node_spec.id])
         else:
             raise ValueError(f"Unsupported node type: {node_spec.type}")
