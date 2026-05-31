@@ -6,6 +6,7 @@
 from .agibot.agibot import *
 from .droid.droid import *
 from .franka.franka import *
+from .franka.nist_gear_insertion.franka_osc import *
 from .g1.g1 import *
 from .galbot.galbot import *
 from .gr1t2.gr1t2 import *

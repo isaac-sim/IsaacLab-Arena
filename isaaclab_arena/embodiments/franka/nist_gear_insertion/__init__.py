@@ -3,7 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from .replay_action_policy import *
-from .rl_games_action_policy import *
-from .rsl_rl_action_policy import *
-from .zero_action_policy import *
+"""Franka embodiment components for NIST gear insertion."""
+
+from .franka_osc import FrankaNistGearInsertionOscEmbodiment
+
+__all__ = [
+    "FrankaNistGearInsertionOscEmbodiment",
+]

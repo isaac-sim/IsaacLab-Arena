@@ -4,12 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import isaaclab.sim as sim_utils
-
-if TYPE_CHECKING:
-    from isaaclab_arena.assets.hdr_image import HDRImage
 from isaaclab.assets import RigidObjectCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
@@ -294,6 +291,88 @@ class OfficeTable(LibraryObject):
         scale: tuple[float, float, float] | None = None,
     ):
         super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
+
+
+# NIST insertion assets use Arena's high-precision assembly preset to mirror
+# Factory/Forge dense-contact settings for small-clearance gear insertion.
+@register_asset
+class GearsAndBase(LibraryObject):
+    """NIST gear base with SDF collision (gear_base as root prim)."""
+
+    name = "gears_and_base"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/NIST/gearbase_and_gears_gearbase_root.usd"
+
+    spawn_cfg_addon = {
+        "rigid_props": RIGID_BODY_PROPS_HIGH_PRECISION.replace(disable_gravity=False, kinematic_enabled=True),
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.012),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class MediumNistGear(LibraryObject):
+    """NIST medium gear (held asset for gear insertion)."""
+
+    name = "medium_nist_gear"
+    tags = ["object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/NIST/gear_medium.usd"
+
+    spawn_cfg_addon = {
+        "rigid_props": RIGID_BODY_PROPS_HIGH_PRECISION.replace(disable_gravity=True),
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.012),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class NistBoardAssembled(LibraryObject):
+    """NIST fully assembled taskboard."""
+
+    name = "nist_board_assembled"
+    tags = ["nist", "object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/NIST/nist_board_assembled.usd"
+    object_type = ObjectType.BASE
+    # The assembled board is visual context for this task; gears_and_base owns
+    # the physical peg and gear contacts used by observations, rewards, and success.
+    spawn_cfg_addon = {
+        "rigid_props": sim_utils.RigidBodyPropertiesCfg(rigid_body_enabled=False),
+        "collision_props": sim_utils.CollisionPropertiesCfg(collision_enabled=False),
+    }
+
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
+
+
+@register_asset
+class NistGearBase(LibraryObject):
+    """NIST standalone gear base."""
+
+    name = "nist_gear_base"
+    tags = ["nist", "object"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/NIST/gear_base.usd"
+    spawn_cfg_addon = {
+        "rigid_props": RIGID_BODY_PROPS_HIGH_PRECISION.replace(disable_gravity=False, kinematic_enabled=True),
+        "mass_props": sim_utils.MassPropertiesCfg(mass=0.012),
+        "collision_props": sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
+    }
+
+    def __init__(
+        self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+    ):
+        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose)
 
 
 @register_asset
