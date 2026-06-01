@@ -67,6 +67,16 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
             "When not set, each environment uses its own default."
         ),
     )
+    arena_group.add_argument(
+        "--resolve_on_reset",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Re-place objects from the pool on each reset (default: True). Use --no-resolve_on_reset to keep the same"
+            " layout."
+        ),
+    )
+
 
 def add_env_graph_spec_cli_args(parser: argparse.ArgumentParser) -> None:
     """Add environment graph spec specific command line arguments to the given parser."""
@@ -78,8 +88,8 @@ def add_env_graph_spec_cli_args(parser: argparse.ArgumentParser) -> None:
         type=str,
         default=None,
         help=(
-            "Path to an environment graph spec YAML. When set, the environment is built from the graph spec instead of a"
-            " registered example-environment name; the env-name subcommand then becomes optional."
+            "Path to an environment graph spec YAML. When set, the environment is built from the graph spec instead of"
+            " a registered example-environment name; the env-name subcommand then becomes optional."
         ),
     )
 
