@@ -13,6 +13,7 @@ from isaaclab.utils import configclass
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.metrics.metric_base import MetricBase
+from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 
 
 class RevoluteJointStateRecorder(RecorderTerm):
@@ -33,6 +34,36 @@ class JointStateRecorderCfg(RecorderTermCfg):
     class_type: type[RecorderTerm] = RevoluteJointStateRecorder
     name: str = "revolute_joint_state"
     object: ObjectBase = MISSING
+
+
+def compute_revolute_joint_moved_rate(
+    recorded_metric_data: list[np.ndarray],
+    reset_joint_percentage: float,
+    joint_percentage_delta_threshold: float,
+) -> float:
+    """Computes the revolute joint moved rate from the recorded metric data.
+
+    Args:
+        recorded_metric_data(list[np.ndarray]): The recorded revolute joint percentage per simulated
+            episode.
+        reset_joint_percentage(float): The initial joint position of the door (what the door resets to).
+        joint_percentage_delta_threshold(float): The threshold for the door joint percentage to be considered
+            moved. This is relative to the initial joint position of the door.
+
+    Returns:
+        The revolute joint moved rate(float). Value between 0 and 1. The proportion of episodes
+            in which the door moved.
+    """
+    if len(recorded_metric_data) == 0:
+        return 0.0
+    revolute_joint_moved_per_demo = []
+    for episode_data in recorded_metric_data:
+        # Check if joint moved in either direction from reset position
+        moved_open = np.any(episode_data > reset_joint_percentage + joint_percentage_delta_threshold)
+        moved_closed = np.any(episode_data < reset_joint_percentage - joint_percentage_delta_threshold)
+        revolute_joint_moved_per_demo.append(moved_open or moved_closed)
+    revolute_joint_moved_rate = np.mean(revolute_joint_moved_per_demo)
+    return revolute_joint_moved_rate
 
 
 class RevoluteJointMovedRateMetric(MetricBase):
@@ -64,24 +95,13 @@ class RevoluteJointMovedRateMetric(MetricBase):
         """Return the recorder term configuration for the revolute joint moved rate metric."""
         return JointStateRecorderCfg(name=self.recorder_term_name, object=self.object)
 
-    def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> float:
-        """Computes the revolute joint moved rate from the recorded metric data.
-
-        Args:
-            recorded_metric_data(list[np.ndarray]): The recorded revolute joint percentage per simulated
-                episode.
-
-        Returns:
-            The revolute joint moved rate(float). Value between 0 and 1. The proportion of episodes
-                in which the door moved.
-        """
-        if len(recorded_metric_data) == 0:
-            return 0.0
-        revolute_joint_moved_per_demo = []
-        for episode_data in recorded_metric_data:
-            # Check if joint moved in either direction from reset position
-            moved_open = np.any(episode_data > self.reset_joint_percentage + self.joint_percentage_delta_threshold)
-            moved_closed = np.any(episode_data < self.reset_joint_percentage - self.joint_percentage_delta_threshold)
-            revolute_joint_moved_per_demo.append(moved_open or moved_closed)
-        revolute_joint_moved_rate = np.mean(revolute_joint_moved_per_demo)
-        return revolute_joint_moved_rate
+    def get_metric_term_cfg(self) -> MetricTermCfg:
+        """Return the metric term configuration for the revolute joint moved rate metric."""
+        return MetricTermCfg(
+            compute_metric_func=compute_revolute_joint_moved_rate,
+            params={
+                "reset_joint_percentage": self.reset_joint_percentage,
+                "joint_percentage_delta_threshold": self.joint_percentage_delta_threshold,
+            },
+            recorder_term_name=self.recorder_term_name,
+        )

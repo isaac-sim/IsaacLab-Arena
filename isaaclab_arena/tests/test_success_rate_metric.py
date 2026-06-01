@@ -38,7 +38,6 @@ def _test_success_rate_metric(simulation_app):
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.metrics.metrics import compute_metrics
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.terms.events import set_object_pose_per_env
@@ -100,7 +99,7 @@ def _test_success_rate_metric(simulation_app):
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 env.step(actions)
 
-        metrics = compute_metrics(env)
+        metrics = env.unwrapped.compute_metrics()
         print(f"Metrics: {metrics}")
         assert "success_rate" in metrics
         assert "object_moved_rate" in metrics

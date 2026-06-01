@@ -22,11 +22,13 @@ from isaaclab_teleop import IsaacTeleopCfg
 from isaaclab_arena.assets.registries import DeviceRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
+from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     IsaacArenaManagerBasedMimicEnvCfg,
     IsaacLabArenaManagerBasedRLEnvCfg,
 )
 from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+from isaaclab_arena.metrics.metric_base import MetricBase
+from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
@@ -57,12 +59,12 @@ class ArenaEnvBuilder:
            or by registering a pooled reset placement event
 
         Behaviour on reset depends on :attr:`ObjectPlacerParams.resolve_on_reset`
-        (overridable from CLI with ``--resolve_on_reset`` / ``--no-resolve_on_reset``):
+        (overridable from CLI with --resolve_on_reset / --no-resolve_on_reset):
 
         * **True** (default) — registers a reset event that draws a fresh layout
           from the pool for each resetting environment.
-        * **False** — applies one layout per environment via ``set_initial_pose``
-          so per-object reset events restore the same layout every time.
+        * **False** — applies one layout per environment so per-object reset
+          events restore the same layout every time.
         """
         objects_with_relations = self.arena_env.scene.get_objects_with_relations()
         self._placement_event_cfg = solve_and_apply_relation_placement(
@@ -146,6 +148,14 @@ class ArenaEnvBuilder:
         )
         return recorder_cfg
 
+    @staticmethod
+    def _metrics_to_metrics_cfg(metrics: list[MetricBase] | None) -> object | None:
+        """Build a configclass container with one ``MetricTermCfg`` field per metric."""
+        if not metrics:
+            return None
+        fields = [(m.name, MetricTermCfg, m.get_metric_term_cfg()) for m in metrics]
+        return make_configclass("MetricsCfg", fields)()
+
     def compose_manager_cfg(self) -> IsaacLabArenaManagerBasedRLEnvCfg:
         """Return base ManagerBased cfg (scene+events+terminations+xr), no registration."""
 
@@ -207,6 +217,7 @@ class ArenaEnvBuilder:
             elif isinstance(device_cfg, DeviceCfg):
                 teleop_devices_cfg = DevicesCfg(devices={self.arena_env.teleop_device.name: device_cfg})
         metrics = task.get_metrics()
+        metrics_cfg = self._metrics_to_metrics_cfg(metrics)
         metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
 
         # Base has to be specified explicitly to avoid type errors and not lose inheritance.
@@ -261,7 +272,7 @@ class ArenaEnvBuilder:
                 isaac_teleop=isaac_teleop_cfg,
                 teleop_devices=teleop_devices_cfg,
                 recorders=recorder_manager_cfg,
-                metrics=metrics,
+                metrics=metrics_cfg,
                 isaaclab_arena_env=isaaclab_arena_env,
                 viewer=viewer_cfg,
             )
@@ -291,7 +302,7 @@ class ArenaEnvBuilder:
                 # NOTE(alexmillane, 2025-09-25): Metric + recorders excluded from mimic env,
                 # I assume that they're not needed for the mimic env.
                 # recorders=recorder_manager_cfg,
-                # metrics=metrics,
+                # metrics=metrics_cfg,
                 isaaclab_arena_env=isaaclab_arena_env,
                 viewer=viewer_cfg,
             )
@@ -305,7 +316,7 @@ class ArenaEnvBuilder:
         # This runs after the callback so the user's CLI choice is the final authority.
         presets = getattr(self.args, "presets", None)
         if presets is not None:
-            from isaaclab_arena.environments.isaaclab_arena_manager_based_env import ArenaPhysicsCfg
+            from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
 
             env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), presets)
 
@@ -326,7 +337,7 @@ class ArenaEnvBuilder:
             ), "Mimic mode requires an embodiment to be specified"
             return embodiment.get_mimic_env()
         else:
-            return "isaaclab.envs:ManagerBasedRLEnv"
+            return "isaaclab_arena.environments.isaaclab_arena_manager_based_env:IsaacLabArenaManagerBasedRLEnv"
 
     def build_registered(
         self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None

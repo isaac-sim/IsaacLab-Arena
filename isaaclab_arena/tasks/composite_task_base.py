@@ -18,6 +18,7 @@ from isaaclab.utils import configclass
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
+from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.configclass import (
@@ -56,6 +57,30 @@ class SubtaskSuccessStateRecorderCfg(RecorderTermCfg):
     name: str = "subtask_success_rate"
 
 
+def compute_subtask_success_rate(recorded_metric_data: list[np.ndarray]) -> list:
+    """Computes per-subtask success rates.
+
+    Args:
+        recorded_metric_data: List of arrays, each shape (num_subtasks,) with bool values.
+
+    Returns:
+        List of success rates for each subtask.
+    """
+    num_demos = len(recorded_metric_data)
+    if num_demos == 0:
+        return [0.0]
+
+    num_subtasks = recorded_metric_data[0].shape[1]
+    subtask_successes = np.zeros(num_subtasks, dtype=float)
+
+    for ep in range(num_demos):
+        ep_subtask_success_result = np.any(recorded_metric_data[ep], axis=0).astype(float)
+        subtask_successes += ep_subtask_success_result
+    subtask_success_rates = subtask_successes / num_demos
+
+    return subtask_success_rates.tolist()
+
+
 class SubtaskSuccessRateMetric(MetricBase):
     """Computes the per-subtask success rates.
 
@@ -72,28 +97,13 @@ class SubtaskSuccessRateMetric(MetricBase):
         """Return the recorder term configuration for the subtask success state metric."""
         return SubtaskSuccessStateRecorderCfg(name=self.recorder_term_name)
 
-    def compute_metric_from_recording(self, recorded_metric_data: list[np.ndarray]) -> list:
-        """Computes per-subtask success rates.
-
-        Args:
-            recorded_metric_data: List of arrays, each shape (num_subtasks,) with bool values.
-
-        Returns:
-            List of success rates for each subtask.
-        """
-        num_demos = len(recorded_metric_data)
-        if num_demos == 0:
-            return [0.0]
-
-        num_subtasks = recorded_metric_data[0].shape[1]
-        subtask_successes = np.zeros(num_subtasks, dtype=float)
-
-        for ep in range(num_demos):
-            ep_subtask_success_result = np.any(recorded_metric_data[ep], axis=0).astype(float)
-            subtask_successes += ep_subtask_success_result
-        subtask_success_rates = subtask_successes / num_demos
-
-        return subtask_success_rates.tolist()
+    def get_metric_term_cfg(self) -> MetricTermCfg:
+        """Return the metric term configuration for the subtask success rate metric."""
+        return MetricTermCfg(
+            compute_metric_func=compute_subtask_success_rate,
+            params={},
+            recorder_term_name=self.recorder_term_name,
+        )
 
 
 class CompositeTaskBase(TaskBase):

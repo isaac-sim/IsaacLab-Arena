@@ -17,6 +17,7 @@ from isaaclab.utils import configclass
 from isaaclab_tasks.manager_based.manipulation.dexsuite import dexsuite_env_cfg as dexsuite
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
@@ -28,6 +29,7 @@ from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 from isaaclab_arena.utils.pose import PoseRange
 
 
+@register_task
 class LiftObjectTask(TaskBase):
     def __init__(
         self,
@@ -130,6 +132,7 @@ class LiftObjectTerminationsCfg:
     success: TerminationTermCfg = MISSING
 
 
+@register_task
 class LiftObjectTaskRL(LiftObjectTask):
     def __init__(
         self,
@@ -377,6 +380,7 @@ class DexsuiteLiftTerminationsCfg(dexsuite.TerminationsCfg):
     )
 
 
+@register_task
 class DexsuiteLiftTask(LiftObjectTask):
     """Dexsuite lift task for Arena evaluation.
 

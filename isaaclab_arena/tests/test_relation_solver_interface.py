@@ -32,6 +32,8 @@ def _make_box(name: str = "box"):
 
 
 class _FakePlacementPool:
+    requires_env_indexed_layouts = False
+
     def __init__(self, layouts) -> None:
         self._layouts = layouts
 
@@ -100,7 +102,7 @@ def test_dynamic_spawn_pose_skips_objects_missing_from_fallback_layout():
     assert box.get_initial_pose() is None
 
 
-def test_static_initial_poses_skip_object_when_any_layout_is_missing_position():
+def test_static_initial_poses_skip_object_when_any_layout_is_missing_position(capsys):
     from isaaclab_arena.environments.relation_solver_interface import _apply_static_initial_poses
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.utils.pose import PosePerEnv
@@ -129,6 +131,8 @@ def test_static_initial_poses_skip_object_when_any_layout_is_missing_position():
         anchor_objects_set={desk},
         num_envs=2,
     )
+    captured = capsys.readouterr()
+    assert "missing_box" in captured.out
 
     assert missing_box.get_initial_pose() is None
     placed_box_initial_pose = placed_box.get_initial_pose()

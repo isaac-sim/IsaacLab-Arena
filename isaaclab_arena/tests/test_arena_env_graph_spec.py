@@ -6,6 +6,7 @@
 from pathlib import Path
 
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.environments.arena_env_graph_spec import (
     ArenaEnvGraphNodeType,
     ArenaEnvGraphObjectReferenceNodeSpec,
@@ -13,8 +14,18 @@ from isaaclab_arena.environments.arena_env_graph_spec import (
     ArenaEnvGraphSpec,
     ArenaEnvGraphStateSpec,
 )
+from isaaclab_arena.environments.graph_spec_utils import relation_class_for_spatial_constraint_type
+from isaaclab_arena.relations.relations import IsAnchor, PositionLimits
 
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
+
+# Spatial-constraint enum members that intentionally have no registered relation:
+# AT_POSE is applied via set_initial_pose(), and IN is not yet supported by the solver.
+# TODO(xinjieyao, 2026-05-28): drop these once AT_POSE and IN gain relation classes.
+_RELATIONLESS_CONSTRAINT_TYPES = {
+    ArenaEnvGraphSpatialConstraintType.AT_POSE,
+    ArenaEnvGraphSpatialConstraintType.IN,
+}
 
 
 def test_arena_env_graph_spec_loads_pick_and_place_yaml():
@@ -69,6 +80,40 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
     assert final_mug_pose.parent == "mug_ycb_robolab"
     assert final_mug_pose.params["position_xyz"] == (0.65, 0.25, 0.85)
     assert final_mug_pose.params["rotation_xyzw"] == (0.0, 0.0, 0.0, 1.0)
+
+    table_anchor = initial_state.spatial_constraints[0]
+    assert table_anchor.type == ArenaEnvGraphSpatialConstraintType.IS_ANCHOR
+    assert relation_class_for_spatial_constraint_type(table_anchor.type) is IsAnchor
+    assert relation_class_for_spatial_constraint_type(cube_limits.type) is PositionLimits
+    assert (
+        relation_class_for_spatial_constraint_type(initial_mug_pose.type) is None
+    )  # at_pose: handled via set_initial_pose
+    assert relation_class_for_spatial_constraint_type(in_constraint.type) is None  # in: not yet supported by solver
+
+
+def test_registered_relations_match_spatial_constraint_enum():
+    """Registered relations and the spatial-constraint enum must stay in one-to-one sync.
+
+    Each registered RelationBase subclass is keyed by its `name`, which must equal the
+    `value` of a ArenaEnvGraphSpatialConstraintType member (so spec lookups resolve), and
+    every solver-backed enum member must have a relation. AT_POSE and IN are excluded —
+    see _RELATIONLESS_CONSTRAINT_TYPES. This guards against adding one side without the
+    other.
+    """
+    # Importing the module ran the @register_object_relation decorators at file top.
+    registered_names = set(ObjectRelationLibraryRegistry().get_all_keys())
+    enum_values = {
+        constraint.value
+        for constraint in ArenaEnvGraphSpatialConstraintType
+        if constraint not in _RELATIONLESS_CONSTRAINT_TYPES
+    }
+
+    assert registered_names == enum_values, (
+        "Registered relations and spatial-constraint enum are out of sync.\n"
+        f"  relations missing an enum member: {sorted(registered_names - enum_values)}\n"
+        f"  enum members missing a relation:  {sorted(enum_values - registered_names)}\n"
+        "  (AT_POSE and IN are intentionally excluded via _RELATIONLESS_CONSTRAINT_TYPES.)"
+    )
 
 
 def test_arena_env_graph_spec_parses_optional_task_constraints_and_at_pose():

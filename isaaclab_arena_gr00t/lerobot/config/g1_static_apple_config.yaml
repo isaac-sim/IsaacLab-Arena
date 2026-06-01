@@ -11,7 +11,7 @@
 data_root: "/datasets/isaaclab_arena/static_apple_tutorial"
 
 # Instruction given to the policy in natural language
-language_instruction: "Pick up the apple from the shelf and place it onto the plate on the same shelf next to it."
+language_instruction: "move the apple to the plate"
 task_index: 3
 
 # Name of the HDF5 file to use for the dataset (matches the recorder output from

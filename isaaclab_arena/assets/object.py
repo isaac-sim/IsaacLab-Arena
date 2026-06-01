@@ -55,6 +55,7 @@ class Object(ObjectBase):
         self.spawner_cfg = spawner_cfg
         self.scale = scale
         self.initial_pose = initial_pose
+        self.relations = list(relations)
         self.reset_pose = True
         self.spawn_cfg_addon = spawn_cfg_addon
         self.asset_cfg_addon = asset_cfg_addon
