@@ -421,6 +421,8 @@ class PooledObjectPlacer:
                 assert pool, f"Env {cur_env} has no valid layouts to sample from."
                 results.append(self._env_rngs[cur_env].choice(pool))
             return results
+        # Reusable layouts are interchangeable, so each slot stays marginally uniform over the full
+        # pool; per-env RNGs only fix which stream a slot draws from, for parity with the env-specific branch.
         all_layouts = [layout for pool in self._env_pools for layout in pool.layouts]
         return [self._env_rngs[i % self._num_envs].choice(all_layouts) for i in range(count)]
 
