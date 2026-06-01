@@ -22,6 +22,9 @@ from __future__ import annotations
 import argparse
 import json
 
+from isaaclab_arena.environments.agentic_env_gen.env_gen_agent import EnvGenAgent, build_catalog_text
+from isaaclab_arena.environments.agentic_env_gen.env_intent_spec import EnvIntentSpec
+
 DEFAULT_PROMPT = (
     "franka pick up avocado from the table and place it into a bowl on the table. "
     "there are other veggies on the table as distractor"
@@ -53,13 +56,9 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    from isaaclab_arena.environments.agentic_env_gen.env_intent_spec import EnvIntentSpec
-
     if args.print_schema:
         print(json.dumps(EnvIntentSpec.model_json_schema(), indent=2))
         return
-
-    from isaaclab_arena.environments.agentic_env_gen.env_gen_agent import EnvGenAgent, build_catalog_text
 
     catalog = build_catalog_text()
     if args.print_catalog:

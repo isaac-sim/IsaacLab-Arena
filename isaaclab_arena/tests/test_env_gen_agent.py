@@ -35,7 +35,7 @@ def _chat_response(content: str | None = None, reasoning_content: str | None = N
 @pytest.fixture
 def stub_openai():
     """Patch ``openai.OpenAI`` so ``EnvGenAgent()`` never hits the wire."""
-    with patch("openai.OpenAI") as mock_cls:
+    with patch("isaaclab_arena.environments.agentic_env_gen.env_gen_agent.OpenAI") as mock_cls:
         client = MagicMock()
         client.chat.completions.create.side_effect = [
             _chat_response(content="OK"),
@@ -99,7 +99,7 @@ class TestInit:
 
     def test_raises_when_no_key_anywhere(self, monkeypatch, stub_openai):
         monkeypatch.delenv("NV_API_KEY", raising=False)
-        with pytest.raises(ValueError, match="API key required"):
+        with pytest.raises(AssertionError, match="API key required"):
             EnvGenAgent()
 
     def test_custom_model_and_base_url(self, stub_openai):

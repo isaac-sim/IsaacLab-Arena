@@ -69,11 +69,6 @@ def ping(client: Any, model: str) -> str:
 
     Returns:
         The model's response text.
-
-    Raises:
-        RuntimeError: when the request succeeded at the HTTP level but
-            the response contained no choices.
-        Any exception raised by the underlying ``openai`` client.
     """
     # TODO(qianl): wrap with transient-error retry.
     resp = client.chat.completions.create(
@@ -128,9 +123,6 @@ def check_structured_output_support(
     Returns:
         ``True`` when the probe round-trips successfully (wire ok,
         schema honoured, pydantic validation passed).
-
-    Raises:
-        RuntimeError: for any failure mode.
     """
     schema = build_strict_schema(spec_class)
     system = (

@@ -10,8 +10,16 @@ from __future__ import annotations
 import json
 import os
 
-from .env_intent_spec import EnvIntentSpec
-from .structured_output_utils import build_strict_schema, check_structured_output_support, extract_response_text, ping
+from openai import OpenAI
+
+from isaaclab_arena.assets.registries import AssetRegistry
+from isaaclab_arena.environments.agentic_env_gen.env_intent_spec import EnvIntentSpec
+from isaaclab_arena.environments.agentic_env_gen.structured_output_utils import (
+    build_strict_schema,
+    check_structured_output_support,
+    extract_response_text,
+    ping,
+)
 
 DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
 DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
@@ -19,8 +27,6 @@ DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
 
 def build_catalog_text() -> str:
     """Build the vocabulary the agent is allowed to use from AssetRegistry."""
-    from isaaclab_arena.assets.registries import AssetRegistry
-
     registry = AssetRegistry()
     backgrounds: list[str] = []
     objects: list[dict] = []
@@ -36,11 +42,11 @@ def build_catalog_text() -> str:
         elif "object" in tags:
             objects.append({"name": name, "tags": [t for t in tags if t != "object"]})
 
-    obj_lines = "\n".join(f"- {o['name']}  tags={o['tags']}" for o in sorted(objects, key=lambda o: o["name"]))
+    object_lines = "\n".join(f"- {o['name']}  tags={o['tags']}" for o in sorted(objects, key=lambda o: o["name"]))
     return (
         f"EMBODIMENTS: {', '.join(sorted(embodiments))}\n\n"
         f"BACKGROUNDS: {', '.join(sorted(backgrounds))}\n\n"
-        f"OBJECTS ({len(objects)}):\n{obj_lines}"
+        f"OBJECTS ({len(objects)}):\n{object_lines}"
     )
 
 
@@ -61,19 +67,9 @@ class EnvGenAgent:
             model: Model identifier at the inference endpoint.
                 Must support OpenAI-compatible structured outputs.
             base_url: OpenAI-compatible inference endpoint.
-
-        Raises:
-            ValueError: when no API key is available.
-            RuntimeError: when the configured model does not support
-                structured outputs.
-            Any exception raised by the underlying ``openai`` client
-                during the ping probe.
         """
-        from openai import OpenAI
-
         self.api_key = api_key or os.getenv("NV_API_KEY")
-        if not self.api_key:
-            raise ValueError("API key required: set NV_API_KEY or pass api_key.")
+        assert self.api_key, "API key required: set NV_API_KEY or pass api_key."
         self.model = model
         self.client = OpenAI(api_key=self.api_key, base_url=base_url)
         # Validate basic connection and key authentication.
@@ -105,14 +101,6 @@ class EnvGenAgent:
         Returns:
             A ``(EnvIntentSpec, raw_response)`` tuple. The raw text is
             useful for debugging.
-
-        Raises:
-            RuntimeError: when the model returns an empty response.
-            json.JSONDecodeError: when the model returned non-JSON
-                text despite the structured-outputs guarantee.
-            pydantic.ValidationError: when the parsed JSON is
-                well-formed but violates EnvIntentSpec's semantic
-                constraints.
         """
         catalog_text = catalog_text or build_catalog_text()
         system = self._system_prompt()
