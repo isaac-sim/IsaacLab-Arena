@@ -3,8 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for run-time variations wired through :class:`ArenaEnvBuilder`."""
-
 from dataclasses import field
 
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
