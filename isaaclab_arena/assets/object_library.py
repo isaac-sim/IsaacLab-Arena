@@ -10,6 +10,7 @@ import isaaclab.sim as sim_utils
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.hdr_image import HDRImage
+
 from isaaclab.assets import RigidObjectCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
@@ -18,6 +19,7 @@ from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.affordances.turnable import Turnable
+from isaaclab_arena.assets.lightwheel_lazy import LightwheelLazyPath
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_utils import (
@@ -171,15 +173,10 @@ class PowerDrill(LibraryObject):
 class Microwave(LibraryObject, Openable):
     """A microwave oven."""
 
-    # Only required when using Lightwheel SDK
-    from lightwheel_sdk.loader import object_loader
-
     name = "microwave"
     tags = ["object", "openable"]
-    file_path, object_name, metadata = object_loader.acquire_by_registry(
-        registry_type="fixtures", file_name="Microwave039", file_type="USD"
-    )
-    usd_path = file_path
+    # Resolved lazily on first attribute access — see isaaclab_arena.assets.lightwheel_lazy.
+    usd_path = LightwheelLazyPath(registry_type="fixtures", file_name="Microwave039", file_type="USD")
     object_type = ObjectType.ARTICULATION
 
     # Openable affordance parameters
@@ -204,15 +201,9 @@ class CoffeeMachine(LibraryObject, Pressable):
     Encapsulates the pick-up object config for a pick-and-place environment.
     """
 
-    # Only required when using Lightwheel SDK
-    from lightwheel_sdk.loader import object_loader
-
     name = "coffee_machine"
     tags = ["object", "pressable"]
-    file_path, object_name, metadata = object_loader.acquire_by_registry(
-        registry_type="fixtures", file_name="CoffeeMachine108", file_type="USD"
-    )
-    usd_path = file_path
+    usd_path = LightwheelLazyPath(registry_type="fixtures", file_name="CoffeeMachine108", file_type="USD")
     object_type = ObjectType.ARTICULATION
 
     # Openable affordance parameters
@@ -672,15 +663,9 @@ class Broccoli(LibraryObject):
     Brocolli
     """
 
-    # Only required when using Lightwheel SDK
-    from lightwheel_sdk.loader import object_loader
-
     name = "broccoli"
     tags = ["object", "vegetable", "graspable"]
-    file_path, object_name, metadata = object_loader.acquire_by_registry(
-        registry_type="objects", registry_name=["broccoli"], file_type="USD"
-    )
-    usd_path = file_path
+    usd_path = LightwheelLazyPath(registry_type="objects", registry_name=["broccoli"], file_type="USD")
     object_type = ObjectType.RIGID
 
     def __init__(
@@ -699,15 +684,9 @@ class SweetPotato(LibraryObject):
     SweetPotato
     """
 
-    # Only required when using Lightwheel SDK
-    from lightwheel_sdk.loader import object_loader
-
     name = "sweet_potato"
     tags = ["object", "vegetable", "graspable"]
-    file_path, object_name, metadata = object_loader.acquire_by_registry(
-        registry_type="objects", file_name="SweetPotato005", file_type="USD"
-    )
-    usd_path = file_path
+    usd_path = LightwheelLazyPath(registry_type="objects", file_name="SweetPotato005", file_type="USD")
     object_type = ObjectType.RIGID
     scale = (1.5, 1.5, 1.5)
 
@@ -727,15 +706,9 @@ class Jug(LibraryObject):
     Jug
     """
 
-    # Only required when using Lightwheel SDK
-    from lightwheel_sdk.loader import object_loader
-
     name = "jug"
     tags = ["object", "graspable"]
-    file_path, object_name, metadata = object_loader.acquire_by_registry(
-        registry_type="objects", file_name="Jug005", file_type="USD"
-    )
-    usd_path = file_path
+    usd_path = LightwheelLazyPath(registry_type="objects", file_name="Jug005", file_type="USD")
     object_type = ObjectType.RIGID
     scale = (2.0, 2.0, 2.0)
 
@@ -755,15 +728,9 @@ class BeerBottle(LibraryObject):
     Beer Bottle
     """
 
-    # Only required when using Lightwheel SDK
-    from lightwheel_sdk.loader import object_loader
-
     name = "beer_bottle"
     tags = ["object", "graspable"]
-    file_path, object_name, metadata = object_loader.acquire_by_registry(
-        registry_type="objects", file_name="beer016", file_type="USD"
-    )
-    usd_path = file_path
+    usd_path = LightwheelLazyPath(registry_type="objects", file_name="beer016", file_type="USD")
     object_type = ObjectType.RIGID
     scale = (1.2, 1.2, 1.2)
 

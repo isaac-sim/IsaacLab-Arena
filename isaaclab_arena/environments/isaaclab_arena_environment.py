@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.task_base import TaskBase
 

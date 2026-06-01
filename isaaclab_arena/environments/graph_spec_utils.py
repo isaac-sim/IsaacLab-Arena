@@ -6,7 +6,13 @@
 from collections.abc import Callable
 from enum import Enum
 from numbers import Real
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpatialConstraintType
+    from isaaclab_arena.relations.relations import RelationBase
 
 
 def as_dict(data: Any, spec_name: str) -> dict[str, Any]:
@@ -131,3 +137,18 @@ def assert_references_exist(nodes: list[Any], tasks: list[Any], state_specs: lis
 
 def _add_id_location(id_locations: dict[str, list[str]], spec_id: str, location: str) -> None:
     id_locations.setdefault(spec_id, []).append(location)
+
+
+def relation_class_for_spatial_constraint_type(
+    constraint_type: "ArenaEnvGraphSpatialConstraintType",
+) -> "type[RelationBase] | None":
+    """Resolve a spatial-constraint enum member to its RelationBase subclass.
+
+    Returns None for enum members that have no registered class yet (e.g. AT_POSE,
+    handled via set_initial_pose; IN, not yet supported by the solver).
+    # TODO(xinjieyao, 2026-05-28): add support for AT_POSE and IN.
+    """
+    registry = ObjectRelationLibraryRegistry()
+    if registry.is_registered(constraint_type.value):
+        return registry.get_object_relation_by_name(constraint_type.value)
+    return None

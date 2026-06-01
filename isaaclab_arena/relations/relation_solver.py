@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import torch
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from isaaclab_arena.relations.relation_loss_strategies import (
     NoCollisionLossStrategy,
@@ -15,7 +15,8 @@ from isaaclab_arena.relations.relation_loss_strategies import (
 )
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
-from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
+from isaaclab_arena.relations.relations import On, Relation, RelationBase, UnaryRelation
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
@@ -66,11 +67,16 @@ class RelationSolver:
             )
         return strategy
 
-    def _compute_total_loss(self, state: RelationSolverState, debug: bool = False) -> torch.Tensor:
+    def _compute_total_loss(
+        self,
+        state: RelationSolverState,
+        debug: bool = False,
+    ) -> torch.Tensor:
         """Compute total loss from all relations using registered strategies.
 
         Args:
-            state: Current optimization state with object positions.
+            state: Current optimization state with object positions and
+                optional per-env bounding boxes (accessed via state.get_bbox).
             debug: If True, print detailed loss breakdown.
 
         Returns:
@@ -85,28 +91,32 @@ class RelationSolver:
             for relation in obj.get_spatial_relations():
                 child_pos = state.get_position(obj)
                 strategy = self._get_strategy(relation)
+                child_bbox = state.get_bbox(obj)
 
                 # Handle unary relations (no parent)
                 if isinstance(relation, UnaryRelation):
-                    loss = strategy.compute_loss(
+                    unary_strategy = cast(UnaryRelationLossStrategy, strategy)
+                    loss = unary_strategy.compute_loss(
                         relation=relation,
                         child_pos=child_pos,
-                        child_bbox=obj.get_bounding_box().to(device),
+                        child_bbox=child_bbox,
                     )
                     if debug:
                         _print_unary_relation_debug(obj, relation, child_pos[0], loss.mean())
                 # Handle binary relations (with parent) like On, NextTo
                 elif isinstance(relation, Relation):
+                    relation_strategy = cast(RelationLossStrategy, strategy)
                     parent = relation.parent
                     if parent in state.anchor_objects:
                         parent_world_bbox = parent.get_world_bounding_box().to(device)
                     else:
                         parent_pos = state.get_position(parent)
-                        parent_world_bbox = parent.get_bounding_box().to(device).translated(parent_pos)
-                    loss = strategy.compute_loss(
+                        parent_bbox = state.get_bbox(parent)
+                        parent_world_bbox = parent_bbox.translated(parent_pos)
+                    loss = relation_strategy.compute_loss(
                         relation=relation,
                         child_pos=child_pos,
-                        child_bbox=obj.get_bounding_box().to(device),
+                        child_bbox=child_bbox,
                         parent_world_bbox=parent_world_bbox,
                     )
                     if debug:
@@ -123,16 +133,21 @@ class RelationSolver:
         self._last_loss_per_env = total_loss.detach().clone()
         return total_loss.mean()
 
-    def _compute_no_overlap_loss(self, state: RelationSolverState, debug: bool = False) -> torch.Tensor:
-        """Compute pairwise no-overlap loss for all non-anchor objects against all other objects.
+    def _compute_no_overlap_loss(
+        self,
+        state: RelationSolverState,
+        debug: bool = False,
+    ) -> torch.Tensor:
+        """Compute pairwise no-overlap loss, skipping On-linked pairs.
 
-        Each unique pair is evaluated twice (once per direction):
+        Each unique non-On pair is evaluated twice (once per direction):
         - Non-anchor vs anchor: gradient flows to the non-anchor only.
         - Non-anchor vs non-anchor: both objects receive gradient by computing
           the loss in both directions with the other's position detached.
 
         Args:
-            state: Current optimization state with object positions.
+            state: Current optimization state with object positions and
+                optional per-env bounding boxes.
             debug: If True, print detailed loss breakdown.
 
         Returns:
@@ -144,12 +159,24 @@ class RelationSolver:
         non_anchor_objects = state.optimizable_objects
         anchor_objects = list(state.anchor_objects)
 
+        # Skip no-overlap for On pairs: the On loss already pushes the child
+        # onto the parent surface, so penalizing bbox overlap between them
+        # would fight that constraint and cause oscillation.
+        on_pairs: set[tuple[int, int]] = set()
+        for obj in [*non_anchor_objects, *anchor_objects]:
+            for rel in obj.get_relations():
+                if isinstance(rel, On):
+                    on_pairs.add((id(obj), id(rel.parent)))
+                    on_pairs.add((id(rel.parent), id(obj)))
+
         for i, child in enumerate(non_anchor_objects):
             child_pos = state.get_position(child)
-            child_bbox = child.get_bounding_box().to(device)
+            child_bbox = state.get_bbox(child)
 
             # Against all anchors
             for anchor in anchor_objects:
+                if (id(child), id(anchor)) in on_pairs:
+                    continue
                 anchor_world_bbox = anchor.get_world_bounding_box().to(device)
                 loss = self._no_collision_strategy.compute_loss(
                     clearance_m=self.params.clearance_m,
@@ -164,8 +191,10 @@ class RelationSolver:
             # Against other non-anchors (unique pairs, both directions)
             for j in range(i + 1, len(non_anchor_objects)):
                 other = non_anchor_objects[j]
+                if (id(child), id(other)) in on_pairs:
+                    continue
                 other_pos = state.get_position(other)
-                other_bbox = other.get_bounding_box().to(device)
+                other_bbox = state.get_bbox(other)
 
                 # Forward: gradient flows to child (object i)
                 other_world_bbox = other_bbox.translated(other_pos.detach())
@@ -198,6 +227,7 @@ class RelationSolver:
         self,
         objects: list[ObjectBase],
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]],
+        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
     ) -> list[dict[ObjectBase, tuple[float, float, float]]]:
         """Solve for optimal positions of all objects.
 
@@ -206,12 +236,16 @@ class RelationSolver:
                 marked with IsAnchor() which serves as a fixed reference.
             initial_positions: List of dicts (one per env). Use a single-element list
                 for single-env placement.
+            env_bboxes: Optional per-env bounding boxes keyed by object.
+                ObjectPlacer always supplies these, with each
+                AxisAlignedBoundingBox shaped (batch, 3). Direct solver calls
+                may omit them to use each object's default get_bounding_box().
 
         Returns:
             List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
         """
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        state = RelationSolverState(objects, initial_positions, device=device)
+        state = RelationSolverState(objects, initial_positions, device=device, env_bboxes=env_bboxes)
 
         if self.params.verbose:
             anchor_names = [obj.name for obj in state.anchor_objects]

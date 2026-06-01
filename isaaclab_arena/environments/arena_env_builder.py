@@ -18,26 +18,21 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
 from isaaclab_teleop import IsaacTeleopCfg
 
-from isaaclab_arena.assets.object import Object
-from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.registries import DeviceRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env import (
+from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     IsaacArenaManagerBasedMimicEnvCfg,
     IsaacLabArenaManagerBasedRLEnvCfg,
 )
+from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+from isaaclab_arena.metrics.metric_base import MetricBase
+from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
-from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_events import get_rotation_xyzw, solve_and_place_objects
-from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
-from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
-from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
 
 class ArenaEnvBuilder:
@@ -56,115 +51,26 @@ class ArenaEnvBuilder:
 
         This method:
         1. Collects all objects from the scene that have relations
-        2. Runs the ObjectPlacer to solve spatial constraints (no-overlap is built into the solver)
-        3. Applies solved positions to objects via a :class:`PooledObjectPlacer`
+        2. Builds an object-placement pool
+        3. Reuses the object-only relation placer
+        4. Applies solved positions either by writing fixed per-object initial poses
+           or by registering a pooled reset placement event
 
         Behaviour on reset depends on :attr:`ObjectPlacerParams.resolve_on_reset`
-        (overridable from CLI with ``--resolve_on_reset`` / ``--no-resolve_on_reset``):
+        (overridable from CLI with --resolve_on_reset / --no-resolve_on_reset):
 
         * **True** (default) — registers a reset event that draws a fresh layout
           from the pool for each resetting environment.
-        * **False** — applies one layout per environment via ``set_initial_pose``
-          so per-object reset events restore the same layout every time.
+        * **False** — applies one layout per environment so per-object reset
+          events restore the same layout every time.
         """
         objects_with_relations = self.arena_env.scene.get_objects_with_relations()
-
-        if not objects_with_relations:
-            print("No objects with relations found in scene. Skipping relation solving.")
-            return
-
-        num_envs = self.args.num_envs
-        cli_resolve = self.args.resolve_on_reset
-
-        # The pool applies positions itself, so disable ObjectPlacer's built-in apply.
-        # Position history and verbose logging are unnecessary for batch-solving a pool.
-        placer_params = ObjectPlacerParams(
+        self._placement_event_cfg = solve_and_apply_relation_placement(
+            objects_with_relations,
+            num_envs=self.args.num_envs,
             placement_seed=self.args.placement_seed,
-            apply_positions_to_objects=False,
-            solver_params=RelationSolverParams(save_position_history=False, verbose=False),
+            resolve_on_reset=self.args.resolve_on_reset,
         )
-        if cli_resolve is not None:
-            placer_params.resolve_on_reset = cli_resolve
-
-        pool_size = num_envs * placer_params.min_unique_layouts_per_env
-
-        placement_pool = PooledObjectPlacer(
-            objects=objects_with_relations,
-            placer_params=placer_params,
-            pool_size=pool_size,
-        )
-
-        if placer_params.resolve_on_reset:
-            anchor_objects_set = set(get_anchor_objects(objects_with_relations))
-            for obj in objects_with_relations:
-                if obj not in anchor_objects_set and obj.event_cfg is not None:
-                    raise RuntimeError(
-                        f"Non-anchor object '{obj.name}' has an explicit pose-reset event. "
-                        "Relational solving should not be combined with explicit setting of "
-                        "poses on non-anchor objects."
-                    )
-            # Set init_state so objects spawn at valid positions (not origin).
-            # The placement event will override these on every reset.
-            self._set_init_state_from_pool(objects_with_relations, placement_pool, anchor_objects_set)
-            self._placement_event_cfg = EventTermCfg(
-                func=solve_and_place_objects,
-                mode="reset",
-                params={
-                    "objects": objects_with_relations,
-                    "placement_pool": placement_pool,
-                },
-            )
-        else:
-            self._apply_pool_layouts_to_objects(objects_with_relations, placement_pool, num_envs)
-
-    def _set_init_state_from_pool(
-        self,
-        objects: list[Object | ObjectReference],
-        pool: PooledObjectPlacer,
-        anchor_objects_set: set,
-    ) -> None:
-        """Set ``object_cfg.init_state`` from a pool layout so objects spawn at valid positions.
-
-        Only touches ``init_state.pos`` / ``init_state.rot`` — does NOT create
-        per-object reset events (the placement event handles resets).
-        """
-        layout = pool.sample_with_replacement(1)[0]
-        for obj in objects:
-            if obj in anchor_objects_set:
-                continue
-            pos = layout.positions.get(obj)
-            if pos is None:
-                continue
-            rotation_xyzw = get_rotation_xyzw(obj)
-            obj.object_cfg.init_state.pos = pos
-            obj.object_cfg.init_state.rot = rotation_xyzw
-
-    def _apply_pool_layouts_to_objects(
-        self,
-        objects: list[Object | ObjectReference],
-        pool: PooledObjectPlacer,
-        num_envs: int,
-    ) -> None:
-        """Draw layouts from the pool and apply them to objects via ``set_initial_pose``.
-
-        Each non-anchor object gets a :class:`~isaaclab_arena.utils.pose.PosePerEnv`
-        so that per-object reset events restore these positions.
-        """
-        layouts = pool.sample_with_replacement(num_envs)
-        anchor_objects_set = set(get_anchor_objects(objects))
-
-        for obj in objects:
-            if obj in anchor_objects_set:
-                continue
-            rotation_xyzw = get_rotation_xyzw(obj)
-            poses = []
-            for env_idx in range(num_envs):
-                pos = layouts[env_idx].positions.get(obj)
-                if pos is None:
-                    break
-                poses.append(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
-            else:
-                obj.set_initial_pose(PosePerEnv(poses=poses))
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""
@@ -173,6 +79,14 @@ class ArenaEnvBuilder:
             f"{base}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_rank{get_local_rank()}"
         )
         return recorder_cfg
+
+    @staticmethod
+    def _metrics_to_metrics_cfg(metrics: list[MetricBase] | None) -> object | None:
+        """Build a configclass container with one ``MetricTermCfg`` field per metric."""
+        if not metrics:
+            return None
+        fields = [(m.name, MetricTermCfg, m.get_metric_term_cfg()) for m in metrics]
+        return make_configclass("MetricsCfg", fields)()
 
     def compose_manager_cfg(self) -> IsaacLabArenaManagerBasedRLEnvCfg:
         """Return base ManagerBased cfg (scene+events+terminations+xr), no registration."""
@@ -229,6 +143,7 @@ class ArenaEnvBuilder:
             elif isinstance(device_cfg, DeviceCfg):
                 teleop_devices_cfg = DevicesCfg(devices={self.arena_env.teleop_device.name: device_cfg})
         metrics = task.get_metrics()
+        metrics_cfg = self._metrics_to_metrics_cfg(metrics)
         metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
 
         # Base has to be specified explicitly to avoid type errors and not lose inheritance.
@@ -283,7 +198,7 @@ class ArenaEnvBuilder:
                 isaac_teleop=isaac_teleop_cfg,
                 teleop_devices=teleop_devices_cfg,
                 recorders=recorder_manager_cfg,
-                metrics=metrics,
+                metrics=metrics_cfg,
                 isaaclab_arena_env=isaaclab_arena_env,
                 viewer=viewer_cfg,
             )
@@ -313,7 +228,7 @@ class ArenaEnvBuilder:
                 # NOTE(alexmillane, 2025-09-25): Metric + recorders excluded from mimic env,
                 # I assume that they're not needed for the mimic env.
                 # recorders=recorder_manager_cfg,
-                # metrics=metrics,
+                # metrics=metrics_cfg,
                 isaaclab_arena_env=isaaclab_arena_env,
                 viewer=viewer_cfg,
             )
@@ -327,7 +242,7 @@ class ArenaEnvBuilder:
         # This runs after the callback so the user's CLI choice is the final authority.
         presets = getattr(self.args, "presets", None)
         if presets is not None:
-            from isaaclab_arena.environments.isaaclab_arena_manager_based_env import ArenaPhysicsCfg
+            from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
 
             env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), presets)
 
@@ -348,7 +263,7 @@ class ArenaEnvBuilder:
             ), "Mimic mode requires an embodiment to be specified"
             return embodiment.get_mimic_env()
         else:
-            return "isaaclab.envs:ManagerBasedRLEnv"
+            return "isaaclab_arena.environments.isaaclab_arena_manager_based_env:IsaacLabArenaManagerBasedRLEnv"
 
     def build_registered(
         self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None

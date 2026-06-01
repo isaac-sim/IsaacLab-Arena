@@ -5,9 +5,11 @@
 
 from typing import Any
 
+import isaaclab.sim as sim_utils
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 
 from isaaclab_arena.assets.background import Background
+from isaaclab_arena.assets.lightwheel_utils import acquire_lightwheel_asset
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
 
@@ -139,6 +141,25 @@ class Table(LibraryBackground):
 
 
 @register_asset
+class OfficeTableBackground(LibraryBackground):
+    """
+    A basic office table.
+    """
+
+    name = "office_table_background"
+    tags = ["background"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Mimic/nut_pour_task/nut_pour_assets/table.usd"
+    object_min_z = -0.05
+    scale = (1.0, 1.0, 0.7)
+    spawn_cfg_addon = {
+        "rigid_props": sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
+    }
+
+    def __init__(self):
+        super().__init__(scale=self.scale)
+
+
+@register_asset
 class LightwheelKitchenBackground(LibraryBackground):
     """
     Encapsulates the background scene for the Lightwheel Robocasa kitchen.
@@ -155,8 +176,14 @@ class LightwheelKitchenBackground(LibraryBackground):
 
         # Lazily download the USD
         self.usd_path = str(
-            floorplan_loader.get_usd(
-                scene="robocasakitchen", layout_id=layout_id, style_id=style_id, backend="robocasa"
+            acquire_lightwheel_asset(
+                floorplan_loader,
+                floorplan_loader.get_usd,
+                description=f"{self.name} background layout={layout_id} style={style_id}",
+                scene="robocasakitchen",
+                layout_id=layout_id,
+                style_id=style_id,
+                backend="robocasa",
             )[0]
         )
         super().__init__()

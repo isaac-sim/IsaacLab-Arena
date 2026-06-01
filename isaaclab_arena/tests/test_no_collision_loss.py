@@ -11,6 +11,7 @@ from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
@@ -216,6 +217,32 @@ def test_solver_respects_clearance_m():
     ).item(), f"Boxes should be at least 5 cm apart; box_a at {pos_a}, box_b at {pos_b}"
 
 
+def test_no_overlap_skips_direct_on_non_anchor_pair():
+    """No-overlap should not fight an On relation whose parent is also movable."""
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+
+    support = _create_box("support")
+    child = _create_box("child")
+    support.add_relation(On(table, clearance_m=0.0))
+    child.add_relation(On(support, clearance_m=0.0))
+
+    objects = [table, support, child]
+    initial_positions = [{
+        table: (0.0, 0.0, 0.0),
+        support: (2.0, 2.0, 0.0),
+        child: (2.0, 2.0, 0.0),
+    }]
+    state = RelationSolverState(objects, initial_positions, device=torch.device("cpu"))
+    solver = RelationSolver(params=RelationSolverParams(max_iters=0))
+
+    loss = solver._compute_no_overlap_loss(state)  # pyright: ignore[reportPrivateUsage]
+
+    assert torch.isfinite(loss).all()
+    assert torch.allclose(loss, torch.zeros_like(loss))
+
+
 def test_negative_clearance_m_raises():
     """Negative clearance_m should be rejected."""
     import pytest
@@ -239,9 +266,10 @@ def test_validation_accepts_on_parent_overlap():
     # the expanded table extends to 0.11, so they just touch. The On pair
     # should be skipped by validation.
     positions = {table: (0.0, 0.0, 0.0), box: (0.4, 0.4, 0.11)}
+    env_bboxes = {obj: obj.get_bounding_box() for obj in positions}
 
     placer = ObjectPlacer(ObjectPlacerParams())
-    assert placer._validate_no_overlap(positions)
+    assert placer._validate_no_overlap(positions, env_bboxes)
 
 
 def test_validation_rejects_non_anchor_overlap():
@@ -259,9 +287,10 @@ def test_validation_rejects_non_anchor_overlap():
 
     # Both boxes at nearly the same position -- they overlap
     positions = {table: (0.0, 0.0, 0.0), box_a: (0.3, 0.3, 0.11), box_b: (0.35, 0.35, 0.11)}
+    env_bboxes = {obj: obj.get_bounding_box() for obj in positions}
 
     placer = ObjectPlacer(ObjectPlacerParams())
-    assert not placer._validate_no_overlap(positions)
+    assert not placer._validate_no_overlap(positions, env_bboxes)
 
 
 def test_relation_solver_no_collision_same_inputs_reproducible():

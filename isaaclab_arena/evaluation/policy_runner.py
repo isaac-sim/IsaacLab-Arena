@@ -102,9 +102,7 @@ def rollout_policy(
                     completed_episodes = env_ids.shape[0]
                     num_episodes_completed += completed_episodes
                     if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
-                        from isaaclab_arena.metrics.metrics import compute_metrics
-
-                        metrics = compute_metrics(env.unwrapped)
+                        metrics = env.unwrapped.compute_metrics()
                         tqdm.tqdm.write(
                             f"[Rank {get_local_rank()}/{get_world_size()}] Metrics:"
                             f" {metrics_to_plain_python_types(metrics)}"
@@ -129,14 +127,10 @@ def rollout_policy(
 
     else:
 
-        # Only compute metrics if env has a non-None metrics list (e.g. NoTask leaves metrics as None).
+        # Only compute metrics if env has non-None metrics.
         # Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing)
         if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
-            # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
-            from isaaclab_arena.metrics.metrics import compute_metrics
-
-            metrics = compute_metrics(env.unwrapped)
-            return metrics
+            return env.unwrapped.compute_metrics()
         return None
 
 

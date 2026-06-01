@@ -16,6 +16,7 @@ from isaaclab.utils import configclass
 
 import isaaclab_arena_environments.mdp as mdp
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
@@ -25,6 +26,7 @@ from isaaclab_arena.tasks.terminations import objects_in_proximity
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
+@register_task
 class AssemblyTask(TaskBase):
     """
     Assembly task where an object needs to be assembled with a base object, like peg insert, gear mesh, etc.
