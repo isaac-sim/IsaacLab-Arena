@@ -13,7 +13,7 @@ from pxr import Gf, Usd, UsdGeom
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object import Object
-from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
+from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.utils.configclass import make_configclass
@@ -103,19 +103,11 @@ class Scene:
         return self.commands_cfg
 
     def get_asset_variations(self) -> dict[str, list[VariationBase]]:
-        """Return a ``{asset_name: [variation, ...]}`` mapping for every asset that has variations.
-
-        Assets without any attached variation are omitted. Variations are
-        returned enabled-or-not.
-        """
-        by_asset: dict[str, list[VariationBase]] = {}
+        """Return a dict mapping each asset name to a list of its variations."""
+        asset_name_to_variations: dict[str, list[VariationBase]] = {}
         for asset in self.assets.values():
-            if not isinstance(asset, ObjectBase):
-                continue
-            variations = asset.get_variations()
-            if variations:
-                by_asset[asset.name] = list(variations)
-        return by_asset
+            asset_name_to_variations[asset.name] = asset.get_variations()
+        return asset_name_to_variations
 
     def get_objects_with_relations(self) -> list[Object | ObjectReference]:
         """Return all objects in the scene that have at least one relation."""

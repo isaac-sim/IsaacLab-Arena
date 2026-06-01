@@ -3,14 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Uniform categorical sampler over an arbitrary ``choices`` sequence.
+"""Uniform categorical sampler over a per-call ``choices`` sequence.
 
-The choice domain is not a property of the distribution: it's a per-call
-argument passed to :meth:`SamplerBase.sample` (as ``choices``), since
-callers typically know the pool only at apply time (e.g. the HDRs to pick
-from). The returned samples are the actual items from ``choices``, not
-indices, so downstream consumers (e.g. the variation recorder) capture
-meaningful values directly.
+``choices`` is passed per call to :meth:`SamplerBase.sample` (callers often know
+the pool only at apply time). Samples are the actual items, not indices.
 """
 
 from __future__ import annotations
@@ -26,12 +22,7 @@ from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
 
 @configclass
 class CategoricalSamplerCfg(SamplerBaseCfg):
-    """Config for :class:`CategoricalSampler`.
-
-    Intentionally empty: the categorical distribution has no declarative
-    parameters in this implementation. ``choices`` is supplied per call via
-    :meth:`SamplerBase.sample`.
-    """
+    """Config for :class:`CategoricalSampler` (empty; ``choices`` is supplied per call)."""
 
     def build(self) -> CategoricalSampler:
         return CategoricalSampler()

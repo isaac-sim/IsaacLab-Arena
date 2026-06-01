@@ -5,8 +5,7 @@
 
 """Build-time variation that picks an HDR environment map for a dome light.
 
-The HDR is sampled once before env-cfg composition (it can't be swapped on a
-running dome light without rebuilding its spawner), and applied via
+The HDR is sampled once before env-cfg composition and applied via
 :meth:`~isaaclab_arena.assets.object_library.DomeLight.add_hdr`.
 """
 
@@ -30,13 +29,11 @@ class HDRImageVariationCfg(VariationBaseCfg):
     """Configuration for :class:`HDRImageVariation`.
 
     Attributes:
-        hdr_names: Registered HDR names to sample from (see
-            :class:`~isaaclab_arena.assets.registries.HDRImageRegistry`). When
-            empty, the variation samples uniformly across every registered HDR.
-        sampler: Categorical distribution over indices into the resolved HDR
-            list. The pool size is passed at :meth:`HDRImageVariation.apply`
-            time, so the default empty :class:`CategoricalSamplerCfg` works
-            out of the box.
+        hdr_names: Registered HDR names to sample from; empty means sample over
+            every registered HDR.
+        sampler: Categorical distribution over the resolved HDR pool. The
+            default works out of the box (the pool is supplied at
+            :meth:`HDRImageVariation.apply` time).
     """
 
     hdr_names: list[str] = field(default_factory=list)
@@ -47,12 +44,10 @@ class HDRImageVariation(BuildTimeVariationBase):
     """Sample a single HDR and attach it to a :class:`DomeLight` at build time.
 
     Args:
-        light: The dome light whose HDR will be set. A reference is captured;
-            ``apply`` mutates this exact instance.
-        cfg: Tunable parameters. Defaults to an :class:`HDRImageVariationCfg`
-            with an empty ``hdr_names`` (i.e. sample over every registered HDR)
-            and the default categorical sampler.
-        sampler: Optional override for the categorical distribution. If
+        light: The dome light to mutate. A reference is captured; ``apply``
+            mutates this instance.
+        cfg: Tunable parameters. Defaults to sampling over every registered HDR.
+        sampler: Optional override for the categorical distribution; if
             ``None``, the sampler in ``cfg`` is used.
     """
 

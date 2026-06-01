@@ -24,30 +24,24 @@ class Asset:
         assert name is not None, "Name is required for all assets"
         self.name = name
         self.tags = tags
+        self.variations: dict[str, VariationBase] = {}
 
     def add_variation(self, variation: VariationBase) -> None:
-        """Attach a variation to this asset under its class-level ``name``.
+        """Attach a variation under its class-level ``name``, replacing any existing one.
 
         Subclasses call this from their ``__init__`` to declare the variations
-        they support. Re-registering the same name overwrites the existing entry.
-        The ``_variations`` dict is created on first attach so subclasses that
-        don't route through ``Asset.__init__`` (e.g. some
-        :class:`~isaaclab_arena.embodiments.embodiment_base.EmbodimentBase`
-        subclasses) still work.
+        they support.
         """
-        if not hasattr(self, "_variations"):
-            self._variations: dict[str, VariationBase] = {}
-        self._variations[variation.name] = variation
+        self.variations[variation.name] = variation
 
     def get_variation(self, name: str) -> VariationBase:
         """Return the variation with the given name."""
-        variations = getattr(self, "_variations", {})
-        assert name in variations, (
+        assert name in self.variations, (
             f"Asset '{self.name}' ({type(self).__name__}) does not support variation '{name}'. "
-            f"Supported variations: {sorted(variations)}."
+            f"Supported variations: {sorted(self.variations)}."
         )
-        return variations[name]
+        return self.variations[name]
 
     def get_variations(self) -> list[VariationBase]:
         """Return every variation attached to this asset, enabled or not."""
-        return list(getattr(self, "_variations", {}).values())
+        return list(self.variations.values())

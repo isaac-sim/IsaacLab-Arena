@@ -77,13 +77,9 @@ class ArenaEnvBuilder:
     def get_all_variations(self) -> dict[str, list[VariationBase]]:
         """Return ``{asset_name: [variation, ...]}`` for every variation host in the env.
 
-        Combines variations attached to scene assets (via
-        :meth:`~isaaclab_arena.scene.scene.Scene.get_asset_variations`) with
-        any variations attached to the embodiment, keyed by
-        :attr:`~isaaclab_arena.embodiments.embodiment_base.EmbodimentBase.name`.
-        Embodiment-level variations let the embodiment own its own knobs (e.g.
-        camera decalibration on a robot's wrist cam) without needing to be
-        registered as a scene-side ``ObjectBase``.
+        Merges scene-asset variations with the embodiment's own variations
+        (keyed by the embodiment's ``name``), so an embodiment can own knobs
+        like wrist-cam decalibration without being a scene-side ``ObjectBase``.
         """
         by_asset: dict[str, list[VariationBase]] = dict(self.arena_env.scene.get_asset_variations())
         embodiment = self.arena_env.embodiment
@@ -98,12 +94,10 @@ class ArenaEnvBuilder:
         return by_asset
 
     def _compose_variations_event_cfg(self) -> Any | None:
-        """Build a configclass instance holding an :class:`EventTermCfg` per enabled run-time variation.
+        """Build a configclass with one :class:`EventTermCfg` per enabled run-time variation.
 
-        Walks every variation host (scene assets + embodiment), skips disabled
-        ones and any build-time variations (which are applied via
-        :meth:`_apply_build_time_variations`), and asks each remaining
-        variation for its event term. Returns ``None`` when nothing is enabled.
+        Returns ``None`` when no run-time variation is enabled. Build-time
+        variations are handled separately by :meth:`_apply_build_time_variations`.
         """
         fields: list[tuple[str, type, EventTermCfg]] = []
         seen: set[str] = set()
@@ -126,11 +120,10 @@ class ArenaEnvBuilder:
         return VariationsEventCfg()
 
     def _apply_build_time_variations(self) -> None:
-        """Sample and apply every enabled :class:`BuildTimeVariationBase` from scene + embodiment.
+        """Sample and apply every enabled :class:`BuildTimeVariationBase`.
 
-        Build-time variations mutate asset configs in place (e.g. swapping
-        a dome light's spawner texture), so this must run before ``scene_cfg``
-        is materialised.
+        These mutate asset configs in place (e.g. a dome light's spawner
+        texture), so this must run before ``scene_cfg`` is materialised.
         """
         for asset_variations in self.get_all_variations().values():
             for variation in asset_variations:

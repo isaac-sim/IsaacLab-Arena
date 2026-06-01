@@ -5,15 +5,9 @@
 
 """Variation system public API.
 
-Names are exposed lazily (PEP 562 ``__getattr__``) rather than imported
-eagerly. Some concrete variations (e.g. :class:`CameraDecalibrationVariation`)
-pull in both ``torch`` and ``isaaclab.sensors``, and importing that pair
-*before* the Isaac Sim ``SimulationApp`` launches corrupts the USD Python
-bindings. Eager imports here would propagate that hazard to anything that
-merely imports this package (or a submodule of it) at module-load time — e.g.
-pytest collecting a test file. Deferring the imports until an attribute is
-actually accessed keeps ``import isaaclab_arena.variations`` (and importing
-the lightweight base / sampler submodules) safe at any time.
+Names are exposed lazily (PEP 562 ``__getattr__``) so importing this package —
+or its lightweight base / sampler submodules — never eagerly pulls heavy,
+import-order-sensitive dependencies. See the comment on ``_EXPORTS`` for why.
 """
 
 from __future__ import annotations
@@ -22,6 +16,12 @@ import importlib
 from typing import TYPE_CHECKING
 
 # Public name -> submodule that defines it. Resolved on first access.
+#
+# The laziness matters: some concrete variations (e.g. CameraDecalibrationVariation)
+# import both torch and isaaclab.sensors, and importing that pair *before* the
+# Isaac Sim SimulationApp launches corrupts the USD Python bindings. Eager imports
+# here would propagate that hazard to anything that imports this package (or a
+# submodule of it) at module-load time — e.g. pytest collecting a test file.
 _EXPORTS = {
     "BuildTimeVariationBase": "variation_base",
     "RunTimeVariationBase": "variation_base",

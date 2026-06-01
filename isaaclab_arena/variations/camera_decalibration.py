@@ -5,15 +5,10 @@
 
 """Per-env camera decalibration variation.
 
-Adds a small sampler-drawn translation on top of a camera's nominal local
-position so its observed pose drifts from the calibrated reference. Deltas are
-sampled in the camera's own frame (see
-:class:`CameraDecalibrationVariationCfg` for the axis convention) and rotated
-into the camera's parent (USD local) frame before being applied as a local
-translation. The nominal (un-decalibrated) local translation is snapshotted on
-the first event tick, and each subsequent tick rewrites the local translation
-to ``nominal + R · delta`` for the envs being touched, so deltas don't compound
-across resets.
+Adds a small sampler-drawn translation to a camera's nominal local position so
+its observed pose drifts from the calibrated reference, modelling a mounting or
+calibration error. See :class:`CameraDecalibrationVariationCfg` for the sampler
+axis convention.
 """
 
 from __future__ import annotations
@@ -40,13 +35,11 @@ class CameraDecalibrationVariationCfg(VariationBaseCfg):
     """Configuration for :class:`CameraDecalibrationVariation`.
 
     Attributes:
-        mode: Event mode forwarded to :class:`EventTermCfg`. ``"reset"`` resamples
-            the decalibration on every episode reset; ``"prestartup"`` picks a
-            stable per-env offset that persists for the run.
-        sampler: 3D translation distribution in the camera's own frame, with
-            axes interpreted as ``(x_right_in_image, y_down_in_image,
-            z_forward_into_scene)`` (ROS optical-frame convention). Defaults
-            to a uniform over ``[-5 mm, +5 mm]`` on every axis.
+        mode: Event mode. ``"reset"`` resamples each episode; ``"prestartup"``
+            picks a stable per-env offset that persists for the run.
+        sampler: 3D translation distribution in the camera's optical frame, axes
+            ``(x_right, y_down, z_forward)`` (ROS convention). Defaults to a
+            uniform over ``±5 mm`` per axis.
     """
 
     mode: str = "reset"
@@ -61,21 +54,15 @@ class CameraDecalibrationVariationCfg(VariationBaseCfg):
 class CameraDecalibrationVariation(RunTimeVariationBase):
     """Decalibrate a camera by adding a small offset to its nominal local position.
 
-    The camera's nominal (un-decalibrated) local translation is captured once
-    on the first event tick, and every subsequent tick rewrites the local
-    translation to ``nominal + delta`` for the envs being touched. This models
-    a small mounting / calibration error without compounding across resets,
-    and keeps wrist-mounted cameras tracking their parent body because only
-    the camera's local transform (not its world pose) is modified.
+    Only the camera's local transform is touched, so wrist-mounted cameras keep
+    tracking their parent body. Realised as a run-time event term.
 
     Args:
-        camera_name: The scene-entity name of the target camera (e.g.
-            ``"wrist_cam"``). Must resolve to a :class:`Camera` or
-            :class:`TiledCamera` in ``env.scene``.
-        cfg: Tunable parameters. Defaults to a
-            :class:`CameraDecalibrationVariationCfg` with a ``±5 mm`` per-axis
-            uniform sampler and reset-mode resampling.
-        sampler: Optional override for the translation distribution. If
+        camera_name: Scene-entity name of the target camera. Must resolve to a
+            :class:`Camera` or :class:`TiledCamera` in ``env.scene``.
+        cfg: Tunable parameters. Defaults to a ``±5 mm`` per-axis uniform
+            sampler resampled on every reset.
+        sampler: Optional override for the translation distribution; if
             ``None``, the sampler in ``cfg`` is used.
     """
 
@@ -111,14 +98,11 @@ class CameraDecalibrationVariation(RunTimeVariationBase):
 
 
 class decalibrate_camera_from_sampler(ManagerTermBase):
-    """Add a sampler-drawn camera-frame translation to a camera's nominal local position.
+    """Event term: offset a camera's local position by a sampler-drawn delta.
 
-    Snapshots the camera's factory local pose on first call and rewrites the
-    local translation to ``nominal + R · delta`` per env on subsequent calls
-    so decalibrations don't compound across resets. Operates on the camera's
-    underlying :class:`~isaaclab.sim.views.XformPrimView` via
-    ``set_local_poses`` so wrist-mounted cameras keep tracking their parent
-    body.
+    The nominal local pose is snapshotted on the first call; each later call
+    rewrites the translation to nominal + delta so offsets don't compound
+    across resets.
     """
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
