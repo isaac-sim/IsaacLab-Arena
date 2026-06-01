@@ -65,11 +65,14 @@ class ArenaEnvBuilder:
           events restore the same layout every time.
         """
         objects_with_relations = self.arena_env.scene.get_objects_with_relations()
+        # resolve_on_reset is an optional flag; tolerate a namespace that omits it (e.g.
+        # programmatic construction, not just the CLI). Absent -> None -> the placer uses
+        # its own default, identical to passing the CLI default.
         self._placement_event_cfg = solve_and_apply_relation_placement(
             objects_with_relations,
             num_envs=self.args.num_envs,
             placement_seed=self.args.placement_seed,
-            resolve_on_reset=self.args.resolve_on_reset,
+            resolve_on_reset=getattr(self.args, "resolve_on_reset", None),
         )
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
