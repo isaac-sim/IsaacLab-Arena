@@ -53,14 +53,6 @@ class Item(BaseModel):
         default=None,
         description="Optional explicit instance label for the item; leave null if the prompt does not name one.",
     )
-    scale: float | None = Field(
-        default=None,
-        description=(
-            "Spawn scale. Leave null (the default) so the placement proposer "
-            "auto-fits the asset; only set a positive float when the prompt "
-            "explicitly demands a size override."
-        ),
-    )
 
 
 class Relation(BaseModel):
