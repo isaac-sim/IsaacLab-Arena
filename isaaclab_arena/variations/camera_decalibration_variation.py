@@ -51,9 +51,8 @@ class CameraDecalibrationVariation(RunTimeVariationBase):
 
     Args:
         camera_name: Scene-entity name of the target camera.
-        cfg: Tunable parameters.
-        sampler: Optional override for the translation distribution; if
-            ``None``, the sampler in ``cfg`` is used.
+        cfg: Tunable parameters. Override the translation distribution via
+            ``cfg.sampler_cfg``.
     """
 
     name = "camera_decalibration"
@@ -64,16 +63,14 @@ class CameraDecalibrationVariation(RunTimeVariationBase):
         self,
         camera_name: str,
         cfg: CameraDecalibrationVariationCfg | None = None,
-        sampler: SamplerBase | UniformSamplerCfg | None = None,
     ):
         super().__init__(cfg=cfg if cfg is not None else CameraDecalibrationVariationCfg())
         self.camera_name = camera_name
-        self.set_sampler(sampler if sampler is not None else self.cfg.sampler_cfg)
 
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
         assert self._sampler is not None, (
             f"CameraDecalibrationVariation on '{self.camera_name}' is enabled but no sampler is set; "
-            "call .set_sampler(...) before building the env."
+            "call apply_cfg with a cfg that sets sampler_cfg before building the env."
         )
         event_name = f"{self.camera_name}_decalibration_variation"
         event_cfg = EventTermCfg(

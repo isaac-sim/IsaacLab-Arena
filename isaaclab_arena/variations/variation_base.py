@@ -49,8 +49,8 @@ class VariationBase(ABC):
     cfg: VariationBaseCfg
 
     def __init__(self, cfg: VariationBaseCfg):
-        self.cfg = cfg
         self._sampler: SamplerBase | None = None
+        self.apply_cfg(cfg)
 
     @property
     def enabled(self) -> bool:
@@ -70,25 +70,10 @@ class VariationBase(ABC):
         """The sampler driving this variation, or ``None`` if not yet set."""
         return self._sampler
 
-    def set_sampler(self, sampler: SamplerBase | SamplerBaseCfg) -> None:
-        """Replace this variation's sampler.
-
-        Accepts a live :class:`SamplerBase` or a :class:`SamplerBaseCfg` (which
-        is built into one).
-        """
-        assert isinstance(
-            sampler, (SamplerBase, SamplerBaseCfg)
-        ), f"set_sampler expects a SamplerBase or SamplerBaseCfg; got {type(sampler).__name__}."
-        if isinstance(sampler, SamplerBaseCfg):
-            self._sampler = sampler.build()
-            self.cfg.sampler_cfg = sampler
-        else:
-            self._sampler = sampler
-
     def apply_cfg(self, cfg: VariationBaseCfg) -> None:
         """Install ``cfg`` as the variation's new source of truth.
 
-        Replaces :attr:`cfg` and rebuilds the live sampler from its sampler cfg.
+        Replaces :attr:`cfg` and rebuilds :attr:`sampler` from ``cfg.sampler_cfg``.
         Subclasses with extra derived state should override and call
         ``super().apply_cfg(cfg)`` first.
 
@@ -96,7 +81,10 @@ class VariationBase(ABC):
             cfg: A cfg of the :class:`VariationBaseCfg` subclass this variation accepts.
         """
         self.cfg = cfg
-        self.set_sampler(cfg.sampler_cfg)
+        assert isinstance(
+            cfg.sampler_cfg, SamplerBaseCfg
+        ), f"cfg.sampler_cfg must be a SamplerBaseCfg; got {type(cfg.sampler_cfg).__name__}."
+        self._sampler = cfg.sampler_cfg.build()
 
 
 class RunTimeVariationBase(VariationBase):

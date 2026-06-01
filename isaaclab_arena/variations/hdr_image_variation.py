@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING
 from isaaclab.utils import configclass
 
 from isaaclab_arena.variations.categorical_sampler import CategoricalSamplerCfg
-from isaaclab_arena.variations.sampler_base import SamplerBase
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
 
 if TYPE_CHECKING:
@@ -42,8 +41,7 @@ class HDRImageVariation(BuildTimeVariationBase):
         light: The dome light to mutate. A reference is captured; ``apply``
             mutates this instance.
         cfg: Tunable parameters. Defaults to sampling over every registered HDR.
-        sampler: Optional override for the categorical distribution; if
-            ``None``, the sampler in ``cfg`` is used.
+            Override the categorical distribution via ``cfg.sampler_cfg``.
     """
 
     name = "hdr_image"
@@ -54,11 +52,9 @@ class HDRImageVariation(BuildTimeVariationBase):
         self,
         light: DomeLight,
         cfg: HDRImageVariationCfg | None = None,
-        sampler: SamplerBase | CategoricalSamplerCfg | None = None,
     ):
         super().__init__(cfg=cfg if cfg is not None else HDRImageVariationCfg())
         self._light = light
-        self.set_sampler(sampler if sampler is not None else self.cfg.sampler_cfg)
 
     def apply(self) -> None:
         from isaaclab_arena.assets.hdr_image import HDRImage  # noqa: PLC0415

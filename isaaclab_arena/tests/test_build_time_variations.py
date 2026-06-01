@@ -60,6 +60,22 @@ def test_uniform_sampler_cfg_builds_live_sampler():
     assert tuple(sampler.shape_per_sample) == (1,)
 
 
+def test_apply_cfg_keeps_sampler_cfg_and_live_sampler_in_sync():
+    from isaaclab_arena.variations.camera_decalibration_variation import (
+        CameraDecalibrationVariation,
+        CameraDecalibrationVariationCfg,
+    )
+
+    variation = CameraDecalibrationVariation(
+        "wrist_cam",
+        cfg=CameraDecalibrationVariationCfg(sampler_cfg=UniformSamplerCfg(low=[0.0], high=[1.0])),
+    )
+    variation.apply_cfg(CameraDecalibrationVariationCfg(sampler_cfg=UniformSamplerCfg(low=[10.0], high=[20.0])))
+    assert variation.cfg.sampler_cfg.low == [10.0] and variation.cfg.sampler_cfg.high == [20.0]
+    samples = variation.sampler.sample(num_samples=16)
+    assert (samples >= 10.0).all() and (samples <= 20.0).all()
+
+
 def test_uniform_sampler_rejects_mismatched_bounds():
     with pytest.raises(AssertionError):
         UniformSampler(low=[0.0, 0.0], high=[1.0])
