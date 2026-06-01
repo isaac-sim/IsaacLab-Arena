@@ -8,6 +8,8 @@
 import math
 import torch
 
+import pytest
+
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
@@ -84,6 +86,16 @@ def test_rotated_around_z_batched_angles_broadcasts_single_box():
     # Angle 90°: X/Y extents swap for this origin-centered box.
     torch.testing.assert_close(rotated.min_point[1], torch.tensor([-0.1, -0.2, 0.0]), atol=1e-6, rtol=0)
     torch.testing.assert_close(rotated.max_point[1], torch.tensor([0.1, 0.2, 0.5]), atol=1e-6, rtol=0)
+
+
+def test_rotated_around_z_mismatched_box_and_angle_counts_raises():
+    """Multiple boxes paired with a different count of multiple angles is ambiguous and must assert."""
+    boxes = AxisAlignedBoundingBox(
+        min_point=torch.tensor([[-0.2, -0.1, 0.0], [-0.2, -0.1, 0.0]]),
+        max_point=torch.tensor([[0.2, 0.1, 0.5], [0.2, 0.1, 0.5]]),
+    )
+    with pytest.raises(AssertionError):
+        boxes.rotated_around_z(torch.tensor([0.0, math.pi / 2, math.pi]))
 
 
 def test_bounding_box_single_env_overlaps():
