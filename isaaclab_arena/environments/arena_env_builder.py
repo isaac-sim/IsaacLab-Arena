@@ -239,8 +239,6 @@ class ArenaEnvBuilder:
             task.get_commands_cfg(),
         )
 
-        isaaclab_arena_env = self.arena_env
-
         viewer_cfg = task.get_viewer_cfg()
 
         episode_length_s = task.get_episode_length_s()
@@ -261,7 +259,6 @@ class ArenaEnvBuilder:
                 teleop_devices=teleop_devices_cfg,
                 recorders=recorder_manager_cfg,
                 metrics=metrics_cfg,
-                isaaclab_arena_env=isaaclab_arena_env,
                 viewer=viewer_cfg,
             )
             if episode_length_s is not None:
@@ -291,7 +288,6 @@ class ArenaEnvBuilder:
                 # I assume that they're not needed for the mimic env.
                 # recorders=recorder_manager_cfg,
                 # metrics=metrics_cfg,
-                isaaclab_arena_env=isaaclab_arena_env,
                 viewer=viewer_cfg,
             )
 

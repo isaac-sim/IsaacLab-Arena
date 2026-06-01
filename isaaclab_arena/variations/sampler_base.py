@@ -37,12 +37,6 @@ class SamplerBaseCfg:
 class SamplerBase(ABC):
     """Baseclass for all samplers. Stateless"""
 
-    @property
-    @abstractmethod
-    def shape_per_sample(self) -> torch.Size:
-        """Shape of a single sample."""
-        ...
-
     def sample(self, num_samples: int, **kwargs) -> Any:
         """Draw ``num_samples`` values from this distribution.
 
@@ -62,4 +56,10 @@ class SamplerBase(ABC):
     @abstractmethod
     def _sample(self, num_samples: int, **kwargs) -> Any:
         """Draw ``num_samples`` values from this distribution."""
+        ...
+
+    @property
+    @abstractmethod
+    def shape_per_sample(self) -> torch.Size:
+        """Shape of a single sample."""
         ...
