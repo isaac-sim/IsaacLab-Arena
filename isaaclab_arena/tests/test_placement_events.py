@@ -8,6 +8,8 @@
 import torch
 from unittest.mock import MagicMock
 
+import pytest
+
 
 def _create_test_objects():
     """Create a desk (anchor) with two boxes (On + NextTo)."""
@@ -91,7 +93,7 @@ def test_placement_without_seed_multi_env_gives_different_layouts():
     result = placer.place([desk, box1, box2], num_envs=num_envs)
 
     assert isinstance(result, MultiEnvPlacementResult)
-    positions_box1 = [result.results[e].positions[box1] for e in range(num_envs)]
+    positions_box1 = [result.results[env_idx].positions[box1] for env_idx in range(num_envs)]
     any_different = any(positions_box1[i] != positions_box1[j] for i in range(num_envs) for j in range(i + 1, num_envs))
     assert any_different, "Unseeded multi-env placement should produce different positions across environments"
 
@@ -233,7 +235,7 @@ def test_solve_and_place_objects_handles_multiple_env_ids():
 
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params)
-    pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=10)
+    pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=12, num_envs=num_envs)
 
     solve_and_place_objects(env, env_ids, objects, pool)
 
@@ -247,8 +249,130 @@ def test_solve_and_place_objects_handles_multiple_env_ids():
         )
 
 
-def test_pooled_object_placer_sample_without_replacement_returns_different_layouts():
-    """sample_without_replacement() should return layouts that are likely different."""
+def test_solve_and_place_objects_partial_reset_reusable_pool_consumes_only_reset_envs():
+    """Reusable layouts should not consume a full env round for a partial reset."""
+
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+    num_envs = 4
+    env_ids = torch.tensor([2])
+
+    env = _make_mock_env(num_envs=num_envs)
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
+    placer_params = ObjectPlacerParams(solver_params=solver_params)
+    pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=12, num_envs=num_envs)
+
+    available_before = pool.total_remaining
+    solve_and_place_objects(env, env_ids, objects, pool)
+    available_after = pool.total_remaining
+
+    assert available_before - available_after == len(env_ids)
+
+
+def test_solve_and_place_objects_writes_invalid_fallback_layout(capsys):
+    """Invalid fallback layouts should still be written, matching pool fallback behavior."""
+
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+    from isaaclab_arena.relations.placement_result import PlacementResult
+
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+    env = _make_mock_env(num_envs=1)
+
+    class InvalidPool:
+        requires_env_indexed_layouts = False
+
+        def sample_without_replacement(self, count: int) -> list[PlacementResult]:
+            assert count == 1
+            return [
+                PlacementResult(
+                    success=False,
+                    positions={box1: (0.0, 0.0, 0.0), box2: (0.0, 0.0, 0.0)},
+                    final_loss=float("nan"),
+                    attempts=1,
+                )
+            ]
+
+    solve_and_place_objects(env, torch.tensor([0]), objects, InvalidPool())
+    captured = capsys.readouterr()
+
+    assert set(env._assets) == {box1.name, box2.name}
+    assert env._assets[box1.name].write_root_pose_to_sim.call_count == 1
+    assert env._assets[box2.name].write_root_pose_to_sim.call_count == 1
+    assert "Writing best-loss fallback placement" in captured.out
+
+
+def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_result():
+    """Env-indexed partial resets should write the result for each absolute env id."""
+
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+    from isaaclab_arena.relations.placement_result import PlacementResult
+
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+    env = _make_mock_env(num_envs=4)
+
+    class EnvIndexedPool:
+        requires_env_indexed_layouts = True
+        num_envs = 4
+        requested_env_ids = None
+
+        def sample_without_replacement(self, count: int) -> list[PlacementResult]:
+            raise AssertionError(f"partial reset should not consume a full env round, got count={count}")
+
+        def sample_for_envs(self, env_ids: list[int]) -> dict[int, PlacementResult]:
+            self.requested_env_ids = env_ids
+            return {
+                cur_env: PlacementResult(
+                    success=True,
+                    positions={
+                        box1: (float(cur_env), 0.0, 0.0),
+                        box2: (float(cur_env), 1.0, 0.0),
+                    },
+                    final_loss=0.0,
+                    attempts=1,
+                )
+                for cur_env in env_ids
+            }
+
+    pool = EnvIndexedPool()
+    solve_and_place_objects(env, torch.tensor([2]), objects, pool)
+
+    box1_pose = env._assets[box1.name].write_root_pose_to_sim.call_args[0][0]
+    box2_pose = env._assets[box2.name].write_root_pose_to_sim.call_args[0][0]
+    box1_env_id = env._assets[box1.name].write_root_pose_to_sim.call_args.kwargs["env_ids"]
+    box2_env_id = env._assets[box2.name].write_root_pose_to_sim.call_args.kwargs["env_ids"]
+    assert box1_pose[0, 0].item() == 2.0
+    assert box2_pose[0, 0].item() == 2.0
+    assert box1_env_id.tolist() == [2]
+    assert box2_env_id.tolist() == [2]
+    assert pool.requested_env_ids == [2]
+
+
+def test_solve_and_place_objects_asserts_env_indexed_pool_size_matches_scene():
+    """Env-indexed pool slots must line up with absolute Isaac Lab env ids."""
+
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+    env = _make_mock_env(num_envs=2)
+
+    class MismatchedEnvIndexedPool:
+        requires_env_indexed_layouts = True
+        num_envs = 1
+
+    with pytest.raises(ValueError, match="scene has 2 env origins"):
+        solve_and_place_objects(env, torch.tensor([0]), objects, MismatchedEnvIndexedPool())
+
+
+def test_pooled_placer_sample_without_replacement_returns_different_layouts():
+    """sample_without_replacement() should return layouts (likely different across draws)."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
@@ -325,7 +449,7 @@ def test_resolve_on_reset_false_applies_pose_per_env():
 
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
-    pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=20)
+    pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=21, num_envs=num_envs)
 
     layouts = pool.sample_with_replacement(num_envs)
     assert len(layouts) == num_envs
@@ -345,8 +469,114 @@ def test_resolve_on_reset_false_applies_pose_per_env():
             assert p.position_xyz is not None, f"Position should not be None for {obj.name}"
 
 
-def test_pooled_object_placer_fallback_when_no_valid_layouts():
-    """PooledObjectPlacer should fall back to best-loss layouts when none pass validation."""
+def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
+    """Env-indexed resolve-on-reset path should seed non-anchor initial poses."""
+    from types import SimpleNamespace
+
+    from isaaclab_arena.environments.relation_solver_interface import _apply_dynamic_spawn_pose
+    from isaaclab_arena.relations.placement_result import PlacementResult
+
+    class MinimalObject:
+        def __init__(self, name: str):
+            self.name = name
+            self.event_cfg = None
+            self.object_cfg = SimpleNamespace(init_state=SimpleNamespace(pos=(0.0, 0.0, 0.0), rot=(0.0, 0.0, 0.0, 1.0)))
+
+        def get_relations(self):
+            return []
+
+        def set_initial_pose(self, pose):
+            raise AssertionError("resolve_on_reset init seeding must not register per-object reset events")
+
+    class EnvIndexedPool:
+        requires_env_indexed_layouts = True
+        num_envs = 3
+        sample_count = None
+
+        def sample_with_replacement(self, count: int):
+            self.sample_count = count
+            assert count == 1
+            return [
+                PlacementResult(
+                    success=True,
+                    positions={box: (float(env_id), 0.0, 0.1)},
+                    final_loss=0.0,
+                    attempts=1,
+                )
+                for env_id in range(self.num_envs)
+            ]
+
+    anchor = MinimalObject("desk")
+    box = MinimalObject("box")
+    pool = EnvIndexedPool()
+
+    _apply_dynamic_spawn_pose(
+        objects=[anchor, box],
+        placement_pool=pool,
+        anchor_objects_set={anchor},
+    )
+
+    assert pool.sample_count == 1
+    assert anchor.object_cfg.init_state.pos == (0.0, 0.0, 0.0)
+    assert box.object_cfg.init_state.pos == (0.0, 0.0, 0.1)
+    assert box.event_cfg is None
+
+
+def test_env_indexed_static_poses_apply_per_env_positions():
+    """Static initial poses should apply per-env positions from env-indexed layouts."""
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.environments.relation_solver_interface import _apply_static_initial_poses
+    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.relations import IsAnchor, On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.pose import Pose, PosePerEnv
+
+    desk = DummyObject(
+        name="desk",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
+    )
+    desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    desk.add_relation(IsAnchor())
+
+    box = DummyObject(
+        name="box",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+    )
+    box.add_relation(On(desk, clearance_m=0.01))
+
+    num_envs = 3
+
+    class PerEnvPool:
+        requires_env_indexed_layouts = True
+        num_envs = 3
+
+        def sample_with_replacement(self, count: int):
+            return [
+                PlacementResult(
+                    success=True,
+                    positions={box: (0.1 * env_id, 0.2 * env_id, 0.11)},
+                    final_loss=0.0,
+                    attempts=1,
+                )
+                for env_id in range(count)
+            ]
+
+    _apply_static_initial_poses(
+        objects=[desk, box],
+        placement_pool=PerEnvPool(),
+        anchor_objects_set={desk},
+        num_envs=num_envs,
+    )
+
+    pose = box.get_initial_pose()
+    assert isinstance(pose, PosePerEnv)
+    assert len(pose.poses) == num_envs
+    for env_id in range(num_envs):
+        assert pose.poses[env_id].position_xyz == (0.1 * env_id, 0.2 * env_id, 0.11)
+
+
+def test_pooled_placer_falls_back_when_no_valid_layouts(capsys):
+    """PooledObjectPlacer should keep best-loss fallback layouts when validation rejects all candidates."""
 
     from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -379,4 +609,9 @@ def test_pooled_object_placer_fallback_when_no_valid_layouts():
     placer_params = ObjectPlacerParams(solver_params=solver_params, max_placement_attempts=1)
 
     pool = PooledObjectPlacer(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)
-    assert pool.remaining > 0, "Pool should contain fallback layouts even when validation fails"
+    captured = capsys.readouterr()
+
+    assert pool.remaining == 5
+    assert pool.had_fallbacks
+    assert "Accepting best-loss layouts as fallback" in captured.out
+    assert not pool.sample_without_replacement(1)[0].success

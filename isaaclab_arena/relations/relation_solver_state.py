@@ -9,6 +9,7 @@ import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.relations import get_anchor_objects
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
@@ -29,6 +30,7 @@ class RelationSolverState:
         objects: list[ObjectBase],
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]],
         device: torch.device | None = None,
+        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
     ):
         """Initialize optimization state.
 
@@ -38,6 +40,10 @@ class RelationSolverState:
             initial_positions: List of dicts (one per env). Length 1 = single-env,
                 length > 1 = batched.
             device: Torch device for all tensors. Defaults to CPU.
+            env_bboxes: Optional per-env bounding boxes keyed by object.
+                ObjectPlacer always supplies these for placement solves. Direct
+                solver/debug calls may omit them to use each object's default
+                get_bounding_box().
         """
         assert len(initial_positions) >= 1, "initial_positions must contain at least one dict."
         anchor_objects = get_anchor_objects(objects)
@@ -93,6 +99,8 @@ class RelationSolverState:
             self._opt_idx_tensor = None
             self._optimizable_positions = None
 
+        self._env_bboxes = env_bboxes
+
     @property
     def device(self) -> torch.device:
         """Torch device for all position tensors."""
@@ -141,6 +149,12 @@ class RelationSolverState:
             raise RuntimeError(f"No optimizable positions available for object '{obj.name}'")
         opt_idx = self._global_to_opt_idx[idx]
         return self._optimizable_positions[:, opt_idx, :]
+
+    def get_bbox(self, obj: ObjectBase) -> AxisAlignedBoundingBox:
+        """Return the local bounding box for obj, moved to the state's device."""
+        if self._env_bboxes is not None and obj in self._env_bboxes:
+            return self._env_bboxes[obj].to(self._device)
+        return obj.get_bounding_box().to(self._device)
 
     def get_all_positions_snapshot(self) -> list[tuple[float, float, float]]:
         """Get detached copy of all positions for history tracking.

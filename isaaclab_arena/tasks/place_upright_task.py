@@ -14,6 +14,7 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.affordances.placeable import Placeable
+from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
@@ -23,6 +24,7 @@ from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
+@register_task
 class PlaceUprightTask(TaskBase):
 
     def __init__(

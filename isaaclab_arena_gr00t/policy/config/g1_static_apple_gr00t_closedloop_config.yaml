@@ -8,7 +8,7 @@
 # Used with Arena's remote-policy server stack (docs: example_workflows/static_apple/step_4_evaluation).
 # The matching client is `isaaclab_arena.policy.action_chunking_client.ActionChunkingClientSidePolicy`.
 # The model is finetuned from `nvidia/GR00T-N1.7-3B` per `static_apple/step_3_policy_training`.
-language_instruction: "Pick up the apple from the shelf and place it onto the plate on the same shelf next to it."
+language_instruction: "move the apple to the plate"
 
 # Must match the diffusion head's action_horizon baked into the finetuned checkpoint
 # (set via the action modality's `delta_indices=list(range(N))` in

@@ -13,6 +13,7 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
@@ -21,6 +22,7 @@ from isaaclab_arena.tasks.terminations import goal_pose_task_termination
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
+@register_task
 class GoalPoseTask(TaskBase):
     def __init__(
         self,

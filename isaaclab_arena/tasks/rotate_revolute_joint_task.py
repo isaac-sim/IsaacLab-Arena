@@ -11,6 +11,7 @@ from isaaclab.managers import EventTermCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.affordances.openable import Openable
+from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.revolute_joint_moved_rate import RevoluteJointMovedRateMetric
@@ -19,6 +20,7 @@ from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
+@register_task
 class RotateRevoluteJointTask(TaskBase):
     def __init__(
         self,

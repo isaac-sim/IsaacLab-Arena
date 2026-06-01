@@ -59,7 +59,15 @@ def solve_and_apply_relation_placement(
         objects=objects,
         placer_params=placer_params,
         pool_size=num_envs * placer_params.min_unique_layouts_per_env,
+        num_envs=num_envs,
     )
+
+    if placement_pool.had_fallbacks:
+        print(
+            "Warning: Relation placement pool accepted best-loss fallback layouts "
+            "that failed strict placement validation."
+        )
+
     return _apply_relation_placement_result(
         objects=objects,
         placer_params=placer_params,
@@ -107,6 +115,7 @@ def _apply_dynamic_spawn_pose(
     """Set initial spawn pose from one layout and return the reset placement event."""
     from isaaclab.managers import EventTermCfg
 
+    # For env-indexed pools this seeds from env 0; the first reset overwrites with per-env layouts.
     layout = placement_pool.sample_with_replacement(1)[0]
     for obj in objects:
         if obj in anchor_objects_set:
@@ -115,8 +124,7 @@ def _apply_dynamic_spawn_pose(
         if pos is None:
             continue
         object_cfg = getattr(obj, "object_cfg", None)
-        if object_cfg is None:
-            raise RuntimeError(f"Object '{obj.name}' must have object_cfg initialized before placement.")
+        assert object_cfg is not None, f"Object '{obj.name}' must have object_cfg initialized before placement."
         object_cfg.init_state.pos = pos
         object_cfg.init_state.rot = get_rotation_xyzw(obj)
 
@@ -143,11 +151,18 @@ def _apply_static_initial_poses(
             continue
         rotation_xyzw = get_rotation_xyzw(obj)
         poses = []
+        missing_envs: list[int] = []
         for env_idx in range(num_envs):
             pos = layouts[env_idx].positions.get(obj)
             if pos is None:
-                break
-            poses.append(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
+                missing_envs.append(env_idx)
+            else:
+                poses.append(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
+        if missing_envs:
+            print(
+                f"Warning: Object '{obj.name}' is missing positions in {len(missing_envs)} env(s) "
+                f"(env ids: {missing_envs}); skipping set_initial_pose for this object."
+            )
         else:
             obj.set_initial_pose(PosePerEnv(poses=poses))
 
@@ -158,9 +173,8 @@ def _validate_no_conflicting_pose_reset_events(
 ) -> None:
     """Reject conflicting explicit pose-reset events on relation-solved objects."""
     for obj in objects:
-        if obj not in anchor_objects_set and getattr(obj, "event_cfg", None) is not None:
-            raise RuntimeError(
-                f"Non-anchor object '{obj.name}' has an explicit pose-reset event. "
-                "Relational solving should not be combined with explicit setting of "
-                "poses on non-anchor objects."
-            )
+        assert not (obj not in anchor_objects_set and getattr(obj, "event_cfg", None) is not None), (
+            f"Non-anchor object '{obj.name}' has an explicit pose-reset event. "
+            "Relational solving should not be combined with explicit setting of "
+            "poses on non-anchor objects."
+        )

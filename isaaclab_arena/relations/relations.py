@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab.utils.math import euler_xyz_from_quat
 
+from isaaclab_arena.assets.register import register_object_relation
 from isaaclab_arena.utils.pose import PoseRange
 
 if TYPE_CHECKING:
@@ -60,6 +61,7 @@ class Relation(RelationBase):
         self.relation_loss_weight = relation_loss_weight
 
 
+@register_object_relation
 class NextTo(Relation):
     """Represents a 'next to' relationship between objects.
 
@@ -68,6 +70,8 @@ class NextTo(Relation):
 
     Note: Loss computation is handled by NextToLossStrategy in relation_loss_strategies.py.
     """
+
+    name = "next_to"
 
     def __init__(
         self,
@@ -99,6 +103,7 @@ class NextTo(Relation):
         self.cross_position_ratio = cross_position_ratio
 
 
+@register_object_relation
 class On(Relation):
     """Represents an 'on top of' relationship between objects.
 
@@ -108,6 +113,8 @@ class On(Relation):
 
     Note: Loss computation is handled by OnLossStrategy in relation_loss_strategies.py.
     """
+
+    name = "on"
 
     def __init__(
         self,
@@ -126,6 +133,7 @@ class On(Relation):
         self.clearance_m = clearance_m
 
 
+@register_object_relation
 class IsAnchor(RelationBase):
     """Marker indicating this object is an anchor for relation solving.
 
@@ -144,9 +152,10 @@ class IsAnchor(RelationBase):
         bin.add_relation(NextTo(chair))
     """
 
-    pass
+    name = "is_anchor"
 
 
+@register_object_relation
 class RandomAroundSolution(RelationBase):
     """Marker indicating the solver solution should be used as center of a PoseRange.
 
@@ -164,6 +173,8 @@ class RandomAroundSolution(RelationBase):
         box.add_relation(RandomAroundSolution(x_half_m=0.1, y_half_m=0.1))
         # -> ObjectPlacer sets a PoseRange spanning ±0.1m in X and Y around solved position
     """
+
+    name = "random_around_solution"
 
     def __init__(
         self,
@@ -236,6 +247,7 @@ class RandomAroundSolution(RelationBase):
         )
 
 
+@register_object_relation
 class RotateAroundSolution(RelationBase):
     """Marker specifying an explicit rotation to apply on top of the solver solution.
 
@@ -251,6 +263,8 @@ class RotateAroundSolution(RelationBase):
         box.add_relation(RotateAroundSolution(yaw_rad=math.pi / 4))
         # -> ObjectPlacer sets a Pose with solved position and 45° yaw rotation
     """
+
+    name = "rotate_around_solution"
 
     def __init__(
         self,
@@ -283,6 +297,7 @@ class RotateAroundSolution(RelationBase):
         return tuple(quat.tolist())
 
 
+@register_object_relation
 class AtPosition(UnaryRelation):
     """Constrains object to specific world coordinates.
 
@@ -298,6 +313,8 @@ class AtPosition(UnaryRelation):
         mug.add_relation(On(table))
         mug.add_relation(AtPosition(x=0.5, y=1.0))
     """
+
+    name = "at_position"
 
     def __init__(
         self,
@@ -322,6 +339,7 @@ class AtPosition(UnaryRelation):
         self.relation_loss_weight = relation_loss_weight
 
 
+@register_object_relation
 class PositionLimits(UnaryRelation):
     """Constrains object position to a world-coordinate axis-aligned box.
 
@@ -331,6 +349,8 @@ class PositionLimits(UnaryRelation):
         mug.add_relation(PositionLimits(x_min=-0.5, x_max=0.5, y_min=-0.5, y_max=0.5))
         mug.add_relation(PositionLimits(z_min=0.8))  # only constrain Z
     """
+
+    name = "position_limits"
 
     def __init__(
         self,
