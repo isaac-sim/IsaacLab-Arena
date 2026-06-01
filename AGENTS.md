@@ -66,6 +66,9 @@ Describe the semantics of the return value, including any type information that 
 #### Raises
 We don't document raises in Arena
 
+#### Configclasses
+Attribute docstrings should be included below the attribute, rather than in the class-level docstring.
+
 #### Example
 Here is an example docstring
 

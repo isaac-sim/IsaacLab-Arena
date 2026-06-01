@@ -86,21 +86,17 @@ class ArenaEnvBuilder:
         if embodiment is not None:
             embodiment_variations = embodiment.get_variations()
             if embodiment_variations:
-                assert embodiment.name not in by_asset, (
-                    f"Embodiment name '{embodiment.name}' collides with a scene asset that also has variations; "
-                    "rename the scene asset or the embodiment so variation namespaces stay unique."
-                )
-                by_asset[embodiment.name] = list(embodiment_variations)
+                assert embodiment.name not in by_asset
+                by_asset[embodiment.name] = embodiment_variations
         return by_asset
 
     def _compose_variations_event_cfg(self) -> Any | None:
         """Build a configclass with one :class:`EventTermCfg` per enabled run-time variation.
 
-        Returns ``None`` when no run-time variation is enabled. Build-time
-        variations are handled separately by :meth:`_apply_build_time_variations`.
+        Returns ``None`` when no run-time variation is enabled.
         """
         fields: list[tuple[str, type, EventTermCfg]] = []
-        seen: set[str] = set()
+        added_event_names: set[str] = set()
         for asset_variations in self.get_all_variations().values():
             for variation in asset_variations:
                 if not variation.enabled:
@@ -108,11 +104,11 @@ class ArenaEnvBuilder:
                 if not isinstance(variation, RunTimeVariationBase):
                     continue
                 event_name, event_cfg = variation.build_event_cfg()
-                assert event_name not in seen, (
+                assert event_name not in added_event_names, (
                     f"Duplicate variation event term name '{event_name}'. "
                     "Each variation must produce a unique name; consider prefixing with the asset name."
                 )
-                seen.add(event_name)
+                added_event_names.add(event_name)
                 fields.append((event_name, EventTermCfg, event_cfg))
         if not fields:
             return None
@@ -156,8 +152,7 @@ class ArenaEnvBuilder:
         if self.args.solve_relations:
             self._solve_relations()
 
-        # Apply build-time variations now: they mutate asset configs (e.g.
-        # DomeLight.spawner_cfg) and must run before scene_cfg is materialised.
+        # Apply build-time variations now, before scene_cfg is materialised.
         self._apply_build_time_variations()
 
         # Constructing the environment by combining inputs from the scene, embodiment, and task.

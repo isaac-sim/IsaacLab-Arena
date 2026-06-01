@@ -26,18 +26,13 @@ if TYPE_CHECKING:
 
 @configclass
 class HDRImageVariationCfg(VariationBaseCfg):
-    """Configuration for :class:`HDRImageVariation`.
-
-    Attributes:
-        hdr_names: Registered HDR names to sample from; empty means sample over
-            every registered HDR.
-        sampler: Categorical distribution over the resolved HDR pool. The
-            default works out of the box (the pool is supplied at
-            :meth:`HDRImageVariation.apply` time).
-    """
+    """Configuration for :class:`HDRImageVariation`."""
 
     hdr_names: list[str] = field(default_factory=list)
-    sampler: CategoricalSamplerCfg = field(default_factory=CategoricalSamplerCfg)
+    """Registered HDR names to sample from; empty means sample over every registered HDR."""
+
+    sampler_cfg: CategoricalSamplerCfg = field(default_factory=CategoricalSamplerCfg)
+    """Categorical distribution over the resolved HDR pool."""
 
 
 class HDRImageVariation(BuildTimeVariationBase):
@@ -63,7 +58,7 @@ class HDRImageVariation(BuildTimeVariationBase):
     ):
         super().__init__(cfg=cfg if cfg is not None else HDRImageVariationCfg())
         self._light = light
-        self.set_sampler(sampler if sampler is not None else self.cfg.sampler)
+        self.set_sampler(sampler if sampler is not None else self.cfg.sampler_cfg)
 
     def apply(self) -> None:
         from isaaclab_arena.assets.hdr_image import HDRImage  # noqa: PLC0415
@@ -76,15 +71,13 @@ class HDRImageVariation(BuildTimeVariationBase):
                     f"HDRImageVariation: HDR name '{name}' is not registered. "
                     f"Registered HDRs: {sorted(registry.get_all_keys())}."
                 )
-            hdr_names = list(self.cfg.hdr_names)
+            hdr_names = self.cfg.hdr_names
         else:
             hdr_names = registry.get_all_keys()
             assert hdr_names, "HDRImageVariation: no HDRs are registered; cannot sample."
 
         assert self.sampler is not None, "HDRImageVariation: sampler not set."
-        # Pass HDR *names* (not indices) as the categorical sampler's choices,
-        # so the recorder logs the chosen HDR by name instead of an opaque
-        # index.
-        [chosen_name] = self.sampler.sample(num_samples=1, choices=hdr_names)
-        hdr_cls: type[HDRImage] = registry.get_hdr_by_name(chosen_name)
+        # Pass HDR names as the categorical sampler's choices.
+        hdr_name = self.sampler.sample(num_samples=1, choices=hdr_names)[0]
+        hdr_cls: type[HDRImage] = registry.get_hdr_by_name(hdr_name)
         self._light.add_hdr(hdr_cls())

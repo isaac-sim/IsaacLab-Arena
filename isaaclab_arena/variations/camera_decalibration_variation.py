@@ -32,36 +32,26 @@ if TYPE_CHECKING:
 
 @configclass
 class CameraDecalibrationVariationCfg(VariationBaseCfg):
-    """Configuration for :class:`CameraDecalibrationVariation`.
+    """Configuration for CameraDecalibrationVariation."""
 
-    Attributes:
-        mode: Event mode. ``"reset"`` resamples each episode; ``"prestartup"``
-            picks a stable per-env offset that persists for the run.
-        sampler: 3D translation distribution in the camera's optical frame, axes
-            ``(x_right, y_down, z_forward)`` (ROS convention). Defaults to a
-            uniform over ``±5 mm`` per axis.
-    """
-
-    mode: str = "reset"
-    sampler: UniformSamplerCfg = field(
+    sampler_cfg: UniformSamplerCfg = field(
         default_factory=lambda: UniformSamplerCfg(
             low=[-0.005, -0.005, -0.005],
             high=[0.005, 0.005, 0.005],
         )
     )
+    """3D translation distribution in the camera's optical frame, axes (x_right, y_down, z_forward)."""
 
 
 class CameraDecalibrationVariation(RunTimeVariationBase):
     """Decalibrate a camera by adding a small offset to its nominal local position.
 
     Only the camera's local transform is touched, so wrist-mounted cameras keep
-    tracking their parent body. Realised as a run-time event term.
+    tracking their parent body.
 
     Args:
-        camera_name: Scene-entity name of the target camera. Must resolve to a
-            :class:`Camera` or :class:`TiledCamera` in ``env.scene``.
-        cfg: Tunable parameters. Defaults to a ``±5 mm`` per-axis uniform
-            sampler resampled on every reset.
+        camera_name: Scene-entity name of the target camera.
+        cfg: Tunable parameters.
         sampler: Optional override for the translation distribution; if
             ``None``, the sampler in ``cfg`` is used.
     """
@@ -78,7 +68,7 @@ class CameraDecalibrationVariation(RunTimeVariationBase):
     ):
         super().__init__(cfg=cfg if cfg is not None else CameraDecalibrationVariationCfg())
         self.camera_name = camera_name
-        self.set_sampler(sampler if sampler is not None else self.cfg.sampler)
+        self.set_sampler(sampler if sampler is not None else self.cfg.sampler_cfg)
 
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
         assert self._sampler is not None, (
@@ -88,7 +78,7 @@ class CameraDecalibrationVariation(RunTimeVariationBase):
         event_name = f"{self.camera_name}_decalibration_variation"
         event_cfg = EventTermCfg(
             func=decalibrate_camera_from_sampler,
-            mode=self.cfg.mode,
+            mode="reset",
             params={
                 "asset_cfg": SceneEntityCfg(self.camera_name),
                 "sampler": self._sampler,
@@ -116,14 +106,13 @@ class decalibrate_camera_from_sampler(ManagerTermBase):
             "decalibrate_camera_from_sampler expects a Camera or TiledCamera at "
             f"scene['{asset_cfg.name}']; got {type(camera).__name__}."
         )
-        assert tuple(sampler.event_shape) == (3,), (
-            "decalibrate_camera_from_sampler expects a sampler with event_shape (3,) over XYZ; "
-            f"got {tuple(sampler.event_shape)}."
+        assert tuple(sampler.shape_per_sample) == (3,), (
+            "decalibrate_camera_from_sampler expects a sampler with shape_per_sample (3,) over XYZ; "
+            f"got {tuple(sampler.shape_per_sample)}."
         )
 
         self._camera = camera
-        # Snapshotted on first ``__call__`` (the camera's view is only
-        # initialised by the sensor's lifecycle hooks at that point).
+        # Snapshotted on first ``__call__``.
         self._t_parent_C: torch.Tensor | None = None
         self._q_parent_C_xyzw: torch.Tensor | None = None
 

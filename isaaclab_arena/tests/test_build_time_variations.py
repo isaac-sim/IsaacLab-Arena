@@ -45,15 +45,6 @@ def test_categorical_sampler_rejects_empty_choices():
         sampler.sample(num_samples=1, choices=[])
 
 
-def test_categorical_sampler_notifies_listeners():
-    sampler = CategoricalSampler()
-    seen: list = []
-    sampler.add_listener(lambda s: seen.append(s))
-    sampler.sample(num_samples=3, choices=["x", "y", "z"])
-    assert len(seen) == 1
-    assert isinstance(seen[0], list) and len(seen[0]) == 3
-
-
 def test_uniform_sampler_draws_within_bounds():
     sampler = UniformSampler(low=[-0.005, 0.0, 1.0], high=[0.005, 0.0, 2.0])
     samples = sampler.sample(num_samples=128)
@@ -66,7 +57,7 @@ def test_uniform_sampler_draws_within_bounds():
 def test_uniform_sampler_cfg_builds_live_sampler():
     sampler = UniformSamplerCfg(low=[0.0], high=[1.0]).build()
     assert isinstance(sampler, UniformSampler)
-    assert tuple(sampler.event_shape) == (1,)
+    assert tuple(sampler.shape_per_sample) == (1,)
 
 
 def test_uniform_sampler_rejects_mismatched_bounds():

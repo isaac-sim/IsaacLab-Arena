@@ -35,8 +35,13 @@ class CategoricalSampler(SamplerBase):
     where each item is uniformly drawn (with replacement) from ``choices``.
     """
 
+    @property
+    def shape_per_sample(self) -> torch.Size:
+        """A single draw is one scalar item from ``choices``."""
+        return torch.Size([1])
+
     def _sample(self, num_samples: int, choices: Sequence[Any], **kwargs) -> list[Any]:  # noqa: ARG002
         assert num_samples >= 0, f"num_samples must be non-negative; got {num_samples}."
         assert len(choices) >= 1, "CategoricalSampler requires a non-empty 'choices' sequence."
-        indices = torch.randint(low=0, high=len(choices), size=(num_samples,), dtype=torch.long)
+        indices = torch.randint(low=0, high=len(choices), size=(num_samples,))
         return [choices[int(i)] for i in indices]

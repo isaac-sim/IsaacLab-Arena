@@ -18,17 +18,13 @@ from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
 
 @configclass
 class UniformSamplerCfg(SamplerBaseCfg):
-    """Config for :class:`UniformSampler`.
-
-    Attributes:
-        low: Lower bound per dimension. Length determines the sampler's
-            ``event_shape``.
-        high: Upper bound per dimension. Must have the same length as ``low``
-            and be element-wise ``>= low``.
-    """
+    """Config for :class:`UniformSampler`."""
 
     low: list[float] = field(default_factory=lambda: [0.0])
+    """Lower bound per dimension. Length determines the sampler's shape_per_sample."""
+
     high: list[float] = field(default_factory=lambda: [1.0])
+    """Upper bound per dimension. Same length as ``low``, element-wise ``>= low``."""
 
     def build(self) -> UniformSampler:
         return UniformSampler(low=self.low, high=self.high)
@@ -42,25 +38,22 @@ class UniformSampler(SamplerBase):
     """
 
     def __init__(self, low: float | Sequence[float], high: float | Sequence[float]):
-        super().__init__()
-        low_t = torch.as_tensor(low, dtype=torch.float32)
-        high_t = torch.as_tensor(high, dtype=torch.float32)
+        self.low = torch.as_tensor(low, dtype=torch.float32)
+        self.high = torch.as_tensor(high, dtype=torch.float32)
         assert (
-            low_t.shape == high_t.shape
-        ), f"UniformSampler low/high must have matching shape; got {tuple(low_t.shape)} vs {tuple(high_t.shape)}."
+            self.low.shape == self.high.shape
+        ), f"UniformSampler low/high must have matching shape; got {tuple(self.low.shape)} vs {tuple(self.high.shape)}."
         assert torch.all(
-            low_t <= high_t
-        ), f"UniformSampler requires low <= high elementwise; got low={low_t}, high={high_t}."
-        self.low = low_t
-        self.high = high_t
+            self.low <= self.high
+        ), f"UniformSampler requires low <= high elementwise; got low={self.low}, high={self.high}."
 
     @property
-    def event_shape(self) -> torch.Size:
+    def shape_per_sample(self) -> torch.Size:
         """Shape of a single sample."""
         return self.low.shape
 
     def _sample(self, num_samples: int, **kwargs) -> torch.Tensor:  # noqa: ARG002
         assert num_samples >= 0, f"num_samples must be non-negative; got {num_samples}."
-        shape = (num_samples, *self.event_shape)
+        shape = (num_samples, *self.shape_per_sample)
         u = torch.rand(shape)
         return self.low + (self.high - self.low) * u
