@@ -12,7 +12,10 @@ import os
 
 from openai import OpenAI
 
+from isaaclab_arena.assets.background import Background
+from isaaclab_arena.assets.object_library import LibraryObject
 from isaaclab_arena.assets.registries import AssetRegistry
+from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.environments.agentic_env_gen.env_intent_spec import EnvIntentSpec
 from isaaclab_arena.environments.agentic_env_gen.structured_output_utils import (
     build_strict_schema,
@@ -34,13 +37,13 @@ def build_catalog_text() -> str:
     # TODO(qianl): handle optional lights and hdr images.
     for name in registry.get_all_keys():
         cls = registry.get_asset_by_name(name)
-        tags = list(getattr(cls, "tags", []))
-        if "embodiment" in tags:
+        if issubclass(cls, EmbodimentBase):
             embodiments.append(name)
-        elif "background" in tags:
+        elif issubclass(cls, Background):
             backgrounds.append(name)
-        elif "object" in tags:
-            objects.append({"name": name, "tags": [t for t in tags if t != "object"]})
+        elif issubclass(cls, LibraryObject) and cls.tags and "object" in cls.tags:
+            tags = [t for t in cls.tags if t != "object"]
+            objects.append({"name": name, "tags": tags})
 
     object_lines = "\n".join(f"- {o['name']}  tags={o['tags']}" for o in sorted(objects, key=lambda o: o["name"]))
     return (
