@@ -378,12 +378,28 @@ def test_pooled_placer_different_seeds_produce_different_samples():
     assert any_different, "Different seeds should produce different samples"
 
 
-def test_pooled_placer_builds_identical_layouts_for_same_seed_and_objects():
-    """Same objects + same placement_seed must produce bit-identical optimized layouts.
+def test_pooled_placer_sample_with_replacement_reproducible_per_env_id():
+    """sample_with_replacement should reproduce each env's draws under a fixed (placement_seed, num_envs)."""
+    num_envs = 3
+    solver_params = RelationSolverParams(max_iters=50)
+    placer_params = ObjectPlacerParams(placement_seed=42, solver_params=solver_params, apply_positions_to_objects=False)
 
-    Draining the pool via ``sample_without_replacement`` walks the env pools in order with
-    no RNG involvement, so this compares the solver output directly across the two pools.
-    """
+    pool1 = PooledObjectPlacer(
+        objects=list(_create_test_objects()), placer_params=placer_params, pool_size=12, num_envs=num_envs
+    )
+    pool2 = PooledObjectPlacer(
+        objects=list(_create_test_objects()), placer_params=placer_params, pool_size=12, num_envs=num_envs
+    )
+
+    draws1 = pool1.sample_with_replacement(num_envs * 4)
+    draws2 = pool2.sample_with_replacement(num_envs * 4)
+
+    for i, (d1, d2) in enumerate(zip(draws1, draws2)):
+        assert _positions_by_name(d1) == _positions_by_name(d2), f"slot {i} (env {i % num_envs}) not reproducible"
+
+
+def test_pooled_placer_builds_identical_layouts_for_same_seed_and_objects():
+    """Same objects and placement_seed should produce bit-identical layouts (no sampling RNG involved)."""
     solver_params = RelationSolverParams(max_iters=50)
     placer_params = ObjectPlacerParams(placement_seed=42, solver_params=solver_params, apply_positions_to_objects=False)
 
@@ -405,16 +421,14 @@ def test_pooled_placer_continues_seed_stream_across_refill():
     pool1 = PooledObjectPlacer(objects=list(_create_test_objects()), placer_params=placer_params, pool_size=2)
     pool2 = PooledObjectPlacer(objects=list(_create_test_objects()), placer_params=placer_params, pool_size=2)
 
-    # Four draws: initial batch (draws 0-1) then a forced refill (draws 2-3).
+    # 4 single draws: initial batch (0-1), then a forced refill (2-3).
     draws1 = [pool1.sample_without_replacement(1)[0] for _ in range(4)]
     draws2 = [pool2.sample_without_replacement(1)[0] for _ in range(4)]
 
     for d1, d2 in zip(draws1, draws2):
         assert _positions_by_name(d1) == _positions_by_name(d2), "Same seed must give same draws across refill"
 
-    # The refill batch (draws 2 and 3) must not be a permutation of the initial batch (draws 0 and 1).
-    # If the seed stream failed to advance, the refill would re-solve from the initial seed range and
-    # the cross-batch positions would coincide.
+    # Refill must use a fresh seed range, so its layouts can't duplicate the initial batch.
     initial_batch = {repr(_positions_by_name(draws1[0])), repr(_positions_by_name(draws1[1]))}
     refill_batch = {repr(_positions_by_name(draws1[2])), repr(_positions_by_name(draws1[3]))}
     assert initial_batch.isdisjoint(refill_batch), "Refill replayed the initial seed range; seed stream not advancing"

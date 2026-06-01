@@ -101,10 +101,9 @@ class PooledObjectPlacer:
         self._had_fallbacks = False
         self._base_placement_seed = placer_params.placement_seed
         self._next_seed_offset = 0
-        # Dedicated RNG so sample_with_replacement is reproducible under placement_seed and
-        # independent of the global random state. When placement_seed is None it seeds from
-        # system entropy (non-deterministic, matching the unseeded solver behavior).
-        self._rng = random.Random(placer_params.placement_seed)
+        # Per-env sampling RNG keyed by (placement_seed, env_id): env i's draws are reproducible
+        # and independent of other envs. placement_seed=None falls back to system entropy.
+        self._env_rngs = self._build_env_rngs(placer_params.placement_seed)
         self._env_pools: list[EnvLayoutPool] = [EnvLayoutPool([]) for _ in range(self._num_envs)]
 
         self._solve_and_store(pool_size)
@@ -118,6 +117,13 @@ class PooledObjectPlacer:
     # ------------------------------------------------------------------
     # Pool storage internals
     # ------------------------------------------------------------------
+
+    def _build_env_rngs(self, base_seed: int | None) -> list[random.Random]:
+        """Build one sampling RNG per env, keyed by (base_seed, env_id); None seeds from system entropy."""
+        if base_seed is None:
+            return [random.Random() for _ in range(self._num_envs)]
+        seeder = random.Random(base_seed)
+        return [random.Random(seeder.getrandbits(64)) for _ in range(self._num_envs)]
 
     def _available_per_env(self) -> list[int]:
         """Number of unread layouts in each env's pool (length num_envs)."""
@@ -405,19 +411,18 @@ class PooledObjectPlacer:
         so each result matches its absolute env. For reusable layouts, draws
         are uniform IID from the full pool.
         """
-        # With-replacement samples from all stored layouts, ignoring the consumption cursor.
-        # Draws use the instance RNG (self._rng) so the sequence is reproducible under
-        # placement_seed rather than dependent on the global random state.
+        # Non-consuming. Slot i draws from env (i % num_envs)'s RNG, so each env's sequence is
+        # reproducible under (placement_seed, env_id), independent of other envs' draws.
         if self._uses_env_specific_bboxes:
             results: list[PlacementResult] = []
             for i in range(count):
                 cur_env = i % self._num_envs
                 pool = self._env_pools[cur_env].layouts
                 assert pool, f"Env {cur_env} has no valid layouts to sample from."
-                results.append(self._rng.choice(pool))
+                results.append(self._env_rngs[cur_env].choice(pool))
             return results
         all_layouts = [layout for pool in self._env_pools for layout in pool.layouts]
-        return self._rng.choices(all_layouts, k=count)
+        return [self._env_rngs[i % self._num_envs].choice(all_layouts) for i in range(count)]
 
     @property
     def remaining(self) -> int:
