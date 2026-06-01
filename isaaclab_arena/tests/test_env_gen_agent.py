@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from isaaclab_arena.environments.agentic_env_gen.env_gen_agent import EnvGenAgent
+from isaaclab_arena.environments.agentic_env_gen.env_gen_agent import AssetCatalogue, EnvGenAgent
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -113,10 +113,16 @@ class TestInit:
 # ---------------------------------------------------------------------------
 
 
+def _catalog(text: str) -> AssetCatalogue:
+    catalogue = AssetCatalogue()
+    catalogue.to_catalog_string = lambda: text  # type: ignore[method-assign]
+    return catalogue
+
+
 class TestGenerateSpec:
     def test_request_sets_response_format_to_json_schema(self, agent):
         agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
-        agent.generate_spec("p", catalog_text="catalog")
+        agent.generate_spec("p", catalog=_catalog("catalog"))
         kwargs = agent.client.chat.completions.create.call_args.kwargs
         assert kwargs["response_format"]["type"] == "json_schema"
         assert kwargs["response_format"]["json_schema"]["name"] == "EnvIntentSpec"
@@ -132,12 +138,12 @@ class TestGenerateSpec:
         raw = json.dumps(payload).replace("\\t", "\t")
         assert "\t" in raw  # raw payload now has literal tab chars in a string
         agent.client.chat.completions.create.return_value = _chat_response(content=raw)
-        spec, _ = agent.generate_spec("p", catalog_text="catalog")
+        spec, _ = agent.generate_spec("p", catalog=_catalog("catalog"))
         assert "\t" in spec.task_description
 
     def test_user_message_contains_catalog_and_prompt(self, agent):
         agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
-        agent.generate_spec("user wants avocado on kitchen", catalog_text="<<CATALOG-MARKER>>")
+        agent.generate_spec("user wants avocado on kitchen", catalog=_catalog("<<CATALOG-MARKER>>"))
         msgs = agent.client.chat.completions.create.call_args.kwargs["messages"]
         assert [m["role"] for m in msgs] == ["system", "user"]
         user_msg = msgs[1]["content"]
@@ -156,7 +162,7 @@ class TestGenerateSpec:
 def test_generate_spec_against_live_endpoint():
     """End-to-end smoke test against the real OpenAI-compatible endpoint."""
     agent = EnvGenAgent()
-    catalog = (
+    catalog = _catalog(
         "EMBODIMENTS: franka_ik\n\n"
         "BACKGROUNDS: maple_table_kitchen\n\n"
         "OBJECTS (2):\n"
@@ -165,7 +171,7 @@ def test_generate_spec_against_live_endpoint():
     )
     spec, raw = agent.generate_spec(
         "pick up the avocado and place it in the bowl on the kitchen table",
-        catalog_text=catalog,
+        catalog=catalog,
     )
     assert isinstance(raw, str) and raw, "agent returned empty raw response"
     assert spec.tasks, "EnvIntentSpec must contain at least one task"

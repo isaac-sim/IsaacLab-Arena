@@ -22,11 +22,12 @@ from __future__ import annotations
 import argparse
 import json
 
-from isaaclab_arena.environments.agentic_env_gen.env_gen_agent import EnvGenAgent, build_catalog_text
+from isaaclab_arena.assets.registries import AssetRegistry
+from isaaclab_arena.environments.agentic_env_gen.env_gen_agent import EnvGenAgent, build_asset_catalogue
 from isaaclab_arena.environments.agentic_env_gen.env_intent_spec import EnvIntentSpec
 
 DEFAULT_PROMPT = (
-    "franka pick up avocado from the table and place it into a bowl on the table. "
+    "franka pick up avocado from the maple table and place it into a bowl on the table. "
     "there are other veggies on the table as distractor"
 )
 SEQUENTIAL_PROMPT = (
@@ -42,32 +43,19 @@ def main() -> None:
     parser.add_argument("--temperature", type=float, default=0.2)
     parser.add_argument("--print-schema", action="store_true")
     parser.add_argument("--print-catalog", action="store_true")
-    parser.add_argument(
-        "--background",
-        type=str,
-        default="maple_table_robolab",
-        help=(
-            "Override the background chosen by the agent (e.g. 'office_table' "
-            "or 'kitchen'). Default is 'maple_table_robolab' because its "
-            "tabletop ObjectReference yields a clean bbox and stable "
-            "placement, unlike the rotated plain 'table' background. Pass "
-            "an empty string ('') to keep the agent's choice."
-        ),
-    )
     args = parser.parse_args()
 
     if args.print_schema:
         print(json.dumps(EnvIntentSpec.model_json_schema(), indent=2))
         return
 
-    catalog = build_catalog_text()
+    catalog = build_asset_catalogue(AssetRegistry())
     if args.print_catalog:
-        print(catalog)
+        print(catalog.to_catalog_string())
         return
 
-    kwargs = {"model": args.model} if args.model else {}
-    agent = EnvGenAgent(**kwargs)
-    spec, raw = agent.generate_spec(args.prompt, catalog_text=catalog, temperature=args.temperature)
+    agent = EnvGenAgent(model=args.model)
+    spec, raw = agent.generate_spec(args.prompt, catalog=catalog, temperature=args.temperature)
 
     print("=== raw agent response ===")
     print(raw)
@@ -75,19 +63,6 @@ def main() -> None:
     # Surface the forced chain-of-thought field.
     print("\n=== agent reasoning ===")
     print(spec.reasoning)
-
-    if args.background and args.background != spec.background:
-        # Swap the background name wherever it appears so downstream code
-        # (resolver, proposer) sees a consistent scene.
-        old_bg = spec.background
-        new_bg = args.background
-        for rel in spec.initial_state_graph:
-            if rel.subject == old_bg:
-                rel.subject = new_bg
-            if rel.target == old_bg:
-                rel.target = new_bg
-        spec.background = new_bg
-        print(f"\n=== background override applied: {old_bg!r} -> {new_bg!r} ===")
 
     print("\n=== parsed EnvIntentSpec ===")
     print(spec.model_dump_json(indent=2))

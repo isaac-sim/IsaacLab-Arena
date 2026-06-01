@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import dataclass, field
+from typing import Any
 
 from openai import OpenAI
 
@@ -28,29 +30,46 @@ DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
 DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
 
 
-def build_catalog_text() -> str:
-    """Build the vocabulary the agent is allowed to use from AssetRegistry."""
-    registry = AssetRegistry()
-    backgrounds: list[str] = []
-    objects: list[dict] = []
-    embodiments: list[str] = []
+@dataclass
+class AssetCatalogue:
+    """Registered asset vocabulary grouped for the env-gen agent prompt."""
+
+    # A list of embodiment names for agent to choose from.
+    embodiments: list[str] = field(default_factory=list)
+    # A list of background names for agent to choose from.
+    backgrounds: list[str] = field(default_factory=list)
+    # A list of object names and their tags for agent to choose from.
+    objects: list[dict[str, Any]] = field(default_factory=list)
+
+    def to_catalog_string(self) -> str:
+        """Format this catalogue as the user-message vocabulary block."""
+        object_lines = "\n".join(
+            f"- {o['name']}  tags={o['tags']}" for o in sorted(self.objects, key=lambda o: o["name"])
+        )
+        return (
+            f"EMBODIMENTS: {', '.join(sorted(self.embodiments))}\n\n"
+            f"BACKGROUNDS: {', '.join(sorted(self.backgrounds))}\n\n"
+            f"OBJECTS ({len(self.objects)}):\n{object_lines}"
+        )
+
+
+def build_asset_catalogue(registry: AssetRegistry) -> AssetCatalogue:
+    """Collect registered embodiments, backgrounds, and pick-up objects from ``AssetRegistry``."""
+
+    assert registry is not None, "AssetRegistry is required to build the asset catalogue."
+    catalogue = AssetCatalogue()
     # TODO(qianl): handle optional lights and hdr images.
+    # TODO(qianl): add tag to filter out validated/agent-ready assets only.
     for name in registry.get_all_keys():
         cls = registry.get_asset_by_name(name)
         if issubclass(cls, EmbodimentBase):
-            embodiments.append(name)
+            catalogue.embodiments.append(name)
         elif issubclass(cls, Background):
-            backgrounds.append(name)
+            catalogue.backgrounds.append(name)
         elif issubclass(cls, LibraryObject) and cls.tags and "object" in cls.tags:
             tags = [t for t in cls.tags if t != "object"]
-            objects.append({"name": name, "tags": tags})
-
-    object_lines = "\n".join(f"- {o['name']}  tags={o['tags']}" for o in sorted(objects, key=lambda o: o["name"]))
-    return (
-        f"EMBODIMENTS: {', '.join(sorted(embodiments))}\n\n"
-        f"BACKGROUNDS: {', '.join(sorted(backgrounds))}\n\n"
-        f"OBJECTS ({len(objects)}):\n{object_lines}"
-    )
+            catalogue.objects.append({"name": name, "tags": tags})
+    return catalogue
 
 
 class EnvGenAgent:
@@ -59,8 +78,8 @@ class EnvGenAgent:
     def __init__(
         self,
         api_key: str | None = None,
-        model: str = DEFAULT_MODEL,
-        base_url: str = DEFAULT_BASE_URL,
+        model: str | None = None,
+        base_url: str | None = None,
     ):
         """Configure the OpenAI-compatible client and validate the model.
 
@@ -73,19 +92,20 @@ class EnvGenAgent:
         """
         self.api_key = api_key or os.getenv("NV_API_KEY")
         assert self.api_key, "API key required: set NV_API_KEY or pass api_key."
-        self.model = model
+        self.model = model or DEFAULT_MODEL
+        base_url = base_url or DEFAULT_BASE_URL
         self.client = OpenAI(api_key=self.api_key, base_url=base_url)
         # Validate basic connection and key authentication.
         ping(self.client, self.model)
 
         # Validate model can produce structured outputs.
-        self._spec_schema = build_strict_schema(EnvIntentSpec)
         check_structured_output_support(self.client, self.model, EnvIntentSpec)
+        self._spec_schema = build_strict_schema(EnvIntentSpec)
 
     def generate_spec(
         self,
         prompt: str,
-        catalog_text: str | None = None,
+        catalog: AssetCatalogue | None = None,
         temperature: float = 0.2,
         max_tokens: int = 2000,
     ) -> tuple[EnvIntentSpec, str]:
@@ -93,7 +113,7 @@ class EnvGenAgent:
 
         Args:
             prompt: Natural-language env description from the end user.
-            catalog_text: Pre-built asset vocabulary. When ``None``, the catalog is
+            catalog: Pre-built asset vocabulary. When ``None``, the catalog is
                 built from the live ``AssetRegistry``.
             temperature: Sampling temperature forwarded to the model. Kept
                 low by default (0.2) because EnvIntentSpec generation is a
@@ -105,9 +125,10 @@ class EnvGenAgent:
             A ``(EnvIntentSpec, raw_response)`` tuple. The raw text is
             useful for debugging.
         """
-        catalog_text = catalog_text or build_catalog_text()
+        catalog = catalog or build_asset_catalogue(AssetRegistry())
+        catalog_string = catalog.to_catalog_string()
         system = self._system_prompt()
-        user = f"{catalog_text}\n\nUSER PROMPT:\n{prompt}"
+        user = f"{catalog_string}\n\nUSER PROMPT:\n{prompt}"
 
         resp = self.client.chat.completions.create(
             model=self.model,
