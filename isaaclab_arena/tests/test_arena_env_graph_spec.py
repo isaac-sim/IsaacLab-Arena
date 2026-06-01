@@ -5,6 +5,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.environments.arena_env_graph_spec import (
@@ -33,8 +35,8 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
 
     assert spec.env_name == "pick_and_place_maple_table_default"
     assert len(spec.nodes) == 6
-    assert len(spec.tasks) == 1
-    assert len(spec.state_specs) == 2
+    assert len(spec.tasks) == 2
+    assert len(spec.state_specs) == 3
 
     table = spec.nodes_by_id["maple_table_robolab_table"]
     assert isinstance(table, ArenaEnvGraphObjectReferenceNodeSpec)
@@ -49,8 +51,13 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
     task = spec.tasks_by_id["pick_and_place_0"]
     assert task.initial_state_spec_id == "state_spec_0"
     assert task.success_state_spec_id == "state_spec_1"
-    assert task.task_args["object"] == "rubiks_cube_hot3d_robolab"
-    assert task.task_args["destination"] == "bowl_ycb_robolab"
+    assert task.task_args["pick_up_object"] == "rubiks_cube_hot3d_robolab"
+    assert task.task_args["destination_location"] == "bowl_ycb_robolab"
+
+    second_task = spec.tasks_by_id["pick_and_place_1"]
+    assert second_task.initial_state_spec_id == "state_spec_1"
+    assert second_task.success_state_spec_id == "state_spec_2"
+    assert second_task.task_args["pick_up_object"] == "mug_ycb_robolab"
 
     initial_state = spec.state_specs_by_id["state_spec_0"]
     assert isinstance(initial_state, ArenaEnvGraphStateSpec)
@@ -132,6 +139,23 @@ def test_arena_env_graph_spec_parses_optional_task_constraints_and_at_pose():
     assert fixed_pose.params["rotation_xyzw"] == (0.0, 0.0, 0.0, 1.0)
 
 
+def test_arena_env_graph_spec_validate_rejects_mutated_missing_reference():
+    spec = ArenaEnvGraphSpec.from_dict(_minimal_env_graph_data())
+    spec.state_specs[0].spatial_constraints[0].parent = "missing_table"
+
+    with pytest.raises(AssertionError, match="unknown parent node 'missing_table'"):
+        spec.validate()
+
+
+def test_arena_env_graph_spec_validate_rejects_mutated_invalid_relationship_shape():
+    spec = ArenaEnvGraphSpec.from_dict(_minimal_env_graph_data())
+    constraint = spec.state_specs[0].spatial_constraints[0]
+    constraint.type = ArenaEnvGraphSpatialConstraintType.ON
+
+    with pytest.raises(AssertionError, match="requires a child node"):
+        spec.validate()
+
+
 def test_arena_env_graph_spec_rejects_invalid_data():
     cases = [
         (
@@ -180,33 +204,43 @@ def test_arena_env_graph_spec_rejects_invalid_data():
             "Missing required string field 'parent'",
         ),
         (
+            "relationship missing child",
+            lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("type", "on"),
+            "requires a child node",
+        ),
+        (
+            "unary relationship with child",
+            lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("child", "cube"),
+            "must not define a child node",
+        ),
+        (
             "old state edges wrapper",
             _move_state_constraints_under_edges,
             "must define spatial_constraints and task_constraints directly",
         ),
         (
             "missing node parent reference",
-            lambda data: data["nodes"][1].__setitem__("parent", "missing_background"),
+            lambda data: data["nodes"][2].__setitem__("parent", "missing_background"),
             "unknown parent 'missing_background'",
         ),
         (
             "unknown object type",
-            lambda data: data["nodes"][1].__setitem__("object_type", "unknown"),
+            lambda data: data["nodes"][2].__setitem__("object_type", "unknown"),
             "Unknown object_type 'unknown'",
         ),
         (
             "object_reference missing parent",
-            lambda data: data["nodes"][1].pop("parent"),
+            lambda data: data["nodes"][2].pop("parent"),
             "Missing required string field 'parent'",
         ),
         (
             "object_reference missing prim_path",
-            lambda data: data["nodes"][1].pop("prim_path"),
+            lambda data: data["nodes"][2].pop("prim_path"),
             "Missing required string field 'prim_path'",
         ),
         (
             "object_reference missing object_type",
-            lambda data: data["nodes"][1].pop("object_type"),
+            lambda data: data["nodes"][2].pop("object_type"),
             "Missing required field 'object_type'",
         ),
         (
@@ -250,7 +284,9 @@ def _minimal_env_graph_data():
         "env_name": "minimal_env_graph",
         "nodes": [
             {"id": "robot", "name": "robot", "type": "embodiment"},
-            # Kept at index 1 so the bad-data mutation lambdas below can address it.
+            {"id": "background", "name": "background", "type": "background"},
+            # Kept at index 2 (after its parent at index 1) so the bad-data mutation lambdas
+            # below can address it, and so the order satisfies the upstream ordering contract.
             {
                 "id": "table",
                 "name": "table",
@@ -259,12 +295,11 @@ def _minimal_env_graph_data():
                 "prim_path": "{ENV_REGEX_NS}/background/table",
                 "object_type": "rigid",
             },
-            {"id": "background", "name": "background", "type": "background"},
             {"id": "cube", "name": "cube", "type": "object"},
         ],
         "tasks": [{
             "id": "task_0",
-            "type": "pick_and_place",
+            "type": "PickAndPlaceTask",
             "initial_state_spec_id": "state_0",
             "success_state_spec_id": "state_0",
         }],
