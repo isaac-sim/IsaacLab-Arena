@@ -10,7 +10,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from isaaclab_arena.environments.agentic_env_gen.env_gen_agent import AssetCatalogue, EnvGenAgent
+from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
+    AssetCatalogue,
+    EnvironmentGenerationAgent,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -34,8 +37,8 @@ def _chat_response(content: str | None = None, reasoning_content: str | None = N
 
 @pytest.fixture
 def stub_openai():
-    """Patch ``openai.OpenAI`` so ``EnvGenAgent()`` never hits the wire."""
-    with patch("isaaclab_arena.environments.agentic_env_gen.env_gen_agent.OpenAI") as mock_cls:
+    """Patch ``openai.OpenAI`` so ``EnvironmentGenerationAgent()`` never hits the wire."""
+    with patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.OpenAI") as mock_cls:
         client = MagicMock()
         client.chat.completions.create.side_effect = [
             _chat_response(content="OK"),
@@ -47,14 +50,14 @@ def stub_openai():
 
 @pytest.fixture
 def agent(stub_openai):
-    """A constructed ``EnvGenAgent`` with a fully mocked openai client."""
-    a = EnvGenAgent(api_key="test-key")
+    """A constructed ``EnvironmentGenerationAgent`` with a fully mocked openai client."""
+    a = EnvironmentGenerationAgent(api_key="test-key")
     a.client.chat.completions.create.side_effect = None
     a.client.chat.completions.create.reset_mock()
     return a
 
 
-# Minimal EnvIntentSpec payload — exercises every required field plus one
+# Minimal EnvironmentIntentSpec payload — exercises every required field plus one
 # task. Reused across the generate_spec happy-path tests.
 _MINIMAL_SPEC: dict = {
     "reasoning": (
@@ -89,21 +92,21 @@ _MINIMAL_SPEC: dict = {
 class TestInit:
     def test_explicit_api_key_overrides_env(self, monkeypatch, stub_openai):
         monkeypatch.setenv("NV_API_KEY", "env-key")
-        a = EnvGenAgent(api_key="explicit-key")
+        a = EnvironmentGenerationAgent(api_key="explicit-key")
         assert a.api_key == "explicit-key"
 
     def test_falls_back_to_env_var(self, monkeypatch, stub_openai):
         monkeypatch.setenv("NV_API_KEY", "env-key")
-        a = EnvGenAgent()
+        a = EnvironmentGenerationAgent()
         assert a.api_key == "env-key"
 
     def test_raises_when_no_key_anywhere(self, monkeypatch, stub_openai):
         monkeypatch.delenv("NV_API_KEY", raising=False)
         with pytest.raises(AssertionError, match="API key required"):
-            EnvGenAgent()
+            EnvironmentGenerationAgent()
 
     def test_custom_model_and_base_url(self, stub_openai):
-        a = EnvGenAgent(api_key="k", model="custom-model", base_url="http://localhost:8000")
+        a = EnvironmentGenerationAgent(api_key="k", model="custom-model", base_url="http://localhost:8000")
         assert a.model == "custom-model"
         stub_openai.assert_called_once_with(api_key="k", base_url="http://localhost:8000")
 
@@ -125,7 +128,7 @@ class TestGenerateSpec:
         agent.generate_spec("p", catalog=_catalog("catalog"))
         kwargs = agent.client.chat.completions.create.call_args.kwargs
         assert kwargs["response_format"]["type"] == "json_schema"
-        assert kwargs["response_format"]["json_schema"]["name"] == "EnvIntentSpec"
+        assert kwargs["response_format"]["json_schema"]["name"] == "EnvironmentIntentSpec"
         assert kwargs["response_format"]["json_schema"]["strict"] is True
         # The schema sent on the wire is the cached, strict-mode-munged copy.
         assert kwargs["response_format"]["json_schema"]["schema"] is agent._spec_schema
@@ -161,7 +164,7 @@ class TestGenerateSpec:
 @pytest.mark.flaky(max_runs=3, min_passes=1)
 def test_generate_spec_against_live_endpoint():
     """End-to-end smoke test against the real OpenAI-compatible endpoint."""
-    agent = EnvGenAgent()
+    agent = EnvironmentGenerationAgent()
     catalog = _catalog(
         "EMBODIMENTS: franka_ik\n\n"
         "BACKGROUNDS: maple_table_kitchen\n\n"
@@ -174,7 +177,7 @@ def test_generate_spec_against_live_endpoint():
         catalog=catalog,
     )
     assert isinstance(raw, str) and raw, "agent returned empty raw response"
-    assert spec.tasks, "EnvIntentSpec must contain at least one task"
-    assert spec.background, "EnvIntentSpec.background must be populated"
-    assert spec.embodiment, "EnvIntentSpec.embodiment must be populated"
-    assert spec.reasoning, "EnvIntentSpec.reasoning must be populated"
+    assert spec.tasks, "EnvironmentIntentSpec must contain at least one task"
+    assert spec.background, "EnvironmentIntentSpec.background must be populated"
+    assert spec.embodiment, "EnvironmentIntentSpec.embodiment must be populated"
+    assert spec.reasoning, "EnvironmentIntentSpec.reasoning must be populated"

@@ -13,9 +13,9 @@ from unittest.mock import MagicMock
 import pytest
 from pydantic import BaseModel
 
-from isaaclab_arena.environments.agentic_env_gen.env_gen_agent import DEFAULT_BASE_URL, DEFAULT_MODEL
-from isaaclab_arena.environments.agentic_env_gen.env_intent_spec import EnvIntentSpec
-from isaaclab_arena.environments.agentic_env_gen.structured_output_utils import (
+from isaaclab_arena.agentic_environment_generation.environment_generation_agent import DEFAULT_BASE_URL, DEFAULT_MODEL
+from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
+from isaaclab_arena.agentic_environment_generation.structured_output_utils import (
     apply_strict_constraints,
     build_strict_schema,
     check_structured_output_support,
@@ -130,7 +130,7 @@ class TestCheckStructuredOutputSupport:
             client.chat.completions.create.return_value = _chat_response(content='{"missing": "fields"}')
 
         with pytest.raises(RuntimeError):
-            check_structured_output_support(client, "m", EnvIntentSpec)
+            check_structured_output_support(client, "m", EnvironmentIntentSpec)
 
 
 # ---------------------------------------------------------------------------
@@ -141,11 +141,11 @@ class TestCheckStructuredOutputSupport:
 # TODO(qianl): drop the flaky marker once production-side retry is wired.
 @pytest.mark.flaky(max_runs=3, min_passes=1)
 def test_default_model_supports_structured_output():
-    """The default ``EnvGenAgent`` model must support structured outputs."""
+    """The default ``EnvironmentGenerationAgent`` model must support structured outputs."""
     api_key = os.environ.get("NV_API_KEY")
     assert api_key, "NV_API_KEY env var required to run live tests"
 
     from openai import OpenAI
 
     client = OpenAI(api_key=api_key, base_url=DEFAULT_BASE_URL)
-    assert check_structured_output_support(client, DEFAULT_MODEL, EnvIntentSpec) is True
+    assert check_structured_output_support(client, DEFAULT_MODEL, EnvironmentIntentSpec) is True

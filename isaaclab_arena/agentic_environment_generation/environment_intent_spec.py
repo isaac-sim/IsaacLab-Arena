@@ -112,13 +112,13 @@ class Task(BaseModel):
     )
 
 
-class EnvIntentSpec(BaseModel):
+class EnvironmentIntentSpec(BaseModel):
     """Agent output — a structured "env intent" (blueprint) for the env and a list of tasks.
 
     Field-level guidance lives on the individual ``Field(description=...)``
     entries below and is surfaced to the agent via ``model_json_schema()``;
     only cross-cutting rules and few-shot examples are kept in the
-    prompt text (see ``EnvGenAgent._system_prompt``).
+    prompt text (see ``EnvironmentGenerationAgent._system_prompt``).
     """
 
     # Forced chain-of-thought field, listed FIRST so the agent emits its

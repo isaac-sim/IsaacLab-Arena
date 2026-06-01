@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import get_args
 
-from isaaclab_arena.environments.agentic_env_gen.env_intent_spec import RelationKind
+from isaaclab_arena.agentic_environment_generation.environment_intent_spec import RelationKind
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpatialConstraintType
 
 

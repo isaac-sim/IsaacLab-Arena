@@ -6,14 +6,14 @@
 """Run the agent on a prompt and dump the resolved ArenaEnvGraphSpec.
 
 Examples:
-    # Print the Pydantic EnvIntentSpec JSON schema (no agent call):
-    /isaac-sim/python.sh -m isaaclab_arena.environments.agentic_env_gen.try_schema --print-schema
+    # Print the Pydantic EnvironmentIntentSpec JSON schema (no agent call):
+    /isaac-sim/python.sh -m isaaclab_arena.agentic_environment_generation.try_environment_intent_schema --print-schema
 
     # Print the catalog sent to the agent (no agent call):
-    /isaac-sim/python.sh -m isaaclab_arena.environments.agentic_env_gen.try_schema --print-catalog
+    /isaac-sim/python.sh -m isaaclab_arena.agentic_environment_generation.try_environment_intent_schema --print-catalog
 
     # Call the agent, resolve, print, and dump YAML:
-    /isaac-sim/python.sh -m isaaclab_arena.environments.agentic_env_gen.try_schema \
+    /isaac-sim/python.sh -m isaaclab_arena.agentic_environment_generation.try_environment_intent_schema \
         --prompt "franka pick up avocado from the table and place it into a bowl on the table. there are other veggies on the table as distractor"
 """
 
@@ -22,9 +22,12 @@ from __future__ import annotations
 import argparse
 import json
 
+from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
+    EnvironmentGenerationAgent,
+    build_asset_catalogue,
+)
+from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
 from isaaclab_arena.assets.registries import AssetRegistry
-from isaaclab_arena.environments.agentic_env_gen.env_gen_agent import EnvGenAgent, build_asset_catalogue
-from isaaclab_arena.environments.agentic_env_gen.env_intent_spec import EnvIntentSpec
 
 DEFAULT_PROMPT = (
     "franka pick up avocado from the maple table and place it into a bowl on the table. "
@@ -46,7 +49,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.print_schema:
-        print(json.dumps(EnvIntentSpec.model_json_schema(), indent=2))
+        print(json.dumps(EnvironmentIntentSpec.model_json_schema(), indent=2))
         return
 
     catalog = build_asset_catalogue(AssetRegistry())
@@ -54,7 +57,7 @@ def main() -> None:
         print(catalog.to_catalog_string())
         return
 
-    agent = EnvGenAgent(model=args.model)
+    agent = EnvironmentGenerationAgent(model=args.model)
     spec, raw = agent.generate_spec(args.prompt, catalog=catalog, temperature=args.temperature)
 
     print("=== raw agent response ===")
@@ -64,7 +67,7 @@ def main() -> None:
     print("\n=== agent reasoning ===")
     print(spec.reasoning)
 
-    print("\n=== parsed EnvIntentSpec ===")
+    print("\n=== parsed EnvironmentIntentSpec ===")
     print(spec.model_dump_json(indent=2))
 
 

@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Agent for parsing natural-language env-generation prompts into an EnvIntentSpec."""
+"""Agent for parsing natural-language env-generation prompts into an EnvironmentIntentSpec."""
 
 from __future__ import annotations
 
@@ -14,17 +14,17 @@ from typing import Any
 
 from openai import OpenAI
 
-from isaaclab_arena.assets.background import Background
-from isaaclab_arena.assets.object_library import LibraryObject
-from isaaclab_arena.assets.registries import AssetRegistry
-from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-from isaaclab_arena.environments.agentic_env_gen.env_intent_spec import EnvIntentSpec
-from isaaclab_arena.environments.agentic_env_gen.structured_output_utils import (
+from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
+from isaaclab_arena.agentic_environment_generation.structured_output_utils import (
     build_strict_schema,
     check_structured_output_support,
     extract_response_text,
     ping,
 )
+from isaaclab_arena.assets.background import Background
+from isaaclab_arena.assets.object_library import LibraryObject
+from isaaclab_arena.assets.registries import AssetRegistry
+from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 
 DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
 DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
@@ -72,8 +72,8 @@ def build_asset_catalogue(registry: AssetRegistry) -> AssetCatalogue:
     return catalogue
 
 
-class EnvGenAgent:
-    """Parses a natural-language env-generation prompt into an EnvIntentSpec."""
+class EnvironmentGenerationAgent:
+    """Parses a natural-language env-generation prompt into an EnvironmentIntentSpec."""
 
     def __init__(
         self,
@@ -99,8 +99,8 @@ class EnvGenAgent:
         ping(self.client, self.model)
 
         # Validate model can produce structured outputs.
-        check_structured_output_support(self.client, self.model, EnvIntentSpec)
-        self._spec_schema = build_strict_schema(EnvIntentSpec)
+        check_structured_output_support(self.client, self.model, EnvironmentIntentSpec)
+        self._spec_schema = build_strict_schema(EnvironmentIntentSpec)
 
     def generate_spec(
         self,
@@ -108,21 +108,21 @@ class EnvGenAgent:
         catalog: AssetCatalogue | None = None,
         temperature: float = 0.2,
         max_tokens: int = 2000,
-    ) -> tuple[EnvIntentSpec, str]:
-        """Call the model with user prompt and return the parsed EnvIntentSpec.
+    ) -> tuple[EnvironmentIntentSpec, str]:
+        """Call the model with user prompt and return the parsed EnvironmentIntentSpec.
 
         Args:
             prompt: Natural-language env description from the end user.
             catalog: Pre-built asset vocabulary. When ``None``, the catalog is
                 built from the live ``AssetRegistry``.
             temperature: Sampling temperature forwarded to the model. Kept
-                low by default (0.2) because EnvIntentSpec generation is a
+                low by default (0.2) because EnvironmentIntentSpec generation is a
                 deterministic-ish translation task — high temperature
                 yields creative but invalid schemas.
             max_tokens: Hard cap on the response length.
 
         Returns:
-            A ``(EnvIntentSpec, raw_response)`` tuple. The raw text is
+            A ``(EnvironmentIntentSpec, raw_response)`` tuple. The raw text is
             useful for debugging.
         """
         catalog = catalog or build_asset_catalogue(AssetRegistry())
@@ -138,7 +138,7 @@ class EnvGenAgent:
             ],
             response_format={
                 "type": "json_schema",
-                "json_schema": {"name": "EnvIntentSpec", "strict": True, "schema": self._spec_schema},
+                "json_schema": {"name": "EnvironmentIntentSpec", "strict": True, "schema": self._spec_schema},
             },
             temperature=temperature,
             max_tokens=max_tokens,
@@ -154,13 +154,13 @@ class EnvGenAgent:
         # (e.g. literal tabs) inside JSON strings — DeepSeek-v4-flash is known
         # to emit these.
         data = json.loads(text, strict=False)
-        spec = EnvIntentSpec.model_validate(data)
+        spec = EnvironmentIntentSpec.model_validate(data)
         return spec, text
 
     def _system_prompt(self) -> str:
         return (
             "You are an env-generation parser for robot manipulation tasks.\n"
-            "Convert a natural-language prompt into an EnvIntentSpec.\n\n"
+            "Convert a natural-language prompt into an EnvironmentIntentSpec.\n\n"
             "GUIDANCE:\n"
             "- Follow the per-field ``description`` strings in the schema for what each field expects.\n"
             "- If the prompt does not specify a value for an optional field, output null.\n"
