@@ -101,6 +101,10 @@ class PooledObjectPlacer:
         self._had_fallbacks = False
         self._base_placement_seed = placer_params.placement_seed
         self._next_seed_offset = 0
+        # Dedicated RNG so sample_with_replacement is reproducible under placement_seed and
+        # independent of the global random state. When placement_seed is None it seeds from
+        # system entropy (non-deterministic, matching the unseeded solver behavior).
+        self._rng = random.Random(placer_params.placement_seed)
         self._env_pools: list[EnvLayoutPool] = [EnvLayoutPool([]) for _ in range(self._num_envs)]
 
         self._solve_and_store(pool_size)
@@ -402,16 +406,18 @@ class PooledObjectPlacer:
         are uniform IID from the full pool.
         """
         # With-replacement samples from all stored layouts, ignoring the consumption cursor.
+        # Draws use the instance RNG (self._rng) so the sequence is reproducible under
+        # placement_seed rather than dependent on the global random state.
         if self._uses_env_specific_bboxes:
             results: list[PlacementResult] = []
             for i in range(count):
                 cur_env = i % self._num_envs
                 pool = self._env_pools[cur_env].layouts
                 assert pool, f"Env {cur_env} has no valid layouts to sample from."
-                results.append(random.choice(pool))
+                results.append(self._rng.choice(pool))
             return results
         all_layouts = [layout for pool in self._env_pools for layout in pool.layouts]
-        return random.choices(all_layouts, k=count)
+        return self._rng.choices(all_layouts, k=count)
 
     @property
     def remaining(self) -> int:
