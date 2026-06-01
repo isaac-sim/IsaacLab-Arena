@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any
 from isaaclab_arena.affordances.affordance_base import AffordanceBase
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.registries import TaskRegistry
-from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphTaskSpec
@@ -26,12 +25,20 @@ NODE_REF_BASES: tuple[type, ...] = (Asset, AffordanceBase)
 
 
 def build_task_from_specs(task_specs: list[ArenaEnvGraphTaskSpec], assets_by_node_id: dict[str, Any]) -> Any | None:
-    """Return None for no specs, the single task for one spec, or a SequentialTaskBase for many."""
-    if not task_specs:
+    """Build each task spec into a live task and combine them into one env-level task.
+
+    None for no specs, the sole task for one, or a SequentialTaskBase (all required to succeed) for many.
+    """
+    task_instances = [_build_task_from_spec(spec, assets_by_node_id) for spec in task_specs]
+    if not task_instances:
         return None
-    task_instances = [_build_task_from_spec(task_spec, assets_by_node_id) for task_spec in task_specs]
     if len(task_instances) == 1:
         return task_instances[0]
+    # Lazy import: SequentialTaskBase -> composite_task_base pulls in pxr (USD), which requires a
+    # launched SimulationApp. Deferring it keeps this module importable by data-only consumers
+    # (spec parsers, unit tests, pytest collection) without dragging in sim deps at import time.
+    from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
+
     return SequentialTaskBase(
         subtasks=task_instances,
         desired_subtask_success_state=[True] * len(task_instances),

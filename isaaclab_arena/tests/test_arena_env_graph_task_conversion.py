@@ -159,32 +159,9 @@ def test_resolve_raises_on_non_string_node_id():
 
 
 def test_build_task_from_specs_empty_returns_none():
-    """No specs -> no task."""
+    """No specs -> no task (the empty path short-circuits before any registry/sim lookup).
+
+    The single-task and SequentialTaskBase-wrapping paths run real registered tasks, so they
+    are covered by the end-to-end sim test in ``test_arena_env_graph_conversion.py``.
+    """
     assert conversion.build_task_from_specs([], {}) is None
-
-
-def test_build_task_from_specs_single_returns_the_task(monkeypatch):
-    """Exactly one spec -> that task, unwrapped (no SequentialTaskBase)."""
-    sentinel = object()
-    monkeypatch.setattr(conversion, "_build_task_from_spec", lambda spec, assets: sentinel)
-    assert conversion.build_task_from_specs(["spec"], {}) is sentinel
-
-
-def test_build_task_from_specs_many_wraps_in_sequential(monkeypatch):
-    """Multiple specs -> a SequentialTaskBase over all subtasks, all required to succeed."""
-    subtasks = [object(), object(), object()]
-    monkeypatch.setattr(conversion, "_build_task_from_spec", lambda spec, assets: spec)
-
-    captured = {}
-
-    def fake_sequential(subtasks, desired_subtask_success_state):
-        captured["subtasks"] = subtasks
-        captured["desired"] = desired_subtask_success_state
-        return "sequential"
-
-    monkeypatch.setattr(conversion, "SequentialTaskBase", fake_sequential)
-
-    result = conversion.build_task_from_specs(subtasks, {})
-    assert result == "sequential"
-    assert captured["subtasks"] == subtasks
-    assert captured["desired"] == [True, True, True]
