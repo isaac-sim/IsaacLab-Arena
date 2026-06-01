@@ -69,17 +69,14 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     # Isaaclab Arena Env. Held as a member to allow use of internal functions
     isaaclab_arena_env: IsaacLabArenaEnvironment | None = None
 
-    # Overriding defaults from base class
     # Override the RTX renderer's built-in scene ambient (carb /rtx/sceneDb/ambientLightIntensity, default 1.0 with
-    # color [0.1, 0.1, 0.1]) so that USD light prims fully control scene illumination. Without this, Arena scenes
-    # carry a ~10%-gray ambient floor independent of any UsdLuxLight, which silently confounds vision-policy evals.
+    # color [0.1, 0.1, 0.1]) so that USD light prims fully control scene illumination.
     sim: SimulationCfg = SimulationCfg(
         dt=1 / 200,
         render_interval=2,
         render=RenderCfg(
             carb_settings={
                 "/rtx/sceneDb/ambientLightIntensity": 0.0,
-                "/rtx/sceneDb/ambientLightColor": [0.0, 0.0, 0.0],
             },
         ),
     )
