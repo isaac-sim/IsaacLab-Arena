@@ -16,14 +16,6 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
-_FRANKA_NIST_GEAR_INSERTION_OSC_EMBODIMENT = "franka_nist_gear_insertion_osc"
-_PEG_TIP_OFFSET = (0.02025, 0.0, 0.025)
-_PEG_BASE_OFFSET = (0.02025, 0.0, 0.0)
-_GEAR_PEG_HEIGHT = 0.02
-_SUCCESS_Z_FRACTION = 0.20
-_XY_THRESHOLD = 0.0025
-_EPISODE_LENGTH_S = 15.0
-
 
 @register_environment
 class NISTAssembledGearMeshOSCEnvironment(ExampleEnvironmentBase):
@@ -52,28 +44,32 @@ class NISTAssembledGearMeshOSCEnvironment(ExampleEnvironmentBase):
         light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
         light = self.asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
 
-        embodiment = self.asset_registry.get_asset_by_name(_FRANKA_NIST_GEAR_INSERTION_OSC_EMBODIMENT)(
+        embodiment = self.asset_registry.get_asset_by_name("franka_nist_gear_insertion_osc")(
             enable_cameras=args_cli.enable_cameras,
             concatenate_observation_terms=True,
         )
+
+        # GearInsertionGeometryCfg owns the canonical insertion geometry for the NIST board.
+        geometry_cfg = GearInsertionGeometryCfg()
+
         embodiment.action_config = FrankaNistGearInsertionOscActionsCfg(
             fixed_asset_name=gears_and_base.name,
-            peg_offset=_PEG_TIP_OFFSET,
+            peg_offset=geometry_cfg.peg_offset_for_obs,
         )
         embodiment.observation_config = FrankaNistGearInsertionObservationsCfg(
             fixed_asset_name=gears_and_base.name,
-            peg_offset=_PEG_TIP_OFFSET,
+            peg_offset=geometry_cfg.peg_offset_for_obs,
             fingertip_body_name=embodiment.get_command_body_name(),
             concatenate_observation_terms=embodiment.concatenate_observation_terms,
         )
         embodiment.reward_config = NistGearInsertionOscRewardsCfg(
             gear_name=medium_gear.name,
             board_name=gears_and_base.name,
-            peg_offset=_PEG_BASE_OFFSET,
-            held_gear_base_offset=_PEG_BASE_OFFSET,
-            gear_peg_height=_GEAR_PEG_HEIGHT,
-            success_z_fraction=_SUCCESS_Z_FRACTION,
-            xy_threshold=_XY_THRESHOLD,
+            peg_offset=geometry_cfg.peg_offset_from_board,
+            held_gear_base_offset=geometry_cfg.held_gear_base_offset,
+            gear_peg_height=geometry_cfg.gear_peg_height,
+            success_z_fraction=geometry_cfg.success_z_fraction,
+            xy_threshold=geometry_cfg.xy_threshold,
         )
         if args_cli.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
@@ -90,20 +86,13 @@ class NISTAssembledGearMeshOSCEnvironment(ExampleEnvironmentBase):
         )
         scene = Scene(assets=[table, assembled_board, medium_gear, gears_and_base, light])
 
-        geometry_cfg = GearInsertionGeometryCfg(
-            peg_offset_from_board=list(_PEG_BASE_OFFSET),
-            peg_offset_for_obs=list(_PEG_TIP_OFFSET),
-            success_z_fraction=_SUCCESS_Z_FRACTION,
-            xy_threshold=_XY_THRESHOLD,
-        )
-
         task = NistGearInsertionRLTask(
             assembled_board=assembled_board,
             held_gear=medium_gear,
             background_scene=table,
             gear_base_asset=gears_and_base,
             geometry_cfg=geometry_cfg,
-            episode_length_s=_EPISODE_LENGTH_S,
+            episode_length_s=15.0,
             grasp_cfg=embodiment.get_gear_insertion_grasp_config(),
             fingertip_body_name=embodiment.get_command_body_name(),
             enable_randomization=True,

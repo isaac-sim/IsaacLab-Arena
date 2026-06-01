@@ -40,8 +40,8 @@ class NistGearInsertionOscRewardsCfg:
         self,
         gear_name: str,
         board_name: str,
-        peg_offset: list[float] | tuple[float, ...],
-        held_gear_base_offset: list[float] | tuple[float, ...],
+        peg_offset: tuple[float, float, float],
+        held_gear_base_offset: tuple[float, float, float],
         gear_peg_height: float,
         success_z_fraction: float,
         xy_threshold: float,
@@ -50,8 +50,8 @@ class NistGearInsertionOscRewardsCfg:
         geometry_params = {
             "gear_cfg": SceneEntityCfg(gear_name),
             "board_cfg": SceneEntityCfg(board_name),
-            "peg_offset": list(peg_offset),
-            "held_gear_base_offset": list(held_gear_base_offset),
+            "peg_offset": peg_offset,
+            "held_gear_base_offset": held_gear_base_offset,
             "gear_peg_height": gear_peg_height,
             "xy_threshold": xy_threshold,
         }
@@ -121,12 +121,6 @@ class success_prediction_error(ManagerTermBase):
     def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRLEnv):
         super().__init__(cfg, env)
         self._prediction_loss_weight = 0.0
-        self._held_gear_base_offset_values = tuple(cfg.params["held_gear_base_offset"])
-        self._held_gear_base_offset = torch.tensor(
-            self._held_gear_base_offset_values, device=env.device, dtype=torch.float32
-        )
-        self._peg_offset_values = tuple(cfg.params["peg_offset"])
-        self._peg_offset = torch.tensor(self._peg_offset_values, device=env.device, dtype=torch.float32)
 
     def __call__(
         self,
@@ -136,19 +130,19 @@ class success_prediction_error(ManagerTermBase):
         gear_peg_height: float,
         success_z_fraction: float,
         xy_threshold: float,
-        peg_offset: list[float] | None = None,
-        held_gear_base_offset: list[float] | None = None,
+        peg_offset: tuple[float, float, float],
+        held_gear_base_offset: tuple[float, float, float],
         delay_until_ratio: float = 0.25,
     ) -> torch.Tensor:
         true_success = self._compute_true_success(
             env,
             gear_cfg,
             board_cfg,
-            peg_offset,
-            held_gear_base_offset,
             gear_peg_height,
             success_z_fraction,
             xy_threshold,
+            peg_offset,
+            held_gear_base_offset,
         )
         self._update_prediction_loss_weight(true_success, delay_until_ratio)
         pred = self._read_success_prediction(env)
@@ -159,24 +153,19 @@ class success_prediction_error(ManagerTermBase):
         env: ManagerBasedRLEnv,
         gear_cfg: SceneEntityCfg,
         board_cfg: SceneEntityCfg,
-        peg_offset: list[float] | None,
-        held_gear_base_offset: list[float] | None,
         gear_peg_height: float,
         success_z_fraction: float,
         xy_threshold: float,
+        peg_offset: tuple[float, float, float],
+        held_gear_base_offset: tuple[float, float, float],
     ) -> torch.Tensor:
         """Return the geometric success label used by the auxiliary prediction loss."""
         return gear_geometry.compute_gear_insertion_success(
             env,
             gear_cfg,
             board_cfg,
-            gear_geometry.resolve_offset_tensor(peg_offset, self._peg_offset_values, self._peg_offset, env.device),
-            gear_geometry.resolve_offset_tensor(
-                held_gear_base_offset,
-                self._held_gear_base_offset_values,
-                self._held_gear_base_offset,
-                env.device,
-            ),
+            peg_offset,
+            held_gear_base_offset,
             gear_peg_height,
             success_z_fraction,
             xy_threshold,

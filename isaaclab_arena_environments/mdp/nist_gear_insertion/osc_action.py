@@ -9,6 +9,13 @@ This module converts normalized policy commands into end-effector pose targets
 for the OSC controller. The policy targets the insertion peg directly, while
 this term applies the filtering, command limits, force smoothing, and reset-time
 randomization used by the Isaac Lab Forge gear-insertion setup.
+
+Reference:
+    The target-generation pipeline (peg-relative position, 270-degree yaw remap,
+    gripper-down orientation compose, per-step Euler delta clipping, and action
+    EMA) is a manager-based port of
+    ``isaaclab_tasks.direct.forge.forge_env.ForgeEnv._apply_action`` (and the
+    EMA smoothing in ``ForgeEnv._pre_physics_step``).
 """
 
 from __future__ import annotations
@@ -35,36 +42,28 @@ if TYPE_CHECKING:
 
 
 ACTION_DIM = 7
-POS_SLICE = slice(0, 3)
-QUAT_SLICE = slice(3, 7)
-ROLL_IDX = 3
-YAW_IDX = 5
-SUCCESS_IDX = 6
-ROLL_PITCH_SLICE = slice(ROLL_IDX, YAW_IDX)
-ROT_ROLL_IDX = 0
-ROT_PITCH_IDX = 1
-ROT_YAW_IDX = 2
-# The trained policy uses a gripper-down orientation and controls only yaw.
-# The interval avoids the wrist-frame discontinuity behind the end effector.
-YAW_RANGE_RAD = math.radians(270.0)
-YAW_MIN_RAD = -math.pi
-YAW_MAX_RAD = math.pi / 2.0
+"""Number of policy actions consumed by the OSC term (``xyz, roll, pitch, yaw, success``)."""
 
 
 def _action_to_target_yaw(action: torch.Tensor) -> torch.Tensor:
-    """Map normalized policy action to the commanded yaw interval."""
-    return YAW_MIN_RAD + YAW_RANGE_RAD * (action + 1.0) / 2.0
+    """Map normalized policy action to the commanded yaw interval.
+
+    We use the gripper-down orientation and control only yaw.
+    The 270-degree ``[-pi, pi/2]`` interval avoids the wrist-frame discontinuity
+    behind the end effector.
+    """
+    return -math.pi + math.radians(270.0) * (action + 1.0) / 2.0
 
 
 def _target_yaw_to_action(yaw: torch.Tensor) -> torch.Tensor:
     """Map commanded yaw back to the normalized policy interval."""
-    return (yaw - YAW_MIN_RAD) / YAW_RANGE_RAD * 2.0 - 1.0
+    return (yaw + math.pi) / math.radians(270.0) * 2.0 - 1.0
 
 
 def _wrap_yaw_to_action_range(yaw: torch.Tensor) -> torch.Tensor:
     """Wrap yaw and clamp the excluded wrist sector to the policy interval."""
-    yaw = torch.where(yaw > YAW_MAX_RAD, yaw - 2.0 * math.pi, yaw)
-    return torch.clamp(yaw, YAW_MIN_RAD, YAW_MAX_RAD)
+    yaw = torch.where(yaw > math.pi / 2.0, yaw - 2.0 * math.pi, yaw)
+    return torch.clamp(yaw, -math.pi, math.pi / 2.0)
 
 
 def _gripper_down_to_yaw_frame_quat(num_envs: int, device: torch.device) -> torch.Tensor:
@@ -203,10 +202,10 @@ class NistGearInsertionOscAction(OperationalSpaceControllerAction):
         self._compute_ee_pose()
 
         # Convert normalized policy output into a bounded OSC pose command.
-        ee_pos_b = self._ee_pose_b[:, POS_SLICE]
-        ee_quat_b = self._ee_pose_b[:, QUAT_SLICE]
-        self._processed_actions[:, POS_SLICE] = self._compute_bounded_target_position_from_policy_action(ee_pos_b)
-        self._processed_actions[:, QUAT_SLICE] = self._compute_bounded_target_orientation_from_policy_yaw(ee_quat_b)
+        ee_pos_b = self._ee_pose_b[:, 0:3]
+        ee_quat_b = self._ee_pose_b[:, 3:7]
+        self._processed_actions[:, 0:3] = self._compute_bounded_target_position_from_policy_action(ee_pos_b)
+        self._processed_actions[:, 3:7] = self._compute_bounded_target_orientation_from_policy_yaw(ee_quat_b)
 
         self._compute_task_frame_pose()
         self._osc.set_command(
@@ -220,7 +219,7 @@ class NistGearInsertionOscAction(OperationalSpaceControllerAction):
         self._raw_actions[:] = actions
         self._prev_smoothed_actions[:] = self._smoothed_actions
         self._smoothed_actions[:] = self._ema_factor * actions + (1.0 - self._ema_factor) * self._smoothed_actions
-        self._success_prediction[:] = self._smoothed_actions[:, SUCCESS_IDX]
+        self._success_prediction[:] = self._smoothed_actions[:, 6]
 
     def _ensure_force_body_idx(self) -> None:
         """Resolve the wrist force-sensor body index."""
@@ -253,7 +252,7 @@ class NistGearInsertionOscAction(OperationalSpaceControllerAction):
         """
         peg_pos_b = self._get_peg_pos() + self._fixed_pos_noise
 
-        pos_actions = self._smoothed_actions[:, POS_SLICE]
+        pos_actions = self._smoothed_actions[:, 0:3]
         target_pos = peg_pos_b + pos_actions * self._position_action_bounds
 
         self._delta_pos[:] = target_pos - ee_pos_b
@@ -266,7 +265,7 @@ class NistGearInsertionOscAction(OperationalSpaceControllerAction):
 
     def _compute_bounded_target_orientation_from_policy_yaw(self, ee_quat_b: torch.Tensor) -> torch.Tensor:
         """Return a bounded gripper-down yaw target around the gear symmetry axis."""
-        target_yaw = _action_to_target_yaw(self._smoothed_actions[:, YAW_IDX])
+        target_yaw = _action_to_target_yaw(self._smoothed_actions[:, 5])
         target_quat = self._target_quat_from_yaw(target_yaw)
         desired_xyz = self._clip_orientation_delta(ee_quat_b, target_quat)
         return math_utils.quat_from_euler_xyz(
@@ -283,14 +282,20 @@ class NistGearInsertionOscAction(OperationalSpaceControllerAction):
         return math_utils.quat_mul(gripper_down_quat, target_yaw_quat)
 
     def _clip_orientation_delta(self, ee_quat_b: torch.Tensor, target_quat: torch.Tensor) -> torch.Tensor:
-        """Clip roll, pitch, and yaw deltas before sending the OSC command."""
+        """Clip roll, pitch, and yaw deltas before sending the OSC command.
+
+        Mirrors step (2.b) of ``ForgeEnv._apply_action``: convert current and
+        target poses to Euler angles, wrap yaw to a joint-limit-safe span, then
+        rate-limit each axis. Roll/pitch are clipped (not snapped) to match Forge.
+        """
         curr_roll, curr_pitch, curr_yaw = math_utils.euler_xyz_from_quat(ee_quat_b, wrap_to_2pi=True)
         desired_roll, desired_pitch, desired_yaw = math_utils.euler_xyz_from_quat(target_quat, wrap_to_2pi=True)
         desired_xyz = torch.stack([desired_roll, desired_pitch, desired_yaw], dim=1)
 
-        desired_xyz[:, ROT_ROLL_IDX] = self._clip_roll_delta(curr_roll, desired_roll)
-        desired_xyz[:, ROT_PITCH_IDX] = self._clip_pitch_delta(curr_pitch, desired_pitch)
-        desired_xyz[:, ROT_YAW_IDX] = self._clip_yaw_delta(curr_yaw, desired_yaw)
+        # desired_xyz columns are ordered (roll, pitch, yaw).
+        desired_xyz[:, 0] = self._clip_roll_delta(curr_roll, desired_roll)
+        desired_xyz[:, 1] = self._clip_pitch_delta(curr_pitch, desired_pitch)
+        desired_xyz[:, 2] = self._clip_yaw_delta(curr_yaw, desired_yaw)
         return desired_xyz
 
     def _clip_roll_delta(self, curr_roll: torch.Tensor, desired_roll: torch.Tensor) -> torch.Tensor:
@@ -299,8 +304,8 @@ class NistGearInsertionOscAction(OperationalSpaceControllerAction):
         delta_roll = desired_roll - curr_roll
         clipped_roll = torch.clamp(
             delta_roll,
-            -self._rotation_step_limits[:, ROT_ROLL_IDX],
-            self._rotation_step_limits[:, ROT_ROLL_IDX],
+            -self._rotation_step_limits[:, 0],
+            self._rotation_step_limits[:, 0],
         )
         return curr_roll + clipped_roll
 
@@ -312,8 +317,8 @@ class NistGearInsertionOscAction(OperationalSpaceControllerAction):
         delta_pitch = desired_pitch_w - curr_pitch_w
         clipped_pitch = torch.clamp(
             delta_pitch,
-            -self._rotation_step_limits[:, ROT_PITCH_IDX],
-            self._rotation_step_limits[:, ROT_PITCH_IDX],
+            -self._rotation_step_limits[:, 1],
+            self._rotation_step_limits[:, 1],
         )
         return curr_pitch_w + clipped_pitch
 
@@ -325,7 +330,7 @@ class NistGearInsertionOscAction(OperationalSpaceControllerAction):
         self._delta_yaw[:] = desired_yaw - curr_yaw
         clipped_yaw = self._clip_delta_with_dead_zone(
             self._delta_yaw,
-            self._rotation_step_limits[:, ROT_YAW_IDX],
+            self._rotation_step_limits[:, 2],
             self._rot_dead_zone,
         )
         return curr_yaw + clipped_yaw
@@ -359,7 +364,11 @@ class NistGearInsertionOscAction(OperationalSpaceControllerAction):
         self._reset_command_thresholds(env_ids_index, num_envs)
         self._reset_contact_state(env_ids_index, num_envs)
         self._reset_initial_smoothed_actions(env_ids_index)
-        self._reset_debug_state(env_ids_index)
+
+        # Clear diagnostic buffers used by observations and rewards.
+        self._delta_pos[env_ids_index] = 0.0
+        self._delta_yaw[env_ids_index] = 0.0
+        self._success_prediction[env_ids_index] = -1.0
 
     def _normalize_env_ids(self, env_ids: Sequence[int] | None) -> tuple[Sequence[int] | slice, int]:
         """Return an index object and count for tensor resets."""
@@ -397,27 +406,22 @@ class NistGearInsertionOscAction(OperationalSpaceControllerAction):
     def _reset_initial_smoothed_actions(self, env_ids: Sequence[int] | slice) -> None:
         """Seed smoothed actions from the current EE pose to avoid a reset-time command jump."""
         self._compute_ee_pose()
-        ee_pos = self._ee_pose_b[env_ids, POS_SLICE]
-        ee_quat = self._ee_pose_b[env_ids, QUAT_SLICE]
+        ee_pos = self._ee_pose_b[env_ids, 0:3]
+        ee_quat = self._ee_pose_b[env_ids, 3:7]
 
         peg_pos = self._get_peg_pos(env_ids) + self._fixed_pos_noise[env_ids]
 
         pos_actions = (ee_pos - peg_pos) / self._position_action_bounds
-        self._smoothed_actions[env_ids, POS_SLICE] = pos_actions
+        self._smoothed_actions[env_ids, 0:3] = pos_actions
 
         yaw_action = self._ee_quat_to_yaw_action(ee_quat)
 
-        self._smoothed_actions[env_ids, ROLL_PITCH_SLICE] = 0.0
-        self._smoothed_actions[env_ids, YAW_IDX] = yaw_action
-        self._smoothed_actions[env_ids, SUCCESS_IDX] = -1.0
+        # Channels 3 and 4 are roll and pitch; the gripper-down policy holds them at zero.
+        self._smoothed_actions[env_ids, 3:5] = 0.0
+        self._smoothed_actions[env_ids, 5] = yaw_action
+        self._smoothed_actions[env_ids, 6] = -1.0
 
         self._prev_smoothed_actions[env_ids] = self._smoothed_actions[env_ids]
-
-    def _reset_debug_state(self, env_ids: Sequence[int] | slice) -> None:
-        """Clear diagnostic buffers used by observations and rewards."""
-        self._delta_pos[env_ids] = 0.0
-        self._delta_yaw[env_ids] = 0.0
-        self._success_prediction[env_ids] = -1.0
 
 
 @configclass

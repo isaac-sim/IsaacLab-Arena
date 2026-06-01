@@ -21,24 +21,6 @@ from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import SceneEntityCfg
 
 
-def resolve_offset_tensor(
-    values: list[float] | tuple[float, ...] | None,
-    cached_values: tuple[float, ...],
-    cached_tensor: torch.Tensor,
-    device: torch.device,
-) -> torch.Tensor:
-    """Return an offset tensor on ``device``.
-
-    Reward and termination terms cache their default offsets at construction.
-    Manager call-time parameters may still override those values, so this function
-    keeps the common "use cached tensor unless explicitly overridden" path in
-    one place.
-    """
-    if values is None or tuple(values) == cached_values:
-        return cached_tensor
-    return torch.tensor(values, device=device, dtype=torch.float32)
-
-
 def compute_asset_local_offset_pose(
     env: ManagerBasedRLEnv,
     asset: RigidObject,

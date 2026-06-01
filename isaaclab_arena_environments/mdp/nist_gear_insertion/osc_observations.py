@@ -15,7 +15,6 @@ from __future__ import annotations
 import math
 import torch
 import torch.nn.functional as F
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import isaaclab.utils.math as math_utils
@@ -50,34 +49,6 @@ POLICY_OBS_LAYOUT = (
 )
 POLICY_OBS_DIM = sum(dim for _, dim in POLICY_OBS_LAYOUT)
 PREV_ACTION_ROLL_PITCH_SLICE = slice(3, 5)
-
-
-@dataclass(frozen=True)
-class NistGearInsertionPolicyObsParams:
-    """Resolved config values for :class:`NistGearInsertionPolicyObservations`."""
-
-    robot_name: str = "robot"
-    board_name: str = "fixed_asset"
-    peg_offset: tuple[float, float, float] = (0.0, 0.0, 0.0)
-    fingertip_body_name: str = "panda_fingertip_centered"
-    force_body_name: str = "force_sensor"
-    """Body whose presence is validated because the paired action term reads wrist force."""
-    pos_noise_level: float = 0.00025
-    rot_noise_level_deg: float = 0.1
-    force_noise_level: float = 1.0
-
-    @classmethod
-    def from_dict(cls, params: dict) -> NistGearInsertionPolicyObsParams:
-        return cls(
-            robot_name=params.get("robot_name", cls.robot_name),
-            board_name=params.get("board_name", cls.board_name),
-            peg_offset=tuple(params.get("peg_offset", cls.peg_offset)),
-            fingertip_body_name=params.get("fingertip_body_name", cls.fingertip_body_name),
-            force_body_name=params.get("force_body_name", cls.force_body_name),
-            pos_noise_level=params.get("pos_noise_level", cls.pos_noise_level),
-            rot_noise_level_deg=params.get("rot_noise_level_deg", cls.rot_noise_level_deg),
-            force_noise_level=params.get("force_noise_level", cls.force_noise_level),
-        )
 
 
 def _make_reported_quat(quat: torch.Tensor, flip: torch.Tensor) -> torch.Tensor:
@@ -132,17 +103,9 @@ class NistGearInsertionPolicyObservations(ManagerTermBase):
     def __init__(self, cfg: ObservationTermCfg, env: ManagerBasedRLEnv):
         super().__init__(cfg, env)
 
-        self._params = NistGearInsertionPolicyObsParams.from_dict(cfg.params)
-        self._robot_name = self._params.robot_name
-        self._board_name = self._params.board_name
-        self._peg_offset_values = self._params.peg_offset
-        self._peg_offset = torch.tensor(self._peg_offset_values, device=env.device)
-        self._fingertip_body = self._params.fingertip_body_name
-        self._force_body = self._params.force_body_name
-
-        self._pos_noise = self._params.pos_noise_level
-        self._rot_noise_deg = self._params.rot_noise_level_deg
-        self._force_noise = self._params.force_noise_level
+        self._robot_name = cfg.params.get("robot_name", "robot")
+        self._fingertip_body = cfg.params.get("fingertip_body_name", "panda_fingertip_centered")
+        self._force_body = cfg.params.get("force_body_name", "force_sensor")
 
         n = env.num_envs
         dev = env.device
@@ -181,12 +144,6 @@ class NistGearInsertionPolicyObservations(ManagerTermBase):
         if body_key == self._body_key:
             self._fingertip_idx = fingertip_idx
         return fingertip_idx
-
-    def _resolve_peg_offset(self, peg_offset: list[float] | None, device: torch.device) -> torch.Tensor:
-        """Return the cached peg offset unless the manager supplies different values."""
-        if peg_offset is None or tuple(peg_offset) == self._peg_offset_values:
-            return self._peg_offset
-        return torch.tensor(peg_offset, device=device, dtype=torch.float32)
 
     def _sample_noisy_pose(
         self,
@@ -242,16 +199,6 @@ class NistGearInsertionPolicyObservations(ManagerTermBase):
         self._prev_noisy_quat[:] = obs_quat
         return ee_linvel, ee_angvel
 
-    def _read_smoothed_force(
-        self,
-        env: ManagerBasedRLEnv,
-        arm_osc_action,
-        force_noise_level: float,
-    ) -> torch.Tensor:
-        """Return the smoothed wrist force with configured observation noise."""
-        force = arm_osc_action.smoothed_force
-        return force + torch.randn(env.num_envs, 3, device=env.device) * force_noise_level
-
     def _read_fingertip_pose(
         self,
         env: ManagerBasedRLEnv,
@@ -291,7 +238,9 @@ class NistGearInsertionPolicyObservations(ManagerTermBase):
         force_noise_level: float,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Return wrist-force, force-threshold, and previous-action observations."""
-        noisy_force = self._read_smoothed_force(env, arm_osc_action, force_noise_level)
+        noisy_force = (
+            arm_osc_action.smoothed_force + torch.randn(env.num_envs, 3, device=env.device) * force_noise_level
+        )
         force_threshold = arm_osc_action.contact_thresholds.unsqueeze(-1)
 
         prev_actions = arm_osc_action.smoothed_actions.clone()
@@ -323,27 +272,6 @@ class NistGearInsertionPolicyObservations(ManagerTermBase):
         )
         assert obs.shape[-1] == POLICY_OBS_DIM, f"Expected {POLICY_OBS_DIM}D gear insertion policy obs."
         return torch.nan_to_num(obs, nan=0.0, posinf=100.0, neginf=-100.0).clamp(-100.0, 100.0)
-
-    def _resolve_call_params(
-        self,
-        robot_name: str | None,
-        board_name: str | None,
-        fingertip_body_name: str | None,
-        force_body_name: str | None,
-        pos_noise_level: float | None,
-        rot_noise_level_deg: float | None,
-        force_noise_level: float | None,
-    ) -> tuple[str, str, str, str, float, float, float]:
-        """Resolve optional call-time overrides against the configured defaults."""
-        return (
-            self._robot_name if robot_name is None else robot_name,
-            self._board_name if board_name is None else board_name,
-            self._fingertip_body if fingertip_body_name is None else fingertip_body_name,
-            self._force_body if force_body_name is None else force_body_name,
-            self._pos_noise if pos_noise_level is None else pos_noise_level,
-            self._rot_noise_deg if rot_noise_level_deg is None else rot_noise_level_deg,
-            self._force_noise if force_noise_level is None else force_noise_level,
-        )
 
     def reset(self, env_ids: list[int] | None = None):
         """Reset noisy pose history and quaternion sign for selected environments."""
@@ -377,35 +305,17 @@ class NistGearInsertionPolicyObservations(ManagerTermBase):
     def __call__(
         self,
         env: ManagerBasedRLEnv,
-        robot_name: str | None = None,
-        board_name: str | None = None,
-        peg_offset: list[float] | None = None,
-        fingertip_body_name: str | None = None,
-        force_body_name: str | None = None,
-        pos_noise_level: float | None = None,
-        rot_noise_level_deg: float | None = None,
-        force_noise_level: float | None = None,
+        robot_name: str = "robot",
+        board_name: str = "fixed_asset",
+        peg_offset: list[float] = (0.0, 0.0, 0.0),
+        fingertip_body_name: str = "panda_fingertip_centered",
+        force_body_name: str = "force_sensor",
+        pos_noise_level: float = 0.00025,
+        rot_noise_level_deg: float = 0.1,
+        force_noise_level: float = 1.0,
     ) -> torch.Tensor:
         """Return the 24-D policy observation tensor."""
-        (
-            robot_name,
-            board_name,
-            fingertip_body_name,
-            force_body_name,
-            pos_noise_level,
-            rot_noise_level_deg,
-            force_noise_level,
-        ) = self._resolve_call_params(
-            robot_name,
-            board_name,
-            fingertip_body_name,
-            force_body_name,
-            pos_noise_level,
-            rot_noise_level_deg,
-            force_noise_level,
-        )
-
-        peg_offset_tensor = self._resolve_peg_offset(peg_offset, env.device)
+        peg_offset_tensor = torch.tensor(peg_offset, device=env.device, dtype=torch.float32)
         fingertip_idx = self._resolve_fingertip_idx(robot_name, fingertip_body_name, force_body_name)
         arm_osc_action = get_nist_gear_insertion_arm_action(env)
 

@@ -52,7 +52,7 @@ class FrankaNistGearInsertionObservationsCfg:
             params={
                 "robot_name": "robot",
                 "board_name": fixed_asset_name,
-                "peg_offset": list(peg_offset),
+                "peg_offset": peg_offset,
                 "fingertip_body_name": fingertip_body_name,
                 "force_body_name": "force_sensor",
                 "pos_noise_level": 0.0,

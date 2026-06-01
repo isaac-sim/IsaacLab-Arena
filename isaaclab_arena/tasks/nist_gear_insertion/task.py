@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import math
 import numpy as np
-from dataclasses import MISSING, field
+from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
@@ -22,6 +22,7 @@ from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import RewardTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
+from isaaclab.utils.math import quat_unique
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
@@ -31,26 +32,23 @@ from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 from . import geometry as gear_insertion_geometry
-from . import observations as gear_insertion_observations
 from . import rewards as gear_insertion_rewards
 from .events import GraspCfg, place_gear_in_gripper
 from .terminations import gear_dropped_from_gripper, gear_mesh_insertion_success
 
-_DEFAULT_PEG_OFFSET = (2.025e-2, 0.0, 0.0)
-
 
 @configclass
 class GearInsertionGeometryCfg:
-    """Geometry parameters shared by observations, rewards, and terminations.
+    """Canonical NIST board gear-insertion geometry shared by observations, rewards, and terminations.
 
-    Offsets are expressed in the local frame of their asset. ``peg_offset_for_obs``
-    may differ from ``peg_offset_from_board`` when the policy should target the
-    peg tip while success checks use the peg base.
+    This config is the source of truth for the physical peg/gear
+    dimensions and success tolerances. Offsets are expressed in the local frame
+    of their asset.
     """
 
-    peg_offset_from_board: list[float] = field(default_factory=lambda: list(_DEFAULT_PEG_OFFSET))
-    peg_offset_for_obs: list[float] | None = None
-    held_gear_base_offset: list[float] = field(default_factory=lambda: list(_DEFAULT_PEG_OFFSET))
+    peg_offset_from_board: tuple[float, float, float] = (0.02025, 0.0, 0.0)
+    peg_offset_for_obs: tuple[float, float, float] = (0.02025, 0.0, 0.025)
+    held_gear_base_offset: tuple[float, float, float] = (0.02025, 0.0, 0.0)
     gear_peg_height: float = 0.02
     success_z_fraction: float = 0.30
     xy_threshold: float = 0.0025
@@ -105,17 +103,10 @@ class NistGearInsertionRLTask(TaskBase):
     def get_observation_cfg(self):
         """Return generic task observations for gear and peg geometry."""
         geometry_cfg = self.geometry_cfg
-        # Policies can observe the peg tip while geometry rewards and
-        # terminations evaluate insertion against the peg base.
-        peg_obs = (
-            geometry_cfg.peg_offset_for_obs
-            if geometry_cfg.peg_offset_for_obs is not None
-            else geometry_cfg.peg_offset_from_board
-        )
         return GearInsertionObservationsCfg(
             gear_name=self.held_gear.name,
             board_name=self._gear_base_asset.name,
-            peg_offset=peg_obs,
+            peg_offset=geometry_cfg.peg_offset_for_obs,
             held_gear_base_offset=geometry_cfg.held_gear_base_offset,
             fingertip_body_name=self.fingertip_body_name,
         )
@@ -185,8 +176,6 @@ class NistGearInsertionRLTask(TaskBase):
         """Add the reset event that places the held gear in the gripper."""
         grasp_cfg = self.grasp_cfg
         if grasp_cfg is not None and grasp_cfg.gripper_joint_setter_func is not None:
-            # The held gear does not use its default reset pose in this task;
-            # the embodiment-specific grasp event places it in the gripper.
             cfg.place_gear = EventTermCfg(
                 func=place_gear_in_gripper,
                 mode="reset",
@@ -202,11 +191,7 @@ class NistGearInsertionRLTask(TaskBase):
         assert grasp_cfg is not None, "NIST gear insertion randomization requires an embodiment grasp configuration."
         arm_joints = grasp_cfg.arm_joint_names
 
-        self._add_asset_randomization_events(cfg)
-        self._add_robot_randomization_events(cfg, arm_joints)
-
-    def _add_asset_randomization_events(self, cfg: GearInsertionEventsCfg) -> None:
-        """Add reset randomization for the held gear and fixed gear base."""
+        # Asset randomization
         cfg.held_object_mass = EventTermCfg(
             func=mdp_isaac_lab.randomize_rigid_body_mass,
             mode="reset",
@@ -222,8 +207,7 @@ class NistGearInsertionRLTask(TaskBase):
             mode="reset",
             params={
                 "asset_cfg": SceneEntityCfg(self._gear_base_asset.name),
-                # Keep translational variation fixed; only the board yaw is
-                # randomized as in the Forge insertion setup.
+                # Keep translational variation fixed; only the board yaw is randomized.
                 "pose_range": {
                     "yaw": (0.0, math.radians(15.0)),
                 },
@@ -231,8 +215,7 @@ class NistGearInsertionRLTask(TaskBase):
             },
         )
 
-    def _add_robot_randomization_events(self, cfg: GearInsertionEventsCfg, arm_joints: str) -> None:
-        """Add actuator and joint-parameter randomization for the arm."""
+        # Robot actuator/joint randomization
         cfg.robot_actuator_gains = EventTermCfg(
             func=mdp_isaac_lab.randomize_actuator_gains,
             mode="reset",
@@ -274,10 +257,10 @@ class NistGearInsertionRLTask(TaskBase):
 
 @configclass
 class GearInsertionTerminationsCfg:
-    """Termination terms for the gear insertion task.
+    """Termination terms for gear insertion.
 
-    Success is always registered so metrics can read it. Drop checks are
-    optional and are disabled for recovery-focused RL training.
+    ``time_out`` and ``success`` are always active; the drop checks are optional
+    and default off so a dropped gear lets the policy recover during training.
     """
 
     time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
@@ -340,11 +323,11 @@ class GearInsertionObservationsCfg:
         self,
         gear_name: str,
         board_name: str,
-        peg_offset: list[float],
-        held_gear_base_offset: list[float] | None = None,
+        peg_offset: tuple[float, float, float],
+        held_gear_base_offset: tuple[float, float, float] | None = None,
         fingertip_body_name: str = "panda_fingertip_centered",
     ):
-        held_offset = held_gear_base_offset if held_gear_base_offset is not None else [2.025e-2, 0.0, 0.0]
+        held_offset = held_gear_base_offset if held_gear_base_offset is not None else (0.02025, 0.0, 0.0)
         self.task_obs = GearInsertionTaskObsCfg()
 
         self.task_obs.gear_pos = ObsTerm(
@@ -381,12 +364,12 @@ class GearInsertionObservationsCfg:
             params={"asset_cfg": SceneEntityCfg("robot")},
         )
         self.task_obs.ee_pos_noiseless = ObsTerm(
-            func=gear_insertion_observations.body_pos_in_env_frame,
-            params={"body_name": fingertip_body_name},
+            func=lambda env, asset_cfg: mdp_isaac_lab.body_pose_w(env, asset_cfg=asset_cfg)[:, :3],
+            params={"asset_cfg": SceneEntityCfg("robot", body_names=[fingertip_body_name])},
         )
         self.task_obs.ee_quat_noiseless = ObsTerm(
-            func=gear_insertion_observations.body_quat_canonical,
-            params={"body_name": fingertip_body_name},
+            func=lambda env, asset_cfg: quat_unique(mdp_isaac_lab.body_pose_w(env, asset_cfg=asset_cfg)[:, 3:7]),
+            params={"asset_cfg": SceneEntityCfg("robot", body_names=[fingertip_body_name])},
         )
 
 
@@ -408,8 +391,8 @@ class GearInsertionRewardsCfg:
         self,
         gear_name: str,
         board_name: str,
-        peg_offset: list[float],
-        held_gear_base_offset: list[float],
+        peg_offset: tuple[float, float, float],
+        held_gear_base_offset: tuple[float, float, float],
         gear_peg_height: float,
         success_z_fraction: float,
         xy_threshold: float,

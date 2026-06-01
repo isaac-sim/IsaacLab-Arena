@@ -79,12 +79,6 @@ class gear_peg_keypoint_squashing(ManagerTermBase):
 
     def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRLEnv):
         super().__init__(cfg, env)
-        self._peg_offset_values = tuple(cfg.params["peg_offset"])
-        self.peg_offset = torch.tensor(self._peg_offset_values, device=env.device, dtype=torch.float32)
-        self._held_gear_base_offset_values = tuple(cfg.params["held_gear_base_offset"])
-        self.held_gear_base_offset = torch.tensor(
-            self._held_gear_base_offset_values, device=env.device, dtype=torch.float32
-        )
         self._xy_noise_range = cfg.params.get("peg_offset_xy_noise", 0.0)
         self._num_keypoints: int = cfg.params.get("num_keypoints", 4)
         self.kp = _KeypointDistanceComputer(env.num_envs, env.device, num_keypoints=self._num_keypoints)
@@ -109,8 +103,8 @@ class gear_peg_keypoint_squashing(ManagerTermBase):
         env: ManagerBasedRLEnv,
         gear_cfg: SceneEntityCfg,
         board_cfg: SceneEntityCfg,
-        peg_offset: list[float] | None = None,
-        held_gear_base_offset: list[float] | None = None,
+        peg_offset: tuple[float, float, float],
+        held_gear_base_offset: tuple[float, float, float],
         keypoint_scale: float = 0.15,
         num_keypoints: int = 4,
         peg_offset_xy_noise: float = 0.0,
@@ -119,18 +113,19 @@ class gear_peg_keypoint_squashing(ManagerTermBase):
     ) -> torch.Tensor:
         """Return the squashed keypoint alignment reward."""
         self._validate_num_keypoints(num_keypoints)
-        held_base_pos, gear_quat = self._compute_held_base_pose(env, gear_cfg, held_gear_base_offset)
-        target_pos, target_quat = self._compute_target_pose(env, board_cfg, peg_offset)
+
+        # Held gear insertion-point pose in each environment frame.
+        gear: RigidObject = env.scene[gear_cfg.name]
+        held_base_pos, gear_quat = gear_geometry.compute_asset_local_offset_pose(env, gear, held_gear_base_offset)
+
+        # Target peg pose in each environment frame.
+        board: RigidObject = env.scene[board_cfg.name]
+        target_pos, target_quat = gear_geometry.compute_asset_local_offset_pose(env, board, peg_offset)
+
         target_pos = self._apply_target_noise(target_pos, peg_offset_xy_noise)
-        return self._compute_squashed_keypoint_reward(
-            target_pos,
-            target_quat,
-            held_base_pos,
-            gear_quat,
-            keypoint_scale,
-            squash_a,
-            squash_b,
-        )
+
+        kp_dist = self.kp.compute(target_pos, target_quat, held_base_pos, gear_quat, scale=keypoint_scale)
+        return squashing_fn(kp_dist, squash_a, squash_b)
 
     def _validate_num_keypoints(self, num_keypoints: int) -> None:
         """Validate that the reward uses the keypoint layout allocated at construction."""
@@ -139,54 +134,11 @@ class gear_peg_keypoint_squashing(ManagerTermBase):
                 f"num_keypoints is fixed at term initialization. Expected {self._num_keypoints}, got {num_keypoints}."
             )
 
-    def _compute_held_base_pose(
-        self,
-        env: ManagerBasedRLEnv,
-        gear_cfg: SceneEntityCfg,
-        held_gear_base_offset: list[float] | None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Return the held gear insertion-point pose in each environment frame."""
-        gear: RigidObject = env.scene[gear_cfg.name]
-        held_gear_base_offset_tensor = gear_geometry.resolve_offset_tensor(
-            held_gear_base_offset,
-            self._held_gear_base_offset_values,
-            self.held_gear_base_offset,
-            env.device,
-        )
-        return gear_geometry.compute_asset_local_offset_pose(env, gear, held_gear_base_offset_tensor)
-
-    def _compute_target_pose(
-        self,
-        env: ManagerBasedRLEnv,
-        board_cfg: SceneEntityCfg,
-        peg_offset: list[float] | None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Return the target peg pose in each environment frame."""
-        board: RigidObject = env.scene[board_cfg.name]
-        peg_offset_tensor = gear_geometry.resolve_offset_tensor(
-            peg_offset, self._peg_offset_values, self.peg_offset, env.device
-        )
-        return gear_geometry.compute_asset_local_offset_pose(env, board, peg_offset_tensor)
-
     def _apply_target_noise(self, target_pos: torch.Tensor, peg_offset_xy_noise: float) -> torch.Tensor:
         """Apply the per-reset XY target offset used for insertion robustness."""
         if peg_offset_xy_noise <= 0.0:
             return target_pos
         return target_pos + self._offset_noise[: target_pos.shape[0]]
-
-    def _compute_squashed_keypoint_reward(
-        self,
-        target_pos: torch.Tensor,
-        target_quat: torch.Tensor,
-        held_base_pos: torch.Tensor,
-        gear_quat: torch.Tensor,
-        keypoint_scale: float,
-        squash_a: float,
-        squash_b: float,
-    ) -> torch.Tensor:
-        """Return the squashed mean distance between target and held-gear keypoints."""
-        kp_dist = self.kp.compute(target_pos, target_quat, held_base_pos, gear_quat, scale=keypoint_scale)
-        return squashing_fn(kp_dist, squash_a, squash_b)
 
 
 class gear_insertion_geometry_bonus(ManagerTermBase):
@@ -196,15 +148,6 @@ class gear_insertion_geometry_bonus(ManagerTermBase):
     one for early peg engagement and one for the final success depth.
     """
 
-    def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRLEnv):
-        super().__init__(cfg, env)
-        self._peg_offset_values = tuple(cfg.params["peg_offset"])
-        self._peg_offset = torch.tensor(self._peg_offset_values, device=env.device, dtype=torch.float32)
-        self._held_gear_base_offset_values = tuple(cfg.params["held_gear_base_offset"])
-        self._held_gear_base_offset = torch.tensor(
-            self._held_gear_base_offset_values, device=env.device, dtype=torch.float32
-        )
-
     def __call__(
         self,
         env: ManagerBasedRLEnv,
@@ -213,21 +156,16 @@ class gear_insertion_geometry_bonus(ManagerTermBase):
         gear_peg_height: float,
         z_fraction: float,
         xy_threshold: float,
-        peg_offset: list[float] | None = None,
-        held_gear_base_offset: list[float] | None = None,
+        peg_offset: tuple[float, float, float],
+        held_gear_base_offset: tuple[float, float, float],
     ) -> torch.Tensor:
         """Return a binary insertion-geometry bonus as a float tensor."""
         return gear_geometry.compute_gear_insertion_success(
             env,
             gear_cfg,
             board_cfg,
-            gear_geometry.resolve_offset_tensor(peg_offset, self._peg_offset_values, self._peg_offset, env.device),
-            gear_geometry.resolve_offset_tensor(
-                held_gear_base_offset,
-                self._held_gear_base_offset_values,
-                self._held_gear_base_offset,
-                env.device,
-            ),
+            peg_offset,
+            held_gear_base_offset,
             gear_peg_height,
             z_fraction,
             xy_threshold,

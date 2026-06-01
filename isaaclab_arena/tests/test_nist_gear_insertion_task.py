@@ -10,8 +10,8 @@ from dataclasses import dataclass
 
 import pytest
 
-_PEG_BASE_OFFSET = [0.02025, 0.0, 0.0]
-_PEG_TIP_OFFSET = [0.02025, 0.0, 0.025]
+_PEG_BASE_OFFSET = (0.02025, 0.0, 0.0)
+_PEG_TIP_OFFSET = (0.02025, 0.0, 0.025)
 
 
 @dataclass
@@ -33,9 +33,9 @@ def _make_nist_task(**kwargs):
         background_scene=_DummyAsset("table", object_min_z=0.0),
         gear_base_asset=_DummyAsset("gears_and_base"),
         geometry_cfg=GearInsertionGeometryCfg(
-            peg_offset_from_board=list(_PEG_BASE_OFFSET),
-            peg_offset_for_obs=list(_PEG_TIP_OFFSET),
-            held_gear_base_offset=list(_PEG_BASE_OFFSET),
+            peg_offset_from_board=_PEG_BASE_OFFSET,
+            peg_offset_for_obs=_PEG_TIP_OFFSET,
+            held_gear_base_offset=_PEG_BASE_OFFSET,
             success_z_fraction=0.20,
             xy_threshold=0.0025,
         ),
@@ -148,11 +148,11 @@ def test_franka_osc_action_observation_and_reward_configs_use_scene_geometry():
 
     action_cfg = FrankaNistGearInsertionOscActionsCfg(
         fixed_asset_name="gears_and_base",
-        peg_offset=tuple(_PEG_TIP_OFFSET),
+        peg_offset=_PEG_TIP_OFFSET,
     )
     obs_cfg = FrankaNistGearInsertionObservationsCfg(
         fixed_asset_name="gears_and_base",
-        peg_offset=tuple(_PEG_TIP_OFFSET),
+        peg_offset=_PEG_TIP_OFFSET,
         fingertip_body_name="panda_fingertip_centered",
         concatenate_observation_terms=True,
     )
@@ -168,7 +168,7 @@ def test_franka_osc_action_observation_and_reward_configs_use_scene_geometry():
 
     assert isinstance(action_cfg.arm_action, NistGearInsertionOscActionCfg)
     assert action_cfg.arm_action.fixed_asset_name == "gears_and_base"
-    assert action_cfg.arm_action.peg_offset == tuple(_PEG_TIP_OFFSET)
+    assert action_cfg.arm_action.peg_offset == _PEG_TIP_OFFSET
     assert action_cfg.arm_action.body_name == "panda_fingertip_centered"
     assert action_cfg.gripper_action is None
     assert ACTION_DIM == 7
