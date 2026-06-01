@@ -115,17 +115,18 @@ drifts outside the recording FOV is absent from the saved HDF5 and absent from t
 at training time, so catching it live saves a re-record.
 
 The Arena application's default viewport shows the *teleoperator's* stereoscopic perspective —
-what the headset wearer sees, not what ``record_demos.py`` will store. To watch both side-by-side,
-open a second viewport bound to the robot's head camera:
+what the headset wearer sees, not what ``record_demos.py`` will store.
+
+.. figure:: ../../../images/xr-dual-viewport-start.jpg
+   :width: 100%
+   :alt: Isaac Lab with a single viewport showing the teleoperator's stereoscopic XR view.
+   :align: center
+
+   The default single viewport shows the teleoperator's stereoscopic XR perspective.
+
+To watch both perspectives side-by-side, open a second viewport bound to the robot's head camera:
 
 #. In the running Arena application, open the **Window** menu and toggle on **Viewport 2**.
-
-   .. figure:: ../../../images/xr_enable_second_viewport.jpg
-      :width: 100%
-      :alt: Isaac Lab Window menu with the Viewport 2 toggle highlighted.
-      :align: center
-
-      Enable a second viewport from the **Window** menu.
 
 #. In the new Viewport 2, click the camera selector in the viewport toolbar and choose the
    robot's head-mounted camera (``RobotHeadCam``, under
@@ -133,15 +134,25 @@ open a second viewport bound to the robot's head camera:
    to the HDF5 file in Step 4, so any motion that leaves this frame will be absent from the
    dataset.
 
-   .. figure:: ../../../images/xr_second_viewport_robot_camera.jpg
-      :width: 100%
-      :alt: Two viewports side-by-side: stereoscopic XR view (left) and the robot head-camera view (right).
+   .. figure:: ../../../images/xr-dual-viewport-menu.jpg
+      :width: 60%
+      :alt: Viewport camera selector with RobotHeadCam highlighted under the Cameras submenu.
       :align: center
 
-      Dual-viewport layout: the stereoscopic XR view (left) is the teleoperator's perspective,
-      and the head-camera view (right) is what the dataset captures. The observer keeps every
-      grasp and placement inside the right viewport and gives the teleoperator live feedback
-      ("move a touch to your right — your hand is at the edge of frame").
+      Choose ``RobotHeadCam`` from the Viewport 2 camera selector.
+
+Both viewports now update live — the left shows the teleoperator's stereoscopic view and the
+right shows exactly what ``record_demos.py`` records:
+
+.. figure:: ../../../images/xr-dual-viewport-result.jpg
+   :width: 100%
+   :alt: Two viewports side-by-side: stereoscopic XR view (left) and the robot head-camera view (right).
+   :align: center
+
+   Dual-viewport layout: the stereoscopic XR view (left) is the teleoperator's perspective,
+   and the head-camera view (right) is what the dataset captures. The observer keeps every
+   grasp and placement inside the right viewport and gives the teleoperator live feedback
+   ("move a touch to your right — your hand is at the edge of frame").
 
 .. note::
 
