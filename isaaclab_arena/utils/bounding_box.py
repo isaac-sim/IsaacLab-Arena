@@ -205,20 +205,25 @@ class AxisAlignedBoundingBox:
             )
 
     def rotated_around_z(self, angle_rad: float | torch.Tensor) -> "AxisAlignedBoundingBox":
-        """Rotate the bounding box by an arbitrary angle around Z, refitting to the enclosing axis-aligned box.
+        """Refit to the axis-aligned box enclosing this box rotated by angle_rad around Z.
 
-        The refit box is conservative (larger than the true rotated box) except at 90°
-        multiples. Z extents are unchanged.
+        Conservative (larger than the true rotated box) except at 90° multiples; Z extents unchanged.
 
         Args:
-            angle_rad: Yaw in radians. A scalar rotates every box by the same angle; a
-                1-D tensor gives per-box angles (or, for a single box, one box per angle).
+            angle_rad: Yaw in radians. A scalar rotates every box equally; a 1-D tensor gives
+                per-box angles (or, for a single box, one box per angle).
 
         Returns:
             New AxisAlignedBoundingBox enclosing the rotated box.
         """
         device = self._min_point.device
         angles = torch.as_tensor(angle_rad, dtype=torch.float32, device=device).reshape(-1)  # (M,)
+
+        num_boxes, num_angles = self._min_point.shape[0], angles.shape[0]
+        assert num_boxes == 1 or num_angles == 1 or num_boxes == num_angles, (
+            "rotated_around_z requires one box, one angle, or equal counts; "
+            f"got {num_boxes} boxes and {num_angles} angles."
+        )
 
         cos = torch.cos(angles).unsqueeze(1)  # (M, 1)
         sin = torch.sin(angles).unsqueeze(1)  # (M, 1)

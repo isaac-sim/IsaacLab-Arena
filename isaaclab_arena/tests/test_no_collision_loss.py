@@ -47,7 +47,7 @@ def _create_no_collision_scene() -> tuple[DummyObject, DummyObject, DummyObject]
 
 
 def test_solver_uses_rotated_bbox_for_collision():
-    """A yaw-rotated env bbox passed to solve() changes the no-overlap loss, proving the solver uses it."""
+    """Test that a yaw-rotated env bbox passed to solve() changes the no-overlap loss (solver consumes it)."""
     table = _create_table()
     table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     table.add_relation(IsAnchor())

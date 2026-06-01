@@ -45,8 +45,7 @@ def test_bounding_box_single_env_transforms():
 
 
 def test_rotated_around_z_single_angle():
-    """90° matches the exact rotated_90_around_z (off-origin box, so center shifts); 45° inflates
-    an origin-centered box to its conservative enclosing AABB (Z extents unchanged)."""
+    """90° matches rotated_90_around_z; 45° inflates a centered box to its conservative enclosure."""
     off_origin = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 1.0, 0.5))
     rot90 = off_origin.rotated_around_z(math.pi / 2)
     torch.testing.assert_close(rot90.min_point, off_origin.rotated_90_around_z(1).min_point, atol=1e-6, rtol=0)
@@ -59,6 +58,18 @@ def test_rotated_around_z_single_angle():
     half = (0.2 + 0.1) * math.cos(math.pi / 4)
     torch.testing.assert_close(rot45.min_point, torch.tensor([[-half, -half, -0.05]]), atol=1e-6, rtol=0)
     torch.testing.assert_close(rot45.max_point, torch.tensor([[half, half, 0.05]]), atol=1e-6, rtol=0)
+
+
+def test_rotated_around_z_off_center_arbitrary_angle():
+    """An off-center box at 30° enclosed by hand-computed corner extents (center shifts, Z fixed)."""
+    box = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 1.0, 0.5))
+    rot = box.rotated_around_z(math.pi / 6)
+    cos, sin = math.cos(math.pi / 6), math.sin(math.pi / 6)
+    corners = [(0.0, 0.0), (2.0, 0.0), (2.0, 1.0), (0.0, 1.0)]
+    xs = [x * cos - y * sin for x, y in corners]
+    ys = [x * sin + y * cos for x, y in corners]
+    torch.testing.assert_close(rot.min_point, torch.tensor([[min(xs), min(ys), 0.0]]), atol=1e-6, rtol=0)
+    torch.testing.assert_close(rot.max_point, torch.tensor([[max(xs), max(ys), 0.5]]), atol=1e-6, rtol=0)
 
 
 def test_rotated_around_z_batched_angles_broadcasts_single_box():

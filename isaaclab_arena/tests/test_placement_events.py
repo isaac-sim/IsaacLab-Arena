@@ -202,6 +202,9 @@ def test_solve_and_place_objects_applies_random_yaw():
 
     solve_and_place_objects(env, env_ids, objects, pool)
 
+    # Anchor (desk) is never rotated or written, even with random yaw enabled.
+    assert "desk" not in env._assets, "Anchor pose should not be written to sim"
+
     yawed = False
     for name in ("box1", "box2"):
         pose_arg = env._assets[name].write_root_pose_to_sim.call_args[0][0]

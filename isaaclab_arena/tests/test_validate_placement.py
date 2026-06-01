@@ -97,8 +97,7 @@ def test_colocated_siblings_overlap_rejected():
 
 
 def test_rotation_aware_overlap_uses_yaw():
-    """Validation respects the sampled yaw through the per-env bbox: a long box clears a +Y cube
-    when axis-aligned, but its 90° conservative enclosing box swings into the cube and overlaps."""
+    """Test that a long box clears a +Y cube axis-aligned but overlaps it after a 90° conservative rotation."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
     a = _make_long_box("a")  # x in [-0.3, 0.3], y in [-0.05, 0.05]
     b = _make_box("b", size=0.1)

@@ -336,8 +336,7 @@ class ObjectPlacer:
     ) -> dict[ObjectBase, float]:
         """Sample a fixed yaw (radians about Z) per non-anchor object.
 
-        Returns an empty dict when random_yaw_init is off (no RNG consumed). Anchors are
-        never rotated. The yaw is baked into the conservative bbox; it is not optimized.
+        Empty dict (no RNG consumed) when random_yaw_init is off; anchors are never rotated.
         """
         if not self.params.random_yaw_init:
             return {}
@@ -357,22 +356,44 @@ class ObjectPlacer:
     ) -> dict[ObjectBase, AxisAlignedBoundingBox]:
         """Replace each candidate's bbox with the enclosing box of its yaw-rotated object.
 
-        candidate_bboxes hold one row per solver candidate, shape (num_candidates, 3). For each
-        object the per-candidate yaw rotates that row independently. Returns the input unchanged
-        when no candidate rotates the object, so the no-yaw path stays untouched.
+        candidate_bboxes hold one row per candidate (num_candidates, 3); each row is rotated by
+        its own yaw. Returns the input unchanged when no yaw is set, keeping the no-yaw path exact.
         """
         if not any(orientations for orientations in orientations_per_candidate):
             return candidate_bboxes
         num_candidates = len(orientations_per_candidate)
         rotated: dict[ObjectBase, AxisAlignedBoundingBox] = {}
         for obj in objects:
-            yaws = [wrap_angle_to_pi(orientations_per_candidate[c].get(obj, 0.0)) for c in range(num_candidates)]
             bbox = candidate_bboxes[obj]
-            if any(yaw != 0.0 for yaw in yaws):
-                yaw_tensor = torch.tensor(yaws, dtype=torch.float32, device=bbox.min_point.device)
-                bbox = bbox.rotated_around_z(yaw_tensor)
+            # Only objects that receive a sampled yaw are rotated; anchors never appear here.
+            if any(obj in orientations for orientations in orientations_per_candidate):
+                # Enclose marker_rotation + sampled yaw (the applied pose); both are pure-Z.
+                marker_yaw = ObjectPlacer._marker_z_yaw(obj)
+                yaws = [
+                    wrap_angle_to_pi(orientations_per_candidate[c].get(obj, 0.0) + marker_yaw)
+                    for c in range(num_candidates)
+                ]
+                if any(yaw != 0.0 for yaw in yaws):
+                    yaw_tensor = torch.tensor(yaws, dtype=torch.float32, device=bbox.min_point.device)
+                    bbox = bbox.rotated_around_z(yaw_tensor)
             rotated[obj] = bbox
         return rotated
+
+    @staticmethod
+    def _marker_z_yaw(obj: ObjectBase) -> float:
+        """Z-yaw (radians) of obj's RotateAroundSolution marker, 0.0 if none.
+
+        Rejects roll/pitch markers: a Z-rotated box can't enclose them, so they would otherwise
+        validate a silently-wrong footprint.
+        """
+        marker = next((r for r in obj.get_relations() if isinstance(r, RotateAroundSolution)), None)
+        if marker is None:
+            return 0.0
+        assert marker.roll_rad == 0.0 and marker.pitch_rad == 0.0, (
+            f"random_yaw_init cannot enclose a roll/pitch RotateAroundSolution on '{obj.name}' "
+            f"(roll={marker.roll_rad}, pitch={marker.pitch_rad}); only yaw markers are supported."
+        )
+        return marker.yaw_rad
 
     @staticmethod
     def _bbox_row(
