@@ -61,10 +61,11 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec) -> Any:
 def _partition_nodes_into_embodiment_and_scene(
     node_specs: list[ArenaEnvGraphNodeSpec], assets_by_node_id: dict[str, Any]
 ) -> tuple[Any, list[Asset]]:
-    """Split materialized nodes into the single embodiment asset and the list of scene assets.
+    """Split materialized nodes into the optional embodiment asset and the list of scene assets.
 
-    Asserts exactly one EMBODIMENT node. BACKGROUND / OBJECT / OBJECT_REFERENCE nodes become
-    scene assets; any other node type raises. Lighting is not handled yet.
+    Asserts at most one EMBODIMENT node; zero is allowed and returns ``None`` here — the env
+    builder substitutes a ``NoEmbodiment`` for scene-only specs. BACKGROUND / OBJECT /
+    OBJECT_REFERENCE nodes become scene assets; any other node type raises. Lighting is not handled yet.
     """
     embodiment = None
     scene_assets: list[Asset] = []
@@ -81,6 +82,8 @@ def _partition_nodes_into_embodiment_and_scene(
             scene_assets.append(assets_by_node_id[node_spec.id])
         else:
             raise ValueError(f"Unsupported node type: {node_spec.type}")
+    # No embodiment node -> embodiment stays None; the env builder resolves that to a
+    # NoEmbodiment (`self.arena_env.embodiment or NoEmbodiment()`), so scene-only specs are valid.
     return embodiment, scene_assets
 
 
