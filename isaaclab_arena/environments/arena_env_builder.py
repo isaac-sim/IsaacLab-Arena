@@ -70,6 +70,7 @@ class ArenaEnvBuilder:
             num_envs=self.args.num_envs,
             placement_seed=self.args.placement_seed,
             resolve_on_reset=self.args.resolve_on_reset,
+            random_yaw_init=self.args.random_yaw_init,
         )
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:

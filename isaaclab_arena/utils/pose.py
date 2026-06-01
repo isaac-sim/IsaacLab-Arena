@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import math
 import torch
 from dataclasses import dataclass
 
@@ -50,6 +51,25 @@ class Pose:
 
     def multiply(self, other: "Pose") -> "Pose":
         return compose_poses(self, other)
+
+
+def wrap_angle_to_pi(angle_rad: float) -> float:
+    """Wrap an angle in radians to [-pi, pi)."""
+    return (angle_rad + math.pi) % (2.0 * math.pi) - math.pi
+
+
+def rotate_quat_by_yaw(
+    base_xyzw: tuple[float, float, float, float], yaw_rad: float
+) -> tuple[float, float, float, float]:
+    """Rotate base_xyzw (xyzw) by an extra yaw about Z. Returns base unchanged when yaw is 0."""
+    yaw_rad = wrap_angle_to_pi(yaw_rad)  # keep half-angle small for precision; canonicalize 2pi -> 0
+    if yaw_rad == 0.0:
+        return base_xyzw
+    bx, by, bz, bw = base_xyzw
+    sz = math.sin(yaw_rad / 2.0)
+    cz = math.cos(yaw_rad / 2.0)
+    # Hamilton product base ⊗ (0, 0, sz, cz) — composes the Z-yaw after the base rotation.
+    return (bx * cz + by * sz, -bx * sz + by * cz, bz * cz + bw * sz, -bz * sz + bw * cz)
 
 
 def compose_poses(T_C_B: Pose, T_B_A: Pose) -> Pose:

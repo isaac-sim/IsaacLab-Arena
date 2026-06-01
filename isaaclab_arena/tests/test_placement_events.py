@@ -178,6 +178,41 @@ def test_solve_and_place_objects_writes_poses_to_sim():
         assert pose_arg.shape == (1, 7), f"Expected (1,7) pose tensor for {name}, got {pose_arg.shape}"
 
 
+def test_solve_and_place_objects_applies_random_yaw():
+    """With random_yaw_init enabled the runtime path should write yawed (non-identity) poses."""
+
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+
+    env = _make_mock_env(num_envs=1)
+    env_ids = torch.tensor([0])
+
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
+    placer_params = ObjectPlacerParams(
+        solver_params=solver_params,
+        placement_seed=123,
+        random_yaw_init=True,
+    )
+    pool = PooledObjectPlacer(objects=objects, placer_params=placer_params, pool_size=10)
+
+    solve_and_place_objects(env, env_ids, objects, pool)
+
+    yawed = False
+    for name in ("box1", "box2"):
+        pose_arg = env._assets[name].write_root_pose_to_sim.call_args[0][0]
+        # Pose tensor layout is (x, y, z, qx, qy, qz, qw); pure-Z yaw shows up as non-zero qz.
+        assert abs(pose_arg[0, 3].item()) < 1e-6, f"{name} should have no roll component"
+        assert abs(pose_arg[0, 4].item()) < 1e-6, f"{name} should have no pitch component"
+        if abs(pose_arg[0, 5].item()) > 1e-6:
+            yawed = True
+    assert yawed, "random_yaw_init should produce at least one yawed object in the written poses"
+
+
 def test_solve_and_place_objects_skips_empty_env_ids():
     """solve_and_place_objects should return immediately for an empty env_ids tensor."""
 

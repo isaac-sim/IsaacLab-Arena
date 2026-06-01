@@ -5,6 +5,8 @@
 
 """Tests for ObjectPlacer placement validation (_validate_placement, _validate_no_overlap, _validate_on_relations)."""
 
+import math
+
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -17,6 +19,13 @@ def _make_box(name: str, size: float = 0.2) -> DummyObject:
     return DummyObject(
         name=name,
         bounding_box=AxisAlignedBoundingBox(min_point=(-half, -half, -half), max_point=(half, half, half)),
+    )
+
+
+def _make_long_box(name: str, half_x: float = 0.3, half_y: float = 0.05, half_z: float = 0.05) -> DummyObject:
+    return DummyObject(
+        name=name,
+        bounding_box=AxisAlignedBoundingBox(min_point=(-half_x, -half_y, -half_z), max_point=(half_x, half_y, half_z)),
     )
 
 
@@ -85,6 +94,19 @@ def test_colocated_siblings_overlap_rejected():
     b = _make_box("b", size=0.2)
     positions = {desk: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.15), b: (0.0, 0.0, 0.15)}
     assert placer._validate_placement(positions, _env_bboxes(positions)) is False
+
+
+def test_rotation_aware_overlap_uses_yaw():
+    """Validation respects the sampled yaw through the per-env bbox: a long box clears a +Y cube
+    when axis-aligned, but its 90° conservative enclosing box swings into the cube and overlaps."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    a = _make_long_box("a")  # x in [-0.3, 0.3], y in [-0.05, 0.05]
+    b = _make_box("b", size=0.1)
+    positions = {a: (0.0, 0.0, 0.0), b: (0.0, 0.2, 0.0)}
+    axis_aligned = {a: a.get_bounding_box(), b: b.get_bounding_box()}
+    assert placer._validate_placement(positions, axis_aligned) is True
+    rotated = {a: a.get_bounding_box().rotated_around_z(math.pi / 2), b: b.get_bounding_box()}
+    assert placer._validate_placement(positions, rotated) is False
 
 
 def test_on_relation_check_no_relation_returns_true():

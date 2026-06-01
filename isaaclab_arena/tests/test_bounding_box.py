@@ -5,6 +5,7 @@
 
 """Tests for AxisAlignedBoundingBox with always-tensor API."""
 
+import math
 import torch
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -41,6 +42,37 @@ def test_bounding_box_single_env_transforms():
     rotated = aabb.rotated_90_around_z(1)
     torch.testing.assert_close(rotated.min_point, torch.tensor([[-1.0, 0.0, 0.0]]), atol=1e-6, rtol=0)
     torch.testing.assert_close(rotated.max_point, torch.tensor([[0.0, 2.0, 0.5]]), atol=1e-6, rtol=0)
+
+
+def test_rotated_around_z_single_angle():
+    """90° matches the exact rotated_90_around_z (off-origin box, so center shifts); 45° inflates
+    an origin-centered box to its conservative enclosing AABB (Z extents unchanged)."""
+    off_origin = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 1.0, 0.5))
+    rot90 = off_origin.rotated_around_z(math.pi / 2)
+    torch.testing.assert_close(rot90.min_point, off_origin.rotated_90_around_z(1).min_point, atol=1e-6, rtol=0)
+    torch.testing.assert_close(rot90.min_point, torch.tensor([[-1.0, 0.0, 0.0]]), atol=1e-6, rtol=0)
+    torch.testing.assert_close(rot90.max_point, torch.tensor([[0.0, 2.0, 0.5]]), atol=1e-6, rtol=0)
+
+    # Half-extents (0.2, 0.1); enclosing half-extent = a|cos| + b|sin| = 0.3*cos(45°) on each axis.
+    centered = AxisAlignedBoundingBox(min_point=(-0.2, -0.1, -0.05), max_point=(0.2, 0.1, 0.05))
+    rot45 = centered.rotated_around_z(math.pi / 4)
+    half = (0.2 + 0.1) * math.cos(math.pi / 4)
+    torch.testing.assert_close(rot45.min_point, torch.tensor([[-half, -half, -0.05]]), atol=1e-6, rtol=0)
+    torch.testing.assert_close(rot45.max_point, torch.tensor([[half, half, 0.05]]), atol=1e-6, rtol=0)
+
+
+def test_rotated_around_z_batched_angles_broadcasts_single_box():
+    """An (M,) angle tensor broadcasts an N=1 box to M enclosing boxes (one per angle)."""
+    aabb = AxisAlignedBoundingBox(min_point=(-0.2, -0.1, 0.0), max_point=(0.2, 0.1, 0.5))
+    angles = torch.tensor([0.0, math.pi / 2])
+    rotated = aabb.rotated_around_z(angles)
+    assert rotated.num_envs == 2
+    # Angle 0: unchanged.
+    torch.testing.assert_close(rotated.min_point[0], torch.tensor([-0.2, -0.1, 0.0]), atol=1e-6, rtol=0)
+    torch.testing.assert_close(rotated.max_point[0], torch.tensor([0.2, 0.1, 0.5]), atol=1e-6, rtol=0)
+    # Angle 90°: X/Y extents swap for this origin-centered box.
+    torch.testing.assert_close(rotated.min_point[1], torch.tensor([-0.1, -0.2, 0.0]), atol=1e-6, rtol=0)
+    torch.testing.assert_close(rotated.max_point[1], torch.tensor([0.1, 0.2, 0.5]), atol=1e-6, rtol=0)
 
 
 def test_bounding_box_single_env_overlaps():

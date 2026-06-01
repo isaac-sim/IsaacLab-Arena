@@ -204,6 +204,52 @@ class AxisAlignedBoundingBox:
                 max_point=torch.stack([max_y, -min_x, max_z], dim=1),
             )
 
+    def rotated_around_z(self, angle_rad: float | torch.Tensor) -> "AxisAlignedBoundingBox":
+        """Rotate the bounding box by an arbitrary angle around Z, refitting to the enclosing axis-aligned box.
+
+        The refit box is conservative (larger than the true rotated box) except at 90°
+        multiples. Z extents are unchanged.
+
+        Args:
+            angle_rad: Yaw in radians. A scalar rotates every box by the same angle; a
+                1-D tensor gives per-box angles (or, for a single box, one box per angle).
+
+        Returns:
+            New AxisAlignedBoundingBox enclosing the rotated box.
+        """
+        device = self._min_point.device
+        angles = torch.as_tensor(angle_rad, dtype=torch.float32, device=device).reshape(-1)  # (M,)
+
+        cos = torch.cos(angles).unsqueeze(1)  # (M, 1)
+        sin = torch.sin(angles).unsqueeze(1)  # (M, 1)
+
+        # XY footprint corners relative to the object origin: (N, 4).
+        min_x, min_y = self._min_point[:, 0], self._min_point[:, 1]
+        max_x, max_y = self._max_point[:, 0], self._max_point[:, 1]
+        corners_x = torch.stack([min_x, max_x, max_x, min_x], dim=1)  # (N, 4)
+        corners_y = torch.stack([min_y, min_y, max_y, max_y], dim=1)  # (N, 4)
+
+        # Rotate corners (broadcasts (N, 4) with (M, 1)).
+        rot_x = corners_x * cos - corners_y * sin
+        rot_y = corners_x * sin + corners_y * cos
+
+        new_min_x = rot_x.min(dim=1).values  # (L,)
+        new_max_x = rot_x.max(dim=1).values
+        new_min_y = rot_y.min(dim=1).values
+        new_max_y = rot_y.max(dim=1).values
+
+        # Z extents are invariant under Z rotation; broadcast to the output leading dim.
+        out_len = new_min_x.shape[0]
+        min_z, max_z = self._min_point[:, 2], self._max_point[:, 2]
+        if min_z.shape[0] == 1 and out_len > 1:
+            min_z = min_z.expand(out_len)
+            max_z = max_z.expand(out_len)
+
+        return AxisAlignedBoundingBox(
+            min_point=torch.stack([new_min_x, new_min_y, min_z], dim=1),
+            max_point=torch.stack([new_max_x, new_max_y, max_z], dim=1),
+        )
+
 
 def quaternion_to_90_deg_z_quarters(rotation_xyzw: tuple[float, float, float, float], tol_deg: float = 1.0) -> int:
     """Convert a quaternion to 90° rotation quarters around Z axis.
