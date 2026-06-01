@@ -34,8 +34,10 @@ def solve_and_place_objects(
 ) -> None:
     """Coordinated reset event that draws layouts from the pool and writes poses.
 
-    Registered as a single ``EventTermCfg(mode="reset")``. Each call draws one
-    layout per resetting environment from the pool and writes the poses to sim.
+    Registered as a single EventTermCfg(mode="reset"). Env-indexed pools
+    consume one layout for each requested absolute env id. Reusable pools
+    consume only the number of resetting envs because those layouts are
+    interchangeable.
 
     Args:
         env: The Isaac Lab environment.
@@ -46,16 +48,31 @@ def solve_and_place_objects(
     if env_ids is None or len(env_ids) == 0:
         return
 
-    num_reset_envs = len(env_ids)
-    layouts_per_env = placement_pool.sample_without_replacement(num_reset_envs)
+    reset_env_ids = env_ids.tolist()
+    if placement_pool.requires_env_indexed_layouts:
+        num_scene_envs = env.scene.env_origins.shape[0]
+        if placement_pool.num_envs != num_scene_envs:
+            raise ValueError(
+                f"Placement pool has {placement_pool.num_envs} envs, but scene has {num_scene_envs} env origins."
+            )
+        results_by_env = placement_pool.sample_for_envs(reset_env_ids)
+    else:
+        reset_results = placement_pool.sample_without_replacement(len(reset_env_ids))
+        results_by_env = dict(zip(reset_env_ids, reset_results))
 
     anchor_objects_set = set(get_anchor_objects(objects))
     rotations = {obj: get_rotation_xyzw(obj) for obj in objects if obj not in anchor_objects_set}
 
     zero_velocity = torch.zeros(1, 6, device=env.device)
-    for local_idx, cur_env in enumerate(env_ids.tolist()):
+    for cur_env in reset_env_ids:
         env_id_tensor = torch.tensor([cur_env], device=env.device)
-        positions = layouts_per_env[local_idx].positions
+        result = results_by_env[cur_env]
+        if not result.success:
+            print(
+                "Warning: Writing best-loss fallback placement for "
+                f"env {cur_env}; layout failed strict placement validation."
+            )
+        positions = result.positions
         for obj, pos in positions.items():
             if obj in anchor_objects_set:
                 continue

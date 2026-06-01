@@ -16,6 +16,8 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.hdr_image import HDRImage
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
     from isaaclab_arena.policy.policy_base import PolicyBase
+    from isaaclab_arena.relations.relations import RelationBase
+    from isaaclab_arena.tasks.task_base import TaskBase
 
 
 # Have to define all classes here in order to avoid circular import.
@@ -35,14 +37,28 @@ class Registry(metaclass=SingletonMeta):
         assert key is not None, "component name is not set"
         self._components[key] = component
 
-    def is_registered(self, key: str) -> bool:
-        """Check if an component is registered.
+    def is_registered(self, key: str, ensure_loaded: bool = True) -> bool:
+        """Check whether a component is already registered under ``key``.
 
         Args:
-            key (str): The name of the component.
+            key: The name to look up.
+            ensure_loaded: Whether to load every component before answering.
+
+                Components register themselves lazily: nothing is in the registry until
+                ``ensure_assets_registered()`` imports all the library modules. So a plain
+                membership check can say "not registered" simply because the libraries
+                haven't been imported yet. With ``ensure_loaded=True`` (the default) we
+                import them first, so the answer reflects everything that exists.
+
+                The ``register_*`` decorators pass ``False``. They run *while* those
+                library modules are being imported, and all they need is to spot a
+                duplicate key. Forcing a full load at that moment would re-enter the
+                import that's already in progress and pull in the task/environment modules
+                — which import Isaac Sim's ``pxr``/USD packages. If that happens during
+                pytest collection (before ``SimulationApp()`` starts) the simulator
+                segfaults, because those packages must be imported only after it starts.
         """
-        # For AssetRegistry and DeviceRegistry, ensure assets are registered before checking
-        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry, PolicyRegistry, HDRImageRegistry)):
+        if ensure_loaded and isinstance(self, REGISTRIES):
             ensure_assets_registered()
         return key in self._components
 
@@ -55,8 +71,7 @@ class Registry(metaclass=SingletonMeta):
         Returns:
             Any: The component.
         """
-        # For AssetRegistry and DeviceRegistry, ensure assets are registered before accessing
-        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry, PolicyRegistry, HDRImageRegistry)):
+        if isinstance(self, REGISTRIES):
             ensure_assets_registered()
         assert key in self._components, f"component {key} not found, please check if requested component is registered"
         return self._components[key]
@@ -67,8 +82,7 @@ class Registry(metaclass=SingletonMeta):
         Returns:
             list[str]: The list of keys.
         """
-        # For AssetRegistry and DeviceRegistry, ensure assets are registered before accessing
-        if isinstance(self, (AssetRegistry, DeviceRegistry, RetargeterRegistry, PolicyRegistry, HDRImageRegistry)):
+        if isinstance(self, REGISTRIES):
             ensure_assets_registered()
         return list(self._components.keys())
 
@@ -217,14 +231,65 @@ class EnvironmentRegistry(Registry):
         super().__init__()
 
 
+class ObjectRelationLibraryRegistry(Registry):
+    """Registry for object relation classes."""
+
+    def __init__(self):
+        super().__init__()
+
+    def get_object_relation_by_name(self, name: str) -> type["RelationBase"]:
+        """Gets an object relation by name.
+
+        Args:
+            name (str): The name of the object relation.
+        """
+        ensure_assets_registered()
+        return self.get_component_by_name(name)
+
+
+class TaskRegistry(Registry):
+    """Registry for TaskBase subclasses."""
+
+    def __init__(self):
+        super().__init__()
+
+    def get_task_by_name(self, name: str) -> type["TaskBase"]:
+        """Gets a task class by name.
+
+        Args:
+            name (str): The name of the task class (typically the class __name__).
+        """
+        ensure_assets_registered()
+        return self.get_component_by_name(name)
+
+
+# Registries populated lazily by ensure_assets_registered(). EnvironmentRegistry is
+# excluded: triggering the cascade during env registration causes an env<->tasks cycle.
+REGISTRIES = (
+    AssetRegistry,
+    DeviceRegistry,
+    RetargeterRegistry,
+    PolicyRegistry,
+    HDRImageRegistry,
+    ObjectRelationLibraryRegistry,
+    TaskRegistry,
+)
+
+
 # Lazy registration to avoid circular imports
 _assets_registered = False
+# Blocks re-entry: registration decorators call is_registered() -> ensure_assets_registered()
+# mid-import, which would re-import a partial module and raise a circular ImportError.
+_registration_in_progress = False
 
 
 def ensure_assets_registered():
     """Ensure all assets are registered. Call this before accessing the registry."""
-    global _assets_registered
-    if not _assets_registered:
+    global _assets_registered, _registration_in_progress
+    if _assets_registered or _registration_in_progress:
+        return
+    _registration_in_progress = True
+    try:
         # Import modules to trigger asset registration via decorators
         import isaaclab_arena.assets.background_library  # noqa: F401
         import isaaclab_arena.assets.device_library  # noqa: F401
@@ -233,5 +298,9 @@ def ensure_assets_registered():
         import isaaclab_arena.assets.retargeter_library  # noqa: F401
         import isaaclab_arena.embodiments  # noqa: F401
         import isaaclab_arena.policy  # noqa: F401
+        import isaaclab_arena.relations.relations  # noqa: F401
+        import isaaclab_arena.tasks.task_library  # noqa: F401
 
         _assets_registered = True
+    finally:
+        _registration_in_progress = False

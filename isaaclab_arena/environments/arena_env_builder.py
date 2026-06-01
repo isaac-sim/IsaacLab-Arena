@@ -57,12 +57,12 @@ class ArenaEnvBuilder:
            or by registering a pooled reset placement event
 
         Behaviour on reset depends on :attr:`ObjectPlacerParams.resolve_on_reset`
-        (overridable from CLI with ``--resolve_on_reset`` / ``--no-resolve_on_reset``):
+        (overridable from CLI with --resolve_on_reset / --no-resolve_on_reset):
 
         * **True** (default) — registers a reset event that draws a fresh layout
           from the pool for each resetting environment.
-        * **False** — applies one layout per environment via ``set_initial_pose``
-          so per-object reset events restore the same layout every time.
+        * **False** — applies one layout per environment so per-object reset
+          events restore the same layout every time.
         """
         objects_with_relations = self.arena_env.scene.get_objects_with_relations()
         self._placement_event_cfg = solve_and_apply_relation_placement(

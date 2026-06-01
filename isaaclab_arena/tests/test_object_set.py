@@ -5,6 +5,7 @@
 
 import os
 import traceback
+from unittest.mock import patch
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -14,6 +15,128 @@ OBJECT_SET_1_PRIM_PATH = "/World/envs/env_.*/ObjectSet_1"
 OBJECT_SET_2_PRIM_PATH = "/World/envs/env_.*/ObjectSet_2"
 OBJECT_SET_JUG_PRIM_PATH = "/World/envs/env_.*/ObjectSet_Jug"
 OBJECT_SET_BOTTLES_PRIM_PATH = "/World/envs/env_.*/ObjectSet_Bottles"
+
+
+def _make_object_set_variants():
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    can_a = Object(name="can_a", object_type=ObjectType.RIGID, usd_path="/tmp/can_a.usd")
+    can_b = Object(name="can_b", object_type=ObjectType.RIGID, usd_path="/tmp/can_b.usd")
+    bbox_a = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.2))
+    bbox_b = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.3))
+    can_a.bounding_box = bbox_a
+    can_b.bounding_box = bbox_b
+    return can_a, can_b, bbox_a, bbox_b
+
+
+def _test_object_set_samples_and_stores_variant_indices(simulation_app):
+    """Variant assignment should be sampled once and reused for spawning and bboxes."""
+    import torch
+
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+
+    can_a, can_b, bbox_a, bbox_b = _make_object_set_variants()
+    assigned_variant_indices = [1, 0, 1, 1]
+
+    with (
+        patch("isaaclab_arena.assets.object_set.detect_object_type", return_value=ObjectType.RIGID),
+        patch("isaaclab_arena.assets.object_set.find_shallowest_rigid_body", return_value="/rigid"),
+        patch("isaaclab_arena.assets.object_set.torch.randint", return_value=torch.tensor(assigned_variant_indices)),
+    ):
+        obj_set = RigidObjectSet(name="cans", objects=[can_a, can_b], random_choice=True)
+        assert obj_set.variant_indices_by_env is None
+        obj_set.assign_variants(num_envs=4)
+        assert obj_set.variant_indices_by_env == assigned_variant_indices
+
+    assert obj_set.object_usd_paths == [can_b.usd_path, can_a.usd_path, can_b.usd_path, can_b.usd_path]
+    spawn_cfg = obj_set.object_cfg.spawn
+    assert getattr(spawn_cfg, "usd_path") == obj_set.object_usd_paths
+    assert getattr(spawn_cfg, "random_choice") is False
+
+    with patch("isaaclab_arena.assets.object.find_shallowest_rigid_body", return_value="/rigid") as find_rigid_body:
+        contact_sensor_cfg = obj_set.get_contact_sensor_cfg()
+    find_rigid_body.assert_called_once_with(can_a.usd_path, relative_to_root=True)
+    assert contact_sensor_cfg.prim_path == f"{obj_set.prim_path}/rigid"
+
+    per_env_bbox = obj_set.get_bounding_box_per_env(num_envs=4)
+    assert torch.allclose(per_env_bbox.max_point[0], bbox_b.max_point[0])
+    assert torch.allclose(per_env_bbox.max_point[1], bbox_a.max_point[0])
+    return True
+
+
+def _test_object_set_default_variant_indices_follow_member_order(simulation_app):
+    """Default object-set assignment should preserve the old deterministic member order."""
+    import torch
+
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+
+    can_a, can_b, bbox_a, bbox_b = _make_object_set_variants()
+    with (
+        patch("isaaclab_arena.assets.object_set.detect_object_type", return_value=ObjectType.RIGID),
+        patch("isaaclab_arena.assets.object_set.find_shallowest_rigid_body", return_value="/rigid"),
+    ):
+        obj_set = RigidObjectSet(name="ordered_cans", objects=[can_a, can_b])
+        obj_set.assign_variants(num_envs=5)
+        assert obj_set.variant_indices_by_env == [0, 1, 0, 1, 0]
+
+    assert obj_set.object_usd_paths == [can_a.usd_path, can_b.usd_path, can_a.usd_path, can_b.usd_path, can_a.usd_path]
+    spawn_cfg = obj_set.object_cfg.spawn
+    assert getattr(spawn_cfg, "usd_path") == obj_set.object_usd_paths
+    assert getattr(spawn_cfg, "random_choice") is False
+
+    per_env_bbox = obj_set.get_bounding_box_per_env(num_envs=5)
+    assert torch.allclose(per_env_bbox.max_point[0], bbox_a.max_point[0])
+    assert torch.allclose(per_env_bbox.max_point[1], bbox_b.max_point[0])
+    return True
+
+
+def _test_object_set_random_variant_indices_use_placement_seed(simulation_app):
+    """Random variant assignment should be repeatable with the same placement seed."""
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+
+    def _assigned_indices():
+        can_a, can_b, _bbox_a, _bbox_b = _make_object_set_variants()
+        with (
+            patch("isaaclab_arena.assets.object_set.detect_object_type", return_value=ObjectType.RIGID),
+            patch("isaaclab_arena.assets.object_set.find_shallowest_rigid_body", return_value="/rigid"),
+        ):
+            obj_set = RigidObjectSet(name="seeded_cans", objects=[can_a, can_b], random_choice=True)
+            obj_set.assign_variants(num_envs=8, variant_seed=123)
+        return obj_set.variant_indices_by_env
+
+    return _assigned_indices() == _assigned_indices()
+
+
+def _test_object_set_regenerates_variants_with_different_num_envs(simulation_app):
+    """Calling assign_variants with a different num_envs should regenerate indices."""
+    import io
+    from contextlib import redirect_stdout
+
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+
+    can_a, can_b, _bbox_a, _bbox_b = _make_object_set_variants()
+    with (
+        patch("isaaclab_arena.assets.object_set.detect_object_type", return_value=ObjectType.RIGID),
+        patch("isaaclab_arena.assets.object_set.find_shallowest_rigid_body", return_value="/rigid"),
+    ):
+        obj_set = RigidObjectSet(name="assigned_cans", objects=[can_a, can_b])
+        obj_set.assign_variants(num_envs=3)
+        assert obj_set.variant_indices_by_env is not None
+        assert len(obj_set.variant_indices_by_env) == 3
+
+        output = io.StringIO()
+        with redirect_stdout(output):
+            obj_set.assign_variants(num_envs=4)
+        assert obj_set.variant_indices_by_env is not None
+        assert len(obj_set.variant_indices_by_env) == 4
+        assert "regenerating variant assignments" in output.getvalue()
+    return True
 
 
 def _build_and_reset_env(simulation_app, scene_assets, env_name="object_set_test", task=None):
@@ -114,15 +237,15 @@ def _test_empty_object_set(simulation_app):
 
 
 def _test_articulation_object_set(simulation_app):
+    from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_set import RigidObjectSet
-    from isaaclab_arena.assets.registries import AssetRegistry
 
-    asset_registry = AssetRegistry()
-    microwave = asset_registry.get_asset_by_name("microwave")()
+    can_a, can_b, _bbox_a, _bbox_b = _make_object_set_variants()
     try:
-        RigidObjectSet(name="articulation_object_set", objects=[microwave])
-    except Exception:
-        return True
+        with patch("isaaclab_arena.assets.object_set.detect_object_type", return_value=ObjectType.ARTICULATION):
+            RigidObjectSet(name="articulation_object_set", objects=[can_a, can_b])
+    except AssertionError as exc:
+        return "contain only rigid objects" in str(exc)
     return False
 
 
@@ -149,9 +272,7 @@ def _test_single_object_in_one_object_set(simulation_app):
         prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
         parent_asset=background,
     )
-    obj_set = RigidObjectSet(
-        name="single_object_set", objects=[cracker_box, cracker_box], prim_path=OBJECT_SET_1_PRIM_PATH
-    )
+    obj_set = RigidObjectSet(name="single_object_set", objects=[cracker_box], prim_path=OBJECT_SET_1_PRIM_PATH)
     obj_set.set_initial_pose(Pose(position_xyz=(0.1, 0.0, 0.1), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     scene = Scene(assets=[background, obj_set])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
@@ -358,6 +479,38 @@ def test_empty_object_set():
         headless=HEADLESS,
     )
     assert result, f"Test {_test_empty_object_set.__name__} failed"
+
+
+def test_object_set_samples_and_stores_variant_indices():
+    result = run_simulation_app_function(
+        _test_object_set_samples_and_stores_variant_indices,
+        headless=HEADLESS,
+    )
+    assert result, f"Test {_test_object_set_samples_and_stores_variant_indices.__name__} failed"
+
+
+def test_object_set_default_variant_indices_follow_member_order():
+    result = run_simulation_app_function(
+        _test_object_set_default_variant_indices_follow_member_order,
+        headless=HEADLESS,
+    )
+    assert result, f"Test {_test_object_set_default_variant_indices_follow_member_order.__name__} failed"
+
+
+def test_object_set_random_variant_indices_use_placement_seed():
+    result = run_simulation_app_function(
+        _test_object_set_random_variant_indices_use_placement_seed,
+        headless=HEADLESS,
+    )
+    assert result, f"Test {_test_object_set_random_variant_indices_use_placement_seed.__name__} failed"
+
+
+def test_object_set_regenerates_variants_with_different_num_envs():
+    result = run_simulation_app_function(
+        _test_object_set_regenerates_variants_with_different_num_envs,
+        headless=HEADLESS,
+    )
+    assert result, f"Test {_test_object_set_regenerates_variants_with_different_num_envs.__name__} failed"
 
 
 def test_articulation_object_set():

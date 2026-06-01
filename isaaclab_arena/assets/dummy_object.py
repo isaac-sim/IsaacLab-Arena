@@ -26,7 +26,7 @@ class DummyObject:
         self.initial_pose = initial_pose
         self.bounding_box = bounding_box
         assert self.bounding_box is not None
-        self.relations = []
+        self.relations = list(relations)
 
     def add_relation(self, relation: RelationBase) -> None:
         self.relations.append(relation)

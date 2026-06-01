@@ -5,10 +5,12 @@
 
 from isaaclab.envs.common import ViewerCfg
 
+from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.tasks.task_base import TaskBase
 
 
+@register_task
 class NoTask(TaskBase):
     """Null object for environments without a task."""
 

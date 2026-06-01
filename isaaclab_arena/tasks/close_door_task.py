@@ -10,11 +10,13 @@ from isaaclab.managers import TerminationTermCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.affordances.openable import Openable
+from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.tasks.common.open_close_door_mimic import RotateDoorMimicEnvCfg
 from isaaclab_arena.tasks.rotate_revolute_joint_task import RotateRevoluteJointTask
 
 
+@register_task
 class CloseDoorTask(RotateRevoluteJointTask):
     def __init__(
         self,
