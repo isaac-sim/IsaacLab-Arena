@@ -22,8 +22,6 @@ def _default_strategies() -> dict[type[RelationBase], RelationLossStrategy | Una
     return {
         NextTo: NextToLossStrategy(slope=10.0),
         On: OnLossStrategy(slope=100.0),
-        # margin_m matches NotNextTo's default distance_m (0.1) so the keep-out zone
-        # reaches the parent's edge — see NotNextToLossStrategy for the rule of thumb.
         NotNextTo: NotNextToLossStrategy(slope=10.0, margin_m=0.1),
         AtPosition: AtPositionLossStrategy(slope=100.0),
         PositionLimits: PositionLimitsLossStrategy(slope=100.0),

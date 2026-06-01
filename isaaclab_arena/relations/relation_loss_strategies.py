@@ -320,44 +320,28 @@ class OnLossStrategy(RelationLossStrategy):
 
 
 class NotNextToLossStrategy(RelationLossStrategy):
-    """Loss strategy for ``NotNextTo`` — push the child out of the parent's NextTo zone.
+    """Loss strategy for ``NotNextTo`` — keep the child out of the half-plane beside the parent.
 
-    The inverse of ``NextToLossStrategy``. ``NextTo`` holds only where all three
-    conditions are met at once:
+    Blocked region: everything past the parent's edge on the chosen side and
+    within the parent's perpendicular footprint (for ``+Y``: all of ``+Y`` past
+    the ``+Y`` edge, clipped to the parent's ``X`` extent). The child escapes by
+    one of two routes — cross back over the edge, or step out past either end of
+    the footprint::
 
-      1. **Half-plane** — child on the outward side of the parent's edge
-         (beyond it in the chosen direction, not back across it).
-      2. **Cross band** — child within the parent's perpendicular extent.
-      3. **Target distance** — child at ``parent_edge + direction * distance_m``
-         along the primary axis.
+        loss = slope * min(remaining_side, remaining_cross)
 
-    ``NotNextTo`` is the negation: breaking *any one* condition by at least
-    ``margin_m`` meters drives the loss to zero.
-
-    Per condition we measure an ``escape`` — how far it is currently broken, in
-    meters (0 while the condition still holds) — and the still-unmet margin
-    ``gap = relu(margin_m - escape)``::
-
-        loss = slope * min(gap_side, gap_cross, gap_dist)
-
-    The ``min`` follows the single cheapest escape, so the gradient points the
-    child out along whichever of the three directions is closest to clearing the
-    margin.
+    Each ``remaining`` is the distance the child must still travel to clear that
+    route by ``margin_m`` (0 once cleared), so the loss is non-zero everywhere in
+    the zone — no flat plateau — and its gradient points to the nearest exit.
     """
 
     def __init__(self, slope: float = 10.0, margin_m: float = 0.1, debug: bool = False):
         """
         Args:
-            slope: Loss magnitude per meter inside the safety margin.
-                Matches the default of ``NextToLossStrategy``.
-            margin_m: Meters of clearance required along whichever escape axis the
-                optimizer takes (default 10 cm). Rule of thumb: set ``margin_m``
-                >= the relation's ``distance_m`` (and ideally equal to it) so the
-                keep-out zone spans from the parent's edge out past the forbidden
-                spot; with ``margin_m < distance_m`` the penalized tent floats past
-                the edge and leaves a gap where the child can sit right next to the
-                parent at zero loss.
-            debug: If True, print the per-condition escape distances.
+            slope: Loss magnitude per meter of remaining escape distance.
+            margin_m: How far past the edge or footprint the child must reach for
+                zero loss (default 10 cm).
+            debug: If True, print the per-route remaining distances.
         """
         assert slope >= 0.0, f"slope must be non-negative, got {slope}"
         assert margin_m > 0.0, f"margin_m must be positive, got {margin_m}"
@@ -378,23 +362,16 @@ class NotNextToLossStrategy(RelationLossStrategy):
             child_pos = child_pos.unsqueeze(0)
 
         cfg = SIDE_CONFIGS[relation.side]
-        distance = relation.distance_m
 
-        # Mirror NextToLossStrategy's target-position derivation. NextTo places the
-        # child on the OUTWARD side of this edge (beyond it in `direction`).
-        # opposite_side_penalty flags the other side — back across the edge, toward
-        # the parent — which is where the child must go to escape via the half-plane.
+        # Blocked edge and the side the child must leave (> edge for POSITIVE, < for NEGATIVE).
         if cfg.direction == Direction.POSITIVE:
             parent_edge = parent_world_bbox.max_point[:, cfg.primary_axis]
-            child_offset = child_bbox.min_point[:, cfg.primary_axis]
-            opposite_side_penalty = "less"  # child is on the opposite side when primary < parent_edge
+            blocked_side_penalty = "greater"
         else:
             parent_edge = parent_world_bbox.min_point[:, cfg.primary_axis]
-            child_offset = child_bbox.max_point[:, cfg.primary_axis]
-            opposite_side_penalty = "greater"  # child is on the opposite side when primary > parent_edge
-        target_pos = parent_edge + cfg.direction * distance - child_offset
+            blocked_side_penalty = "less"
 
-        # Cross band: child placed at target position within parent's perpendicular extent.
+        # Footprint band, shrunk by the child's extent so its whole bbox must clear it.
         parent_band_min = parent_world_bbox.min_point[:, cfg.band_axis]
         parent_band_max = parent_world_bbox.max_point[:, cfg.band_axis]
         valid_band_min = parent_band_min - child_bbox.min_point[:, cfg.band_axis]
@@ -403,35 +380,28 @@ class NotNextToLossStrategy(RelationLossStrategy):
         primary = child_pos[:, cfg.primary_axis]
         cross = child_pos[:, cfg.band_axis]
 
-        # Each numbered block mirrors the matching term in NextToLossStrategy, but
-        # measures how far that NextTo condition is ESCAPED (broken) rather than met.
-        # escape = meters the condition is broken (0 while still met, slope=1.0 -> meters);
-        # gap = relu(margin_m - escape) = margin still left to fill (0 once escape clears margin).
+        # Each route's `remaining` = distance still to travel to clear it by margin_m (0 once cleared).
+        # Route 1, cross back over the edge: distance onto the blocked side past the one safe line.
+        safe_edge = parent_edge - cfg.direction * self.margin_m
+        remaining_side = single_boundary_linear_loss(primary, safe_edge, slope=1.0, penalty_side=blocked_side_penalty)
+        # Route 2, slide off the footprint: there are two safe lines (one margin_m past each end);
+        # take the distance to the nearer one. min over the two ends -> a tent peaking at the centre,
+        # which caps the loss and keeps the blocked axis flat.
+        safe_band_min = valid_band_min - self.margin_m
+        safe_band_max = valid_band_max + self.margin_m
+        remaining_cross = torch.minimum(
+            single_boundary_linear_loss(cross, safe_band_min, slope=1.0, penalty_side="greater"),
+            single_boundary_linear_loss(cross, safe_band_max, slope=1.0, penalty_side="less"),
+        )
 
-        # 1. Half-plane escape: how far the child has crossed to the side opposite where
-        #    NextTo sits it (inverse of NextTo's half-plane loss; 0 on the outward side).
-        escape_side = single_boundary_linear_loss(primary, parent_edge, slope=1.0, penalty_side=opposite_side_penalty)
-        gap_side = single_boundary_linear_loss(escape_side, self.margin_m, slope=1.0, penalty_side="less")
-
-        # 2. Cross-band escape: how far the child is OUTSIDE the parent's perpendicular
-        #    extent (inverse of NextTo's band loss; 0 inside the band).
-        escape_cross = linear_band_loss(cross, valid_band_min, valid_band_max, slope=1.0)
-        gap_cross = single_boundary_linear_loss(escape_cross, self.margin_m, slope=1.0, penalty_side="less")
-
-        # 3. Distance escape: how far the primary-axis position is from the target distance
-        #    (inverse of NextTo's distance loss; 0 exactly at the target).
-        escape_dist = single_point_linear_loss(primary, target_pos, slope=1.0)
-        gap_dist = single_boundary_linear_loss(escape_dist, self.margin_m, slope=1.0, penalty_side="less")
-
-        # min(): a single escape past the margin is enough to satisfy Not(NextTo).
-        loss = self.slope * torch.minimum(torch.minimum(gap_side, gap_cross), gap_dist)
+        # Clearing either route is enough.
+        loss = self.slope * torch.minimum(remaining_side, remaining_cross)
 
         if self.debug and child_pos.shape[0] == 1:
             print(
                 f"    [NotNextTo] {relation.side.value}: "
-                f"escape_side={escape_side[0].item():.4f} "
-                f"escape_cross={escape_cross[0].item():.4f} "
-                f"escape_dist={escape_dist[0].item():.4f} "
+                f"remaining_side={remaining_side[0].item():.4f} "
+                f"remaining_cross={remaining_cross[0].item():.4f} "
                 f"-> loss={loss[0].item():.6f}"
             )
 
