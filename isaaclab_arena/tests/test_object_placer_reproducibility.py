@@ -337,7 +337,13 @@ def _positions_by_name(result: PlacementResult) -> dict[str, tuple[float, float,
     return {obj.name: pos for obj, pos in result.positions.items()}
 
 
-def test_pooled_placer_same_seed_produces_identical_samples():
+# ---------------------------------------------------------------------------
+# PooledObjectPlacer reproducibility — homogeneous objects.
+# Heterogeneous-object (per-env variant) counterparts live in test_heterogeneous_placement.py.
+# ---------------------------------------------------------------------------
+
+
+def test_pooled_placer_homogeneous_same_seed_produces_identical_samples():
     """PooledObjectPlacer.sample_with_replacement must be reproducible under placement_seed."""
     solver_params = RelationSolverParams(max_iters=50)
     placer_params = ObjectPlacerParams(placement_seed=42, solver_params=solver_params, apply_positions_to_objects=False)
@@ -352,7 +358,7 @@ def test_pooled_placer_same_seed_produces_identical_samples():
         assert _positions_by_name(s1) == _positions_by_name(s2)
 
 
-def test_pooled_placer_different_seeds_produce_different_samples():
+def test_pooled_placer_homogeneous_different_seeds_produce_different_samples():
     """Different placement_seed values should produce different sample sequences."""
     solver_params = RelationSolverParams(max_iters=50)
 
@@ -378,7 +384,7 @@ def test_pooled_placer_different_seeds_produce_different_samples():
     assert any_different, "Different seeds should produce different samples"
 
 
-def test_pooled_placer_sample_with_replacement_reproducible_per_env_id():
+def test_pooled_placer_homogeneous_sample_with_replacement_reproducible_per_env_id():
     """sample_with_replacement should reproduce each env's draws under a fixed (placement_seed, num_envs)."""
     num_envs = 3
     solver_params = RelationSolverParams(max_iters=50)
@@ -398,7 +404,7 @@ def test_pooled_placer_sample_with_replacement_reproducible_per_env_id():
         assert _positions_by_name(d1) == _positions_by_name(d2), f"slot {i} (env {i % num_envs}) not reproducible"
 
 
-def test_pooled_placer_builds_identical_layouts_for_same_seed_and_objects():
+def test_pooled_placer_homogeneous_builds_identical_layouts_for_same_seed_and_objects():
     """Same objects and placement_seed should produce bit-identical layouts (no sampling RNG involved)."""
     solver_params = RelationSolverParams(max_iters=50)
     placer_params = ObjectPlacerParams(placement_seed=42, solver_params=solver_params, apply_positions_to_objects=False)
@@ -413,7 +419,7 @@ def test_pooled_placer_builds_identical_layouts_for_same_seed_and_objects():
         assert _positions_by_name(L1) == _positions_by_name(L2)
 
 
-def test_pooled_placer_continues_seed_stream_across_refill():
+def test_pooled_placer_homogeneous_continues_seed_stream_across_refill():
     """Pool refill must advance the candidate seed stream so it doesn't replay the initial batch."""
     solver_params = RelationSolverParams(max_iters=50)
     placer_params = ObjectPlacerParams(placement_seed=42, solver_params=solver_params, apply_positions_to_objects=False)
@@ -434,7 +440,7 @@ def test_pooled_placer_continues_seed_stream_across_refill():
     assert initial_batch.isdisjoint(refill_batch), "Refill replayed the initial seed range; seed stream not advancing"
 
 
-def test_pooled_placer_unseeded_does_not_crash():
+def test_pooled_placer_homogeneous_unseeded_does_not_crash():
     """placement_seed=None must work without requiring deterministic seed bookkeeping."""
     solver_params = RelationSolverParams(max_iters=50)
     placer_params = ObjectPlacerParams(
@@ -449,7 +455,7 @@ def test_pooled_placer_unseeded_does_not_crash():
         assert _positions_by_name(sample)
 
 
-def test_pooled_placer_stored_layouts_have_distinct_positions_dicts():
+def test_pooled_placer_homogeneous_stored_layouts_have_distinct_positions_dicts():
     """Each stored layout must own a distinct positions dict (no aliasing across pool entries)."""
     solver_params = RelationSolverParams(max_iters=50)
     placer_params = ObjectPlacerParams(placement_seed=42, solver_params=solver_params, apply_positions_to_objects=False)
@@ -464,7 +470,7 @@ def test_pooled_placer_stored_layouts_have_distinct_positions_dicts():
             ), f"Layouts {i} and {j} share the same positions dict reference"
 
 
-def test_pooled_placer_sample_without_replacement_count_exceeds_pool_size():
+def test_pooled_placer_homogeneous_sample_without_replacement_count_exceeds_pool_size():
     """sample_without_replacement(count) where count > pool_size must solve a larger batch in one shot."""
     solver_params = RelationSolverParams(max_iters=50)
     placer_params = ObjectPlacerParams(placement_seed=42, solver_params=solver_params, apply_positions_to_objects=False)
@@ -480,7 +486,7 @@ def test_pooled_placer_sample_without_replacement_count_exceeds_pool_size():
         assert _positions_by_name(d1) == _positions_by_name(d2)
 
 
-def test_pooled_placer_sample_with_replacement_reproducible_across_refill():
+def test_pooled_placer_homogeneous_sample_with_replacement_reproducible_across_refill():
     """sample_with_replacement must remain reproducible after a refill mutates the pool."""
     solver_params = RelationSolverParams(max_iters=50)
     placer_params = ObjectPlacerParams(placement_seed=42, solver_params=solver_params, apply_positions_to_objects=False)
@@ -503,7 +509,7 @@ def test_pooled_placer_sample_with_replacement_reproducible_across_refill():
         assert _positions_by_name(s1) == _positions_by_name(s2)
 
 
-def test_pooled_placer_rejects_pool_size_below_one():
+def test_pooled_placer_homogeneous_rejects_pool_size_below_one():
     """pool_size < 1 is invalid public constructor input."""
     placer_params = ObjectPlacerParams(placement_seed=42, solver_params=RelationSolverParams(max_iters=10))
     with pytest.raises(AssertionError, match="pool_size must be >= 1"):
