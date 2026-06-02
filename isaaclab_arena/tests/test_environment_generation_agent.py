@@ -165,7 +165,7 @@ class TestGenerateSpec:
         agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
         agent.generate_spec(
             "p",
-            catalog=_catalog("catalog"),
+            asset_catalog=_catalog("catalog"),
             relation_catalog=_relation_catalog("RELATIONS"),
             task_catalog=_task_catalog("TASKS"),
         )
@@ -186,7 +186,7 @@ class TestGenerateSpec:
         agent.client.chat.completions.create.return_value = _chat_response(content=raw)
         spec, _ = agent.generate_spec(
             "p",
-            catalog=_catalog("catalog"),
+            asset_catalog=_catalog("catalog"),
             relation_catalog=_relation_catalog("RELATIONS"),
             task_catalog=_task_catalog("TASKS"),
         )
@@ -196,7 +196,7 @@ class TestGenerateSpec:
         agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
         agent.generate_spec(
             "user wants avocado on kitchen",
-            catalog=_catalog("<<CATALOG-MARKER>>"),
+            asset_catalog=_catalog("<<CATALOG-MARKER>>"),
             relation_catalog=_relation_catalog("<<RELATIONS-MARKER>>"),
             task_catalog=_task_catalog("<<TASKS-MARKER>>"),
         )
@@ -220,7 +220,7 @@ class TestGenerateSpec:
 def test_generate_spec_against_live_endpoint():
     """End-to-end smoke test against the real OpenAI-compatible endpoint."""
     agent = EnvironmentGenerationAgent()
-    catalog = _catalog(
+    asset_catalog = _catalog(
         "EMBODIMENTS: franka_ik\n\n"
         "BACKGROUNDS: maple_table_kitchen\n\n"
         "OBJECTS (2):\n"
@@ -232,7 +232,7 @@ def test_generate_spec_against_live_endpoint():
     )
     spec, raw = agent.generate_spec(
         "pick up the avocado and place it in the bowl on the kitchen table",
-        catalog=catalog,
+        asset_catalog=asset_catalog,
         task_catalog=task_catalog,
     )
     assert isinstance(raw, str) and raw, "agent returned empty raw response"

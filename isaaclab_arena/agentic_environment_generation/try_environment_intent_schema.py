@@ -53,11 +53,11 @@ def main() -> None:
         print(json.dumps(EnvironmentIntentSpec.model_json_schema(), indent=2))
         return
 
-    catalog = build_asset_catalogue()
+    asset_catalog = build_asset_catalogue()
     relation_catalog = build_relation_catalogue()
     task_catalog = build_task_catalogue()
     if args.print_catalog:
-        print(catalog.to_catalog_string())
+        print(asset_catalog.to_catalog_string())
         print()
         print(relation_catalog.to_catalog_string())
         print()
@@ -67,7 +67,7 @@ def main() -> None:
     agent = EnvironmentGenerationAgent(model=args.model)
     spec, raw = agent.generate_spec(
         args.prompt,
-        catalog=catalog,
+        asset_catalog=asset_catalog,
         relation_catalog=relation_catalog,
         task_catalog=task_catalog,
         temperature=args.temperature,

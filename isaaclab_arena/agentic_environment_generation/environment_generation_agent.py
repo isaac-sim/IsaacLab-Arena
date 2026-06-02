@@ -31,6 +31,7 @@ from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.tasks.task_base import TaskBase
 
+# TODO(qianl): This is currently Nvidia internal. Switch to public endpoint.
 DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
 DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
 
@@ -211,7 +212,7 @@ class EnvironmentGenerationAgent:
     def generate_spec(
         self,
         prompt: str,
-        catalog: AssetCatalogue | None = None,
+        asset_catalog: AssetCatalogue | None = None,
         relation_catalog: RelationCatalogue | None = None,
         task_catalog: TaskCatalogue | None = None,
         temperature: float = 0.2,
@@ -221,8 +222,8 @@ class EnvironmentGenerationAgent:
 
         Args:
             prompt: Natural-language env description from the end user.
-            catalog: Pre-built asset vocabulary. When ``None``, the catalog is
-                built from the live ``AssetRegistry``.
+            asset_catalog: Pre-built asset vocabulary. When ``None``, built
+                from the live ``AssetRegistry``.
             relation_catalog: Pre-built relation vocabulary. When ``None``, built
                 from the live ``ObjectRelationLibraryRegistry``.
             task_catalog: Pre-built task vocabulary. When ``None``, built from
@@ -237,11 +238,11 @@ class EnvironmentGenerationAgent:
             A ``(EnvironmentIntentSpec, raw_response)`` tuple. The raw text is
             useful for debugging.
         """
-        catalog = catalog or build_asset_catalogue()
+        asset_catalog = asset_catalog or build_asset_catalogue()
         relation_catalog = relation_catalog or build_relation_catalogue()
         task_catalog = task_catalog or build_task_catalogue()
         vocabulary = (
-            f"{catalog.to_catalog_string()}\n\n"
+            f"{asset_catalog.to_catalog_string()}\n\n"
             f"{relation_catalog.to_catalog_string()}\n\n"
             f"{task_catalog.to_catalog_string()}"
         )
