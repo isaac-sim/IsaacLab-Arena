@@ -7,8 +7,11 @@
 
 Adds a small sampler-drawn translation to a camera's nominal local position so
 its observed pose drifts from the calibrated reference, modelling a mounting or
-calibration error. See :class:`CameraExtrinsicsVariationCfg` for the sampler
-axis convention.
+calibration error.
+
+Sampled decalibration vectors are expressed in the camera's ROS optical frame:
++X right, +Y down, +Z forward. See :class:`CameraExtrinsicsVariationCfg` for the
+sampler axis convention.
 """
 
 from __future__ import annotations
@@ -32,7 +35,11 @@ if TYPE_CHECKING:
 
 @configclass
 class CameraExtrinsicsVariationCfg(VariationBaseCfg):
-    """Configuration for CameraExtrinsicsVariation."""
+    """Configuration for CameraExtrinsicsVariation.
+
+    ``sampler_cfg`` draws 3D translation offsets in the camera ROS optical frame
+    (+X right, +Y down, +Z forward).
+    """
 
     sampler_cfg: UniformSamplerCfg = field(
         default_factory=lambda: UniformSamplerCfg(
@@ -40,11 +47,15 @@ class CameraExtrinsicsVariationCfg(VariationBaseCfg):
             high=[0.005, 0.005, 0.005],
         )
     )
-    """3D translation distribution in the camera's ROS-style optical frame, axes (x_right, y_down, z_forward)."""
+    """Uniform distribution over decalibration XYZ in the ROS camera frame [m]."""
 
 
 class CameraExtrinsicsVariation(RunTimeVariationBase):
     """Vary a camera's extrinsics by adding a small offset to its nominal local position.
+
+    Each reset samples a translation in the camera ROS optical frame (+X right,
+    +Y down, +Z forward), converts it to the parent frame, and adds it to the
+    nominal local translation.
 
     Only the camera's local transform is touched, so wrist-mounted cameras keep
     tracking their parent body.
@@ -87,9 +98,10 @@ class CameraExtrinsicsVariation(RunTimeVariationBase):
 class apply_camera_extrinsics_from_sampler(ManagerTermBase):
     """Event term: offset a camera's local position by a sampler-drawn delta.
 
-    The nominal local pose is snapshotted on the first call; each later call
-    rewrites the translation to nominal + delta so offsets don't compound
-    across resets.
+    Sampler output is a translation in the ROS camera frame (+X right, +Y down,
+    +Z forward). The nominal local pose is snapshotted on the first call; each
+    later call rewrites the translation to nominal + delta so offsets don't
+    compound across resets.
     """
 
     def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):

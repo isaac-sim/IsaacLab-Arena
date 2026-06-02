@@ -3,16 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Sampler abstract base for the variation system.
-
-A :class:`SamplerBase` is a stateless description of how values are drawn,
-paired with a declarative :class:`SamplerBaseCfg` that ``build()`` s into it.
-
-:meth:`SamplerBase.sample` returns ``Any``: continuous samplers return a
-``torch.Tensor`` of shape ``(num_samples, *shape_per_sample)``; categorical
-samplers return a ``list``.
-"""
-
 from __future__ import annotations
 
 import torch
@@ -24,10 +14,10 @@ from isaaclab.utils import configclass
 
 @configclass
 class SamplerBaseCfg:
-    """Base configclass for declarative sampler descriptions."""
+    """Base configclass for SamplerBase instances."""
 
     def build(self) -> SamplerBase:
-        """Return the live :class:`SamplerBase` described by this cfg."""
+        """Return the live SamplerBase described by this cfg."""
         raise NotImplementedError(
             f"{type(self).__name__}.build() is not implemented; every concrete SamplerBaseCfg "
             "subclass must provide a build() that returns its live SamplerBase."

@@ -40,7 +40,12 @@ class VariationBaseCfg:
 
 
 class VariationBase(ABC):
-    """Abstract variation binding an asset, a sampler, and a realisation hook."""
+    """Variation base class.
+
+    This class only enforces that the variation has a name, a config, a sampler,
+    a way to enable and disable it, and a way to apply a new config.
+
+    """
 
     #: Short, unique identifier for this variation kind (e.g. ``"color"``).
     name: ClassVar[str]

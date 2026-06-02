@@ -312,15 +312,15 @@ class FrankaEventCfg:
             "default_pose": [0.0, -0.785, -0.1107, -1.1775, 0.0, 0.785, 0.785, 0.0400, 0.0400],
         },
     )
-    # randomize_franka_joint_state = EventTerm(
-    #     func=franka_stack_events.randomize_joint_by_gaussian_offset,
-    #     mode="reset",
-    #     params={
-    #         "mean": 0.0,
-    #         "std": 0.02,
-    #         "asset_cfg": SceneEntityCfg("robot"),
-    #     },
-    # )
+    randomize_franka_joint_state = EventTerm(
+        func=franka_stack_events.randomize_joint_by_gaussian_offset,
+        mode="reset",
+        params={
+            "mean": 0.0,
+            "std": 0.02,
+            "asset_cfg": SceneEntityCfg("robot"),
+        },
+    )
 
 
 @configclass

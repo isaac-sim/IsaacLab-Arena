@@ -31,7 +31,6 @@ asset_registry = AssetRegistry()
 
 background = asset_registry.get_asset_by_name("kitchen")()
 franka = asset_registry.get_asset_by_name("franka_ik")(enable_cameras=True)
-# franka = asset_registry.get_asset_by_name("droid_differential_ik")(enable_cameras=True)
 cracker_box = asset_registry.get_asset_by_name("cracker_box")()
 tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
 dome_light = asset_registry.get_asset_by_name("light")()
