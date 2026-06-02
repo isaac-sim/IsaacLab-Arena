@@ -42,10 +42,7 @@ def stub_openai():
     """Patch ``openai.OpenAI`` so ``EnvironmentGenerationAgent()`` never hits the wire."""
     with patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.OpenAI") as mock_cls:
         client = MagicMock()
-        client.chat.completions.create.side_effect = [
-            _chat_response(content="OK"),
-            _chat_response(content=json.dumps(_MINIMAL_SPEC)),
-        ]
+        client.chat.completions.create.return_value = _chat_response(content="OK")
         mock_cls.return_value = client
         yield mock_cls
 

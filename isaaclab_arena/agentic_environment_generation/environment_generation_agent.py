@@ -14,15 +14,10 @@ from typing import Any
 
 from openai import OpenAI
 
+from isaaclab_arena.agentic_environment_generation.agent_utils import build_strict_schema, extract_response_text, ping
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import (
     EnvironmentIntentSpec,
     required_task_init_param_names,
-)
-from isaaclab_arena.agentic_environment_generation.structured_output_utils import (
-    build_strict_schema,
-    check_structured_output_support,
-    extract_response_text,
-    ping,
 )
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.object_library import LibraryObject
@@ -223,9 +218,6 @@ class EnvironmentGenerationAgent:
         self.client = OpenAI(api_key=self.api_key, base_url=base_url)
         # Validate basic connection and key authentication.
         ping(self.client, self.model)
-
-        # Validate model can produce structured outputs.
-        check_structured_output_support(self.client, self.model, EnvironmentIntentSpec)
         self._spec_schema = build_strict_schema(EnvironmentIntentSpec)
 
     def generate_spec(
@@ -285,8 +277,7 @@ class EnvironmentGenerationAgent:
         if route == "empty":
             raise RuntimeError(
                 f"Model {self.model!r} returned an empty structured-outputs envelope. "
-                "Run check_structured_output_support() to verify the endpoint/model "
-                "actually honours response_format=json_schema."
+                "Verify the endpoint/model supports response_format=json_schema."
             )
         # ``strict=False`` lets json.loads accept unescaped control characters
         # (e.g. literal tabs) inside JSON strings — DeepSeek-v4-flash is known
