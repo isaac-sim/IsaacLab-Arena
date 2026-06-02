@@ -155,14 +155,10 @@ class PooledObjectPlacer:
         if _skip_initial_solve:
             return
 
+        # _solve_and_store fills every env to >= 1 layout or raises with per-env diagnostics, so a
+        # populated pool is an invariant here rather than a user-facing failure mode.
         self._solve_and_store(pool_size)
-        for cur_env, pool in enumerate(self._env_pools):
-            if not pool.layouts:
-                raise RuntimeError(
-                    f"Placement pool failed to produce any accepted layouts for env {cur_env} "
-                    f"from {pool_size} attempts. Most recent rejection reasons: "
-                    f"{self._last_rejection_summary or 'none recorded'}. Check object relations and constraints."
-                )
+        assert all(pool.layouts for pool in self._env_pools), "Placement pool is empty after solving."
 
     def accepts(self, result: PlacementResult) -> bool:
         """Whether a layout passes the pool's layout_filter.

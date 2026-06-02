@@ -19,6 +19,8 @@ class ValidationReport:
     """Per-check outcome of placement validation.
 
     checks maps each check name (e.g. "no_overlap", "on_relations") to its pass/fail result.
+    The check set is open: further validation checks add their own named result by deriving a new
+    report via with_check, so acceptance can consider more than the built-in geometry checks.
     """
 
     checks: Mapping[str, bool]
@@ -42,13 +44,21 @@ class ValidationReport:
         """Names of the checks that failed, in insertion order."""
         return tuple(name for name, ok in self.checks.items() if not ok)
 
+    def with_check(self, name: str, passed: bool) -> ValidationReport:
+        """Return a new report with one more named check.
+
+        Reports are immutable, so a further validation check records its outcome by deriving a new
+        report rather than mutating this one.
+        """
+        return ValidationReport(checks={**self.checks, name: passed})
+
 
 LayoutFilter = Callable[[ValidationReport], bool]
 """Acceptance predicate: given a layout's ValidationReport, whether the layout is kept."""
 
 
 def default_layout_filter(report: ValidationReport) -> bool:
-    """Default acceptance: keep a layout iff every built-in check passed."""
+    """Default acceptance: keep a layout iff every check passed (the built-in geometry checks and any added later)."""
     return report.passed
 
 

@@ -107,14 +107,18 @@ def write_pool_document(path: Path, document: PoolDocument) -> None:
     """Atomically write a pool document, failing loudly on non-finite values.
 
     Serializes to a string first (allow_nan=False) so a degenerate NaN/inf pose or loss raises
-    before any file is touched, leaving no orphan temp file. Writes to a temp file then os.replace
-    so an interrupted write never leaves a half-written file.
+    before any file is touched. Writes to a temp file then os.replace so neither an interrupted
+    write nor a mid-write OS error (e.g. disk full) leaves a half-written or orphan temp file.
     """
     payload = json.dumps(document.to_dict(), indent=2, allow_nan=False)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_name(f"{path.name}.tmp")
-    tmp_path.write_text(payload)
-    os.replace(tmp_path, path)
+    try:
+        tmp_path.write_text(payload)
+        os.replace(tmp_path, path)
+    except OSError:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def read_pool_document(path: Path) -> PoolDocument:
@@ -159,7 +163,7 @@ def deserialize_layout(data: dict, name_to_obj: dict[str, ObjectBase]) -> Placem
         orientations_data, dict
     ), f"Serialized layout 'orientations' must be a dict, got {type(orientations_data).__name__}."
     assert isinstance(checks, dict), f"Serialized layout 'validation' must be a dict, got {type(checks).__name__}."
-    assert checks, "Serialized layout has an empty validation map; it would load as a failing layout."
+    assert bool(checks), "Serialized layout has an empty validation map; it would load as a failing layout."
     for name, ok in checks.items():
         assert isinstance(ok, bool), f"Validation check '{name}' must be a JSON bool, got {type(ok).__name__}."
     assert (

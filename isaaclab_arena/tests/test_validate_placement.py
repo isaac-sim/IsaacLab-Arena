@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for ObjectPlacer placement validation (_validate_layout, _validate_no_overlap, _validate_on_relations)."""
+"""Tests for ObjectPlacer placement validation (_validate_geometry, _validate_no_overlap, _validate_on_relations)."""
 
 import math
 import torch
@@ -53,7 +53,7 @@ def test_no_overlap_returns_true():
     a = _make_box("a")
     b = _make_box("b")
     positions = {a: (0.0, 0.0, 0.0), b: (1.0, 0.0, 0.0)}
-    assert placer._validate_layout(positions, _env_bboxes(positions)).passed is True
+    assert placer._validate_geometry(positions, _env_bboxes(positions)).passed is True
 
 
 def test_overlapping_returns_false():
@@ -62,7 +62,7 @@ def test_overlapping_returns_false():
     a = _make_box("a")
     b = _make_box("b")
     positions = {a: (0.0, 0.0, 0.0), b: (0.0, 0.0, 0.0)}
-    assert placer._validate_layout(positions, _env_bboxes(positions)).passed is False
+    assert placer._validate_geometry(positions, _env_bboxes(positions)).passed is False
 
 
 def test_partial_overlap_returns_false():
@@ -71,7 +71,7 @@ def test_partial_overlap_returns_false():
     a = _make_box("a", size=0.2)
     b = _make_box("b", size=0.2)
     positions = {a: (0.0, 0.0, 0.0), b: (0.1, 0.1, 0.0)}
-    assert placer._validate_layout(positions, _env_bboxes(positions)).passed is False
+    assert placer._validate_geometry(positions, _env_bboxes(positions)).passed is False
 
 
 def test_separated_in_z_passes():
@@ -80,7 +80,7 @@ def test_separated_in_z_passes():
     a = _make_box("a")
     b = _make_box("b")
     positions = {a: (0.0, 0.0, 0.0), b: (0.0, 0.0, 5.0)}
-    assert placer._validate_layout(positions, _env_bboxes(positions)).passed is True
+    assert placer._validate_geometry(positions, _env_bboxes(positions)).passed is True
 
 
 def test_object_on_surface_no_overlap():
@@ -90,7 +90,7 @@ def test_object_on_surface_no_overlap():
     box = _make_box("box", size=0.2)
     # Desk top at z=0.05; box at z=0.16 → box occupies z=[0.06, 0.26], clear of desk
     positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.16)}
-    assert placer._validate_layout(positions, _env_bboxes(positions)).passed is True
+    assert placer._validate_geometry(positions, _env_bboxes(positions)).passed is True
 
 
 def test_colocated_siblings_overlap_rejected():
@@ -100,7 +100,7 @@ def test_colocated_siblings_overlap_rejected():
     a = _make_box("a", size=0.2)
     b = _make_box("b", size=0.2)
     positions = {desk: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.15), b: (0.0, 0.0, 0.15)}
-    assert placer._validate_layout(positions, _env_bboxes(positions)).passed is False
+    assert placer._validate_geometry(positions, _env_bboxes(positions)).passed is False
 
 
 def test_rotation_aware_overlap_uses_yaw():
@@ -110,9 +110,9 @@ def test_rotation_aware_overlap_uses_yaw():
     b = _make_box("b", size=0.1)
     positions = {a: (0.0, 0.0, 0.0), b: (0.0, 0.2, 0.0)}
     axis_aligned = {a: a.get_bounding_box(), b: b.get_bounding_box()}
-    assert placer._validate_layout(positions, axis_aligned).passed is True
+    assert placer._validate_geometry(positions, axis_aligned).passed is True
     rotated = {a: a.get_bounding_box().rotated_around_z(math.pi / 2), b: b.get_bounding_box()}
-    assert placer._validate_layout(positions, rotated).passed is False
+    assert placer._validate_geometry(positions, rotated).passed is False
 
 
 def test_candidate_bbox_aligns_with_candidate_yaw():
@@ -128,7 +128,7 @@ def test_candidate_bbox_aligns_with_candidate_yaw():
 
     # Mirrors _place_ranked: each candidate validates against its own bbox row.
     validations = [
-        placer._validate_layout(positions, ObjectPlacer._get_bounding_boxes_for_candidate_index(rotated, idx)).passed
+        placer._validate_geometry(positions, ObjectPlacer._get_bounding_boxes_for_candidate_index(rotated, idx)).passed
         for idx in range(2)
     ]
     # Axis-aligned `a` clears b; rotated 90° it sweeps into b. A row/candidate swap would flip both.
@@ -232,25 +232,25 @@ def test_on_relation_check_child_outside_xy_returns_false():
     assert placer._validate_on_relations(positions, _env_bboxes(positions)) is False
 
 
-def test_validate_layout_reports_named_checks_for_valid_placement():
-    """_validate_layout should report both named checks passing for a valid placement."""
+def test_validate_geometry_reports_named_checks_for_valid_placement():
+    """_validate_geometry should report both named checks passing for a valid placement."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
     a = _make_box("a")
     b = _make_box("b")
     positions = {a: (0.0, 0.0, 0.0), b: (1.0, 0.0, 0.0)}
-    report = placer._validate_layout(positions, _env_bboxes(positions))
+    report = placer._validate_geometry(positions, _env_bboxes(positions))
     assert report.checks == {"no_overlap": True, "on_relations": True}
     assert report.passed is True
     assert report.failed_checks == ()
 
 
-def test_validate_layout_isolates_the_failing_check():
-    """_validate_layout should fail only no_overlap when objects overlap with relations satisfied."""
+def test_validate_geometry_isolates_the_failing_check():
+    """_validate_geometry should fail only no_overlap when objects overlap with relations satisfied."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
     a = _make_box("a")
     b = _make_box("b")
     positions = {a: (0.0, 0.0, 0.0), b: (0.0, 0.0, 0.0)}
-    report = placer._validate_layout(positions, _env_bboxes(positions))
+    report = placer._validate_geometry(positions, _env_bboxes(positions))
     assert report.checks["no_overlap"] is False
     assert report.checks["on_relations"] is True
     assert report.passed is False
@@ -298,6 +298,19 @@ def test_validation_report_survives_deepcopy():
     clone = copy.deepcopy(report)
     assert dict(clone.checks) == {"no_overlap": True, "on_relations": False}
     assert clone.failed_checks == ("on_relations",)
+
+
+def test_validation_report_with_check_adds_sibling_without_mutating_original():
+    """with_check derives a new report with a further check, leaving the original intact."""
+    geometry = ValidationReport(checks={"no_overlap": True, "on_relations": True})
+    extended = geometry.with_check("extra_check", False)
+    # Original is untouched (immutable); the derived report carries the sibling check.
+    assert dict(geometry.checks) == {"no_overlap": True, "on_relations": True}
+    assert dict(extended.checks) == {"no_overlap": True, "on_relations": True, "extra_check": False}
+    # A failing sibling check flips acceptance, so a custom layout_filter can require it.
+    assert geometry.passed is True
+    assert extended.passed is False
+    assert extended.failed_checks == ("extra_check",)
 
 
 def test_placement_result_success_is_derived_from_validation():

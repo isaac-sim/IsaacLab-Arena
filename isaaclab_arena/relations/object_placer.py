@@ -223,7 +223,7 @@ class ObjectPlacer:
         assert self._solver.last_loss_per_env is not None
         all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
         all_validations = [
-            self._validate_layout(
+            self._validate_geometry(
                 positions, self._get_bounding_boxes_for_candidate_index(candidate_bboxes, candidate_idx)
             )
             for candidate_idx, positions in enumerate(all_positions)
@@ -609,19 +609,22 @@ class ObjectPlacer:
                     return False
         return True
 
-    def _validate_layout(
+    def _validate_geometry(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
     ) -> ValidationReport:
-        """Run each geometric check and return the per-check pass/fail outcome.
+        """Run the geometry checks and return them as a per-check ValidationReport.
+
+        This is the geometry validation stage. Further validation checks extend the result with
+        ValidationReport.with_check rather than adding cases here.
 
         Args:
             positions: Dictionary mapping objects to their solved (x, y, z) positions.
             env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
 
         Returns:
-            A ValidationReport mapping each check name to whether it passed.
+            A ValidationReport mapping each geometry check name to whether it passed.
         """
         return ValidationReport(
             checks={
