@@ -10,6 +10,12 @@ This workflow covers collecting demonstrations for the Unitree G1 static apple-t
    Before starting teleoperation, also review the `IsaacTeleop system requirements
    <https://nvidia.github.io/IsaacTeleop/main/references/requirements.html#teleoperation-with-isaac-sim-and-isaac-lab>`_.
 
+.. important::
+
+   A stable network connection meeting the `CloudXR network requirements
+   <https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html#network-requirements>`_
+   is required before starting the steps below.
+
 .. admonition:: No teleoperation hardware?
    :class: tip
 
@@ -162,8 +168,6 @@ Step 3: Connect from the headset device
 
 For detailed instructions please refer to `Connect an XR Device <https://isaac-sim.github.io/IsaacLab/develop/source/how-to/cloudxr_teleoperation.html#start-cloudxr-runtime>`_:
 
-A strong wireless connection is essential for a high-quality streaming experience. Refer to the `CloudXR Network Setup <https://docs.nvidia.com/cloudxr-sdk/latest/requirement/network_setup.html>`_ guide for router configuration.
-
 #. Open the browser on your headset and navigate to `<https://nvidia.github.io/IsaacTeleop/client>`_.
 
 #. Enter the IP address of your Isaac Lab host machine in the **Server IP** field.
@@ -253,9 +257,12 @@ Step 4: Record with the headset device
 #. Follow Step 3 to connect the headset again.
 
 #. Complete the task for each demo. After a successful placement, wait for the demo to
-   automatically end and for the simulation to freeze before pressing **Reset**. Resetting
-   early can save an incomplete or failed demonstration. The script saves successful runs
-   to the HDF5 file above.
+   end automatically and for the environment to reset automatically. The script saves
+   successful runs to the HDF5 file above. Pressing **Reset** early can save an
+   incomplete or failed demonstration.
+
+#. After the automatic reset, place your hands back in the initial starting position and
+   press **Reset** on the control panel to start the next demo.
 
 .. important::
 
@@ -303,6 +310,8 @@ Step 4: Record with the headset device
       approach and retreat motions during training.
    #. **Placement:** lower the apple until it is slightly above the plate surface, pause briefly in a
       stable pose, then release cleanly so the apple drops naturally onto the plate.
+   #. **Reset:** after the automatic reset finishes, return your hands to the initial starting
+      position, then press **Reset** on the control panel to start the next demo.
 
    Releasing a small round object onto a flat plate is noticeably harder than dropping a box into a
    bin. Keep the release height low and the orientation stable.

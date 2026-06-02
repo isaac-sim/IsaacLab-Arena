@@ -15,7 +15,7 @@
 #              (mount $MODELS_DIR -> /models, e.g. via `run_gr00t_server.sh -m $MODELS_DIR` or
 #               `-v $MODELS_DIR:/models` on raw `docker run`).
 model_path: /models/isaaclab_arena/static_apple_tutorial/static_apple_n17_finetune/checkpoint-20000
-language_instruction: "Pick up the apple from the shelf and place it onto the plate on the same shelf next to it."
+language_instruction: "move the apple to the plate"
 
 # Must match the diffusion head's action_horizon baked into the finetuned checkpoint
 # (set via the action modality's `delta_indices=list(range(N))` in
