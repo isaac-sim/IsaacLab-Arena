@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -27,6 +27,10 @@ class PlacementResult:
 
     attempts: int
     """Number of attempts made."""
+
+    orientations: dict[ObjectBase, float] = field(default_factory=dict)
+    """Per-object yaw (radians) about the world up (Z) axis, composed on top of each object's
+    base rotation. Keyed by object, like positions. Empty when unrotated."""
 
 
 @dataclass

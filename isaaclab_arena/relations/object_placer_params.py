@@ -15,6 +15,10 @@ class ObjectPlacerParams:
     solver_params: RelationSolverParams = field(default_factory=RelationSolverParams)
     """Parameters for the underlying RelationSolver."""
 
+    random_yaw_init: bool = False
+    """If True, give each non-anchor object a random fixed yaw about Z (uniform in [-pi, pi)) for
+    scene variety. Not optimized; collisions use the conservative box enclosing the rotated object."""
+
     max_placement_attempts: int = 10
     """Number of candidate layouts solved and ranked per result. Higher values raise the chance a valid
     layout is found in the batched solve. Also bounds the refill batches in PooledObjectPlacer."""

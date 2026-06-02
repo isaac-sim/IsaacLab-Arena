@@ -5,6 +5,7 @@
 
 """Tests for NoCollisionLossStrategy and RelationSolver built-in no-overlap behavior."""
 
+import math
 import torch
 
 from isaaclab_arena.assets.dummy_object import DummyObject
@@ -43,6 +44,45 @@ def _create_no_collision_scene() -> tuple[DummyObject, DummyObject, DummyObject]
     box_a.add_relation(On(table, clearance_m=0.01))
     box_b.add_relation(On(table, clearance_m=0.01))
     return table, box_a, box_b
+
+
+def test_solver_uses_rotated_bbox_for_collision():
+    """Test that a yaw-rotated env bbox passed to solve() changes the no-overlap loss (solver consumes it)."""
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+
+    # Long box (spans X) and a cube offset in +Y. No On/NextTo relations, so the only loss is
+    # the built-in no-overlap loss between the two non-anchors.
+    long_box = DummyObject(
+        name="long_box",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.3, -0.05, -0.05), max_point=(0.3, 0.05, 0.05)),
+    )
+    cube = DummyObject(
+        name="cube",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.05, -0.05, -0.05), max_point=(0.05, 0.05, 0.05)),
+    )
+    objects = [table, long_box, cube]
+    # Boxes sit high above the table (z=0.5) so neither collides with the table.
+    initial = [{table: (0.0, 0.0, 0.0), long_box: (0.0, 0.0, 0.5), cube: (0.0, 0.2, 0.5)}]
+
+    # max_iters=0: solve() only computes the initial loss and stores last_loss_per_env.
+    solver = RelationSolver(params=RelationSolverParams(max_iters=0, verbose=False))
+
+    solver.solve(objects, initial)
+    assert solver.last_loss_per_env is not None
+    loss_unrotated = solver.last_loss_per_env[0].item()
+
+    # Hand the solver a 90° conservative bbox for the long box via the env_bboxes channel.
+    rotated = {long_box: long_box.get_bounding_box().rotated_around_z(math.pi / 2)}
+    solver.solve(objects, initial, env_bboxes=rotated)
+    assert solver.last_loss_per_env is not None
+    loss_rotated = solver.last_loss_per_env[0].item()
+
+    # Unrotated: long box spans Y [-0.05, 0.05], clear of the cube at Y=0.2 -> no overlap.
+    assert loss_unrotated == 0.0
+    # Rotated 90°: long box now spans Y [-0.3, 0.3], overlapping the cube -> positive loss.
+    assert loss_rotated > 0.0
 
 
 # =============================================================================

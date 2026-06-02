@@ -5,6 +5,9 @@
 
 """Tests for ObjectPlacer and RelationSolver reproducibility."""
 
+import math
+
+import pytest
 
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
@@ -12,9 +15,9 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
+from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, RotateAroundSolution, Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
-from isaaclab_arena.utils.pose import Pose, PosePerEnv
+from isaaclab_arena.utils.pose import Pose, PosePerEnv, rotate_quat_by_yaw, wrap_angle_to_pi
 
 
 def _create_test_objects():
@@ -210,3 +213,120 @@ def test_object_placer_applies_pose_per_env():
         pose = obj.get_initial_pose()
         assert isinstance(pose, PosePerEnv), f"{obj.name} should have PosePerEnv, got {type(pose).__name__}"
         assert len(pose.poses) == num_envs
+
+
+def _is_identity_quat(rotation_xyzw: tuple[float, float, float, float], atol: float = 1e-6) -> bool:
+    """Whether a quaternion is (approximately) the identity (0, 0, 0, 1)."""
+    x, y, z, w = rotation_xyzw
+    return abs(x) < atol and abs(y) < atol and abs(z) < atol and abs(abs(w) - 1.0) < atol
+
+
+def _yaw_rad_from_quat(rotation_xyzw: tuple[float, float, float, float]) -> float:
+    """Z-yaw (radians) of a pure-Z quaternion (x, y, z, w)."""
+    return 2.0 * math.atan2(rotation_xyzw[2], rotation_xyzw[3])
+
+
+def test_random_yaw_init_rotates_non_anchors_only_when_enabled():
+    """Enabled rotates non-anchors (never the anchor); disabled (same seed) keeps identity."""
+    solver_params = RelationSolverParams(max_iters=10, verbose=False)
+
+    desk, box1, box2 = _create_test_objects()
+    ObjectPlacer(params=ObjectPlacerParams(placement_seed=42, solver_params=solver_params, random_yaw_init=True)).place(
+        objects=[desk, box1, box2], num_envs=1
+    )
+    assert _is_identity_quat(desk.get_initial_pose().rotation_xyzw), "anchor is never rotated"
+    for box in [box1, box2]:
+        assert abs(_yaw_rad_from_quat(box.get_initial_pose().rotation_xyzw)) > 1e-3, f"{box.name} should be rotated"
+
+    desk, box1, box2 = _create_test_objects()
+    ObjectPlacer(params=ObjectPlacerParams(placement_seed=42, solver_params=solver_params)).place(
+        objects=[desk, box1, box2], num_envs=1
+    )
+    for box in [box1, box2]:
+        assert _is_identity_quat(box.get_initial_pose().rotation_xyzw), f"{box.name} should be unrotated"
+
+
+def test_compose_rotation_combines_sampled_yaw_and_marker():
+    """rotate_quat_by_yaw composes the sampled yaw on top of a RotateAroundSolution marker."""
+    marker = RotateAroundSolution(yaw_rad=math.pi / 6)
+    composed = rotate_quat_by_yaw(marker.get_rotation_xyzw(), math.pi / 3)
+    # Both rotations are about Z, so the total yaw is pi/6 + pi/3 = pi/2.
+    assert abs(composed[0]) < 1e-6 and abs(composed[1]) < 1e-6
+    assert abs(_yaw_rad_from_quat(composed) - math.pi / 2) < 1e-5
+
+
+def test_random_yaw_init_multi_env_distinct_yaws():
+    """Multi-env placement with random_yaw_init yields distinct per-env yaws via PosePerEnv."""
+    num_envs = 4
+    solver_params = RelationSolverParams(max_iters=10, verbose=False)
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+    placer = ObjectPlacer(
+        params=ObjectPlacerParams(placement_seed=42, solver_params=solver_params, random_yaw_init=True)
+    )
+    placer.place(objects, num_envs=num_envs)
+
+    pose = box1.get_initial_pose()
+    assert isinstance(pose, PosePerEnv)
+    yaws = [_yaw_rad_from_quat(p.rotation_xyzw) for p in pose.poses]
+    assert any(
+        abs(yaws[i] - yaws[j]) > 1e-6 for i in range(num_envs) for j in range(i + 1, num_envs)
+    ), "Per-env yaws should differ across environments"
+
+
+def _placed_yaws(seed: int) -> tuple[float, float]:
+    """Place two boxes with random_yaw_init at the given seed; return their applied yaws."""
+    solver_params = RelationSolverParams(max_iters=10, verbose=False)
+    desk, box1, box2 = _create_test_objects()
+    ObjectPlacer(
+        params=ObjectPlacerParams(placement_seed=seed, solver_params=solver_params, random_yaw_init=True)
+    ).place([desk, box1, box2], num_envs=1)
+    return (
+        _yaw_rad_from_quat(box1.get_initial_pose().rotation_xyzw),
+        _yaw_rad_from_quat(box2.get_initial_pose().rotation_xyzw),
+    )
+
+
+def test_random_yaw_init_seed_determinism():
+    """Same seed -> identical sampled yaws; a different seed -> different yaws."""
+    assert _placed_yaws(42) == _placed_yaws(42), "same seed must reproduce identical yaws"
+    assert _placed_yaws(42) != _placed_yaws(7), "different seeds should produce different yaws"
+
+
+def test_random_yaw_init_applied_yaw_matches_selected_candidate():
+    """Applied yaw equals the selected candidate's recorded orientation (apply stays in sync with validation)."""
+    solver_params = RelationSolverParams(max_iters=10, verbose=False)
+    desk, box1, box2 = _create_test_objects()
+    placer = ObjectPlacer(
+        params=ObjectPlacerParams(placement_seed=11, solver_params=solver_params, random_yaw_init=True)
+    )
+    result = placer.place([desk, box1, box2], num_envs=1)
+    for box in (box1, box2):
+        applied = _yaw_rad_from_quat(box.get_initial_pose().rotation_xyzw)
+        assert abs(wrap_angle_to_pi(applied - result.orientations[box])) < 1e-5
+
+
+def test_random_yaw_init_composes_marker_yaw():
+    """A yaw RotateAroundSolution marker composes with the sampled yaw: applied == marker + sampled."""
+    marker_yaw = math.pi / 6
+    solver_params = RelationSolverParams(max_iters=10, verbose=False)
+    desk, box1, box2 = _create_test_objects()
+    box1.add_relation(RotateAroundSolution(yaw_rad=marker_yaw))
+    placer = ObjectPlacer(
+        params=ObjectPlacerParams(placement_seed=3, solver_params=solver_params, random_yaw_init=True)
+    )
+    result = placer.place([desk, box1, box2], num_envs=1)
+    applied = _yaw_rad_from_quat(box1.get_initial_pose().rotation_xyzw)
+    assert abs(wrap_angle_to_pi(applied - (marker_yaw + result.orientations[box1]))) < 1e-5
+
+
+def test_random_yaw_init_rejects_roll_pitch_marker():
+    """A roll/pitch marker cannot be enclosed by a Z-rotated bbox, so placement must fail loudly."""
+    solver_params = RelationSolverParams(max_iters=5, verbose=False)
+    desk, box1, box2 = _create_test_objects()
+    box1.add_relation(RotateAroundSolution(roll_rad=0.3))
+    placer = ObjectPlacer(
+        params=ObjectPlacerParams(placement_seed=1, solver_params=solver_params, random_yaw_init=True)
+    )
+    with pytest.raises(AssertionError):
+        placer.place([desk, box1, box2], num_envs=1)
