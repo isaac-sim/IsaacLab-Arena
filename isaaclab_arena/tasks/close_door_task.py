@@ -16,7 +16,7 @@ from isaaclab_arena.tasks.common.open_close_door_mimic import RotateDoorMimicEnv
 from isaaclab_arena.tasks.rotate_revolute_joint_task import RotateRevoluteJointTask
 
 
-@agent_ready(unary=True)
+@agent_ready
 @register_task
 class CloseDoorTask(RotateRevoluteJointTask):
     def __init__(

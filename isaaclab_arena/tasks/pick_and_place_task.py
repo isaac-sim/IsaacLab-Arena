@@ -26,7 +26,7 @@ from isaaclab_arena.tasks.terminations import object_on_destination
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
-@agent_ready(unary=False)
+@agent_ready
 @register_task
 class PickAndPlaceTask(TaskBase):
     """Pick-and-place task. Success fires when the pick-up object contacts the destination

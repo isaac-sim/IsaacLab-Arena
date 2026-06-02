@@ -14,24 +14,40 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     build_relation_catalogue,
     build_task_catalogue,
 )
-from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
-from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, TaskRegistry
+from isaaclab_arena.agentic_environment_generation.environment_intent_spec import (
+    EnvironmentIntentSpec,
+    required_task_init_param_names,
+)
+from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
+from isaaclab_arena.tasks.close_door_task import CloseDoorTask
+from isaaclab_arena.tasks.open_door_task import OpenDoorTask
+from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+
+
+def test_required_task_init_param_names_match_task_constructors():
+    assert required_task_init_param_names(PickAndPlaceTask) == [
+        "pick_up_object",
+        "destination_location",
+        "background_scene",
+    ]
+    assert required_task_init_param_names(OpenDoorTask) == ["openable_object"]
+    assert required_task_init_param_names(CloseDoorTask) == ["openable_object"]
+
+
+def test_task_catalogue_lists_required_init_params():
+    catalogue = build_task_catalogue()
+    by_name = {entry.name: entry for entry in catalogue.tasks}
+    assert by_name["PickAndPlaceTask"].required_params == [
+        "pick_up_object",
+        "destination_location",
+        "background_scene",
+    ]
+    assert by_name["OpenDoorTask"].required_params == ["openable_object"]
 
 
 def test_task_catalogue_lists_only_agent_ready_tasks():
     catalogue = build_task_catalogue()
     assert {entry.name for entry in catalogue.tasks} == agent_ready_task_names()
-    assert "PickAndPlaceTask" in {entry.name for entry in catalogue.tasks}
-    assert "OpenDoorTask" in {entry.name for entry in catalogue.tasks}
-    assert "CloseDoorTask" in {entry.name for entry in catalogue.tasks}
-
-
-def test_task_catalogue_names_match_task_registry_keys():
-    catalogue = build_task_catalogue()
-    registered = set(TaskRegistry().get_all_keys())
-    for entry in catalogue.tasks:
-        assert entry.name in registered
-        assert TaskRegistry().get_task_by_name(entry.name) is not None
 
 
 def test_relation_catalogue_matches_object_relation_registry():
@@ -41,22 +57,21 @@ def test_relation_catalogue_matches_object_relation_registry():
     assert catalogue_names == registered
 
 
-def test_environment_intent_spec_rejects_unregistered_relation_kind():
+def test_environment_intent_spec_rejects_missing_task_params():
     payload = {
         "reasoning": "test",
         "task_description": "test",
         "background": "kitchen",
         "embodiment": "franka_ik",
         "items": [],
-        "initial_state_graph": [{
-            "kind": "not_a_real_relation",
-            "subject": "cube",
-            "target": "table",
-            "params": {},
+        "initial_state_graph": [],
+        "tasks": [{
+            "kind": "PickAndPlaceTask",
+            "params": {"pick_up_object": "cube"},
+            "description": "pick and place",
         }],
-        "tasks": [],
     }
-    with pytest.raises(ValidationError, match="not registered"):
+    with pytest.raises(ValidationError, match="missing required params"):
         EnvironmentIntentSpec.model_validate(payload)
 
 
@@ -70,8 +85,7 @@ def test_environment_intent_spec_rejects_non_agent_ready_task():
         "initial_state_graph": [],
         "tasks": [{
             "kind": "SortingTask",
-            "subject": "cube",
-            "target": None,
+            "params": {},
             "description": "sort objects",
         }],
     }
@@ -79,10 +93,7 @@ def test_environment_intent_spec_rejects_non_agent_ready_task():
         EnvironmentIntentSpec.model_validate(payload)
 
 
-def test_environment_intent_spec_accepts_registered_relation_and_task_names():
-    registered_relations = ObjectRelationLibraryRegistry().get_all_keys()
-    assert "on" in registered_relations
-    assert "PickAndPlaceTask" in agent_ready_task_names()
+def test_environment_intent_spec_accepts_valid_task_params():
     payload = {
         "reasoning": "test",
         "task_description": "test",
@@ -97,11 +108,13 @@ def test_environment_intent_spec_accepts_registered_relation_and_task_names():
         }],
         "tasks": [{
             "kind": "PickAndPlaceTask",
-            "subject": "cube",
-            "target": "bowl",
+            "params": {
+                "pick_up_object": "cube",
+                "destination_location": "bowl",
+                "background_scene": "kitchen",
+            },
             "description": "pick up the cube and place it in the bowl",
         }],
     }
     spec = EnvironmentIntentSpec.model_validate(payload)
-    assert spec.initial_state_graph[0].kind == "on"
-    assert spec.tasks[0].kind == "PickAndPlaceTask"
+    assert spec.tasks[0].params["pick_up_object"] == "cube"

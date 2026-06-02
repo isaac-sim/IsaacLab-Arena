@@ -79,8 +79,11 @@ _MINIMAL_SPEC: dict = {
     ],
     "tasks": [{
         "kind": "PickAndPlaceTask",
-        "subject": "avocado",
-        "target": "bowl",
+        "params": {
+            "pick_up_object": "avocado",
+            "destination_location": "bowl",
+            "background_scene": "kitchen",
+        },
         "description": "pick up the avocado and place it in the bowl",
     }],
 }
@@ -224,7 +227,9 @@ def test_generate_spec_against_live_endpoint():
         "- avocado_robolab  tags=['vegetable']\n"
         "- bowl_robolab  tags=['container']"
     )
-    task_catalog = _task_catalog("TASKS (1):\n- PickAndPlaceTask (binary): Pick-and-place task.")
+    task_catalog = _task_catalog(
+        "TASKS (1):\n- PickAndPlaceTask (pick_up_object, destination_location, background_scene): Pick-and-place task."
+    )
     spec, raw = agent.generate_spec(
         "pick up the avocado and place it in the bowl on the kitchen table",
         catalog=catalog,

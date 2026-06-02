@@ -7,11 +7,27 @@
 
 from __future__ import annotations
 
+import inspect
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, TaskRegistry
+
+
+def required_task_init_param_names(task_cls: type) -> list[str]:
+    """Return ``__init__`` parameter names with no default (excluding ``self``)."""
+    sig = inspect.signature(task_cls.__init__)
+    required: list[str] = []
+    for name, param in sig.parameters.items():
+        if name == "self":
+            continue
+        if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+            continue
+        if param.default is inspect.Parameter.empty:
+            required.append(name)
+    return required
+
 
 ItemRole = Literal["foreground", "distractor", "anchor"]
 
@@ -82,10 +98,6 @@ class Relation(BaseModel):
     # lenient and accepts it, so this is a latent portability landmine.
     params: dict = Field(default_factory=dict, description="Optional kind-specific parameters; leave empty by default.")
 
-    def identity(self) -> tuple[str, str, str | None]:
-        """Hashable identity for diffing scene graphs — ignores params."""
-        return (self.kind, self.subject, self.target)
-
 
 class Task(BaseModel):
     """One atomic task in the plan that transforms the env state."""
@@ -97,17 +109,12 @@ class Task(BaseModel):
             "``TaskRegistry.get_task_by_name`` exactly."
         ),
     )
-    subject: str = Field(
+    params: dict[str, str] = Field(
+        default_factory=dict,
         description=(
-            "The primary object the task acts on, named by its Item.query string (e.g. 'avocado', 'microwave')."
-        ),
-    )
-    target: str | None = Field(
-        default=None,
-        description=(
-            "The secondary object or location, named by its Item.query "
-            "string or the background name. Required for binary tasks in "
-            "TASKS; leave null for unary tasks."
+            "Constructor kwargs required by this task (listed in TASKS). "
+            "Values are Item.query strings for objects or the background "
+            "name for scene parameters (e.g. background_scene)."
         ),
     )
     description: str = Field(
@@ -191,4 +198,18 @@ class EnvironmentIntentSpec(BaseModel):
         for task in self.tasks:
             if task.kind not in allowed_tasks:
                 raise ValueError(f"Task {task.kind!r} is not agent-ready. Allowed: {sorted(allowed_tasks)}")
+            task_cls = task_registry.get_task_by_name(task.kind)
+            required_params = required_task_init_param_names(task_cls)
+            missing = [name for name in required_params if name not in task.params]
+            if missing:
+                raise ValueError(
+                    f"Task {task.kind!r} is missing required params {missing}. Required: {required_params}"
+                )
+            empty = [
+                name
+                for name in required_params
+                if not isinstance(task.params.get(name), str) or not task.params[name].strip()
+            ]
+            if empty:
+                raise ValueError(f"Task {task.kind!r} has empty required params: {empty}")
         return self

@@ -14,7 +14,10 @@ from typing import Any
 
 from openai import OpenAI
 
-from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
+from isaaclab_arena.agentic_environment_generation.environment_intent_spec import (
+    EnvironmentIntentSpec,
+    required_task_init_param_names,
+)
 from isaaclab_arena.agentic_environment_generation.structured_output_utils import (
     build_strict_schema,
     check_structured_output_support,
@@ -131,7 +134,7 @@ class TaskCatalogueEntry:
     """One @agent_ready task exposed to the env-gen agent."""
 
     name: str
-    unary: bool
+    required_params: list[str]
     summary: str
 
 
@@ -145,8 +148,8 @@ class TaskCatalogue:
         """Format this catalogue as the user-message TASKS block."""
         lines = []
         for entry in sorted(self.tasks, key=lambda t: t.name):
-            arity = "unary" if entry.unary else "binary"
-            lines.append(f"- {entry.name} ({arity}): {entry.summary}")
+            params = ", ".join(entry.required_params)
+            lines.append(f"- {entry.name} ({params}): {entry.summary}")
         return f"TASKS ({len(self.tasks)}):\n" + "\n".join(lines)
 
 
@@ -168,7 +171,7 @@ def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
         catalogue.tasks.append(
             TaskCatalogueEntry(
                 name=name,
-                unary=task_cls.agent_unary,
+                required_params=required_task_init_param_names(task_cls),
                 summary=_first_docstring_line(task_cls),
             )
         )
@@ -290,7 +293,6 @@ class EnvironmentGenerationAgent:
             "- Distractor items around the appliance need the same 'on' pattern in "
             "initial_state_graph.\n"
             "- Do not invent relation or task kinds absent from RELATIONS / TASKS.\n"
-            "- For binary tasks in TASKS, set both subject and target; for unary tasks, "
-            "set target to null.\n"
-            "- Each task entry needs kind, subject, target (when binary), and description.\n"
+            "- Each task entry needs kind, params (all required keys from TASKS), and description.\n"
+            "- params values are Item.query strings or the background name, not registry asset names.\n"
         )
