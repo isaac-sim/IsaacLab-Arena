@@ -2,47 +2,6 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Per-env state machine that ticks fine-grained subtasks each step.
-
-How it plugs in (handled automatically by the env builder when a task overrides
-``TaskBase.get_fine_grained_subtasks``):
-
-* A reset event is registered (``mode="reset"``) that lazily constructs a
-  per-env ``FineGrainedStateMachine`` on first invocation and clears state
-  for the supplied ``env_ids``.
-* A termination term is registered whose function ticks the state machine
-  every step, publishes ``env.extras["fine_grained_subtask"]``, and returns
-  all-False (it does not influence termination — it only piggybacks on the
-  termination manager's per-step dispatch).
-
-The runtime surface looks like::
-
-    env.extras["fine_grained_subtask"] = {
-        "states": [
-            {
-                "subtasks": {
-                    "<subtask_name>": {
-                        "completed_groups": int,
-                        "total_groups": int,
-                        "score": float,                # 0..1, normalized within subtask
-                        "is_complete": bool,
-                        "active_predicates": {group: str | None},
-                    },
-                    ...
-                },
-                "overall_score": float,                # weighted by FineGrainedSubtask.score
-                "all_complete": bool,
-            },
-            ...                                        # one entry per env
-        ],
-        "events": [
-            [{"step": int, "subtask": str, "group": str,
-              "predicate_index": int, "predicate_name": str,
-              "score_delta": float}, ...],
-            ...                                        # one list per env, episode-scoped
-        ],
-    }
-"""
 
 from __future__ import annotations
 
@@ -59,7 +18,8 @@ _STATE_MACHINE_ATTR = "_fine_grained_subtask_state_machine"
 
 
 def _predicate_repr(pred) -> str:
-    """Best-effort human-readable name for a (possibly functools.partial) predicate."""
+    """Generate human-readable string representation for a predicate."""
+
     fn = getattr(pred, "func", pred)
     name = getattr(fn, "__name__", repr(fn))
     kwargs = getattr(pred, "keywords", None) or {}
@@ -72,217 +32,308 @@ def _predicate_repr(pred) -> str:
 
 
 class FineGrainedSubtaskRunner:
-    """Per-subtask state, vectorized across all envs."""
+    """State machine runner for a single FineGrainedSubtask object.
 
-    def __init__(self, subtask: FineGrainedSubtask, num_envs: int, device):
-        self.subtask = subtask
+    Each runner is responsible for tracking the progress of all predicate_groups
+    within a FineGrainedSubtask object across all parallelenvironments.
+    """
+
+    def __init__(self, fine_grained_subtask: FineGrainedSubtask, num_envs: int, device):
+        self.fine_grained_subtask = fine_grained_subtask
         self.num_envs = num_envs
         self.device = device
 
+        # Initialize the state machine's internal state.
         self.current_index: dict[str, torch.Tensor] = {}
         self.group_score: dict[str, torch.Tensor] = {}
         self.group_complete: dict[str, torch.Tensor] = {}
-        for group in subtask.group_names:
-            self.current_index[group] = torch.zeros(num_envs, dtype=torch.long, device=device)
-            self.group_score[group] = torch.zeros(num_envs, dtype=torch.float32, device=device)
-            self.group_complete[group] = torch.zeros(num_envs, dtype=torch.bool, device=device)
 
-    def _compute_gating_mask(self, env) -> torch.Tensor:
-        """Per-env mask of whether this recipe is *active* this step.
+        for group_name in fine_grained_subtask.group_names:
+            self.current_index[group_name] = torch.zeros(num_envs, dtype=torch.long, device=device)
+            self.group_score[group_name] = torch.zeros(num_envs, dtype=torch.float32, device=device)
+            self.group_complete[group_name] = torch.zeros(num_envs, dtype=torch.bool, device=device)
 
-        - ``parent_subtask_idx is None`` → recipe always active (returns all True).
-        - ``env._current_subtask_idx`` missing → parent is not sequential
-          (e.g. unordered ``CompositeTaskBase``), no gating, all True.
-        - Otherwise (sequential parent) → True only for envs whose current
-          parent-subtask index matches this recipe's ``parent_subtask_idx``.
+    def _compute_composite_task_gating_mask(self, env) -> torch.Tensor:
+        """Per-env mask of whether the FineGrainedSubtask is active.
+
+        The gating is used to determine when tracking of predicates should
+        be active for composite tasks.
         """
-        if self.subtask.parent_subtask_idx is None:
+
+        # If no parent_subtask_idx -> always active (returns all True).
+        if self.fine_grained_subtask.parent_subtask_idx is None:
             return torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
+
+        # If no env._current_subtask_idx -> composite task is not sequential (returns all True).
         current_idx = getattr(env, "_current_subtask_idx", None)
         if current_idx is None:
             return torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
+
+        # Otherwise return True only for envs whose current
+        # parent-subtask index matches this FineGrainedSubtask's parent_subtask_idx.
         if torch.is_tensor(current_idx):
             ci = current_idx.to(self.device)
         else:
             ci = torch.as_tensor(current_idx, device=self.device)
-        return ci == int(self.subtask.parent_subtask_idx)
+        return ci == int(self.fine_grained_subtask.parent_subtask_idx)
 
     def step(self, env, step_index: torch.Tensor | None) -> list[dict]:
-        """Advance each group's pointer where its currently-targeted predicate fires.
+        """Step the state machine runner for a single env.step.
 
-        Returns a list of transition-event dicts. Each event carries the env id
-        in the ``env_idx`` key so the orchestrator can route it.
+        Check each group's current predicate, move the state machine to the next predicate if
+        the current predicate is True. Emit an event for each env where a predicate was advanced.
         """
+
+        # List of state transition events (events are emitted for an env when a predicate flips True)
         events: list[dict] = []
-        gating_mask = self._compute_gating_mask(env)
-        if not bool(gating_mask.any().item()):
+
+        # If the FineGrainedSubtask is not active for the composite task, return.
+        composite_task_gating_mask = self._compute_composite_task_gating_mask(env)
+        if not bool(composite_task_gating_mask.any().item()):
             return events
-        for group, chain in self.subtask.canonical_predicate_groups.items():
-            chain_length = len(chain)
+
+        # Step through each group of the FineGrainedSubtask.
+        for group_name, predicate_chain in self.fine_grained_subtask.canonical_predicate_groups.items():
+            chain_length = len(predicate_chain)
+            # Mask for which envs have advanced this step.
             advanced = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
 
-            for chain_idx, (predicate, score_weight) in enumerate(chain):
-                at_position = (self.current_index[group] == chain_idx) & ~advanced & gating_mask
+            for chain_idx, (predicate, score_weight) in enumerate(predicate_chain):
+                # Compute mask for which envs that should evaluate the predicate.
+                # Envs should only be evaluated if:
+                #   1) They are at the current predicate position
+                #   2) They have not yet advanced this step
+                #   3) The FineGrainedSubtask is active for the composite task
+                at_position = (self.current_index[group_name] == chain_idx) & ~advanced & composite_task_gating_mask
                 if not bool(at_position.any().item()):
                     continue
 
-                result = predicate(env)
-                if not torch.is_tensor(result):
-                    result = torch.as_tensor(result, dtype=torch.bool)
-                if result.device != self.device:
-                    result = result.to(self.device)
-                result = result.bool().reshape(-1)
+                # Evaluate the predicate for all envs, reshaped to a flat (num_envs,) bool tensor.
+                result = torch.as_tensor(predicate(env), dtype=torch.bool, device=self.device).reshape(-1)
                 if result.shape[0] != self.num_envs:
                     raise RuntimeError(
                         f"Predicate {_predicate_repr(predicate)} returned shape {tuple(result.shape)};"
                         f" expected ({self.num_envs},)"
                     )
 
+                # Compute mask for which envs need to be advanced to the next predicate.
                 advance_mask = at_position & result
                 if not bool(advance_mask.any().item()):
                     continue
 
-                self.current_index[group] = torch.where(
+                # Advance the state machine to the next predicates.
+                self.current_index[group_name] = torch.where(
                     advance_mask,
-                    self.current_index[group] + 1,
-                    self.current_index[group],
+                    self.current_index[group_name] + 1,
+                    self.current_index[group_name],
                 )
-                self.group_score[group] = self.group_score[group] + advance_mask.float() * float(score_weight)
+                # Update the group score for the envs that were advanced.
+                self.group_score[group_name] = self.group_score[group_name] + advance_mask.float() * float(score_weight)
+                # Update the advanced mask for the envs that were advanced.
                 advanced = advanced | advance_mask
 
+                # Emit an event for each env where a predicate was advanced.
                 pred_name = _predicate_repr(predicate)
                 for eid in torch.nonzero(advance_mask, as_tuple=False).flatten().tolist():
                     events.append({
                         "env_idx": int(eid),
                         "step": int(step_index[eid].item()) if step_index is not None else -1,
-                        "subtask": self.subtask.name,
-                        "group": group,
+                        "fine_grained_subtask": self.fine_grained_subtask.name,
+                        "group": group_name,
                         "predicate_index": chain_idx,
                         "predicate_name": pred_name,
                         "score_delta": float(score_weight),
                     })
 
-            self.group_complete[group] = self.current_index[group] >= chain_length
+            # Update the group complete mask for the envs that have completed the group.
+            self.group_complete[group_name] = self.current_index[group_name] >= chain_length
 
         return events
 
     def reset(self, env_ids) -> None:
-        for group in self.subtask.group_names:
+        """Reset the state machine runner for the provided envs."""
+
+        for group_name in self.fine_grained_subtask.group_names:
             for eid in env_ids:
-                self.current_index[group][eid] = 0
-                self.group_score[group][eid] = 0.0
-                self.group_complete[group][eid] = False
+                self.current_index[group_name][eid] = 0
+                self.group_score[group_name][eid] = 0.0
+                self.group_complete[group_name][eid] = False
 
     def is_complete(self) -> torch.Tensor:
-        groups = self.subtask.group_names
+        """Check if the FineGrainedSubtask is complete for all envs."""
+
+        groups = self.fine_grained_subtask.group_names
         stacked = torch.stack([self.group_complete[g] for g in groups], dim=1)
-        if self.subtask.logical == "all":
+        if self.fine_grained_subtask.logical == "all":
             return stacked.all(dim=1)
-        if self.subtask.logical == "any":
+        if self.fine_grained_subtask.logical == "any":
             return stacked.any(dim=1)
-        return stacked.sum(dim=1) >= int(self.subtask.K or 1)
+        return stacked.sum(dim=1) >= int(self.fine_grained_subtask.K or 1)
 
     def overall_score_per_env(self) -> torch.Tensor:
-        """Mean group score within this subtask, in [0, 1]."""
-        groups = self.subtask.group_names
+        """Compute mean group score within this FineGrainedSubtask (in [0, 1])."""
+
+        groups = self.fine_grained_subtask.group_names
         stacked = torch.stack([self.group_score[g] for g in groups], dim=1)
         return stacked.mean(dim=1)
 
 
 class FineGrainedStateMachine:
-    """Owns runners for all subtasks of a single task across all envs.
+    """State machine that manages runners for all FineGrainedSubtasks.
 
-    The state machine is constructed lazily on the first reset or step so that
-    ``num_envs`` and ``device`` are known.
+    Attributes:
+        fine_grained_subtasks: List of FineGrainedSubtasks to manage.
+        num_envs: Number of parallelenvironments.
+        device: Device to manage the state machine on.
+        runners: List of runners for each FineGrainedSubtask.
+        _events: List of events for each environment.
     """
 
-    def __init__(self, subtasks: list[FineGrainedSubtask], num_envs: int, device):
-        self.subtasks = subtasks
+    def __init__(self, fine_grained_subtasks: list[FineGrainedSubtask], num_envs: int, device):
+        self.fine_grained_subtasks = fine_grained_subtasks
         self.num_envs = num_envs
         self.device = device
-        self.runners = [FineGrainedSubtaskRunner(s, num_envs, device) for s in subtasks]
+        self.runners = [FineGrainedSubtaskRunner(s, num_envs, device) for s in fine_grained_subtasks]
         self._events: list[list[dict]] = [[] for _ in range(num_envs)]
 
     def step(self, env, step_index: torch.Tensor | None) -> None:
+        """Step each runner for a single env.step."""
+
         for runner in self.runners:
             for event in runner.step(env, step_index):
                 eid = event.pop("env_idx")
                 self._events[eid].append(event)
 
     def reset(self, env_ids) -> None:
+        """Reset the runners for the provided envs."""
+
         for runner in self.runners:
             runner.reset(env_ids)
         for eid in env_ids:
             self._events[eid] = []
 
     def get_state(self) -> list[dict]:
-        out: list[dict] = []
+        """Get the state of each FineGrainedSubtask for all envs."""
+
+        output: list[dict] = []
         for env_idx in range(self.num_envs):
-            subtask_states: dict[str, dict] = {}
+            # Build a per-env dict from each runner's state.
+            fine_grained_subtask_states: dict[str, dict] = {}
             overall_score = 0.0
             all_complete = True
+
             for runner in self.runners:
-                subtask = runner.subtask
+                fine_grained_subtask = runner.fine_grained_subtask
                 completed_groups = 0
-                total_groups = len(subtask.group_names)
+                total_groups = len(fine_grained_subtask.group_names)
                 active_predicates: dict[str, str | None] = {}
-                for group in subtask.group_names:
-                    cur = int(runner.current_index[group][env_idx].item())
-                    chain = subtask.canonical_predicate_groups[group]
-                    if cur >= len(chain):
-                        active_predicates[group] = None
+
+                # Compute the active predicates and completed groups.
+                for group_name in fine_grained_subtask.group_names:
+                    cur_group_index = int(runner.current_index[group_name][env_idx].item())
+                    predicate_chain = fine_grained_subtask.canonical_predicate_groups[group_name]
+                    if cur_group_index >= len(predicate_chain):
+                        active_predicates[group_name] = None
                         completed_groups += 1
                     else:
-                        active_predicates[group] = _predicate_repr(chain[cur][0])
-                subtask_score = float(runner.overall_score_per_env()[env_idx].item())
+                        active_predicates[group_name] = _predicate_repr(predicate_chain[cur_group_index][0])
+
+                # Compute the overall score and completeness.
+                fine_grained_subtask_score = float(runner.overall_score_per_env()[env_idx].item())
                 is_complete = bool(runner.is_complete()[env_idx].item())
-                subtask_states[subtask.name] = {
+                fine_grained_subtask_states[fine_grained_subtask.name] = {
                     "completed_groups": completed_groups,
                     "total_groups": total_groups,
-                    "score": subtask_score,
+                    "score": fine_grained_subtask_score,
                     "is_complete": is_complete,
                     "active_predicates": active_predicates,
                 }
-                overall_score += subtask.score * subtask_score
+                overall_score += fine_grained_subtask.score * fine_grained_subtask_score
                 all_complete = all_complete and is_complete
-            out.append({
-                "subtasks": subtask_states,
+
+            # Add the per-env state dict to the output.
+            output.append({
+                "fine_grained_subtasks": fine_grained_subtask_states,
                 "overall_score": overall_score,
                 "all_complete": all_complete,
             })
-        return out
+        return output
 
     def get_events(self) -> list[list[dict]]:
+        """Get all events for all envs."""
+
         return [list(e) for e in self._events]
 
 
-def _ensure_state_machine(env, subtasks: list[FineGrainedSubtask]) -> FineGrainedStateMachine:
+def _ensure_state_machine(env, fine_grained_subtasks: list[FineGrainedSubtask]) -> FineGrainedStateMachine:
+    """Return the env's FineGrainedStateMachine, lazily creating and caching it on first call."""
+
     sm: FineGrainedStateMachine | None = getattr(env, _STATE_MACHINE_ATTR, None)
     if sm is None:
-        sm = FineGrainedStateMachine(subtasks=subtasks, num_envs=env.num_envs, device=env.device)
+        sm = FineGrainedStateMachine(
+            fine_grained_subtasks=fine_grained_subtasks, num_envs=env.num_envs, device=env.device
+        )
         setattr(env, _STATE_MACHINE_ATTR, sm)
     return sm
 
 
-def fine_grained_subtask_step_func(env, subtasks: list[FineGrainedSubtask]) -> torch.Tensor:
-    """Per-step termination-term entry point.
+def fine_grained_subtask_step_func(env, fine_grained_subtasks: list[FineGrainedSubtask]) -> torch.Tensor:
+    """Termination-term entry point.
 
-    Ticks the state machine, publishes ``env.extras["fine_grained_subtask"]``,
+    Ticks the state machine, writes events and states to env.extras["fine_grained_subtask"],
     and returns all-False so it does not contribute to termination.
     """
-    sm = _ensure_state_machine(env, subtasks)
+
+    sm = _ensure_state_machine(env, fine_grained_subtasks)
     step_index = getattr(env, "episode_length_buf", None)
     sm.step(env, step_index=step_index)
+
+    """
+    User-facing event/state information format:
+
+    env.extras["fine_grained_subtask"] = {
+        "states": [
+            {
+                "fine_grained_subtasks": {
+                    "<fine_grained_subtask_name>": {
+                        "completed_groups": int,
+                        "total_groups": int,
+                        "score": float,                # 0..1, normalized within subtask
+                        "is_complete": bool,
+                        "active_predicates": {group: str | None},
+                    },
+                    ...
+                },
+                "overall_score": float,                # weighted by FineGrainedSubtask.score
+                "all_complete": bool,
+            },
+            ...                                        # one entry per env
+        ],
+        "events": [
+            [{"step": int, "fine_grained_subtask": str, "group": str,
+              "predicate_index": int, "predicate_name": str,
+              "score_delta": float}, ...],
+            ...                                        # one list per env
+        ],
+    }
+    """
+
     env.extras["fine_grained_subtask"] = {
         "states": sm.get_state(),
         "events": sm.get_events(),
     }
+
+    # Return all-False so it does not contribute to termination.
     return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
 
 
-def fine_grained_subtask_reset_func(env, env_ids, subtasks: list[FineGrainedSubtask]) -> None:
-    """Per-reset event entry point: zeroes the state machine for the supplied envs."""
-    sm = _ensure_state_machine(env, subtasks)
+def fine_grained_subtask_reset_func(env, env_ids, fine_grained_subtasks: list[FineGrainedSubtask]) -> None:
+    """Reset-event entry point.
+
+    Resets the state machine whenever the Lab env is reset.
+    """
+
+    sm = _ensure_state_machine(env, fine_grained_subtasks)
     if env_ids is None:
         env_ids = list(range(env.num_envs))
     elif torch.is_tensor(env_ids):
@@ -300,20 +351,20 @@ class FineGrainedSubtaskTerminationsCfg:
     fine_grained_subtask_step: TerminationTermCfg = MISSING
 
 
-def make_fine_grained_subtask_events_cfg(subtasks: list[FineGrainedSubtask]) -> Any:
+def make_fine_grained_subtask_events_cfg(fine_grained_subtasks: list[FineGrainedSubtask]) -> Any:
     return FineGrainedSubtaskEventsCfg(
         reset_fine_grained_subtasks=EventTermCfg(
             func=fine_grained_subtask_reset_func,
             mode="reset",
-            params={"subtasks": subtasks},
+            params={"fine_grained_subtasks": fine_grained_subtasks},
         )
     )
 
 
-def make_fine_grained_subtask_termination_cfg(subtasks: list[FineGrainedSubtask]) -> Any:
+def make_fine_grained_subtask_termination_cfg(fine_grained_subtasks: list[FineGrainedSubtask]) -> Any:
     return FineGrainedSubtaskTerminationsCfg(
         fine_grained_subtask_step=TerminationTermCfg(
             func=fine_grained_subtask_step_func,
-            params={"subtasks": subtasks},
+            params={"fine_grained_subtasks": fine_grained_subtasks},
         )
     )

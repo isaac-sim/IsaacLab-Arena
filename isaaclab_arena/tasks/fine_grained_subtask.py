@@ -20,35 +20,36 @@ PredicateGroups = Union[
 ]
 
 
-DEFAULT_GROUP_NAME = "default"
+DEFAULT_GROUP_NAME = "default_group"
 
 
-def sanitize_predicate_groups(predicate_groups: PredicateGroups) -> dict[str, list[tuple[Callable, float]]]:
-    """Normalize predicate_groups to the canonical form.
+def format_predicate_groups(predicate_groups: PredicateGroups) -> dict[str, list[tuple[Callable, float]]]:
+    """Format predicate_groups into the canonical form.
 
     Canonical form: ``dict[group_name: list[(callable, score)]]``.
 
     Accepted input shapes:
-      1. func (single callable)                — one group with one predicate
-      2. [func, func, ...]                     — one group, sequential chain
-      3. [(func, score), ...]                  — one group, sequential chain, weighted
-      4. {group: func}                         — multiple groups, one predicate each
-      5. {group: [func, ...]}                  — multiple groups, sequential chains
-      6. {group: [(func, score), ...]}         — multiple groups, sequential chains, weighted
+      1. func (single callable)                one group with one predicate
+      2. [func, func, ...]                     one group, sequential chain
+      3. [(func, score), ...]                  one group, sequential chain, weighted
+      4. {group: func}                         multiple groups, one predicate each
+      5. {group: [func, ...]}                  multiple groups, sequential chains
+      6. {group: [(func, score), ...]}         multiple groups, sequential chains, weighted
     """
+
     if callable(predicate_groups):
         return {DEFAULT_GROUP_NAME: [(predicate_groups, 1.0)]}
 
     if isinstance(predicate_groups, list):
         if len(predicate_groups) == 0:
             raise ValueError("FineGrainedSubtask.predicate_groups list cannot be empty")
-        return {DEFAULT_GROUP_NAME: _sanitize_group_chain(predicate_groups, group_name=DEFAULT_GROUP_NAME)}
+        return {DEFAULT_GROUP_NAME: _format_group_chain(predicate_groups, group_name=DEFAULT_GROUP_NAME)}
 
     if isinstance(predicate_groups, dict):
         if len(predicate_groups) == 0:
             raise ValueError("FineGrainedSubtask.predicate_groups dict cannot be empty")
         return {
-            group_name: _sanitize_group_chain(value, group_name=group_name)
+            group_name: _format_group_chain(value, group_name=group_name)
             for group_name, value in predicate_groups.items()
         }
 
@@ -57,7 +58,7 @@ def sanitize_predicate_groups(predicate_groups: PredicateGroups) -> dict[str, li
     )
 
 
-def _sanitize_group_chain(value, group_name: str) -> list[tuple[Callable, float]]:
+def _format_group_chain(value, group_name: str) -> list[tuple[Callable, float]]:
     if callable(value):
         return [(value, 1.0)]
     if not isinstance(value, list):
@@ -98,7 +99,8 @@ def _sanitize_group_chain(value, group_name: str) -> list[tuple[Callable, float]
 def normalize_scores(
     predicate_groups: dict[str, list[tuple[Callable, float]]],
 ) -> dict[str, list[tuple[Callable, float]]]:
-    """Scale each group's scores to sum to 1.0. Zero/negative-sum groups are left untouched."""
+    """Scale each group's scores to sum to 1.0. Zero and negative-sum groups are left untouched."""
+
     out: dict[str, list[tuple[Callable, float]]] = {}
     for group, chain in predicate_groups.items():
         total = sum(score for _, score in chain)
@@ -111,9 +113,9 @@ def normalize_scores(
 
 @dataclass
 class FineGrainedSubtask:
-    """Declarative recipe for one tracked progression inside a task.
+    """Configuration object that defines a scored predicate sequence to track progress within a task.
 
-    A FineGrainedSubtask declares what the predicate state machine should track.
+    A FineGrainedSubtask specifies what the predicate state machine should track.
     Each FineGrainedSubtask holds one or more sequential predicate chains (groups).
     Within a group, predicates run in order. Across groups, predicates run in parallel.
 
@@ -137,7 +139,8 @@ class FineGrainedSubtask:
 
     canonical_predicate_groups: dict[str, list[tuple[Callable, float]]] = field(init=False, repr=False)
 
-    # Index of the parent TaskBase this recipe belongs to. Set automatically when used with composite tasks.
+    # Index of the parent TaskBase this recipe belongs to. Set automatically by
+    # CompositeTaskBase.get_fine_grained_subtasks() when used with composite tasks.
     parent_subtask_idx: int | None = None
 
     def __post_init__(self):
@@ -145,13 +148,15 @@ class FineGrainedSubtask:
             raise ValueError(f"FineGrainedSubtask '{self.name}': score must be in [0, 1], got {self.score}")
         if self.logical not in ("all", "any", "choose"):
             raise ValueError(
-                f"FineGrainedSubtask '{self.name}': logical must be 'all'/'any'/'choose', got {self.logical!r}"
+                f"FineGrainedSubtask '{self.name}': logical must be in ['all', 'any', 'choose'], got {self.logical}"
             )
 
-        sanitized = sanitize_predicate_groups(self.predicate_groups)
-        normalized = normalize_scores(sanitized)
+        # Format the predicate groups into the canonical form and normalize the scores.
+        formatted = format_predicate_groups(self.predicate_groups)
+        normalized = normalize_scores(formatted)
         self.canonical_predicate_groups = normalized
 
+        # Validate the logical and K parameters.
         num_groups = len(self.canonical_predicate_groups)
         if self.logical == "choose":
             if self.K is None:

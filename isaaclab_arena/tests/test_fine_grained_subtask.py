@@ -174,14 +174,14 @@ def _test_state_machine_advances_sequentially(simulation_app) -> bool:
         env = _MockEnv(num_envs=1)
         preds = [_MockPredicate(num_envs=1, name=f"p{i}") for i in range(3)]
         fgs = FineGrainedSubtask(name="lift", predicate_groups=preds)
-        sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
         # Step 1: p0 fires; p1, p2 still False. Advance to index 1.
         preds[0].set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        state = sm.get_state()[0]["subtasks"]["lift"]
+        state = sm.get_state()[0]["fine_grained_subtasks"]["lift"]
         assert state["completed_groups"] == 0  # 3-predicate chain not done until all 3
         assert not state["is_complete"]
         events = sm.get_events()[0]
@@ -199,7 +199,7 @@ def _test_state_machine_advances_sequentially(simulation_app) -> bool:
         preds[2].set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        state = sm.get_state()[0]["subtasks"]["lift"]
+        state = sm.get_state()[0]["fine_grained_subtasks"]["lift"]
         assert state["is_complete"]
         assert state["completed_groups"] == 1
         assert abs(state["score"] - 1.0) < 1e-6
@@ -221,7 +221,7 @@ def _test_state_machine_ignores_out_of_order_success(simulation_app) -> bool:
         env = _MockEnv(num_envs=1)
         preds = [_MockPredicate(num_envs=1, name=f"p{i}") for i in range(3)]
         fgs = FineGrainedSubtask(name="lift", predicate_groups=preds)
-        sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
         # p0 stays False; p1 and p2 fire — no progress should be made.
@@ -230,7 +230,7 @@ def _test_state_machine_ignores_out_of_order_success(simulation_app) -> bool:
         preds[2].set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        state = sm.get_state()[0]["subtasks"]["lift"]
+        state = sm.get_state()[0]["fine_grained_subtasks"]["lift"]
         assert state["completed_groups"] == 0
         assert not state["is_complete"]
         assert state["score"] == 0.0
@@ -242,7 +242,7 @@ def _test_state_machine_ignores_out_of_order_success(simulation_app) -> bool:
         for _ in range(3):
             _advance_step(env)
             sm.step(env, step_index=env.episode_length_buf)
-        state = sm.get_state()[0]["subtasks"]["lift"]
+        state = sm.get_state()[0]["fine_grained_subtasks"]["lift"]
         assert state["is_complete"]
         assert state["completed_groups"] == 1
     except Exception as e:
@@ -266,19 +266,19 @@ def _test_state_machine_logical_any(simulation_app) -> bool:
             predicate_groups={"a": p_a, "b": p_b},
             logical="any",
         )
-        sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
         # Neither group complete -> not done.
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert not sm.get_state()[0]["subtasks"]["either"]["is_complete"]
+        assert not sm.get_state()[0]["fine_grained_subtasks"]["either"]["is_complete"]
 
         # Group "a" completes -> done.
         p_a.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert sm.get_state()[0]["subtasks"]["either"]["is_complete"]
+        assert sm.get_state()[0]["fine_grained_subtasks"]["either"]["is_complete"]
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -300,20 +300,20 @@ def _test_state_machine_logical_all(simulation_app) -> bool:
             predicate_groups={"a": p_a, "b": p_b},
             logical="all",
         )
-        sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
         # Only "a" completes -> still not done.
         p_a.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert not sm.get_state()[0]["subtasks"]["both"]["is_complete"]
+        assert not sm.get_state()[0]["fine_grained_subtasks"]["both"]["is_complete"]
 
         # "b" also completes -> done.
         p_b.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert sm.get_state()[0]["subtasks"]["both"]["is_complete"]
+        assert sm.get_state()[0]["fine_grained_subtasks"]["both"]["is_complete"]
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -337,20 +337,20 @@ def _test_state_machine_logical_choose(simulation_app) -> bool:
             logical="choose",
             K=2,
         )
-        sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
         # Only one group complete -> not done.
         p_a.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert not sm.get_state()[0]["subtasks"]["any_two"]["is_complete"]
+        assert not sm.get_state()[0]["fine_grained_subtasks"]["any_two"]["is_complete"]
 
         # Two complete -> done.
         p_b.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert sm.get_state()[0]["subtasks"]["any_two"]["is_complete"]
+        assert sm.get_state()[0]["fine_grained_subtasks"]["any_two"]["is_complete"]
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -367,7 +367,7 @@ def _test_state_machine_reset_clears_state(simulation_app) -> bool:
         env = _MockEnv(num_envs=2)
         preds = [_MockPredicate(num_envs=2, name=f"p{i}") for i in range(2)]
         fgs = FineGrainedSubtask(name="t", predicate_groups=preds)
-        sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=2, device="cpu")
+        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=2, device="cpu")
         sm.reset([0, 1])
 
         # Drive env 0 to fully complete, env 1 halfway.
@@ -379,16 +379,16 @@ def _test_state_machine_reset_clears_state(simulation_app) -> bool:
         sm.step(env, step_index=env.episode_length_buf)
 
         state = sm.get_state()
-        assert state[0]["subtasks"]["t"]["is_complete"]
-        assert not state[1]["subtasks"]["t"]["is_complete"]
+        assert state[0]["fine_grained_subtasks"]["t"]["is_complete"]
+        assert not state[1]["fine_grained_subtasks"]["t"]["is_complete"]
         assert len(sm.get_events()[0]) >= 2
         assert len(sm.get_events()[1]) >= 1
 
         # Reset only env 0.
         sm.reset([0])
         state = sm.get_state()
-        assert not state[0]["subtasks"]["t"]["is_complete"]
-        assert state[0]["subtasks"]["t"]["score"] == 0.0
+        assert not state[0]["fine_grained_subtasks"]["t"]["is_complete"]
+        assert state[0]["fine_grained_subtasks"]["t"]["score"] == 0.0
         assert sm.get_events()[0] == []
         # env 1 untouched.
         assert len(sm.get_events()[1]) >= 1
@@ -412,13 +412,13 @@ def _test_gating_active_when_parent_subtask_idx_matches(simulation_app) -> bool:
 
         pred = _MockPredicate(num_envs=1, name="p")
         fgs = FineGrainedSubtask(name="t", predicate_groups=pred, parent_subtask_idx=1)
-        sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
         pred.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert sm.get_state()[0]["subtasks"]["t"]["is_complete"]
+        assert sm.get_state()[0]["fine_grained_subtasks"]["t"]["is_complete"]
         assert len(sm.get_events()[0]) == 1
     except Exception as e:
         print(f"Error: {e}")
@@ -440,22 +440,22 @@ def _test_gating_blocked_when_parent_subtask_idx_mismatches(simulation_app) -> b
 
         pred = _MockPredicate(num_envs=1, name="p")
         fgs = FineGrainedSubtask(name="t", predicate_groups=pred, parent_subtask_idx=1)
-        sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
         # Predicate True, but the parent isn't at this recipe's index yet.
         pred.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert not sm.get_state()[0]["subtasks"]["t"]["is_complete"]
-        assert sm.get_state()[0]["subtasks"]["t"]["score"] == 0.0
+        assert not sm.get_state()[0]["fine_grained_subtasks"]["t"]["is_complete"]
+        assert sm.get_state()[0]["fine_grained_subtasks"]["t"]["score"] == 0.0
         assert len(sm.get_events()[0]) == 0
 
         # Parent advances to this recipe's index; the recipe catches up.
         env._current_subtask_idx = [1]
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert sm.get_state()[0]["subtasks"]["t"]["is_complete"]
+        assert sm.get_state()[0]["fine_grained_subtasks"]["t"]["is_complete"]
         assert len(sm.get_events()[0]) == 1
     except Exception as e:
         print(f"Error: {e}")
@@ -477,13 +477,13 @@ def _test_gating_noop_when_env_has_no_current_subtask_idx(simulation_app) -> boo
 
         pred = _MockPredicate(num_envs=1, name="p")
         fgs = FineGrainedSubtask(name="t", predicate_groups=pred, parent_subtask_idx=1)
-        sm = FineGrainedStateMachine(subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
         pred.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert sm.get_state()[0]["subtasks"]["t"]["is_complete"]
+        assert sm.get_state()[0]["fine_grained_subtasks"]["t"]["is_complete"]
         assert len(sm.get_events()[0]) == 1
     except Exception as e:
         print(f"Error: {e}")
@@ -507,7 +507,7 @@ def _test_sequential_gating_end_to_end(simulation_app) -> bool:
         pred_b = _MockPredicate(num_envs=1, name="b")
         fgs_a = FineGrainedSubtask(name="a", predicate_groups=pred_a, parent_subtask_idx=0)
         fgs_b = FineGrainedSubtask(name="b", predicate_groups=pred_b, parent_subtask_idx=1)
-        sm = FineGrainedStateMachine(subtasks=[fgs_a, fgs_b], num_envs=1, device="cpu")
+        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs_a, fgs_b], num_envs=1, device="cpu")
         sm.reset([0])
 
         # Both predicates True, but only "a" is active (parent on subtask 0).
@@ -515,14 +515,14 @@ def _test_sequential_gating_end_to_end(simulation_app) -> bool:
         pred_b.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert sm.get_state()[0]["subtasks"]["a"]["is_complete"]
-        assert not sm.get_state()[0]["subtasks"]["b"]["is_complete"]
+        assert sm.get_state()[0]["fine_grained_subtasks"]["a"]["is_complete"]
+        assert not sm.get_state()[0]["fine_grained_subtasks"]["b"]["is_complete"]
 
         # Parent advances to subtask 1; "b" is now active.
         env._current_subtask_idx = [1]
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert sm.get_state()[0]["subtasks"]["b"]["is_complete"]
+        assert sm.get_state()[0]["fine_grained_subtasks"]["b"]["is_complete"]
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -543,25 +543,25 @@ def _test_step_func_publishes_to_extras_and_returns_no_termination(simulation_ap
         pred = _MockPredicate(num_envs=2, name="p")
         fgs = FineGrainedSubtask(name="t", predicate_groups=pred)
 
-        fine_grained_subtask_reset_func(env, env_ids=[0, 1], subtasks=[fgs])
+        fine_grained_subtask_reset_func(env, env_ids=[0, 1], fine_grained_subtasks=[fgs])
 
         # Step with predicate False: state machine ticks but no transitions.
-        result = fine_grained_subtask_step_func(env, subtasks=[fgs])
+        result = fine_grained_subtask_step_func(env, fine_grained_subtasks=[fgs])
         assert result.tolist() == [False, False]
         assert "fine_grained_subtask" in env.extras
         assert len(env.extras["fine_grained_subtask"]["states"]) == 2
         assert env.extras["fine_grained_subtask"]["events"] == [[], []]
-        assert not env.extras["fine_grained_subtask"]["states"][0]["subtasks"]["t"]["is_complete"]
+        assert not env.extras["fine_grained_subtask"]["states"][0]["fine_grained_subtasks"]["t"]["is_complete"]
 
         # Step with env 0 predicate True: env 0 completes, env 1 does not.
         pred.set([True, False])
         _advance_step(env)
-        result = fine_grained_subtask_step_func(env, subtasks=[fgs])
+        result = fine_grained_subtask_step_func(env, fine_grained_subtasks=[fgs])
         assert result.tolist() == [False, False]
         states = env.extras["fine_grained_subtask"]["states"]
         events = env.extras["fine_grained_subtask"]["events"]
-        assert states[0]["subtasks"]["t"]["is_complete"]
-        assert not states[1]["subtasks"]["t"]["is_complete"]
+        assert states[0]["fine_grained_subtasks"]["t"]["is_complete"]
+        assert not states[1]["fine_grained_subtasks"]["t"]["is_complete"]
         assert len(events[0]) == 1
         assert len(events[1]) == 0
 
@@ -569,11 +569,11 @@ def _test_step_func_publishes_to_extras_and_returns_no_termination(simulation_ap
         # to False to verify the post-reset step starts from the chain head rather
         # than auto-re-completing.
         pred.set([False, False])
-        fine_grained_subtask_reset_func(env, env_ids=[0], subtasks=[fgs])
-        result = fine_grained_subtask_step_func(env, subtasks=[fgs])
+        fine_grained_subtask_reset_func(env, env_ids=[0], fine_grained_subtasks=[fgs])
+        result = fine_grained_subtask_step_func(env, fine_grained_subtasks=[fgs])
         states = env.extras["fine_grained_subtask"]["states"]
-        assert not states[0]["subtasks"]["t"]["is_complete"]
-        assert states[0]["subtasks"]["t"]["score"] == 0.0
+        assert not states[0]["fine_grained_subtasks"]["t"]["is_complete"]
+        assert states[0]["fine_grained_subtasks"]["t"]["score"] == 0.0
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
