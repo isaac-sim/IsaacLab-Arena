@@ -82,12 +82,8 @@ def _test_get_arena_builder_from_cli_builds_env_from_graph_yaml(simulation_app):
     # loader, not an opaque FileNotFoundError. The parser hits it while building, when it reads the
     # graph's declared override flags.
     sys.argv = ["policy_runner.py", "--env_graph_spec_yaml", "/no/such/env_graph.yaml"]
-    try:
+    with pytest.raises(AssertionError, match="not found"):
         get_isaaclab_arena_environments_cli_parser()
-    except AssertionError as error:
-        assert "not found" in str(error)
-    else:
-        raise AssertionError("expected AssertionError for a non-existent --env_graph_spec_yaml")
 
     # Neither source, or both at once, is rejected by the exactly-one-source assert.
     for bad in (
