@@ -63,10 +63,21 @@ class ArenaEnvGraphSpec:
     tasks: list[ArenaEnvGraphTaskSpec] = field(default_factory=list)
     state_specs: list[ArenaEnvGraphStateSpec] = field(default_factory=list)
 
+    @staticmethod
+    def _load_yaml_dict(path: str | Path) -> dict[str, Any]:
+        """Load a graph YAML into a dict, asserting the path exists with a clear message.
+
+        Centralizes the file read so a missing ``--env_graph_spec_yaml`` fails here with an
+        attributable error instead of an opaque ``FileNotFoundError`` from ``open``.
+        """
+        path = Path(path)
+        assert path.is_file(), f"Env graph spec YAML not found: {path}"
+        with path.open("r", encoding="utf-8") as f:
+            return as_dict(yaml.safe_load(f), "Env graph spec")
+
     @classmethod
     def from_yaml(cls, path: str | Path) -> "ArenaEnvGraphSpec":
-        with Path(path).open("r", encoding="utf-8") as f:
-            return cls.from_dict(yaml.safe_load(f))
+        return cls.from_dict(cls._load_yaml_dict(path))
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ArenaEnvGraphSpec":
