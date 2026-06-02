@@ -105,22 +105,6 @@ def add_env_graph_spec_cli_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def add_env_graph_spec_cli_args(parser: argparse.ArgumentParser) -> None:
-    """Add environment graph spec specific command line arguments to the given parser."""
-    env_graph_spec_group = parser.add_argument_group(
-        "Environment Graph Spec Arguments", "Arguments specific to environment graph spec"
-    )
-    env_graph_spec_group.add_argument(
-        "--env_graph_spec_yaml",
-        type=str,
-        default=None,
-        help=(
-            "Path to an environment graph spec YAML. When set, the environment is built from the graph spec instead of"
-            " a registered example-environment name; the env-name subcommand then becomes optional."
-        ),
-    )
-
-
 def add_external_environments_cli_args(parser: argparse.ArgumentParser) -> None:
     """Add external environments specific command line arguments to the given parser."""
     external_environments_group = parser.add_argument_group(
