@@ -5,6 +5,7 @@
 
 from dataclasses import field
 
+import pytest
 from isaaclab.utils import configclass
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
@@ -92,7 +93,9 @@ def _test_enabled_build_time_variation_applied(simulation_app):
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
     ArenaEnvBuilder(arena_env, args_cli).compose_manager_cfg()
 
-    assert sphere.object_cfg.spawn.radius == TEST_APPLIED_RADIUS, (
+    # The radius is stored on SphereCfg as a float32, so compare with a tolerance
+    # rather than against the Python double TEST_APPLIED_RADIUS.
+    assert sphere.object_cfg.spawn.radius == pytest.approx(TEST_APPLIED_RADIUS, abs=1e-6), (
         f"Enabled build-time variation must mutate '{TEST_ASSET_NAME}.object_cfg.spawn.radius' "
         f"to {TEST_APPLIED_RADIUS}; got {sphere.object_cfg.spawn.radius}."
     )
