@@ -48,13 +48,6 @@ isaaclab_arena_environment = IsaacLabArenaEnvironment(
 )
 
 dome_light.get_variation("hdr_image").enable()
-
-# Set the extrinsics to a fixed value.
-from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariationCfg
-from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
-
-sampler_cfg = UniformSamplerCfg(low=[-0.0, -0.0, 0.00], high=[0.0, 0.5, 0.00])
-franka.get_variation("camera_extrinsics").apply_cfg(CameraExtrinsicsVariationCfg(sampler_cfg=sampler_cfg))
 franka.get_variation("camera_extrinsics").enable()
 
 env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
@@ -72,47 +65,6 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
         env.step(actions)
     if _ % RESET_ON_EVERY_N_STEPS == 0:
         env.reset()
-
-# %%
-
-
-# from isaaclab.utils.math import quat_apply
-
-
-# camera = env.unwrapped.scene["wrist_cam"]
-
-# # t_parent_C_in_parent, q_parent_C_xyzw = camera._view.get_local_poses()
-# # Hard coding the result such that I don't have to restart the simulation (because we set the local pose below).
-# t_parent_C_in_parent = torch.tensor([[0.1100, -0.0310, -0.0740]], device="cuda:0")
-# q_parent_C_xyzw = torch.tensor([[7.0711e-01, 7.0711e-01, 2.2993e-17, 6.1232e-17]], device="cuda:0")
-
-# # Test extrinsic decalibration vector
-# # Note that it's in ROS convention, so we convert it to OpenGL convention below.
-# t_C_Cnew_in_Cros = torch.tensor([[0.1, 0.25, 0.0]], device="cuda:0")
-
-# q_ros_to_opengl_wxyz = torch.tensor([[1.0, 0.0, 0.0, 0.0]], device="cuda:0")
-# t_C_Cnew_in_C = quat_apply(q_ros_to_opengl_wxyz, t_C_Cnew_in_Cros)
-# print(f"t_C_Cnew_in_C_ros: {t_C_Cnew_in_Cros}")
-# print(f"t_C_Cnew_in_C: {t_C_Cnew_in_C}")
-
-# # t_C_Cnew_in_C = torch.tensor([[0.0, 0.0, 0.1]], device='cuda:0')
-# t_C_Cnew_in_parent = quat_apply(q_parent_C_xyzw, t_C_Cnew_in_C)
-# print(f"t_C_Cnew_in_C: {t_C_Cnew_in_C}")
-# print(f"t_C_Cnew_in_parent: {t_C_Cnew_in_parent}")
-
-# t_parent_Cnew_in_parent = t_parent_C_in_parent + t_C_Cnew_in_parent
-# print(f"t_parent_Cnew_in_parent: {t_parent_Cnew_in_parent}")
-
-# camera._view.set_local_poses(translations=t_parent_Cnew_in_parent, orientations=None, indices=None)
-
-
-# RESET_ON_EVERY_N_STEPS = 10
-# NUM_STEPS = 10
-# for _ in tqdm.tqdm(range(NUM_STEPS)):
-#     with torch.inference_mode():
-#         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-#         env.step(actions)
-
 
 # %%
 
