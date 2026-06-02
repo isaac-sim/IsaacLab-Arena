@@ -172,7 +172,10 @@ class success_prediction_error(ManagerTermBase):
         )
 
     def _update_prediction_loss_weight(self, true_success: torch.Tensor, delay_until_ratio: float) -> None:
-        """Enable the auxiliary loss once enough environments have reached success."""
+        """Turn the loss on once number ``delay_until_ratio`` of envs succeed, then keep it on.
+        Waits until some envs succeed avoids training the predictor on noise early on.
+        """
+        # One-way gate: latches on and never resets, by design.
         if true_success.float().mean() >= delay_until_ratio:
             self._prediction_loss_weight = 1.0
 

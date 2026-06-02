@@ -22,10 +22,10 @@ def gear_mesh_insertion_success(
     held_object_cfg: SceneEntityCfg,
     fixed_object_cfg: SceneEntityCfg,
     gear_base_offset: tuple[float, float, float],
+    gear_peg_height: float,
+    success_z_fraction: float,
+    xy_threshold: float,
     held_gear_base_offset: tuple[float, float, float] | None = None,
-    gear_peg_height: float = 0.02,
-    success_z_fraction: float = 0.20,
-    xy_threshold: float = 0.0025,
     disable_success_termination: bool = False,
 ) -> torch.Tensor:
     """Terminate when the held gear is centered on the peg and lowered to the success depth.

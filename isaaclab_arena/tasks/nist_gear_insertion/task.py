@@ -46,8 +46,8 @@ class GearInsertionGeometryCfg:
     of their asset.
     """
 
-    peg_offset_from_board: tuple[float, float, float] = (0.02025, 0.0, 0.0)
-    peg_offset_for_obs: tuple[float, float, float] = (0.02025, 0.0, 0.025)
+    peg_base_offset: tuple[float, float, float] = (0.02025, 0.0, 0.0)
+    peg_tip_offset: tuple[float, float, float] = (0.02025, 0.0, 0.025)
     held_gear_base_offset: tuple[float, float, float] = (0.02025, 0.0, 0.0)
     gear_peg_height: float = 0.02
     success_z_fraction: float = 0.30
@@ -106,7 +106,7 @@ class NistGearInsertionRLTask(TaskBase):
         return GearInsertionObservationsCfg(
             gear_name=self.held_gear.name,
             board_name=self._gear_base_asset.name,
-            peg_offset=geometry_cfg.peg_offset_for_obs,
+            peg_offset=geometry_cfg.peg_tip_offset,
             held_gear_base_offset=geometry_cfg.held_gear_base_offset,
             fingertip_body_name=self.fingertip_body_name,
         )
@@ -117,7 +117,7 @@ class NistGearInsertionRLTask(TaskBase):
         return GearInsertionRewardsCfg(
             gear_name=self.held_gear.name,
             board_name=self._gear_base_asset.name,
-            peg_offset=geometry_cfg.peg_offset_from_board,
+            peg_offset=geometry_cfg.peg_base_offset,
             held_gear_base_offset=geometry_cfg.held_gear_base_offset,
             gear_peg_height=geometry_cfg.gear_peg_height,
             success_z_fraction=geometry_cfg.success_z_fraction,
@@ -133,7 +133,7 @@ class NistGearInsertionRLTask(TaskBase):
             params={
                 "held_object_cfg": SceneEntityCfg(self.held_gear.name),
                 "fixed_object_cfg": SceneEntityCfg(self._gear_base_asset.name),
-                "gear_base_offset": geometry_cfg.peg_offset_from_board,
+                "gear_base_offset": geometry_cfg.peg_base_offset,
                 "held_gear_base_offset": geometry_cfg.held_gear_base_offset,
                 "gear_peg_height": geometry_cfg.gear_peg_height,
                 "success_z_fraction": geometry_cfg.success_z_fraction,

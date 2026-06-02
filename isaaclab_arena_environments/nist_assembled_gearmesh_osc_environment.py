@@ -54,18 +54,18 @@ class NISTAssembledGearMeshOSCEnvironment(ExampleEnvironmentBase):
 
         embodiment.action_config = FrankaNistGearInsertionOscActionsCfg(
             fixed_asset_name=gears_and_base.name,
-            peg_offset=geometry_cfg.peg_offset_for_obs,
+            peg_offset=geometry_cfg.peg_tip_offset,
         )
         embodiment.observation_config = FrankaNistGearInsertionObservationsCfg(
             fixed_asset_name=gears_and_base.name,
-            peg_offset=geometry_cfg.peg_offset_for_obs,
+            peg_offset=geometry_cfg.peg_tip_offset,
             fingertip_body_name=embodiment.get_command_body_name(),
             concatenate_observation_terms=embodiment.concatenate_observation_terms,
         )
         embodiment.reward_config = NistGearInsertionOscRewardsCfg(
             gear_name=medium_gear.name,
             board_name=gears_and_base.name,
-            peg_offset=geometry_cfg.peg_offset_from_board,
+            peg_offset=geometry_cfg.peg_base_offset,
             held_gear_base_offset=geometry_cfg.held_gear_base_offset,
             gear_peg_height=geometry_cfg.gear_peg_height,
             success_z_fraction=geometry_cfg.success_z_fraction,
