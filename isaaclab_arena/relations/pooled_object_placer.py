@@ -414,14 +414,17 @@ class PooledObjectPlacer:
                 assert pool, f"Env {cur_env} has no valid layouts to sample from."
                 results.append(self._env_rngs[cur_env].choice(pool))
             return results
+        # Serialize all layouts into one flat pool.
         all_layouts: list[PlacementResult] = []
         for pool in self._env_pools:
-            all_layouts.extend(pool.layouts)
+            for layout in pool.layouts:
+                all_layouts.append(layout)
         assert all_layouts, "No valid layouts to sample from across any env pool."
 
+        # Draw each slot from its env's RNG over the serialized pool.
         results: list[PlacementResult] = []
-        for i in range(count):
-            rng = self._env_rngs[i % self._num_envs]
+        for layout_idx in range(count):
+            rng = self._env_rngs[layout_idx % self._num_envs]
             results.append(rng.choice(all_layouts))
         return results
 
