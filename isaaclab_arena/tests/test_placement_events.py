@@ -316,7 +316,7 @@ def test_solve_and_place_objects_writes_invalid_fallback_layout(capsys):
     """Invalid fallback layouts should still be written, matching pool fallback behavior."""
 
     from isaaclab_arena.relations.placement_events import solve_and_place_objects
-    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.placement_result import PlacementResult, ValidationReport
 
     desk, box1, box2 = _create_test_objects()
     objects = [desk, box1, box2]
@@ -329,12 +329,15 @@ def test_solve_and_place_objects_writes_invalid_fallback_layout(capsys):
             assert count == 1
             return [
                 PlacementResult(
-                    success=False,
+                    validation=ValidationReport(checks={"no_overlap": False}),
                     positions={box1: (0.0, 0.0, 0.0), box2: (0.0, 0.0, 0.0)},
                     final_loss=float("nan"),
                     attempts=1,
                 )
             ]
+
+        def accepts(self, result: PlacementResult) -> bool:
+            return result.success
 
     solve_and_place_objects(env, torch.tensor([0]), objects, InvalidPool())
     captured = capsys.readouterr()
@@ -345,11 +348,44 @@ def test_solve_and_place_objects_writes_invalid_fallback_layout(capsys):
     assert "Writing best-loss fallback placement" in captured.out
 
 
+def test_solve_and_place_objects_warns_when_filter_rejects_a_passing_layout(capsys):
+    """A layout that passes built-in checks but misses the pool's stricter filter is a fallback."""
+
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
+    from isaaclab_arena.relations.placement_result import PlacementResult, ValidationReport
+
+    desk, box1, box2 = _create_test_objects()
+    objects = [desk, box1, box2]
+    env = _make_mock_env(num_envs=1)
+
+    class StrictFilterPool:
+        requires_env_indexed_layouts = False
+
+        def sample_without_replacement(self, count: int) -> list[PlacementResult]:
+            assert count == 1
+            return [
+                PlacementResult(
+                    validation=ValidationReport(checks={"no_overlap": True}),
+                    positions={box1: (0.0, 0.0, 0.0), box2: (0.0, 0.0, 0.0)},
+                    final_loss=0.0,
+                    attempts=1,
+                )
+            ]
+
+        def accepts(self, result: PlacementResult) -> bool:
+            return False
+
+    solve_and_place_objects(env, torch.tensor([0]), objects, StrictFilterPool())
+    captured = capsys.readouterr()
+
+    assert "Writing best-loss fallback placement" in captured.out
+
+
 def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_result():
     """Env-indexed partial resets should write the result for each absolute env id."""
 
     from isaaclab_arena.relations.placement_events import solve_and_place_objects
-    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.placement_result import PlacementResult, ValidationReport
 
     desk, box1, box2 = _create_test_objects()
     objects = [desk, box1, box2]
@@ -367,7 +403,7 @@ def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_res
             self.requested_env_ids = env_ids
             return {
                 cur_env: PlacementResult(
-                    success=True,
+                    validation=ValidationReport(checks={"no_overlap": True}),
                     positions={
                         box1: (float(cur_env), 0.0, 0.0),
                         box2: (float(cur_env), 1.0, 0.0),
@@ -377,6 +413,9 @@ def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_res
                 )
                 for cur_env in env_ids
             }
+
+        def accepts(self, result: PlacementResult) -> bool:
+            return result.success
 
     pool = EnvIndexedPool()
     solve_and_place_objects(env, torch.tensor([2]), objects, pool)
@@ -512,7 +551,7 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
     from types import SimpleNamespace
 
     from isaaclab_arena.environments.relation_solver_interface import _apply_dynamic_spawn_pose
-    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.placement_result import PlacementResult, ValidationReport
 
     class MinimalObject:
         def __init__(self, name: str):
@@ -536,7 +575,7 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
             assert count == 1
             return [
                 PlacementResult(
-                    success=True,
+                    validation=ValidationReport(checks={"no_overlap": True}),
                     positions={box: (float(env_id), 0.0, 0.1)},
                     final_loss=0.0,
                     attempts=1,
@@ -564,7 +603,7 @@ def test_env_indexed_static_poses_apply_per_env_positions():
     """Static initial poses should apply per-env positions from env-indexed layouts."""
     from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.environments.relation_solver_interface import _apply_static_initial_poses
-    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.placement_result import PlacementResult, ValidationReport
     from isaaclab_arena.relations.relations import IsAnchor, On
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose, PosePerEnv
@@ -591,7 +630,7 @@ def test_env_indexed_static_poses_apply_per_env_positions():
         def sample_with_replacement(self, count: int):
             return [
                 PlacementResult(
-                    success=True,
+                    validation=ValidationReport(checks={"no_overlap": True}),
                     positions={box: (0.1 * env_id, 0.2 * env_id, 0.11)},
                     final_loss=0.0,
                     attempts=1,
