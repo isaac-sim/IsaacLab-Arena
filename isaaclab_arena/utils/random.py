@@ -27,12 +27,11 @@ def get_random_rotation(generator: torch.Generator | None = None) -> float:
 
 
 def get_rngs(num: int, base_seed: int | None) -> list[random.Random]:
-    """Build ``num`` independent RNGs, deterministically derived from ``base_seed``.
+    """Build num independent RNGs, reproducible under base_seed.
 
-    Each RNG is seeded from a distinct draw of a single seeder, so the streams are
-    reproducible under ``base_seed`` and statistically independent of one another.
-    A ``base_seed`` of None falls back to system entropy (non-reproducible).
+    base_seed=None falls back to system entropy (non-reproducible).
     """
+    assert num >= 1, f"num must be >= 1, got {num}"
     if base_seed is None:
         return [random.Random() for _ in range(num)]
     else:

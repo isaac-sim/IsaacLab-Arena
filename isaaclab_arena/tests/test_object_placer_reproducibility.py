@@ -415,8 +415,8 @@ def test_pooled_placer_homogeneous_builds_identical_layouts_for_same_seed_and_ob
     layouts1 = pool1.sample_without_replacement(4)
     layouts2 = pool2.sample_without_replacement(4)
 
-    for L1, L2 in zip(layouts1, layouts2):
-        assert _positions_by_name(L1) == _positions_by_name(L2)
+    for layout1, layout2 in zip(layouts1, layouts2):
+        assert _positions_by_name(layout1) == _positions_by_name(layout2)
 
 
 def test_pooled_placer_homogeneous_continues_seed_stream_across_refill():

@@ -67,8 +67,8 @@ class PooledObjectPlacer:
     * sample_for_envs(env_ids) consumes one layout for each requested
       absolute env id (used for partial resets).
     * sample_with_replacement(count) is non-consuming. Env-specific layouts
-      are sampled from matching env slots; reusable layouts are sampled IID from
-      all stored layouts.
+      are sampled from matching env slots; reusable layouts stay marginally
+      uniform over all stored layouts.
 
     Args:
         objects: All objects (including anchors) participating in relation solving.
@@ -102,7 +102,7 @@ class PooledObjectPlacer:
         self._base_placement_seed = placer_params.placement_seed
         self._next_seed_offset = 0
         # Per-env sampling RNG keyed by (placement_seed, env_id): env i's draws are reproducible
-        # and independent of other envs. placement_seed=None falls back to system entropy.
+        # and independent of other envs.
         self._env_rngs = get_rngs(self._num_envs, placer_params.placement_seed)
         self._env_pools: list[EnvLayoutPool] = [EnvLayoutPool([]) for _ in range(self._num_envs)]
 
@@ -401,11 +401,11 @@ class PooledObjectPlacer:
         """Pick count layouts at random with replacement (non-consuming).
 
         For env-specific layouts, slot i picks from env i % num_envs's pool
-        so each result matches its absolute env. For reusable layouts, draws
-        are uniform IID from the full pool.
+        so each result matches its absolute env. For reusable layouts, each
+        slot stays marginally uniform over the full pool; the per-env RNGs only
+        fix which stream a slot draws from, for parity with the env-specific branch.
         """
-        # Non-consuming. Slot i draws from env (i % num_envs)'s RNG, so each env's sequence is
-        # reproducible under (placement_seed, env_id), independent of other envs' draws.
+        # Non-consuming: reads pool.layouts directly, ignoring the consumption cursor.
         if self._uses_env_specific_bboxes:
             results: list[PlacementResult] = []
             for i in range(count):
@@ -414,11 +414,10 @@ class PooledObjectPlacer:
                 assert pool, f"Env {cur_env} has no valid layouts to sample from."
                 results.append(self._env_rngs[cur_env].choice(pool))
             return results
-        # Reusable layouts are interchangeable, so each slot stays marginally uniform over the full
-        # pool; per-env RNGs only fix which stream a slot draws from, for parity with the env-specific branch.
         all_layouts: list[PlacementResult] = []
         for pool in self._env_pools:
             all_layouts.extend(pool.layouts)
+        assert all_layouts, "No valid layouts to sample from across any env pool."
 
         results: list[PlacementResult] = []
         for i in range(count):
