@@ -77,28 +77,24 @@ class ArenaEnvBuilder:
     def get_all_variations(self) -> dict[str, list[VariationBase]]:
         """Return ``{asset_name: [variation, ...]}`` for every variation host in the env.
 
-        Merges scene-asset variations with the embodiment's own variations
-        (keyed by the embodiment's ``name``), so an embodiment can own knobs
-        like wrist-cam decalibration without being a scene-side ``ObjectBase``.
+        Merges scene variations with the embodiment own variations.
         """
-        by_asset: dict[str, list[VariationBase]] = dict(self.arena_env.scene.get_asset_variations())
-        embodiment = self.arena_env.embodiment
-        if embodiment is not None:
-            embodiment_variations = embodiment.get_variations()
-            if embodiment_variations:
-                assert embodiment.name not in by_asset
-                by_asset[embodiment.name] = embodiment_variations
-        return by_asset
+        scene_and_embodiment_variations = self.arena_env.scene.get_asset_variations()
+        if self.arena_env.embodiment is not None:
+            embodiment_variations = self.arena_env.embodiment.get_variations()
+            scene_and_embodiment_variations[self.arena_env.embodiment.name] = embodiment_variations
+        return scene_and_embodiment_variations
 
     def _compose_variations_event_cfg(self) -> Any | None:
         """Build a configclass with one :class:`EventTermCfg` per enabled run-time variation.
 
         Returns ``None`` when no run-time variation is enabled.
         """
+        # Assemble all the variations together into a single configclass.
         fields: list[tuple[str, type, EventTermCfg]] = []
         added_event_names: set[str] = set()
-        for asset_variations in self.get_all_variations().values():
-            for variation in asset_variations:
+        for variations_per_asset in self.get_all_variations().values():
+            for variation in variations_per_asset:
                 if not variation.enabled:
                     continue
                 if not isinstance(variation, RunTimeVariationBase):
