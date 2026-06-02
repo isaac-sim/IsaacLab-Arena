@@ -36,9 +36,14 @@ DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
 DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
 
 
+# ---------------------------------------------------------------------------
+# Asset catalogue (AssetRegistry → user-prompt blocks)
+# ---------------------------------------------------------------------------
+
+
 @dataclass
 class AssetCatalogue:
-    """Registered asset vocabulary grouped for the env-gen agent prompt."""
+    """Registered asset vocabulary grouped for the agent prompt."""
 
     # A list of embodiment names for agent to choose from.
     embodiments: list[str] = field(default_factory=list)
@@ -61,7 +66,6 @@ class AssetCatalogue:
 
 def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalogue:
     """Collect registered embodiments, backgrounds, and pick-up objects from ``AssetRegistry``."""
-
     registry = registry or AssetRegistry()
     catalogue = AssetCatalogue()
     # TODO(qianl): handle optional lights and hdr images.
@@ -78,9 +82,23 @@ def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalog
     return catalogue
 
 
+# ---------------------------------------------------------------------------
+# Relation catalogue (ObjectRelationLibraryRegistry → user-prompt blocks)
+# ---------------------------------------------------------------------------
+
+
+def _first_docstring_line(cls: type) -> str:
+    doc = cls.__doc__ or ""
+    for line in doc.splitlines():
+        stripped = line.strip()
+        if stripped:
+            return stripped
+    return ""
+
+
 @dataclass
 class RelationCatalogueEntry:
-    """One registered spatial relation exposed to the env-gen agent."""
+    """One registered spatial relation exposed to the agent."""
 
     name: str
     unary: bool
@@ -89,7 +107,7 @@ class RelationCatalogueEntry:
 
 @dataclass
 class RelationCatalogue:
-    """Registered object-relation vocabulary for the env-gen agent prompt."""
+    """Registered object-relation vocabulary for the agent prompt."""
 
     relations: list[RelationCatalogueEntry] = field(default_factory=list)
 
@@ -100,15 +118,6 @@ class RelationCatalogue:
             arity = "unary" if entry.unary else "binary"
             lines.append(f"- {entry.name} ({arity}): {entry.summary}")
         return f"RELATIONS ({len(self.relations)}):\n" + "\n".join(lines)
-
-
-def _first_docstring_line(cls: type) -> str:
-    doc = cls.__doc__ or ""
-    for line in doc.splitlines():
-        stripped = line.strip()
-        if stripped:
-            return stripped
-    return ""
 
 
 def build_relation_catalogue(
@@ -130,9 +139,14 @@ def build_relation_catalogue(
     return catalogue
 
 
+# ---------------------------------------------------------------------------
+# Task catalogue (TaskRegistry → user-prompt blocks)
+# ---------------------------------------------------------------------------
+
+
 @dataclass
 class TaskCatalogueEntry:
-    """One @agent_ready task exposed to the env-gen agent."""
+    """One agent_ready task exposed to the agent."""
 
     name: str
     required_params: list[str]
@@ -141,7 +155,7 @@ class TaskCatalogueEntry:
 
 @dataclass
 class TaskCatalogue:
-    """Agent-ready task vocabulary for the env-gen agent prompt."""
+    """Agent-ready task vocabulary for the agent prompt."""
 
     tasks: list[TaskCatalogueEntry] = field(default_factory=list)
 
@@ -163,7 +177,7 @@ def agent_ready_task_names(registry: TaskRegistry | None = None) -> frozenset[st
 
 
 def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
-    """Collect @agent_ready tasks from ``TaskRegistry``."""
+    """Collect agent_ready tasks from ``TaskRegistry``."""
     registry = registry or TaskRegistry()
     catalogue = TaskCatalogue()
     for name in sorted(agent_ready_task_names(registry)):
@@ -177,6 +191,11 @@ def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
             )
         )
     return catalogue
+
+
+# ---------------------------------------------------------------------------
+# Environment generation agent
+# ---------------------------------------------------------------------------
 
 
 class EnvironmentGenerationAgent:

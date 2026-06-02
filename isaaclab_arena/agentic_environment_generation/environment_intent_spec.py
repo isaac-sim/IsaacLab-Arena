@@ -14,21 +14,6 @@ from pydantic import BaseModel, Field, model_validator
 
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, TaskRegistry
 
-
-def required_task_init_param_names(task_cls: type) -> list[str]:
-    """Return ``__init__`` parameter names with no default (excluding ``self``)."""
-    sig = inspect.signature(task_cls.__init__)
-    required: list[str] = []
-    for name, param in sig.parameters.items():
-        if name == "self":
-            continue
-        if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
-            continue
-        if param.default is inspect.Parameter.empty:
-            required.append(name)
-    return required
-
-
 ItemRole = Literal["foreground", "distractor", "anchor"]
 
 
@@ -122,14 +107,22 @@ class Task(BaseModel):
     )
 
 
-class EnvironmentIntentSpec(BaseModel):
-    """Agent output — a structured "env intent" (blueprint) for the env and a list of tasks.
+def required_task_init_param_names(task_cls: type) -> list[str]:
+    """Get the list of required parameters from a task class constructor."""
+    sig = inspect.signature(task_cls.__init__)
+    required: list[str] = []
+    for name, param in sig.parameters.items():
+        if name == "self":
+            continue
+        if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+            continue
+        if param.default is inspect.Parameter.empty:
+            required.append(name)
+    return required
 
-    Field-level guidance lives on the individual ``Field(description=...)``
-    entries below and is surfaced to the agent via ``model_json_schema()``;
-    only cross-cutting rules and few-shot examples are kept in the
-    prompt text (see ``EnvironmentGenerationAgent._system_prompt``).
-    """
+
+class EnvironmentIntentSpec(BaseModel):
+    """Agent output — a structured "env intent" (blueprint) for the env and a list of tasks."""
 
     # Forced chain-of-thought field, listed FIRST so the agent emits its
     # analysis before committing to any structured field.
@@ -182,6 +175,7 @@ class EnvironmentIntentSpec(BaseModel):
 
     @model_validator(mode="after")
     def _validate_catalogue_kinds_are_registered(self) -> EnvironmentIntentSpec:
+        # Validate relation kinds are in registry.
         allowed_relations = frozenset(ObjectRelationLibraryRegistry().get_all_keys())
         for relation in self.initial_state_graph:
             if relation.kind not in allowed_relations:
@@ -189,6 +183,7 @@ class EnvironmentIntentSpec(BaseModel):
                     f"Relation kind {relation.kind!r} is not registered. Allowed: {sorted(allowed_relations)}"
                 )
 
+        # Validate task kinds are in registry and agent-ready.
         task_registry = TaskRegistry()
         allowed_tasks = frozenset(
             name
@@ -199,6 +194,7 @@ class EnvironmentIntentSpec(BaseModel):
             if task.kind not in allowed_tasks:
                 raise ValueError(f"Task {task.kind!r} is not agent-ready. Allowed: {sorted(allowed_tasks)}")
             task_cls = task_registry.get_task_by_name(task.kind)
+            # Validate task has all required parameters.
             required_params = required_task_init_param_names(task_cls)
             missing = [name for name in required_params if name not in task.params]
             if missing:
