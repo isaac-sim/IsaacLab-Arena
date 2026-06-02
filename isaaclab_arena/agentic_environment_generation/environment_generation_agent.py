@@ -23,8 +23,9 @@ from isaaclab_arena.agentic_environment_generation.structured_output_utils impor
 )
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.object_library import LibraryObject
-from isaaclab_arena.assets.registries import AssetRegistry
+from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+from isaaclab_arena.relations.relations import RelationBase
 
 DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
 DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
@@ -53,10 +54,10 @@ class AssetCatalogue:
         )
 
 
-def build_asset_catalogue(registry: AssetRegistry) -> AssetCatalogue:
+def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalogue:
     """Collect registered embodiments, backgrounds, and pick-up objects from ``AssetRegistry``."""
 
-    assert registry is not None, "AssetRegistry is required to build the asset catalogue."
+    registry = registry or AssetRegistry()
     catalogue = AssetCatalogue()
     # TODO(qianl): handle optional lights and hdr images.
     # TODO(qianl): add tag to filter out validated/agent-ready assets only.
@@ -69,6 +70,58 @@ def build_asset_catalogue(registry: AssetRegistry) -> AssetCatalogue:
         elif issubclass(cls, LibraryObject) and cls.tags and "object" in cls.tags:
             tags = [t for t in cls.tags if t != "object"]
             catalogue.objects.append({"name": name, "tags": tags})
+    return catalogue
+
+
+@dataclass
+class RelationCatalogueEntry:
+    """One registered spatial relation exposed to the env-gen agent."""
+
+    name: str
+    unary: bool
+    summary: str
+
+
+@dataclass
+class RelationCatalogue:
+    """Registered object-relation vocabulary for the env-gen agent prompt."""
+
+    relations: list[RelationCatalogueEntry] = field(default_factory=list)
+
+    def to_catalog_string(self) -> str:
+        """Format this catalogue as the user-message RELATIONS block."""
+        lines = []
+        for entry in sorted(self.relations, key=lambda r: r.name):
+            arity = "unary" if entry.unary else "binary"
+            lines.append(f"- {entry.name} ({arity}): {entry.summary}")
+        return f"RELATIONS ({len(self.relations)}):\n" + "\n".join(lines)
+
+
+def _first_docstring_line(cls: type) -> str:
+    doc = cls.__doc__ or ""
+    for line in doc.splitlines():
+        stripped = line.strip()
+        if stripped:
+            return stripped
+    return ""
+
+
+def build_relation_catalogue(
+    registry: ObjectRelationLibraryRegistry | None = None,
+) -> RelationCatalogue:
+    """Collect registered object relations from ``ObjectRelationLibraryRegistry``."""
+    registry = registry or ObjectRelationLibraryRegistry()
+    catalogue = RelationCatalogue()
+    for name in registry.get_all_keys():
+        relation_cls = registry.get_object_relation_by_name(name)
+        assert issubclass(relation_cls, RelationBase), f"{name!r} is not a RelationBase subclass"
+        catalogue.relations.append(
+            RelationCatalogueEntry(
+                name=name,
+                unary=relation_cls.is_unary(),
+                summary=_first_docstring_line(relation_cls),
+            )
+        )
     return catalogue
 
 
@@ -106,6 +159,7 @@ class EnvironmentGenerationAgent:
         self,
         prompt: str,
         catalog: AssetCatalogue | None = None,
+        relation_catalog: RelationCatalogue | None = None,
         temperature: float = 0.2,
         max_tokens: int = 2000,
     ) -> tuple[EnvironmentIntentSpec, str]:
@@ -115,6 +169,8 @@ class EnvironmentGenerationAgent:
             prompt: Natural-language env description from the end user.
             catalog: Pre-built asset vocabulary. When ``None``, the catalog is
                 built from the live ``AssetRegistry``.
+            relation_catalog: Pre-built relation vocabulary. When ``None``, built
+                from the live ``ObjectRelationLibraryRegistry``.
             temperature: Sampling temperature forwarded to the model. Kept
                 low by default (0.2) because EnvironmentIntentSpec generation is a
                 deterministic-ish translation task — high temperature
@@ -125,10 +181,11 @@ class EnvironmentGenerationAgent:
             A ``(EnvironmentIntentSpec, raw_response)`` tuple. The raw text is
             useful for debugging.
         """
-        catalog = catalog or build_asset_catalogue(AssetRegistry())
-        catalog_string = catalog.to_catalog_string()
+        catalog = catalog or build_asset_catalogue()
+        relation_catalog = relation_catalog or build_relation_catalogue()
+        vocabulary = f"{catalog.to_catalog_string()}\n\n{relation_catalog.to_catalog_string()}"
         system = self._system_prompt()
-        user = f"{catalog_string}\n\nUSER PROMPT:\n{prompt}"
+        user = f"{vocabulary}\n\nUSER PROMPT:\n{prompt}"
 
         resp = self.client.chat.completions.create(
             model=self.model,
@@ -163,13 +220,18 @@ class EnvironmentGenerationAgent:
             "Convert a natural-language prompt into an EnvironmentIntentSpec.\n\n"
             "GUIDANCE:\n"
             "- Follow the per-field ``description`` strings in the schema for what each field expects.\n"
+            "- Use only asset names from EMBODIMENTS / BACKGROUNDS / OBJECTS and only "
+            "relation kinds from RELATIONS in the user message.\n"
             "- If the prompt does not specify a value for an optional field, output null.\n"
             "  Do NOT hallucinate values — the resolver tolerates nulls; it cannot fix invented data.\n"
-            "- Articulated objects (microwave, fridge, cabinet) still need a spatial\n"
-            "  'on(<object>, background)' relation in initial_state_graph to anchor them; their\n"
-            "  open/close behaviour is expressed via tasks, not via relations.\n"
-            "- Distractor items around the appliance need 'on(distractor, background)' relations\n"
-            "  in initial_state_graph as well.\n"
+            "- For binary relations (e.g. on), subject is the child object and target is "
+            "the parent surface (typically the background name).\n"
+            "- Articulated objects (microwave, fridge, cabinet) still need an "
+            "'on' relation in initial_state_graph (subject=object, target=background) "
+            "to anchor them; open/close is expressed via tasks, not relations.\n"
+            "- Distractor items around the appliance need the same 'on' pattern in "
+            "initial_state_graph.\n"
+            "- Do not invent relation kinds (e.g. at_pose, in) that are absent from RELATIONS.\n"
             "- Task examples (showing kind + subject + target + description shape):\n"
             '    * Pick-and-place: {"kind": "pick_and_place", "subject": "avocado", "target": "bowl",\n'
             '                       "description": "pick up the avocado and place it in the bowl"}\n'

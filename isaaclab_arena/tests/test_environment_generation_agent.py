@@ -13,6 +13,7 @@ import pytest
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
     AssetCatalogue,
     EnvironmentGenerationAgent,
+    RelationCatalogue,
 )
 
 # ---------------------------------------------------------------------------
@@ -116,8 +117,14 @@ class TestInit:
 # ---------------------------------------------------------------------------
 
 
-def _catalog(text: str) -> AssetCatalogue:
+def _catalog(text: str, relation_text: str = "RELATIONS (1):\n- on (binary): test") -> AssetCatalogue:
     catalogue = AssetCatalogue()
+    catalogue.to_catalog_string = lambda: text  # type: ignore[method-assign]
+    return catalogue
+
+
+def _relation_catalog(text: str) -> RelationCatalogue:
+    catalogue = RelationCatalogue()
     catalogue.to_catalog_string = lambda: text  # type: ignore[method-assign]
     return catalogue
 
@@ -125,7 +132,7 @@ def _catalog(text: str) -> AssetCatalogue:
 class TestGenerateSpec:
     def test_request_sets_response_format_to_json_schema(self, agent):
         agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
-        agent.generate_spec("p", catalog=_catalog("catalog"))
+        agent.generate_spec("p", catalog=_catalog("catalog"), relation_catalog=_relation_catalog("RELATIONS"))
         kwargs = agent.client.chat.completions.create.call_args.kwargs
         assert kwargs["response_format"]["type"] == "json_schema"
         assert kwargs["response_format"]["json_schema"]["name"] == "EnvironmentIntentSpec"
@@ -141,16 +148,25 @@ class TestGenerateSpec:
         raw = json.dumps(payload).replace("\\t", "\t")
         assert "\t" in raw  # raw payload now has literal tab chars in a string
         agent.client.chat.completions.create.return_value = _chat_response(content=raw)
-        spec, _ = agent.generate_spec("p", catalog=_catalog("catalog"))
+        spec, _ = agent.generate_spec(
+            "p",
+            catalog=_catalog("catalog"),
+            relation_catalog=_relation_catalog("RELATIONS"),
+        )
         assert "\t" in spec.task_description
 
     def test_user_message_contains_catalog_and_prompt(self, agent):
         agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
-        agent.generate_spec("user wants avocado on kitchen", catalog=_catalog("<<CATALOG-MARKER>>"))
+        agent.generate_spec(
+            "user wants avocado on kitchen",
+            catalog=_catalog("<<CATALOG-MARKER>>"),
+            relation_catalog=_relation_catalog("<<RELATIONS-MARKER>>"),
+        )
         msgs = agent.client.chat.completions.create.call_args.kwargs["messages"]
         assert [m["role"] for m in msgs] == ["system", "user"]
         user_msg = msgs[1]["content"]
         assert "<<CATALOG-MARKER>>" in user_msg
+        assert "<<RELATIONS-MARKER>>" in user_msg
         assert "user wants avocado on kitchen" in user_msg
 
 

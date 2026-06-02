@@ -9,13 +9,11 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 
 ItemRole = Literal["foreground", "distractor", "anchor"]
-
-# Relation kinds currently surfaced to the agent.
-# Should be a subset of ``ArenaEnvGraphSpatialConstraintType``.
-RelationKind = Literal["on", "in", "next_to", "at_position", "at_pose", "is_anchor"]
 
 # Task kinds the agent can propose as an atomic task.
 TaskKind = Literal["pick_and_place", "open_door", "close_door"]
@@ -58,17 +56,27 @@ class Item(BaseModel):
 class Relation(BaseModel):
     """A spatial relation between items."""
 
-    kind: RelationKind = Field(description="Spatial relation only.")
-    subject: str = Field(
-        description="Item the relation applies to, named by its Item.query string or the background name.",
+    kind: str = Field(
+        description=(
+            "Relation name from the RELATIONS block in the user message "
+            "(e.g. 'on', 'next_to', 'is_anchor'). Must match a registered "
+            "relation exactly."
+        ),
     )
-    # TODO(qianl): make sure the binary & unary relations in description matches the actual relation classes.
+    subject: str = Field(
+        description=(
+            "Primary endpoint: the object (Item.query) or background this "
+            "relation applies to. For binary relations (see RELATIONS arity), "
+            "this is the child — e.g. for 'on', the object sitting on the surface."
+        ),
+    )
     target: str | None = Field(
         default=None,
         description=(
-            "The other item the relation is anchored on for binary kinds "
-            "(on / in / next_to), semantics is subject is in relation to target; "
-            "leave null for unary kinds (is_anchor, at_position, at_pose)."
+            "Second endpoint for binary relations only: the parent surface or "
+            "anchor (Item.query or background name). For 'on', target is what "
+            "subject rests on. Leave null for unary relations listed as unary "
+            "in RELATIONS (e.g. is_anchor, at_position)."
         ),
     )
     # TODO(qianl): free-form ``dict`` emits ``additionalProperties: true``,
@@ -145,10 +153,10 @@ class EnvironmentIntentSpec(BaseModel):
     items: list[Item] = Field(description="Objects to place in the env.")
     initial_state_graph: list[Relation] = Field(
         description=(
-            "FULL snapshot of all relations in the starting state. Every "
-            "persistent relation (e.g. bowl on table, distractors on table) "
-            "must appear here. Relations that change via tasks are still "
-            "listed here in their starting form."
+            "FULL snapshot of all spatial relations in the starting state. "
+            "Use only relation names from the RELATIONS block. Every "
+            "persistent placement (e.g. bowl on table, distractors on table) "
+            "must appear here in its starting form."
         ),
     )
     # TODO(v0.4+): Add support for composite tasks (parallel/unordered execution)
@@ -164,3 +172,11 @@ class EnvironmentIntentSpec(BaseModel):
             "genuinely describes a task-less scene."
         ),
     )
+
+    @model_validator(mode="after")
+    def _validate_relation_kinds_are_registered(self) -> EnvironmentIntentSpec:
+        allowed = frozenset(ObjectRelationLibraryRegistry().get_all_keys())
+        for relation in self.initial_state_graph:
+            if relation.kind not in allowed:
+                raise ValueError(f"Relation kind {relation.kind!r} is not registered. Allowed: {sorted(allowed)}")
+        return self

@@ -25,9 +25,9 @@ import json
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
     EnvironmentGenerationAgent,
     build_asset_catalogue,
+    build_relation_catalogue,
 )
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
-from isaaclab_arena.assets.registries import AssetRegistry
 
 DEFAULT_PROMPT = (
     "franka pick up avocado from the maple table and place it into a bowl on the table. "
@@ -52,13 +52,21 @@ def main() -> None:
         print(json.dumps(EnvironmentIntentSpec.model_json_schema(), indent=2))
         return
 
-    catalog = build_asset_catalogue(AssetRegistry())
+    catalog = build_asset_catalogue()
+    relation_catalog = build_relation_catalogue()
     if args.print_catalog:
         print(catalog.to_catalog_string())
+        print()
+        print(relation_catalog.to_catalog_string())
         return
 
     agent = EnvironmentGenerationAgent(model=args.model)
-    spec, raw = agent.generate_spec(args.prompt, catalog=catalog, temperature=args.temperature)
+    spec, raw = agent.generate_spec(
+        args.prompt,
+        catalog=catalog,
+        relation_catalog=relation_catalog,
+        temperature=args.temperature,
+    )
 
     print("=== raw agent response ===")
     print(raw)
