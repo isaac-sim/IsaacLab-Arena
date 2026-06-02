@@ -23,11 +23,13 @@ from isaaclab_arena.environments.arena_env_graph_types import (
 )
 from isaaclab_arena.environments.graph_spec_utils import (
     as_dict,
+    assert_cli_overrides_reference_nodes,
     assert_references_exist,
     assert_spatial_constraint_shapes,
     assert_unique_ids,
     optional_dict,
     optional_str,
+    parse_cli_override,
     parse_list,
     required_enum,
     required_number_sequence,
@@ -53,7 +55,6 @@ __all__ = [
     "ArenaEnvGraphTaskConstraintSpec",
     "ArenaEnvGraphTaskConstraintType",
     "ArenaEnvGraphTaskSpec",
-    "add_cli_override_args",
 ]
 
 
@@ -97,7 +98,7 @@ class ArenaEnvGraphSpec:
             nodes=nodes,
             tasks=tasks,
             state_specs=state_specs,
-            cli_overrides=parse_list(data, "cli_overrides", _parse_cli_override),
+            cli_overrides=parse_list(data, "cli_overrides", parse_cli_override),
         )
         spec.validate()
         return spec
@@ -111,25 +112,14 @@ class ArenaEnvGraphSpec:
         importing ``pxr`` (relation-class resolution) too early. This skips graph construction
         and validation entirely, touching only the override declarations.
         """
-        return parse_list(ArenaEnvGraphSpec._load_yaml_dict(path), "cli_overrides", _parse_cli_override)
+        return parse_list(ArenaEnvGraphSpec._load_yaml_dict(path), "cli_overrides", parse_cli_override)
 
     def validate(self) -> None:
         """Validate graph-level ids, references, and relationship shapes."""
         assert_unique_ids(self.nodes, self.tasks, self.state_specs)
         assert_references_exist(self.nodes, self.tasks, self.state_specs)
         assert_spatial_constraint_shapes(self.state_specs)
-        self._validate_cli_overrides()
-
-    def _validate_cli_overrides(self) -> None:
-        """Ensure each declared override binds a unique flag to an existing node."""
-        node_ids = {node.id for node in self.nodes}
-        seen_args: set[str] = set()
-        for override in self.cli_overrides:
-            assert override.arg not in seen_args, f"Duplicate cli_override arg '--{override.arg}'"
-            seen_args.add(override.arg)
-            assert (
-                override.target_node_id in node_ids
-            ), f"CLI override '--{override.arg}' targets unknown node '{override.target_node_id}'"
+        assert_cli_overrides_reference_nodes(self.nodes, self.cli_overrides)
 
     def apply_cli_overrides(self, args_cli: "argparse.Namespace") -> None:
         """Swap target-node asset names from parsed CLI args, in place.
@@ -170,29 +160,6 @@ class ArenaEnvGraphSpec:
         from isaaclab_arena.environments.arena_env_graph_conversion_utils import build_arena_env_from_graph_spec
 
         return build_arena_env_from_graph_spec(self)
-
-
-def add_cli_override_args(
-    parser: "argparse.ArgumentParser", override_specs: list[ArenaEnvGraphCliOverrideSpec]
-) -> None:
-    """Register a graph's declared override fields onto ``CLI parser``."""
-    for override in override_specs:
-        parser.add_argument(
-            f"--{override.arg}",
-            type=str,
-            default=override.default,
-            help=override.help or f"Override the asset behind graph node '{override.target_node_id}'.",
-        )
-
-
-def _parse_cli_override(data: Any) -> ArenaEnvGraphCliOverrideSpec:
-    data = as_dict(data, "CLI override spec")
-    return ArenaEnvGraphCliOverrideSpec(
-        arg=required_str(data, "arg"),
-        target_node_id=required_str(data, "target_node_id"),
-        default=optional_str(data, "default"),
-        help=optional_str(data, "help"),
-    )
 
 
 def _parse_node(data: Any) -> ArenaEnvGraphNodeSpec:

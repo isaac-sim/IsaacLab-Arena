@@ -9,8 +9,11 @@ from numbers import Real
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
+from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphCliOverrideSpec
 
 if TYPE_CHECKING:
+    import argparse
+
     from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpatialConstraintType
     from isaaclab_arena.relations.relations import RelationBase
 
@@ -184,6 +187,42 @@ def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
                 assert (
                     constraint.child is not None
                 ), f"Spatial constraint '{constraint.id}' of type '{constraint_type}' requires a child node"
+
+
+def assert_cli_overrides_reference_nodes(nodes: list[Any], cli_overrides: list[ArenaEnvGraphCliOverrideSpec]) -> None:
+    """Ensure each declared CLI override binds a unique flag to an existing node."""
+    node_ids = {node.id for node in nodes}
+    seen_args: set[str] = set()
+    for override in cli_overrides:
+        assert override.arg not in seen_args, f"Duplicate cli_override arg '--{override.arg}'"
+        seen_args.add(override.arg)
+        assert (
+            override.target_node_id in node_ids
+        ), f"CLI override '--{override.arg}' targets unknown node '{override.target_node_id}'"
+
+
+def parse_cli_override(data: Any) -> ArenaEnvGraphCliOverrideSpec:
+    """Parse a single ``cli_overrides`` YAML entry into a typed spec."""
+    data = as_dict(data, "CLI override spec")
+    return ArenaEnvGraphCliOverrideSpec(
+        arg=required_str(data, "arg"),
+        target_node_id=required_str(data, "target_node_id"),
+        default=optional_str(data, "default"),
+        help=optional_str(data, "help"),
+    )
+
+
+def add_cli_override_args(
+    parser: "argparse.ArgumentParser", override_specs: list[ArenaEnvGraphCliOverrideSpec]
+) -> None:
+    """Register a graph's declared override flags onto a CLI ``parser``."""
+    for override in override_specs:
+        parser.add_argument(
+            f"--{override.arg}",
+            type=str,
+            default=override.default,
+            help=override.help or f"Override the asset behind graph node '{override.target_node_id}'.",
+        )
 
 
 def _add_id_location(id_locations: dict[str, list[str]], spec_id: str, location: str) -> None:

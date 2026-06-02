@@ -167,7 +167,7 @@ def test_cli_overrides_parsed_from_yaml():
 def test_add_cli_override_args_registers_declared_flags():
     import argparse
 
-    from isaaclab_arena.environments.arena_env_graph_spec import add_cli_override_args
+    from isaaclab_arena.environments.graph_spec_utils import add_cli_override_args
 
     parser = argparse.ArgumentParser()
     specs = ArenaEnvGraphSpec.read_cli_override_specs(TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml")
