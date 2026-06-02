@@ -23,7 +23,7 @@ from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
-from isaaclab_arena.tasks.predicates import object_lifted, object_settled_on
+from isaaclab_arena.tasks.predicates import object_lifted
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.terminations import object_on_destination
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
@@ -144,10 +144,14 @@ class PickAndPlaceTask(TaskBase):
                         surface_height=self.surface_height,
                         distance=self.lift_distance,
                     ),
+                    # Reuse the task's own success-termination function as a fine-grained
+                    # predicate: object_on_destination has the same (env, **params) -> (num_envs,)
+                    # bool contract the state machine expects, so partial-applying its
+                    # SceneEntityCfg params is all that's needed.
                     partial(
-                        object_settled_on,
-                        object_name=self.pick_up_object.name,
-                        contact_sensor_name="pick_up_object_contact_sensor",
+                        object_on_destination,
+                        object_cfg=SceneEntityCfg(self.pick_up_object.name),
+                        contact_sensor_cfg=SceneEntityCfg("pick_up_object_contact_sensor"),
                         force_threshold=self.force_threshold,
                         velocity_threshold=self.velocity_threshold,
                     ),
