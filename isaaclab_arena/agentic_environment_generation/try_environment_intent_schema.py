@@ -26,6 +26,7 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     EnvironmentGenerationAgent,
     build_asset_catalogue,
     build_relation_catalogue,
+    build_task_catalogue,
 )
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
 
@@ -54,10 +55,13 @@ def main() -> None:
 
     catalog = build_asset_catalogue()
     relation_catalog = build_relation_catalogue()
+    task_catalog = build_task_catalogue()
     if args.print_catalog:
         print(catalog.to_catalog_string())
         print()
         print(relation_catalog.to_catalog_string())
+        print()
+        print(task_catalog.to_catalog_string())
         return
 
     agent = EnvironmentGenerationAgent(model=args.model)
@@ -65,6 +69,7 @@ def main() -> None:
         args.prompt,
         catalog=catalog,
         relation_catalog=relation_catalog,
+        task_catalog=task_catalog,
         temperature=args.temperature,
     )
 

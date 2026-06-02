@@ -14,6 +14,7 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     AssetCatalogue,
     EnvironmentGenerationAgent,
     RelationCatalogue,
+    TaskCatalogue,
 )
 
 # ---------------------------------------------------------------------------
@@ -77,7 +78,7 @@ _MINIMAL_SPEC: dict = {
         {"kind": "on", "subject": "bowl", "target": "kitchen"},
     ],
     "tasks": [{
-        "kind": "pick_and_place",
+        "kind": "PickAndPlaceTask",
         "subject": "avocado",
         "target": "bowl",
         "description": "pick up the avocado and place it in the bowl",
@@ -129,10 +130,42 @@ def _relation_catalog(text: str) -> RelationCatalogue:
     return catalogue
 
 
+def _task_catalog(text: str) -> TaskCatalogue:
+    catalogue = TaskCatalogue()
+    catalogue.to_catalog_string = lambda: text  # type: ignore[method-assign]
+    return catalogue
+
+
 class TestGenerateSpec:
+    def test_builds_catalogues_from_singleton_registries_when_none(self, agent):
+        agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
+        with (
+            patch(
+                "isaaclab_arena.agentic_environment_generation.environment_generation_agent.build_asset_catalogue",
+            ) as mock_build_assets,
+            patch(
+                "isaaclab_arena.agentic_environment_generation.environment_generation_agent.build_relation_catalogue",
+            ) as mock_build_relations,
+            patch(
+                "isaaclab_arena.agentic_environment_generation.environment_generation_agent.build_task_catalogue",
+            ) as mock_build_tasks,
+        ):
+            mock_build_assets.return_value = _catalog("<<ASSET-CATALOG>>")
+            mock_build_relations.return_value = _relation_catalog("<<RELATION-CATALOG>>")
+            mock_build_tasks.return_value = _task_catalog("<<TASK-CATALOG>>")
+            agent.generate_spec("p")
+        mock_build_assets.assert_called_once_with()
+        mock_build_relations.assert_called_once_with()
+        mock_build_tasks.assert_called_once_with()
+
     def test_request_sets_response_format_to_json_schema(self, agent):
         agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
-        agent.generate_spec("p", catalog=_catalog("catalog"), relation_catalog=_relation_catalog("RELATIONS"))
+        agent.generate_spec(
+            "p",
+            catalog=_catalog("catalog"),
+            relation_catalog=_relation_catalog("RELATIONS"),
+            task_catalog=_task_catalog("TASKS"),
+        )
         kwargs = agent.client.chat.completions.create.call_args.kwargs
         assert kwargs["response_format"]["type"] == "json_schema"
         assert kwargs["response_format"]["json_schema"]["name"] == "EnvironmentIntentSpec"
@@ -152,6 +185,7 @@ class TestGenerateSpec:
             "p",
             catalog=_catalog("catalog"),
             relation_catalog=_relation_catalog("RELATIONS"),
+            task_catalog=_task_catalog("TASKS"),
         )
         assert "\t" in spec.task_description
 
@@ -161,12 +195,14 @@ class TestGenerateSpec:
             "user wants avocado on kitchen",
             catalog=_catalog("<<CATALOG-MARKER>>"),
             relation_catalog=_relation_catalog("<<RELATIONS-MARKER>>"),
+            task_catalog=_task_catalog("<<TASKS-MARKER>>"),
         )
         msgs = agent.client.chat.completions.create.call_args.kwargs["messages"]
         assert [m["role"] for m in msgs] == ["system", "user"]
         user_msg = msgs[1]["content"]
         assert "<<CATALOG-MARKER>>" in user_msg
         assert "<<RELATIONS-MARKER>>" in user_msg
+        assert "<<TASKS-MARKER>>" in user_msg
         assert "user wants avocado on kitchen" in user_msg
 
 
@@ -188,9 +224,11 @@ def test_generate_spec_against_live_endpoint():
         "- avocado_robolab  tags=['vegetable']\n"
         "- bowl_robolab  tags=['container']"
     )
+    task_catalog = _task_catalog("TASKS (1):\n- PickAndPlaceTask (binary): Pick-and-place task.")
     spec, raw = agent.generate_spec(
         "pick up the avocado and place it in the bowl on the kitchen table",
         catalog=catalog,
+        task_catalog=task_catalog,
     )
     assert isinstance(raw, str) and raw, "agent returned empty raw response"
     assert spec.tasks, "EnvironmentIntentSpec must contain at least one task"

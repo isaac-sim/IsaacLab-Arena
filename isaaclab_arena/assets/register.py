@@ -92,3 +92,21 @@ def register_task(cls):
     else:
         registry.register(cls, cls.__name__)
     return cls
+
+
+def agent_ready(*, unary: bool = False):
+    """Mark a task class as available to the env-generation agent.
+
+    The agent uses the task's registry name (``cls.__name__``, same key as
+    ``TaskRegistry.get_task_by_name`` and env-graph ``type`` fields).
+
+    Args:
+        unary: When ``True``, the agent should leave ``Task.target`` null.
+    """
+
+    def decorator(cls):
+        cls.agent_ready = True
+        cls.agent_unary = unary
+        return cls
+
+    return decorator

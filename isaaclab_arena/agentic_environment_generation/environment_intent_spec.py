@@ -11,12 +11,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
+from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, TaskRegistry
 
 ItemRole = Literal["foreground", "distractor", "anchor"]
-
-# Task kinds the agent can propose as an atomic task.
-TaskKind = Literal["pick_and_place", "open_door", "close_door"]
 
 
 class Item(BaseModel):
@@ -93,7 +90,13 @@ class Relation(BaseModel):
 class Task(BaseModel):
     """One atomic task in the plan that transforms the env state."""
 
-    kind: TaskKind = Field(description="The action to perform.")
+    kind: str = Field(
+        description=(
+            "Registered task class name from the TASKS block in the user message "
+            "(e.g. 'PickAndPlaceTask', 'OpenDoorTask'). Must match "
+            "``TaskRegistry.get_task_by_name`` exactly."
+        ),
+    )
     subject: str = Field(
         description=(
             "The primary object the task acts on, named by its Item.query string (e.g. 'avocado', 'microwave')."
@@ -103,8 +106,8 @@ class Task(BaseModel):
         default=None,
         description=(
             "The secondary object or location, named by its Item.query "
-            "string or the background name. Leave null for unary tasks "
-            "(open_door / close_door)."
+            "string or the background name. Required for binary tasks in "
+            "TASKS; leave null for unary tasks."
         ),
     )
     description: str = Field(
@@ -163,20 +166,29 @@ class EnvironmentIntentSpec(BaseModel):
     # Currently v0.3 only supports sequential task chains.
     tasks: list[Task] = Field(
         description=(
-            "Tasks to execute in sequence. The task sequence implicitly "
-            "defines the intermediate state graphs by applying each task's "
-            "transformations in order. An empty list is valid and means "
-            "the env has no task — at the arena layer this maps to the "
-            "``NoTask`` null object (e.g. a static scene). Prefer an empty "
-            "list over inventing a placeholder task when the user prompt "
-            "genuinely describes a task-less scene."
+            "Tasks to execute in sequence, using only kinds from the TASKS block. "
+            "The task sequence implicitly defines intermediate state graphs. "
+            "An empty list is valid for a static scene — prefer empty over "
+            "inventing a placeholder task."
         ),
     )
 
     @model_validator(mode="after")
-    def _validate_relation_kinds_are_registered(self) -> EnvironmentIntentSpec:
-        allowed = frozenset(ObjectRelationLibraryRegistry().get_all_keys())
+    def _validate_catalogue_kinds_are_registered(self) -> EnvironmentIntentSpec:
+        allowed_relations = frozenset(ObjectRelationLibraryRegistry().get_all_keys())
         for relation in self.initial_state_graph:
-            if relation.kind not in allowed:
-                raise ValueError(f"Relation kind {relation.kind!r} is not registered. Allowed: {sorted(allowed)}")
+            if relation.kind not in allowed_relations:
+                raise ValueError(
+                    f"Relation kind {relation.kind!r} is not registered. Allowed: {sorted(allowed_relations)}"
+                )
+
+        task_registry = TaskRegistry()
+        allowed_tasks = frozenset(
+            name
+            for name in task_registry.get_all_keys()
+            if getattr(task_registry.get_task_by_name(name), "agent_ready", False)
+        )
+        for task in self.tasks:
+            if task.kind not in allowed_tasks:
+                raise ValueError(f"Task {task.kind!r} is not agent-ready. Allowed: {sorted(allowed_tasks)}")
         return self
