@@ -12,8 +12,8 @@ several predicates: pose/velocity accessors, tensor logical ops, and the
 from __future__ import annotations
 
 import torch
-import warp as wp
 
+import warp as wp
 from isaaclab.assets import RigidObject
 
 

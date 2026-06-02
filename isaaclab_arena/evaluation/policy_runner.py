@@ -90,7 +90,7 @@ def rollout_policy(
                 actions = policy.get_action(env, obs)
                 obs, _, terminated, truncated, _ = env.step(actions)
 
-                print(f"fine-grained subtasks:")
+                print("fine-grained subtasks:")
                 print(env.unwrapped.extras["fine_grained_subtask"])
                 print("\n\n\n")
 

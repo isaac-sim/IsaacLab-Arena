@@ -16,12 +16,7 @@ from __future__ import annotations
 import torch
 
 from isaaclab_arena.tasks.predicates.decorators import atomic, composite
-from isaaclab_arena.tasks.predicates.geometry import (
-    get_env,
-    get_root_pos_w,
-    logical_and,
-    select,
-)
+from isaaclab_arena.tasks.predicates.geometry import get_env, get_root_pos_w, logical_and, select
 
 
 def _env_local_pos(env, object_name: str) -> torch.Tensor:
@@ -45,9 +40,9 @@ def object_above(
     frame; both objects are assumed to share the same z origin (Isaac Lab's
     env_origins are typically z=0 so this holds in practice).
     """
-    assert (reference_object_name is None) != (height is None), (
-        "object_above requires exactly one of reference_object_name or height"
-    )
+    assert (reference_object_name is None) != (
+        height is None
+    ), "object_above requires exactly one of reference_object_name or height"
     obj_z = get_root_pos_w(env, object_name)[:, 2]
     if reference_object_name is not None:
         ref_z = get_root_pos_w(env, reference_object_name)[:, 2]

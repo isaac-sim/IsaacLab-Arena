@@ -17,8 +17,8 @@ Naming convention: ``object_grabbed("foo")`` defaults to looking up the sensor
 from __future__ import annotations
 
 import torch
-import warp as wp
 
+import warp as wp
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 
 from isaaclab_arena.tasks.predicates.decorators import atomic, composite
@@ -60,9 +60,7 @@ def object_grabbed(
     whichever body counts as "the gripper" for this task).
     """
     sensor_name = contact_sensor_name or f"{object_name}_contact_sensor"
-    return object_in_contact(
-        env, contact_sensor_name=sensor_name, force_threshold=force_threshold, env_id=env_id
-    )
+    return object_in_contact(env, contact_sensor_name=sensor_name, force_threshold=force_threshold, env_id=env_id)
 
 
 @composite
@@ -74,13 +72,9 @@ def object_settled_on(
     velocity_threshold: float = 0.5,
     env_id: int | None = None,
 ) -> torch.Tensor:
-    """True when ``object_name`` is in stable contact with its desired surface.
-
-    """
+    """True when ``object_name`` is in stable contact with its desired surface."""
     sensor_name = contact_sensor_name or f"{object_name}_contact_sensor"
-    in_contact = object_in_contact(
-        env, contact_sensor_name=sensor_name, force_threshold=force_threshold, env_id=None
-    )
+    in_contact = object_in_contact(env, contact_sensor_name=sensor_name, force_threshold=force_threshold, env_id=None)
     stationary = object_stationary(
         env,
         object_name=object_name,

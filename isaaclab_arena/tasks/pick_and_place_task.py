@@ -23,7 +23,7 @@ from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
-from isaaclab_arena.tasks.predicates import object_settled_on, object_lifted
+from isaaclab_arena.tasks.predicates import object_lifted, object_settled_on
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.terminations import object_on_destination
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object

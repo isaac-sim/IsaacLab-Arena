@@ -46,10 +46,10 @@ The runtime surface looks like::
 
 from __future__ import annotations
 
+import torch
 from dataclasses import MISSING
 from typing import Any
 
-import torch
 from isaaclab.managers import EventTermCfg, TerminationTermCfg
 from isaaclab.utils import configclass
 

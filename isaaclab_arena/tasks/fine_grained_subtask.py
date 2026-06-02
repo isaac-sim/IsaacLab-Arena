@@ -6,9 +6,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Literal, Union
-
+from typing import Literal, Union
 
 PredicateGroups = Union[
     Callable,
@@ -72,18 +72,12 @@ def _sanitize_group_chain(value, group_name: str) -> list[tuple[Callable, float]
         chain = []
         for i, item in enumerate(value):
             if not (isinstance(item, tuple) and len(item) == 2):
-                raise TypeError(
-                    f"Group '{group_name}' index {i}: expected (callable, score) tuple, got {item!r}"
-                )
+                raise TypeError(f"Group '{group_name}' index {i}: expected (callable, score) tuple, got {item!r}")
             fn, score = item
             if not callable(fn):
-                raise TypeError(
-                    f"Group '{group_name}' index {i}: first tuple element must be callable"
-                )
+                raise TypeError(f"Group '{group_name}' index {i}: first tuple element must be callable")
             if not isinstance(score, (int, float)):
-                raise TypeError(
-                    f"Group '{group_name}' index {i}: score must be a number"
-                )
+                raise TypeError(f"Group '{group_name}' index {i}: score must be a number")
             chain.append((fn, float(score)))
         return chain
 
@@ -92,9 +86,7 @@ def _sanitize_group_chain(value, group_name: str) -> list[tuple[Callable, float]
         chain = []
         for i, fn in enumerate(value):
             if not callable(fn):
-                raise TypeError(
-                    f"Group '{group_name}' index {i}: expected callable, got {type(fn).__name__}"
-                )
+                raise TypeError(f"Group '{group_name}' index {i}: expected callable, got {type(fn).__name__}")
             chain.append((fn, equal))
         return chain
 
@@ -142,7 +134,7 @@ class FineGrainedSubtask:
     logical: Literal["all", "any", "choose"] = "all"
     K: int | None = None
     description: str | None = None
-    
+
     canonical_predicate_groups: dict[str, list[tuple[Callable, float]]] = field(init=False, repr=False)
 
     # Index of the parent TaskBase this recipe belongs to. Set automatically when used with composite tasks.
@@ -163,13 +155,9 @@ class FineGrainedSubtask:
         num_groups = len(self.canonical_predicate_groups)
         if self.logical == "choose":
             if self.K is None:
-                raise ValueError(
-                    f"FineGrainedSubtask '{self.name}': K is required when logical='choose'"
-                )
+                raise ValueError(f"FineGrainedSubtask '{self.name}': K is required when logical='choose'")
             if not (1 <= self.K <= num_groups):
-                raise ValueError(
-                    f"FineGrainedSubtask '{self.name}': K={self.K} but must be in [1, {num_groups}]"
-                )
+                raise ValueError(f"FineGrainedSubtask '{self.name}': K={self.K} but must be in [1, {num_groups}]")
 
     @property
     def group_names(self) -> list[str]:

@@ -46,10 +46,7 @@ def _advance_step(env, n: int = 1):
 
 def _test_sanitize_single_callable(simulation_app) -> bool:
     """A bare predicate becomes a default-named group with weight 1.0."""
-    from isaaclab_arena.tasks.fine_grained_subtask import (
-        DEFAULT_GROUP_NAME,
-        FineGrainedSubtask,
-    )
+    from isaaclab_arena.tasks.fine_grained_subtask import DEFAULT_GROUP_NAME, FineGrainedSubtask
 
     try:
         pred = _MockPredicate(num_envs=1)
@@ -68,10 +65,7 @@ def _test_sanitize_single_callable(simulation_app) -> bool:
 
 def _test_sanitize_list_of_callables(simulation_app) -> bool:
     """A list of callables becomes a single group with normalized equal scores."""
-    from isaaclab_arena.tasks.fine_grained_subtask import (
-        DEFAULT_GROUP_NAME,
-        FineGrainedSubtask,
-    )
+    from isaaclab_arena.tasks.fine_grained_subtask import DEFAULT_GROUP_NAME, FineGrainedSubtask
 
     try:
         preds = [_MockPredicate(num_envs=1, name=f"p{i}") for i in range(3)]
@@ -91,10 +85,7 @@ def _test_sanitize_list_of_callables(simulation_app) -> bool:
 
 def _test_sanitize_weighted_tuples(simulation_app) -> bool:
     """Explicit (callable, score) tuples are normalized to sum to 1.0 within a group."""
-    from isaaclab_arena.tasks.fine_grained_subtask import (
-        DEFAULT_GROUP_NAME,
-        FineGrainedSubtask,
-    )
+    from isaaclab_arena.tasks.fine_grained_subtask import DEFAULT_GROUP_NAME, FineGrainedSubtask
 
     try:
         p1 = _MockPredicate(num_envs=1, name="p1")
@@ -445,7 +436,7 @@ def _test_gating_blocked_when_parent_subtask_idx_mismatches(simulation_app) -> b
 
     try:
         env = _MockEnv(num_envs=1)
-        env._current_subtask_idx = [0]   # parent on subtask 0, recipe targets 1
+        env._current_subtask_idx = [0]  # parent on subtask 0, recipe targets 1
 
         pred = _MockPredicate(num_envs=1, name="p")
         fgs = FineGrainedSubtask(name="t", predicate_groups=pred, parent_subtask_idx=1)
@@ -604,6 +595,7 @@ def _test_task_base_fine_grained_subtask_hooks(simulation_app) -> bool:
     from isaaclab_arena.tasks.task_base import TaskBase
 
     try:
+
         class _Base(TaskBase):
             def get_scene_cfg(self):
                 return None
@@ -663,7 +655,7 @@ def _test_task_base_fine_grained_subtask_hooks(simulation_app) -> bool:
         recipes2 = composite2.get_fine_grained_subtasks()
         assert len(recipes2) == 3
         assert recipes2[2].name == "both_done"
-        assert recipes2[2].parent_subtask_idx is None    # composite-level: never gated
+        assert recipes2[2].parent_subtask_idx is None  # composite-level: never gated
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -699,9 +691,7 @@ def test_state_machine_advances_sequentially():
 
 
 def test_state_machine_ignores_out_of_order_success():
-    assert run_simulation_app_function(
-        _test_state_machine_ignores_out_of_order_success, headless=HEADLESS
-    )
+    assert run_simulation_app_function(_test_state_machine_ignores_out_of_order_success, headless=HEADLESS)
 
 
 def test_state_machine_logical_any():
@@ -721,21 +711,15 @@ def test_state_machine_reset_clears_state():
 
 
 def test_gating_active_when_parent_subtask_idx_matches():
-    assert run_simulation_app_function(
-        _test_gating_active_when_parent_subtask_idx_matches, headless=HEADLESS
-    )
+    assert run_simulation_app_function(_test_gating_active_when_parent_subtask_idx_matches, headless=HEADLESS)
 
 
 def test_gating_blocked_when_parent_subtask_idx_mismatches():
-    assert run_simulation_app_function(
-        _test_gating_blocked_when_parent_subtask_idx_mismatches, headless=HEADLESS
-    )
+    assert run_simulation_app_function(_test_gating_blocked_when_parent_subtask_idx_mismatches, headless=HEADLESS)
 
 
 def test_gating_noop_when_env_has_no_current_subtask_idx():
-    assert run_simulation_app_function(
-        _test_gating_noop_when_env_has_no_current_subtask_idx, headless=HEADLESS
-    )
+    assert run_simulation_app_function(_test_gating_noop_when_env_has_no_current_subtask_idx, headless=HEADLESS)
 
 
 def test_sequential_gating_end_to_end():

@@ -37,18 +37,13 @@ from isaaclab_arena.tasks.predicates.geometry import (
     logical_not,
     logical_or,
 )
-from isaaclab_arena.tasks.predicates.grasp import (
-    object_settled_on,
-    object_dropped,
-    object_grabbed,
-    object_in_contact,
-)
+from isaaclab_arena.tasks.predicates.grasp import object_dropped, object_grabbed, object_in_contact, object_settled_on
 from isaaclab_arena.tasks.predicates.pose import object_stationary, object_upright
 from isaaclab_arena.tasks.predicates.spatial import (
     object_above,
     object_at,
-    object_near,
     object_lifted,
+    object_near,
     objects_in_proximity_predicate,
 )
 
