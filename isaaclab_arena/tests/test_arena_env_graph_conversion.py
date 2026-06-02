@@ -71,12 +71,8 @@ def _test_get_arena_builder_from_cli_builds_env_from_graph_yaml(simulation_app):
         argparse.Namespace(env_graph_spec_yaml=None, example_environment=None),
         argparse.Namespace(env_graph_spec_yaml=yaml_path, example_environment="lift_object"),
     ):
-        try:
+        with pytest.raises(AssertionError):
             get_arena_builder_from_cli(bad)
-        except AssertionError:
-            pass
-        else:
-            raise AssertionError(f"expected AssertionError for {bad}")
 
     return True
 
