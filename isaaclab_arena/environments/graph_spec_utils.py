@@ -207,21 +207,22 @@ def parse_cli_override(data: Any) -> ArenaEnvGraphCliOverrideSpec:
     return ArenaEnvGraphCliOverrideSpec(
         arg=required_str(data, "arg"),
         target_node_id=required_str(data, "target_node_id"),
-        default=optional_str(data, "default"),
-        help=optional_str(data, "help"),
     )
 
 
 def add_cli_override_args(
     parser: "argparse.ArgumentParser", override_specs: list[ArenaEnvGraphCliOverrideSpec]
 ) -> None:
-    """Add each declared override to the CLI ``parser`` as a ``--flag``."""
+    """Add each declared override to the CLI ``parser`` as a ``--flag``.
+
+    Each flag defaults to `None`, so an omitted flag falls back to the node's YAML-specified asset.
+    """
     for override in override_specs:
         parser.add_argument(
             f"--{override.arg}",
             type=str,
-            default=override.default,
-            help=override.help or f"Override the asset behind graph node '{override.target_node_id}'.",
+            default=None,
+            help=f"Override the asset behind graph node '{override.target_node_id}'.",
         )
 
 

@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environments.graph_spec_utils import add_cli_override_args
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
@@ -76,9 +78,6 @@ def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> a
     # here, before parsing, so they appear in --help and parse like any other flag.
     env_graph_spec_yaml = getattr(args, "env_graph_spec_yaml", None)
     if env_graph_spec_yaml is not None:
-        from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
-        from isaaclab_arena.environments.graph_spec_utils import add_cli_override_args
-
         add_cli_override_args(args_parser, ArenaEnvGraphSpec.read_cli_override_specs(env_graph_spec_yaml))
 
     # The subcommand is optional: the env may instead come from a graph spec YAML
@@ -118,8 +117,6 @@ def get_arena_builder_from_cli(args_cli: argparse.Namespace) -> ArenaEnvBuilder:
     )
 
     if env_graph_spec_yaml is not None:
-        from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
-
         spec = ArenaEnvGraphSpec.from_yaml(env_graph_spec_yaml)
         # YAML can declare its own swappable flags under `cli_overrides`. Apply them here.
         spec.apply_cli_overrides(args_cli)

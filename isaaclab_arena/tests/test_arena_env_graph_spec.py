@@ -175,7 +175,7 @@ def test_add_cli_override_args_registers_declared_flags():
 
     args = parser.parse_args(["--object", "dex_cube"])
     assert args.object == "dex_cube"
-    # Unset flags fall back to their declared default of None (a later no-op in apply_cli_overrides).
+    # Unset flags default to None.
     assert args.embodiment is None
 
 

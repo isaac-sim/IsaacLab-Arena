@@ -136,8 +136,6 @@ class ArenaEnvGraphCliOverrideSpec:
 
     arg: str  # flag name without leading dashes; "object" -> --object
     target_node_id: str  # whose `name` the flag overrides
-    default: str | None = None  # asset name when the flag is omitted; None leaves node as authored
-    help: str | None = None  # argparse help text; a sensible default is derived when unset
 
     @property
     def dest(self) -> str:
