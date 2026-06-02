@@ -297,8 +297,12 @@ def test_not_next_to_loss_strategy_flat_along_blocked_axis():
     # Both are far past the +X edge but within the Y footprint, so the cross-band tent
     # (capped at slope * half-band) sets the loss: backing off further in +X is no escape,
     # so the two positions must share the same positive loss.
-    loss_near = strategy.compute_loss(relation, torch.tensor([2.0, 0.4, 0.5]), child_obj.bounding_box, parent_obj.bounding_box)
-    loss_far = strategy.compute_loss(relation, torch.tensor([5.0, 0.4, 0.5]), child_obj.bounding_box, parent_obj.bounding_box)
+    loss_near = strategy.compute_loss(
+        relation, torch.tensor([2.0, 0.4, 0.5]), child_obj.bounding_box, parent_obj.bounding_box
+    )
+    loss_far = strategy.compute_loss(
+        relation, torch.tensor([5.0, 0.4, 0.5]), child_obj.bounding_box, parent_obj.bounding_box
+    )
     assert loss_near > 0.0
     assert torch.isclose(loss_near, loss_far, atol=1e-4)
 

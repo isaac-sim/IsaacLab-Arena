@@ -171,6 +171,7 @@ class NotNextTo(Relation):
         self.side = side
 
 
+@register_object_relation
 class IsAnchor(RelationBase):
     """Marker indicating this object is an anchor for relation solving.
 
