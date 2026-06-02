@@ -33,6 +33,7 @@ class ArenaEnvGraphNodeType(Enum):
 class ArenaEnvGraphSpatialConstraintType(Enum):
     IS_ANCHOR = "is_anchor"
     NEXT_TO = "next_to"
+    NOT_NEXT_TO = "not_next_to"
     ON = "on"
     AT_POSE = "at_pose"  # through set_initial_pose()
     AT_POSITION = "at_position"  # through object relation solver: AtPosition
