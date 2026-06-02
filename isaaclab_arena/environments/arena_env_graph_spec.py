@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environments.arena_env_graph_types import (
+    ArenaEnvGraphCliOverrideSpec,
     ArenaEnvGraphNodeSpec,
     ArenaEnvGraphNodeType,
     ArenaEnvGraphObjectReferenceNodeSpec,
@@ -34,11 +35,14 @@ from isaaclab_arena.environments.graph_spec_utils import (
 )
 
 if TYPE_CHECKING:
+    import argparse
+
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
 # Re-exported for callers that already import these names from this module.
 __all__ = [
+    "ArenaEnvGraphCliOverrideSpec",
     "ArenaEnvGraphNodeSpec",
     "ArenaEnvGraphNodeType",
     "ArenaEnvGraphObjectReferenceNodeSpec",
@@ -49,6 +53,7 @@ __all__ = [
     "ArenaEnvGraphTaskConstraintSpec",
     "ArenaEnvGraphTaskConstraintType",
     "ArenaEnvGraphTaskSpec",
+    "add_cli_override_args",
 ]
 
 
@@ -62,6 +67,7 @@ class ArenaEnvGraphSpec:
     nodes: list[ArenaEnvGraphNodeSpec] = field(default_factory=list)
     tasks: list[ArenaEnvGraphTaskSpec] = field(default_factory=list)
     state_specs: list[ArenaEnvGraphStateSpec] = field(default_factory=list)
+    cli_overrides: list[ArenaEnvGraphCliOverrideSpec] = field(default_factory=list)
 
     @staticmethod
     def _load_yaml_dict(path: str | Path) -> dict[str, Any]:
@@ -91,15 +97,52 @@ class ArenaEnvGraphSpec:
             nodes=nodes,
             tasks=tasks,
             state_specs=state_specs,
+            cli_overrides=parse_list(data, "cli_overrides", _parse_cli_override),
         )
         spec.validate()
         return spec
+
+    @staticmethod
+    def read_cli_override_specs(path: str | Path) -> list[ArenaEnvGraphCliOverrideSpec]:
+        """Read only the ``cli_overrides`` section of a graph YAML, without building the graph.
+
+        CLI flags must be registered on the parser before args are parsed, which happens before
+        ``SimulationApp`` starts; a full ``from_yaml`` would run ``validate()``, transitively
+        importing ``pxr`` (relation-class resolution) too early. This skips graph construction
+        and validation entirely, touching only the override declarations.
+        """
+        return parse_list(ArenaEnvGraphSpec._load_yaml_dict(path), "cli_overrides", _parse_cli_override)
 
     def validate(self) -> None:
         """Validate graph-level ids, references, and relationship shapes."""
         assert_unique_ids(self.nodes, self.tasks, self.state_specs)
         assert_references_exist(self.nodes, self.tasks, self.state_specs)
         assert_spatial_constraint_shapes(self.state_specs)
+        self._validate_cli_overrides()
+
+    def _validate_cli_overrides(self) -> None:
+        """Ensure each declared override binds a unique flag to an existing node."""
+        node_ids = {node.id for node in self.nodes}
+        seen_args: set[str] = set()
+        for override in self.cli_overrides:
+            assert override.arg not in seen_args, f"Duplicate cli_override arg '--{override.arg}'"
+            seen_args.add(override.arg)
+            assert (
+                override.target_node_id in node_ids
+            ), f"CLI override '--{override.arg}' targets unknown node '{override.target_node_id}'"
+
+    def apply_cli_overrides(self, args_cli: "argparse.Namespace") -> None:
+        """Swap target-node asset names from parsed CLI args, in place.
+
+        Reads each declared override (see :class:`ArenaEnvGraphCliOverrideSpec`) from the
+        namespace and replaces its target node's ``name``. A flag left at its default of
+        ``None`` leaves that node as authored, so this is a no-op for an untouched graph.
+        """
+        nodes_by_id = self.nodes_by_id
+        for override in self.cli_overrides:
+            new_name = getattr(args_cli, override.dest, None)
+            if new_name is not None:
+                nodes_by_id[override.target_node_id].name = new_name
 
     @property
     def nodes_by_id(self) -> dict[str, ArenaEnvGraphNodeSpec]:
@@ -127,6 +170,29 @@ class ArenaEnvGraphSpec:
         from isaaclab_arena.environments.arena_env_graph_conversion_utils import build_arena_env_from_graph_spec
 
         return build_arena_env_from_graph_spec(self)
+
+
+def add_cli_override_args(
+    parser: "argparse.ArgumentParser", override_specs: list[ArenaEnvGraphCliOverrideSpec]
+) -> None:
+    """Register a graph's declared override fields onto ``CLI parser``."""
+    for override in override_specs:
+        parser.add_argument(
+            f"--{override.arg}",
+            type=str,
+            default=override.default,
+            help=override.help or f"Override the asset behind graph node '{override.target_node_id}'.",
+        )
+
+
+def _parse_cli_override(data: Any) -> ArenaEnvGraphCliOverrideSpec:
+    data = as_dict(data, "CLI override spec")
+    return ArenaEnvGraphCliOverrideSpec(
+        arg=required_str(data, "arg"),
+        target_node_id=required_str(data, "target_node_id"),
+        default=optional_str(data, "default"),
+        help=optional_str(data, "help"),
+    )
 
 
 def _parse_node(data: Any) -> ArenaEnvGraphNodeSpec:

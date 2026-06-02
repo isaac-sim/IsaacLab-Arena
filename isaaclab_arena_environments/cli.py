@@ -72,6 +72,15 @@ def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> a
         name, cls = parse_and_return_external_environment_from_string(environment)
         env_registry.register(cls, name)
 
+    # A graph spec YAML may declare its own swappable flags under `cli_overrides`. Register them
+    # here, before parsing, so they appear in --help and parse like any other flag. Read only the
+    # override section (not the full graph) to keep the pxr import out of the pre-SimulationApp path.
+    env_graph_spec_yaml = getattr(args, "env_graph_spec_yaml", None)
+    if env_graph_spec_yaml is not None:
+        from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec, add_cli_override_args
+
+        add_cli_override_args(args_parser, ArenaEnvGraphSpec.read_cli_override_specs(env_graph_spec_yaml))
+
     # The subcommand is optional: the env may instead come from a graph spec YAML
     # (--env_graph_spec_yaml).
     subparsers = args_parser.add_subparsers(
@@ -111,8 +120,11 @@ def get_arena_builder_from_cli(args_cli: argparse.Namespace) -> ArenaEnvBuilder:
     if env_graph_spec_yaml is not None:
         from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 
-        arena_env = ArenaEnvGraphSpec.from_yaml(env_graph_spec_yaml).to_arena_env()
-        return ArenaEnvBuilder(arena_env, args_cli)
+        spec = ArenaEnvGraphSpec.from_yaml(env_graph_spec_yaml)
+        # Swap the registry asset behind any node the YAML exposed under `cli_overrides`, using the
+        # flags registered in add_example_environments_cli_args. A no-op when none were passed.
+        spec.apply_cli_overrides(args_cli)
+        return ArenaEnvBuilder(spec.to_arena_env(), args_cli)
 
     ensure_environments_registered()
     env_registry = EnvironmentRegistry()

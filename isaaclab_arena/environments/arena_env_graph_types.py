@@ -128,6 +128,28 @@ class ArenaEnvGraphStateSpec:
 
 
 @dataclass
+class ArenaEnvGraphCliOverrideSpec:
+    """A swap the YAML author exposes on the command line.
+
+    The graph declares which knobs are tunable from the CLI — the data-driven analogue of a
+    registered environment's ``add_cli_args``. Each entry binds a flag (``--{arg}``) to a
+    graph node; passing the flag replaces that node's ``name`` (the registered asset). The
+    node's ``id`` — and every edge and task that references it — is left intact, so one graph
+    YAML serves many object/embodiment variants without edits.
+    """
+
+    arg: str  # flag name without leading dashes; "object" -> --object
+    target_node_id: str  # id of the node whose `name` the flag overrides
+    default: str | None = None  # asset name when the flag is omitted; None leaves node as authored
+    help: str | None = None  # argparse help text; a sensible default is derived when unset
+
+    @property
+    def dest(self) -> str:
+        """argparse namespace attribute for this flag (mirrors argparse's dash-to-underscore)."""
+        return self.arg.replace("-", "_")
+
+
+@dataclass
 class ArenaEnvGraphTaskSpec:
     """Task entry in an environment graph."""
 

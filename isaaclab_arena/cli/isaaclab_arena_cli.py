@@ -89,7 +89,8 @@ def add_env_graph_spec_cli_args(parser: argparse.ArgumentParser) -> None:
         default=None,
         help=(
             "Path to an environment graph spec YAML. When set, the environment is built from the graph spec instead of"
-            " a registered example-environment name; the env-name subcommand then becomes optional."
+            " a registered example-environment name; the env-name subcommand then becomes optional. Any override flags"
+            " the YAML declares under `cli_overrides` are added to the parser dynamically."
         ),
     )
     arena_group.add_argument(
