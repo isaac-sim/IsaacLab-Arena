@@ -127,10 +127,12 @@ def _apply_dynamic_spawn_pose(
         pos = layout.positions.get(obj)
         if pos is None:
             continue
+        yaw = layout.orientations.get(obj, 0.0)
+        rot = rotate_quat_by_yaw(get_rotation_xyzw(obj), yaw)
         object_cfg = getattr(obj, "object_cfg", None)
         assert object_cfg is not None, f"Object '{obj.name}' must have object_cfg initialized before placement."
         object_cfg.init_state.pos = pos
-        object_cfg.init_state.rot = rotate_quat_by_yaw(get_rotation_xyzw(obj), layout.orientations.get(obj, 0.0))
+        object_cfg.init_state.rot = rot
 
     return EventTermCfg(
         func=solve_and_place_objects,
@@ -161,7 +163,8 @@ def _apply_static_initial_poses(
             if pos is None:
                 missing_envs.append(env_idx)
             else:
-                rotation_xyzw = rotate_quat_by_yaw(base_rotation_xyzw, layouts[env_idx].orientations.get(obj, 0.0))
+                yaw = layouts[env_idx].orientations.get(obj, 0.0)
+                rotation_xyzw = rotate_quat_by_yaw(base_rotation_xyzw, yaw)
                 poses.append(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
         if missing_envs:
             print(

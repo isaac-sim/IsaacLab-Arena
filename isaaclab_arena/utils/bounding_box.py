@@ -38,6 +38,13 @@ class AxisAlignedBoundingBox:
     def __repr__(self) -> str:
         return f"AxisAlignedBoundingBox(min_point={self._min_point}, max_point={self._max_point})"
 
+    def __getitem__(self, idx: int) -> "AxisAlignedBoundingBox":
+        """Select row idx (one env/candidate), returning a single-box (N=1) bbox."""
+        assert 0 <= idx < self.num_envs, f"index {idx} out of range for bbox with num_envs={self.num_envs}."
+        return AxisAlignedBoundingBox(
+            min_point=self._min_point[idx : idx + 1], max_point=self._max_point[idx : idx + 1]
+        )
+
     @staticmethod
     def _to_batched_tensor(value: tuple[float, float, float] | torch.Tensor) -> torch.Tensor:
         """Convert tuple, 1-D tensor, or (N, 3) tensor to (N, 3) float32 tensor."""

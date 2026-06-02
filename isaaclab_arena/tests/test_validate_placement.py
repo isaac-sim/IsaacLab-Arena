@@ -114,7 +114,7 @@ def test_rotation_aware_overlap_uses_yaw():
     assert placer._validate_placement(positions, rotated) is False
 
 
-def test_candidate_bbox_row_aligns_with_candidate_yaw():
+def test_candidate_bbox_aligns_with_candidate_yaw():
     """Per-candidate yaw, bbox row, and validation stay index-aligned: only the matched row is collision-free."""
     placer = ObjectPlacer(params=ObjectPlacerParams())
     a = _make_long_box("a")  # long in X
@@ -126,7 +126,10 @@ def test_candidate_bbox_row_aligns_with_candidate_yaw():
     rotated = ObjectPlacer._rotate_candidate_bboxes([a, b], candidate_bboxes, [{a: 0.0}, {a: math.pi / 2}])
 
     # Mirrors _place_ranked: each candidate validates against its own bbox row.
-    validations = [placer._validate_placement(positions, ObjectPlacer._bbox_row(rotated, idx)) for idx in range(2)]
+    validations = [
+        placer._validate_placement(positions, ObjectPlacer._get_bounding_boxes_for_candidate_index(rotated, idx))
+        for idx in range(2)
+    ]
     # Axis-aligned `a` clears b; rotated 90° it sweeps into b. A row/candidate swap would flip both.
     assert validations == [True, False]
 
@@ -145,6 +148,21 @@ def test_rotate_candidate_bboxes_encloses_marker_plus_sampled_yaw():
     # Dropping the marker (sampled yaw only) would enclose an undersized, misaligned footprint.
     sampled_only = box.get_bounding_box().rotated_around_z(sampled_yaw)
     assert not torch.allclose(rotated[box].max_point, sampled_only.max_point, atol=1e-6)
+
+
+def test_on_relation_containment_uses_rotated_bbox():
+    """Test that a child fits the parent rim axis-aligned but spills past it once yaw-inflated 90°."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    desk = _make_desk()  # XY in [-0.5, 0.5]
+    child = _make_long_box("child")  # x in [-0.3, 0.3], y in [-0.05, 0.05]
+    child.add_relation(On(desk, clearance_m=0.01))
+    # Near the +Y rim: axis-aligned half-Y 0.05 stays inside; rotated 90° half-Y 0.3 spills past +0.5.
+    positions = {desk: (0.0, 0.0, 0.0), child: (0.0, 0.44, 0.105)}
+
+    axis_aligned = {desk: desk.get_bounding_box(), child: child.get_bounding_box()}
+    assert placer._validate_on_relations(positions, axis_aligned) is True
+    rotated = {desk: desk.get_bounding_box(), child: child.get_bounding_box().rotated_around_z(math.pi / 2)}
+    assert placer._validate_on_relations(positions, rotated) is False
 
 
 def test_on_relation_check_no_relation_returns_true():

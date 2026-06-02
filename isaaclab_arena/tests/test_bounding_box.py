@@ -88,6 +88,25 @@ def test_rotated_around_z_batched_angles_broadcasts_single_box():
     torch.testing.assert_close(rotated.max_point[1], torch.tensor([0.1, 0.2, 0.5]), atol=1e-6, rtol=0)
 
 
+def test_getitem_selects_single_row():
+    """Indexing a batched bbox returns the (N=1) box for that row; out-of-range asserts."""
+    boxes = AxisAlignedBoundingBox(
+        min_point=torch.tensor([[0.0, 0.0, 0.0], [1.0, 2.0, 3.0]]),
+        max_point=torch.tensor([[1.0, 1.0, 1.0], [4.0, 5.0, 6.0]]),
+    )
+    first = boxes[0]
+    assert first.num_envs == 1
+    torch.testing.assert_close(first.min_point, torch.tensor([[0.0, 0.0, 0.0]]))
+    torch.testing.assert_close(first.max_point, torch.tensor([[1.0, 1.0, 1.0]]))
+
+    last = boxes[1]
+    torch.testing.assert_close(last.min_point, torch.tensor([[1.0, 2.0, 3.0]]))
+    torch.testing.assert_close(last.max_point, torch.tensor([[4.0, 5.0, 6.0]]))
+
+    with pytest.raises(AssertionError):
+        _ = boxes[2]
+
+
 def test_rotated_around_z_mismatched_box_and_angle_counts_raises():
     """Multiple boxes paired with a different count of multiple angles is ambiguous and must assert."""
     boxes = AxisAlignedBoundingBox(

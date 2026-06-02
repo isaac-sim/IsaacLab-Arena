@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import math
 import torch
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -23,6 +22,7 @@ from isaaclab_arena.relations.relations import (
 )
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, rotate_quat_by_yaw, wrap_angle_to_pi
+from isaaclab_arena.utils.random import get_random_rotation
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
@@ -214,7 +214,9 @@ class ObjectPlacer:
         assert self._solver.last_loss_per_env is not None
         all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
         all_validations = [
-            self._validate_placement(positions, self._bbox_row(candidate_bboxes, candidate_idx))
+            self._validate_placement(
+                positions, self._get_bounding_boxes_for_candidate_index(candidate_bboxes, candidate_idx)
+            )
             for candidate_idx, positions in enumerate(all_positions)
         ]
 
@@ -344,8 +346,7 @@ class ObjectPlacer:
         for obj in objects:
             if obj in anchor_objects:
                 continue
-            u = torch.rand(1, generator=generator).item()
-            orientations[obj] = (2.0 * u - 1.0) * math.pi  # uniform in [-pi, pi)
+            orientations[obj] = get_random_rotation(generator)
         return orientations
 
     @staticmethod
@@ -367,8 +368,8 @@ class ObjectPlacer:
             bbox = candidate_bboxes[obj]
             # Only objects that receive a sampled yaw are rotated; anchors never appear here.
             if any(obj in orientations for orientations in orientations_per_candidate):
-                # Enclose marker_rotation + sampled yaw (the applied pose); both are pure-Z.
-                marker_yaw = ObjectPlacer._marker_z_yaw(obj)
+                # Enclose marker_yaw + sampled yaw (the applied pose); both are pure-Z.
+                marker_yaw = ObjectPlacer._get_yaw_from_rotate_around_solution(obj)
                 yaws = [
                     wrap_angle_to_pi(orientations_per_candidate[c].get(obj, 0.0) + marker_yaw)
                     for c in range(num_candidates)
@@ -380,13 +381,13 @@ class ObjectPlacer:
         return rotated
 
     @staticmethod
-    def _marker_z_yaw(obj: ObjectBase) -> float:
+    def _get_yaw_from_rotate_around_solution(obj: ObjectBase) -> float:
         """Z-yaw (radians) of obj's RotateAroundSolution marker, 0.0 if none.
 
         Rejects roll/pitch markers: a Z-rotated box can't enclose them, so they would otherwise
         validate a silently-wrong footprint.
         """
-        marker = next((r for r in obj.get_relations() if isinstance(r, RotateAroundSolution)), None)
+        marker = ObjectPlacer._get_rotate_around_solution(obj)
         if marker is None:
             return 0.0
         assert marker.roll_rad == 0.0 and marker.pitch_rad == 0.0, (
@@ -396,18 +397,12 @@ class ObjectPlacer:
         return marker.yaw_rad
 
     @staticmethod
-    def _bbox_row(
+    def _get_bounding_boxes_for_candidate_index(
         bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
-        row_idx: int,
+        candidate_idx: int,
     ) -> dict[ObjectBase, AxisAlignedBoundingBox]:
         """Slice one candidate's bboxes (each (1, 3)) out of the stacked (num_candidates, 3) boxes."""
-        return {
-            obj: AxisAlignedBoundingBox(
-                min_point=bbox.min_point[row_idx : row_idx + 1],
-                max_point=bbox.max_point[row_idx : row_idx + 1],
-            )
-            for obj, bbox in bboxes.items()
-        }
+        return {obj: bbox[candidate_idx] for obj, bbox in bboxes.items()}
 
     def _get_on_parent_world_bbox(
         self,
@@ -666,7 +661,8 @@ class ObjectPlacer:
                 return rel
         return None
 
-    def _get_rotate_around_solution(self, obj: ObjectBase) -> RotateAroundSolution | None:
+    @staticmethod
+    def _get_rotate_around_solution(obj: ObjectBase) -> RotateAroundSolution | None:
         for rel in obj.get_relations():
             if isinstance(rel, RotateAroundSolution):
                 return rel

@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import gymnasium as gym
+import math
 import numpy as np
 import random
 import torch
@@ -17,3 +18,9 @@ def set_seed(seed: int, env: gym.Env = None):
     random.seed(seed)
     if env is not None:
         env.unwrapped.seed(seed)
+
+
+def get_random_rotation(generator: torch.Generator | None = None) -> float:
+    """Sample a uniform yaw in [-pi, pi) radians (rotation about Z)."""
+    u = torch.rand(1, generator=generator).item()
+    return (2.0 * u - 1.0) * math.pi
