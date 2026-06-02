@@ -24,3 +24,17 @@ def get_random_rotation(generator: torch.Generator | None = None) -> float:
     """Sample a uniform yaw in [-pi, pi) radians (rotation about Z)."""
     u = torch.rand(1, generator=generator).item()
     return (2.0 * u - 1.0) * math.pi
+
+
+def get_rngs(num: int, base_seed: int | None) -> list[random.Random]:
+    """Build ``num`` independent RNGs, deterministically derived from ``base_seed``.
+
+    Each RNG is seeded from a distinct draw of a single seeder, so the streams are
+    reproducible under ``base_seed`` and statistically independent of one another.
+    A ``base_seed`` of None falls back to system entropy (non-reproducible).
+    """
+    if base_seed is None:
+        return [random.Random() for _ in range(num)]
+    else:
+        seeder = random.Random(base_seed)
+        return [random.Random(seeder.getrandbits(64)) for _ in range(num)]

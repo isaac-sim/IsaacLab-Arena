@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import random
 import torch
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
@@ -14,6 +13,7 @@ from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_obje
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
+from isaaclab_arena.utils.random import get_rngs
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
@@ -103,7 +103,7 @@ class PooledObjectPlacer:
         self._next_seed_offset = 0
         # Per-env sampling RNG keyed by (placement_seed, env_id): env i's draws are reproducible
         # and independent of other envs. placement_seed=None falls back to system entropy.
-        self._env_rngs = self._build_env_rngs(placer_params.placement_seed)
+        self._env_rngs = get_rngs(self._num_envs, placer_params.placement_seed)
         self._env_pools: list[EnvLayoutPool] = [EnvLayoutPool([]) for _ in range(self._num_envs)]
 
         self._solve_and_store(pool_size)
@@ -117,13 +117,6 @@ class PooledObjectPlacer:
     # ------------------------------------------------------------------
     # Pool storage internals
     # ------------------------------------------------------------------
-
-    def _build_env_rngs(self, base_seed: int | None) -> list[random.Random]:
-        """Build one sampling RNG per env, keyed by (base_seed, env_id); None seeds from system entropy."""
-        if base_seed is None:
-            return [random.Random() for _ in range(self._num_envs)]
-        seeder = random.Random(base_seed)
-        return [random.Random(seeder.getrandbits(64)) for _ in range(self._num_envs)]
 
     def _available_per_env(self) -> list[int]:
         """Number of unread layouts in each env's pool (length num_envs)."""
@@ -423,8 +416,15 @@ class PooledObjectPlacer:
             return results
         # Reusable layouts are interchangeable, so each slot stays marginally uniform over the full
         # pool; per-env RNGs only fix which stream a slot draws from, for parity with the env-specific branch.
-        all_layouts = [layout for pool in self._env_pools for layout in pool.layouts]
-        return [self._env_rngs[i % self._num_envs].choice(all_layouts) for i in range(count)]
+        all_layouts: list[PlacementResult] = []
+        for pool in self._env_pools:
+            all_layouts.extend(pool.layouts)
+
+        results: list[PlacementResult] = []
+        for i in range(count):
+            rng = self._env_rngs[i % self._num_envs]
+            results.append(rng.choice(all_layouts))
+        return results
 
     @property
     def remaining(self) -> int:
