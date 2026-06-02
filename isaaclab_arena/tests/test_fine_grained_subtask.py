@@ -44,7 +44,7 @@ def _advance_step(env, n: int = 1):
     env.episode_length_buf = env.episode_length_buf + n
 
 
-def _test_sanitize_single_callable(simulation_app) -> bool:
+def _test_format_single_callable(simulation_app) -> bool:
     """A bare predicate becomes a default-named group with weight 1.0."""
     from isaaclab_arena.tasks.fine_grained_subtask import DEFAULT_GROUP_NAME, FineGrainedSubtask
 
@@ -63,7 +63,7 @@ def _test_sanitize_single_callable(simulation_app) -> bool:
     return True
 
 
-def _test_sanitize_list_of_callables(simulation_app) -> bool:
+def _test_format_list_of_callables(simulation_app) -> bool:
     """A list of callables becomes a single group with normalized equal scores."""
     from isaaclab_arena.tasks.fine_grained_subtask import DEFAULT_GROUP_NAME, FineGrainedSubtask
 
@@ -83,7 +83,7 @@ def _test_sanitize_list_of_callables(simulation_app) -> bool:
     return True
 
 
-def _test_sanitize_weighted_tuples(simulation_app) -> bool:
+def _test_format_weighted_tuples(simulation_app) -> bool:
     """Explicit (callable, score) tuples are normalized to sum to 1.0 within a group."""
     from isaaclab_arena.tasks.fine_grained_subtask import DEFAULT_GROUP_NAME, FineGrainedSubtask
 
@@ -102,7 +102,7 @@ def _test_sanitize_weighted_tuples(simulation_app) -> bool:
     return True
 
 
-def _test_sanitize_dict_groups(simulation_app) -> bool:
+def _test_format_dict_groups(simulation_app) -> bool:
     """Dict input gives one group per key; each group's scores are normalized independently."""
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
@@ -134,7 +134,7 @@ def _test_sanitize_dict_groups(simulation_app) -> bool:
     return True
 
 
-def _test_sanitize_rejects_invalid_inputs(simulation_app) -> bool:
+def _test_format_rejects_invalid_inputs(simulation_app) -> bool:
     """Empty containers and non-callable entries should raise."""
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
@@ -666,24 +666,24 @@ def _test_task_base_fine_grained_subtask_hooks(simulation_app) -> bool:
 # Pytest entry points -----------------------------------------------------------
 
 
-def test_sanitize_single_callable():
-    assert run_simulation_app_function(_test_sanitize_single_callable, headless=HEADLESS)
+def test_format_single_callable():
+    assert run_simulation_app_function(_test_format_single_callable, headless=HEADLESS)
 
 
-def test_sanitize_list_of_callables():
-    assert run_simulation_app_function(_test_sanitize_list_of_callables, headless=HEADLESS)
+def test_format_list_of_callables():
+    assert run_simulation_app_function(_test_format_list_of_callables, headless=HEADLESS)
 
 
-def test_sanitize_weighted_tuples():
-    assert run_simulation_app_function(_test_sanitize_weighted_tuples, headless=HEADLESS)
+def test_format_weighted_tuples():
+    assert run_simulation_app_function(_test_format_weighted_tuples, headless=HEADLESS)
 
 
-def test_sanitize_dict_groups():
-    assert run_simulation_app_function(_test_sanitize_dict_groups, headless=HEADLESS)
+def test_format_dict_groups():
+    assert run_simulation_app_function(_test_format_dict_groups, headless=HEADLESS)
 
 
-def test_sanitize_rejects_invalid_inputs():
-    assert run_simulation_app_function(_test_sanitize_rejects_invalid_inputs, headless=HEADLESS)
+def test_format_rejects_invalid_inputs():
+    assert run_simulation_app_function(_test_format_rejects_invalid_inputs, headless=HEADLESS)
 
 
 def test_state_machine_advances_sequentially():
@@ -737,11 +737,11 @@ def test_task_base_fine_grained_subtask_hooks():
 
 
 if __name__ == "__main__":
-    test_sanitize_single_callable()
-    test_sanitize_list_of_callables()
-    test_sanitize_weighted_tuples()
-    test_sanitize_dict_groups()
-    test_sanitize_rejects_invalid_inputs()
+    test_format_single_callable()
+    test_format_list_of_callables()
+    test_format_weighted_tuples()
+    test_format_dict_groups()
+    test_format_rejects_invalid_inputs()
     test_state_machine_advances_sequentially()
     test_state_machine_ignores_out_of_order_success()
     test_state_machine_logical_any()
