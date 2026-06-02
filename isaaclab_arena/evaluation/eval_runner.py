@@ -8,9 +8,13 @@ import dataclasses
 import gc
 import json
 import os
+import subprocess
+import sys
+import tempfile
 import torch
 import traceback
 from gymnasium.wrappers import RecordVideo
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
@@ -125,6 +129,36 @@ def _close_job_resources(policy: "PolicyBase | None", env) -> None:
         _close_env(env)
 
 
+def _run_in_chunks(args_cli: argparse.Namespace, master_cfg: dict) -> None:
+    """Run each chunk of ``master_cfg['jobs']`` in a fresh ``eval_runner`` subprocess."""
+    jobs = master_cfg["jobs"]
+    chunk_size = args_cli.chunk_size
+    if chunk_size <= 0:
+        raise ValueError(f"--chunk_size must be positive, got {chunk_size}")
+    n_chunks = (len(jobs) + chunk_size - 1) // chunk_size
+    print(f"[eval_runner] {len(jobs)} jobs → {n_chunks} chunks of <= {chunk_size}", flush=True)
+
+    for chunk_idx in range(n_chunks):
+        start = chunk_idx * chunk_size
+        end = min(start + chunk_size, len(jobs))
+        print(f"[eval_runner] chunk {chunk_idx + 1}/{n_chunks}: jobs {start}..{end - 1}", flush=True)
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+            json.dump({"jobs": jobs[start:end]}, tmp)
+            chunk_path = Path(tmp.name)
+        # Appended ``--eval_jobs_config`` overrides the one in sys.argv (argparse keeps
+        # the last). Forwarded ``--chunk_size`` is inert in the child (jobs <= chunk_size).
+        try:
+            result = subprocess.run(
+                [sys.executable, sys.argv[0], *sys.argv[1:], "--eval_jobs_config", str(chunk_path)],
+                check=False,
+            )
+        finally:
+            chunk_path.unlink(missing_ok=True)
+        if result.returncode != 0:
+            print(f"[eval_runner] chunk {chunk_idx} failed (exit {result.returncode}).", flush=True)
+            sys.exit(result.returncode)
+
+
 def main():
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli, unknown = args_parser.parse_known_args()
@@ -140,6 +174,13 @@ def main():
 
     with open(args_cli.eval_jobs_config, encoding="utf-8") as f:
         eval_jobs_config = json.load(f)
+
+    # Chunked dispatch (--chunk_size N). Splits this config across subprocesses so each
+    # gets a fresh SimulationApp. Required for long sweeps to reclaim residual host-RSS
+    # leaks the in-process teardown can't release.
+    if args_cli.chunk_size is not None and len(eval_jobs_config["jobs"]) > args_cli.chunk_size:
+        _run_in_chunks(args_cli, eval_jobs_config)
+        return
 
     # Check if any job requires cameras and enable them if needed before starting simulation
     enable_cameras_if_required(eval_jobs_config, args_cli)
