@@ -72,11 +72,7 @@ class ArenaEnvGraphSpec:
 
     @staticmethod
     def _load_yaml_dict(path: str | Path) -> dict[str, Any]:
-        """Load a graph YAML into a dict, asserting the path exists with a clear message.
-
-        Centralizes the file read so a missing ``--env_graph_spec_yaml`` fails here with an
-        attributable error instead of an opaque ``FileNotFoundError`` from ``open``.
-        """
+        """Load a graph YAML into a dict. Fail with a clear message if the file is missing."""
         path = Path(path)
         assert path.is_file(), f"Env graph spec YAML not found: {path}"
         with path.open("r", encoding="utf-8") as f:
@@ -105,12 +101,10 @@ class ArenaEnvGraphSpec:
 
     @staticmethod
     def read_cli_override_specs(path: str | Path) -> list[ArenaEnvGraphCliOverrideSpec]:
-        """Read only the ``cli_overrides`` section of a graph YAML, without building the graph.
+        """Read just the ``cli_overrides`` section of a graph YAML, skipping the rest.
 
-        CLI flags must be registered on the parser before args are parsed, which happens before
-        ``SimulationApp`` starts; a full ``from_yaml`` would run ``validate()``, transitively
-        importing ``pxr`` (relation-class resolution) too early. This skips graph construction
-        and validation entirely, touching only the override declarations.
+        The CLI flags need to be registered before the simulator starts. Loading the full
+        graph would import ``pxr`` too early, so this only reads the override entries.
         """
         return parse_list(ArenaEnvGraphSpec._load_yaml_dict(path), "cli_overrides", parse_cli_override)
 
@@ -122,11 +116,10 @@ class ArenaEnvGraphSpec:
         assert_cli_overrides_reference_nodes(self.nodes, self.cli_overrides)
 
     def apply_cli_overrides(self, args_cli: "argparse.Namespace") -> None:
-        """Swap target-node asset names from parsed CLI args, in place.
+        """Apply the CLI override flags to this graph, in place.
 
-        Reads each declared override (see :class:`ArenaEnvGraphCliOverrideSpec`) from the
-        namespace and replaces its target node's ``name``. A flag left at its default of
-        ``None`` leaves that node as authored, so this is a no-op for an untouched graph.
+        For each override, set the target node's asset ``name`` to the value passed on the
+        command line. Flags left unset are skipped, so an untouched graph stays the same.
         """
         nodes_by_id = self.nodes_by_id
         for override in self.cli_overrides:

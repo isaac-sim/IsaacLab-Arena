@@ -129,10 +129,9 @@ class ArenaEnvGraphStateSpec:
 
 @dataclass
 class ArenaEnvGraphCliOverrideSpec:
-    """Set of override fields on a CLI parser defined in a graph spec YAML.
+    """One CLI flag that swaps a graph node's asset, declared in the graph YAML.
 
-    The graph declares which knobs are tunable from the CLI. One graph
-    YAML serves many object/embodiment variants without edits.
+    Lets one graph YAML serve many variants without editing it.
     """
 
     arg: str  # flag name without leading dashes; "object" -> --object
@@ -142,7 +141,7 @@ class ArenaEnvGraphCliOverrideSpec:
 
     @property
     def dest(self) -> str:
-        """argparse namespace attribute for this flag (mirrors argparse's dash-to-underscore)."""
+        """The argparse attribute name for this flag (dashes become underscores)."""
         return self.arg.replace("-", "_")
 
 

@@ -190,7 +190,7 @@ def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
 
 
 def assert_cli_overrides_reference_nodes(nodes: list[Any], cli_overrides: list[ArenaEnvGraphCliOverrideSpec]) -> None:
-    """Ensure each declared CLI override binds a unique flag to an existing node."""
+    """Check each CLI override uses a unique flag and points to a real node."""
     node_ids = {node.id for node in nodes}
     seen_args: set[str] = set()
     for override in cli_overrides:
@@ -202,7 +202,7 @@ def assert_cli_overrides_reference_nodes(nodes: list[Any], cli_overrides: list[A
 
 
 def parse_cli_override(data: Any) -> ArenaEnvGraphCliOverrideSpec:
-    """Parse a single ``cli_overrides`` YAML entry into a typed spec."""
+    """Parse one entry from the YAML ``cli_overrides`` list."""
     data = as_dict(data, "CLI override spec")
     return ArenaEnvGraphCliOverrideSpec(
         arg=required_str(data, "arg"),
@@ -215,7 +215,7 @@ def parse_cli_override(data: Any) -> ArenaEnvGraphCliOverrideSpec:
 def add_cli_override_args(
     parser: "argparse.ArgumentParser", override_specs: list[ArenaEnvGraphCliOverrideSpec]
 ) -> None:
-    """Register a graph's declared override flags onto a CLI ``parser``."""
+    """Add each declared override to the CLI ``parser`` as a ``--flag``."""
     for override in override_specs:
         parser.add_argument(
             f"--{override.arg}",
