@@ -125,12 +125,14 @@ class ArenaEnvBuilder:
             self.arena_env.scene.get_events_cfg(),
             task.get_events_cfg(),
             placement_event_cfg,
+            task.get_fine_grained_subtask_events_cfg(),
         )
         termination_cfg = combine_configclass_instances(
             "TerminationCfg",
             task.get_termination_cfg(),
             self.arena_env.scene.get_termination_cfg(),
             embodiment.get_termination_cfg(),
+            task.get_fine_grained_subtask_termination_cfg(),
         )
         actions_cfg = embodiment.get_action_cfg()
         xr_cfg = embodiment.get_xr_cfg()

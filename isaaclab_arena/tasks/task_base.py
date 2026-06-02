@@ -11,6 +11,11 @@ from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
+from isaaclab_arena.tasks.fine_grained_state_machine import (
+    make_fine_grained_subtask_events_cfg,
+    make_fine_grained_subtask_termination_cfg,
+)
+from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
 
 class TaskBase(ABC):
@@ -62,3 +67,25 @@ class TaskBase(ABC):
 
     def get_task_description(self) -> str | None:
         return self.task_description
+
+    def get_fine_grained_subtasks(self) -> list[FineGrainedSubtask]:
+        """Return per-step fine-grained subtasks the state machine should track. Default: none.
+
+        Override in subclasses to opt in to fine-grained subtask tracking. When
+        the returned list is non-empty, the env builder will automatically
+        register a reset event and a per-step termination term that tick the
+        state machine and publish ``env.extras["fine_grained_subtask"]``.
+        """
+        return []
+
+    def get_fine_grained_subtask_events_cfg(self) -> Any:
+        fine_grained_subtasks = self.get_fine_grained_subtasks()
+        if not fine_grained_subtasks:
+            return None
+        return make_fine_grained_subtask_events_cfg(fine_grained_subtasks)
+
+    def get_fine_grained_subtask_termination_cfg(self) -> Any:
+        fine_grained_subtasks = self.get_fine_grained_subtasks()
+        if not fine_grained_subtasks:
+            return None
+        return make_fine_grained_subtask_termination_cfg(fine_grained_subtasks)
