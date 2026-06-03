@@ -76,6 +76,16 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
             " layout."
         ),
     )
+    arena_group.add_argument(
+        "--random_yaw_init",
+        action="store_true",
+        default=False,
+        help=(
+            "Randomly rotate objects (except anchors) around the Z-axis for scene variety. "
+            "Collisions use a larger enclosing box; the solver won't optimize this rotation. "
+            "Only affects objects positioned by the placement solver; manually-placed objects are unaffected."
+        ),
+    )
 
 
 def add_env_graph_spec_cli_args(parser: argparse.ArgumentParser) -> None:
@@ -91,16 +101,6 @@ def add_env_graph_spec_cli_args(parser: argparse.ArgumentParser) -> None:
             "Path to an environment graph spec YAML. When set, the environment is built from the graph spec instead of"
             " a registered example-environment name; the env-name subcommand then becomes optional. Any override flags"
             " the YAML declares under `cli_override_specs` are added to the parser dynamically."
-        ),
-    )
-    env_graph_spec_group.add_argument(
-        "--random_yaw_init",
-        action="store_true",
-        default=False,
-        help=(
-            "Randomly rotate objects (except anchors) around the Z-axis for scene variety. "
-            "Collisions use a larger enclosing box; the solver won't optimize this rotation. "
-            "Only affects objects positioned by the placement solver; manually-placed objects are unaffected."
         ),
     )
 

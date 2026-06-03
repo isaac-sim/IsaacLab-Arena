@@ -219,7 +219,7 @@ def add_cli_override_args(
         # _option_string_actions maps every registered option string ('--num_envs') to its action
         assert flag not in parser._option_string_actions, (  # noqa: SLF001 (introspect registered flags)
             f"CLI override flag '{flag}' (node '{override.target_node_id}') is already a parser flag "
-            f"(e.g. --num_envs/--seed or an AppLauncher flag); rename its 'arg' in the YAML."
+            "(e.g. --num_envs/--seed or an AppLauncher flag); rename its 'arg' in the YAML."
         )
         parser.add_argument(
             flag,
