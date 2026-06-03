@@ -265,7 +265,9 @@ class FineGrainedSubtaskTrackingStateMachine:
         return [list(e) for e in self._events]
 
 
-def _ensure_state_machine(env, fine_grained_subtasks: list[FineGrainedSubtask]) -> FineGrainedSubtaskTrackingStateMachine:
+def _ensure_state_machine(
+    env, fine_grained_subtasks: list[FineGrainedSubtask]
+) -> FineGrainedSubtaskTrackingStateMachine:
     """Return the env's FineGrainedSubtaskTrackingStateMachine, lazily creating and caching it on first call."""
 
     sm: FineGrainedSubtaskTrackingStateMachine | None = getattr(env, _STATE_MACHINE_ATTR, None)
