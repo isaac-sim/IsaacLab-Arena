@@ -91,7 +91,7 @@ def _instantiate_assets_from_nodes(node_specs: list[ArenaEnvGraphNodeSpec], asse
     """Return ``{node.id: live_asset}`` after a single pass over ``node_specs``.
 
     Each ``node_spec.params`` is forwarded verbatim to the asset constructor. Assumes parent
-    nodes precede their OBJECT_REFERENCE children — guaranteed by ``assert_references_exist``.
+    nodes precede their OBJECT_REFERENCE children — guaranteed by graph-spec reference validation.
     """
     assets_by_node_id: dict[str, Any] = {}
     for node_spec in node_specs:

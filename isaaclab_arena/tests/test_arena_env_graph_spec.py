@@ -6,6 +6,7 @@
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
@@ -99,15 +100,7 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
 
 
 def test_registered_relations_match_spatial_constraint_enum():
-    """Registered relations and the spatial-constraint enum must stay in one-to-one sync.
-
-    Each registered RelationBase subclass is keyed by its `name`, which must equal the
-    `value` of a ArenaEnvGraphSpatialConstraintType member (so spec lookups resolve), and
-    every solver-backed enum member must have a relation. AT_POSE and IN are excluded —
-    see _RELATIONLESS_CONSTRAINT_TYPES. This guards against adding one side without the
-    other.
-    """
-    # Importing the module ran the @register_object_relation decorators at file top.
+    """Registered relations and the spatial-constraint enum must stay in one-to-one sync."""
     registered_names = set(ObjectRelationLibraryRegistry().get_all_keys())
     enum_values = {
         constraint.value
@@ -143,7 +136,7 @@ def test_arena_env_graph_spec_validate_rejects_mutated_missing_reference():
     spec = ArenaEnvGraphSpec.from_dict(_minimal_env_graph_data())
     spec.state_specs[0].spatial_constraints[0].parent = "missing_table"
 
-    with pytest.raises(AssertionError, match="unknown parent node 'missing_table'"):
+    with pytest.raises(ValueError, match="unknown parent node 'missing_table'"):
         spec.validate()
 
 
@@ -152,8 +145,13 @@ def test_arena_env_graph_spec_validate_rejects_mutated_invalid_relationship_shap
     constraint = spec.state_specs[0].spatial_constraints[0]
     constraint.type = ArenaEnvGraphSpatialConstraintType.ON
 
-    with pytest.raises(AssertionError, match="requires a child node"):
+    with pytest.raises(ValueError, match="requires a child node"):
         spec.validate()
+
+
+def test_from_yaml_rejects_missing_path_with_clear_message():
+    with pytest.raises(ValueError, match="Env graph spec YAML not found"):
+        ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "does_not_exist.yaml")
 
 
 def test_arena_env_graph_spec_rejects_invalid_data():
@@ -181,7 +179,7 @@ def test_arena_env_graph_spec_rejects_invalid_data():
         (
             "missing required task state spec id",
             lambda data: data["tasks"][0].pop("success_state_spec_id"),
-            "Missing required string field 'success_state_spec_id'",
+            "success_state_spec_id",
         ),
         (
             "old task state map",
@@ -201,7 +199,7 @@ def test_arena_env_graph_spec_rejects_invalid_data():
         (
             "missing spatial parent",
             lambda data: data["state_specs"][0]["spatial_constraints"][0].pop("parent"),
-            "Missing required string field 'parent'",
+            "parent",
         ),
         (
             "relationship missing child",
@@ -226,44 +224,44 @@ def test_arena_env_graph_spec_rejects_invalid_data():
         (
             "unknown object type",
             lambda data: data["nodes"][2].__setitem__("object_type", "unknown"),
-            "Unknown object_type 'unknown'",
+            "object_type",
         ),
         (
             "object_reference missing parent",
             lambda data: data["nodes"][2].pop("parent"),
-            "Missing required string field 'parent'",
+            "parent",
         ),
         (
             "object_reference missing prim_path",
             lambda data: data["nodes"][2].pop("prim_path"),
-            "Missing required string field 'prim_path'",
+            "prim_path",
         ),
         (
             "object_reference missing object_type",
             lambda data: data["nodes"][2].pop("object_type"),
-            "Missing required field 'object_type'",
+            "object_type",
         ),
         (
             "unknown node type",
             lambda data: data["nodes"][0].__setitem__("type", "unknown"),
-            "Unknown type 'unknown'",
+            "type",
         ),
         (
             "unknown spatial constraint type",
             lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("type", "unknown"),
-            "Unknown type 'unknown'",
+            "type",
         ),
         (
             "unknown task constraint type",
             lambda data: data["state_specs"][0]["task_constraints"][0].__setitem__("type", "unknown"),
-            "Unknown type 'unknown'",
+            "type",
         ),
         (
             "invalid at_pose position",
             lambda data: data["state_specs"][0]["spatial_constraints"].append(
                 _at_pose_constraint(position_xyz=[0.1, 0.2])
             ),
-            "Field 'position_xyz' must contain 3 numbers",
+            "position_xyz",
         ),
     ]
 
@@ -271,12 +269,9 @@ def test_arena_env_graph_spec_rejects_invalid_data():
         data = _minimal_env_graph_data()
         mutate(data)
 
-        try:
+        with pytest.raises(ValidationError) as exc_info:
             ArenaEnvGraphSpec.from_dict(data)
-        except AssertionError as exc:
-            assert error_match in str(exc), label
-        else:
-            raise AssertionError(f"{label}: expected AssertionError")
+        assert error_match in str(exc_info.value), label
 
 
 def _minimal_env_graph_data():
@@ -285,8 +280,6 @@ def _minimal_env_graph_data():
         "nodes": [
             {"id": "robot", "name": "robot", "type": "embodiment"},
             {"id": "background", "name": "background", "type": "background"},
-            # Kept at index 2 (after its parent at index 1) so the bad-data mutation lambdas
-            # below can address it, and so the order satisfies the upstream ordering contract.
             {
                 "id": "table",
                 "name": "table",
