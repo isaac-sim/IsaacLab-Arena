@@ -30,6 +30,8 @@ class ArenaEnvGraphNodeType(Enum):
     LIGHTING = "lighting"
 
 
+# ``_coerce_graph_node`` runs before per-field coercion, so ``type`` may still be the
+# YAML string ``"object_reference"`` or already an ``ArenaEnvGraphNodeType`` member.
 _OBJECT_REFERENCE_VALUES = frozenset({
     ArenaEnvGraphNodeType.OBJECT_REFERENCE,
     ArenaEnvGraphNodeType.OBJECT_REFERENCE.value,
@@ -102,7 +104,10 @@ class ArenaEnvGraphSpatialConstraintSpec(BaseModel):
     id: str = Field(min_length=1)
     type: ArenaEnvGraphSpatialConstraintType
     parent: str = Field(min_length=1)
-    child: str | None = None
+    child: str | None = None  # Optional, e.g. is_anchor constraint does not have a child
+    # Type-specific optional kwargs for the underlying RelationBase subclass selected by `type`
+    # (e.g. {x_min, x_max, y_min, y_max} for position_limits; {side, distance} for next_to etc.).
+    # The Arena environment builder forwards these when constructing the Relation instance.
     params: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("params", mode="after")

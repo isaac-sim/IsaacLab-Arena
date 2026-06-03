@@ -137,6 +137,12 @@ class ArenaEnvGraphSpec(BaseModel):
 
         The first ``state_spec`` is used as the scene's initial state.
         """
+        # Lazy import: build_arena_env_from_graph_spec pulls in Scene -> phyx_utils ->
+        # pxr.PhysxSchema, which requires SimulationApp. Keeping the import here lets
+        # data-only consumers of the spec (parsers, tests) import this module before
+        # SimulationApp is started.
+        # TODO(xinjieyao, 2026-05-26): once `build_arena_env_from_graph_spec` aggregates across all state_specs,
+        # this wrapper stays single-arg — no caller-side selection is needed.
         from isaaclab_arena.environments.arena_env_graph_conversion_utils import build_arena_env_from_graph_spec
 
         return build_arena_env_from_graph_spec(self)
