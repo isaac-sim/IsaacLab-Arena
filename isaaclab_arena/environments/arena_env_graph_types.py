@@ -19,7 +19,7 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
+from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.environments.graph_spec_utils import coerce_number_sequence
 
 
@@ -52,6 +52,7 @@ def parse_graph_node(data: Any) -> Any:
     return data
 
 
+# TODO(qianl): remove this enum and check against relation registry for task constraints
 class ArenaEnvGraphTaskConstraintType(Enum):
     REACH = "reach"
 
@@ -143,3 +144,12 @@ class ArenaEnvGraphTaskSpec(BaseModel):
     initial_state_spec_id: str = Field(min_length=1)
     success_state_spec_id: str = Field(min_length=1)
     task_args: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("type")
+    @classmethod
+    def _validate_registered_task_type(cls, value: str) -> str:
+        registry = TaskRegistry()
+        if not registry.is_registered(value):
+            valid_values = sorted(registry.get_all_keys())
+            raise ValueError(f"Unknown task type '{value}'. Expected one of {valid_values}")
+        return value

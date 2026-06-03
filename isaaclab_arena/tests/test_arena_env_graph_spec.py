@@ -9,6 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.assets.registries import TaskRegistry
 from isaaclab_arena.environments.arena_env_graph_spec import (
     ArenaEnvGraphNodeType,
     ArenaEnvGraphObjectReferenceNodeSpec,
@@ -40,12 +41,15 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
     assert mug.type == ArenaEnvGraphNodeType.OBJECT
 
     task = spec.tasks_by_id["pick_and_place_0"]
+    assert task.type == "PickAndPlaceTask"
+    assert TaskRegistry().is_registered(task.type)
     assert task.initial_state_spec_id == "state_spec_0"
     assert task.success_state_spec_id == "state_spec_1"
     assert task.task_args["pick_up_object"] == "rubiks_cube_hot3d_robolab"
     assert task.task_args["destination_location"] == "bowl_ycb_robolab"
 
     second_task = spec.tasks_by_id["pick_and_place_1"]
+    assert second_task.type == "PickAndPlaceTask"
     assert second_task.initial_state_spec_id == "state_spec_1"
     assert second_task.success_state_spec_id == "state_spec_2"
     assert second_task.task_args["pick_up_object"] == "mug_ycb_robolab"
@@ -91,6 +95,7 @@ def test_arena_env_graph_spec_parses_optional_task_constraints_and_at_position()
     del data["state_specs"][0]["task_constraints"]
 
     spec = ArenaEnvGraphSpec.from_dict(data)
+    assert spec.tasks_by_id["task_0"].type == "PickAndPlaceTask"
     state_spec = spec.state_specs_by_id["state_0"]
     fixed_position = state_spec.spatial_constraints[0]
 
@@ -200,6 +205,11 @@ def test_arena_env_graph_spec_rejects_invalid_data():
             "type",
         ),
         (
+            "unknown task type",
+            lambda data: data["tasks"][0].__setitem__("type", "UnknownTask"),
+            "Unknown task type 'UnknownTask'",
+        ),
+        (
             "unknown spatial constraint type",
             lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("type", "unknown"),
             "Unknown spatial constraint type 'unknown'",
@@ -238,7 +248,7 @@ def _minimal_env_graph_data():
         ],
         "tasks": [{
             "id": "task_0",
-            "type": "pick_and_place",
+            "type": "PickAndPlaceTask",
             "initial_state_spec_id": "state_0",
             "success_state_spec_id": "state_0",
         }],
