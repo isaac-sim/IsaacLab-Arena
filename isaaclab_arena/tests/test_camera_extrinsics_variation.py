@@ -28,8 +28,9 @@ def get_test_environment(*, camera_extrinsics_enabled: bool):
     embodiment = FrankaIKEmbodiment(enable_cameras=ENABLE_CAMERAS)
     if camera_extrinsics_enabled:
         sampler_cfg = UniformSamplerCfg(low=TEST_DECALIBRATION_VECTOR, high=TEST_DECALIBRATION_VECTOR)
-        embodiment.get_variation("camera_extrinsics").apply_cfg(CameraExtrinsicsVariationCfg(sampler_cfg=sampler_cfg))
-        embodiment.get_variation("camera_extrinsics").enable()
+        variation_name = f"camera_extrinsics_{CAMERA_NAME}"
+        embodiment.get_variation(variation_name).apply_cfg(CameraExtrinsicsVariationCfg(sampler_cfg=sampler_cfg))
+        embodiment.get_variation(variation_name).enable()
 
     return IsaacLabArenaEnvironment(
         name="test_camera_extrinsics_variations",

@@ -39,15 +39,16 @@ class _CustomVariationCfg(VariationBaseCfg):
     """Arbitrary tunable factor exposed through the cfg."""
 
 
+_CUSTOM_VARIATION_NAME = "test_custom_variation"
+
+
 class _CustomVariation(RunTimeVariationBase):
     """Minimal run-time variation used to exercise ``VariationBase`` plumbing."""
 
-    name = "test_custom_variation"
-
     cfg: _CustomVariationCfg
 
-    def __init__(self, cfg: _CustomVariationCfg | None = None):
-        super().__init__(cfg=cfg if cfg is not None else _CustomVariationCfg())
+    def __init__(self, cfg: _CustomVariationCfg | None = None, name: str = _CUSTOM_VARIATION_NAME):
+        super().__init__(cfg=cfg if cfg is not None else _CustomVariationCfg(), name=name)
 
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
         return (
@@ -64,6 +65,7 @@ def test_default_cfg_populates_variation_state():
     variation = _CustomVariation()
 
     assert isinstance(variation, RunTimeVariationBase)
+    assert variation.name == _CUSTOM_VARIATION_NAME
     assert isinstance(variation.cfg, _CustomVariationCfg)
     assert variation.cfg.asset_name == "test_asset"
     assert variation.cfg.scale == 1.0
@@ -157,7 +159,7 @@ def test_build_event_cfg_uses_configured_asset_name():
 
     event_name, event_cfg = variation.build_event_cfg()
 
-    assert event_name == f"cube_{_CustomVariation.name}"
+    assert event_name == f"cube_{_CUSTOM_VARIATION_NAME}"
     assert event_cfg.func is _noop_event
     assert event_cfg.mode == "reset"
     assert event_cfg.params["asset_cfg"].name == "cube"
@@ -169,3 +171,18 @@ def test_add_variation_raises_error_if_variation_name_is_already_attached():
     asset.add_variation(variation)
     with pytest.raises(AssertionError):
         asset.add_variation(variation)
+
+
+def test_two_variations_of_same_kind_coexist_when_given_distinct_names():
+    """Two instances of the same variation class can attach to one asset when each
+    is constructed with a distinct ``name`` override."""
+    asset = Asset(name="test_asset")
+    variation_a = _CustomVariation(name=f"{_CUSTOM_VARIATION_NAME}_a")
+    variation_b = _CustomVariation(name=f"{_CUSTOM_VARIATION_NAME}_b")
+
+    asset.add_variation(variation_a)
+    asset.add_variation(variation_b)
+
+    assert asset.get_variation(variation_a.name) is variation_a
+    assert asset.get_variation(variation_b.name) is variation_b
+    assert set(asset.variations) == {variation_a.name, variation_b.name}

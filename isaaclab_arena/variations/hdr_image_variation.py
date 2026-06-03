@@ -42,9 +42,9 @@ class HDRImageVariation(BuildTimeVariationBase):
             mutates this instance.
         cfg: Tunable parameters. Defaults to sampling over every registered HDR.
             Override the categorical distribution via ``cfg.sampler_cfg``.
+        name: Identifier under which this variation is registered on the asset.
+            Defaults to ``"hdr_image"``.
     """
-
-    name = "hdr_image"
 
     cfg: HDRImageVariationCfg
 
@@ -52,8 +52,9 @@ class HDRImageVariation(BuildTimeVariationBase):
         self,
         light: DomeLight,
         cfg: HDRImageVariationCfg | None = None,
+        name: str = "hdr_image",
     ):
-        super().__init__(cfg=cfg if cfg is not None else HDRImageVariationCfg())
+        super().__init__(cfg=cfg if cfg is not None else HDRImageVariationCfg(), name=name)
         self._light = light
 
     def apply(self) -> None:

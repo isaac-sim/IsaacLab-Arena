@@ -47,7 +47,7 @@ isaaclab_arena_environment = IsaacLabArenaEnvironment(
 )
 
 dome_light.get_variation("hdr_image").enable()
-franka.get_variation("camera_extrinsics").enable()
+franka.get_variation("camera_extrinsics_wrist_cam").enable()
 
 env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
 env = env_builder.make_registered()

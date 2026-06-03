@@ -34,12 +34,10 @@ class TestRunTimeVariationCfg(VariationBaseCfg):
 class TestRunTimeVariation(RunTimeVariationBase):
     __test__ = False
 
-    name = "test_runtime"
-
     cfg: TestRunTimeVariationCfg
 
-    def __init__(self, asset_name: str, cfg: TestRunTimeVariationCfg | None = None):
-        super().__init__(cfg=cfg if cfg is not None else TestRunTimeVariationCfg())
+    def __init__(self, asset_name: str, cfg: TestRunTimeVariationCfg | None = None, name: str = "test_runtime"):
+        super().__init__(cfg=cfg if cfg is not None else TestRunTimeVariationCfg(), name=name)
         self.asset_name = asset_name
 
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:

@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import field
-from typing import ClassVar
 
 from isaaclab.managers import EventTermCfg
 from isaaclab.utils import configclass
@@ -47,13 +46,14 @@ class VariationBase(ABC):
 
     """
 
-    #: Short, unique identifier for this variation kind (e.g. ``"color"``).
-    name: ClassVar[str]
-
-    #: The configclass instance holding this variation's tunable parameters.
     cfg: VariationBaseCfg
+    """The configclass instance holding this variation's tunable parameters."""
 
-    def __init__(self, cfg: VariationBaseCfg):
+    name: str
+    """Identifier under which this variation is registered on its asset."""
+
+    def __init__(self, cfg: VariationBaseCfg, name: str):
+        self.name = name
         self._sampler: SamplerBase | None = None
         self.apply_cfg(cfg)
 
