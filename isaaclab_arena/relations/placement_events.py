@@ -12,7 +12,7 @@ from isaaclab.envs import ManagerBasedEnv
 
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.pose import Pose, rotate_quat_by_yaw
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
@@ -61,7 +61,7 @@ def solve_and_place_objects(
         results_by_env = dict(zip(reset_env_ids, reset_results))
 
     anchor_objects_set = set(get_anchor_objects(objects))
-    rotations = {obj: get_rotation_xyzw(obj) for obj in objects if obj not in anchor_objects_set}
+    base_rotations = {obj: get_rotation_xyzw(obj) for obj in objects if obj not in anchor_objects_set}
 
     zero_velocity = torch.zeros(1, 6, device=env.device)
     for cur_env in reset_env_ids:
@@ -72,12 +72,12 @@ def solve_and_place_objects(
                 "Warning: Writing best-loss fallback placement for "
                 f"env {cur_env}; layout failed strict placement validation."
             )
-        positions = result.positions
-        for obj, pos in positions.items():
+        for obj, pos in result.positions.items():
             if obj in anchor_objects_set:
                 continue
             asset = env.scene[obj.name]
-            pose = Pose(position_xyz=pos, rotation_xyzw=rotations[obj])
+            rotation_xyzw = rotate_quat_by_yaw(base_rotations[obj], result.orientations.get(obj, 0.0))
+            pose = Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw)
             pose_t_xyz_q_xyzw = pose.to_tensor(device=env.device).unsqueeze(0)
             pose_t_xyz_q_xyzw[0, :3] += env.scene.env_origins[cur_env, :]
             asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_id_tensor)

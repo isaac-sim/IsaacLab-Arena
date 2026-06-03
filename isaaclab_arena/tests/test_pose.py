@@ -3,7 +3,31 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from isaaclab_arena.utils.pose import Pose, PosePerEnv
+import math
+
+from isaaclab_arena.utils.pose import Pose, PosePerEnv, rotate_quat_by_yaw, wrap_angle_to_pi
+
+
+def _yaw_of(quat_xyzw: tuple[float, float, float, float]) -> float:
+    return 2.0 * math.atan2(quat_xyzw[2], quat_xyzw[3])
+
+
+def test_rotate_quat_by_yaw_about_identity():
+    """Yawing the identity gives a pure-Z quaternion with that yaw."""
+    q = rotate_quat_by_yaw((0.0, 0.0, 0.0, 1.0), math.pi / 2)
+    assert abs(q[0]) < 1e-6 and abs(q[1]) < 1e-6
+    assert abs(wrap_angle_to_pi(_yaw_of(q) - math.pi / 2)) < 1e-6
+
+
+def test_rotate_quat_by_yaw_composes_and_wraps():
+    """Yaw composes additively about Z, and out-of-range angles wrap to [-pi, pi)."""
+    base = rotate_quat_by_yaw((0.0, 0.0, 0.0, 1.0), math.pi / 6)
+    composed = rotate_quat_by_yaw(base, math.pi / 3)
+    assert abs(wrap_angle_to_pi(_yaw_of(composed) - math.pi / 2)) < 1e-6
+
+    # yaw == 0 (and full turns) return the base unchanged.
+    assert rotate_quat_by_yaw(base, 0.0) == base
+    assert rotate_quat_by_yaw(base, 2.0 * math.pi) == base
 
 
 def test_pose_composition():

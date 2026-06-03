@@ -156,6 +156,11 @@ def test_arena_env_graph_spec_validate_rejects_mutated_invalid_relationship_shap
         spec.validate()
 
 
+def test_from_yaml_rejects_missing_path_with_clear_message():
+    with pytest.raises(AssertionError, match="Env graph spec YAML not found"):
+        ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "does_not_exist.yaml")
+
+
 def test_arena_env_graph_spec_rejects_invalid_data():
     cases = [
         (
