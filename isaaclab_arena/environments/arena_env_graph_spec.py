@@ -3,10 +3,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import yaml
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from pydantic import BaseModel, ConfigDict, Field
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environments.arena_env_graph_types import (
@@ -52,16 +55,18 @@ __all__ = [
 ]
 
 
-@dataclass
-class ArenaEnvGraphSpec:
+class ArenaEnvGraphSpec(BaseModel):
     """Typed representation of an environment graph YAML file.
+
     It defines the nodes, tasks, and state specs of the environment graph.
     """
 
+    model_config = ConfigDict(extra="ignore")
+
     env_name: str
-    nodes: list[ArenaEnvGraphNodeSpec] = field(default_factory=list)
-    tasks: list[ArenaEnvGraphTaskSpec] = field(default_factory=list)
-    state_specs: list[ArenaEnvGraphStateSpec] = field(default_factory=list)
+    nodes: list[ArenaEnvGraphNodeSpec] = Field(default_factory=list)
+    tasks: list[ArenaEnvGraphTaskSpec] = Field(default_factory=list)
+    state_specs: list[ArenaEnvGraphStateSpec] = Field(default_factory=list)
 
     @staticmethod
     def _load_yaml_dict(path: str | Path) -> dict[str, Any]:
@@ -76,11 +81,11 @@ class ArenaEnvGraphSpec:
             return as_dict(yaml.safe_load(f), "Env graph spec")
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> "ArenaEnvGraphSpec":
+    def from_yaml(cls, path: str | Path) -> ArenaEnvGraphSpec:
         return cls.from_dict(cls._load_yaml_dict(path))
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ArenaEnvGraphSpec":
+    def from_dict(cls, data: dict[str, Any]) -> ArenaEnvGraphSpec:
         data = as_dict(data, "Env graph spec")
         nodes = parse_list(data, "nodes", _parse_node)
         tasks = parse_list(data, "tasks", _parse_task)
@@ -101,6 +106,21 @@ class ArenaEnvGraphSpec:
         assert_references_exist(self.nodes, self.tasks, self.state_specs)
         assert_spatial_constraint_shapes(self.state_specs)
 
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to the plain YAML mapping — the inverse of ``from_dict``."""
+        return {
+            "env_name": self.env_name,
+            "nodes": [_node_to_dict(node) for node in self.nodes],
+            "tasks": [_task_to_dict(task) for task in self.tasks],
+            "state_specs": [_state_spec_to_dict(state) for state in self.state_specs],
+        }
+
+    def write_yaml(self, path: str | Path) -> None:
+        """Validate this spec and write it to ``path`` as YAML."""
+        self.validate()
+        with Path(path).open("w", encoding="utf-8") as f:
+            yaml.safe_dump(self.to_dict(), f, sort_keys=False)
+
     @property
     def nodes_by_id(self) -> dict[str, ArenaEnvGraphNodeSpec]:
         return {node.id: node for node in self.nodes}
@@ -113,7 +133,7 @@ class ArenaEnvGraphSpec:
     def state_specs_by_id(self) -> dict[str, ArenaEnvGraphStateSpec]:
         return {state_spec.id: state_spec for state_spec in self.state_specs}
 
-    def to_arena_env(self) -> "IsaacLabArenaEnvironment":
+    def to_arena_env(self) -> IsaacLabArenaEnvironment:
         """Convert this graph spec into an `IsaacLabArenaEnvironment`.
 
         The first ``state_spec`` is used as the scene's initial state.
@@ -199,3 +219,52 @@ def _parse_task(data: Any) -> ArenaEnvGraphTaskSpec:
         success_state_spec_id=required_str(data, "success_state_spec_id"),
         task_args=optional_dict(data, "task_args"),
     )
+
+
+def _yaml_safe(value: Any) -> Any:
+    """Coerce parsed values into YAML-dumpable primitives (tuples -> lists, recursively)."""
+    if isinstance(value, (list, tuple)):
+        return [_yaml_safe(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _yaml_safe(item) for key, item in value.items()}
+    return value
+
+
+def _node_to_dict(node: ArenaEnvGraphNodeSpec) -> dict[str, Any]:
+    data: dict[str, Any] = {"id": node.id, "name": node.name, "type": node.type.value}
+    if isinstance(node, ArenaEnvGraphObjectReferenceNodeSpec):
+        data["parent"] = node.parent
+        data["prim_path"] = node.prim_path
+        data["object_type"] = node.object_type.value
+    if node.params:
+        data["params"] = _yaml_safe(node.params)
+    return data
+
+
+def _task_to_dict(task: ArenaEnvGraphTaskSpec) -> dict[str, Any]:
+    return {
+        "id": task.id,
+        "type": task.type,
+        "initial_state_spec_id": task.initial_state_spec_id,
+        "success_state_spec_id": task.success_state_spec_id,
+        "task_args": _yaml_safe(task.task_args),
+    }
+
+
+def _state_spec_to_dict(state: ArenaEnvGraphStateSpec) -> dict[str, Any]:
+    return {
+        "id": state.id,
+        "spatial_constraints": [_constraint_to_dict(c) for c in state.spatial_constraints],
+        "task_constraints": [_constraint_to_dict(c) for c in state.task_constraints],
+    }
+
+
+def _constraint_to_dict(
+    constraint: ArenaEnvGraphSpatialConstraintSpec | ArenaEnvGraphTaskConstraintSpec,
+) -> dict[str, Any]:
+    data: dict[str, Any] = {"id": constraint.id, "type": constraint.type.value, "parent": constraint.parent}
+    if constraint.child is not None:
+        data["child"] = constraint.child
+    if constraint.params:
+        data["params"] = _yaml_safe(constraint.params)
+    return data
