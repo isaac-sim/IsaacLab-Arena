@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import random
 import torch
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
@@ -14,6 +13,7 @@ from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_obje
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
+from isaaclab_arena.utils.random import get_rngs
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
@@ -67,8 +67,8 @@ class PooledObjectPlacer:
     * sample_for_envs(env_ids) consumes one layout for each requested
       absolute env id (used for partial resets).
     * sample_with_replacement(count) is non-consuming. Env-specific layouts
-      are sampled from matching env slots; reusable layouts are sampled IID from
-      all stored layouts.
+      are sampled from matching env slots; reusable layouts stay marginally
+      uniform over all stored layouts.
 
     Args:
         objects: All objects (including anchors) participating in relation solving.
@@ -101,6 +101,9 @@ class PooledObjectPlacer:
         self._had_fallbacks = False
         self._base_placement_seed = placer_params.placement_seed
         self._next_seed_offset = 0
+        # Per-env sampling RNG keyed by (placement_seed, env_id): env i's draws are reproducible
+        # and independent of other envs.
+        self._env_rngs = get_rngs(self._num_envs, placer_params.placement_seed)
         self._env_pools: list[EnvLayoutPool] = [EnvLayoutPool([]) for _ in range(self._num_envs)]
 
         self._solve_and_store(pool_size)
@@ -398,20 +401,32 @@ class PooledObjectPlacer:
         """Pick count layouts at random with replacement (non-consuming).
 
         For env-specific layouts, slot i picks from env i % num_envs's pool
-        so each result matches its absolute env. For reusable layouts, draws
-        are uniform IID from the full pool.
+        so each result matches its absolute env. For reusable layouts, each
+        slot stays marginally uniform over the full pool; the per-env RNGs only
+        fix which stream a slot draws from, for parity with the env-specific branch.
         """
-        # With-replacement samples from all stored layouts, ignoring the consumption cursor.
+        # Non-consuming: reads pool.layouts directly, ignoring the consumption cursor.
         if self._uses_env_specific_bboxes:
             results: list[PlacementResult] = []
             for i in range(count):
                 cur_env = i % self._num_envs
                 pool = self._env_pools[cur_env].layouts
                 assert pool, f"Env {cur_env} has no valid layouts to sample from."
-                results.append(random.choice(pool))
+                results.append(self._env_rngs[cur_env].choice(pool))
             return results
-        all_layouts = [layout for pool in self._env_pools for layout in pool.layouts]
-        return random.choices(all_layouts, k=count)
+        # Serialize all layouts into one flat pool.
+        all_layouts: list[PlacementResult] = []
+        for pool in self._env_pools:
+            for layout in pool.layouts:
+                all_layouts.append(layout)
+        assert all_layouts, "No valid layouts to sample from across any env pool."
+
+        # Draw each slot from its env's RNG over the serialized pool.
+        results: list[PlacementResult] = []
+        for layout_idx in range(count):
+            rng = self._env_rngs[layout_idx % self._num_envs]
+            results.append(rng.choice(all_layouts))
+        return results
 
     @property
     def remaining(self) -> int:
