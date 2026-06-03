@@ -3,24 +3,23 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Lightweight schema for the env-graph spec.
+"""Pydantic schema for the env-graph spec.
 
-Pydantic models with no parsing or conversion behavior. YAML loading, validation, and
-conversion entry points live in ``arena_env_graph_spec``.
-
-Lives in its own module so that conversion-utilities can import these names at module
-level without creating a circular import back into ``arena_env_graph_spec`` (which itself
-depends on the conversion module).
+Graph-level validation (unique ids, cross-references, relation arity) runs on
+:class:`~isaaclab_arena.environments.arena_env_graph_spec.ArenaEnvGraphSpec` via
+``model_validator``. Lives in its own module so conversion utilities can import
+these names without a circular import through ``arena_env_graph_spec``.
 """
 
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Literal
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.environments.graph_spec_utils import coerce_number_sequence
 
 
 class ArenaEnvGraphNodeType(Enum):
@@ -29,6 +28,25 @@ class ArenaEnvGraphNodeType(Enum):
     OBJECT = "object"
     OBJECT_REFERENCE = "object_reference"
     LIGHTING = "lighting"
+
+
+_OBJECT_REFERENCE_VALUES = frozenset({
+    ArenaEnvGraphNodeType.OBJECT_REFERENCE,
+    ArenaEnvGraphNodeType.OBJECT_REFERENCE.value,
+})
+
+
+def _is_object_reference_type(node_type: Any) -> bool:
+    return node_type in _OBJECT_REFERENCE_VALUES
+
+
+def _coerce_graph_node(data: Any) -> Any:
+    """Route ``object_reference`` dicts to :class:`ArenaEnvGraphObjectReferenceNodeSpec`."""
+    if isinstance(data, ArenaEnvGraphNodeSpec):
+        return data
+    if isinstance(data, dict) and _is_object_reference_type(data.get("type")):
+        return ArenaEnvGraphObjectReferenceNodeSpec.model_validate(data)
+    return data
 
 
 class ArenaEnvGraphSpatialConstraintType(Enum):
@@ -50,54 +68,56 @@ class ArenaEnvGraphTaskConstraintType(Enum):
 
 
 class ArenaEnvGraphNodeSpec(BaseModel):
-    """Node in an environment graph.
-
-    Could be an object, an embodiment, a background, etc. Object references — USD prims
-    inside a parent background asset — are represented by the
-    :class:`ArenaEnvGraphObjectReferenceNodeSpec` subclass, which adds the extra fields
-    needed to locate and type the referenced prim.
-    """
+    """Node in an environment graph (all types except ``object_reference``)."""
 
     model_config = ConfigDict(extra="ignore")
 
-    id: str
-    name: str  # Name registered in the asset registry
+    id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
     type: ArenaEnvGraphNodeType
-    # Asset-type specific optional kwargs (e.g. scale, spawn_cfg_addon) — distinct from
-    # the typed graph metadata above. The Arena environment builder forwards these when
-    # instantiating the asset class.
     params: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _reject_object_reference_without_extra_fields(self) -> ArenaEnvGraphNodeSpec:
+        if type(self) is ArenaEnvGraphNodeSpec and self.type == ArenaEnvGraphNodeType.OBJECT_REFERENCE:
+            raise ValueError("object_reference nodes require parent, prim_path, and object_type fields")
+        return self
 
 
 class ArenaEnvGraphObjectReferenceNodeSpec(ArenaEnvGraphNodeSpec):
-    """Object-reference node: a USD prim inside a parent background asset.
+    """Object-reference node: a USD prim inside a parent background asset."""
 
-    All three extra fields are required for this node type — without them the
-    builder cannot bind to the referenced prim or know how to wrap it.
-    """
+    type: ArenaEnvGraphNodeType = ArenaEnvGraphNodeType.OBJECT_REFERENCE
+    parent: str = Field(min_length=1)
+    prim_path: str = Field(min_length=1)
+    object_type: ObjectType
 
-    type: Literal[ArenaEnvGraphNodeType.OBJECT_REFERENCE] = ArenaEnvGraphNodeType.OBJECT_REFERENCE
-    parent: str  # id of the parent (typically background) node that owns the prim
-    prim_path: str  # USD prim path of the referenced prim (may contain {ENV_REGEX_NS})
-    object_type: ObjectType  # how to wrap the prim (rigid, articulation, etc.)
+    @model_validator(mode="after")
+    def _must_be_object_reference(self) -> ArenaEnvGraphObjectReferenceNodeSpec:
+        assert self.type == ArenaEnvGraphNodeType.OBJECT_REFERENCE, "internal invariant"
+        return self
 
 
 class ArenaEnvGraphSpatialConstraintSpec(BaseModel):
-    """Spatial constraint edge in an environment graph state spec.
-
-    It defines a relation between two nodes.
-    """
+    """Spatial constraint edge in an environment graph state spec."""
 
     model_config = ConfigDict(extra="ignore")
 
-    id: str
+    id: str = Field(min_length=1)
     type: ArenaEnvGraphSpatialConstraintType
-    parent: str
-    child: str | None = None  # Optional, e.g. is_anchor constraint does not have a child
-    # Type-specific optional kwargs for the underlying RelationBase subclass selected by `type`
-    # (e.g. {x_min, x_max, y_min, y_max} for position_limits; {side, distance} for next_to etc.).
-    # The Arena environment builder forwards these when constructing the Relation instance.
+    parent: str = Field(min_length=1)
+    child: str | None = None
     params: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("params", mode="after")
+    @classmethod
+    def _normalize_pose_params(cls, params: dict[str, Any]) -> dict[str, Any]:
+        normalized = dict(params)
+        if "position_xyz" in normalized:
+            normalized["position_xyz"] = coerce_number_sequence(normalized["position_xyz"], 3, "position_xyz")
+        if "rotation_xyzw" in normalized:
+            normalized["rotation_xyzw"] = coerce_number_sequence(normalized["rotation_xyzw"], 4, "rotation_xyzw")
+        return normalized
 
 
 class ArenaEnvGraphTaskConstraintSpec(BaseModel):
@@ -105,27 +125,28 @@ class ArenaEnvGraphTaskConstraintSpec(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    id: str
+    id: str = Field(min_length=1)
     type: ArenaEnvGraphTaskConstraintType
-    parent: str
-    child: str | None = None  # Optional, could be a robot keeps gripper open or closed, or a single object
-    # Type-specific optional kwargs for the underlying TaskConstraintBase subclass selected by `type`
-    # (e.g. grasp pose offset the reach constraint.).
-    # The Arena environment builder forwards these when constructing the TaskConstraint instance.
+    parent: str = Field(min_length=1)
+    child: str | None = None
     params: dict[str, Any] = Field(default_factory=dict)
 
 
 class ArenaEnvGraphStateSpec(BaseModel):
-    """Snapshot of the environment state in the graph.
-
-    Could be an initial, intermediate, or final state.
-    """
+    """Snapshot of the environment state in the graph."""
 
     model_config = ConfigDict(extra="ignore")
 
-    id: str
+    id: str = Field(min_length=1)
     spatial_constraints: list[ArenaEnvGraphSpatialConstraintSpec] = Field(default_factory=list)
     task_constraints: list[ArenaEnvGraphTaskConstraintSpec] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_edges_wrapper(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "edges" in data:
+            raise ValueError("State spec must define spatial_constraints and task_constraints directly")
+        return data
 
 
 class ArenaEnvGraphTaskSpec(BaseModel):
@@ -133,8 +154,17 @@ class ArenaEnvGraphTaskSpec(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    id: str
-    type: str  # Task class name, could be a custom task class or a built-in task class
-    initial_state_spec_id: str
-    success_state_spec_id: str
+    id: str = Field(min_length=1)
+    type: str = Field(min_length=1)
+    initial_state_spec_id: str = Field(min_length=1)
+    success_state_spec_id: str = Field(min_length=1)
     task_args: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_legacy_state_keys(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            for old_key in ("state_specs", "initial_state_spec", "success_state_spec"):
+                if old_key in data:
+                    raise ValueError("Task spec must use initial_state_spec_id and success_state_spec_id")
+        return data
