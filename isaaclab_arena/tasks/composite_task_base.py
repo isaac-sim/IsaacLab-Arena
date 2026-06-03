@@ -363,40 +363,29 @@ class CompositeTaskBase(TaskBase):
         return subtask_metrics
 
     def get_own_fine_grained_subtasks(self) -> list[FineGrainedSubtask]:
-        """Composite-level fine-grained recipes (e.g. cross-child conditions).
+        """Composite-level FineGrainedSubtasks.
 
-        These are added on top of whatever recipes the children declare. They
-        carry ``parent_subtask_idx = None`` and therefore have no activation
-        gating — they remain active for the full episode.
+        These are added on top of whatever FGSs the child subtasks declare and are not gated.
         """
         return []
 
     def get_fine_grained_subtasks(self) -> list[FineGrainedSubtask]:
-        """Concatenate children's fine-grained recipes with namespace prefixes.
+        """Concatenate child subtasks's FineGrainedSubtasks with namespace prefixes.
 
-        Each child's recipe gets a new name (``f"subtask_{i}/{original_name}"``)
-        and a ``parent_subtask_idx = i`` tag. For ``SequentialTaskBase`` the
-        state machine reads ``parent_subtask_idx`` to gate advancement against
-        ``env._current_subtask_idx`` so a child's recipes only advance while
-        that child is the active parent subtask. For unordered
-        ``CompositeTaskBase`` (no ``_current_subtask_idx``) the gate is a no-op
-        and every recipe is always active.
-
-        Composite-level recipes from ``get_own_fine_grained_subtasks`` are
-        appended afterward and are not gated.
+        Each child's FGS gets a new name (subtask_{i}/{original_name}) and a parent_subtask_idx = i tag.
         """
-        out: list[FineGrainedSubtask] = []
+        fgs_list: list[FineGrainedSubtask] = []
         for i, child in enumerate(self.subtasks):
             for fgs in child.get_fine_grained_subtasks():
-                out.append(
+                fgs_list.append(
                     dataclasses.replace(
                         fgs,
                         name=f"subtask_{i}/{fgs.name}",
                         parent_subtask_idx=i,
                     )
                 )
-        out.extend(self.get_own_fine_grained_subtasks())
-        return out
+        fgs_list.extend(self.get_own_fine_grained_subtasks())
+        return fgs_list
 
     def _validate_consistent_mimic_eef_names(self, arm_mode: ArmMode) -> set[str]:
         "Check that all subtasks have the same Mimic eef_names."

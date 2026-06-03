@@ -9,6 +9,9 @@ from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 HEADLESS = True
 
+# Tolerance for floating-point score comparisons.
+SCORE_TOL = 1e-6
+
 
 class _MockPredicate:
     """Callable predicate that returns a controlled per-env bool tensor."""
@@ -44,7 +47,7 @@ def _advance_step(env, n: int = 1):
     env.episode_length_buf = env.episode_length_buf + n
 
 
-def _test_format_single_callable(simulation_app) -> bool:
+def _test_predicate_groups_single_callable(simulation_app) -> bool:
     """A bare predicate becomes a default-named group with weight 1.0."""
     from isaaclab_arena.tasks.fine_grained_subtask import DEFAULT_GROUP_NAME, FineGrainedSubtask
 
@@ -55,7 +58,7 @@ def _test_format_single_callable(simulation_app) -> bool:
         chain = fgs.get_chain(DEFAULT_GROUP_NAME)
         assert len(chain) == 1
         assert chain[0][0] is pred
-        assert abs(chain[0][1] - 1.0) < 1e-6
+        assert abs(chain[0][1] - 1.0) < SCORE_TOL
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -63,7 +66,7 @@ def _test_format_single_callable(simulation_app) -> bool:
     return True
 
 
-def _test_format_list_of_callables(simulation_app) -> bool:
+def _test_predicate_groups_list_of_callables(simulation_app) -> bool:
     """A list of callables becomes a single group with normalized equal scores."""
     from isaaclab_arena.tasks.fine_grained_subtask import DEFAULT_GROUP_NAME, FineGrainedSubtask
 
@@ -72,10 +75,10 @@ def _test_format_list_of_callables(simulation_app) -> bool:
         fgs = FineGrainedSubtask(name="t", predicate_groups=preds)
         chain = fgs.get_chain(DEFAULT_GROUP_NAME)
         assert [c[0] for c in chain] == preds
-        # Equal scores normalize to 1/3 each, summing to 1.0.
+        # Equal scores normalize to 0.33 each, summing to 1.0.
         for _, score in chain:
-            assert abs(score - 1.0 / 3.0) < 1e-6
-        assert abs(sum(s for _, s in chain) - 1.0) < 1e-6
+            assert abs(score - 1.0 / 3.0) < SCORE_TOL
+        assert abs(sum(s for _, s in chain) - 1.0) < SCORE_TOL
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -83,7 +86,7 @@ def _test_format_list_of_callables(simulation_app) -> bool:
     return True
 
 
-def _test_format_weighted_tuples(simulation_app) -> bool:
+def _test_predicate_groups_weighted_tuples(simulation_app) -> bool:
     """Explicit (callable, score) tuples are normalized to sum to 1.0 within a group."""
     from isaaclab_arena.tasks.fine_grained_subtask import DEFAULT_GROUP_NAME, FineGrainedSubtask
 
@@ -93,8 +96,8 @@ def _test_format_weighted_tuples(simulation_app) -> bool:
         fgs = FineGrainedSubtask(name="t", predicate_groups=[(p1, 1.0), (p2, 3.0)])
         chain = fgs.get_chain(DEFAULT_GROUP_NAME)
         # 1.0/4.0 = 0.25, 3.0/4.0 = 0.75
-        assert abs(chain[0][1] - 0.25) < 1e-6
-        assert abs(chain[1][1] - 0.75) < 1e-6
+        assert abs(chain[0][1] - 0.25) < SCORE_TOL
+        assert abs(chain[1][1] - 0.75) < SCORE_TOL
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -102,8 +105,8 @@ def _test_format_weighted_tuples(simulation_app) -> bool:
     return True
 
 
-def _test_format_dict_groups(simulation_app) -> bool:
-    """Dict input gives one group per key; each group's scores are normalized independently."""
+def _test_predicate_groups_dict_groups(simulation_app) -> bool:
+    """Dict input gives one group per key and each group's scores are normalized independently."""
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
@@ -124,9 +127,9 @@ def _test_format_dict_groups(simulation_app) -> bool:
         assert len(a_chain) == 2
         assert len(b_chain) == 1
         # obj_a's equal scores sum to 1.0.
-        assert abs(sum(s for _, s in a_chain) - 1.0) < 1e-6
+        assert abs(sum(s for _, s in a_chain) - 1.0) < SCORE_TOL
         # obj_b's single-element group sums to 1.0.
-        assert abs(b_chain[0][1] - 1.0) < 1e-6
+        assert abs(b_chain[0][1] - 1.0) < SCORE_TOL
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -134,8 +137,8 @@ def _test_format_dict_groups(simulation_app) -> bool:
     return True
 
 
-def _test_format_rejects_invalid_inputs(simulation_app) -> bool:
-    """Empty containers and non-callable entries should raise."""
+def _test_predicate_groups_rejects_invalid_inputs(simulation_app) -> bool:
+    """Empty containers and non-callable entries should raise error."""
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
@@ -146,7 +149,7 @@ def _test_format_rejects_invalid_inputs(simulation_app) -> bool:
                 continue
             print(f"Expected error for input {bad!r}")
             return False
-        # logical=choose without K should raise.
+        # logical=choose without K should raise error.
         try:
             FineGrainedSubtask(
                 name="t",
@@ -166,18 +169,18 @@ def _test_format_rejects_invalid_inputs(simulation_app) -> bool:
 
 
 def _test_state_machine_advances_sequentially(simulation_app) -> bool:
-    """A single subtask with a 3-predicate chain advances one step per satisfied predicate."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    """A single FineGrainedSubtask with a 3 predicate chain advances one step per satisfied predicate."""
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
         env = _MockEnv(num_envs=1)
         preds = [_MockPredicate(num_envs=1, name=f"p{i}") for i in range(3)]
         fgs = FineGrainedSubtask(name="lift", predicate_groups=preds)
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
-        # Step 1: p0 fires; p1, p2 still False. Advance to index 1.
+        # Step 1: p0 True while p1, p2 still False. Advance to index 1.
         preds[0].set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
@@ -187,7 +190,7 @@ def _test_state_machine_advances_sequentially(simulation_app) -> bool:
         events = sm.get_events()[0]
         assert len(events) == 1 and events[0]["predicate_index"] == 0
 
-        # Step 2: p0 reverts (irrelevant; latched forward), p1 fires.
+        # Step 2: p0 reverts False, p1 True.
         preds[0].set([False])
         preds[1].set([True])
         _advance_step(env)
@@ -195,14 +198,14 @@ def _test_state_machine_advances_sequentially(simulation_app) -> bool:
         events = sm.get_events()[0]
         assert len(events) == 2 and events[-1]["predicate_index"] == 1
 
-        # Step 3: p2 fires; subtask complete.
+        # Step 3: p2 True, subtask complete.
         preds[2].set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
         state = sm.get_state()[0]["fine_grained_subtasks"]["lift"]
         assert state["is_complete"]
         assert state["completed_groups"] == 1
-        assert abs(state["score"] - 1.0) < 1e-6
+        assert abs(state["score"] - 1.0) < SCORE_TOL
         events = sm.get_events()[0]
         assert len(events) == 3 and events[-1]["predicate_index"] == 2
     except Exception as e:
@@ -214,17 +217,17 @@ def _test_state_machine_advances_sequentially(simulation_app) -> bool:
 
 def _test_state_machine_ignores_out_of_order_success(simulation_app) -> bool:
     """If a later predicate fires first, it's ignored until preceding ones have advanced."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
         env = _MockEnv(num_envs=1)
         preds = [_MockPredicate(num_envs=1, name=f"p{i}") for i in range(3)]
         fgs = FineGrainedSubtask(name="lift", predicate_groups=preds)
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
-        # p0 stays False; p1 and p2 fire — no progress should be made.
+        # p0 stays False and p1, p2 True. No progress should be made.
         preds[0].set([False])
         preds[1].set([True])
         preds[2].set([True])
@@ -236,8 +239,7 @@ def _test_state_machine_ignores_out_of_order_success(simulation_app) -> bool:
         assert state["score"] == 0.0
         assert len(sm.get_events()[0]) == 0
 
-        # Now p0 fires; chain catches up: 0, 1, 2 should all advance over subsequent
-        # steps (one per step, in order).
+        # Now p0 True, p1, p2 should advance over subsequent steps.
         preds[0].set([True])
         for _ in range(3):
             _advance_step(env)
@@ -253,8 +255,8 @@ def _test_state_machine_ignores_out_of_order_success(simulation_app) -> bool:
 
 
 def _test_state_machine_logical_any(simulation_app) -> bool:
-    """Two parallel groups with logical='any' complete as soon as either one finishes."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    """Two parallel groups with logical=any complete as soon as either one finishes."""
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
@@ -266,7 +268,7 @@ def _test_state_machine_logical_any(simulation_app) -> bool:
             predicate_groups={"a": p_a, "b": p_b},
             logical="any",
         )
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
         # Neither group complete -> not done.
@@ -274,7 +276,7 @@ def _test_state_machine_logical_any(simulation_app) -> bool:
         sm.step(env, step_index=env.episode_length_buf)
         assert not sm.get_state()[0]["fine_grained_subtasks"]["either"]["is_complete"]
 
-        # Group "a" completes -> done.
+        # Group p_a completes -> done.
         p_a.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
@@ -287,8 +289,8 @@ def _test_state_machine_logical_any(simulation_app) -> bool:
 
 
 def _test_state_machine_logical_all(simulation_app) -> bool:
-    """logical='all' requires every group to complete its chain."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    """Two groups with logical=all complete once all groups are complete."""
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
@@ -300,16 +302,16 @@ def _test_state_machine_logical_all(simulation_app) -> bool:
             predicate_groups={"a": p_a, "b": p_b},
             logical="all",
         )
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
-        # Only "a" completes -> still not done.
+        # Only p_a completes -> still not done.
         p_a.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
         assert not sm.get_state()[0]["fine_grained_subtasks"]["both"]["is_complete"]
 
-        # "b" also completes -> done.
+        # p_b also completes -> done.
         p_b.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
@@ -322,8 +324,8 @@ def _test_state_machine_logical_all(simulation_app) -> bool:
 
 
 def _test_state_machine_logical_choose(simulation_app) -> bool:
-    """logical='choose' with K=2 requires any two of three groups to complete."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    """Three groups with logical=choose and K=2 complete once any two groups are complete."""
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
@@ -337,16 +339,16 @@ def _test_state_machine_logical_choose(simulation_app) -> bool:
             logical="choose",
             K=2,
         )
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
-        # Only one group complete -> not done.
+        # Only p_a group complete -> not done.
         p_a.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
         assert not sm.get_state()[0]["fine_grained_subtasks"]["any_two"]["is_complete"]
 
-        # Two complete -> done.
+        # p_b also complete -> done.
         p_b.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
@@ -360,17 +362,17 @@ def _test_state_machine_logical_choose(simulation_app) -> bool:
 
 def _test_state_machine_reset_clears_state(simulation_app) -> bool:
     """Resetting an env_id zeroes its progress and event log, but leaves other envs alone."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
         env = _MockEnv(num_envs=2)
         preds = [_MockPredicate(num_envs=2, name=f"p{i}") for i in range(2)]
         fgs = FineGrainedSubtask(name="t", predicate_groups=preds)
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=2, device="cpu")
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs], num_envs=2, device="cpu")
         sm.reset([0, 1])
 
-        # Drive env 0 to fully complete, env 1 halfway.
+        # Set env 0 to fully complete.
         preds[0].set([True, True])
         preds[1].set([True, False])
         _advance_step(env)
@@ -399,11 +401,9 @@ def _test_state_machine_reset_clears_state(simulation_app) -> bool:
     return True
 
 
-def _test_gating_active_when_parent_subtask_idx_matches(simulation_app) -> bool:
-    """A recipe with ``parent_subtask_idx=N`` advances normally when the env's
-    ``_current_subtask_idx`` matches N. This mirrors the sequential-composite
-    case where subtask N is the currently-active parent subtask."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+def _test_gating_advance_when_parent_subtask_idx_matches(simulation_app) -> bool:
+    """A FineGrainedSubtask with parent_subtask_idx=N advances when the env's _current_subtask_idx=N."""
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
@@ -412,7 +412,7 @@ def _test_gating_active_when_parent_subtask_idx_matches(simulation_app) -> bool:
 
         pred = _MockPredicate(num_envs=1, name="p")
         fgs = FineGrainedSubtask(name="t", predicate_groups=pred, parent_subtask_idx=1)
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
         pred.set([True])
@@ -428,22 +428,20 @@ def _test_gating_active_when_parent_subtask_idx_matches(simulation_app) -> bool:
 
 
 def _test_gating_blocked_when_parent_subtask_idx_mismatches(simulation_app) -> bool:
-    """A recipe with ``parent_subtask_idx=N`` is frozen when the env's
-    ``_current_subtask_idx`` differs from N — even if the underlying predicate
-    is True. Once the parent advances to N, the recipe starts advancing too."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    """A FineGrainedSubtask with parent_subtask_idx=N doesn't advance when the env's _current_subtask_idx!=N."""
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
         env = _MockEnv(num_envs=1)
-        env._current_subtask_idx = [0]  # parent on subtask 0, recipe targets 1
+        env._current_subtask_idx = [0]
 
         pred = _MockPredicate(num_envs=1, name="p")
         fgs = FineGrainedSubtask(name="t", predicate_groups=pred, parent_subtask_idx=1)
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
-        # Predicate True, but the parent isn't at this recipe's index yet.
+        # Predicate True, but the parent isn't at this FGS's index yet.
         pred.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
@@ -451,7 +449,7 @@ def _test_gating_blocked_when_parent_subtask_idx_mismatches(simulation_app) -> b
         assert sm.get_state()[0]["fine_grained_subtasks"]["t"]["score"] == 0.0
         assert len(sm.get_events()[0]) == 0
 
-        # Parent advances to this recipe's index; the recipe catches up.
+        # Parent advances to this FGS's index, state machine advances.
         env._current_subtask_idx = [1]
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
@@ -464,39 +462,11 @@ def _test_gating_blocked_when_parent_subtask_idx_mismatches(simulation_app) -> b
     return True
 
 
-def _test_gating_noop_when_env_has_no_current_subtask_idx(simulation_app) -> bool:
-    """For unordered composite tasks, ``env._current_subtask_idx`` is absent.
-    Recipes carry ``parent_subtask_idx`` (for namespacing) but gating is a no-op
-    and all recipes advance whenever their predicates fire."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
-    from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
-
-    try:
-        env = _MockEnv(num_envs=1)
-        # No _current_subtask_idx attribute on env -> unordered composite path.
-
-        pred = _MockPredicate(num_envs=1, name="p")
-        fgs = FineGrainedSubtask(name="t", predicate_groups=pred, parent_subtask_idx=1)
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
-        sm.reset([0])
-
-        pred.set([True])
-        _advance_step(env)
-        sm.step(env, step_index=env.episode_length_buf)
-        assert sm.get_state()[0]["fine_grained_subtasks"]["t"]["is_complete"]
-        assert len(sm.get_events()[0]) == 1
-    except Exception as e:
-        print(f"Error: {e}")
-        traceback.print_exc()
-        return False
-    return True
-
-
-def _test_sequential_gating_end_to_end(simulation_app) -> bool:
-    """Two recipes targeting different parent subtask indices. The parent's
-    ``_current_subtask_idx`` advances over time. Each recipe only progresses
-    during its parent's active window."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+def _test_gating_sequential_task_end_to_end(simulation_app) -> bool:
+    """Two FGSs with different parent subtask indices. The parent's
+    _current_subtask_idx advances over time. Each FGS only progresses
+    during its active window."""
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
@@ -507,10 +477,10 @@ def _test_sequential_gating_end_to_end(simulation_app) -> bool:
         pred_b = _MockPredicate(num_envs=1, name="b")
         fgs_a = FineGrainedSubtask(name="a", predicate_groups=pred_a, parent_subtask_idx=0)
         fgs_b = FineGrainedSubtask(name="b", predicate_groups=pred_b, parent_subtask_idx=1)
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs_a, fgs_b], num_envs=1, device="cpu")
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs_a, fgs_b], num_envs=1, device="cpu")
         sm.reset([0])
 
-        # Both predicates True, but only "a" is active (parent on subtask 0).
+        # Both predicates True, but only pred_a is active.
         pred_a.set([True])
         pred_b.set([True])
         _advance_step(env)
@@ -518,11 +488,36 @@ def _test_sequential_gating_end_to_end(simulation_app) -> bool:
         assert sm.get_state()[0]["fine_grained_subtasks"]["a"]["is_complete"]
         assert not sm.get_state()[0]["fine_grained_subtasks"]["b"]["is_complete"]
 
-        # Parent advances to subtask 1; "b" is now active.
+        # Advances to subtask 1 so pred_b is now active.
         env._current_subtask_idx = [1]
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
         assert sm.get_state()[0]["fine_grained_subtasks"]["b"]["is_complete"]
+    except Exception as e:
+        print(f"Error: {e}")
+        traceback.print_exc()
+        return False
+    return True
+
+
+def _test_gating_noop_when_env_has_no_current_subtask_idx(simulation_app) -> bool:
+    """For unordered composite tasks gating is a no-op and all FGSs advance whenever their predicates are True."""
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
+    from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+
+    try:
+        env = _MockEnv(num_envs=1)
+
+        pred = _MockPredicate(num_envs=1, name="p")
+        fgs = FineGrainedSubtask(name="t", predicate_groups=pred, parent_subtask_idx=1)
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
+        sm.reset([0])
+
+        pred.set([True])
+        _advance_step(env)
+        sm.step(env, step_index=env.episode_length_buf)
+        assert sm.get_state()[0]["fine_grained_subtasks"]["t"]["is_complete"]
+        assert len(sm.get_events()[0]) == 1
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -545,7 +540,7 @@ def _test_step_func_publishes_to_extras_and_returns_no_termination(simulation_ap
 
         fine_grained_subtask_reset_func(env, env_ids=[0, 1], fine_grained_subtasks=[fgs])
 
-        # Step with predicate False: state machine ticks but no transitions.
+        # Step with predicate=False, state machine ticks but no transitions.
         result = fine_grained_subtask_step_func(env, fine_grained_subtasks=[fgs])
         assert result.tolist() == [False, False]
         assert "fine_grained_subtask" in env.extras
@@ -553,7 +548,7 @@ def _test_step_func_publishes_to_extras_and_returns_no_termination(simulation_ap
         assert env.extras["fine_grained_subtask"]["events"] == [[], []]
         assert not env.extras["fine_grained_subtask"]["states"][0]["fine_grained_subtasks"]["t"]["is_complete"]
 
-        # Step with env 0 predicate True: env 0 completes, env 1 does not.
+        # Step with env 0 predicate True, env 0 completes, env 1 does not.
         pred.set([True, False])
         _advance_step(env)
         result = fine_grained_subtask_step_func(env, fine_grained_subtasks=[fgs])
@@ -565,9 +560,7 @@ def _test_step_func_publishes_to_extras_and_returns_no_termination(simulation_ap
         assert len(events[0]) == 1
         assert len(events[1]) == 0
 
-        # Reset env 0; its state should clear, env 1 untouched. We also flip pred
-        # to False to verify the post-reset step starts from the chain head rather
-        # than auto-re-completing.
+        # Reset env 0, env 1 untouched.
         pred.set([False, False])
         fine_grained_subtask_reset_func(env, env_ids=[0], fine_grained_subtasks=[fgs])
         result = fine_grained_subtask_step_func(env, fine_grained_subtasks=[fgs])
@@ -582,14 +575,9 @@ def _test_step_func_publishes_to_extras_and_returns_no_termination(simulation_ap
 
 
 def _test_task_base_fine_grained_subtask_hooks(simulation_app) -> bool:
-    """TaskBase's fine-grained-subtask hooks: default is empty/None; overriding
+    """Test TaskBase's fine-grained-subtask hooks. Default is empty/None. Overriding
     ``get_fine_grained_subtasks`` causes the events/termination helpers to
     return real cfgs that the env builder picks up automatically.
-
-    Importing ``task_base`` is non-trivial in the test sandbox (it transitively
-    pulls in the asset-library network registration). Both default and opt-in
-    behavior are exercised inside a single test so the module import only
-    happens once.
     """
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
     from isaaclab_arena.tasks.task_base import TaskBase
@@ -627,7 +615,6 @@ def _test_task_base_fine_grained_subtask_hooks(simulation_app) -> bool:
         assert opt_in.get_fine_grained_subtask_events_cfg() is not None
         assert opt_in.get_fine_grained_subtask_termination_cfg() is not None
 
-        # ---- CompositeTaskBase: concatenate child recipes with namespace + parent index ----
         from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
 
         class _ChildA(_Base):
@@ -646,7 +633,6 @@ def _test_task_base_fine_grained_subtask_hooks(simulation_app) -> bool:
         assert recipes[1].name == "subtask_1/close"
         assert recipes[1].parent_subtask_idx == 1
 
-        # get_own_fine_grained_subtasks adds composite-level recipes (no gating).
         class _CompositeWithOwn(CompositeTaskBase):
             def get_own_fine_grained_subtasks(self):
                 return [FineGrainedSubtask(name="both_done", predicate_groups=_MockPredicate(1, name="own"))]
@@ -655,7 +641,7 @@ def _test_task_base_fine_grained_subtask_hooks(simulation_app) -> bool:
         recipes2 = composite2.get_fine_grained_subtasks()
         assert len(recipes2) == 3
         assert recipes2[2].name == "both_done"
-        assert recipes2[2].parent_subtask_idx is None  # composite-level: never gated
+        assert recipes2[2].parent_subtask_idx is None
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -663,27 +649,24 @@ def _test_task_base_fine_grained_subtask_hooks(simulation_app) -> bool:
     return True
 
 
-# Pytest entry points -----------------------------------------------------------
+def test_predicate_groups_single_callable():
+    assert run_simulation_app_function(_test_predicate_groups_single_callable, headless=HEADLESS)
 
 
-def test_format_single_callable():
-    assert run_simulation_app_function(_test_format_single_callable, headless=HEADLESS)
+def test_predicate_groups_list_of_callables():
+    assert run_simulation_app_function(_test_predicate_groups_list_of_callables, headless=HEADLESS)
 
 
-def test_format_list_of_callables():
-    assert run_simulation_app_function(_test_format_list_of_callables, headless=HEADLESS)
+def test_predicate_groups_weighted_tuples():
+    assert run_simulation_app_function(_test_predicate_groups_weighted_tuples, headless=HEADLESS)
 
 
-def test_format_weighted_tuples():
-    assert run_simulation_app_function(_test_format_weighted_tuples, headless=HEADLESS)
+def test_predicate_groups_dict_groups():
+    assert run_simulation_app_function(_test_predicate_groups_dict_groups, headless=HEADLESS)
 
 
-def test_format_dict_groups():
-    assert run_simulation_app_function(_test_format_dict_groups, headless=HEADLESS)
-
-
-def test_format_rejects_invalid_inputs():
-    assert run_simulation_app_function(_test_format_rejects_invalid_inputs, headless=HEADLESS)
+def test_predicate_groups_rejects_invalid_inputs():
+    assert run_simulation_app_function(_test_predicate_groups_rejects_invalid_inputs, headless=HEADLESS)
 
 
 def test_state_machine_advances_sequentially():
@@ -710,8 +693,8 @@ def test_state_machine_reset_clears_state():
     assert run_simulation_app_function(_test_state_machine_reset_clears_state, headless=HEADLESS)
 
 
-def test_gating_active_when_parent_subtask_idx_matches():
-    assert run_simulation_app_function(_test_gating_active_when_parent_subtask_idx_matches, headless=HEADLESS)
+def test_gating_advance_when_parent_subtask_idx_matches():
+    assert run_simulation_app_function(_test_gating_advance_when_parent_subtask_idx_matches, headless=HEADLESS)
 
 
 def test_gating_blocked_when_parent_subtask_idx_mismatches():
@@ -722,8 +705,8 @@ def test_gating_noop_when_env_has_no_current_subtask_idx():
     assert run_simulation_app_function(_test_gating_noop_when_env_has_no_current_subtask_idx, headless=HEADLESS)
 
 
-def test_sequential_gating_end_to_end():
-    assert run_simulation_app_function(_test_sequential_gating_end_to_end, headless=HEADLESS)
+def test_gating_sequential_task_end_to_end():
+    assert run_simulation_app_function(_test_gating_sequential_task_end_to_end, headless=HEADLESS)
 
 
 def test_step_func_publishes_to_extras_and_returns_no_termination():
@@ -737,20 +720,20 @@ def test_task_base_fine_grained_subtask_hooks():
 
 
 if __name__ == "__main__":
-    test_format_single_callable()
-    test_format_list_of_callables()
-    test_format_weighted_tuples()
-    test_format_dict_groups()
-    test_format_rejects_invalid_inputs()
+    test_predicate_groups_single_callable()
+    test_predicate_groups_list_of_callables()
+    test_predicate_groups_weighted_tuples()
+    test_predicate_groups_dict_groups()
+    test_predicate_groups_rejects_invalid_inputs()
     test_state_machine_advances_sequentially()
     test_state_machine_ignores_out_of_order_success()
     test_state_machine_logical_any()
     test_state_machine_logical_all()
     test_state_machine_logical_choose()
     test_state_machine_reset_clears_state()
-    test_gating_active_when_parent_subtask_idx_matches()
+    test_gating_advance_when_parent_subtask_idx_matches()
     test_gating_blocked_when_parent_subtask_idx_mismatches()
     test_gating_noop_when_env_has_no_current_subtask_idx()
-    test_sequential_gating_end_to_end()
+    test_gating_sequential_task_end_to_end()
     test_step_func_publishes_to_extras_and_returns_no_termination()
     test_task_base_fine_grained_subtask_hooks()

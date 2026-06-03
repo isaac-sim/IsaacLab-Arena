@@ -69,13 +69,6 @@ class TaskBase(ABC):
         return self.task_description
 
     def get_fine_grained_subtasks(self) -> list[FineGrainedSubtask]:
-        """Return per-step fine-grained subtasks the state machine should track. Default: none.
-
-        Override in subclasses to opt in to fine-grained subtask tracking. When
-        the returned list is non-empty, the env builder will automatically
-        register a reset event and a per-step termination term that tick the
-        state machine and publish ``env.extras["fine_grained_subtask"]``.
-        """
         return []
 
     def get_fine_grained_subtask_events_cfg(self) -> Any:
