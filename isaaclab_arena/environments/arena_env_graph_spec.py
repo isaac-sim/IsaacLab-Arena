@@ -66,22 +66,16 @@ class ArenaEnvGraphSpec(BaseModel):
         return [parse_graph_node(node) for node in nodes]
 
     @model_validator(mode="after")
-    def _validate_graph_invariants(self) -> ArenaEnvGraphSpec:
-        self._check_graph_invariants()
-        return self
-
-    def _check_graph_invariants(self) -> None:
+    def validate(self) -> ArenaEnvGraphSpec:
+        """Check unique ids, cross-references, and constraint shapes."""
         validate_unique_ids(self.nodes, self.tasks, self.state_specs)
         validate_references_exist(self.nodes, self.tasks, self.state_specs)
         validate_spatial_constraint_shapes(self.state_specs)
+        return self
 
     @staticmethod
     def _load_yaml_dict(path: str | Path) -> dict[str, Any]:
-        """Load a graph YAML into a dict with a clear error when the path is missing.
-
-        Centralizes the file read so a missing ``--env_graph_spec_yaml`` fails here with an
-        attributable error instead of an opaque ``FileNotFoundError`` from ``open``.
-        """
+        """Load a graph YAML into a dict with a clear error when the path is missing."""
         path = Path(path)
         if not path.is_file():
             raise ValueError(f"Env graph spec YAML not found: {path}")
@@ -101,17 +95,8 @@ class ArenaEnvGraphSpec(BaseModel):
             raise ValueError(f"Env graph spec must be a dict, got {type(data).__name__}")
         return cls.model_validate(data)
 
-    def validate(self) -> None:
-        """Re-run graph-level validators (e.g. after mutating a loaded spec)."""
-        self._check_graph_invariants()
-
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to the plain YAML mapping — the inverse of ``from_dict``.
-
-        Uses Pydantic's JSON dump mode so enums become strings, ``None`` is omitted,
-        tuples become lists, and ``object_reference`` nodes retain their extra fields
-        (via :class:`~pydantic.SerializeAsAny`).
-        """
+        """Serialize to the plain YAML mapping — the inverse of ``from_dict``."""
         return self.model_dump(mode="json", exclude_none=True)
 
     def write_yaml(self, path: str | Path) -> None:
