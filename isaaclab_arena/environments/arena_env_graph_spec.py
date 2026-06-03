@@ -24,9 +24,9 @@ from isaaclab_arena.environments.arena_env_graph_types import (
     parse_graph_node,
 )
 from isaaclab_arena.environments.graph_spec_utils import (
-    validate_references_exist,
-    validate_spatial_constraint_shapes,
-    validate_unique_ids,
+    assert_references_exist,
+    assert_spatial_constraint_shapes,
+    assert_unique_ids,
 )
 
 if TYPE_CHECKING:
@@ -68,9 +68,9 @@ class ArenaEnvGraphSpec(BaseModel):
     @model_validator(mode="after")
     def validate(self) -> ArenaEnvGraphSpec:
         """Check unique ids, cross-references, and constraint shapes."""
-        validate_unique_ids(self.nodes, self.tasks, self.state_specs)
-        validate_references_exist(self.nodes, self.tasks, self.state_specs)
-        validate_spatial_constraint_shapes(self.state_specs)
+        assert_unique_ids(self.nodes, self.tasks, self.state_specs)
+        assert_references_exist(self.nodes, self.tasks, self.state_specs)
+        assert_spatial_constraint_shapes(self.state_specs)
         return self
 
     @staticmethod

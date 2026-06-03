@@ -136,7 +136,7 @@ def test_arena_env_graph_spec_validate_rejects_mutated_missing_reference():
     spec = ArenaEnvGraphSpec.from_dict(_minimal_env_graph_data())
     spec.state_specs[0].spatial_constraints[0].parent = "missing_table"
 
-    with pytest.raises(ValueError, match="unknown parent node 'missing_table'"):
+    with pytest.raises(AssertionError, match="unknown parent node 'missing_table'"):
         spec.validate()
 
 
@@ -145,7 +145,7 @@ def test_arena_env_graph_spec_validate_rejects_mutated_invalid_relationship_shap
     constraint = spec.state_specs[0].spatial_constraints[0]
     constraint.type = ArenaEnvGraphSpatialConstraintType.ON
 
-    with pytest.raises(ValueError, match="requires a child node"):
+    with pytest.raises(AssertionError, match="requires a child node"):
         spec.validate()
 
 

@@ -25,7 +25,7 @@ def coerce_number_sequence(value: Any, length: int, field_name: str) -> tuple[fl
     return tuple(float(item) for item in value)
 
 
-def validate_unique_ids(nodes: list[Any], tasks: list[Any], state_specs: list[Any]) -> None:
+def assert_unique_ids(nodes: list[Any], tasks: list[Any], state_specs: list[Any]) -> None:
     """Ensure every graph id is unique, including constraint ids inside states."""
     id_locations: dict[str, list[str]] = {}
     for node in nodes:
@@ -40,26 +40,27 @@ def validate_unique_ids(nodes: list[Any], tasks: list[Any], state_specs: list[An
             _add_id_location(id_locations, constraint.id, f"task constraint '{constraint.id}'")
 
     duplicates = {spec_id: locations for spec_id, locations in id_locations.items() if len(locations) > 1}
-    if duplicates:
-        raise ValueError(f"Duplicate env graph ids found: {duplicates}")
+    assert not duplicates, f"Duplicate env graph ids found: {duplicates}"
 
 
-def validate_references_exist(nodes: list[Any], tasks: list[Any], state_specs: list[Any]) -> None:
+def assert_references_exist(nodes: list[Any], tasks: list[Any], state_specs: list[Any]) -> None:
     """Ensure every graph reference points to a node or state spec that exists."""
     node_ids = {node.id for node in nodes}
     state_spec_ids = {state_spec.id for state_spec in state_specs}
 
+    # Track ids seen so far so a node's parent must be defined *earlier* in the list. The
+    # conversion process (_instantiate_assets_from_nodes) materializes nodes in order and looks
+    # up the parent, so a parent listed after its reference would otherwise only fail
+    # there with a raw KeyError.
     seen_node_ids: set[str] = set()
     for node in nodes:
         parent = getattr(node, "parent", None)
         if parent is not None:
-            if parent not in node_ids:
-                raise ValueError(f"Node '{node.id}' references unknown parent '{parent}'")
-            if parent not in seen_node_ids:
-                raise ValueError(
-                    f"Node '{node.id}' references parent '{parent}' defined later in the node list; "
-                    "a parent must appear before any node that references it"
-                )
+            assert parent in node_ids, f"Node '{node.id}' references unknown parent '{parent}'"
+            assert parent in seen_node_ids, (
+                f"Node '{node.id}' references parent '{parent}' defined later in the node list; "
+                "a parent must appear before any node that references it"
+            )
         seen_node_ids.add(node.id)
 
     for task in tasks:
@@ -67,51 +68,61 @@ def validate_references_exist(nodes: list[Any], tasks: list[Any], state_specs: l
             ("initial_state_spec_id", task.initial_state_spec_id),
             ("success_state_spec_id", task.success_state_spec_id),
         ):
-            if state_spec_id not in state_spec_ids:
-                raise ValueError(f"Task '{task.id}' references unknown state spec '{state_spec_id}' for '{label}'")
+            assert (
+                state_spec_id in state_spec_ids
+            ), f"Task '{task.id}' references unknown state spec '{state_spec_id}' for '{label}'"
 
     for state_spec in state_specs:
         for constraint in state_spec.spatial_constraints:
-            if constraint.parent not in node_ids:
-                raise ValueError(f"Constraint '{constraint.id}' references unknown parent node '{constraint.parent}'")
-            if constraint.child is not None and constraint.child not in node_ids:
-                raise ValueError(f"Constraint '{constraint.id}' references unknown child node '{constraint.child}'")
+            assert (
+                constraint.parent in node_ids
+            ), f"Constraint '{constraint.id}' references unknown parent node '{constraint.parent}'"
+            if constraint.child is not None:
+                assert (
+                    constraint.child in node_ids
+                ), f"Constraint '{constraint.id}' references unknown child node '{constraint.child}'"
 
         for constraint in state_spec.task_constraints:
-            if constraint.parent is not None and constraint.parent not in node_ids:
-                raise ValueError(f"Constraint '{constraint.id}' references unknown parent node '{constraint.parent}'")
-            if constraint.child is not None and constraint.child not in node_ids:
-                raise ValueError(f"Constraint '{constraint.id}' references unknown child node '{constraint.child}'")
+            if constraint.parent is not None:
+                assert (
+                    constraint.parent in node_ids
+                ), f"Constraint '{constraint.id}' references unknown parent node '{constraint.parent}'"
+            if constraint.child is not None:
+                assert (
+                    constraint.child in node_ids
+                ), f"Constraint '{constraint.id}' references unknown child node '{constraint.child}'"
 
 
-def validate_spatial_constraint_shapes(state_specs: list[Any]) -> None:
+def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
     """Check each spatial constraint has the parent/child shape its relation expects."""
     for state_spec in state_specs:
         for constraint in state_spec.spatial_constraints:
             constraint_type = _enum_value(constraint.type)
             if constraint_type == "at_pose":
-                if "position_xyz" not in constraint.params:
-                    raise ValueError(
-                        f"Spatial constraint '{constraint.id}' of type 'at_pose' requires params.position_xyz"
-                    )
+                # Special: no relation class; pose is supplied directly via params.
+                assert (
+                    "position_xyz" in constraint.params
+                ), f"Spatial constraint '{constraint.id}' of type 'at_pose' requires params.position_xyz"
                 is_unary = True
             elif constraint_type == "in":
+                # Special: no relation class; semantically a binary parent/child constraint.
+                # TODO(xinjieyao, 2026-05-27): add an `In` relation class so this can resolve through the registry.
                 is_unary = False
             else:
                 relation_cls = relation_class_for_spatial_constraint_type(constraint.type)
-                if relation_cls is None:
-                    raise ValueError(f"Spatial constraint type '{constraint_type}' is not mapped to a relation class")
+                assert (
+                    relation_cls is not None
+                ), f"Spatial constraint type '{constraint_type}' is not mapped to a relation class"
                 is_unary = relation_cls.is_unary()
 
             if is_unary:
-                if constraint.child is not None:
-                    raise ValueError(
-                        f"Spatial constraint '{constraint.id}' of type '{constraint_type}' must not define a child node"
-                    )
-            elif constraint.child is None:
-                raise ValueError(
-                    f"Spatial constraint '{constraint.id}' of type '{constraint_type}' requires a child node"
-                )
+                assert (
+                    constraint.child is None
+                ), f"Spatial constraint '{constraint.id}' of type '{constraint_type}' must not define a child node"
+            else:
+                assert (
+                    constraint.child is not None
+                ), f"Spatial constraint '{constraint.id}' of type '{constraint_type}' requires a child node"
 
 
 def _add_id_location(id_locations: dict[str, list[str]], spec_id: str, location: str) -> None:
