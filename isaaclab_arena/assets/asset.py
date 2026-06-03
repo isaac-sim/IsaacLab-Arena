@@ -32,14 +32,16 @@ class Asset:
         Subclasses call this from their ``__init__`` to declare the variations
         they support.
         """
+        assert (
+            variation.name not in self.variations
+        ), f"Asset '{self.name}' ({type(self).__name__}) already has variation '{variation.name}' attached."
         self.variations[variation.name] = variation
 
     def get_variation(self, name: str) -> VariationBase:
         """Return the variation with the given name."""
-        assert name in self.variations, (
-            f"Asset '{self.name}' ({type(self).__name__}) does not support variation '{name}'. "
-            f"Supported variations: {sorted(self.variations)}."
-        )
+        assert (
+            name in self.variations
+        ), f"Asset '{self.name}' ({type(self).__name__}) does not have variation '{name}' attached."
         return self.variations[name]
 
     def get_variations(self) -> list[VariationBase]:

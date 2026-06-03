@@ -11,9 +11,11 @@ exercise the cfg plumbing and sampler wiring, not any Isaac Sim runtime.
 
 from dataclasses import field
 
+import pytest
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.utils import configclass
 
+from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.variations.uniform_sampler import UniformSampler, UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
 
@@ -159,3 +161,11 @@ def test_build_event_cfg_uses_configured_asset_name():
     assert event_cfg.func is _noop_event
     assert event_cfg.mode == "reset"
     assert event_cfg.params["asset_cfg"].name == "cube"
+
+
+def test_add_variation_raises_error_if_variation_name_is_already_attached():
+    asset = Asset(name="test_asset")
+    variation = _CustomVariation()
+    asset.add_variation(variation)
+    with pytest.raises(AssertionError):
+        asset.add_variation(variation)
