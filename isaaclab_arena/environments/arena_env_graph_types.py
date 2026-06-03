@@ -16,7 +16,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environments.graph_spec_utils import coerce_number_sequence
@@ -70,8 +70,6 @@ class ArenaEnvGraphTaskConstraintType(Enum):
 class ArenaEnvGraphNodeSpec(BaseModel):
     """Node in an environment graph (all types except ``object_reference``)."""
 
-    model_config = ConfigDict(extra="ignore")
-
     id: str = Field(min_length=1)
     name: str = Field(min_length=1)
     type: ArenaEnvGraphNodeType
@@ -101,8 +99,6 @@ class ArenaEnvGraphObjectReferenceNodeSpec(ArenaEnvGraphNodeSpec):
 class ArenaEnvGraphSpatialConstraintSpec(BaseModel):
     """Spatial constraint edge in an environment graph state spec."""
 
-    model_config = ConfigDict(extra="ignore")
-
     id: str = Field(min_length=1)
     type: ArenaEnvGraphSpatialConstraintType
     parent: str = Field(min_length=1)
@@ -123,8 +119,6 @@ class ArenaEnvGraphSpatialConstraintSpec(BaseModel):
 class ArenaEnvGraphTaskConstraintSpec(BaseModel):
     """Task-dependent constraint edge in an environment graph state spec."""
 
-    model_config = ConfigDict(extra="ignore")
-
     id: str = Field(min_length=1)
     type: ArenaEnvGraphTaskConstraintType
     parent: str = Field(min_length=1)
@@ -134,8 +128,6 @@ class ArenaEnvGraphTaskConstraintSpec(BaseModel):
 
 class ArenaEnvGraphStateSpec(BaseModel):
     """Snapshot of the environment state in the graph."""
-
-    model_config = ConfigDict(extra="ignore")
 
     id: str = Field(min_length=1)
     spatial_constraints: list[ArenaEnvGraphSpatialConstraintSpec] = Field(default_factory=list)
@@ -151,8 +143,6 @@ class ArenaEnvGraphStateSpec(BaseModel):
 
 class ArenaEnvGraphTaskSpec(BaseModel):
     """Task entry in an environment graph."""
-
-    model_config = ConfigDict(extra="ignore")
 
     id: str = Field(min_length=1)
     type: str = Field(min_length=1)

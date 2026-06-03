@@ -9,7 +9,7 @@ import yaml
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_validator, model_validator
+from pydantic import BaseModel, Field, SerializeAsAny, field_validator, model_validator
 
 from isaaclab_arena.environments.arena_env_graph_types import (
     ArenaEnvGraphNodeSpec,
@@ -50,8 +50,6 @@ __all__ = [
 
 class ArenaEnvGraphSpec(BaseModel):
     """Typed representation of an environment graph YAML file."""
-
-    model_config = ConfigDict(extra="ignore")
 
     env_name: str = Field(min_length=1)
     nodes: list[SerializeAsAny[ArenaEnvGraphNodeSpec]] = Field(default_factory=list)
