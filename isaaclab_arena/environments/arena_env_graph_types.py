@@ -133,13 +133,6 @@ class ArenaEnvGraphStateSpec(BaseModel):
     spatial_constraints: list[ArenaEnvGraphSpatialConstraintSpec] = Field(default_factory=list)
     task_constraints: list[ArenaEnvGraphTaskConstraintSpec] = Field(default_factory=list)
 
-    @model_validator(mode="before")
-    @classmethod
-    def _reject_edges_wrapper(cls, data: Any) -> Any:
-        if isinstance(data, dict) and "edges" in data:
-            raise ValueError("State spec must define spatial_constraints and task_constraints directly")
-        return data
-
 
 class ArenaEnvGraphTaskSpec(BaseModel):
     """Task entry in an environment graph."""
@@ -149,12 +142,3 @@ class ArenaEnvGraphTaskSpec(BaseModel):
     initial_state_spec_id: str = Field(min_length=1)
     success_state_spec_id: str = Field(min_length=1)
     task_args: dict[str, Any] = Field(default_factory=dict)
-
-    @model_validator(mode="before")
-    @classmethod
-    def _reject_legacy_state_keys(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            for old_key in ("state_specs", "initial_state_spec", "success_state_spec"):
-                if old_key in data:
-                    raise ValueError("Task spec must use initial_state_spec_id and success_state_spec_id")
-        return data

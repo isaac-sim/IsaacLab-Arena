@@ -182,16 +182,6 @@ def test_arena_env_graph_spec_rejects_invalid_data():
             "success_state_spec_id",
         ),
         (
-            "old task state map",
-            lambda data: data["tasks"][0].__setitem__("state_specs", {"initial": "state_0", "final": "state_0"}),
-            "must use initial_state_spec_id and success_state_spec_id",
-        ),
-        (
-            "old task state keys",
-            _add_old_task_state_keys,
-            "must use initial_state_spec_id and success_state_spec_id",
-        ),
-        (
             "missing constraint node reference",
             lambda data: data["state_specs"][0]["task_constraints"][0].__setitem__("child", "missing_cube"),
             "unknown child node 'missing_cube'",
@@ -210,11 +200,6 @@ def test_arena_env_graph_spec_rejects_invalid_data():
             "unary relationship with child",
             lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("child", "cube"),
             "must not define a child node",
-        ),
-        (
-            "old state edges wrapper",
-            _move_state_constraints_under_edges,
-            "must define spatial_constraints and task_constraints directly",
         ),
         (
             "missing node parent reference",
@@ -318,17 +303,4 @@ def _at_pose_constraint(position_xyz=None, rotation_xyzw=None):
             "position_xyz": [0.1, 0.2, 0.3] if position_xyz is None else position_xyz,
             "rotation_xyzw": [0.0, 0.0, 0.0, 1.0] if rotation_xyzw is None else rotation_xyzw,
         },
-    }
-
-
-def _add_old_task_state_keys(data):
-    data["tasks"][0]["initial_state_spec"] = "state_0"
-    data["tasks"][0]["success_state_spec"] = "state_0"
-
-
-def _move_state_constraints_under_edges(data):
-    state_spec = data["state_specs"][0]
-    state_spec["edges"] = {
-        "spatial_constraints": state_spec.pop("spatial_constraints"),
-        "task_constraints": state_spec.pop("task_constraints"),
     }
