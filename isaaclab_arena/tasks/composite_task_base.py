@@ -374,18 +374,18 @@ class CompositeTaskBase(TaskBase):
 
         Each child's FGS gets a new name (subtask_{i}/{original_name}) and a parent_subtask_idx = i tag.
         """
-        out: list[FineGrainedSubtask] = []
+        fgs_list: list[FineGrainedSubtask] = []
         for i, child in enumerate(self.subtasks):
             for fgs in child.get_fine_grained_subtasks():
-                out.append(
+                fgs_list.append(
                     dataclasses.replace(
                         fgs,
                         name=f"subtask_{i}/{fgs.name}",
                         parent_subtask_idx=i,
                     )
                 )
-        out.extend(self.get_own_fine_grained_subtasks())
-        return out
+        fgs_list.extend(self.get_own_fine_grained_subtasks())
+        return fgs_list
 
     def _validate_consistent_mimic_eef_names(self, arm_mode: ArmMode) -> set[str]:
         "Check that all subtasks have the same Mimic eef_names."
