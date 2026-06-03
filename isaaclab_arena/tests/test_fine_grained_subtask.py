@@ -170,14 +170,14 @@ def _test_predicate_groups_rejects_invalid_inputs(simulation_app) -> bool:
 
 def _test_state_machine_advances_sequentially(simulation_app) -> bool:
     """A single FineGrainedSubtask with a 3 predicate chain advances one step per satisfied predicate."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
         env = _MockEnv(num_envs=1)
         preds = [_MockPredicate(num_envs=1, name=f"p{i}") for i in range(3)]
         fgs = FineGrainedSubtask(name="lift", predicate_groups=preds)
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
         # Step 1: p0 True while p1, p2 still False. Advance to index 1.
@@ -217,14 +217,14 @@ def _test_state_machine_advances_sequentially(simulation_app) -> bool:
 
 def _test_state_machine_ignores_out_of_order_success(simulation_app) -> bool:
     """If a later predicate fires first, it's ignored until preceding ones have advanced."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
         env = _MockEnv(num_envs=1)
         preds = [_MockPredicate(num_envs=1, name=f"p{i}") for i in range(3)]
         fgs = FineGrainedSubtask(name="lift", predicate_groups=preds)
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
         # p0 stays False and p1, p2 True. No progress should be made.
@@ -256,7 +256,7 @@ def _test_state_machine_ignores_out_of_order_success(simulation_app) -> bool:
 
 def _test_state_machine_logical_any(simulation_app) -> bool:
     """Two parallel groups with logical=any complete as soon as either one finishes."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
@@ -268,7 +268,7 @@ def _test_state_machine_logical_any(simulation_app) -> bool:
             predicate_groups={"a": p_a, "b": p_b},
             logical="any",
         )
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
         # Neither group complete -> not done.
@@ -290,7 +290,7 @@ def _test_state_machine_logical_any(simulation_app) -> bool:
 
 def _test_state_machine_logical_all(simulation_app) -> bool:
     """Two groups with logical=all complete once all groups are complete."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
@@ -302,7 +302,7 @@ def _test_state_machine_logical_all(simulation_app) -> bool:
             predicate_groups={"a": p_a, "b": p_b},
             logical="all",
         )
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
         # Only p_a completes -> still not done.
@@ -325,7 +325,7 @@ def _test_state_machine_logical_all(simulation_app) -> bool:
 
 def _test_state_machine_logical_choose(simulation_app) -> bool:
     """Three groups with logical=choose and K=2 complete once any two groups are complete."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
@@ -339,7 +339,7 @@ def _test_state_machine_logical_choose(simulation_app) -> bool:
             logical="choose",
             K=2,
         )
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
         # Only p_a group complete -> not done.
@@ -362,14 +362,14 @@ def _test_state_machine_logical_choose(simulation_app) -> bool:
 
 def _test_state_machine_reset_clears_state(simulation_app) -> bool:
     """Resetting an env_id zeroes its progress and event log, but leaves other envs alone."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
         env = _MockEnv(num_envs=2)
         preds = [_MockPredicate(num_envs=2, name=f"p{i}") for i in range(2)]
         fgs = FineGrainedSubtask(name="t", predicate_groups=preds)
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=2, device="cpu")
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs], num_envs=2, device="cpu")
         sm.reset([0, 1])
 
         # Set env 0 to fully complete.
@@ -403,7 +403,7 @@ def _test_state_machine_reset_clears_state(simulation_app) -> bool:
 
 def _test_gating_advance_when_parent_subtask_idx_matches(simulation_app) -> bool:
     """A FineGrainedSubtask with parent_subtask_idx=N advances when the env's _current_subtask_idx=N."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
@@ -412,7 +412,7 @@ def _test_gating_advance_when_parent_subtask_idx_matches(simulation_app) -> bool
 
         pred = _MockPredicate(num_envs=1, name="p")
         fgs = FineGrainedSubtask(name="t", predicate_groups=pred, parent_subtask_idx=1)
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
         pred.set([True])
@@ -429,7 +429,7 @@ def _test_gating_advance_when_parent_subtask_idx_matches(simulation_app) -> bool
 
 def _test_gating_blocked_when_parent_subtask_idx_mismatches(simulation_app) -> bool:
     """A FineGrainedSubtask with parent_subtask_idx=N doesn't advance when the env's _current_subtask_idx!=N."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
@@ -438,7 +438,7 @@ def _test_gating_blocked_when_parent_subtask_idx_mismatches(simulation_app) -> b
 
         pred = _MockPredicate(num_envs=1, name="p")
         fgs = FineGrainedSubtask(name="t", predicate_groups=pred, parent_subtask_idx=1)
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
         # Predicate True, but the parent isn't at this FGS's index yet.
@@ -466,7 +466,7 @@ def _test_gating_sequential_task_end_to_end(simulation_app) -> bool:
     """Two FGSs with different parent subtask indices. The parent's
     _current_subtask_idx advances over time. Each FGS only progresses
     during its active window."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
@@ -477,7 +477,7 @@ def _test_gating_sequential_task_end_to_end(simulation_app) -> bool:
         pred_b = _MockPredicate(num_envs=1, name="b")
         fgs_a = FineGrainedSubtask(name="a", predicate_groups=pred_a, parent_subtask_idx=0)
         fgs_b = FineGrainedSubtask(name="b", predicate_groups=pred_b, parent_subtask_idx=1)
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs_a, fgs_b], num_envs=1, device="cpu")
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs_a, fgs_b], num_envs=1, device="cpu")
         sm.reset([0])
 
         # Both predicates True, but only pred_a is active.
@@ -502,7 +502,7 @@ def _test_gating_sequential_task_end_to_end(simulation_app) -> bool:
 
 def _test_gating_noop_when_env_has_no_current_subtask_idx(simulation_app) -> bool:
     """For unordered composite tasks gating is a no-op and all FGSs advance whenever their predicates are True."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedStateMachine
+    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
@@ -510,7 +510,7 @@ def _test_gating_noop_when_env_has_no_current_subtask_idx(simulation_app) -> boo
 
         pred = _MockPredicate(num_envs=1, name="p")
         fgs = FineGrainedSubtask(name="t", predicate_groups=pred, parent_subtask_idx=1)
-        sm = FineGrainedStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
+        sm = FineGrainedSubtaskTrackingStateMachine(fine_grained_subtasks=[fgs], num_envs=1, device="cpu")
         sm.reset([0])
 
         pred.set([True])

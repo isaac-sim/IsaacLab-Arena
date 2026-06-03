@@ -178,7 +178,7 @@ class FineGrainedSubtaskRunner:
         return stacked.mean(dim=1)
 
 
-class FineGrainedStateMachine:
+class FineGrainedSubtaskTrackingStateMachine:
     """State machine that manages runners for all FineGrainedSubtasks.
 
     Attributes:
@@ -265,12 +265,12 @@ class FineGrainedStateMachine:
         return [list(e) for e in self._events]
 
 
-def _ensure_state_machine(env, fine_grained_subtasks: list[FineGrainedSubtask]) -> FineGrainedStateMachine:
-    """Return the env's FineGrainedStateMachine, lazily creating and caching it on first call."""
+def _ensure_state_machine(env, fine_grained_subtasks: list[FineGrainedSubtask]) -> FineGrainedSubtaskTrackingStateMachine:
+    """Return the env's FineGrainedSubtaskTrackingStateMachine, lazily creating and caching it on first call."""
 
-    sm: FineGrainedStateMachine | None = getattr(env, _STATE_MACHINE_ATTR, None)
+    sm: FineGrainedSubtaskTrackingStateMachine | None = getattr(env, _STATE_MACHINE_ATTR, None)
     if sm is None:
-        sm = FineGrainedStateMachine(
+        sm = FineGrainedSubtaskTrackingStateMachine(
             fine_grained_subtasks=fine_grained_subtasks, num_envs=env.num_envs, device=env.device
         )
         setattr(env, _STATE_MACHINE_ATTR, sm)
