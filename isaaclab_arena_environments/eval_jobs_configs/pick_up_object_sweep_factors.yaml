@@ -1,0 +1,26 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Sensitivity-analysis schema for the pick_up_object sweep on droid + pi0.
+# Paired with: pick_up_object_sweep_minimal_jobs_config.json
+# Hand-authored — must stay in sync with --factor_keys passed to eval_runner.
+
+slice:
+  policy: pi0_remote
+  task: pick_and_place_maple_table
+  embodiment: droid_abs_joint_pos
+
+factors:
+  pick_up_object:
+    type: categorical
+    # Three objects with distinct visual / shape characteristics. List them in the order
+    # the analyzer should use as integer codes (0=rubiks_cube, 1=alphabet_soup_can, 2=sugar_box).
+    choices: [rubiks_cube_hot3d_robolab, alphabet_soup_can_hope_robolab, sugar_box_ycb_robolab]
+
+outcomes:
+  success_rate:
+    type: float
+  object_moved_rate:
+    type: float

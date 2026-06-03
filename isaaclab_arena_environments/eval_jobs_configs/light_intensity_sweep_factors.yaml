@@ -1,0 +1,36 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Sensitivity-analysis schema for the light_intensity sweep on droid + pi0.
+# Paired with: light_intensity_sweep_jobs_config.json (and the minimal variant).
+# Hand-authored — must stay in sync with --factor_keys passed to eval_runner.
+#
+# - slice identifies the (policy, task, embodiment) the dataset comes from; MNPE/NPE
+#   assumes a single data-generating source per analysis.
+# - factors declares what the eval varies; eval_runner is told which arena_env_args
+#   keys to record via --factor_keys (must match the names here).
+# - outcomes declares what the eval measures; the writer pulls these from the
+#   registered task metrics (compute_metric_from_recording on each demo).
+
+slice:
+  policy: pi0_remote
+  task: pick_and_place_maple_table
+  embodiment: droid_abs_joint_pos
+
+factors:
+  light_intensity:
+    type: continuous
+    dim: 1
+    # Mirrors the robolab evaluated endpoints [10, 5000] for direct comparison; spans the
+    # dark / normal / bright regimes around the policy's trained operating point (~500).
+    range: [[10, 5000]]
+
+outcomes:
+  success_rate:
+    # Per-episode value of SuccessRateMetric. Returns 0.0 or 1.0 for a single demo.
+    type: float
+  object_moved_rate:
+    # Per-episode value of ObjectMovedRateMetric. Same shape as success_rate.
+    type: float
