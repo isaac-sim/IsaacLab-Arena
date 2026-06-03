@@ -170,8 +170,8 @@ def _test_predicate_groups_rejects_invalid_inputs(simulation_app) -> bool:
 
 def _test_state_machine_advances_sequentially(simulation_app) -> bool:
     """A single FineGrainedSubtask with a 3 predicate chain advances one step per satisfied predicate."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+    from isaaclab_arena.tasks.fine_grained_subtask_tracking_state_machine import FineGrainedSubtaskTrackingStateMachine
 
     try:
         env = _MockEnv(num_envs=1)
@@ -217,8 +217,8 @@ def _test_state_machine_advances_sequentially(simulation_app) -> bool:
 
 def _test_state_machine_ignores_out_of_order_success(simulation_app) -> bool:
     """If a later predicate fires first, it's ignored until preceding ones have advanced."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+    from isaaclab_arena.tasks.fine_grained_subtask_tracking_state_machine import FineGrainedSubtaskTrackingStateMachine
 
     try:
         env = _MockEnv(num_envs=1)
@@ -256,8 +256,8 @@ def _test_state_machine_ignores_out_of_order_success(simulation_app) -> bool:
 
 def _test_state_machine_logical_any(simulation_app) -> bool:
     """Two parallel groups with logical=any complete as soon as either one finishes."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+    from isaaclab_arena.tasks.fine_grained_subtask_tracking_state_machine import FineGrainedSubtaskTrackingStateMachine
 
     try:
         env = _MockEnv(num_envs=1)
@@ -290,8 +290,8 @@ def _test_state_machine_logical_any(simulation_app) -> bool:
 
 def _test_state_machine_logical_all(simulation_app) -> bool:
     """Two groups with logical=all complete once all groups are complete."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+    from isaaclab_arena.tasks.fine_grained_subtask_tracking_state_machine import FineGrainedSubtaskTrackingStateMachine
 
     try:
         env = _MockEnv(num_envs=1)
@@ -325,8 +325,8 @@ def _test_state_machine_logical_all(simulation_app) -> bool:
 
 def _test_state_machine_logical_choose(simulation_app) -> bool:
     """Three groups with logical=choose and K=2 complete once any two groups are complete."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+    from isaaclab_arena.tasks.fine_grained_subtask_tracking_state_machine import FineGrainedSubtaskTrackingStateMachine
 
     try:
         env = _MockEnv(num_envs=1)
@@ -362,8 +362,8 @@ def _test_state_machine_logical_choose(simulation_app) -> bool:
 
 def _test_state_machine_reset_clears_state(simulation_app) -> bool:
     """Resetting an env_id zeroes its progress and event log, but leaves other envs alone."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+    from isaaclab_arena.tasks.fine_grained_subtask_tracking_state_machine import FineGrainedSubtaskTrackingStateMachine
 
     try:
         env = _MockEnv(num_envs=2)
@@ -403,8 +403,8 @@ def _test_state_machine_reset_clears_state(simulation_app) -> bool:
 
 def _test_gating_advance_when_parent_subtask_idx_matches(simulation_app) -> bool:
     """A FineGrainedSubtask with parent_subtask_idx=N advances when the env's _current_subtask_idx=N."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+    from isaaclab_arena.tasks.fine_grained_subtask_tracking_state_machine import FineGrainedSubtaskTrackingStateMachine
 
     try:
         env = _MockEnv(num_envs=1)
@@ -429,8 +429,8 @@ def _test_gating_advance_when_parent_subtask_idx_matches(simulation_app) -> bool
 
 def _test_gating_blocked_when_parent_subtask_idx_mismatches(simulation_app) -> bool:
     """A FineGrainedSubtask with parent_subtask_idx=N doesn't advance when the env's _current_subtask_idx!=N."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+    from isaaclab_arena.tasks.fine_grained_subtask_tracking_state_machine import FineGrainedSubtaskTrackingStateMachine
 
     try:
         env = _MockEnv(num_envs=1)
@@ -466,8 +466,8 @@ def _test_gating_sequential_task_end_to_end(simulation_app) -> bool:
     """Two FGSs with different parent subtask indices. The parent's
     _current_subtask_idx advances over time. Each FGS only progresses
     during its active window."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+    from isaaclab_arena.tasks.fine_grained_subtask_tracking_state_machine import FineGrainedSubtaskTrackingStateMachine
 
     try:
         env = _MockEnv(num_envs=1)
@@ -502,8 +502,8 @@ def _test_gating_sequential_task_end_to_end(simulation_app) -> bool:
 
 def _test_gating_noop_when_env_has_no_current_subtask_idx(simulation_app) -> bool:
     """For unordered composite tasks gating is a no-op and all FGSs advance whenever their predicates are True."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import FineGrainedSubtaskTrackingStateMachine
     from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+    from isaaclab_arena.tasks.fine_grained_subtask_tracking_state_machine import FineGrainedSubtaskTrackingStateMachine
 
     try:
         env = _MockEnv(num_envs=1)
@@ -527,11 +527,11 @@ def _test_gating_noop_when_env_has_no_current_subtask_idx(simulation_app) -> boo
 
 def _test_step_func_publishes_to_extras_and_returns_no_termination(simulation_app) -> bool:
     """fine_grained_subtask_step_func writes env.extras and returns all-False."""
-    from isaaclab_arena.tasks.fine_grained_state_machine import (
+    from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+    from isaaclab_arena.tasks.fine_grained_subtask_tracking_state_machine import (
         fine_grained_subtask_reset_func,
         fine_grained_subtask_step_func,
     )
-    from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
     try:
         env = _MockEnv(num_envs=2)

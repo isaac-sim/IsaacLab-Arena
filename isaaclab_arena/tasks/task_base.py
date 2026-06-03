@@ -11,11 +11,11 @@ from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.tasks.fine_grained_state_machine import (
+from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+from isaaclab_arena.tasks.fine_grained_subtask_tracking_state_machine import (
     make_fine_grained_subtask_events_cfg,
     make_fine_grained_subtask_termination_cfg,
 )
-from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
 
 
 class TaskBase(ABC):
