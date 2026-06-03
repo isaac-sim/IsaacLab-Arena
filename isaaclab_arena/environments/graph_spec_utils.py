@@ -44,9 +44,7 @@ def validate_unique_ids(nodes: list[Any], tasks: list[Any], state_specs: list[An
         raise ValueError(f"Duplicate env graph ids found: {duplicates}")
 
 
-def validate_references_exist(
-    nodes: list[Any], tasks: list[Any], state_specs: list[Any], *, check_task_wiring: bool = True
-) -> None:
+def validate_references_exist(nodes: list[Any], tasks: list[Any], state_specs: list[Any]) -> None:
     """Ensure every graph reference points to a node or state spec that exists."""
     node_ids = {node.id for node in nodes}
     state_spec_ids = {state_spec.id for state_spec in state_specs}
@@ -64,14 +62,13 @@ def validate_references_exist(
                 )
         seen_node_ids.add(node.id)
 
-    if check_task_wiring:
-        for task in tasks:
-            for label, state_spec_id in (
-                ("initial_state_spec_id", task.initial_state_spec_id),
-                ("success_state_spec_id", task.success_state_spec_id),
-            ):
-                if state_spec_id not in state_spec_ids:
-                    raise ValueError(f"Task '{task.id}' references unknown state spec '{state_spec_id}' for '{label}'")
+    for task in tasks:
+        for label, state_spec_id in (
+            ("initial_state_spec_id", task.initial_state_spec_id),
+            ("success_state_spec_id", task.success_state_spec_id),
+        ):
+            if state_spec_id not in state_spec_ids:
+                raise ValueError(f"Task '{task.id}' references unknown state spec '{state_spec_id}' for '{label}'")
 
     for state_spec in state_specs:
         for constraint in state_spec.spatial_constraints:
