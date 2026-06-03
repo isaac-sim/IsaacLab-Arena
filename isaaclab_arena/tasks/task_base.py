@@ -67,5 +67,5 @@ class TaskBase(ABC):
 
     @classmethod
     def success_state_transition(cls, task_args: Mapping[str, Any]) -> TaskTransition:
-        """Inform the StateSpecResolver what the task's success condition implies about the state change."""
+        """Inform constraint resolution what the task's success condition implies about the state change."""
         raise NotImplementedError("success_state_transition not implemented yet.")

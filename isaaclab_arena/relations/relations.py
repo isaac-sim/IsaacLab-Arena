@@ -39,7 +39,7 @@ class RelationBase:
     def is_spawn_pose_constraint() -> bool:
         """Whether this only sets an object's spawn pose at init.
 
-        Single source of truth for the StateSpecResolver: structural relations carry into the
+        Single source of truth for constraint resolution: structural relations carry into the
         success states, spawn-pose constraints do not. Overridden True by the placement
         constraints (AtPosition, PositionLimits, Random/RotateAroundSolution).
         """

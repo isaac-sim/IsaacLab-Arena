@@ -3,118 +3,104 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Deterministically resolve an UnresolvedArenaEnvGraphSpec (partially-populated) into a fully-populated one.
+"""Deterministically resolve an unresolved ``ArenaEnvGraphSpec`` into a fully-populated one.
 
 The upstream produces an *unresolved* env graph: the nodes, the task list, and a
-single intended initial state (``state_spec_0``); the tasks' ``initial_state_spec_id`` /
-``success_state_spec_id`` are left NULL. This resolver chains the per-task success
-conditions into the missing intermediate and final states, then wires each task to its
-states.
+single intended initial state (``state_spec_0``); the tasks carry no
+``initial_state_spec_id`` / ``success_state_spec_id`` yet. ``resolve_constraints`` chains
+the per-task success conditions into the missing intermediate and final states, then wires
+each task to its states.
 
-Each task's success-to-state-change mapping is a total lookup against the task class itself
-(``TaskBase.success_state_transition`` via ``TaskRegistry``). The chaining and id assignment
-must be exact (a golden fixture pins the output).
+The topology is implicit in the sequential task list, so resolving never changes it — it
+only fills the per-state constraints. Each task's success-to-state-change mapping is a total
+lookup against the task class itself (``TaskBase.success_state_transition`` via
+``TaskRegistry``). The chaining and id assignment must be exact (a groundtruth fixture pins the
+output). Reached via ``ArenaEnvGraphSpec.resolve_constraints``.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 from isaaclab_arena.assets.registries import TaskRegistry
-from isaaclab_arena.environments.arena_env_graph_spec import (
-    ArenaEnvGraphSpec,
-    UnresolvedArenaEnvGraphSpec,
-    UnresolvedArenaEnvGraphTaskSpec,
-)
+from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec, ArenaEnvGraphTaskSpec
 from isaaclab_arena.environments.graph_spec_utils import spatial_constraint_is_spawn_pose
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
 
 
-class StateSpecResolver:
-    """Resolve an unresolved env graph's intermediate and final states from its task chain.
+def resolve_constraints(spec: ArenaEnvGraphSpec, env_name: str | None = None) -> ArenaEnvGraphSpec:
+    """Chain ``spec``'s task success conditions into the full state graph and return it validated.
 
-    Consumes an ``UnresolvedArenaEnvGraphSpec`` (validated on load, but with NULL task state
-    ids that make it invalid for the strict ``ArenaEnvGraphSpec``). ``resolve_path`` returns a
-    validated, fully-wired ``ArenaEnvGraphSpec``.
+    Args:
+        spec: An unresolved graph (loaded via ``ArenaEnvGraphSpec.from_dict(..., is_task_wiring_enabled=False)``):
+            tasks not yet wired, only the initial state ``state_spec_0`` present.
+        env_name: Name for the resolved env. Defaults to ``spec.env_name``.
+
+    Returns:
+        A fully-wired ``ArenaEnvGraphSpec`` (``from_dict`` validates references and constraint
+        shapes before it is returned).
     """
-
-    def __init__(self, graph: UnresolvedArenaEnvGraphSpec):
-        """Bind to the unresolved graph the resolver will chain into a full spec."""
-        self.graph = graph
-
-    @classmethod
-    def from_yaml(cls, path: str | Path) -> StateSpecResolver:
-        """Load and validate the unresolved graph from YAML (skipping the unset task wiring)."""
-        return cls(UnresolvedArenaEnvGraphSpec.from_yaml(path))
-
-    def resolve_path(self, env_name: str | None = None) -> ArenaEnvGraphSpec:
-        """Chain task success conditions into the full state graph and return the validated spec.
-
-        Args:
-            env_name: Name for the resolved env. Defaults to the unresolved graph's ``env_name``.
-
-        Returns:
-            A fully-wired ``ArenaEnvGraphSpec`` (``ArenaEnvGraphSpec.from_dict`` validates
-            references and constraint shapes before it is returned).
-        """
-        return ArenaEnvGraphSpec.from_dict(self._resolve_to_dict(env_name=env_name))
-
-    def _resolve_to_dict(self, env_name: str | None = None) -> dict[str, Any]:
-        """Build the full env-graph mapping (pre-validation) from the unresolved graph.
-
-        Nodes and the initial state come from the unresolved graph's raw ``source`` (the chaining
-        runs in dict space); tasks are read from its typed ``tasks``.
-        """
-        nodes = self.graph.source["nodes"]
-        tasks_in = self.graph.tasks
-        states_in = self.graph.source["state_specs"]
-        assert states_in, "unresolved graph must define the intended initial state (state_spec_0)"
-        embodiment_id = self._embodiment_id(nodes)
-
-        # state_spec_0 is the given initial state; chain the rest off the task list.
-        states: list[dict[str, Any]] = [states_in[0]]
-        out_tasks: list[dict[str, Any]] = []
-        num_tasks = len(tasks_in)
-        for i, task in enumerate(tasks_in):
-            new_state_id = f"state_spec_{i + 1}"
-            is_terminal = i == num_tasks - 1
-            if is_terminal:
-                # The terminal state of the chain reaches the last task's reach_target_on_success.
-                reach_target = _transition_for(task).reach_target_on_success
-            else:
-                # While task i+1 exists, the next state of the chain reaches its subject.
-                reach_target = _transition_for(tasks_in[i + 1]).subject
-            states.append(_successor_state(states[-1], new_state_id, task, embodiment_id, reach_target, is_terminal))
-            out_tasks.append({
-                "id": task.id,
-                "type": task.type,
-                "initial_state_spec_id": f"state_spec_{i}",
-                "success_state_spec_id": new_state_id,
-                "task_args": task.task_args,
-            })
-
-        return {
-            "env_name": env_name or self.graph.env_name,
-            "nodes": nodes,
-            "tasks": out_tasks,
-            "state_specs": states,
-        }
-
-    @staticmethod
-    def _embodiment_id(nodes: list[dict[str, Any]]) -> str:
-        ids = [node["id"] for node in nodes if node["type"] == "embodiment"]
-        assert ids, "unresolved graph has no embodiment node"
-        return ids[0]
+    return ArenaEnvGraphSpec.from_dict(_resolve_to_dict(spec, env_name=env_name))
 
 
-def _transition_for(task: UnresolvedArenaEnvGraphTaskSpec) -> TaskTransition:
+def _resolve_to_dict(spec: ArenaEnvGraphSpec, env_name: str | None = None) -> dict[str, Any]:
+    """Build the full env-graph mapping (pre-validation) from the unresolved graph.
+
+    Chaining runs in dict space: nodes and the initial state come from ``spec.to_dict()``; tasks
+    are read from its typed ``tasks``.
+    """
+    raw = spec.to_dict()
+    nodes = raw["nodes"]
+    tasks_in = spec.tasks
+    states_in = raw.get("state_specs", [])
+    assert (
+        len(states_in) == 1
+    ), f"unresolved graph must define exactly the initial state (state_spec_0); got {len(states_in)} state specs"
+    embodiment_id = _embodiment_id(nodes)
+
+    # state_spec_0 is the given initial state; chain the rest off the task list.
+    states: list[dict[str, Any]] = [states_in[0]]
+    out_tasks: list[dict[str, Any]] = []
+    num_tasks = len(tasks_in)
+    for i, task in enumerate(tasks_in):
+        new_state_id = f"state_spec_{i + 1}"
+        is_terminal = i == num_tasks - 1
+        if is_terminal:
+            # The terminal state of the chain reaches the last task's reach_target_on_success.
+            reach_target = _transition_for(task).reach_target_on_success
+        else:
+            # While task i+1 exists, the next state of the chain reaches its subject.
+            reach_target = _transition_for(tasks_in[i + 1]).subject
+        states.append(_successor_state(states[-1], new_state_id, task, embodiment_id, reach_target, is_terminal))
+        out_tasks.append({
+            "id": task.id,
+            "type": task.type,
+            "initial_state_spec_id": f"state_spec_{i}",
+            "success_state_spec_id": new_state_id,
+            "task_args": task.task_args,
+        })
+
+    return {
+        "env_name": env_name or spec.env_name,
+        "nodes": nodes,
+        "tasks": out_tasks,
+        "state_specs": states,
+    }
+
+
+def _embodiment_id(nodes: list[dict[str, Any]]) -> str:
+    ids = [node["id"] for node in nodes if node["type"] == "embodiment"]
+    assert ids, "unresolved graph has no embodiment node"
+    return ids[0]
+
+
+def _transition_for(task: ArenaEnvGraphTaskSpec) -> TaskTransition:
     """Resolve a task entry to its ``TaskTransition`` via the ``Task`` class."""
     task_cls = TaskRegistry().get_task_by_name(task.type)
     return task_cls.success_state_transition(task.task_args)
 
 
-def _relocations(task: UnresolvedArenaEnvGraphTaskSpec) -> list[Relocate]:
+def _relocations(task: ArenaEnvGraphTaskSpec) -> list[Relocate]:
     """Return the task's ``Relocate`` effects."""
     transition = _transition_for(task)
     for effect in transition.effects:
@@ -126,7 +112,7 @@ def _relocations(task: UnresolvedArenaEnvGraphTaskSpec) -> list[Relocate]:
 def _successor_state(
     prev_state: dict[str, Any],
     new_state_id: str,
-    task: UnresolvedArenaEnvGraphTaskSpec,
+    task: ArenaEnvGraphTaskSpec,
     embodiment_id: str,
     reach_target: str | None,
     is_terminal: bool,

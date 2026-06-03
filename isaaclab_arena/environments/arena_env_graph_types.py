@@ -152,12 +152,17 @@ class ArenaEnvGraphCliOverrideSpec(BaseModel):
 
 
 class ArenaEnvGraphTaskSpec(BaseModel):
-    """Task entry in an environment graph."""
+    """Task entry in an environment graph.
+
+    ``initial_state_spec_id`` / ``success_state_spec_id`` are ``None`` in an unresolved graph
+    (the task chain is not wired yet); ``resolve_constraints`` derives them. A strict load
+    requires both via the graph-level wiring check.
+    """
 
     id: str = Field(min_length=1)
     type: str = Field(min_length=1)
-    initial_state_spec_id: str = Field(min_length=1)
-    success_state_spec_id: str = Field(min_length=1)
+    initial_state_spec_id: str | None = None
+    success_state_spec_id: str | None = None
     task_args: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("type")
@@ -168,13 +173,3 @@ class ArenaEnvGraphTaskSpec(BaseModel):
             valid_values = sorted(registry.get_all_keys())
             raise ValueError(f"Unknown task type '{value}'. Expected one of {valid_values}")
         return value
-
-
-
-@dataclass
-class UnresolvedArenaEnvGraphTaskSpec:
-    """Task entry before resolution: identity and args only, no initial/success state spec ids."""
-
-    id: str
-    type: str  # Task class name, could be a custom task class or a built-in task class
-    task_args: dict[str, Any] = field(default_factory=dict)
