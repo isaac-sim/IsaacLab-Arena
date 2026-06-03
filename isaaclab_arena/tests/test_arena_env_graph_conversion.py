@@ -66,16 +66,16 @@ def _test_get_arena_builder_from_cli_builds_env_from_graph_yaml(simulation_app):
     builder = get_arena_builder_from_cli(args)
     assert builder.arena_env.name == "pick_and_place_maple_table_default"
 
-    # The flags the YAML declares under `cli_overrides` are registered dynamically by the
+    # The flags the YAML declares under `cli_override_specs` are registered dynamically by the
     # environments parser (not hardcoded). Confirm --object parses through that real parser
-    # path and that apply_cli_overrides swaps the declared target node's asset name.
+    # path and that apply_cli_override_args swaps the declared target node's asset name.
     from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 
     sys.argv = ["policy_runner.py", "--env_graph_spec_yaml", yaml_path, "--object", "dex_cube"]
     args = get_isaaclab_arena_environments_cli_parser().parse_args()
     assert args.object == "dex_cube"
     spec = ArenaEnvGraphSpec.from_yaml(yaml_path)
-    spec.apply_cli_overrides(args)
+    spec.apply_cli_override_args(args)
     assert spec.nodes_by_id["rubiks_cube_hot3d_robolab"].name == "dex_cube"
 
     # A non-existent --env_graph_spec_yaml fails with a clear "not found" assertion from the YAML

@@ -15,10 +15,11 @@ if TYPE_CHECKING:
     import argparse
 
     from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpatialConstraintType
+    from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeSpec
     from isaaclab_arena.relations.relations import RelationBase
 
 
-def as_dict(data: Any, spec_name: str) -> dict[str, Any]:
+def assert_dict(data: Any, spec_name: str) -> dict[str, Any]:
     """Require a YAML section to be a mapping before parsing it."""
     assert isinstance(data, dict), f"{spec_name} must be a dict, got {type(data).__name__}"
     return data
@@ -189,25 +190,18 @@ def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
                 ), f"Spatial constraint '{constraint.id}' of type '{constraint_type}' requires a child node"
 
 
-def assert_cli_overrides_reference_nodes(nodes: list[Any], cli_overrides: list[ArenaEnvGraphCliOverrideSpec]) -> None:
+def assert_cli_override_specs_reference_nodes(
+    nodes: list["ArenaEnvGraphNodeSpec"], cli_override_specs: list[ArenaEnvGraphCliOverrideSpec]
+) -> None:
     """Check each CLI override uses a unique flag and points to a real node."""
     node_ids = {node.id for node in nodes}
     seen_args: set[str] = set()
-    for override in cli_overrides:
+    for override in cli_override_specs:
         assert override.arg not in seen_args, f"Duplicate cli_override arg '--{override.arg}'"
         seen_args.add(override.arg)
         assert (
             override.target_node_id in node_ids
         ), f"CLI override '--{override.arg}' targets unknown node '{override.target_node_id}'"
-
-
-def parse_cli_override(data: Any) -> ArenaEnvGraphCliOverrideSpec:
-    """Parse one entry from the YAML ``cli_overrides`` list."""
-    data = as_dict(data, "CLI override spec")
-    return ArenaEnvGraphCliOverrideSpec(
-        arg=required_str(data, "arg"),
-        target_node_id=required_str(data, "target_node_id"),
-    )
 
 
 def add_cli_override_args(

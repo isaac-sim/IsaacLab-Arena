@@ -156,10 +156,10 @@ def test_arena_env_graph_spec_validate_rejects_mutated_invalid_relationship_shap
         spec.validate()
 
 
-def test_cli_overrides_parsed_from_yaml():
+def test_cli_override_specs_parsed_from_yaml():
     spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml")
 
-    overrides = {override.arg: override for override in spec.cli_overrides}
+    overrides = {override.arg: override for override in spec.cli_override_specs}
     assert overrides["embodiment"].target_node_id == "droid_abs_joint_pos"
     assert overrides["object"].target_node_id == "rubiks_cube_hot3d_robolab"
 
@@ -179,17 +179,17 @@ def test_add_cli_override_args_registers_declared_flags():
     assert args.embodiment is None
 
 
-def test_apply_cli_overrides_swaps_declared_target_node_names():
+def test_apply_cli_override_args_swaps_declared_target_node_names():
     import argparse
 
     data = _minimal_env_graph_data()
-    data["cli_overrides"] = [
+    data["cli_override_specs"] = [
         {"arg": "object", "target_node_id": "cube"},
         {"arg": "embodiment", "target_node_id": "robot"},
     ]
     spec = ArenaEnvGraphSpec.from_dict(data)
 
-    spec.apply_cli_overrides(argparse.Namespace(object="dex_cube", embodiment="franka_ik"))
+    spec.apply_cli_override_args(argparse.Namespace(object="dex_cube", embodiment="franka_ik"))
 
     # The asset `name` is swapped; the `id` (and every edge that references it) is untouched.
     assert spec.nodes_by_id["cube"].name == "dex_cube"
@@ -198,21 +198,21 @@ def test_apply_cli_overrides_swaps_declared_target_node_names():
     assert spec.state_specs[0].task_constraints[0].parent == "robot"
 
 
-def test_apply_cli_overrides_leaves_unset_flags_as_authored():
+def test_apply_cli_override_args_leaves_unset_flags_as_authored():
     import argparse
 
     data = _minimal_env_graph_data()
-    data["cli_overrides"] = [{"arg": "object", "target_node_id": "cube"}]
+    data["cli_override_specs"] = [{"arg": "object", "target_node_id": "cube"}]
     spec = ArenaEnvGraphSpec.from_dict(data)
 
-    spec.apply_cli_overrides(argparse.Namespace(object=None))
+    spec.apply_cli_override_args(argparse.Namespace(object=None))
 
     assert spec.nodes_by_id["cube"].name == "cube"
 
 
 def test_validate_rejects_cli_override_targeting_unknown_node():
     data = _minimal_env_graph_data()
-    data["cli_overrides"] = [{"arg": "object", "target_node_id": "missing_node"}]
+    data["cli_override_specs"] = [{"arg": "object", "target_node_id": "missing_node"}]
 
     with pytest.raises(AssertionError, match="targets unknown node 'missing_node'"):
         ArenaEnvGraphSpec.from_dict(data)
@@ -220,7 +220,7 @@ def test_validate_rejects_cli_override_targeting_unknown_node():
 
 def test_validate_rejects_duplicate_cli_override_args():
     data = _minimal_env_graph_data()
-    data["cli_overrides"] = [
+    data["cli_override_specs"] = [
         {"arg": "object", "target_node_id": "cube"},
         {"arg": "object", "target_node_id": "robot"},
     ]
