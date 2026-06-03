@@ -210,10 +210,19 @@ def add_cli_override_args(
     """Add each declared override to the CLI ``parser`` as a ``--flag``.
 
     Each flag defaults to `None`, so an omitted flag falls back to the node's YAML-specified asset.
+
+    A declared flag that collides with one already on the parser (a built-in like ``--num_envs``
+    or ``--seed``, or any flag added by ``AppLauncher.add_app_launcher_args``) is rejected.
     """
     for override in override_specs:
+        flag = f"--{override.arg}"
+        # _option_string_actions maps every registered option string ('--num_envs') to its action
+        assert flag not in parser._option_string_actions, (  # noqa: SLF001 (introspect registered flags)
+            f"CLI override flag '{flag}' (node '{override.target_node_id}') is already a parser flag "
+            f"(e.g. --num_envs/--seed or an AppLauncher flag); rename its 'arg' in the YAML."
+        )
         parser.add_argument(
-            f"--{override.arg}",
+            flag,
             type=str,
             default=None,
             help=f"Override the asset behind graph node '{override.target_node_id}'.",
