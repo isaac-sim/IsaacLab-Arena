@@ -20,6 +20,7 @@ DEV_DEPS = [
     "jupyter",
     "debugpy",
     "tenacity",
+    "sbi",
 ]
 
 setup(

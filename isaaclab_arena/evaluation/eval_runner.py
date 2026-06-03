@@ -200,6 +200,16 @@ def main():
     # Check if any job requires cameras and enable them if needed before starting simulation
     enable_cameras_if_required(eval_jobs_config, args_cli)
 
+    # Per-episode summary recording is opt-in via --episode_summary. The writer logs the
+    # full arena_env_args dict per episode; the analyzer side decides which keys to treat
+    # as factors via factors.yaml. No eval-side knowledge of "factors" required.
+    episode_summary_enabled = args_cli.episode_summary is not None
+    if episode_summary_enabled:
+        print(
+            "[INFO] Episode summary recording enabled. Per-episode arena_env_args + outcomes"
+            f" → {args_cli.episode_summary}"
+        )
+
     with SimulationAppContext(args_cli):
         job_manager = JobManager(eval_jobs_config["jobs"])
         metrics_logger = MetricsLogger()
@@ -249,6 +259,15 @@ def main():
                         num_episodes=job.num_episodes,
                         language_instruction=job.language_instruction,
                     )
+
+                    if episode_summary_enabled:
+                        # Deferred import — episode_writer transitively touches pxr via
+                        # isaaclab_arena.metrics.metrics. Matches the policy_runner.py
+                        # pattern for compute_metrics.
+                        from isaaclab_arena.analysis.sensitivity.episode_writer import write_episode_summaries
+
+                        rows = write_episode_summaries(env, job, args_cli.episode_summary)
+                        print(f"[INFO] Wrote {rows} episode summaries for job '{job.name}'")
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
 
