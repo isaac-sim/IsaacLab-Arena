@@ -63,7 +63,17 @@ def rollout_policy(
     num_steps: int | None,
     num_episodes: int | None,
     language_instruction: str | None = None,
+    collector: Any = None,
 ) -> dict[str, Any]:
+    """Roll out *policy* in *env*.
+
+    Args:
+        collector: Optional data collector. When provided, ``collector.on_step(env,
+            obs, actions, step_idx)`` is called after every environment step and
+            ``collector.finalize(env)`` once the rollout finishes. Duck-typed so
+            core does not depend on the datagen package (see
+            ``isaaclab_arena_datagen.collection.collector.DatagenCollector``).
+    """
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
 
@@ -89,6 +99,9 @@ def rollout_policy(
             with torch.inference_mode():
                 actions = policy.get_action(env, obs)
                 obs, _, terminated, truncated, _ = env.step(actions)
+
+                if collector is not None:
+                    collector.on_step(env, obs, actions, num_steps_completed)
 
                 if terminated.any() or truncated.any():
                     # Only reset policy for those envs that are terminated or truncated
@@ -126,6 +139,10 @@ def rollout_policy(
         raise RuntimeError(f"Error rolling out policy: {e}")
 
     else:
+
+        # Persist and close any datagen dataset before returning.
+        if collector is not None:
+            collector.finalize(env)
 
         # Only compute metrics if env has non-None metrics.
         # Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing)
@@ -241,9 +258,31 @@ def main():
                 f" {args_cli.video_dir}"
             )
 
+        # Optionally set up datagen data collection (opt-in via --collect-datagen).
+        # Lazy import keeps core decoupled from the isaaclab_arena_datagen package
+        # unless collection is actually requested.
+        collector = None
+        if getattr(args_cli, "collect_datagen", False):
+            assert args_cli.enable_cameras, "--collect-datagen requires --enable_cameras."
+            assert (
+                num_steps is not None
+            ), "--collect-datagen requires a fixed horizon (--num_steps), not --num_episodes."
+            from isaaclab_arena_datagen.collection.collector import DatagenCollector, DatagenCollectorConfig
+
+            datagen_cfg = DatagenCollectorConfig(
+                output_dir=args_cli.datagen_output_dir,
+                width=args_cli.datagen_width,
+                height=args_cli.datagen_height,
+                mesh_sample_spacing=args_cli.datagen_mesh_sample_spacing,
+            )
+            collector = DatagenCollector.from_env(env, datagen_cfg, num_steps, env_name=args_cli.example_environment)
+            print(f"[Rank {local_rank}/{world_size}] Collecting datagen data to: {args_cli.datagen_output_dir}")
+
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
         print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")
-        metrics = rollout_policy(env, policy, num_steps, num_episodes, args_cli.language_instruction)
+        metrics = rollout_policy(
+            env, policy, num_steps, num_episodes, args_cli.language_instruction, collector=collector
+        )
 
         if metrics is not None:
             print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics_to_plain_python_types(metrics)}")
