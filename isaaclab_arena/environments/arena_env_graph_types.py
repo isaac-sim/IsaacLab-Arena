@@ -30,7 +30,7 @@ class ArenaEnvGraphNodeType(Enum):
     LIGHTING = "lighting"
 
 
-# ``_coerce_graph_node`` runs before per-field coercion, so ``type`` may still be the
+# ``parse_graph_node`` runs before per-field coercion, so ``type`` may still be the
 # YAML string ``"object_reference"`` or already an ``ArenaEnvGraphNodeType`` member.
 _OBJECT_REFERENCE_VALUES = frozenset({
     ArenaEnvGraphNodeType.OBJECT_REFERENCE,
@@ -42,8 +42,8 @@ def _is_object_reference_type(node_type: Any) -> bool:
     return node_type in _OBJECT_REFERENCE_VALUES
 
 
-def _coerce_graph_node(data: Any) -> Any:
-    """Route ``object_reference`` dicts to :class:`ArenaEnvGraphObjectReferenceNodeSpec`."""
+def parse_graph_node(data: Any) -> Any:
+    """Select the node spec class for ``data`` and validate ``object_reference`` nodes."""
     if isinstance(data, ArenaEnvGraphNodeSpec):
         return data
     if isinstance(data, dict) and _is_object_reference_type(data.get("type")):

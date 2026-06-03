@@ -21,7 +21,7 @@ from isaaclab_arena.environments.arena_env_graph_types import (
     ArenaEnvGraphTaskConstraintSpec,
     ArenaEnvGraphTaskConstraintType,
     ArenaEnvGraphTaskSpec,
-    _coerce_graph_node,
+    parse_graph_node,
 )
 from isaaclab_arena.environments.graph_spec_utils import (
     validate_references_exist,
@@ -63,7 +63,7 @@ class ArenaEnvGraphSpec(BaseModel):
             return []
         if not isinstance(nodes, list):
             raise ValueError("Field 'nodes' must be a list")
-        return [_coerce_graph_node(node) for node in nodes]
+        return [parse_graph_node(node) for node in nodes]
 
     @model_validator(mode="after")
     def _validate_graph_invariants(self) -> ArenaEnvGraphSpec:
