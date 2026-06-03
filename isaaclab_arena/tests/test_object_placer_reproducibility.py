@@ -785,6 +785,22 @@ def test_pooled_placer_loaded_pool_samples_match_origin(tmp_path):
         assert _positions_by_name(original) == _positions_by_name(restored)
 
 
+def test_pooled_placer_loaded_pool_refills_by_resolving_when_drained(tmp_path):
+    """Draining a loaded pool past its stored layouts triggers a re-solve refill, not a failure."""
+    placer_params = _make_seeded_params()
+    pool = PooledObjectPlacer(objects=list(_create_test_objects()), placer_params=placer_params, pool_size=2)
+    path = tmp_path / "layouts.json"
+    pool.save(path)
+
+    loaded = PooledObjectPlacer.load(path, list(_create_test_objects()), placer_params)
+    loaded.sample_without_replacement(loaded.total_remaining)
+    assert loaded.total_remaining == 0
+
+    refilled = loaded.sample_without_replacement(3)
+    assert len(refilled) == 3
+    assert all(_positions_by_name(result) for result in refilled)
+
+
 def test_pooled_placer_load_rejects_unknown_object(tmp_path):
     """A saved layout naming an object absent from the provided objects must fail loudly."""
     pool = PooledObjectPlacer(objects=list(_create_test_objects()), placer_params=_make_seeded_params(), pool_size=4)

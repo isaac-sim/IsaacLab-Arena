@@ -128,8 +128,13 @@ def read_pool_document(path: Path) -> PoolDocument:
     (requested num_envs, heterogeneity, objects).
     """
     assert path.is_file(), f"Layout pool file not found: {path}"
+
+    def reject_non_finite(token: str):
+        # json.loads accepts NaN/Infinity by default; reject here to mirror the allow_nan=False write.
+        raise ValueError(f"Layout pool file contains non-finite JSON constant '{token}': {path}")
+
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"), parse_constant=reject_non_finite)
     except json.JSONDecodeError as exc:
         raise ValueError(f"Layout pool file is not valid JSON: {path}") from exc
     return PoolDocument.from_dict(data, path)

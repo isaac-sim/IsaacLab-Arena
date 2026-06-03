@@ -52,7 +52,10 @@ class PooledLayout:
 
 @dataclass
 class EnvLayoutPool:
-    """Unread layout queue for one absolute environment."""
+    """Layout queue for one absolute environment; cursor splits consumed (before) from unread (after).
+
+    layouts keeps consumed entries too, so stored_layouts/save() can still see them.
+    """
 
     layouts: list[PooledLayout]
     cursor: int = 0
@@ -505,7 +508,7 @@ class PooledObjectPlacer:
 
     @property
     def had_fallbacks(self) -> bool:
-        """Whether any refill served best-loss fallback layouts."""
+        """Whether any solve stored best-loss fallback layouts (set when stored, even if never drawn)."""
         return self._had_fallbacks
 
     @property

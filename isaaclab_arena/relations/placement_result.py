@@ -26,6 +26,11 @@ class ValidationReport:
     checks: Mapping[str, bool]
 
     def __post_init__(self) -> None:
+        # Enforce bool here so passed/failed_checks stay sound: with_check (the path engineers use)
+        # must not store a truthy non-bool (e.g. a tensor) that silently satisfies all(...).
+        assert all(
+            isinstance(v, bool) for v in self.checks.values()
+        ), f"ValidationReport checks must be bools, got {dict(self.checks)}"
         # Read-only snapshot: neither the caller's original dict nor report.checks[...] can mutate it.
         object.__setattr__(self, "checks", MappingProxyType(dict(self.checks)))
 

@@ -194,6 +194,14 @@ def test_read_pool_document_malformed_json(tmp_path):
         read_pool_document(path)
 
 
+def test_read_pool_document_rejects_non_finite_constant(tmp_path):
+    """json.loads accepts NaN/Infinity by default; read must reject it to mirror the write guard."""
+    path = tmp_path / "nan.json"
+    path.write_text('{"placement_seed": NaN}')
+    with pytest.raises(ValueError, match="non-finite JSON constant 'NaN'"):
+        read_pool_document(path)
+
+
 # ---------------------------------------------------------------------------
 # deserialize_layout leaf guards
 # ---------------------------------------------------------------------------
