@@ -19,6 +19,7 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.environments.graph_spec_utils import coerce_number_sequence
 
 
@@ -49,20 +50,6 @@ def parse_graph_node(data: Any) -> Any:
     if isinstance(data, dict) and _is_object_reference_type(data.get("type")):
         return ArenaEnvGraphObjectReferenceNodeSpec.model_validate(data)
     return data
-
-
-class ArenaEnvGraphSpatialConstraintType(Enum):
-    IS_ANCHOR = "is_anchor"
-    NEXT_TO = "next_to"
-    NOT_NEXT_TO = "not_next_to"
-    ON = "on"
-    AT_POSE = "at_pose"  # through set_initial_pose()
-    AT_POSITION = "at_position"  # through object relation solver: AtPosition
-    POSITION_LIMITS = "position_limits"
-    RANDOM_AROUND_SOLUTION = "random_around_solution"
-    ROTATE_AROUND_SOLUTION = "rotate_around_solution"
-    # TODO(xinjieyao, 2026-05-21): Support "in" in solver
-    IN = "in"
 
 
 class ArenaEnvGraphTaskConstraintType(Enum):
@@ -102,13 +89,22 @@ class ArenaEnvGraphSpatialConstraintSpec(BaseModel):
     """Spatial constraint edge in an environment graph state spec."""
 
     id: str = Field(min_length=1)
-    type: ArenaEnvGraphSpatialConstraintType
+    type: str = Field(min_length=1)
     parent: str = Field(min_length=1)
     child: str | None = None  # Optional, e.g. is_anchor constraint does not have a child
     # Type-specific optional kwargs for the underlying RelationBase subclass selected by `type`
     # (e.g. {x_min, x_max, y_min, y_max} for position_limits; {side, distance} for next_to etc.).
     # The Arena environment builder forwards these when constructing the Relation instance.
     params: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("type")
+    @classmethod
+    def _validate_registered_relation_type(cls, value: str) -> str:
+        registry = ObjectRelationLibraryRegistry()
+        if not registry.is_registered(value):
+            valid_values = sorted(registry.get_all_keys())
+            raise ValueError(f"Unknown spatial constraint type '{value}'. Expected one of {valid_values}")
+        return value
 
     @field_validator("params", mode="after")
     @classmethod

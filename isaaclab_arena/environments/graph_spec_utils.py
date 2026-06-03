@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 
 if TYPE_CHECKING:
-    from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphSpatialConstraintType
     from isaaclab_arena.relations.relations import RelationBase
 
 
@@ -97,23 +96,9 @@ def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
     """Check each spatial constraint has the parent/child shape its relation expects."""
     for state_spec in state_specs:
         for constraint in state_spec.spatial_constraints:
-            constraint_type = _enum_value(constraint.type)
-            if constraint_type == "at_pose":
-                # Special: no relation class; pose is supplied directly via params.
-                assert (
-                    "position_xyz" in constraint.params
-                ), f"Spatial constraint '{constraint.id}' of type 'at_pose' requires params.position_xyz"
-                is_unary = True
-            elif constraint_type == "in":
-                # Special: no relation class; semantically a binary parent/child constraint.
-                # TODO(xinjieyao, 2026-05-27): add an `In` relation class so this can resolve through the registry.
-                is_unary = False
-            else:
-                relation_cls = relation_class_for_spatial_constraint_type(constraint.type)
-                assert (
-                    relation_cls is not None
-                ), f"Spatial constraint type '{constraint_type}' is not mapped to a relation class"
-                is_unary = relation_cls.is_unary()
+            relation_cls = relation_class_for_spatial_constraint_type(constraint.type)
+            is_unary = relation_cls.is_unary()
+            constraint_type = constraint.type
 
             if is_unary:
                 assert (
@@ -129,23 +114,9 @@ def _add_id_location(id_locations: dict[str, list[str]], spec_id: str, location:
     id_locations.setdefault(spec_id, []).append(location)
 
 
-def _enum_value(value: Any) -> Any:
-    return getattr(value, "value", value)
-
-
-def relation_class_for_spatial_constraint_type(
-    constraint_type: "ArenaEnvGraphSpatialConstraintType",
-) -> "type[RelationBase] | None":
-    """Resolve a spatial-constraint enum member to its RelationBase subclass.
-
-    Returns None for enum members that have no registered class yet (e.g. AT_POSE,
-    handled via set_initial_pose; IN, not yet supported by the solver).
-    # TODO(xinjieyao, 2026-05-28): add support for AT_POSE and IN.
-    """
-    registry = ObjectRelationLibraryRegistry()
-    if registry.is_registered(constraint_type.value):
-        return registry.get_object_relation_by_name(constraint_type.value)
-    return None
+def relation_class_for_spatial_constraint_type(constraint_type: str) -> "type[RelationBase]":
+    """Resolve a spatial-constraint type string to its registered RelationBase subclass."""
+    return ObjectRelationLibraryRegistry().get_object_relation_by_name(constraint_type)
 
 
 def iter_nested_leaf_values(value: Any, key_path: str = "") -> Iterator[tuple[str, Any]]:

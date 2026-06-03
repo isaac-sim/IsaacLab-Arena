@@ -9,26 +9,16 @@ import pytest
 from pydantic import ValidationError
 
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.environments.arena_env_graph_spec import (
     ArenaEnvGraphNodeType,
     ArenaEnvGraphObjectReferenceNodeSpec,
-    ArenaEnvGraphSpatialConstraintType,
     ArenaEnvGraphSpec,
     ArenaEnvGraphStateSpec,
 )
 from isaaclab_arena.environments.graph_spec_utils import relation_class_for_spatial_constraint_type
-from isaaclab_arena.relations.relations import IsAnchor, PositionLimits
+from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On, PositionLimits
 
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
-
-# Spatial-constraint enum members that intentionally have no registered relation:
-# AT_POSE is applied via set_initial_pose(), and IN is not yet supported by the solver.
-# TODO(xinjieyao, 2026-05-28): drop these once AT_POSE and IN gain relation classes.
-_RELATIONLESS_CONSTRAINT_TYPES = {
-    ArenaEnvGraphSpatialConstraintType.AT_POSE,
-    ArenaEnvGraphSpatialConstraintType.IN,
-}
 
 
 def test_arena_env_graph_spec_loads_pick_and_place_yaml():
@@ -66,70 +56,48 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
     assert len(initial_state.task_constraints) == 1
 
     cube_limits = initial_state.spatial_constraints[2]
-    assert cube_limits.type == ArenaEnvGraphSpatialConstraintType.POSITION_LIMITS
+    assert cube_limits.type == "position_limits"
     assert cube_limits.parent == "rubiks_cube_hot3d_robolab"
     assert cube_limits.params == {"x_min": 0.55, "x_max": 0.70, "y_min": -0.40, "y_max": -0.10}
 
-    initial_mug_pose = initial_state.spatial_constraints[5]
-    assert initial_mug_pose.type == ArenaEnvGraphSpatialConstraintType.AT_POSE
-    assert initial_mug_pose.parent == "mug_ycb_robolab"
-    assert initial_mug_pose.child is None
-    assert initial_mug_pose.params["position_xyz"] == (0.65, 0.25, 0.85)
-    assert initial_mug_pose.params["rotation_xyzw"] == (0.0, 0.0, 0.0, 1.0)
+    initial_mug_position = initial_state.spatial_constraints[5]
+    assert initial_mug_position.type == "at_position"
+    assert initial_mug_position.parent == "mug_ycb_robolab"
+    assert initial_mug_position.child is None
+    assert initial_mug_position.params == {"x": 0.65, "y": 0.25, "z": 0.85}
 
     final_state = spec.state_specs_by_id["state_spec_1"]
-    in_constraint = final_state.spatial_constraints[3]
-    assert in_constraint.type == ArenaEnvGraphSpatialConstraintType.IN
-    assert in_constraint.parent == "bowl_ycb_robolab"
-    assert in_constraint.child == "rubiks_cube_hot3d_robolab"
+    cube_on_bowl = final_state.spatial_constraints[3]
+    assert cube_on_bowl.type == "on"
+    assert cube_on_bowl.parent == "bowl_ycb_robolab"
+    assert cube_on_bowl.child == "rubiks_cube_hot3d_robolab"
 
-    final_mug_pose = final_state.spatial_constraints[4]
-    assert final_mug_pose.type == ArenaEnvGraphSpatialConstraintType.AT_POSE
-    assert final_mug_pose.parent == "mug_ycb_robolab"
-    assert final_mug_pose.params["position_xyz"] == (0.65, 0.25, 0.85)
-    assert final_mug_pose.params["rotation_xyzw"] == (0.0, 0.0, 0.0, 1.0)
+    final_mug_position = final_state.spatial_constraints[4]
+    assert final_mug_position.type == "at_position"
+    assert final_mug_position.parent == "mug_ycb_robolab"
+    assert final_mug_position.params == {"x": 0.65, "y": 0.25, "z": 0.85}
 
     table_anchor = initial_state.spatial_constraints[0]
-    assert table_anchor.type == ArenaEnvGraphSpatialConstraintType.IS_ANCHOR
+    assert table_anchor.type == "is_anchor"
     assert relation_class_for_spatial_constraint_type(table_anchor.type) is IsAnchor
     assert relation_class_for_spatial_constraint_type(cube_limits.type) is PositionLimits
-    assert (
-        relation_class_for_spatial_constraint_type(initial_mug_pose.type) is None
-    )  # at_pose: handled via set_initial_pose
-    assert relation_class_for_spatial_constraint_type(in_constraint.type) is None  # in: not yet supported by solver
+    assert relation_class_for_spatial_constraint_type(initial_mug_position.type) is AtPosition
+    assert relation_class_for_spatial_constraint_type(cube_on_bowl.type) is On
 
 
-def test_registered_relations_match_spatial_constraint_enum():
-    """Registered relations and the spatial-constraint enum must stay in one-to-one sync."""
-    registered_names = set(ObjectRelationLibraryRegistry().get_all_keys())
-    enum_values = {
-        constraint.value
-        for constraint in ArenaEnvGraphSpatialConstraintType
-        if constraint not in _RELATIONLESS_CONSTRAINT_TYPES
-    }
-
-    assert registered_names == enum_values, (
-        "Registered relations and spatial-constraint enum are out of sync.\n"
-        f"  relations missing an enum member: {sorted(registered_names - enum_values)}\n"
-        f"  enum members missing a relation:  {sorted(enum_values - registered_names)}\n"
-        "  (AT_POSE and IN are intentionally excluded via _RELATIONLESS_CONSTRAINT_TYPES.)"
-    )
-
-
-def test_arena_env_graph_spec_parses_optional_task_constraints_and_at_pose():
+def test_arena_env_graph_spec_parses_optional_task_constraints_and_at_position():
     data = _minimal_env_graph_data()
-    data["state_specs"][0]["spatial_constraints"] = [_at_pose_constraint()]
+    data["state_specs"][0]["spatial_constraints"] = [_at_position_constraint()]
     del data["state_specs"][0]["task_constraints"]
 
     spec = ArenaEnvGraphSpec.from_dict(data)
     state_spec = spec.state_specs_by_id["state_0"]
-    fixed_pose = state_spec.spatial_constraints[0]
+    fixed_position = state_spec.spatial_constraints[0]
 
     assert state_spec.task_constraints == []
-    assert fixed_pose.type == ArenaEnvGraphSpatialConstraintType.AT_POSE
-    assert fixed_pose.parent == "cube"
-    assert fixed_pose.params["position_xyz"] == (0.1, 0.2, 0.3)
-    assert fixed_pose.params["rotation_xyzw"] == (0.0, 0.0, 0.0, 1.0)
+    assert fixed_position.type == "at_position"
+    assert fixed_position.parent == "cube"
+    assert fixed_position.params == {"x": 0.1, "y": 0.2, "z": 0.3}
 
 
 def test_arena_env_graph_spec_validate_rejects_mutated_missing_reference():
@@ -143,7 +111,7 @@ def test_arena_env_graph_spec_validate_rejects_mutated_missing_reference():
 def test_arena_env_graph_spec_validate_rejects_mutated_invalid_relationship_shape():
     spec = ArenaEnvGraphSpec.from_dict(_minimal_env_graph_data())
     constraint = spec.state_specs[0].spatial_constraints[0]
-    constraint.type = ArenaEnvGraphSpatialConstraintType.ON
+    constraint.type = "on"
 
     with pytest.raises(AssertionError, match="requires a child node"):
         spec.validate()
@@ -234,19 +202,12 @@ def test_arena_env_graph_spec_rejects_invalid_data():
         (
             "unknown spatial constraint type",
             lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("type", "unknown"),
-            "type",
+            "Unknown spatial constraint type 'unknown'",
         ),
         (
             "unknown task constraint type",
             lambda data: data["state_specs"][0]["task_constraints"][0].__setitem__("type", "unknown"),
             "type",
-        ),
-        (
-            "invalid at_pose position",
-            lambda data: data["state_specs"][0]["spatial_constraints"].append(
-                _at_pose_constraint(position_xyz=[0.1, 0.2])
-            ),
-            "position_xyz",
         ),
     ]
 
@@ -277,7 +238,7 @@ def _minimal_env_graph_data():
         ],
         "tasks": [{
             "id": "task_0",
-            "type": "PickAndPlaceTask",
+            "type": "pick_and_place",
             "initial_state_spec_id": "state_0",
             "success_state_spec_id": "state_0",
         }],
@@ -294,13 +255,10 @@ def _minimal_env_graph_data():
     }
 
 
-def _at_pose_constraint(position_xyz=None, rotation_xyzw=None):
+def _at_position_constraint(x=0.1, y=0.2, z=0.3):
     return {
-        "id": "cube_fixed_pose",
-        "type": "at_pose",
+        "id": "cube_fixed_position",
+        "type": "at_position",
         "parent": "cube",
-        "params": {
-            "position_xyz": [0.1, 0.2, 0.3] if position_xyz is None else position_xyz,
-            "rotation_xyzw": [0.0, 0.0, 0.0, 1.0] if rotation_xyzw is None else rotation_xyzw,
-        },
+        "params": {"x": x, "y": y, "z": z},
     }

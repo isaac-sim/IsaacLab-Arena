@@ -15,13 +15,11 @@ from isaaclab_arena.environments.arena_env_graph_types import (
     ArenaEnvGraphNodeSpec,
     ArenaEnvGraphNodeType,
     ArenaEnvGraphObjectReferenceNodeSpec,
-    ArenaEnvGraphSpatialConstraintType,
     ArenaEnvGraphStateSpec,
 )
 from isaaclab_arena.environments.graph_spec_utils import relation_class_for_spatial_constraint_type
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.scene.scene import Scene
-from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -118,40 +116,15 @@ def _instantiate_assets_from_nodes(node_specs: list[ArenaEnvGraphNodeSpec], asse
 def _attach_spatial_constraints_to_assets(
     state_spec: ArenaEnvGraphStateSpec, assets_by_node_id: dict[str, Any]
 ) -> None:
-    """Attach one Relation per spatial constraint to the asset(s) it targets, in place.
-
-    AT_POSE is special-cased to ``set_initial_pose`` since it has no Relation class.
-    Raises AssertionError on unsupported constraint types or malformed AT_POSE params.
-    """
+    """Attach one Relation per spatial constraint to the asset(s) it targets, in place."""
     for spatial_constraint in state_spec.spatial_constraints:
         parent_asset = assets_by_node_id[spatial_constraint.parent]
-
-        # AT_POSE has no Relation class — it pins the parent's initial pose directly,
-        # bypassing the solver. Pop the two known fields and reject any extras so a typo
-        # in the spec ('postion_xyz') raises here instead of silently being ignored.
-        # TODO(xinjieyao, 2026-05-26): move at_pose handling into the placer module.
-        if spatial_constraint.type == ArenaEnvGraphSpatialConstraintType.AT_POSE:
-            at_pose_params = dict(spatial_constraint.params)
-            position_xyz = at_pose_params.pop("position_xyz", None)
-            rotation_xyzw = at_pose_params.pop("rotation_xyzw", (0.0, 0.0, 0.0, 1.0))
-            assert (
-                position_xyz is not None
-            ), f"at_pose constraint '{spatial_constraint.id}' requires params.position_xyz"
-            assert (
-                not at_pose_params
-            ), f"Unsupported at_pose params for constraint '{spatial_constraint.id}': {sorted(at_pose_params)}"
-            parent_asset.set_initial_pose(Pose(position_xyz=position_xyz, rotation_xyzw=rotation_xyzw))
+        relation_class = relation_class_for_spatial_constraint_type(spatial_constraint.type)
+        # Unary relations (IS_ANCHOR, POSITION_LIMITS, ...) attach to the parent asset.
+        # Binary relations (ON, NEXT_TO, ...) attach to the *child* asset, with parent
+        # as the relation's first constructor arg — matches how add_relation is wired.
+        if relation_class.is_unary():
+            parent_asset.add_relation(relation_class(**spatial_constraint.params))
         else:
-            # All other constraint types resolve through ObjectRelationLibraryRegistry. The
-            # registry returning None signals an enum value with no registered class — would
-            # be a programming error, not a YAML error.
-            relation_class = relation_class_for_spatial_constraint_type(spatial_constraint.type)
-            assert relation_class is not None, f"Unsupported spatial constraint type '{spatial_constraint.type.value}'"
-            # Unary relations (IS_ANCHOR, POSITION_LIMITS, ...) attach to the parent asset.
-            # Binary relations (ON, NEXT_TO, ...) attach to the *child* asset, with parent
-            # as the relation's first constructor arg — matches how add_relation is wired.
-            if relation_class.is_unary():
-                parent_asset.add_relation(relation_class(**spatial_constraint.params))
-            else:
-                child_asset = assets_by_node_id[spatial_constraint.child]
-                child_asset.add_relation(relation_class(parent_asset, **spatial_constraint.params))
+            child_asset = assets_by_node_id[spatial_constraint.child]
+            child_asset.add_relation(relation_class(parent_asset, **spatial_constraint.params))
