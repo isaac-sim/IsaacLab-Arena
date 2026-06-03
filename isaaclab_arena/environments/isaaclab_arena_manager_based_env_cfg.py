@@ -64,6 +64,9 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
 
     metrics: object | None = None
 
+    # Task language description
+    task_description: str | None = None
+
     # Override the RTX renderer's built-in scene ambient (carb /rtx/sceneDb/ambientLightIntensity, default 1.0 with
     # color [0.1, 0.1, 0.1]) so that USD light prims fully control scene illumination.
     sim: SimulationCfg = SimulationCfg(
