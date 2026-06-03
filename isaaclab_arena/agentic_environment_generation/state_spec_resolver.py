@@ -65,11 +65,12 @@ def _resolve_to_dict(spec: ArenaEnvGraphSpec, env_name: str | None = None) -> di
     for i, task in enumerate(tasks_in):
         new_state_id = f"state_spec_{i + 1}"
         is_terminal = i == num_tasks - 1
+        # Each state carries a reach constraint aimed at whatever the embodiment must act on next.
         if is_terminal:
-            # The terminal state of the chain reaches the last task's reach_target_on_success.
+            # No next task: aim at the final task's declared post-success target.
             reach_target = _transition_for(task).reach_target_on_success
         else:
-            # While task i+1 exists, the next state of the chain reaches its subject.
+            # Aim at the next task's subject — the object the embodiment manipulates in task i+1.
             reach_target = _transition_for(tasks_in[i + 1]).subject
         states.append(_successor_state(states[-1], new_state_id, task, embodiment_id, reach_target, is_terminal))
         out_tasks.append({
@@ -89,13 +90,14 @@ def _resolve_to_dict(spec: ArenaEnvGraphSpec, env_name: str | None = None) -> di
 
 
 def _embodiment_id(nodes: list[dict[str, Any]]) -> str:
+    """Return the embodiment node's id (the parent of every reach constraint); the first one wins."""
     ids = [node["id"] for node in nodes if node["type"] == "embodiment"]
     assert ids, "unresolved graph has no embodiment node"
     return ids[0]
 
 
 def _transition_for(task: ArenaEnvGraphTaskSpec) -> TaskTransition:
-    """Resolve a task entry to its ``TaskTransition`` via the ``Task`` class."""
+    """Look up the task class via ``TaskRegistry`` and return its declared success transition."""
     task_cls = TaskRegistry().get_task_by_name(task.type)
     return task_cls.success_state_transition(task.task_args)
 
@@ -140,7 +142,7 @@ def _successor_state(
             carried = dict(constraint)
             carried["id"] = _reprefix_id(constraint["id"], prev_state["id"], new_state_id)
             spatial.append(carried)
-    # Spatial constraints implied by the task's success effects.
+    # Add the new placements implied by the task's success effects (e.g. cube now on bowl).
     for relocation in relocations:
         spatial.append({
             "id": f"{new_state_id}_{relocation.subject}_{relocation.relation}_{relocation.target}",
@@ -148,7 +150,7 @@ def _successor_state(
             "parent": relocation.target,
             "child": relocation.subject,
         })
-    # Reachability of subject node for the embodiment.
+    # Point the embodiment at its next reach target (empty when there is nothing left to reach).
     task_constraints = (
         []
         if reach_target is None
