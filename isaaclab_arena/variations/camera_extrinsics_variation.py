@@ -64,9 +64,9 @@ class CameraExtrinsicsVariation(RunTimeVariationBase):
         camera_name: Scene-entity name of the target camera.
         cfg: Tunable parameters. Override the translation distribution via
             ``cfg.sampler_cfg``.
+        name: Identifier under which this variation is registered on the asset.
+            Defaults to ``"camera_extrinsics_{camera_name}"``.
     """
-
-    name = "camera_extrinsics"
 
     cfg: CameraExtrinsicsVariationCfg
 
@@ -74,8 +74,11 @@ class CameraExtrinsicsVariation(RunTimeVariationBase):
         self,
         camera_name: str,
         cfg: CameraExtrinsicsVariationCfg | None = None,
+        name: str | None = None,
     ):
-        super().__init__(cfg=cfg if cfg is not None else CameraExtrinsicsVariationCfg())
+        cfg = cfg if cfg is not None else CameraExtrinsicsVariationCfg()
+        name = name if name is not None else f"camera_extrinsics_{camera_name}"
+        super().__init__(cfg=cfg, name=name)
         self.camera_name = camera_name
 
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:

@@ -35,12 +35,10 @@ class TestBuildTimeVariationCfg(VariationBaseCfg):
 class TestBuildTimeVariation(BuildTimeVariationBase):
     __test__ = False
 
-    name = "test_build_time"
-
     cfg: TestBuildTimeVariationCfg
 
-    def __init__(self, asset, cfg: TestBuildTimeVariationCfg | None = None):
-        super().__init__(cfg=cfg if cfg is not None else TestBuildTimeVariationCfg())
+    def __init__(self, asset, cfg: TestBuildTimeVariationCfg | None = None, name: str = "test_build_time"):
+        super().__init__(cfg=cfg if cfg is not None else TestBuildTimeVariationCfg(), name=name)
         self._asset = asset
 
     def apply(self) -> None:
