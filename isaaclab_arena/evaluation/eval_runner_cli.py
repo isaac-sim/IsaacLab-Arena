@@ -34,6 +34,7 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         help=(
             "Run jobs in chunks of at most this many, one fresh subprocess per chunk."
             " Each restart lets the OS reclaim accumulated memory, avoiding OOM on"
-            " long sweeps. Default unset — single process."
+            " long sweeps. Default unset — single process. Leave unset for normal runs;"
+            " set only if a long sweep grows in host memory or gets OOM-killed."
         ),
     )
