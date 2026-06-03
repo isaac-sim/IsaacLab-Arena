@@ -111,12 +111,21 @@ python -m isaaclab_arena.evaluation.policy_runner \
     <example_environment> [env args...]
 ```
 
+> **Important:** `--collect-datagen` / `--datagen-output-dir` are *global* runner
+> flags, so they must appear **before** the `example_environment` subcommand
+> (alongside `--policy_type`, `--enable_cameras`, …), not after it. Placing them
+> after the subcommand makes argparse route them to the environment subparser,
+> which rejects them as unrecognized.
+
 Requirements:
 
 - **`--enable_cameras`** is required (sensor rendering is impossible otherwise);
   the runner asserts it.
-- A **fixed horizon** (`--num_steps`, not `--num_episodes`) — the writer
-  pre-allocates `num_frames == num_steps`.
+- A fixed recording horizon (the writer pre-allocates `num_frames`):
+  - `--num_steps N` → records exactly `N` frames (cleanest; one continuous sequence).
+  - `--num_episodes K` → records up to `K * max_episode_length` frames contiguously
+    **across episode resets**; episodes that finish early leave trailing frames
+    unused. Prefer `--num_steps` when you want a clean fixed-length trajectory.
 - Single environment (`num_envs == 1`).
 
 Collection is **off by default**; without `--collect-datagen` the rollout is

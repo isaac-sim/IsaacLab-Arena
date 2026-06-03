@@ -8,8 +8,12 @@ from __future__ import annotations
 
 from isaaclab_arena_datagen.camera_trajectory import CameraViewTrajectory, Coord3D
 
+# Generic last-resort view for environments that do not define
+# ``get_default_cameras`` and when no camera is supplied via the CLI. An elevated
+# front-oblique pose (rather than a degenerate straight-down view) so the look-at
+# basis is well-conditioned and a tabletop near the origin is visible.
 DEFAULT_CAMERA = CameraViewTrajectory(
-    position=(0.0, 0.0, 1.0),
+    position=(0.0, -1.0, 1.0),
     target=(0.0, 0.0, 0.0),
     focal_length_mm=24.0,
 )

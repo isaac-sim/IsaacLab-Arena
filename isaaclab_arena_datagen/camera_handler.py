@@ -102,6 +102,12 @@ class IsaacLabArenaCameraHandler:
             raise ValueError("Camera position and target are identical; cannot compute look-at direction.")
         forward_W_3 /= forward_norm
 
+        # If the view direction is (anti-)parallel to the world up axis (e.g. a
+        # straight-down or straight-up camera), the right axis is undefined; fall
+        # back to a different up reference so the look-at basis stays well-conditioned.
+        if abs(float(np.dot(forward_W_3, up_W_3))) > 0.999:
+            up_W_3 = np.array([0.0, 1.0, 0.0], dtype=np.float64)
+
         right_W_3 = np.cross(forward_W_3, up_W_3)
         right_norm = np.linalg.norm(right_W_3)
         if right_norm < 1e-12:
@@ -573,6 +579,12 @@ def _look_at_quaternion_ros(
     if forward_norm < 1e-12:
         raise ValueError("Eye and target are identical; cannot compute look-at direction.")
     forward_W_3 /= forward_norm
+
+    # If the view direction is (anti-)parallel to the up axis (e.g. a straight-down
+    # or straight-up camera), the right axis is undefined; fall back to a different
+    # up reference so the look-at basis stays well-conditioned.
+    if abs(float(np.dot(forward_W_3, up_W_3))) > 0.999:
+        up_W_3 = np.array([0.0, 1.0, 0.0], dtype=np.float64)
 
     right_W_3 = np.cross(forward_W_3, up_W_3)
     right_norm = np.linalg.norm(right_W_3)

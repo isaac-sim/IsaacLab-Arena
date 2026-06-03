@@ -96,3 +96,31 @@ def _add_datagen_collection_arguments(parser: argparse.ArgumentParser) -> None:
         default=0.01,
         help="Datagen mesh surface sample spacing in metres.",
     )
+    group.add_argument(
+        "--datagen-camera-position",
+        "--datagen_camera_position",
+        type=float,
+        nargs=3,
+        default=None,
+        metavar=("X", "Y", "Z"),
+        help=(
+            "World-frame position of the datagen camera. If set (with --datagen-camera-target),"
+            " overrides the environment's get_default_cameras / the default fallback view."
+        ),
+    )
+    group.add_argument(
+        "--datagen-camera-target",
+        "--datagen_camera_target",
+        type=float,
+        nargs=3,
+        default=None,
+        metavar=("X", "Y", "Z"),
+        help="World-frame look-at point of the datagen camera. Used with --datagen-camera-position.",
+    )
+    group.add_argument(
+        "--datagen-focal-length",
+        "--datagen_focal_length",
+        type=float,
+        default=24.0,
+        help="Datagen camera focal length in mm (used with --datagen-camera-position/-target).",
+    )

@@ -20,8 +20,11 @@ Requirements / limitations:
 
 * The ``SimulationApp`` must be launched with cameras enabled
   (``--enable_cameras``); sensor rendering is impossible otherwise.
-* The collector pre-allocates ``num_frames == num_steps`` datasets, so it is
-  supported in fixed-step rollouts only (``--num_steps``, not ``--num_episodes``).
+* The collector pre-allocates ``num_frames`` datasets up front, so it needs a
+  fixed horizon. In ``--num_steps`` mode that is the step count; in
+  ``--num_episodes`` mode the policy runner passes the worst case
+  (``num_episodes * max_episode_length``) and frames are recorded contiguously
+  across episode resets (early-finishing episodes leave trailing frames unused).
 * Single environment only (``num_envs == 1``), matching the camera handler.
 """
 
@@ -126,9 +129,7 @@ class DatagenCollector:
         Returns:
             A ready-to-use :class:`DatagenCollector`.
         """
-        assert (
-            num_steps is not None and num_steps > 1
-        ), "DatagenCollector requires a fixed horizon > 1 (use --num_steps, not --num_episodes)."
+        assert num_steps is not None and num_steps > 1, "DatagenCollector requires a fixed horizon > 1 frame."
 
         if cfg.cameras is not None:
             from isaaclab_arena_datagen.utils.camera_utils import validate_camera_configs

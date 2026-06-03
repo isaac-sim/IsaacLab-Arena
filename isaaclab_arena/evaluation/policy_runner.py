@@ -264,18 +264,46 @@ def main():
         collector = None
         if getattr(args_cli, "collect_datagen", False):
             assert args_cli.enable_cameras, "--collect-datagen requires --enable_cameras."
-            assert (
-                num_steps is not None
-            ), "--collect-datagen requires a fixed horizon (--num_steps), not --num_episodes."
             from isaaclab_arena_datagen.collection.collector import DatagenCollector, DatagenCollectorConfig
+
+            # Datagen records a single fixed-length sequence, so the writer needs a frame
+            # count up front. In step mode that is num_steps; in episode mode we size to the
+            # worst case (num_episodes * max_episode_length) and record contiguously across
+            # episode resets. Episodes that finish early simply leave trailing frames unused.
+            if num_steps is not None:
+                datagen_horizon = num_steps
+            else:
+                datagen_horizon = num_episodes * env.unwrapped.max_episode_length
+                print(
+                    f"[Rank {local_rank}/{world_size}] Datagen: episode mode -> sizing to "
+                    f"{datagen_horizon} frames ({num_episodes} x {env.unwrapped.max_episode_length})."
+                    " Frames span episode resets; pass --num_steps for a clean fixed-length sequence."
+                )
+
+            # Optional explicit camera viewpoint (overrides the env's
+            # get_default_cameras / the default fallback view).
+            datagen_cameras = None
+            if args_cli.datagen_camera_position is not None and args_cli.datagen_camera_target is not None:
+                from isaaclab_arena_datagen.camera_trajectory import CameraViewTrajectory
+
+                datagen_cameras = [
+                    CameraViewTrajectory(
+                        position=tuple(args_cli.datagen_camera_position),
+                        target=tuple(args_cli.datagen_camera_target),
+                        focal_length_mm=args_cli.datagen_focal_length,
+                    )
+                ]
 
             datagen_cfg = DatagenCollectorConfig(
                 output_dir=args_cli.datagen_output_dir,
+                cameras=datagen_cameras,
                 width=args_cli.datagen_width,
                 height=args_cli.datagen_height,
                 mesh_sample_spacing=args_cli.datagen_mesh_sample_spacing,
             )
-            collector = DatagenCollector.from_env(env, datagen_cfg, num_steps, env_name=args_cli.example_environment)
+            collector = DatagenCollector.from_env(
+                env, datagen_cfg, datagen_horizon, env_name=args_cli.example_environment
+            )
             print(f"[Rank {local_rank}/{world_size}] Collecting datagen data to: {args_cli.datagen_output_dir}")
 
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
