@@ -34,6 +34,7 @@ from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
+from isaaclab_arena.variations import variations_hydra
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBase
 
 
@@ -85,6 +86,18 @@ class ArenaEnvBuilder:
             embodiment_variations = self.arena_env.embodiment.get_variations()
             scene_and_embodiment_variations[self.arena_env.embodiment.name] = embodiment_variations
         return scene_and_embodiment_variations
+
+    def get_variations_schema(self) -> type | None:
+        """Return the dataclass describing every variation in the env, or ``None`` if none."""
+        return variations_hydra.build_schema(self.get_all_variations())
+
+    def load_variations_cfg_from_flags(self, hydra_overrides: list[str]) -> Any | None:
+        """Compose Hydra override strings into a typed ``VariationsCfg`` instance."""
+        return variations_hydra.load_cfg_from_flags(self.get_all_variations(), hydra_overrides)
+
+    def apply_hydra_variation_overrides(self, hydra_overrides: list[str]) -> None:
+        """Apply Hydra-style variation overrides across scene + embodiment variations."""
+        variations_hydra.apply_overrides(self.get_all_variations(), hydra_overrides)
 
     def _compose_variations_event_cfg(self) -> Any | None:
         """Build a configclass with one :class:`EventTermCfg` per enabled run-time variation.

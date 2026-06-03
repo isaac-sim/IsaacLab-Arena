@@ -18,7 +18,11 @@ from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
 from isaaclab_arena.utils.random import set_seed
-from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
+from isaaclab_arena_environments.cli import (
+    get_arena_builder_from_cli,
+    get_isaaclab_arena_environments_cli_parser,
+    split_hydra_overrides,
+)
 
 if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase
@@ -165,14 +169,16 @@ def main():
         # Add the example environment arguments + policy-related arguments to the parser
         args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
         args_parser = policy_cls.add_args_to_parser(args_parser)
-        args_cli = args_parser.parse_args()
+        # Use parse_known_args so positional Hydra variation overrides fall through into unknown.
+        args_cli, unknown = args_parser.parse_known_args()
+        hydra_overrides = split_hydra_overrides(unknown, args_parser)
         # Re-apply per-rank device after parse preventing device got overwritten by the default value
         if is_distributed(args_cli):
             args_cli.distributed = True
             args_cli.device = f"cuda:{local_rank}"
 
         # Build scene. Use rgb_array render mode when recording so RecordVideo can grab frames.
-        arena_builder = get_arena_builder_from_cli(args_cli)
+        arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
         render_mode = "rgb_array" if args_cli.video else None
         env, cfg = arena_builder.make_registered_and_return_cfg(render_mode=render_mode)
 

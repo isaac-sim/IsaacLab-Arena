@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import re
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
@@ -15,6 +16,47 @@ from isaaclab_arena_environments.example_environment_base import ExampleEnvironm
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+
+
+# Hydra override token shapes we accept on the CLI after the env subcommand. See
+# https://hydra.cc/docs/advanced/override_grammar/basic/ for the upstream grammar.
+# We deliberately match a conservative subset:
+#   - ``key.path=value``         (set / append-or-set)
+#   - ``+key.path=value``        (force-add)
+#   - ``++key.path=value``       (force-set, error if missing)
+#   - ``~key.path`` or ``~key.path=value``  (delete; value optional)
+# The leading ``~`` makes the trailing ``=value`` optional; in every other
+# shape ``=`` is mandatory, so bare positionals like ``stray_token`` do *not*
+# pass through as overrides -- they get raised as unrecognised by
+# :func:`split_hydra_overrides`.
+_HYDRA_KEY = r"[A-Za-z_][A-Za-z0-9_.]*"
+_HYDRA_OVERRIDE_RE = re.compile(rf"^(?:~{_HYDRA_KEY}(?:=.*)?|(?:\+{{1,2}})?{_HYDRA_KEY}=.*)$")
+
+
+def split_hydra_overrides(unknown: list[str], parser: argparse.ArgumentParser) -> list[str]:
+    """Pull Hydra-shaped override tokens out of an argparse ``unknown`` list.
+
+    Any leftover that does not match a Hydra override shape (see
+    :data:`_HYDRA_OVERRIDE_RE`) is rejected via ``parser.error``, exiting the
+    script with code 2 -- the same behaviour strict :meth:`parse_args` had.
+
+    Args:
+        unknown: Second return value of ``parser.parse_known_args()``.
+        parser: The parser the unknowns came from; used to format the error.
+
+    Returns:
+        The Hydra override tokens, in original order.
+    """
+    overrides: list[str] = []
+    bad: list[str] = []
+    for token in unknown:
+        if _HYDRA_OVERRIDE_RE.match(token):
+            overrides.append(token)
+        else:
+            bad.append(token)
+    if bad:
+        parser.error(f"unrecognized arguments: {' '.join(bad)}")
+    return overrides
 
 
 def ensure_environments_registered():
@@ -96,7 +138,19 @@ def get_isaaclab_arena_environments_cli_parser(
     return args_parser
 
 
-def get_arena_builder_from_cli(args_cli: argparse.Namespace) -> ArenaEnvBuilder:
+def get_arena_builder_from_cli(
+    args_cli: argparse.Namespace,
+    hydra_overrides: list[str] | None = None,
+) -> ArenaEnvBuilder:
+    """Build an :class:`ArenaEnvBuilder` from parsed CLI args.
+
+    Args:
+        args_cli: Parsed argparse namespace; carries exactly one environment source
+            (``example_environment`` subcommand or ``--env_graph_spec_yaml``).
+        hydra_overrides: Optional Hydra variation override strings (e.g.
+            ``"light.hdr_image.enabled=true"``). When non-empty, applied via
+            :meth:`ArenaEnvBuilder.apply_hydra_variation_overrides`.
+    """
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     # The env comes from exactly one source: a graph spec YAML (--env_graph_spec_yaml) or a
@@ -112,12 +166,16 @@ def get_arena_builder_from_cli(args_cli: argparse.Namespace) -> ArenaEnvBuilder:
         from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 
         arena_env = ArenaEnvGraphSpec.from_yaml(env_graph_spec_yaml).to_arena_env()
-        return ArenaEnvBuilder(arena_env, args_cli)
+        env_builder = ArenaEnvBuilder(arena_env, args_cli)
+    else:
+        ensure_environments_registered()
+        env_registry = EnvironmentRegistry()
+        assert env_registry.is_registered(
+            example_environment
+        ), f"Example environment type {example_environment} not supported"
+        example_env = env_registry.get_component_by_name(example_environment)()
+        env_builder = ArenaEnvBuilder(example_env.get_env(args_cli), args_cli)
 
-    ensure_environments_registered()
-    env_registry = EnvironmentRegistry()
-    assert env_registry.is_registered(
-        example_environment
-    ), f"Example environment type {example_environment} not supported"
-    example_env = env_registry.get_component_by_name(example_environment)()
-    return ArenaEnvBuilder(example_env.get_env(args_cli), args_cli)
+    if hydra_overrides:
+        env_builder.apply_hydra_variation_overrides(hydra_overrides)
+    return env_builder
