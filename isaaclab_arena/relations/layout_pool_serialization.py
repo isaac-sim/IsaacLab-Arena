@@ -114,7 +114,7 @@ def write_pool_document(path: Path, document: PoolDocument) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_name(f"{path.name}.tmp")
     try:
-        tmp_path.write_text(payload)
+        tmp_path.write_text(payload, encoding="utf-8")
         os.replace(tmp_path, path)
     except OSError:
         tmp_path.unlink(missing_ok=True)
@@ -129,7 +129,7 @@ def read_pool_document(path: Path) -> PoolDocument:
     """
     assert path.is_file(), f"Layout pool file not found: {path}"
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise ValueError(f"Layout pool file is not valid JSON: {path}") from exc
     return PoolDocument.from_dict(data, path)

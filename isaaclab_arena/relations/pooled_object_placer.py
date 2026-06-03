@@ -483,6 +483,7 @@ class PooledObjectPlacer:
         # Reusable layouts are interchangeable: draw each slot from the flattened pool, with the
         # per-env RNG only selecting which stream the slot draws from.
         all_layouts = [layout for pool in self._env_pools for layout in pool.layouts]
+        assert all_layouts, "No accepted layouts to sample from."
         return [self._draw(self._env_rngs[i % self._num_envs], all_layouts) for i in range(count)]
 
     @staticmethod
@@ -525,6 +526,22 @@ class PooledObjectPlacer:
         """Total unread layouts across all env pools."""
         return self._total_available()
 
+    @property
+    def stored_layouts(self) -> tuple[tuple[PlacementResult, ...], ...]:
+        """Read-only view of every stored layout, grouped by absolute env id.
+
+        Returns one inner tuple per env (outer length num_envs), each holding that env's stored
+        PlacementResults in pool order, including already-consumed ones. The grouping is meaningful
+        for env-specific layouts (see requires_env_indexed_layouts) and an arbitrary partition for
+        reusable ones, which can be flattened.
+
+        The tuples are a snapshot (later refills do not appear), but the PlacementResult objects are
+        live, so a post-pool check (e.g. a simulation collision test) records its outcome on a layout
+        in place via result.validation.with_check(...) and accepts() then reflects it. Resampling is
+        left to the caller via the existing sample_* methods.
+        """
+        return tuple(tuple(pooled.result for pooled in pool.layouts) for pool in self._env_pools)
+
     # ------------------------------------------------------------------
     # Persistence: save/load solved layouts to reuse poses without re-solving
     # ------------------------------------------------------------------
@@ -565,8 +582,9 @@ class PooledObjectPlacer:
         env-count/heterogeneity/object-name mismatches fail loudly (see layout_pool_serialization
         for the structural checks). The saved placement_seed is restored (placer_params.placement_seed is
         ignored for seeding) so sampling matches the saved run; refill offset is not persisted, so
-        a refill restarts from the first solve batch. pool_size becomes the loaded layout count,
-        governing refill size.
+        a refill restarts from the first solve batch. pool_size becomes the total loaded layout count
+        across all envs (not per-env), so a multi-env refill batches larger than the original
+        per-batch pool_size; harmless because refills on a loaded pool are rare.
         """
         path = Path(path)
         document = read_pool_document(path)

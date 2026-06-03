@@ -5,6 +5,8 @@
 
 """Unit tests for the pure layout-pool JSON serialization helpers (no simulation)."""
 
+from pathlib import Path
+
 import pytest
 
 from isaaclab_arena.relations.layout_pool_serialization import (
@@ -160,6 +162,21 @@ def test_write_pool_document_rejects_non_finite_leaving_no_files(tmp_path):
         env_pools=[[{"positions": {"a": [float("inf"), 0.0, 0.0]}}]],
     )
     with pytest.raises(ValueError, match="JSON compliant"):
+        write_pool_document(path, document)
+    assert not path.exists()
+    assert not path.with_name(f"{path.name}.tmp").exists()
+
+
+def test_write_pool_document_cleans_up_tmp_on_os_error(tmp_path, monkeypatch):
+    path = tmp_path / "pool.json"
+    document = PoolDocument.from_dict(_pool_dict(num_envs=1), path=path)
+
+    def fail_mid_write(self, *args, **kwargs):
+        self.write_bytes(b"partial")  # leave an orphan .tmp, then fail like a full disk
+        raise OSError("No space left on device")
+
+    monkeypatch.setattr(Path, "write_text", fail_mid_write)
+    with pytest.raises(OSError, match="No space left on device"):
         write_pool_document(path, document)
     assert not path.exists()
     assert not path.with_name(f"{path.name}.tmp").exists()

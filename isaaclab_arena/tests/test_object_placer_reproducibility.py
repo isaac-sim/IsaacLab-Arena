@@ -477,6 +477,39 @@ def test_pooled_placer_homogeneous_stored_layouts_have_distinct_positions_dicts(
             ), f"Layouts {i} and {j} share the same positions dict reference"
 
 
+def test_pooled_placer_stored_layouts_groups_live_results_by_env():
+    """stored_layouts must return a per-env snapshot of the live stored PlacementResults."""
+    num_envs = 3
+    solver_params = RelationSolverParams(max_iters=50)
+    placer_params = ObjectPlacerParams(placement_seed=42, solver_params=solver_params, apply_positions_to_objects=False)
+
+    pool = PooledObjectPlacer(
+        objects=list(_create_test_objects()), placer_params=placer_params, pool_size=12, num_envs=num_envs
+    )
+
+    grouped = pool.stored_layouts
+    assert len(grouped) == num_envs
+    assert all(isinstance(env_layouts, tuple) for env_layouts in grouped)
+    # Each returned result is the same live object the pool stores (no copy), grouped per env.
+    for cur_env, env_layouts in enumerate(grouped):
+        assert list(env_layouts) == [pooled.result for pooled in pool._env_pools[cur_env].layouts]
+
+
+def test_pooled_placer_stored_layouts_post_validation_flows_into_accepts():
+    """Enriching a stored layout's report in place (the post-validation use case) must change accepts()."""
+    solver_params = RelationSolverParams(max_iters=50)
+    placer_params = ObjectPlacerParams(placement_seed=42, solver_params=solver_params, apply_positions_to_objects=False)
+
+    pool = PooledObjectPlacer(objects=list(_create_test_objects()), placer_params=placer_params, pool_size=4)
+    result = pool.stored_layouts[0][0]
+    assert pool.accepts(result)
+
+    # Record a failing post-pool check (e.g. a simulation collision test) on the live layout.
+    result.validation = result.validation.with_check("sim_collision_free", False)
+    assert "sim_collision_free" in result.validation.failed_checks
+    assert not pool.accepts(result)
+
+
 def test_pooled_placer_homogeneous_sample_without_replacement_count_exceeds_pool_size():
     """sample_without_replacement(count) where count > pool_size must solve a larger batch in one shot."""
     solver_params = RelationSolverParams(max_iters=50)
@@ -714,10 +747,7 @@ def test_pooled_placer_save_load_round_trip_preserves_layouts(tmp_path):
 
 
 def test_pooled_placer_save_load_round_trip_multi_env_homogeneous(tmp_path):
-    """A multi-env homogeneous pool's per-env layouts survive the round trip intact.
-
-    Env-specific (variant) correctness is covered by the heterogeneous round-trip test.
-    """
+    """A multi-env homogeneous pool's per-env layouts survive the round trip (variants covered separately)."""
     num_envs = 3
     placer_params = _make_seeded_params()
     pool = PooledObjectPlacer(
