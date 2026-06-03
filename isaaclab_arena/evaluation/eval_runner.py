@@ -179,6 +179,10 @@ def main():
     # gets a fresh SimulationApp. Required for long sweeps to reclaim residual host-RSS
     # leaks the in-process teardown can't release.
     if args_cli.chunk_size is not None and len(eval_jobs_config["jobs"]) > args_cli.chunk_size:
+        # TODO(cvolk): aggregate per-chunk metrics into one centralized view. Each chunk
+        # subprocess currently prints its own MetricsLogger summary and nothing is merged
+        # or persisted (save_metrics_to_file() is unused). Follow-up: have each chunk write
+        # metrics JSON to a temp file (forward --metrics_file), then merge + print/save here.
         _run_in_chunks(args_cli, eval_jobs_config)
         return
 
