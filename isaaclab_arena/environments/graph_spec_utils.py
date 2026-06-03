@@ -46,8 +46,14 @@ def assert_unique_ids(nodes: list[Any], tasks: list[Any], state_specs: list[Any]
     assert not duplicates, f"Duplicate env graph ids found: {duplicates}"
 
 
-def assert_references_exist(nodes: list[Any], tasks: list[Any], state_specs: list[Any]) -> None:
-    """Ensure every graph reference points to a node or state spec that exists."""
+def assert_references_exist(
+    nodes: list[Any], tasks: list[Any], state_specs: list[Any], check_task_wiring: bool = True
+) -> None:
+    """Ensure every graph reference points to a node or state spec that exists.
+
+    Set ``check_task_wiring=False`` for an unresolved graph whose tasks carry no
+    ``initial_state_spec_id`` / ``success_state_spec_id`` yet (the resolver fills those in).
+    """
     node_ids = {node.id for node in nodes}
     state_spec_ids = {state_spec.id for state_spec in state_specs}
 
@@ -66,14 +72,15 @@ def assert_references_exist(nodes: list[Any], tasks: list[Any], state_specs: lis
             )
         seen_node_ids.add(node.id)
 
-    for task in tasks:
-        for label, state_spec_id in (
-            ("initial_state_spec_id", task.initial_state_spec_id),
-            ("success_state_spec_id", task.success_state_spec_id),
-        ):
-            assert (
-                state_spec_id in state_spec_ids
-            ), f"Task '{task.id}' references unknown state spec '{state_spec_id}' for '{label}'"
+    if check_task_wiring:
+        for task in tasks:
+            for label, state_spec_id in (
+                ("initial_state_spec_id", task.initial_state_spec_id),
+                ("success_state_spec_id", task.success_state_spec_id),
+            ):
+                assert (
+                    state_spec_id in state_spec_ids
+                ), f"Task '{task.id}' references unknown state spec '{state_spec_id}' for '{label}'"
 
     for state_spec in state_specs:
         for constraint in state_spec.spatial_constraints:
@@ -162,6 +169,25 @@ def relation_class_for_spatial_constraint_type(constraint_type: str) -> type[Rel
     Unregistered names results in a registry lookup error.
     """
     return ObjectRelationLibraryRegistry().get_object_relation_by_name(constraint_type)
+
+
+def spatial_constraint_is_spawn_pose(constraint_type: "ArenaEnvGraphSpatialConstraintType" | str) -> bool:
+    """Whether a spatial-constraint type only sets an object's spawn pose at scene init.
+
+    It checks if this constraint describes where the object spawns/sits at reset (an initialization detail),
+    or a structural relationship that defines the goal configuration.
+    The StateSpecResolver cares about what to carry into the chained success states
+    (on/next_to/is_anchor) vs. what to drop (spawn-pose placement).
+    """
+    from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphSpatialConstraintType
+
+    if isinstance(constraint_type, str):
+        constraint_type = ArenaEnvGraphSpatialConstraintType(constraint_type)
+    relation_cls = relation_class_for_spatial_constraint_type(constraint_type)
+    if relation_cls is not None:
+        return relation_cls.is_spawn_pose_constraint()
+    # TODO(xinjieyao, 2026-06-02): Remove this once AT_POSE is supported to pass through the solver.
+    return constraint_type == ArenaEnvGraphSpatialConstraintType.AT_POSE
 
 
 def iter_nested_leaf_values(value: Any, key_path: str = "") -> Iterator[tuple[str, Any]]:

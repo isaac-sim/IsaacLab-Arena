@@ -35,7 +35,15 @@ class RelationBase:
     in its relations list.
     """
 
-    pass
+    @staticmethod
+    def is_spawn_pose_constraint() -> bool:
+        """Whether this only sets an object's spawn pose at init.
+
+        Single source of truth for the StateSpecResolver: structural relations carry into the
+        success states, spawn-pose constraints do not. Overridden True by the placement
+        constraints (AtPosition, PositionLimits, Random/RotateAroundSolution).
+        """
+        return False
 
 
 class UnaryRelation(RelationBase):
@@ -224,6 +232,11 @@ class RandomAroundSolution(RelationBase):
         """Return whether the relation constrains a single object."""
         return True
 
+    @staticmethod
+    def is_spawn_pose_constraint() -> bool:
+        """Whether this only sets the object's spawn pose at init, not a structural end-state relation."""
+        return True
+
     def __init__(
         self,
         x_half_m: float = 0.0,
@@ -319,6 +332,11 @@ class RotateAroundSolution(RelationBase):
         """Return whether the relation constrains a single object."""
         return True
 
+    @staticmethod
+    def is_spawn_pose_constraint() -> bool:
+        """Whether this only sets the object's spawn pose at init, not a structural end-state relation."""
+        return True
+
     def __init__(
         self,
         roll_rad: float = 0.0,
@@ -371,6 +389,11 @@ class AtPosition(UnaryRelation):
 
     name = "at_position"
 
+    @staticmethod
+    def is_spawn_pose_constraint() -> bool:
+        """Whether this only sets the object's spawn pose at init, not a structural end-state relation."""
+        return True
+
     def __init__(
         self,
         x: float | None = None,
@@ -406,6 +429,11 @@ class PositionLimits(UnaryRelation):
     """
 
     name = "position_limits"
+
+    @staticmethod
+    def is_spawn_pose_constraint() -> bool:
+        """Whether this only sets the object's spawn pose at init, not a structural end-state relation."""
+        return True
 
     def __init__(
         self,

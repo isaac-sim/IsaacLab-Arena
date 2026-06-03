@@ -22,6 +22,7 @@ from isaaclab_arena.environments.arena_env_graph_types import (
     ArenaEnvGraphTaskConstraintType,
     ArenaEnvGraphTaskSpec,
     parse_graph_node,
+    UnresolvedArenaEnvGraphTaskSpec,
 )
 from isaaclab_arena.environments.graph_spec_utils import (
     assert_cli_override_specs_reference_nodes,
@@ -48,6 +49,8 @@ __all__ = [
     "ArenaEnvGraphTaskConstraintSpec",
     "ArenaEnvGraphTaskConstraintType",
     "ArenaEnvGraphTaskSpec",
+    "UnresolvedArenaEnvGraphSpec",
+    "UnresolvedArenaEnvGraphTaskSpec",
 ]
 
 
@@ -129,6 +132,25 @@ class ArenaEnvGraphSpec(BaseModel):
         with Path(path).open("w", encoding="utf-8") as f:
             yaml.safe_dump(self.to_dict(), f, sort_keys=False)
 
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize back to the plain YAML mapping — the inverse of ``from_dict``.
+
+        Enums become their string values and tuples become lists, so the result round-trips
+        through ``yaml.safe_dump`` and back through ``from_dict``.
+        """
+        return {
+            "env_name": self.env_name,
+            "nodes": [_node_to_dict(node) for node in self.nodes],
+            "tasks": [_task_to_dict(task) for task in self.tasks],
+            "state_specs": [_state_spec_to_dict(state) for state in self.state_specs],
+        }
+
+    def write_yaml(self, path: str | Path) -> None:
+        """Validate this spec and write it to ``path`` as YAML."""
+        self.validate()
+        with Path(path).open("w", encoding="utf-8") as f:
+            yaml.safe_dump(self.to_dict(), f, sort_keys=False)
+
     @property
     def nodes_by_id(self) -> dict[str, ArenaEnvGraphNodeSpec]:
         return {node.id: node for node in self.nodes}
@@ -155,3 +177,178 @@ class ArenaEnvGraphSpec(BaseModel):
         from isaaclab_arena.environments.arena_env_graph_conversion_utils import build_arena_env_from_graph_spec
 
         return build_arena_env_from_graph_spec(self)
+
+
+@dataclass
+class UnresolvedArenaEnvGraphSpec:
+    """A partially-populated env graph before the ``StateSpecResolver`` chains the per-task state specs.
+
+    Carries the same nodes and task identities as an ``ArenaEnvGraphSpec``, but its tasks
+    have no snapshots of the intermediate and final states and it holds only the initial
+    state (``state_spec_0``); the ``StateSpecResolver`` derives the intermediate and final states.
+    """
+
+    env_name: str
+    nodes: list[ArenaEnvGraphNodeSpec] = field(default_factory=list)
+    tasks: list[UnresolvedArenaEnvGraphTaskSpec] = field(default_factory=list)
+    state_specs: list[ArenaEnvGraphStateSpec] = field(default_factory=list)
+    source: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_yaml(cls, path: str | Path) -> "UnresolvedArenaEnvGraphSpec":
+        return cls.from_dict(ArenaEnvGraphSpec._load_yaml_dict(path))
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "UnresolvedArenaEnvGraphSpec":
+        data = as_dict(data, "Unresolved env graph spec")
+        spec = cls(
+            env_name=required_str(data, "env_name"),
+            nodes=parse_list(data, "nodes", _parse_node),
+            tasks=parse_list(data, "tasks", _parse_unresolved_task),
+            state_specs=parse_list(data, "state_specs", _parse_state_spec),
+            source=data,
+        )
+        # Since tasks have no state-id wiring yet, we skip the task wiring validation.
+        spec.validate()
+        return spec
+
+    def validate(self) -> None:
+        """Validate ids, node/constraint references, and shapes — minus the unset task wiring."""
+        assert len(self.state_specs) == 1, (
+            "unresolved env graph must define exactly the initial state (state_spec_0); "
+            f"got {len(self.state_specs)} state specs"
+        )
+        assert_unique_ids(self.nodes, self.tasks, self.state_specs)
+        assert_references_exist(self.nodes, self.tasks, self.state_specs, check_task_wiring=False)
+        assert_spatial_constraint_shapes(self.state_specs)
+
+
+def _parse_node(data: Any) -> ArenaEnvGraphNodeSpec:
+    data = as_dict(data, "Node spec")
+    node_type = required_enum(data, "type", ArenaEnvGraphNodeType)
+    common = dict(
+        id=required_str(data, "id"),
+        name=required_str(data, "name"),
+        type=node_type,
+        params=optional_dict(data, "params"),
+    )
+    if node_type == ArenaEnvGraphNodeType.OBJECT_REFERENCE:
+        return ArenaEnvGraphObjectReferenceNodeSpec(
+            **common,
+            parent=required_str(data, "parent"),
+            prim_path=required_str(data, "prim_path"),
+            object_type=required_enum(data, "object_type", ObjectType),
+        )
+    return ArenaEnvGraphNodeSpec(**common)
+
+
+def _parse_spatial_constraint(data: Any) -> ArenaEnvGraphSpatialConstraintSpec:
+    data = as_dict(data, "Spatial constraint spec")
+    constraint_type = required_enum(data, "type", ArenaEnvGraphSpatialConstraintType)
+    params = optional_dict(data, "params")
+    # Parse optional position_xyz and rotation_xyzw fields and check their lengths.
+    if params and "position_xyz" in params:
+        params["position_xyz"] = required_number_sequence(params, "position_xyz", 3)
+    if params and "rotation_xyzw" in params:
+        params["rotation_xyzw"] = required_number_sequence(params, "rotation_xyzw", 4)
+
+    return ArenaEnvGraphSpatialConstraintSpec(
+        id=required_str(data, "id"),
+        type=constraint_type,
+        parent=required_str(data, "parent"),
+        child=optional_str(data, "child"),
+        params=params,
+    )
+
+
+def _parse_task_constraint(data: Any) -> ArenaEnvGraphTaskConstraintSpec:
+    data = as_dict(data, "Task constraint spec")
+    return ArenaEnvGraphTaskConstraintSpec(
+        id=required_str(data, "id"),
+        type=required_enum(data, "type", ArenaEnvGraphTaskConstraintType),
+        parent=required_str(data, "parent"),
+        child=optional_str(data, "child"),
+        params=optional_dict(data, "params"),
+    )
+
+
+def _parse_state_spec(data: Any) -> ArenaEnvGraphStateSpec:
+    data = as_dict(data, "State spec")
+    assert "edges" not in data, "State spec must define spatial_constraints and task_constraints directly"
+    return ArenaEnvGraphStateSpec(
+        id=required_str(data, "id"),
+        spatial_constraints=parse_list(data, "spatial_constraints", _parse_spatial_constraint),
+        task_constraints=parse_list(data, "task_constraints", _parse_task_constraint),
+    )
+
+
+def _parse_task(data: Any) -> ArenaEnvGraphTaskSpec:
+    data = as_dict(data, "Task spec")
+    for old_key in ("state_specs", "initial_state_spec", "success_state_spec"):
+        assert old_key not in data, "Task spec must use initial_state_spec_id and success_state_spec_id"
+    return ArenaEnvGraphTaskSpec(
+        id=required_str(data, "id"),
+        type=required_str(data, "type"),
+        initial_state_spec_id=required_str(data, "initial_state_spec_id"),
+        success_state_spec_id=required_str(data, "success_state_spec_id"),
+        task_args=optional_dict(data, "task_args"),
+    )
+
+
+def _parse_unresolved_task(data: Any) -> UnresolvedArenaEnvGraphTaskSpec:
+    """Parse a task that has no state-id wiring yet; any ``*_state_spec_id`` keys are ignored."""
+    data = as_dict(data, "Unresolved task spec")
+    return UnresolvedArenaEnvGraphTaskSpec(
+        id=required_str(data, "id"),
+        type=required_str(data, "type"),
+        task_args=optional_dict(data, "task_args"),
+    )
+
+
+def _yaml_safe(value: Any) -> Any:
+    """Coerce parsed values into YAML-dumpable primitives (tuples -> lists, recursively)."""
+    if isinstance(value, (list, tuple)):
+        return [_yaml_safe(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _yaml_safe(item) for key, item in value.items()}
+    return value
+
+
+def _node_to_dict(node: ArenaEnvGraphNodeSpec) -> dict[str, Any]:
+    data: dict[str, Any] = {"id": node.id, "name": node.name, "type": node.type.value}
+    if isinstance(node, ArenaEnvGraphObjectReferenceNodeSpec):
+        data["parent"] = node.parent
+        data["prim_path"] = node.prim_path
+        data["object_type"] = node.object_type.value
+    if node.params:
+        data["params"] = _yaml_safe(node.params)
+    return data
+
+
+def _task_to_dict(task: ArenaEnvGraphTaskSpec) -> dict[str, Any]:
+    return {
+        "id": task.id,
+        "type": task.type,
+        "initial_state_spec_id": task.initial_state_spec_id,
+        "success_state_spec_id": task.success_state_spec_id,
+        "task_args": _yaml_safe(task.task_args),
+    }
+
+
+def _state_spec_to_dict(state: ArenaEnvGraphStateSpec) -> dict[str, Any]:
+    return {
+        "id": state.id,
+        "spatial_constraints": [_constraint_to_dict(c) for c in state.spatial_constraints],
+        "task_constraints": [_constraint_to_dict(c) for c in state.task_constraints],
+    }
+
+
+def _constraint_to_dict(
+    constraint: ArenaEnvGraphSpatialConstraintSpec | ArenaEnvGraphTaskConstraintSpec,
+) -> dict[str, Any]:
+    data: dict[str, Any] = {"id": constraint.id, "type": constraint.type.value, "parent": constraint.parent}
+    if constraint.child is not None:
+        data["child"] = constraint.child
+    if constraint.params:
+        data["params"] = _yaml_safe(constraint.params)
+    return data

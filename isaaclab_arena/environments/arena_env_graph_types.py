@@ -168,3 +168,13 @@ class ArenaEnvGraphTaskSpec(BaseModel):
             valid_values = sorted(registry.get_all_keys())
             raise ValueError(f"Unknown task type '{value}'. Expected one of {valid_values}")
         return value
+
+
+
+@dataclass
+class UnresolvedArenaEnvGraphTaskSpec:
+    """Task entry before resolution: identity and args only, no initial/success state spec ids."""
+
+    id: str
+    type: str  # Task class name, could be a custom task class or a built-in task class
+    task_args: dict[str, Any] = field(default_factory=dict)

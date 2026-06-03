@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from typing import Any
 
 from isaaclab.envs.common import ViewerCfg
@@ -11,6 +12,7 @@ from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
+from isaaclab_arena.tasks.task_transition import TaskTransition
 
 
 class TaskBase(ABC):
@@ -62,3 +64,8 @@ class TaskBase(ABC):
 
     def get_task_description(self) -> str | None:
         return self.task_description
+
+    @classmethod
+    def success_state_transition(cls, task_args: Mapping[str, Any]) -> TaskTransition:
+        """Inform the StateSpecResolver what the task's success condition implies about the state change."""
+        raise NotImplementedError("success_state_transition not implemented yet.")

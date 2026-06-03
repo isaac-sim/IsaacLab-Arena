@@ -4,8 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import MISSING
+from typing import Any
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
@@ -22,6 +23,7 @@ from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
 from isaaclab_arena.tasks.terminations import object_on_destination
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
@@ -132,6 +134,18 @@ class PickAndPlaceTask(TaskBase):
             offset=np.array([-1.5, -1.5, 1.5]),
         )
 
+    @classmethod
+    def success_state_transition(cls, task_args: Mapping[str, Any]) -> TaskTransition:
+        """Success (``object_on_destination``): the picked object ends up a relation with the destination."""
+        pick_object = task_args["pick_up_object"]
+        destination_location = task_args["destination_location"]
+        # Note: with the current AABB-based object solver, placing an object ``on`` an open container
+        # and letting it fall is equivalent to it being ``in`` the container, so a single ``on``
+        # relation covers both surfaces and containers.
+        return TaskTransition(
+            subject=pick_object,
+            effects=(Relocate(subject=pick_object, relation="on", target=destination_location),),
+        )
 
 @configclass
 class SceneCfg:
