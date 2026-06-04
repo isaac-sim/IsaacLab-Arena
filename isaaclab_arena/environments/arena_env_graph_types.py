@@ -16,11 +16,15 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.environments.graph_spec_utils import coerce_number_sequence
+
+# =============================================================================
+# Nodes
+# =============================================================================
 
 
 class ArenaEnvGraphNodeType(Enum):
@@ -52,11 +56,6 @@ def parse_graph_node(data: Any) -> Any:
     return data
 
 
-# TODO(qianl): remove this enum and check against relation registry for task constraints
-class ArenaEnvGraphTaskConstraintType(Enum):
-    REACH = "reach"
-
-
 class ArenaEnvGraphNodeSpec(BaseModel):
     """Node in an environment graph (all types except ``object_reference``)."""
 
@@ -86,36 +85,127 @@ class ArenaEnvGraphObjectReferenceNodeSpec(ArenaEnvGraphNodeSpec):
         return self
 
 
+# =============================================================================
+# Tasks
+# =============================================================================
+
+
+class TaskSpec(BaseModel):
+    """Task shared by agent intent specs and env-graph task entries."""
+
+    kind: str = Field(
+        min_length=1,
+        description=(
+            "Registered task class name from the TASKS block in the user message "
+            "(e.g. 'PickAndPlaceTask', 'OpenDoorTask'). Must match TaskRegistry exactly."
+        ),
+    )
+    params: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Constructor kwargs for the task (listed in TASKS). "
+            "Values are Item.query strings or the background name for scene parameters."
+        ),
+    )
+    description: str | None = Field(
+        default=None,
+        description="Natural-language summary of the task (required for agent intent output).",
+    )
+
+    @model_validator(mode="after")
+    def _validate_task_kind(self) -> TaskSpec:
+        registry = TaskRegistry()
+        if not registry.is_registered(self.kind):
+            valid_values = sorted(registry.get_all_keys())
+            raise ValueError(f"Unknown task kind '{self.kind}'. Expected one of {valid_values}")
+        return self
+
+
+class ArenaEnvGraphTaskSpec(BaseModel):
+    """Task entry in an environment graph."""
+
+    id: str = Field(min_length=1)
+    initial_state_spec_id: str = Field(min_length=1)
+    success_state_spec_id: str = Field(min_length=1)
+    task: TaskSpec
+
+
+# =============================================================================
+# Constraints and state specs
+# =============================================================================
+
+
+def _normalize_relation_params(params: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(params)
+    if "position_xyz" in normalized:
+        normalized["position_xyz"] = coerce_number_sequence(normalized["position_xyz"], 3, "position_xyz")
+    if "rotation_xyzw" in normalized:
+        normalized["rotation_xyzw"] = coerce_number_sequence(normalized["rotation_xyzw"], 4, "rotation_xyzw")
+    return normalized
+
+
+class RelationSpec(BaseModel):
+    """Spatial relation shared by agent intent specs and env-graph spatial constraints."""
+
+    kind: str = Field(
+        min_length=1,
+        description=(
+            "Relation name from the RELATIONS block in the user message "
+            "(e.g. 'on', 'next_to', 'is_anchor'). Must match a registered relation exactly."
+        ),
+    )
+    subject: str = Field(
+        min_length=1,
+        description=(
+            "Node this relation applies to. For binary relations (e.g. 'on'), this is the child "
+            "object placed relative to ``parent``. For unary relations (e.g. 'is_anchor', "
+            "'position_limits'), this is the anchored or constrained object."
+        ),
+    )
+    parent: str | None = Field(
+        default=None,
+        description=(
+            "Parent asset for binary relations only — e.g. for 'on', the surface the subject "
+            "rests on. Must be null for unary relations."
+        ),
+    )
+    # TODO(qianl): free-form ``dict`` emits ``additionalProperties: true``,
+    # which strict-mode structured-outputs endpoints reject with a 400.
+    params: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional kind-specific parameters; leave empty by default.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_kind_and_arity(self) -> RelationSpec:
+        registry = ObjectRelationLibraryRegistry()
+        if not registry.is_registered(self.kind):
+            valid_values = sorted(registry.get_all_keys())
+            raise ValueError(f"Unknown relation kind '{self.kind}'. Expected one of {valid_values}")
+        relation_cls = registry.get_object_relation_by_name(self.kind)
+        if relation_cls.is_unary():
+            if self.parent is not None:
+                raise ValueError(f"Relation kind '{self.kind}' must not define relation.parent")
+        elif self.parent is None:
+            raise ValueError(f"Relation kind '{self.kind}' requires relation.parent")
+        return self
+
+
 class ArenaEnvGraphSpatialConstraintSpec(BaseModel):
     """Spatial constraint edge in an environment graph state spec."""
 
     id: str = Field(min_length=1)
-    type: str = Field(min_length=1)
-    parent: str = Field(min_length=1)
-    child: str | None = None  # Optional, e.g. is_anchor constraint does not have a child
-    # Type-specific optional kwargs for the underlying RelationBase subclass selected by `type`
-    # (e.g. {x_min, x_max, y_min, y_max} for position_limits; {side, distance} for next_to etc.).
-    # The Arena environment builder forwards these when constructing the Relation instance.
-    params: dict[str, Any] = Field(default_factory=dict)
+    relation: RelationSpec
 
-    @field_validator("type")
-    @classmethod
-    def _validate_registered_relation_type(cls, value: str) -> str:
-        registry = ObjectRelationLibraryRegistry()
-        if not registry.is_registered(value):
-            valid_values = sorted(registry.get_all_keys())
-            raise ValueError(f"Unknown spatial constraint type '{value}'. Expected one of {valid_values}")
-        return value
+    @model_validator(mode="after")
+    def _normalize_relation_params(self) -> ArenaEnvGraphSpatialConstraintSpec:
+        self.relation.params = _normalize_relation_params(self.relation.params)
+        return self
 
-    @field_validator("params", mode="after")
-    @classmethod
-    def _normalize_pose_params(cls, params: dict[str, Any]) -> dict[str, Any]:
-        normalized = dict(params)
-        if "position_xyz" in normalized:
-            normalized["position_xyz"] = coerce_number_sequence(normalized["position_xyz"], 3, "position_xyz")
-        if "rotation_xyzw" in normalized:
-            normalized["rotation_xyzw"] = coerce_number_sequence(normalized["rotation_xyzw"], 4, "rotation_xyzw")
-        return normalized
+
+# TODO(qianl): remove this enum and check against relation registry for task constraints
+class ArenaEnvGraphTaskConstraintType(Enum):
+    REACH = "reach"
 
 
 class ArenaEnvGraphTaskConstraintSpec(BaseModel):
@@ -136,6 +226,11 @@ class ArenaEnvGraphStateSpec(BaseModel):
     task_constraints: list[ArenaEnvGraphTaskConstraintSpec] = Field(default_factory=list)
 
 
+# =============================================================================
+# CLI overrides
+# =============================================================================
+
+
 class ArenaEnvGraphCliOverrideSpec(BaseModel):
     """One CLI flag that swaps a graph node's asset, declared in the graph YAML.
 
@@ -149,22 +244,3 @@ class ArenaEnvGraphCliOverrideSpec(BaseModel):
     def dest(self) -> str:
         """The argparse attribute name for this flag (dashes become underscores)."""
         return self.arg.replace("-", "_")
-
-
-class ArenaEnvGraphTaskSpec(BaseModel):
-    """Task entry in an environment graph."""
-
-    id: str = Field(min_length=1)
-    type: str = Field(min_length=1)
-    initial_state_spec_id: str = Field(min_length=1)
-    success_state_spec_id: str = Field(min_length=1)
-    task_args: dict[str, Any] = Field(default_factory=dict)
-
-    @field_validator("type")
-    @classmethod
-    def _validate_registered_task_type(cls, value: str) -> str:
-        registry = TaskRegistry()
-        if not registry.is_registered(value):
-            valid_values = sorted(registry.get_all_keys())
-            raise ValueError(f"Unknown task type '{value}'. Expected one of {valid_values}")
-        return value

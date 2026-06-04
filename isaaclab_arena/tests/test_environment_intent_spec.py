@@ -84,9 +84,9 @@ def test_environment_intent_spec_rejects_non_agent_ready_task():
         "items": [],
         "initial_state_graph": [],
         "tasks": [{
-            "kind": "SortingTask",
+            "kind": "RotateRevoluteJointTask",
             "params": {},
-            "description": "sort objects",
+            "description": "rotate a joint",
         }],
     }
     with pytest.raises(ValidationError, match="not agent-ready"):
@@ -103,7 +103,7 @@ def test_environment_intent_spec_accepts_valid_task_params():
         "initial_state_graph": [{
             "kind": "on",
             "subject": "cube",
-            "target": "kitchen",
+            "parent": "kitchen",
             "params": {},
         }],
         "tasks": [{

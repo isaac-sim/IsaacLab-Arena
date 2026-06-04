@@ -118,16 +118,17 @@ def _attach_spatial_constraints_to_assets(
 ) -> None:
     """Attach one Relation per spatial constraint to the asset(s) it targets, in place."""
     for spatial_constraint in state_spec.spatial_constraints:
-        parent_asset = assets_by_node_id[spatial_constraint.parent]
-        relation_class = relation_class_for_spatial_constraint_type(spatial_constraint.type)
-        # Unary relations (IS_ANCHOR, POSITION_LIMITS, ...) attach to the parent asset.
-        # Binary relations (ON, NEXT_TO, ...) attach to the *child* asset, with parent
+        relation_spec = spatial_constraint.relation
+        subject_asset = assets_by_node_id[relation_spec.subject]
+        relation_class = relation_class_for_spatial_constraint_type(relation_spec.kind)
+        # Unary relations (IS_ANCHOR, POSITION_LIMITS, ...) attach to the subject asset.
+        # Binary relations (ON, NEXT_TO, ...) attach to the subject (child), with parent
         # as the relation's first constructor arg — matches how add_relation is wired.
         if relation_class.is_unary():
-            parent_asset.add_relation(relation_class(**spatial_constraint.params))
+            subject_asset.add_relation(relation_class(**relation_spec.params))
         else:
-            child_asset = assets_by_node_id[spatial_constraint.child]
-            child_asset.add_relation(relation_class(parent_asset, **spatial_constraint.params))
+            parent_asset = assets_by_node_id[relation_spec.parent]
+            subject_asset.add_relation(relation_class(parent_asset, **relation_spec.params))
 
         # TODO(qianl): add back support for ``at_pose``.
         # AT_POSE has no Relation class — it pins the parent's initial pose directly,
