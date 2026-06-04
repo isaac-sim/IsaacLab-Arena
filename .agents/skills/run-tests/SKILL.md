@@ -14,8 +14,6 @@ allowed-tools: Bash(docker exec *)
 
 The three phases run mutually exclusive sets of tests (selected via different pytest marker filters) and must be invoked separately. For a full pre-PR run, every phase must pass before moving on to the next.
 
-All commands run inside the already-running container via `docker exec`, **as the host user** (`su $(id -un) -c`, mirroring how `run_docker.sh` attaches) — never as bare-`docker exec` root, which leaves root-owned files in shared caches that break the user's own runs. If the container is not running, use the `dev-container` skill first.
-
 ## Phase 1 — no cameras, no subprocess
 
 The fastest of the three. Useful on its own when iterating on changes that don't touch rendering or subprocess paths.

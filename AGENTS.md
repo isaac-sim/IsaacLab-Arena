@@ -20,9 +20,7 @@ pre-commit install    # on the host — registers git pre-commit hooks
 
 ## Docker environment
 
-Commands that touch Isaac Sim or Arena's package code (tests, training, evaluation, runtime scripts) run inside the `isaaclab_arena-latest` Docker container. The repo root is mounted at `/workspaces/isaaclab_arena`. Inside the container, `python` is aliased to `/isaac-sim/python.sh` — prefer the explicit path in `docker exec` invocations from outside the container, where the alias is not active.
-
-**Run as the host user, not root.** Human contributors enter the container via `./docker/run_docker.sh`, which attaches with `docker exec -it <container> su $(id -un)` — i.e. as their host user (the account `docker/setup/entrypoint.sh` provisions inside the container with the host UID/GID). A bare `docker exec <container> …` runs as **root**; root-run commands write root-owned files into caches the host user shares (`/tmp/Assets`, `~/.config`, …), leaving them unreadable by that user and breaking the user's later interactive runs. Mirror `run_docker.sh` — route every in-container command through the host user:
+Commands that touch Isaac Sim or Arena's package code (tests, training, evaluation, runtime scripts) run inside the `isaaclab_arena-latest` Docker container. The repo root is mounted at `/workspaces/isaaclab_arena`. Inside the container, `python` is aliased to `/isaac-sim/python.sh` — prefer the explicit path in `docker exec` invocations from outside the container, where the alias is not active. Run as the host user, not root.
 
 ```bash
 docker exec isaaclab_arena-latest su $(id -un) -c \
