@@ -121,13 +121,12 @@ class TaskSpec(BaseModel):
         return value
 
 
-class ArenaEnvGraphTaskSpec(BaseModel):
-    """Task entry in an environment graph."""
+class ArenaEnvGraphTaskSpec(TaskSpec):
+    """Task entry in an environment graph (task payload plus state-spec wiring)."""
 
     id: str = Field(min_length=1)
     initial_state_spec_id: str = Field(min_length=1)
     success_state_spec_id: str = Field(min_length=1)
-    task: TaskSpec
 
 
 # =============================================================================
@@ -188,15 +187,14 @@ def _normalize_relation_params(params: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-class ArenaEnvGraphSpatialConstraintSpec(BaseModel):
-    """Spatial constraint edge in an environment graph state spec."""
+class ArenaEnvGraphSpatialConstraintSpec(RelationSpec):
+    """Spatial constraint edge in an environment graph state spec (relation plus constraint id)."""
 
     id: str = Field(min_length=1)
-    relation: RelationSpec
 
     @model_validator(mode="after")
     def _normalize_relation_params(self) -> ArenaEnvGraphSpatialConstraintSpec:
-        self.relation.params = _normalize_relation_params(self.relation.params)
+        self.params = _normalize_relation_params(self.params)
         return self
 
 

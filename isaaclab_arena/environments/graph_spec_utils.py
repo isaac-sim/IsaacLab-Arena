@@ -78,12 +78,12 @@ def assert_references_exist(nodes: list[Any], tasks: list[Any], state_specs: lis
     for state_spec in state_specs:
         for constraint in state_spec.spatial_constraints:
             assert (
-                constraint.relation.subject in node_ids
-            ), f"Constraint '{constraint.id}' references unknown subject node '{constraint.relation.subject}'"
-            if constraint.relation.parent is not None:
+                constraint.subject in node_ids
+            ), f"Constraint '{constraint.id}' references unknown subject node '{constraint.subject}'"
+            if constraint.parent is not None:
                 assert (
-                    constraint.relation.parent in node_ids
-                ), f"Constraint '{constraint.id}' references unknown parent node '{constraint.relation.parent}'"
+                    constraint.parent in node_ids
+                ), f"Constraint '{constraint.id}' references unknown parent node '{constraint.parent}'"
 
         for constraint in state_spec.task_constraints:
             if constraint.parent is not None:
@@ -100,17 +100,17 @@ def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
     """Check each spatial constraint has the subject/parent shape its relation expects."""
     for state_spec in state_specs:
         for constraint in state_spec.spatial_constraints:
-            relation_cls = relation_class_for_spatial_constraint_type(constraint.relation.kind)
+            relation_cls = relation_class_for_spatial_constraint_type(constraint.kind)
             is_unary = relation_cls.is_unary()
-            constraint_kind = constraint.relation.kind
+            constraint_kind = constraint.kind
 
             if is_unary:
                 assert (
-                    constraint.relation.parent is None
+                    constraint.parent is None
                 ), f"Spatial constraint '{constraint.id}' of kind '{constraint_kind}' must not define relation.parent"
             else:
                 assert (
-                    constraint.relation.parent is not None
+                    constraint.parent is not None
                 ), f"Spatial constraint '{constraint.id}' of kind '{constraint_kind}' requires relation.parent"
 
 

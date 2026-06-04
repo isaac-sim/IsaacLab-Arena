@@ -41,18 +41,18 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
     assert mug.type == ArenaEnvGraphNodeType.OBJECT
 
     task = spec.tasks_by_id["pick_and_place_0"]
-    assert task.task.kind == "PickAndPlaceTask"
-    assert TaskRegistry().is_registered(task.task.kind)
+    assert task.kind == "PickAndPlaceTask"
+    assert TaskRegistry().is_registered(task.kind)
     assert task.initial_state_spec_id == "state_spec_0"
     assert task.success_state_spec_id == "state_spec_1"
-    assert task.task.params["pick_up_object"] == "rubiks_cube_hot3d_robolab"
-    assert task.task.params["destination_location"] == "bowl_ycb_robolab"
+    assert task.params["pick_up_object"] == "rubiks_cube_hot3d_robolab"
+    assert task.params["destination_location"] == "bowl_ycb_robolab"
 
     second_task = spec.tasks_by_id["pick_and_place_1"]
-    assert second_task.task.kind == "PickAndPlaceTask"
+    assert second_task.kind == "PickAndPlaceTask"
     assert second_task.initial_state_spec_id == "state_spec_1"
     assert second_task.success_state_spec_id == "state_spec_2"
-    assert second_task.task.params["pick_up_object"] == "mug_ycb_robolab"
+    assert second_task.params["pick_up_object"] == "mug_ycb_robolab"
 
     initial_state = spec.state_specs_by_id["state_spec_0"]
     assert isinstance(initial_state, ArenaEnvGraphStateSpec)
@@ -60,37 +60,37 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
     assert len(initial_state.task_constraints) == 1
 
     cube_limits = initial_state.spatial_constraints[2]
-    assert cube_limits.relation.kind == "position_limits"
-    assert cube_limits.relation.subject == "rubiks_cube_hot3d_robolab"
-    assert cube_limits.relation.parent is None
-    assert cube_limits.relation.params == {"x_min": 0.55, "x_max": 0.70, "y_min": -0.40, "y_max": -0.10}
+    assert cube_limits.kind == "position_limits"
+    assert cube_limits.subject == "rubiks_cube_hot3d_robolab"
+    assert cube_limits.parent is None
+    assert cube_limits.params == {"x_min": 0.55, "x_max": 0.70, "y_min": -0.40, "y_max": -0.10}
 
     initial_mug_position = initial_state.spatial_constraints[5]
-    assert initial_mug_position.relation.kind == "at_position"
-    assert initial_mug_position.relation.subject == "mug_ycb_robolab"
-    assert initial_mug_position.relation.parent is None
-    assert initial_mug_position.relation.params == {"x": 0.65, "y": 0.25, "z": 0.85}
+    assert initial_mug_position.kind == "at_position"
+    assert initial_mug_position.subject == "mug_ycb_robolab"
+    assert initial_mug_position.parent is None
+    assert initial_mug_position.params == {"x": 0.65, "y": 0.25, "z": 0.85}
 
     final_state = spec.state_specs_by_id["state_spec_1"]
     cube_on_bowl = final_state.spatial_constraints[3]
-    assert cube_on_bowl.relation.kind == "on"
-    assert cube_on_bowl.relation.parent == "bowl_ycb_robolab"
-    assert cube_on_bowl.relation.subject == "rubiks_cube_hot3d_robolab"
+    assert cube_on_bowl.kind == "on"
+    assert cube_on_bowl.parent == "bowl_ycb_robolab"
+    assert cube_on_bowl.subject == "rubiks_cube_hot3d_robolab"
 
     final_mug_position = final_state.spatial_constraints[4]
-    assert final_mug_position.relation.kind == "at_position"
-    assert final_mug_position.relation.subject == "mug_ycb_robolab"
-    assert final_mug_position.relation.parent is None
-    assert final_mug_position.relation.params == {"x": 0.65, "y": 0.25, "z": 0.85}
+    assert final_mug_position.kind == "at_position"
+    assert final_mug_position.subject == "mug_ycb_robolab"
+    assert final_mug_position.parent is None
+    assert final_mug_position.params == {"x": 0.65, "y": 0.25, "z": 0.85}
 
     table_anchor = initial_state.spatial_constraints[0]
-    assert table_anchor.relation.kind == "is_anchor"
-    assert table_anchor.relation.subject == "maple_table_robolab_table"
-    assert table_anchor.relation.parent is None
-    assert relation_class_for_spatial_constraint_type(table_anchor.relation.kind) is IsAnchor
-    assert relation_class_for_spatial_constraint_type(cube_limits.relation.kind) is PositionLimits
-    assert relation_class_for_spatial_constraint_type(initial_mug_position.relation.kind) is AtPosition
-    assert relation_class_for_spatial_constraint_type(cube_on_bowl.relation.kind) is On
+    assert table_anchor.kind == "is_anchor"
+    assert table_anchor.subject == "maple_table_robolab_table"
+    assert table_anchor.parent is None
+    assert relation_class_for_spatial_constraint_type(table_anchor.kind) is IsAnchor
+    assert relation_class_for_spatial_constraint_type(cube_limits.kind) is PositionLimits
+    assert relation_class_for_spatial_constraint_type(initial_mug_position.kind) is AtPosition
+    assert relation_class_for_spatial_constraint_type(cube_on_bowl.kind) is On
 
 
 def test_arena_env_graph_spec_parses_optional_task_constraints_and_at_position():
@@ -99,20 +99,20 @@ def test_arena_env_graph_spec_parses_optional_task_constraints_and_at_position()
     del data["state_specs"][0]["task_constraints"]
 
     spec = ArenaEnvGraphSpec.from_dict(data)
-    assert spec.tasks_by_id["task_0"].task.kind == "PickAndPlaceTask"
+    assert spec.tasks_by_id["task_0"].kind == "PickAndPlaceTask"
     state_spec = spec.state_specs_by_id["state_0"]
     fixed_position = state_spec.spatial_constraints[0]
 
     assert state_spec.task_constraints == []
-    assert fixed_position.relation.kind == "at_position"
-    assert fixed_position.relation.subject == "cube"
-    assert fixed_position.relation.parent is None
-    assert fixed_position.relation.params == {"x": 0.1, "y": 0.2, "z": 0.3}
+    assert fixed_position.kind == "at_position"
+    assert fixed_position.subject == "cube"
+    assert fixed_position.parent is None
+    assert fixed_position.params == {"x": 0.1, "y": 0.2, "z": 0.3}
 
 
 def test_arena_env_graph_spec_validate_rejects_mutated_missing_reference():
     spec = ArenaEnvGraphSpec.from_dict(_minimal_env_graph_data())
-    spec.state_specs[0].spatial_constraints[0].relation.subject = "missing_table"
+    spec.state_specs[0].spatial_constraints[0].subject = "missing_table"
 
     with pytest.raises(AssertionError, match="unknown subject node 'missing_table'"):
         spec.validate()
@@ -121,7 +121,7 @@ def test_arena_env_graph_spec_validate_rejects_mutated_missing_reference():
 def test_arena_env_graph_spec_validate_rejects_mutated_invalid_relationship_shape():
     spec = ArenaEnvGraphSpec.from_dict(_minimal_env_graph_data())
     constraint = spec.state_specs[0].spatial_constraints[0]
-    constraint.relation.kind = "on"
+    constraint.kind = "on"
 
     with pytest.raises(AssertionError, match="requires relation.parent"):
         spec.validate()
@@ -245,17 +245,17 @@ def test_arena_env_graph_spec_rejects_invalid_data():
         ),
         (
             "missing spatial subject",
-            lambda data: data["state_specs"][0]["spatial_constraints"][0]["relation"].pop("subject"),
+            lambda data: data["state_specs"][0]["spatial_constraints"][0].pop("subject"),
             "subject",
         ),
         (
             "binary relationship missing parent",
-            lambda data: data["state_specs"][0]["spatial_constraints"][0]["relation"].__setitem__("kind", "on"),
+            lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("kind", "on"),
             "requires relation.parent",
         ),
         (
             "unary relationship with parent",
-            lambda data: data["state_specs"][0]["spatial_constraints"][0]["relation"].__setitem__("parent", "cube"),
+            lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("parent", "cube"),
             "must not define relation.parent",
         ),
         (
@@ -290,12 +290,12 @@ def test_arena_env_graph_spec_rejects_invalid_data():
         ),
         (
             "unknown task kind",
-            lambda data: data["tasks"][0]["task"].__setitem__("kind", "UnknownTask"),
+            lambda data: data["tasks"][0].__setitem__("kind", "UnknownTask"),
             "Unknown task kind 'UnknownTask'",
         ),
         (
             "unknown spatial constraint kind",
-            lambda data: data["state_specs"][0]["spatial_constraints"][0]["relation"].__setitem__("kind", "unknown"),
+            lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("kind", "unknown"),
             "Unknown relation kind 'unknown'",
         ),
         (
@@ -334,13 +334,15 @@ def _minimal_env_graph_data():
             "id": "task_0",
             "initial_state_spec_id": "state_0",
             "success_state_spec_id": "state_0",
-            "task": {"kind": "PickAndPlaceTask", "params": {}},
+            "kind": "PickAndPlaceTask",
+            "params": {},
         }],
         "state_specs": [{
             "id": "state_0",
             "spatial_constraints": [{
                 "id": "table_is_anchor",
-                "relation": {"kind": "is_anchor", "subject": "table"},
+                "kind": "is_anchor",
+                "subject": "table",
             }],
             "task_constraints": [{
                 "id": "robot_reach_cube",
@@ -355,9 +357,7 @@ def _minimal_env_graph_data():
 def _at_position_constraint(x=0.1, y=0.2, z=0.3):
     return {
         "id": "cube_fixed_position",
-        "relation": {
-            "kind": "at_position",
-            "subject": "cube",
-            "params": {"x": x, "y": y, "z": z},
-        },
+        "kind": "at_position",
+        "subject": "cube",
+        "params": {"x": x, "y": y, "z": z},
     }
