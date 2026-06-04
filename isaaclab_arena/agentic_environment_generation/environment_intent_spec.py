@@ -12,7 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, TaskRegistry
+from isaaclab_arena.assets.registries import TaskRegistry
 from isaaclab_arena.environments.arena_env_graph_types import RelationSpec, TaskSpec
 
 ItemRole = Literal["foreground", "distractor", "anchor"]
@@ -112,44 +112,24 @@ class EnvironmentIntentSpec(BaseModel):
     tasks: list[TaskSpec] = Field(
         description=(
             "Tasks to execute in sequence, using only kinds from the TASKS block. "
-            "The task sequence implicitly defines intermediate state graphs. "
             "An empty list is valid for a static scene — prefer empty over "
             "inventing a placeholder task."
         ),
     )
 
+    # Intent-only checks: nested RelationSpec / TaskSpec already validate registry membership.
     @model_validator(mode="after")
-    def _validate_catalogue_kinds_are_registered(self) -> EnvironmentIntentSpec:
-        allowed_relations = frozenset(ObjectRelationLibraryRegistry().get_all_keys())
-        for relation in self.initial_state_graph:
-            if relation.kind not in allowed_relations:
-                raise ValueError(
-                    f"Relation kind {relation.kind!r} is not registered. Allowed: {sorted(allowed_relations)}"
-                )
-
+    def _validate_agent_intent_tasks(self) -> EnvironmentIntentSpec:
         task_registry = TaskRegistry()
-        allowed_tasks = frozenset(
-            name
-            for name in task_registry.get_all_keys()
-            if getattr(task_registry.get_task_by_name(name), "agent_ready", False)
-        )
         for task in self.tasks:
-            if task.kind not in allowed_tasks:
-                raise ValueError(f"Task {task.kind!r} is not agent-ready. Allowed: {sorted(allowed_tasks)}")
-            if not (task.description and task.description.strip()):
-                raise ValueError(f"Task {task.kind!r} requires a non-empty description")
+            # Check required task is agent-ready
             task_cls = task_registry.get_task_by_name(task.kind)
-            required_params = required_task_init_param_names(task_cls)
-            missing = [name for name in required_params if name not in task.params]
-            if missing:
-                raise ValueError(
-                    f"Task {task.kind!r} is missing required params {missing}. Required: {required_params}"
-                )
-            empty = [
-                name
-                for name in required_params
-                if not isinstance(task.params.get(name), str) or not task.params[name].strip()
-            ]
-            if empty:
-                raise ValueError(f"Task {task.kind!r} has empty required params: {empty}")
+            assert getattr(task_cls, "agent_ready", False), f"Task {task.kind!r} is not agent-ready"
+            assert task.description and task.description.strip(), f"Task {task.kind!r} requires a non-empty description"
+            # Check required task class constructor parameters are present
+            for required_param in required_task_init_param_names(task_cls):
+                assert required_param in task.params, f"Task {task.kind!r} is missing required param {required_param}"
+                assert (
+                    task.params[required_param] and task.params[required_param].strip()
+                ), f"Task {task.kind!r} has empty required param {required_param}"
         return self
