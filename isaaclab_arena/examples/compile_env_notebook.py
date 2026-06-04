@@ -46,12 +46,9 @@ isaaclab_arena_environment = IsaacLabArenaEnvironment(
     scene=scene,
 )
 
-<<<<<<< HEAD
 # dome_light.get_variation("hdr_image").enable()
 # franka.get_variation("camera_extrinsics_wrist_cam").enable()
 
-=======
->>>>>>> 89941a66e (Agentic move of Hydra stuff from POC branch.)
 env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
 
 # --- Hydra-driven variation configuration -------------------------------------
@@ -65,15 +62,9 @@ print(env_builder.get_variations_catalogue_as_string())
 
 env_builder.apply_hydra_variation_overrides([
     "light.hdr_image.enabled=true",
-<<<<<<< HEAD
-    "franka_ik.camera_extrinsics.enabled=true",
-    "franka_ik.camera_extrinsics.sampler_cfg.low=[-0.01,-0.01,-0.01]",
-    "franka_ik.camera_extrinsics.sampler_cfg.high=[0.01,0.01,0.01]",
-=======
     "franka_ik.camera_extrinsics_wrist_cam.enabled=true",
     "franka_ik.camera_extrinsics_wrist_cam.sampler_cfg.low=[-0.01,-0.01,-0.01]",
     "franka_ik.camera_extrinsics_wrist_cam.sampler_cfg.high=[0.01,0.01,0.01]",
->>>>>>> 89941a66e (Agentic move of Hydra stuff from POC branch.)
 ])
 
 env = env_builder.make_registered()
