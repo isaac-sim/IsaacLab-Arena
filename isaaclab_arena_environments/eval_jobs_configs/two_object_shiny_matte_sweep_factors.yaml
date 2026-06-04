@@ -5,13 +5,16 @@
 
 # Sensitivity-analysis schema for the focused two-object shiny-vs-matte sweep on
 # droid + pi0. Paired with: two_object_shiny_matte_sweep_jobs_config.json
-# (300 jobs x num_envs=2 x num_episodes=2 = ~600 expected episodes).
+# (1000 jobs = 500 rubiks_cube + 500 alphabet_soup_can, x num_envs=2 x
+# num_episodes=2 = up to 4000 expected episodes).
 #
-# Hypothesis: a reflective (shiny) object and a diffuse (matte) object should have
-# different competence-vs-light curves. The prior 5-object run hinted at this (the
-# matte wooden bowl peaked at low light, the more-specular soup can at high light);
-# this run pairs a plastic mustard bottle (semi-matte, easy compact grasp) against
-# the metal soup can (specular) and samples both densely across the light range.
+# Hypothesis: surface reflectance interacts with lighting in pi0's competence curve.
+# This run pairs the Rubik's cube (matte plastic body with glossy stickers — less
+# specular overall) against the metal soup can (more specular) and samples both
+# densely across the light range. NOTE: rubiks_cube replaced the mustard bottle
+# because mustard failed to build repeatedly in the eval_runner path (contact-sensor
+# `descendants=0`); rubiks_cube is proven-reliable (281 episodes in the prior
+# 5-object sweep). The matte/shiny contrast is therefore weaker than intended.
 #
 # Sampling distribution: ``light_intensity`` drawn LOG-uniformly across [0.01, 5000]
 # (5.7 decades, equal density per decade), same as the prior sweep so the two runs
@@ -32,10 +35,10 @@ factors:
   pick_up_object:
     type: categorical
     # Two objects chosen for contrasting surface reflectance:
-    #   mustard           — plastic bottle, semi-diffuse/MATTE-ish, easy compact grasp
+    #   rubiks_cube       — matte plastic body + glossy stickers (less specular), proven-reliable
     #   alphabet_soup_can — metal can w/ label, more specular/SHINY
     choices:
-      - mustard_ycb_robolab
+      - rubiks_cube_hot3d_robolab
       - alphabet_soup_can_hope_robolab
 
 outcomes:
