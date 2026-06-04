@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
-@dataclass()
+@dataclass
 class Relocate:
     """Success moves ``subject`` into a spatial relation with ``target`` (e.g. ``object in bowl``)."""
 
@@ -31,7 +31,7 @@ class Relocate:
     target: str  # node id it ends up related to
 
 
-@dataclass()
+@dataclass
 class SetState:
     """Success changes ``subject``'s own state in place (e.g. a door's openness), not its location."""
 
@@ -43,7 +43,7 @@ class SetState:
 Effect = Relocate | SetState
 
 
-@dataclass()
+@dataclass
 class TaskTransition:
     """What a task acts on and what its success changes in the env graph."""
 

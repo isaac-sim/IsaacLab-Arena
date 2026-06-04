@@ -35,16 +35,6 @@ class RelationBase:
     in its relations list.
     """
 
-    @staticmethod
-    def is_spawn_pose_constraint() -> bool:
-        """Whether this only sets an object's spawn pose at init.
-
-        Structural relations carry into the success states, while spawn-pose constraints do not.
-        Overridden True by the placement constraints that set an object's spawn pose at init
-        (AtPosition, PositionLimits, RandomAroundSolution, RotateAroundSolution).
-        """
-        return False
-
 
 class UnaryRelation(RelationBase):
     """Base class for unary spatial relations (no parent object).
@@ -232,11 +222,6 @@ class RandomAroundSolution(RelationBase):
         """Return whether the relation constrains a single object."""
         return True
 
-    @staticmethod
-    def is_spawn_pose_constraint() -> bool:
-        """Whether this only sets the object's spawn pose at init."""
-        return True
-
     def __init__(
         self,
         x_half_m: float = 0.0,
@@ -332,11 +317,6 @@ class RotateAroundSolution(RelationBase):
         """Return whether the relation constrains a single object."""
         return True
 
-    @staticmethod
-    def is_spawn_pose_constraint() -> bool:
-        """Whether this only sets the object's spawn pose at init, not a structural end-state relation."""
-        return True
-
     def __init__(
         self,
         roll_rad: float = 0.0,
@@ -389,11 +369,6 @@ class AtPosition(UnaryRelation):
 
     name = "at_position"
 
-    @staticmethod
-    def is_spawn_pose_constraint() -> bool:
-        """Whether this only sets the object's spawn pose at init, not a structural end-state relation."""
-        return True
-
     def __init__(
         self,
         x: float | None = None,
@@ -429,11 +404,6 @@ class PositionLimits(UnaryRelation):
     """
 
     name = "position_limits"
-
-    @staticmethod
-    def is_spawn_pose_constraint() -> bool:
-        """Whether this only sets the object's spawn pose at init, not a structural end-state relation."""
-        return True
 
     def __init__(
         self,

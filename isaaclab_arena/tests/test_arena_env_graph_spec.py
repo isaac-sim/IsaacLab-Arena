@@ -59,7 +59,6 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
     initial_state = spec.state_specs_by_id["state_spec_0"]
     assert isinstance(initial_state, ArenaEnvGraphStateSpec)
     assert len(initial_state.spatial_constraints) == 6
-    assert len(initial_state.task_constraints) == 1
 
     cube_limits = initial_state.spatial_constraints[2]
     assert cube_limits.type == "position_limits"
@@ -72,16 +71,14 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
     assert initial_mug_position.child is None
     assert initial_mug_position.params == {"x": 0.65, "y": 0.25, "z": 0.85}
 
-    final_state = spec.state_specs_by_id["state_spec_1"]
-    cube_on_bowl = final_state.spatial_constraints[3]
+    # Derived states are differential: state_spec_1 records only the cube's relocation, not a
+    # full snapshot (the unchanged constraints are inherited from state_spec_0).
+    success_state = spec.state_specs_by_id["state_spec_1"]
+    assert len(success_state.spatial_constraints) == 1
+    cube_on_bowl = success_state.spatial_constraints[0]
     assert cube_on_bowl.type == "on"
     assert cube_on_bowl.parent == "bowl_ycb_robolab"
     assert cube_on_bowl.child == "rubiks_cube_hot3d_robolab"
-
-    final_mug_position = final_state.spatial_constraints[4]
-    assert final_mug_position.type == "at_position"
-    assert final_mug_position.parent == "mug_ycb_robolab"
-    assert final_mug_position.params == {"x": 0.65, "y": 0.25, "z": 0.85}
 
     table_anchor = initial_state.spatial_constraints[0]
     assert table_anchor.type == "is_anchor"
@@ -91,17 +88,15 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
     assert relation_class_for_spatial_constraint_type(cube_on_bowl.type) is On
 
 
-def test_arena_env_graph_spec_parses_optional_task_constraints_and_at_position():
+def test_arena_env_graph_spec_parses_at_position():
     data = _minimal_env_graph_data()
     data["state_specs"][0]["spatial_constraints"] = [_at_position_constraint()]
-    del data["state_specs"][0]["task_constraints"]
 
     spec = ArenaEnvGraphSpec.from_dict(data)
     assert spec.tasks_by_id["task_0"].type == "PickAndPlaceTask"
     state_spec = spec.state_specs_by_id["state_0"]
     fixed_position = state_spec.spatial_constraints[0]
 
-    assert state_spec.task_constraints == []
     assert fixed_position.type == "at_position"
     assert fixed_position.parent == "cube"
     assert fixed_position.params == {"x": 0.1, "y": 0.2, "z": 0.3}
@@ -162,8 +157,6 @@ def test_apply_cli_override_args_swaps_declared_target_node_names():
     # The asset `name` is swapped; the `id` (and every edge that references it) is untouched.
     assert spec.nodes_by_id["cube"].name == "dex_cube"
     assert spec.nodes_by_id["robot"].name == "franka_ik"
-    assert spec.state_specs[0].task_constraints[0].child == "cube"
-    assert spec.state_specs[0].task_constraints[0].parent == "robot"
 
 
 def test_apply_cli_override_args_leaves_unset_flags_as_authored():
@@ -221,11 +214,6 @@ def test_arena_env_graph_spec_rejects_invalid_data():
             "Duplicate env graph ids",
         ),
         (
-            "duplicate constraint id",
-            lambda data: data["state_specs"][0]["task_constraints"][0].__setitem__("id", "table_is_anchor"),
-            "Duplicate env graph ids",
-        ),
-        (
             "missing task state reference",
             lambda data: data["tasks"][0].__setitem__("initial_state_spec_id", "missing_state"),
             "unknown state spec 'missing_state'",
@@ -234,11 +222,6 @@ def test_arena_env_graph_spec_rejects_invalid_data():
             "missing required task state spec id",
             lambda data: data["tasks"][0].pop("success_state_spec_id"),
             "success_state_spec_id",
-        ),
-        (
-            "missing constraint node reference",
-            lambda data: data["state_specs"][0]["task_constraints"][0].__setitem__("child", "missing_cube"),
-            "unknown child node 'missing_cube'",
         ),
         (
             "missing spatial parent",
@@ -295,11 +278,6 @@ def test_arena_env_graph_spec_rejects_invalid_data():
             lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("type", "unknown"),
             "Unknown spatial constraint type 'unknown'",
         ),
-        (
-            "unknown task constraint type",
-            lambda data: data["state_specs"][0]["task_constraints"][0].__setitem__("type", "unknown"),
-            "type",
-        ),
     ]
 
     for label, mutate, error_match in cases:
@@ -323,13 +301,15 @@ def test_resolve_constraints_reproduces_groundtruth_full_graph():
     assert set(resolved.state_specs_by_id) == set(groundtruth.state_specs_by_id)
     assert len(resolved.state_specs) == len(resolved.tasks) + 1
 
-    # Each state's spatial + task constraints match (keyed by id, so order is irrelevant).
+    # Each state's spatial constraints match (keyed by id, so order is irrelevant).
     for state_id, groundtruth_state in groundtruth.state_specs_by_id.items():
         got = resolved.state_specs_by_id[state_id]
         assert _spatial_by_id(got) == _spatial_by_id(groundtruth_state), f"spatial mismatch in {state_id}"
-        assert _task_constraints_by_id(got) == _task_constraints_by_id(
-            groundtruth_state
-        ), f"task mismatch in {state_id}"
+        assert got.is_delta == groundtruth_state.is_delta, f"is_delta mismatch in {state_id}"
+
+    # The initial state is a full snapshot; every derived state is a delta off its predecessor.
+    assert resolved.state_specs_by_id["state_spec_0"].is_delta is False
+    assert all(resolved.state_specs_by_id[f"state_spec_{i}"].is_delta for i in range(1, len(resolved.tasks) + 1))
 
     # Tasks are wired into the chain identically.
     assert set(resolved.tasks_by_id) == set(groundtruth.tasks_by_id)
@@ -366,10 +346,6 @@ def test_task_without_a_transition_is_rejected():
 def _spatial_by_id(state: ArenaEnvGraphStateSpec) -> dict[str, tuple]:
     """Project a state's spatial constraints to id -> (type, parent, child, params), order-insensitive."""
     return {c.id: (c.type, c.parent, c.child, c.params) for c in state.spatial_constraints}
-
-
-def _task_constraints_by_id(state: ArenaEnvGraphStateSpec) -> dict[str, tuple]:
-    return {c.id: (c.type, c.parent, c.child, c.params) for c in state.task_constraints}
 
 
 def _minimal_env_graph_data():

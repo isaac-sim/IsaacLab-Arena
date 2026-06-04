@@ -36,8 +36,6 @@ nodes:
 tasks:
   - id: pick_and_place_0
     type: PickAndPlaceTask
-    initial_state_spec_id: NULL
-    success_state_spec_id: NULL
     task_args:
       pick_up_object: rubiks_cube_hot3d_robolab
       destination_location: bowl_ycb_robolab
@@ -46,8 +44,6 @@ tasks:
 
   - id: pick_and_place_1
     type: PickAndPlaceTask
-    initial_state_spec_id: NULL
-    success_state_spec_id: NULL
     task_args:
       pick_up_object: mug_ycb_robolab
       destination_location: bowl_ycb_robolab
@@ -56,6 +52,7 @@ tasks:
 
 state_specs:
   - id: state_spec_0
+    is_delta: false
     spatial_constraints:
       - id: state_spec_0_maple_table_robolab_table_is_anchor
         type: is_anchor
@@ -96,9 +93,3 @@ state_specs:
           x: 0.65
           y: 0.25
           z: 0.85
-
-    task_constraints:
-      - id: state_spec_0_droid_reach_rubiks_cube_hot3d_robolab
-        type: "reach"
-        parent: droid_abs_joint_pos
-        child: rubiks_cube_hot3d_robolab

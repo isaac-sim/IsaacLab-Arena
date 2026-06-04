@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field, SerializeAsAny, ValidationInfo, field_validator, model_validator
 
+from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.registries import TaskRegistry
 from isaaclab_arena.environments.arena_env_graph_types import (
     ArenaEnvGraphCliOverrideSpec,
@@ -30,9 +31,8 @@ from isaaclab_arena.environments.graph_spec_utils import (
     assert_spatial_constraint_shapes,
     assert_task_wiring,
     assert_unique_ids,
-    spatial_constraint_is_spawn_pose,
 )
-from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
+from isaaclab_arena.tasks.task_transition import Effect, Relocate, TaskTransition
 
 if TYPE_CHECKING:
     import argparse
@@ -160,8 +160,9 @@ class ArenaEnvGraphSpec(BaseModel):
         The upstream emits a partially-wired graph: nodes, the ordered task list, and only the initial
         state ``state_spec_0`` -- tasks are not yet wired to states. The topology is implicit in the
         sequential task list (task ``i`` carries ``state_spec_i`` to ``state_spec_{i+1}``), so resolving
-        only fills the per-state constraints: each task's success condition is applied to the previous
-        state to derive the next one. ``N`` tasks therefore yield ``N+1`` state specs.
+        only fills the per-state constraints. The chain captures the diffs: ``state_spec_0`` is the
+        initial snapshot, and each derived state records only the delta its task introduced (e.g. where the
+        moved objects land), not a full snapshot. ``N`` tasks therefore yield ``N+1`` state specs.
 
         Returns a fully-wired, strict-validated ``ArenaEnvGraphSpec``.
         """
@@ -169,38 +170,22 @@ class ArenaEnvGraphSpec(BaseModel):
             f"unresolved graph must define exactly the initial state (state_spec_0); got {len(self.state_specs)} state"
             " specs"
         )
-        embodiment_id = _get_embodiment_id_from_nodes(self.nodes)
-
-        transitions = [_get_task_state_transition(task) for task in self.tasks]
-
-        # state_spec_0 is the given initial state; chain the rest off the task list.
+        # state_spec_0 is the given initial state, and the transitions chain the rest off the task list.
         states: list[ArenaEnvGraphStateSpec] = [self.state_specs[0]]
         out_tasks: list[ArenaEnvGraphTaskSpec] = []
-        num_tasks = len(self.tasks)
-        for i, task in enumerate(self.tasks):
+
+        for i, curr_task in enumerate(self.tasks):
             new_state_id = f"state_spec_{i + 1}"
-            is_final_state = i == num_tasks - 1
-            # A success state is both a postcondition of the task that just ran and a precondition of the
-            # next one, so it asserts reachability of both: the completed task's target (e.g. a place
-            # destination), and -- when a next task exists -- that task's subject (the next thing to act on).
-            reach_targets_postcondition = [transitions[i].reach_target_on_success]
-            reach_targets_precondition = []
-            # final state has no precondition.
-            if not is_final_state:
-                reach_targets_precondition = [transitions[i + 1].subject]
-            reach_targets = reach_targets_postcondition + reach_targets_precondition
+            curr_task_transition = _get_task_state_transition(curr_task)
+            assert curr_task_transition is not None, f"task {curr_task.id} has no transition"
             states.append(
                 _get_next_state_spec(
-                    prev_state_spec=states[-1],
                     new_state_id=new_state_id,
-                    transition=transitions[i],
-                    embodiment_id=embodiment_id,
-                    reach_targets=reach_targets,
-                    is_final_state=is_final_state,
+                    transition=curr_task_transition,
                 )
             )
             out_tasks.append(
-                task.model_copy(
+                curr_task.model_copy(
                     update={"initial_state_spec_id": f"state_spec_{i}", "success_state_spec_id": new_state_id}
                 )
             )
@@ -243,126 +228,50 @@ class ArenaEnvGraphSpec(BaseModel):
 # --- Constraint resolution helpers (used by ArenaEnvGraphSpec.resolve_constraints) ---
 
 
-def _get_embodiment_id_from_nodes(nodes: list[ArenaEnvGraphNodeSpec]) -> str:
-    """Return the embodiment node's id (the parent of every reach constraint); the first one wins."""
-    ids = [node.id for node in nodes if node.type == ArenaEnvGraphNodeType.EMBODIMENT]
-    assert ids, "graph has no embodiment node"
-    return ids[0]
-
-
 def _get_task_state_transition(task: ArenaEnvGraphTaskSpec) -> TaskTransition:
-    """Look up the task class via ``TaskRegistry`` and return its declared success transition."""
+    """Look up the task class via ``TaskRegistry`` and return its declared success transition.
+
+    ``success_state_transition`` declares the assets it acts on as named (``Asset``-typed) parameters
+    (e.g. ``pick_up_object``) plus ``**_`` for the rest. We forward every node-reference task arg as an
+    ``Asset`` keyed by name -- the arg value is the graph node id, used as the asset name -- and the
+    method binds the ones it needs and ignores the others.
+    """
     task_cls = TaskRegistry().get_task_by_name(task.type)
     assert task_cls is not None, f"task {task.type} not found in TaskRegistry"
-    return task_cls.success_state_transition(task.task_args)
+    asset_args = {name: Asset(name=value) for name, value in task.task_args.items() if isinstance(value, str)}
+    return task_cls.success_state_transition(**asset_args)
 
 
-def _get_task_relocations(transition: TaskTransition) -> list[Relocate]:
-    """Return the transition's ``Relocate`` effects."""
-    for effect in transition.effects:
-        if not isinstance(effect, Relocate):
-            raise NotImplementedError(f"Effect {effect} is not yet supported.")
-    return list(transition.effects)
+def _get_task_effects(transition: TaskTransition) -> list[Effect]:
+    """Return the transition's ``Effect``s. Right now we only support Relocate effects."""
+    return [effect for effect in transition.effects if isinstance(effect, Relocate)]
 
 
-def _get_next_state_spec(
-    prev_state_spec: ArenaEnvGraphStateSpec,
-    new_state_id: str,
-    transition: TaskTransition,
-    embodiment_id: str,
-    reach_targets: list[str | None],
-    is_final_state: bool,
-) -> ArenaEnvGraphStateSpec:
-    """Apply the task's success condition to the previous state to build the next state.
+def _get_next_state_spec(new_state_id: str, transition: TaskTransition) -> ArenaEnvGraphStateSpec:
+    """Build the success state as the *delta* of the task's transition -- only what it changed.
 
-    Carry every constraint forward, except a moved object's old placement (replaced by where it
-    lands). The final state also drops spawn poses, keeping only structural relations -- it is only
-    ever checked as a goal, never reset into.
+    The chain focuses on the delta: ``state_spec_0`` holds the initial state, and each derived state
+    records only the effects the task established, not a fresh snapshot of the whole scene (followed by is_delta=True).
 
-    Worked example -- task "place mug on bowl" (mug is the moved object), prev state holds::
+    E.g. task "place mug on bowl" (mug is the moved object) yields a state holding only::
 
-        mug at_position {x, y, z}          # mug's spawn pose
-        bowl on table                      # structural
-        bowl position_limits {x_min, ...}  # bowl's spawn pose (bowl is never moved)
-
-    yields, at an interior success state::
-
-        bowl on table                      # carried (unaffected)
-        bowl position_limits {...}         # carried (still a reset-from state)
-        mug on bowl                        # added (the relocation)
-        # mug at_position dropped -- replaced by the relocation above
-
-    and at the final state, additionally::
-
-        # bowl position_limits dropped -- final state keeps only structural relations
+        mug on bowl  # the effect from the PnP task's relocation
 
     Args:
-        prev_state_spec: The previous state spec.
         new_state_id: The id of the new state.
         transition: The current task's declared success transition.
-        embodiment_id: The id of the embodiment.
-        reach_targets: The list of targets the embodiment must reach in this state.
-        is_final_state: Whether the state is the last one when reaching the final state.
 
     Returns:
-        The next state spec.
+        The next state spec, carrying only the task's relocation constraints.
     """
-    relocations = _get_task_relocations(transition)
-    moved_objects_ids = {relocation.subject for relocation in relocations}
-    spatial_constraints: list[ArenaEnvGraphSpatialConstraintSpec] = []
-
-    for prev_spatial_constraint in prev_state_spec.spatial_constraints:
-        # Spawn pose constraints are those that are set at reset time. e.g."at position", "position_limits", etc.
-        constraint_is_spawn_pose = spatial_constraint_is_spawn_pose(prev_spatial_constraint.type)
-        # A moved object's old placement is replaced by the new placement
-        # Case 1: when the object is the constraint's child. (e.g. "cube on table" -> "cube on shelf")
-        # Case 2: when the object is the owner of its own (unary) spawn-pose constraint. (e.g. "cube at_position A" -> "cube at_position B")
-        child_is_relocated = prev_spatial_constraint.child in moved_objects_ids
-        parent_is_spawn_pose_owner = (prev_spatial_constraint.parent in moved_objects_ids) and constraint_is_spawn_pose
-        constraint_is_replaced = child_is_relocated or parent_is_spawn_pose_owner
-
-        # Because the spawn pose is at reset time, it is not affected by the success condition.
-        # e.g. a never-moved bowl's "position_limits".
-        constraint_is_dropped = is_final_state and constraint_is_spawn_pose
-
-        # Keep the old ones (spawn pose or structural) when they are not affected by the success condition.
-        if not (constraint_is_replaced or constraint_is_dropped):
-            spatial_constraints.append(
-                prev_spatial_constraint.model_copy(
-                    update={"id": _reprefix_id(prev_spatial_constraint.id, prev_state_spec.id, new_state_id)}
-                )
-            )
-    # Add the new ones.
-    for relocation in relocations:
-        spatial_constraints.append(
-            ArenaEnvGraphSpatialConstraintSpec(
-                id=f"{new_state_id}_{relocation.subject}_{relocation.relation}_{relocation.target}",
-                type=relocation.relation,
-                parent=relocation.target,
-                child=relocation.subject,
-            )
+    task_effects = _get_task_effects(transition)
+    spatial_constraints = [
+        ArenaEnvGraphSpatialConstraintSpec(
+            id=f"{new_state_id}_{relocation.subject}_{relocation.relation}_{relocation.target}",
+            type=relocation.relation,
+            parent=relocation.target,
+            child=relocation.subject,
         )
-    # One reach constraint per distinct target the embodiment must reach in this state.
-    # e.g. PnP A to B -> close door: B & door shall be reachable in this state.
-    seen_targets: set[str] = set()
-    task_constraints: list[ArenaEnvGraphTaskConstraintSpec] = []
-    for reach_target in reach_targets:
-        if reach_target is not None and reach_target not in seen_targets:
-            seen_targets.add(reach_target)
-            task_constraints.append(
-                ArenaEnvGraphTaskConstraintSpec(
-                    id=f"{new_state_id}_{embodiment_id.split('_')[0]}_reach_{reach_target}",
-                    type=ArenaEnvGraphTaskConstraintType.REACH,
-                    parent=embodiment_id,
-                    child=reach_target,
-                )
-            )
-    return ArenaEnvGraphStateSpec(
-        id=new_state_id, spatial_constraints=spatial_constraints, task_constraints=task_constraints
-    )
-
-
-def _reprefix_id(old_id: str, old_prefix: str, new_prefix: str) -> str:
-    """Swap a constraint id's ``{state_id}`` prefix so carried constraints stay uniquely named."""
-    assert old_id.startswith(old_prefix), f"constraint id {old_id!r} is not prefixed by its state id {old_prefix!r}"
-    return new_prefix + old_id[len(old_prefix) :]
+        for relocation in task_effects
+    ]
+    return ArenaEnvGraphStateSpec(id=new_state_id, is_delta=True, spatial_constraints=spatial_constraints)

@@ -29,7 +29,7 @@ def coerce_number_sequence(value: Any, length: int, field_name: str) -> tuple[fl
 
 
 def assert_unique_ids(nodes: list[Any], tasks: list[Any], state_specs: list[Any]) -> None:
-    """Ensure every graph id is unique, including constraint ids inside states."""
+    """Ensure every graph id is unique, including spatial constraint ids inside states."""
     id_locations: dict[str, list[str]] = {}
     for node in nodes:
         _add_id_location(id_locations, node.id, f"node '{node.id}'")
@@ -39,8 +39,6 @@ def assert_unique_ids(nodes: list[Any], tasks: list[Any], state_specs: list[Any]
         _add_id_location(id_locations, state_spec.id, f"state spec '{state_spec.id}'")
         for constraint in state_spec.spatial_constraints:
             _add_id_location(id_locations, constraint.id, f"spatial constraint '{constraint.id}'")
-        for constraint in state_spec.task_constraints:
-            _add_id_location(id_locations, constraint.id, f"task constraint '{constraint.id}'")
 
     duplicates = {spec_id: locations for spec_id, locations in id_locations.items() if len(locations) > 1}
     assert not duplicates, f"Duplicate env graph ids found: {duplicates}"
@@ -79,17 +77,7 @@ def assert_references_exist(nodes: list[Any], tasks: list[Any], state_specs: lis
                     constraint.child in node_ids
                 ), f"Constraint '{constraint.id}' references unknown child node '{constraint.child}'"
 
-        for constraint in state_spec.task_constraints:
-            if constraint.parent is not None:
-                assert (
-                    constraint.parent in node_ids
-                ), f"Constraint '{constraint.id}' references unknown parent node '{constraint.parent}'"
-            if constraint.child is not None:
-                assert (
-                    constraint.child in node_ids
-                ), f"Constraint '{constraint.id}' references unknown child node '{constraint.child}'"
-
-
+    # TODO(xinjieyao, 2026-06-04): add check for task constraints
 def assert_task_wiring(tasks: list[Any], state_specs: list[Any]) -> None:
     """Ensure each task's ``initial_state_spec_id`` / ``success_state_spec_id`` references a state.
 
@@ -169,15 +157,6 @@ def _add_id_location(id_locations: dict[str, list[str]], spec_id: str, location:
 def relation_class_for_spatial_constraint_type(constraint_type: str) -> type[RelationBase]:
     """Look up the ``RelationBase`` class registered for a constraint-type name; raises if unknown."""
     return ObjectRelationLibraryRegistry().get_object_relation_by_name(constraint_type)
-
-
-def spatial_constraint_is_spawn_pose(constraint_type: str) -> bool:
-    """Does this constraint place an object on its own, rather than relate it to another object?
-
-    Spawn poses (e.g. "at_position", "position_limits") set a fixed start pose at reset; structural
-    relations (e.g. "on", "next_to", "is_anchor") position objects relative to each other.
-    """
-    return relation_class_for_spatial_constraint_type(constraint_type).is_spawn_pose_constraint()
 
 
 def iter_nested_leaf_values(value: Any, key_path: str = "") -> Iterator[tuple[str, Any]]:

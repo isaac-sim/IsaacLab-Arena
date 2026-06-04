@@ -129,9 +129,15 @@ class ArenaEnvGraphTaskConstraintSpec(BaseModel):
 
 
 class ArenaEnvGraphStateSpec(BaseModel):
-    """Snapshot of the environment state in the graph."""
+    """Snapshot of the environment state in the graph.
+
+    When ``is_delta`` is True the constraints are a delta of the preceding state -- this
+    is how every derived state (``state_spec_i`` for ``i > 0``) is expressed. When ``is_delta`` is False the constraints
+    are a full snapshot of the scene -- this is how the initial state (``state_spec_0``) is expressed.
+    """
 
     id: str = Field(min_length=1)
+    is_delta: bool = True
     spatial_constraints: list[ArenaEnvGraphSpatialConstraintSpec] = Field(default_factory=list)
     task_constraints: list[ArenaEnvGraphTaskConstraintSpec] = Field(default_factory=list)
 

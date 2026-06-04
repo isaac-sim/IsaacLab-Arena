@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from typing import Any
 
 from isaaclab.envs.common import ViewerCfg
@@ -66,6 +65,10 @@ class TaskBase(ABC):
         return self.task_description
 
     @classmethod
-    def success_state_transition(cls, task_args: Mapping[str, Any]) -> TaskTransition:
-        """Inform constraint resolution what the task's success condition implies about the state change."""
+    def success_state_transition(cls, **_) -> TaskTransition:
+        """Inform constraint resolution what the task's success condition implies about the state change.
+
+        Subclasses override this to declare the assets they act on as named parameters (e.g.
+        ``pick_up_object``); constraint resolution supplies each asset by name from the task's args.
+        """
         raise NotImplementedError("success_state_transition not implemented yet.")

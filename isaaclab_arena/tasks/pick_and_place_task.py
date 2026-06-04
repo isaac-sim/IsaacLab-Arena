@@ -4,9 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import MISSING
-from typing import Any
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
@@ -17,6 +16,7 @@ from isaaclab.utils import configclass
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
+from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
@@ -135,16 +135,15 @@ class PickAndPlaceTask(TaskBase):
         )
 
     @classmethod
-    def success_state_transition(cls, task_args: Mapping[str, Any]) -> TaskTransition:
+    def success_state_transition(cls, pick_up_object: Asset, destination_location: Asset) -> TaskTransition:
         """Success (``object_on_destination``): the picked object ends up a relation with the destination."""
-        pick_object = task_args["pick_up_object"]
-        destination_location = task_args["destination_location"]
         # Note: with the current AABB-based object solver, placing an object ``on`` an open container
         # and letting it fall is equivalent to it being ``in`` the container, so a single ``on``
         # relation covers both surfaces and containers.
+        relation = ObjectRelationLibraryRegistry().get_object_relation_by_name("on")
         return TaskTransition(
-            subject=pick_object,
-            effects=(Relocate(subject=pick_object, relation="on", target=destination_location),),
+            subject=pick_up_object.name,
+            effects=(Relocate(subject=pick_up_object.name, relation=relation.name, target=destination_location.name),),
         )
 
 
