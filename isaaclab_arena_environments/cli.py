@@ -172,10 +172,9 @@ def get_arena_builder_from_cli(
     )
 
     if env_graph_spec_yaml is not None:
-        from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
-
-        arena_env = ArenaEnvGraphSpec.from_yaml(env_graph_spec_yaml).to_arena_env()
-        env_builder = ArenaEnvBuilder(arena_env, args_cli)
+        spec = ArenaEnvGraphSpec.from_yaml(env_graph_spec_yaml)
+        spec.apply_cli_override_args(args_cli)
+        env_builder = ArenaEnvBuilder(spec.to_arena_env(), args_cli)
     else:
         ensure_environments_registered()
         env_registry = EnvironmentRegistry()
