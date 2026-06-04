@@ -81,12 +81,8 @@ class EnvironmentIntentSpec(BaseModel):
             "the foreground objects the task acts on, (3) the background "
             "surface or scene, (4) any distractors. For each object, "
             "briefly justify the catalog query and tags you will pick. "
-            "Resolve any ambiguity here before filling the structured "
-            "fields — do not restate this analysis in ``task_description``."
+            "Resolve any ambiguity here before filling the structured fields below."
         ),
-    )
-    task_description: str = Field(
-        description="One-sentence natural-language summary of what the env exercises overall.",
     )
     background: str = Field(
         description="Background asset name from the BACKGROUNDS catalog (e.g. 'maple_table_kitchen').",

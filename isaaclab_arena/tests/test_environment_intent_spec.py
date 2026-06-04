@@ -60,7 +60,6 @@ def test_relation_catalogue_matches_object_relation_registry():
 def test_environment_intent_spec_rejects_missing_task_params():
     payload = {
         "reasoning": "test",
-        "task_description": "test",
         "background": "kitchen",
         "embodiment": "franka_ik",
         "items": [],
@@ -71,14 +70,13 @@ def test_environment_intent_spec_rejects_missing_task_params():
             "description": "pick and place",
         }],
     }
-    with pytest.raises(ValidationError, match="missing required params"):
+    with pytest.raises(ValidationError, match="missing required param"):
         EnvironmentIntentSpec.model_validate(payload)
 
 
 def test_environment_intent_spec_rejects_non_agent_ready_task():
     payload = {
         "reasoning": "test",
-        "task_description": "test",
         "background": "kitchen",
         "embodiment": "franka_ik",
         "items": [],
@@ -96,7 +94,6 @@ def test_environment_intent_spec_rejects_non_agent_ready_task():
 def test_environment_intent_spec_accepts_valid_task_params():
     payload = {
         "reasoning": "test",
-        "task_description": "test",
         "background": "kitchen",
         "embodiment": "franka_ik",
         "items": [{"query": "cube", "role": "foreground", "category_tags": []}],

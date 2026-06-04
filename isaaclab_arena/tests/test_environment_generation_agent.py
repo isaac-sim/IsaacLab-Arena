@@ -63,7 +63,6 @@ _MINIMAL_SPEC: dict = {
         "User wants a pick-and-place: foreground object is 'avocado', "
         "target container is 'bowl', background is the kitchen table."
     ),
-    "task_description": "pick up the avocado and place it in the bowl",
     "background": "kitchen",
     "embodiment": "franka_ik",
     "items": [
@@ -177,7 +176,7 @@ class TestGenerateSpec:
         # DeepSeek-v4-flash emits literal tab/newline characters inside JSON
         # strings despite the structured-outputs contract.
         payload = dict(_MINIMAL_SPEC)
-        payload["task_description"] = "pick up\tthe\tavocado"
+        payload["reasoning"] = "pick up\tthe\tavocado"
         raw = json.dumps(payload).replace("\\t", "\t")
         assert "\t" in raw  # raw payload now has literal tab chars in a string
         agent.client.chat.completions.create.return_value = _chat_response(content=raw)
@@ -187,7 +186,7 @@ class TestGenerateSpec:
             relation_catalog=_relation_catalog("RELATIONS"),
             task_catalog=_task_catalog("TASKS"),
         )
-        assert "\t" in spec.task_description
+        assert "\t" in spec.reasoning
 
     def test_user_message_contains_catalog_and_prompt(self, agent):
         agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
