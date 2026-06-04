@@ -69,7 +69,7 @@ def resolve_constraints(
         reach_targets = reach_targets_postcondition + reach_targets_precondition
         states.append(
             _get_next_state_spec(
-                prev_state=states[-1],
+                prev_state_spec=states[-1],
                 new_state_id=new_state_id,
                 transition=transitions[i],
                 embodiment_id=embodiment_id,
