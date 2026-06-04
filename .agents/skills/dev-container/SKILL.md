@@ -12,11 +12,13 @@ Each clone gets its own container so clones run in parallel: the image (`isaacla
 
 ## Discover this clone's container
 
-Never hardcode the name. Resolve the container mounting this clone, then reuse `$ARENA_CONTAINER` (empty result = none running, so start one below):
+Never hardcode the name. Resolve the container mounting this clone (empty result = none running, so start one below):
 
 ```bash
-ARENA_CONTAINER=$(docker ps --filter "volume=$(git rev-parse --show-toplevel)" --format '{{.Names}}' | head -1)
+docker ps --filter "volume=$(git rev-parse --show-toplevel)" --format '{{.Names}}' | head -1
 ```
+
+Substitute that name for `$ARENA_CONTAINER` in the commands below — a shell variable won't carry across separate `docker exec` calls, so use the literal name (or set `ARENA_CONTAINER` in the same shell as each command).
 
 ## Start or attach
 
