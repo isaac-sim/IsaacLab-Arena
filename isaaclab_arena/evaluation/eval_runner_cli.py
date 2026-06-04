@@ -27,3 +27,14 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         default=False,
         help="Continue evaluation with remaining jobs when a job fails instead of stopping immediately.",
     )
+    parser.add_argument(
+        "--chunk_size",
+        type=int,
+        default=None,
+        help=(
+            "Run jobs in chunks of at most this many, one fresh subprocess per chunk."
+            " Each restart lets the OS reclaim accumulated memory, avoiding OOM on"
+            " long sweeps. Default unset — single process. Leave unset for normal runs;"
+            " set only if a long sweep grows in host memory or gets OOM-killed."
+        ),
+    )
