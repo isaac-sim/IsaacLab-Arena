@@ -20,7 +20,14 @@ pre-commit install    # on the host — registers git pre-commit hooks
 
 ## Docker environment
 
-Commands that touch Isaac Sim or Arena's package code (tests, training, evaluation, runtime scripts) run inside the `isaaclab_arena-latest` Docker container. The repo root is mounted at `/workspaces/isaaclab_arena`. Inside the container, `python` is aliased to `/isaac-sim/python.sh` — prefer the explicit path in `docker exec` invocations from outside the container, where the alias is not active.
+Commands that touch Isaac Sim or Arena's package code (tests, training, evaluation, runtime scripts) run inside this clone's Docker container. The repo root is mounted at `/workspaces/isaaclab_arena`. Inside the container, `python` is aliased to `/isaac-sim/python.sh` — prefer the explicit path in `docker exec` invocations from outside the container, where the alias is not active.
+
+Each clone gets its own container so multiple clones can run in parallel. The image (`isaaclab_arena:latest`) is shared; only the container name varies. The name is `isaaclab_arena-latest` plus a suffix derived from the clone directory: `IsaacLab-Arena` keeps the bare name, `IsaacLab-Arena_<suffix>` becomes `isaaclab_arena-latest-<suffix>`. **Do not hardcode the container name** — discover the one serving this clone by its mount, then exec into it:
+
+```bash
+ARENA_CONTAINER=$(docker ps --filter "volume=$(git rev-parse --show-toplevel)" --format '{{.Names}}' | head -1)
+docker exec "$ARENA_CONTAINER" bash -c '/isaac-sim/python.sh ...'
+```
 
 Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, isort, pyupgrade, codespell) runs **on the host**.
 
