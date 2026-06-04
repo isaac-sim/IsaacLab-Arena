@@ -280,16 +280,23 @@ def main():
                     " Frames span episode resets; pass --num_steps for a clean fixed-length sequence."
                 )
 
-            # Optional explicit camera viewpoint (overrides the env's
-            # get_default_cameras / the default fallback view).
+            # Optional explicit camera viewpoint (look-at). When
+            # --datagen-camera-position is given it overrides the env's
+            # get_default_cameras / the default fallback view; --datagen-camera-target
+            # defaults to the world origin if not supplied.
             datagen_cameras = None
-            if args_cli.datagen_camera_position is not None and args_cli.datagen_camera_target is not None:
+            if args_cli.datagen_camera_position is not None:
                 from isaaclab_arena_datagen.camera_trajectory import CameraViewTrajectory
 
+                target = (
+                    tuple(args_cli.datagen_camera_target)
+                    if args_cli.datagen_camera_target is not None
+                    else (0.0, 0.0, 0.0)
+                )
                 datagen_cameras = [
                     CameraViewTrajectory(
                         position=tuple(args_cli.datagen_camera_position),
-                        target=tuple(args_cli.datagen_camera_target),
+                        target=target,
                         focal_length_mm=args_cli.datagen_focal_length,
                     )
                 ]

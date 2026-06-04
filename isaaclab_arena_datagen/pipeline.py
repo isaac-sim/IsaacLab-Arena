@@ -228,6 +228,7 @@ def record_camera_step(
         cam_cfg: Camera configuration (static or dynamic trajectory).
         step_idx: Zero-based simulation step index.
     """
+    # Re-pose only cameras with a dynamic (per-step) position or target.
     if not isinstance(cam_cfg.position, tuple) or not isinstance(cam_cfg.target, tuple):
         handler.set_world_pose(resolve_coord(cam_cfg.position, step_idx), resolve_coord(cam_cfg.target, step_idx))
     # Triggers a render to refresh camera sensor buffers; does not step physics

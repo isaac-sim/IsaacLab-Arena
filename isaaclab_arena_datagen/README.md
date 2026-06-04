@@ -141,11 +141,25 @@ Datagen-collection CLI flags:
 | `--datagen-output-dir` | `/eval/datagen` | Output folder for `dataset.h5`. |
 | `--datagen-width` / `--datagen-height` | `640` / `480` | Datagen camera image size. |
 | `--datagen-mesh-sample-spacing` | `0.01` | Mesh surface sample spacing (m). |
+| `--datagen-camera-position X Y Z` | — | Camera world position (look-at). Overrides the env/default view. |
+| `--datagen-camera-target X Y Z` | world origin | Look-at point. Optional; defaults to `(0, 0, 0)`. |
+| `--datagen-focal-length` | `24.0` | Camera focal length (mm). |
 
-Camera viewpoints: if the `example_environment` class defines
-`get_default_cameras`, those views are used; otherwise a single sensible default
-view is used. To customise programmatically, build a `DatagenCollectorConfig`
-with explicit `cameras=[CameraViewTrajectory(...)]`.
+Camera viewpoints, in priority order:
+
+1. **CLI look-at** — give `--datagen-camera-position X Y Z` (and optionally
+   `--datagen-camera-target X Y Z`, default origin; `--datagen-focal-length`). E.g.:
+
+   ```bash
+   --datagen-camera-position 1.36 0.0 1.0 --datagen-camera-target 0.0 0.0 0.4 --datagen-focal-length 14
+   ```
+
+2. **Environment-provided** — if the `example_environment` class defines
+   `get_default_cameras`, those views are used.
+3. **Fallback** — a single elevated front-oblique default view.
+
+To customise programmatically, build a `DatagenCollectorConfig` with explicit
+`cameras=[CameraViewTrajectory(position=..., target=..., focal_length_mm=...)]`.
 
 ## Output
 

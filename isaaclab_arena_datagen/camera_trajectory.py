@@ -15,22 +15,19 @@ Coord3D = tuple[float, float, float]
 class CameraViewTrajectory:
     """Camera configuration describing a static view or a dynamic trajectory.
 
-    A *static* camera uses a single ``(x, y, z)`` tuple for ``position`` and
-    ``target``.  A *dynamic* camera supplies a list of such tuples -- one per
-    simulation step -- so the camera moves through the scene.
+    The camera points at ``target`` (look-at). Both ``position`` and ``target``
+    may be a single ``(x, y, z)`` tuple (static) or a list of ``num_steps``
+    tuples -- one per simulation step -- so the camera moves through the scene.
 
-    Resolution (width/height) is specified globally via
-    :class:`~isaaclab_arena_datagen.run_datagen.SimDataCollectionSetup`
-    because the HDF5 dataset format requires all cameras to share the same
-    spatial dimensions.
+    Resolution (width/height) is specified globally because the HDF5 dataset
+    format requires all cameras to share the same spatial dimensions.
 
-    Call :meth:`validate_trajectory_length` with the simulation step
-    count to verify that dynamic coordinate lists have the expected
-    length.
+    Call :meth:`validate_trajectory_length` with the simulation step count to
+    verify that dynamic coordinate lists have the expected length.
     """
 
     position: Coord3D | list[Coord3D]  # world frame
-    target: Coord3D | list[Coord3D]  # world frame
+    target: Coord3D | list[Coord3D]  # world frame (look-at)
     focal_length_mm: float  # mm
 
     def __post_init__(self) -> None:
