@@ -128,3 +128,7 @@ def _attach_spatial_constraints_to_assets(
         else:
             child_asset = assets_by_node_id[spatial_constraint.child]
             child_asset.add_relation(relation_class(parent_asset, **spatial_constraint.params))
+
+        # TODO(qianl): add back support for ``at_pose``.
+        # AT_POSE has no Relation class — it pins the parent's initial pose directly,
+        # bypassing the solver. Need to be handled in the placer module.

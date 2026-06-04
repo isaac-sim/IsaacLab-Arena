@@ -96,6 +96,7 @@ state_specs:
           y_min: -0.40
           y_max: -0.10
 
+      # TODO(qianl): replace with at_pose once placer supports it
       - id: state_spec_0_mug_ycb_robolab_at_position
         type: at_position
         parent: mug_ycb_robolab
