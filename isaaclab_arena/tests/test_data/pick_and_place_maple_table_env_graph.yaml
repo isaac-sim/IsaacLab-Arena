@@ -5,6 +5,13 @@
 
 env_name: pick_and_place_maple_table_default
 
+# Optional CLI overrides.
+cli_override_specs:
+  - arg: embodiment
+    target_node_id: droid_abs_joint_pos
+  - arg: object
+    target_node_id: rubiks_cube_hot3d_robolab
+
 nodes:
   - id: droid_abs_joint_pos
     name: droid_abs_joint_pos

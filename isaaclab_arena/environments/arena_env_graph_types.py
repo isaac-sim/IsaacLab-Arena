@@ -136,6 +136,21 @@ class ArenaEnvGraphStateSpec(BaseModel):
     task_constraints: list[ArenaEnvGraphTaskConstraintSpec] = Field(default_factory=list)
 
 
+class ArenaEnvGraphCliOverrideSpec(BaseModel):
+    """One CLI flag that swaps a graph node's asset, declared in the graph YAML.
+
+    Lets one graph YAML serve many variants without editing it.
+    """
+
+    arg: str = Field(min_length=1)  # flag name without leading dashes; "object" -> --object
+    target_node_id: str = Field(min_length=1)  # whose `name` the flag overrides
+
+    @property
+    def dest(self) -> str:
+        """The argparse attribute name for this flag (dashes become underscores)."""
+        return self.arg.replace("-", "_")
+
+
 class ArenaEnvGraphTaskSpec(BaseModel):
     """Task entry in an environment graph."""
 
