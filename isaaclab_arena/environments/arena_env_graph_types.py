@@ -152,15 +152,11 @@ class ArenaEnvGraphCliOverrideSpec(BaseModel):
 
 
 class ArenaEnvGraphTaskSpec(BaseModel):
-    """Task entry in an environment graph.
-
-    ``initial_state_spec_id`` / ``success_state_spec_id`` are ``None`` in an unresolved graph
-    (the task chain is not wired yet); ``resolve_constraints`` derives them. A strict load
-    requires both via the graph-level wiring check.
-    """
+    """Task entry in an environment graph."""
 
     id: str = Field(min_length=1)
     type: str = Field(min_length=1)
+    # Optional for an unresolved graph whose tasks are not yet wired to env states.
     initial_state_spec_id: str | None = None
     success_state_spec_id: str | None = None
     task_args: dict[str, Any] = Field(default_factory=dict)
