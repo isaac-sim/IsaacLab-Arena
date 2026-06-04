@@ -34,12 +34,16 @@ Example with custom mounts:
 
 ## Run a command in the already-running container
 
+Run as the **host user**, not root — mirror how `run_docker.sh` attaches (`docker exec -it <container> su $(id -un)`):
+
 ```bash
-docker exec isaaclab_arena-latest bash -c \
+docker exec isaaclab_arena-latest su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && <command>"
 ```
 
 The repo root is mounted at `/workspaces/isaaclab_arena` inside the container.
+
+**Never** use a bare `docker exec <container> bash -c "…"` for commands that read or write shared state — that runs as **root** and leaves root-owned files in caches the host user shares (`/tmp/Assets`, `~/.config`, …), which then fail to read on the user's own runs. `su $(id -un) -c` runs as the host user (the account `docker/setup/entrypoint.sh` provisions) with `HOME` set correctly; `$(id -un)` is evaluated on the host and matches the in-container account.
 
 ## Python invocation
 
@@ -50,7 +54,7 @@ Inside the container, `python` is aliased to `/isaac-sim/python.sh`. Both forms 
 A container is up and importable when:
 
 ```bash
-docker exec isaaclab_arena-latest bash -c \
+docker exec isaaclab_arena-latest su $(id -un) -c \
   "/isaac-sim/python.sh -c 'import isaaclab_arena; print(isaaclab_arena.__file__)'"
 ```
 
