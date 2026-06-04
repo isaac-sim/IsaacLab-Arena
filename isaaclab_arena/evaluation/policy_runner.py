@@ -101,7 +101,7 @@ def rollout_policy(
                 obs, _, terminated, truncated, _ = env.step(actions)
 
                 if collector is not None:
-                    collector.on_step(env, obs, actions, num_steps_completed)
+                    collector.on_step(env, obs, actions, num_steps_completed, done=bool((terminated | truncated).any()))
 
                 if terminated.any() or truncated.any():
                     # Only reset policy for those envs that are terminated or truncated
@@ -266,20 +266,6 @@ def main():
             assert args_cli.enable_cameras, "--collect-datagen requires --enable_cameras."
             from isaaclab_arena_datagen.collection.collector import DatagenCollector, DatagenCollectorConfig
 
-            # Datagen records a single fixed-length sequence, so the writer needs a frame
-            # count up front. In step mode that is num_steps; in episode mode we size to the
-            # worst case (num_episodes * max_episode_length) and record contiguously across
-            # episode resets. Episodes that finish early simply leave trailing frames unused.
-            if num_steps is not None:
-                datagen_horizon = num_steps
-            else:
-                datagen_horizon = num_episodes * env.unwrapped.max_episode_length
-                print(
-                    f"[Rank {local_rank}/{world_size}] Datagen: episode mode -> sizing to "
-                    f"{datagen_horizon} frames ({num_episodes} x {env.unwrapped.max_episode_length})."
-                    " Frames span episode resets; pass --num_steps for a clean fixed-length sequence."
-                )
-
             # Optional explicit camera viewpoint (look-at). When
             # --datagen-camera-position is given it overrides the env's
             # get_default_cameras / the default fallback view; --datagen-camera-target
@@ -308,10 +294,11 @@ def main():
                 height=args_cli.datagen_height,
                 mesh_sample_spacing=args_cli.datagen_mesh_sample_spacing,
             )
-            collector = DatagenCollector.from_env(
-                env, datagen_cfg, datagen_horizon, env_name=args_cli.example_environment
+            collector = DatagenCollector.from_env(env, datagen_cfg, env_name=args_cli.example_environment)
+            print(
+                f"[Rank {local_rank}/{world_size}] Collecting datagen data (one file per episode) to:"
+                f" {args_cli.datagen_output_dir}"
             )
-            print(f"[Rank {local_rank}/{world_size}] Collecting datagen data to: {args_cli.datagen_output_dir}")
 
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
         print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")

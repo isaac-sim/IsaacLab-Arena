@@ -113,3 +113,35 @@ def test_dynamic_objects_group(written_dataset):
 def test_requires_more_than_one_frame(tmp_path):
     with pytest.raises(AssertionError):
         DatagenHDF5Writer(str(tmp_path), sequence_index=0, cameras=[(CAM, H, W)], num_frames=1)
+
+
+def test_trim_shrinks_datasets_to_actual_length(tmp_path):
+    """Writer pre-allocated to a max capacity is trimmed to the actual frame count."""
+    h5py = pytest.importorskip("h5py")
+    capacity, actual = 10, 4
+    writer = DatagenHDF5Writer(
+        str(tmp_path), sequence_index=0, cameras=[(CAM, H, W)], num_frames=capacity, filename="episode_0000.h5"
+    )
+    T = TransformSE3.from_matrix(torch.eye(4))
+    for i in range(actual):
+        writer.write_rgb(torch.zeros(H, W, 3, dtype=torch.uint8), CAM, i)
+        writer.write_depth(torch.ones(H, W), CAM, i)
+        writer.write_intrinsics(torch.eye(3), CAM, i)
+        writer.write_extrinsics(T, CAM, i)
+        writer.write_normals(torch.zeros(H, W, 3), CAM, i)
+        writer.write_semantic_segmentation(torch.zeros(H, W, 4, dtype=torch.uint8), [], CAM, i)
+    for i in range(actual - 1):
+        writer.write_optical_flow(torch.zeros(H, W, 2), CAM, i)
+        writer.write_scene_flow_3d(torch.zeros(H, W, 3), CAM, i)
+        writer.write_scene_flow_track_type(torch.zeros(H, W, dtype=torch.uint8), CAM, i)
+    writer.trim(actual)
+    writer.close()
+
+    with h5py.File(os.path.join(str(tmp_path), "episode_0000.h5"), "r") as f:
+        seq = f["sequence_000000"]
+        assert seq.attrs[Keys.ATTR_NUM_FRAMES] == actual
+        g = seq[CAM]
+        assert g[Keys.COLOR].shape == (actual, H, W, 3)
+        assert g[Keys.SEMANTIC_JSON].shape == (actual,)
+        assert g[Keys.FLOW2D].shape == (actual - 1, H, W, 2)
+        assert g[Keys.FLOW3D_TRACK_TYPE].shape == (actual - 1, H, W)

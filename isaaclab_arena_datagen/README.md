@@ -117,15 +117,17 @@ python -m isaaclab_arena.evaluation.policy_runner \
 > after the subcommand makes argparse route them to the environment subparser,
 > which rejects them as unrecognized.
 
+**One HDF5 file per episode.** The collector splits the rollout at episode
+boundaries and writes `episode_0000.h5`, `episode_0001.h5`, … into the output
+dir, each trimmed to that episode's exact frame count. Isaac Lab resets a done
+env *within* `step()`, so the collector treats a `done` step's frame as the next
+episode's first frame and resets scene flow at each boundary (no spurious
+cross-reset flow). Works in both `--num_steps` and `--num_episodes` modes.
+
 Requirements:
 
 - **`--enable_cameras`** is required (sensor rendering is impossible otherwise);
   the runner asserts it.
-- A fixed recording horizon (the writer pre-allocates `num_frames`):
-  - `--num_steps N` → records exactly `N` frames (cleanest; one continuous sequence).
-  - `--num_episodes K` → records up to `K * max_episode_length` frames contiguously
-    **across episode resets**; episodes that finish early leave trailing frames
-    unused. Prefer `--num_steps` when you want a clean fixed-length trajectory.
 - Single environment (`num_envs == 1`).
 
 Collection is **off by default**; without `--collect-datagen` the rollout is
@@ -133,12 +135,40 @@ byte-for-byte unchanged. The collector hook is non-invasive: `rollout_policy`
 calls `collector.on_step(...)` after each step and `collector.finalize(...)` at
 the end (both no-ops when no collector is passed).
 
+### Mode 3 — collect during an eval-runner job sweep
+
+`eval_runner` runs a JSON config of jobs; add a top-level `datagen` block to
+collect per-episode data for every job (a per-job `datagen` block overrides it).
+Files are written to `{output_dir}/{job_name}/episode_NNNN.h5`.
+
+```bash
+python isaaclab_arena/evaluation/eval_runner.py \
+    --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_openpi_datagen_jobs_config.json
+```
+
+```jsonc
+{
+  "datagen": {
+    "output_dir": "/datasets/dynamic_scenes/openpi",
+    "camera_position": [1.36, 0.0, 1.0],   // overhead look-at camera (target defaults to origin)
+    "camera_target":   [0.0, 0.0, 0.0],
+    "focal_length_mm": 14,
+    "width": 640, "height": 480,
+    "mesh_sample_spacing": 0.01
+  },
+  "jobs": [ { "name": "...", "num_episodes": 10, "arena_env_args": { "enable_cameras": true, ... }, ... } ]
+}
+```
+
+Cameras are auto-enabled when a `datagen` block is present. Omit the `datagen`
+block to disable collection (jobs run unchanged).
+
 Datagen-collection CLI flags:
 
 | Argument | Default | Description |
 |----------|---------|-------------|
 | `--collect-datagen` | off | Enable collection during the rollout. |
-| `--datagen-output-dir` | `/eval/datagen` | Output folder for `dataset.h5`. |
+| `--datagen-output-dir` | `/eval/datagen` | Output folder for the per-episode files. |
 | `--datagen-width` / `--datagen-height` | `640` / `480` | Datagen camera image size. |
 | `--datagen-mesh-sample-spacing` | `0.01` | Mesh surface sample spacing (m). |
 | `--datagen-camera-position X Y Z` | — | Camera world position (look-at). Overrides the env/default view. |

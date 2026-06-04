@@ -91,6 +91,45 @@ def get_policy_from_job(job: Job) -> "PolicyBase":
     return policy
 
 
+def build_datagen_collector(job: Job, datagen_defaults: dict | None, env):
+    """Build a per-job datagen collector, or ``None`` if datagen is not configured.
+
+    The effective config is the top-level ``datagen`` defaults overridden by the
+    job's own ``datagen`` block. Per-episode HDF5 files are written under
+    ``{output_dir}/{job.name}/``. A camera is taken from ``camera_position``
+    (+ optional ``camera_target``, default origin); otherwise the env's default
+    view is used. Lazily imports the datagen package so core stays decoupled
+    unless collection is requested.
+    """
+    merged = {**(datagen_defaults or {}), **(job.datagen or {})}
+    if not merged.get("output_dir"):
+        return None
+
+    from isaaclab_arena_datagen.camera_trajectory import CameraViewTrajectory
+    from isaaclab_arena_datagen.collection.collector import DatagenCollector, DatagenCollectorConfig
+
+    cameras = None
+    if merged.get("camera_position") is not None:
+        target = tuple(merged["camera_target"]) if merged.get("camera_target") is not None else (0.0, 0.0, 0.0)
+        cameras = [
+            CameraViewTrajectory(
+                position=tuple(merged["camera_position"]),
+                target=target,
+                focal_length_mm=merged.get("focal_length_mm", 24.0),
+            )
+        ]
+
+    cfg = DatagenCollectorConfig(
+        output_dir=os.path.join(merged["output_dir"], job.name),
+        cameras=cameras,
+        width=merged.get("width", 640),
+        height=merged.get("height", 480),
+        mesh_sample_spacing=merged.get("mesh_sample_spacing", 0.01),
+    )
+    print(f"[INFO] Datagen collection enabled for job '{job.name}' -> {cfg.output_dir} (one file per episode)")
+    return DatagenCollector.from_env(env, cfg, env_name=None)
+
+
 def _collect_garbage_and_clear_cuda_cache() -> None:
     gc.collect()
     if torch.cuda.is_available():
@@ -141,8 +180,16 @@ def main():
     with open(args_cli.eval_jobs_config, encoding="utf-8") as f:
         eval_jobs_config = json.load(f)
 
+    # Optional top-level datagen defaults, applied to every job (a per-job "datagen"
+    # block overrides these). When present, datagen data collection runs alongside
+    # each rollout, writing one HDF5 file per episode.
+    datagen_defaults = eval_jobs_config.get("datagen")
+
     # Check if any job requires cameras and enable them if needed before starting simulation
     enable_cameras_if_required(eval_jobs_config, args_cli)
+    # Datagen collection renders dedicated cameras, which requires camera support.
+    if datagen_defaults or any(job_dict.get("datagen") for job_dict in eval_jobs_config["jobs"]):
+        args_cli.enable_cameras = True
 
     with SimulationAppContext(args_cli):
         job_manager = JobManager(eval_jobs_config["jobs"])
@@ -158,6 +205,7 @@ def main():
             if job is not None:
                 env = None
                 policy = None
+                collector = None
                 try:
                     render_mode = "rgb_array" if args_cli.video else None
                     env = load_env(job.arena_env_args, job.name, render_mode=render_mode)
@@ -186,12 +234,15 @@ def main():
                         print(f"[INFO] Recording video for job '{job.name}' -> {video_kwargs['video_folder']}")
                         env = RecordVideo(env, **video_kwargs)
 
+                    collector = build_datagen_collector(job, datagen_defaults, env)
+
                     metrics = rollout_policy(
                         env,
                         policy,
                         num_steps=job.num_steps,
                         num_episodes=job.num_episodes,
                         language_instruction=job.language_instruction,
+                        collector=collector,
                     )
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
@@ -209,11 +260,18 @@ def main():
 
                 finally:
                     try:
-                        _close_job_resources(policy, env)
+                        # Release datagen cameras BEFORE tearing down the stage, so
+                        # their replicator annotators do not leak into the next job.
+                        if collector is not None:
+                            collector.close(env)
                     finally:
-                        policy = None
-                        env = None
-                        _collect_garbage_and_clear_cuda_cache()
+                        try:
+                            _close_job_resources(policy, env)
+                        finally:
+                            policy = None
+                            env = None
+                            collector = None
+                            _collect_garbage_and_clear_cuda_cache()
 
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()

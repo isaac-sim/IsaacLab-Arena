@@ -30,7 +30,7 @@ HUE_OFFSET = 0.17
 # the motion produced by any deliberate velocity.
 
 # Min per-step translation (m) to count as moving; ~0.1 mm.
-DEFAULT_TRANSLATION_EPS_M = 1e-4
+DEFAULT_TRANSLATION_EPS_M = 2e-4
 
 # Min per-step rotation (rad) to count as moving; ~0.057 deg.
 DEFAULT_ROTATION_EPS_RAD = 1e-3

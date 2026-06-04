@@ -392,6 +392,38 @@ class IsaacLabArenaCameraHandler:
     # Scene flow delegation (composition)
     # ------------------------------------------------------------------
 
+    def reset_scene_flow(self) -> None:
+        """Clear cached scene-flow state (call at an episode boundary).
+
+        Ensures the next frame computes no flow against a frame from a previous
+        episode (which would be a spurious jump across the scene reset).
+        """
+        self._scene_flow.reset()
+
+    def close(self) -> None:
+        """Detach the camera's replicator annotators and remove its prim.
+
+        Call when the camera is no longer needed (e.g. between eval-runner jobs).
+        Standalone cameras are not owned by the env's sensor manager, so without
+        this their ``rgb``/etc. annotators linger in the global replicator
+        registry attached to a torn-down render product and clash with cameras
+        created for the next job (``Annotator rgb is not attached to any render
+        products``). Mirrors :meth:`isaaclab.sensors.Camera.__del__`.
+        """
+        camera = self._camera
+        try:
+            for annotators in camera._rep_registry.values():  # noqa: SLF001
+                for annotator, render_product_path in zip(annotators, camera._render_product_paths):  # noqa: SLF001
+                    annotator.detach([render_product_path])
+        except Exception as exc:  # pragma: no cover - best-effort cleanup
+            print(f"[datagen] Warning: failed to detach camera annotators for {self._camera_name}: {exc}")
+        try:
+            stage = omni.usd.get_context().get_stage()
+            if stage is not None and stage.GetPrimAtPath(camera.cfg.prim_path).IsValid():
+                stage.RemovePrim(camera.cfg.prim_path)
+        except Exception as exc:  # pragma: no cover - best-effort cleanup
+            print(f"[datagen] Warning: failed to remove camera prim {camera.cfg.prim_path}: {exc}")
+
     def cache_scene_flow_frame(self, env: Any) -> None:
         """Cache per-pixel world points and tracking anchors for this frame.
 

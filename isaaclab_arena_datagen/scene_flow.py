@@ -234,6 +234,15 @@ class SceneFlowComputer:
         self._rigid_key_to_name: dict[int, str] = {}
         self._articulation_key_to_name: dict[int, str] = {}
 
+    def reset(self) -> None:
+        """Drop the cached previous frame so the next frame computes no flow.
+
+        Call at an episode boundary so flow is never computed across a scene
+        reset (which would otherwise produce a spurious jump between the last
+        frame of one episode and the first of the next).
+        """
+        self._prev = None
+
     def cache_frame(
         self,
         depth_hw: torch.Tensor,

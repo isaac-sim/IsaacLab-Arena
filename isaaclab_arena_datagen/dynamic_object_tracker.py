@@ -87,6 +87,23 @@ class DynamicObjectTracker:
         self._articulation_T_W_from_localbody: dict[str, torch.Tensor] = {}
         self._articulation_body_names: dict[str, list[str]] = {}
 
+    def trim(self, num_valid_steps: int) -> None:
+        """Shrink all per-step pose buffers to *num_valid_steps* actual steps.
+
+        Used when the tracker was pre-allocated to an upper bound (e.g. the
+        environment's max episode length) but the episode finished earlier, so
+        the trailing pre-initialised identity poses must be dropped before
+        filtering.
+        """
+        assert (
+            0 < num_valid_steps <= self._num_steps
+        ), f"num_valid_steps={num_valid_steps} out of range (1, {self._num_steps}]"
+        for name, buf in self._rigid_T_W_from_localbody.items():
+            self._rigid_T_W_from_localbody[name] = buf[:num_valid_steps]
+        for name, buf in self._articulation_T_W_from_localbody.items():
+            self._articulation_T_W_from_localbody[name] = buf[:num_valid_steps]
+        self._num_steps = num_valid_steps
+
     def register_visible_objects(self, semantic_info: list[dict[str, Any]]) -> None:
         """Record which dynamic objects are visible in the current frame.
 

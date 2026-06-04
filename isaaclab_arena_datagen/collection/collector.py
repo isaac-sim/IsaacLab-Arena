@@ -4,27 +4,29 @@
 # SPDX-License-Identifier: Apache-2.0
 """Collect datagen-format data while a policy drives the environment.
 
-:class:`DatagenCollector` plugs into ``isaaclab_arena.evaluation.policy_runner``'s
-``rollout_policy`` loop via an opt-in ``collector`` argument. After each
-environment step it records the same modalities the standalone generator
-produces (RGB, depth, normals, semantics, optical/scene flow, dynamic-object
-poses) into a single ``dataset.h5`` in the SyntheticScene schema -- using
-**dedicated** static cameras that are independent of the policy's own
-observation cameras.
+:class:`DatagenCollector` plugs into ``rollout_policy`` (used by both
+``policy_runner`` and ``eval_runner``) via an opt-in ``collector`` argument.
+After each environment step it records the same modalities the standalone
+generator produces (RGB, depth, normals, semantics, optical/scene flow,
+dynamic-object poses + mesh samples) into a single ``dataset.h5`` in the
+SyntheticScene schema -- using **dedicated** static cameras that are independent
+of the policy's own observation cameras.
+
+**One HDF5 file per episode.** The collector splits the rollout at episode
+boundaries and writes ``episode_0000.h5``, ``episode_0001.h5``, ... into
+``cfg.output_dir``, each trimmed to that episode's exact frame count. Isaac Lab
+resets a done env *within* ``step()`` (and re-renders), so the frame observed on
+a ``done`` step is already the *next* episode's first frame; the collector
+accounts for this so each file contains exactly one episode's frames, with scene
+flow reset at each boundary.
 
 It reuses :func:`isaaclab_arena_datagen.pipeline.record_camera_step` and
 :func:`~isaaclab_arena_datagen.pipeline.save_dynamic_objects`, so policy-driven
-collection and standalone generation capture identical data.
+and standalone collection capture identical data.
 
 Requirements / limitations:
 
-* The ``SimulationApp`` must be launched with cameras enabled
-  (``--enable_cameras``); sensor rendering is impossible otherwise.
-* The collector pre-allocates ``num_frames`` datasets up front, so it needs a
-  fixed horizon. In ``--num_steps`` mode that is the step count; in
-  ``--num_episodes`` mode the policy runner passes the worst case
-  (``num_episodes * max_episode_length``) and frames are recorded contiguously
-  across episode resets (early-finishing episodes leave trailing frames unused).
+* The ``SimulationApp`` must be launched with cameras enabled (``--enable_cameras``).
 * Single environment only (``num_envs == 1``), matching the camera handler.
 """
 
@@ -46,13 +48,17 @@ from isaaclab_arena_datagen.pipeline import (
 )
 from isaaclab_arena_datagen.utils.constants import DEFAULT_ROTATION_EPS_RAD, DEFAULT_TRANSLATION_EPS_M
 
+# Extra capacity over max_episode_length when pre-allocating an episode file,
+# guarding against off-by-one between the env's horizon and recorded frames.
+_CAPACITY_MARGIN = 2
+
 
 @dataclasses.dataclass
 class DatagenCollectorConfig:
     """Configuration for policy-rollout data collection.
 
     Attributes:
-        output_dir: Directory where ``dataset.h5`` is written.
+        output_dir: Directory where per-episode ``episode_NNNN.h5`` files are written.
         cameras: Explicit camera trajectories. When ``None`` (default), the
             collector uses the environment class's ``get_default_cameras`` if it
             has one, else falls back to a single default view.
@@ -85,28 +91,32 @@ def _resolve_env_class(env_name: str | None) -> Any | None:
 
 
 class DatagenCollector:
-    """Records datagen-format data each step of a policy rollout.
+    """Records datagen-format data each step of a policy rollout, one file per episode.
 
-    Build via :meth:`from_env` after the environment is created and reset. Pass
-    the instance to ``rollout_policy(..., collector=collector)``; the loop calls
-    :meth:`on_step` after every ``env.step`` and :meth:`finalize` once at the end.
+    Build via :meth:`from_env` after the environment is created. Pass the
+    instance to ``rollout_policy(..., collector=collector)``; the loop calls
+    :meth:`on_step` after every ``env.step`` (with the episode-``done`` flag) and
+    :meth:`finalize`/:meth:`close` at the end.
     """
 
     def __init__(
         self,
         camera_setups: list[CameraSetup],
-        writer: DatagenHDF5Writer,
-        dynamic_tracker: DynamicObjectTracker,
+        registry: ObjectInstanceRegistry,
         cfg: DatagenCollectorConfig,
-        num_steps: int,
+        capacity: int,
     ) -> None:
         self._camera_setups = camera_setups
-        self._writer = writer
-        self._dynamic_tracker = dynamic_tracker
+        self._registry = registry
         self._cfg = cfg
-        self._num_steps = num_steps
-        self._step = 0
-        self._finalized = False
+        self._capacity = capacity
+
+        self._episode_idx = 0
+        self._local = 0  # frames recorded in the current episode
+        self._episode_open = False
+        self._closed = False
+        self._writer: DatagenHDF5Writer | None = None
+        self._tracker: DynamicObjectTracker | None = None
         self._last_env: Any = None
 
     @classmethod
@@ -114,93 +124,137 @@ class DatagenCollector:
         cls,
         env: Any,
         cfg: DatagenCollectorConfig,
-        num_steps: int,
         env_name: str | None = None,
     ) -> DatagenCollector:
-        """Spawn dedicated datagen cameras and open the writer for *env*.
+        """Spawn the dedicated datagen cameras for *env* (writers open per episode).
 
         Args:
-            env: A built, reset Isaac Lab Arena environment (gym-wrapped).
+            env: A built Isaac Lab Arena environment (gym-wrapped).
             cfg: Collector configuration.
-            num_steps: Fixed number of steps to record (writer pre-allocation).
             env_name: ``example_environment`` name, used to look up the scene's
                 ``get_default_cameras`` when ``cfg.cameras`` is ``None``.
 
         Returns:
             A ready-to-use :class:`DatagenCollector`.
         """
-        assert num_steps is not None and num_steps > 1, "DatagenCollector requires a fixed horizon > 1 frame."
+        # Per-episode files are sized to the env's max episode length (the upper
+        # bound on episode frames) and trimmed to the actual length at close.
+        capacity = int(env.unwrapped.max_episode_length) + _CAPACITY_MARGIN
 
         if cfg.cameras is not None:
             from isaaclab_arena_datagen.utils.camera_utils import validate_camera_configs
 
             cameras = cfg.cameras
-            validate_camera_configs(cameras, num_steps)
+            validate_camera_configs(cameras, capacity)
         else:
-            cameras = resolve_cameras(_resolve_env_class(env_name), num_steps)
+            cameras = resolve_cameras(_resolve_env_class(env_name), capacity)
 
-        shared_registry = ObjectInstanceRegistry()
-        camera_setups = build_camera_setups(cameras, cfg.width, cfg.height, shared_registry)
+        registry = ObjectInstanceRegistry()
+        camera_setups = build_camera_setups(cameras, cfg.width, cfg.height, registry)
+        return cls(camera_setups, registry, cfg, capacity)
 
-        writer = DatagenHDF5Writer(
-            output_dir=cfg.output_dir,
+    # ------------------------------------------------------------------
+    # Episode lifecycle
+    # ------------------------------------------------------------------
+
+    def _start_episode(self) -> None:
+        """Open a fresh writer + tracker for a new episode and reset flow caches."""
+        self._writer = DatagenHDF5Writer(
+            output_dir=self._cfg.output_dir,
             sequence_index=0,
-            cameras=[(cam.camera_id, cfg.height, cfg.width) for cam in camera_setups],
-            num_frames=num_steps,
+            cameras=[(cam.camera_id, self._cfg.height, self._cfg.width) for cam in self._camera_setups],
+            num_frames=self._capacity,
+            filename=f"episode_{self._episode_idx:04d}.h5",
         )
-        dynamic_tracker = DynamicObjectTracker(shared_registry, num_steps=num_steps)
+        self._tracker = DynamicObjectTracker(self._registry, num_steps=self._capacity)
+        for cam in self._camera_setups:
+            cam.handler.reset_scene_flow()
+        self._local = 0
+        self._episode_open = True
 
-        return cls(camera_setups, writer, dynamic_tracker, cfg, num_steps)
+    def _end_episode(self, env: Any) -> None:
+        """Trim, write dynamic objects, and close the current episode file."""
+        assert self._writer is not None and self._tracker is not None
+        if self._local == 0:
+            # Nothing recorded (e.g. rollout ended immediately); drop the empty file.
+            self._writer.close()
+        else:
+            self._writer.trim(self._local)
+            self._tracker.trim(self._local)
+            save_dynamic_objects(
+                env,
+                self._writer,
+                self._tracker,
+                self._cfg.dynamic_translation_eps,
+                self._cfg.dynamic_rotation_eps,
+                self._cfg.mesh_sample_spacing,
+            )
+            self._writer.close()
+        self._episode_open = False
+        self._episode_idx += 1
 
-    def on_step(self, env: Any, obs: Any, actions: Any, step_idx: int) -> None:
-        """Record all cameras + object poses for the current step.
+    # ------------------------------------------------------------------
+    # Hooks called by rollout_policy
+    # ------------------------------------------------------------------
 
-        Uses an internal contiguous counter rather than *step_idx* so indices
-        stay aligned with the pre-allocated datasets. Extra steps beyond
-        ``num_steps`` (e.g. if the rollout overruns) are ignored.
+    def on_step(self, env: Any, obs: Any, actions: Any, step_idx: int, done: bool = False) -> None:
+        """Record one frame; split into a new episode file at episode boundaries.
 
         Args:
             env: IsaacLab environment instance.
             obs: Observation dict from ``env.step`` (unused; cameras are dedicated).
             actions: Action tensor (unused; recorded scene state is read from sim).
             step_idx: Rollout step counter (informational only).
+            done: Whether this step terminated/truncated an episode. Because Isaac
+                Lab resets within ``step()``, a ``done`` step's frame belongs to the
+                *next* episode, so the accumulated episode is flushed before this
+                frame is recorded into a freshly opened file.
         """
         self._last_env = env
-        if self._finalized or self._step >= self._num_steps:
+        if self._closed:
             return
-        idx = self._step
-        for cam in self._camera_setups:
-            record_camera_step(
-                cam.handler,
-                self._writer,
-                self._dynamic_tracker,
-                env,
-                cam.camera_id,
-                cam.trajectory,
-                idx,
-            )
-        self._dynamic_tracker.record_step_poses(env, idx)
-        self._step += 1
+
+        if not self._episode_open:
+            self._start_episode()
+
+        # The reset for a done step has already happened, so the current frame is
+        # the first frame of a new episode: flush what we have, then open a new file.
+        if done and self._local > 0:
+            self._end_episode(env)
+            self._start_episode()
+
+        if self._local < self._capacity:
+            for cam in self._camera_setups:
+                record_camera_step(
+                    cam.handler,
+                    self._writer,
+                    self._tracker,
+                    env,
+                    cam.camera_id,
+                    cam.trajectory,
+                    self._local,
+                )
+            self._tracker.record_step_poses(env, self._local)
+            self._local += 1
 
     def finalize(self, env: Any | None = None) -> None:
-        """Persist dynamic-object poses + mesh samples and close the file.
-
-        Idempotent: safe to call more than once.
-
-        Args:
-            env: IsaacLab environment instance. May be ``None`` if the rollout
-                already supplied it to :meth:`on_step`; in that case the last
-                seen env is reused.
-        """
-        if self._finalized:
+        """Flush the in-progress episode and stop recording. Idempotent."""
+        if self._closed:
             return
-        self._finalized = True
-        save_dynamic_objects(
-            env if env is not None else self._last_env,
-            self._writer,
-            self._dynamic_tracker,
-            self._cfg.dynamic_translation_eps,
-            self._cfg.dynamic_rotation_eps,
-            self._cfg.mesh_sample_spacing,
-        )
-        self._writer.close()
+        self._closed = True
+        if self._episode_open:
+            self._end_episode(env if env is not None else self._last_env)
+
+    def close(self, env: Any | None = None) -> None:
+        """Finalize, then detach and remove the dedicated datagen cameras.
+
+        Call once the collector is done (e.g. between eval-runner jobs) so its
+        cameras' replicator annotators do not leak into the next job. Idempotent.
+        """
+        try:
+            self.finalize(env)
+        except Exception as exc:  # pragma: no cover - best-effort during cleanup
+            print(f"[datagen] Warning: failed to finalize datagen episode: {exc}")
+        for cam in self._camera_setups:
+            cam.handler.close()
+        self._camera_setups = []

@@ -119,8 +119,14 @@ class DatagenHDF5Writer:
         cameras: list[tuple[str, int, int]],
         num_frames: int,
         anchor_frame_indices: list[int] | None = None,
+        filename: str = "dataset.h5",
     ) -> None:
-        """Open the HDF5 file and pre-allocate all datasets."""
+        """Open the HDF5 file and pre-allocate all datasets.
+
+        *num_frames* is the maximum capacity; datasets are created resizable so
+        :meth:`trim` can shrink them to the actual frame count (used when the
+        sequence length -- e.g. an episode -- is only known at the end).
+        """
         assert num_frames > 1, f"num_frames must be > 1 to store adjacent-frame flow, got {num_frames}"
         heights = {h for _, h, _ in cameras}
         widths = {w for _, _, w in cameras}
@@ -134,7 +140,7 @@ class DatagenHDF5Writer:
         self._anchors = sorted(anchor_frame_indices or [])
         self._num_frames = num_frames
 
-        self._file = h5py.File(os.path.join(output_dir, "dataset.h5"), "w")
+        self._file = h5py.File(os.path.join(output_dir, filename), "w")
 
         sequence_id = Keys.sequence_group_name(sequence_index)
         self._seq_group = self._file.require_group(sequence_id)
@@ -156,11 +162,15 @@ class DatagenHDF5Writer:
     # ------------------------------------------------------------------
 
     def _preallocate_camera(self, camera_id: str, H: int, W: int, n: int) -> None:
-        """Pre-allocate all per-frame datasets for one camera."""
+        """Pre-allocate all per-frame datasets for one camera.
+
+        Datasets are resizable along the frame axis (``maxshape`` set) so
+        :meth:`trim` can shrink them to the actual frame count at close.
+        """
         g = self._cam_groups[camera_id]
 
         def make(name: str, shape: tuple[int, ...], dtype: Any) -> None:
-            g.create_dataset(name, shape=shape, dtype=dtype, chunks=(1,) + shape[1:], **_ZSTD)
+            g.create_dataset(name, shape=shape, dtype=dtype, chunks=(1,) + shape[1:], maxshape=shape, **_ZSTD)
 
         make(Keys.COLOR, (n, H, W, 3), np.uint8)
         make(Keys.DEPTH, (n, H, W), np.float32)
@@ -168,7 +178,7 @@ class DatagenHDF5Writer:
         make(Keys.EXTRINSIC, (n, 3, 4), np.float64)
         make(Keys.NORMAL, (n, H, W, 3), np.float32)
         make(Keys.SEMANTIC, (n, H, W), np.int32)
-        g.create_dataset(Keys.SEMANTIC_JSON, shape=(n,), dtype=_STR_DTYPE, **_ZSTD)
+        g.create_dataset(Keys.SEMANTIC_JSON, shape=(n,), dtype=_STR_DTYPE, maxshape=(n,), **_ZSTD)
 
         make(Keys.FLOW2D, (n - 1, H, W, 2), np.float32)
         make(Keys.FLOW3D, (n - 1, H, W, 3), np.float32)
@@ -186,7 +196,36 @@ class DatagenHDF5Writer:
                 (Keys.VISIBLE_NOW_MASK_FRAME, (H, W), np.uint8),
             ]:
                 sub = g.require_group(group_name)
-                sub.create_dataset(anchor_key, shape=(rows,) + suffix, dtype=dtype, chunks=(1,) + suffix, **_ZSTD)
+                sub.create_dataset(
+                    anchor_key,
+                    shape=(rows,) + suffix,
+                    dtype=dtype,
+                    chunks=(1,) + suffix,
+                    maxshape=(rows,) + suffix,
+                    **_ZSTD,
+                )
+
+    def trim(self, num_valid_frames: int) -> None:
+        """Shrink all per-frame datasets to *num_valid_frames* actual frames.
+
+        Used when the sequence length is only known after recording (e.g. an
+        episode that terminates early). Per-frame datasets are resized to
+        ``num_valid_frames`` and adjacent-flow datasets to
+        ``num_valid_frames - 1``. Updates the ``num_frames`` attribute.
+        """
+        assert (
+            0 < num_valid_frames <= self._num_frames
+        ), f"num_valid_frames={num_valid_frames} out of range (1, {self._num_frames}]"
+        per_frame = (Keys.COLOR, Keys.DEPTH, Keys.INTRINSIC, Keys.EXTRINSIC, Keys.NORMAL, Keys.SEMANTIC)
+        flow = (Keys.FLOW2D, Keys.FLOW3D, Keys.FLOW3D_TRACK_TYPE)
+        for g in self._cam_groups.values():
+            for key in per_frame:
+                g[key].resize(num_valid_frames, axis=0)
+            g[Keys.SEMANTIC_JSON].resize((num_valid_frames,))
+            for key in flow:
+                g[key].resize(max(num_valid_frames - 1, 0), axis=0)
+        self._num_frames = num_valid_frames
+        self._seq_group.attrs[Keys.ATTR_NUM_FRAMES] = num_valid_frames
 
     # ------------------------------------------------------------------
     # Core per-frame outputs
