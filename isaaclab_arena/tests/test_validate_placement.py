@@ -313,6 +313,22 @@ def test_validation_report_with_check_adds_sibling_without_mutating_original():
     assert extended.failed_checks == ("extra_check",)
 
 
+def test_validation_report_rejects_non_bool_check_value():
+    """Non-bool check values must fail at construction, else a truthy non-bool would satisfy all(...)."""
+    import pytest
+
+    with pytest.raises(AssertionError, match="must be bools"):
+        ValidationReport(checks={"no_overlap": 1})
+
+
+def test_validation_report_with_check_overwrites_existing_name():
+    """with_check is last-write-wins: re-checking a name replaces its prior outcome."""
+    report = ValidationReport(checks={"no_overlap": False})
+    rechecked = report.with_check("no_overlap", True)
+    assert dict(rechecked.checks) == {"no_overlap": True}
+    assert rechecked.passed is True
+
+
 def test_placement_result_success_is_derived_from_validation():
     """PlacementResult.success should mirror its ValidationReport's passed flag."""
     failing = ValidationReport(checks={"no_overlap": False, "on_relations": True})

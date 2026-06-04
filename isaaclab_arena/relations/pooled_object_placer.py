@@ -35,10 +35,10 @@ if TYPE_CHECKING:
 
 @dataclass
 class PooledLayout:
-    """A stored layout plus its per-slot use_count.
+    """A stored layout plus its use_count.
 
-    use_count lives here, not on PlacementResult, because the same result object is handed out
-    by multiple slots and repeatedly by sample_with_replacement.
+    use_count lives here, not on PlacementResult, because one stored layout can be drawn repeatedly
+    by sample_with_replacement (via _draw) and tracks how often this entry was served.
     """
 
     result: PlacementResult
@@ -52,13 +52,13 @@ class PooledLayout:
 
 @dataclass
 class EnvLayoutPool:
-    """Layout queue for one absolute environment; cursor splits consumed (before) from unread (after).
-
-    layouts keeps consumed entries too, so stored_layouts/save() can still see them.
-    """
+    """Layout queue for one absolute environment."""
 
     layouts: list[PooledLayout]
+    """All layouts in pool order, including consumed ones, so stored_layouts/save() still see them."""
+
     cursor: int = 0
+    """Split point: layouts[:cursor] are consumed, layouts[cursor:] are unread."""
 
     @property
     def available(self) -> int:
@@ -166,10 +166,13 @@ class PooledObjectPlacer:
     def accepts(self, result: PlacementResult) -> bool:
         """Whether a layout passes the pool's layout_filter.
 
-        Reporting consults this, not result.success, so fallbacks track the predicate the pool
-        stores by even under a custom filter.
+        Reporting consults this, not result.success: result.success always uses the default predicate
+        (every check passed), so under a custom filter the two can differ and fallback tracking must
+        follow the filter the pool actually stores by.
         """
-        return self._layout_filter(result.validation)
+        accepted = self._layout_filter(result.validation)
+        assert isinstance(accepted, bool), f"layout_filter must return a bool, got {type(accepted).__name__}"
+        return accepted
 
     # ------------------------------------------------------------------
     # Pool storage internals
@@ -355,7 +358,7 @@ class PooledObjectPlacer:
                     self._env_pools[cur_env].extend(enqueued)
                 else:
                     total_accepted += len(accepted_results)
-            elif allow_fallback and missing > 0:
+            elif allow_fallback and missing > 0 and env_results:
                 self._env_pools[cur_env].extend(env_results[:missing])
                 fallback_envs.append(cur_env)
                 self._had_fallbacks = True
@@ -539,9 +542,10 @@ class PooledObjectPlacer:
         reusable ones, which can be flattened.
 
         The tuples are a snapshot (later refills do not appear), but the PlacementResult objects are
-        live, so a post-pool check (e.g. a simulation collision test) records its outcome on a layout
-        in place via result.validation.with_check(...) and accepts() then reflects it. Resampling is
-        left to the caller via the existing sample_* methods.
+        live, so a post-pool check (e.g. a simulation collision test) records its outcome by
+        reassigning result.validation = result.validation.with_check(name, passed) (with_check returns
+        a new report; it does not mutate), and accepts() then reflects it. Resampling is left to the
+        caller via the existing sample_* methods.
         """
         return tuple(tuple(pooled.result for pooled in pool.layouts) for pool in self._env_pools)
 
@@ -559,7 +563,7 @@ class PooledObjectPlacer:
         """
         assert len({obj.name for obj in self._objects}) == len(
             self._objects
-        ), "Object names must be unique to save a layout pool keyed by name."
+        ), f"Object names must be unique to save a layout pool keyed by name: {path}"
         document = PoolDocument(
             placement_seed=self._base_placement_seed,
             num_envs=self._num_envs,
@@ -584,7 +588,8 @@ class PooledObjectPlacer:
         objects must contain, by name, every object referenced in the file. Malformed files and
         env-count/heterogeneity/object-name mismatches fail loudly (see layout_pool_serialization
         for the structural checks). The saved placement_seed is restored (placer_params.placement_seed is
-        ignored for seeding) so sampling matches the saved run; refill offset is not persisted, so
+        overridden by the saved seed after construction) so sampling matches the saved run; refill offset
+        is not persisted, so
         a refill restarts from the first solve batch. pool_size becomes the total loaded layout count
         across all envs (not per-env), so a multi-env refill batches larger than the original
         per-batch pool_size; harmless because refills on a loaded pool are rare.
@@ -596,7 +601,7 @@ class PooledObjectPlacer:
         ), f"num_envs={num_envs} does not match the {document.num_envs} envs saved in {path}."
 
         name_to_obj = {obj.name: obj for obj in objects}
-        assert len(name_to_obj) == len(objects), "Object names must be unique to load a layout pool by name."
+        assert len(name_to_obj) == len(objects), f"Object names must be unique to load a layout pool by name: {path}"
 
         loaded_count = sum(len(env_layouts) for env_layouts in document.env_pools)
         placer = cls(
@@ -616,10 +621,16 @@ class PooledObjectPlacer:
         placer._base_placement_seed = document.placement_seed
         placer._had_fallbacks = document.had_fallbacks
         placer._env_rngs = get_rngs(document.num_envs, document.placement_seed)
-        placer._env_pools = [
-            EnvLayoutPool([PooledLayout(deserialize_layout(layout, name_to_obj)) for layout in env_layouts])
-            for env_layouts in document.env_pools
-        ]
+        placer._env_pools = []
+        for cur_env, env_layouts in enumerate(document.env_pools):
+            pooled = []
+            for layout_idx, layout in enumerate(env_layouts):
+                try:
+                    pooled.append(PooledLayout(deserialize_layout(layout, name_to_obj)))
+                except (AssertionError, OverflowError) as exc:
+                    # OverflowError: an out-of-range int coordinate passes isinstance but overflows math.isfinite.
+                    raise AssertionError(f"{exc} (env {cur_env}, layout {layout_idx} in {path})") from exc
+            placer._env_pools.append(EnvLayoutPool(pooled))
         for cur_env, pool in enumerate(placer._env_pools):
             assert pool.layouts, f"Loaded layout pool has no layouts for env {cur_env}: {path}"
         return placer

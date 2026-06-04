@@ -462,6 +462,18 @@ def test_pooled_placer_homogeneous_unseeded_does_not_crash():
         assert _positions_by_name(sample)
 
 
+def test_pooled_placer_reusable_sample_with_replacement_empty_pool_asserts():
+    """The reusable (homogeneous) branch must also fail loudly when no layouts are available."""
+    placer_params = _make_seeded_params()
+    pool = PooledObjectPlacer(objects=list(_create_test_objects()), placer_params=placer_params, pool_size=6)
+    for env_pool in pool._env_pools:
+        env_pool.layouts = []
+        env_pool.cursor = 0
+
+    with pytest.raises(AssertionError, match="No accepted layouts to sample from"):
+        pool.sample_with_replacement(1)
+
+
 def test_pooled_placer_homogeneous_stored_layouts_have_distinct_positions_dicts():
     """Each stored layout must own a distinct positions dict (no aliasing across pool entries)."""
     solver_params = RelationSolverParams(max_iters=50)
@@ -508,6 +520,20 @@ def test_pooled_placer_stored_layouts_post_validation_flows_into_accepts():
     result.validation = result.validation.with_check("sim_collision_free", False)
     assert "sim_collision_free" in result.validation.failed_checks
     assert not pool.accepts(result)
+
+
+def test_pooled_placer_stored_layouts_snapshot_is_isolated_from_refills():
+    """A captured stored_layouts snapshot is frozen: later draws/refills don't change it."""
+    placer_params = _make_seeded_params()
+    pool = PooledObjectPlacer(objects=list(_create_test_objects()), placer_params=placer_params, pool_size=4)
+
+    snapshot = pool.stored_layouts
+    counts_before = [len(env_layouts) for env_layouts in snapshot]
+
+    pool.sample_without_replacement(pool.total_remaining)
+    pool.sample_without_replacement(2)  # forces a refill that mutates the live pools
+
+    assert [len(env_layouts) for env_layouts in snapshot] == counts_before
 
 
 def test_pooled_placer_homogeneous_sample_without_replacement_count_exceeds_pool_size():
@@ -607,6 +633,17 @@ def test_summarize_rejections_attributes_filter_only_rejections():
     )
     summary = pool._summarize_rejections([filter_only, check_failed])
     assert summary == {"layout_filter": 1, "no_overlap": 1}
+
+
+def test_summarize_rejections_empty_when_all_accepted():
+    """All-accepted layouts produce no rejection counts."""
+    solver_params = RelationSolverParams(max_iters=50)
+    placer_params = ObjectPlacerParams(placement_seed=42, solver_params=solver_params, apply_positions_to_objects=False)
+    pool = PooledObjectPlacer(objects=list(_create_test_objects()), placer_params=placer_params, pool_size=4)
+
+    accepted = [pooled.result for env_pool in pool._env_pools for pooled in env_pool.layouts]
+    assert accepted and all(pool.accepts(result) for result in accepted)
+    assert pool._summarize_rejections(accepted) == {}
 
 
 def test_solve_and_store_resets_stale_rejection_summary():
@@ -744,6 +781,23 @@ def test_pooled_placer_save_load_round_trip_preserves_layouts(tmp_path):
 
     assert _pool_signatures(loaded) == _pool_signatures(pool)
     assert all(layout.use_count == 0 for env_pool in loaded._env_pools for layout in env_pool.layouts)
+
+
+def test_pooled_placer_save_includes_consumed_layouts(tmp_path):
+    """save() persists already-consumed layouts, so a loaded pool offers them again (cursor resets)."""
+    placer_params = _make_seeded_params()
+    pool = PooledObjectPlacer(objects=list(_create_test_objects()), placer_params=placer_params, pool_size=6)
+    total_before = pool.total_remaining
+
+    pool.sample_without_replacement(2)  # consume part of the pool before saving
+    assert pool.total_remaining < total_before
+
+    path = tmp_path / "layouts.json"
+    pool.save(path)
+    loaded = PooledObjectPlacer.load(path, list(_create_test_objects()), placer_params)
+
+    assert loaded.total_remaining == total_before
+    assert _pool_signatures(loaded) == _pool_signatures(pool)
 
 
 def test_pooled_placer_save_load_round_trip_multi_env_homogeneous(tmp_path):

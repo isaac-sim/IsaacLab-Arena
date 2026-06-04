@@ -18,12 +18,12 @@ if TYPE_CHECKING:
 class ValidationReport:
     """Per-check outcome of placement validation.
 
-    checks maps each check name (e.g. "no_overlap", "on_relations") to its pass/fail result.
     The check set is open: further validation checks add their own named result by deriving a new
     report via with_check, so acceptance can consider more than the built-in geometry checks.
     """
 
     checks: Mapping[str, bool]
+    """Each check name (e.g. "no_overlap", "on_relations") mapped to its pass/fail result."""
 
     def __post_init__(self) -> None:
         # Enforce bool here so passed/failed_checks stay sound: with_check (the path engineers use)
@@ -50,11 +50,12 @@ class ValidationReport:
         return tuple(name for name, ok in self.checks.items() if not ok)
 
     def with_check(self, name: str, passed: bool) -> ValidationReport:
-        """Return a new report with one more named check.
+        """Return a new report with one more named check (an existing name is overwritten).
 
         Reports are immutable, so a further validation check records its outcome by deriving a new
         report rather than mutating this one.
         """
+        assert isinstance(passed, bool), f"with_check('{name}', ...) requires a bool, got {type(passed).__name__}"
         return ValidationReport(checks={**self.checks, name: passed})
 
 

@@ -59,6 +59,20 @@ class PoolDocument:
     had_fallbacks: bool
     env_pools: list[list[dict]]
 
+    def __post_init__(self) -> None:
+        # Self-validate at every construction path (incl. direct construction in save), so a
+        # PoolDocument can't exist in a state from_dict would reject. from_dict re-checks the same
+        # invariants earlier with the file path for better load-time messages.
+        assert isinstance(self.num_envs, int) and not isinstance(self.num_envs, bool), "num_envs must be an int."
+        assert self.placement_seed is None or (
+            isinstance(self.placement_seed, int) and not isinstance(self.placement_seed, bool)
+        ), "placement_seed must be int or None."
+        assert isinstance(self.uses_env_specific_bboxes, bool), "uses_env_specific_bboxes must be a bool."
+        assert isinstance(self.had_fallbacks, bool), "had_fallbacks must be a bool."
+        assert self.num_envs == len(
+            self.env_pools
+        ), f"PoolDocument num_envs ({self.num_envs}) must match env_pools length ({len(self.env_pools)})."
+
     def to_dict(self) -> dict:
         return {
             "placement_seed": self.placement_seed,
@@ -106,9 +120,10 @@ class PoolDocument:
 def write_pool_document(path: Path, document: PoolDocument) -> None:
     """Atomically write a pool document, failing loudly on non-finite values.
 
-    Serializes to a string first (allow_nan=False) so a degenerate NaN/inf pose or loss raises
-    before any file is touched. Writes to a temp file then os.replace so neither an interrupted
-    write nor a mid-write OS error (e.g. disk full) leaves a half-written or orphan temp file.
+    Serializes with allow_nan=False first, so a NaN/inf pose or loss raises before any file is
+    touched; then writes a temp file and os.replace, so the destination is never half-written and a
+    mid-write OSError removes the temp. A hard crash between write and replace may leave a stale
+    .tmp, but the destination stays intact.
     """
     payload = json.dumps(document.to_dict(), indent=2, allow_nan=False)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -134,7 +149,11 @@ def read_pool_document(path: Path) -> PoolDocument:
         raise ValueError(f"Layout pool file contains non-finite JSON constant '{token}': {path}")
 
     try:
-        data = json.loads(path.read_text(encoding="utf-8"), parse_constant=reject_non_finite)
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ValueError(f"Layout pool file could not be read: {path}") from exc
+    try:
+        data = json.loads(text, parse_constant=reject_non_finite)
     except json.JSONDecodeError as exc:
         raise ValueError(f"Layout pool file is not valid JSON: {path}") from exc
     return PoolDocument.from_dict(data, path)
