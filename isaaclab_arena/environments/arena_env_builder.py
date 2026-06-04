@@ -70,6 +70,7 @@ class ArenaEnvBuilder:
             num_envs=self.args.num_envs,
             placement_seed=self.args.placement_seed,
             resolve_on_reset=self.args.resolve_on_reset,
+            random_yaw_init=self.args.random_yaw_init,
         )
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
@@ -177,11 +178,11 @@ class ArenaEnvBuilder:
             task.get_commands_cfg(),
         )
 
-        isaaclab_arena_env = self.arena_env
-
         viewer_cfg = task.get_viewer_cfg()
 
         episode_length_s = task.get_episode_length_s()
+
+        task_description = task.get_task_description()
 
         # Build the environment configuration
         if not self.args.mimic:
@@ -199,7 +200,7 @@ class ArenaEnvBuilder:
                 teleop_devices=teleop_devices_cfg,
                 recorders=recorder_manager_cfg,
                 metrics=metrics_cfg,
-                isaaclab_arena_env=isaaclab_arena_env,
+                task_description=task_description,
                 viewer=viewer_cfg,
             )
             if episode_length_s is not None:
@@ -229,7 +230,7 @@ class ArenaEnvBuilder:
                 # I assume that they're not needed for the mimic env.
                 # recorders=recorder_manager_cfg,
                 # metrics=metrics_cfg,
-                isaaclab_arena_env=isaaclab_arena_env,
+                task_description=task_description,
                 viewer=viewer_cfg,
             )
 

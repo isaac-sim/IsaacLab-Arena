@@ -7,10 +7,15 @@ import argparse
 import dataclasses
 import gc
 import json
+import math
 import os
+import subprocess
+import sys
+import tempfile
 import torch
 import traceback
 from gymnasium.wrappers import RecordVideo
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
@@ -125,6 +130,45 @@ def _close_job_resources(policy: "PolicyBase | None", env) -> None:
         _close_env(env)
 
 
+def _run_chunk(chunk_label: str, chunk_jobs: list[dict]) -> int:
+    """Run ``chunk_jobs`` in a fresh ``eval_runner`` subprocess and return its exit code."""
+    print(f"[eval_runner] {chunk_label}", flush=True)
+    # Serialize this chunk's jobs to a temp config the child loads via --eval_jobs_config.
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+        json.dump({"jobs": chunk_jobs}, tmp)
+        chunk_path = Path(tmp.name)
+    # Re-run this invocation in the child, with --eval_jobs_config appended so it wins over
+    # the master config (argparse keeps the last value).
+    this_invocation = sys.argv
+    config_override = ["--eval_jobs_config", str(chunk_path)]
+    child_cmd = [sys.executable, *this_invocation, *config_override]
+    try:
+        result = subprocess.run(child_cmd, check=False)
+    finally:
+        # Remove the temp chunk config now that the child has loaded it.
+        chunk_path.unlink(missing_ok=True)
+    return result.returncode
+
+
+def _run_in_chunks(args_cli: argparse.Namespace, master_cfg: dict) -> None:
+    """Run each chunk of ``master_cfg['jobs']`` in a fresh ``eval_runner`` subprocess."""
+    jobs = master_cfg["jobs"]
+    chunk_size = args_cli.chunk_size
+    if chunk_size <= 0:
+        raise ValueError(f"--chunk_size must be positive, got {chunk_size}")
+    n_chunks = math.ceil(len(jobs) / chunk_size)
+    print(f"[eval_runner] {len(jobs)} jobs → {n_chunks} chunks of <= {chunk_size}", flush=True)
+
+    for chunk_idx in range(n_chunks):
+        start = chunk_idx * chunk_size
+        end = min(start + chunk_size, len(jobs))
+        chunk_label = f"chunk {chunk_idx + 1}/{n_chunks}: jobs {start}..{end - 1}"
+        returncode = _run_chunk(chunk_label, jobs[start:end])
+        if returncode != 0:
+            print(f"[eval_runner] chunk {chunk_idx} failed (exit {returncode}).", flush=True)
+            sys.exit(returncode)
+
+
 def main():
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli, unknown = args_parser.parse_known_args()
@@ -140,6 +184,18 @@ def main():
 
     with open(args_cli.eval_jobs_config, encoding="utf-8") as f:
         eval_jobs_config = json.load(f)
+
+    # Chunked dispatch (--chunk_size N). Splits this config across subprocesses so each
+    # gets a fresh SimulationApp. Required for long sweeps because some host memory leaks
+    # each cycle and is only reclaimed when the process exits — in-process teardown can't
+    # release it.
+    if args_cli.chunk_size is not None and len(eval_jobs_config["jobs"]) > args_cli.chunk_size:
+        # TODO(cvolk): aggregate per-chunk metrics into one centralized view. Each chunk
+        # subprocess currently prints its own MetricsLogger summary and nothing is merged
+        # or persisted (save_metrics_to_file() is unused). Follow-up: have each chunk write
+        # metrics JSON to a temp file (forward --metrics_file), then merge + print/save here.
+        _run_in_chunks(args_cli, eval_jobs_config)
+        return
 
     # Check if any job requires cameras and enable them if needed before starting simulation
     enable_cameras_if_required(eval_jobs_config, args_cli)

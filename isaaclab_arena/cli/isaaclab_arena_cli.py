@@ -15,6 +15,7 @@ def get_isaaclab_arena_cli_parser() -> argparse.ArgumentParser:
     add_isaac_lab_cli_args(parser)
     add_isaaclab_arena_cli_args(parser)
     add_external_environments_cli_args(parser)
+    add_env_graph_spec_cli_args(parser)
     return parser
 
 
@@ -73,6 +74,33 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         help=(
             "Re-place objects from the pool on each reset (default: True). Use --no-resolve_on_reset to keep the same"
             " layout."
+        ),
+    )
+    arena_group.add_argument(
+        "--random_yaw_init",
+        action="store_true",
+        default=False,
+        help=(
+            "Randomly rotate objects (except anchors) around the Z-axis for scene variety. "
+            "Collisions use a larger enclosing box; the solver won't optimize this rotation. "
+            "Only affects objects positioned by the placement solver; manually-placed objects are unaffected."
+        ),
+    )
+
+
+def add_env_graph_spec_cli_args(parser: argparse.ArgumentParser) -> None:
+    """Add environment graph spec specific command line arguments to the given parser."""
+    env_graph_spec_group = parser.add_argument_group(
+        "Environment Graph Spec Arguments", "Arguments specific to environment graph spec"
+    )
+    env_graph_spec_group.add_argument(
+        "--env_graph_spec_yaml",
+        type=str,
+        default=None,
+        help=(
+            "Path to an environment graph spec YAML. When set, the environment is built from the graph spec instead of"
+            " a registered example-environment name; the env-name subcommand then becomes optional. Any override flags"
+            " the YAML declares under `cli_override_specs` are added to the parser dynamically."
         ),
     )
 

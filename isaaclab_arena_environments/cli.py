@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environments.graph_spec_utils import add_cli_override_args
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
@@ -72,8 +74,17 @@ def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> a
         name, cls = parse_and_return_external_environment_from_string(environment)
         env_registry.register(cls, name)
 
+    # A graph spec YAML may declare its own swappable flags under `cli_override_specs`. Register them
+    # here, before parsing, so they appear in --help and parse like any other flag.
+    env_graph_spec_yaml = getattr(args, "env_graph_spec_yaml", None)
+    if env_graph_spec_yaml is not None:
+        cli_override_specs_from_yaml = ArenaEnvGraphSpec.read_cli_override_specs(env_graph_spec_yaml)
+        add_cli_override_args(args_parser, cli_override_specs_from_yaml)
+
+    # The subcommand is optional: the env may instead come from a graph spec YAML
+    # (--env_graph_spec_yaml).
     subparsers = args_parser.add_subparsers(
-        dest="example_environment", required=True, help="Example environment to run"
+        dest="example_environment", required=False, help="Example environment to run"
     )
     for env_name in env_registry.get_all_keys():
         env_cls = env_registry.get_component_by_name(env_name)
@@ -97,14 +108,25 @@ def get_isaaclab_arena_environments_cli_parser(
 def get_arena_builder_from_cli(args_cli: argparse.Namespace) -> ArenaEnvBuilder:
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
+    # The env comes from exactly one source: a graph spec YAML (--env_graph_spec_yaml) or a
+    # registered example-environment name (subcommand).
+    env_graph_spec_yaml = getattr(args_cli, "env_graph_spec_yaml", None)
+    example_environment = getattr(args_cli, "example_environment", None)
+    assert (env_graph_spec_yaml is None) != (example_environment is None), (
+        "Specify exactly one environment source: an example-environment name or --env_graph_spec_yaml"
+        f" (got example_environment={example_environment!r}, env_graph_spec_yaml={env_graph_spec_yaml!r})"
+    )
+
+    if env_graph_spec_yaml is not None:
+        spec = ArenaEnvGraphSpec.from_yaml(env_graph_spec_yaml)
+        # YAML can declare its own swappable flags under `cli_override_specs`. Apply them here.
+        spec.apply_cli_override_args(args_cli)
+        return ArenaEnvBuilder(spec.to_arena_env(), args_cli)
+
     ensure_environments_registered()
     env_registry = EnvironmentRegistry()
-
-    assert hasattr(args_cli, "example_environment"), "Example environment must be specified"
     assert env_registry.is_registered(
-        args_cli.example_environment
-    ), f"Example environment type {args_cli.example_environment} not supported"
-    example_env = env_registry.get_component_by_name(args_cli.example_environment)()
-
-    env_builder = ArenaEnvBuilder(example_env.get_env(args_cli), args_cli)
-    return env_builder
+        example_environment
+    ), f"Example environment type {example_environment} not supported"
+    example_env = env_registry.get_component_by_name(example_environment)()
+    return ArenaEnvBuilder(example_env.get_env(args_cli), args_cli)
