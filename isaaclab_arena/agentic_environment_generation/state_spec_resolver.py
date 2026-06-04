@@ -47,7 +47,9 @@ def resolve_constraints(
     assert (
         len(spec.state_specs) == 1
     ), f"unresolved graph must define exactly the initial state (state_spec_0); got {len(spec.state_specs)} state specs"
-    embodiment_id = _embodiment_id(spec.nodes)
+    embodiment_id = _get_embodiment_id_from_nodes(spec.nodes)
+
+    transitions = [_get_task_state_transition(task) for task in spec.tasks]
 
     # state_spec_0 is the given initial state; chain the rest off the task list.
     states: list[ArenaEnvGraphStateSpec] = [spec.state_specs[0]]
@@ -59,12 +61,22 @@ def resolve_constraints(
         # A success state is both a postcondition of the task that just ran and a precondition of the
         # next one, so it asserts reachability of both: the completed task's target (e.g. a place
         # destination), and -- when a next task exists -- that task's subject (the next thing to act on).
-        reach_targets_postcondition = [_transition_for(task).reach_target_on_success]
+        reach_targets_postcondition = [transitions[i].reach_target_on_success]
         reach_targets_precondition = []
+        # final state has no precondition.
         if not is_final_state:
-            reach_targets_precondition = [_transition_for(spec.tasks[i + 1]).subject]
+            reach_targets_precondition = [transitions[i + 1].subject]
         reach_targets = reach_targets_postcondition + reach_targets_precondition
-        states.append(_successor_state(states[-1], new_state_id, task, embodiment_id, reach_targets, is_final_state))
+        states.append(
+            _get_next_state_spec(
+                prev_state=states[-1],
+                new_state_id=new_state_id,
+                transition=transitions[i],
+                embodiment_id=embodiment_id,
+                reach_targets=reach_targets,
+                is_final_state=is_final_state,
+            )
+        )
         out_tasks.append(
             task.model_copy(update={"initial_state_spec_id": f"state_spec_{i}", "success_state_spec_id": new_state_id})
         )
@@ -78,32 +90,32 @@ def resolve_constraints(
     )
 
 
-def _embodiment_id(nodes: list[ArenaEnvGraphNodeSpec]) -> str:
+def _get_embodiment_id_from_nodes(nodes: list[ArenaEnvGraphNodeSpec]) -> str:
     """Return the embodiment node's id (the parent of every reach constraint); the first one wins."""
     ids = [node.id for node in nodes if node.type == ArenaEnvGraphNodeType.EMBODIMENT]
     assert ids, "graph has no embodiment node"
     return ids[0]
 
 
-def _transition_for(task: ArenaEnvGraphTaskSpec) -> TaskTransition:
+def _get_task_state_transition(task: ArenaEnvGraphTaskSpec) -> TaskTransition:
     """Look up the task class via ``TaskRegistry`` and return its declared success transition."""
     task_cls = TaskRegistry().get_task_by_name(task.type)
+    assert task_cls is not None, f"task {task.type} not found in TaskRegistry"
     return task_cls.success_state_transition(task.task_args)
 
 
-def _relocations(task: ArenaEnvGraphTaskSpec) -> list[Relocate]:
-    """Return the task's ``Relocate`` effects."""
-    transition = _transition_for(task)
+def _get_task_relocations(transition: TaskTransition) -> list[Relocate]:
+    """Return the transition's ``Relocate`` effects."""
     for effect in transition.effects:
         if not isinstance(effect, Relocate):
             raise NotImplementedError(f"Effect {effect} is not yet supported.")
     return list(transition.effects)
 
 
-def _successor_state(
+def _get_next_state_spec(
     prev_state_spec: ArenaEnvGraphStateSpec,
     new_state_id: str,
-    task_spec: ArenaEnvGraphTaskSpec,
+    transition: TaskTransition,
     embodiment_id: str,
     reach_targets: list[str | None],
     is_final_state: bool,
@@ -137,7 +149,7 @@ def _successor_state(
     Args:
         prev_state_spec: The previous state spec.
         new_state_id: The id of the new state.
-        task_spec: The task spec.
+        transition: The current task's declared success transition.
         embodiment_id: The id of the embodiment.
         reach_targets: The list of targets the embodiment must reach in this state.
         is_final_state: Whether the state is the last one when reaching the final state.
@@ -145,7 +157,7 @@ def _successor_state(
     Returns:
         The next state spec.
     """
-    relocations = _relocations(task_spec)
+    relocations = _get_task_relocations(transition)
     moved_objects_ids = {relocation.subject for relocation in relocations}
     spatial_constraints: list[ArenaEnvGraphSpatialConstraintSpec] = []
 

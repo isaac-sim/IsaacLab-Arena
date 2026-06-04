@@ -11,9 +11,9 @@ node the embodiment acts on (if any), plus the effects its success establishes.
 Across the task library, every success reduces to two effect kinds:
 
 * ``Relocate`` — a node moves into a spatial relation with another node (pick-and-place,
-  sorting, or the embodiment navigating to a location). Maps to a binary spatial constraint.
+  sorting). Maps to a binary spatial constraint.
 * ``SetState`` — a node's own state changes in place (a door's openness, a pressed button,
-  a knob level).
+  a knob level, or the embodiment opens/closes gripper).
 """
 
 from __future__ import annotations
@@ -47,8 +47,7 @@ Effect = Relocate | SetState
 class TaskTransition:
     """How a task's success changes the env-graph state."""
 
-    subject: str | None = None  # node that the task acts on; None when it
-    # only changes its own state (e.g. a GOTO task, whose outcome is an embodiment Relocate effect)
+    subject: str | None = None  # node that the task acts on; None when it changes its own state only (e.g. a GOTO task)
     effects: tuple[Effect, ...] = ()  # Could be both Relocate and SetState; empty if no graph state change
 
     # Note: each state asserts reachability for the roles it plays. A success state is both a
@@ -60,6 +59,11 @@ class TaskTransition:
     # the last task's reach_target_on_success (postcondition).
     @property
     def reach_target_on_success(self) -> str | None:
-        """End of the task's success: the last relocation's target, else ``subject`` (may be None)."""
+        """The node the embodiment must be able to reach for this task to succeed.
+
+        For a relocation task it is where the object ends up -- the target of the last ``Relocate``
+        (e.g. place mug on bowl -> ``bowl``). For an in-place task with no relocation (e.g. open a
+        door) it is the ``subject`` the task acts on. ``None`` when neither is defined.
+        """
         relocations = [effect for effect in self.effects if isinstance(effect, Relocate)]
         return relocations[-1].target if relocations else self.subject
