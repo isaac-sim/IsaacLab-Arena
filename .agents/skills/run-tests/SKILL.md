@@ -14,13 +14,11 @@ allowed-tools: Bash(docker exec *) Bash(docker ps *)
 
 The three phases run mutually exclusive sets of tests (selected via different pytest marker filters) and must be invoked separately. For a full pre-PR run, every phase must pass before moving on to the next.
 
-All commands run inside the already-running container via `docker exec`. Each clone has its own container, so first resolve the one serving this clone by its mount and reuse `$ARENA_CONTAINER` in every command below:
+All commands run inside the already-running container via `docker exec`. Each clone has its own container, so first resolve the one mounting this clone and reuse `$ARENA_CONTAINER` below (empty = none running, use the `dev-container` skill first):
 
 ```bash
 ARENA_CONTAINER=$(docker ps --filter "volume=$(git rev-parse --show-toplevel)" --format '{{.Names}}' | head -1)
 ```
-
-If the result is empty, no container is running for this clone — use the `dev-container` skill first.
 
 ## Phase 1 — no cameras, no subprocess
 

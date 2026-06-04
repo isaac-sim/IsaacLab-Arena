@@ -8,17 +8,15 @@ allowed-tools: Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker im
 
 Arena uses a single Docker container as the dev, test, training, and eval environment. There is no separate dev container.
 
-Each clone gets its own container so multiple clones run in parallel. The image (`isaaclab_arena:latest`) is shared; only the container name varies: `isaaclab_arena-latest` for the `IsaacLab-Arena` clone, `isaaclab_arena-latest-<suffix>` for an `IsaacLab-Arena_<suffix>` clone. `run_docker.sh` derives the suffix from the clone directory automatically.
+Each clone gets its own container so clones run in parallel: the image (`isaaclab_arena:latest`) is shared, but the name is `isaaclab_arena-latest` for `IsaacLab-Arena` and `isaaclab_arena-latest-<suffix>` for `IsaacLab-Arena_<suffix>` (`run_docker.sh` derives the suffix automatically).
 
 ## Discover this clone's container
 
-Never hardcode the name. Resolve the container that mounts the current clone, then reuse `$ARENA_CONTAINER`:
+Never hardcode the name. Resolve the container mounting this clone, then reuse `$ARENA_CONTAINER` (empty result = none running, so start one below):
 
 ```bash
 ARENA_CONTAINER=$(docker ps --filter "volume=$(git rev-parse --show-toplevel)" --format '{{.Names}}' | head -1)
 ```
-
-Empty result means no container is running for this clone — start one (below).
 
 ## Start or attach
 
