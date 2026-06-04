@@ -18,6 +18,9 @@ from isaaclab_arena.environments.arena_env_graph_types import RelationSpec, Task
 ItemRole = Literal["foreground", "distractor", "anchor"]
 
 
+# Item differs from ArenaEnvGraphNodeSpec. Item does not name a specify asset
+# in the AssetRegistry. Instead, it is a query string that the agent proposes
+# to match against the asset catalog.
 class Item(BaseModel):
     """One object the agent wants in the scene."""
 
