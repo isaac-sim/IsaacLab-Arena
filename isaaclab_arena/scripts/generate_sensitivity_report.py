@@ -3,26 +3,26 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""CLI driver: build a static HTML sensitivity report from a (factors.yaml, JSONL) pair.
+"""CLI driver: build a single-PDF sensitivity report from a (factors.yaml, JSONL) pair.
 
-Thin wrapper around :func:`isaaclab_arena.analysis.sensitivity.report.generate_report`.
-For per-plot inspection or A/B comparisons of a single factor/outcome, use
-``analyze_sensitivity.py`` instead — this script produces the full deliverable artifact
-covering every declared (factor, outcome) combination in one self-contained HTML file.
+Thin wrapper around :func:`isaaclab_arena.analysis.sensitivity.pdf_report.generate_pdf_report`.
+Produces one PDF with an outcome × factor grid of marginal-posterior plots — the most
+important plots in a single file. For per-plot inspection of a single factor/outcome, use
+``analyze_sensitivity.py`` instead.
 
 Example::
 
     python -m isaaclab_arena.scripts.generate_sensitivity_report \\
         --factors_yaml path/to/factors.yaml \\
         --episode_summary path/to/episode_summary.jsonl \\
-        --output_html /tmp/sensitivity_report.html
+        --output_pdf /tmp/sensitivity_report.pdf
 """
 
 from __future__ import annotations
 
 import argparse
 
-from isaaclab_arena.analysis.sensitivity.report import generate_report
+from isaaclab_arena.analysis.sensitivity.pdf_report import generate_pdf_report
 
 
 def main():
@@ -32,24 +32,14 @@ def main():
         "--episode_summary", type=str, required=True, help="Path to episode_summary.jsonl produced by eval_runner."
     )
     parser.add_argument(
-        "--output_html",
+        "--output_pdf",
         type=str,
-        default="./sensitivity_report.html",
-        help="Output HTML file. Default: ./sensitivity_report.html. Self-contained interactive HTML.",
-    )
-    parser.add_argument(
-        "--plotlyjs_mode",
-        choices=["cdn", "inline"],
-        default="cdn",
-        help=(
-            "Plotly.js bundling. 'cdn' (default, ~500 KB output, needs internet to load) loads"
-            " Plotly from plot.ly's CDN; 'inline' (~5 MB output, fully offline) embeds Plotly"
-            " directly. Use 'inline' when sharing to people who may not have internet."
-        ),
+        default="./sensitivity_report.pdf",
+        help="Output PDF file. Default: ./sensitivity_report.pdf.",
     )
     args = parser.parse_args()
 
-    generate_report(args.factors_yaml, args.episode_summary, args.output_html, plotlyjs_mode=args.plotlyjs_mode)
+    generate_pdf_report(args.factors_yaml, args.episode_summary, args.output_pdf)
 
 
 if __name__ == "__main__":

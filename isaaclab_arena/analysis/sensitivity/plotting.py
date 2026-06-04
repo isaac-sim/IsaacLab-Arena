@@ -10,8 +10,12 @@ Pure-visualization module. Calls into the analyzer's public posterior queries
 figures. Decoupled from the analyzer hierarchy so new plot types can be added without
 touching inference code, and so existing plot code can be tested with mock posteriors.
 
-The single entry point is ``plot_marginal(analyzer, factor_name, output_path, ...)``,
-which dispatches by factor type to the right renderer.
+Two entry points:
+  - ``draw_marginal(ax, analyzer, factor_name, ...)`` draws one factor's marginal onto a
+    caller-supplied Axes (used by the multi-plot PDF report).
+  - ``plot_marginal(analyzer, factor_name, output_path, ...)`` wraps it in its own figure
+    and saves a standalone image (used by the single-factor CLI).
+Both dispatch by factor type to the right renderer.
 """
 
 from __future__ import annotations
@@ -25,15 +29,18 @@ if TYPE_CHECKING:
     from isaaclab_arena.analysis.sensitivity.dataset import FactorSpec
 
 
-def plot_marginal(
+def draw_marginal(
+    ax,
     analyzer: BaseAnalyzer,
     factor_name: str,
-    output_path,
     outcome_value: float = 1.0,
     num_samples: int = 10_000,
     num_grid_points: int = 200,
 ) -> None:
-    """Render the marginal posterior for ``factor_name``, dispatching by factor type.
+    """Draw ``factor_name``'s marginal posterior onto ``ax``, dispatching by factor type.
+
+    Sets axis labels, scale, legend and grid but NOT the title — the caller titles the
+    Axes (a standalone plot wants the full slice block; a grid cell wants a compact label).
 
     For continuous factors, the analyzer must expose ``continuous_marginal_density``
     (only ``PosteriorAnalyzer`` does — ``EmpiricalAnalyzer`` rejects continuous factors at
@@ -45,21 +52,48 @@ def plot_marginal(
             raise NotImplementedError(
                 f"{type(analyzer).__name__} cannot plot continuous factors; expected a PosteriorAnalyzer (NPE/MNPE)."
             )
-        _plot_continuous_marginal(analyzer, factor_spec, output_path, outcome_value, num_grid_points)
+        _draw_continuous_marginal(ax, analyzer, factor_spec, outcome_value, num_grid_points)
     elif factor_spec.type == "categorical":
-        _plot_categorical_marginal(analyzer, factor_spec, output_path, outcome_value, num_samples)
+        _draw_categorical_marginal(ax, analyzer, factor_spec, outcome_value, num_samples)
     else:
         raise NotImplementedError(f"Unsupported factor type {factor_spec.type!r}")
 
 
-def _plot_continuous_marginal(
+def plot_marginal(
+    analyzer: BaseAnalyzer,
+    factor_name: str,
+    output_path,
+    outcome_value: float = 1.0,
+    num_samples: int = 10_000,
+    num_grid_points: int = 200,
+) -> None:
+    """Render one factor's marginal posterior into its own figure and save it.
+
+    Thin wrapper over ``draw_marginal``: sizes a single-Axes figure, draws, titles it with
+    the full slice block, and saves to ``output_path``.
+    """
+    import matplotlib.pyplot as plt
+
+    factor_spec = analyzer._factor_spec(factor_name)
+    if factor_spec.type == "categorical" and factor_spec.choices is not None:
+        figsize = (max(8, 1.0 * len(factor_spec.choices)), 5)
+    else:
+        figsize = (8, 5)
+    figure, axes = plt.subplots(figsize=figsize)
+    draw_marginal(axes, analyzer, factor_name, outcome_value, num_samples, num_grid_points)
+    axes.set_title(_plot_title(analyzer, factor_name))
+    figure.tight_layout()
+    _save_figure(figure, output_path)
+
+
+def _draw_continuous_marginal(
+    ax,
     analyzer: BaseAnalyzer,
     factor_spec: FactorSpec,
-    output_path,
     outcome_value: float,
     num_grid_points: int,
 ) -> None:
-    """Render a continuous factor's marginal posterior as a density curve.
+    """Draw a continuous factor's marginal posterior onto ``ax`` as a density curve.
 
     The blue curve shows ``P(factor_value | outcome=outcome_value)`` from the analyzer.
     Below the x-axis is an empirical "rug" — small vertical ticks at the actual recorded
@@ -67,8 +101,6 @@ def _plot_continuous_marginal(
     and red for episodes where it was not. The rug lets a human eyeball whether the
     smooth posterior actually agrees with where the successful episodes lived.
     """
-    import matplotlib.pyplot as plt
-
     grid, density = analyzer.continuous_marginal_density(factor_spec.name, outcome_value, num_grid_points)
     factor_column_slice = analyzer.dataset.factor_columns[factor_spec.name]
     outcome_column_index = analyzer.dataset.outcome_columns[analyzer.outcome_name]
@@ -79,15 +111,14 @@ def _plot_continuous_marginal(
         empirical_theta_values = np.power(10.0, empirical_theta_values)
     empirical_outcomes = analyzer.dataset.x[:, outcome_column_index].cpu().numpy()
 
-    figure, axes = plt.subplots(figsize=(8, 5))
-    axes.plot(
+    ax.plot(
         grid,
         density,
         color="steelblue",
         linewidth=2,
         label=f"P({factor_spec.name} | {analyzer.outcome_name}={outcome_value:g})",
     )
-    axes.fill_between(grid, 0, density, color="steelblue", alpha=0.2)
+    ax.fill_between(grid, 0, density, color="steelblue", alpha=0.2)
 
     # Rug coloring depends on outcome shape. For binary outcomes (only 0/1 observed) the
     # green/red ≥/<0.5 split gives a meaningful "successes vs failures" picture. For
@@ -96,7 +127,7 @@ def _plot_continuous_marginal(
     is_binary_outcome = set(empirical_outcomes.flatten().tolist()).issubset({0.0, 1.0})
     if is_binary_outcome:
         success_mask = empirical_outcomes >= 0.5
-        axes.scatter(
+        ax.scatter(
             empirical_theta_values[success_mask],
             np.full(success_mask.sum(), -0.05 * density.max()),
             marker="|",
@@ -104,7 +135,7 @@ def _plot_continuous_marginal(
             s=80,
             label=f"{analyzer.outcome_name} ≥ 0.5  (n={success_mask.sum()})",
         )
-        axes.scatter(
+        ax.scatter(
             empirical_theta_values[~success_mask],
             np.full((~success_mask).sum(), -0.1 * density.max()),
             marker="|",
@@ -113,7 +144,7 @@ def _plot_continuous_marginal(
             label=f"{analyzer.outcome_name} < 0.5  (n={(~success_mask).sum()})",
         )
     else:
-        axes.scatter(
+        ax.scatter(
             empirical_theta_values,
             np.full(len(empirical_theta_values), -0.05 * density.max()),
             marker="|",
@@ -121,25 +152,22 @@ def _plot_continuous_marginal(
             s=80,
             label=f"observed samples  (n={len(empirical_theta_values)})",
         )
-    axes.set_xlabel(factor_spec.name)
-    axes.set_ylabel("posterior density")
-    axes.set_title(_plot_title(analyzer, factor_spec.name))
+    ax.set_xlabel(factor_spec.name)
+    ax.set_ylabel("posterior density")
     if factor_spec.distribution == "log_uniform":
-        axes.set_xscale("log")
-    axes.legend(loc="best", fontsize=9)
-    axes.grid(alpha=0.3)
-    figure.tight_layout()
-    _save_figure(figure, output_path)
+        ax.set_xscale("log")
+    ax.legend(loc="best", fontsize=9)
+    ax.grid(alpha=0.3)
 
 
-def _plot_categorical_marginal(
+def _draw_categorical_marginal(
+    ax,
     analyzer: BaseAnalyzer,
     factor_spec: FactorSpec,
-    output_path,
     outcome_value: float,
     num_samples: int,
 ) -> None:
-    """Render a categorical factor's marginal as side-by-side bars per category.
+    """Draw a categorical factor's marginal onto ``ax`` as side-by-side bars per category.
 
     The blue bar (left of each category) is the analyzer's ``P(category | outcome)``.
     The green bar (right of each category) is the *empirical* per-category outcome rate
@@ -150,8 +178,6 @@ def _plot_categorical_marginal(
     Each green bar is annotated with the sample count ``n`` for that category, so the
     user can see how trustworthy each bar is.
     """
-    import matplotlib.pyplot as plt
-
     assert factor_spec.choices is not None
     choices = factor_spec.choices
     num_choices = len(choices)
@@ -172,10 +198,9 @@ def _plot_categorical_marginal(
         if category_mask.any():
             empirical_rates[code] = float((empirical_outcomes[category_mask] >= 0.5).mean())
 
-    figure, axes = plt.subplots(figsize=(max(8, 1.0 * num_choices), 5))
     bar_x_positions = np.arange(num_choices)
     bar_width = 0.4
-    axes.bar(
+    ax.bar(
         bar_x_positions - bar_width / 2,
         posterior_probabilities,
         bar_width,
@@ -183,7 +208,7 @@ def _plot_categorical_marginal(
         alpha=0.8,
         label=f"P(category | {analyzer.outcome_name}={outcome_value:g})",
     )
-    axes.bar(
+    ax.bar(
         bar_x_positions + bar_width / 2,
         empirical_rates,
         bar_width,
@@ -192,7 +217,7 @@ def _plot_categorical_marginal(
         label=f"empirical {analyzer.outcome_name} rate per category",
     )
     for category_index, count in enumerate(empirical_counts):
-        axes.text(
+        ax.text(
             category_index + bar_width / 2,
             empirical_rates[category_index] + 0.02,
             f"n={count}",
@@ -200,15 +225,12 @@ def _plot_categorical_marginal(
             fontsize=8,
         )
 
-    axes.set_xticks(bar_x_positions)
-    axes.set_xticklabels(choices, rotation=30, ha="right")
-    axes.set_ylabel("probability")
-    axes.set_ylim(0, 1.05)
-    axes.set_title(_plot_title(analyzer, factor_spec.name))
-    axes.legend(loc="best", fontsize=9)
-    axes.grid(alpha=0.3, axis="y")
-    figure.tight_layout()
-    _save_figure(figure, output_path)
+    ax.set_xticks(bar_x_positions)
+    ax.set_xticklabels(choices, rotation=30, ha="right")
+    ax.set_ylabel("probability")
+    ax.set_ylim(0, 1.05)
+    ax.legend(loc="best", fontsize=9)
+    ax.grid(alpha=0.3, axis="y")
 
 
 def _plot_title(analyzer: BaseAnalyzer, factor_name: str) -> str:
