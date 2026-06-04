@@ -117,11 +117,9 @@ class ArenaEnvGraphSpec(BaseModel):
     def from_dict(cls, data: dict[str, Any], is_task_wiring_enabled: bool = True) -> ArenaEnvGraphSpec:
         """Validate and build a spec from a mapping.
 
-        Pass ``is_task_wiring_enabled=False`` to load an *unresolved* graph (the task list plus the
-        single initial state ``state_spec_0``, with tasks not yet wired to states.
+        Pass ``is_task_wiring_enabled=False`` to load an *unresolved* graph.
         """
-        if not isinstance(data, dict):
-            raise ValueError(f"Env graph spec must be a dict, got {type(data).__name__}")
+        assert isinstance(data, dict), f"Env graph spec must be a dict, got {type(data).__name__}"
         return cls.model_validate(data, context={"is_task_wiring_enabled": is_task_wiring_enabled})
 
     @staticmethod
@@ -163,8 +161,9 @@ class ArenaEnvGraphSpec(BaseModel):
         state ``state_spec_0`` -- tasks are not yet wired to states. The topology is implicit in the
         sequential task list (task ``i`` carries ``state_spec_i`` to ``state_spec_{i+1}``), so resolving
         only fills the per-state constraints: each task's success condition is applied to the previous
-        state to derive the next one. ``N`` tasks therefore yield ``N+1`` state specs. Returns a new,
-        fully-wired, strict-validated ``ArenaEnvGraphSpec``; ``env_name`` defaults to this spec's.
+        state to derive the next one. ``N`` tasks therefore yield ``N+1`` state specs.
+
+        Returns a fully-wired, strict-validated ``ArenaEnvGraphSpec``.
         """
         assert len(self.state_specs) == 1, (
             f"unresolved graph must define exactly the initial state (state_spec_0); got {len(self.state_specs)} state"
@@ -274,14 +273,11 @@ def _get_next_state_spec(
     reach_targets: list[str | None],
     is_final_state: bool,
 ) -> ArenaEnvGraphStateSpec:
-    """Apply current task's success condition to the previous state spec to produce the next state spec.
+    """Apply the task's success condition to the previous state to build the next state.
 
-    Carries every constraint forward (re-prefixing its id to the new state id) except each
-    relocated object's old placement, which is replaced by what the success condition implies.
-    The final state spec additionally drops spawn-pose constraints (e.g. "at_position"), keeping only structural relations.
-    The drop is a semantic-cleanliness rule: spawn poses belong to reset-from states (they are
-    reset-time placement hints), structural relations belong to success states; the final state is
-    never reset-from, only checked as a success condition, so it is purely the latter.
+    Carry every constraint forward, except a moved object's old placement (replaced by where it
+    lands). The final state also drops spawn poses, keeping only structural relations -- it is only
+    ever checked as a goal, never reset into.
 
     Worked example -- task "place mug on bowl" (mug is the moved object), prev state holds::
 

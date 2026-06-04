@@ -167,21 +167,15 @@ def _add_id_location(id_locations: dict[str, list[str]], spec_id: str, location:
 
 
 def relation_class_for_spatial_constraint_type(constraint_type: str) -> type[RelationBase]:
-    """Resolve a spatial-constraint type string to its registered ``RelationBase`` subclass.
-
-    Expect a constraint_type already validated against ``ObjectRelationLibraryRegistry``.
-    Unregistered names results in a registry lookup error.
-    """
+    """Look up the ``RelationBase`` class registered for a constraint-type name; raises if unknown."""
     return ObjectRelationLibraryRegistry().get_object_relation_by_name(constraint_type)
 
 
 def spatial_constraint_is_spawn_pose(constraint_type: str) -> bool:
-    """Whether a spatial-constraint type only sets an object's spawn pose at scene init.
+    """Does this constraint place an object on its own, rather than relate it to another object?
 
-    It checks if this constraint describes where the object spawns/sits at reset (an initialization detail),
-    or a structural relationship that defines the goal configuration. Constraint resolution carries
-    structural relations (on/next_to/is_anchor) into the chained success states and drops spawn-pose
-    placements. ``constraint_type`` is a registered relation name, so the registry is the single source.
+    Spawn poses (e.g. "at_position", "position_limits") set a fixed start pose at reset; structural
+    relations (e.g. "on", "next_to", "is_anchor") position objects relative to each other.
     """
     return relation_class_for_spatial_constraint_type(constraint_type).is_spawn_pose_constraint()
 

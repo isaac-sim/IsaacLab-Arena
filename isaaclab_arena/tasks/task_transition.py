@@ -45,18 +45,11 @@ Effect = Relocate | SetState
 
 @dataclass()
 class TaskTransition:
-    """How a task's success changes the env-graph state."""
+    """What a task acts on and what its success changes in the env graph."""
 
     subject: str | None = None  # node that the task acts on; None when it changes its own state only (e.g. a GOTO task)
     effects: tuple[Effect, ...] = ()  # Could be both Relocate and SetState; empty if no graph state change
 
-    # Note: each state asserts reachability for the roles it plays. A success state is both a
-    # postcondition of the task that just ran and a precondition of the next, so an interior state i+1
-    # gets two REACH constraints:
-    # - postcondition -> reach_target_on_success of the task that produced it (e.g. the place target).
-    # - precondition  -> the next task's subject (the thing it's about to pick up / act on).
-    # The initial state carries only the first task's subject (precondition) and the terminal state only
-    # the last task's reach_target_on_success (postcondition).
     @property
     def reach_target_on_success(self) -> str | None:
         """The node the embodiment must be able to reach for this task to succeed.
