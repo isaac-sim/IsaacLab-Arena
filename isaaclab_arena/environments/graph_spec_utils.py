@@ -20,12 +20,11 @@ if TYPE_CHECKING:
 
 def coerce_number_sequence(value: Any, length: int, field_name: str) -> tuple[float, ...]:
     """Coerce a fixed-length numeric list or tuple (e.g. position or quaternion)."""
-    if not isinstance(value, (list, tuple)):
-        raise ValueError(f"Field '{field_name}' must contain {length} numbers")
-    if len(value) != length:
-        raise ValueError(f"Field '{field_name}' must contain {length} numbers")
-    if not all(isinstance(item, Real) and not isinstance(item, bool) for item in value):
-        raise ValueError(f"Field '{field_name}' must contain only numbers")
+    assert isinstance(value, (list, tuple)), f"Field '{field_name}' must be a list or tuple of {length} numbers"
+    assert len(value) == length, f"Field '{field_name}' must contain exactly {length} numbers, got {len(value)}"
+    assert all(
+        isinstance(item, Real) and not isinstance(item, bool) for item in value
+    ), f"Field '{field_name}' must contain only numbers"
     return tuple(float(item) for item in value)
 
 
