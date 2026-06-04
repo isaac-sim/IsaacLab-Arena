@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab.utils import configclass
 
-from isaaclab_arena.variations.categorical_sampler import CategoricalSamplerCfg
+from isaaclab_arena.variations.choice_sampler import ChoiceSamplerCfg
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
 
 if TYPE_CHECKING:
@@ -30,8 +30,8 @@ class HDRImageVariationCfg(VariationBaseCfg):
     hdr_names: list[str] = field(default_factory=list)
     """Registered HDR names to sample from; empty means sample over every registered HDR."""
 
-    sampler_cfg: CategoricalSamplerCfg = field(default_factory=CategoricalSamplerCfg)
-    """Categorical distribution over the resolved HDR pool."""
+    sampler_cfg: ChoiceSamplerCfg = field(default_factory=ChoiceSamplerCfg)
+    """Uniform distribution over the resolved HDR pool."""
 
 
 class HDRImageVariation(BuildTimeVariationBase):
@@ -41,7 +41,7 @@ class HDRImageVariation(BuildTimeVariationBase):
         light: The dome light to mutate. A reference is captured; ``apply``
             mutates this instance.
         cfg: Tunable parameters. Defaults to sampling over every registered HDR.
-            Override the categorical distribution via ``cfg.sampler_cfg``.
+            Override the choice sampler via ``cfg.sampler_cfg``.
         name: Identifier under which this variation is registered on the asset.
             Defaults to ``"hdr_image"``.
     """
@@ -74,7 +74,7 @@ class HDRImageVariation(BuildTimeVariationBase):
             assert hdr_names, "HDRImageVariation: no HDRs are registered; cannot sample."
 
         assert self.sampler is not None, "HDRImageVariation: sampler not set."
-        # Pass HDR names as the categorical sampler's choices.
+        # Pass HDR names as the choice sampler's choices.
         hdr_name = self.sampler.sample(num_samples=1, choices=hdr_names)[0]
         hdr_cls: type[HDRImage] = registry.get_hdr_by_name(hdr_name)
         self._light.add_hdr(hdr_cls())
