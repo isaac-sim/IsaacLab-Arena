@@ -87,9 +87,15 @@ def write_episode_summaries(env, job: Job, output_path: str | Path) -> int:
                 # the SuccessRecorder) produce a (1,) array regardless of episode length —
                 # using `len()` on the wrong one collapses task_duration to a single step.
                 demo_step_count = 0
-                for metric in registered_metrics:
-                    recorded_metric_data = demo_group[metric.recorder_term_name][:]
-                    raw_outcome_values[metric.name] = metric.compute_metric_from_recording([recorded_metric_data])
+                # cfg.metrics is a MetricsCfg configclass: one field per metric, each a
+                # MetricTermCfg(compute_metric_func, params, recorder_term_name). Iterate its
+                # fields the same way MetricsManager does (metrics_manager.py). The per-demo
+                # value comes from feeding compute_metric_func a single-element list.
+                for metric_name, metric_cfg in registered_metrics.__dict__.items():
+                    recorded_metric_data = demo_group[metric_cfg.recorder_term_name][:]
+                    raw_outcome_values[metric_name] = metric_cfg.compute_metric_func(
+                        [recorded_metric_data], **metric_cfg.params
+                    )
                     demo_step_count = max(demo_step_count, len(recorded_metric_data))
                 # task_duration: wall-clock-equivalent seconds spent on this episode before
                 # termination. Short for fast successes / early failures, max_episode_length
