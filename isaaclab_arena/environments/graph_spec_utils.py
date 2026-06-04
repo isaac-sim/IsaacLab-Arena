@@ -156,7 +156,11 @@ def _add_id_location(id_locations: dict[str, list[str]], spec_id: str, location:
 
 
 def relation_class_for_spatial_constraint_type(constraint_type: str) -> type[RelationBase]:
-    """Resolve a spatial-constraint type string to its registered RelationBase subclass."""
+    """Resolve a spatial-constraint type string to its registered ``RelationBase`` subclass.
+
+    Expect a constraint_type already validated against ``ObjectRelationLibraryRegistry``.
+    Unregistered names results in a registry lookup error.
+    """
     return ObjectRelationLibraryRegistry().get_object_relation_by_name(constraint_type)
 
 
