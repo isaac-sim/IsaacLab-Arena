@@ -24,8 +24,7 @@ from typing import Any
 
 @dataclass()
 class Relocate:
-    """Success moves ``subject`` into a spatial relation with ``target`` (e.g. ``object in bowl``).
-    """
+    """Success moves ``subject`` into a spatial relation with ``target`` (e.g. ``object in bowl``)."""
 
     subject: str  # node id whose placement changes (object or embodiment)
     relation: str  # graph spatial-constraint type established (e.g. "in", "on", "at")
@@ -52,11 +51,13 @@ class TaskTransition:
     # only changes its own state (e.g. a GOTO task, whose outcome is an embodiment Relocate effect)
     effects: tuple[Effect, ...] = ()  # Could be both Relocate and SetState; empty if no graph state change
 
-    # Note: every state gets a REACH constraint for the embodiment to head for.
-    # The two cases differ because a state plays two different roles:
-    # - A non-terminal state i+1 is the initial state of task i+1 -> the robot should be poised to begin that next task -> reach its subject (the
-    # thing it's about to pick up / act on).
-    # - The terminal state has no "next task" -> the robot should be where the last task left it -> that's reach_target_on_success.
+    # Note: each state asserts reachability for the roles it plays. A success state is both a
+    # postcondition of the task that just ran and a precondition of the next, so an interior state i+1
+    # gets two REACH constraints:
+    # - postcondition -> reach_target_on_success of the task that produced it (e.g. the place target).
+    # - precondition  -> the next task's subject (the thing it's about to pick up / act on).
+    # The initial state carries only the first task's subject (precondition) and the terminal state only
+    # the last task's reach_target_on_success (postcondition).
     @property
     def reach_target_on_success(self) -> str | None:
         """End of the task's success: the last relocation's target, else ``subject`` (may be None)."""

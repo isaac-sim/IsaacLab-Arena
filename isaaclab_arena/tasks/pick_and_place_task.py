@@ -147,6 +147,7 @@ class PickAndPlaceTask(TaskBase):
             effects=(Relocate(subject=pick_object, relation="on", target=destination_location),),
         )
 
+
 @configclass
 class SceneCfg:
     """Scene configuration for the pick and place task."""

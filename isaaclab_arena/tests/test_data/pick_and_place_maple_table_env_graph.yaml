@@ -145,6 +145,11 @@ state_specs:
           z: 0.85
 
     task_constraints:
+      - id: state_spec_1_droid_reach_bowl_ycb_robolab
+        type: "reach"
+        parent: droid_abs_joint_pos
+        child: bowl_ycb_robolab
+
       - id: state_spec_1_droid_reach_mug_ycb_robolab
         type: "reach"
         parent: droid_abs_joint_pos

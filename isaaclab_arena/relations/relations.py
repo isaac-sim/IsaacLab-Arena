@@ -39,9 +39,9 @@ class RelationBase:
     def is_spawn_pose_constraint() -> bool:
         """Whether this only sets an object's spawn pose at init.
 
-        Single source of truth for constraint resolution: structural relations carry into the
-        success states, spawn-pose constraints do not. Overridden True by the placement
-        constraints (AtPosition, PositionLimits, Random/RotateAroundSolution).
+        Structural relations carry into the success states, while spawn-pose constraints do not.
+        Overridden True by the placement constraints that set an object's spawn pose at init
+        (AtPosition, PositionLimits, RandomAroundSolution, RotateAroundSolution).
         """
         return False
 
@@ -234,7 +234,7 @@ class RandomAroundSolution(RelationBase):
 
     @staticmethod
     def is_spawn_pose_constraint() -> bool:
-        """Whether this only sets the object's spawn pose at init, not a structural end-state relation."""
+        """Whether this only sets the object's spawn pose at init."""
         return True
 
     def __init__(
