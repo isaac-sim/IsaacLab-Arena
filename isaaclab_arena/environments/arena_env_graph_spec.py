@@ -161,7 +161,7 @@ class ArenaEnvGraphSpec(BaseModel):
         condition is applied to the previous state to derive the next one. Returns a new,
         fully-wired ``ArenaEnvGraphSpec`` (strict-validated). ``env_name`` defaults to this spec's.
         """
-        from isaaclab_arena.agentic_environment_generation.state_spec_resolver import resolve_constraints
+        from isaaclab_arena.environments.state_spec_resolver import resolve_constraints
 
         return resolve_constraints(self, env_name=env_name)
 
