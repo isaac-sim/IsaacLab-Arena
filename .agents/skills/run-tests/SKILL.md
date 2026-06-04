@@ -14,14 +14,12 @@ allowed-tools: Bash(docker exec *)
 
 The three phases run mutually exclusive sets of tests (selected via different pytest marker filters) and must be invoked separately. For a full pre-PR run, every phase must pass before moving on to the next.
 
-All commands run inside the already-running container via `docker exec`. If the container is not running, use the `dev-container` skill first.
-
 ## Phase 1 — no cameras, no subprocess
 
 The fastest of the three. Useful on its own when iterating on changes that don't touch rendering or subprocess paths.
 
 ```bash
-docker exec isaaclab_arena-latest bash -c \
+docker exec isaaclab_arena-latest su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
    /isaac-sim/python.sh -m pytest -sv \
    -m 'not with_cameras and not with_subprocess' isaaclab_arena/tests"
@@ -30,7 +28,7 @@ docker exec isaaclab_arena-latest bash -c \
 ## Phase 2 — with cameras
 
 ```bash
-docker exec isaaclab_arena-latest bash -c \
+docker exec isaaclab_arena-latest su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
    /isaac-sim/python.sh -m pytest -sv \
    -m 'with_cameras and not with_subprocess' isaaclab_arena/tests"
@@ -39,7 +37,7 @@ docker exec isaaclab_arena-latest bash -c \
 ## Phase 3 — with subprocess
 
 ```bash
-docker exec isaaclab_arena-latest bash -c \
+docker exec isaaclab_arena-latest su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
    /isaac-sim/python.sh -m pytest -sv \
    -m 'with_subprocess' isaaclab_arena/tests"
@@ -49,12 +47,12 @@ docker exec isaaclab_arena-latest bash -c \
 
 ```bash
 # single file
-docker exec isaaclab_arena-latest bash -c \
+docker exec isaaclab_arena-latest su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
    /isaac-sim/python.sh -m pytest isaaclab_arena/tests/test_asset_registry.py"
 
 # single function
-docker exec isaaclab_arena-latest bash -c \
+docker exec isaaclab_arena-latest su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
    /isaac-sim/python.sh -m pytest isaaclab_arena/tests/test_asset_registry.py::test_default_assets_registered"
 ```
