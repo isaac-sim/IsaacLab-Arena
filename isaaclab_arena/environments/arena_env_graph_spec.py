@@ -21,8 +21,6 @@ from isaaclab_arena.environments.arena_env_graph_types import (
     ArenaEnvGraphTaskConstraintSpec,
     ArenaEnvGraphTaskConstraintType,
     ArenaEnvGraphTaskSpec,
-    RelationSpec,
-    TaskSpec,
     parse_graph_node,
 )
 from isaaclab_arena.environments.graph_spec_utils import (
@@ -50,8 +48,6 @@ __all__ = [
     "ArenaEnvGraphTaskConstraintSpec",
     "ArenaEnvGraphTaskConstraintType",
     "ArenaEnvGraphTaskSpec",
-    "RelationSpec",
-    "TaskSpec",
 ]
 
 

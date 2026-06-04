@@ -122,7 +122,7 @@ def _attach_spatial_constraints_to_assets(
         subject_asset = assets_by_node_id[relation_spec.subject]
         relation_class = relation_class_for_spatial_constraint_type(relation_spec.kind)
         # Unary relations (IS_ANCHOR, POSITION_LIMITS, ...) attach to the subject asset.
-        # Binary relations (ON, NEXT_TO, ...) attach to the subject (child), with parent
+        # Binary relations (ON, NEXT_TO, ...) attach to the subject, with parent
         # as the relation's first constructor arg — matches how add_relation is wired.
         if relation_class.is_unary():
             subject_asset.add_relation(relation_class(**relation_spec.params))

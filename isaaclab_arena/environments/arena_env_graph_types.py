@@ -16,7 +16,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, TaskRegistry
@@ -66,8 +66,9 @@ class ArenaEnvGraphNodeSpec(BaseModel):
 
     @model_validator(mode="after")
     def _reject_object_reference_without_extra_fields(self) -> ArenaEnvGraphNodeSpec:
-        if type(self) is ArenaEnvGraphNodeSpec and self.type == ArenaEnvGraphNodeType.OBJECT_REFERENCE:
-            raise ValueError("object_reference nodes require parent, prim_path, and object_type fields")
+        assert not (
+            type(self) is ArenaEnvGraphNodeSpec and self.type == ArenaEnvGraphNodeType.OBJECT_REFERENCE
+        ), "object_reference nodes require parent, prim_path, and object_type fields"
         return self
 
 
@@ -109,16 +110,15 @@ class TaskSpec(BaseModel):
     )
     description: str | None = Field(
         default=None,
-        description="Natural-language summary of the task (required for agent intent output).",
+        description="Natural-language summary of the task (e.g. 'pick up the avocado and place it in the bowl'). ",
     )
 
-    @model_validator(mode="after")
-    def _validate_task_kind(self) -> TaskSpec:
+    @field_validator("kind")
+    @classmethod
+    def _validate_registered_task_type(cls, value: str) -> str:
         registry = TaskRegistry()
-        if not registry.is_registered(self.kind):
-            valid_values = sorted(registry.get_all_keys())
-            raise ValueError(f"Unknown task kind '{self.kind}'. Expected one of {valid_values}")
-        return self
+        assert registry.is_registered(value), f"Unknown task kind '{value}'"
+        return value
 
 
 class ArenaEnvGraphTaskSpec(BaseModel):
@@ -133,15 +133,6 @@ class ArenaEnvGraphTaskSpec(BaseModel):
 # =============================================================================
 # Constraints and state specs
 # =============================================================================
-
-
-def _normalize_relation_params(params: dict[str, Any]) -> dict[str, Any]:
-    normalized = dict(params)
-    if "position_xyz" in normalized:
-        normalized["position_xyz"] = coerce_number_sequence(normalized["position_xyz"], 3, "position_xyz")
-    if "rotation_xyzw" in normalized:
-        normalized["rotation_xyzw"] = coerce_number_sequence(normalized["rotation_xyzw"], 4, "rotation_xyzw")
-    return normalized
 
 
 class RelationSpec(BaseModel):
@@ -179,16 +170,22 @@ class RelationSpec(BaseModel):
     @model_validator(mode="after")
     def _validate_kind_and_arity(self) -> RelationSpec:
         registry = ObjectRelationLibraryRegistry()
-        if not registry.is_registered(self.kind):
-            valid_values = sorted(registry.get_all_keys())
-            raise ValueError(f"Unknown relation kind '{self.kind}'. Expected one of {valid_values}")
+        assert registry.is_registered(self.kind), f"Unknown relation kind '{self.kind}'"
         relation_cls = registry.get_object_relation_by_name(self.kind)
         if relation_cls.is_unary():
-            if self.parent is not None:
-                raise ValueError(f"Relation kind '{self.kind}' must not define relation.parent")
-        elif self.parent is None:
-            raise ValueError(f"Relation kind '{self.kind}' requires relation.parent")
+            assert self.parent is None, f"Relation kind '{self.kind}' must not define relation.parent"
+        else:
+            assert self.parent is not None, f"Relation kind '{self.kind}' requires relation.parent"
         return self
+
+
+def _normalize_relation_params(params: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(params)
+    if "position_xyz" in normalized:
+        normalized["position_xyz"] = coerce_number_sequence(normalized["position_xyz"], 3, "position_xyz")
+    if "rotation_xyzw" in normalized:
+        normalized["rotation_xyzw"] = coerce_number_sequence(normalized["rotation_xyzw"], 4, "rotation_xyzw")
+    return normalized
 
 
 class ArenaEnvGraphSpatialConstraintSpec(BaseModel):
