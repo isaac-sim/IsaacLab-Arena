@@ -61,7 +61,7 @@ env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
 # override keys accepted here (and on the CLI). ``<host>`` is the asset name (e.g.
 # ``light``) or the embodiment name (e.g. ``franka_ik``); ``sampler_cfg`` exposes the
 # sampler parameters. This replaces the imperative ``get_variation(...).enable()`` form.
-print(env_builder.get_variations_schema())
+print(env_builder.get_variations_catalogue_as_string())
 
 env_builder.apply_hydra_variation_overrides([
     "light.hdr_image.enabled=true",

@@ -36,6 +36,9 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cf
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.variations import variations_hydra
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBase
+from isaaclab_arena.variations.variations_catalog import (
+    get_variations_catalogue_as_string as _get_variations_catalogue_as_string,
+)
 
 
 class ArenaEnvBuilder:
@@ -98,6 +101,10 @@ class ArenaEnvBuilder:
     def apply_hydra_variation_overrides(self, hydra_overrides: list[str]) -> None:
         """Apply Hydra-style variation overrides across scene + embodiment variations."""
         variations_hydra.apply_overrides(self.get_all_variations(), hydra_overrides)
+
+    def get_variations_catalogue_as_string(self, *, hydra_overrides: list[str] | None = None) -> str:
+        """Return a human-readable catalog of Hydra-configurable variations for this env."""
+        return _get_variations_catalogue_as_string(self.get_all_variations(), hydra_overrides=hydra_overrides)
 
     def _compose_variations_event_cfg(self) -> Any | None:
         """Build a configclass with one :class:`EventTermCfg` per enabled run-time variation.

@@ -86,6 +86,12 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
             "Only affects objects positioned by the placement solver; manually-placed objects are unaffected."
         ),
     )
+    arena_group.add_argument(
+        "--list-variations",
+        action="store_true",
+        default=False,
+        help="Print Hydra-configurable variations for the selected environment and exit. Does not launch Isaac Sim.",
+    )
 
 
 def add_env_graph_spec_cli_args(parser: argparse.ArgumentParser) -> None:
