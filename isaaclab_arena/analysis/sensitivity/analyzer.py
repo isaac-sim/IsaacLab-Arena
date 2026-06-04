@@ -103,6 +103,36 @@ class BaseAnalyzer(ABC):
         return next(factor for factor in self.dataset.schema.factors if factor.name == factor_name)
 
 
+class _NullTracker:
+    """A no-op tracker satisfying sbi's ``Tracker`` protocol — discards training metrics.
+
+    By default sbi logs TensorBoard training curves under ``<cwd>/sbi-logs``
+    (``get_log_root`` hardcodes the cwd). One-shot report generation fits each analyzer
+    once and never reads those curves, yet the default tracker makes fitting fail with
+    ``PermissionError`` whenever the cwd isn't writable — e.g. a repo checkout in a
+    non-root container. Discarding the metrics removes the write, and with it the hidden
+    cwd dependency, so analysis runs from any directory. sbi only calls ``log_metric``
+    and ``flush``; the remaining members satisfy the protocol.
+    """
+
+    log_dir = None
+
+    def log_metric(self, name, value, step=None):
+        pass
+
+    def log_metrics(self, metrics, step=None):
+        pass
+
+    def log_params(self, params):
+        pass
+
+    def add_figure(self, name, figure, step=None):
+        pass
+
+    def flush(self):
+        pass
+
+
 class PosteriorAnalyzer(BaseAnalyzer):
     """Common base for the sbi-driven analyzers (NPE and MNPE).
 
@@ -119,15 +149,22 @@ class PosteriorAnalyzer(BaseAnalyzer):
         super().__init__(dataset, outcome_name)
         self.posterior = None
 
-    def _make_inference(self):
-        """Return the sbi inference object to train with.
+    def _inference_cls(self):
+        """Return the sbi inference *class* to train with (e.g. ``sbi.inference.NPE``).
 
-        Subclass-specific: ``NPEAnalyzer`` returns ``sbi.inference.NPE(...)``,
-        ``MNPEAnalyzer`` returns ``sbi.inference.MNPE(...)``. The lazy import of sbi
-        lives in the subclass so callers don't pay the (heavy) sbi import cost until
-        they actually fit.
+        Subclass-specific: ``NPEAnalyzer`` returns ``NPE``, ``MNPEAnalyzer`` returns
+        ``MNPE``. The lazy import of sbi lives in the subclass so callers don't pay the
+        (heavy) sbi import cost until they actually fit.
         """
-        raise NotImplementedError("PosteriorAnalyzer subclasses must implement _make_inference")
+        raise NotImplementedError("PosteriorAnalyzer subclasses must implement _inference_cls")
+
+    def _make_inference(self):
+        """Instantiate the chosen sbi inference class on the dataset's uniform prior.
+
+        Passes a ``_NullTracker`` so fitting writes no TensorBoard logs and stays
+        independent of the launch directory — see ``_NullTracker`` for why.
+        """
+        return self._inference_cls()(prior=self.dataset.prior, tracker=_NullTracker())
 
     def fit(self, training_batch_size: int = 50) -> None:
         """Train the chosen sbi estimator on ``(theta, x_selected)`` and stash the posterior.
@@ -256,11 +293,10 @@ class NPEAnalyzer(PosteriorAnalyzer):
     rather than buried in sbi's UserWarning stream.
     """
 
-    def _make_inference(self):
-        """Construct ``sbi.inference.NPE`` configured with the dataset's uniform prior."""
+    def _inference_cls(self):
         from sbi.inference import NPE
 
-        return NPE(prior=self.dataset.prior)
+        return NPE
 
     def _maybe_warn_binary_outcome(self, selected_outcome_column: torch.Tensor) -> None:
         """Warn if theta is 1D and the outcome is binary — the configuration that triggers
@@ -293,11 +329,10 @@ class MNPEAnalyzer(PosteriorAnalyzer):
     schemas use ``EmpiricalAnalyzer`` instead — ``make_analyzer`` dispatches correctly.
     """
 
-    def _make_inference(self):
-        """Construct ``sbi.inference.MNPE`` configured with the dataset's uniform prior."""
+    def _inference_cls(self):
         from sbi.inference import MNPE
 
-        return MNPE(prior=self.dataset.prior)
+        return MNPE
 
 
 class EmpiricalAnalyzer(BaseAnalyzer):
