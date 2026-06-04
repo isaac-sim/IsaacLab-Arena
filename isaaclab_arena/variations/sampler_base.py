@@ -5,51 +5,25 @@
 
 from __future__ import annotations
 
-import torch
-from abc import ABC, abstractmethod
-from typing import Any
+from abc import ABC
 
 from isaaclab.utils import configclass
 
 
 @configclass
 class SamplerBaseCfg:
-    """Base configclass for SamplerBase instances."""
+    """Marker configclass for any sampler cfg.
+
+    Concrete subclasses override :meth:`build` to return their live sampler.
+    """
 
     def build(self) -> SamplerBase:
-        """Return the live SamplerBase described by this cfg."""
+        """Return the live :class:`SamplerBase` described by this cfg."""
         raise NotImplementedError(
             f"{type(self).__name__}.build() is not implemented; every concrete SamplerBaseCfg "
-            "subclass must provide a build() that returns its live SamplerBase."
+            "subclass must provide a build() that returns its live sampler."
         )
 
 
 class SamplerBase(ABC):
-    """Baseclass for all samplers. Stateless"""
-
-    def sample(self, num_samples: int, **kwargs) -> Any:
-        """Draw ``num_samples`` values from this distribution.
-
-        Args:
-            num_samples: Number of independent samples to draw, typically the
-                number of environments we're drawing a sample for.
-            **kwargs: Extra per-call arguments forwarded to the concrete sampler
-                (e.g. ``choices`` for a categorical sampler).
-
-        Returns:
-            Either a tensor of shape ``(num_samples, *shape_per_sample)`` for tensor
-            samplers, or a ``list`` of length ``num_samples * shape_per_sample`` for categorical
-            samplers.
-        """
-        return self._sample(num_samples, **kwargs)
-
-    @abstractmethod
-    def _sample(self, num_samples: int, **kwargs) -> Any:
-        """Draw ``num_samples`` values from this distribution."""
-        ...
-
-    @property
-    @abstractmethod
-    def shape_per_sample(self) -> torch.Size:
-        """Shape of a single sample."""
-        ...
+    """Marker base class shared by every sampler family."""

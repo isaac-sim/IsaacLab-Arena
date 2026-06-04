@@ -25,7 +25,7 @@ from isaaclab.sensors import Camera, TiledCamera
 from isaaclab.utils import configclass
 from isaaclab.utils.math import quat_apply
 
-from isaaclab_arena.variations.sampler_base import SamplerBase
+from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
 
@@ -111,7 +111,7 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
         super().__init__(cfg, env)
 
         asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
-        sampler: SamplerBase = cfg.params["sampler"]
+        sampler: ContinuousSampler = cfg.params["sampler"]
 
         camera = env.scene[asset_cfg.name]
         assert isinstance(camera, (Camera, TiledCamera)), (
@@ -133,7 +133,7 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
         env: ManagerBasedEnv,  # noqa: ARG002
         env_ids: torch.Tensor,
         asset_cfg: SceneEntityCfg,  # noqa: ARG002
-        sampler: SamplerBase,
+        sampler: ContinuousSampler,
     ):
         view = self._camera._view
         assert view is not None, "Camera view was not initialized."
