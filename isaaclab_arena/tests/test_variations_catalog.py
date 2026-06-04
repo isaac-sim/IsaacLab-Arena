@@ -40,3 +40,12 @@ def test_catalog_reflects_hydra_overrides():
 
 def test_empty_variations_message():
     assert get_variations_catalogue_as_string({}) == "No variations attached to this environment.\n"
+
+
+def test_host_without_variations_shows_placeholder():
+    text = get_variations_catalogue_as_string({
+        TEST_ASSET_NAME: [TestBuildTimeVariation(_MockHost())],
+        "bowl_ycb_robolab": [],
+    })
+    assert "Host: bowl_ycb_robolab" in text
+    assert "(no Hydra-configurable variations)" in text

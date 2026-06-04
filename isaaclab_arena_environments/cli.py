@@ -8,7 +8,6 @@ from __future__ import annotations
 import argparse
 import importlib
 import re
-import sys
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
@@ -180,15 +179,3 @@ def get_arena_builder_from_cli(
     if hydra_overrides:
         env_builder.apply_hydra_variation_overrides(hydra_overrides)
     return env_builder
-
-
-def list_variations_from_cli(
-    args_cli: argparse.Namespace,
-    hydra_overrides: list[str] | None = None,
-) -> None:
-    """Build the env graph, print the variations catalog, and exit without launching Isaac Sim."""
-    overrides = hydra_overrides or []
-    # Compose overrides only in the catalog formatter so defaults are not applied twice.
-    env_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=None)
-    print(env_builder.get_variations_catalogue_as_string(hydra_overrides=overrides))
-    sys.exit(0)

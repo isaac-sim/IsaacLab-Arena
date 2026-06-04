@@ -21,7 +21,6 @@ from isaaclab_arena.utils.random import set_seed
 from isaaclab_arena_environments.cli import (
     get_arena_builder_from_cli,
     get_isaaclab_arena_environments_cli_parser,
-    list_variations_from_cli,
     split_hydra_overrides,
 )
 
@@ -154,34 +153,37 @@ def main():
         args_cli.device = f"cuda:{local_rank}"
         print(f"[Rank {local_rank}/{world_size}] One Isaac Lab instance per process on cuda:{local_rank}")
 
-    # Get the policy-type flag before proceeding to other arguments
-    add_policy_runner_arguments(args_parser)
-    args_cli, _ = args_parser.parse_known_args()
-
-    # Get the policy class from the policy type
-    policy_cls = get_policy_cls(args_cli.policy_type)
-    print(
-        f"[Rank {local_rank}/{world_size}] Requested policy type: {args_cli.policy_type} -> Policy class: {policy_cls}"
-    )
-
-    # Add the example environment arguments + policy-related arguments to the parser
-    args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
-    args_parser = policy_cls.add_args_to_parser(args_parser)
-    # Use parse_known_args so positional Hydra variation overrides fall through into unknown.
-    args_cli, unknown = args_parser.parse_known_args()
-    hydra_overrides = split_hydra_overrides(unknown, args_parser)
-    # Re-apply per-rank device after parse preventing device got overwritten by the default value
-    if is_distributed(args_cli):
-        args_cli.distributed = True
-        args_cli.device = f"cuda:{local_rank}"
-
-    if args_cli.list_variations:
-        list_variations_from_cli(args_cli, hydra_overrides=hydra_overrides)
-
     with SimulationAppContext(args_cli):
+
+        # Get the policy-type flag before proceeding to other arguments
+        add_policy_runner_arguments(args_parser)
+        args_cli, _ = args_parser.parse_known_args()
+
+        # Get the policy class from the policy type
+        policy_cls = get_policy_cls(args_cli.policy_type)
+        print(
+            f"[Rank {local_rank}/{world_size}] Requested policy type: {args_cli.policy_type} -> Policy class:"
+            f" {policy_cls}"
+        )
+
+        # Add the example environment arguments + policy-related arguments to the parser
+        args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
+        args_parser = policy_cls.add_args_to_parser(args_parser)
+        # Use parse_known_args so positional Hydra variation overrides fall through into unknown.
+        args_cli, unknown = args_parser.parse_known_args()
+        hydra_overrides = split_hydra_overrides(unknown, args_parser)
+        # Re-apply per-rank device after parse preventing device got overwritten by the default value
+        if is_distributed(args_cli):
+            args_cli.distributed = True
+            args_cli.device = f"cuda:{local_rank}"
 
         # Build scene. Use rgb_array render mode when recording so RecordVideo can grab frames.
         arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
+
+        if args_cli.list_variations:
+            print(arena_builder.get_variations_catalogue_as_string(hydra_overrides=hydra_overrides))
+            return
+
         render_mode = "rgb_array" if args_cli.video else None
         env, cfg = arena_builder.make_registered_and_return_cfg(render_mode=render_mode)
 

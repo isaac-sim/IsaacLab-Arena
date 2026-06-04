@@ -114,8 +114,9 @@ The experiments above use **argparse** flags such as ``--hdr`` and ``--pick_up_o
 scene assets. Separately, some assets and embodiments expose **Hydra-style variation overrides**
 (dotted paths like ``light.hdr_image.enabled=true``) for build-time and run-time randomization.
 
-To see which variation keys exist for a given environment (without launching Isaac Sim), pass
-``--list-variations`` to the policy runner after the usual environment subcommand and flags:
+To see which variation keys exist for a given environment, pass ``--list-variations`` to the
+policy runner after the usual environment subcommand and flags (uses the same SimulationApp
+startup as a normal run, then prints the catalog and exits before rollout):
 
 .. code-block:: bash
 

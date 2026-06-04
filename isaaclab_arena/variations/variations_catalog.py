@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.variations.variation_base import VariationBase
 
 _EMPTY_MESSAGE = "No variations attached to this environment.\n"
+_NO_HOST_VARIATIONS = "  (no Hydra-configurable variations)"
 
 
 def get_variations_catalogue_as_string(
@@ -40,6 +41,10 @@ def get_variations_catalogue_as_string(
     for host_name in sorted(variations.keys()):
         host_variations = variations[host_name]
         lines.append(f"Host: {host_name}")
+        if not host_variations:
+            lines.append(_NO_HOST_VARIATIONS)
+            lines.append("")
+            continue
         for variation in host_variations:
             prefix = f"{host_name}.{variation.name}"
             timing = _variation_timing(variation)
