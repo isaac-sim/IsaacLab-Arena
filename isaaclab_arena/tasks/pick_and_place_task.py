@@ -137,15 +137,15 @@ class PickAndPlaceTask(TaskBase):
         )
 
     @classmethod
-    def success_state_transition(cls, pick_up_object: Asset, destination_location: Asset) -> TaskTransition:
+    def success_state_transition(cls, pick_up_object: str, destination_location: str) -> TaskTransition:
         """Success (``object_on_destination``): the picked object ends up a relation with the destination."""
         # Note: with the current AABB-based object solver, placing an object ``on`` an open container
         # and letting it fall is equivalent to it being ``in`` the container, so a single ``on``
         # relation covers both surfaces and containers.
         relation = ObjectRelationLibraryRegistry().get_object_relation_by_name("on")
         return TaskTransition(
-            subject=pick_up_object.name,
-            effects=(Relocate(subject=pick_up_object.name, relation=relation.name, target=destination_location.name),),
+            subject=pick_up_object,
+            effects=(Relocate(subject=pick_up_object, relation=relation.name, target=destination_location),),
         )
 
 

@@ -11,18 +11,15 @@ import pytest
 
 # Task classes are imported lazily inside each test. Importing them pulls in isaaclab -> omni/pxr,
 # and doing that at module-import (pytest collection) time would load pxr before any SimulationApp
-# starts -- which breaks SimulationApp.startup() for every sim test in the session. ``Asset`` and
-# ``task_transition`` are pure Python, so they are safe to import at the top level.
-from isaaclab_arena.assets.asset import Asset
+# starts -- which breaks SimulationApp.startup() for every sim test in the session.
+# ``task_transition`` is pure Python, so it is safe to import at the top level.
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
 
 
 def test_pick_and_place_relocates_into_destination():
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
-    transition = PickAndPlaceTask.success_state_transition(
-        pick_up_object=Asset(name="cube"), destination_location=Asset(name="bowl")
-    )
+    transition = PickAndPlaceTask.success_state_transition(pick_up_object="cube", destination_location="bowl")
     # `on` (not `in`): under the AABB object solver, placing on a container == falling in it.
     assert transition == TaskTransition(
         subject="cube",
@@ -39,7 +36,7 @@ def test_door_records_reach_but_no_graph_effect_yet(task_module_name):
     class_name = "".join(part.capitalize() for part in task_module_name.split("_"))
     task_cls = getattr(module, class_name)
 
-    transition = task_cls.success_state_transition(openable_object=Asset(name="microwave"))
+    transition = task_cls.success_state_transition(openable_object="microwave")
     assert transition.subject == "microwave"
     assert transition.effects == ()  # openness is not yet representable in the graph
     assert transition.reach_target_on_success == "microwave"

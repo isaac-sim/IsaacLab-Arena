@@ -11,7 +11,6 @@ from isaaclab.managers import EventTermCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.affordances.openable import Openable
-from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
@@ -77,14 +76,13 @@ class RotateRevoluteJointTask(TaskBase):
         return get_viewer_cfg_look_at_object(lookat_object=self.openable_object, offset=np.array([-1.3, -1.3, 1.3]))
 
     @classmethod
-    def success_state_transition(cls, openable_object: Asset) -> TaskTransition:
+    def success_state_transition(cls, openable_object: str) -> TaskTransition:
         """Success is the openable object's joint state change.
-
         The env-graph spec has not yet defined joint openness, so no effects are
         emitted today — only the subject node (the openable object) is recorded.
         # TODO(xinjieyao, 2026.06.02): allow env graph spec to define node state change
         """
-        return TaskTransition(subject=openable_object.name)
+        return TaskTransition(subject=openable_object)
 
 
 @configclass

@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field, SerializeAsAny, ValidationInfo, field_validator, model_validator
 
-from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.registries import TaskRegistry
 from isaaclab_arena.environments.arena_env_graph_types import (
     ArenaEnvGraphCliOverrideSpec,
@@ -117,6 +116,8 @@ class ArenaEnvGraphSpec(BaseModel):
         """Validate and build a spec from a mapping.
 
         Pass ``is_task_wiring_enabled=False`` to load an *unresolved* graph.
+        Unresolved graph's state_specs contain only the initial state implied by the
+        initial constraints, and the tasks are not yet wired to states.
         """
         assert isinstance(data, dict), f"Env graph spec must be a dict, got {type(data).__name__}"
         return cls.model_validate(data, context={"is_task_wiring_enabled": is_task_wiring_enabled})
@@ -233,10 +234,7 @@ def _get_task_state_transition(task: ArenaEnvGraphTaskSpec) -> TaskTransition:
     """Look up the task class via ``TaskRegistry`` and return its declared success transition."""
     task_cls = TaskRegistry().get_task_by_name(task.type)
     assert task_cls is not None, f"task {task.type} not found in TaskRegistry"
-    asset_args = {}
-    for name in task_cls.success_transition_asset_args:
-        assert name in task.task_args, f"task {task.id} ({task.type}) is missing required task_arg '{name}'"
-        asset_args[name] = Asset(name=task.task_args[name])
+    asset_args = {name: task.task_args[name] for name in task_cls.success_transition_asset_args}
     return task_cls.success_state_transition(**asset_args)
 
 
