@@ -16,7 +16,6 @@ ldconfig
 userdel "$DOCKER_RUN_USER_NAME" 2>/dev/null || true
 userdel ubuntu 2>/dev/null || true
 
-# Add the group of the user AFTER userdel, since userdel may have removed the primary group.
 # User/group ID of the host user are set through env variables when calling docker run further down.
 groupadd --force --gid "$DOCKER_RUN_GROUP_ID" "$DOCKER_RUN_GROUP_NAME"
 
