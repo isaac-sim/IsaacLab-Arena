@@ -5,12 +5,12 @@
 
 # Sensitivity-analysis schema for the light_intensity sweep on droid + pi0.
 # Paired with: light_intensity_sweep_jobs_config.json (and the minimal variant).
-# Hand-authored — must stay in sync with --factor_keys passed to eval_runner.
+# Hand-authored — the factor names here must match keys in the eval's arena_env_args.
 #
 # - slice identifies the (policy, task, embodiment) the dataset comes from; MNPE/NPE
 #   assumes a single data-generating source per analysis.
-# - factors declares what the eval varies; eval_runner is told which arena_env_args
-#   keys to record via --factor_keys (must match the names here).
+# - factors declares what the eval varies; the eval writer logs the full arena_env_args
+#   per episode (--episode_summary) and the analyzer treats these keys as factors.
 # - outcomes declares what the eval measures; the writer pulls these from the
 #   registered task metrics (compute_metric_from_recording on each demo).
 
