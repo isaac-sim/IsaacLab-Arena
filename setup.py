@@ -15,7 +15,7 @@ RUNTIME_DEPS = [
     "lightwheel-sdk",
     "pytest",
     "pydantic>=2.0",
-    "openai",
+    "openai>=2.0",
 ]
 
 DEV_DEPS = [
