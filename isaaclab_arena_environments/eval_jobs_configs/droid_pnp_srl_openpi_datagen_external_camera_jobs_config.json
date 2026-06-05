@@ -1,13 +1,13 @@
 {
     "datagen": {
-        "output_dir": "/datasets/dynamic_scenes/openpi_alternate_camera_2",
+        "output_dir": "/datasets/dynamic_scenes/openpi_alternate_camera",
         "camera_position": [
             0.05,
             0.57,
             0.66
         ],
         "camera_target": [
-            0.0,
+            0.5,
             0.0,
             0.0
         ],
