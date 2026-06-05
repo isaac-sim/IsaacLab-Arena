@@ -53,7 +53,8 @@ def format_predicate_groups(predicate_groups: PredicateGroups) -> dict[str, list
         }
 
     raise TypeError(
-        f"FineGrainedProgressObjective.predicate_groups must be a callable, list, or dict; got {type(predicate_groups).__name__}"
+        "FineGrainedProgressObjective.predicate_groups must be a callable, list, or dict; got"
+        f" {type(predicate_groups).__name__}"
     )
 
 
@@ -147,7 +148,8 @@ class FineGrainedProgressObjective:
             raise ValueError(f"FineGrainedProgressObjective '{self.name}': score must be in [0, 1], got {self.score}")
         if self.logical not in ("all", "any", "choose"):
             raise ValueError(
-                f"FineGrainedProgressObjective '{self.name}': logical must be in ['all', 'any', 'choose'], got {self.logical}"
+                f"FineGrainedProgressObjective '{self.name}': logical must be in ['all', 'any', 'choose'], got"
+                f" {self.logical}"
             )
 
         # Format the predicate groups into the canonical form and normalize the scores.
@@ -161,7 +163,9 @@ class FineGrainedProgressObjective:
             if self.K is None:
                 raise ValueError(f"FineGrainedProgressObjective '{self.name}': K is required when logical='choose'")
             if not (1 <= self.K <= num_groups):
-                raise ValueError(f"FineGrainedProgressObjective '{self.name}': K={self.K} but must be in [1, {num_groups}]")
+                raise ValueError(
+                    f"FineGrainedProgressObjective '{self.name}': K={self.K} but must be in [1, {num_groups}]"
+                )
 
     @property
     def group_names(self) -> list[str]:

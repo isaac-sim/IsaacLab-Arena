@@ -81,74 +81,91 @@ class FineGrainedProgressObjectiveRunner:
     def step(self, env, step_index: torch.Tensor | None) -> list[dict]:
         """Step the state machine runner for a single env.step.
 
-        Check each group's current predicate, move the state machine to the next predicate if
-        the current predicate is True. Emit an event for each env where a predicate was advanced.
+        Advance each group's predicate chain by at most one position per env and return a
+        transition event for every env/group that advanced this step.
+        """
+
+        # If the FineGrainedProgressObjective is not active for the composite task, there is
+        # nothing to advance for any env.
+        gating_mask = self._compute_composite_task_gating_mask(env)
+        if not bool(gating_mask.any().item()):
+            return []
+
+        events: list[dict] = []
+        for group_name, predicate_chain in self.fine_grained_progress_objective.canonical_predicate_groups.items():
+            events += self._step_group(env, group_name, predicate_chain, gating_mask, step_index)
+        return events
+
+    def _step_group(
+        self,
+        env,
+        group_name: str,
+        predicate_chain: list[tuple],
+        gating_mask: torch.Tensor,
+        step_index: torch.Tensor | None,
+    ) -> list[dict]:
+        """Advance a single group's predicate chain by at most one position per env.
+
+        Evaluates the current predicate for the envs sitting at each chain position, advances
+        those whose predicate is satisfied, updates the group's score and completion mask, and
+        returns one transition event per env that advanced.
         """
 
         # List of state transition events (events are emitted for an env when a predicate flips True)
         events: list[dict] = []
+        chain_length = len(predicate_chain)
+        # Mask for which envs have advanced this step (at most one advance per env per group).
+        advanced = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
 
-        # If the FineGrainedProgressObjective is not active for the composite task, return.
-        composite_task_gating_mask = self._compute_composite_task_gating_mask(env)
-        if not bool(composite_task_gating_mask.any().item()):
-            return events
+        for chain_idx, (predicate, score_weight) in enumerate(predicate_chain):
+            # Compute mask for which envs that should evaluate the predicate.
+            # Envs should only be evaluated if:
+            #   1) They are at the current predicate position
+            #   2) They have not yet advanced this step
+            #   3) The FineGrainedProgressObjective is active for the composite task
+            at_position = (self.current_index[group_name] == chain_idx) & ~advanced & gating_mask
+            if not bool(at_position.any().item()):
+                continue
 
-        # Step through each group of the FineGrainedProgressObjective.
-        for group_name, predicate_chain in self.fine_grained_progress_objective.canonical_predicate_groups.items():
-            chain_length = len(predicate_chain)
-            # Mask for which envs have advanced this step.
-            advanced = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
-
-            for chain_idx, (predicate, score_weight) in enumerate(predicate_chain):
-                # Compute mask for which envs that should evaluate the predicate.
-                # Envs should only be evaluated if:
-                #   1) They are at the current predicate position
-                #   2) They have not yet advanced this step
-                #   3) The FineGrainedProgressObjective is active for the composite task
-                at_position = (self.current_index[group_name] == chain_idx) & ~advanced & composite_task_gating_mask
-                if not bool(at_position.any().item()):
-                    continue
-
-                # Evaluate the predicate for all envs, reshaped to a flat (num_envs,) bool tensor.
-                result = torch.as_tensor(predicate(env), dtype=torch.bool, device=self.device).reshape(-1)
-                if result.shape[0] != self.num_envs:
-                    raise RuntimeError(
-                        f"Predicate {_predicate_repr(predicate)} returned shape {tuple(result.shape)};"
-                        f" expected ({self.num_envs},)"
-                    )
-
-                # Compute mask for which envs need to be advanced to the next predicate.
-                advance_mask = at_position & result
-                if not bool(advance_mask.any().item()):
-                    continue
-
-                # Advance the state machine to the next predicates.
-                self.current_index[group_name] = torch.where(
-                    advance_mask,
-                    self.current_index[group_name] + 1,
-                    self.current_index[group_name],
+            # Evaluate the predicate for all envs, reshaped to a flat (num_envs,) bool tensor.
+            result = torch.as_tensor(predicate(env), dtype=torch.bool, device=self.device).reshape(-1)
+            if result.shape[0] != self.num_envs:
+                raise RuntimeError(
+                    f"Predicate {_predicate_repr(predicate)} returned shape {tuple(result.shape)};"
+                    f" expected ({self.num_envs},)"
                 )
-                # Update the group score for the envs that were advanced.
-                self.group_score[group_name] = self.group_score[group_name] + advance_mask.float() * float(score_weight)
-                # Update the advanced mask for the envs that were advanced.
-                advanced = advanced | advance_mask
 
-                # Emit an event for each env where a predicate was advanced.
-                pred_name = _predicate_repr(predicate)
-                for eid in torch.nonzero(advance_mask, as_tuple=False).flatten().tolist():
-                    events.append({
-                        "env_idx": int(eid),
-                        "step": int(step_index[eid].item()) if step_index is not None else -1,
-                        "fine_grained_progress_objective": self.fine_grained_progress_objective.name,
-                        "group": group_name,
-                        "predicate_index": chain_idx,
-                        "predicate_name": pred_name,
-                        "score_delta": float(score_weight),
-                    })
+            # Compute mask for which envs need to be advanced to the next predicate.
+            advance_mask = at_position & result
+            if not bool(advance_mask.any().item()):
+                continue
 
-            # Update the group complete mask for the envs that have completed the group.
-            self.group_complete[group_name] = self.current_index[group_name] >= chain_length
+            # Advance the state machine to the next predicates.
+            self.current_index[group_name] = torch.where(
+                advance_mask,
+                self.current_index[group_name] + 1,
+                self.current_index[group_name],
+            )
+            # Update the group score for the envs that were advanced.
+            self.group_score[group_name] = self.group_score[group_name] + advance_mask.float() * float(score_weight)
+            # Update the advanced mask for the envs that were advanced.
+            advanced = advanced | advance_mask
 
+            # Emit an event for each env where a predicate was advanced.
+            pred_name = _predicate_repr(predicate)
+            for eid in torch.nonzero(advance_mask, as_tuple=False).flatten().tolist():
+                events.append({
+                    "env_idx": int(eid),
+                    "step": int(step_index[eid].item()) if step_index is not None else -1,
+                    "fine_grained_progress_objective": self.fine_grained_progress_objective.name,
+                    "group": group_name,
+                    "predicate_index": chain_idx,
+                    "predicate_name": pred_name,
+                    "score_delta": float(score_weight),
+                })
+
+        # Update the group complete mask for the envs that have completed the group.
+        self.group_complete[group_name] = self.current_index[group_name] >= chain_length
         return events
 
     def reset(self, env_ids) -> None:
@@ -177,6 +194,36 @@ class FineGrainedProgressObjectiveRunner:
         groups = self.fine_grained_progress_objective.group_names
         stacked = torch.stack([self.group_score[g] for g in groups], dim=1)
         return stacked.mean(dim=1)
+
+    def get_state_for_env(self, env_idx: int, is_complete, score) -> dict:
+        """Per-env view of this objective's progress.
+
+        is_complete and score are passed in (rather than recomputed here) so the full
+        (num_envs,) tensor reductions run once per runner in
+        FineGrainedProgressTracker, instead of once per env.
+        """
+
+        objective = self.fine_grained_progress_objective
+        completed_groups = 0
+        active_predicates: dict[str, str | None] = {}
+        # The active predicate for a group is the one at its current chain position. Any group
+        # whose pointer has run off the end of the chain is complete (no active predicate).
+        for group_name in objective.group_names:
+            predicate_chain = objective.canonical_predicate_groups[group_name]
+            cur_group_index = int(self.current_index[group_name][env_idx].item())
+            if cur_group_index >= len(predicate_chain):
+                active_predicates[group_name] = None
+                completed_groups += 1
+            else:
+                active_predicates[group_name] = _predicate_repr(predicate_chain[cur_group_index][0])
+
+        return {
+            "completed_groups": completed_groups,
+            "total_groups": len(objective.group_names),
+            "score": float(score),
+            "is_complete": bool(is_complete),
+            "active_predicates": active_predicates,
+        }
 
 
 class FineGrainedProgressTracker:
@@ -218,41 +265,22 @@ class FineGrainedProgressTracker:
     def get_state(self) -> list[dict]:
         """Get the state of each FineGrainedProgressObjective for all envs."""
 
+        # Compute the per-runner (num_envs,) tensors once
+        completeness = [runner.is_complete() for runner in self.runners]
+        scores = [runner.overall_score_per_env() for runner in self.runners]
+
         output: list[dict] = []
         for env_idx in range(self.num_envs):
             # Build a per-env dict from each runner's state.
             progress_objective_states: dict[str, dict] = {}
             overall_score = 0.0
             all_complete = True
-
-            for runner in self.runners:
-                fine_grained_progress_objective = runner.fine_grained_progress_objective
-                completed_groups = 0
-                total_groups = len(fine_grained_progress_objective.group_names)
-                active_predicates: dict[str, str | None] = {}
-
-                # Compute the active predicates and completed groups.
-                for group_name in fine_grained_progress_objective.group_names:
-                    cur_group_index = int(runner.current_index[group_name][env_idx].item())
-                    predicate_chain = fine_grained_progress_objective.canonical_predicate_groups[group_name]
-                    if cur_group_index >= len(predicate_chain):
-                        active_predicates[group_name] = None
-                        completed_groups += 1
-                    else:
-                        active_predicates[group_name] = _predicate_repr(predicate_chain[cur_group_index][0])
-
-                # Compute the overall score and completeness.
-                progress_objective_score = float(runner.overall_score_per_env()[env_idx].item())
-                is_complete = bool(runner.is_complete()[env_idx].item())
-                progress_objective_states[fine_grained_progress_objective.name] = {
-                    "completed_groups": completed_groups,
-                    "total_groups": total_groups,
-                    "score": progress_objective_score,
-                    "is_complete": is_complete,
-                    "active_predicates": active_predicates,
-                }
-                overall_score += fine_grained_progress_objective.score * progress_objective_score
-                all_complete = all_complete and is_complete
+            for i, runner in enumerate(self.runners):
+                objective = runner.fine_grained_progress_objective
+                state = runner.get_state_for_env(env_idx, completeness[i][env_idx], scores[i][env_idx])
+                progress_objective_states[objective.name] = state
+                overall_score += objective.score * state["score"]
+                all_complete = all_complete and state["is_complete"]
 
             # Add the per-env state dict to the output.
             output.append({
