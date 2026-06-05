@@ -32,6 +32,7 @@ Typical usage (inside a rollout, after ``sim.render()``)::
         global_view=GlobalView(),  # auto-frame
     )
     viz.initialize()
+    env.reset()  # required: initialize() calls sim.reset(); step() needs a reset first
     for _ in range(num_steps):
         env.step(actions)
         env.unwrapped.sim.render()
@@ -401,6 +402,7 @@ class SynchronizedVisualizer:
             state (e.g. via ``env.reset()``) *after* :meth:`initialize`, not
             before.
         """
+        assert not self._initialized, "initialize() already called; it must run exactly once."
         assert self._env_camera is not None and self._global_camera is not None
         sim = self.unwrapped.sim
         sim.reset()
@@ -598,6 +600,10 @@ class SynchronizedVisualizer:
                 path = os.path.join(output_dir, f"{name_prefix}_env{env_idx:03d}.mp4")
                 self._write_video(frames, path, fps)
                 written[f"env{env_idx:03d}"] = path
+                if also_gif:
+                    gif_path = os.path.join(output_dir, f"{name_prefix}_env{env_idx:03d}.gif")
+                    self._write_gif(frames, gif_path, fps)
+                    written[f"env{env_idx:03d}_gif"] = gif_path
 
         return written
 
@@ -606,8 +612,12 @@ class SynchronizedVisualizer:
         from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 
         clip = ImageSequenceClip(frames, fps=fps)
-        clip.write_videofile(path, logger=None, audio=False)
-        del clip
+        try:
+            clip.write_videofile(path, logger=None, audio=False)
+        finally:
+            # Explicit close releases the ffmpeg subprocess / file handles
+            # deterministically (matters when writing many per-env videos).
+            clip.close()
 
     @staticmethod
     def _write_gif(frames: list[np.ndarray], path: str, fps: int) -> None:
@@ -624,7 +634,9 @@ class SynchronizedVisualizer:
         )
 
     def close(self) -> None:
-        """Release references to the underlying sensors."""
+        """Release the sensor references and free the captured frame buffers."""
         self._env_camera = None
         self._global_camera = None
         self._initialized = False
+        # Drop accumulated frames (potentially GBs for long, many-env rollouts).
+        self._buffers = _CaptureBuffers()

@@ -159,17 +159,28 @@ def test_resolve_global_pose_auto_frames_from_origins():
     assert not torch.allclose(eye, target)  # camera has a viewing direction
 
 
-def test_close_clears_state_and_initialized_flag():
+def test_close_clears_state_and_buffers():
     viz = SynchronizedVisualizer.__new__(SynchronizedVisualizer)
     viz._env_camera = object()
     viz._global_camera = object()
     viz._initialized = True
+    buffers = _CaptureBuffers()
+    buffers.grid_frames = [np.zeros((2, 2, 3), dtype=np.uint8)]
+    viz._buffers = buffers
 
     viz.close()
 
     assert viz._env_camera is None
     assert viz._global_camera is None
     assert viz._initialized is False
+    assert viz._buffers.grid_frames == []  # frames freed
+
+
+def test_initialize_rejects_double_init():
+    viz = SynchronizedVisualizer.__new__(SynchronizedVisualizer)
+    viz._initialized = True
+    with pytest.raises(AssertionError, match="exactly once"):
+        viz.initialize()
 
 
 def test_capture_before_initialize_raises():
@@ -193,7 +204,8 @@ def test_save_writes_gif_and_per_env_outputs(tmp_path):
 
     written = viz.save(str(tmp_path), fps=5, name_prefix="t", save_per_env=True, also_gif=True)
 
-    for key in ("global", "grid", "global_gif", "grid_gif", "env000", "env001"):
+    expected = ("global", "grid", "global_gif", "grid_gif", "env000", "env001", "env000_gif", "env001_gif")
+    for key in expected:
         assert os.path.exists(written[key]), f"missing output: {key}"
 
 
