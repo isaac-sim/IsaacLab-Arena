@@ -35,9 +35,8 @@ import json
 import random
 from pathlib import Path
 
-# Five distinct objects, like the maple-table droid sweep. The first three are "easy"
-# (high success), the last two are "hard" (low success) — a known signal the analyzer
-# should recover.
+# Five objects like the maple-table sweep: first three "easy" (high success), last two
+# "hard" (low) — a known signal the analyzer should recover.
 DEFAULT_CHOICES = [
     "rubiks_cube_hot3d_robolab",
     "wooden_bowl_hot3d_robolab",

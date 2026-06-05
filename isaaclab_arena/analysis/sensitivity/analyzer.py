@@ -227,10 +227,8 @@ class PosteriorAnalyzer(BaseAnalyzer):
 
         factor_column_slice = self.dataset.factor_columns[factor_name]
         observed_outcome = torch.tensor([outcome_value], dtype=torch.float32)
-        # ``factor_spec.range`` is always in linear (user-readable) units. For log_uniform
-        # factors the analyzer's parameter space is log10(theta), so we generate the grid
-        # in log10 space here and convert it back to linear before returning so the caller
-        # plots intensities directly on a log-scale x-axis.
+        # ``range`` is linear; log_uniform factors train in log10(theta), so grid in log10
+        # and convert back to linear before returning for a log-scale x-axis.
         is_log_uniform = factor_spec.distribution == "log_uniform"
         range_low, range_high = factor_spec.range[0]
         analyzer_low = np.log10(range_low) if is_log_uniform else range_low
@@ -479,11 +477,8 @@ class KDEAnalyzer(BaseAnalyzer):
         assert (
             factor_spec.range is not None and len(factor_spec.range) == 1
         ), "Continuous-factor marginal expects a populated 1D range"
-        # For log_uniform factors the analyzer's parameter space is log10(theta) (see
-        # ``dataset._build_factor_tensor``), so the KDE was fit on log10 values and the
-        # grid we evaluate on must also be in log space. We convert the linear grid back
-        # for display at the very end so the caller plots intensities directly on a
-        # log-scale x-axis.
+        # log_uniform: KDE was fit on log10(theta), so evaluate the grid in log10 too and
+        # convert back to linear at the end for a log-scale x-axis.
         is_log_uniform = factor_spec.distribution == "log_uniform"
         range_low, range_high = factor_spec.range[0]
         analyzer_low = np.log10(range_low) if is_log_uniform else range_low

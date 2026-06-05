@@ -80,27 +80,19 @@ def write_episode_summaries(env, job: Job, output_path: str | Path) -> int:
             for demo_index, demo_name in enumerate(recorded_demos):
                 demo_group = recorded_demos[demo_name]
                 raw_outcome_values = {}
-                # Find the demo's actual step count by taking the max length across all
-                # recorded metric arrays. Per-step time-series recorders (e.g. the
-                # ObjectVelocityRecorder for `object_moved_rate`) produce a (T, …) array
-                # whose first dim is the step count. Per-episode scalar recorders (e.g.
-                # the SuccessRecorder) produce a (1,) array regardless of episode length —
-                # using `len()` on the wrong one collapses task_duration to a single step.
+                # Step count = max array length over metrics: per-step recorders give (T,…),
+                # per-episode scalars give (1,); the max avoids collapsing task_duration to 1.
                 demo_step_count = 0
-                # cfg.metrics is a MetricsCfg configclass: one field per metric, each a
-                # MetricTermCfg(compute_metric_func, params, recorder_term_name). Iterate its
-                # fields the same way MetricsManager does (metrics_manager.py). The per-demo
-                # value comes from feeding compute_metric_func a single-element list.
+                # cfg.metrics is a MetricsCfg configclass (one MetricTermCfg field per metric);
+                # the per-demo value is compute_metric_func fed a single-element list.
                 for metric_name, metric_cfg in registered_metrics.__dict__.items():
                     recorded_metric_data = demo_group[metric_cfg.recorder_term_name][:]
                     raw_outcome_values[metric_name] = metric_cfg.compute_metric_func(
                         [recorded_metric_data], **metric_cfg.params
                     )
                     demo_step_count = max(demo_step_count, len(recorded_metric_data))
-                # task_duration: wall-clock-equivalent seconds spent on this episode before
-                # termination. Short for fast successes / early failures, max_episode_length
-                # for timeouts. Provides a continuous outcome that carries information beyond
-                # binary success metrics.
+                # task_duration: seconds before termination (short for fast successes, max for
+                # timeouts) — a continuous outcome beyond the binary metrics.
                 if demo_step_count > 0:
                     raw_outcome_values["task_duration"] = float(demo_step_count) * env_step_dt
                 outcome_values = metrics_to_plain_python_types(raw_outcome_values)

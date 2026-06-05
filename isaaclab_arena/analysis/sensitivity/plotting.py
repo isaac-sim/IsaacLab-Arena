@@ -120,10 +120,8 @@ def _draw_continuous_marginal(
     )
     ax.fill_between(grid, 0, density, color="steelblue", alpha=0.2)
 
-    # Rug coloring depends on outcome shape. For binary outcomes (only 0/1 observed) the
-    # green/red ≥/<0.5 split gives a meaningful "successes vs failures" picture. For
-    # continuous outcomes (e.g. task_duration) the same threshold is nonsensical (every
-    # sample is ≥ 0.5), so we drop the split and just show all samples as one neutral rug.
+    # Binary outcomes: split the rug green/red at 0.5 (successes vs failures). Continuous
+    # outcomes (e.g. task_duration): the threshold is meaningless, so show one neutral rug.
     is_binary_outcome = set(empirical_outcomes.flatten().tolist()).issubset({0.0, 1.0})
     if is_binary_outcome:
         success_mask = empirical_outcomes >= 0.5

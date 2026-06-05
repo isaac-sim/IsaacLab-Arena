@@ -53,9 +53,8 @@ from pathlib import Path
 INTENSITY_LOW = 10.0
 INTENSITY_HIGH = 5000.0
 
-# A self-contained factors.yaml template for the synthetic dataset. Kept inline (rather
-# than imported from episode_writer.py) so this module stays a pure-python dev tool —
-# importing episode_writer would transitively load pxr via isaaclab_arena.metrics.
+# Inline factors.yaml template (not imported) so this stays a pure-python dev tool —
+# importing episode_writer would pull in pxr via isaaclab_arena.metrics.
 _SYNTHETIC_FACTORS_YAML = """\
 # factors.yaml — synthetic dataset for analyzer smoke-testing.
 # Auto-emitted by isaaclab_arena.analysis.sensitivity.synthetic_data_continuous alongside the JSONL.

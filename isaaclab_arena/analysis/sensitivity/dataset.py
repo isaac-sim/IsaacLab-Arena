@@ -48,12 +48,9 @@ class FactorSpec:
     dim: int = 1
     range: list[list[float]] | None = None  # one [low, high] pair per dim, continuous only
     choices: list[str] | None = None  # categorical only
-    # Sampling distribution this factor was drawn from (must match the assumed prior).
-    # Default is linear uniform on ``range``. ``log_uniform`` declares the factor was drawn
-    # uniformly in log10 space — required when the sweep spans multiple decades to keep
-    # samples balanced per decade. Only valid for continuous factors with strictly positive
-    # ``range``. The dataset loader log10-transforms theta values for log_uniform factors
-    # so the analyzer trains in the same space the prior covers.
+    # Sampling distribution (must match the assumed prior). ``log_uniform`` = drawn
+    # uniformly in log10 space (for multi-decade sweeps; continuous + positive range only);
+    # the loader log10-transforms theta so the analyzer trains in the prior's space.
     distribution: Literal["uniform", "log_uniform"] = "uniform"
 
 
@@ -285,10 +282,8 @@ class SensitivityDataset:
                     f" factor {factor.name!r} has dim={factor.dim}"
                 )
             raw_values = [float(row["arena_env_args"][factor.name]) for row in self.rows]
-            # For log_uniform factors, theta is stored in log10 space so the prior built
-            # below (BoxUniform on log10(range)) matches the parameter space the analyzer
-            # trains and queries in. The factor's declared ``range`` stays in linear units
-            # for human readability — log-transform happens here, not in the schema.
+            # log_uniform: store theta in log10 space to match the log10(range) prior;
+            # the declared ``range`` stays linear for readability.
             if factor.distribution == "log_uniform":
                 for row_index, value in enumerate(raw_values):
                     assert value > 0, (
@@ -385,10 +380,8 @@ class SensitivityDataset:
         low_bounds: list[float] = []
         high_bounds: list[float] = []
 
-        # Continuous factor bounds (one [low, high] pair per dim). For log_uniform factors
-        # the prior is built in log10 space — the corresponding theta column is also
-        # log10-transformed in ``_build_factor_tensor``, so the analyzer sees a consistent
-        # (log-space-θ, log-space-prior) pair without any further transformation downstream.
+        # Continuous bounds (one [low, high] per dim). log_uniform builds the prior in log10
+        # space, matching the log10-transformed theta column from ``_build_factor_tensor``.
         for factor in self.schema.factors:
             if factor.type != "continuous":
                 continue
