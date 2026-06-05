@@ -274,17 +274,15 @@ class EnvironmentGenerationAgent:
             max_tokens=max_tokens,
         )
         choices = getattr(resp, "choices", None) or []
-        if not choices:
-            raise RuntimeError(
-                f"Model {self.model!r} returned HTTP 200 with no choices "
-                "(content filter / guardrail / rate-limit response with empty body)."
-            )
+        assert choices, (
+            f"Model {self.model!r} returned HTTP 200 with no choices "
+            "(content filter / guardrail / rate-limit response with empty body)."
+        )
         text, route = extract_response_text(choices[0].message)
-        if route == "empty":
-            raise RuntimeError(
-                f"Model {self.model!r} returned an empty structured-outputs envelope. "
-                "Verify the endpoint/model supports response_format=json_schema."
-            )
+        assert route != "empty", (
+            f"Model {self.model!r} returned an empty structured-outputs envelope. "
+            "Verify the endpoint/model supports response_format=json_schema."
+        )
         # ``strict=False`` lets json.loads accept unescaped control characters
         # (e.g. literal tabs) inside JSON strings — DeepSeek-v4-flash is known
         # to emit these.

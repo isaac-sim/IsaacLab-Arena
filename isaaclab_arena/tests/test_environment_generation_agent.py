@@ -208,7 +208,7 @@ class TestGenerateSpec:
         resp = MagicMock()
         resp.choices = []
         agent.client.chat.completions.create.return_value = resp
-        with pytest.raises(RuntimeError, match="no choices"):
+        with pytest.raises(AssertionError, match="no choices"):
             agent.generate_spec(
                 "p",
                 asset_catalog=_catalog("catalog"),

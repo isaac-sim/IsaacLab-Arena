@@ -33,11 +33,10 @@ def ping(client: Any, model: str) -> str:
         max_tokens=8,
     )
     choices = getattr(resp, "choices", None) or []
-    if not choices:
-        raise RuntimeError(
-            f"ping to model {model!r} returned HTTP 200 with no choices "
-            "(content filter / guardrail / rate-limit response with empty body)."
-        )
+    assert choices, (
+        f"ping to model {model!r} returned HTTP 200 with no choices "
+        "(content filter / guardrail / rate-limit response with empty body)."
+    )
     return choices[0].message.content or ""
 
 

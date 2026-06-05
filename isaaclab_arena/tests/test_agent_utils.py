@@ -64,7 +64,7 @@ class TestPing:
         resp = MagicMock()
         resp.choices = []
         client.chat.completions.create.return_value = resp
-        with pytest.raises(RuntimeError, match="no choices") as exc_info:
+        with pytest.raises(AssertionError, match="no choices") as exc_info:
             ping(client, "guardrailed-model")
         # Model name surfaces in the message — most-grepped field when
         # triaging a CI ping failure.
