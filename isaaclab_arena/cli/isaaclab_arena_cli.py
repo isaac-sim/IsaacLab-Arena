@@ -90,10 +90,7 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         "--list-variations",
         action="store_true",
         default=False,
-        help=(
-            "Print Hydra-configurable variations for the selected environment and exit before rollout. "
-            "Uses the same SimulationApp startup as a normal policy-runner invocation."
-        ),
+        help="Print Hydra-configurable variations for the selected environment and exit.",
     )
 
 

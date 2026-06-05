@@ -49,23 +49,21 @@ isaaclab_arena_environment = IsaacLabArenaEnvironment(
 # dome_light.get_variation("hdr_image").enable()
 # franka.get_variation("camera_extrinsics_wrist_cam").enable()
 
-env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
-
 # --- Hydra-driven variation configuration -------------------------------------
 # Every variation attached to a scene asset or the embodiment is configurable via
-# Hydra dotted-path override strings. The schema below is built from the live
-# variations; its attribute paths (``<host>.<variation>.<field>``) are exactly the
-# override keys accepted here (and on the CLI). ``<host>`` is the asset name (e.g.
-# ``light``) or the embodiment name (e.g. ``franka_ik``); ``sampler_cfg`` exposes the
-# sampler parameters. This replaces the imperative ``get_variation(...).enable()`` form.
-print(env_builder.get_variations_catalogue_as_string())
-
-env_builder.apply_hydra_variation_overrides([
+# Hydra dotted-path override strings. The schema is built from the live variations;
+# its attribute paths (``<asset>.<variation>.<field>``) are exactly the override keys
+# accepted here (and on the CLI). ``<asset>`` is the asset name (e.g. ``light``) or the
+# embodiment name (e.g. ``franka_ik``); ``sampler_cfg`` exposes the sampler parameters.
+# Passing them at construction time replaces the imperative ``get_variation(...).enable()`` form.
+hydra_overrides = [
     "light.hdr_image.enabled=true",
     "franka_ik.camera_extrinsics_wrist_cam.enabled=true",
     "franka_ik.camera_extrinsics_wrist_cam.sampler_cfg.low=[-0.01,-0.01,-0.01]",
     "franka_ik.camera_extrinsics_wrist_cam.sampler_cfg.high=[0.01,0.01,0.01]",
-])
+]
+env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli, hydra_overrides=hydra_overrides)
+print(env_builder.get_variations_catalogue_as_string())
 
 env = env_builder.make_registered()
 env.reset()

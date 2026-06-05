@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for :func:`isaaclab_arena_environments.cli.split_hydra_overrides`.
+"""Tests for :func:`isaaclab_arena.utils.hydra_overrides.split_hydra_overrides`.
 
 Plain-Python unit tests: do not require Isaac Sim.
 """
@@ -12,7 +12,7 @@ import argparse
 
 import pytest
 
-from isaaclab_arena_environments.cli import split_hydra_overrides
+from isaaclab_arena.utils.hydra_overrides import split_hydra_overrides
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -62,6 +62,8 @@ def test_empty_input_returns_empty_list():
         "key with space=value",  # whitespace not allowed in key
         "=value_only",  # missing key
         "+just_plus",  # `+` prefix without `=value` is not a delete (`~` is)
+        "a..b=value",  # consecutive dots are not a valid dotted key
+        "key.=value",  # trailing dot is not a valid dotted key
         "",  # empty token
     ],
 )

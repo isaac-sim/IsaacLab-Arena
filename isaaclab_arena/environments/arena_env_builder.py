@@ -34,23 +34,29 @@ from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
-from isaaclab_arena.variations import variations_hydra
+from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBase
-from isaaclab_arena.variations.variations_catalog import (
-    get_variations_catalogue_as_string as _get_variations_catalogue_as_string,
-)
 
 
 class ArenaEnvBuilder:
     """Compose IsaacLab Arena → IsaacLab configs"""
 
-    def __init__(self, arena_env: IsaacLabArenaEnvironment, args: argparse.Namespace):
+    def __init__(
+        self,
+        arena_env: IsaacLabArenaEnvironment,
+        args: argparse.Namespace,
+        hydra_overrides: list[str] | None = None,
+    ):
         self.arena_env = arena_env
         self.args = args
         self.interactive_scene_cfg = InteractiveSceneCfg(
             num_envs=args.num_envs, env_spacing=args.env_spacing, replicate_physics=False
         )
         self._placement_event_cfg: EventTermCfg | None = None
+        # Apply Hydra variation overrides in-place before any cfg is composed, so
+        # build-time variations they enable are picked up by compose_manager_cfg().
+        if hydra_overrides:
+            variations_hydra.apply_overrides(self.get_all_variations(), hydra_overrides)
 
     def _solve_relations(self) -> None:
         """Solve spatial relations for objects in the scene.
@@ -94,17 +100,11 @@ class ArenaEnvBuilder:
         """Return the dataclass describing every variation in the env, or ``None`` if none."""
         return variations_hydra.build_schema(self.get_all_variations())
 
-    def load_variations_cfg_from_flags(self, hydra_overrides: list[str]) -> Any | None:
-        """Compose Hydra override strings into a typed ``VariationsCfg`` instance."""
-        return variations_hydra.load_cfg_from_flags(self.get_all_variations(), hydra_overrides)
-
-    def apply_hydra_variation_overrides(self, hydra_overrides: list[str]) -> None:
-        """Apply Hydra-style variation overrides across scene + embodiment variations."""
-        variations_hydra.apply_overrides(self.get_all_variations(), hydra_overrides)
-
     def get_variations_catalogue_as_string(self, *, hydra_overrides: list[str] | None = None) -> str:
         """Return a human-readable catalog of Hydra-configurable variations for this env."""
-        return _get_variations_catalogue_as_string(self.get_all_variations(), hydra_overrides=hydra_overrides)
+        return variations_printing.get_variations_catalogue_as_string(
+            self.get_all_variations(), hydra_overrides=hydra_overrides
+        )
 
     def _compose_variations_event_cfg(self) -> Any | None:
         """Build a configclass with one :class:`EventTermCfg` per enabled run-time variation.
