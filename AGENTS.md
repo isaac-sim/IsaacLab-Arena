@@ -20,9 +20,9 @@ pre-commit install    # on the host — registers git pre-commit hooks
 
 ## Docker environment
 
-Commands that touch Isaac Sim or Arena's package code (tests, training, evaluation, runtime scripts) run inside this clone's Docker container. The repo root is mounted at `/workspaces/isaaclab_arena`. Inside the container, `python` is aliased to `/isaac-sim/python.sh` — prefer the explicit path in `docker exec` invocations from outside the container, where the alias is not active.
+Commands that touch Isaac Sim or Arena's package code (tests, training, evaluation, runtime scripts) run inside the local repo clone's Docker container. The repo root is mounted at `/workspaces/isaaclab_arena`. Inside the container, `python` is aliased to `/isaac-sim/python.sh` — prefer the explicit path in `docker exec` invocations from outside the container, where the alias is not active.
 
-Each clone gets its own container (shared image, per-clone name), so clones run in parallel. **Don't hardcode the container name** — use the `dev-container` skill to build, start, attach to, discover, or exec into this clone's container.
+Each clone gets its own container (shared image, per-clone name), so clones run in parallel. **Don't hardcode the container name** — use the `dev-container` skill to build, start, attach to, discover, or exec into the local clone's container.
 
 Run as the host user, not root.
 

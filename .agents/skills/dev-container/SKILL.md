@@ -8,17 +8,17 @@ allowed-tools: Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker im
 
 Arena uses a single Docker container as the dev, test, training, and eval environment. There is no separate dev container.
 
-Each clone gets its own container so clones run in parallel: the image (`isaaclab_arena:latest`) is shared, but the name is `isaaclab_arena-latest` for `IsaacLab-Arena` and `isaaclab_arena-latest-<suffix>` for `IsaacLab-Arena_<suffix>` (`run_docker.sh` derives the suffix automatically).
+Each clone of the repo on the host machine gets its own container, so separate clones can run in parallel. The image (`isaaclab_arena:latest`) is shared, but the container name is `isaaclab_arena-latest` for the folder named `IsaacLab-Arena` and `isaaclab_arena-latest-<suffix>` for folders named `IsaacLab-Arena_<suffix>` (`run_docker.sh` derives the suffix automatically).
 
-## Discover this clone's container
+## Discover this clone's container (once per session)
 
-Never hardcode the name. Resolve the container mounting this clone (empty result = none running, so start one below):
+Never hardcode the name. At the start of a session, resolve the container mounting this clone into `ARENA_CONTAINER` (empty result = none running, so start one below):
 
 ```bash
-docker ps --filter "volume=$(git rev-parse --show-toplevel)" --format '{{.Names}}' | head -1
+ARENA_CONTAINER=$(docker ps --filter "volume=$(git rev-parse --show-toplevel)" --format '{{.Names}}' | head -1)
 ```
 
-Substitute that name for `$ARENA_CONTAINER` in the commands below — a shell variable won't carry across separate `docker exec` calls, so use the literal name (or set `ARENA_CONTAINER` in the same shell as each command).
+Run the commands below in that same shell so `$ARENA_CONTAINER` stays set (or substitute the literal name).
 
 ## Start or attach
 
