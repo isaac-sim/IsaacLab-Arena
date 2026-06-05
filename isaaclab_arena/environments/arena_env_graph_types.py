@@ -187,13 +187,13 @@ def _normalize_relation_params(params: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-class ArenaEnvGraphSpatialConstraintSpec(SpatialRelationSpec):
+class ArenaEnvGraphSpatialRelationSpec(SpatialRelationSpec):
     """Spatial constraint edge in an environment graph state spec (relation plus constraint id)."""
 
     id: str = Field(min_length=1)
 
     @model_validator(mode="after")
-    def _normalize_relation_params(self) -> ArenaEnvGraphSpatialConstraintSpec:
+    def _normalize_relation_params(self) -> ArenaEnvGraphSpatialRelationSpec:
         self.params = _normalize_relation_params(self.params)
         return self
 
@@ -217,7 +217,7 @@ class ArenaEnvGraphStateSpec(BaseModel):
     """Snapshot of the environment state in the graph."""
 
     id: str = Field(min_length=1)
-    spatial_constraints: list[ArenaEnvGraphSpatialConstraintSpec] = Field(default_factory=list)
+    spatial_constraints: list[ArenaEnvGraphSpatialRelationSpec] = Field(default_factory=list)
     task_constraints: list[ArenaEnvGraphTaskConstraintSpec] = Field(default_factory=list)
 
 
