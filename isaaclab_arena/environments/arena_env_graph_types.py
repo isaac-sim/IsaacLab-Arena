@@ -134,7 +134,7 @@ class ArenaEnvGraphTaskSpec(TaskSpec):
 # =============================================================================
 
 
-class RelationSpec(BaseModel):
+class SpatialRelationSpec(BaseModel):
     """Spatial relation shared by agent intent specs and env-graph spatial constraints."""
 
     kind: str = Field(
@@ -167,7 +167,7 @@ class RelationSpec(BaseModel):
     )
 
     @model_validator(mode="after")
-    def _validate_kind_and_arity(self) -> RelationSpec:
+    def _validate_kind_and_arity(self) -> SpatialRelationSpec:
         registry = ObjectRelationLibraryRegistry()
         assert registry.is_registered(self.kind), f"Unknown relation kind '{self.kind}'"
         relation_cls = registry.get_object_relation_by_name(self.kind)
@@ -187,7 +187,7 @@ def _normalize_relation_params(params: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-class ArenaEnvGraphSpatialConstraintSpec(RelationSpec):
+class ArenaEnvGraphSpatialConstraintSpec(SpatialRelationSpec):
     """Spatial constraint edge in an environment graph state spec (relation plus constraint id)."""
 
     id: str = Field(min_length=1)

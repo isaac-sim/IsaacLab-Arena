@@ -13,7 +13,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 from isaaclab_arena.assets.registries import TaskRegistry
-from isaaclab_arena.environments.arena_env_graph_types import RelationSpec, TaskSpec
+from isaaclab_arena.environments.arena_env_graph_types import SpatialRelationSpec, TaskSpec
 
 ItemRole = Literal["foreground", "distractor", "anchor"]
 
@@ -98,7 +98,7 @@ class EnvironmentIntentSpec(BaseModel):
         ),
     )
     items: list[Item] = Field(description="Objects to place in the env.")
-    initial_state_graph: list[RelationSpec] = Field(
+    initial_state_graph: list[SpatialRelationSpec] = Field(
         description=(
             "FULL snapshot of all spatial relations in the starting state. "
             "Use only relation names from the RELATIONS block. Every "
@@ -116,7 +116,7 @@ class EnvironmentIntentSpec(BaseModel):
         ),
     )
 
-    # Intent-only checks: nested RelationSpec / TaskSpec already validate registry membership.
+    # Intent-only checks: nested SpatialRelationSpec / TaskSpec already validate registry membership.
     @model_validator(mode="after")
     def _validate_agent_intent_tasks(self) -> EnvironmentIntentSpec:
         task_registry = TaskRegistry()
