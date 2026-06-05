@@ -22,7 +22,7 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
-from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
 from isaaclab_arena.tasks.predicates import object_lifted
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.terminations import object_on_destination
@@ -133,9 +133,9 @@ class PickAndPlaceTask(TaskBase):
     def get_metrics(self) -> list[MetricBase]:
         return [SuccessRateMetric(), ObjectMovedRateMetric(self.pick_up_object)]
 
-    def get_fine_grained_subtasks(self) -> list[FineGrainedSubtask]:
+    def get_fine_grained_progress_objectives(self) -> list[FineGrainedProgressObjective]:
         return [
-            FineGrainedSubtask(
+            FineGrainedProgressObjective(
                 name="pick_and_place",
                 predicate_groups=[
                     partial(

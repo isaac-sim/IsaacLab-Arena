@@ -10,14 +10,14 @@ manager-based env (``env.scene[name]``) so they can be used in any Isaac Lab
 context that exposes that surface: termination/event terms, recorders, tests
 that mock the env, or stand-alone debugging.
 
-Use them in a ``FineGrainedSubtask`` via ``functools.partial`` to bind the
+Use them in a ``FineGrainedProgressObjective`` via ``functools.partial`` to bind the
 object-specific arguments::
 
     from functools import partial
     from isaaclab_arena.tasks.predicates import object_grabbed, object_picked_up
-    from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+    from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
 
-    FineGrainedSubtask(
+    FineGrainedProgressObjective(
         name="lift_cracker_box",
         predicate_groups=[
             partial(object_grabbed, object_name="cracker_box"),
