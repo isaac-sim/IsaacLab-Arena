@@ -62,13 +62,14 @@ def generate_pdf_report(
             ax.set_title(f"{outcome.name} vs {factor.name}\n(conditioned on {outcome.name}={outcome_value:g})", fontsize=10)
 
     slice_info = dataset.schema.slice
+    # Two lines so the title doesn't clip on narrow (single-factor) figures.
     figure.suptitle(
-        f"Sensitivity report — {slice_info.policy} / {slice_info.task} / {slice_info.embodiment}"
-        f"   ({len(dataset.rows)} episodes)",
-        fontsize=13,
+        f"Sensitivity report — {len(dataset.rows)} episodes\n"
+        f"{slice_info.policy} / {slice_info.task} / {slice_info.embodiment}",
+        fontsize=12,
         fontweight="bold",
     )
-    figure.tight_layout(rect=[0, 0, 1, 0.97])  # leave room for suptitle
+    figure.tight_layout(rect=[0, 0, 1, 0.94])  # leave room for the two-line suptitle
 
     output_pdf_path = Path(output_pdf_path)
     output_pdf_path.parent.mkdir(parents=True, exist_ok=True)
