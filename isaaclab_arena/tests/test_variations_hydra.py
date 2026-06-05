@@ -41,9 +41,7 @@ def _test_hydra_override_applies_build_time_variation(simulation_app):
         ],
     )
 
-    variation = sphere.get_variation("test_build_time")
-    assert variation.enabled, "Hydra override 'enabled=true' must enable the variation."
-
+    # Overrides are applied during composition, so compose first, then check the effect.
     builder.compose_manager_cfg()
 
     assert sphere.object_cfg.spawn.radius == pytest.approx(TEST_OVERRIDE_RADIUS, abs=1e-6), (
@@ -67,7 +65,6 @@ def _test_hydra_override_enables_runtime_variation_in_events_cfg(simulation_app)
     # The variation starts disabled; the Hydra override must enable it so the event
     # term is composed into env_cfg.events.
     arena_env = get_runtime_test_environment(enabled=False)
-    sphere = arena_env.scene.assets[TEST_ASSET_NAME]
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
     builder = ArenaEnvBuilder(
         arena_env,
@@ -75,9 +72,7 @@ def _test_hydra_override_enables_runtime_variation_in_events_cfg(simulation_app)
         hydra_overrides=[f"{TEST_ASSET_NAME}.test_runtime.enabled=true"],
     )
 
-    variation = sphere.get_variation("test_runtime")
-    assert variation.enabled, "Hydra override 'enabled=true' must enable the variation."
-
+    # Overrides are applied during composition, so compose first, then check the effect.
     env_cfg = builder.compose_manager_cfg()
 
     assert hasattr(
