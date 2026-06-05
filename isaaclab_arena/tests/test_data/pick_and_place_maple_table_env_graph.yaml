@@ -5,6 +5,8 @@
 
 
 env_name: pick_and_place_maple_table_default
+
+# Optional CLI overrides.
 cli_override_specs:
 - arg: embodiment
   target_node_id: droid_abs_joint_pos
@@ -81,6 +83,7 @@ state_specs:
       x_max: 0.7
       y_min: -0.4
       y_max: -0.1
+  # TODO(qianl): replace with at_pose once placer supports it
   - id: state_spec_0_mug_ycb_robolab_at_position
     kind: at_position
     subject: mug_ycb_robolab
