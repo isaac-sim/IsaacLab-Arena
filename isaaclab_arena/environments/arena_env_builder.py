@@ -190,7 +190,6 @@ class ArenaEnvBuilder:
             task.get_termination_cfg(),
             self.arena_env.scene.get_termination_cfg(),
             embodiment.get_termination_cfg(),
-            task.get_fine_grained_progress_objective_termination_cfg(),
         )
         actions_cfg = embodiment.get_action_cfg()
         xr_cfg = embodiment.get_xr_cfg()
@@ -213,6 +212,7 @@ class ArenaEnvBuilder:
             metrics_recorder_manager_cfg,
             task.get_recorder_term_cfg(),
             embodiment.get_recorder_term_cfg(),
+            task.get_fine_grained_progress_objective_recorder_cfg(),
             bases=(RecorderManagerBaseCfg,),
         )
         recorder_manager_cfg = self._modify_recorder_cfg_dataset_filename(recorder_manager_cfg)

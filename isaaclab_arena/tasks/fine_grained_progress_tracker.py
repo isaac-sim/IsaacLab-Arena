@@ -9,7 +9,8 @@ import torch
 from dataclasses import MISSING
 from typing import Any
 
-from isaaclab.managers import EventTermCfg, TerminationTermCfg
+from isaaclab.managers import EventTermCfg
+from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
@@ -193,7 +194,9 @@ class FineGrainedProgressTracker:
         self.fine_grained_progress_objectives = fine_grained_progress_objectives
         self.num_envs = num_envs
         self.device = device
-        self.runners = [FineGrainedProgressObjectiveRunner(s, num_envs, device) for s in fine_grained_progress_objectives]
+        self.runners = [
+            FineGrainedProgressObjectiveRunner(s, num_envs, device) for s in fine_grained_progress_objectives
+        ]
         self._events: list[list[dict]] = [[] for _ in range(num_envs)]
 
     def step(self, env, step_index: torch.Tensor | None) -> None:
@@ -279,57 +282,64 @@ def _ensure_progress_tracker(
     return sm
 
 
-def fine_grained_progress_step_func(env, fine_grained_progress_objectives: list[FineGrainedProgressObjective]) -> torch.Tensor:
-    """Termination-term entry point.
+class FineGrainedProgressRecorder(RecorderTerm):
+    """Per-step hook that ticks the FineGrainedProgressTracker. Records nothing.
 
-    Ticks the state machine, writes events and states to env.extras["fine_grained_progress"],
-    and returns all-False so it does not contribute to termination.
-    """
+    Registered as a recorder term so it runs once per env.step via
+    record_post_step. It advances the state nachine and publishes the per-step state/events to
+    env.extras["fine_grained_progress"], then returns
+    (None, None) so nothing is written to the recorded episode data.
 
-    sm = _ensure_progress_tracker(env, fine_grained_progress_objectives)
-    step_index = getattr(env, "episode_length_buf", None)
-    sm.step(env, step_index=step_index)
+    env.extras["fine_grained_progress"] format:
 
-    """
-    User-facing event/state information format:
-
-    env.extras["fine_grained_progress"] = {
-        "states": [
-            {
-                "fine_grained_progress_objectives": {
-                    "<fine_grained_progress_objective_name>": {
-                        "completed_groups": int,
-                        "total_groups": int,
-                        "score": float,                # 0..1, normalized within objective
-                        "is_complete": bool,
-                        "active_predicates": {group: str | None},
+        {
+            "states": [                                    # one entry per env
+                {
+                    "fine_grained_progress_objectives": {
+                        "<name>": {
+                            "completed_groups": int,
+                            "total_groups": int,
+                            "score": float,                # 0..1, normalized within objective
+                            "is_complete": bool,
+                            "active_predicates": {group: str | None},
+                        },
+                        ...
                     },
-                    ...
+                    "overall_score": float,                # weighted by FineGrainedProgressObjective.score
+                    "all_complete": bool,
                 },
-                "overall_score": float,                # weighted by FineGrainedProgressObjective.score
-                "all_complete": bool,
-            },
-            ...                                        # one entry per env
-        ],
-        "events": [
-            [{"step": int, "fine_grained_progress_objective": str, "group": str,
-              "predicate_index": int, "predicate_name": str,
-              "score_delta": float}, ...],
-            ...                                        # one list per env
-        ],
-    }
+                ...
+            ],
+            "events": [                                    # one list per env
+                [{"step": int, "fine_grained_progress_objective": str, "group": str,
+                  "predicate_index": int, "predicate_name": str,
+                  "score_delta": float}, ...],
+                ...
+            ],
+        }
     """
 
-    env.extras["fine_grained_progress"] = {
-        "states": sm.get_state(),
-        "events": sm.get_events(),
-    }
+    def __init__(self, cfg: FineGrainedProgressObjectiveRecorderCfg, env):
+        super().__init__(cfg, env)
+        self._fine_grained_progress_objectives = cfg.fine_grained_progress_objectives
 
-    # Return all-False so it does not contribute to termination.
-    return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+    def record_post_step(self):
+        """Ticks the state machine, writes events and states to env.extras["fine_grained_progress"]"""
+
+        sm = _ensure_progress_tracker(self._env, self._fine_grained_progress_objectives)
+        step_index = getattr(self._env, "episode_length_buf", None)
+        sm.step(self._env, step_index=step_index)
+        self._env.extras["fine_grained_progress"] = {
+            "states": sm.get_state(),
+            "events": sm.get_events(),
+        }
+        # This term is a per-step hook only — record nothing.
+        return None, None
 
 
-def fine_grained_progress_reset_func(env, env_ids, fine_grained_progress_objectives: list[FineGrainedProgressObjective]) -> None:
+def fine_grained_progress_reset_func(
+    env, env_ids, fine_grained_progress_objectives: list[FineGrainedProgressObjective]
+) -> None:
     """Reset-event entry point.
 
     Resets the state machine whenever the Lab env is reset.
@@ -349,11 +359,19 @@ class FineGrainedProgressObjectiveEventsCfg:
 
 
 @configclass
-class FineGrainedProgressObjectiveTerminationsCfg:
-    fine_grained_progress_step: TerminationTermCfg = MISSING
+class FineGrainedProgressObjectiveRecorderCfg(RecorderTermCfg):
+    class_type: type[RecorderTerm] = FineGrainedProgressRecorder
+    fine_grained_progress_objectives: list[FineGrainedProgressObjective] = MISSING
 
 
-def make_fine_grained_progress_objective_events_cfg(fine_grained_progress_objectives: list[FineGrainedProgressObjective]) -> Any:
+@configclass
+class FineGrainedProgressObjectiveRecorderManagerCfg(RecorderManagerBaseCfg):
+    fine_grained_progress: FineGrainedProgressObjectiveRecorderCfg = MISSING
+
+
+def make_fine_grained_progress_objective_events_cfg(
+    fine_grained_progress_objectives: list[FineGrainedProgressObjective],
+) -> Any:
     return FineGrainedProgressObjectiveEventsCfg(
         reset_fine_grained_progress_objectives=EventTermCfg(
             func=fine_grained_progress_reset_func,
@@ -363,10 +381,11 @@ def make_fine_grained_progress_objective_events_cfg(fine_grained_progress_object
     )
 
 
-def make_fine_grained_progress_objective_termination_cfg(fine_grained_progress_objectives: list[FineGrainedProgressObjective]) -> Any:
-    return FineGrainedProgressObjectiveTerminationsCfg(
-        fine_grained_progress_step=TerminationTermCfg(
-            func=fine_grained_progress_step_func,
-            params={"fine_grained_progress_objectives": fine_grained_progress_objectives},
+def make_fine_grained_progress_objective_recorder_cfg(
+    fine_grained_progress_objectives: list[FineGrainedProgressObjective],
+) -> Any:
+    return FineGrainedProgressObjectiveRecorderManagerCfg(
+        fine_grained_progress=FineGrainedProgressObjectiveRecorderCfg(
+            fine_grained_progress_objectives=fine_grained_progress_objectives,
         )
     )

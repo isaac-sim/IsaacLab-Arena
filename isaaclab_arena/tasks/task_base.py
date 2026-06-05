@@ -14,7 +14,7 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
 from isaaclab_arena.tasks.fine_grained_progress_tracker import (
     make_fine_grained_progress_objective_events_cfg,
-    make_fine_grained_progress_objective_termination_cfg,
+    make_fine_grained_progress_objective_recorder_cfg,
 )
 
 
@@ -77,8 +77,8 @@ class TaskBase(ABC):
             return None
         return make_fine_grained_progress_objective_events_cfg(fine_grained_progress_objectives)
 
-    def get_fine_grained_progress_objective_termination_cfg(self) -> Any:
+    def get_fine_grained_progress_objective_recorder_cfg(self) -> Any:
         fine_grained_progress_objectives = self.get_fine_grained_progress_objectives()
         if not fine_grained_progress_objectives:
             return None
-        return make_fine_grained_progress_objective_termination_cfg(fine_grained_progress_objectives)
+        return make_fine_grained_progress_objective_recorder_cfg(fine_grained_progress_objectives)

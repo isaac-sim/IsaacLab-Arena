@@ -525,12 +525,17 @@ def _test_gating_noop_when_env_has_no_current_subtask_idx(simulation_app) -> boo
     return True
 
 
-def _test_step_func_publishes_to_extras_and_returns_no_termination(simulation_app) -> bool:
-    """fine_grained_progress_step_func writes env.extras and returns all-False."""
+def _test_recorder_publishes_to_extras_and_records_nothing(simulation_app) -> bool:
+    """FineGrainedProgressRecorder.record_post_step writes env.extras and records nothing.
+
+    ``record_post_step`` returns ``(None, None)`` (so nothing is added to the recorded
+    episode data) while still ticking the tracker and publishing the per-step state to
+    ``env.extras["fine_grained_progress"]``.
+    """
     from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
     from isaaclab_arena.tasks.fine_grained_progress_tracker import (
+        FineGrainedProgressObjectiveRecorderCfg,
         fine_grained_progress_reset_func,
-        fine_grained_progress_step_func,
     )
 
     try:
@@ -538,21 +543,24 @@ def _test_step_func_publishes_to_extras_and_returns_no_termination(simulation_ap
         pred = _MockPredicate(num_envs=2, name="p")
         fgpo = FineGrainedProgressObjective(name="t", predicate_groups=pred)
 
+        recorder_cfg = FineGrainedProgressObjectiveRecorderCfg(fine_grained_progress_objectives=[fgpo])
+        recorder = recorder_cfg.class_type(recorder_cfg, env)
+
         fine_grained_progress_reset_func(env, env_ids=[0, 1], fine_grained_progress_objectives=[fgpo])
 
-        # Step with predicate=False, state machine ticks but no transitions.
-        result = fine_grained_progress_step_func(env, fine_grained_progress_objectives=[fgpo])
-        assert result.tolist() == [False, False]
+        # Step with predicate=False, state machine ticks but no transitions. Records nothing.
+        assert recorder.record_post_step() == (None, None)
         assert "fine_grained_progress" in env.extras
         assert len(env.extras["fine_grained_progress"]["states"]) == 2
         assert env.extras["fine_grained_progress"]["events"] == [[], []]
-        assert not env.extras["fine_grained_progress"]["states"][0]["fine_grained_progress_objectives"]["t"]["is_complete"]
+        assert not env.extras["fine_grained_progress"]["states"][0]["fine_grained_progress_objectives"]["t"][
+            "is_complete"
+        ]
 
         # Step with env 0 predicate True, env 0 completes, env 1 does not.
         pred.set([True, False])
         _advance_step(env)
-        result = fine_grained_progress_step_func(env, fine_grained_progress_objectives=[fgpo])
-        assert result.tolist() == [False, False]
+        assert recorder.record_post_step() == (None, None)
         states = env.extras["fine_grained_progress"]["states"]
         events = env.extras["fine_grained_progress"]["events"]
         assert states[0]["fine_grained_progress_objectives"]["t"]["is_complete"]
@@ -563,7 +571,7 @@ def _test_step_func_publishes_to_extras_and_returns_no_termination(simulation_ap
         # Reset env 0, env 1 untouched.
         pred.set([False, False])
         fine_grained_progress_reset_func(env, env_ids=[0], fine_grained_progress_objectives=[fgpo])
-        result = fine_grained_progress_step_func(env, fine_grained_progress_objectives=[fgpo])
+        assert recorder.record_post_step() == (None, None)
         states = env.extras["fine_grained_progress"]["states"]
         assert not states[0]["fine_grained_progress_objectives"]["t"]["is_complete"]
         assert states[0]["fine_grained_progress_objectives"]["t"]["score"] == 0.0
@@ -576,7 +584,7 @@ def _test_step_func_publishes_to_extras_and_returns_no_termination(simulation_ap
 
 def _test_task_base_fine_grained_progress_objective_hooks(simulation_app) -> bool:
     """Test TaskBase's fine-grained-progress-objective hooks. Default is empty/None. Overriding
-    ``get_fine_grained_progress_objectives`` causes the events/termination helpers to
+    ``get_fine_grained_progress_objectives`` causes the events/recorder helpers to
     return real cfgs that the env builder picks up automatically.
     """
     from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
@@ -603,7 +611,7 @@ def _test_task_base_fine_grained_progress_objective_hooks(simulation_app) -> boo
         default_task = _Base()
         assert default_task.get_fine_grained_progress_objectives() == []
         assert default_task.get_fine_grained_progress_objective_events_cfg() is None
-        assert default_task.get_fine_grained_progress_objective_termination_cfg() is None
+        assert default_task.get_fine_grained_progress_objective_recorder_cfg() is None
 
         class _OptIn(_Base):
             def get_fine_grained_progress_objectives(self):
@@ -613,7 +621,7 @@ def _test_task_base_fine_grained_progress_objective_hooks(simulation_app) -> boo
         opt_in = _OptIn()
         assert len(opt_in.get_fine_grained_progress_objectives()) == 1
         assert opt_in.get_fine_grained_progress_objective_events_cfg() is not None
-        assert opt_in.get_fine_grained_progress_objective_termination_cfg() is not None
+        assert opt_in.get_fine_grained_progress_objective_recorder_cfg() is not None
 
         from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
 
@@ -709,10 +717,8 @@ def test_gating_sequential_task_end_to_end():
     assert run_simulation_app_function(_test_gating_sequential_task_end_to_end, headless=HEADLESS)
 
 
-def test_step_func_publishes_to_extras_and_returns_no_termination():
-    assert run_simulation_app_function(
-        _test_step_func_publishes_to_extras_and_returns_no_termination, headless=HEADLESS
-    )
+def test_recorder_publishes_to_extras_and_records_nothing():
+    assert run_simulation_app_function(_test_recorder_publishes_to_extras_and_records_nothing, headless=HEADLESS)
 
 
 def test_task_base_fine_grained_progress_objective_hooks():
@@ -735,5 +741,5 @@ if __name__ == "__main__":
     test_gating_blocked_when_parent_subtask_idx_mismatches()
     test_gating_noop_when_env_has_no_current_subtask_idx()
     test_gating_sequential_task_end_to_end()
-    test_step_func_publishes_to_extras_and_returns_no_termination()
+    test_recorder_publishes_to_extras_and_records_nothing()
     test_task_base_fine_grained_progress_objective_hooks()
