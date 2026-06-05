@@ -330,7 +330,7 @@ def test_unresolved_graph_is_not_directly_loadable():
 def test_chain_wires_each_success_state_as_next_initial_state():
     """task[i].success_state_spec_id == task[i+1].initial_state_spec_id (a single chain)."""
     resolved = ArenaEnvGraphSpec.from_yaml(_INIT_GRAPH, is_task_wiring_enabled=False).resolve_constraints()
-    ordered = sorted(resolved.tasks_by_id.values(), key=lambda t: t.id)
+    ordered = resolved.tasks  # preserved in execution order by resolve_constraints
     for earlier, later in zip(ordered, ordered[1:]):
         assert earlier.success_state_spec_id == later.initial_state_spec_id
 

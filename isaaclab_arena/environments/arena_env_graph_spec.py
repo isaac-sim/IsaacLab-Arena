@@ -97,7 +97,6 @@ class ArenaEnvGraphSpec(BaseModel):
             assert_task_wiring(self.tasks, self.state_specs)
         assert_spatial_constraint_shapes(self.state_specs)
         assert_cli_override_specs_reference_nodes(self.nodes, self.cli_override_specs)
-        return self
 
     @staticmethod
     def _load_yaml_dict(path: str | Path) -> dict[str, Any]:
@@ -187,7 +186,7 @@ class ArenaEnvGraphSpec(BaseModel):
             )
             out_tasks.append(
                 curr_task.model_copy(
-                    update={"initial_state_spec_id": f"state_spec_{i}", "success_state_spec_id": new_state_id}
+                    update={"initial_state_spec_id": states[i].id, "success_state_spec_id": new_state_id}
                 )
             )
 
