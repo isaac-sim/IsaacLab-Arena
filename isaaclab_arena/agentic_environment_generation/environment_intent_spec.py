@@ -111,8 +111,9 @@ class EnvironmentIntentSpec(BaseModel):
     tasks: list[TaskSpec] = Field(
         description=(
             "Tasks to execute in sequence, using only kinds from the TASKS block. "
-            "An empty list is valid for a static scene — prefer empty over "
-            "inventing a placeholder task."
+            "Only include tasks the user prompt explicitly requests. "
+            "Return [] when the prompt describes a static scene with no "
+            "robot action. Do not invent placeholder tasks."
         ),
     )
 
