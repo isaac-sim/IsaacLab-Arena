@@ -105,10 +105,6 @@ def _draw_continuous_marginal(
     factor_column_slice = analyzer.dataset.factor_columns[factor_spec.name]
     outcome_column_index = analyzer.dataset.outcome_columns[analyzer.outcome_name]
     empirical_theta_values = analyzer.dataset.theta[:, factor_column_slice].squeeze(-1).cpu().numpy()
-    # For log_uniform factors the dataset stores log10(theta); the rug ticks need to be at
-    # the actual intensity values to align with the linear-scale grid returned above.
-    if factor_spec.distribution == "log_uniform":
-        empirical_theta_values = np.power(10.0, empirical_theta_values)
     empirical_outcomes = analyzer.dataset.x[:, outcome_column_index].cpu().numpy()
 
     ax.plot(
@@ -152,8 +148,6 @@ def _draw_continuous_marginal(
         )
     ax.set_xlabel(factor_spec.name)
     ax.set_ylabel("posterior density")
-    if factor_spec.distribution == "log_uniform":
-        ax.set_xscale("log")
     ax.legend(loc="best", fontsize=9)
     ax.grid(alpha=0.3)
 

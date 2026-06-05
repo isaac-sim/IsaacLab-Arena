@@ -227,15 +227,10 @@ class PosteriorAnalyzer(BaseAnalyzer):
 
         factor_column_slice = self.dataset.factor_columns[factor_name]
         observed_outcome = torch.tensor([outcome_value], dtype=torch.float32)
-        # ``range`` is linear; log_uniform factors train in log10(theta), so grid in log10
-        # and convert back to linear before returning for a log-scale x-axis.
-        is_log_uniform = factor_spec.distribution == "log_uniform"
         range_low, range_high = factor_spec.range[0]
-        analyzer_low = np.log10(range_low) if is_log_uniform else range_low
-        analyzer_high = np.log10(range_high) if is_log_uniform else range_high
 
         if self.dataset.theta.shape[1] == 1:
-            grid_tensor = torch.linspace(analyzer_low, analyzer_high, num_grid_points, dtype=torch.float32).unsqueeze(1)
+            grid_tensor = torch.linspace(range_low, range_high, num_grid_points, dtype=torch.float32).unsqueeze(1)
             with torch.no_grad():
                 log_probabilities = self.posterior.log_prob(grid_tensor, x=observed_outcome)
             density_numpy = torch.exp(log_probabilities).cpu().numpy()
@@ -244,14 +239,12 @@ class PosteriorAnalyzer(BaseAnalyzer):
             with torch.no_grad():
                 posterior_samples = self.posterior.sample((10_000,), x=observed_outcome)
             factor_column_samples = posterior_samples[:, factor_column_slice].squeeze(-1).cpu().numpy()
-            grid_numpy = np.linspace(analyzer_low, analyzer_high, num_grid_points)
+            grid_numpy = np.linspace(range_low, range_high, num_grid_points)
             histogram_density, bin_edges = np.histogram(
-                factor_column_samples, bins=40, range=(analyzer_low, analyzer_high), density=True
+                factor_column_samples, bins=40, range=(range_low, range_high), density=True
             )
             density_numpy = np.interp(grid_numpy, 0.5 * (bin_edges[:-1] + bin_edges[1:]), histogram_density)
 
-        if is_log_uniform:
-            grid_numpy = np.power(10.0, grid_numpy)  # log10 → linear for display
         return grid_numpy, density_numpy
 
     def categorical_marginal_probs(self, factor_name: str, outcome_value: float, num_samples: int) -> np.ndarray:
@@ -477,19 +470,13 @@ class KDEAnalyzer(BaseAnalyzer):
         assert (
             factor_spec.range is not None and len(factor_spec.range) == 1
         ), "Continuous-factor marginal expects a populated 1D range"
-        # log_uniform: KDE was fit on log10(theta), so evaluate the grid in log10 too and
-        # convert back to linear at the end for a log-scale x-axis.
-        is_log_uniform = factor_spec.distribution == "log_uniform"
         range_low, range_high = factor_spec.range[0]
-        analyzer_low = np.log10(range_low) if is_log_uniform else range_low
-        analyzer_high = np.log10(range_high) if is_log_uniform else range_high
-        analyzer_grid = np.linspace(analyzer_low, analyzer_high, num_grid_points)
-        linear_grid = np.power(10.0, analyzer_grid) if is_log_uniform else analyzer_grid
+        grid = np.linspace(range_low, range_high, num_grid_points)
 
         if outcome_value < 0.5 or self._kde is None:
-            uniform_density = 1.0 / max(analyzer_high - analyzer_low, 1e-9)
-            return linear_grid, np.full_like(analyzer_grid, uniform_density)
-        return linear_grid, self._kde(analyzer_grid)
+            uniform_density = 1.0 / max(range_high - range_low, 1e-9)
+            return grid, np.full_like(grid, uniform_density)
+        return grid, self._kde(grid)
 
     def categorical_marginal_probs(self, factor_name: str, outcome_value: float, num_samples: int) -> np.ndarray:
         raise NotImplementedError(

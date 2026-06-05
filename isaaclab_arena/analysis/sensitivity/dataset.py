@@ -27,7 +27,6 @@ factors still raise ``NotImplementedError`` so adding them later is a fill-in.
 from __future__ import annotations
 
 import json
-import math
 import torch
 import yaml
 from dataclasses import dataclass
@@ -48,10 +47,6 @@ class FactorSpec:
     dim: int = 1
     range: list[list[float]] | None = None  # one [low, high] pair per dim, continuous only
     choices: list[str] | None = None  # categorical only
-    # Sampling distribution (must match the assumed prior). ``log_uniform`` = drawn
-    # uniformly in log10 space (for multi-decade sweeps; continuous + positive range only);
-    # the loader log10-transforms theta so the analyzer trains in the prior's space.
-    distribution: Literal["uniform", "log_uniform"] = "uniform"
 
 
 @dataclass
@@ -119,27 +114,6 @@ class FactorSchema:
                 f"factors.yaml at {path} factor {factor_name!r} has unknown type {factor_type!r};"
                 " expected 'continuous' or 'categorical'"
             )
-            distribution = factor_block.get("distribution", "uniform")
-            assert distribution in ("uniform", "log_uniform"), (
-                f"factors.yaml at {path} factor {factor_name!r} has unknown distribution"
-                f" {distribution!r}; expected 'uniform' or 'log_uniform'"
-            )
-            if distribution == "log_uniform":
-                assert factor_type == "continuous", (
-                    f"factors.yaml at {path} factor {factor_name!r}: distribution 'log_uniform'"
-                    " is only valid for continuous factors"
-                )
-                factor_range = factor_block.get("range")
-                assert factor_range is not None, (
-                    f"factors.yaml at {path} factor {factor_name!r}: distribution 'log_uniform'"
-                    " requires an explicit `range:` (cannot be inferred at load time)"
-                )
-                for dim_index, (dim_low, dim_high) in enumerate(factor_range):
-                    assert float(dim_low) > 0, (
-                        f"factors.yaml at {path} factor {factor_name!r} dim {dim_index}:"
-                        " log_uniform requires strictly positive range bounds;"
-                        f" got low={dim_low}"
-                    )
             factors.append(
                 FactorSpec(
                     name=factor_name,
@@ -147,7 +121,6 @@ class FactorSchema:
                     dim=factor_block.get("dim", 1),
                     range=factor_block.get("range"),
                     choices=factor_block.get("choices"),
-                    distribution=distribution,
                 )
             )
 
@@ -282,15 +255,6 @@ class SensitivityDataset:
                     f" factor {factor.name!r} has dim={factor.dim}"
                 )
             raw_values = [float(row["arena_env_args"][factor.name]) for row in self.rows]
-            # log_uniform: store theta in log10 space to match the log10(range) prior;
-            # the declared ``range`` stays linear for readability.
-            if factor.distribution == "log_uniform":
-                for row_index, value in enumerate(raw_values):
-                    assert value > 0, (
-                        f"Row {row_index} factor {factor.name!r} has value {value!r}"
-                        " ≤ 0; log_uniform factors require strictly positive samples"
-                    )
-                raw_values = [math.log10(v) for v in raw_values]
             factor_column = torch.tensor(raw_values, dtype=torch.float32).unsqueeze(1)
             factor_columns.append(factor_column)
 
@@ -380,19 +344,14 @@ class SensitivityDataset:
         low_bounds: list[float] = []
         high_bounds: list[float] = []
 
-        # Continuous bounds (one [low, high] per dim). log_uniform builds the prior in log10
-        # space, matching the log10-transformed theta column from ``_build_factor_tensor``.
+        # Continuous bounds (one [low, high] per dim).
         for factor in self.schema.factors:
             if factor.type != "continuous":
                 continue
             assert factor.range is not None, f"Factor {factor.name!r} has no range and was not inferred"
             for dim_low, dim_high in factor.range:
-                if factor.distribution == "log_uniform":
-                    low_bounds.append(math.log10(float(dim_low)))
-                    high_bounds.append(math.log10(float(dim_high)))
-                else:
-                    low_bounds.append(float(dim_low))
-                    high_bounds.append(float(dim_high))
+                low_bounds.append(float(dim_low))
+                high_bounds.append(float(dim_high))
 
         # Categorical factor bounds: [0, num_choices - 1] per factor (one column).
         for factor in self.schema.factors:
