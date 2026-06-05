@@ -49,14 +49,11 @@ class ArenaEnvBuilder:
     ):
         self.arena_env = arena_env
         self.args = args
+        self.hydra_overrides = hydra_overrides
         self.interactive_scene_cfg = InteractiveSceneCfg(
             num_envs=args.num_envs, env_spacing=args.env_spacing, replicate_physics=False
         )
         self._placement_event_cfg: EventTermCfg | None = None
-        # Apply Hydra variation overrides in-place before any cfg is composed, so
-        # build-time variations they enable are picked up by compose_manager_cfg().
-        if hydra_overrides:
-            variations_hydra.apply_overrides(self.get_all_variations(), hydra_overrides)
 
     def _solve_relations(self) -> None:
         """Solve spatial relations for objects in the scene.
@@ -96,15 +93,10 @@ class ArenaEnvBuilder:
             scene_and_embodiment_variations[self.arena_env.embodiment.name] = embodiment_variations
         return scene_and_embodiment_variations
 
-    def get_variations_schema(self) -> type | None:
-        """Return the dataclass describing every variation in the env, or ``None`` if none."""
-        return variations_hydra.build_schema(self.get_all_variations())
-
-    def get_variations_catalogue_as_string(self, *, hydra_overrides: list[str] | None = None) -> str:
+    def get_variations_catalogue_as_string(self) -> str:
         """Return a human-readable catalog of Hydra-configurable variations for this env."""
-        return variations_printing.get_variations_catalogue_as_string(
-            self.get_all_variations(), hydra_overrides=hydra_overrides
-        )
+        variations: dict[str, list[VariationBase]] = self.get_all_variations()
+        return variations_printing.get_variations_catalogue_as_string(variations, hydra_overrides=self.hydra_overrides)
 
     def _compose_variations_event_cfg(self) -> Any | None:
         """Build a configclass with one :class:`EventTermCfg` per enabled run-time variation.
@@ -168,6 +160,12 @@ class ArenaEnvBuilder:
         # Solve relations before building scene config so positions are captured correctly.
         if self.args.solve_relations:
             self._solve_relations()
+
+        # Apply Hydra variation overrides in-place before any cfg is composed, so
+        # build-time variations they enable are picked up by compose_manager_cfg().
+        if self.hydra_overrides:
+            variations: dict[str, list[VariationBase]] = self.get_all_variations()
+            variations_hydra.apply_overrides(variations, self.hydra_overrides)
 
         # Apply build-time variations now, before scene_cfg is materialised.
         self._apply_build_time_variations()

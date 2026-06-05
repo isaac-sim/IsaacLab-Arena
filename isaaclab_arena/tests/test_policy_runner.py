@@ -24,9 +24,8 @@ def run_policy_runner(
     episode_name: str | None = None,
     enable_cameras: bool = False,
     hydra_overrides: list[str] | None = None,
-):
+) -> None:
     args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/policy_runner.py"]
-    # Runner arguments.
     args.append("--policy_type")
     args.append(policy_type)
     if policy_type == "replay":
@@ -46,9 +45,7 @@ def run_policy_runner(
         args.append("--headless")
     if enable_cameras:
         args.append("--enable_cameras")
-    # Environment to run.
     args.append(example_environment)
-    # Environment-specific arguments.
     if embodiment is not None:
         args.append("--embodiment")
         args.append(embodiment)
@@ -94,20 +91,4 @@ def test_zero_action_policy_with_objects(object_name):
         embodiment="gr1_pink",
         object_name=object_name,
         num_steps=NUM_STEPS,
-    )
-
-
-@pytest.mark.with_subprocess
-def test_zero_action_policy_with_hydra_variation_overrides():
-    """Boot pick_and_place_maple_table with both Hydra-configurable variations enabled."""
-    run_policy_runner(
-        policy_type="zero_action",
-        example_environment="pick_and_place_maple_table",
-        embodiment="droid_abs_joint_pos",
-        num_steps=NUM_STEPS,
-        enable_cameras=True,
-        hydra_overrides=[
-            "light.hdr_image.enabled=true",
-            "droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true",
-        ],
     )

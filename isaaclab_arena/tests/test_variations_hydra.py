@@ -7,11 +7,17 @@
 
 import pytest
 
-from isaaclab_arena.tests.test_build_time_variations import TEST_ASSET_NAME, TEST_OVERRIDE_RADIUS, get_test_environment
+from isaaclab_arena.tests.test_build_time_variations import (
+    TEST_ASSET_NAME,
+    TEST_OVERRIDE_RADIUS,
+    TestBuildTimeVariation,
+    get_test_environment,
+)
 from isaaclab_arena.tests.test_run_time_variations import TEST_EVENT_NAME
 from isaaclab_arena.tests.test_run_time_variations import get_test_environment as get_runtime_test_environment
 from isaaclab_arena.tests.test_run_time_variations import noop_test_variation_event
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.variations import variations_hydra
 
 HEADLESS = True
 
@@ -89,3 +95,19 @@ def test_hydra_override_enables_runtime_variation_in_events_cfg():
         _test_hydra_override_enables_runtime_variation_in_events_cfg,
         headless=HEADLESS,
     )
+
+
+class _MockHost:
+    name = TEST_ASSET_NAME
+
+
+def test_unknown_variation_override_raises_with_available_paths():
+    variations = {TEST_ASSET_NAME: [TestBuildTimeVariation(_MockHost())]}
+    with pytest.raises(ValueError, match="Unknown Hydra variation override") as exc_info:
+        variations_hydra.apply_overrides(
+            variations,
+            [f"{TEST_ASSET_NAME}.no_such_variation.enabled=true"],
+        )
+    message = str(exc_info.value)
+    assert f"{TEST_ASSET_NAME}.test_build_time" in message
+    assert "Available variation paths" in message

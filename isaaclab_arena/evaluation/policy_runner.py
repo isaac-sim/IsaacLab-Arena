@@ -178,7 +178,7 @@ def main():
         arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
 
         if args_cli.list_variations:
-            print(arena_builder.get_variations_catalogue_as_string(hydra_overrides=hydra_overrides))
+            print(arena_builder.get_variations_catalogue_as_string())
             return
 
         render_mode = "rgb_array" if args_cli.video else None

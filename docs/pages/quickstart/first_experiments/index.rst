@@ -9,5 +9,4 @@ commands to the robot every step), then evaluating a real pre-trained policy in 
    :maxdepth: 1
 
    exploring_variations
-   listing_variations
    running_a_real_policy/index

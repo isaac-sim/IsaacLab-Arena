@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 from hydra import compose, initialize
 from hydra.core.config_store import ConfigStore
 from hydra.core.global_hydra import GlobalHydra
+from hydra.errors import ConfigCompositionException
 from omegaconf import OmegaConf
 
 if TYPE_CHECKING:
@@ -70,10 +71,7 @@ def load_cfg_from_flags(
 ) -> Any | None:
     """Compose Hydra override strings into a typed ``VariationsCfg`` instance.
 
-    Builds the schema from :func:`build_schema`, composes the overrides
-    against it, and converts the result to typed dataclass form via
-    :func:`omegaconf.OmegaConf.to_object`. Safe to call repeatedly:
-    :class:`~hydra.core.global_hydra.GlobalHydra` is cleared on entry.
+    Builds the schema and applies the passed overrides to it, returning the modified dataclass.
 
     Args:
         variations: ``{asset_name: [variation, ...]}`` mapping that defines
@@ -91,9 +89,33 @@ def load_cfg_from_flags(
     ConfigStore.instance().store(name="arena_variations_schema", node=schema_cls)
     if GlobalHydra.instance().is_initialized():
         GlobalHydra.instance().clear()
-    with initialize(version_base=None, config_path=None):
-        composed = compose(config_name="arena_variations_schema", overrides=hydra_overrides)
+    try:
+        with initialize(version_base=None, config_path=None):
+            composed = compose(config_name="arena_variations_schema", overrides=hydra_overrides)
+    except ConfigCompositionException as exc:
+        _raise_unknown_override_error(variations, hydra_overrides, exc)
     return OmegaConf.to_object(composed)
+
+
+def _format_available_variation_paths(variations: dict[str, list[VariationBase]]) -> str:
+    lines: list[str] = []
+    for host_name in sorted(variations.keys()):
+        for variation in variations[host_name]:
+            lines.append(f"  {host_name}.{variation.name}")
+    return "\n".join(lines) if lines else "  (none)"
+
+
+def _raise_unknown_override_error(
+    variations: dict[str, list[VariationBase]],
+    hydra_overrides: list[str],
+    cause: ConfigCompositionException,
+) -> None:
+    override_hint = ", ".join(hydra_overrides)
+    raise ValueError(
+        f"Unknown Hydra variation override ({override_hint}). "
+        "No matching host or variation name in this environment.\n"
+        f"Available variation paths:\n{_format_available_variation_paths(variations)}"
+    ) from cause
 
 
 def apply_overrides(

@@ -137,8 +137,20 @@ def _flatten_paths(prefix: str, data: dict[str, Any], *, skip_keys: set[str]) ->
         if isinstance(value, dict) and value:
             lines.extend(_flatten_paths(path, value, skip_keys=set()))
         else:
-            lines.append(f"{path} = {value!r}")
+            lines.append(f"{path} = {_format_value(value)}")
     return lines
+
+
+def _format_value(value: Any) -> str:
+    """Format a cfg value as a Hydra-CLI-compatible string.
+
+    Lists are rendered without spaces after commas so the output can be pasted
+    directly onto the command line (e.g. ``[-0.005,-0.005,-0.005]``).
+    """
+    if isinstance(value, list):
+        inner = ",".join(_format_value(item) for item in value)
+        return f"[{inner}]"
+    return repr(value)
 
 
 def _cfg_to_plain(obj: Any) -> Any:
