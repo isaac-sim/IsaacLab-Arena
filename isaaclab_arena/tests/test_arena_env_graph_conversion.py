@@ -5,11 +5,10 @@
 
 """End-to-end test for graph-spec -> live IsaacLabArenaEnvironment conversion.
 
-Lives apart from ``test_arena_env_graph_spec.py`` on purpose: that file's in-process tests call
-``spec.validate()``, which transitively imports ``pxr`` (relation-class resolution). The
-persistent in-process ``SimulationApp`` here cannot start if ``pxr`` was imported first, so the
-sim test must not share a process with those pxr-importing tests. Keeping it solo lets the app
-launch cleanly before any ``pxr`` import.
+Marked ``with_subprocess`` so CI runs these in the subprocess job, not Phase 1. That file's
+in-process tests call ``spec.validate()``, which transitively imports ``pxr`` (relation-class
+resolution). The persistent in-process ``SimulationApp`` here cannot start if ``pxr`` was imported
+first, so this sim test must not share a pytest session with those pxr-importing tests.
 """
 
 from pathlib import Path
@@ -41,6 +40,7 @@ def _test_arena_env_graph_conversion_builds_sequential_pick_and_place_task(simul
     return True
 
 
+@pytest.mark.with_subprocess
 def test_arena_env_graph_conversion_builds_sequential_pick_and_place_task():
     pytest.importorskip("isaaclab.app")
 
@@ -96,6 +96,7 @@ def _test_get_arena_builder_from_cli_builds_env_from_graph_yaml(simulation_app):
     return True
 
 
+@pytest.mark.with_subprocess
 def test_get_arena_builder_from_cli_builds_env_from_graph_yaml():
     pytest.importorskip("isaaclab.app")
 
