@@ -41,19 +41,19 @@ def format_predicate_groups(predicate_groups: PredicateGroups) -> dict[str, list
 
     if isinstance(predicate_groups, list):
         if len(predicate_groups) == 0:
-            raise ValueError("FineGrainedSubtask.predicate_groups list cannot be empty")
+            raise ValueError("FineGrainedProgressObjective.predicate_groups list cannot be empty")
         return {DEFAULT_GROUP_NAME: _format_group_chain(predicate_groups, group_name=DEFAULT_GROUP_NAME)}
 
     if isinstance(predicate_groups, dict):
         if len(predicate_groups) == 0:
-            raise ValueError("FineGrainedSubtask.predicate_groups dict cannot be empty")
+            raise ValueError("FineGrainedProgressObjective.predicate_groups dict cannot be empty")
         return {
             group_name: _format_group_chain(value, group_name=group_name)
             for group_name, value in predicate_groups.items()
         }
 
     raise TypeError(
-        f"FineGrainedSubtask.predicate_groups must be a callable, list, or dict; got {type(predicate_groups).__name__}"
+        f"FineGrainedProgressObjective.predicate_groups must be a callable, list, or dict; got {type(predicate_groups).__name__}"
     )
 
 
@@ -111,22 +111,22 @@ def normalize_scores(
 
 
 @dataclass
-class FineGrainedSubtask:
+class FineGrainedProgressObjective:
     """Configuration object that defines a scored predicate sequence to track progress within a task.
 
-    A FineGrainedSubtask specifies what the predicate state machine should track.
-    Each FineGrainedSubtask holds one or more sequential predicate chains (groups).
+    A FineGrainedProgressObjective specifies what the predicate state machine should track.
+    Each FineGrainedProgressObjective holds one or more sequential predicate chains (groups).
     Within a group, predicates run in order. Across groups, predicates run in parallel.
 
     Args:
-        name: Identifies the FineGrainedSubtask within the TaskBase.
-        predicate_groups: The sequential predicate chains that define the FineGrainedSubtask.
-        score: Weight of the FineGrainedSubtask in the TaskBase-level overall_score.
-        logical: How completed groups combine to determine if the FineGrainedSubtask is complete.
+        name: Identifies the FineGrainedProgressObjective within the TaskBase.
+        predicate_groups: The sequential predicate chains that define the FineGrainedProgressObjective.
+        score: Weight of the FineGrainedProgressObjective in the TaskBase-level overall_score.
+        logical: How completed groups combine to determine if the FineGrainedProgressObjective is complete.
             Can be "all", "any", or "choose"
         K: Required when logical == "choose". Specifies the number of groups that must be completed
-            to consider the FineGrainedSubtask complete.
-        description: An optional description of the FineGrainedSubtask.
+            to consider the FineGrainedProgressObjective complete.
+        description: An optional description of the FineGrainedProgressObjective.
     """
 
     name: str
@@ -139,15 +139,15 @@ class FineGrainedSubtask:
     canonical_predicate_groups: dict[str, list[tuple[Callable, float]]] = field(init=False, repr=False)
 
     # Index of the parent TaskBase this recipe belongs to. Set automatically by
-    # CompositeTaskBase.get_fine_grained_subtasks() when used with composite tasks.
+    # CompositeTaskBase.get_fine_grained_progress_objectives() when used with composite tasks.
     parent_subtask_idx: int | None = None
 
     def __post_init__(self):
         if not (0.0 <= self.score <= 1.0):
-            raise ValueError(f"FineGrainedSubtask '{self.name}': score must be in [0, 1], got {self.score}")
+            raise ValueError(f"FineGrainedProgressObjective '{self.name}': score must be in [0, 1], got {self.score}")
         if self.logical not in ("all", "any", "choose"):
             raise ValueError(
-                f"FineGrainedSubtask '{self.name}': logical must be in ['all', 'any', 'choose'], got {self.logical}"
+                f"FineGrainedProgressObjective '{self.name}': logical must be in ['all', 'any', 'choose'], got {self.logical}"
             )
 
         # Format the predicate groups into the canonical form and normalize the scores.
@@ -159,13 +159,13 @@ class FineGrainedSubtask:
         num_groups = len(self.canonical_predicate_groups)
         if self.logical == "choose":
             if self.K is None:
-                raise ValueError(f"FineGrainedSubtask '{self.name}': K is required when logical='choose'")
+                raise ValueError(f"FineGrainedProgressObjective '{self.name}': K is required when logical='choose'")
             if not (1 <= self.K <= num_groups):
-                raise ValueError(f"FineGrainedSubtask '{self.name}': K={self.K} but must be in [1, {num_groups}]")
+                raise ValueError(f"FineGrainedProgressObjective '{self.name}': K={self.K} but must be in [1, {num_groups}]")
 
     @property
     def group_names(self) -> list[str]:
-        """Returns the names of the groups in the FineGrainedSubtask."""
+        """Returns the names of the groups in the FineGrainedProgressObjective."""
         return list(self.canonical_predicate_groups.keys())
 
     def get_chain(self, group_name: str) -> list[tuple[Callable, float]]:

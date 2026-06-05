@@ -21,7 +21,7 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
-from isaaclab_arena.tasks.fine_grained_subtask import FineGrainedSubtask
+from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.configclass import (
     check_configclass_field_duplicates,
@@ -362,30 +362,30 @@ class CompositeTaskBase(TaskBase):
 
         return subtask_metrics
 
-    def get_own_fine_grained_subtasks(self) -> list[FineGrainedSubtask]:
-        """Composite-level FineGrainedSubtasks.
+    def get_own_fine_grained_progress_objectives(self) -> list[FineGrainedProgressObjective]:
+        """Composite-level FineGrainedProgressObjectives.
 
-        These are added on top of whatever FGSs the child subtasks declare and are not gated.
+        These are added on top of whatever FGPOs the child subtasks declare and are not gated.
         """
         return []
 
-    def get_fine_grained_subtasks(self) -> list[FineGrainedSubtask]:
-        """Concatenate child subtasks's FineGrainedSubtasks with namespace prefixes.
+    def get_fine_grained_progress_objectives(self) -> list[FineGrainedProgressObjective]:
+        """Concatenate child subtasks's FineGrainedProgressObjectives with namespace prefixes.
 
-        Each child's FGS gets a new name (subtask_{i}/{original_name}) and a parent_subtask_idx = i tag.
+        Each child's FGPO gets a new name (subtask_{i}/{original_name}) and a parent_subtask_idx = i tag.
         """
-        fgs_list: list[FineGrainedSubtask] = []
+        fgpo_list: list[FineGrainedProgressObjective] = []
         for i, child in enumerate(self.subtasks):
-            for fgs in child.get_fine_grained_subtasks():
-                fgs_list.append(
+            for fgpo in child.get_fine_grained_progress_objectives():
+                fgpo_list.append(
                     dataclasses.replace(
-                        fgs,
-                        name=f"subtask_{i}/{fgs.name}",
+                        fgpo,
+                        name=f"subtask_{i}/{fgpo.name}",
                         parent_subtask_idx=i,
                     )
                 )
-        fgs_list.extend(self.get_own_fine_grained_subtasks())
-        return fgs_list
+        fgpo_list.extend(self.get_own_fine_grained_progress_objectives())
+        return fgpo_list
 
     def _validate_consistent_mimic_eef_names(self, arm_mode: ArmMode) -> set[str]:
         "Check that all subtasks have the same Mimic eef_names."

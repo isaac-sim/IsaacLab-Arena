@@ -6,7 +6,19 @@ allowed-tools: Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker im
 
 # Dev Container
 
-Arena uses a single Docker container (`isaaclab_arena-latest`) as the dev, test, training, and eval environment. There is no separate dev container.
+Arena uses a single Docker container as the dev, test, training, and eval environment. There is no separate dev container.
+
+Each clone of the repo on the host machine gets its own container, so separate clones can run in parallel. The image (`isaaclab_arena:latest`) is shared, but the container name is `isaaclab_arena-latest` for the folder named `IsaacLab-Arena` and `isaaclab_arena-latest-<suffix>` for folders named `IsaacLab-Arena_<suffix>` (`run_docker.sh` derives the suffix automatically).
+
+## Discover this clone's container (once per session)
+
+Never hardcode the name. At the start of a session, resolve the container mounting this clone into `ARENA_CONTAINER` (empty result = none running, so start one below):
+
+```bash
+ARENA_CONTAINER=$(docker ps --filter "volume=$(git rev-parse --show-toplevel)" --format '{{.Names}}' | head -1)
+```
+
+Run the commands below in that same shell so `$ARENA_CONTAINER` stays set (or substitute the literal name).
 
 ## Start or attach
 
@@ -14,7 +26,7 @@ Arena uses a single Docker container (`isaaclab_arena-latest`) as the dev, test,
 ./docker/run_docker.sh
 ```
 
-Idempotent: builds the image if it does not exist, starts the container if it is not running, then attaches.
+Idempotent: builds the (shared) image if it does not exist, starts this clone's container if it is not running, then attaches. The container name is auto-derived from the clone directory; pass `-s <suffix>` to override it.
 
 ## Common flag combinations
 
@@ -35,7 +47,7 @@ Example with custom mounts:
 ## Run a command in the already-running container
 
 ```bash
-docker exec isaaclab_arena-latest bash -c \
+docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && <command>"
 ```
 
@@ -50,7 +62,7 @@ Inside the container, `python` is aliased to `/isaac-sim/python.sh`. Both forms 
 A container is up and importable when:
 
 ```bash
-docker exec isaaclab_arena-latest bash -c \
+docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "/isaac-sim/python.sh -c 'import isaaclab_arena; print(isaaclab_arena.__file__)'"
 ```
 

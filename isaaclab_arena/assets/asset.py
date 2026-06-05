@@ -3,6 +3,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from isaaclab_arena.variations.variation_base import VariationBase
+
 
 class Asset:
     """
@@ -17,3 +24,26 @@ class Asset:
         assert name is not None, "Name is required for all assets"
         self.name = name
         self.tags = tags
+        self.variations: dict[str, VariationBase] = {}
+
+    def add_variation(self, variation: VariationBase) -> None:
+        """Attach a variation under its class-level ``name``, replacing any existing one.
+
+        Subclasses call this from their ``__init__`` to declare the variations
+        they support.
+        """
+        assert (
+            variation.name not in self.variations
+        ), f"Asset '{self.name}' ({type(self).__name__}) already has variation '{variation.name}' attached."
+        self.variations[variation.name] = variation
+
+    def get_variation(self, name: str) -> VariationBase:
+        """Return the variation with the given name."""
+        assert (
+            name in self.variations
+        ), f"Asset '{self.name}' ({type(self).__name__}) does not have variation '{name}' attached."
+        return self.variations[name]
+
+    def get_variations(self) -> list[VariationBase]:
+        """Return every variation attached to this asset, enabled or not."""
+        return list(self.variations.values())

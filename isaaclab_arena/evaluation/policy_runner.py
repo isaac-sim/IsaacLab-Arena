@@ -73,7 +73,7 @@ def rollout_policy(
         policy.reset()
         # Determine language instruction: CLI/job-level override takes precedence over the task's own
         # description. Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing).
-        task_description = language_instruction or env.unwrapped.cfg.isaaclab_arena_env.task.get_task_description()
+        task_description = language_instruction or env.unwrapped.cfg.task_description
         policy.set_task_description(task_description)
 
         # Setup progress bar based on num_steps or num_episodes
