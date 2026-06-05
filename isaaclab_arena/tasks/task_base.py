@@ -71,14 +71,20 @@ class TaskBase(ABC):
     def get_fine_grained_progress_objectives(self) -> list[FineGrainedProgressObjective]:
         return []
 
+    def _resolve_fine_grained_progress_objectives(self) -> list[FineGrainedProgressObjective]:
+        # Resolve once and cache so the reset (events) and step (recorder) cfgs share the same objective objects.
+        if not hasattr(self, "_resolved_fine_grained_progress_objectives"):
+            self._resolved_fine_grained_progress_objectives = self.get_fine_grained_progress_objectives()
+        return self._resolved_fine_grained_progress_objectives
+
     def get_fine_grained_progress_objective_events_cfg(self) -> Any:
-        fine_grained_progress_objectives = self.get_fine_grained_progress_objectives()
+        fine_grained_progress_objectives = self._resolve_fine_grained_progress_objectives()
         if not fine_grained_progress_objectives:
             return None
         return make_fine_grained_progress_objective_events_cfg(fine_grained_progress_objectives)
 
     def get_fine_grained_progress_objective_recorder_cfg(self) -> Any:
-        fine_grained_progress_objectives = self.get_fine_grained_progress_objectives()
+        fine_grained_progress_objectives = self._resolve_fine_grained_progress_objectives()
         if not fine_grained_progress_objectives:
             return None
         return make_fine_grained_progress_objective_recorder_cfg(fine_grained_progress_objectives)

@@ -171,11 +171,11 @@ class FineGrainedProgressObjectiveRunner:
     def reset(self, env_ids) -> None:
         """Reset the state machine runner for the provided envs."""
 
+        env_ids = torch.as_tensor(env_ids, dtype=torch.long, device=self.device)
         for group_name in self.fine_grained_progress_objective.group_names:
-            for eid in env_ids:
-                self.current_index[group_name][eid] = 0
-                self.group_score[group_name][eid] = 0.0
-                self.group_complete[group_name][eid] = False
+            self.current_index[group_name][env_ids] = 0
+            self.group_score[group_name][env_ids] = 0.0
+            self.group_complete[group_name][env_ids] = False
 
     def is_complete(self) -> torch.Tensor:
         """Check if the FineGrainedProgressObjective is complete for all envs."""
@@ -314,7 +314,7 @@ class FineGrainedProgressRecorder(RecorderTerm):
     """Per-step hook that ticks the FineGrainedProgressTracker. Records nothing.
 
     Registered as a recorder term so it runs once per env.step via
-    record_post_step. It advances the state nachine and publishes the per-step state/events to
+    record_post_step. It advances the state machine and publishes the per-step state/events to
     env.extras["fine_grained_progress"], then returns
     (None, None) so nothing is written to the recorded episode data.
 
