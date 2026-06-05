@@ -254,15 +254,7 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
             )
         )
 
-        if args_cli.task_description is not None:
-            task_description = args_cli.task_description
-        else:
-            object_label = args_cli.object.replace("_", " ")
-            destination_label = args_cli.destination.replace("_", " ")
-            task_description = (
-                f"Pick up the {object_label} from the shelf and place it onto the "
-                f"{destination_label} on the same shelf next to it."
-            )
+        task_description = args_cli.task_description
 
         def env_cfg_callback(env_cfg):
             from isaaclab.managers import EventTermCfg
@@ -316,11 +308,8 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         parser.add_argument(
             "--task_description",
             type=str,
-            default=None,
-            help=(
-                "Override the natural-language task description. Defaults to a template "
-                "derived from --object and --destination."
-            ),
+            default="move the apple to the plate",
+            help="Natural-language task description for language-conditioned policies.",
         )
         # The static task is upper-body-only by design, so we lock the 3 waist
         # joints by default. Pass ``--no-lock_waist`` to fall back to the default
