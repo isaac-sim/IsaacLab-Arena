@@ -230,15 +230,13 @@ class ArenaEnvGraphSpec(BaseModel):
 
 def _get_task_state_transition(task: ArenaEnvGraphTaskSpec) -> TaskTransition:
     """Look up the task class via ``TaskRegistry`` and return its declared success transition.
-
-    ``success_state_transition`` declares the assets it acts on as named (``Asset``-typed) parameters
-    (e.g. ``pick_up_object``) plus ``**_`` for the rest. We forward every node-reference task arg as an
-    ``Asset`` keyed by name -- the arg value is the graph node id, used as the asset name -- and the
-    method binds the ones it needs and ignores the others.
     """
     task_cls = TaskRegistry().get_task_by_name(task.type)
     assert task_cls is not None, f"task {task.type} not found in TaskRegistry"
-    asset_args = {name: Asset(name=value) for name, value in task.task_args.items() if isinstance(value, str)}
+    asset_args = {}
+    for name in task_cls.success_transition_asset_args:
+        assert name in task.task_args, f"task {task.id} ({task.type}) is missing required task_arg '{name}'"
+        asset_args[name] = Asset(name=task.task_args[name])
     return task_cls.success_state_transition(**asset_args)
 
 

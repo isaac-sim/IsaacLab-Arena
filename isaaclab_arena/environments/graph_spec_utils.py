@@ -78,6 +78,8 @@ def assert_references_exist(nodes: list[Any], tasks: list[Any], state_specs: lis
                 ), f"Constraint '{constraint.id}' references unknown child node '{constraint.child}'"
 
     # TODO(xinjieyao, 2026-06-04): add check for task constraints
+
+
 def assert_task_wiring(tasks: list[Any], state_specs: list[Any]) -> None:
     """Ensure each task's ``initial_state_spec_id`` / ``success_state_spec_id`` references a state.
 

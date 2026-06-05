@@ -24,6 +24,9 @@ from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 @register_task
 class RotateRevoluteJointTask(TaskBase):
+
+    success_transition_asset_args = ("openable_object",)
+
     def __init__(
         self,
         openable_object: Openable,

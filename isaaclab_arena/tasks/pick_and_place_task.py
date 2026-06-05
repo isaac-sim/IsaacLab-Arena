@@ -46,6 +46,8 @@ class PickAndPlaceTask(TaskBase):
     The factory receives ``arm_mode`` from the env builder and returns a constructed cfg.
     """
 
+    success_transition_asset_args = ("pick_up_object", "destination_location")
+
     def __init__(
         self,
         pick_up_object: Asset,
