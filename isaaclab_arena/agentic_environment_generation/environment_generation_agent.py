@@ -273,7 +273,13 @@ class EnvironmentGenerationAgent:
             temperature=temperature,
             max_tokens=max_tokens,
         )
-        text, route = extract_response_text(resp.choices[0].message)
+        choices = getattr(resp, "choices", None) or []
+        if not choices:
+            raise RuntimeError(
+                f"Model {self.model!r} returned HTTP 200 with no choices "
+                "(content filter / guardrail / rate-limit response with empty body)."
+            )
+        text, route = extract_response_text(choices[0].message)
         if route == "empty":
             raise RuntimeError(
                 f"Model {self.model!r} returned an empty structured-outputs envelope. "

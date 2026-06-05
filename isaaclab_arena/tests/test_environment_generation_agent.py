@@ -204,6 +204,18 @@ class TestGenerateSpec:
         assert "<<TASKS-MARKER>>" in user_msg
         assert "user wants avocado on kitchen" in user_msg
 
+    def test_raises_when_response_has_no_choices(self, agent):
+        resp = MagicMock()
+        resp.choices = []
+        agent.client.chat.completions.create.return_value = resp
+        with pytest.raises(RuntimeError, match="no choices"):
+            agent.generate_spec(
+                "p",
+                asset_catalog=_catalog("catalog"),
+                relation_catalog=_relation_catalog("RELATIONS"),
+                task_catalog=_task_catalog("TASKS"),
+            )
+
 
 # ---------------------------------------------------------------------------
 # Live endpoint (network + auth required)
