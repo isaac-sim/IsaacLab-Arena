@@ -24,6 +24,13 @@ Commands that touch Isaac Sim or Arena's package code (tests, training, evaluati
 
 Each clone gets its own container (shared image, per-clone name), so clones run in parallel. **Don't hardcode the container name** — use the `dev-container` skill to build, start, attach to, discover, or exec into this clone's container.
 
+Run as the host user, not root.
+
+```bash
+docker exec "$ARENA_CONTAINER" su $(id -un) -c \
+  "cd /workspaces/isaaclab_arena && <command>"
+```
+
 Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, isort, pyupgrade, codespell) runs **on the host**.
 
 ## Repository layout
@@ -39,6 +46,7 @@ Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, i
 
 - Prefer `assert condition, "message"` over `if not condition: raise ValueError("message")` for internal invariant checks. (Formatting, imports, and typing are enforced by `pre-commit` — see `.pre-commit-config.yaml`.)
 - PR bodies follow `.github/pull_request_template.md` — a one-line Summary plus 2–5 detail bullets. Resist the agent default of long, multi-section descriptions.
+- Attribute docstrings should be included below the attribute, rather than in the class-level docstring.
 
 ## Conventions
 

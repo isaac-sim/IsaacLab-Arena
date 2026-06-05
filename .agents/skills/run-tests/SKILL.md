@@ -27,7 +27,7 @@ Substitute that name for `$ARENA_CONTAINER` in the commands below — a shell va
 The fastest of the three. Useful on its own when iterating on changes that don't touch rendering or subprocess paths.
 
 ```bash
-docker exec "$ARENA_CONTAINER" bash -c \
+docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
    /isaac-sim/python.sh -m pytest -sv \
    -m 'not with_cameras and not with_subprocess' isaaclab_arena/tests"
@@ -36,7 +36,7 @@ docker exec "$ARENA_CONTAINER" bash -c \
 ## Phase 2 — with cameras
 
 ```bash
-docker exec "$ARENA_CONTAINER" bash -c \
+docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
    /isaac-sim/python.sh -m pytest -sv \
    -m 'with_cameras and not with_subprocess' isaaclab_arena/tests"
@@ -45,7 +45,7 @@ docker exec "$ARENA_CONTAINER" bash -c \
 ## Phase 3 — with subprocess
 
 ```bash
-docker exec "$ARENA_CONTAINER" bash -c \
+docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
    /isaac-sim/python.sh -m pytest -sv \
    -m 'with_subprocess' isaaclab_arena/tests"
@@ -55,12 +55,12 @@ docker exec "$ARENA_CONTAINER" bash -c \
 
 ```bash
 # single file
-docker exec "$ARENA_CONTAINER" bash -c \
+docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
    /isaac-sim/python.sh -m pytest isaaclab_arena/tests/test_asset_registry.py"
 
 # single function
-docker exec "$ARENA_CONTAINER" bash -c \
+docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
    /isaac-sim/python.sh -m pytest isaaclab_arena/tests/test_asset_registry.py::test_default_assets_registered"
 ```

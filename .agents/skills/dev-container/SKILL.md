@@ -47,7 +47,7 @@ Example with custom mounts:
 ## Run a command in the already-running container
 
 ```bash
-docker exec "$ARENA_CONTAINER" bash -c \
+docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && <command>"
 ```
 
@@ -62,7 +62,7 @@ Inside the container, `python` is aliased to `/isaac-sim/python.sh`. Both forms 
 A container is up and importable when:
 
 ```bash
-docker exec "$ARENA_CONTAINER" bash -c \
+docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "/isaac-sim/python.sh -c 'import isaaclab_arena; print(isaaclab_arena.__file__)'"
 ```
 
