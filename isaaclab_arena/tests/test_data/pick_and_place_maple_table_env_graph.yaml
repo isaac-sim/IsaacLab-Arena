@@ -61,7 +61,7 @@ state_specs:
     subject: maple_table_robolab_table
   - id: state_spec_0_rubiks_cube_hot3d_robolab_on_maple_table_robolab_table
     kind: 'on'
-    parent: maple_table_robolab_table
+    reference: maple_table_robolab_table
     subject: rubiks_cube_hot3d_robolab
   - id: state_spec_0_rubiks_cube_hot3d_robolab_position_limits
     kind: position_limits
@@ -73,7 +73,7 @@ state_specs:
       y_max: -0.1
   - id: state_spec_0_bowl_ycb_robolab_on_maple_table_robolab_table
     kind: 'on'
-    parent: maple_table_robolab_table
+    reference: maple_table_robolab_table
     subject: bowl_ycb_robolab
   - id: state_spec_0_bowl_ycb_robolab_position_limits
     kind: position_limits
@@ -103,7 +103,7 @@ state_specs:
     subject: maple_table_robolab_table
   - id: state_spec_1_bowl_ycb_robolab_on_maple_table_robolab_table
     kind: 'on'
-    parent: maple_table_robolab_table
+    reference: maple_table_robolab_table
     subject: bowl_ycb_robolab
   - id: state_spec_1_bowl_ycb_robolab_position_limits
     kind: position_limits
@@ -115,7 +115,7 @@ state_specs:
       y_max: -0.1
   - id: state_spec_1_rubiks_cube_hot3d_robolab_on_bowl_ycb_robolab
     kind: 'on'
-    parent: bowl_ycb_robolab
+    reference: bowl_ycb_robolab
     subject: rubiks_cube_hot3d_robolab
   - id: state_spec_1_mug_ycb_robolab_at_position
     kind: at_position
@@ -136,15 +136,15 @@ state_specs:
     subject: maple_table_robolab_table
   - id: state_spec_2_bowl_ycb_robolab_on_maple_table_robolab_table
     kind: 'on'
-    parent: maple_table_robolab_table
+    reference: maple_table_robolab_table
     subject: bowl_ycb_robolab
   - id: state_spec_2_rubiks_cube_hot3d_robolab_on_bowl_ycb_robolab
     kind: 'on'
-    parent: bowl_ycb_robolab
+    reference: bowl_ycb_robolab
     subject: rubiks_cube_hot3d_robolab
   - id: state_spec_2_mug_ycb_robolab_on_bowl_ycb_robolab
     kind: 'on'
-    parent: bowl_ycb_robolab
+    reference: bowl_ycb_robolab
     subject: mug_ycb_robolab
   task_constraints:
   - id: state_spec_2_droid_reach_bowl_ycb_robolab

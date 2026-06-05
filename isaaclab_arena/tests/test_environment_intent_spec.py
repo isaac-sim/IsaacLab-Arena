@@ -100,7 +100,7 @@ def test_environment_intent_spec_accepts_valid_task_params():
         "initial_state_graph": [{
             "kind": "on",
             "subject": "cube",
-            "parent": "kitchen",
+            "reference": "kitchen",
             "params": {},
         }],
         "tasks": [{

@@ -70,8 +70,8 @@ _MINIMAL_SPEC: dict = {
         {"query": "bowl", "role": "foreground", "category_tags": [], "instance_name": None},
     ],
     "initial_state_graph": [
-        {"kind": "on", "subject": "avocado", "parent": "kitchen"},
-        {"kind": "on", "subject": "bowl", "parent": "kitchen"},
+        {"kind": "on", "subject": "avocado", "reference": "kitchen"},
+        {"kind": "on", "subject": "bowl", "reference": "kitchen"},
     ],
     "tasks": [{
         "kind": "PickAndPlaceTask",

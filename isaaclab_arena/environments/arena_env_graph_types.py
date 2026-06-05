@@ -147,16 +147,18 @@ class SpatialRelationSpec(BaseModel):
     subject: str = Field(
         min_length=1,
         description=(
-            "Node this relation applies to. For binary relations (e.g. 'on'), this is the child "
-            "object placed relative to ``parent``. For unary relations (e.g. 'is_anchor', "
-            "'position_limits'), this is the anchored or constrained object."
+            "Object (Item.query) this relation applies to. For binary relations "
+            "(e.g. 'on'), this is the object placed relative to ``reference``. "
+            "For unary relations (e.g. 'is_anchor', 'position_limits'), this is "
+            "the anchored or constrained object."
         ),
     )
-    parent: str | None = Field(
+    reference: str | None = Field(
         default=None,
         description=(
-            "Parent asset for binary relations only — e.g. for 'on', the surface the subject "
-            "rests on. Must be null for unary relations."
+            "Reference (Item.query or background name) for binary relations only "
+            "— e.g. for 'on', the surface the subject rests on. Must be null "
+            "for unary relations."
         ),
     )
     # TODO(qianl): free-form ``dict`` emits ``additionalProperties: true``,
@@ -172,9 +174,9 @@ class SpatialRelationSpec(BaseModel):
         assert registry.is_registered(self.kind), f"Unknown relation kind '{self.kind}'"
         relation_cls = registry.get_object_relation_by_name(self.kind)
         if relation_cls.is_unary():
-            assert self.parent is None, f"Relation kind '{self.kind}' must not define relation.parent"
+            assert self.reference is None, f"Relation kind '{self.kind}' must not define relation.reference"
         else:
-            assert self.parent is not None, f"Relation kind '{self.kind}' requires relation.parent"
+            assert self.reference is not None, f"Relation kind '{self.kind}' requires relation.reference"
         return self
 
 

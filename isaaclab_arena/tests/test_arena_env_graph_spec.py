@@ -62,31 +62,31 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
     cube_limits = initial_state.spatial_constraints[2]
     assert cube_limits.kind == "position_limits"
     assert cube_limits.subject == "rubiks_cube_hot3d_robolab"
-    assert cube_limits.parent is None
+    assert cube_limits.reference is None
     assert cube_limits.params == {"x_min": 0.55, "x_max": 0.70, "y_min": -0.40, "y_max": -0.10}
 
     initial_mug_position = initial_state.spatial_constraints[5]
     assert initial_mug_position.kind == "at_position"
     assert initial_mug_position.subject == "mug_ycb_robolab"
-    assert initial_mug_position.parent is None
+    assert initial_mug_position.reference is None
     assert initial_mug_position.params == {"x": 0.65, "y": 0.25, "z": 0.85}
 
     final_state = spec.state_specs_by_id["state_spec_1"]
     cube_on_bowl = final_state.spatial_constraints[3]
     assert cube_on_bowl.kind == "on"
-    assert cube_on_bowl.parent == "bowl_ycb_robolab"
+    assert cube_on_bowl.reference == "bowl_ycb_robolab"
     assert cube_on_bowl.subject == "rubiks_cube_hot3d_robolab"
 
     final_mug_position = final_state.spatial_constraints[4]
     assert final_mug_position.kind == "at_position"
     assert final_mug_position.subject == "mug_ycb_robolab"
-    assert final_mug_position.parent is None
+    assert final_mug_position.reference is None
     assert final_mug_position.params == {"x": 0.65, "y": 0.25, "z": 0.85}
 
     table_anchor = initial_state.spatial_constraints[0]
     assert table_anchor.kind == "is_anchor"
     assert table_anchor.subject == "maple_table_robolab_table"
-    assert table_anchor.parent is None
+    assert table_anchor.reference is None
     assert relation_class_for_spatial_constraint_type(table_anchor.kind) is IsAnchor
     assert relation_class_for_spatial_constraint_type(cube_limits.kind) is PositionLimits
     assert relation_class_for_spatial_constraint_type(initial_mug_position.kind) is AtPosition
@@ -106,7 +106,7 @@ def test_arena_env_graph_spec_parses_optional_task_constraints_and_at_position()
     assert state_spec.task_constraints == []
     assert fixed_position.kind == "at_position"
     assert fixed_position.subject == "cube"
-    assert fixed_position.parent is None
+    assert fixed_position.reference is None
     assert fixed_position.params == {"x": 0.1, "y": 0.2, "z": 0.3}
 
 
@@ -123,7 +123,7 @@ def test_arena_env_graph_spec_validate_rejects_mutated_invalid_relationship_shap
     constraint = spec.state_specs[0].spatial_constraints[0]
     constraint.kind = "on"
 
-    with pytest.raises(AssertionError, match="requires relation.parent"):
+    with pytest.raises(AssertionError, match="requires relation.reference"):
         spec.validate()
 
 
@@ -249,14 +249,14 @@ def test_arena_env_graph_spec_rejects_invalid_data():
             "subject",
         ),
         (
-            "binary relationship missing parent",
+            "binary relationship missing reference",
             lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("kind", "on"),
-            "requires relation.parent",
+            "requires relation.reference",
         ),
         (
-            "unary relationship with parent",
-            lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("parent", "cube"),
-            "must not define relation.parent",
+            "unary relationship with reference",
+            lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("reference", "cube"),
+            "must not define relation.reference",
         ),
         (
             "missing node parent reference",
