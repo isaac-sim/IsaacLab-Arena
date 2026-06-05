@@ -170,8 +170,9 @@ class ArenaEnvGraphSpec(BaseModel):
             f"unresolved graph must define exactly the initial state (state_spec_0); got {len(self.state_specs)} state"
             " specs"
         )
-        # state_spec_0 is the given initial state, and the transitions chain the rest off the task list.
-        states: list[ArenaEnvGraphStateSpec] = [self.state_specs[0]]
+        # state_spec_0 is the given initial state -- a full snapshot, not a delta -- and the transitions
+        # chain the rest off the task list.
+        states: list[ArenaEnvGraphStateSpec] = [self.state_specs[0].model_copy(update={"is_delta": False})]
         out_tasks: list[ArenaEnvGraphTaskSpec] = []
 
         for i, curr_task in enumerate(self.tasks):
@@ -195,6 +196,7 @@ class ArenaEnvGraphSpec(BaseModel):
             nodes=self.nodes,
             tasks=out_tasks,
             state_specs=states,
+            cli_override_specs=self.cli_override_specs,
         )
 
     @property

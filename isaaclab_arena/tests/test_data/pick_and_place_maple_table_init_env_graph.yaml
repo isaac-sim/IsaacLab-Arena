@@ -52,7 +52,6 @@ tasks:
 
 state_specs:
   - id: state_spec_0
-    is_delta: false
     spatial_constraints:
       - id: state_spec_0_maple_table_robolab_table_is_anchor
         type: is_anchor
