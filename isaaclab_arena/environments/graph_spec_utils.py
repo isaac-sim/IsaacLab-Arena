@@ -3,87 +3,29 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 from collections.abc import Callable, Iterator
-from enum import Enum
 from numbers import Real
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 
 if TYPE_CHECKING:
-    from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpatialConstraintType
+    import argparse
+
+    from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphCliOverrideSpec, ArenaEnvGraphNodeSpec
     from isaaclab_arena.relations.relations import RelationBase
 
 
-def as_dict(data: Any, spec_name: str) -> dict[str, Any]:
-    """Require a YAML section to be a mapping before parsing it."""
-    assert isinstance(data, dict), f"{spec_name} must be a dict, got {type(data).__name__}"
-    return data
-
-
-def parse_list(data: dict[str, Any], key: str, parser: Callable[[Any], Any]) -> list[Any]:
-    """Parse a list field, treating a missing field as an empty list."""
-    values = data.get(key, [])
-    assert isinstance(values, list), f"Field '{key}' must be a list"
-    return [parser(value) for value in values]
-
-
-def required_str(data: dict[str, Any], key: str) -> str:
-    """Read a required non-empty string field."""
-    value = data.get(key)
-    assert isinstance(value, str) and value, f"Missing required string field '{key}'"
-    return value
-
-
-def optional_str(data: dict[str, Any], key: str) -> str | None:
-    """Read an optional string field without inventing a default value."""
-    value = data.get(key)
-    assert value is None or isinstance(value, str), f"Optional field '{key}' must be a string when set"
-    return value
-
-
-def optional_dict(data: dict[str, Any], key: str) -> dict[str, Any]:
-    """Read an optional mapping field and return a mutable copy."""
-    value = data.get(key, {})
-    assert value is None or isinstance(value, dict), f"Optional field '{key}' must be a dict when set"
-    return dict(value or {})
-
-
-def required_number_sequence(data: dict[str, Any], key: str, length: int) -> tuple[float, ...]:
-    """Read a fixed-length numeric list such as a position or quaternion."""
-    value = data.get(key)
-    assert isinstance(value, (list, tuple)), f"Missing required numeric sequence field '{key}'"
-    assert len(value) == length, f"Field '{key}' must contain {length} numbers"
+def coerce_number_sequence(value: Any, length: int, field_name: str) -> tuple[float, ...]:
+    """Coerce a fixed-length numeric list or tuple (e.g. position or quaternion)."""
+    assert isinstance(value, (list, tuple)), f"Field '{field_name}' must be a list or tuple of {length} numbers"
+    assert len(value) == length, f"Field '{field_name}' must contain exactly {length} numbers, got {len(value)}"
     assert all(
         isinstance(item, Real) and not isinstance(item, bool) for item in value
-    ), f"Field '{key}' must contain only numbers"
+    ), f"Field '{field_name}' must contain only numbers"
     return tuple(float(item) for item in value)
-
-
-def required_enum(data: dict[str, Any], key: str, enum_type: type[Enum]) -> Enum:
-    """Read a required enum field from its YAML string value."""
-    value = data.get(key)
-    assert value is not None, f"Missing required field '{key}'"
-    parsed = parse_enum(value, key, enum_type)
-    assert parsed is not None
-    return parsed
-
-
-def optional_enum(data: dict[str, Any], key: str, enum_type: type[Enum]) -> Enum | None:
-    """Read an optional enum field from its YAML string value."""
-    return parse_enum(data.get(key), key, enum_type)
-
-
-def parse_enum(value: Any, key: str, enum_type: type[Enum]) -> Enum | None:
-    """Convert a YAML string to an enum value and show valid options on failure."""
-    if value is None or isinstance(value, enum_type):
-        return value
-    assert isinstance(value, str), f"Field '{key}' must be a string when set"
-    try:
-        return enum_type(value)
-    except ValueError:
-        valid_values = [enum_value.value for enum_value in enum_type]
-        raise AssertionError(f"Unknown {key} '{value}'. Expected one of {valid_values}") from None
 
 
 def assert_unique_ids(nodes: list[Any], tasks: list[Any], state_specs: list[Any]) -> None:
@@ -158,23 +100,9 @@ def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
     """Check each spatial constraint has the parent/child shape its relation expects."""
     for state_spec in state_specs:
         for constraint in state_spec.spatial_constraints:
-            constraint_type = _enum_value(constraint.type)
-            if constraint_type == "at_pose":
-                # Special: no relation class; pose is supplied directly via params.
-                assert (
-                    "position_xyz" in constraint.params
-                ), f"Spatial constraint '{constraint.id}' of type 'at_pose' requires params.position_xyz"
-                is_unary = True
-            elif constraint_type == "in":
-                # Special: no relation class; semantically a binary parent/child constraint.
-                # TODO(xinjieyao, 2026-05-27): add an `In` relation class so this can resolve through the registry.
-                is_unary = False
-            else:
-                relation_cls = relation_class_for_spatial_constraint_type(constraint.type)
-                assert (
-                    relation_cls is not None
-                ), f"Spatial constraint type '{constraint_type}' is not mapped to a relation class"
-                is_unary = relation_cls.is_unary()
+            relation_cls = relation_class_for_spatial_constraint_type(constraint.type)
+            is_unary = relation_cls.is_unary()
+            constraint_type = constraint.type
 
             if is_unary:
                 assert (
@@ -186,27 +114,54 @@ def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
                 ), f"Spatial constraint '{constraint.id}' of type '{constraint_type}' requires a child node"
 
 
+def assert_cli_override_specs_reference_nodes(
+    nodes: list[ArenaEnvGraphNodeSpec], cli_override_specs: list[ArenaEnvGraphCliOverrideSpec]
+) -> None:
+    """Check each CLI override uses a unique flag and points to a real node."""
+    node_ids = {node.id for node in nodes}
+    seen_args: set[str] = set()
+    for override in cli_override_specs:
+        assert override.arg not in seen_args, f"Duplicate cli_override arg '--{override.arg}'"
+        seen_args.add(override.arg)
+        assert (
+            override.target_node_id in node_ids
+        ), f"CLI override '--{override.arg}' targets unknown node '{override.target_node_id}'"
+
+
+def add_cli_override_args(parser: argparse.ArgumentParser, override_specs: list[ArenaEnvGraphCliOverrideSpec]) -> None:
+    """Add each declared override to the CLI ``parser`` as a ``--flag``.
+
+    Each flag defaults to `None`, so an omitted flag falls back to the node's YAML-specified asset.
+
+    A declared flag that collides with one already on the parser (a built-in like ``--num_envs``
+    or ``--seed``, or any flag added by ``AppLauncher.add_app_launcher_args``) is rejected.
+    """
+    for override in override_specs:
+        flag = f"--{override.arg}"
+        # _option_string_actions maps every registered option string ('--num_envs') to its action
+        assert flag not in parser._option_string_actions, (  # noqa: SLF001 (introspect registered flags)
+            f"CLI override flag '{flag}' (node '{override.target_node_id}') is already a parser flag "
+            "(e.g. --num_envs/--seed or an AppLauncher flag); rename its 'arg' in the YAML."
+        )
+        parser.add_argument(
+            flag,
+            type=str,
+            default=None,
+            help=f"Override the asset behind graph node '{override.target_node_id}'.",
+        )
+
+
 def _add_id_location(id_locations: dict[str, list[str]], spec_id: str, location: str) -> None:
     id_locations.setdefault(spec_id, []).append(location)
 
 
-def _enum_value(value: Any) -> Any:
-    return getattr(value, "value", value)
+def relation_class_for_spatial_constraint_type(constraint_type: str) -> type[RelationBase]:
+    """Resolve a spatial-constraint type string to its registered ``RelationBase`` subclass.
 
-
-def relation_class_for_spatial_constraint_type(
-    constraint_type: "ArenaEnvGraphSpatialConstraintType",
-) -> "type[RelationBase] | None":
-    """Resolve a spatial-constraint enum member to its RelationBase subclass.
-
-    Returns None for enum members that have no registered class yet (e.g. AT_POSE,
-    handled via set_initial_pose; IN, not yet supported by the solver).
-    # TODO(xinjieyao, 2026-05-28): add support for AT_POSE and IN.
+    Expect a constraint_type already validated against ``ObjectRelationLibraryRegistry``.
+    Unregistered names results in a registry lookup error.
     """
-    registry = ObjectRelationLibraryRegistry()
-    if registry.is_registered(constraint_type.value):
-        return registry.get_object_relation_by_name(constraint_type.value)
-    return None
+    return ObjectRelationLibraryRegistry().get_object_relation_by_name(constraint_type)
 
 
 def iter_nested_leaf_values(value: Any, key_path: str = "") -> Iterator[tuple[str, Any]]:

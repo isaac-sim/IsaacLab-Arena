@@ -18,8 +18,11 @@ INSTALL_GROOT="false"
 # Whether to forcefully rebuild the docker image
 # (it takes a while to re-build, but for testing is not really necessary)
 FORCE_REBUILD=false
-# Optional suffix appended to the container name to allow multiple containers
+# Optional suffix appended to the container name to allow multiple containers.
+# When not set explicitly via -s, it is derived from the repo directory name
+# (see below) so each clone gets its own container automatically.
 CONTAINER_SUFFIX=""
+CONTAINER_SUFFIX_EXPLICIT=false
 
 while getopts ":d:m:e:hn:rn:Rn:vn:gn:s:" OPTION; do
     case $OPTION in
@@ -53,6 +56,7 @@ while getopts ":d:m:e:hn:rn:Rn:vn:gn:s:" OPTION; do
             ;;
         s)
             CONTAINER_SUFFIX="-${OPTARG}"
+            CONTAINER_SUFFIX_EXPLICIT=true
             ;;
         h)
             script_name=$(basename "$0")
@@ -70,7 +74,8 @@ while getopts ":d:m:e:hn:rn:Rn:vn:gn:s:" OPTION; do
             echo "  -r (Force rebuilding of the docker image.)"
             echo "  -R (Force rebuilding of the docker image, without cache.)"
             echo "  -g (Install GR00T N1.6 dependencies.)"
-            echo "  -s <suffix> (Suffix appended to the container name, allowing multiple containers to run simultaneously.)"
+            echo "  -s <suffix> (Suffix appended to the container name, allowing multiple containers to run simultaneously."
+            echo "      Defaults to the repo directory name after 'IsaacLab-Arena', so each clone gets its own container.)"
             exit 0
             ;;
         \?)
@@ -86,6 +91,16 @@ done
 
 # Shift off the processed options so that $@ has a command to pass to docker run
 shift $((OPTIND-1))
+
+# Derive the container suffix from the repo directory name when not set via -s,
+# so each clone gets its own container (e.g. IsaacLab-Arena_foo -> "-foo").
+# The canonical "IsaacLab-Arena" clone keeps the bare "isaaclab_arena-latest" name.
+if [ "$CONTAINER_SUFFIX_EXPLICIT" = false ]; then
+    repo_dir=$(basename "$(cd "$SCRIPT_DIR/.." && pwd)")
+    derived=${repo_dir#IsaacLab-Arena}
+    derived=${derived#[-_]}
+    [ -n "$derived" ] && CONTAINER_SUFFIX="-${derived}"
+fi
 
 # Display the values being used
 echo "Using Docker image: $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG"

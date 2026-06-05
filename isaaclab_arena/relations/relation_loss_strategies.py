@@ -18,7 +18,7 @@ from isaaclab_arena.relations.loss_primitives import (
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.relations import AtPosition, NextTo, On, PositionLimits, Relation
+    from isaaclab_arena.relations.relations import AtPosition, NextTo, NotNextTo, On, PositionLimits, Relation
 
 from isaaclab_arena.relations.relations import Side
 
@@ -316,6 +316,96 @@ class OnLossStrategy(RelationLossStrategy):
 
         total_loss = x_band_loss + y_band_loss + z_loss
         result = relation.relation_loss_weight * total_loss
+        return result.squeeze(0) if single_input else result
+
+
+class NotNextToLossStrategy(RelationLossStrategy):
+    """Loss strategy for ``NotNextTo`` — keep the child out of the half-plane beside the parent.
+
+    Blocked region: everything past the parent's edge on the chosen side and
+    within the parent's perpendicular footprint (for ``+Y``: all of ``+Y`` past
+    the ``+Y`` edge, clipped to the parent's ``X`` extent). The child escapes by
+    one of two routes — cross back over the edge, or step out past either end of
+    the footprint::
+
+        loss = slope * min(remaining_side, remaining_cross)
+
+    Each ``remaining`` is the distance the child must still travel to clear that
+    route by ``margin_m`` (0 once cleared), so the loss is non-zero everywhere in
+    the zone — no flat plateau — and its gradient points to the nearest exit.
+    """
+
+    def __init__(self, slope: float = 10.0, margin_m: float = 0.1, debug: bool = False):
+        """
+        Args:
+            slope: Loss magnitude per meter of remaining escape distance.
+            margin_m: How far past the edge or footprint the child must reach for
+                zero loss (default 10 cm).
+            debug: If True, print the per-route remaining distances.
+        """
+        assert slope >= 0.0, f"slope must be non-negative, got {slope}"
+        assert margin_m > 0.0, f"margin_m must be positive, got {margin_m}"
+        self.slope = slope
+        self.margin_m = margin_m
+        self.debug = debug
+
+    def compute_loss(
+        self,
+        relation: "NotNextTo",
+        child_pos: torch.Tensor,
+        child_bbox: AxisAlignedBoundingBox,
+        parent_world_bbox: AxisAlignedBoundingBox,
+    ) -> torch.Tensor:
+        """Compute loss for ``NotNextTo``."""
+        single_input = child_pos.dim() == 1
+        if single_input:
+            child_pos = child_pos.unsqueeze(0)
+
+        cfg = SIDE_CONFIGS[relation.side]
+
+        # Blocked edge and the side the child must leave (> edge for POSITIVE, < for NEGATIVE).
+        if cfg.direction == Direction.POSITIVE:
+            parent_edge = parent_world_bbox.max_point[:, cfg.primary_axis]
+            blocked_side_penalty = "greater"
+        else:
+            parent_edge = parent_world_bbox.min_point[:, cfg.primary_axis]
+            blocked_side_penalty = "less"
+
+        # Footprint band, shrunk by the child's extent so its whole bbox must clear it.
+        parent_band_min = parent_world_bbox.min_point[:, cfg.band_axis]
+        parent_band_max = parent_world_bbox.max_point[:, cfg.band_axis]
+        valid_band_min = parent_band_min - child_bbox.min_point[:, cfg.band_axis]
+        valid_band_max = parent_band_max - child_bbox.max_point[:, cfg.band_axis]
+
+        primary = child_pos[:, cfg.primary_axis]
+        cross = child_pos[:, cfg.band_axis]
+
+        # Each route's `remaining` = distance still to travel to clear it by margin_m (0 once cleared).
+        # Route 1, cross back over the edge: distance onto the blocked side past the one safe line.
+        safe_edge = parent_edge - cfg.direction * self.margin_m
+        remaining_side = single_boundary_linear_loss(primary, safe_edge, slope=1.0, penalty_side=blocked_side_penalty)
+        # Route 2, slide off the footprint: there are two safe lines (one margin_m past each end);
+        # take the distance to the nearer one. min over the two ends -> a tent peaking at the centre,
+        # which caps the loss and keeps the blocked axis flat.
+        safe_band_min = valid_band_min - self.margin_m
+        safe_band_max = valid_band_max + self.margin_m
+        remaining_cross = torch.minimum(
+            single_boundary_linear_loss(cross, safe_band_min, slope=1.0, penalty_side="greater"),
+            single_boundary_linear_loss(cross, safe_band_max, slope=1.0, penalty_side="less"),
+        )
+
+        # Clearing either route is enough.
+        loss = self.slope * torch.minimum(remaining_side, remaining_cross)
+
+        if self.debug and child_pos.shape[0] == 1:
+            print(
+                f"    [NotNextTo] {relation.side.value}: "
+                f"remaining_side={remaining_side[0].item():.4f} "
+                f"remaining_cross={remaining_cross[0].item():.4f} "
+                f"-> loss={loss[0].item():.6f}"
+            )
+
+        result = relation.relation_loss_weight * loss
         return result.squeeze(0) if single_input else result
 
 
