@@ -229,8 +229,7 @@ class ArenaEnvGraphSpec(BaseModel):
 
 
 def _get_task_state_transition(task: ArenaEnvGraphTaskSpec) -> TaskTransition:
-    """Look up the task class via ``TaskRegistry`` and return its declared success transition.
-    """
+    """Look up the task class via ``TaskRegistry`` and return its declared success transition."""
     task_cls = TaskRegistry().get_task_by_name(task.type)
     assert task_cls is not None, f"task {task.type} not found in TaskRegistry"
     asset_args = {}
