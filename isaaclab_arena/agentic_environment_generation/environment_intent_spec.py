@@ -8,14 +8,11 @@
 from __future__ import annotations
 
 import inspect
-from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
 from isaaclab_arena.assets.registries import TaskRegistry
 from isaaclab_arena.environments.arena_env_graph_types import SpatialRelationSpec, TaskSpec
-
-ItemRole = Literal["foreground", "distractor", "anchor"]
 
 
 # Item differs from ArenaEnvGraphNodeSpec. Item does not name a specify asset
@@ -30,14 +27,6 @@ class Item(BaseModel):
             "(e.g. 'avocado', 'bowl'). The downstream resolver fuzzy-matches "
             "this against the asset catalog — do NOT emit the exact "
             "registered name."
-        ),
-    )
-    role: ItemRole = Field(
-        description=(
-            "Role the item plays in the env: 'foreground' for objects the "
-            "task acts on; 'distractor' for extras mentioned as clutter; "
-            "'anchor' for reference surfaces (rare — the background usually "
-            "covers this)."
         ),
     )
     category_tags: list[str] = Field(

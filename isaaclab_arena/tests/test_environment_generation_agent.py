@@ -66,8 +66,8 @@ _MINIMAL_SPEC: dict = {
     "background": "kitchen",
     "embodiment": "franka_ik",
     "items": [
-        {"query": "avocado", "role": "foreground", "category_tags": [], "instance_name": None},
-        {"query": "bowl", "role": "foreground", "category_tags": [], "instance_name": None},
+        {"query": "avocado", "category_tags": [], "instance_name": None},
+        {"query": "bowl", "category_tags": [], "instance_name": None},
     ],
     "initial_state_graph": [
         {"kind": "on", "subject": "avocado", "reference": "kitchen"},

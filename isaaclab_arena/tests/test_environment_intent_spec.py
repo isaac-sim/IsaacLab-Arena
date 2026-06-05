@@ -96,7 +96,7 @@ def test_environment_intent_spec_accepts_valid_task_params():
         "reasoning": "test",
         "background": "kitchen",
         "embodiment": "franka_ik",
-        "items": [{"query": "cube", "role": "foreground", "category_tags": []}],
+        "items": [{"query": "cube", "category_tags": []}],
         "initial_state_graph": [{
             "kind": "on",
             "subject": "cube",
