@@ -481,11 +481,14 @@ class DomeLight(LibraryObject):
         spawner_cfg: sim_utils.DomeLightCfg = default_spawner_cfg,
         hdr: "HDRImage | None" = None,  # noqa: F821
     ):
+        from isaaclab_arena.variations.hdr_image_variation import HDRImageVariation
+
         super().__init__(
             instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, spawner_cfg=spawner_cfg
         )
         if hdr is not None:
             self.add_hdr(hdr)
+        self.add_variation(HDRImageVariation(self))
 
     def add_hdr(self, hdr: "HDRImage") -> None:  # noqa: F821
         """Attach an HDR environment map texture to this dome light.

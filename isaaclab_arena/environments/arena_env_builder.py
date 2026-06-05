@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import gymnasium as gym
+from typing import Any
 
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
@@ -33,6 +34,7 @@ from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
+from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBase
 
 
 class ArenaEnvBuilder:
@@ -73,6 +75,57 @@ class ArenaEnvBuilder:
             random_yaw_init=self.args.random_yaw_init,
         )
 
+    def get_all_variations(self) -> dict[str, list[VariationBase]]:
+        """Return ``{asset_name: [variation, ...]}`` for every variation host in the env.
+
+        Merges scene variations with the embodiment own variations.
+        """
+        scene_and_embodiment_variations = self.arena_env.scene.get_asset_variations()
+        if self.arena_env.embodiment is not None:
+            embodiment_variations = self.arena_env.embodiment.get_variations()
+            scene_and_embodiment_variations[self.arena_env.embodiment.name] = embodiment_variations
+        return scene_and_embodiment_variations
+
+    def _compose_variations_event_cfg(self) -> Any | None:
+        """Build a configclass with one :class:`EventTermCfg` per enabled run-time variation.
+
+        Returns ``None`` when no run-time variation is enabled.
+        """
+        # Assemble all the variations together into a single configclass.
+        fields: list[tuple[str, type, EventTermCfg]] = []
+        added_event_names: set[str] = set()
+        for variations_per_asset in self.get_all_variations().values():
+            for variation in variations_per_asset:
+                if not variation.enabled:
+                    continue
+                if not isinstance(variation, RunTimeVariationBase):
+                    continue
+                event_name, event_cfg = variation.build_event_cfg()
+                assert event_name not in added_event_names, (
+                    f"Duplicate variation event term name '{event_name}'. "
+                    "Each variation must produce a unique name; consider prefixing with the asset name."
+                )
+                added_event_names.add(event_name)
+                fields.append((event_name, EventTermCfg, event_cfg))
+        if not fields:
+            return None
+        VariationsEventCfg = make_configclass("VariationsEventCfg", fields)
+        return VariationsEventCfg()
+
+    def _apply_build_time_variations(self) -> None:
+        """Sample and apply every enabled :class:`BuildTimeVariationBase`.
+
+        These mutate asset configs in place (e.g. a dome light's spawner
+        texture), so this must run before ``scene_cfg`` is materialised.
+        """
+        for asset_variations in self.get_all_variations().values():
+            for variation in asset_variations:
+                if not variation.enabled:
+                    continue
+                if not isinstance(variation, BuildTimeVariationBase):
+                    continue
+                variation.apply()
+
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""
         base = getattr(recorder_cfg, "dataset_filename", "dataset")
@@ -95,6 +148,9 @@ class ArenaEnvBuilder:
         # Solve relations before building scene config so positions are captured correctly.
         if self.args.solve_relations:
             self._solve_relations()
+
+        # Apply build-time variations now, before scene_cfg is materialised.
+        self._apply_build_time_variations()
 
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
         embodiment = self.arena_env.embodiment or NoEmbodiment()
@@ -119,12 +175,14 @@ class ArenaEnvBuilder:
                 [("placement_reset", EventTermCfg, self._placement_event_cfg)],
             )
             placement_event_cfg = PlacementEventCfg()
+        variations_event_cfg = self._compose_variations_event_cfg()
         events_cfg = combine_configclass_instances(
             "EventsCfg",
             embodiment.get_events_cfg(),
             self.arena_env.scene.get_events_cfg(),
             task.get_events_cfg(),
             placement_event_cfg,
+            variations_event_cfg,
         )
         termination_cfg = combine_configclass_instances(
             "TerminationCfg",
