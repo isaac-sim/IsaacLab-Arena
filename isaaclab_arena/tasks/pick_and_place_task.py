@@ -46,8 +46,6 @@ class PickAndPlaceTask(TaskBase):
     The factory receives ``arm_mode`` from the env builder and returns a constructed cfg.
     """
 
-    success_transition_asset_args = ("pick_up_object", "destination_location")
-
     def __init__(
         self,
         pick_up_object: Asset,
@@ -137,7 +135,7 @@ class PickAndPlaceTask(TaskBase):
         )
 
     @classmethod
-    def success_state_transition(cls, pick_up_object: str, destination_location: str) -> TaskTransition:
+    def success_state_transition(cls, pick_up_object: str, destination_location: str, **_) -> TaskTransition:
         """Success (``object_on_destination``): the picked object ends up a relation with the destination."""
         # Note: with the current AABB-based object solver, placing an object ``on`` an open container
         # and letting it fall is equivalent to it being ``in`` the container, so a single ``on``

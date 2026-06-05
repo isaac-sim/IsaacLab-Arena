@@ -16,9 +16,6 @@ from isaaclab_arena.tasks.task_transition import TaskTransition
 
 class TaskBase(ABC):
 
-    # Which ``task_args`` keys the success transition needs (e.g. ``pick_up_object``).
-    success_transition_asset_args: tuple[str, ...] = ()
-
     def __init__(self, episode_length_s: float | None = None, task_description: str | None = None):
         self.episode_length_s = episode_length_s
         self.task_description = task_description
@@ -68,10 +65,10 @@ class TaskBase(ABC):
         return self.task_description
 
     @classmethod
-    def success_state_transition(cls) -> TaskTransition:
+    def success_state_transition(cls, **_) -> TaskTransition:
         """Inform constraint resolution what the task's success condition implies about the state change.
 
-        Subclasses override this to declare the task args they act on as named parameters and
-        list those names in ``success_transition_asset_args``; resolution supplies each by name from the task's args.
+        Resolution forwards all of the task's args; subclasses override this to bind the ones they act
+        on as named parameters and absorb the rest with ``**_``.
         """
         raise NotImplementedError("success_state_transition not implemented yet.")

@@ -23,9 +23,6 @@ from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 @register_task
 class RotateRevoluteJointTask(TaskBase):
-
-    success_transition_asset_args = ("openable_object",)
-
     def __init__(
         self,
         openable_object: Openable,
@@ -76,7 +73,7 @@ class RotateRevoluteJointTask(TaskBase):
         return get_viewer_cfg_look_at_object(lookat_object=self.openable_object, offset=np.array([-1.3, -1.3, 1.3]))
 
     @classmethod
-    def success_state_transition(cls, openable_object: str) -> TaskTransition:
+    def success_state_transition(cls, openable_object: str, **_) -> TaskTransition:
         """Success is the openable object's joint state change.
         The env-graph spec has not yet defined joint openness, so no effects are
         emitted today — only the subject node (the openable object) is recorded.

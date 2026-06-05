@@ -231,11 +231,14 @@ class ArenaEnvGraphSpec(BaseModel):
 
 
 def _get_task_state_transition(task: ArenaEnvGraphTaskSpec) -> TaskTransition:
-    """Look up the task class via ``TaskRegistry`` and return its declared success transition."""
+    """Look up the task class via ``TaskRegistry`` and return its declared success transition.
+
+    We forward all of the task's args; ``success_state_transition`` binds the ones it acts on as named
+    params (each value is a graph node id) and ignores the rest (scene, episode length, ...) via ``**_``.
+    """
     task_cls = TaskRegistry().get_task_by_name(task.type)
     assert task_cls is not None, f"task {task.type} not found in TaskRegistry"
-    asset_args = {name: task.task_args[name] for name in task_cls.success_transition_asset_args}
-    return task_cls.success_state_transition(**asset_args)
+    return task_cls.success_state_transition(**task.task_args)
 
 
 def _get_task_effects(transition: TaskTransition) -> list[Effect]:
