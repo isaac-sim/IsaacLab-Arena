@@ -21,6 +21,7 @@ from types import SimpleNamespace
 import pytest
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.utils import video_io
 from isaaclab_arena.utils.synchronized_visualizer import EnvView, GlobalView, SynchronizedVisualizer, _CaptureBuffers
 
 
@@ -38,7 +39,7 @@ def test_envview_rejects_nonpositive_dims():
 
 
 def test_globalview_accepts_default():
-    GlobalView()  # should not raise
+    GlobalView()
 
 
 @pytest.mark.parametrize("elevation", [90.0, -90.0, 120.0])
@@ -96,7 +97,7 @@ def test_check_optional_deps_passes_when_installed():
 
 def test_to_uint8_clamps_and_drops_alpha():
     frame = torch.tensor([[[300.0, -5.0, 128.0, 10.0]]])  # 1x1, RGBA, out-of-range
-    out = SynchronizedVisualizer._to_uint8(frame)
+    out = video_io.to_uint8(frame)
     assert out.dtype == np.uint8
     assert out.shape == (1, 1, 3)
     np.testing.assert_array_equal(out[0, 0], np.array([255, 0, 128], dtype=np.uint8))
@@ -105,10 +106,9 @@ def test_to_uint8_clamps_and_drops_alpha():
 def test_downscale_to_width_keeps_aspect_and_even_dims():
     img = np.zeros((20, 40, 3), dtype=np.uint8)
     out = SynchronizedVisualizer._downscale_to_width(img, max_width=10)
-    assert out.shape[1] == 10  # target width
-    assert out.shape[0] % 2 == 0 and out.shape[1] % 2 == 0  # h264-friendly
-    # aspect-preserved height 5 is decremented to even 4 for h264 compatibility
-    assert out.shape[0] == 4
+    assert out.shape[1] == 10
+    assert out.shape[0] % 2 == 0 and out.shape[1] % 2 == 0  # h264 needs even dims
+    assert out.shape[0] == 4  # aspect height 5 rounded down to even
 
 
 def test_tile_rejects_width_mismatch():
@@ -129,7 +129,7 @@ def test_tile_pads_incomplete_last_row():
 def test_to_uint8_passthrough_for_uint8_input():
     frame = torch.zeros((2, 2, 3), dtype=torch.uint8)
     frame[0, 0, 0] = 200
-    out = SynchronizedVisualizer._to_uint8(frame)
+    out = video_io.to_uint8(frame)
     assert out.dtype == np.uint8
     assert out.shape == (2, 2, 3)
     assert out[0, 0, 0] == 200
@@ -162,7 +162,6 @@ def test_resolve_global_pose_auto_frames_from_origins():
 def test_close_clears_state_and_buffers():
     viz = SynchronizedVisualizer.__new__(SynchronizedVisualizer)
     viz._env_camera = object()
-    viz._global_camera = object()
     viz._initialized = True
     buffers = _CaptureBuffers()
     buffers.grid_frames = [np.zeros((2, 2, 3), dtype=np.uint8)]
@@ -171,7 +170,6 @@ def test_close_clears_state_and_buffers():
     viz.close()
 
     assert viz._env_camera is None
-    assert viz._global_camera is None
     assert viz._initialized is False
     assert viz._buffers.grid_frames == []  # frames freed
 
@@ -187,9 +185,27 @@ def test_capture_before_initialize_raises():
     viz = SynchronizedVisualizer.__new__(SynchronizedVisualizer)
     viz._initialized = False
     viz._env_camera = None
-    viz._global_camera = None
     with pytest.raises(AssertionError, match="initialize"):
         viz.capture()
+
+
+def _fake_env(render_mode, sensors):
+    """A minimal stand-in for a built env, enough to drive SynchronizedVisualizer.__init__."""
+    scene = SimpleNamespace(num_envs=2, sensors=sensors)
+    return SimpleNamespace(render_mode=render_mode, unwrapped=SimpleNamespace(device="cpu", scene=scene))
+
+
+def test_init_requires_rgb_array_render_mode():
+    env = _fake_env(render_mode="human", sensors={SynchronizedVisualizer.ENV_CAM_NAME: object()})
+    with pytest.raises(AssertionError, match="rgb_array"):
+        SynchronizedVisualizer(env)
+
+
+def test_init_requires_registered_env_camera():
+    # The most common user mistake under the new API: forgetting Scene.add_sensor().
+    env = _fake_env(render_mode="rgb_array", sensors={})
+    with pytest.raises(AssertionError, match="No scene sensor named"):
+        SynchronizedVisualizer(env)
 
 
 def test_save_writes_gif_and_per_env_outputs(tmp_path):
@@ -240,26 +256,35 @@ def _test_sync_viz_smoke(simulation_app) -> bool:
 
     # Small render targets keep the smoke test fast.
     env_view = EnvView(width=64, height=48)
+    global_view = GlobalView(width=128, height=96)
+    # Register the per-env tiled camera on the scene before compose (ContactSensor-style).
+    cam_name = SynchronizedVisualizer.ENV_CAM_NAME
+    scene.add_sensor(cam_name, SynchronizedVisualizer.build_env_camera_cfg(env_view, cam_name))
+    assert cam_name in scene.sensors
+
     env_cfg = builder.compose_manager_cfg()
-    SynchronizedVisualizer.add_env_camera_to_cfg(env_cfg, env_view)
-    env = builder.make_registered(env_cfg=env_cfg, render_mode=None)
+    env_cfg.viewer.resolution = (global_view.width, global_view.height)
+    env = builder.make_registered(env_cfg=env_cfg, render_mode="rgb_array")
+    # add_sensor() should flow through to a real scene sensor on the built env.
+    assert cam_name in env.unwrapped.scene.sensors
 
-    viz = SynchronizedVisualizer(env, env_view=env_view, global_view=GlobalView(width=128, height=96))
+    viz = SynchronizedVisualizer(env, env_view=env_view, global_view=global_view)
     try:
-        viz.initialize()
-        assert viz._using_tiled, "Injected scene TiledCamera should be used, not the standalone fallback."
-
-        # OrderEnforcing requires reset() before step(); reposition after reset
-        # so the per-env camera offset is re-applied (mirrors the example script).
+        # OrderEnforcing requires reset() before step(); initialize poses the global viewport.
         env.reset()
-        viz.reposition()
+        viz.initialize()
 
-        sim = env.unwrapped.sim
+        # Warm up: the viewport annotator returns a zeros array for the first few
+        # frames, so step a couple of times (rendering, not capturing) before counting.
+        for _ in range(3):
+            with torch.inference_mode():
+                env.step(torch.zeros(env.action_space.shape, device=env.unwrapped.device))
+            env.render()
+
         num_frames = 2
         for _ in range(num_frames):
             with torch.inference_mode():
                 env.step(torch.zeros(env.action_space.shape, device=env.unwrapped.device))
-            sim.render()
             viz.capture()
 
         assert len(viz._buffers.global_frames) == num_frames

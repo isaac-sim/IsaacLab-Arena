@@ -53,12 +53,6 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--fps", type=int, default=20, help="Output video frames per second.")
     parser.add_argument("--also_gif", action="store_true", default=False, help="Also write animated gifs.")
     parser.add_argument(
-        "--no_tiled",
-        action="store_true",
-        default=False,
-        help="Use a standalone multi-prim Camera for the per-env grid instead of a scene TiledCamera.",
-    )
-    parser.add_argument(
         "--max_grid_width",
         type=int,
         default=1920,
@@ -118,62 +112,61 @@ def main() -> None:
         eye_offset=tuple(args_cli.env_eye_offset),
         lookat_offset=tuple(args_cli.env_lookat_offset),
         focal_length=args_cli.env_focal_length,
-        use_tiled_camera=not args_cli.no_tiled,
+    )
+    global_view = GlobalView(
+        eye=tuple(args_cli.global_eye) if args_cli.global_eye is not None else None,
+        lookat=tuple(args_cli.global_lookat) if args_cli.global_lookat is not None else None,
+        azimuth_deg=args_cli.global_azimuth,
+        elevation_deg=args_cli.global_elevation,
     )
 
     arena_env = GR1TableMultiObjectNoCollisionEnvironment().get_env(args_cli)
     builder = ArenaEnvBuilder(arena_env, args_cli)
 
-    # Inject the per-env tiled camera into the scene cfg *before* building so
-    # Isaac Lab sets up its tiled render product correctly.
+    # Register the per-env tiled camera on the scene *before* build so Isaac Lab
+    # sets up its tiled render product once and updates it as part of env.step.
+    cam_name = SynchronizedVisualizer.ENV_CAM_NAME
+    arena_env.scene.add_sensor(cam_name, SynchronizedVisualizer.build_env_camera_cfg(env_view, cam_name))
+
     env_cfg = builder.compose_manager_cfg()
-    if env_view.use_tiled_camera:
-        SynchronizedVisualizer.add_env_camera_to_cfg(env_cfg, env_view)
-    env = builder.make_registered(env_cfg=env_cfg, render_mode=None)
+    # The global view is the viewport camera read via env.render(); its size is
+    # the viewer resolution, and rgb_array mode is what makes render() return frames.
+    env_cfg.viewer.resolution = (global_view.width, global_view.height)
+    env = builder.make_registered(env_cfg=env_cfg, render_mode="rgb_array")
     device = env.unwrapped.device
 
     viz = SynchronizedVisualizer(
         env,
         env_view=env_view,
-        global_view=GlobalView(
-            eye=tuple(args_cli.global_eye) if args_cli.global_eye is not None else None,
-            lookat=tuple(args_cli.global_lookat) if args_cli.global_lookat is not None else None,
-            azimuth_deg=args_cli.global_azimuth,
-            elevation_deg=args_cli.global_elevation,
-        ),
+        global_view=global_view,
         max_grid_width=args_cli.max_grid_width,
     )
-    viz.initialize()
 
-    sim = env.unwrapped.sim
     action_shape = env.action_space.shape
 
     def _settle(num_steps: int) -> None:
+        # env.step renders the scene sensors; env.render() warms the viewport annotator.
         for _ in range(num_steps):
             with torch.inference_mode():
                 env.step(torch.zeros(action_shape, device=device))
-            sim.render()
-
-    def _reset_and_reposition() -> None:
-        # A scene TiledCamera is reset to its config offset on env.reset(), so
-        # re-apply the visualizer camera poses before rendering/capturing again.
-        env.reset()
-        viz.reposition()
-        _settle(args_cli.warmup_steps)
+            env.render()
 
     try:
         print("Warming up renderer...")
-        _reset_and_reposition()
+        env.reset()
+        viz.initialize()
+        _settle(args_cli.warmup_steps)
 
         print(f"Capturing {args_cli.num_steps} steps...")
         for step in range(args_cli.num_steps):
             with torch.inference_mode():
                 env.step(torch.zeros(action_shape, device=device))
-            sim.render()
             viz.capture()
 
             if args_cli.reset_every > 0 and (step + 1) % args_cli.reset_every == 0:
-                _reset_and_reposition()
+                env.reset()
+                viz.reposition()
+                _settle(args_cli.warmup_steps)
 
         written = viz.save(
             args_cli.output_dir,

@@ -27,6 +27,9 @@ class Scene:
 
     def __init__(self, assets: list[Asset, RigidObjectSet] | None = None):
         self.assets: dict[str, Asset | RigidObjectSet] = {}
+        # Extra scene-level sensors (e.g. visualization cameras) keyed by name.
+        # Kept separate from assets since they carry no Arena Asset semantics.
+        self.sensors: dict[str, Any] = {}
         # We add these here so a user can override them if they want.
         self.observation_cfg = None
         self.events_cfg = None
@@ -36,6 +39,25 @@ class Scene:
         self.commands_cfg = None
         if assets is not None:
             self.add_assets(assets)
+
+    def add_sensor(self, name: str, sensor_cfg: Any) -> str:
+        """Register a sensor cfg under ``name`` so it lands in the built ``SceneCfg``.
+
+        Mirrors how contact sensors attach to assets, but for scene-level sensors
+        (e.g. a visualization :class:`~isaaclab.sensors.TiledCameraCfg`). The cfg's
+        ``prim_path`` should use ``{ENV_REGEX_NS}`` to anchor it per env.
+
+        Args:
+            name: Scene-sensor key; must be unique across assets and sensors.
+            sensor_cfg: An Isaac Lab sensor cfg (e.g. ``TiledCameraCfg``).
+
+        Returns:
+            The registered name.
+        """
+        assert name not in self.sensors, f"Sensor '{name}' already registered."
+        assert name not in self.assets, f"'{name}' is already an asset name."
+        self.sensors[name] = sensor_cfg
+        return name
 
     def add_asset(self, asset: Asset | RigidObjectSet):
         """Add an asset to the scene.
@@ -50,6 +72,7 @@ class Scene:
         if asset.name is None:
             print("Asset name is None. Skipping asset.")
             return
+        assert asset.name not in self.sensors, f"'{asset.name}' is already a registered sensor name."
         # if name already exists, overwrite
         self.assets[asset.name] = asset
 
@@ -72,6 +95,8 @@ class Scene:
         for asset in self.assets.values():
             asset_cfg_name, asset_cfg = asset.get_object_cfg()
             fields.append((asset_cfg_name, type(asset_cfg), asset_cfg))
+        for sensor_name, sensor_cfg in self.sensors.items():
+            fields.append((sensor_name, type(sensor_cfg), sensor_cfg))
         SceneCfg = make_configclass("SceneCfg", fields)
         scene_cfg = SceneCfg()
         return scene_cfg
