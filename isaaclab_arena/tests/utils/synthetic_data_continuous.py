@@ -35,15 +35,7 @@ outcomes:
     type: float
   object_moved_rate:
     type: float
-  task_duration:
-    type: float
 """
-
-# Synthetic task-duration model: at the competence-band center an episode finishes in ~5s;
-# successes scale linearly with z-score (harder = slower); failures hit the episode timeout.
-EPISODE_TIMEOUT_S = 20.0
-BASE_SUCCESS_DURATION_S = 5.0
-SUCCESS_DURATION_PER_SIGMA = 6.0
 
 
 def success_probability(intensity: float, center: float, sigma: float) -> float:
@@ -93,13 +85,6 @@ def main():
         intensity = random_generator.uniform(INTENSITY_LOW, INTENSITY_HIGH)
         probability_of_success = success_probability(intensity, args.center, args.sigma)
         was_success = 1.0 if random_generator.random() < probability_of_success else 0.0
-        z_score = abs(intensity - args.center) / args.sigma
-        if was_success:
-            task_duration = BASE_SUCCESS_DURATION_S + SUCCESS_DURATION_PER_SIGMA * z_score
-            task_duration += random_generator.gauss(0.0, 0.4)
-            task_duration = max(1.0, min(task_duration, EPISODE_TIMEOUT_S))
-        else:
-            task_duration = EPISODE_TIMEOUT_S
         summary_rows.append({
             "job_name": "synth_linear_uniform",
             "episode_idx": episode_index,
@@ -107,7 +92,6 @@ def main():
             "outcomes": {
                 "success_rate": was_success,
                 "object_moved_rate": was_success,
-                "task_duration": task_duration,
             },
         })
 
