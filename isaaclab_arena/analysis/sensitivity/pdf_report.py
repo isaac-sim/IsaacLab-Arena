@@ -8,8 +8,8 @@ from __future__ import annotations
 import numpy as np
 from pathlib import Path
 
-from isaaclab_arena.analysis.sensitivity import make_analyzer
 from isaaclab_arena.analysis.sensitivity.dataset import SensitivityDataset
+from isaaclab_arena.analysis.sensitivity.factory import make_analyzer
 from isaaclab_arena.analysis.sensitivity.plotting import draw_marginal
 
 

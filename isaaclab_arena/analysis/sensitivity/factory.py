@@ -22,8 +22,8 @@ def make_analyzer(dataset: SensitivityDataset, outcome_name: str) -> BaseAnalyze
     check reads the outcome values off the dataset, since factors.yaml types all
     outcomes as float.
     """
-    # Import lazily so importing this module (and the package re-export on the eval-time
-    # episode_writer path) does not pull in torch/sbi until an analysis actually runs.
+    # Import lazily so importing this module stays light — torch/sbi load only when an
+    # analysis actually runs.
     from isaaclab_arena.analysis.sensitivity.empirical_analyzer import KDEAnalyzer
     from isaaclab_arena.analysis.sensitivity.posterior_analyzer import MNPEAnalyzer
 

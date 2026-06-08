@@ -2,7 +2,3 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
-
-from isaaclab_arena.analysis.sensitivity.factory import make_analyzer
-
-__all__ = ["make_analyzer"]
