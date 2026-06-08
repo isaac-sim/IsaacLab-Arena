@@ -62,3 +62,29 @@ class MetricsManager:
             metrics_data[term_name] = term_cfg.compute_metric_func(recorded_metric_data, **term_cfg.params)
         metrics_data["num_episodes"] = get_num_episodes(dataset_path)
         return metrics_data
+
+    def compute_per_episode(self) -> list[dict[str, Any]]:
+        """Compute every registered metric separately for each recorded episode.
+
+        Where :meth:`compute` reduces across all episodes to one aggregate value per
+        metric, this returns one ``{metric_name: value}`` dict per episode — each metric's
+        compute func is fed that single episode's recorded array (a one-element list).
+
+        Returns:
+            A list with one metric dict per episode, in recorded order.
+        """
+        dataset_path = get_metric_recorder_dataset_path(self._env)
+        per_term_episode_arrays = {
+            term_name: get_recorded_metric_data(dataset_path, term_cfg.recorder_term_name)
+            for term_name, term_cfg in zip(self._term_names, self._term_cfgs)
+        }
+        num_episodes = get_num_episodes(dataset_path)
+        return [
+            {
+                term_name: term_cfg.compute_metric_func(
+                    [per_term_episode_arrays[term_name][episode_index]], **term_cfg.params
+                )
+                for term_name, term_cfg in zip(self._term_names, self._term_cfgs)
+            }
+            for episode_index in range(num_episodes)
+        ]
