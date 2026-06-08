@@ -18,7 +18,7 @@ INTENSITY_HIGH = 5000.0
 # importing episode_writer would pull in pxr via isaaclab_arena.metrics.
 _SYNTHETIC_FACTORS_YAML = """\
 # factors.yaml — synthetic dataset for analyzer smoke-testing.
-# Auto-emitted by isaaclab_arena.analysis.sensitivity.synthetic_data_continuous alongside the JSONL.
+# Auto-emitted by isaaclab_arena.tests.utils.synthetic_data_continuous alongside the JSONL.
 
 slice:
   policy: synthetic_linear_uniform
