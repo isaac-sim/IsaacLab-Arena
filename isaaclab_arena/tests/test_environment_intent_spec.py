@@ -146,6 +146,31 @@ def test_relation_catalogue_matches_object_relation_registry(_mock_registry):
     "isaaclab_arena.agentic_environment_generation.environment_intent_spec.TaskRegistry",
     side_effect=lambda: _mock_task_registry(),
 )
+def test_environment_intent_spec_rejects_non_string_task_param(_mock_registry):
+    payload = {
+        "reasoning": "test",
+        "background": "kitchen",
+        "embodiment": "franka_ik",
+        "items": [],
+        "initial_state_graph": [],
+        "tasks": [{
+            "kind": "PickAndPlaceTask",
+            "params": {
+                "pick_up_object": 42,
+                "destination_location": "bowl",
+                "background_scene": "kitchen",
+            },
+            "description": "pick and place",
+        }],
+    }
+    with pytest.raises(ValidationError, match="must be a non-empty string"):
+        EnvironmentIntentSpec.model_validate(payload)
+
+
+@patch(
+    "isaaclab_arena.agentic_environment_generation.environment_intent_spec.TaskRegistry",
+    side_effect=lambda: _mock_task_registry(),
+)
 def test_environment_intent_spec_rejects_missing_task_params(_mock_registry):
     payload = {
         "reasoning": "test",

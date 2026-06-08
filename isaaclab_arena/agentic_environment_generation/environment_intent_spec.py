@@ -118,7 +118,8 @@ class EnvironmentIntentSpec(BaseModel):
             # Check required task class constructor parameters are present
             for required_param in required_task_init_param_names(task_cls):
                 assert required_param in task.params, f"Task {task.kind!r} is missing required param {required_param}"
+                value = task.params[required_param]
                 assert (
-                    task.params[required_param] and task.params[required_param].strip()
-                ), f"Task {task.kind!r} has empty required param {required_param}"
+                    isinstance(value, str) and value.strip()
+                ), f"Task {task.kind!r} required param {required_param!r} must be a non-empty string"
         return self
