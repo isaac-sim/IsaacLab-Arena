@@ -19,10 +19,7 @@ from isaaclab_arena.agentic_environment_generation.environment_intent_spec impor
     EnvironmentIntentSpec,
     required_task_init_param_names,
 )
-from isaaclab_arena.assets.background import Background
-from isaaclab_arena.assets.object_library import LibraryObject
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
-from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.tasks.task_base import TaskBase
 
@@ -65,15 +62,17 @@ def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalog
     catalogue = AssetCatalogue()
     # TODO(qianl): handle optional lights and hdr images.
     # TODO(qianl): add tag to filter out validated/agent-ready assets only.
+    # Classify by registry tags, not issubclass(Background/Object/EmbodimentBase): importing those
+    # types pulls in pxr before SimulationApp and breaks unit tests.
     for name in registry.get_all_keys():
         cls = registry.get_asset_by_name(name)
-        if issubclass(cls, EmbodimentBase):
+        tags = getattr(cls, "tags", None) or []
+        if "embodiment" in tags:
             catalogue.embodiments.append(name)
-        elif issubclass(cls, Background):
+        elif "background" in tags:
             catalogue.backgrounds.append(name)
-        elif issubclass(cls, LibraryObject) and cls.tags and "object" in cls.tags:
-            tags = [t for t in cls.tags if t != "object"]
-            catalogue.objects.append({"name": name, "tags": tags})
+        elif "object" in tags:
+            catalogue.objects.append({"name": name, "tags": [t for t in tags if t != "object"]})
     return catalogue
 
 
