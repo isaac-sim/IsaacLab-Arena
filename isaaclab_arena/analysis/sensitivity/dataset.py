@@ -38,10 +38,10 @@ class OutcomeSpec:
 
 @dataclass
 class SliceSpec:
-    """The ``(policy, task, embodiment)`` tuple a dataset comes from.
+    """Where a dataset came from: which policy ran which task on which embodiment.
 
-    MNPE/NPE assume a single data-generating source per analysis, so all rows in a
-    dataset must belong to the same slice — enforced by the loader.
+    Read from the ``slice:`` block of ``factors.yaml`` and shown in the report title.
+    It just labels the data — nothing checks it against the rows.
     """
 
     policy: str
