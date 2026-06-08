@@ -90,7 +90,7 @@ def _draw_continuous_marginal(
             marker="|",
             color=_SUCCESS_COLOR,
             s=_RUG_MARKER_SIZE,
-            label=f"{analyzer.outcome_name} ≥ {_SUCCESS_THRESHOLD:g}  (n={success_mask.sum()})",
+            label=f"{analyzer.outcome_name} = 1  (n={success_mask.sum()})",
         )
         ax.scatter(
             empirical_theta_values[~success_mask],
@@ -98,7 +98,7 @@ def _draw_continuous_marginal(
             marker="|",
             color=_FAILURE_COLOR,
             s=_RUG_MARKER_SIZE,
-            label=f"{analyzer.outcome_name} < {_SUCCESS_THRESHOLD:g}  (n={(~success_mask).sum()})",
+            label=f"{analyzer.outcome_name} = 0  (n={(~success_mask).sum()})",
         )
     else:
         ax.scatter(
