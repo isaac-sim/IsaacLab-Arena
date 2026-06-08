@@ -18,6 +18,7 @@ from pxr import Gf, UsdGeom
 from isaaclab_arena_datagen.geometry.rotation import Rotation
 from isaaclab_arena_datagen.geometry.transform_se3 import TransformSE3
 from isaaclab_arena_datagen.geometry.translation import Translation
+from isaaclab_arena_datagen.segmentation_utils import find_body_index_for_prim
 
 from .object_registry import InstanceKey, ObjectInstanceRegistry, ObjectType
 from .scene_flow import BACKGROUND_LABELS, SceneFlowComputer, SceneFlowResult
@@ -327,12 +328,12 @@ class IsaacLabArenaCameraHandler:
             if not mask_hw.any():
                 continue
 
-            label = id_to_labels.get(uid_key, "")
-            prim_path = label.get("class", "") if isinstance(label, dict) else str(label)
+            label = _get_label_for_instance_id(id_to_labels, uid_key)
+            prim_path = _primary_tracking_candidate(label)
             if not prim_path or prim_path.upper() in BACKGROUND_LABELS:
                 binding: tuple[str, ...] = ("STATIC",)
             else:
-                binding = self._resolve_tracking_binding(prim_path, scene)
+                binding = self._resolve_tracking_binding(label, scene)
 
             instance_key = self._instance_object_key_from_binding(binding, prim_path)
             object_id, object_name, rgba = self._get_or_create_instance_identity(instance_key)
@@ -364,27 +365,41 @@ class IsaacLabArenaCameraHandler:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _resolve_tracking_binding(prim_path: str, scene: Any) -> tuple[Any, ...]:
+    def _resolve_tracking_binding(label: Any, scene: Any) -> tuple[Any, ...]:
         """Classify a USD prim path into a tracking category.
 
         Returns one of:
             ("STATIC",)
             ("RIGID", asset_name)
             ("ARTICULATION", asset_name, body_idx)
+            ("UNSUPPORTED", prim_path)
         """
-        path_parts_lower = [p.lower() for p in prim_path.strip("/").split("/")]
+        from isaaclab_arena_datagen.segmentation_utils import label_to_tracking_candidates
 
-        for name in scene.rigid_objects.keys():
-            if name.lower() in path_parts_lower:
-                return ("RIGID", name)
+        candidates = label_to_tracking_candidates(label)
+        if not candidates:
+            return ("STATIC",)
 
-        for name, articulation_obj in scene.articulations.items():
-            if name.lower() in path_parts_lower:
+        ambiguous_articulation: tuple[str, str] | None = None
+
+        for prim_path in candidates:
+            path_parts_lower = [p.lower() for p in prim_path.strip("/").split("/")]
+
+            for name in scene.rigid_objects.keys():
+                if name.lower() in path_parts_lower:
+                    return ("RIGID", name)
+
+            for name, articulation_obj in scene.articulations.items():
+                if name.lower() not in path_parts_lower:
+                    continue
                 body_names = list(articulation_obj.data.body_names)
-                body_idx = _find_body_index_for_prim(prim_path, body_names)
+                body_idx = find_body_index_for_prim(prim_path, body_names)
                 if body_idx is not None:
                     return ("ARTICULATION", name, body_idx)
-                return ("ARTICULATION", name, 0)
+                ambiguous_articulation = (name, prim_path)
+
+        if ambiguous_articulation is not None:
+            return ("UNSUPPORTED", ambiguous_articulation[1])
 
         return ("STATIC",)
 
@@ -515,24 +530,21 @@ class IsaacLabArenaCameraHandler:
 
 
 # ------------------------------------------------------------------
-# Helper: find body index for articulation prim path
+# Helpers: segmentation metadata
 # ------------------------------------------------------------------
 
 
-def _find_body_index_for_prim(prim_path: str, body_names: list[str]) -> int | None:
-    """Find which articulation body a prim path belongs to.
+def _get_label_for_instance_id(id_to_labels: dict, instance_id: int) -> Any | None:
+    from isaaclab_arena_datagen.segmentation_utils import get_label_for_instance_id
 
-    Matches the last body name that appears as a path component.
-    """
-    path_parts = prim_path.strip("/").split("/")
-    best_idx: int | None = None
-    best_depth = -1
-    for idx, body_name in enumerate(body_names):
-        for depth, part in enumerate(path_parts):
-            if part == body_name and depth > best_depth:
-                best_idx = idx
-                best_depth = depth
-    return best_idx
+    return get_label_for_instance_id(id_to_labels, instance_id)
+
+
+def _primary_tracking_candidate(label: Any) -> str:
+    from isaaclab_arena_datagen.segmentation_utils import label_to_tracking_candidates
+
+    candidates = label_to_tracking_candidates(label)
+    return candidates[0] if candidates else ""
 
 
 # ----------------------------------------------------------------------

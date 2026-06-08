@@ -19,6 +19,7 @@ from typing import Any
 
 from isaaclab_arena_datagen.geometry.transform_se3 import TransformSE3
 from isaaclab_arena_datagen.object_registry import ObjectType
+from isaaclab_arena_datagen.segmentation_utils import get_label_for_instance_id, label_to_tracking_candidates
 from isaaclab_arena_datagen.utils.isaac_data import to_torch
 
 BACKGROUND_LABELS = frozenset({"BACKGROUND", "UNLABELLED", "UNKNOWN", "INVALID"})
@@ -119,18 +120,19 @@ def _classify_pixels_by_tracking(  # pylint: disable=too-many-statements  # per-
 
     for instance_id in instance_ids_hw.unique():
         uid_key = instance_id.item()
-        if uid_key not in id_to_labels:
+        label = get_label_for_instance_id(id_to_labels, uid_key)
+        if label is None:
             continue
 
-        label = id_to_labels[uid_key]
-        prim_path = label.get("class", "") if isinstance(label, dict) else str(label)
+        candidates = label_to_tracking_candidates(label)
+        prim_path = candidates[0] if candidates else ""
         if not prim_path or prim_path.upper() in BACKGROUND_LABELS:
             mask_hw = (instance_ids_hw == instance_id) & valid_mask_hw
             if mask_hw.any():
                 track_type_hw[mask_hw] = ObjectType.STATIC
             continue
 
-        binding = resolve_binding_fn(prim_path, scene)
+        binding = resolve_binding_fn(label, scene)
 
         mask_hw = (instance_ids_hw == instance_id) & valid_mask_hw
         if not mask_hw.any():

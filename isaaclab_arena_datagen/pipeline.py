@@ -267,6 +267,11 @@ def _write_adjacent_flow(
     flow_result = handler.compute_exact_scene_flow(env)
     scene_flow_W_hw3 = flow_result.scene_flow_W_hw3 if flow_result is not None else None
     optical_flow_hw2 = handler.compute_true_optical_flow(scene_flow_W_hw3)
+    if optical_flow_hw2 is not None and flow_result is not None:
+        unsupported_mask_hw = ~flow_result.scene_flow_valid_mask_hw
+        if unsupported_mask_hw.any():
+            optical_flow_hw2 = optical_flow_hw2.clone()
+            optical_flow_hw2[unsupported_mask_hw] = handler.get_optical_flow()[unsupported_mask_hw]
     if optical_flow_hw2 is not None:
         writer.write_optical_flow(optical_flow_hw2, cam_id, prev_idx)
     if flow_result is not None:
