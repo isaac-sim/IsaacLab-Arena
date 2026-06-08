@@ -9,6 +9,7 @@ from typing import Any, Union
 from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
+from isaaclab.sensors.sensor_base_cfg import SensorBaseCfg
 from pxr import Gf, Usd, UsdGeom
 
 from isaaclab_arena.assets.asset import Asset
@@ -20,16 +21,16 @@ from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
 from isaaclab_arena.variations.variation_base import VariationBase
 
-AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg]
+AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg, SensorBaseCfg]
 
 
 class Scene:
 
-    def __init__(self, assets: list[Asset, RigidObjectSet] | None = None):
+    def __init__(self, assets: list[Asset | RigidObjectSet] | None = None):
         self.assets: dict[str, Asset | RigidObjectSet] = {}
         # Extra scene-level sensors (e.g. visualization cameras) keyed by name.
         # Kept separate from assets since they carry no Arena Asset semantics.
-        self.sensors: dict[str, Any] = {}
+        self.sensors: dict[str, SensorBaseCfg] = {}
         # We add these here so a user can override them if they want.
         self.observation_cfg = None
         self.events_cfg = None
@@ -40,20 +41,20 @@ class Scene:
         if assets is not None:
             self.add_assets(assets)
 
-    def add_sensor(self, name: str, sensor_cfg: Any) -> str:
-        """Register a sensor cfg under ``name`` so it lands in the built ``SceneCfg``.
+    def add_sensor(self, name: str, sensor_cfg: SensorBaseCfg) -> str:
+        """Register a scene-level sensor cfg (e.g. a visualization camera) so it lands in the built SceneCfg.
 
-        Mirrors how contact sensors attach to assets, but for scene-level sensors
-        (e.g. a visualization :class:`~isaaclab.sensors.TiledCameraCfg`). The cfg's
-        ``prim_path`` should use ``{ENV_REGEX_NS}`` to anchor it per env.
+        For sensors with no Arena Asset semantics. The cfg's prim_path should use
+        {ENV_REGEX_NS} to anchor it per env.
 
         Args:
             name: Scene-sensor key; must be unique across assets and sensors.
-            sensor_cfg: An Isaac Lab sensor cfg (e.g. ``TiledCameraCfg``).
+            sensor_cfg: An Isaac Lab sensor cfg.
 
         Returns:
             The registered name.
         """
+        assert isinstance(sensor_cfg, SensorBaseCfg), f"sensor_cfg must be a SensorBaseCfg, got {type(sensor_cfg)}."
         assert name not in self.sensors, f"Sensor '{name}' already registered."
         assert name not in self.assets, f"'{name}' is already an asset name."
         self.sensors[name] = sensor_cfg
@@ -66,9 +67,7 @@ class Scene:
             asset: An Asset instance or a dictionary of Assets. If a dictionary is provided,
                    the keys will be used as the names of the assets and the values will be the list of assets.
         """
-        if not isinstance(asset, Asset | RigidObjectSet):
-            raise ValueError(f"Invalid asset type: {type(asset)}")
-
+        assert isinstance(asset, Asset | RigidObjectSet), f"Invalid asset type: {type(asset)}"
         if asset.name is None:
             print("Asset name is None. Skipping asset.")
             return

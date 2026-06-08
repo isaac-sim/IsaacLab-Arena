@@ -90,7 +90,12 @@ class CameraObsVideoRecorder(gym.Wrapper):
         return result
 
     def _flush(self) -> None:
-        for cam, frames in self.buffers.items():
+        # Reset state before writing so a write failure can't leave stale buffers
+        # that double-flush on the next step() or in close().
+        pending = self.buffers
+        self.buffers = {}
+        self.recording = False
+        for cam, frames in pending.items():
             if not frames:
                 continue
             path = os.path.join(
@@ -98,8 +103,6 @@ class CameraObsVideoRecorder(gym.Wrapper):
                 f"{self.name_prefix}-{_sanitize_cam_key(cam)}-step-{self.recording_start_step}.mp4",
             )
             video_io.write_video(frames, path, self.fps)
-        self.recording = False
-        self.buffers = {}
 
     def close(self) -> None:
         try:

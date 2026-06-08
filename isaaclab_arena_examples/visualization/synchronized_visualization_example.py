@@ -5,16 +5,16 @@
 
 """Synchronized visualization demo on the GR1 multi-object no-collision scene.
 
-Builds the ``gr1_table_multi_object_no_collision`` environment across parallel
-envs, attaches a :class:`SynchronizedVisualizer`, and writes two videos:
+Builds the gr1_table_multi_object_no_collision environment across parallel envs,
+attaches a SynchronizedVisualizer, and writes two videos:
 
-* ``*_global.mp4`` — a single camera framing all envs at once.
-* ``*_grid.mp4`` — one camera per env (tiled into a grid).
+- *_global.mp4: a single camera framing all envs at once.
+- *_grid.mp4: one camera per env, tiled into a grid.
 
-The global pose and per-env camera offsets are fully configurable from the CLI,
-so this same script works as a general-purpose visualization entry point.
+The global pose and per-env camera offsets are configurable from the CLI, so this
+script doubles as a general-purpose visualization entry point.
 
-Run inside the Docker container::
+Run inside the Docker container:
 
     /isaac-sim/python.sh \\
         isaaclab_arena_examples/visualization/synchronized_visualization_example.py \\
@@ -123,14 +123,15 @@ def main() -> None:
     arena_env = GR1TableMultiObjectNoCollisionEnvironment().get_env(args_cli)
     builder = ArenaEnvBuilder(arena_env, args_cli)
 
-    # Register the per-env tiled camera on the scene *before* build so Isaac Lab
+    # Register the per-env tiled camera on the scene before build so Isaac Lab
     # sets up its tiled render product once and updates it as part of env.step.
     cam_name = SynchronizedVisualizer.ENV_CAM_NAME
     arena_env.scene.add_sensor(cam_name, SynchronizedVisualizer.build_env_camera_cfg(env_view, cam_name))
 
     env_cfg = builder.compose_manager_cfg()
-    # The global view is the viewport camera read via env.render(); its size is
-    # the viewer resolution, and rgb_array mode is what makes render() return frames.
+    # The global view is read via env.render(): its size is the viewer resolution and
+    # rgb_array mode is what makes render() return frames. The visualizer routes the
+    # render product through its own world camera (the GUI viewport cam is unposable headless).
     env_cfg.viewer.resolution = (global_view.width, global_view.height)
     env = builder.make_registered(env_cfg=env_cfg, render_mode="rgb_array")
     device = env.unwrapped.device
@@ -145,11 +146,17 @@ def main() -> None:
     action_shape = env.action_space.shape
 
     def _settle(num_steps: int) -> None:
-        # env.step renders the scene sensors; env.render() warms the viewport annotator.
+        # RTX annotators return black for the first few frames; discard them so the
+        # first captured frame isn't blank. A None render means the global view is
+        # misconfigured and every later capture() would skip it, so surface it now.
         for _ in range(num_steps):
             with torch.inference_mode():
                 env.step(torch.zeros(action_shape, device=device))
-            env.render()
+            if env.render() is None:
+                print(
+                    "Warning: env.render() returned None during warm-up; the global view will be empty. "
+                    "Build the env with render_mode='rgb_array' and run with --enable_cameras."
+                )
 
     try:
         print("Warming up renderer...")
