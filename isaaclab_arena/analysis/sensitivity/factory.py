@@ -13,25 +13,17 @@ if TYPE_CHECKING:
 
 
 def make_analyzer(dataset: SensitivityDataset, outcome_name: str) -> BaseAnalyzer:
-    """Construct the right analyzer for the dataset's factor mix and outcome shape.
+    """Construct the analyzer matching the dataset's factor mix and outcome.
 
-    This MVP supports two factor mixes, one analyzer from each family:
-      - any continuous + any categorical (mixed) → :class:`MNPEAnalyzer`
-      - 1 continuous + 0 categorical AND a binary outcome → :class:`KDEAnalyzer`
-        (avoids sbi NPE's 1D-theta Gaussian-shape constraint; exact under uniform prior)
+      - mixed continuous + categorical → :class:`MNPEAnalyzer`
+      - one continuous factor with a binary outcome → :class:`KDEAnalyzer`
 
-    Other factor mixes (pure-categorical, or multiple/non-binary continuous) are not
-    supported yet; they are asserted against here so the gap fails loudly instead of
-    mis-dispatching.
-
-    The binary check reads the outcome column off the dataset rather than the schema,
-    since outcome ``type: float`` in factors.yaml covers both continuous durations and
-    binary 0/1 success rates.
-
-    Analyzer classes are imported lazily so that importing this module (and the package
-    that re-exports it, which happens on the eval-time ``episode_writer`` path) doesn't
-    pull in torch/sbi until analysis runs.
+    Other mixes are asserted against so an unsupported case fails loudly. The binary
+    check reads the outcome values off the dataset, since factors.yaml types all
+    outcomes as float.
     """
+    # Import lazily so importing this module (and the package re-export on the eval-time
+    # episode_writer path) does not pull in torch/sbi until an analysis actually runs.
     from isaaclab_arena.analysis.sensitivity.empirical_analyzer import KDEAnalyzer
     from isaaclab_arena.analysis.sensitivity.posterior_analyzer import MNPEAnalyzer
 

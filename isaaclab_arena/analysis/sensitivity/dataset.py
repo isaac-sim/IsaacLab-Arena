@@ -117,12 +117,11 @@ class FactorSchema:
 
     @property
     def factor_columns(self) -> dict[str, slice]:
-        """Map factor name → column slice in theta.
+        """Map factor name → its column slice in theta.
 
-        Continuous factors occupy the leading columns (their ``dim`` columns each), then
-        each categorical factor occupies one trailing column. This continuous-first
-        ordering matches sbi's MNPE convention so the same theta layout works for both
-        NPE (all-continuous) and MNPE (mixed).
+        Continuous factors occupy the leading columns (``dim`` each), then each categorical
+        factor occupies one trailing column. This continuous-first layout is what sbi's
+        mixed density estimator expects.
         """
         continuous_factors = [factor for factor in self.factors if factor.type == "continuous"]
         categorical_factors = [factor for factor in self.factors if factor.type == "categorical"]
@@ -136,19 +135,10 @@ class FactorSchema:
 
 
 class SensitivityDataset:
-    """Combines a ``factors.yaml`` schema with an ``episode_summary.jsonl`` data file.
+    """A ``factors.yaml`` schema paired with its ``episode_summary.jsonl`` rows.
 
-    On construction:
-      1. Parses the schema (factors + outcomes + slice metadata).
-      2. Loads the JSONL rows (one row per episode).
-      3. Validates that every row contains all declared factor and outcome keys.
-      4. Fills any missing continuous ranges by inferring from observed min/max so the
-         analyzer can always trust ``schema.factors[i].range`` to be populated.
-      5. Builds the ``theta`` and ``x`` tensors that sbi (or the empirical analyzer)
-         will consume.
-
-    The four public attributes used by the analyzer (``theta``, ``x``, ``prior``,
-    ``factor_columns``) are properties — recomputed lazily where appropriate.
+    Parses and validates both on construction, then exposes the ``theta`` (factors),
+    ``x`` (outcomes), ``prior`` and ``factor_columns`` an analyzer consumes.
     """
 
     def __init__(self, factors_yaml: str | Path, jsonl_path: str | Path):
@@ -165,16 +155,10 @@ class SensitivityDataset:
         self._x = self._build_outcome_tensor()
 
     def _validate_rows(self, jsonl_path: str | Path) -> None:
-        """Assert every JSONL row carries the keys declared in the schema.
+        """Assert every JSONL row carries the schema's declared factor and outcome keys.
 
-        The writer logs the *entire* arena_env_args dict per row, so the loader only
-        requires that the schema's declared factor names are a *subset* of what's in
-        ``row["arena_env_args"]`` — extra keys (other arena_env_args we don't analyze)
-        are fine and ignored. Same superset-not-equality check for outcomes.
-
-        Catches the most common authoring mistake: a factor declared in factors.yaml
-        that the eval didn't actually vary or log. Surfaces a clear error pointing at
-        the first offending row.
+        The declared names need only be a subset of each row's ``arena_env_args`` /
+        ``outcomes``; extra keys are ignored. Raises pointing at the first offending row.
         """
         expected_factor_names = {factor.name for factor in self.schema.factors}
         expected_outcome_names = {outcome.name for outcome in self.schema.outcomes}
@@ -194,12 +178,9 @@ class SensitivityDataset:
             ), f"Row {row_index} of {jsonl_path} missing outcomes {sorted(missing_outcome_names)}"
 
     def _infer_missing_factor_ranges(self) -> None:
-        """For any continuous factor without a declared ``range``, fill it from observed data.
+        """Fill any continuous factor's missing ``range`` from the observed min/max.
 
-        The prior bounds default to ``[min(values), max(values)]`` over the JSONL. Users
-        who want a principled prior (e.g. matching the variation system's declared
-        ``Uniform(low, high)``) should hand-author ``range`` in factors.yaml; that value
-        takes precedence and this method skips them.
+        A ``range`` declared in factors.yaml takes precedence and is left untouched.
         """
         for factor in self.schema.factors:
             if factor.type != "continuous" or factor.range is not None:
@@ -215,11 +196,8 @@ class SensitivityDataset:
     def _build_factor_tensor(self) -> torch.Tensor:
         """Assemble the per-episode factor matrix ``theta``.
 
-        Layout: continuous factors fill the leading columns (one column per dim), then
-        each categorical factor fills one trailing column. Categorical values are
-        encoded as ``float32`` integers ``0..num_choices-1`` per the index in
-        ``FactorSpec.choices`` — sbi's MNPE expects exactly this layout (continuous-first,
-        discrete columns as floats, the density estimator handles them as discrete).
+        Continuous columns first (one per dim), then one column per categorical factor
+        with its value integer-coded as a ``float32`` index into ``FactorSpec.choices``.
         """
         continuous_factors = [factor for factor in self.schema.factors if factor.type == "continuous"]
         categorical_factors = [factor for factor in self.schema.factors if factor.type == "categorical"]
@@ -306,18 +284,13 @@ class SensitivityDataset:
 
     @property
     def prior(self):
-        """The uniform prior over all factor dims that the analyzer assumes.
+        """Uniform prior (``sbi.utils.BoxUniform``) over all factor dims.
 
-        Built as a single ``sbi.utils.BoxUniform`` over the concatenated bounds in
-        continuous-first / categorical-after order:
-          - Continuous factor → uses the declared (or inferred) ``[low, high]`` per dim.
-          - Categorical factor → uses ``[0, num_choices - 1]`` (the integer codes from
-            ``_build_factor_tensor``); sbi MNPE's mixed density estimator treats them as
-            discrete from there.
-
-        sbi is imported lazily so loading the dataset doesn't pay the sbi import cost
-        unless the analyzer actually runs.
+        Continuous factors use their ``[low, high]`` range; categorical factors use
+        ``[0, num_choices - 1]`` over their integer codes, in continuous-first order.
         """
+        # Import sbi lazily so loading the dataset does not pay the sbi import cost
+        # unless an analyzer actually runs.
         from sbi.utils import BoxUniform
 
         low_bounds: list[float] = []

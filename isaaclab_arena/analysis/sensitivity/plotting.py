@@ -34,12 +34,7 @@ def draw_marginal(
 ) -> None:
     """Draw ``factor_name``'s marginal posterior onto ``ax``, dispatching by factor type.
 
-    Sets axis labels, scale, legend and grid but NOT the title — the caller titles the
-    Axes (a standalone plot wants the full slice block; a grid cell wants a compact label).
-
-    For continuous factors, the analyzer must expose ``continuous_marginal_density``
-    (``PosteriorAnalyzer`` and ``KDEAnalyzer`` do); the categorical-only analyzers reject
-    continuous factors at construction time, so they never reach this branch.
+    Sets axis labels, legend and grid but not the title — the caller titles the Axes.
     """
     factor_spec = analyzer._factor_spec(factor_name)
     if factor_spec.type == "continuous":
@@ -129,15 +124,8 @@ def _draw_categorical_marginal(
 ) -> None:
     """Draw a categorical factor's marginal onto ``ax`` as side-by-side bars per category.
 
-    The blue bar (left of each category) is the analyzer's ``P(category | outcome)``.
-    The green bar (right of each category) is the *empirical* per-category outcome rate
-    — independent of the analyzer's posterior, computed directly from the raw data.
-    For a direct empirical analyzer the two agree exactly (up to normalization); for
-    a posterior-based analyzer (e.g. ``MNPEAnalyzer``) they may differ slightly if the
-    model smooths.
-
-    Each green bar is annotated with the sample count ``n`` for that category, so the
-    user can see how trustworthy each bar is.
+    Blue bar: the analyzer's ``P(category | outcome)``. Green bar: the empirical
+    per-category outcome rate from the raw data, annotated with its sample count ``n``.
     """
     assert factor_spec.choices is not None
     choices = factor_spec.choices
