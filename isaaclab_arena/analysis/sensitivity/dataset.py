@@ -3,27 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Schema parser and dataset loader for sensitivity analysis.
-
-Combines a hand-authored ``factors.yaml`` (the declared schema + priors) with an
-``episode_summary.jsonl`` (per-episode factor draws + outcome values, written by
-``episode_writer``) into the tensors that ``sbi`` consumes for posterior inference.
-
-Vocabulary refresher (for readers new to simulation-based inference / SBI):
-  - **theta** — the *factor* values per episode. The "inputs" we vary in the eval (e.g.
-    ``light_intensity``, ``pick_up_object``). Shape ``(num_episodes, total_factor_dim)``,
-    continuous factors come first then categoricals.
-  - **x** — the *outcome* values per episode. The "outputs" the policy produced (e.g.
-    ``success_rate``, ``object_moved_rate``). Shape ``(num_episodes, num_outcomes)``.
-  - **prior** — the assumed distribution over theta *before* seeing data. v0.3 ships
-    uniform priors only, encoded as ``sbi.utils.BoxUniform``.
-  - **factor_columns** — map from factor name to its column slice in theta, so
-    downstream code can extract a marginal by name without knowing the layout.
-
-MVP-2 supports continuous-1D and categorical factors. Vector continuous (``dim > 1``)
-factors still raise ``NotImplementedError`` so adding them later is a fill-in.
-"""
-
 from __future__ import annotations
 
 import json

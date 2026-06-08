@@ -3,21 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""CLI driver for 1D continuous sensitivity analysis (MVP-1).
-
-Loads a SensitivityDataset from a paired (factors.yaml, episode_summary.jsonl), trains
-NPE on the selected outcome column, and saves a posterior-marginal plot for the chosen
-factor.
-
-Example:
-    python -m isaaclab_arena.scripts.analyze_sensitivity \\
-        --factors_yaml isaaclab_arena_environments/eval_jobs_configs/light_intensity_sweep_factors.yaml \\
-        --episode_summary ./episode_summary.jsonl \\
-        --figure_path ./light_intensity_sensitivity.png
-
-This script runs entirely offline — no Isaac Sim, no policy server.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -28,7 +13,12 @@ from isaaclab_arena.analysis.sensitivity.plotting import plot_marginal
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=(
+            "Offline 1D continuous sensitivity analysis: fit an analyzer on a "
+            "(factors.yaml, episode_summary.jsonl) pair and save a posterior-marginal plot."
+        )
+    )
     parser.add_argument("--factors_yaml", type=str, required=True, help="Path to factors.yaml.")
     parser.add_argument(
         "--episode_summary", type=str, required=True, help="Path to episode_summary.jsonl produced by eval_runner."

@@ -3,31 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Synthetic JSONL generator for the MVP-2 categorical-factor analyzer smoke test.
-
-Generates a fake ``episode_summary.jsonl`` where a single categorical factor
-``pick_up_object`` drives the success probability. Half of the choices are "easy"
-(high success rate), the other half are "hard" (low success rate). With enough samples
-the analyzer's recovered ``P(category | success=1)`` should concentrate on the easy
-choices, and the empirical per-category bar should match the configured rates within
-binomial noise.
-
-Sampling is **uniform over the categorical choices** (matches the semantics of
-``Choose(...)`` in Alex's variation system and the uniform prior the analyzer assumes).
-
-Pair with the auto-emitted factors.yaml. End-to-end smoke test:
-
-    /isaac-sim/python.sh -m isaaclab_arena.analysis.sensitivity.synthetic_data_categorical \\
-        --output /tmp/syn_cat.jsonl
-    /isaac-sim/python.sh -m isaaclab_arena.scripts.analyze_sensitivity \\
-        --factors_yaml /tmp/factors.yaml \\
-        --episode_summary /tmp/syn_cat.jsonl \\
-        --figure_path /tmp/syn_cat_plot.png
-
-Expected output: a bar chart where the "easy" choices have ~3x more posterior mass and
-empirical success rate than the "hard" choices.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -73,7 +48,13 @@ def _factors_yaml_text(choices: list[str]) -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=(
+            "Generate a synthetic episode_summary.jsonl where a single categorical factor drives the "
+            "success probability, for smoke-testing the categorical sensitivity analysis pipeline."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--output",
         type=str,

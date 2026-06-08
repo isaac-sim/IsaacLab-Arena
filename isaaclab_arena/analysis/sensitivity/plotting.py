@@ -3,21 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Plot renderers for sensitivity analysis.
-
-Pure-visualization module. Calls into the analyzer's public posterior queries
-(``continuous_marginal_density`` and ``categorical_marginal_probs``) and renders matplotlib
-figures. Decoupled from the analyzer hierarchy so new plot types can be added without
-touching inference code, and so existing plot code can be tested with mock posteriors.
-
-Two entry points:
-  - ``draw_marginal(ax, analyzer, factor_name, ...)`` draws one factor's marginal onto a
-    caller-supplied Axes (used by the multi-plot PDF report).
-  - ``plot_marginal(analyzer, factor_name, output_path, ...)`` wraps it in its own figure
-    and saves a standalone image (used by the single-factor CLI).
-Both dispatch by factor type to the right renderer.
-"""
-
 from __future__ import annotations
 
 import numpy as np

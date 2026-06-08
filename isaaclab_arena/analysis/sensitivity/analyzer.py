@@ -3,51 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Inference-only analyzers for v0.3 sensitivity analysis.
-
-What this module does in plain English
---------------------------------------
-Given a dataset of (factor values, outcome values) pairs from a policy evaluation, the
-analyzer learns the *conditional* distribution of factor values given a chosen outcome
-value (e.g. "given the episode succeeded, which factor values were most consistent?").
-This is the **posterior** ``P(theta | outcome=success)``. Under v0.3's uniform prior,
-this posterior's peak is also the operating point ``argmax P(success | theta)`` — so
-plotting the marginal posterior over one factor identifies the values that maximize
-success rate.
-
-The three concrete analyzers cover the three relevant factor-mix cases:
-
-  - ``NPEAnalyzer``       — **N**eural **P**osterior **E**stimation. Used when *all*
-    declared factors are continuous. Trains a normalizing-flow density estimator on
-    ``(theta, x)`` pairs and exposes ``posterior.sample`` / ``posterior.log_prob``.
-    Limitation: with a binary outcome and a 1D theta, sbi falls back to a Gaussian
-    density and the recovered peak reflects the *mean* of successful theta values
-    rather than the true *mode* — a known caveat we surface as a [WARN] at fit time.
-  - ``MNPEAnalyzer``      — **M**ixed **N**eural **P**osterior **E**stimation. Used when
-    the schema has *both* continuous and categorical factors. sbi's MixedDensityEstimator
-    routes continuous columns through the same kind of flow NPE uses while routing
-    discrete columns through a categorical mass estimator.
-  - ``EmpiricalAnalyzer`` — Pure-categorical schemas. Skip the neural fit entirely: under
-    a uniform prior the posterior ``P(category | success)`` is *exactly* the normalized
-    per-category empirical success rate. No smoothing improves on that, and sbi MNPE
-    in version 0.26 also refuses to train without at least one continuous theta column.
-
-``make_analyzer(dataset, outcome_name)`` is the factory: callers don't need to know about
-the hierarchy, they just hand it a dataset and outcome name.
-
-How rendering fits in
----------------------
-This module is *inference-only*. The sibling ``plotting`` module reads the analyzer's
-public queries (``continuous_marginal_density``, ``categorical_marginal_probs``) and
-renders matplotlib figures. Decoupling the two means new plot types don't require
-analyzer changes, and analyzer changes don't risk breaking the plot.
-
-Public posterior-query surface used by ``plotting.py``:
-  - ``BaseAnalyzer.categorical_marginal_probs(factor_name, outcome_value, num_samples)``
-  - ``PosteriorAnalyzer.continuous_marginal_density(factor_name, outcome_value, num_grid_points)``
-    (NOT defined on ``EmpiricalAnalyzer`` — that analyzer rejects continuous factors at init time)
-"""
-
 from __future__ import annotations
 
 import numpy as np
@@ -103,36 +58,6 @@ class BaseAnalyzer(ABC):
         return next(factor for factor in self.dataset.schema.factors if factor.name == factor_name)
 
 
-class _NullTracker:
-    """A no-op tracker satisfying sbi's ``Tracker`` protocol — discards training metrics.
-
-    By default sbi logs TensorBoard training curves under ``<cwd>/sbi-logs``
-    (``get_log_root`` hardcodes the cwd). One-shot report generation fits each analyzer
-    once and never reads those curves, yet the default tracker makes fitting fail with
-    ``PermissionError`` whenever the cwd isn't writable — e.g. a repo checkout in a
-    non-root container. Discarding the metrics removes the write, and with it the hidden
-    cwd dependency, so analysis runs from any directory. sbi only calls ``log_metric``
-    and ``flush``; the remaining members satisfy the protocol.
-    """
-
-    log_dir = None
-
-    def log_metric(self, name, value, step=None):
-        pass
-
-    def log_metrics(self, metrics, step=None):
-        pass
-
-    def log_params(self, params):
-        pass
-
-    def add_figure(self, name, figure, step=None):
-        pass
-
-    def flush(self):
-        pass
-
-
 class PosteriorAnalyzer(BaseAnalyzer):
     """Common base for the sbi-driven analyzers (NPE and MNPE).
 
@@ -159,12 +84,8 @@ class PosteriorAnalyzer(BaseAnalyzer):
         raise NotImplementedError("PosteriorAnalyzer subclasses must implement _inference_cls")
 
     def _make_inference(self):
-        """Instantiate the chosen sbi inference class on the dataset's uniform prior.
-
-        Passes a ``_NullTracker`` so fitting writes no TensorBoard logs and stays
-        independent of the launch directory — see ``_NullTracker`` for why.
-        """
-        return self._inference_cls()(prior=self.dataset.prior, tracker=_NullTracker())
+        """Instantiate the chosen sbi inference class on the dataset's uniform prior."""
+        return self._inference_cls()(prior=self.dataset.prior)
 
     def fit(self, training_batch_size: int = 50) -> None:
         """Train the chosen sbi estimator on ``(theta, x_selected)`` and stash the posterior.

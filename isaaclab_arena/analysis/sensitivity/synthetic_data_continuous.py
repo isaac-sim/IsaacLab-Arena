@@ -3,45 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Synthetic JSONL generator for smoke-testing the sensitivity analysis pipeline.
-
-Produces a fake ``episode_summary.jsonl`` with a known linear-Gaussian competence band:
-
-    P(success | intensity) = exp(-(intensity - center)^2 / (2 * sigma^2))
-
-i.e. a Gaussian directly in linear intensity space centered on a trained operating point.
-
-Sampling is **linear-uniform** over ``[10, 5000]`` (one intensity drawn independently per
-episode). This matches the semantics of ``Uniform(10, 5000)`` in Alex's variation system
-and matches the uniform prior declared in factors.yaml. With these choices the smoke
-test should recover the posterior peak exactly at ``center``, because:
-
-    1. linear uniform sampling matches the declared uniform prior (no sampling bias),
-    2. a linear-Gaussian likelihood is symmetric in linear theta-space, so its mode
-       equals its mean — and the NPE Gaussian fallback for 1D binary outcomes fits
-       the mean, recovering the true center.
-
-A more realistic competence band would be log-Gaussian (asymmetric: cameras blind fast
-at low intensity, saturate gradually at high), but that introduces a peak-bias artifact
-that masks pipeline-correctness signal. This smoke test deliberately matches the
-structural assumptions the analyzer can recover exactly, so any mismatch in the output
-points to a real bug rather than a known statistical limitation.
-
-Pair with the hand-authored ``light_intensity_sweep_factors.yaml`` so the analyzer
-script can be smoke-tested end-to-end without running Isaac Sim:
-
-    /isaac-sim/python.sh -m isaaclab_arena.analysis.sensitivity.synthetic_data_continuous \\
-        --output /tmp/syn.jsonl
-    /isaac-sim/python.sh -m isaaclab_arena.scripts.analyze_sensitivity \\
-        --factors_yaml isaaclab_arena_environments/eval_jobs_configs/light_intensity_sweep_factors.yaml \\
-        --episode_summary /tmp/syn.jsonl \\
-        --figure_path /tmp/syn_plot.png
-
-Expected output: a posterior-density curve peaking at ``center`` (default 500), with
-empirical rug markers showing successes clustered around the center and failures at
-both extremes.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -92,7 +53,13 @@ def success_probability(intensity: float, center: float, sigma: float) -> float:
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=(
+            "Generate a synthetic episode_summary.jsonl with a known linear-Gaussian competence band "
+            "for smoke-testing the continuous sensitivity analysis pipeline."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--output", type=str, default="/tmp/synthetic_episode_summary.jsonl", help="Output JSONL path.")
     parser.add_argument(
         "--factors-yaml-out",

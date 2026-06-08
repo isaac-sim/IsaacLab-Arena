@@ -3,28 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Per-episode summary writer for sensitivity analysis.
-
-``write_episode_summaries`` appends one JSONL row per recorded demo for a just-completed
-job. Each row carries:
-
-  - ``job_name`` and ``episode_idx`` for traceability,
-  - ``arena_env_args`` — the *entire* job.arena_env_args_dict, i.e. every value that
-    parameterized the env for this episode,
-  - ``outcomes`` — per-episode outcome values from the task's registered metrics, extracted
-    from the recorded hdf5 demos via each metric's ``compute_metric_from_recording``.
-
-The eval-side writer is intentionally analysis-agnostic: it logs all env state, and the
-analyzer's ``factors.yaml`` decides which subset of those keys to treat as factors. This
-keeps the writer free of any "what counts as a factor?" knowledge.
-
-Import-order note: this module legitimately touches pxr at import time via
-``isaaclab_arena.metrics.metrics`` (which imports ``isaaclab.envs.manager_based_rl_env``).
-Like ``metrics`` itself, callers must defer importing this module until *after*
-``SimulationAppContext`` is active — see ``policy_runner.py`` (which uses the same pattern
-for ``compute_metrics``) and ``eval_runner.py``'s per-job try block for examples.
-"""
-
 from __future__ import annotations
 
 import h5py

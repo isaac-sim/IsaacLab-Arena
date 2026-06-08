@@ -3,21 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Single-PDF sensitivity report — the most important plots, one file on disk.
-
-``generate_pdf_report`` reads a (factors.yaml, JSONL) pair, fits one analyzer per declared
-outcome, and lays out an outcome × factor grid of marginal-posterior plots in a single PDF.
-Each row is one outcome (conditioned on a sensible default value); each column is one factor.
-
-This is the minimal, robolab-style deliverable. The richer interactive HTML report is
-intentionally out of scope here — see the follow-up PR.
-"""
-
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
+from pathlib import Path
 
 from isaaclab_arena.analysis.sensitivity.analyzer import make_analyzer
 from isaaclab_arena.analysis.sensitivity.dataset import SensitivityDataset
@@ -59,7 +48,9 @@ def generate_pdf_report(
         for col_index, factor in enumerate(factors):
             ax = axes[row_index][col_index]
             draw_marginal(ax, analyzer, factor.name, outcome_value=outcome_value)
-            ax.set_title(f"{outcome.name} vs {factor.name}\n(conditioned on {outcome.name}={outcome_value:g})", fontsize=10)
+            ax.set_title(
+                f"{outcome.name} vs {factor.name}\n(conditioned on {outcome.name}={outcome_value:g})", fontsize=10
+            )
 
     slice_info = dataset.schema.slice
     # Two lines so the title doesn't clip on narrow (single-factor) figures.
