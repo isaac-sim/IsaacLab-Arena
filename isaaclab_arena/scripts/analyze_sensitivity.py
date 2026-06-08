@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import argparse
 
-from isaaclab_arena.analysis.sensitivity.analyzer import make_analyzer
+from isaaclab_arena.analysis.sensitivity import make_analyzer
 from isaaclab_arena.analysis.sensitivity.dataset import SensitivityDataset
 from isaaclab_arena.analysis.sensitivity.plotting import plot_marginal
 
