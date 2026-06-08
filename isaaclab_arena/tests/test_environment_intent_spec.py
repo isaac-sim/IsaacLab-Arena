@@ -3,14 +3,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Intent-spec and catalogue tests without live registry or SimulationApp.
+
+Registry-touching catalogue and validation paths are exercised through mocks so
+this module stays importable in Phase 1 before ``SimulationApp`` starts.
+"""
 
 from __future__ import annotations
+
+from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
 
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
-    agent_ready_task_names,
     build_relation_catalogue,
     build_task_catalogue,
 )
@@ -18,23 +24,90 @@ from isaaclab_arena.agentic_environment_generation.environment_intent_spec impor
     EnvironmentIntentSpec,
     required_task_init_param_names,
 )
-from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
-from isaaclab_arena.tasks.close_door_task import CloseDoorTask
-from isaaclab_arena.tasks.open_door_task import OpenDoorTask
-from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+from isaaclab_arena.relations.relations import IsAnchor, On
+from isaaclab_arena.tasks.task_base import TaskBase
+
+
+class _PickAndPlaceStub(TaskBase):
+    """Minimal stand-in for ``PickAndPlaceTask`` constructor introspection."""
+
+    agent_ready = True
+
+    def __init__(self, pick_up_object, destination_location, background_scene):
+        super().__init__()
+
+
+class _OpenDoorStub(TaskBase):
+    agent_ready = True
+
+    def __init__(self, openable_object):
+        super().__init__()
+
+
+class _CloseDoorStub(TaskBase):
+    agent_ready = True
+
+    def __init__(self, openable_object):
+        super().__init__()
+
+
+class _RotateJointStub(TaskBase):
+    agent_ready = False
+
+    def __init__(self, revolute_joint):
+        super().__init__()
+
+
+def _mock_task_registry() -> MagicMock:
+    registry = MagicMock()
+    registry.get_all_keys.return_value = [
+        "PickAndPlaceTask",
+        "OpenDoorTask",
+        "CloseDoorTask",
+        "RotateRevoluteJointTask",
+    ]
+    registry.get_task_by_name.side_effect = lambda name: {
+        "PickAndPlaceTask": _PickAndPlaceStub,
+        "OpenDoorTask": _OpenDoorStub,
+        "CloseDoorTask": _CloseDoorStub,
+        "RotateRevoluteJointTask": _RotateJointStub,
+    }[name]
+    registry.is_registered.side_effect = lambda name: name in {
+        "PickAndPlaceTask",
+        "OpenDoorTask",
+        "CloseDoorTask",
+        "RotateRevoluteJointTask",
+    }
+    return registry
+
+
+def _mock_relation_registry() -> MagicMock:
+    registry = MagicMock()
+    registry.get_all_keys.return_value = ["on", "is_anchor"]
+    registry.is_registered.side_effect = lambda name: name in {"on", "is_anchor"}
+    registry.get_object_relation_by_name.side_effect = lambda name: {"on": On, "is_anchor": IsAnchor}[name]
+    return registry
 
 
 def test_required_task_init_param_names_match_task_constructors():
-    assert required_task_init_param_names(PickAndPlaceTask) == [
+    assert required_task_init_param_names(_PickAndPlaceStub) == [
         "pick_up_object",
         "destination_location",
         "background_scene",
     ]
-    assert required_task_init_param_names(OpenDoorTask) == ["openable_object"]
-    assert required_task_init_param_names(CloseDoorTask) == ["openable_object"]
+    assert required_task_init_param_names(_OpenDoorStub) == ["openable_object"]
+    assert required_task_init_param_names(_CloseDoorStub) == ["openable_object"]
 
 
-def test_task_catalogue_lists_required_init_params():
+@patch(
+    "isaaclab_arena.agentic_environment_generation.environment_generation_agent.TaskRegistry",
+    side_effect=lambda: _mock_task_registry(),
+)
+@patch(
+    "isaaclab_arena.agentic_environment_generation.environment_generation_agent.agent_ready_task_names",
+    return_value=frozenset({"PickAndPlaceTask", "OpenDoorTask", "CloseDoorTask"}),
+)
+def test_task_catalogue_lists_required_init_params(_mock_ready, _mock_registry):
     catalogue = build_task_catalogue()
     by_name = {entry.name: entry for entry in catalogue.tasks}
     assert by_name["PickAndPlaceTask"].required_params == [
@@ -45,19 +118,36 @@ def test_task_catalogue_lists_required_init_params():
     assert by_name["OpenDoorTask"].required_params == ["openable_object"]
 
 
-def test_task_catalogue_lists_only_agent_ready_tasks():
+@patch(
+    "isaaclab_arena.agentic_environment_generation.environment_generation_agent.TaskRegistry",
+    side_effect=lambda: _mock_task_registry(),
+)
+@patch(
+    "isaaclab_arena.agentic_environment_generation.environment_generation_agent.agent_ready_task_names",
+    return_value=frozenset({"PickAndPlaceTask", "OpenDoorTask", "CloseDoorTask"}),
+)
+def test_task_catalogue_lists_only_agent_ready_tasks(_mock_ready, _mock_registry):
     catalogue = build_task_catalogue()
-    assert {entry.name for entry in catalogue.tasks} == agent_ready_task_names()
+    assert {entry.name for entry in catalogue.tasks} == {"PickAndPlaceTask", "OpenDoorTask", "CloseDoorTask"}
 
 
-def test_relation_catalogue_matches_object_relation_registry():
+@patch(
+    "isaaclab_arena.agentic_environment_generation.environment_generation_agent.ObjectRelationLibraryRegistry",
+    side_effect=lambda: _mock_relation_registry(),
+)
+def test_relation_catalogue_matches_object_relation_registry(_mock_registry):
     catalogue = build_relation_catalogue()
-    registered = set(ObjectRelationLibraryRegistry().get_all_keys())
-    catalogue_names = {entry.name for entry in catalogue.relations}
-    assert catalogue_names == registered
+    assert {entry.name for entry in catalogue.relations} == {"on", "is_anchor"}
+    on_entry = next(entry for entry in catalogue.relations if entry.name == "on")
+    assert on_entry.unary is False
+    assert on_entry.summary == On.__doc__.strip().splitlines()[0]
 
 
-def test_environment_intent_spec_rejects_missing_task_params():
+@patch(
+    "isaaclab_arena.agentic_environment_generation.environment_intent_spec.TaskRegistry",
+    side_effect=lambda: _mock_task_registry(),
+)
+def test_environment_intent_spec_rejects_missing_task_params(_mock_registry):
     payload = {
         "reasoning": "test",
         "background": "kitchen",
@@ -74,7 +164,11 @@ def test_environment_intent_spec_rejects_missing_task_params():
         EnvironmentIntentSpec.model_validate(payload)
 
 
-def test_environment_intent_spec_rejects_non_agent_ready_task():
+@patch(
+    "isaaclab_arena.agentic_environment_generation.environment_intent_spec.TaskRegistry",
+    side_effect=lambda: _mock_task_registry(),
+)
+def test_environment_intent_spec_rejects_non_agent_ready_task(_mock_registry):
     payload = {
         "reasoning": "test",
         "background": "kitchen",
@@ -83,7 +177,7 @@ def test_environment_intent_spec_rejects_non_agent_ready_task():
         "initial_state_graph": [],
         "tasks": [{
             "kind": "RotateRevoluteJointTask",
-            "params": {},
+            "params": {"revolute_joint": "knob"},
             "description": "rotate a joint",
         }],
     }
@@ -91,7 +185,15 @@ def test_environment_intent_spec_rejects_non_agent_ready_task():
         EnvironmentIntentSpec.model_validate(payload)
 
 
-def test_environment_intent_spec_accepts_valid_task_params():
+@patch(
+    "isaaclab_arena.environments.arena_env_graph_types.ObjectRelationLibraryRegistry",
+    side_effect=lambda: _mock_relation_registry(),
+)
+@patch(
+    "isaaclab_arena.agentic_environment_generation.environment_intent_spec.TaskRegistry",
+    side_effect=lambda: _mock_task_registry(),
+)
+def test_environment_intent_spec_accepts_valid_task_params(_mock_task_registry, _mock_relation_registry):
     payload = {
         "reasoning": "test",
         "background": "kitchen",
