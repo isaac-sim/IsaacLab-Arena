@@ -84,8 +84,8 @@ def _draw_continuous_marginal(
     )
     ax.fill_between(grid, 0, density, color=_POSTERIOR_COLOR, alpha=0.2)
 
-    # Binary outcomes: split the rug green/red at the success threshold (successes vs failures). Continuous
-    # outcomes (e.g. task_duration): the threshold is meaningless, so show one neutral rug.
+    # Binary outcomes: split the rug green/red at the success threshold (successes vs failures).
+    # Continuous outcomes: the threshold is meaningless, so show one neutral rug.
     is_binary_outcome = set(empirical_outcomes.flatten().tolist()).issubset({0.0, 1.0})
     if is_binary_outcome:
         success_mask = empirical_outcomes >= _SUCCESS_THRESHOLD

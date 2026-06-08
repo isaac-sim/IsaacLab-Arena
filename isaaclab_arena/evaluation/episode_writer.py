@@ -5,12 +5,10 @@
 
 from __future__ import annotations
 
-import h5py
 import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.metrics.metrics import get_metric_recorder_dataset_path
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 
 if TYPE_CHECKING:
@@ -18,20 +16,23 @@ if TYPE_CHECKING:
 
 
 def write_episode_summaries(env, job: Job, output_path: str | Path) -> int:
-    """Append one JSONL row per recorded demo for the just-completed job.
+    """Append one JSONL row per recorded episode for the just-completed job.
 
     Each row has shape::
 
         {
           "job_name": "<job.name>",
-          "episode_idx": <demo index in the hdf5>,
+          "episode_idx": <episode index in the recorded dataset>,
           "arena_env_args": <full job.arena_env_args_dict>,
-          "outcomes": <per-metric value computed from the demo>
+          "outcomes": <per-episode metric values>
         }
 
+    Per-episode metric values come from the env's ``MetricsManager`` (the same machinery
+    that backs ``compute_metrics``), so all HDF5/metric access stays in the metrics layer.
+
     Args:
-        env: The (possibly gym-wrapped) Arena env that just finished its rollout. The hdf5
-            path and registered metrics are read from ``env.unwrapped.cfg``.
+        env: The (possibly gym-wrapped) Arena env that just finished its rollout. Its
+            ``MetricsManager`` provides the per-episode metric values.
         job: The Job that ran. Its ``arena_env_args_dict`` is logged verbatim under
             ``arena_env_args``.
         output_path: JSONL file to append to. Created (with parent dirs) if absent.
@@ -43,44 +44,19 @@ def write_episode_summaries(env, job: Job, output_path: str | Path) -> int:
     if not hasattr(unwrapped_env.cfg, "metrics") or unwrapped_env.cfg.metrics is None:
         return 0
 
+    per_episode_metrics = unwrapped_env.metrics_manager.compute_per_episode()
     arena_env_args_snapshot = dict(job.arena_env_args_dict)
 
-    hdf5_dataset_path = get_metric_recorder_dataset_path(unwrapped_env)
-    registered_metrics = unwrapped_env.cfg.metrics
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "a", encoding="utf-8") as jsonl_output:
+        for episode_index, episode_metrics in enumerate(per_episode_metrics):
+            summary_row = {
+                "job_name": job.name,
+                "episode_idx": episode_index,
+                "arena_env_args": arena_env_args_snapshot,
+                "outcomes": metrics_to_plain_python_types(episode_metrics),
+            }
+            jsonl_output.write(json.dumps(summary_row) + "\n")
 
-    rows_written = 0
-    env_step_dt = float(unwrapped_env.step_dt)
-    with h5py.File(hdf5_dataset_path, "r") as hdf5_file:
-        recorded_demos = hdf5_file["data"]
-        with open(output_path, "a", encoding="utf-8") as jsonl_output:
-            for demo_index, demo_name in enumerate(recorded_demos):
-                demo_group = recorded_demos[demo_name]
-                raw_outcome_values = {}
-                # Step count = max array length over metrics: per-step recorders give (T,…),
-                # per-episode scalars give (1,); the max avoids collapsing task_duration to 1.
-                demo_step_count = 0
-                # cfg.metrics is a MetricsCfg configclass (one MetricTermCfg field per metric);
-                # the per-demo value is compute_metric_func fed a single-element list.
-                for metric_name, metric_cfg in registered_metrics.__dict__.items():
-                    recorded_metric_data = demo_group[metric_cfg.recorder_term_name][:]
-                    raw_outcome_values[metric_name] = metric_cfg.compute_metric_func(
-                        [recorded_metric_data], **metric_cfg.params
-                    )
-                    demo_step_count = max(demo_step_count, len(recorded_metric_data))
-                # task_duration: seconds before termination (short for fast successes, max for
-                # timeouts) — a continuous outcome beyond the binary metrics.
-                if demo_step_count > 0:
-                    raw_outcome_values["task_duration"] = float(demo_step_count) * env_step_dt
-                outcome_values = metrics_to_plain_python_types(raw_outcome_values)
-                summary_row = {
-                    "job_name": job.name,
-                    "episode_idx": demo_index,
-                    "arena_env_args": arena_env_args_snapshot,
-                    "outcomes": outcome_values,
-                }
-                jsonl_output.write(json.dumps(summary_row) + "\n")
-                rows_written += 1
-
-    return rows_written
+    return len(per_episode_metrics)
