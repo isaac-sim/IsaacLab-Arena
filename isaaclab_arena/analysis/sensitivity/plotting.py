@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import numpy as np
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -42,33 +41,6 @@ def draw_marginal(
         _draw_categorical_marginal(ax, analyzer, factor_spec, outcome_value, num_samples)
     else:
         raise NotImplementedError(f"Unsupported factor type {factor_spec.type!r}")
-
-
-def plot_marginal(
-    analyzer: BaseAnalyzer,
-    factor_name: str,
-    output_path,
-    outcome_value: float = 1.0,
-    num_samples: int = 10_000,
-    num_grid_points: int = 200,
-) -> None:
-    """Render one factor's marginal posterior into its own figure and save it.
-
-    Thin wrapper over ``draw_marginal``: sizes a single-Axes figure, draws, titles it with
-    the full slice block, and saves to ``output_path``.
-    """
-    import matplotlib.pyplot as plt
-
-    factor_spec = analyzer._factor_spec(factor_name)
-    if factor_spec.type == "categorical" and factor_spec.choices is not None:
-        figsize = (max(8, 1.0 * len(factor_spec.choices)), 5)
-    else:
-        figsize = (8, 5)
-    figure, axes = plt.subplots(figsize=figsize)
-    draw_marginal(axes, analyzer, factor_name, outcome_value, num_samples, num_grid_points)
-    axes.set_title(_plot_title(analyzer, factor_name))
-    figure.tight_layout()
-    _save_figure(figure, output_path)
 
 
 def _draw_continuous_marginal(
@@ -209,30 +181,3 @@ def _draw_categorical_marginal(
     ax.set_ylim(0, 1.05)
     ax.legend(loc="best", fontsize=9)
     ax.grid(alpha=0.3, axis="y")
-
-
-def _plot_title(analyzer: BaseAnalyzer, factor_name: str) -> str:
-    """Format the plot title as ``"Sensitivity of <outcome> to <factor>" / slice block``."""
-    return (
-        f"Sensitivity of {analyzer.outcome_name} to {factor_name}\n"
-        f"slice: {analyzer.dataset.schema.slice.policy} / "
-        f"{analyzer.dataset.schema.slice.task} / {analyzer.dataset.schema.slice.embodiment}"
-    )
-
-
-def _save_figure(figure, destination) -> None:
-    """Save a matplotlib figure to ``destination`` (a path or a writable file-like object).
-
-    Accepts either a filesystem path (``str`` / ``Path``) or any seekable file-like buffer
-    (e.g. ``io.BytesIO``). Paths get parent-dir creation; buffers are written to directly.
-    The figure is closed after save regardless of destination type.
-    """
-    import matplotlib.pyplot as plt
-
-    if isinstance(destination, (str, Path)):
-        path = Path(destination)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        figure.savefig(path, dpi=150)
-    else:
-        figure.savefig(destination, dpi=150, format="png")
-    plt.close(figure)
