@@ -10,6 +10,13 @@ from abc import ABC, abstractmethod
 
 from isaaclab_arena.analysis.sensitivity.dataset import FactorSpec, SensitivityDataset
 
+SUCCESS_THRESHOLD = 0.5
+"""Outcome value at or above which a binary-outcome episode counts as a success.
+
+Shared by the analyzers (which successful-theta samples to fit) and the plotting (how
+to split the rug), so the two cannot disagree on what "success" means.
+"""
+
 
 class BaseAnalyzer(ABC):
     """Abstract base for sensitivity analyzers.

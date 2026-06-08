@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from isaaclab_arena.analysis.sensitivity.analyzer_base import BaseAnalyzer
+from isaaclab_arena.analysis.sensitivity.analyzer_base import SUCCESS_THRESHOLD, BaseAnalyzer
 from isaaclab_arena.analysis.sensitivity.dataset import SensitivityDataset
 
 
@@ -20,14 +20,11 @@ class EmpiricalAnalyzer(BaseAnalyzer):
     ``>= SUCCESS_THRESHOLD``.
     """
 
-    SUCCESS_THRESHOLD = 0.5
-    """Outcome value at or above which an episode counts as a success."""
-
     def _success_mask(self) -> np.ndarray:
         """Boolean array over episodes: True where the selected outcome counts as a success."""
         outcome_column_index = self.dataset.outcome_columns[self.outcome_name]
         outcome_values = self.dataset.x[:, outcome_column_index].cpu().numpy()
-        return outcome_values >= self.SUCCESS_THRESHOLD
+        return outcome_values >= SUCCESS_THRESHOLD
 
 
 class KDEAnalyzer(EmpiricalAnalyzer):
@@ -96,7 +93,7 @@ class KDEAnalyzer(EmpiricalAnalyzer):
         range_low, range_high = factor_spec.range[0]
         grid = np.linspace(range_low, range_high, num_grid_points)
 
-        if outcome_value < self.SUCCESS_THRESHOLD or self._kde is None:
+        if outcome_value < SUCCESS_THRESHOLD or self._kde is None:
             uniform_density = 1.0 / max(range_high - range_low, 1e-9)
             return grid, np.full_like(grid, uniform_density)
         return grid, self._kde(grid)

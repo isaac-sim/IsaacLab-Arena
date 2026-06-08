@@ -8,6 +8,8 @@ from __future__ import annotations
 import numpy as np
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.analysis.sensitivity.analyzer_base import SUCCESS_THRESHOLD
+
 if TYPE_CHECKING:
     from isaaclab_arena.analysis.sensitivity.analyzer_base import BaseAnalyzer
     from isaaclab_arena.analysis.sensitivity.dataset import FactorSpec
@@ -18,7 +20,6 @@ _POSTERIOR_COLOR = "steelblue"  # analyzer posterior: density curve / left bar
 _SUCCESS_COLOR = "seagreen"  # outcome achieved: success rug / empirical-rate bar
 _FAILURE_COLOR = "firebrick"  # outcome not achieved: failure rug
 _NEUTRAL_COLOR = "slategray"  # rug for non-binary outcomes (no success/failure split)
-_SUCCESS_THRESHOLD = 0.5  # outcome >= this counts as a success
 _RUG_MARKER_SIZE = 80  # scatter marker size for empirical rug ticks
 _RUG_SUCCESS_OFFSET = -0.05  # rug y-offset (× density.max()) for successes / neutral ticks
 _RUG_FAILURE_OFFSET = -0.10  # rug y-offset (× density.max()) for failures
@@ -40,7 +41,8 @@ def draw_marginal(
     if factor_spec.type == "continuous":
         if not hasattr(analyzer, "continuous_marginal_density"):
             raise NotImplementedError(
-                f"{type(analyzer).__name__} cannot plot continuous factors; expected a PosteriorAnalyzer (NPE/MNPE)."
+                f"{type(analyzer).__name__} cannot plot continuous factors:"
+                " it does not implement continuous_marginal_density."
             )
         _draw_continuous_marginal(ax, analyzer, factor_spec, outcome_value, num_grid_points)
     elif factor_spec.type == "categorical":
@@ -83,7 +85,7 @@ def _draw_continuous_marginal(
     # Continuous outcomes: the threshold is meaningless, so show one neutral rug.
     is_binary_outcome = set(empirical_outcomes.flatten().tolist()).issubset({0.0, 1.0})
     if is_binary_outcome:
-        success_mask = empirical_outcomes >= _SUCCESS_THRESHOLD
+        success_mask = empirical_outcomes >= SUCCESS_THRESHOLD
         ax.scatter(
             empirical_theta_values[success_mask],
             np.full(success_mask.sum(), _RUG_SUCCESS_OFFSET * density.max()),
@@ -145,7 +147,7 @@ def _draw_categorical_marginal(
         category_mask = empirical_theta_codes == code
         empirical_counts[code] = int(category_mask.sum())
         if category_mask.any():
-            empirical_rates[code] = float((empirical_outcomes[category_mask] >= _SUCCESS_THRESHOLD).mean())
+            empirical_rates[code] = float((empirical_outcomes[category_mask] >= SUCCESS_THRESHOLD).mean())
 
     bar_x_positions = np.arange(num_choices)
     bar_width = 0.4
