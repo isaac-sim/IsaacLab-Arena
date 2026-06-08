@@ -50,10 +50,10 @@ def write_episode_summaries(env, job: Job, output_path: str | Path) -> int:
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "a", encoding="utf-8") as jsonl_output:
-        for episode_index, episode_metrics in enumerate(per_episode_metrics):
+        for episode_idx, episode_metrics in enumerate(per_episode_metrics):
             summary_row = {
                 "job_name": job.name,
-                "episode_idx": episode_index,
+                "episode_idx": episode_idx,
                 "arena_env_args": arena_env_args_snapshot,
                 "outcomes": metrics_to_plain_python_types(episode_metrics),
             }
