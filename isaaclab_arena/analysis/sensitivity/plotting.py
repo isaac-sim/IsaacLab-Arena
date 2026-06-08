@@ -28,8 +28,8 @@ def draw_marginal(
     Axes (a standalone plot wants the full slice block; a grid cell wants a compact label).
 
     For continuous factors, the analyzer must expose ``continuous_marginal_density``
-    (only ``PosteriorAnalyzer`` does — ``EmpiricalAnalyzer`` rejects continuous factors at
-    construction time, so this branch isn't reachable through ``make_analyzer``).
+    (``PosteriorAnalyzer`` and ``KDEAnalyzer`` do — ``FrequencyTableAnalyzer`` rejects
+    continuous factors at construction time, so it never reaches this branch).
     """
     factor_spec = analyzer._factor_spec(factor_name)
     if factor_spec.type == "continuous":
@@ -149,7 +149,7 @@ def _draw_categorical_marginal(
     The blue bar (left of each category) is the analyzer's ``P(category | outcome)``.
     The green bar (right of each category) is the *empirical* per-category outcome rate
     — independent of the analyzer's posterior, computed directly from the raw data.
-    For the ``EmpiricalAnalyzer`` the two will agree exactly (up to normalization); for
+    For the ``FrequencyTableAnalyzer`` the two will agree exactly (up to normalization); for
     a posterior-based analyzer they may differ slightly if the model smooths.
 
     Each green bar is annotated with the sample count ``n`` for that category, so the

@@ -18,8 +18,9 @@ class BaseAnalyzer(ABC):
     Subclasses must implement:
       - ``fit`` — train (or no-op) so queries can be called afterwards.
       - ``categorical_marginal_probs`` — return ``P(category | outcome)`` for a categorical factor.
-    Continuous-factor queries (``continuous_marginal_density``) live on ``PosteriorAnalyzer``
-    only — the empirical analyzer never needs them by construction.
+    Continuous-factor queries (``continuous_marginal_density``) live on the analyzers that
+    provide them (``PosteriorAnalyzer`` and ``KDEAnalyzer``); the categorical-only analyzers
+    never need them by construction.
     """
 
     def __init__(self, dataset: SensitivityDataset, outcome_name: str):
@@ -248,9 +249,37 @@ class MNPEAnalyzer(PosteriorAnalyzer):
 
 
 class EmpiricalAnalyzer(BaseAnalyzer):
+    """Abstract base for the direct (non-neural) analyzers.
+
+    Both subclasses exploit the same fact: under a uniform prior,
+    ``P(theta | success) ∝ P(success | theta)``, so the posterior is read directly off
+    the data — no neural density estimator, no parametric shape constraint. They differ
+    only in factor type, which dictates the estimator:
+
+      - :class:`FrequencyTableAnalyzer` (categorical) — the per-category empirical success
+        rate: the raw empirical measure, usable as-is.
+      - :class:`KDEAnalyzer` (continuous) — a Gaussian KDE over the successful-theta
+        samples: the same empirical measure, kernel-smoothed because a raw continuous
+        empirical measure is a sum of Diracs.
+
+    Outcome is treated as binary: an episode is a "success" when its selected outcome
+    column is ``>= SUCCESS_THRESHOLD``.
+    """
+
+    SUCCESS_THRESHOLD = 0.5
+    """Outcome value at or above which an episode counts as a success."""
+
+    def _success_mask(self) -> np.ndarray:
+        """Boolean array over episodes: True where the selected outcome counts as a success."""
+        outcome_column_index = self.dataset.outcome_columns[self.outcome_name]
+        outcome_values = self.dataset.x[:, outcome_column_index].cpu().numpy()
+        return outcome_values >= self.SUCCESS_THRESHOLD
+
+
+class FrequencyTableAnalyzer(EmpiricalAnalyzer):
     """Frequency-table analyzer for pure-categorical factor schemas — no neural fit.
 
-    Use this when every declared factor is categorical. Under v0.3's uniform prior,
+    Use this when every declared factor is categorical. Under a uniform prior,
     Bayes' rule simplifies ``P(category | success) ∝ P(success | category) · P(category)``
     to ``P(category | success) ∝ P(success | category)`` — i.e. the posterior is *exactly*
     the per-category empirical success rate, normalized to sum to 1. No neural network
@@ -267,7 +296,7 @@ class EmpiricalAnalyzer(BaseAnalyzer):
         super().__init__(dataset, outcome_name)
         has_continuous_factor = any(factor.type == "continuous" for factor in dataset.schema.factors)
         assert not has_continuous_factor, (
-            "EmpiricalAnalyzer is only valid for all-categorical schemas. For mixed"
+            "FrequencyTableAnalyzer is only valid for all-categorical schemas. For mixed"
             " continuous + categorical factors, use MNPEAnalyzer."
         )
 
@@ -278,57 +307,55 @@ class EmpiricalAnalyzer(BaseAnalyzer):
     def categorical_marginal_probs(self, factor_name: str, outcome_value: float, num_samples: int) -> np.ndarray:
         """Return ``P(category | outcome) = per_category_success_rate / sum(per_category_success_rate)``.
 
-        For each category, computes the fraction of rows assigned to it whose outcome
-        column is ``>= 0.5`` (treating outcome as binary). Then normalizes across
-        categories so the result sums to 1. ``outcome_value`` and ``num_samples`` are
-        accepted for interface compatibility with ``PosteriorAnalyzer`` but not used —
-        empirical analysis treats outcome as binary (success vs not-success).
+        For each category, computes the fraction of its rows that count as a success (see
+        ``SUCCESS_THRESHOLD``), then normalizes across categories so the result sums to 1.
+        ``outcome_value`` and ``num_samples`` are accepted for interface compatibility with
+        ``PosteriorAnalyzer`` but not used — empirical analysis treats outcome as binary.
         """
         factor_spec = self._factor_spec(factor_name)
         assert factor_spec.type == "categorical"
         assert factor_spec.choices is not None
         factor_column_slice = self.dataset.factor_columns[factor_name]
         num_choices = len(factor_spec.choices)
-        outcome_column_index = self.dataset.outcome_columns[self.outcome_name]
 
         empirical_theta_codes = self.dataset.theta[:, factor_column_slice].squeeze(-1).long().cpu().numpy()
-        empirical_outcomes = self.dataset.x[:, outcome_column_index].cpu().numpy()
+        success_mask = self._success_mask()
         empirical_rates = np.zeros(num_choices)
         for code in range(num_choices):
             category_mask = empirical_theta_codes == code
             if category_mask.any():
-                empirical_rates[code] = float((empirical_outcomes[category_mask] >= 0.5).mean())
+                empirical_rates[code] = float(success_mask[category_mask].mean())
         total_rate = float(empirical_rates.sum())
         if total_rate > 0:
             return empirical_rates / total_rate
         return np.full(num_choices, 1.0 / num_choices)
 
 
-class KDEAnalyzer(BaseAnalyzer):
+class KDEAnalyzer(EmpiricalAnalyzer):
     """KDE-based analyzer for the 1-continuous-factor + binary-outcome case.
 
-    Under v0.3's uniform prior and a binary outcome, Bayes' rule reduces to
+    Under a uniform prior and a binary outcome, Bayes' rule reduces to
     ``P(theta | success=1) ∝ P(success=1 | theta) · P(theta) = P(success=1 | theta) · const``.
     The empirical density of *successful*-theta samples (i.e. rows where the chosen outcome
     is 1) is directly proportional to ``P(success=1 | theta)``, and a Gaussian KDE over
     those samples gives a smoothed estimate of that conditional density. No neural fit,
     no Gaussian-shape constraint.
 
-    This is the right primitive for our MVP-1 case (1 continuous factor, binary outcome):
+    This is the right primitive for the 1-continuous-factor + binary-outcome case:
     sbi NPE forces a Gaussian shape when theta is 1D — biasing the recovered peak toward
     the mean of successful-theta values rather than the true mode of the success curve.
     KDE has no such constraint and recovers multi-modal / plateau / skewed shapes faithfully.
 
-    Conceptual sibling of :class:`EmpiricalAnalyzer` (which does the same trick for purely
-    categorical theta via frequency counts). For multi-factor or non-binary-outcome
-    workloads, :func:`make_analyzer` dispatches to NPE/MNPE instead.
+    Sibling of :class:`FrequencyTableAnalyzer` under the shared :class:`EmpiricalAnalyzer`
+    base (which does the same trick for purely categorical theta via frequency counts). For
+    multi-factor or non-binary-outcome workloads, :func:`make_analyzer` dispatches to NPE/MNPE.
 
     Caveats:
       - Bandwidth is scipy's Scott rule default; haven't tuned for non-uniform sample
         distributions or sparse data. May over-smooth the empirical mode.
       - Only ``continuous_marginal_density`` is implemented and only for
         ``outcome_value >= 0.5`` (i.e. success conditioning). Failure conditioning would
-        require fitting a second KDE over failed-theta samples; left out for v0.3 simplicity.
+        require fitting a second KDE over failed-theta samples; left out for simplicity.
     """
 
     def __init__(self, dataset: SensitivityDataset, outcome_name: str):
@@ -347,10 +374,8 @@ class KDEAnalyzer(BaseAnalyzer):
         """Fit a Gaussian KDE on the successful-theta samples (no neural network involved)."""
         from scipy.stats import gaussian_kde
 
-        outcome_column_index = self.dataset.outcome_columns[self.outcome_name]
-        outcome_values = self.dataset.x[:, outcome_column_index].cpu().numpy()
         theta_values = self.dataset.theta[:, 0].cpu().numpy()
-        success_mask = outcome_values >= 0.5
+        success_mask = self._success_mask()
         self._num_total_samples = int(len(theta_values))
         self._num_successful_samples = int(success_mask.sum())
 
@@ -394,7 +419,7 @@ class KDEAnalyzer(BaseAnalyzer):
         range_low, range_high = factor_spec.range[0]
         grid = np.linspace(range_low, range_high, num_grid_points)
 
-        if outcome_value < 0.5 or self._kde is None:
+        if outcome_value < self.SUCCESS_THRESHOLD or self._kde is None:
             uniform_density = 1.0 / max(range_high - range_low, 1e-9)
             return grid, np.full_like(grid, uniform_density)
         return grid, self._kde(grid)
@@ -402,7 +427,7 @@ class KDEAnalyzer(BaseAnalyzer):
     def categorical_marginal_probs(self, factor_name: str, outcome_value: float, num_samples: int) -> np.ndarray:
         raise NotImplementedError(
             "KDEAnalyzer is for continuous factors only. Categorical schemas dispatch to"
-            " EmpiricalAnalyzer via make_analyzer."
+            " FrequencyTableAnalyzer via make_analyzer."
         )
 
 
@@ -413,7 +438,7 @@ def make_analyzer(dataset: SensitivityDataset, outcome_name: str) -> BaseAnalyze
       - 1 continuous + 0 categorical AND the outcome is binary → :class:`KDEAnalyzer`
         (avoids sbi NPE's 1D-theta Gaussian-shape constraint; exact under uniform prior)
       - any continuous + any categorical → :class:`MNPEAnalyzer`
-      - all categorical (zero continuous) → :class:`EmpiricalAnalyzer`
+      - all categorical (zero continuous) → :class:`FrequencyTableAnalyzer`
       - all continuous (zero categorical) → :class:`NPEAnalyzer`
         (the multi-continuous-factor case; theta is multi-D so no Gaussian fallback)
 
@@ -435,5 +460,5 @@ def make_analyzer(dataset: SensitivityDataset, outcome_name: str) -> BaseAnalyze
     if num_continuous_factors > 0 and num_categorical_factors > 0:
         return MNPEAnalyzer(dataset, outcome_name)
     if num_categorical_factors > 0:
-        return EmpiricalAnalyzer(dataset, outcome_name)
+        return FrequencyTableAnalyzer(dataset, outcome_name)
     return NPEAnalyzer(dataset, outcome_name)
