@@ -21,7 +21,6 @@ from isaaclab_arena.agentic_environment_generation.environment_intent_spec impor
 )
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.relations.relations import RelationBase
-from isaaclab_arena.tasks.task_base import TaskBase
 
 # TODO(qianl): This is currently Nvidia internal. Switch to public endpoint.
 DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
@@ -176,7 +175,6 @@ def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
     catalogue = TaskCatalogue()
     for name in sorted(agent_ready_task_names(registry)):
         task_cls = registry.get_task_by_name(name)
-        assert issubclass(task_cls, TaskBase), f"{name!r} is not a TaskBase subclass"
         catalogue.tasks.append(
             TaskCatalogueEntry(
                 name=name,

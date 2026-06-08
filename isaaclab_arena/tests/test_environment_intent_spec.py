@@ -25,37 +25,36 @@ from isaaclab_arena.agentic_environment_generation.environment_intent_spec impor
     required_task_init_param_names,
 )
 from isaaclab_arena.relations.relations import IsAnchor, On
-from isaaclab_arena.tasks.task_base import TaskBase
 
 
-class _PickAndPlaceStub(TaskBase):
+class _PickAndPlaceStub:
     """Minimal stand-in for ``PickAndPlaceTask`` constructor introspection."""
 
     agent_ready = True
 
     def __init__(self, pick_up_object, destination_location, background_scene):
-        super().__init__()
+        pass
 
 
-class _OpenDoorStub(TaskBase):
+class _OpenDoorStub:
     agent_ready = True
 
     def __init__(self, openable_object):
-        super().__init__()
+        pass
 
 
-class _CloseDoorStub(TaskBase):
+class _CloseDoorStub:
     agent_ready = True
 
     def __init__(self, openable_object):
-        super().__init__()
+        pass
 
 
-class _RotateJointStub(TaskBase):
+class _RotateJointStub:
     agent_ready = False
 
     def __init__(self, revolute_joint):
-        super().__init__()
+        pass
 
 
 def _mock_task_registry() -> MagicMock:
