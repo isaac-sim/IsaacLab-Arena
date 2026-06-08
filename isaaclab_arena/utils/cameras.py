@@ -7,7 +7,7 @@ import inspect
 import numpy as np
 from contextlib import suppress
 from dataclasses import fields, is_dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.envs import mdp
 from isaaclab.envs.common import ViewerCfg
@@ -19,6 +19,24 @@ from isaaclab.sensors import CameraCfg  # noqa: F401
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.pose import PoseRange
+
+if TYPE_CHECKING:
+    import gymnasium as gym
+
+
+def clear_rtx_camera_output_buffers(env: "gym.Env") -> None:
+    """Clear stale RTX camera annotator buffers after ``sim.reset()``.
+
+    ``SimulationContext.reset()`` invalidates RTX sensors but leaves populated
+    ``_data.output`` tensors behind. The next observation read then takes the
+    incremental update path with zero-sized batch buffers and fails.
+    """
+    from isaaclab.sensors.camera import Camera
+    from isaaclab.sensors.camera.tiled_camera import TiledCamera
+
+    for sensor in env.unwrapped.scene.sensors.values():
+        if isinstance(sensor, (Camera, TiledCamera)):
+            sensor._data.output = {}
 
 
 def make_camera_observation_cfg(

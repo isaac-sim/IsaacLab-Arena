@@ -1,0 +1,58 @@
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Column order for ``obs/robot_joint_pos`` in Arena Alex ability-hands HDF5 recordings.
+joints:
+  LEFT_HIP_X: 0
+  LEFT_HIP_Z: 1
+  LEFT_HIP_Y: 2
+  LEFT_KNEE_Y: 3
+  LEFT_ANKLE_Y: 4
+  LEFT_ANKLE_X: 5
+  RIGHT_HIP_X: 6
+  RIGHT_HIP_Z: 7
+  RIGHT_HIP_Y: 8
+  RIGHT_KNEE_Y: 9
+  RIGHT_ANKLE_Y: 10
+  RIGHT_ANKLE_X: 11
+  SPINE_Z: 12
+  NECK_Z: 13
+  NECK_Y: 14
+  LEFT_SHOULDER_Y: 15
+  LEFT_SHOULDER_X: 16
+  LEFT_SHOULDER_Z: 17
+  LEFT_ELBOW_Y: 18
+  LEFT_WRIST_Z: 19
+  LEFT_WRIST_X: 20
+  LEFT_GRIPPER_Z: 21
+  RIGHT_SHOULDER_Y: 22
+  RIGHT_SHOULDER_X: 23
+  RIGHT_SHOULDER_Z: 24
+  RIGHT_ELBOW_Y: 25
+  RIGHT_WRIST_Z: 26
+  RIGHT_WRIST_X: 27
+  RIGHT_GRIPPER_Z: 28
+  left_ability_hand_index_q1: 29
+  left_ability_hand_index_q2: 30
+  left_ability_hand_middle_q1: 31
+  left_ability_hand_middle_q2: 32
+  left_ability_hand_ring_q1: 33
+  left_ability_hand_ring_q2: 34
+  left_ability_hand_pinky_q1: 35
+  left_ability_hand_pinky_q2: 36
+  left_ability_hand_thumb_q1: 37
+  left_ability_hand_thumb_q2: 38
+  right_ability_hand_index_q1: 39
+  right_ability_hand_index_q2: 40
+  right_ability_hand_middle_q1: 41
+  right_ability_hand_middle_q2: 42
+  right_ability_hand_ring_q1: 43
+  right_ability_hand_ring_q2: 44
+  right_ability_hand_pinky_q1: 45
+  right_ability_hand_pinky_q2: 46
+  right_ability_hand_thumb_q1: 47
+  right_ability_hand_thumb_q2: 48
+
+total_joints: 49

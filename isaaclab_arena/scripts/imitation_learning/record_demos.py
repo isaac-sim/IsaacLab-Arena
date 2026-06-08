@@ -111,6 +111,7 @@ from isaaclab.managers import DatasetExportMode
 from isaaclab_mimic.ui.instruction_display import InstructionDisplay, show_subtask_instructions
 from isaaclab_teleop import IsaacTeleopCfg, create_isaac_teleop_device, remove_camera_configs
 
+from isaaclab_arena.utils.cameras import clear_rtx_camera_output_buffers
 from isaaclab_arena.utils.isaaclab_utils.recorders import ArenaEnvRecorderManagerCfg
 
 # Imports have to follow simulation startup.
@@ -225,6 +226,8 @@ def create_environment_config(
 
     if args_cli.enable_cameras:
         env_cfg.recorders = ArenaEnvRecorderManagerCfg()
+        # Match visuomotor IL envs: render RTX sensors before reading observations on reset.
+        env_cfg.num_rerenders_on_reset = 3
     else:
         env_cfg.recorders = ActionStateRecorderManagerCfg()
     env_cfg.recorders.dataset_export_dir_path = output_dir
@@ -368,6 +371,15 @@ def process_success_condition(env: gym.Env, success_term: object | None, success
     return success_step_count, False
 
 
+def reset_sim_context_buffers(env: gym.Env) -> None:
+    """Reset the simulation context before an episode when enabled."""
+    if args_cli.disable_full_sim_buffer_reset:
+        return
+    env.sim.reset()
+    if args_cli.enable_cameras:
+        clear_rtx_camera_output_buffers(env)
+
+
 def handle_reset(
     env: gym.Env, success_step_count: int, instruction_display: InstructionDisplay, label_text: str
 ) -> int:
@@ -386,8 +398,7 @@ def handle_reset(
         int: Reset success step count (0)
     """
     print("Resetting environment...")
-    if not args_cli.disable_full_sim_buffer_reset:
-        env.sim.reset()
+    reset_sim_context_buffers(env)
     env.recorder_manager.reset()
     env.reset()
     success_step_count = 0
@@ -464,8 +475,7 @@ def run_simulation_loop(
         nonlocal running_recording_instance, label_text
 
         # Reset before starting
-        if not args_cli.disable_full_sim_buffer_reset:
-            env.sim.reset()
+        reset_sim_context_buffers(env)
         env.reset()
         teleop_interface.reset()
 

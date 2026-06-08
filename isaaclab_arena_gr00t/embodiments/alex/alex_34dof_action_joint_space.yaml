@@ -1,0 +1,44 @@
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Column order for ``processed_actions`` from Alex ability-hands Pink IK teleop recordings.
+# Layout: arm+wrist IK targets (14) + teleop hand joint order (20).
+joints:
+  LEFT_SHOULDER_Y: 0
+  LEFT_SHOULDER_X: 1
+  LEFT_SHOULDER_Z: 2
+  LEFT_ELBOW_Y: 3
+  LEFT_WRIST_Z: 4
+  LEFT_WRIST_X: 5
+  LEFT_GRIPPER_Z: 6
+  RIGHT_SHOULDER_Y: 7
+  RIGHT_SHOULDER_X: 8
+  RIGHT_SHOULDER_Z: 9
+  RIGHT_ELBOW_Y: 10
+  RIGHT_WRIST_Z: 11
+  RIGHT_WRIST_X: 12
+  RIGHT_GRIPPER_Z: 13
+  left_ability_hand_index_q1: 14
+  left_ability_hand_middle_q1: 15
+  left_ability_hand_ring_q1: 16
+  left_ability_hand_pinky_q1: 17
+  right_ability_hand_index_q1: 18
+  right_ability_hand_middle_q1: 19
+  right_ability_hand_ring_q1: 20
+  right_ability_hand_pinky_q1: 21
+  left_ability_hand_thumb_q1: 22
+  right_ability_hand_thumb_q1: 23
+  left_ability_hand_index_q2: 24
+  left_ability_hand_middle_q2: 25
+  left_ability_hand_ring_q2: 26
+  left_ability_hand_pinky_q2: 27
+  right_ability_hand_index_q2: 28
+  right_ability_hand_middle_q2: 29
+  right_ability_hand_ring_q2: 30
+  right_ability_hand_pinky_q2: 31
+  left_ability_hand_thumb_q2: 32
+  right_ability_hand_thumb_q2: 33
+
+total_joints: 34

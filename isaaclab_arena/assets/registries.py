@@ -151,7 +151,14 @@ class DeviceRegistry(Registry):
         retargeter_key_str = retargeter_registry.convert_tuple_to_str(retargeter_key)
         retargeter = retargeter_registry.get_component_by_name(retargeter_key_str)()
         pipeline_builder = retargeter.get_pipeline_builder(embodiment)
-        return device.get_device_cfg(pipeline_builder=pipeline_builder, embodiment=embodiment)
+        retargeters_to_tune = None
+        if hasattr(retargeter, "get_retargeters_to_tune"):
+            retargeters_to_tune = retargeter.get_retargeters_to_tune(embodiment)
+        return device.get_device_cfg(
+            pipeline_builder=pipeline_builder,
+            embodiment=embodiment,
+            retargeters_to_tune=retargeters_to_tune,
+        )
 
 
 class RetargeterRegistry(Registry):

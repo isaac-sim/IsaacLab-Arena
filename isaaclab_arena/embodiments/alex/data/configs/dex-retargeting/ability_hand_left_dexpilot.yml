@@ -1,0 +1,19 @@
+retargeting:
+  finger_tip_link_names:
+  - left_ability_hand_thumb_anchor
+  - left_ability_hand_index_anchor
+  - left_ability_hand_middle_anchor
+  - left_ability_hand_ring_anchor
+  - left_ability_hand_pinky_anchor
+  low_pass_alpha: 0.2
+  scaling_factor: 1.2
+  target_joint_names:
+  - left_ability_hand_index_q1
+  - left_ability_hand_middle_q1
+  - left_ability_hand_ring_q1
+  - left_ability_hand_pinky_q1
+  - left_ability_hand_thumb_q1
+  - left_ability_hand_thumb_q2
+  type: DexPilot
+  urdf_path: ability_hand_left_large.urdf
+  wrist_link_name: left_ability_hand_base

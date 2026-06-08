@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/submodules/Isaac-GR00T" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/submodules/Isaac-GR00T/external_dependencies/GR00T-WholeBodyControl" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/submodules/Isaac-GR00T/external_dependencies/LIBERO" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/submodules/Isaac-GR00T/external_dependencies/SimplerEnv" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/submodules/Isaac-GR00T/external_dependencies/SimplerEnv/ManiSkill2_real2sim" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/submodules/Isaac-GR00T/external_dependencies/robocasa" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/submodules/Isaac-GR00T/external_dependencies/robocasa-gr1-tabletop-tasks" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/submodules/IsaacLab" vcs="Git" />
+  </component>
+</project>

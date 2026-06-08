@@ -46,7 +46,10 @@ class OpenXRCfg(TeleopDeviceBase):
         super().__init__(sim_device=sim_device)
 
     def get_device_cfg(
-        self, pipeline_builder: Callable | None = None, embodiment: object | None = None
+        self,
+        pipeline_builder: Callable | None = None,
+        embodiment: object | None = None,
+        retargeters_to_tune: Callable | None = None,
     ) -> IsaacTeleopCfg:
         if pipeline_builder is None:
             raise ValueError("OpenXRCfg requires a pipeline_builder (got None)")
@@ -57,6 +60,7 @@ class OpenXRCfg(TeleopDeviceBase):
             sim_device=self.sim_device,
             xr_cfg=xr_cfg,
             target_frame_prim_path=target_frame_prim_path,
+            retargeters_to_tune=retargeters_to_tune,
         )
 
 

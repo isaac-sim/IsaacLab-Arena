@@ -1,0 +1,84 @@
+# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Policy joint groups for LeRobot / GR00T modality layout (see modality.json).
+joints:
+  left_leg:
+    - LEFT_HIP_X
+    - LEFT_HIP_Z
+    - LEFT_HIP_Y
+    - LEFT_KNEE_Y
+    - LEFT_ANKLE_Y
+    - LEFT_ANKLE_X
+  right_leg:
+    - RIGHT_HIP_X
+    - RIGHT_HIP_Z
+    - RIGHT_HIP_Y
+    - RIGHT_KNEE_Y
+    - RIGHT_ANKLE_Y
+    - RIGHT_ANKLE_X
+  spine_neck:
+    - SPINE_Z
+    - NECK_Z
+    - NECK_Y
+  left_arm:
+    - LEFT_SHOULDER_Y
+    - LEFT_SHOULDER_X
+    - LEFT_SHOULDER_Z
+    - LEFT_ELBOW_Y
+    - LEFT_WRIST_Z
+    - LEFT_WRIST_X
+    - LEFT_GRIPPER_Z
+  right_arm:
+    - RIGHT_SHOULDER_Y
+    - RIGHT_SHOULDER_X
+    - RIGHT_SHOULDER_Z
+    - RIGHT_ELBOW_Y
+    - RIGHT_WRIST_Z
+    - RIGHT_WRIST_X
+    - RIGHT_GRIPPER_Z
+  left_hand:
+    - left_ability_hand_index_q1
+    - left_ability_hand_index_q2
+    - left_ability_hand_middle_q1
+    - left_ability_hand_middle_q2
+    - left_ability_hand_ring_q1
+    - left_ability_hand_ring_q2
+    - left_ability_hand_pinky_q1
+    - left_ability_hand_pinky_q2
+    - left_ability_hand_thumb_q1
+    - left_ability_hand_thumb_q2
+  right_hand:
+    - right_ability_hand_index_q1
+    - right_ability_hand_index_q2
+    - right_ability_hand_middle_q1
+    - right_ability_hand_middle_q2
+    - right_ability_hand_ring_q1
+    - right_ability_hand_ring_q2
+    - right_ability_hand_pinky_q1
+    - right_ability_hand_pinky_q2
+    - right_ability_hand_thumb_q1
+    - right_ability_hand_thumb_q2
+  hands:
+    - left_ability_hand_index_q1
+    - left_ability_hand_middle_q1
+    - left_ability_hand_ring_q1
+    - left_ability_hand_pinky_q1
+    - right_ability_hand_index_q1
+    - right_ability_hand_middle_q1
+    - right_ability_hand_ring_q1
+    - right_ability_hand_pinky_q1
+    - left_ability_hand_thumb_q1
+    - right_ability_hand_thumb_q1
+    - left_ability_hand_index_q2
+    - left_ability_hand_middle_q2
+    - left_ability_hand_ring_q2
+    - left_ability_hand_pinky_q2
+    - right_ability_hand_index_q2
+    - right_ability_hand_middle_q2
+    - right_ability_hand_ring_q2
+    - right_ability_hand_pinky_q2
+    - left_ability_hand_thumb_q2
+    - right_ability_hand_thumb_q2

@@ -73,6 +73,7 @@ from isaaclab.managers import DatasetExportMode
 from isaaclab_mimic.datagen.generation import env_loop, setup_async_generation
 from isaaclab_mimic.datagen.utils import setup_output_paths
 
+from isaaclab_arena.utils.cameras import clear_rtx_camera_output_buffers
 from isaaclab_arena.utils.isaaclab_utils.recorders import ArenaEnvRecorderManagerCfg
 
 # start logger
@@ -129,10 +130,19 @@ def setup_env_config(
     if env_cfg.mimic_recorder_config is None:
         if args_cli.enable_cameras:
             env_cfg.recorders = ArenaEnvRecorderManagerCfg()
+            # Match visuomotor IL envs: warm up RTX sensors after reset before reading camera_obs.
+            env_cfg.num_rerenders_on_reset = 3
+            env_cfg.wait_for_textures = True
+            env_cfg.sim.render_interval = 1
         else:
             env_cfg.recorders = ActionStateRecorderManagerCfg()
     else:
         env_cfg.recorders = env_cfg.mimic_recorder_config
+
+    if args_cli.enable_cameras and env_cfg.mimic_recorder_config is not None:
+        env_cfg.num_rerenders_on_reset = max(env_cfg.num_rerenders_on_reset, 3)
+        env_cfg.wait_for_textures = True
+        env_cfg.sim.render_interval = 1
 
     env_cfg.recorders.dataset_export_dir_path = output_dir
     env_cfg.recorders.dataset_filename = output_file_name
@@ -143,6 +153,13 @@ def setup_env_config(
         env_cfg.recorders.dataset_export_mode = DatasetExportMode.EXPORT_SUCCEEDED_ONLY
 
     return env_cfg, env_name, success_term
+
+
+def reset_with_camera_warmup(env: ManagerBasedRLMimicEnv) -> None:
+    """Warm up RTX camera buffers before the first mimic generation rollout."""
+    env.sim.reset()
+    clear_rtx_camera_output_buffers(env)
+    env.reset()
 
 
 def main():
@@ -184,7 +201,10 @@ def main():
     torch.manual_seed(env.cfg.datagen_config.seed)
 
     # reset before starting
-    env.reset()
+    if args_cli.enable_cameras:
+        reset_with_camera_warmup(env)
+    else:
+        env.reset()
 
     try:
         # Setup and run async data generation

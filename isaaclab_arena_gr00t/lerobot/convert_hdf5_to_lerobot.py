@@ -32,6 +32,41 @@ from isaaclab_arena_gr00t.utils.joints_conversion import remap_sim_joints_to_pol
 from isaaclab_arena_gr00t.utils.robot_eef_pose import EefPose
 from isaaclab_arena_gr00t.utils.robot_joints import JointsAbsPosition
 
+_NON_JOINT_MODALITY_GROUPS = {
+    "left_wrist_pose",
+    "right_wrist_pose",
+    "base_height_command",
+    "navigate_command",
+    "torso_orientation_rpy_command",
+}
+
+
+def _filter_policy_joints_config_for_modality(
+    modality_key: str,
+    policy_joints_config: dict[str, list[str]],
+    policy_modality_config: dict[str, Any],
+) -> dict[str, list[str]]:
+    """Keep only policy joint groups referenced by the state/action modality layout."""
+    return {
+        group: policy_joints_config[group]
+        for group in policy_modality_config[modality_key].keys()
+        if group not in _NON_JOINT_MODALITY_GROUPS and group in policy_joints_config
+    }
+
+
+def _get_policy_joint_names_for_modality(
+    modality_key: str,
+    policy_joints_config: dict[str, list[str]],
+    policy_modality_config: dict[str, Any],
+) -> list[str]:
+    """Flatten policy joint names in modality order for state or action."""
+    names: list[str] = []
+    for group in policy_modality_config[modality_key].keys():
+        if group in _NON_JOINT_MODALITY_GROUPS or group not in policy_joints_config:
+            continue
+        names.extend(policy_joints_config[group])
+    return names
+
 
 def wait_for_video_completion(video_path: str, max_wait_time: int = 60, check_interval: float = 0.5) -> bool:
     """
@@ -175,11 +210,7 @@ def get_feature_info(
         Dictionary containing feature information for each column and video.
     """
     policy_joints_config = load_robot_joints_config_from_yaml(config.policy_joints_config_path)
-    # flatten dict of dict into a single dict, perseving the order of the keys
-    policy_joints_names = []
-    for joint_group in policy_joints_config.keys():
-        for joint_name in policy_joints_config[joint_group]:
-            policy_joints_names.append(joint_name)
+    policy_modality_config = load_json(config.modality_template_path)
     features = {}
     for video_key, video_path in video_paths.items():
         video_metadata = get_video_metadata(video_path)
@@ -197,10 +228,20 @@ def get_feature_info(
             "shape": shape,
         }
         # State & action
-        if column in [config.lerobot_keys["state"], config.lerobot_keys["action"]]:
+        if column == config.lerobot_keys["state"]:
+            policy_joints_names = _get_policy_joint_names_for_modality(
+                "state", policy_joints_config, policy_modality_config
+            )
             dof = column_data.shape[1]
             assert dof == len(policy_joints_names)
-            features[column]["names"] = [f"{policy_joints_names[i]}" for i in range(dof)]
+            features[column]["names"] = policy_joints_names
+        elif column == config.lerobot_keys["action"]:
+            policy_joints_names = _get_policy_joint_names_for_modality(
+                "action", policy_joints_config, policy_modality_config
+            )
+            dof = column_data.shape[1]
+            assert dof == len(policy_joints_names)
+            features[column]["names"] = policy_joints_names
 
     return features
 
@@ -360,7 +401,10 @@ def convert_trajectory_to_df(
 
         # 1.1. Remap the joints from Lab order to the LeRobot-GR00T order
         joints = JointsAbsPosition.from_array(joints, input_joints_config, device="cpu")
-        remapped_joints = remap_sim_joints_to_policy_joints(joints, policy_joints_config)
+        modality_policy_joints_config = _filter_policy_joints_config_for_modality(
+            key, policy_joints_config, policy_modality_config
+        )
+        remapped_joints = remap_sim_joints_to_policy_joints(joints, modality_policy_joints_config)
 
         # 1.2. Fill in the missing joints with zeros
         ordered_joints = []
@@ -526,20 +570,23 @@ def convert_hdf5_to_lerobot(config: Gr00tDatasetConfig):
             "length": length,
         })
         # 2.3. Generate videos/
-        new_video_relpath = config.video_path.format(
-            episode_chunk=episode_chunk, video_key=config.lerobot_keys["video"], episode_index=episode_index
-        )
-        new_video_path = config.lerobot_data_dir / new_video_relpath
-        if config.video_name_lerobot not in video_paths.keys():
-            video_paths[config.video_name_lerobot] = new_video_path
+        for sim_cam_name, lerobot_video_name in config.video_cameras.items():
+            new_video_relpath = config.video_path.format(
+                episode_chunk=episode_chunk, video_key=lerobot_video_name, episode_index=episode_index
+            )
+            new_video_path = config.lerobot_data_dir / new_video_relpath
+            if lerobot_video_name not in video_paths:
+                video_paths[lerobot_video_name] = new_video_path
 
-        assert config.pov_cam_name_sim in trajectory["camera_obs"]
+            assert sim_cam_name in trajectory["camera_obs"], (
+                f"Camera {sim_cam_name} not found in camera_obs {list(trajectory['camera_obs'].keys())}"
+            )
 
-        frames = np.array(trajectory["camera_obs"][config.pov_cam_name_sim])
-        # remove last frame due to how Lab reports observations
-        frames = frames[:-1]
-        assert len(frames) == length
-        queue.put((new_video_path, frames, config.fps, "image"))
+            frames = np.array(trajectory["camera_obs"][sim_cam_name])
+            # remove last frame due to how Lab reports observations
+            frames = frames[:-1]
+            assert len(frames) == length
+            queue.put((new_video_path, frames, config.fps, "image"))
 
         if example_data is None:
             example_data = df_ret_dict
@@ -575,7 +622,7 @@ def convert_hdf5_to_lerobot(config: Gr00tDatasetConfig):
             total_episodes=len(trajectory_ids),
             total_frames=total_length,
             total_tasks=len(tasks),
-            total_videos=len(trajectory_ids),
+            total_videos=len(trajectory_ids) * len(config.video_cameras),
             total_chunks=len(trajectory_ids) // config.chunks_size,
             step_data=example_data["data"],
             video_paths=video_paths,
@@ -594,7 +641,7 @@ def convert_hdf5_to_lerobot(config: Gr00tDatasetConfig):
             if worker.is_alive():
                 worker.terminate()
                 worker.join()
-        if not hdf5_handler.closed:
+        if hdf5_handler.id.valid:
             hdf5_handler.close()
         raise  # Re-raise the exception after cleanup
 
