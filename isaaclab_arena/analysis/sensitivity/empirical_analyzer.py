@@ -21,10 +21,9 @@ class EmpiricalAnalyzer(BaseAnalyzer):
 
       - :class:`KDEAnalyzer` (continuous) — a Gaussian KDE over the successful-theta
         samples: the empirical measure, kernel-smoothed because a raw continuous
-        empirical measure is a sum of Diracs. Ships in this MVP.
+        empirical measure is a sum of Diracs. The supported subclass.
       - ``FrequencyTableAnalyzer`` (categorical) — the per-category empirical success
-        rate (the raw empirical measure). Parked on
-        ``cvolk/feature/sensitivity_deferred_analyzers``; plugs in here unchanged.
+        rate (the raw empirical measure). Not part of this MVP; plugs in here unchanged.
 
     Outcome is treated as binary: an episode is a "success" when its selected outcome
     column is ``>= SUCCESS_THRESHOLD``.
@@ -56,9 +55,8 @@ class KDEAnalyzer(EmpiricalAnalyzer):
     KDE has no such constraint and recovers multi-modal / plateau / skewed shapes faithfully.
 
     Sits under the shared :class:`EmpiricalAnalyzer` base; its categorical sibling
-    ``FrequencyTableAnalyzer`` (same trick via frequency counts) is parked on
-    ``cvolk/feature/sensitivity_deferred_analyzers``. For mixed-factor workloads,
-    :func:`make_analyzer` dispatches to ``MNPEAnalyzer``.
+    ``FrequencyTableAnalyzer`` (same trick via frequency counts) is not part of this MVP.
+    For mixed-factor workloads, :func:`make_analyzer` dispatches to ``MNPEAnalyzer``.
 
     Caveats:
       - Bandwidth is scipy's Scott rule default; haven't tuned for non-uniform sample

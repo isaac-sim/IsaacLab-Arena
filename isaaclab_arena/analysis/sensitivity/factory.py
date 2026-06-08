@@ -15,15 +15,14 @@ if TYPE_CHECKING:
 def make_analyzer(dataset: SensitivityDataset, outcome_name: str) -> BaseAnalyzer:
     """Construct the right analyzer for the dataset's factor mix and outcome shape.
 
-    This MVP ships two analyzers, one from each family:
+    This MVP supports two factor mixes, one analyzer from each family:
       - any continuous + any categorical (mixed) → :class:`MNPEAnalyzer`
       - 1 continuous + 0 categorical AND a binary outcome → :class:`KDEAnalyzer`
         (avoids sbi NPE's 1D-theta Gaussian-shape constraint; exact under uniform prior)
 
-    The remaining factor mixes are deferred to ``cvolk/feature/sensitivity_deferred_analyzers``
-    and asserted against here so the gap fails loudly instead of mis-dispatching:
-      - all categorical (zero continuous) → ``FrequencyTableAnalyzer``
-      - multi-continuous, or 1 continuous + non-binary outcome → ``NPEAnalyzer``
+    Other factor mixes (pure-categorical, or multiple/non-binary continuous) are not
+    supported yet; they are asserted against here so the gap fails loudly instead of
+    mis-dispatching.
 
     The binary check reads the outcome column off the dataset rather than the schema,
     since outcome ``type: float`` in factors.yaml covers both continuous durations and
@@ -40,26 +39,17 @@ def make_analyzer(dataset: SensitivityDataset, outcome_name: str) -> BaseAnalyze
     num_categorical_factors = sum(1 for factor in dataset.schema.factors if factor.type == "categorical")
     assert num_continuous_factors + num_categorical_factors > 0, "Schema declares no factors"
 
-    # Mixed continuous + categorical → the sbi mixed-density port from robolab.
+    # Mixed continuous + categorical → mixed neural posterior estimation.
     if num_continuous_factors > 0 and num_categorical_factors > 0:
         return MNPEAnalyzer(dataset, outcome_name)
 
-    # Pure-categorical needs the (deferred) frequency-table analyzer.
-    assert num_continuous_factors > 0, (
-        "Pure-categorical schemas need FrequencyTableAnalyzer, parked on "
-        "cvolk/feature/sensitivity_deferred_analyzers for this MVP."
-    )
+    assert num_continuous_factors > 0, "Pure-categorical schemas are not supported yet."
 
-    # All-continuous from here. Only the single-factor binary case (KDE) ships; the
-    # multi-continuous case needs the (deferred) NPE analyzer.
-    assert num_continuous_factors == 1, (
-        "Multi-continuous-factor schemas need NPEAnalyzer, parked on "
-        "cvolk/feature/sensitivity_deferred_analyzers for this MVP."
-    )
+    # All-continuous from here. Only the single-factor binary-outcome case is supported.
+    assert num_continuous_factors == 1, "Schemas with more than one continuous factor are not supported yet."
     outcome_column_index = dataset.outcome_columns[outcome_name]
     unique_outcome_values = set(dataset.x[:, outcome_column_index].flatten().tolist())
-    assert unique_outcome_values.issubset({0.0, 1.0}), (
-        "A single continuous factor with a non-binary outcome needs NPEAnalyzer, parked on "
-        "cvolk/feature/sensitivity_deferred_analyzers for this MVP. (Binary outcomes use KDEAnalyzer.)"
-    )
+    assert unique_outcome_values.issubset(
+        {0.0, 1.0}
+    ), "A single continuous factor is only supported with a binary outcome."
     return KDEAnalyzer(dataset, outcome_name)

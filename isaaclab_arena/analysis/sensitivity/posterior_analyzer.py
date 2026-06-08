@@ -17,9 +17,8 @@ class PosteriorAnalyzer(BaseAnalyzer):
 
     Subclasses differ only in *which* sbi inference class they instantiate (via
     ``_inference_cls``); everything else (training loop, posterior storage, density and
-    sample queries) is shared. ``MNPEAnalyzer`` ships in this MVP; ``NPEAnalyzer`` (the
-    all-continuous case) is parked on ``cvolk/feature/sensitivity_deferred_analyzers``
-    and plugs in here unchanged.
+    sample queries) is shared. ``MNPEAnalyzer`` is the supported subclass; the
+    all-continuous ``NPEAnalyzer`` is not part of this MVP but plugs in here unchanged.
 
     After ``fit()`` returns, ``self.posterior`` is an sbi posterior object that supports
     ``posterior.sample(shape, x=...)`` and ``posterior.log_prob(theta, x=...)``.
@@ -143,8 +142,7 @@ class MNPEAnalyzer(PosteriorAnalyzer):
     ``factor_columns`` matches MNPE's expected layout exactly.
 
     sbi MNPE 0.26 requires at least one continuous theta column, so pure-categorical
-    schemas are handled by ``FrequencyTableAnalyzer`` (parked on
-    ``cvolk/feature/sensitivity_deferred_analyzers`` for this MVP; ``make_analyzer`` asserts).
+    schemas are not supported in this MVP (``make_analyzer`` asserts).
     """
 
     def _inference_cls(self):
