@@ -74,17 +74,21 @@ class MetricsManager:
             A list with one metric dict per episode, in recorded order.
         """
         dataset_path = get_metric_recorder_dataset_path(self._env)
-        per_term_episode_arrays = {
+        num_episodes = get_num_episodes(dataset_path)
+
+        # Recorded data arrives grouped by metric (each term -> one array per episode).
+        # Read it once here, then transpose into one metric dict per episode below.
+        episode_arrays_by_term = {
             term_name: get_recorded_metric_data(dataset_path, term_cfg.recorder_term_name)
             for term_name, term_cfg in zip(self._term_names, self._term_cfgs)
         }
-        num_episodes = get_num_episodes(dataset_path)
-        return [
-            {
-                term_name: term_cfg.compute_metric_func(
-                    [per_term_episode_arrays[term_name][episode_index]], **term_cfg.params
-                )
-                for term_name, term_cfg in zip(self._term_names, self._term_cfgs)
-            }
-            for episode_index in range(num_episodes)
-        ]
+
+        per_episode_metrics: list[dict[str, Any]] = []
+        for episode_index in range(num_episodes):
+            episode_metrics: dict[str, Any] = {}
+            for term_name, term_cfg in zip(self._term_names, self._term_cfgs):
+                # compute_metric_func reduces a list of per-episode arrays; give it just this one.
+                episode_array = episode_arrays_by_term[term_name][episode_index]
+                episode_metrics[term_name] = term_cfg.compute_metric_func([episode_array], **term_cfg.params)
+            per_episode_metrics.append(episode_metrics)
+        return per_episode_metrics
