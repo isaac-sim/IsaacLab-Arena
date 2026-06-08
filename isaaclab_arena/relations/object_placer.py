@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
+from isaaclab_arena.relations.placement_validation import PlacementValidationChecklist
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import (
     IsAnchor,
@@ -38,11 +39,16 @@ class PlacementCandidate:
     positions: dict[ObjectBase, tuple[float, float, float]]
     """Solved positions for each object."""
 
-    is_valid: bool
-    """Whether the placement passed validation checks."""
+    validation_checklist: PlacementValidationChecklist
+    """Per-check validation results for this candidate's layout."""
 
     orientations: dict[ObjectBase, float] = field(default_factory=dict)
     """Per-object yaw (radians about Z) sampled for this candidate. Empty when unrotated."""
+
+    @property
+    def is_valid(self) -> bool:
+        """True when every validation check passes."""
+        return self.validation_checklist.pass_validation_checklist()
 
 
 class ObjectPlacer:
@@ -101,6 +107,16 @@ class ObjectPlacer:
             generator=generator,
         )
         results_per_env = [env_results[0] for env_results in ranked_results_per_env]
+
+        if self.params.verbose:
+            # If no valid layout is found, print the failed checks for the lowest-loss fallback
+            # So we can debug the placement problem and it still produces some layouts for the envs
+            for env_idx, result in enumerate(results_per_env):
+                if not result.success:
+                    print(
+                        f"  env {env_idx}: no valid layout; using lowest-loss fallback "
+                        f"(failed: {result.validation_checklist.failed_checklist_items})"
+                    )
 
         if self.params.apply_positions_to_objects:
             positions_per_env = [r.positions for r in results_per_env]
@@ -235,7 +251,7 @@ class ObjectPlacer:
         ranked_results = [
             [
                 PlacementResult(
-                    success=candidate.is_valid,
+                    validation_checklist=candidate.validation_checklist,
                     positions=candidate.positions,
                     final_loss=candidate.loss,
                     attempts=attempts_per_result,
@@ -257,13 +273,19 @@ class ObjectPlacer:
         num_envs: int,
         candidates_per_env: int,
     ) -> list[list[PlacementCandidate]]:
-        """Return one loss-sorted candidate slice per env (valid candidates first)."""
+        """Return one ranked candidate slice per env: most validation checks passed first, then lowest loss."""
         ranked_candidate_slices: list[list[PlacementCandidate]] = []
         for cur_env in range(num_envs):
             start = cur_env * candidates_per_env
             env_candidates = candidates[start : start + candidates_per_env]
             ranked_candidate_slices.append(
-                sorted(env_candidates, key=lambda candidate: (not candidate.is_valid, candidate.loss))
+                sorted(
+                    env_candidates,
+                    key=lambda candidate: (
+                        *candidate.validation_checklist.rank_required_and_optional_failures,
+                        candidate.loss,
+                    ),
+                )
             )
         return ranked_candidate_slices
 
@@ -602,7 +624,7 @@ class ObjectPlacer:
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
-    ) -> bool:
+    ) -> PlacementValidationChecklist:
         """Validate that no two objects overlap in 3D and On relations are satisfied.
 
         Args:
@@ -610,9 +632,18 @@ class ObjectPlacer:
             env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
 
         Returns:
-            True if no overlaps exist and On relations hold, False otherwise.
+            PlacementValidationChecklist containing the validation results.
         """
-        return self._validate_no_overlap(positions, env_bboxes) and self._validate_on_relations(positions, env_bboxes)
+        no_overlap = self._validate_no_overlap(positions, env_bboxes)
+        on_relation = self._validate_on_relations(positions, env_bboxes)
+
+        return PlacementValidationChecklist(
+            checklist_items={
+                "no_overlap": no_overlap,
+                "on_relation": on_relation,
+            },
+            required_items={"no_overlap", "on_relation"},
+        )
 
     def _apply_poses(
         self,
