@@ -2,7 +2,7 @@
 name: run-tests
 description: Runs the Isaac Lab-Arena pytest suite across its three required phases (no-cameras, with-cameras, with-subprocess) inside the running isaaclab_arena Docker container. Use when the user asks to run the tests, test their changes, verify the test suite passes, check whether a change broke anything (e.g. "did I break anything", "do the tests still pass", "is everything still working"), run only one specific phase (e.g. "run Phase 1", "run only the no-camera tests", "skip the camera and subprocess tests"), or run coverage for a specific module.
 argument-hint: "[phase1|phase2|phase3]"
-allowed-tools: Bash(docker exec *)
+allowed-tools: Bash(docker exec *) Bash(docker ps *)
 ---
 
 # Run Tests
@@ -14,14 +14,20 @@ allowed-tools: Bash(docker exec *)
 
 The three phases run mutually exclusive sets of tests (selected via different pytest marker filters) and must be invoked separately. For a full pre-PR run, every phase must pass before moving on to the next.
 
-All commands run inside the already-running container via `docker exec`. If the container is not running, use the `dev-container` skill first.
+All commands run inside the already-running container via `docker exec`. Each clone of the repo on the host system has its own container, so at the start of a session resolve the one mounting this clone into `ARENA_CONTAINER` (empty = none running — use the `dev-container` skill first):
+
+```bash
+ARENA_CONTAINER=$(docker ps --filter "volume=$(git rev-parse --show-toplevel)" --format '{{.Names}}' | head -1)
+```
+
+Run the phase commands below in that same shell so `$ARENA_CONTAINER` stays set (or substitute the literal name).
 
 ## Phase 1 — no cameras, no subprocess
 
 The fastest of the three. Useful on its own when iterating on changes that don't touch rendering or subprocess paths.
 
 ```bash
-docker exec isaaclab_arena-latest bash -c \
+docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
    /isaac-sim/python.sh -m pytest -sv \
    -m 'not with_cameras and not with_subprocess' isaaclab_arena/tests"
@@ -30,7 +36,7 @@ docker exec isaaclab_arena-latest bash -c \
 ## Phase 2 — with cameras
 
 ```bash
-docker exec isaaclab_arena-latest bash -c \
+docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
    /isaac-sim/python.sh -m pytest -sv \
    -m 'with_cameras and not with_subprocess' isaaclab_arena/tests"
@@ -39,7 +45,7 @@ docker exec isaaclab_arena-latest bash -c \
 ## Phase 3 — with subprocess
 
 ```bash
-docker exec isaaclab_arena-latest bash -c \
+docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
    /isaac-sim/python.sh -m pytest -sv \
    -m 'with_subprocess' isaaclab_arena/tests"
@@ -49,12 +55,12 @@ docker exec isaaclab_arena-latest bash -c \
 
 ```bash
 # single file
-docker exec isaaclab_arena-latest bash -c \
+docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
    /isaac-sim/python.sh -m pytest isaaclab_arena/tests/test_asset_registry.py"
 
 # single function
-docker exec isaaclab_arena-latest bash -c \
+docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
    /isaac-sim/python.sh -m pytest isaaclab_arena/tests/test_asset_registry.py::test_default_assets_registered"
 ```
