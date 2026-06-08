@@ -13,15 +13,16 @@ from isaaclab_arena.analysis.sensitivity.dataset import SensitivityDataset
 
 
 class PosteriorAnalyzer(BaseAnalyzer):
-    """Common base for the sbi-driven analyzers (NPE and MNPE).
+    """Common base for the sbi-driven analyzers.
 
-    NPE and MNPE differ only in *which* sbi inference class they instantiate; everything
-    else (training loop, posterior storage, density and sample queries) is identical.
-    Subclasses override ``_make_inference`` to choose the class, and the
-    binary-outcome WARN hook to surface any method-specific caveats.
+    Subclasses differ only in *which* sbi inference class they instantiate (via
+    ``_inference_cls``); everything else (training loop, posterior storage, density and
+    sample queries) is shared. ``MNPEAnalyzer`` ships in this MVP; ``NPEAnalyzer`` (the
+    all-continuous case) is parked on ``cvolk/feature/sensitivity_deferred_analyzers``
+    and plugs in here unchanged.
 
     After ``fit()`` returns, ``self.posterior`` is an sbi posterior object that supports
-    ``posterior.sample(shape, x=...)`` and (for NPE) ``posterior.log_prob(theta, x=...)``.
+    ``posterior.sample(shape, x=...)`` and ``posterior.log_prob(theta, x=...)``.
     """
 
     def __init__(self, dataset: SensitivityDataset, outcome_name: str):
@@ -46,15 +47,12 @@ class PosteriorAnalyzer(BaseAnalyzer):
 
         Steps:
           1. Slice ``self.dataset.x`` to the single outcome column named by ``outcome_name``.
-          2. Surface any method-specific caveats about the outcome (e.g. NPE's
-             1D-theta Gaussian fallback) via ``_maybe_warn_binary_outcome``.
-          3. Instantiate the sbi inference object (NPE or MNPE) via ``_make_inference``.
-          4. Append the simulations and train.
-          5. Build a posterior object from the trained estimator and store it on ``self``.
+          2. Instantiate the sbi inference object via ``_make_inference``.
+          3. Append the simulations and train.
+          4. Build a posterior object from the trained estimator and store it on ``self``.
         """
         outcome_column_index = self.dataset.outcome_columns[self.outcome_name]
         selected_outcome_column = self.dataset.x[:, outcome_column_index : outcome_column_index + 1]
-        self._maybe_warn_binary_outcome(selected_outcome_column)
 
         print(
             f"[INFO] {type(self).__name__}: fitting on {self.dataset.theta.shape[0]} samples"
@@ -65,16 +63,6 @@ class PosteriorAnalyzer(BaseAnalyzer):
         inference.append_simulations(self.dataset.theta, selected_outcome_column)
         density_estimator = inference.train(training_batch_size=training_batch_size)
         self.posterior = inference.build_posterior(density_estimator)
-
-    def _maybe_warn_binary_outcome(self, selected_outcome_column: torch.Tensor) -> None:
-        """Optional hook for subclass-specific caveats about the outcome. Default: no-op.
-
-        ``NPEAnalyzer`` overrides this to warn that sbi falls back to a Gaussian density
-        when *theta* is 1D, biasing the recovered peak toward the mean of successful
-        theta values rather than the true mode. The fallback fires regardless of how
-        many outcome columns are logged — it's a property of single-factor analysis.
-        For 1-continuous-factor + binary-outcome workloads, prefer ``KDEAnalyzer``.
-        """
 
     def continuous_marginal_density(
         self, factor_name: str, outcome_value: float, num_grid_points: int
@@ -145,43 +133,6 @@ class PosteriorAnalyzer(BaseAnalyzer):
         return np.bincount(clipped_codes, minlength=num_choices) / num_samples
 
 
-class NPEAnalyzer(PosteriorAnalyzer):
-    """Neural Posterior Estimation analyzer for continuous-only factor schemas.
-
-    Use this when every declared factor is continuous (no categoricals). Internally
-    trains ``sbi.inference.NPE``, which fits a normalizing-flow density over
-    ``(theta, x_selected)`` and exposes both ``sample`` and ``log_prob`` on the result.
-
-    **Caveat for binary outcomes (1D x):** sbi's flow code falls back to a Gaussian
-    density when the output space is 1D, which biases the recovered posterior peak
-    toward the *mean* of successful theta values rather than the true *mode* of the
-    success curve. We surface a [WARN] at fit time so users see this in plain text
-    rather than buried in sbi's UserWarning stream.
-    """
-
-    def _inference_cls(self):
-        from sbi.inference import NPE
-
-        return NPE
-
-    def _maybe_warn_binary_outcome(self, selected_outcome_column: torch.Tensor) -> None:
-        """Warn if theta is 1D and the outcome is binary — the configuration that triggers
-        the sbi Gaussian fallback. Multi-factor theta (dim ≥ 2) escapes the fallback.
-        """
-        if self.dataset.theta.shape[1] > 1:
-            return
-        unique_values = set(selected_outcome_column.flatten().tolist())
-        if unique_values.issubset({0.0, 1.0}):
-            print(
-                f"[WARN] Theta is 1D ({self.dataset.schema.factors[0].name!r}) and outcome"
-                f" {self.outcome_name!r} is binary. sbi NPE falls back to a Gaussian density"
-                " in 1D theta space, so the recovered posterior peak reflects the *mean* of"
-                " successful theta values rather than the true *mode* of the success curve."
-                " For this configuration prefer KDEAnalyzer (uniform prior + binary outcome"
-                " → KDE on successful-theta samples is the correct posterior)."
-            )
-
-
 class MNPEAnalyzer(PosteriorAnalyzer):
     """Mixed Neural Posterior Estimation analyzer for schemas with at least one of each type.
 
@@ -191,8 +142,9 @@ class MNPEAnalyzer(PosteriorAnalyzer):
     mass estimator. The continuous-first / categorical-after column ordering in
     ``factor_columns`` matches MNPE's expected layout exactly.
 
-    sbi MNPE 0.26 requires at least one continuous theta column. For pure-categorical
-    schemas use ``FrequencyTableAnalyzer`` instead — ``make_analyzer`` dispatches correctly.
+    sbi MNPE 0.26 requires at least one continuous theta column, so pure-categorical
+    schemas are handled by ``FrequencyTableAnalyzer`` (parked on
+    ``cvolk/feature/sensitivity_deferred_analyzers`` for this MVP; ``make_analyzer`` asserts).
     """
 
     def _inference_cls(self):
