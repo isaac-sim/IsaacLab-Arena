@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.evaluation.episode_writer import write_episode_summaries
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
@@ -260,10 +261,6 @@ def main():
                     )
 
                     if episode_summary_enabled:
-                        # Deferred import: episode_writer transitively touches pxr, so import
-                        # after sim init — same pattern as policy_runner's compute_metrics.
-                        from isaaclab_arena.evaluation.episode_writer import write_episode_summaries
-
                         rows = write_episode_summaries(env, job, args_cli.episode_summary)
                         print(f"[INFO] Wrote {rows} episode summaries for job '{job.name}'")
 
