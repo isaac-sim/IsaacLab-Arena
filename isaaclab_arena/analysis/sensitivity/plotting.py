@@ -12,6 +12,17 @@ if TYPE_CHECKING:
     from isaaclab_arena.analysis.sensitivity.analyzer_base import BaseAnalyzer
     from isaaclab_arena.analysis.sensitivity.dataset import FactorSpec
 
+# Shared styling — kept in one place so the continuous and categorical drawers stay
+# visually consistent (same colours mean the same thing across both plot types).
+_POSTERIOR_COLOR = "steelblue"  # analyzer posterior: density curve / left bar
+_SUCCESS_COLOR = "seagreen"  # outcome achieved: success rug / empirical-rate bar
+_FAILURE_COLOR = "firebrick"  # outcome not achieved: failure rug
+_NEUTRAL_COLOR = "slategray"  # rug for non-binary outcomes (no success/failure split)
+_SUCCESS_THRESHOLD = 0.5  # outcome >= this counts as a success
+_RUG_MARKER_SIZE = 80  # scatter marker size for empirical rug ticks
+_RUG_SUCCESS_OFFSET = -0.05  # rug y-offset (× density.max()) for successes / neutral ticks
+_RUG_FAILURE_OFFSET = -0.10  # rug y-offset (× density.max()) for failures
+
 
 def draw_marginal(
     ax,
@@ -67,40 +78,40 @@ def _draw_continuous_marginal(
     ax.plot(
         grid,
         density,
-        color="steelblue",
+        color=_POSTERIOR_COLOR,
         linewidth=2,
         label=f"P({factor_spec.name} | {analyzer.outcome_name}={outcome_value:g})",
     )
-    ax.fill_between(grid, 0, density, color="steelblue", alpha=0.2)
+    ax.fill_between(grid, 0, density, color=_POSTERIOR_COLOR, alpha=0.2)
 
-    # Binary outcomes: split the rug green/red at 0.5 (successes vs failures). Continuous
+    # Binary outcomes: split the rug green/red at the success threshold (successes vs failures). Continuous
     # outcomes (e.g. task_duration): the threshold is meaningless, so show one neutral rug.
     is_binary_outcome = set(empirical_outcomes.flatten().tolist()).issubset({0.0, 1.0})
     if is_binary_outcome:
-        success_mask = empirical_outcomes >= 0.5
+        success_mask = empirical_outcomes >= _SUCCESS_THRESHOLD
         ax.scatter(
             empirical_theta_values[success_mask],
-            np.full(success_mask.sum(), -0.05 * density.max()),
+            np.full(success_mask.sum(), _RUG_SUCCESS_OFFSET * density.max()),
             marker="|",
-            color="seagreen",
-            s=80,
-            label=f"{analyzer.outcome_name} ≥ 0.5  (n={success_mask.sum()})",
+            color=_SUCCESS_COLOR,
+            s=_RUG_MARKER_SIZE,
+            label=f"{analyzer.outcome_name} ≥ {_SUCCESS_THRESHOLD:g}  (n={success_mask.sum()})",
         )
         ax.scatter(
             empirical_theta_values[~success_mask],
-            np.full((~success_mask).sum(), -0.1 * density.max()),
+            np.full((~success_mask).sum(), _RUG_FAILURE_OFFSET * density.max()),
             marker="|",
-            color="firebrick",
-            s=80,
-            label=f"{analyzer.outcome_name} < 0.5  (n={(~success_mask).sum()})",
+            color=_FAILURE_COLOR,
+            s=_RUG_MARKER_SIZE,
+            label=f"{analyzer.outcome_name} < {_SUCCESS_THRESHOLD:g}  (n={(~success_mask).sum()})",
         )
     else:
         ax.scatter(
             empirical_theta_values,
-            np.full(len(empirical_theta_values), -0.05 * density.max()),
+            np.full(len(empirical_theta_values), _RUG_SUCCESS_OFFSET * density.max()),
             marker="|",
-            color="slategray",
-            s=80,
+            color=_NEUTRAL_COLOR,
+            s=_RUG_MARKER_SIZE,
             label=f"observed samples  (n={len(empirical_theta_values)})",
         )
     ax.set_xlabel(factor_spec.name)
@@ -146,7 +157,7 @@ def _draw_categorical_marginal(
         category_mask = empirical_theta_codes == code
         empirical_counts[code] = int(category_mask.sum())
         if category_mask.any():
-            empirical_rates[code] = float((empirical_outcomes[category_mask] >= 0.5).mean())
+            empirical_rates[code] = float((empirical_outcomes[category_mask] >= _SUCCESS_THRESHOLD).mean())
 
     bar_x_positions = np.arange(num_choices)
     bar_width = 0.4
@@ -154,7 +165,7 @@ def _draw_categorical_marginal(
         bar_x_positions - bar_width / 2,
         posterior_probabilities,
         bar_width,
-        color="steelblue",
+        color=_POSTERIOR_COLOR,
         alpha=0.8,
         label=f"P(category | {analyzer.outcome_name}={outcome_value:g})",
     )
@@ -162,7 +173,7 @@ def _draw_categorical_marginal(
         bar_x_positions + bar_width / 2,
         empirical_rates,
         bar_width,
-        color="seagreen",
+        color=_SUCCESS_COLOR,
         alpha=0.7,
         label=f"empirical {analyzer.outcome_name} rate per category",
     )
