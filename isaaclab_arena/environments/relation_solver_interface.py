@@ -26,7 +26,6 @@ def solve_and_apply_relation_placement(
     placement_seed: int | None = None,
     resolve_on_reset: bool | None = None,
     random_yaw_init: bool = False,
-    physics_settle_cache_key: str | None = None,
     enable_physics_settle_check: bool = True,
 ) -> EventTermCfg | None:
     """Solve relation placement and apply the result to object reset/static state.
@@ -40,8 +39,6 @@ def solve_and_apply_relation_placement(
             initial poses are applied immediately.
         random_yaw_init: If True, randomly rotates non-anchor objects around the vertical (Z)
             axis at startup to add visual variety to the scene.
-        physics_settle_cache_key: Env identifier used to persist physics-settle failures across runs.
-            None means no persistence (in-memory skip-list only).
         enable_physics_settle_check: When False, the pool skips the post-reset settle pass and is
             never re-selected (use when placements are known valid, e.g. hardcoded collision-free poses).
 
@@ -71,7 +68,6 @@ def solve_and_apply_relation_placement(
         placer_params=placer_params,
         pool_size=num_envs * placer_params.min_unique_layouts_per_env,
         num_envs=num_envs,
-        physics_settle_cache_key=physics_settle_cache_key,
     )
 
     if placement_pool.had_fallbacks:

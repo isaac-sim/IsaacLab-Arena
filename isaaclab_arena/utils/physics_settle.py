@@ -50,6 +50,6 @@ def objects_settled(
 ) -> bool:
     """True when every named object in this env is below both the linear and angular velocity thresholds."""
     return all(
-        not (lin_velocity > lin_vel_thresh or ang_velocity > ang_vel_thresh)
+        lin_velocity <= lin_vel_thresh and ang_velocity <= ang_vel_thresh
         for lin_velocity, ang_velocity in max_object_velocities(env, env_id, object_names)
     )

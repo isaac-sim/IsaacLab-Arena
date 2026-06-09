@@ -5,9 +5,6 @@
 
 from __future__ import annotations
 
-import enum
-import hashlib
-import json
 import torch
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
@@ -15,7 +12,6 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.physics_settle_failure_cache import PhysicsSettleFailureCache
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
 from isaaclab_arena.utils.random import get_rngs
 
@@ -59,81 +55,6 @@ class EnvLayoutPool:
         return layout
 
 
-def compute_layout_signature(
-    objects: list[ObjectBase], num_envs: int, pool_size: int, max_placement_attempts: int
-) -> str:
-    """Derive a layout signature for the physics-settle cache.
-
-    The settle cache identifies layouts by enqueue order, which only names the same layout across runs
-    when the same objects are solved the same way. This hashes a canonical view of that: each object's
-    name, type, geometry (bounding-box extents plus asset source -- two meshes with the same box still
-    settle differently -- via usd path + scale), and relations (class + params, with any object-valued
-    param reduced to its name), plus ``num_envs``, ``pool_size``, and ``max_placement_attempts`` (it
-    governs the refill/retry batching, hence the candidate order). Swapping, resizing, or re-relating an
-    object -- or changing the retry budget -- changes the digest, so the cache is dropped instead of
-    skipping the wrong layouts. Remaining solver params are assumed fixed for a given scene.
-    """
-
-    def canonical(value: object) -> object:
-        if isinstance(value, enum.Enum):
-            return value.name
-        # Reduce any object-valued param (e.g. a relation's parent object) to its stable name, so the
-        # digest doesn't depend on a non-deterministic repr/object id. Duck-typed to cover both real
-        # ObjectBase and the test DummyObject.
-        if hasattr(value, "name") and hasattr(value, "get_relations"):
-            return value.name
-        if isinstance(value, (list, tuple)):
-            return [canonical(item) for item in value]
-        if isinstance(value, dict):
-            return {str(key): canonical(value[key]) for key in sorted(value)}
-        if value is None or isinstance(value, (str, bool, int, float)):
-            return value
-        return repr(value)
-
-    def bbox_extents(obj: ObjectBase) -> list | None:
-        """Rounded (min, max) corners of the local bbox, or None if it can't be read pre-solve.
-
-        Best-effort: env-specific sets may not expose a single bbox before variant assignment, so a
-        failure falls back to None and the asset source (usd path + scale) still distinguishes them.
-        """
-        try:
-            bbox = obj.get_bounding_box()
-            corners = bbox.min_point.flatten().tolist() + bbox.max_point.flatten().tolist()
-        except Exception:
-            return None
-        return [round(float(value), 6) for value in corners]
-
-    def describe(obj: ObjectBase) -> dict:
-        object_type = getattr(obj, "object_type", None)
-        return {
-            "name": obj.name,
-            "type": object_type.name if isinstance(object_type, enum.Enum) else str(object_type),
-            "bbox": bbox_extents(obj),
-            "usd_path": getattr(obj, "usd_path", None),
-            "scale": canonical(getattr(obj, "scale", None)),
-            "relations": [
-                {
-                    "type": type(relation).__name__,
-                    "params": {
-                        key: canonical(val)
-                        for key, val in sorted(getattr(relation, "__dict__", {}).items())
-                        if not key.startswith("_")
-                    },
-                }
-                for relation in obj.get_relations()
-            ],
-        }
-
-    payload = {
-        "num_envs": num_envs,
-        "pool_size": pool_size,
-        "max_placement_attempts": max_placement_attempts,
-        "objects": [describe(obj) for obj in objects],
-    }
-    blob = json.dumps(payload, sort_keys=True, default=repr)
-    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
-
-
 class PooledObjectPlacer:
     """Object placer that maintains solved placement layouts.
 
@@ -171,7 +92,6 @@ class PooledObjectPlacer:
         placer_params: ObjectPlacerParams,
         pool_size: int = 100,
         num_envs: int | None = None,
-        physics_settle_cache_key: str | None = None,
     ) -> None:
         assert pool_size >= 1, f"pool_size must be >= 1, got {pool_size}"
         self._uses_env_specific_bboxes = has_heterogeneous_objects(objects)
@@ -194,16 +114,9 @@ class PooledObjectPlacer:
         self._env_rngs = get_rngs(self._num_envs, placer_params.placement_seed)
         self._env_pools: list[EnvLayoutPool] = [EnvLayoutPool([]) for _ in range(self._num_envs)]
 
-        # Physics settle check bookkeeping. The cache owns layout identity (uid = enqueue order) and the
-        # persisted set of layouts that failed to settle, so they are skipped without re-simulating.
+        # Tracks the layout most recently written to each scene env, so the post-reset settle pass
+        # can verify it and re-select any that do not physically settle.
         self._last_applied: dict[int, PlacementResult] = {}
-        self._physics_settle_cache = PhysicsSettleFailureCache(
-            cache_key=physics_settle_cache_key,
-            placement_seed=self._base_placement_seed,
-            layout_signature=compute_layout_signature(
-                self._objects, self._num_envs, self._pool_size, self._placer.params.max_placement_attempts
-            ),
-        )
 
         self._solve_and_store(pool_size)
         for cur_env, pool in enumerate(self._env_pools):
@@ -216,20 +129,6 @@ class PooledObjectPlacer:
     # ------------------------------------------------------------------
     # Pool storage internals
     # ------------------------------------------------------------------
-
-    def _enqueue(self, pool: EnvLayoutPool, layout: PlacementResult) -> None:
-        """Store one layout, registering it with the settle cache and marking known settle failures.
-
-        A layout the cache flags as a known failure is marked physics_settled_failed so the sampler
-        skips it without re-simulating.
-        """
-        if self._physics_settle_cache.register(layout):
-            layout.validation_checklist.add_checklist_item("physics_settled", False, required=True)
-        pool.append(layout)
-
-    def _enqueue_many(self, pool: EnvLayoutPool, layouts: list[PlacementResult]) -> None:
-        for layout in layouts:
-            self._enqueue(pool, layout)
 
     def _available_per_env(self) -> list[int]:
         """Number of unread layouts in each env's pool (length num_envs)."""
@@ -335,7 +234,7 @@ class PooledObjectPlacer:
         available = self._available_per_env()
         for layout in layouts:
             cur_env = min(range(self._num_envs), key=available.__getitem__)
-            self._enqueue(self._env_pools[cur_env], layout)
+            self._env_pools[cur_env].append(layout)
             available[cur_env] += 1
 
     def _solve_env_ranked_layouts(self, num_layouts: int) -> tuple[list[list[PlacementResult]], int]:
@@ -385,11 +284,11 @@ class PooledObjectPlacer:
                 if missing > 0:
                     enqueued = valid_results[:missing]
                     total_valid += len(enqueued)
-                    self._enqueue_many(self._env_pools[cur_env], enqueued)
+                    self._env_pools[cur_env].extend(enqueued)
                 else:
                     total_valid += len(valid_results)
             elif allow_fallback and missing > 0:
-                self._enqueue_many(self._env_pools[cur_env], env_results[:missing])
+                self._env_pools[cur_env].extend(env_results[:missing])
                 fallback_envs.append(cur_env)
                 self._had_fallbacks = True
 
@@ -576,7 +475,7 @@ class PooledObjectPlacer:
         For each env this steps the sim, checks whether its movable objects settled (velocities below threshold),
         and stamps the outcome onto the layout's checklist. Unsettled layouts are re-selected from the pool (skipping
         any already known to fail) up to ``max_physics_settle_retries``; the last one tried is kept as a soft fallback.
-        Failures are persisted so future runs skip them. No-op when the check is disabled or no layout was applied.
+        No-op when the check is disabled or no layout was applied.
         """
         params = self._placer.params
         # No-op when the check is disabled or no layout was applied.
@@ -595,7 +494,6 @@ class PooledObjectPlacer:
 
         current = dict(self._last_applied)
         pending = set(current)
-        newly_failed: list[PlacementResult] = []
         for attempt in range(params.max_physics_settle_retries + 1):
             physics_settle.step_physics(env, params.physics_settle_num_steps)
             for env_id in list(pending):
@@ -615,8 +513,6 @@ class PooledObjectPlacer:
                     checklist.add_checklist_item("physics_settled", settled)
                 if settled:
                     pending.discard(env_id)
-                else:
-                    newly_failed.append(current[env_id])
 
             # enough retries or no more layouts to try
             if not pending or attempt == params.max_physics_settle_retries:
@@ -626,8 +522,6 @@ class PooledObjectPlacer:
                 current[env_id] = replacement
                 self._last_applied[env_id] = replacement
                 write_layout_to_sim(env.unwrapped, env_id, replacement, anchor_objects_set, base_rotations)
-
-        self._physics_settle_cache.record_failures(newly_failed)
 
     def _draw_replacement(self, env_id: int) -> PlacementResult:
         """Draw the next pooled layout to retry in one env, skipping layouts known to fail to settle.
