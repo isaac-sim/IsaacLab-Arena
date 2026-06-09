@@ -44,21 +44,3 @@ class ObjectPlacerParams:
     """Number of unique pre-solved layouts per environment in the placement pool.
     The pool stores ``min_unique_layouts_per_env * num_envs`` valid layouts so each
     environment has many distinct configurations to draw from."""
-
-    enable_physics_settle_check: bool = False
-    """If True, a post-reset settle pass steps the sim and gates each layout on physical settling
-    (see PooledObjectPlacer.verify_in_sim_and_reselect). When False, the pass is skipped and ``physics_settled``
-    never gates a layout's success."""
-
-    physics_settle_num_steps: int = 10
-    """Number of physics steps to advance before reading back object velocities in the settle check."""
-
-    physics_settle_lin_vel_thresh: float = 0.1
-    """Max per-object linear speed (m/s) after settling. Above this the layout is considered unsettled."""
-
-    physics_settle_ang_vel_thresh: float = 0.1
-    """Max per-object angular speed (rad/s) after settling. Above this the layout is considered unsettled."""
-
-    max_physics_settle_retries: int = 3
-    """Re-selection budget per env: how many replacement layouts to try when the drawn layout does not
-    settle. The last layout tried is kept as a soft fallback even if it never settles."""

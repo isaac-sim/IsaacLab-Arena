@@ -26,7 +26,6 @@ def solve_and_apply_relation_placement(
     placement_seed: int | None = None,
     resolve_on_reset: bool | None = None,
     random_yaw_init: bool = False,
-    enable_physics_settle_check: bool = False,
 ) -> EventTermCfg | None:
     """Solve relation placement and apply the result to object reset/static state.
 
@@ -39,8 +38,6 @@ def solve_and_apply_relation_placement(
             initial poses are applied immediately.
         random_yaw_init: If True, randomly rotates non-anchor objects around the vertical (Z)
             axis at startup to add visual variety to the scene.
-        enable_physics_settle_check: When False, the pool skips the post-reset settle pass and is
-            never re-selected (use when placements are known valid, e.g. hardcoded collision-free poses).
 
     Returns:
         Reset event config to attach to the environment when placement should be
@@ -56,7 +53,6 @@ def solve_and_apply_relation_placement(
         apply_positions_to_objects=False,
         solver_params=RelationSolverParams(save_position_history=False, verbose=False),
         random_yaw_init=random_yaw_init,
-        enable_physics_settle_check=enable_physics_settle_check,
     )
     if resolve_on_reset is not None:
         placer_params.resolve_on_reset = resolve_on_reset
