@@ -3,11 +3,18 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
+import numpy as np
 from contextlib import contextmanager
+from typing import TYPE_CHECKING
 
 from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+if TYPE_CHECKING:
+    import trimesh
 
 
 def get_all_prims(
@@ -206,3 +213,67 @@ def compute_local_bounding_box_from_prim(
         min_point=(local_min[0], local_min[1], local_min[2]),
         max_point=(local_max[0], local_max[1], local_max[2]),
     )
+
+
+def extract_trimesh_from_usd(
+    usd_path: str,
+    scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+) -> trimesh.Trimesh:
+    """Extract all mesh geometry from a USD file into a single trimesh.
+
+    Traverses the stage, applies per-prim world transforms, fan-triangulates
+    non-triangle faces, and applies scale to the combined result.
+
+    Args:
+        usd_path: Path to the .usd/.usda/.usdc file.
+        scale: (sx, sy, sz) scale factors applied to the final mesh.
+
+    Returns:
+        Combined trimesh in the USD default prim's local frame.
+
+    Raises:
+        ValueError: If the file cannot be opened or contains no mesh prims.
+    """
+    import trimesh as _trimesh
+
+    stage = Usd.Stage.Open(usd_path)
+    if stage is None:
+        raise ValueError(f"Failed to open USD: {usd_path}")
+
+    all_verts: list[np.ndarray] = []
+    all_faces: list[list[int]] = []
+    offset = 0
+
+    for prim in stage.Traverse():
+        if not prim.IsA(UsdGeom.Mesh):
+            continue
+        mesh_prim = UsdGeom.Mesh(prim)
+        pts = mesh_prim.GetPointsAttr().Get()
+        fvc = mesh_prim.GetFaceVertexCountsAttr().Get()
+        fvi = mesh_prim.GetFaceVertexIndicesAttr().Get()
+        if pts is None or fvc is None or fvi is None:
+            continue
+
+        xform = UsdGeom.Xformable(prim)
+        world_tf = np.array(xform.ComputeLocalToWorldTransform(Usd.TimeCode.Default())).T
+
+        verts = np.asarray(pts, dtype=np.float64)
+        verts_h = np.hstack([verts, np.ones((len(verts), 1))])
+        verts_world = (verts_h @ world_tf)[:, :3]
+        verts_world[:, 0] *= scale[0]
+        verts_world[:, 1] *= scale[1]
+        verts_world[:, 2] *= scale[2]
+
+        # Fan-triangulate faces
+        idx = 0
+        for count in fvc:
+            for k in range(1, count - 1):
+                all_faces.append([fvi[idx] + offset, fvi[idx + k] + offset, fvi[idx + k + 1] + offset])
+            idx += count
+
+        all_verts.append(verts_world)
+        offset += len(verts_world)
+
+    if not all_verts:
+        raise ValueError(f"No mesh geometry found in {usd_path}")
+    return _trimesh.Trimesh(vertices=np.vstack(all_verts), faces=np.array(all_faces, dtype=np.int32))

@@ -42,7 +42,11 @@ class RelationSolver:
         """
         self.params = params or RelationSolverParams()
         # High slope (vs 10-100 for relation strategies) so overlap avoidance dominates.
-        self._no_collision_strategy = NoCollisionLossStrategy(slope=10000.0)
+        self._no_collision_strategy = NoCollisionLossStrategy(
+            collision_mode=self.params.collision_mode,
+            slope=10000.0,
+            num_spheres=self.params.num_spheres,
+        )
         self._last_loss_history: list[float] = []
         self._last_position_history: list = []
         self._last_loss_per_env: torch.Tensor | None = None
@@ -183,6 +187,9 @@ class RelationSolver:
                     child_pos=child_pos,
                     child_bbox=child_bbox,
                     parent_world_bbox=anchor_world_bbox,
+                    child_obj=child,
+                    parent_obj=anchor,
+                    parent_pos=None,
                 )
                 if debug:
                     print(f"  [NoOverlap] {child.name} vs {anchor.name}: loss={loss.mean().item():.6f}")
@@ -203,6 +210,9 @@ class RelationSolver:
                     child_pos=child_pos,
                     child_bbox=child_bbox,
                     parent_world_bbox=other_world_bbox,
+                    child_obj=child,
+                    parent_obj=other,
+                    parent_pos=other_pos.detach(),
                 )
 
                 # Reverse: gradient flows to other (object j)
@@ -212,6 +222,9 @@ class RelationSolver:
                     child_pos=other_pos,
                     child_bbox=other_bbox,
                     parent_world_bbox=child_world_bbox,
+                    child_obj=other,
+                    parent_obj=child,
+                    parent_pos=child_pos.detach(),
                 )
 
                 if debug:
