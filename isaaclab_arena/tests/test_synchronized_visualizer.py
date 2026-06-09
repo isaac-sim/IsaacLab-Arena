@@ -264,6 +264,7 @@ def test_reposition_poses_global_camera_prim():
     # reposition() resolves the global pose and authors it onto the dedicated global
     # camera prim. Stub _pose_camera_prim (the only sim/USD-touching part) to capture args.
     viz = SynchronizedVisualizer.__new__(SynchronizedVisualizer)
+    viz._closed = False
     viz.device = "cpu"
     viz.global_view = GlobalView(eye=(1.0, 2.0, 3.0), lookat=(0.0, 0.0, 0.0))
     viz.unwrapped = SimpleNamespace(scene=SimpleNamespace(env_origins=torch.zeros((2, 3))))
@@ -320,6 +321,14 @@ def test_initialize_after_close_raises():
     viz._initialized = False
     with pytest.raises(AssertionError, match="after close"):
         viz.initialize()
+
+
+def test_reposition_after_close_raises():
+    # reposition() carries the same _closed guard as initialize()/capture().
+    viz = SynchronizedVisualizer.__new__(SynchronizedVisualizer)
+    viz._closed = True
+    with pytest.raises(AssertionError, match="after close"):
+        viz.reposition()
 
 
 def test_double_close_is_safe():

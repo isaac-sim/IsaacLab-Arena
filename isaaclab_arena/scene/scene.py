@@ -28,8 +28,10 @@ class Scene:
 
     def __init__(self, assets: list[Asset | RigidObjectSet] | None = None):
         self.assets: dict[str, Asset | RigidObjectSet] = {}
-        # Extra scene-level sensors (e.g. visualization cameras) keyed by name.
-        # Kept separate from assets since they carry no Arena Asset semantics.
+        # Extra scene-level sensor cfgs (e.g. visualization cameras) keyed by name,
+        # kept separate from assets since they carry no Arena Asset semantics. These
+        # are pre-build cfgs; after build the live sensor instances live on
+        # env.unwrapped.scene.sensors (Isaac Lab's InteractiveScene), not here.
         self.sensors: dict[str, SensorBaseCfg] = {}
         # We add these here so a user can override them if they want.
         self.observation_cfg = None

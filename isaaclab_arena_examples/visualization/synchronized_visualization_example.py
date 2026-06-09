@@ -145,18 +145,25 @@ def main() -> None:
 
     action_shape = env.action_space.shape
 
+    warned_render_none = False
+
     def _settle(num_steps: int) -> None:
         # RTX annotators return black for the first few frames; discard them so the
         # first captured frame isn't blank. A None render means the global view is
-        # misconfigured and every later capture() would skip it, so surface it now.
+        # misconfigured and every later capture() would skip it, so surface it once
+        # (warn-once, since _settle reruns after every reset).
+        nonlocal warned_render_none
         for _ in range(num_steps):
             with torch.inference_mode():
                 env.step(torch.zeros(action_shape, device=device))
-            if env.render() is None:
+            # env.render() here just surfaces a misconfig (None return) early; the
+            # frame itself is discarded during warm-up.
+            if env.render() is None and not warned_render_none:
                 print(
                     "Warning: env.render() returned None during warm-up; the global view will be empty. "
                     "Build the env with render_mode='rgb_array' and run with --enable_cameras."
                 )
+                warned_render_none = True
 
     try:
         print("Warming up renderer...")

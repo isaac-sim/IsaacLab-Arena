@@ -78,13 +78,13 @@ class CameraObsVideoRecorder(gym.Wrapper):
         if not self.recording and self.step_trigger(self.step_id):
             self.recording = True
             self.recording_start_step = self.step_id
-            self.buffers = {k: [] for k in cam_obs}
+            self.buffers = {cam: [] for cam in cam_obs}
 
         if self.recording and cam_obs:
-            for k, frame in cam_obs.items():
+            for cam, frame in cam_obs.items():
                 # frame: [N_envs, H, W, C]; record env 0 only.
-                self.buffers.setdefault(k, []).append(video_io.to_uint8(frame[0]))
-            if self.buffers and all(len(v) >= self.video_length for v in self.buffers.values()):
+                self.buffers.setdefault(cam, []).append(video_io.to_uint8(frame[0]))
+            if self.buffers and all(len(frames) >= self.video_length for frames in self.buffers.values()):
                 self._flush()
 
         return result

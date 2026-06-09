@@ -20,9 +20,8 @@ offset from each env origin and the global view is framed from the env-origin
 bounding box. GlobalView takes world-frame eye/target (or None to auto-frame);
 EnvView takes eye/target offsets relative to each env origin.
 
-Both views read what env.step already rendered, so frames stay in sync. Under
---enable_cameras, env.render() reuses that render product instead of running its
-own sim.render().
+env.render() retrieves what env.step already rendered, so the two views stay in
+sync without an extra physics step.
 
 Usage:
 
@@ -54,6 +53,11 @@ if TYPE_CHECKING:
     import gymnasium
 
     from isaaclab.sensors.camera import Camera
+
+# Horizontal aperture [mm] shared by the per-env and global pinhole cameras. Paired
+# with focal_length to set the horizontal FOV; keep both cameras on one value so
+# their framing matches.
+HORIZONTAL_APERTURE_MM = 20.955
 
 
 @dataclass
@@ -107,12 +111,10 @@ class GlobalView:
     """Camera target in world coordinates [m]. None = origins centroid."""
 
     width: int = 1280
-    """Global render width [px]. The global frame is the viewport, so the caller
-    must mirror this onto env_cfg.viewer.resolution before build."""
+    """Global render width [px]. Must be mirrored onto env_cfg.viewer.resolution before build."""
 
     height: int = 720
-    """Global render height [px]. Like width, the caller must mirror this onto
-    env_cfg.viewer.resolution before build."""
+    """Global render height [px]."""
 
     distance_scale: float = 1.6
     """Auto-frame distance as a multiple of the env-origin span. Ignored when eye is set."""
@@ -127,8 +129,8 @@ class GlobalView:
     """Extra padding on the env-origin span when auto-framing [m]. Ignored when eye is set."""
 
     focal_length: float = 18.147
-    """Pinhole focal length [mm] of the global camera. With horizontal_aperture 20.955 this
-    gives a ~60 deg horizontal FOV, which the default distance_scale is tuned against."""
+    """Global camera pinhole focal length [mm]; with HORIZONTAL_APERTURE_MM gives ~60 deg
+    horizontal FOV, which the default distance_scale is tuned against."""
 
     def __post_init__(self) -> None:
         assert self.width > 0 and self.height > 0, "GlobalView width/height must be positive."
@@ -146,10 +148,10 @@ class GlobalView:
 class _CaptureBuffers:
     """Per-view frame buffers.
 
-    capture() co-appends all three each step, so they share an index: entry i in
-    every buffer is the same simulation step. The exception is global_frames, which
-    is skipped when env.render() returns None (a misconfiguration), leaving it
-    shorter than the others.
+    capture() always appends to grid_frames; global_frames may be shorter if
+    env.render() returns None; per_env_frames is only populated when
+    capture_per_env=True. global_frames and grid_frames are not guaranteed to be
+    the same length and must not be zipped by index.
     """
 
     global_frames: list[np.ndarray] = field(default_factory=list)
@@ -187,7 +189,7 @@ class SynchronizedVisualizer:
     """Scene-sensor key for the per-env tiled camera."""
 
     GLOBAL_CAM_PRIM_PATH = "/World/SyncVizGlobalCam"
-    """USD path of the world camera the global view renders through (see _setup_global_camera_prim)."""
+    """USD path of the world camera the global view renders through."""
 
     @staticmethod
     def _check_optional_deps() -> None:
@@ -208,7 +210,10 @@ class SynchronizedVisualizer:
             )
 
     @staticmethod
-    def _lookat_offset(eye_offset, lookat_offset):
+    def _lookat_offset(
+        eye_offset: tuple[float, float, float],
+        lookat_offset: tuple[float, float, float],
+    ) -> tuple[tuple[float, float, float], tuple[float, float, float, float]]:
         """Return a (pos, quat_wxyz) offset looking from eye toward target.
 
         The quaternion matches Camera.set_world_poses_from_view (OpenGL convention),
@@ -221,9 +226,9 @@ class SynchronizedVisualizer:
         eyes = torch.tensor([eye_offset], dtype=torch.float32)
         targets = torch.tensor([lookat_offset], dtype=torch.float32)
         rot_matrix = create_rotation_matrix_from_view(eyes, targets, up_axis="Z", device="cpu")
-        q = quat_from_matrix(rot_matrix)[0].tolist()
+        quat = quat_from_matrix(rot_matrix)[0].tolist()
         pos = (float(eye_offset[0]), float(eye_offset[1]), float(eye_offset[2]))
-        quat_wxyz = (float(q[0]), float(q[1]), float(q[2]), float(q[3]))
+        quat_wxyz = (float(quat[0]), float(quat[1]), float(quat[2]), float(quat[3]))
         return pos, quat_wxyz
 
     @staticmethod
@@ -231,9 +236,9 @@ class SynchronizedVisualizer:
         """Build the per-env TiledCameraCfg to register on the scene.
 
         Pass the result to Scene.add_sensor(name, cfg) before build so Isaac Lab
-        sets up tiled rendering once and updates it as part of env.step. This avoids
-        the all-white frames a second render product causes once the sim is playing,
-        and any out-of-sync manual update() pass.
+        sets up tiled rendering once and updates it as part of env.step. Adding a
+        TiledCamera after build is unreliable; registering it pre-build is the only
+        supported path.
 
         A scene-managed camera recomputes its pose from parent x offset each step, so
         the eye/target framing is baked into OffsetCfg here. The env prim is static
@@ -264,7 +269,7 @@ class SynchronizedVisualizer:
             spawn=sim_utils.PinholeCameraCfg(
                 focal_length=view.focal_length,
                 focus_distance=400.0,
-                horizontal_aperture=20.955,
+                horizontal_aperture=HORIZONTAL_APERTURE_MM,
                 clipping_range=(0.1, 1.0e5),
             ),
         )
@@ -300,18 +305,13 @@ class SynchronizedVisualizer:
             f"({self.global_view.width}, {self.global_view.height}); the global view reuses the "
             "viewport, so set env_cfg.viewer.resolution = (global_view.width, global_view.height) before build."
         )
-        # ceil(sqrt(N)) keeps the grid roughly square for any env count (4 -> 2x2,
-        # 36 -> 6x6); every panel uses the same env-relative framing.
+        # ceil(sqrt(N)) keeps the grid roughly square for any env count (4 -> 2x2, 36 -> 6x6).
         self.grid_cols = grid_cols if grid_cols is not None else math.ceil(math.sqrt(self.num_envs))
         assert self.grid_cols > 0, f"grid_cols must be positive, got {self.grid_cols}."
         # Cap on composed grid width [px]; downscaled to fit so a large env count
         # (e.g. 6x6x480px = 2880px) stays a reasonable video size.
         self.max_grid_width = max_grid_width
-        # Scene-sensor key for the registered tiled camera; must match Scene.add_sensor.
         self._env_cam_name = env_cam_name if env_cam_name is not None else self.ENV_CAM_NAME
-        # Retain per-env frames for save(save_per_env=True). Off by default: the grid
-        # already shows every env, and keeping N separate frame streams costs roughly
-        # num_envs x grid memory (GBs for long, many-env rollouts).
         self.capture_per_env = capture_per_env
 
         # The global view reads the viewport via env.render(), which only returns
@@ -347,25 +347,23 @@ class SynchronizedVisualizer:
         self._env_camera = scene_sensors[self._env_cam_name]
 
     def _setup_global_camera_prim(self) -> None:
-        """Create a world camera prim and route the viewport render product to it.
+        """Create a world camera prim and set cfg.viewer.cam_prim_path to point at it.
 
-        env.render() builds its render product on cfg.viewer.cam_prim_path. The default
-        /OmniverseKit_Persp is created and owned by the GUI viewport, which is absent
-        headless (the capture mode) and not posable there. So we own a world camera and
-        point the same render product at it: one render product, no extra RTX sensor.
+        env.render() lazily binds its render product to cfg.viewer.cam_prim_path on the
+        first call. The default GUI viewport camera is absent headless (the capture mode)
+        and not programmatically posable there, so we point that single render product at
+        our own world camera instead: no extra RTX sensor.
 
-        Runs in __init__ so cam_prim_path is set before the first env.render(): render()
-        caches its render product on first call, so a later switch would be ignored.
+        Runs in __init__ so cam_prim_path is set before the first env.render().
         """
         from pxr import Gf, UsdGeom
 
         stage = self.unwrapped.sim.stage
         cam = UsdGeom.Camera.Define(stage, self.GLOBAL_CAM_PRIM_PATH)
-        h_aperture = 20.955
         cam.CreateFocalLengthAttr(float(self.global_view.focal_length))
-        cam.CreateHorizontalApertureAttr(h_aperture)
+        cam.CreateHorizontalApertureAttr(HORIZONTAL_APERTURE_MM)
         # Match vertical aperture to the output aspect so pixels stay square.
-        cam.CreateVerticalApertureAttr(h_aperture * self.global_view.height / self.global_view.width)
+        cam.CreateVerticalApertureAttr(HORIZONTAL_APERTURE_MM * self.global_view.height / self.global_view.width)
         cam.CreateClippingRangeAttr(Gf.Vec2f(0.1, 1.0e6))
         self.unwrapped.cfg.viewer.cam_prim_path = self.GLOBAL_CAM_PRIM_PATH
 
@@ -386,14 +384,14 @@ class SynchronizedVisualizer:
         Only the global view needs this; the per-env tiled camera is restored
         automatically from its baked OffsetCfg on reset.
         """
+        assert not self._closed, "reposition() called after close(); the visualizer is not reusable."
         self._position_global_camera()
 
     def _position_global_camera(self) -> None:
         """Pose the global camera prim to the resolved eye/target.
 
-        env.render() renders through cfg.viewer.cam_prim_path, which _setup_global_camera_prim
-        pointed at our own world camera; we author its transform directly (headless-safe,
-        unlike the GUI viewport_camera_controller path).
+        Authors the global camera prim's world transform directly via USD xform ops,
+        which is headless-safe.
         """
         origins = self.unwrapped.scene.env_origins.to(self.device)  # (N, 3)
         eye, target = self._resolve_global_pose(origins)
@@ -404,8 +402,7 @@ class SynchronizedVisualizer:
 
         USD cameras look down local -Z with +Y up, so we build the camera-to-world
         basis directly and write it as a single matrix xform op (USD's row-vector
-        convention: rows are the camera's local axes in world coords). This is
-        headless-safe, unlike the GUI viewport_camera_controller path.
+        convention: rows are the camera's local axes in world coords).
         """
         import numpy as np
 
@@ -424,7 +421,7 @@ class SynchronizedVisualizer:
         right = right / norm if norm > 1e-6 else np.array([1.0, 0.0, 0.0])
         cam_up = np.cross(back, right)
 
-        m = Gf.Matrix4d(
+        cam_to_world = Gf.Matrix4d(
             right[0],
             right[1],
             right[2],
@@ -446,7 +443,7 @@ class SynchronizedVisualizer:
         assert prim.IsValid(), f"Viewport camera prim {prim_path!r} not found; cannot pose the global view."
         xform = UsdGeom.Xformable(prim)
         xform.ClearXformOpOrder()
-        xform.MakeMatrixXform().Set(m)
+        xform.MakeMatrixXform().Set(cam_to_world)
 
     def _resolve_global_pose(self, origins):
         """Compute the global camera (eye, target).
@@ -485,12 +482,8 @@ class SynchronizedVisualizer:
         return eye, target
 
     def capture(self) -> None:
-        """Append one frame per view to the internal buffers. Call once per env.step.
-
-        The tiled camera is read from its scene-sensor buffer; the global view calls
-        env.render(). Under --enable_cameras the TiledCamera sets the rtx_sensors carb
-        flag on init, so env.render() reuses env.step's render instead of its own
-        sim.render() and the two views stay in sync.
+        """Append one frame per view (per-env grid + global) to the internal buffers.
+        Call once per env.step.
 
         Warns once (not per frame) if env.render() returns None, or if the global frame
         is all-zeros (annotator not warmed up); an all-zeros frame is still encoded.
