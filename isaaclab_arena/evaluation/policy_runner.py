@@ -63,7 +63,17 @@ def rollout_policy(
     num_steps: int | None,
     num_episodes: int | None,
     language_instruction: str | None = None,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any] | None, list[dict]]:
+    """Run a policy rollout and return (metrics, episode_boundaries).
+
+    episode_boundaries is a list of dicts with keys:
+      env_idx    — which parallel env completed
+      start_step — first step of that episode (0-indexed, inclusive)
+      end_step   — last step of that episode (0-indexed, inclusive)
+
+    Frame index in CameraObsVideoRecorder output equals step index, so
+    these boundaries can be used to slice the recorded video into per-episode clips.
+    """
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
 
@@ -84,6 +94,8 @@ def rollout_policy(
 
         num_episodes_completed = 0
         num_steps_completed = 0
+        episode_starts: dict[int, int] = {}  # env_idx -> step at which current episode started
+        episode_boundaries: list[dict] = []
 
         while True:
             with torch.inference_mode():
@@ -98,6 +110,17 @@ def rollout_policy(
                     )
                     env_ids = (terminated | truncated).nonzero().flatten()
                     policy.reset(env_ids=env_ids)
+
+                    for env_idx in env_ids.tolist():
+                        episode_boundaries.append(
+                            {
+                                "env_idx": env_idx,
+                                "start_step": episode_starts.get(env_idx, 0),
+                                "end_step": num_steps_completed,
+                            }
+                        )
+                        episode_starts[env_idx] = num_steps_completed + 1
+
                     # Break if number of episodes is reached
                     completed_episodes = env_ids.shape[0]
                     num_episodes_completed += completed_episodes
@@ -130,8 +153,8 @@ def rollout_policy(
         # Only compute metrics if env has non-None metrics.
         # Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing)
         if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
-            return env.unwrapped.compute_metrics()
-        return None
+            return env.unwrapped.compute_metrics(), episode_boundaries
+        return None, episode_boundaries
 
 
 def main():
@@ -243,7 +266,7 @@ def main():
 
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
         print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")
-        metrics = rollout_policy(env, policy, num_steps, num_episodes, args_cli.language_instruction)
+        metrics, _ = rollout_policy(env, policy, num_steps, num_episodes, args_cli.language_instruction)
 
         if metrics is not None:
             print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics_to_plain_python_types(metrics)}")

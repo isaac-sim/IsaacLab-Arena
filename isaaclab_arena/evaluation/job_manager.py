@@ -28,6 +28,9 @@ class Job:
         policy_config_dict: dict = None,
         status: Status = None,
         language_instruction: str = None,
+        task_name: str = None,
+        embodiment: str = None,
+        env_params: dict = None,
     ):
         """Initialize a Job instance.
 
@@ -42,6 +45,9 @@ class Job:
             status: Job status (defaults to PENDING)
             language_instruction: Optional language instruction override for the policy. When set,
                 takes precedence over the task's own description.
+            task_name: Environment/task name (e.g. "put_item_in_fridge_and_close_door").
+            embodiment: Robot embodiment name (e.g. "gr1_joint").
+            env_params: Raw arena_env_args dict from the job config, preserved for EpisodeRecord.
         """
         self.name = name
         self.arena_env_args = arena_env_args
@@ -55,6 +61,9 @@ class Job:
         self.policy_type = policy_type
         self.policy_config_dict = policy_config_dict if policy_config_dict is not None else {}
         self.language_instruction = language_instruction
+        self.task_name = task_name
+        self.embodiment = embodiment
+        self.env_params = env_params if env_params is not None else {}
         self.status = status if status is not None else Status.PENDING
         self.start_time = None
         self.end_time = None
@@ -98,6 +107,9 @@ class Job:
         else:
             status = Status.PENDING
         num_envs = data["arena_env_args"].get("num_envs", 1)
+        task_name = data["arena_env_args"].get("environment")
+        embodiment = data["arena_env_args"].get("embodiment")
+        env_params = dict(data["arena_env_args"])
 
         return cls(
             name=data["name"],
@@ -109,6 +121,9 @@ class Job:
             policy_config_dict=data["policy_config_dict"],
             status=status,
             language_instruction=data.get("language_instruction"),
+            task_name=task_name,
+            embodiment=embodiment,
+            env_params=env_params,
         )
 
     @classmethod

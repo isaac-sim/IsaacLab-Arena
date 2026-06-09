@@ -19,6 +19,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.evaluation.camera_video import CameraObsVideoRecorder
+from isaaclab_arena.evaluation.episode_record import build_episode_record, write_episode_record
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
@@ -206,7 +208,7 @@ def main():
 
         job_manager.print_jobs_info()
 
-        if args_cli.video:
+        if args_cli.video or args_cli.camera_video:
             os.makedirs(args_cli.video_dir, exist_ok=True)
             print(f"[INFO] Video recording enabled. Videos will be saved to: {args_cli.video_dir}")
 
@@ -228,21 +230,33 @@ def main():
                         else:
                             job.num_steps = args_cli.num_steps
 
-                    if args_cli.video:
+                    if args_cli.video or args_cli.camera_video:
                         if job.num_steps is not None:
                             video_length = job.num_steps
                         else:
                             video_length = job.num_episodes * env.unwrapped.max_episode_length
+                        job_video_dir = os.path.join(args_cli.video_dir, job.name)
+
+                    if args_cli.video:
                         video_kwargs = {
-                            "video_folder": os.path.join(args_cli.video_dir, job.name),
+                            "video_folder": job_video_dir,
                             "step_trigger": lambda step: step == 0,
                             "video_length": video_length,
                             "disable_logger": True,
                         }
-                        print(f"[INFO] Recording video for job '{job.name}' -> {video_kwargs['video_folder']}")
+                        print(f"[INFO] Recording viewport video for job '{job.name}' -> {job_video_dir}")
                         env = RecordVideo(env, **video_kwargs)
 
-                    metrics = rollout_policy(
+                    if args_cli.camera_video:
+                        print(f"[INFO] Recording camera video for job '{job.name}' -> {job_video_dir}")
+                        env = CameraObsVideoRecorder(
+                            env,
+                            video_folder=job_video_dir,
+                            step_trigger=lambda step: step == 0,
+                            video_length=video_length,
+                        )
+
+                    metrics, episode_boundaries = rollout_policy(
                         env,
                         policy,
                         num_steps=job.num_steps,
@@ -252,6 +266,19 @@ def main():
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
 
+                    if args_cli.episode_record_dir is not None:
+                        record = build_episode_record(
+                            job,
+                            env,
+                            metrics,
+                            status="completed",
+                            video_dir=args_cli.video_dir if (args_cli.video or args_cli.camera_video) else None,
+                            seed=args_cli.seed if hasattr(args_cli, "seed") else None,
+                            episode_boundaries=episode_boundaries,
+                        )
+                        path = write_episode_record(record, args_cli.episode_record_dir)
+                        print(f"[INFO] Episode record written: {path}")
+
                     # users may not specify metrics for a task, although it's not recommended
                     if metrics is not None:
                         metrics_logger.append_job_metrics(job.name, metrics)
@@ -260,6 +287,19 @@ def main():
                     job_manager.complete_job(job, metrics={}, status=Status.FAILED)
                     print(f"Job {job.name} failed with error: {e}")
                     print(f"Traceback: {traceback.format_exc()}")
+                    if args_cli.episode_record_dir is not None and env is not None:
+                        try:
+                            record = build_episode_record(
+                                job,
+                                env,
+                                metrics=None,
+                                status="failed",
+                                video_dir=args_cli.video_dir if (args_cli.video or args_cli.camera_video) else None,
+                                seed=args_cli.seed if hasattr(args_cli, "seed") else None,
+                            )
+                            write_episode_record(record, args_cli.episode_record_dir)
+                        except Exception:
+                            pass
                     if not args_cli.continue_on_error:
                         raise
 
@@ -273,6 +313,10 @@ def main():
 
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()
+        if args_cli.metrics_file is not None:
+            metrics_logger.metrics_file = args_cli.metrics_file
+            metrics_logger.save_metrics_to_file()
+            print(f"[INFO] Metrics saved to: {args_cli.metrics_file}")
 
 
 if __name__ == "__main__":

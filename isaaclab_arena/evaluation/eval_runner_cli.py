@@ -16,6 +16,12 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--video", action="store_true", default=False, help="Record videos for each eval job.")
     parser.add_argument(
+        "--camera_video",
+        action="store_true",
+        default=False,
+        help="Record per-camera videos from obs['camera_obs'] for each eval job. Works in headless mode.",
+    )
+    parser.add_argument(
         "--video_dir",
         type=str,
         default="/eval/videos",
@@ -26,6 +32,18 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         default=False,
         help="Continue evaluation with remaining jobs when a job fails instead of stopping immediately.",
+    )
+    parser.add_argument(
+        "--episode_record_dir",
+        type=str,
+        default=None,
+        help="Directory to write one EpisodeRecord JSON per job. If not set, no records are written.",
+    )
+    parser.add_argument(
+        "--metrics_file",
+        type=str,
+        default=None,
+        help="Path to save metrics as JSON. If not set, metrics are only printed to stdout.",
     )
     parser.add_argument(
         "--chunk_size",
