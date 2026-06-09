@@ -14,13 +14,12 @@ and :meth:`~AssetResolver.resolve_embodiment`:
 - Tag-pool relaxation when the tag pool is empty or yields no close match
 - Fuzzy (difflib) fallback
 - Miss / omission behaviour
-- Embodiment bare-family expansion via :data:`~asset_resolver.IK_DEFAULTS`
+- Embodiment bare-family expansion via the ``["embodiment", "ik"]`` tag pool
 - Background tag enforcement
 """
 
 from __future__ import annotations
 
-from isaaclab_arena.agentic_environment_generation.asset_resolver import IK_DEFAULTS
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphNodeType
 
 from ._resolver_test_helpers import FakeAsset, make_resolver, make_scene
@@ -112,13 +111,12 @@ def test_embodiment_exact_match():
 
 
 def test_embodiment_ik_default_for_bare_family():
-    # Bare family names (e.g. "franka") are expanded to the IK variant via
-    # IK_DEFAULTS; the mapping is exported so callers can introspect it.
+    # Bare family names (e.g. "franka") are expanded to the IK variant by
+    # querying the ["embodiment", "ik"] tag pool and picking the shortest match.
     resolver = make_resolver()
     spec = resolver.resolve(make_scene(embodiment="franka"))
-    assert IK_DEFAULTS["franka"] == "franka_ik"
     assert spec.nodes_by_id["franka_ik"].type == ArenaEnvGraphNodeType.EMBODIMENT
-    assert any(e.stage == "embodiment.ik_default" for e in resolver.trace)
+    assert any(e.stage == "embodiment.ik_family" for e in resolver.trace)
 
 
 def test_embodiment_unknown_falls_back_to_franka_ik():

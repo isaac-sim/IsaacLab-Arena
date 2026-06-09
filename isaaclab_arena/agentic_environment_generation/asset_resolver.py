@@ -11,14 +11,6 @@ from difflib import get_close_matches
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import Item
 from isaaclab_arena.assets.registries import AssetRegistry
 
-# When the agent emits a bare robot family name, pick the IK variant.
-IK_DEFAULTS: dict[str, str] = {
-    "franka": "franka_ik",
-    "droid": "droid_differential_ik",
-    "g1": "g1_wbc_pink",
-    "gr1": "gr1_pink",
-}
-
 
 @dataclass
 class TraceEvent:
@@ -145,7 +137,8 @@ class AssetResolver:
 
         Resolution strategy (in order):
         1. Exact registry match.
-        2. Bare family name expansion via :data:`IK_DEFAULTS`
+        2. Bare family name expansion: find the shortest ``["embodiment", "ik"]``-tagged
+           asset whose name starts with the family prefix
            (e.g. ``"franka"`` → ``"franka_ik"``).
         3. Fuzzy match within the ``"embodiment"``-tagged asset pool.
         4. Hard fallback to ``"franka_ik"``.
@@ -162,10 +155,18 @@ class AssetResolver:
             return name
 
         lower = name.lower()
-        if lower in IK_DEFAULTS:
-            chosen = IK_DEFAULTS[lower]
+        ik_pool = self._pool_for(["embodiment", "ik"])
+        family_matches = [n for n in ik_pool if n.startswith(lower + "_")]
+        if family_matches:
+            chosen = min(family_matches, key=len)
             self.trace.append(
-                TraceEvent("embodiment.ik_default", name, chosen, note=f"bare family {name!r} → IK variant")
+                TraceEvent(
+                    "embodiment.ik_family",
+                    name,
+                    chosen,
+                    candidates=family_matches,
+                    note=f"bare family {name!r} → IK variant",
+                )
             )
             return chosen
 
