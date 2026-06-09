@@ -16,14 +16,79 @@ from isaaclab_arena.utils.pose import Pose, rotate_quat_by_yaw
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.placement_validation import PlacementResult
 
 IDENTITY_ROTATION_XYZW = (0.0, 0.0, 0.0, 1.0)
+
+PLACEMENT_RESET_EVENT_NAME = "placement_reset"
+"""Name of the reset event term that owns the pooled object placer; the builder registers it and the
+post-reset settle pass reads the pool back off the env by this name."""
+
+
+def get_placement_pool(env) -> PooledObjectPlacer | None:
+    """Return the pooled placer registered on the env, or ``None`` when the env has no pooled placement.
+
+    Lets a runtime caller reach the pool (e.g. to run the post-reset settle check) from the env alone,
+    without holding the builder. The pool is reached through the env's event manager.
+
+    Args:
+        env: The gym-wrapped Isaac Lab env; the base env is reached via ``env.unwrapped``.
+    """
+    try:
+        term_cfg = env.unwrapped.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME)
+    except ValueError:
+        return None
+    return term_cfg.params.get("placement_pool")
+
+
+def run_placement_physics_settle_check(env: ManagerBasedEnv) -> None:
+    """Re-select any placement that doesn't physically settle after the reset.
+
+    Call once after ``env.reset()`` while SimulationApp is live. No-ops when the env has no pooled placement.
+    """
+    placement_pool = get_placement_pool(env)
+    if placement_pool is None:
+        return
+    placement_pool.verify_in_sim_and_reselect(env)
 
 
 def get_rotation_xyzw(obj: ObjectBase) -> tuple[float, float, float, float]:
     """Return the RotateAroundSolution rotation for *obj*, or identity if none."""
     rotate_marker = next((r for r in obj.get_relations() if isinstance(r, RotateAroundSolution)), None)
     return rotate_marker.get_rotation_xyzw() if rotate_marker else IDENTITY_ROTATION_XYZW
+
+
+def write_layout_to_sim(
+    env: ManagerBasedEnv,
+    env_id: int,
+    result: PlacementResult,
+    anchor_objects_set: set[ObjectBase],
+    base_rotations: dict[ObjectBase, tuple[float, float, float, float]],
+) -> None:
+    """Write one env's solved layout into the sim. Used by the reset event and the physics settle validation.
+
+    Even writing zero velocity, the sim will still apply gravity and other forces from collisions,
+    so collided objects will still be subject to move.
+
+    Args:
+        env: The Isaac Lab ManagerBasedEnv environment.
+        env_id: The environment index.
+        result: The placement result to write to the sim.
+        anchor_objects_set: The set of anchor objects.
+        base_rotations: The base rotations for the non-anchor objects.
+    """
+    env_id_tensor = torch.tensor([env_id], device=env.device)
+    zero_velocity = torch.zeros(1, 6, device=env.device)
+    for obj, pos in result.positions.items():
+        if obj in anchor_objects_set:
+            continue
+        asset = env.scene[obj.name]
+        rotation_xyzw = rotate_quat_by_yaw(base_rotations[obj], result.orientations.get(obj, 0.0))
+        pose = Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw)
+        pose_t_xyz_q_xyzw = pose.to_tensor(device=env.device).unsqueeze(0)
+        pose_t_xyz_q_xyzw[0, :3] += env.scene.env_origins[env_id, :]
+        asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_id_tensor)
+        asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_id_tensor)
 
 
 def solve_and_place_objects(
@@ -63,22 +128,13 @@ def solve_and_place_objects(
     anchor_objects_set = set(get_anchor_objects(objects))
     base_rotations = {obj: get_rotation_xyzw(obj) for obj in objects if obj not in anchor_objects_set}
 
-    zero_velocity = torch.zeros(1, 6, device=env.device)
     for cur_env in reset_env_ids:
-        env_id_tensor = torch.tensor([cur_env], device=env.device)
         result = results_by_env[cur_env]
         if not result.success:
             print(
                 "Warning: Writing best-loss fallback placement for "
                 f"env {cur_env}; layout failed strict placement validation."
             )
-        for obj, pos in result.positions.items():
-            if obj in anchor_objects_set:
-                continue
-            asset = env.scene[obj.name]
-            rotation_xyzw = rotate_quat_by_yaw(base_rotations[obj], result.orientations.get(obj, 0.0))
-            pose = Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw)
-            pose_t_xyz_q_xyzw = pose.to_tensor(device=env.device).unsqueeze(0)
-            pose_t_xyz_q_xyzw[0, :3] += env.scene.env_origins[cur_env, :]
-            asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_id_tensor)
-            asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_id_tensor)
+        write_layout_to_sim(env, cur_env, result, anchor_objects_set, base_rotations)
+        # Record what landed in each env so the post-reset settle pass can verify and re-select it.
+        placement_pool.note_applied(cur_env, result)

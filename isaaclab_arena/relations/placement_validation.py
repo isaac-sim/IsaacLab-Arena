@@ -38,6 +38,11 @@ class PlacementValidationChecklist:
         return [item for item in self.checklist_items.keys() if not self.checklist_items[item]]
 
     @property
+    def physics_settled_failed(self) -> bool:
+        """True when this layout was stepped in sim and did not settle."""
+        return self.checklist_items.get("physics_settled") is False
+
+    @property
     def rank_required_and_optional_failures(self) -> tuple[int, int]:
         """Ranking number of failed checks: required checks first, then optional checks.
         The lower the number, the better."""
@@ -46,7 +51,15 @@ class PlacementValidationChecklist:
         optional_failed = sum(1 for item, passed in self.checklist_items.items() if item not in required and not passed)
         return (required_failed, optional_failed)
 
-    def add_checklist_item(self, item: str, value: bool) -> None:
-        """Add a checklist item."""
+    def add_checklist_item(self, item: str, value: bool, required: bool = False) -> None:
+        """Add a checklist item.
+
+        Args:
+            item: Check name; must not already exist.
+            value: Whether the check passed.
+            required: If True, the item also gates pass_validation_checklist() (and thus success).
+        """
         assert item not in self.checklist_items, f"'{item}' already exists in checklist."
         self.checklist_items[item] = value
+        if required:
+            self.required_items.add(item)

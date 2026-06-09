@@ -67,12 +67,7 @@ def rollout_policy(
     num_steps: int | None,
     num_episodes: int | None,
     language_instruction: str | None = None,
-<<<<<<< HEAD
 ) -> MetricsDataCollection | None:
-=======
-    enable_physics_settle_check: bool = True,
-) -> dict[str, Any]:
->>>>>>> ed41bb1d9 (add user cli args)
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
 
@@ -82,7 +77,7 @@ def rollout_policy(
         # Re-select any placement that doesn't physically settle after the reset.
         # No-ops internally when the env has no pooled placement at the builder level.
         if enable_physics_settle_check:
-            run_placement_settle_check(env)
+            run_placement_physics_settle_check(env)
         policy.reset()
         # Determine language instruction: CLI/job-level override takes precedence over the task's own
         # description. Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing).
