@@ -106,16 +106,23 @@ def test_item_instance_name_overrides_query_for_node_id():
 
 
 def test_embodiment_exact_match():
+    # Node ID matches the original query so task params can reference it by the agent-emitted name.
     spec = make_resolver().resolve(make_scene(embodiment="franka_joint_pos"))
-    assert spec.nodes_by_id["franka_joint_pos"].type == ArenaEnvGraphNodeType.EMBODIMENT
+    node = spec.nodes_by_id["franka_joint_pos"]
+    assert node.type == ArenaEnvGraphNodeType.EMBODIMENT
+    assert node.name == "franka_joint_pos"
 
 
 def test_embodiment_ik_default_for_bare_family():
     # Bare family names (e.g. "franka") are expanded to the IK variant by
     # querying the ["embodiment", "ik"] tag pool and picking the shortest match.
+    # The node ID stays as the original query "franka" so downstream task params
+    # that reference the robot by its original name resolve correctly.
     resolver = make_resolver()
     spec = resolver.resolve(make_scene(embodiment="franka"))
-    assert spec.nodes_by_id["franka_ik"].type == ArenaEnvGraphNodeType.EMBODIMENT
+    node = spec.nodes_by_id["franka"]  # ID = original query, not "franka_ik"
+    assert node.type == ArenaEnvGraphNodeType.EMBODIMENT
+    assert node.name == "franka_ik"  # name = resolved asset
     assert any(e.stage == "embodiment.ik_family" for e in resolver.trace)
 
 

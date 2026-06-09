@@ -119,7 +119,7 @@ class IntentResolver:
         if embodiment_name is None:
             return None
         return ArenaEnvGraphNodeSpec(
-            id=embodiment_name,
+            id=query,  # use original query so task params can reference the robot by the name the agent emitted
             name=embodiment_name,
             type=ArenaEnvGraphNodeType.EMBODIMENT,
         )
