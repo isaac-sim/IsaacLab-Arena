@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.camera_video import CameraObsVideoRecorder
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
+from isaaclab_arena.metrics.metrics_manager import MetricsData
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
@@ -63,7 +64,7 @@ def rollout_policy(
     num_steps: int | None,
     num_episodes: int | None,
     language_instruction: str | None = None,
-) -> dict[str, Any]:
+) -> MetricsData | None:
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
 

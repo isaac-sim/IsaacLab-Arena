@@ -6,12 +6,26 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass
 
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.metrics import get_metric_recorder_dataset_path, get_num_episodes, get_recorded_metric_data
 
 if TYPE_CHECKING:
     from isaaclab.envs.manager_based_rl_env import ManagerBasedRLEnv
+
+
+@dataclass
+class MetricData:
+    term_name: str
+    recorded_data: Any
+    metric_value: Any
+
+
+@dataclass
+class MetricsData:
+    num_episodes: int
+    metric_data: list[MetricData]
 
 
 class MetricsManager:
@@ -48,17 +62,32 @@ class MetricsManager:
         """Names of the metric terms registered on this manager."""
         return list(self._term_names)
 
-    def compute(self) -> dict[str, Any]:
+    def compute(self) -> MetricsData:
         """Compute every registered metric from the recorded HDF5 dataset.
 
         Returns:
-            A dictionary mapping metric name to metric value. Always includes a
-            ``"num_episodes"`` entry with the number of completed episodes.
+            A MetricsData instance containing the data for all metrics.
         """
         dataset_path = get_metric_recorder_dataset_path(self._env)
-        metrics_data: dict[str, Any] = {}
+        # metrics_data: MetricsData = MetricsData(get_num_episodes(dataset_path), [])
+        # recorded_metrics_data: dict[str, Any] = {}
+        metric_data_list: list[MetricData] = []
         for term_name, term_cfg in zip(self._term_names, self._term_cfgs):
-            recorded_metric_data = get_recorded_metric_data(dataset_path, term_cfg.recorder_term_name)
-            metrics_data[term_name] = term_cfg.compute_metric_func(recorded_metric_data, **term_cfg.params)
-        metrics_data["num_episodes"] = get_num_episodes(dataset_path)
+            recorded_data = get_recorded_metric_data(dataset_path, term_cfg.recorder_term_name)
+            metrics_value = term_cfg.compute_metric_func(recorded_data, **term_cfg.params)
+            metric_data = MetricData(term_name, recorded_data, metrics_value)
+            metric_data_list.append(metric_data)
+        # Combine the metric data into a MetricsData instance.
+        metrics_data = MetricsData(get_num_episodes(dataset_path), metric_data_list)
+        print(f"metrics_data: {metrics_data}")
         return metrics_data
+        # dataset_path = get_metric_recorder_dataset_path(self._env)
+        # metrics_data: dict[str, Any] = {}
+        # recorded_metrics_data: dict[str, Any] = {}
+        # for term_name, term_cfg in zip(self._term_names, self._term_cfgs):
+        #     recorded_metric_data = get_recorded_metric_data(dataset_path, term_cfg.recorder_term_name)
+        #     recorded_metrics_data[term_name] = recorded_metric_data
+        #     metrics_data[term_name] = term_cfg.compute_metric_func(recorded_metric_data, **term_cfg.params)
+        # metrics_data["num_episodes"] = get_num_episodes(dataset_path)
+        # print(f"recorded_metrics_data: {recorded_metrics_data}")
+        # return metrics_data

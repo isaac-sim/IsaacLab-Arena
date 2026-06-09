@@ -22,6 +22,7 @@ from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
+from isaaclab_arena.metrics.metrics_manager import MetricsData
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
@@ -208,9 +209,11 @@ def main():
             print(f"[INFO] Video recording enabled. Videos will be saved to: {args_cli.video_dir}")
 
         for job in job_manager:
-            if job is not None:
-                env = None
-                policy = None
+            if job is None:
+                continue
+            env = None
+            policy = None
+            for _ in range(2):
                 try:
                     render_mode = "rgb_array" if args_cli.video else None
                     env = load_env(job.arena_env_args, job.name, render_mode=render_mode)

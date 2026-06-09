@@ -5,23 +5,28 @@
 
 import json
 import numpy as np
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from isaaclab_arena.metrics.metrics_manager import MetricsData
 
 
-def metrics_to_plain_python_types(metrics: dict[str, Any]) -> dict[str, int | float | list]:
-    """Convert numpy scalars/arrays in a metrics dict to plain Python types."""
+def metrics_to_plain_python_types(metrics_data: MetricsData) -> dict[str, int | float | list]:
+    """Convert numpy scalars/arrays in a metrics data to plain Python types."""
     sanitized = {}
-    for k, v in metrics.items():
-        if isinstance(v, np.bool_):
-            sanitized[k] = bool(v)
-        elif isinstance(v, np.floating):
-            sanitized[k] = float(v)
-        elif isinstance(v, np.integer):
-            sanitized[k] = int(v)
-        elif isinstance(v, np.ndarray):
-            sanitized[k] = v.tolist()
+    for metric_data in metrics_data.metric_data:
+        name = metric_data.term_name
+        value = metric_data.metric_value
+        if isinstance(value, np.bool_):
+            sanitized[name] = bool(value)
+        elif isinstance(value, np.floating):
+            sanitized[name] = float(value)
+        elif isinstance(value, np.integer):
+            sanitized[name] = int(value)
+        elif isinstance(value, np.ndarray):
+            sanitized[name] = value.tolist()
         else:
-            sanitized[k] = v
+            sanitized[name] = value
     return sanitized
 
 
@@ -30,16 +35,16 @@ class MetricsLogger:
         self.metrics_file = metrics_file
         self.metrics_data = {}
 
-    def append_job_metrics(self, job_name: str, metrics: dict[str, Any]):
+    def append_job_metrics(self, job_name: str, metrics_data: MetricsData):
         """Add or update metrics for a specific job.
 
         Args:
             job_name: Name of the job
-            metrics: Dictionary of metric_name -> value
+            metrics_data: MetricsData instance containing the data for all metrics.
         """
         if job_name not in self.metrics_data:
             self.metrics_data[job_name] = {}
-        self.metrics_data[job_name].update(metrics_to_plain_python_types(metrics))
+        self.metrics_data[job_name].update(metrics_to_plain_python_types(metrics_data))
 
     def save_metrics_to_file(self):
         """Save all metrics to JSON file."""
