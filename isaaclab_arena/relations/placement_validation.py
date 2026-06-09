@@ -6,11 +6,30 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import StrEnum
+
+
+class PlacementCheck(StrEnum):
+    """Standard names for the placement validation checks."""
+
+    NO_OVERLAP = "no_overlap"
+    """Geometric check (sim-free): no two placed object bounding boxes intersect. Gates success."""
+
+    ON_RELATION = "on_relation"
+    """Geometric check (sim-free): every ``On`` relation holds — the child rests on its parent within the
+    configured Z tolerance. Gates success."""
+
+    PHYSICS_SETTLED = "physics_settled"
+    """Dynamic check (needs the live Sim App): after stepping physics the movable objects' velocities fall
+    below threshold, i.e. the layout is stable and does not drift or topple. Optional (a failure triggers re-selection rather than failing the layout outright)."""
 
 
 @dataclass
 class PlacementValidationChecklist:
-    """A checklist of each validation check result for placement layouts"""
+    """A checklist of each validation check result for placement layouts.
+
+    Keys are check names (see :class:`PlacementCheck` for the standard set and what each check means).
+    """
 
     checklist_items: dict[str, bool] = field(default_factory=dict)
 
@@ -40,7 +59,7 @@ class PlacementValidationChecklist:
     @property
     def physics_settled_failed(self) -> bool:
         """True when this layout was stepped in sim and did not settle."""
-        return self.checklist_items.get("physics_settled") is False
+        return self.checklist_items.get(PlacementCheck.PHYSICS_SETTLED) is False
 
     @property
     def rank_required_and_optional_failures(self) -> tuple[int, int]:

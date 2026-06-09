@@ -16,8 +16,6 @@ from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, P
 from isaaclab_arena.utils.random import get_rngs
 
 if TYPE_CHECKING:
-    from isaaclab.managers import ManagerBasedEnv
-
     from isaaclab_arena.assets.object_base import ObjectBase
 
 
@@ -461,69 +459,23 @@ class PooledObjectPlacer:
         return self._total_available()
 
     # ------------------------------------------------------------------
-    # Physics settle verification and re-selection
+    # Physics settle re-selection support (sim-free)
     # ------------------------------------------------------------------
 
-    def note_applied(self, env_id: int, layout: PlacementResult) -> None:
-        """Record the layout most recently written to a scene env, for the settle pass to verify."""
-        self._last_applied[env_id] = layout
+    @property
+    def objects(self) -> list[ObjectBase]:
+        """All objects (including anchors) participating in relation solving."""
+        return self._objects
 
-    def verify_in_sim_and_reselect(self, env: ManagerBasedEnv) -> None:
-        """Verify in the live sim that the just-applied layouts physically settle, re-selecting any that do not.
+    @property
+    def last_applied(self) -> dict[int, PlacementResult]:
+        """Map of the layout most recently written to each env, keyed by env id.
 
-        Verification requires the SimulationApp to be running and actually steps physics.
-        For each env this steps the sim, checks whether its movable objects settled (velocities below threshold),
-        and stamps the outcome onto the layout's checklist. Unsettled layouts are re-selected from the pool (skipping
-        any already known to fail) up to ``max_physics_settle_retries``; the last one tried is kept as a soft fallback.
-        No-op when the check is disabled or no layout was applied.
+        The reset event records here what it wrote so the post-reset physics settle check can verify and re-select it.
         """
-        params = self._placer.params
-        # No-op when the check is disabled or no layout was applied.
-        if not params.enable_physics_settle_check or not self._last_applied:
-            return
+        return self._last_applied
 
-        from isaaclab_arena.relations.placement_events import get_rotation_xyzw, write_layout_to_sim
-        from isaaclab_arena.relations.relations import get_anchor_objects
-        from isaaclab_arena.utils import physics_settle
-
-        # Anchor objects, even checked and resolved by the placement solver, are not movable.
-        # So they are not subject to the settle check.
-        anchor_objects_set = set(get_anchor_objects(self._objects))
-        base_rotations = {obj: get_rotation_xyzw(obj) for obj in self._objects if obj not in anchor_objects_set}
-        movable_object_names = [obj.name for obj in self._objects if obj not in anchor_objects_set]
-
-        current = dict(self._last_applied)
-        pending = set(current)
-        for attempt in range(params.max_physics_settle_retries + 1):
-            physics_settle.step_physics(env, params.physics_settle_num_steps)
-            for env_id in list(pending):
-                checklist = current[env_id].validation_checklist
-                # Skip check if the layout has already been checked for physics settled.
-                if "physics_settled" in checklist.checklist_items:
-                    settled = checklist.checklist_items["physics_settled"]
-                else:
-                    settled = physics_settle.objects_settled(
-                        env,
-                        env_id,
-                        movable_object_names,
-                        params.physics_settle_lin_vel_thresh,
-                        params.physics_settle_ang_vel_thresh,
-                    )
-                    # if the layout is not physically settled, it should be re-selected from the pool here, instead of in the placement solver.
-                    checklist.add_checklist_item("physics_settled", settled)
-                if settled:
-                    pending.discard(env_id)
-
-            # enough retries or no more layouts to try
-            if not pending or attempt == params.max_physics_settle_retries:
-                break
-            for env_id in list(pending):
-                replacement = self._draw_replacement(env_id)
-                current[env_id] = replacement
-                self._last_applied[env_id] = replacement
-                write_layout_to_sim(env.unwrapped, env_id, replacement, anchor_objects_set, base_rotations)
-
-    def _draw_replacement(self, env_id: int) -> PlacementResult:
+    def draw_replacement(self, env_id: int) -> PlacementResult:
         """Draw the next pooled layout to retry in one env, skipping layouts known to fail to settle.
 
         ``env_id`` selects the source queue only for env-indexed (heterogeneous-object) pools, where each

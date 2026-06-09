@@ -10,19 +10,24 @@ from typing import TYPE_CHECKING
 
 from isaaclab.envs import ManagerBasedEnv
 
+from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
+from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
+from isaaclab_arena.utils import physics_settle
 from isaaclab_arena.utils.pose import Pose, rotate_quat_by_yaw
+from isaaclab_arena.utils.velocity import Velocity
 
 if TYPE_CHECKING:
+    from isaaclab.envs.common import VecEnvObs
+
     from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.placement_validation import PlacementResult
 
 IDENTITY_ROTATION_XYZW = (0.0, 0.0, 0.0, 1.0)
 
+# Name of the reset event term that owns the pooled object placer
 PLACEMENT_RESET_EVENT_NAME = "placement_reset"
-"""Name of the reset event term that owns the pooled object placer; the builder registers it and the
-post-reset settle pass reads the pool back off the env by this name."""
 
 
 def get_placement_pool(env) -> PooledObjectPlacer | None:
@@ -41,15 +46,101 @@ def get_placement_pool(env) -> PooledObjectPlacer | None:
     return term_cfg.params.get("placement_pool")
 
 
-def run_placement_physics_settle_check(env: ManagerBasedEnv) -> None:
-    """Re-select any placement that doesn't physically settle after the reset.
+def run_placement_physics_settle_check(
+    env: ManagerBasedEnv, settle_params: PhysicsSettleParams | None = None
+) -> VecEnvObs | None:
+    """Re-select any placement that doesn't physically settle after the reset, and refresh observations.
 
-    Call once after ``env.reset()`` while SimulationApp is live. No-ops when the env has no pooled placement.
+    Call once after ``env.reset()`` while Sim App is live. The settle pass steps physics and may swap in
+    different layouts, so the observation captured by ``env.reset()`` is stale afterward. This recomputes
+    and returns the post-settle observation for the caller to adopt. Returns ``None`` when the env has no
+    pooled placement, in which case the caller keeps the reset observation.
+
+    Args:
+        env: The gym-wrapped Isaac Lab env; the base env is reached via ``env.unwrapped``.
+        settle_params: Config for the settle check (steps, velocity thresholds, retry budget).
+
+    Returns:
+        The post-settle observation for the caller to adopt, or ``None`` when the env has no pooled placement.
     """
     placement_pool = get_placement_pool(env)
     if placement_pool is None:
+        return None
+    # fall back to default
+    if settle_params is None:
+        settle_params = PhysicsSettleParams()
+    verify_in_sim_and_reselect(placement_pool, env, settle_params)
+    # Note(xinjieyao, 2026-06-09): The reset-time observation no longer matches the scene. Render RTX sensors before
+    # recomputing so any camera observations reflect the settled scene.
+    if env.unwrapped.has_rtx_sensors and env.unwrapped.cfg.num_rerenders_on_reset > 0:
+        for _ in range(env.unwrapped.cfg.num_rerenders_on_reset):
+            env.unwrapped.sim.render()
+    return env.unwrapped.observation_manager.compute()
+
+
+def verify_in_sim_and_reselect(
+    placement_pool: PooledObjectPlacer, env: ManagerBasedEnv, settle_params: PhysicsSettleParams
+) -> None:
+    """Verify in the Sim App that the just-applied layouts physically settle, re-selecting any that do not.
+
+    Verification requires the Sim App to be running and actually steps physics.
+    For each env this steps the sim, checks whether its movable objects settled (velocities below threshold),
+    and stamps the outcome onto the layout's checklist. Unsettled layouts are re-selected from the pool (skipping
+    any already known to fail) up to ``max_retries``; the last one tried is kept as a soft fallback.
+    No-op when the check is disabled or no layout was applied.
+
+    Args:
+        placement_pool: Pool holding the layouts most recently applied to the scene, and the re-selection draw.
+        env: The live Isaac Lab env to step and read object velocities from.
+        settle_params: Config for the settle check (steps, velocity thresholds, retry budget).
+    """
+    # No-op when no layout was applied.
+    if not placement_pool.last_applied:
         return
-    placement_pool.verify_in_sim_and_reselect(env)
+
+    objects = placement_pool.objects
+    # Anchor objects, even checked and resolved by the placement solver, are not movable.
+    # So they are not subject to the settle check.
+    anchor_objects_set = set(get_anchor_objects(objects))
+    base_rotations = {obj: get_rotation_xyzw(obj) for obj in objects if obj not in anchor_objects_set}
+    movable_object_names = [obj.name for obj in objects if obj not in anchor_objects_set]
+
+    current = dict(placement_pool.last_applied)
+    pending = set(current)
+    for attempt in range(settle_params.max_retries + 1):
+        # Rendering is disabled here as it's not needed in the settle check.
+        # All envs in parallel including those that passed the check in the previous round.
+        physics_settle.step_physics(env, settle_params.num_steps)
+        # Only read pending ones for re-selection
+        for env_id in list(pending):
+            checklist = current[env_id].validation_checklist
+            # Skip check if the layout has already been checked for physics settled.
+            if PlacementCheck.PHYSICS_SETTLED in checklist.checklist_items:
+                settled = checklist.checklist_items[PlacementCheck.PHYSICS_SETTLED]
+            else:
+                settled = physics_settle.objects_settled(
+                    env,
+                    env_id,
+                    movable_object_names,
+                    settle_params.lin_vel_thresh,
+                    settle_params.ang_vel_thresh,
+                )
+                # If the layout is not physically settled, it should be re-selected from the pool
+                checklist.add_checklist_item(PlacementCheck.PHYSICS_SETTLED, settled)
+            # Done checking this env
+            if settled:
+                pending.discard(env_id)
+
+        # Enough retries or no more layouts to try
+        if not pending or attempt == settle_params.max_retries:
+            break
+        for env_id in list(pending):
+            replacement = placement_pool.draw_replacement(env_id)
+            current[env_id] = replacement
+            placement_pool.last_applied[env_id] = replacement
+            write_layout_to_sim(env.unwrapped, env_id, replacement, anchor_objects_set, base_rotations)
+        # Update rendering so GUI sees the latest Env
+        env.unwrapped.sim.render()
 
 
 def get_rotation_xyzw(obj: ObjectBase) -> tuple[float, float, float, float]:
@@ -78,7 +169,7 @@ def write_layout_to_sim(
         base_rotations: The base rotations for the non-anchor objects.
     """
     env_id_tensor = torch.tensor([env_id], device=env.device)
-    zero_velocity = torch.zeros(1, 6, device=env.device)
+    zero_velocity = Velocity.zero().to_tensor(device=env.device).unsqueeze(0)
     for obj, pos in result.positions.items():
         if obj in anchor_objects_set:
             continue
@@ -137,4 +228,4 @@ def solve_and_place_objects(
             )
         write_layout_to_sim(env, cur_env, result, anchor_objects_set, base_rotations)
         # Record what landed in each env so the post-reset settle pass can verify and re-select it.
-        placement_pool.note_applied(cur_env, result)
+        placement_pool.last_applied[cur_env] = result

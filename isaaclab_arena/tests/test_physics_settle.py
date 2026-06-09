@@ -211,6 +211,121 @@ def _test_parallel_layout_validation_per_env(simulation_app):
     return True
 
 
+def _test_settle_check_reselects_unstable_layout(simulation_app):
+    """The settle pass should re-select an unstable pooled layout in sim until a stable one settles.
+
+    Builds a real Arena env (an office table anchor with a cracker box placed On it, from the asset
+    registry) with the settle check enabled. The solver's own resting layout is kept as the stable
+    candidate; an unstable copy lifts the cracker box a meter above its resting spot so it is still falling
+    at the end of the settle window. The settle pass must step physics, mark the dropped layout as a settle
+    failure, draw the resting replacement, and leave the box at rest -- all driven by the live physics.
+    """
+    import isaaclab.sim as sim_utils
+
+    from isaaclab_arena.assets.object_library import CrackerBox, OfficeTable
+    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
+    from isaaclab_arena.relations.placement_events import (
+        get_placement_pool,
+        get_rotation_xyzw,
+        verify_in_sim_and_reselect,
+        write_layout_to_sim,
+    )
+    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.placement_validation import PlacementValidationChecklist
+    from isaaclab_arena.relations.pooled_object_placer import EnvLayoutPool
+    from isaaclab_arena.relations.relations import IsAnchor, On, get_anchor_objects
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.utils import physics_settle
+    from isaaclab_arena.utils.pose import Pose
+
+    # The resting box settles within the window, while a large drop keeps the lifted box airborne (and so
+    # unsettled) for the whole window: in ~0.3 s (60 steps at dt=0.005) it falls only ~0.44 m of its 2 m.
+    settle_steps = 60
+    drop_height = 2.0
+
+    table = OfficeTable(instance_name="table")
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    # OfficeTable is a free dynamic rigid body and the env has no ground plane, so without pinning it would
+    # fall during stepping and drag the cracker with it (nothing would ever settle). Make the anchor surface
+    # kinematic so it holds still, exactly like the kinematic procedural/background tables.
+    table.object_cfg.spawn.rigid_props = sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True)
+    cracker = CrackerBox(instance_name="cracker")
+    cracker.add_relation(On(table, clearance_m=0.01))
+
+    scene = Scene(assets=[table, cracker])
+    isaaclab_arena_environment = IsaacLabArenaEnvironment(name="settle_reselect_test", scene=scene)
+
+    args_cli = get_isaaclab_arena_cli_parser().parse_args([])
+    args_cli.num_envs = 1
+    env = ArenaEnvBuilder(isaaclab_arena_environment, args_cli).make_registered()
+    env.reset()
+
+    try:
+        pool = get_placement_pool(env)
+        assert pool is not None, "Settle check requires a pooled placer on the env."
+        # The settle config is supplied to the placement-event call, not carried by the pool/solver.
+        settle_params = PhysicsSettleParams(
+            num_steps=settle_steps,
+            lin_vel_thresh=LIN_VEL_THRESH,
+            ang_vel_thresh=ANG_VEL_THRESH,
+            max_retries=2,
+        )
+
+        # The builder re-instantiates the scene objects, so resolve the actual cracker box the pool holds
+        # (not the local one passed to the scene) as the single movable object.
+        anchor_objects_set = set(get_anchor_objects(pool.objects))
+        movable = [obj for obj in pool.objects if obj not in anchor_objects_set]
+        assert len(movable) == 1, f"Expected exactly one movable object, got {[o.name for o in movable]}."
+        cracker_obj = movable[0]
+
+        # The reset applied a solver layout that rests the cracker box on the table -- use its position as
+        # the stable candidate, and lift a copy by drop_height for the unstable one.
+        rest_x, rest_y, rest_z = pool.last_applied[0].positions[cracker_obj]
+
+        def _layout(z: float) -> PlacementResult:
+            return PlacementResult(
+                validation_checklist=PlacementValidationChecklist(checklist_items={"valid": True}),
+                positions={cracker_obj: (rest_x, rest_y, z)},
+                final_loss=0.0,
+                attempts=1,
+            )
+
+        unstable = _layout(rest_z + drop_height)  # dropped from height -> still falling -> unsettled
+        stable = _layout(rest_z)  # resting on the table -> settles
+        # Seed the pool: the applied (and to-be-verified) layout is the unstable drop; the only
+        # replacement the settle pass can draw is the stable resting layout.
+        pool.last_applied.clear()
+        pool.last_applied[0] = unstable
+        pool._env_pools[0] = EnvLayoutPool([stable])
+
+        # Match the sim to the applied layout, exactly as the reset event would have done.
+        base_rotations = {obj: get_rotation_xyzw(obj) for obj in movable}
+        write_layout_to_sim(env.unwrapped, 0, unstable, anchor_objects_set, base_rotations)
+
+        verify_in_sim_and_reselect(pool, env, settle_params)
+
+        assert unstable.validation_checklist.physics_settled_failed, "Dropped layout should fail the settle check."
+        assert pool.last_applied[0] is stable, "Settle pass should re-select the resting layout."
+        assert stable.validation_checklist.checklist_items["physics_settled"] is True, "Resting layout should settle."
+        # Confirm against the live sim that the cracker box is actually at rest after re-selection.
+        velocities_out = physics_settle.max_object_velocities(env, env_id=0, object_names=[cracker_obj.name])
+        print(f"Post-reselection cracker velocity (lin, ang): {velocities_out}")
+        assert physics_settle.objects_settled(
+            env, 0, [cracker_obj.name], LIN_VEL_THRESH, ANG_VEL_THRESH
+        ), f"Cracker box should be settled after re-selection; got {velocities_out}"
+    except Exception as e:
+        print(f"Error: {e}")
+        traceback.print_exc()
+        return False
+    finally:
+        env.close()
+    return True
+
+
 def test_objects_settled_when_at_rest():
     result = run_simulation_app_function(_test_objects_settled_when_at_rest, headless=HEADLESS)
     assert result, f"Test {test_objects_settled_when_at_rest.__name__} failed"
@@ -226,7 +341,13 @@ def test_parallel_layout_validation_per_env():
     assert result, f"Test {test_parallel_layout_validation_per_env.__name__} failed"
 
 
+def test_settle_check_reselects_unstable_layout():
+    result = run_simulation_app_function(_test_settle_check_reselects_unstable_layout, headless=HEADLESS)
+    assert result, f"Test {test_settle_check_reselects_unstable_layout.__name__} failed"
+
+
 if __name__ == "__main__":
     test_objects_settled_when_at_rest()
     test_objects_not_settled_when_colliding()
     test_parallel_layout_validation_per_env()
+    test_settle_check_reselects_unstable_layout()

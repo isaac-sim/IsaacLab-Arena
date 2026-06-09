@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
-from isaaclab_arena.relations.placement_validation import PlacementValidationChecklist
+from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationChecklist
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import (
     IsAnchor,
@@ -639,10 +639,10 @@ class ObjectPlacer:
 
         return PlacementValidationChecklist(
             checklist_items={
-                "no_overlap": no_overlap,
-                "on_relation": on_relation,
+                PlacementCheck.NO_OVERLAP: no_overlap,
+                PlacementCheck.ON_RELATION: on_relation,
             },
-            required_items={"no_overlap", "on_relation"},
+            required_items={PlacementCheck.NO_OVERLAP, PlacementCheck.ON_RELATION},
         )
 
     def _apply_poses(
