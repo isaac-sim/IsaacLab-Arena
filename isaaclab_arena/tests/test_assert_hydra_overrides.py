@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for :func:`isaaclab_arena.utils.hydra_overrides.split_hydra_overrides`.
+"""Tests for :func:`isaaclab_arena.utils.hydra_overrides.assert_hydra_overrides`.
 
 Plain-Python unit tests: do not require Isaac Sim.
 """
@@ -12,7 +12,7 @@ import argparse
 
 import pytest
 
-from isaaclab_arena.utils.hydra_overrides import split_hydra_overrides
+from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -21,7 +21,7 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def test_accepts_all_four_hydra_shapes():
-    """All four shapes named in the helper docstring pass through unchanged."""
+    """All four shapes named in the helper docstring pass without error."""
     tokens = [
         "cracker_box.color.enabled=true",
         "+cracker_box.color.sampler.low=[0.2,0.2,0.0]",
@@ -29,27 +29,27 @@ def test_accepts_all_four_hydra_shapes():
         "~lighting.intensity",
         "~lighting.intensity=0.5",  # `~` delete with explicit value is also legal
     ]
-    assert split_hydra_overrides(tokens, _parser()) == tokens
+    assert assert_hydra_overrides(tokens, _parser()) is None
 
 
 def test_empty_rhs_accepted():
     """Empty value (`a.b=`) is a valid Hydra null / empty-string assignment."""
-    assert split_hydra_overrides(["a.b="], _parser()) == ["a.b="]
+    assert assert_hydra_overrides(["a.b="], _parser()) is None
 
 
-def test_preserves_order():
-    """Order is preserved so Hydra's later-wins semantics still apply."""
+def test_accepts_repeated_keys():
+    """Repeated keys are accepted; Hydra's later-wins semantics apply downstream."""
     tokens = [
         "a.b=1",
         "a.b=2",
         "a.c=3",
     ]
-    assert split_hydra_overrides(tokens, _parser()) == tokens
+    assert assert_hydra_overrides(tokens, _parser()) is None
 
 
-def test_empty_input_returns_empty_list():
+def test_empty_input_accepted():
     """``parse_known_args`` returning ``[]`` is the common case -- no error."""
-    assert split_hydra_overrides([], _parser()) == []
+    assert assert_hydra_overrides([], _parser()) is None
 
 
 @pytest.mark.parametrize(
@@ -71,7 +71,7 @@ def test_rejects_non_hydra_token(bad_token):
     """A non-Hydra leftover must cause the parser to exit with non-zero status."""
     parser = _parser()
     with pytest.raises(SystemExit) as exc_info:
-        split_hydra_overrides([bad_token], parser)
+        assert_hydra_overrides([bad_token], parser)
     # argparse.error uses exit code 2.
     assert exc_info.value.code == 2
 
@@ -80,7 +80,7 @@ def test_rejects_when_mixed_with_valid_tokens():
     """A single bad token poisons the whole batch -- we don't silently drop it."""
     parser = _parser()
     with pytest.raises(SystemExit) as exc_info:
-        split_hydra_overrides(["cracker_box.color.enabled=true", "--object"], parser)
+        assert_hydra_overrides(["cracker_box.color.enabled=true", "--object"], parser)
     assert exc_info.value.code == 2
 
 
@@ -88,7 +88,7 @@ def test_error_message_names_bad_tokens(capsys):
     """The error message includes the offending token(s) so users can fix typos."""
     parser = _parser()
     with pytest.raises(SystemExit):
-        split_hydra_overrides(["--typo", "stray"], parser)
+        assert_hydra_overrides(["--typo", "stray"], parser)
     err = capsys.readouterr().err
     assert "--typo" in err
     assert "stray" in err
