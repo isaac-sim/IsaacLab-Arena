@@ -14,27 +14,22 @@ from isaaclab_arena.assets.registries import AssetRegistry
 
 @dataclass
 class TraceEvent:
-    """One step in the resolution pipeline — emitted to a structured log.
+    """One step in the resolution pipeline — emitted to a structured log."""
 
-    Attributes:
-        stage: Dot-separated identifier for the resolution step, e.g.
-            ``"item.in_tags.substring"`` or ``"embodiment.miss"``.
-            Error stages are listed in :attr:`AssetResolver._ERROR_TRACE_STAGES`.
-        query: The original query string that triggered this event.
-        chosen: The registry key that was selected, or ``None`` when resolution failed.
-        candidates: Up to 10 near-miss names considered during fuzzy / tag matching.
-        note: Human-readable annotation explaining why this choice was made.
-    """
-
+    # Identifier for the resolution step, e.g.item.in_tags.substring or embodiment.miss.
     stage: str
+    # The original query string that triggered this event.
     query: str
+    # The registry key that was selected, or ``None`` when resolution failed.
     chosen: str | None
+    # Up to _MAX_CANDIDATES near-miss names considered during fuzzy / tag matching.
     candidates: list[str] = field(default_factory=list)
+    # Human-readable annotation explaining why this choice was made.
     note: str = ""
 
 
+# Maximum number of near-miss candidate names stored in a TraceEvent.
 _MAX_CANDIDATES = 10
-"""Maximum number of near-miss candidate names stored in a :class:`TraceEvent`."""
 
 
 class AssetResolver:
@@ -58,23 +53,20 @@ class AssetResolver:
     def resolve_item(self, item: Item) -> type | None:
         """Resolve a scene item query to a registered asset class.
 
-        Resolution strategy (in order):
-        1. Exact name match against the registry.
-        2. Substring / fuzzy match within the tag-narrowed pool (``item.category_tags``).
-        3. Substring / fuzzy match across all ``"object"``-tagged assets (tag relaxation).
-
         Args:
             item: The agent-proposed item to look up with ``query`` and ``category_tags``.
 
         Returns:
             The best-matching asset class, or ``None`` if no match was found.
         """
+        # 1. Exact name match against the registry.
         if self.registry.is_registered(item.query):
             self.trace.append(TraceEvent("item.exact", item.query, item.query))
             return self.registry.get_asset_by_name(item.query)
 
         object_pool = self._pool_for(["object"])
 
+        # 2. Substring / fuzzy match within the tag-narrowed pool (item.category_tags).
         if item.category_tags:
             pool = self._pool_for(item.category_tags)
             if not pool:
@@ -100,6 +92,7 @@ class AssetResolver:
                     )
                 )
 
+        # 3. Substring / fuzzy match across all "object"-tagged assets (tag relaxation).
         cls = self._best_match(
             item.query, object_pool, stage_prefix="item.relaxed", note="closest object; category ignored"
         )
