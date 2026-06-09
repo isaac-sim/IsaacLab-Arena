@@ -77,9 +77,10 @@ def assert_constraint_references(nodes: list[Any], state_specs: list[Any]) -> No
             assert (
                 task_constraint.parent in node_ids
             ), f"Task constraint '{task_constraint.id}' references unknown parent node '{task_constraint.parent}'"
-            assert (
-                task_constraint.child in node_ids
-            ), f"Task constraint '{task_constraint.id}' references unknown child node '{task_constraint.child}'"
+            if task_constraint.child is not None:
+                assert (
+                    task_constraint.child in node_ids
+                ), f"Task constraint '{task_constraint.id}' references unknown child node '{task_constraint.child}'"
 
 
 def assert_task_wiring(tasks: list[Any], state_specs: list[Any]) -> None:
