@@ -40,11 +40,11 @@ _MAX_CANDIDATES = 10
 class AssetResolver:
     """Resolves catalog query strings against :class:`AssetRegistry`."""
 
-    _ERROR_TRACE_STAGES: frozenset[str] = frozenset({
-        "item.miss",
-        "name.wrong_tag",
-        "name.miss",
-    })
+    _ERROR_TRACE_STAGES: set[str] = {
+        "item.miss",  # no object asset matched the agent's query even after tag relaxation
+        "name.wrong_tag",  # named asset exists but lacks the required tag (e.g. embodiment constraint)
+        "name.miss",  # explicitly requested asset name not found in the registry
+    }
 
     def __init__(self, registry: AssetRegistry, trace: list[TraceEvent]) -> None:
         """Args:
