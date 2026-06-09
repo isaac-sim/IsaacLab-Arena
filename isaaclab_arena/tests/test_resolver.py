@@ -438,26 +438,6 @@ def test_spatial_constraint_unary_relation_id_and_parent_child():
     assert constraint.id == "state_initial_0_is_anchor_maple_table"
 
 
-def test_spatial_constraint_in_relation_skipped():
-    items = [Item(query="cracker_box", category_tags=["graspable"])]
-    # "in" is not registered for agent intent; bypass intent validation to
-    # exercise the resolver's defensive skip path.
-    initial = [SpatialRelationSpec.model_construct(kind="in", subject="cracker_box", reference="maple_table")]
-    scene = EnvironmentIntentSpec.model_construct(
-        reasoning="test",
-        background="maple_table",
-        embodiment="franka_ik",
-        items=items,
-        initial_state_graph=initial,
-        tasks=_make_scene().tasks,
-    )
-    resolver = _make_resolver()
-    spec = resolver.resolve(scene)
-    # "in" has no initial-state semantics — see IntentResolver._build_spatial_constraint.
-    assert spec.state_specs_by_id["state_initial"].spatial_constraints == []
-    assert any(e.stage == "relation.initial.in_skipped" for e in resolver.trace)
-
-
 def test_spatial_constraint_unknown_subject_skipped():
     initial = [SpatialRelationSpec(kind="on", subject="not_a_node", reference="maple_table")]
     resolver = _make_resolver()

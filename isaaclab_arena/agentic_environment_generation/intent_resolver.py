@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
+from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.environments.arena_env_graph_spec import (
     ArenaEnvGraphNodeSpec,
     ArenaEnvGraphNodeType,
@@ -36,7 +36,6 @@ class IntentResolver:
     """
 
     _ERROR_TRACE_STAGES: frozenset[str] = frozenset({
-        "relation.initial.unsupported_kind",
         "relation.initial.unknown_subject",
         "relation.initial.unknown_parent",
         "task.unknown_param",
@@ -143,28 +142,8 @@ class IntentResolver:
     def _build_spatial_constraint(
         self, rel: SpatialRelationSpec, index: int, known_ids: set[str]
     ) -> ArenaEnvGraphSpatialRelationSpec | None:
+        # rel.kind is guaranteed registered by SpatialRelationSpec._validate_kind_and_arity.
         stage_prefix = "relation.initial"
-        if rel.kind == "in":
-            self.trace.append(
-                TraceEvent(
-                    f"{stage_prefix}.in_skipped",
-                    rel.subject,
-                    rel.reference,
-                    note="'in' has no initial-state semantics; specify placement changes via tasks instead.",
-                )
-            )
-            return None
-        relation_registry = ObjectRelationLibraryRegistry()
-        if not relation_registry.is_registered(rel.kind):
-            self.trace.append(
-                TraceEvent(
-                    f"{stage_prefix}.unsupported_kind",
-                    rel.subject,
-                    None,
-                    note=f"kind={rel.kind!r} is not registered; skipping",
-                )
-            )
-            return None
         if rel.subject not in known_ids:
             self.trace.append(TraceEvent(f"{stage_prefix}.unknown_subject", rel.subject, None, note=rel.kind))
             return None
