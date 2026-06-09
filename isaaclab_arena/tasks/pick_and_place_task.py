@@ -15,17 +15,20 @@ from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.assets.register import register_task
+from isaaclab_arena.assets.register import agent_ready, register_task
+from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
 from isaaclab_arena.tasks.terminations import object_on_destination
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
+@agent_ready
 @register_task
 class PickAndPlaceTask(TaskBase):
     """Pick-and-place task. Success fires when the pick-up object contacts the destination
@@ -130,6 +133,18 @@ class PickAndPlaceTask(TaskBase):
         return get_viewer_cfg_look_at_object(
             lookat_object=self.pick_up_object,
             offset=np.array([-1.5, -1.5, 1.5]),
+        )
+
+    @classmethod
+    def success_state_transition(cls, pick_up_object: str, destination_location: str, **_) -> TaskTransition:
+        """Success (``object_on_destination``): the picked object ends up a relation with the destination."""
+        # Note: with the current AABB-based object solver, placing an object ``on`` an open container
+        # and letting it fall is equivalent to it being ``in`` the container, so a single ``on``
+        # relation covers both surfaces and containers.
+        relation = ObjectRelationLibraryRegistry().get_object_relation_by_name("on")
+        return TaskTransition(
+            subject=pick_up_object,
+            effects=(Relocate(subject=pick_up_object, relation=relation.name, target=destination_location),),
         )
 
 
