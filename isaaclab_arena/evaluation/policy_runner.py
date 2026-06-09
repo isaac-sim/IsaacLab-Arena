@@ -67,13 +67,22 @@ def rollout_policy(
     num_steps: int | None,
     num_episodes: int | None,
     language_instruction: str | None = None,
+<<<<<<< HEAD
 ) -> MetricsDataCollection | None:
+=======
+    enable_physics_settle_check: bool = True,
+) -> dict[str, Any]:
+>>>>>>> ed41bb1d9 (add user cli args)
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
 
     pbar = None
     try:
         obs, _ = env.reset()
+        # Re-select any placement that doesn't physically settle after the reset.
+        # No-ops internally when the env has no pooled placement at the builder level.
+        if enable_physics_settle_check:
+            run_placement_settle_check(env)
         policy.reset()
         # Determine language instruction: CLI/job-level override takes precedence over the task's own
         # description. Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing).
@@ -253,7 +262,14 @@ def main():
 
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
         print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")
-        metrics = rollout_policy(env, policy, num_steps, num_episodes, args_cli.language_instruction)
+        metrics = rollout_policy(
+            env,
+            policy,
+            num_steps,
+            num_episodes,
+            args_cli.language_instruction,
+            enable_physics_settle_check=args_cli.enable_physics_settle_check,
+        )
 
         if metrics is not None:
             print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics_to_plain_python_types(metrics)}")
