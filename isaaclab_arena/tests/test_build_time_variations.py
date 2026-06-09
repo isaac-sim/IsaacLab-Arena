@@ -16,8 +16,6 @@ HEADLESS = True
 
 TEST_ASSET_NAME = "sphere"
 TEST_APPLIED_RADIUS = 0.42
-# Distinct from the cfg default so a passing override test proves the override took effect.
-TEST_OVERRIDE_RADIUS = 0.37
 
 
 @configclass

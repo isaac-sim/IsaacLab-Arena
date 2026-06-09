@@ -112,8 +112,7 @@ def get_arena_builder_from_cli(
     """Build an :class:`ArenaEnvBuilder` from parsed CLI args.
 
     Args:
-        args_cli: Parsed argparse namespace; carries exactly one environment source
-            (``example_environment`` subcommand or ``--env_graph_spec_yaml``).
+        args_cli: Parsed argparse namespace.
         hydra_overrides: Optional Hydra variation override strings (e.g.
             ``"light.hdr_image.enabled=true"``).
     """

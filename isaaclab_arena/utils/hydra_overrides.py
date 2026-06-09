@@ -10,21 +10,8 @@ from __future__ import annotations
 import argparse
 import re
 
-# Hydra override token shapes we accept on the CLI after the env subcommand. See
-# https://hydra.cc/docs/advanced/override_grammar/basic/ for the upstream grammar.
-# We deliberately match a conservative subset:
-#   - ``key.path=value``         (set / append-or-set)
-#   - ``+key.path=value``        (force-add)
-#   - ``++key.path=value``       (force-set, error if missing)
-#   - ``~key.path`` or ``~key.path=value``  (delete; value optional)
-# The leading ``~`` makes the trailing ``=value`` optional; in every other
-# shape ``=`` is mandatory, so bare positionals like ``stray_token`` do *not*
-# pass through as overrides -- they get raised as unrecognised by
-# :func:`split_hydra_overrides`.
-#
-# The key is dotted segments where each segment is an identifier, so malformed
-# keys with consecutive or trailing dots (``a..b``, ``key.``) are rejected here
-# rather than producing a cryptic error later inside Hydra.
+# Hydra override token shapes we accept on the CLI
+# See: https://hydra.cc/docs/advanced/override_grammar/basic/
 _HYDRA_KEY = r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*"
 _HYDRA_OVERRIDE_RE = re.compile(rf"^(?:~{_HYDRA_KEY}(?:=.*)?|(?:\+{{1,2}})?{_HYDRA_KEY}=.*)$")
 

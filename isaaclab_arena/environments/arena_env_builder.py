@@ -161,8 +161,7 @@ class ArenaEnvBuilder:
         if self.args.solve_relations:
             self._solve_relations()
 
-        # Apply Hydra variation overrides in-place before any cfg is composed, so
-        # build-time variations they enable are picked up by compose_manager_cfg().
+        # Apply Hydra variation overrides. Needs to happen before build-time variations are applied.
         if self.hydra_overrides:
             variations: dict[str, list[VariationBase]] = self.get_all_variations()
             variations_hydra.apply_overrides(variations, self.hydra_overrides)

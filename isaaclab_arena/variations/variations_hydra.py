@@ -3,14 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Hydra-overridable cfg composition for a scene's variations.
-
-These helpers build a typed Hydra schema from a ``{asset_name: [variation, ...]}``
-mapping, compose override strings against that schema, and push the
-resulting per-variation cfgs back through
-:meth:`~isaaclab_arena.variations.variation_base.VariationBase.apply_cfg`.
-"""
-
 from __future__ import annotations
 
 from copy import deepcopy
@@ -25,97 +17,6 @@ from omegaconf import OmegaConf
 
 if TYPE_CHECKING:
     from isaaclab_arena.variations.variation_base import VariationBase
-
-
-def _asset_class_name(asset_name: str) -> str:
-    """Convert ``"cracker_box"`` to ``"CrackerBoxVariationsCfg"``."""
-    camel = "".join(part.capitalize() for part in asset_name.split("_"))
-    return f"{camel}VariationsCfg"
-
-
-def build_schema(variations: dict[str, list[VariationBase]]) -> type | None:
-    """Return the dataclass describing ``variations``, or ``None`` if the mapping is empty.
-
-    The class has one field per asset; each asset field's type is a
-    dataclass whose fields are the attached variations' cfgs. Each
-    per-variation field is typed as the variation's own ``*Cfg`` and
-    pre-populated by deep-copying its current live cfg, so override paths
-    line up one-to-one with cfg attribute paths.
-
-    Args:
-        variations: ``{asset_name: [variation, ...]}`` mapping, typically
-            from :meth:`~isaaclab_arena.scene.scene.Scene.get_asset_variations`.
-
-    Returns:
-        The dynamically-built ``VariationsCfg`` dataclass type, or ``None``
-        when ``variations`` is empty.
-    """
-    if not variations:
-        return None
-
-    asset_fields: list[tuple[str, type, Any]] = []
-    for asset_name, asset_variations in variations.items():
-        variation_fields: list[tuple[str, type, Any]] = []
-        for variation in asset_variations:
-            cfg_cls = type(variation.cfg)
-            default_cfg = deepcopy(variation.cfg)
-            variation_fields.append((variation.name, cfg_cls, field(default_factory=lambda d=default_cfg: deepcopy(d))))
-        asset_cls = make_dataclass(_asset_class_name(asset_name), variation_fields)
-        asset_fields.append((asset_name, asset_cls, field(default_factory=asset_cls)))
-    return make_dataclass("VariationsCfg", asset_fields)
-
-
-def load_cfg_from_flags(
-    variations: dict[str, list[VariationBase]],
-    hydra_overrides: list[str],
-) -> Any | None:
-    """Compose Hydra override strings into a typed ``VariationsCfg`` instance.
-
-    Builds the schema and applies the passed overrides to it, returning the modified dataclass.
-
-    Args:
-        variations: ``{asset_name: [variation, ...]}`` mapping that defines
-            the schema shape.
-        hydra_overrides: Hydra override strings. See :func:`apply_overrides`
-            for examples.
-
-    Returns:
-        The composed ``VariationsCfg`` instance, or ``None`` when
-        ``variations`` is empty.
-    """
-    schema_cls = build_schema(variations)
-    if schema_cls is None:
-        return None
-    ConfigStore.instance().store(name="arena_variations_schema", node=schema_cls)
-    if GlobalHydra.instance().is_initialized():
-        GlobalHydra.instance().clear()
-    try:
-        with initialize(version_base=None, config_path=None):
-            composed = compose(config_name="arena_variations_schema", overrides=hydra_overrides)
-    except ConfigCompositionException as exc:
-        _raise_unknown_override_error(variations, hydra_overrides, exc)
-    return OmegaConf.to_object(composed)
-
-
-def _format_available_variation_paths(variations: dict[str, list[VariationBase]]) -> str:
-    lines: list[str] = []
-    for host_name in sorted(variations.keys()):
-        for variation in variations[host_name]:
-            lines.append(f"  {host_name}.{variation.name}")
-    return "\n".join(lines) if lines else "  (none)"
-
-
-def _raise_unknown_override_error(
-    variations: dict[str, list[VariationBase]],
-    hydra_overrides: list[str],
-    cause: ConfigCompositionException,
-) -> None:
-    override_hint = ", ".join(hydra_overrides)
-    raise ValueError(
-        f"Unknown Hydra variation override ({override_hint}). "
-        "No matching host or variation name in this environment.\n"
-        f"Available variation paths:\n{_format_available_variation_paths(variations)}"
-    ) from cause
 
 
 def apply_overrides(
@@ -140,11 +41,103 @@ def apply_overrides(
                     "cracker_box.color.sampler.high=[1.0,1.0,0.0]",
                 ])
     """
-    composed = load_cfg_from_flags(variations, hydra_overrides)
-    if composed is None:
+    # Compose all the config classes from all the variations, and apply the overrides.
+    all_variations_cfg = compose_variations_cfg_and_apply_overrides(variations, hydra_overrides)
+    if all_variations_cfg is None:
         return
+    # Loop over the run-time variations and apply the overrides, in the cfg class.
     for asset_name, asset_variations in variations.items():
-        asset_cfg = getattr(composed, asset_name)
+        asset_cfg = getattr(all_variations_cfg, asset_name)
         for variation in asset_variations:
             variation_cfg = getattr(asset_cfg, variation.name)
             variation.apply_cfg(variation_cfg)
+
+
+def compose_variations_cfg_and_apply_overrides(
+    variations: dict[str, list[VariationBase]],
+    hydra_overrides: list[str],
+) -> Any | None:
+    """Compose the variation Hydra override strings into a typed ``VariationsCfg`` instance.
+
+    Builds the schema and applies the passed overrides to it, returning the modified dataclass.
+
+    Args:
+        variations: ``{asset_name: [variation, ...]}`` the variations.
+        hydra_overrides: Hydra override strings.
+
+    Returns:
+        The composed ``VariationsCfg`` instance, including overridden values, or ``None`` when
+        ``variations`` is empty.
+    """
+    variations_cfg_cls = _compose_variation_cfgs(variations)
+    if variations_cfg_cls is None:
+        return None
+    ConfigStore.instance().store(name="arena_variations_schema", node=variations_cfg_cls)
+    if GlobalHydra.instance().is_initialized():
+        GlobalHydra.instance().clear()
+    try:
+        with initialize(version_base=None, config_path=None):
+            variations_cfg_dict = compose(config_name="arena_variations_schema", overrides=hydra_overrides)
+    except ConfigCompositionException as exc:
+        _raise_unknown_override_error(variations, hydra_overrides, exc)
+    variations_cfg = OmegaConf.to_object(variations_cfg_dict)
+    return variations_cfg
+
+
+def _compose_variation_cfgs(variations: dict[str, list[VariationBase]]) -> type | None:
+    """Return the dataclass describing variations configs, or ``None`` if the mapping is empty.
+
+    The class has one field per asset; each asset field's type is a
+    dataclass whose fields are the attached variations' cfgs. Each
+    per-variation field is typed as the variation's own Cfg class, i.e. a
+    child class of ``*VariationBaseCfg``.
+
+    Args:
+        variations: ``{asset_name: [variation, ...]}`` dict.
+
+    Returns:
+        The dynamically-built ``VariationsCfg`` dataclass type, or ``None``
+        when ``variations`` is empty.
+    """
+    if not variations:
+        return None
+
+    # Loop over all the assets and their variations.
+    asset_fields: list[tuple[str, type, Any]] = []
+    for asset_name, asset_variations in variations.items():
+        # The list of variation fields for this asset.
+        variation_fields: list[tuple[str, type, Any]] = []
+        # Make a field for each variation.
+        for variation in asset_variations:
+            cfg_cls = type(variation.cfg)
+            default_cfg = deepcopy(variation.cfg)
+            variation_fields.append((variation.name, cfg_cls, field(default_factory=lambda d=default_cfg: deepcopy(d))))
+        # Make a dataclass for the asset.
+        asset_cls_name = "".join(part.capitalize() for part in asset_name.split("_")) + "VariationsCfg"
+        asset_cls = make_dataclass(asset_cls_name, variation_fields)
+        # Add the asset dataclass to the list of fields for the combined dataclass
+        asset_fields.append((asset_name, asset_cls, field(default_factory=asset_cls)))
+    # Make a dataclass for all the variations.
+    variations_cls = make_dataclass("VariationsCfg", asset_fields)
+    return variations_cls
+
+
+def _format_available_variation_paths(variations: dict[str, list[VariationBase]]) -> str:
+    lines: list[str] = []
+    for host_name in sorted(variations.keys()):
+        for variation in variations[host_name]:
+            lines.append(f"  {host_name}.{variation.name}")
+    return "\n".join(lines) if lines else "  (none)"
+
+
+def _raise_unknown_override_error(
+    variations: dict[str, list[VariationBase]],
+    hydra_overrides: list[str],
+    cause: ConfigCompositionException,
+) -> None:
+    override_hint = ", ".join(hydra_overrides)
+    raise ValueError(
+        f"Unknown Hydra variation override ({override_hint}). "
+        "No matching host or variation name in this environment.\n"
+        f"Available variation paths:\n{_format_available_variation_paths(variations)}"
+    ) from cause

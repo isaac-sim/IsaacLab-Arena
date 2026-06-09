@@ -166,7 +166,6 @@ def main():
         # Add the example environment arguments + policy-related arguments to the parser
         args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
         args_parser = policy_cls.add_args_to_parser(args_parser)
-        # Use parse_known_args so positional Hydra variation overrides fall through into unknown.
         args_cli, unknown = args_parser.parse_known_args()
         hydra_overrides = split_hydra_overrides(unknown, args_parser)
         # Re-apply per-rank device after parse preventing device got overwritten by the default value

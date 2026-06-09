@@ -29,9 +29,8 @@ def get_variations_catalogue_as_string(
 ) -> str:
     """Return a human-readable catalog of every variation in ``variations``.
 
-    Turns a ``{asset_name: [variation, ...]}`` mapping into a catalog that lists,
-    for every variation, the exact Hydra override paths a user can copy onto the
-    command line. When ``hydra_overrides`` are supplied, the printed defaults
+    Returns a catalog that lists, for every variation, the exact Hydra override paths a user can copy onto the command line.
+    Note that when ``hydra_overrides`` are supplied, the printed defaults
     reflect them (i.e. the catalog shows the *effective* post-override values).
 
     The helpers below build it up one asset at a time.
@@ -49,9 +48,8 @@ def get_variations_catalogue_as_string(
               cracker_box.color.sampler.high = [1.0,1.0,1.0]
 
     Args:
-        variations: ``{asset_name: [variation, ...]}`` mapping.
-        hydra_overrides: Optional Hydra tokens; when set, the printed defaults
-            reflect them.
+        variations: ``{asset_name: [variation, ...]}`` the variations.
+        hydra_overrides: Hydra override strings.
 
     Returns:
         Formatted catalog string.
@@ -60,12 +58,14 @@ def get_variations_catalogue_as_string(
         return _EMPTY_MESSAGE
     # Resolve the overrides into a single cfg up front, then read each field's
     # effective (post-override) default from it while formatting below.
-    resolved_variations_cfg: Any | None = variations_hydra.load_cfg_from_flags(variations, hydra_overrides or [])
+    resolved_variations_cfg: Any | None = variations_hydra.compose_variations_cfg_and_apply_overrides(
+        variations, hydra_overrides or []
+    )
     lines = ["Hydra-configurable variations", "=" * 32, ""]
     # Sort so the catalog is deterministic regardless of dict insertion order.
     for asset_name in sorted(variations.keys()):
         asset_variations: list[VariationBase] = variations[asset_name]
-        asset_lines: list[str] = asset_variations_as_string(
+        asset_lines: list[str] = _asset_variations_as_string(
             asset_name,
             asset_variations,
             resolved_variations_cfg,
@@ -74,7 +74,7 @@ def get_variations_catalogue_as_string(
     return "\n".join(lines).rstrip() + "\n"
 
 
-def asset_variations_as_string(
+def _asset_variations_as_string(
     asset_name: str,
     asset_variations: list[VariationBase],
     resolved_variations_cfg: Any | None,
@@ -92,7 +92,7 @@ def asset_variations_as_string(
         for variation in asset_variations:
             # Every override path for this variation starts with this prefix.
             prefix = f"{asset_name}.{variation.name}"
-            timing = get_build_or_run_time_string(variation)
+            timing = _get_build_or_run_time_string(variation)
             lines.append(f"  {variation.name} ({type(variation).__name__}, {timing})")
             # The enable flag is always present, so it gets its own line above Fields.
             enabled_default = _get_field_default(resolved_variations_cfg, asset_name, variation.name, "enabled")
@@ -105,7 +105,7 @@ def asset_variations_as_string(
     return lines
 
 
-def get_build_or_run_time_string(variation: VariationBase) -> str:
+def _get_build_or_run_time_string(variation: VariationBase) -> str:
     """Return ``"build-time"`` / ``"run-time"`` describing when ``variation`` is applied."""
     if isinstance(variation, RunTimeVariationBase):
         return "run-time"

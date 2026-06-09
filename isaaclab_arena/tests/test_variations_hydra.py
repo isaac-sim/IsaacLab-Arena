@@ -7,12 +7,7 @@
 
 import pytest
 
-from isaaclab_arena.tests.test_build_time_variations import (
-    TEST_ASSET_NAME,
-    TEST_OVERRIDE_RADIUS,
-    TestBuildTimeVariation,
-    get_test_environment,
-)
+from isaaclab_arena.tests.test_build_time_variations import TestBuildTimeVariation, get_test_environment
 from isaaclab_arena.tests.test_run_time_variations import TEST_EVENT_NAME
 from isaaclab_arena.tests.test_run_time_variations import get_test_environment as get_runtime_test_environment
 from isaaclab_arena.tests.test_run_time_variations import noop_test_variation_event
@@ -20,6 +15,8 @@ from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 from isaaclab_arena.variations import variations_hydra
 
 HEADLESS = True
+TEST_ASSET_NAME = "sphere"
+TEST_OVERRIDE_RADIUS = 0.37
 
 
 def _test_hydra_override_applies_build_time_variation(simulation_app):
@@ -41,9 +38,10 @@ def _test_hydra_override_applies_build_time_variation(simulation_app):
         ],
     )
 
-    # Overrides are applied during composition, so compose first, then check the effect.
+    # Build the environment cfg.
     builder.compose_manager_cfg()
 
+    # Check the effect of the override.
     assert sphere.object_cfg.spawn.radius == pytest.approx(TEST_OVERRIDE_RADIUS, abs=1e-6), (
         f"Hydra-overridden build-time variation must mutate '{TEST_ASSET_NAME}.object_cfg.spawn.radius' "
         f"to {TEST_OVERRIDE_RADIUS}; got {sphere.object_cfg.spawn.radius}."
