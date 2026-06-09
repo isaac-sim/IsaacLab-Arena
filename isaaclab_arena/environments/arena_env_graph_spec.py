@@ -7,21 +7,19 @@ from __future__ import annotations
 
 import yaml
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 
-from pydantic import BaseModel, Field, SerializeAsAny, ValidationInfo, field_validator, model_validator
+from pydantic import BaseModel, Field, SerializeAsAny, field_validator, model_validator
 
 from isaaclab_arena.assets.registries import TaskRegistry
 from isaaclab_arena.environments.arena_env_graph_types import (
     ArenaEnvGraphCliOverrideSpec,
     ArenaEnvGraphNodeSpec,
-    ArenaEnvGraphNodeType,
-    ArenaEnvGraphObjectReferenceNodeSpec,
     ArenaEnvGraphSpatialRelationSpec,
     ArenaEnvGraphStateSpec,
-    ArenaEnvGraphTaskConstraintSpec,
-    ArenaEnvGraphTaskConstraintType,
     ArenaEnvGraphTaskSpec,
+    SpatialRelationSpec,
+    TaskSpec,
     parse_graph_node,
 )
 from isaaclab_arena.environments.graph_spec_utils import (
@@ -39,29 +37,11 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
-# Re-exported for callers that already import these names from this module.
-__all__ = [
-    "ArenaEnvGraphCliOverrideSpec",
-    "ArenaEnvGraphNodeSpec",
-    "ArenaEnvGraphNodeType",
-    "ArenaEnvGraphObjectReferenceNodeSpec",
-    "ArenaEnvGraphSpatialRelationSpec",
-    "ArenaEnvGraphSpec",
-    "ArenaEnvGraphStateSpec",
-    "ArenaEnvGraphTaskConstraintSpec",
-    "ArenaEnvGraphTaskConstraintType",
-    "ArenaEnvGraphTaskSpec",
-]
-
-
-class ArenaEnvGraphSpec(BaseModel):
-    """Typed representation of an environment graph YAML file."""
+class ArenaEnvGraphSpecBase(BaseModel):
+    """Shared fields and serialization helpers for env-graph spec classes."""
 
     env_name: str = Field(min_length=1)
     nodes: list[SerializeAsAny[ArenaEnvGraphNodeSpec]] = Field(default_factory=list)
-    tasks: list[ArenaEnvGraphTaskSpec] = Field(default_factory=list)
-    state_specs: list[ArenaEnvGraphStateSpec] = Field(default_factory=list)
-    cli_override_specs: list[ArenaEnvGraphCliOverrideSpec] = Field(default_factory=list)
 
     @field_validator("nodes", mode="before")
     @classmethod
@@ -72,34 +52,8 @@ class ArenaEnvGraphSpec(BaseModel):
             raise ValueError("Field 'nodes' must be a list")
         return [parse_graph_node(node) for node in nodes]
 
-    @model_validator(mode="after")
-    def _validate_on_construction(self, info: ValidationInfo) -> ArenaEnvGraphSpec:
-        """Run graph validation at construction; an unresolved load skips the task wiring check.
-
-        ``from_yaml`` / ``from_dict`` pass ``is_task_wiring_enabled`` through the validation context;
-        it is ``False`` for an unresolved graph whose tasks are not yet wired to states.
-        """
-        is_task_wiring_enabled = True if info.context is None else info.context.get("is_task_wiring_enabled", True)
-        self._run_validation(is_task_wiring_enabled=is_task_wiring_enabled)
-        return self
-
-    def validate(self) -> ArenaEnvGraphSpec:
-        """Re-check the full (strict) graph invariants, e.g. after mutating the spec in place."""
-        self._run_validation(is_task_wiring_enabled=True)
-        return self
-
-    def _run_validation(self, is_task_wiring_enabled: bool) -> None:
-        """Check unique ids, cross-references, constraint shapes, and CLI override specs."""
-        assert_unique_ids(self.nodes, self.tasks, self.state_specs)
-        assert_references_exist(self.nodes, self.tasks, self.state_specs)
-        if is_task_wiring_enabled:
-            assert_task_wiring(self.tasks, self.state_specs)
-        assert_spatial_constraint_shapes(self.state_specs)
-        assert_cli_override_specs_reference_nodes(self.nodes, self.cli_override_specs)
-
     @staticmethod
     def _load_yaml_dict(path: str | Path) -> dict[str, Any]:
-        """Load a graph YAML into a dict. Fail with a clear message if the file is missing."""
         path = Path(path)
         assert path.is_file(), f"Env graph spec YAML not found: {path}"
         with path.open("r", encoding="utf-8") as f:
@@ -108,19 +62,49 @@ class ArenaEnvGraphSpec(BaseModel):
         return data
 
     @classmethod
-    def from_yaml(cls, path: str | Path, is_task_wiring_enabled: bool = True) -> ArenaEnvGraphSpec:
-        return cls.from_dict(cls._load_yaml_dict(path), is_task_wiring_enabled=is_task_wiring_enabled)
+    def from_yaml(cls, path: str | Path) -> Self:
+        return cls.from_dict(cls._load_yaml_dict(path))
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any], is_task_wiring_enabled: bool = True) -> ArenaEnvGraphSpec:
-        """Validate and build a spec from a mapping.
-
-        Pass ``is_task_wiring_enabled=False`` to load an *unresolved* graph.
-        Unresolved graph's state_specs contain only the initial state implied by the
-        initial constraints, and the tasks are not yet wired to states.
-        """
+    def from_dict(cls, data: dict[str, Any]) -> Self:
         assert isinstance(data, dict), f"Env graph spec must be a dict, got {type(data).__name__}"
-        return cls.model_validate(data, context={"is_task_wiring_enabled": is_task_wiring_enabled})
+        return cls.model_validate(data)
+
+    def validate(self) -> Self:
+        """Validate this spec. Override in subclasses to enforce invariants."""
+        return self
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to the plain YAML mapping — the inverse of ``from_dict``."""
+        return self.model_dump(mode="json", exclude_none=True)
+
+    def write_yaml(self, path: str | Path) -> None:
+        """Validate this spec and write it to ``path`` as YAML."""
+        self.validate()
+        with Path(path).open("w", encoding="utf-8") as f:
+            yaml.safe_dump(self.to_dict(), f, sort_keys=False)
+
+    @property
+    def nodes_by_id(self) -> dict[str, ArenaEnvGraphNodeSpec]:
+        return {node.id: node for node in self.nodes}
+
+
+class ArenaEnvGraphSpec(ArenaEnvGraphSpecBase):
+    """A full environment graph with all tasks wired to state specs."""
+
+    tasks: list[ArenaEnvGraphTaskSpec] = Field(default_factory=list)
+    state_specs: list[ArenaEnvGraphStateSpec] = Field(default_factory=list)
+    cli_override_specs: list[ArenaEnvGraphCliOverrideSpec] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate(self) -> ArenaEnvGraphSpec:
+        """Check unique ids, cross-references, constraint shapes, and CLI overrides."""
+        assert_unique_ids(self.nodes, self.tasks, self.state_specs)
+        assert_references_exist(self.nodes, self.tasks, self.state_specs)
+        assert_task_wiring(self.tasks, self.state_specs)
+        assert_spatial_constraint_shapes(self.state_specs)
+        assert_cli_override_specs_reference_nodes(self.nodes, self.cli_override_specs)
+        return self
 
     @staticmethod
     def read_cli_override_specs(path: str | Path) -> list[ArenaEnvGraphCliOverrideSpec]:
@@ -143,65 +127,6 @@ class ArenaEnvGraphSpec(BaseModel):
             new_name = getattr(args_cli, override.dest, None)
             if new_name is not None:
                 nodes_by_id[override.target_node_id].name = new_name
-
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize to the plain YAML mapping — the inverse of ``from_dict``."""
-        return self.model_dump(mode="json", exclude_none=True)
-
-    def write_yaml(self, path: str | Path) -> None:
-        """Validate this spec and write it to ``path`` as YAML."""
-        self.validate()
-        with Path(path).open("w", encoding="utf-8") as f:
-            yaml.safe_dump(self.to_dict(), f, sort_keys=False)
-
-    def resolve_constraints(self, env_name: str | None = None) -> ArenaEnvGraphSpec:
-        """Chain this unresolved graph's task success conditions into its full state specs.
-
-        The upstream emits a partially-wired graph: nodes, the ordered task list, and only the initial
-        state ``state_spec_0`` -- tasks are not yet wired to states. The topology is implicit in the
-        sequential task list (task ``i`` carries ``state_spec_i`` to ``state_spec_{i+1}``), so resolving
-        only fills the per-state constraints. The chain captures the diffs: ``state_spec_0`` is the
-        initial snapshot, and each derived state records only the delta its task introduced (e.g. where the
-        moved objects land), not a full snapshot. ``N`` tasks therefore yield ``N+1`` state specs.
-
-        Returns a fully-wired, strict-validated ``ArenaEnvGraphSpec``.
-        """
-        assert len(self.state_specs) == 1, (
-            f"unresolved graph must define exactly the initial state (state_spec_0); got {len(self.state_specs)} state"
-            " specs"
-        )
-        # state_spec_0 is the given initial state -- a full snapshot, not a delta -- and the transitions
-        # chain the rest off the task list.
-        states: list[ArenaEnvGraphStateSpec] = [self.state_specs[0].model_copy(update={"is_delta": False})]
-        out_tasks: list[ArenaEnvGraphTaskSpec] = []
-
-        for i, curr_task in enumerate(self.tasks):
-            new_state_id = f"state_spec_{i + 1}"
-            curr_task_transition = _get_task_state_transition(curr_task)
-            assert curr_task_transition is not None, f"task {curr_task.id} has no transition"
-            states.append(
-                _get_next_state_spec(
-                    new_state_id=new_state_id,
-                    transition=curr_task_transition,
-                )
-            )
-            out_tasks.append(
-                curr_task.model_copy(
-                    update={"initial_state_spec_id": states[i].id, "success_state_spec_id": new_state_id}
-                )
-            )
-
-        return ArenaEnvGraphSpec(
-            env_name=env_name or self.env_name,
-            nodes=self.nodes,
-            tasks=out_tasks,
-            state_specs=states,
-            cli_override_specs=self.cli_override_specs,
-        )
-
-    @property
-    def nodes_by_id(self) -> dict[str, ArenaEnvGraphNodeSpec]:
-        return {node.id: node for node in self.nodes}
 
     @property
     def tasks_by_id(self) -> dict[str, ArenaEnvGraphTaskSpec]:
@@ -227,50 +152,107 @@ class ArenaEnvGraphSpec(BaseModel):
         return build_arena_env_from_graph_spec(self)
 
 
-# --- Constraint resolution helpers (used by ArenaEnvGraphSpec.resolve_constraints) ---
+class UnresolvedArenaEnvGraphSpec(ArenaEnvGraphSpecBase):
+    """Partially-specified environment graph produced by the LLM intent pipeline."""
+
+    tasks: list[TaskSpec] = Field(default_factory=list)
+    spatial_constraints: list[SpatialRelationSpec] = Field(default_factory=list)
+
+    def resolve(self) -> ArenaEnvGraphSpec:
+        """Derive a fully-wired :class:`ArenaEnvGraphSpec` from this unresolved graph.
+
+        Returns:
+            A fully-wired, strictly-validated :class:`ArenaEnvGraphSpec`.
+        """
+        initial_state = _build_initial_state_spec(self.spatial_constraints)
+        states: list[ArenaEnvGraphStateSpec] = [initial_state]
+        out_tasks: list[ArenaEnvGraphTaskSpec] = []
+
+        for i, task in enumerate(self.tasks):
+            new_state_id = f"state_spec_{i + 1}"
+            transition = _get_task_state_transition(task)
+            states.append(_get_next_state_spec(new_state_id, transition))
+            out_tasks.append(
+                ArenaEnvGraphTaskSpec(
+                    id=f"task_{i}_{task.kind}",
+                    kind=task.kind,
+                    params=task.params,
+                    description=task.description,
+                    initial_state_spec_id=states[i].id,
+                    success_state_spec_id=new_state_id,
+                )
+            )
+
+        return ArenaEnvGraphSpec(
+            env_name=self.env_name,
+            nodes=self.nodes,
+            tasks=out_tasks,
+            state_specs=states,
+        )
 
 
-def _get_task_state_transition(task: ArenaEnvGraphTaskSpec) -> TaskTransition:
+# ---------------------------------------------------------------------------
+# Resolution helpers (used by UnresolvedArenaEnvGraphSpec.resolve)
+# ---------------------------------------------------------------------------
+
+_INITIAL_STATE_ID = "state_spec_0"
+
+
+def _build_initial_state_spec(constraints: list[SpatialRelationSpec]) -> ArenaEnvGraphStateSpec:
+    """Wrap the flat constraint list into the initial full-snapshot state spec."""
+    graph_constraints = [
+        ArenaEnvGraphSpatialRelationSpec(
+            id=f"{_INITIAL_STATE_ID}_{i}_{c.kind}_{c.subject}",
+            kind=c.kind,
+            subject=c.subject,
+            reference=c.reference,
+            params=c.params,
+        )
+        for i, c in enumerate(constraints)
+    ]
+    return ArenaEnvGraphStateSpec(id=_INITIAL_STATE_ID, is_delta=False, spatial_constraints=graph_constraints)
+
+
+def _get_task_state_transition(task: TaskSpec) -> TaskTransition:
     """Look up the task class via ``TaskRegistry`` and return its declared success transition.
 
-    We forward all of the task's args; ``success_state_transition`` binds the ones it acts on as named
-    params (each value is a graph node id) and ignores the rest (scene, episode length, ...) via ``**_``.
+    All task params are forwarded; ``success_state_transition`` binds only the ones it acts
+    on as named parameters and ignores the rest (scene, episode length, …) via ``**_``.
     """
     task_cls = TaskRegistry().get_task_by_name(task.kind)
-    assert task_cls is not None, f"task {task.kind} not found in TaskRegistry"
+    assert task_cls is not None, f"task '{task.kind}' not found in TaskRegistry"
     return task_cls.success_state_transition(**task.params)
 
 
 def _get_task_effects(transition: TaskTransition) -> list[Effect]:
-    """Return the transition's ``Effect``s. Right now we only support Relocate effects."""
+    """Return only the ``Relocate`` effects; other effect types (e.g. ``SetState``) are skipped."""
     return [effect for effect in transition.effects if isinstance(effect, Relocate)]
 
 
 def _get_next_state_spec(new_state_id: str, transition: TaskTransition) -> ArenaEnvGraphStateSpec:
-    """Build the success state as the *delta* of the task's transition -- only what it changed.
+    """Build the delta state for one task's success transition.
 
-    The chain focuses on the delta: ``state_spec_0`` holds the initial state, and each derived state
-    records only the effects the task established, not a fresh snapshot of the whole scene (followed by is_delta=True).
+    Each derived state records only the spatial constraints introduced by the task
+    (``is_delta=True``), not a full snapshot.  E.g. for a PnP task that places the mug
+    on the bowl::
 
-    E.g. task "place mug on bowl" (mug is the moved object) yields a state holding only::
-
-        mug on bowl  # the effect from the PnP task's relocation
+        mug on bowl  # only the relocation effect
 
     Args:
-        new_state_id: The id of the new state.
-        transition: The current task's declared success transition.
+        new_state_id: ID to assign to the new state spec.
+        transition: The task's declared success transition.
 
     Returns:
-        The next state spec, carrying only the task's relocation constraints.
+        An ``ArenaEnvGraphStateSpec`` with ``is_delta=True`` containing only the
+        relocation constraints produced by this task.
     """
-    task_effects = _get_task_effects(transition)
     spatial_constraints = [
         ArenaEnvGraphSpatialRelationSpec(
-            id=f"{new_state_id}_{relocation.subject}_{relocation.relation}_{relocation.target}",
-            kind=relocation.relation,
-            reference=relocation.target,
-            subject=relocation.subject,
+            id=f"{new_state_id}_{r.subject}_{r.relation}_{r.target}",
+            kind=r.relation,
+            reference=r.target,
+            subject=r.subject,
         )
-        for relocation in task_effects
+        for r in _get_task_effects(transition)
     ]
     return ArenaEnvGraphStateSpec(id=new_state_id, is_delta=True, spatial_constraints=spatial_constraints)

@@ -35,6 +35,8 @@ class RelationBase:
     in its relations list.
     """
 
+    pass
+
 
 class UnaryRelation(RelationBase):
     """Base class for unary spatial relations (no parent object).

@@ -122,16 +122,11 @@ class TaskSpec(BaseModel):
 
 
 class ArenaEnvGraphTaskSpec(TaskSpec):
-    """Task entry in an environment graph (task payload plus state-spec wiring).
-
-    State spec IDs are ``None`` in an unresolved graph produced by :class:`IntentResolver`;
-    they are populated by :meth:`ArenaEnvGraphSpec.resolve_constraints`.
-    """
+    """Task entry in an environment graph (task payload plus state-spec wiring)."""
 
     id: str = Field(min_length=1)
-    # Optional for an unresolved graph whose tasks are not yet wired to state specs.
-    initial_state_spec_id: str | None = None
-    success_state_spec_id: str | None = None
+    initial_state_spec_id: str = Field(min_length=1)
+    success_state_spec_id: str = Field(min_length=1)
 
 
 # =============================================================================
