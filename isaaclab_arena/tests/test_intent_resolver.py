@@ -164,9 +164,9 @@ def test_has_resolution_errors_true_when_item_unresolvable():
     assert [e.stage for e in resolver.resolution_errors] == ["item.miss"]
 
 
-def test_has_resolution_errors_false_when_only_relaxation_or_fallback():
-    # Tag-pool relaxation and embodiment fallback are warnings, not errors:
-    # they don't drop data from the resolved spec.
+def test_has_resolution_errors_false_when_only_tag_relaxation():
+    # Tag-pool relaxation is a warning, not an error: the item is still resolved
+    # via the broader object pool.
     # "cracker" is in the catalog (as "cracker_box", tagged "graspable") but
     # NOT tagged "fruit" — so the fruit pool yields no match and the resolver
     # relaxes to the full object pool.
@@ -184,12 +184,19 @@ def test_has_resolution_errors_false_when_only_relaxation_or_fallback():
         )
     ]
     resolver = make_resolver()
-    resolver.resolve(make_scene(embodiment="totally_unknown_robot", **kwargs))
+    resolver.resolve(make_scene(**kwargs))
     trace_stages = [e.stage for e in resolver.trace]
     assert "item.no_match_in_tags" in trace_stages
-    assert "embodiment.miss" in trace_stages
     assert resolver.has_resolution_errors is False
-    assert resolver.resolution_errors == []
+
+
+def test_has_resolution_errors_true_when_embodiment_unknown():
+    # An unknown embodiment with no fuzzy match emits "embodiment.miss" which
+    # is an error stage — no silent fallback to a hardcoded default.
+    resolver = make_resolver()
+    resolver.resolve(make_scene(embodiment="totally_unknown_robot"))
+    assert "embodiment.miss" in [e.stage for e in resolver.trace]
+    assert resolver.has_resolution_errors is True
 
 
 # ---------------------------------------------------------------------------
