@@ -3,8 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Convert :class:`EnvironmentIntentSpec` into :class:`ArenaEnvGraphSpec`."""
-
 from __future__ import annotations
 
 from isaaclab_arena.assets.registries import AssetRegistry
@@ -29,11 +27,7 @@ def _success_state_spec_id(task_index: int) -> str:
 
 
 class IntentResolver:
-    """Turns an agent intent spec into a validated environment graph spec.
-
-    Uses :class:`AssetResolver` for catalog binding (background, embodiment, items).
-    Relation and task wiring trace events share the same ``trace`` list.
-    """
+    """Turns an agent intent spec into a validated environment graph spec."""
 
     _ERROR_TRACE_STAGES: frozenset[str] = frozenset({
         "relation.initial.unknown_subject",
@@ -42,26 +36,42 @@ class IntentResolver:
     })
 
     def __init__(self, registry: AssetRegistry | None = None) -> None:
+        """Args:
+        registry: Asset registry to use for catalog lookups.  Defaults to
+            the global singleton :class:`AssetRegistry` when ``None``.
+        """
         self.registry = registry or AssetRegistry()
         self.trace: list[TraceEvent] = []
         self._assets = AssetResolver(self.registry, self.trace)
 
     @property
     def asset_resolver(self) -> AssetResolver:
+        """The :class:`AssetResolver` instance shared with this resolver's trace."""
         return self._assets
 
     @property
     def resolution_errors(self) -> list[TraceEvent]:
-        """Trace events flagged as failures of the last ``resolve()`` call."""
+        """Trace events flagged as failures of the last :meth:`resolve` call."""
         error_stages = AssetResolver._ERROR_TRACE_STAGES | self._ERROR_TRACE_STAGES
         return [e for e in self.trace if e.stage in error_stages]
 
     @property
     def has_resolution_errors(self) -> bool:
+        """``True`` if the last :meth:`resolve` call produced any error-stage trace events."""
         return bool(self.resolution_errors)
 
     def resolve(self, spec: EnvironmentIntentSpec, env_name: str | None = None) -> ArenaEnvGraphSpec:
-        """Resolve an EnvironmentIntentSpec into a full :class:`ArenaEnvGraphSpec`."""
+        """Resolve an :class:`EnvironmentIntentSpec` into a full :class:`ArenaEnvGraphSpec`.
+
+        Args:
+            spec: Agent-produced intent spec describing the scene, initial relations,
+                and task chain.
+            env_name: Override for the graph's ``env_name`` field.  When ``None``
+                the name is derived as ``llm_gen_{background}_{first_task_kind}``.
+
+        Returns:
+            A fully wired :class:`ArenaEnvGraphSpec`.
+        """
         self.trace = []
         self._assets = AssetResolver(self.registry, self.trace)
 
