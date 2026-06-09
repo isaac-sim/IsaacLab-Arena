@@ -33,6 +33,10 @@ class TraceEvent:
     note: str = ""
 
 
+_MAX_CANDIDATES = 10
+"""Maximum number of near-miss candidate names stored in a :class:`TraceEvent`."""
+
+
 class AssetResolver:
     """Resolves catalog query strings against :class:`AssetRegistry`."""
 
@@ -91,7 +95,7 @@ class AssetResolver:
                         "item.no_match_in_tags",
                         item.query,
                         None,
-                        candidates=pool[:10],
+                        candidates=pool[:_MAX_CANDIDATES],
                         note=f"tags={item.category_tags}; relaxing to objects",
                     )
                 )
@@ -102,7 +106,7 @@ class AssetResolver:
         if cls is not None:
             return cls
 
-        self.trace.append(TraceEvent("item.miss", item.query, None, candidates=object_pool[:10]))
+        self.trace.append(TraceEvent("item.miss", item.query, None, candidates=object_pool[:_MAX_CANDIDATES]))
         return None
 
     def resolve_name(self, name: str, required_tag: str | None) -> type | None:
@@ -129,7 +133,7 @@ class AssetResolver:
             self.trace.append(TraceEvent("name.fuzzy", name, matches[0], candidates=matches))
             return self.registry.get_asset_by_name(matches[0])
 
-        self.trace.append(TraceEvent("name.miss", name, None, candidates=pool[:10]))
+        self.trace.append(TraceEvent("name.miss", name, None, candidates=pool[:_MAX_CANDIDATES]))
         return None
 
     def resolve_embodiment(self, name: str) -> str:
@@ -184,7 +188,9 @@ class AssetResolver:
         substrs = [p for p in pool if q in p.lower()]
         if substrs:
             chosen = min(substrs, key=len)
-            self.trace.append(TraceEvent(f"{stage_prefix}.substring", query, chosen, candidates=substrs[:5], note=note))
+            self.trace.append(
+                TraceEvent(f"{stage_prefix}.substring", query, chosen, candidates=substrs[:_MAX_CANDIDATES], note=note)
+            )
             return self.registry.get_asset_by_name(chosen)
 
         matches = get_close_matches(query, pool, n=3, cutoff=0.5)
