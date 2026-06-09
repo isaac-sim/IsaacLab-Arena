@@ -6,15 +6,15 @@
 from __future__ import annotations
 
 from isaaclab_arena.assets.registries import AssetRegistry
-from isaaclab_arena.environments.arena_env_graph_spec import (
+from isaaclab_arena.environments.arena_env_graph_spec import UnresolvedArenaEnvGraphSpec
+from isaaclab_arena.environments.arena_env_graph_types import (
     ArenaEnvGraphNodeSpec,
     ArenaEnvGraphNodeType,
     ArenaEnvGraphSpatialRelationSpec,
-    ArenaEnvGraphSpec,
     ArenaEnvGraphStateSpec,
-    ArenaEnvGraphTaskSpec,
+    SpatialRelationSpec,
+    TaskSpec,
 )
-from isaaclab_arena.environments.arena_env_graph_types import SpatialRelationSpec, TaskSpec
 
 from .asset_resolver import AssetResolver, TraceEvent
 from .environment_intent_spec import EnvironmentIntentSpec, Item
@@ -22,12 +22,8 @@ from .environment_intent_spec import EnvironmentIntentSpec, Item
 _INITIAL_STATE_SPEC_ID = "state_initial"
 
 
-def _success_state_spec_id(task_index: int) -> str:
-    return f"state_success_{task_index}"
-
-
 class IntentResolver:
-    """Turns an agent intent spec into a validated environment graph spec."""
+    """Turns an agent intent spec into a validated :class:`UnresolvedArenaEnvGraphSpec`."""
 
     _ERROR_TRACE_STAGES: frozenset[str] = frozenset({
         "relation.initial.unknown_subject",
@@ -60,8 +56,8 @@ class IntentResolver:
         """``True`` if the last :meth:`resolve` call produced any error-stage trace events."""
         return bool(self.resolution_errors)
 
-    def resolve(self, spec: EnvironmentIntentSpec, env_name: str | None = None) -> ArenaEnvGraphSpec:
-        """Resolve an :class:`EnvironmentIntentSpec` into a full :class:`ArenaEnvGraphSpec`.
+    def resolve(self, spec: EnvironmentIntentSpec, env_name: str | None = None) -> UnresolvedArenaEnvGraphSpec:
+        """Resolve an :class:`EnvironmentIntentSpec` into an :class:`UnresolvedArenaEnvGraphSpec`.
 
         Args:
             spec: Agent-produced intent spec describing the scene, initial relations,
@@ -70,7 +66,8 @@ class IntentResolver:
                 the name is derived as ``llm_gen_{background}_{first_task_kind}``.
 
         Returns:
-            A fully wired :class:`ArenaEnvGraphSpec`.
+            An :class:`UnresolvedArenaEnvGraphSpec` ready for YAML round-tripping or
+            further resolution via :meth:`~UnresolvedArenaEnvGraphSpec.resolve`.
         """
         self.trace = []
         self._assets = AssetResolver(self.registry, self.trace)
@@ -91,15 +88,13 @@ class IntentResolver:
         known_ids = {node.id for node in nodes}
 
         initial_state_spec = self._build_initial_state_spec(spec.initial_state_graph, known_ids)
-        success_state_specs = [ArenaEnvGraphStateSpec(id=_success_state_spec_id(i)) for i in range(len(spec.tasks))]
-        state_specs = [initial_state_spec, *success_state_specs]
         tasks = self._build_task_specs(spec.tasks, known_ids)
 
-        return ArenaEnvGraphSpec(
+        return UnresolvedArenaEnvGraphSpec(
             env_name=env_name or self._derive_env_name(spec),
             nodes=nodes,
             tasks=tasks,
-            state_specs=state_specs,
+            initial_state_spec=initial_state_spec,
         )
 
     @staticmethod
@@ -145,6 +140,7 @@ class IntentResolver:
                 constraints.append(constraint)
         return ArenaEnvGraphStateSpec(
             id=_INITIAL_STATE_SPEC_ID,
+            is_delta=False,
             spatial_constraints=constraints,
             task_constraints=[],
         )
@@ -172,9 +168,9 @@ class IntentResolver:
             params=dict(rel.params),
         )
 
-    def _build_task_specs(self, tasks: list[TaskSpec], known_ids: set[str]) -> list[ArenaEnvGraphTaskSpec]:
-        out: list[ArenaEnvGraphTaskSpec] = []
-        for index, task in enumerate(tasks):
+    def _build_task_specs(self, tasks: list[TaskSpec], known_ids: set[str]) -> list[TaskSpec]:
+        out: list[TaskSpec] = []
+        for task in tasks:
             self.trace.append(
                 TraceEvent(
                     "task.resolve",
@@ -193,14 +189,5 @@ class IntentResolver:
                             note=f"param={param_name}, task kind={task.kind}",
                         )
                     )
-            out.append(
-                ArenaEnvGraphTaskSpec(
-                    id=f"task_{index}_{task.kind}",
-                    kind=task.kind,
-                    initial_state_spec_id=_INITIAL_STATE_SPEC_ID,
-                    success_state_spec_id=_success_state_spec_id(index),
-                    params=dict(task.params),
-                    description=task.description,
-                )
-            )
+            out.append(TaskSpec(kind=task.kind, params=dict(task.params), description=task.description))
         return out

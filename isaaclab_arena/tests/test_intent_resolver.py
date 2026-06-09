@@ -19,8 +19,7 @@ Covers the graph-wiring logic of :meth:`~IntentResolver.resolve`:
 from __future__ import annotations
 
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec, Item
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphNodeType
-from isaaclab_arena.environments.arena_env_graph_types import SpatialRelationSpec, TaskSpec
+from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeType, SpatialRelationSpec, TaskSpec
 
 from ._resolver_test_helpers import make_resolver, make_scene
 
@@ -64,9 +63,9 @@ def test_resolve_happy_path():
     assert spec.nodes_by_id["bowl"].name == "bowl_ycb_robolab"
     assert spec.nodes_by_id["avocado"].name == "avocado01_fruits_robolab"
 
-    # State specs: 1 initial + 1 success placeholder per task.
-    assert len(spec.state_specs) == 2
-    initial_state = spec.state_specs_by_id["state_initial"]
+    # Initial state spec is directly accessible.
+    initial_state = spec.initial_state_spec
+    assert initial_state.id == "state_initial"
     assert len(initial_state.spatial_constraints) == 3
 
     is_anchor = initial_state.spatial_constraints[0]
@@ -81,11 +80,10 @@ def test_resolve_happy_path():
     assert on_bowl.subject == "bowl"
     assert on_bowl.id == "state_initial_1_on_maple_table_bowl"
 
-    # Task wiring.
+    # Tasks are plain TaskSpec (no id / state-spec wiring — use resolve() for that).
     assert len(spec.tasks) == 1
-    task = spec.tasks_by_id["task_0_PickAndPlaceTask"]
-    assert task.initial_state_spec_id == "state_initial"
-    assert task.success_state_spec_id == "state_success_0"
+    task = spec.tasks[0]
+    assert task.kind == "PickAndPlaceTask"
     assert task.params == {
         "pick_up_object": "avocado",
         "destination_location": "bowl",
@@ -115,9 +113,9 @@ def test_resolve_clears_trace_between_calls():
 
 def test_resolve_with_empty_initial_state_graph():
     spec = make_resolver().resolve(make_scene(initial_state_graph=[]))
-    initial_state = spec.state_specs_by_id["state_initial"]
-    assert initial_state.spatial_constraints == []
-    assert initial_state.task_constraints == []
+    assert spec.initial_state_spec.id == "state_initial"
+    assert spec.initial_state_spec.spatial_constraints == []
+    assert spec.initial_state_spec.task_constraints == []
 
 
 # ---------------------------------------------------------------------------
@@ -203,7 +201,7 @@ def test_spatial_constraint_binary_relation_id_and_fields():
     items = [Item(query="cracker_box", category_tags=["graspable"])]
     initial = [SpatialRelationSpec(kind="on", subject="cracker_box", reference="maple_table")]
     spec = make_resolver().resolve(make_scene(items=items, initial_state_graph=initial))
-    constraint = spec.state_specs_by_id["state_initial"].spatial_constraints[0]
+    constraint = spec.initial_state_spec.spatial_constraints[0]
     assert constraint.reference == "maple_table"
     assert constraint.subject == "cracker_box"
     assert constraint.id == "state_initial_0_on_maple_table_cracker_box"
@@ -212,7 +210,7 @@ def test_spatial_constraint_binary_relation_id_and_fields():
 def test_spatial_constraint_unary_relation_id_and_fields():
     initial = [SpatialRelationSpec(kind="is_anchor", subject="maple_table")]
     spec = make_resolver().resolve(make_scene(initial_state_graph=initial))
-    constraint = spec.state_specs_by_id["state_initial"].spatial_constraints[0]
+    constraint = spec.initial_state_spec.spatial_constraints[0]
     assert constraint.kind == "is_anchor"
     assert constraint.subject == "maple_table"
     assert constraint.reference is None
@@ -223,7 +221,7 @@ def test_spatial_constraint_unknown_subject_skipped():
     initial = [SpatialRelationSpec(kind="on", subject="not_a_node", reference="maple_table")]
     resolver = make_resolver()
     spec = resolver.resolve(make_scene(initial_state_graph=initial))
-    assert spec.state_specs_by_id["state_initial"].spatial_constraints == []
+    assert spec.initial_state_spec.spatial_constraints == []
     assert any(e.stage == "relation.initial.unknown_subject" for e in resolver.trace)
 
 
@@ -231,7 +229,7 @@ def test_spatial_constraint_unknown_parent_skipped():
     initial = [SpatialRelationSpec(kind="on", subject="maple_table", reference="missing_node")]
     resolver = make_resolver()
     spec = resolver.resolve(make_scene(initial_state_graph=initial))
-    assert spec.state_specs_by_id["state_initial"].spatial_constraints == []
+    assert spec.initial_state_spec.spatial_constraints == []
     assert any(e.stage == "relation.initial.unknown_parent" for e in resolver.trace)
 
 
@@ -245,7 +243,7 @@ def test_spatial_constraint_params_passed_through():
         ),
     ]
     spec = make_resolver().resolve(make_scene(items=items, initial_state_graph=initial))
-    constraint = spec.state_specs_by_id["state_initial"].spatial_constraints[0]
+    constraint = spec.initial_state_spec.spatial_constraints[0]
     assert constraint.kind == "at_position"
     # params are passed through verbatim; downstream builders interpret them.
     assert constraint.params == {"position_xyz": (0.1, 0.2, 0.3)}
@@ -256,7 +254,7 @@ def test_spatial_constraint_params_passed_through():
 # ---------------------------------------------------------------------------
 
 
-def test_multiple_tasks_get_distinct_success_state_ids():
+def test_multiple_tasks_preserved_in_order():
     tasks = [
         TaskSpec(
             kind="PickAndPlaceTask",
@@ -273,19 +271,10 @@ def test_multiple_tasks_get_distinct_success_state_ids():
     items = [Item(query="bowl", category_tags=["bowl"])]
     spec = make_resolver().resolve(make_scene(items=items, tasks=tasks))
 
-    # Task ids follow "task_{index}_{kind}".
-    task_ids = [t.id for t in spec.tasks]
-    assert task_ids == ["task_0_PickAndPlaceTask", "task_1_OpenDoorTask", "task_2_CloseDoorTask"]
-
-    # Each task points at its own per-task placeholder success state.
-    success_ids = [t.success_state_spec_id for t in spec.tasks]
-    assert success_ids == ["state_success_0", "state_success_1", "state_success_2"]
-
-    # state_specs: 1 initial + 3 success placeholders.
-    assert len(spec.state_specs) == 4
-    for i in range(3):
-        assert spec.state_specs_by_id[f"state_success_{i}"].spatial_constraints == []
-        assert spec.state_specs_by_id[f"state_success_{i}"].task_constraints == []
+    # Tasks are plain TaskSpec entries (no id / wiring) preserved in declaration order.
+    assert len(spec.tasks) == 3
+    assert [t.kind for t in spec.tasks] == ["PickAndPlaceTask", "OpenDoorTask", "CloseDoorTask"]
+    assert [t.description for t in spec.tasks] == ["d1", "d2", "d3"]
 
 
 def test_task_unknown_param_emits_error_trace():
