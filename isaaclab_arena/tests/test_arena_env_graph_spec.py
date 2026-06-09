@@ -11,11 +11,13 @@ from pydantic import ValidationError
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import TaskRegistry
 from isaaclab_arena.environments.arena_env_graph_spec import (
-    ArenaEnvGraphNodeType,
-    ArenaEnvGraphObjectReferenceNodeSpec,
     ArenaEnvGraphSpec,
     ArenaEnvGraphStateSpec,
     UnresolvedArenaEnvGraphSpec,
+)
+from isaaclab_arena.environments.arena_env_graph_types import (
+    ArenaEnvGraphNodeType,
+    ArenaEnvGraphObjectReferenceNodeSpec,
 )
 from isaaclab_arena.environments.graph_spec_utils import relation_class_for_spatial_constraint_type
 from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On, PositionLimits

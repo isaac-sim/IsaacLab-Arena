@@ -18,13 +18,12 @@ from isaaclab_arena.environments.arena_env_graph_types import (
     ArenaEnvGraphSpatialRelationSpec,
     ArenaEnvGraphStateSpec,
     ArenaEnvGraphTaskSpec,
-    SpatialRelationSpec,
     TaskSpec,
     parse_graph_node,
 )
 from isaaclab_arena.environments.graph_spec_utils import (
     assert_cli_override_specs_reference_nodes,
-    assert_references_exist,
+    assert_constraint_references,
     assert_spatial_constraint_shapes,
     assert_task_wiring,
     assert_unique_ids,
@@ -98,9 +97,9 @@ class ArenaEnvGraphSpec(ArenaEnvGraphSpecBase):
 
     @model_validator(mode="after")
     def validate(self) -> ArenaEnvGraphSpec:
-        """Check unique ids, cross-references, constraint shapes, and CLI overrides."""
+        """Check unique ids, cross-references, constraint shapes, task wiring, and CLI overrides."""
         assert_unique_ids(self.nodes, self.tasks, self.state_specs)
-        assert_references_exist(self.nodes, self.tasks, self.state_specs)
+        assert_constraint_references(self.nodes, self.state_specs)
         assert_task_wiring(self.tasks, self.state_specs)
         assert_spatial_constraint_shapes(self.state_specs)
         assert_cli_override_specs_reference_nodes(self.nodes, self.cli_override_specs)
@@ -156,16 +155,28 @@ class UnresolvedArenaEnvGraphSpec(ArenaEnvGraphSpecBase):
     """Partially-specified environment graph produced by the LLM intent pipeline."""
 
     tasks: list[TaskSpec] = Field(default_factory=list)
-    spatial_constraints: list[SpatialRelationSpec] = Field(default_factory=list)
+    initial_state_spec: ArenaEnvGraphStateSpec
+
+    @model_validator(mode="after")
+    def validate(self) -> Self:
+        """Check unique IDs, constraint references, and spatial constraint shapes."""
+        assert_unique_ids(self.nodes, [], [self.initial_state_spec])
+        assert_constraint_references(self.nodes, [self.initial_state_spec])
+        assert_spatial_constraint_shapes([self.initial_state_spec])
+        return self
 
     def resolve(self) -> ArenaEnvGraphSpec:
         """Derive a fully-wired :class:`ArenaEnvGraphSpec` from this unresolved graph.
 
+        Uses :attr:`initial_state_spec` as ``state_spec_0``, then chains each task's declared
+        ``success_state_transition`` to produce a delta state.  The topology is implicit in the
+        sequential task list: task ``i`` carries ``state_spec_i`` to ``state_spec_{i+1}``,
+        yielding ``N+1`` states for ``N`` tasks.
+
         Returns:
             A fully-wired, strictly-validated :class:`ArenaEnvGraphSpec`.
         """
-        initial_state = _build_initial_state_spec(self.spatial_constraints)
-        states: list[ArenaEnvGraphStateSpec] = [initial_state]
+        states: list[ArenaEnvGraphStateSpec] = [self.initial_state_spec]
         out_tasks: list[ArenaEnvGraphTaskSpec] = []
 
         for i, task in enumerate(self.tasks):
@@ -194,23 +205,6 @@ class UnresolvedArenaEnvGraphSpec(ArenaEnvGraphSpecBase):
 # ---------------------------------------------------------------------------
 # Resolution helpers (used by UnresolvedArenaEnvGraphSpec.resolve)
 # ---------------------------------------------------------------------------
-
-_INITIAL_STATE_ID = "state_spec_0"
-
-
-def _build_initial_state_spec(constraints: list[SpatialRelationSpec]) -> ArenaEnvGraphStateSpec:
-    """Wrap the flat constraint list into the initial full-snapshot state spec."""
-    graph_constraints = [
-        ArenaEnvGraphSpatialRelationSpec(
-            id=f"{_INITIAL_STATE_ID}_{i}_{c.kind}_{c.subject}",
-            kind=c.kind,
-            subject=c.subject,
-            reference=c.reference,
-            params=c.params,
-        )
-        for i, c in enumerate(constraints)
-    ]
-    return ArenaEnvGraphStateSpec(id=_INITIAL_STATE_ID, is_delta=False, spatial_constraints=graph_constraints)
 
 
 def _get_task_state_transition(task: TaskSpec) -> TaskTransition:

@@ -44,12 +44,8 @@ def assert_unique_ids(nodes: list[Any], tasks: list[Any], state_specs: list[Any]
     assert not duplicates, f"Duplicate env graph ids found: {duplicates}"
 
 
-def assert_references_exist(nodes: list[Any], tasks: list[Any], state_specs: list[Any]) -> None:
-    """Ensure every node and constraint reference points to a node that exists.
-
-    Task state-spec wiring is validated separately by ``assert_task_wiring`` (only for a resolved
-    graph), so an unresolved graph whose tasks carry no wiring yet still passes this check.
-    """
+def assert_constraint_references(nodes: list[Any], state_specs: list[Any]) -> None:
+    """Ensure every node parent and constraint reference points to a node that exists."""
     node_ids = {node.id for node in nodes}
 
     # Track ids seen so far so a node's parent must be defined *earlier* in the list. The
@@ -87,11 +83,7 @@ def assert_references_exist(nodes: list[Any], tasks: list[Any], state_specs: lis
 
 
 def assert_task_wiring(tasks: list[Any], state_specs: list[Any]) -> None:
-    """Ensure each task's ``initial_state_spec_id`` / ``success_state_spec_id`` references a state.
-
-    Only meaningful for a resolved graph; an unresolved graph carries no wiring yet, so this check
-    is skipped there (see ``ArenaEnvGraphSpec`` loading with ``is_task_wiring_enabled=False``).
-    """
+    """Ensure each task's ``initial_state_spec_id`` / ``success_state_spec_id`` references a state."""
     state_spec_ids = {state_spec.id for state_spec in state_specs}
     for task in tasks:
         for label, state_spec_id in (
