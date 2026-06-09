@@ -10,6 +10,7 @@ import math
 import os
 import re
 import torch
+import warp as wp
 import xml.etree.ElementTree as ET
 from collections.abc import Sequence
 from dataclasses import MISSING
@@ -22,7 +23,7 @@ import isaaclab_tasks.manager_based.manipulation.pick_place.mdp as mdp
 from isaaclab.actuators import DelayedPDActuatorCfg, ImplicitActuatorCfg
 from isaaclab.assets.articulation import ArticulationCfg
 from isaaclab.controllers.pink_ik import DampingTaskCfg, LocalFrameTaskCfg, NullSpacePostureTaskCfg, PinkIKControllerCfg
-from isaaclab.envs import ManagerBasedRLMimicEnv
+from isaaclab.envs import ManagerBasedEnv, ManagerBasedRLMimicEnv
 from isaaclab.envs.mdp.actions.pink_actions_cfg import PinkInverseKinematicsActionCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
@@ -762,19 +763,35 @@ def _resolve_mesh_paths_ability_hands(src_path: str, output_path: str) -> str:
     return output_path
 
 
+# Alex URDF links live under ``Robot/Geometry/PELVIS_LINK/...`` after USD import.
+# Instanced ``proto_asset_*`` prims block authoring cameras on those links, so ZED
+# sensors spawn under ``Robot/`` and track ``HEAD_LINK`` each step via
+# :func:`sync_alex_zed_cameras`.
+_ALEX_ZED_CAMERA_PRIM_PATH = "{ENV_REGEX_NS}/Robot"
+
 # ---------------------------------------------------------------------------
-# ZED X Mini on Alex HEAD_LINK (head-center, 50 mm stereo baseline).
-# Lens: 2.2 mm, 110° HFOV. Mount pitched ~21° (rpy=(0, 0.3633, 0)) so the
-# optical axis looks forward from the head, not along the link axis.
+# ZED X Mini bracket on Alex HEAD_LINK (forehead mount, 50 mm stereo baseline).
+# Mount center xyz=(0.13041, -0.01079, 0.02381) aligns with the head mesh
+# front face; pitched ~21° (rpy=(0, 0.3633, 0)) so the optical axis looks
+# forward from the head, not along the link axis.
 # ---------------------------------------------------------------------------
 _ZED_STEREO_BASELINE_M = 0.050
-_ZED_MOUNT_ROT_XYZW = (0.50, -0.50, -0.50, 0.50)
+_ZED_MOUNT_CENTER_XYZ = (0.13041, -0.01079, 0.02381)
+_ZED_MOUNT_ROT_XYZW = (0.40, -0.40, -0.58, 0.58)
 _ZED_LEFT_CAM_OFFSET = Pose(
-    position_xyz=(0.2, _ZED_STEREO_BASELINE_M / 2.0, 0.5),
+    position_xyz=(
+        _ZED_MOUNT_CENTER_XYZ[0],
+        _ZED_MOUNT_CENTER_XYZ[1] + _ZED_STEREO_BASELINE_M / 2.0,
+        _ZED_MOUNT_CENTER_XYZ[2],
+    ),
     rotation_xyzw=_ZED_MOUNT_ROT_XYZW,
 )
 _ZED_RIGHT_CAM_OFFSET = Pose(
-    position_xyz=(0.2, -_ZED_STEREO_BASELINE_M / 2.0, 0.5),
+    position_xyz=(
+        _ZED_MOUNT_CENTER_XYZ[0],
+        _ZED_MOUNT_CENTER_XYZ[1] - _ZED_STEREO_BASELINE_M / 2.0,
+        _ZED_MOUNT_CENTER_XYZ[2],
+    ),
     rotation_xyzw=_ZED_MOUNT_ROT_XYZW,
 )
 
@@ -865,6 +882,17 @@ class AlexPinkEmbodiment(EmbodimentBase):
         self.observation_config = AlexObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.event_config = AlexEventCfg()
+        if enable_cameras:
+            self.event_config.sync_zed_cameras = EventTerm(
+                func=sync_alex_zed_cameras,
+                mode="interval",
+                interval_range_s=(CONTROL_DT, CONTROL_DT),
+            )
+            self.event_config.sync_zed_cameras_reset = EventTerm(
+                func=sync_alex_zed_cameras,
+                mode="reset",
+            )
+
         self.mimic_env = AlexMimicEnv
         self.camera_config = AlexCameraCfg()
         self.camera_config._use_tiled_camera = use_tiled_camera
@@ -936,6 +964,7 @@ class AlexCameraCfg:
 
         common_kwargs = dict(
             update_period=0.0,
+            update_latest_camera_pose=True,
             height=_ZED_X_MINI_HEIGHT,
             width=_ZED_X_MINI_WIDTH,
             data_types=["rgb"],
@@ -943,19 +972,19 @@ class AlexCameraCfg:
         )
 
         self.zed_left_cam = CameraClass(
-            prim_path="{ENV_REGEX_NS}/Robot/HEAD_LINK/ZedLeftCam",
+            prim_path=_ALEX_ZED_CAMERA_PRIM_PATH + "/ZedLeftCam",
             offset=OffsetClass(
-                pos=_ZED_LEFT_CAM_OFFSET.position_xyz,
-                rot=_ZED_LEFT_CAM_OFFSET.rotation_xyzw,
+                pos=(0.0, 0.0, 0.0),
+                rot=(0.0, 0.0, 0.0, 1.0),
                 convention="opengl",
             ),
             **common_kwargs,
         )
         self.zed_right_cam = CameraClass(
-            prim_path="{ENV_REGEX_NS}/Robot/HEAD_LINK/ZedRightCam",
+            prim_path=_ALEX_ZED_CAMERA_PRIM_PATH + "/ZedRightCam",
             offset=OffsetClass(
-                pos=_ZED_RIGHT_CAM_OFFSET.position_xyz,
-                rot=_ZED_RIGHT_CAM_OFFSET.rotation_xyzw,
+                pos=(0.0, 0.0, 0.0),
+                rot=(0.0, 0.0, 0.0, 1.0),
                 convention="opengl",
             ),
             **common_kwargs,
@@ -996,6 +1025,37 @@ class AlexEventCfg:
     """Event configuration for Alex."""
 
     reset_all = EventTerm(func=reset_all_articulation_joints, mode="reset")
+
+    sync_zed_cameras: EventTerm | None = None
+
+    sync_zed_cameras_reset: EventTerm | None = None
+
+
+def sync_alex_zed_cameras(env: ManagerBasedEnv, env_ids: torch.Tensor) -> None:
+    """Track ZED cameras to the kinematic HEAD_LINK body each step."""
+    if env_ids is None:
+        return
+    if "zed_left_cam" not in env.scene.sensors or "robot" not in env.scene.articulations:
+        return
+
+    robot = env.scene["robot"]
+    head_body_ids, _ = robot.find_bodies(["HEAD_LINK"])
+    head_idx = int(head_body_ids[0])
+    head_pos = wp.to_torch(robot.data.body_pos_w)[env_ids, head_idx]
+    head_quat = wp.to_torch(robot.data.body_quat_w)[env_ids, head_idx]
+
+    for cam_name, offset in (
+        ("zed_left_cam", _ZED_LEFT_CAM_OFFSET),
+        ("zed_right_cam", _ZED_RIGHT_CAM_OFFSET),
+    ):
+        offset_pos = torch.tensor(offset.position_xyz, device=env.device, dtype=torch.float32).repeat(
+            len(env_ids), 1
+        )
+        offset_quat = torch.tensor(offset.rotation_xyzw, device=env.device, dtype=torch.float32).repeat(
+            len(env_ids), 1
+        )
+        cam_pos, cam_quat = PoseUtils.combine_frame_transforms(head_pos, head_quat, offset_pos, offset_quat)
+        env.scene[cam_name].set_world_poses(cam_pos, cam_quat, env_ids, convention="opengl")
 
 
 class AlexMimicEnv(ManagerBasedRLMimicEnv):
@@ -1240,6 +1300,16 @@ class AlexAbilityHandEmbodiment(EmbodimentBase):
         self.observation_config = AlexAbilityHandObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.event_config = AlexEventCfg()
+        if enable_cameras:
+            self.event_config.sync_zed_cameras = EventTerm(
+                func=sync_alex_zed_cameras,
+                mode="interval",
+                interval_range_s=(CONTROL_DT, CONTROL_DT),
+            )
+            self.event_config.sync_zed_cameras_reset = EventTerm(
+                func=sync_alex_zed_cameras,
+                mode="reset",
+            )
         self.mimic_env = AlexAbilityHandMimicEnv
         self.camera_config = AlexCameraCfg()
         self.camera_config._use_tiled_camera = use_tiled_camera

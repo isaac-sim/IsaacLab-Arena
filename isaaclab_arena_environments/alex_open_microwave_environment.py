@@ -38,8 +38,8 @@ class AlexOpenMicrowaveEnvironment(ExampleEnvironmentBase):
             --teleop_device openxr \\
             --embodiment alex_ability_hands
 
-    Stereo ZED X Mini cameras (``zed_left_cam``, ``zed_right_cam``) mount at
-    ``HEAD_LINK`` (head-center frame, 50 mm baseline, 2.2 mm / 110° FOV lens).
+    Stereo ZED X Mini cameras (``zed_left_cam``, ``zed_right_cam``) mount on
+    ``HEAD_LINK`` at the forehead bracket (50 mm baseline, 2.2 mm / 110° FOV lens).
     Pass ``--enable_cameras`` to add camera observations
     and HDF5 recordings (``camera_obs/zed_left_cam_rgb``, ``camera_obs/zed_right_cam_rgb``).
 

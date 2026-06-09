@@ -17,7 +17,7 @@
 
 data_root: "/tmp"
 
-hdf5_name: "alex_demo_generated.hdf5"
+hdf5_name: "alex_demo.hdf5"
 
 language_instruction: "Open the microwave."
 task_index: 0

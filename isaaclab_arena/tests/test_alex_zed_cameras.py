@@ -5,6 +5,7 @@
 
 import torch
 import tqdm
+import warp as wp
 
 import pytest
 
@@ -49,9 +50,11 @@ def _test_alex_zed_cameras(simulation_app) -> bool:
     builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
     env = builder.make_registered()
     env.reset()
+    unwrapped = env.unwrapped
+    head_idx = unwrapped.scene["robot"].body_names.index("HEAD_LINK")
     for _ in tqdm.tqdm(range(NUM_STEPS)):
         with torch.inference_mode():
-            actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+            actions = torch.zeros(env.action_space.shape, device=unwrapped.device)
             obs, _, _, _, _ = env.step(actions)
             camera_obs = obs["camera_obs"]
             assert "zed_left_cam_rgb" in camera_obs, f"Missing zed_left_cam_rgb in {list(camera_obs.keys())}"
@@ -60,6 +63,18 @@ def _test_alex_zed_cameras(simulation_app) -> bool:
             right_rgb = camera_obs["zed_right_cam_rgb"]
             assert left_rgb.shape[-1] == 3, left_rgb.shape
             assert right_rgb.shape[-1] == 3, right_rgb.shape
+
+            head_pos = wp.to_torch(unwrapped.scene["robot"].data.body_pos_w)[0, head_idx]
+            left_cam_pos = unwrapped.scene["zed_left_cam"].data.pos_w[0]
+            right_cam_pos = unwrapped.scene["zed_right_cam"].data.pos_w[0]
+            left_offset = torch.linalg.norm(left_cam_pos - head_pos).item()
+            right_offset = torch.linalg.norm(right_cam_pos - head_pos).item()
+            assert left_offset < 0.25, f"Left ZED too far from HEAD_LINK: {left_offset:.3f} m"
+            assert right_offset < 0.25, f"Right ZED too far from HEAD_LINK: {right_offset:.3f} m"
+            assert left_cam_pos[2] > head_pos[2] - 0.05, (
+                f"Left ZED should sit on/near the forehead, not below the head: "
+                f"cam_z={left_cam_pos[2]:.3f}, head_z={head_pos[2]:.3f}"
+            )
 
     env.close()
     return True
