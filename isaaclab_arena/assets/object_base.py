@@ -7,9 +7,13 @@ from __future__ import annotations
 
 import torch
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
 import warp as wp
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
+
+if TYPE_CHECKING:
+    import trimesh
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
@@ -72,6 +76,14 @@ class ObjectBase(Asset, ABC):
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get bounding box in world coordinates (local bbox rotated and translated)."""
         ...
+
+    def get_collision_mesh(self) -> trimesh.Trimesh | None:
+        """Return the collision mesh for this object, or None.
+
+        When None, the mesh-based collision system falls back to AABB overlap
+        for any pair involving this object. Subclasses with mesh geometry
+        should override this method.
+        """
 
     def _get_initial_pose_as_pose(self) -> Pose | None:
         """Return a single ``Pose`` suitable for *init_state* and bounding-box calculations.

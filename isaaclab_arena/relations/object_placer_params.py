@@ -5,7 +5,9 @@
 
 from dataclasses import dataclass, field
 
-from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
+
+__all__ = ["CollisionMode", "ObjectPlacerParams"]
 
 
 @dataclass

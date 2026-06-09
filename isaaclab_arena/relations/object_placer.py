@@ -13,6 +13,7 @@ from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_en
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.relations.relation_solver_params import CollisionMode
 from isaaclab_arena.relations.relations import (
     IsAnchor,
     On,
@@ -160,6 +161,11 @@ class ObjectPlacer:
                 f"Anchor object '{anchor.name}' must have an initial_pose set. "
                 "Call anchor_object.set_initial_pose(...) before placing."
             )
+
+        assert not (self.params.random_yaw_init and self.params.solver_params.collision_mode == CollisionMode.MESH), (
+            "random_yaw_init is not yet supported with CollisionMode.MESH -- "
+            "sphere centers are not rotated by candidate yaw."
+        )
 
         generator: torch.Generator | None = None
         if self.params.placement_seed is not None:
@@ -598,6 +604,81 @@ class ObjectPlacer:
                     return False
         return True
 
+    def _validate_no_overlap_mesh(
+        self,
+        positions: dict[ObjectBase, tuple[float, float, float]],
+    ) -> bool:
+        """Validate no-overlap using sphere-to-SDF mesh queries.
+
+        Mirrors the AABB validator's pair-skipping logic (On pairs, anchor-anchor).
+        Skips pairs where either object lacks a collision mesh (the solver's loss
+        path still penalizes those via AABB fallback during optimization).
+        """
+        from isaaclab_arena.relations.warp_mesh_manager import WarpMeshManager
+        from isaaclab_arena.relations.warp_sdf_kernels import mesh_sdf
+
+        on_pairs: set[tuple] = set()
+        anchor_ids: set[int] = set()
+        for obj in positions:
+            for rel in obj.get_relations():
+                if isinstance(rel, On) and rel.parent in positions:
+                    on_pairs.add((id(obj), id(rel.parent)))
+                    on_pairs.add((id(rel.parent), id(obj)))
+            if any(isinstance(r, IsAnchor) for r in obj.get_relations()):
+                anchor_ids.add(id(obj))
+
+        clearance_m = self.params.solver_params.clearance_m
+        tolerance = max(0.0, clearance_m - 1e-6)
+        manager = WarpMeshManager(
+            num_spheres=self.params.solver_params.num_spheres,
+            device="cpu",
+        )
+
+        warned_no_mesh: set[str] = set()
+        objects = list(positions.keys())
+        for i in range(len(objects)):
+            for j in range(i + 1, len(objects)):
+                a, b = objects[i], objects[j]
+                if id(a) in anchor_ids and id(b) in anchor_ids:
+                    continue
+                if (id(a), id(b)) in on_pairs:
+                    continue
+
+                a_mesh = a.get_collision_mesh()
+                b_mesh = b.get_collision_mesh()
+                if a_mesh is None or b_mesh is None:
+                    for obj, mesh in [(a, a_mesh), (b, b_mesh)]:
+                        if mesh is None and obj.name not in warned_no_mesh:
+                            warned_no_mesh.add(obj.name)
+                            print(
+                                f"  [NoCollision] MESH mode: '{obj.name}' has no collision mesh, skipping mesh"
+                                " validation"
+                            )
+                    continue
+
+                a_pos = torch.tensor(positions[a], dtype=torch.float32)
+                b_pos = torch.tensor(positions[b], dtype=torch.float32)
+
+                # Forward: a's spheres against b's mesh
+                spheres_a = manager.get_query_spheres(a_mesh, obj=a)
+                warp_b = manager.get_warp_mesh(b_mesh, obj=b)
+                centers_a_in_b = spheres_a[:, :3] + a_pos - b_pos
+                if (mesh_sdf(centers_a_in_b, warp_b) < spheres_a[:, 3] + tolerance).any():
+                    if self.params.verbose:
+                        print(f"  Mesh overlap between '{a.name}' and '{b.name}'")
+                    return False
+
+                # Reverse: b's spheres against a's mesh
+                spheres_b = manager.get_query_spheres(b_mesh, obj=b)
+                warp_a = manager.get_warp_mesh(a_mesh, obj=a)
+                centers_b_in_a = spheres_b[:, :3] + b_pos - a_pos
+                if (mesh_sdf(centers_b_in_a, warp_a) < spheres_b[:, 3] + tolerance).any():
+                    if self.params.verbose:
+                        print(f"  Mesh overlap between '{b.name}' and '{a.name}'")
+                    return False
+
+        return True
+
     def _validate_placement(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
@@ -612,7 +693,12 @@ class ObjectPlacer:
         Returns:
             True if no overlaps exist and On relations hold, False otherwise.
         """
-        return self._validate_no_overlap(positions, env_bboxes) and self._validate_on_relations(positions, env_bboxes)
+        if not self._validate_no_overlap(positions, env_bboxes):
+            return False
+        if self.params.solver_params.collision_mode == CollisionMode.MESH:
+            if not self._validate_no_overlap_mesh(positions):
+                return False
+        return self._validate_on_relations(positions, env_bboxes)
 
     def _apply_poses(
         self,

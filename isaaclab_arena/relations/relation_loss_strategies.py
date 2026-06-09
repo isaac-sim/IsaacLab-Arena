@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import torch
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -71,7 +73,7 @@ class UnaryRelationLossStrategy(ABC):
     @abstractmethod
     def compute_loss(
         self,
-        relation: "Relation",
+        relation: Relation,
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
@@ -95,7 +97,7 @@ class RelationLossStrategy(ABC):
     @abstractmethod
     def compute_loss(
         self,
-        relation: "Relation",
+        relation: Relation,
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
@@ -136,7 +138,7 @@ class NextToLossStrategy(RelationLossStrategy):
 
     def compute_loss(
         self,
-        relation: "NextTo",
+        relation: NextTo,
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
@@ -247,7 +249,7 @@ class OnLossStrategy(RelationLossStrategy):
 
     def compute_loss(
         self,
-        relation: "On",
+        relation: On,
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
@@ -351,7 +353,7 @@ class NotNextToLossStrategy(RelationLossStrategy):
 
     def compute_loss(
         self,
-        relation: "NotNextTo",
+        relation: NotNextTo,
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
@@ -412,25 +414,46 @@ class NotNextToLossStrategy(RelationLossStrategy):
 class NoCollisionLossStrategy:
     """Loss strategy for no-overlap constraints between objects.
 
-    Computes loss based on:
-    1. X overlap: zero when child and parent are separated along X; else overlap length
-    2. Y overlap: zero when separated along Y; else overlap length
-    3. Z overlap: zero when separated along Z; else overlap length
-    4. Volume loss: slope * (overlap_x * overlap_y * overlap_z)
+    Supports two modes controlled by ``collision_mode``:
+    - BBOX (default): AABB volume-overlap loss (X/Y/Z axis overlap product).
+    - MESH: Sphere-to-SDF penetration loss using actual mesh geometry.
 
-    This is a standalone strategy (not a RelationLossStrategy) because no-overlap
-    is a built-in solver behavior, not a user-specified relation.
+    In MESH mode, falls back to AABB per-pair when either object lacks a
+    collision mesh. This is a standalone strategy (not a RelationLossStrategy)
+    because no-overlap is a built-in solver behavior, not a user-specified relation.
     """
 
-    def __init__(self, slope: float = 10.0, debug: bool = False):
+    def __init__(
+        self,
+        slope: float = 10.0,
+        debug: bool = False,
+        collision_mode=None,
+        num_spheres: int = 30,
+    ):
         """
         Args:
-            slope: Gradient magnitude for overlap volume loss (default: 10.0).
-                   Loss scales with slope times overlap volume.
-            debug: If True, print detailed loss component breakdown.
+            slope: Gradient magnitude for overlap loss.
+            debug: If True, print detailed AABB loss component breakdown.
+            collision_mode: CollisionMode enum value (BBOX or MESH). Defaults to BBOX.
+            num_spheres: Number of spheres for mesh decomposition (MESH mode only).
         """
+        from isaaclab_arena.relations.relation_solver_params import CollisionMode
+
         self.slope = slope
         self.debug = debug
+        self._mode = collision_mode if collision_mode is not None else CollisionMode.BBOX
+        self._num_spheres = num_spheres
+        self._CollisionMode = CollisionMode
+        self._warned_no_mesh: set[str] = set()
+        self._mesh_managers: dict[str, object] = {}  # keyed by device string
+
+        if self._mode == CollisionMode.MESH:
+            try:
+                import warp  # noqa: F401
+            except ImportError as e:
+                raise ImportError(
+                    "CollisionMode.MESH requires the 'warp' package. Install it with: pip install warp-lang"
+                ) from e
 
     def compute_loss(
         self,
@@ -438,23 +461,51 @@ class NoCollisionLossStrategy:
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
+        child_obj=None,
+        parent_obj=None,
+        parent_pos: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        """Compute loss for no-overlap constraint.
+        """Compute collision loss, dispatching based on mode and mesh availability.
 
         Args:
-            clearance_m: Minimum clearance between bounding boxes in meters.
-            child_pos: Child object position (N, 3) in world coords.
-            child_bbox: Child object local bounding box (N=1).
-            parent_world_bbox: Parent bounding box in world coordinates.
+            clearance_m: Minimum clearance in meters.
+            child_pos: Child position (N, 3) in world coords -- gradient target.
+            child_bbox: Child AABB (used in BBOX mode).
+            parent_world_bbox: Parent world AABB (used in BBOX mode).
+            child_obj: Object with get_collision_mesh() (MESH mode).
+            parent_obj: Object with get_collision_mesh() (MESH mode).
+            parent_pos: Parent position tensor, or None for anchors (MESH mode).
 
         Returns:
             Loss tensor of shape (N,).
         """
+        if self._mode == self._CollisionMode.MESH and child_obj is not None and parent_obj is not None:
+            child_mesh = child_obj.get_collision_mesh()
+            parent_mesh = parent_obj.get_collision_mesh()
+            if child_mesh is not None and parent_mesh is not None:
+                return self._compute_mesh_loss(
+                    clearance_m, child_pos, child_obj, child_mesh, parent_pos, parent_obj, parent_mesh
+                )
+            for obj, mesh in [(child_obj, child_mesh), (parent_obj, parent_mesh)]:
+                name = getattr(obj, "name", "?")
+                if mesh is None and name not in self._warned_no_mesh:
+                    self._warned_no_mesh.add(name)
+                    print(f"  [NoCollision] MESH mode: '{name}' has no collision mesh, falling back to AABB")
+
+        return self._compute_aabb_loss(clearance_m, child_pos, child_bbox, parent_world_bbox)
+
+    def _compute_aabb_loss(
+        self,
+        clearance_m: float,
+        child_pos: torch.Tensor,
+        child_bbox: AxisAlignedBoundingBox,
+        parent_world_bbox: AxisAlignedBoundingBox,
+    ) -> torch.Tensor:
+        """AABB volume-overlap loss."""
         single_input = child_pos.dim() == 1
         if single_input:
             child_pos = child_pos.unsqueeze(0)
 
-        # Parent world extents from the world bounding box, expanded by clearance_m
         c = clearance_m
         parent_x_min = parent_world_bbox.min_point[:, 0] - c
         parent_x_max = parent_world_bbox.max_point[:, 0] + c
@@ -463,16 +514,13 @@ class NoCollisionLossStrategy:
         parent_z_min = parent_world_bbox.min_point[:, 2] - c
         parent_z_max = parent_world_bbox.max_point[:, 2] + c
 
-        # Child world extents
         child_world_min = child_pos + child_bbox.min_point
         child_world_max = child_pos + child_bbox.max_point
 
-        # 1. Per-axis overlap: zero when separated; else overlap length (default slope 1.0 gives length in m)
         overlap_x = interval_overlap_axis_loss(child_world_min[:, 0], child_world_max[:, 0], parent_x_min, parent_x_max)
         overlap_y = interval_overlap_axis_loss(child_world_min[:, 1], child_world_max[:, 1], parent_y_min, parent_y_max)
         overlap_z = interval_overlap_axis_loss(child_world_min[:, 2], child_world_max[:, 2], parent_z_min, parent_z_max)
 
-        # 2. Volume loss: slope * product of per-axis overlap lengths (overlap volume when slope 1.0)
         overlap_volume = overlap_x * overlap_y * overlap_z
         total_loss = self.slope * overlap_volume
 
@@ -496,6 +544,68 @@ class NoCollisionLossStrategy:
 
         return total_loss.squeeze(0) if single_input else total_loss
 
+    def _get_mesh_manager(self, device: str = "cuda:0"):
+        if device not in self._mesh_managers:
+            from isaaclab_arena.relations.warp_mesh_manager import WarpMeshManager
+
+            self._mesh_managers[device] = WarpMeshManager(num_spheres=self._num_spheres, device=device)
+        return self._mesh_managers[device]
+
+    def _compute_mesh_loss(
+        self,
+        clearance_m: float,
+        child_pos: torch.Tensor,
+        child_obj,
+        child_mesh,
+        parent_pos: torch.Tensor | None,
+        parent_obj,
+        parent_mesh,
+    ) -> torch.Tensor:
+        """Sphere-to-SDF penetration loss using mesh geometry."""
+        from isaaclab_arena.relations.warp_sdf_kernels import sphere_penetration_loss
+
+        single_input = child_pos.dim() == 1
+        if single_input:
+            child_pos = child_pos.unsqueeze(0)
+
+        if parent_pos is None:
+            from isaaclab_arena.utils.pose import Pose
+
+            pose = parent_obj.get_initial_pose()
+            assert pose is not None, f"parent_pos=None but '{getattr(parent_obj, 'name', '?')}' has no initial pose"
+            assert isinstance(
+                pose, Pose
+            ), f"Anchor '{getattr(parent_obj, 'name', '?')}' must have a fixed Pose for mesh collision"
+            identity = (0.0, 0.0, 0.0, 1.0)
+            assert pose.rotation_xyzw == identity, (
+                f"Mesh collision with rotated anchor '{getattr(parent_obj, 'name', '?')}' "
+                f"is not yet supported (rotation={pose.rotation_xyzw})"
+            )
+            parent_pos = torch.tensor(pose.position_xyz, dtype=child_pos.dtype, device=child_pos.device)
+
+        assert parent_pos is not None
+        parent_pos_resolved: torch.Tensor = parent_pos
+        if parent_pos_resolved.dim() == 1:
+            parent_pos_resolved = parent_pos_resolved.unsqueeze(0)
+
+        device = child_pos.device
+        manager = self._get_mesh_manager(str(device))
+        spheres = manager.get_query_spheres(child_mesh, obj=child_obj).to(device)
+        centers_local = spheres[:, :3]
+        radii = spheres[:, 3]
+        warp_mesh = manager.get_warp_mesh(parent_mesh, obj=parent_obj)
+
+        batch_size = child_pos.shape[0]
+        total_loss = torch.zeros(batch_size, device=device, dtype=child_pos.dtype)
+
+        for b in range(batch_size):
+            centers_world = centers_local + child_pos[b] - parent_pos_resolved[b]
+            total_loss[b] = self.slope * sphere_penetration_loss(
+                centers_world, radii, warp_mesh, clearance_m=clearance_m
+            )
+
+        return total_loss.squeeze(0) if single_input else total_loss
+
 
 class AtPositionLossStrategy(UnaryRelationLossStrategy):
     """Loss strategy for AtPosition relations.
@@ -514,7 +624,7 @@ class AtPositionLossStrategy(UnaryRelationLossStrategy):
 
     def compute_loss(
         self,
-        relation: "AtPosition",
+        relation: AtPosition,
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
@@ -570,7 +680,7 @@ class PositionLimitsLossStrategy(UnaryRelationLossStrategy):
 
     def compute_loss(
         self,
-        relation: "PositionLimits",
+        relation: PositionLimits,
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
