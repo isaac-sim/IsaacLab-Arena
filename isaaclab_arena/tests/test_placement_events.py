@@ -331,6 +331,7 @@ def test_solve_and_place_objects_writes_invalid_fallback_layout(capsys):
 
     class InvalidPool:
         requires_env_indexed_layouts = False
+        last_applied: dict = {}
 
         def sample_without_replacement(self, count: int) -> list[PlacementResult]:
             assert count == 1
@@ -342,9 +343,6 @@ def test_solve_and_place_objects_writes_invalid_fallback_layout(capsys):
                     attempts=1,
                 )
             ]
-
-        def note_applied(self, env_id: int, layout: PlacementResult) -> None:
-            pass
 
     solve_and_place_objects(env, torch.tensor([0]), objects, InvalidPool())
     captured = capsys.readouterr()
@@ -369,6 +367,7 @@ def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_res
         requires_env_indexed_layouts = True
         num_envs = 4
         requested_env_ids = None
+        last_applied: dict = {}
 
         def sample_without_replacement(self, count: int) -> list[PlacementResult]:
             raise AssertionError(f"partial reset should not consume a full env round, got count={count}")
@@ -387,9 +386,6 @@ def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_res
                 )
                 for cur_env in env_ids
             }
-
-        def note_applied(self, env_id: int, layout: PlacementResult) -> None:
-            pass
 
     pool = EnvIndexedPool()
     solve_and_place_objects(env, torch.tensor([2]), objects, pool)
