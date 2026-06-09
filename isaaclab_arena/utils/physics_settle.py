@@ -13,8 +13,9 @@ sim-app-bringup routine without changing its interface.
 
 from __future__ import annotations
 
-import warp as wp
 from typing import TYPE_CHECKING
+
+import warp as wp
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -48,7 +49,7 @@ def objects_settled(
     ang_vel_thresh: float,
 ) -> bool:
     """True when every named object in this env is below both the linear and angular velocity thresholds."""
-    for lin_velocity, ang_velocity in max_object_velocities(env, env_id, object_names):
-        if lin_velocity > lin_vel_thresh or ang_velocity > ang_vel_thresh:
-            return False
-    return True
+    return all(
+        not (lin_velocity > lin_vel_thresh or ang_velocity > ang_vel_thresh)
+        for lin_velocity, ang_velocity in max_object_velocities(env, env_id, object_names)
+    )
