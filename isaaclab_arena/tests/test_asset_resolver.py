@@ -20,7 +20,7 @@ and :meth:`~AssetResolver.resolve_embodiment`:
 
 from __future__ import annotations
 
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphNodeType
+from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeType
 
 from ._resolver_test_helpers import FakeAsset, make_resolver, make_scene
 
