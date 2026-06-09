@@ -130,6 +130,7 @@ def main() -> None:
             print(f"  {event.stage:34s} {event.query!s:24s} -> {chosen}{extra}")
 
     out_path = _LLM_GENERATED_DIR / f"{env_graph_spec.env_name}_proposal.yaml"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     env_graph_spec.write_yaml(out_path)
     print(f"\n=== wrote UnresolvedArenaEnvGraphSpec YAML to {out_path} ===")
 
