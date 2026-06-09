@@ -343,6 +343,9 @@ def test_solve_and_place_objects_writes_invalid_fallback_layout(capsys):
                 )
             ]
 
+        def note_applied(self, env_id: int, layout: PlacementResult) -> None:
+            pass
+
     solve_and_place_objects(env, torch.tensor([0]), objects, InvalidPool())
     captured = capsys.readouterr()
 
@@ -384,6 +387,9 @@ def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_res
                 )
                 for cur_env in env_ids
             }
+
+        def note_applied(self, env_id: int, layout: PlacementResult) -> None:
+            pass
 
     pool = EnvIndexedPool()
     solve_and_place_objects(env, torch.tensor([2]), objects, pool)
