@@ -15,7 +15,7 @@ from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.assets.register import register_task
+from isaaclab_arena.assets.register import agent_ready, register_task
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
@@ -28,6 +28,7 @@ from isaaclab_arena.tasks.terminations import object_on_destination
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
+@agent_ready
 @register_task
 class PickAndPlaceTask(TaskBase):
     """Pick-and-place task. Success fires when the pick-up object contacts the destination

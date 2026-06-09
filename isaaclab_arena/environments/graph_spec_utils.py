@@ -70,12 +70,12 @@ def assert_references_exist(nodes: list[Any], tasks: list[Any], state_specs: lis
     for state_spec in state_specs:
         for constraint in state_spec.spatial_constraints:
             assert (
-                constraint.parent in node_ids
-            ), f"Constraint '{constraint.id}' references unknown parent node '{constraint.parent}'"
-            if constraint.child is not None:
+                constraint.subject in node_ids
+            ), f"Constraint '{constraint.id}' references unknown subject node '{constraint.subject}'"
+            if constraint.reference is not None:
                 assert (
-                    constraint.child in node_ids
-                ), f"Constraint '{constraint.id}' references unknown child node '{constraint.child}'"
+                    constraint.reference in node_ids
+                ), f"Constraint '{constraint.id}' references unknown reference node '{constraint.reference}'"
 
     # TODO(xinjieyao, 2026-06-04): add check for task constraints
 
@@ -98,21 +98,22 @@ def assert_task_wiring(tasks: list[Any], state_specs: list[Any]) -> None:
 
 
 def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
-    """Check each spatial constraint has the parent/child shape its relation expects."""
+    """Check each spatial constraint has the subject/reference shape its relation expects."""
     for state_spec in state_specs:
         for constraint in state_spec.spatial_constraints:
-            relation_cls = relation_class_for_spatial_constraint_type(constraint.type)
+            relation_cls = relation_class_for_spatial_constraint_type(constraint.kind)
             is_unary = relation_cls.is_unary()
-            constraint_type = constraint.type
+            constraint_kind = constraint.kind
 
             if is_unary:
-                assert (
-                    constraint.child is None
-                ), f"Spatial constraint '{constraint.id}' of type '{constraint_type}' must not define a child node"
+                assert constraint.reference is None, (
+                    f"Spatial constraint '{constraint.id}' of kind '{constraint_kind}' must not define"
+                    " relation.reference"
+                )
             else:
                 assert (
-                    constraint.child is not None
-                ), f"Spatial constraint '{constraint.id}' of type '{constraint_type}' requires a child node"
+                    constraint.reference is not None
+                ), f"Spatial constraint '{constraint.id}' of kind '{constraint_kind}' requires relation.reference"
 
 
 def assert_cli_override_specs_reference_nodes(

@@ -17,7 +17,7 @@ from isaaclab_arena.environments.arena_env_graph_types import (
     ArenaEnvGraphNodeSpec,
     ArenaEnvGraphNodeType,
     ArenaEnvGraphObjectReferenceNodeSpec,
-    ArenaEnvGraphSpatialConstraintSpec,
+    ArenaEnvGraphSpatialRelationSpec,
     ArenaEnvGraphStateSpec,
     ArenaEnvGraphTaskConstraintSpec,
     ArenaEnvGraphTaskConstraintType,
@@ -45,7 +45,7 @@ __all__ = [
     "ArenaEnvGraphNodeSpec",
     "ArenaEnvGraphNodeType",
     "ArenaEnvGraphObjectReferenceNodeSpec",
-    "ArenaEnvGraphSpatialConstraintSpec",
+    "ArenaEnvGraphSpatialRelationSpec",
     "ArenaEnvGraphSpec",
     "ArenaEnvGraphStateSpec",
     "ArenaEnvGraphTaskConstraintSpec",
@@ -236,9 +236,9 @@ def _get_task_state_transition(task: ArenaEnvGraphTaskSpec) -> TaskTransition:
     We forward all of the task's args; ``success_state_transition`` binds the ones it acts on as named
     params (each value is a graph node id) and ignores the rest (scene, episode length, ...) via ``**_``.
     """
-    task_cls = TaskRegistry().get_task_by_name(task.type)
-    assert task_cls is not None, f"task {task.type} not found in TaskRegistry"
-    return task_cls.success_state_transition(**task.task_args)
+    task_cls = TaskRegistry().get_task_by_name(task.kind)
+    assert task_cls is not None, f"task {task.kind} not found in TaskRegistry"
+    return task_cls.success_state_transition(**task.params)
 
 
 def _get_task_effects(transition: TaskTransition) -> list[Effect]:
@@ -265,11 +265,11 @@ def _get_next_state_spec(new_state_id: str, transition: TaskTransition) -> Arena
     """
     task_effects = _get_task_effects(transition)
     spatial_constraints = [
-        ArenaEnvGraphSpatialConstraintSpec(
+        ArenaEnvGraphSpatialRelationSpec(
             id=f"{new_state_id}_{relocation.subject}_{relocation.relation}_{relocation.target}",
-            type=relocation.relation,
-            parent=relocation.target,
-            child=relocation.subject,
+            kind=relocation.relation,
+            reference=relocation.target,
+            subject=relocation.subject,
         )
         for relocation in task_effects
     ]
