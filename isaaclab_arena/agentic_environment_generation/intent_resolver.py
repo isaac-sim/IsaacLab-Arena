@@ -78,7 +78,9 @@ class IntentResolver:
         if background_node is not None:
             nodes.append(background_node)
 
-        nodes.append(self._resolve_embodiment_node(spec.embodiment))
+        embodiment_node = self._resolve_embodiment_node(spec.embodiment)
+        if embodiment_node is not None:
+            nodes.append(embodiment_node)
 
         for item in spec.items:
             item_node = self._resolve_item_node(item)
@@ -112,8 +114,10 @@ class IntentResolver:
             type=ArenaEnvGraphNodeType.BACKGROUND,
         )
 
-    def _resolve_embodiment_node(self, query: str) -> ArenaEnvGraphNodeSpec:
+    def _resolve_embodiment_node(self, query: str) -> ArenaEnvGraphNodeSpec | None:
         embodiment_name = self._assets.resolve_embodiment(query)
+        if embodiment_name is None:
+            return None
         return ArenaEnvGraphNodeSpec(
             id=embodiment_name,
             name=embodiment_name,

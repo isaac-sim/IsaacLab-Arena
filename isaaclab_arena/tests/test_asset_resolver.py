@@ -119,12 +119,12 @@ def test_embodiment_ik_default_for_bare_family():
     assert any(e.stage == "embodiment.ik_family" for e in resolver.trace)
 
 
-def test_embodiment_unknown_falls_back_to_franka_ik():
-    # Completely unknown names never raise — they fall back to "franka_ik"
-    # and record an "embodiment.miss" trace event.
+def test_embodiment_unknown_records_miss_and_omits_node():
+    # Completely unknown names emit an "embodiment.miss" trace event and
+    # produce no embodiment node (no silent fallback).
     resolver = make_resolver()
     spec = resolver.resolve(make_scene(embodiment="totally_unknown_robot"))
-    assert spec.nodes_by_id["franka_ik"].type == ArenaEnvGraphNodeType.EMBODIMENT
+    assert not any(n.type == ArenaEnvGraphNodeType.EMBODIMENT for n in spec.nodes)
     assert any(e.stage == "embodiment.miss" for e in resolver.trace)
 
 

@@ -39,6 +39,7 @@ class AssetResolver:
         "item.miss",  # no object asset matched the agent's query even after tag relaxation
         "name.wrong_tag",  # named asset exists but lacks the required tag (e.g. embodiment constraint)
         "name.miss",  # explicitly requested asset name not found in the registry
+        "embodiment.miss",  # no embodiment asset matched even after family expansion and fuzzy matching
     }
 
     def __init__(self, registry: AssetRegistry, trace: list[TraceEvent]) -> None:
@@ -129,7 +130,7 @@ class AssetResolver:
         self.trace.append(TraceEvent("name.miss", name, None, candidates=pool[:_MAX_CANDIDATES]))
         return None
 
-    def resolve_embodiment(self, name: str) -> str:
+    def resolve_embodiment(self, name: str) -> str | None:
         """Resolve a robot embodiment name to a registered asset key.
 
         Resolution strategy (in order):
@@ -138,14 +139,13 @@ class AssetResolver:
            asset whose name starts with the family prefix
            (e.g. ``"franka"`` → ``"franka_ik"``).
         3. Fuzzy match within the ``"embodiment"``-tagged asset pool.
-        4. Hard fallback to ``"franka_ik"``.
 
         Args:
             name: Robot name as emitted by the agent (may be a bare family name
                 like ``"franka"`` or a full registered name like ``"franka_joint_pos"``).
 
         Returns:
-            A registered embodiment asset key, guaranteed non-``None``.
+            A registered embodiment asset key, or ``None`` if no match was found.
         """
         if self.registry.is_registered(name):
             self.trace.append(TraceEvent("embodiment.exact", name, name))
@@ -172,8 +172,9 @@ class AssetResolver:
         if matches:
             self.trace.append(TraceEvent("embodiment.fuzzy", name, matches[0], candidates=matches))
             return matches[0]
-        self.trace.append(TraceEvent("embodiment.miss", name, None, note="falling back to franka_ik"))
-        return "franka_ik"
+
+        self.trace.append(TraceEvent("embodiment.miss", name, None, candidates=embodiment_pool[:_MAX_CANDIDATES]))
+        return None
 
     def _best_match(self, query: str, pool: list[str], stage_prefix: str, note: str) -> type | None:
         """Prefer substring containment (e.g. 'bowl' → 'bowl_ycb_robolab'), then difflib fuzzy."""
