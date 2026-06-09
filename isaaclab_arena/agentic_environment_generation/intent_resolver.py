@@ -88,12 +88,12 @@ class IntentResolver:
         known_ids = {node.id for node in nodes}
 
         initial_state_spec = self._build_initial_state_spec(spec.initial_state_graph, known_ids)
-        tasks = self._build_task_specs(spec.tasks, known_ids)
+        self._trace_tasks(spec.tasks, known_ids)
 
         return UnresolvedArenaEnvGraphSpec(
             env_name=env_name or self._derive_env_name(spec),
             nodes=nodes,
-            tasks=tasks,
+            tasks=spec.tasks,
             initial_state_spec=initial_state_spec,
         )
 
@@ -168,8 +168,10 @@ class IntentResolver:
             params=dict(rel.params),
         )
 
-    def _build_task_specs(self, tasks: list[TaskSpec], known_ids: set[str]) -> list[TaskSpec]:
-        out: list[TaskSpec] = []
+    def _trace_tasks(self, tasks: list[TaskSpec], known_ids: set[str]) -> None:
+        """Emit trace events for each task: one ``task.resolve`` event and one
+        ``task.unknown_param`` error event for every string param value that does
+        not reference a resolved node ID."""
         for task in tasks:
             self.trace.append(
                 TraceEvent(
@@ -189,5 +191,3 @@ class IntentResolver:
                             note=f"param={param_name}, task kind={task.kind}",
                         )
                     )
-            out.append(TaskSpec(kind=task.kind, params=dict(task.params), description=task.description))
-        return out
