@@ -82,7 +82,7 @@ class IntentResolver:
         if embodiment_node is not None:
             nodes.append(embodiment_node)
 
-        # TODO: handle duplicate node IDs when two items share the same query and
+        # TODO(qianl): handle duplicate node IDs when two items share the same query and
         # neither has an instance_name.
         for item in spec.items:
             item_node = self._resolve_item_node(item)
