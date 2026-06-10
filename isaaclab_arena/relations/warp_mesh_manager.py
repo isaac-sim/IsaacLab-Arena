@@ -138,7 +138,7 @@ class WarpMeshManager:
         """Compute cache key. Uses (usd_path, scale) for USD objects, content hash otherwise."""
         usd_path = getattr(obj, "usd_path", None) if obj is not None else None
         if usd_path is not None:
-            scale = getattr(obj, "scale", (1.0, 1.0, 1.0))
+            scale = tuple(getattr(obj, "scale", (1.0, 1.0, 1.0)))
             return (usd_path, scale, self._num_spheres, self._sphere_radius)
         return (_mesh_content_hash(mesh), self._num_spheres, self._sphere_radius)
 

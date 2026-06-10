@@ -596,6 +596,7 @@ class NoCollisionLossStrategy:
         warp_mesh = manager.get_warp_mesh(parent_mesh, obj=parent_obj)
 
         batch_size = child_pos.shape[0]
+        parent_pos_resolved = parent_pos_resolved.expand(batch_size, -1)
         total_loss = torch.zeros(batch_size, device=device, dtype=child_pos.dtype)
 
         for b in range(batch_size):
