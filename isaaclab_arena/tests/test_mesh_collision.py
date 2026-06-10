@@ -292,28 +292,88 @@ def test_on_pairs_skipped_in_mesh_mode():
 # ---------------------------------------------------------------------------
 
 
-def test_random_yaw_mesh_mode_assertion():
-    """random_yaw_init=True + CollisionMode.MESH should raise AssertionError."""
+@requires_warp
+def test_random_yaw_mesh_mode_places_successfully():
+    """random_yaw_init=True + CollisionMode.MESH should place objects without error."""
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 
     params = ObjectPlacerParams(
-        solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH),
+        solver_params=RelationSolverParams(
+            collision_mode=CollisionMode.MESH,
+            max_iters=50,
+        ),
         random_yaw_init=True,
     )
     placer = ObjectPlacer(params=params)
 
     table = _make_table()
-    obj = _make_cylinder("can")
-    obj.add_relation(On(table))
+    cyl_a = _make_cylinder("a")
+    cyl_b = _make_cylinder("b")
+    cyl_a.add_relation(On(table))
+    cyl_b.add_relation(On(table))
 
-    with pytest.raises(AssertionError, match="random_yaw_init"):
-        placer.place([table, obj])
+    result = placer.place([table, cyl_a, cyl_b])
+    assert result.success
 
 
-# ---------------------------------------------------------------------------
-# Missing tests identified in review
-# ---------------------------------------------------------------------------
+@requires_warp
+def test_anchor_with_rotate_around_solution_rejected():
+    """Anchor + RotateAroundSolution must fail loudly (not silently mismatch)."""
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.relations import RotateAroundSolution
+
+    params = ObjectPlacerParams(
+        solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=5),
+        random_yaw_init=True,
+    )
+    placer = ObjectPlacer(params=params)
+
+    table = _make_table()
+    table.add_relation(RotateAroundSolution(yaw_rad=0.5))
+    child = _make_cylinder("child")
+    child.add_relation(On(table))
+
+    with pytest.raises(AssertionError, match="Anchor.*RotateAroundSolution"):
+        placer.place([table, child])
+
+
+@requires_warp
+def test_centers_in_target_frame_applies_both_yaws():
+    """Net yaw = source - target; equal yaws cancel out."""
+    import math
+
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+
+    src = DummyObject(
+        "src",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)),
+        collision_mesh=trimesh.creation.box(extents=(0.2, 0.2, 0.2)),
+    )
+    tgt = DummyObject(
+        "tgt",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)),
+        collision_mesh=trimesh.creation.box(extents=(0.2, 0.2, 0.2)),
+    )
+    centers = torch.tensor([[0.10, 0.0, 0.0]])
+    src_pos = torch.tensor([0.0, 0.0, 0.0])
+    tgt_pos = torch.tensor([0.0, 0.0, 0.0])
+
+    # No orientations: pass-through
+    result = ObjectPlacer._centers_in_target_frame(centers, src, tgt, src_pos, tgt_pos, None)
+    assert torch.allclose(result, centers, atol=1e-6)
+
+    # Source yaw=pi/2, target yaw=0: net rotation = pi/2
+    result = ObjectPlacer._centers_in_target_frame(centers, src, tgt, src_pos, tgt_pos, {src: math.pi / 2})
+    assert abs(result[0, 0].item()) < 1e-5
+    assert abs(result[0, 1].item() - 0.10) < 1e-5
+
+    # Both at same yaw: net rotation = 0, centers unchanged (offset is zero here)
+    result = ObjectPlacer._centers_in_target_frame(
+        centers, src, tgt, src_pos, tgt_pos, {src: math.pi / 2, tgt: math.pi / 2}
+    )
+    assert torch.allclose(result, centers, atol=1e-5)
 
 
 @requires_warp
@@ -436,6 +496,42 @@ def test_validate_no_overlap_mesh_catches_overlap():
 
 
 @requires_warp
+def test_validate_no_overlap_mesh_respects_anchor_yaw():
+    """Validator must use anchor's initial_pose yaw (not identity) when checking overlap."""
+    import math
+
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+
+    table = _make_table()
+    # Long thin anchor rotated 90° about Z
+    anchor_mesh = trimesh.creation.box(extents=(0.2, 0.02, 0.05))
+    anchor = DummyObject(
+        "anchor",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.01, -0.025), max_point=(0.1, 0.01, 0.025)),
+        collision_mesh=anchor_mesh,
+    )
+    sz = math.sin(math.pi / 4)
+    cz = math.cos(math.pi / 4)
+    anchor.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.05), rotation_xyzw=(0.0, 0.0, sz, cz)))
+    anchor.add_relation(IsAnchor())
+
+    child = _make_cylinder("child", radius=0.012)
+    child.add_relation(On(table))
+
+    params = ObjectPlacerParams(
+        solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, verbose=False),
+        verbose=False,
+    )
+    placer = ObjectPlacer(params=params)
+
+    # Child at Y=0.02: outside unrotated anchor (half-width=0.01),
+    # but inside rotated anchor (half-length=0.1 now spans Y).
+    positions = {table: (0.0, 0.0, 0.0), anchor: (0.0, 0.0, 0.05), child: (0.0, 0.02, 0.05)}
+    assert not placer._validate_no_overlap_mesh(positions), "Validator should detect overlap with yawed anchor"
+
+
+@requires_warp
 def test_mesh_sdf_backward_gradient():
     """mesh_sdf backward should produce non-zero gradients pointing outward for interior points."""
     from isaaclab_arena.relations.warp_sdf_kernels import mesh_sdf
@@ -458,25 +554,293 @@ def test_mesh_sdf_backward_gradient():
 
 
 @requires_warp
-def test_rotated_anchor_raises():
-    """Mesh collision with a rotated anchor must raise AssertionError."""
-    a = _make_cylinder("child", radius=0.03, height=0.1)
-    table = _make_cylinder("table", radius=0.2, height=0.05)
-    # Give the anchor a non-identity rotation
-    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.383, 0.924)))
+def test_solver_mesh_loss_detects_overlap_like_per_pair():
+    """Solver's multi-mesh kernel detects the same overlap as per-pair strategy."""
+    slope = 10000.0
+    strategy = NoCollisionLossStrategy(collision_mode=CollisionMode.MESH, slope=slope)
 
-    strategy = NoCollisionLossStrategy(collision_mode=CollisionMode.MESH, slope=10000.0)
-    child_pos = torch.tensor([0.05, 0.0, 0.0], dtype=torch.float32)
-    dummy_bbox = a.get_bounding_box()
-    parent_bbox = table.get_bounding_box().translated((0.0, 0.0, 0.0))
+    table = _make_table()
+    a = _make_cylinder("a", radius=0.03)
+    b = _make_cylinder("b", radius=0.03)
+    b.set_initial_pose(Pose(position_xyz=(0.04, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    a.add_relation(On(table))
+    b.add_relation(On(table))
 
-    with pytest.raises(AssertionError, match="rotated anchor"):
-        strategy.compute_loss(
-            clearance_m=0.0,
-            child_pos=child_pos,
-            child_bbox=dummy_bbox,
-            parent_world_bbox=parent_bbox,
-            child_obj=a,
-            parent_obj=table,
-            parent_pos=None,
+    pos_a = (0.0, 0.0, 0.05)
+    pos_b = (0.04, 0.0, 0.05)
+    initial = [{table: (0.0, 0.0, 0.0), a: pos_a, b: pos_b}]
+
+    # Per-pair reference (strategy already applies slope internally)
+    device = torch.device("cpu")
+    a_pos_t = torch.tensor(pos_a, dtype=torch.float32, device=device)
+    b_pos_t = torch.tensor(pos_b, dtype=torch.float32, device=device)
+    loss_ab = strategy._compute_mesh_loss(
+        0.0,
+        a_pos_t.unsqueeze(0),
+        a,
+        a.get_collision_mesh(),
+        b_pos_t.unsqueeze(0),
+        b,
+        b.get_collision_mesh(),
+    )
+    loss_ba = strategy._compute_mesh_loss(
+        0.0,
+        b_pos_t.unsqueeze(0),
+        b,
+        b.get_collision_mesh(),
+        a_pos_t.unsqueeze(0),
+        a,
+        a.get_collision_mesh(),
+    )
+    # Strategy already applies slope; sum of fwd+rev is the mesh collision component
+    expected_mesh_loss = loss_ab.item() + loss_ba.item()
+
+    # Production path via solver (multi-mesh kernel, max_iters=0 = no optimization)
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False))
+    solver.solve([table, a, b], initial)
+    solver_loss = solver.last_loss_per_env[0].item()
+
+    # Both should detect overlapping objects
+    assert expected_mesh_loss > 0.0, "Per-pair reference should detect overlap"
+    assert solver_loss > 0.0, "Solver should detect overlap"
+    # Solver loss >= mesh_loss (includes On-relation contribution).
+    # The mesh component should be within same order of magnitude.
+    assert solver_loss >= expected_mesh_loss * 0.1
+
+
+@requires_warp
+def test_solver_mesh_batch_size_two():
+    """Solver MESH mode handles batch_size > 1 (both envs solved independently)."""
+    table = _make_table()
+    a = _make_cylinder("cyl_a")
+    b = _make_cylinder("cyl_b")
+    a.add_relation(On(table))
+    b.add_relation(On(table))
+
+    # Env 0: overlapping, Env 1: separated
+    initial = [
+        {table: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.05), b: (0.01, 0.0, 0.05)},
+        {table: (0.0, 0.0, 0.0), a: (-0.2, 0.0, 0.05), b: (0.2, 0.0, 0.05)},
+    ]
+
+    solver = RelationSolver(
+        params=RelationSolverParams(
+            collision_mode=CollisionMode.MESH, max_iters=200, convergence_threshold=1e-4, verbose=False
         )
+    )
+    results = solver.solve([table, a, b], initial)
+    assert len(results) == 2
+
+    # Env 0: should have moved objects apart
+    pos_a_0 = np.array(results[0][a])
+    pos_b_0 = np.array(results[0][b])
+    dist_0 = np.linalg.norm(pos_a_0[:2] - pos_b_0[:2])
+    assert dist_0 > 0.06, f"Env 0: objects not separated, dist={dist_0:.4f}"
+
+    # Env 1: already separated, should stay roughly in place
+    pos_a_1 = np.array(results[1][a])
+    pos_b_1 = np.array(results[1][b])
+    dist_1 = np.linalg.norm(pos_a_1[:2] - pos_b_1[:2])
+    assert dist_1 > 0.3, f"Env 1: separated objects moved too much, dist={dist_1:.4f}"
+
+
+# ---------------------------------------------------------------------------
+# Unit: AABB broadphase in production path
+# ---------------------------------------------------------------------------
+
+
+@requires_warp
+def test_broadphase_skips_separated_pairs():
+    """Well-separated objects produce zero mesh loss from the solver path."""
+    table = _make_table()
+    a = _make_cylinder("a", radius=0.03)
+    b = _make_cylinder("b", radius=0.03)
+    a.add_relation(On(table))
+    b.add_relation(On(table))
+
+    # Objects far apart — broadphase should filter them out
+    initial = [{table: (0.0, 0.0, 0.0), a: (-0.4, 0.0, 0.05), b: (0.4, 0.0, 0.05)}]
+
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False))
+    solver.solve([table, a, b], initial)
+    # With max_iters=0, loss is from initial positions.
+    # Objects are well separated, so collision loss should be minimal
+    # (only On-relation losses contribute).
+    loss = solver.last_loss_per_env[0].item()
+
+    # Compare with an overlapping case to confirm broadphase actually filters
+    initial_overlap = [{table: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.05), b: (0.01, 0.0, 0.05)}]
+    solver2 = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False))
+    solver2.solve([table, a, b], initial_overlap)
+    loss_overlap = solver2.last_loss_per_env[0].item()
+
+    assert loss_overlap > loss, "Overlapping case should have higher loss than separated"
+
+
+@requires_warp
+def test_broadphase_does_not_skip_overlapping_pairs():
+    """Overlapping objects must produce nonzero mesh loss from the solver path."""
+    table = _make_table()
+    a = _make_cylinder("a", radius=0.03)
+    b = _make_cylinder("b", radius=0.03)
+    a.add_relation(On(table))
+    b.add_relation(On(table))
+
+    # Overlapping: at same position
+    initial = [{table: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.05), b: (0.0, 0.0, 0.05)}]
+
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False))
+    solver.solve([table, a, b], initial)
+    loss = solver.last_loss_per_env[0].item()
+    assert loss > 0.0, "Overlapping objects should produce nonzero loss"
+
+
+# ---------------------------------------------------------------------------
+# multi_mesh_sdf: distinct meshes + backward
+# ---------------------------------------------------------------------------
+
+
+@requires_warp
+def test_multi_mesh_sdf_distinct_meshes():
+    """Verify mesh_indices routes queries to different meshes (not stuck at index 0)."""
+    from isaaclab_arena.relations.warp_sdf_kernels import multi_mesh_sdf
+
+    # Tall cylinder vs flat box — maximally different SDF at the query point.
+    cylinder = trimesh.creation.cylinder(radius=0.05, height=0.3, sections=32)
+    box = trimesh.creation.box(extents=(0.4, 0.4, 0.02))
+    mgr = WarpMeshManager(num_spheres=10, device="cpu")
+
+    warp_cyl = mgr.get_warp_mesh(cylinder)
+    warp_box = mgr.get_warp_mesh(box)
+
+    mesh_id_array = wp.array([warp_cyl.id, warp_box.id], dtype=wp.uint64, device="cpu")
+
+    # Point at origin: inside cylinder (depth ~0.05), inside box (depth ~0.01)
+    p = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
+
+    idx_cyl = wp.array([0], dtype=wp.int32, device="cpu")
+    sdf_cyl = multi_mesh_sdf(p, mesh_id_array, idx_cyl)
+
+    idx_box = wp.array([1], dtype=wp.int32, device="cpu")
+    sdf_box = multi_mesh_sdf(p, mesh_id_array, idx_box)
+
+    # Both inside (negative), but cylinder is much deeper
+    assert sdf_cyl.item() < -0.03, f"Expected deep inside cylinder, got {sdf_cyl.item()}"
+    assert sdf_box.item() < 0.0
+    assert sdf_cyl.item() < sdf_box.item(), "Cylinder should be deeper than flat box at origin"
+
+
+@requires_warp
+def test_multi_mesh_sdf_backward():
+    """Backward through multi_mesh_sdf produces correct gradient direction."""
+    from isaaclab_arena.relations.warp_sdf_kernels import multi_mesh_sdf
+
+    mesh = trimesh.creation.cylinder(radius=0.05, height=0.1, sections=32)
+    mgr = WarpMeshManager(num_spheres=10, device="cpu")
+    warp_mesh = mgr.get_warp_mesh(mesh)
+
+    mesh_id_array = wp.array([warp_mesh.id], dtype=wp.uint64, device="cpu")
+    mesh_indices = wp.array([0], dtype=wp.int32, device="cpu")
+
+    # Point at (0.02, 0, 0) inside cylinder (r=0.05): SDF gradient should point outward (+x)
+    points = torch.tensor([[0.02, 0.0, 0.0]], dtype=torch.float32, requires_grad=True)
+    sdf = multi_mesh_sdf(points, mesh_id_array, mesh_indices)
+    sdf.backward()
+
+    assert points.grad is not None
+    assert torch.isfinite(points.grad).all()
+    # SDF gradient at (0.02, 0, 0) should point radially outward: positive x, near-zero y/z
+    assert points.grad[0, 0].item() > 0.1, f"Expected +x gradient, got {points.grad[0].tolist()}"
+
+
+@requires_warp
+def test_solver_target_only_yaw():
+    """Target-only yaw must affect collision detection (catches missing parent rotation)."""
+    import math
+
+    table = _make_table()
+    # Long thin box: if rotated 90° around Z, its collision footprint changes axis
+    target = _make_box_obj("target", sx=0.2, sy=0.02, sz=0.05)
+    target.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.05)))
+    target.add_relation(IsAnchor())
+
+    child = _make_cylinder("child", radius=0.015)
+    child.add_relation(On(table))
+
+    # Place child next to target's long axis (Y=0.03). Without target rotation,
+    # this is well outside the 0.02/2 half-width in Y → no collision.
+    # With target rotated 90°, the 0.2/2=0.1 half-extent now spans Y → collision.
+    initial = [{table: (0.0, 0.0, 0.0), target: (0.0, 0.0, 0.05), child: (0.0, 0.03, 0.05)}]
+
+    # No rotation: should be low/zero mesh collision
+    solver_no_rot = RelationSolver(
+        params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False)
+    )
+    solver_no_rot.solve([table, target, child], initial, orientations=None)
+    loss_no_rot = solver_no_rot.last_loss_per_env[0].item()
+
+    # Target rotated 90° around Z: child is now inside target's mesh
+    orientations_rotated = [{target: math.pi / 2, child: 0.0}]
+    solver_rot = RelationSolver(
+        params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False)
+    )
+    solver_rot.solve([table, target, child], initial, orientations=orientations_rotated)
+    loss_rot = solver_rot.last_loss_per_env[0].item()
+
+    assert (
+        loss_rot > loss_no_rot + 1.0
+    ), f"Target yaw=90° should dramatically increase collision loss (got {loss_rot:.2f} vs {loss_no_rot:.2f})"
+
+
+@requires_warp
+def test_anchor_initial_pose_yaw_affects_collision():
+    """Anchor Z-yaw baked in initial_pose (no orientations dict) must affect SDF queries."""
+    import math
+
+    table = _make_table()
+    # Long thin anchor: 0.2 x 0.02 — rotation changes which axis is long
+    target_mesh = trimesh.creation.box(extents=(0.2, 0.02, 0.05))
+    target = DummyObject(
+        "target",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.01, -0.025), max_point=(0.1, 0.01, 0.025)),
+        collision_mesh=target_mesh,
+    )
+    # Bake 90° Z-yaw into initial_pose (not via orientations dict)
+    sz = math.sin(math.pi / 4)
+    cz = math.cos(math.pi / 4)
+    target.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.05), rotation_xyzw=(0.0, 0.0, sz, cz)))
+    target.add_relation(IsAnchor())
+
+    child = _make_cylinder("child", radius=0.012)
+    child.add_relation(On(table))
+
+    # Child at Y=0.02: outside unrotated target (half-width=0.01), inside rotated (half-length=0.1)
+    initial = [{table: (0.0, 0.0, 0.0), target: (0.0, 0.0, 0.05), child: (0.0, 0.02, 0.05)}]
+
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False))
+    solver.solve([table, target, child], initial, orientations=None)
+    loss_yawed = solver.last_loss_per_env[0].item()
+
+    # Same geometry with identity anchor — should have lower loss
+    target_id = DummyObject(
+        "target_id",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.01, -0.025), max_point=(0.1, 0.01, 0.025)),
+        collision_mesh=target_mesh,
+    )
+    target_id.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.05)))
+    target_id.add_relation(IsAnchor())
+    initial_id = [{table: (0.0, 0.0, 0.0), target_id: (0.0, 0.0, 0.05), child: (0.0, 0.02, 0.05)}]
+
+    solver_id = RelationSolver(
+        params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False)
+    )
+    child_rels = child.get_relations()
+    child._relations = [r for r in child_rels if not isinstance(r, On)]
+    child.add_relation(On(table))
+    solver_id.solve([table, target_id, child], initial_id, orientations=None)
+    loss_identity = solver_id.last_loss_per_env[0].item()
+
+    assert loss_yawed > loss_identity + 1.0, (
+        "Yawed anchor (from initial_pose) should produce higher collision "
+        f"(got {loss_yawed:.2f} vs identity {loss_identity:.2f})"
+    )

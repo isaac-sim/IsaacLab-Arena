@@ -58,7 +58,6 @@ def greedy_sphere_decomposition(
     points = _trimesh.sample.sample_surface(mesh, n_surface, seed=rng)[0]
     cloud = _trimesh.PointCloud(points)
 
-    # Compute tangent spheres at candidate surface points
     work_mesh = mesh if mesh.is_watertight else mesh.convex_hull
     candidates = points[:n_candidates]
     try:
@@ -71,7 +70,6 @@ def greedy_sphere_decomposition(
 
     radii = radii + sphere_radius
 
-    # Filter degenerate spheres
     max_radius = np.linalg.norm(mesh.extents) / 2
     valid = (radii <= max_radius) & np.isfinite(radii)
     centers, radii = centers[valid], radii[valid]
@@ -81,7 +79,6 @@ def greedy_sphere_decomposition(
         pts = points[:num_spheres]
         return np.column_stack([pts, np.full(len(pts), sphere_radius)])
 
-    # Build coverage graph: which surface points does each sphere cover?
     outgoing: dict[int, set[int]] = defaultdict(set)
     incoming: dict[int, set[int]] = defaultdict(set)
     for idx, (center, radius) in enumerate(zip(centers, radii)):
@@ -90,7 +87,6 @@ def greedy_sphere_decomposition(
             outgoing[idx].add(pt_idx)
             incoming[pt_idx].add(idx)
 
-    # Greedy set-cover selection
     selected: list[int] = []
     queue: list[tuple[int, int]] = []
     for idx in outgoing:
@@ -103,7 +99,6 @@ def greedy_sphere_decomposition(
             continue
         if neg_count == 0:
             break
-        # Remove covered points from other spheres
         for pt_idx in list(outgoing[idx]):
             for other_idx in incoming[pt_idx]:
                 outgoing[other_idx].discard(pt_idx)
@@ -133,6 +128,28 @@ class WarpMeshManager:
         self._device = device
         self._warp_mesh_cache: dict[tuple, wp.Mesh] = {}
         self._sphere_cache: dict[tuple, torch.Tensor] = {}
+
+    def __deepcopy__(self, memo):
+        """Copy without the Warp caches (wp.Mesh holds unpicklable C pointers).
+
+        The caches are pure lazy lookups, so the copy rebuilds them on demand.
+        """
+        import copy
+
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            if k in ("_warp_mesh_cache", "_sphere_cache"):
+                setattr(result, k, {})
+            else:
+                setattr(result, k, copy.deepcopy(v, memo))
+        return result
+
+    @property
+    def device(self) -> str:
+        """Target Warp device string (e.g. 'cuda:0', 'cpu')."""
+        return self._device
 
     def _cache_key(self, mesh: trimesh.Trimesh, obj=None) -> tuple:
         """Compute cache key. Uses (usd_path, scale) for USD objects, content hash otherwise."""

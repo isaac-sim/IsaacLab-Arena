@@ -550,6 +550,7 @@ class NoCollisionLossStrategy:
         return total_loss.squeeze(0) if single_input else total_loss
 
     def _get_mesh_manager(self, device: str = "cuda:0"):
+        """Return a cached WarpMeshManager for the given device."""
         if device not in self._mesh_managers:
             from isaaclab_arena.relations.warp_mesh_manager import WarpMeshManager
 

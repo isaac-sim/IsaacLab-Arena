@@ -26,6 +26,7 @@ def solve_and_apply_relation_placement(
     placement_seed: int | None = None,
     resolve_on_reset: bool | None = None,
     random_yaw_init: bool = False,
+    collision_mode: str = "bbox",
 ) -> EventTermCfg | None:
     """Solve relation placement and apply the result to object reset/static state.
 
@@ -38,20 +39,24 @@ def solve_and_apply_relation_placement(
             initial poses are applied immediately.
         random_yaw_init: If True, randomly rotates non-anchor objects around the vertical (Z)
             axis at startup to add visual variety to the scene.
+        collision_mode: Collision detection mode: "bbox" or "mesh".
 
     Returns:
         Reset event config to attach to the environment when placement should be
         resolved on reset. Returns ``None`` when no reset event is needed.
     """
+    from isaaclab_arena.relations.relation_solver_params import CollisionMode
+
     objects = list(objects)
     if not objects:
         print("No objects with relations found in scene. Skipping relation solving.")
         return None
 
+    mode = CollisionMode.MESH if collision_mode == "mesh" else CollisionMode.BBOX
     placer_params = ObjectPlacerParams(
         placement_seed=placement_seed,
         apply_positions_to_objects=False,
-        solver_params=RelationSolverParams(save_position_history=False, verbose=False),
+        solver_params=RelationSolverParams(collision_mode=mode, save_position_history=False, verbose=False),
         random_yaw_init=random_yaw_init,
     )
     if resolve_on_reset is not None:

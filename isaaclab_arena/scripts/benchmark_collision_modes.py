@@ -6,8 +6,9 @@
 
 """Benchmark script comparing BBOX vs MESH collision modes.
 
-Measures wall-clock time, iterations to convergence, and placement success
-for a configurable number of objects and sphere budgets.
+Uses realistic object shapes and dimensions from YCB and Arena object library
+(cracker box, mustard bottle, soup can, mug, sugar box, power drill proxy).
+Measures wall-clock time, placement success, and final loss.
 
 Usage:
     python isaaclab_arena/scripts/benchmark_collision_modes.py
@@ -27,20 +28,82 @@ from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
+# ---------------------------------------------------------------------------
+# Realistic object proxies (dimensions from YCB dataset / Arena library)
+# ---------------------------------------------------------------------------
 
-def _make_cylinder(name: str, radius: float = 0.033, height: float = 0.1) -> DummyObject:
-    mesh = trimesh.creation.cylinder(radius=radius, height=height, sections=32)
+
+def _make_cracker_box() -> DummyObject:
+    """YCB 003_cracker_box: 0.158 x 0.213 x 0.072 m."""
+    sx, sy, sz = 0.158, 0.213, 0.072
+    mesh = trimesh.creation.box(extents=(sx, sy, sz))
     return DummyObject(
-        name=name,
-        bounding_box=AxisAlignedBoundingBox(
-            min_point=(-radius, -radius, -height / 2),
-            max_point=(radius, radius, height / 2),
-        ),
+        name="cracker_box",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-sx / 2, -sy / 2, -sz / 2), max_point=(sx / 2, sy / 2, sz / 2)),
+        collision_mesh=mesh,
+    )
+
+
+def _make_mustard_bottle() -> DummyObject:
+    """YCB 006_mustard_bottle: ~cylinder r=0.029, h=0.19."""
+    r, h = 0.029, 0.19
+    mesh = trimesh.creation.cylinder(radius=r, height=h, sections=32)
+    return DummyObject(
+        name="mustard_bottle",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-r, -r, -h / 2), max_point=(r, r, h / 2)),
+        collision_mesh=mesh,
+    )
+
+
+def _make_soup_can() -> DummyObject:
+    """YCB 005_tomato_soup_can: cylinder r=0.033, h=0.101."""
+    r, h = 0.033, 0.101
+    mesh = trimesh.creation.cylinder(radius=r, height=h, sections=32)
+    return DummyObject(
+        name="soup_can",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-r, -r, -h / 2), max_point=(r, r, h / 2)),
+        collision_mesh=mesh,
+    )
+
+
+def _make_mug() -> DummyObject:
+    """Mug: approx cylinder r=0.04, h=0.095 (handle ignored in collision)."""
+    r, h = 0.04, 0.095
+    mesh = trimesh.creation.cylinder(radius=r, height=h, sections=32)
+    return DummyObject(
+        name="mug",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-r, -r, -h / 2), max_point=(r, r, h / 2)),
+        collision_mesh=mesh,
+    )
+
+
+def _make_sugar_box() -> DummyObject:
+    """YCB 004_sugar_box: 0.089 x 0.176 x 0.045 m."""
+    sx, sy, sz = 0.089, 0.176, 0.045
+    mesh = trimesh.creation.box(extents=(sx, sy, sz))
+    return DummyObject(
+        name="sugar_box",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-sx / 2, -sy / 2, -sz / 2), max_point=(sx / 2, sy / 2, sz / 2)),
+        collision_mesh=mesh,
+    )
+
+
+def _make_power_drill() -> DummyObject:
+    """Power drill: irregular shape approximated by L-shaped box union (~0.18 x 0.07 x 0.19)."""
+    body = trimesh.creation.box(extents=(0.18, 0.05, 0.06))
+    handle = trimesh.creation.box(extents=(0.04, 0.05, 0.12))
+    handle.apply_translation([0.05, 0.0, -0.09])
+    mesh = trimesh.util.concatenate([body, handle])
+    sx, sy, sz = 0.18, 0.07, 0.19
+    return DummyObject(
+        name="power_drill",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-sx / 2, -sy / 2, -sz / 2), max_point=(sx / 2, sy / 2, sz / 2)),
         collision_mesh=mesh,
     )
 
 
 def _make_table() -> DummyObject:
+    """60x60cm table surface."""
     mesh = trimesh.creation.box(extents=(0.6, 0.6, 0.05))
     table = DummyObject(
         name="table",
@@ -52,11 +115,26 @@ def _make_table() -> DummyObject:
     return table
 
 
+# Object factory: creates a diverse set mimicking a real GR1 tabletop scene
+_OBJECT_FACTORIES = [
+    _make_cracker_box,
+    _make_mustard_bottle,
+    _make_soup_can,
+    _make_mug,
+    _make_sugar_box,
+    _make_power_drill,
+    _make_soup_can,  # second can
+    _make_mug,  # second mug
+]
+
+
 def _build_scene(num_objects: int) -> list[DummyObject]:
     table = _make_table()
     objects = [table]
     for i in range(num_objects):
-        obj = _make_cylinder(f"cyl_{i}", radius=0.025 + 0.005 * (i % 3))
+        factory = _OBJECT_FACTORIES[i % len(_OBJECT_FACTORIES)]
+        obj = factory()
+        obj.name = f"{obj.name}_{i}"
         obj.add_relation(On(table))
         objects.append(obj)
     return objects
@@ -98,13 +176,16 @@ def _run_benchmark(
 
 def main():
     print("=" * 70)
-    print("Collision Mode Benchmark: BBOX vs MESH")
+    print("Collision Mode Benchmark: BBOX vs MESH (real object proxies)")
     print("=" * 70)
+    print()
+    print("Objects: cracker_box, mustard_bottle, soup_can, mug, sugar_box, power_drill")
     print()
 
     configs = [
-        (5, [10, 30, 50]),
-        (8, [10, 30, 50]),
+        (4, [30]),
+        (6, [30]),
+        (8, [30]),
     ]
 
     results = []
@@ -115,7 +196,7 @@ def main():
         results.append(r)
         print(f"BBOX | {num_objects} objects | time={r['time_s']:.3f}s | valid={r['valid']} | loss={r['loss']:.6f}")
 
-        # MESH variants
+        # MESH
         for ns in sphere_counts:
             r = _run_benchmark(CollisionMode.MESH, num_objects, num_spheres=ns)
             results.append(r)
