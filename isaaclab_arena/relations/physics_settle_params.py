@@ -10,7 +10,7 @@ from dataclasses import dataclass
 class PhysicsSettleParams:
     """Configuration for the in-sim physics settle check."""
 
-    num_steps: int = 2
+    num_steps: int = 5
     """Number of env steps to advance before reading back object state in the settle check. The settle
     check converts this to ``num_steps * decimation`` physics substeps internally."""
 

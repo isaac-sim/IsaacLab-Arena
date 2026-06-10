@@ -47,7 +47,6 @@ def get_rotation_xyzw(obj: ObjectBase) -> tuple[float, float, float, float]:
     return rotate_marker.get_rotation_xyzw() if rotate_marker else IDENTITY_ROTATION_XYZW
 
 
-
 def get_base_rotations(
     objects: list[ObjectBase],
     anchor_objects_set: set[ObjectBase],
@@ -71,7 +70,7 @@ def write_layout_to_sim(
     anchor_objects_set: set[ObjectBase],
     base_rotations: dict[ObjectBase, tuple[float, float, float, float]],
 ) -> None:
-    """Write one env's solved layout into the sim. Used by the reset event and the physics settle validation.
+    """Write one env's solved layout into the sim.
 
     Even writing zero velocity, the sim will still apply gravity and other forces from collisions,
     so collided objects will still be subject to move.

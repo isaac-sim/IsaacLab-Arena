@@ -3,11 +3,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Sim tests for the physics-settle primitives in isaaclab_arena.utils.physics_settle.
+"""Sim tests for the physics-settle primitives and the pooled placement-validation sweep.
 
-Two scenarios exercise the settle check end to end against a live SimulationApp:
-- objects at rest stay at rest -> objects_settled() is True,
-- two objects launched on a collision course keep moving -> objects_settled() is False.
+Each scenario runs end to end against a live SimulationApp:
+- objects at rest stay at rest -> objects_settled_per_episode() is True,
+- two objects launched on a collision course keep moving -> objects_settled_per_episode() is False,
+- a per-env batch of layouts is graded independently in one settle pass,
+- validate_pool_layouts() sweeps every pooled candidate and stamps each layout's PHYSICS_SETTLED verdict.
 """
 
 import traceback
@@ -87,10 +89,8 @@ def _test_objects_settled_when_at_rest(simulation_app):
     env, object_names = _build_two_sphere_env(poses, velocities)
     try:
         physics_settle.step_physics(env, SETTLE_STEPS)
-        velocities_out = physics_settle.max_object_velocities(env, env_id=0, object_names=object_names)
-        print(f"At-rest velocities (lin, ang) per object: {velocities_out}")
-        settled = physics_settle.objects_settled(env, 0, object_names, LIN_VEL_THRESH, ANG_VEL_THRESH)
-        assert settled, f"Motionless objects should settle; got velocities {velocities_out}"
+        settled = physics_settle.objects_settled_per_episode(env, [0], object_names, LIN_VEL_THRESH, ANG_VEL_THRESH)[0]
+        assert settled, "Motionless objects should settle"
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -120,10 +120,8 @@ def _test_objects_not_settled_when_colliding(simulation_app):
     env, object_names = _build_two_sphere_env(poses, velocities)
     try:
         physics_settle.step_physics(env, SETTLE_STEPS)
-        velocities_out = physics_settle.max_object_velocities(env, env_id=0, object_names=object_names)
-        print(f"Colliding velocities (lin, ang) per object: {velocities_out}")
-        settled = physics_settle.objects_settled(env, 0, object_names, LIN_VEL_THRESH, ANG_VEL_THRESH)
-        assert not settled, f"Colliding objects should not settle; got velocities {velocities_out}"
+        settled = physics_settle.objects_settled_per_episode(env, [0], object_names, LIN_VEL_THRESH, ANG_VEL_THRESH)[0]
+        assert not settled, "Colliding objects should not settle"
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -193,12 +191,10 @@ def _test_parallel_layout_validation_per_env(simulation_app):
     env, object_names = _build_parallel_layout_env(num_envs, expected_settled)
     try:
         physics_settle.step_physics(env, SETTLE_STEPS)
-        settled_per_env = []
-        for env_id in range(num_envs):
-            velocities_out = physics_settle.max_object_velocities(env, env_id, object_names)
-            settled = physics_settle.objects_settled(env, env_id, object_names, LIN_VEL_THRESH, ANG_VEL_THRESH)
-            print(f"env {env_id}: settled={settled} expected={expected_settled[env_id]} velocities={velocities_out}")
-            settled_per_env.append(settled)
+        settled_per_env = physics_settle.objects_settled_per_episode(
+            env, list(range(num_envs)), object_names, LIN_VEL_THRESH, ANG_VEL_THRESH
+        )
+        print(f"Per-env settle verdicts={settled_per_env} expected={expected_settled}")
         assert (
             settled_per_env == expected_settled
         ), f"Per-env settle verdicts {settled_per_env} != expected {expected_settled}"
@@ -211,14 +207,16 @@ def _test_parallel_layout_validation_per_env(simulation_app):
     return True
 
 
-def _test_settle_check_reselects_unstable_layout(simulation_app):
-    """The settle pass should re-select an unstable pooled layout in sim until a stable one settles.
+def _test_validate_pool_layouts_grades_each_layout(simulation_app):
+    """validate_pool_layouts should step physics on every pooled candidate and stamp each layout's
+    PHYSICS_SETTLED verdict onto its own checklist.
 
     Builds a real Arena env (an office table anchor with a cracker box placed On it, from the asset
-    registry) with the settle check enabled. The solver's own resting layout is kept as the stable
-    candidate; an unstable copy lifts the cracker box a meter above its resting spot so it is still falling
-    at the end of the settle window. The settle pass must step physics, mark the dropped layout as a settle
-    failure, draw the resting replacement, and leave the box at rest -- all driven by the live physics.
+    registry) across two envs, then seeds each env's pool queue with two candidates: one resting layout
+    (settles within the window) and one lifted a couple of meters above the table (still falling, so
+    unsettled). The sweep validates all four candidates -- two per env, batched in parallel across the two
+    scene envs -- and must record the matching settled/unsettled result on each candidate while leaving the
+    geometric (gating) checks untouched.
     """
     import isaaclab.sim as sim_utils
 
@@ -227,23 +225,16 @@ def _test_settle_check_reselects_unstable_layout(simulation_app):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
-    from isaaclab_arena.relations.placement_events import (
-        get_placement_pool,
-        get_rotation_xyzw,
-        verify_in_sim_and_reselect,
-        write_layout_to_sim,
-    )
+    from isaaclab_arena.relations.placement_events import get_placement_pool
+    from isaaclab_arena.relations.placement_pool_validation import validate_pool_layouts
     from isaaclab_arena.relations.placement_result import PlacementResult
-    from isaaclab_arena.relations.placement_validation import PlacementValidationChecklist
+    from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationChecklist
     from isaaclab_arena.relations.pooled_object_placer import EnvLayoutPool
     from isaaclab_arena.relations.relations import IsAnchor, On, get_anchor_objects
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.utils import physics_settle
     from isaaclab_arena.utils.pose import Pose
 
-    # The resting box settles within the window, while a large drop keeps the lifted box airborne (and so
-    # unsettled) for the whole window: in ~0.3 s (60 steps at dt=0.005) it falls only ~0.44 m of its 2 m.
-    settle_steps = 60
+    num_envs = 2
     drop_height = 2.0
 
     table = OfficeTable(instance_name="table")
@@ -257,22 +248,25 @@ def _test_settle_check_reselects_unstable_layout(simulation_app):
     cracker.add_relation(On(table, clearance_m=0.01))
 
     scene = Scene(assets=[table, cracker])
-    isaaclab_arena_environment = IsaacLabArenaEnvironment(name="settle_reselect_test", scene=scene)
+    isaaclab_arena_environment = IsaacLabArenaEnvironment(name="validate_pool_layouts_test", scene=scene)
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
-    args_cli.num_envs = 1
+    args_cli.num_envs = num_envs
     env = ArenaEnvBuilder(isaaclab_arena_environment, args_cli).make_registered()
     env.reset()
 
     try:
         pool = get_placement_pool(env)
-        assert pool is not None, "Settle check requires a pooled placer on the env."
-        # The settle config is supplied to the placement-event call, not carried by the pool/solver.
+        assert pool is not None, "Pool validation requires a pooled placer on the env."
+        # The settle config drives the sweep; max_retries is unused by validate_pool_layouts.
+        # num_steps is in env-step units; validate_pool_layouts converts it to physics substeps via the
+        # env's decimation. Target ~60 substeps (~0.3 s at dt=0.005): the resting box settles within the
+        # window, while the 2 m drop keeps the lifted box airborne (it falls only ~0.44 m in that span).
+        settle_steps = max(1, round(60 / env.unwrapped.cfg.decimation))
         settle_params = PhysicsSettleParams(
             num_steps=settle_steps,
             lin_vel_thresh=LIN_VEL_THRESH,
             ang_vel_thresh=ANG_VEL_THRESH,
-            max_retries=2,
         )
 
         # The builder re-instantiates the scene objects, so resolve the actual cracker box the pool holds
@@ -282,41 +276,52 @@ def _test_settle_check_reselects_unstable_layout(simulation_app):
         assert len(movable) == 1, f"Expected exactly one movable object, got {[o.name for o in movable]}."
         cracker_obj = movable[0]
 
-        # The reset applied a solver layout that rests the cracker box on the table -- use its position as
-        # the stable candidate, and lift a copy by drop_height for the unstable one.
+        # The reset applied a solver layout that rests the cracker box on the table -- use its position
+        # (env-local, valid in any env) as the resting candidate, and lift a copy by drop_height for the
+        # unstable one.
         rest_x, rest_y, rest_z = pool.last_applied[0].positions[cracker_obj]
+        unstable_z = rest_z + drop_height
 
         def _layout(z: float) -> PlacementResult:
+            # Each candidate carries its own checklist so the sweep stamps PHYSICS_SETTLED independently.
             return PlacementResult(
-                validation_checklist=PlacementValidationChecklist(checklist_items={"valid": True}),
+                validation_checklist=PlacementValidationChecklist(
+                    checklist_items={PlacementCheck.NO_OVERLAP: True, PlacementCheck.ON_RELATION: True},
+                    required_items={PlacementCheck.NO_OVERLAP, PlacementCheck.ON_RELATION},
+                ),
                 positions={cracker_obj: (rest_x, rest_y, z)},
                 final_loss=0.0,
                 attempts=1,
             )
 
-        unstable = _layout(rest_z + drop_height)  # dropped from height -> still falling -> unsettled
-        stable = _layout(rest_z)  # resting on the table -> settles
-        # Seed the pool: the applied (and to-be-verified) layout is the unstable drop; the only
-        # replacement the settle pass can draw is the stable resting layout.
-        pool.last_applied.clear()
-        pool.last_applied[0] = unstable
-        pool._env_pools[0] = EnvLayoutPool([stable])
+        # Seed each env's queue with a resting and a dropped candidate, ordered differently per env so the
+        # expected verdict varies by both env and candidate index (not a fixed pattern).
+        # env 0: [resting -> settles, dropped -> unsettled]; env 1: [dropped -> unsettled, resting -> settles].
+        seeded = {
+            0: [_layout(rest_z), _layout(unstable_z)],
+            1: [_layout(unstable_z), _layout(rest_z)],
+        }
+        expected_settled = {(0, 0): True, (0, 1): False, (1, 0): False, (1, 1): True}
+        for env_id, env_layouts in seeded.items():
+            pool._env_pools[env_id] = EnvLayoutPool(env_layouts)
 
-        # Match the sim to the applied layout, exactly as the reset event would have done.
-        base_rotations = {obj: get_rotation_xyzw(obj) for obj in movable}
-        write_layout_to_sim(env.unwrapped, 0, unstable, anchor_objects_set, base_rotations)
+        results = validate_pool_layouts(env, pool, settle_params)
 
-        verify_in_sim_and_reselect(pool, env, settle_params)
-
-        assert unstable.validation_checklist.physics_settled_failed, "Dropped layout should fail the settle check."
-        assert pool.last_applied[0] is stable, "Settle pass should re-select the resting layout."
-        assert stable.validation_checklist.checklist_items["physics_settled"] is True, "Resting layout should settle."
-        # Confirm against the live sim that the cracker box is actually at rest after re-selection.
-        velocities_out = physics_settle.max_object_velocities(env, env_id=0, object_names=[cracker_obj.name])
-        print(f"Post-reselection cracker velocity (lin, ang): {velocities_out}")
-        assert physics_settle.objects_settled(
-            env, 0, [cracker_obj.name], LIN_VEL_THRESH, ANG_VEL_THRESH
-        ), f"Cracker box should be settled after re-selection; got {velocities_out}"
+        assert len(results) == len(expected_settled), f"Expected {len(expected_settled)} candidates, got {len(results)}"
+        for env_id, candidate_index, checklist in results:
+            assert (
+                PlacementCheck.PHYSICS_SETTLED in checklist.checklist_items
+            ), f"env {env_id} candidate {candidate_index}: settle sweep did not stamp PHYSICS_SETTLED."
+            settled = checklist.checklist_items[PlacementCheck.PHYSICS_SETTLED]
+            want = expected_settled[(env_id, candidate_index)]
+            print(
+                f"env {env_id} candidate {candidate_index}: settled={settled} expected={want} -> {checklist.report()}"
+            )
+            assert settled is want, f"env {env_id} candidate {candidate_index}: settled={settled}, expected {want}"
+            # PHYSICS_SETTLED is optional, so the geometric gate must still pass even for the dropped layout.
+            assert (
+                checklist.pass_validation_checklist()
+            ), f"env {env_id} candidate {candidate_index}: geometric gate should be unaffected by the settle sweep."
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -341,13 +346,13 @@ def test_parallel_layout_validation_per_env():
     assert result, f"Test {test_parallel_layout_validation_per_env.__name__} failed"
 
 
-def test_settle_check_reselects_unstable_layout():
-    result = run_simulation_app_function(_test_settle_check_reselects_unstable_layout, headless=HEADLESS)
-    assert result, f"Test {test_settle_check_reselects_unstable_layout.__name__} failed"
+def test_validate_pool_layouts_grades_each_layout():
+    result = run_simulation_app_function(_test_validate_pool_layouts_grades_each_layout, headless=HEADLESS)
+    assert result, f"Test {test_validate_pool_layouts_grades_each_layout.__name__} failed"
 
 
 if __name__ == "__main__":
     test_objects_settled_when_at_rest()
     test_objects_not_settled_when_colliding()
     test_parallel_layout_validation_per_env()
-    test_settle_check_reselects_unstable_layout()
+    test_validate_pool_layouts_grades_each_layout()
