@@ -34,12 +34,6 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         help="Continue evaluation with remaining jobs when a job fails instead of stopping immediately.",
     )
     parser.add_argument(
-        "--episode_record_dir",
-        type=str,
-        default=None,
-        help="Directory to write one EpisodeRecord JSON per job. If not set, no records are written.",
-    )
-    parser.add_argument(
         "--metrics_file",
         type=str,
         default=None,
