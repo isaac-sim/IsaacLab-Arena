@@ -604,6 +604,17 @@ class ObjectPlacer:
                     return False
         return True
 
+    def _get_cpu_mesh_manager(self):
+        """Lazily create a CPU WarpMeshManager, cached across validation calls."""
+        if not hasattr(self, "_cpu_mesh_manager"):
+            from isaaclab_arena.relations.warp_mesh_manager import WarpMeshManager
+
+            self._cpu_mesh_manager = WarpMeshManager(
+                num_spheres=self.params.solver_params.num_spheres,
+                device="cpu",
+            )
+        return self._cpu_mesh_manager
+
     def _validate_no_overlap_mesh(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
@@ -614,7 +625,6 @@ class ObjectPlacer:
         Skips pairs where either object lacks a collision mesh (the solver's loss
         path still penalizes those via AABB fallback during optimization).
         """
-        from isaaclab_arena.relations.warp_mesh_manager import WarpMeshManager
         from isaaclab_arena.relations.warp_sdf_kernels import mesh_sdf
 
         on_pairs: set[tuple] = set()
@@ -629,10 +639,7 @@ class ObjectPlacer:
 
         clearance_m = self.params.solver_params.clearance_m
         tolerance = max(0.0, clearance_m - 1e-6)
-        manager = WarpMeshManager(
-            num_spheres=self.params.solver_params.num_spheres,
-            device="cpu",
-        )
+        manager = self._get_cpu_mesh_manager()
 
         warned_no_mesh: set[str] = set()
         objects = list(positions.keys())
@@ -693,10 +700,11 @@ class ObjectPlacer:
         Returns:
             True if no overlaps exist and On relations hold, False otherwise.
         """
-        if not self._validate_no_overlap(positions, env_bboxes):
-            return False
         if self.params.solver_params.collision_mode == CollisionMode.MESH:
             if not self._validate_no_overlap_mesh(positions):
+                return False
+        else:
+            if not self._validate_no_overlap(positions, env_bboxes):
                 return False
         return self._validate_on_relations(positions, env_bboxes)
 

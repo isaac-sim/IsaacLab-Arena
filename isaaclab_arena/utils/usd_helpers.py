@@ -245,7 +245,7 @@ def extract_trimesh_from_usd(
             continue
 
         xform = UsdGeom.Xformable(prim)
-        world_tf = np.array(xform.ComputeLocalToWorldTransform(Usd.TimeCode.Default())).T
+        world_tf = np.array(xform.ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
 
         verts = np.asarray(pts, dtype=np.float64)
         verts_h = np.hstack([verts, np.ones((len(verts), 1))])
