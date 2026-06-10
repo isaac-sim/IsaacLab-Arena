@@ -112,13 +112,11 @@ def rollout_policy(
                     policy.reset(env_ids=env_ids)
 
                     for env_idx in env_ids.tolist():
-                        episode_boundaries.append(
-                            {
-                                "env_idx": env_idx,
-                                "start_step": episode_starts.get(env_idx, 0),
-                                "end_step": num_steps_completed,
-                            }
-                        )
+                        episode_boundaries.append({
+                            "env_idx": env_idx,
+                            "start_step": episode_starts.get(env_idx, 0),
+                            "end_step": num_steps_completed,
+                        })
                         episode_starts[env_idx] = num_steps_completed + 1
 
                     # Break if number of episodes is reached
@@ -147,13 +145,11 @@ def rollout_policy(
         # num_steps mode: last executed step = num_steps_completed - 1 (increment fired before break)
         # num_episodes mode: last executed step = num_steps_completed (break fired before increment)
         last_step = (num_steps_completed - 1) if num_steps is not None else num_steps_completed
-        n_envs = terminated.shape[0]
+        n_envs = env.unwrapped.num_envs
         for env_idx in range(n_envs):
             start = episode_starts.get(env_idx, 0)
             if start <= last_step:
-                episode_boundaries.append(
-                    {"env_idx": env_idx, "start_step": start, "end_step": last_step}
-                )
+                episode_boundaries.append({"env_idx": env_idx, "start_step": start, "end_step": last_step})
 
     except Exception as e:
         if pbar is not None:
