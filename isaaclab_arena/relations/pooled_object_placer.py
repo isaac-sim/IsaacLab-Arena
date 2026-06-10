@@ -28,10 +28,7 @@ class EnvLayoutPool:
 
     @property
     def available(self) -> int:
-        # Layouts that failed the physics settle check are never handed out.
-        return sum(
-            1 for layout in self.layouts[self.cursor :] if not layout.validation_checklist.physics_settled_failed
-        )
+        return len(self.layouts) - self.cursor
 
     def discard_consumed(self) -> None:
         self.layouts = self.layouts[self.cursor :]
@@ -44,9 +41,6 @@ class EnvLayoutPool:
         self.layouts.extend(layouts)
 
     def next(self) -> PlacementResult:
-        # Skip layouts already known to fail the physics settle check
-        while self.cursor < len(self.layouts) and self.layouts[self.cursor].validation_checklist.physics_settled_failed:
-            self.cursor += 1
         assert self.cursor < len(self.layouts), "No unread layouts remain in this env pool."
         layout = self.layouts[self.cursor]
         self.cursor += 1
@@ -466,6 +460,16 @@ class PooledObjectPlacer:
     def objects(self) -> list[ObjectBase]:
         """All objects (including anchors) participating in relation solving."""
         return self._objects
+
+    def candidates_per_env(self) -> list[list[PlacementResult]]:
+        """Non-consuming snapshot of every stored candidate layout, grouped by env pool index.
+
+        For env-specific pools each inner list holds the candidates solved for that absolute env; for
+        reusable pools the grouping just reflects how interchangeable layouts were distributed across
+        pools. Includes already-consumed layouts (the consumption cursor is ignored) so the full pool
+        can be inspected by the offline validation sweep. Advances nothing.
+        """
+        return [list(pool.layouts) for pool in self._env_pools]
 
     @property
     def last_applied(self) -> dict[int, PlacementResult]:
