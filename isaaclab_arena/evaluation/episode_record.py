@@ -13,6 +13,7 @@ ModelOutput, SubtaskPhase, and EpisodeTrace are defined here as stubs so
 code in later phases can import them from a stable location.
 """
 
+import contextlib
 import dataclasses
 import json
 import os
@@ -287,17 +288,13 @@ def build_episode_record(
     language_instruction = job.language_instruction or getattr(env.unwrapped.cfg, "task_description", None)
 
     step_dt: float | None = None
-    try:
+    with contextlib.suppress(Exception):
         step_dt = float(env.unwrapped.step_dt)
-    except Exception:
-        pass
 
     episode_length_steps: int | None = job.num_steps
     if episode_length_steps is None:
-        try:
+        with contextlib.suppress(Exception):
             episode_length_steps = int(env.unwrapped.max_episode_length)
-        except Exception:
-            pass
 
     return EpisodeRecord(
         episode_id=job.name,

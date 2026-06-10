@@ -112,11 +112,13 @@ def rollout_policy(
                     policy.reset(env_ids=env_ids)
 
                     for env_idx in env_ids.tolist():
-                        episode_boundaries.append({
-                            "env_idx": env_idx,
-                            "start_step": episode_starts.get(env_idx, 0),
-                            "end_step": num_steps_completed,
-                        })
+                        episode_boundaries.append(
+                            {
+                                "env_idx": env_idx,
+                                "start_step": episode_starts.get(env_idx, 0),
+                                "end_step": num_steps_completed,
+                            }
+                        )
                         episode_starts[env_idx] = num_steps_completed + 1
 
                     # Break if number of episodes is reached

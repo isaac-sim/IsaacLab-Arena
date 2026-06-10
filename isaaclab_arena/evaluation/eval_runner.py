@@ -12,10 +12,9 @@ import os
 import subprocess
 import sys
 import tempfile
+import torch
 import traceback
 from datetime import datetime
-
-import torch
 from gymnasium.wrappers import RecordVideo
 from pathlib import Path
 from typing import TYPE_CHECKING
