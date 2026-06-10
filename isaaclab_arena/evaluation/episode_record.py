@@ -230,11 +230,7 @@ def _find_video_paths(video_dir: str | None, job_name: str) -> list[str]:
     job_video_dir = os.path.join(video_dir, job_name)
     if not os.path.isdir(job_video_dir):
         return []
-    return sorted(
-        os.path.join(job_video_dir, f)
-        for f in os.listdir(job_video_dir)
-        if f.endswith(".mp4")
-    )
+    return sorted(os.path.join(job_video_dir, f) for f in os.listdir(job_video_dir) if f.endswith(".mp4"))
 
 
 def _get_hdf5_path(env) -> str | None:
@@ -246,8 +242,7 @@ def _get_hdf5_path(env) -> str | None:
         if not hasattr(cfg, "recorders") or cfg.recorders is None:
             return None
         return str(
-            pathlib.Path(cfg.recorders.dataset_export_dir_path)
-            / pathlib.Path(cfg.recorders.dataset_filename + ".hdf5")
+            pathlib.Path(cfg.recorders.dataset_export_dir_path) / pathlib.Path(cfg.recorders.dataset_filename + ".hdf5")
         )
     except Exception:
         return None

@@ -129,9 +129,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
     def close(self) -> None:
         try:
             if self.recording and any(
-                len(env_frames) > 0
-                for env_frame_lists in self.buffers.values()
-                for env_frames in env_frame_lists
+                len(env_frames) > 0 for env_frame_lists in self.buffers.values() for env_frames in env_frame_lists
             ):
                 self._flush()
         finally:
