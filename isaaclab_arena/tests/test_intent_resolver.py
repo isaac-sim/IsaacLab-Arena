@@ -232,12 +232,12 @@ def test_spatial_constraint_unknown_subject_skipped():
     assert any(e.stage == "relation.initial.unknown_subject" for e in resolver.trace)
 
 
-def test_spatial_constraint_unknown_parent_skipped():
+def test_spatial_constraint_unknown_reference_skipped():
     initial = [SpatialRelationSpec(kind="on", subject="maple_table", reference="missing_node")]
     resolver = make_resolver()
     spec = resolver.resolve(make_scene(initial_state_graph=initial))
     assert spec.initial_state_spec.spatial_constraints == []
-    assert any(e.stage == "relation.initial.unknown_parent" for e in resolver.trace)
+    assert any(e.stage == "relation.initial.unknown_reference" for e in resolver.trace)
 
 
 def test_spatial_constraint_params_passed_through():

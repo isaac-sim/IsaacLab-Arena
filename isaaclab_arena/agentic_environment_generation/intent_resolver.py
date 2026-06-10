@@ -27,7 +27,7 @@ class IntentResolver:
 
     _ERROR_TRACE_STAGES: frozenset[str] = frozenset({
         "relation.initial.unknown_subject",
-        "relation.initial.unknown_parent",
+        "relation.initial.unknown_reference",
         "task.unknown_param",
     })
 
@@ -169,7 +169,7 @@ class IntentResolver:
             self.trace.append(TraceEvent(f"{stage_prefix}.unknown_subject", rel.subject, None, note=rel.kind))
             return None
         if rel.reference is not None and rel.reference not in known_ids:
-            self.trace.append(TraceEvent(f"{stage_prefix}.unknown_parent", rel.reference, None, note=rel.kind))
+            self.trace.append(TraceEvent(f"{stage_prefix}.unknown_reference", rel.reference, None, note=rel.kind))
             return None
 
         reference_part = f"_{rel.reference}" if rel.reference is not None else ""
