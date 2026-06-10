@@ -296,8 +296,8 @@ def main():
             )
             collector = DatagenCollector.from_env(env, datagen_cfg, env_name=args_cli.example_environment)
             print(
-                f"[Rank {local_rank}/{world_size}] Collecting datagen data (one file per episode) to:"
-                f" {args_cli.datagen_output_dir}"
+                f"[Rank {local_rank}/{world_size}] Collecting datagen data to:"
+                f" {args_cli.datagen_output_dir}/episode_NNNN/dataset.h5"
             )
 
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"

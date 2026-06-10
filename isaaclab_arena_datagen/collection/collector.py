@@ -8,15 +8,16 @@
 ``policy_runner`` and ``eval_runner``) via an opt-in ``collector`` argument.
 After each environment step it records the same modalities the standalone
 generator produces (RGB, depth, normals, semantics, optical/scene flow,
-dynamic-object poses + mesh samples) into a single ``dataset.h5`` in the
-SyntheticScene schema -- using **dedicated** static cameras that are independent
-of the policy's own observation cameras.
+dynamic-object poses + mesh samples) into nested per-episode ``dataset.h5`` files
+in the SyntheticScene schema -- using **dedicated** static cameras that are
+independent of the policy's own observation cameras.
 
 **One HDF5 file per episode.** The collector splits the rollout at episode
-boundaries and writes ``episode_0000.h5``, ``episode_0001.h5``, ... into
-``cfg.output_dir``, each trimmed to that episode's exact frame count. Isaac Lab
-resets a done env *within* ``step()`` (and re-renders), so the frame observed on
-a ``done`` step is already the *next* episode's first frame; the collector
+boundaries and writes ``episode_0000/dataset.h5``,
+``episode_0001/dataset.h5``, ... under ``cfg.output_dir``, each trimmed to that
+episode's exact frame count. Isaac Lab resets a done env *within* ``step()``
+(and re-renders), so the frame observed on a ``done`` step is already the *next*
+episode's first frame; the collector
 accounts for this so each file contains exactly one episode's frames, with scene
 flow reset at each boundary.
 
@@ -37,7 +38,7 @@ from typing import Any
 
 from isaaclab_arena_datagen.camera_trajectory import CameraViewTrajectory
 from isaaclab_arena_datagen.dynamic_object_tracker import DynamicObjectTracker
-from isaaclab_arena_datagen.io.hdf5_writer import DatagenHDF5Writer
+from isaaclab_arena_datagen.io.hdf5_writer import DatagenHDF5Writer, episode_output_dir
 from isaaclab_arena_datagen.object_registry import ObjectInstanceRegistry
 from isaaclab_arena_datagen.pipeline import (
     CameraSetup,
@@ -58,7 +59,7 @@ class DatagenCollectorConfig:
     """Configuration for policy-rollout data collection.
 
     Attributes:
-        output_dir: Directory where per-episode ``episode_NNNN.h5`` files are written.
+        output_dir: Directory where per-episode ``episode_NNNN/dataset.h5`` files are written.
         cameras: Explicit camera trajectories. When ``None`` (default), the
             collector uses the environment class's ``get_default_cameras`` if it
             has one, else falls back to a single default view.
@@ -160,11 +161,10 @@ class DatagenCollector:
     def _start_episode(self) -> None:
         """Open a fresh writer + tracker for a new episode and reset flow caches."""
         self._writer = DatagenHDF5Writer(
-            output_dir=self._cfg.output_dir,
+            output_dir=episode_output_dir(self._cfg.output_dir, self._episode_idx),
             sequence_index=0,
             cameras=[(cam.camera_id, self._cfg.height, self._cfg.width) for cam in self._camera_setups],
             num_frames=self._capacity,
-            filename=f"episode_{self._episode_idx:04d}.h5",
         )
         self._tracker = DynamicObjectTracker(self._registry, num_steps=self._capacity)
         for cam in self._camera_setups:

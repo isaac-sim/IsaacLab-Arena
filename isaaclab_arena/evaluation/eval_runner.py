@@ -96,10 +96,10 @@ def build_datagen_collector(job: Job, datagen_defaults: dict | None, env):
 
     The effective config is the top-level ``datagen`` defaults overridden by the
     job's own ``datagen`` block. Per-episode HDF5 files are written under
-    ``{output_dir}/{job.name}/``. A camera is taken from ``camera_position``
-    (+ optional ``camera_target``, default origin); otherwise the env's default
-    view is used. Lazily imports the datagen package so core stays decoupled
-    unless collection is requested.
+    ``{output_dir}/{job.name}/episode_NNNN/dataset.h5``. A camera is taken from
+    ``camera_position`` (+ optional ``camera_target``, default origin); otherwise
+    the env's default view is used. Lazily imports the datagen package so core
+    stays decoupled unless collection is requested.
     """
     merged = {**(datagen_defaults or {}), **(job.datagen or {})}
     if not merged.get("output_dir"):
@@ -126,7 +126,7 @@ def build_datagen_collector(job: Job, datagen_defaults: dict | None, env):
         height=merged.get("height", 480),
         mesh_sample_spacing=merged.get("mesh_sample_spacing", 0.01),
     )
-    print(f"[INFO] Datagen collection enabled for job '{job.name}' -> {cfg.output_dir} (one file per episode)")
+    print(f"[INFO] Datagen collection enabled for job '{job.name}' -> {cfg.output_dir}/episode_NNNN/dataset.h5")
     return DatagenCollector.from_env(env, cfg, env_name=None)
 
 

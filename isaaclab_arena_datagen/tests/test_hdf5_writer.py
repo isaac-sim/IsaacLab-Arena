@@ -19,7 +19,7 @@ import pytest
 
 from isaaclab_arena_datagen.geometry.transform_se3 import TransformSE3
 from isaaclab_arena_datagen.io import hdf5_keys as Keys
-from isaaclab_arena_datagen.io.hdf5_writer import DatagenHDF5Writer
+from isaaclab_arena_datagen.io.hdf5_writer import DatagenHDF5Writer, episode_output_dir
 
 H, W, N = 4, 6, 3
 CAM = "cam0"
@@ -115,13 +115,16 @@ def test_requires_more_than_one_frame(tmp_path):
         DatagenHDF5Writer(str(tmp_path), sequence_index=0, cameras=[(CAM, H, W)], num_frames=1)
 
 
+def test_episode_output_dir_uses_nested_layout(tmp_path):
+    assert episode_output_dir(str(tmp_path), 7) == os.path.join(str(tmp_path), "episode_0007")
+
+
 def test_trim_shrinks_datasets_to_actual_length(tmp_path):
     """Writer pre-allocated to a max capacity is trimmed to the actual frame count."""
     h5py = pytest.importorskip("h5py")
     capacity, actual = 10, 4
-    writer = DatagenHDF5Writer(
-        str(tmp_path), sequence_index=0, cameras=[(CAM, H, W)], num_frames=capacity, filename="episode_0000.h5"
-    )
+    episode_dir = episode_output_dir(str(tmp_path), 0)
+    writer = DatagenHDF5Writer(episode_dir, sequence_index=0, cameras=[(CAM, H, W)], num_frames=capacity)
     T = TransformSE3.from_matrix(torch.eye(4))
     for i in range(actual):
         writer.write_rgb(torch.zeros(H, W, 3, dtype=torch.uint8), CAM, i)
@@ -137,7 +140,7 @@ def test_trim_shrinks_datasets_to_actual_length(tmp_path):
     writer.trim(actual)
     writer.close()
 
-    with h5py.File(os.path.join(str(tmp_path), "episode_0000.h5"), "r") as f:
+    with h5py.File(os.path.join(episode_dir, "dataset.h5"), "r") as f:
         seq = f["sequence_000000"]
         assert seq.attrs[Keys.ATTR_NUM_FRAMES] == actual
         g = seq[CAM]

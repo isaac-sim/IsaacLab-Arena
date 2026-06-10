@@ -63,7 +63,7 @@ def _add_datagen_collection_arguments(parser: argparse.ArgumentParser) -> None:
 
     When ``--collect-datagen`` is set, the rollout records SyntheticScene-format
     data (RGB/depth/normals/semantics/flow + dynamic-object poses) from dedicated
-    cameras into ``{--datagen-output-dir}/dataset.h5`` via
+    cameras into ``{--datagen-output-dir}/episode_NNNN/dataset.h5`` via
     ``isaaclab_arena_datagen.collection.collector.DatagenCollector``. Requires
     ``--enable_cameras`` and a fixed horizon (``--num_steps``). Off by default;
     rollout behavior is unchanged unless the flag is passed.
@@ -81,7 +81,7 @@ def _add_datagen_collection_arguments(parser: argparse.ArgumentParser) -> None:
         "--datagen_output_dir",
         type=str,
         default="/eval/datagen",
-        help="Output directory for the datagen dataset.h5 (used with --collect-datagen).",
+        help="Output directory for per-episode datagen folders (used with --collect-datagen).",
     )
     group.add_argument(
         "--datagen-width", "--datagen_width", type=int, default=640, help="Datagen camera image width (px)."

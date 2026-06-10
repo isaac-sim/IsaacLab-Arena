@@ -99,7 +99,7 @@ because the HDF5 format requires all cameras to share spatial dimensions.
 
 Pass `--collect-datagen` to the policy runner. Data is recorded from
 **dedicated** static datagen cameras (independent of the policy's observation
-cameras) into `{--datagen-output-dir}/dataset.h5`:
+cameras) into nested per-episode folders under `{--datagen-output-dir}`:
 
 ```bash
 python -m isaaclab_arena.evaluation.policy_runner \
@@ -118,11 +118,12 @@ python -m isaaclab_arena.evaluation.policy_runner \
 > which rejects them as unrecognized.
 
 **One HDF5 file per episode.** The collector splits the rollout at episode
-boundaries and writes `episode_0000.h5`, `episode_0001.h5`, … into the output
-dir, each trimmed to that episode's exact frame count. Isaac Lab resets a done
-env *within* `step()`, so the collector treats a `done` step's frame as the next
-episode's first frame and resets scene flow at each boundary (no spurious
-cross-reset flow). Works in both `--num_steps` and `--num_episodes` modes.
+boundaries and writes `episode_0000/dataset.h5`,
+`episode_0001/dataset.h5`, … under the output dir, each trimmed to that
+episode's exact frame count. Isaac Lab resets a done env *within* `step()`, so
+the collector treats a `done` step's frame as the next episode's first frame and
+resets scene flow at each boundary (no spurious cross-reset flow). Works in both
+`--num_steps` and `--num_episodes` modes.
 
 Requirements:
 
@@ -139,7 +140,7 @@ the end (both no-ops when no collector is passed).
 
 `eval_runner` runs a JSON config of jobs; add a top-level `datagen` block to
 collect per-episode data for every job (a per-job `datagen` block overrides it).
-Files are written to `{output_dir}/{job_name}/episode_NNNN.h5`.
+Files are written to `{output_dir}/{job_name}/episode_NNNN/dataset.h5`.
 
 ```bash
 python isaaclab_arena/evaluation/eval_runner.py \
@@ -168,7 +169,7 @@ Datagen-collection CLI flags:
 | Argument | Default | Description |
 |----------|---------|-------------|
 | `--collect-datagen` | off | Enable collection during the rollout. |
-| `--datagen-output-dir` | `/eval/datagen` | Output folder for the per-episode files. |
+| `--datagen-output-dir` | `/eval/datagen` | Output folder for the per-episode directories. |
 | `--datagen-width` / `--datagen-height` | `640` / `480` | Datagen camera image size. |
 | `--datagen-mesh-sample-spacing` | `0.01` | Mesh surface sample spacing (m). |
 | `--datagen-camera-position X Y Z` | — | Camera world position (look-at). Overrides the env/default view. |

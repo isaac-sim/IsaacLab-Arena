@@ -64,6 +64,11 @@ def camera_id_from_index(index: int) -> str:
     return f"cam{index}"
 
 
+def episode_output_dir(output_dir: str, episode_index: int) -> str:
+    """Return the nested output directory for one collected episode."""
+    return os.path.join(output_dir, f"episode_{episode_index:04d}")
+
+
 def _rgba_to_semantic_ids(
     seg_rgba_hw4: np.ndarray,
     semantic_info: list[dict[str, Any]],
