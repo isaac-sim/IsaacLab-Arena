@@ -6,8 +6,7 @@
 """Unit tests for :class:`~isaaclab_arena.agentic_environment_generation.asset_matcher.AssetMatcher`.
 
 Covers the catalog-binding strategies exercised by
-:meth:`~AssetMatcher.resolve_item`, :meth:`~AssetMatcher.resolve_name`,
-and :meth:`~AssetMatcher.resolve_embodiment`:
+:meth:`~AssetMatcher.resolve_name` (items, backgrounds, embodiments):
 
 - Exact name match (no fuzzy search triggered)
 - Substring match within a tag-narrowed pool
@@ -150,4 +149,4 @@ def test_background_with_wrong_tag_omitted():
     compiler = make_compiler(assets)
     spec = compiler.compile(make_scene(background="maple_table"))
     assert "maple_table" not in spec.nodes_by_id
-    assert any(e.stage == "name.wrong_tag" for e in compiler.trace)
+    assert any(e.stage == "background.wrong_tag" for e in compiler.trace)
