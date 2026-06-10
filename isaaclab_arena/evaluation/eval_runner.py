@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import torch
+from datetime import datetime
 import traceback
 from gymnasium.wrappers import RecordVideo
 from pathlib import Path
@@ -209,6 +210,8 @@ def main():
         job_manager.print_jobs_info()
 
         if args_cli.video or args_cli.camera_video:
+            run_ts = datetime.now().strftime("%Y%m%dT%H%M%S")
+            args_cli.video_dir = os.path.join(args_cli.video_dir, run_ts)
             os.makedirs(args_cli.video_dir, exist_ok=True)
             print(f"[INFO] Video recording enabled. Videos will be saved to: {args_cli.video_dir}")
 

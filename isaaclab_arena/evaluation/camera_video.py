@@ -3,24 +3,22 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Gym wrapper that records one mp4 per camera in ``obs['camera_obs']``.
+"""Gym wrapper that records one mp4 per camera per env in ``obs['camera_obs']``.
 
 Mirrors ``gymnasium.wrappers.RecordVideo`` — same ``step_trigger`` /
 ``video_length`` semantics and the same moviepy ``ImageSequenceClip``
 encoder, but frames come from ``obs["camera_obs"][<cam>]`` rather than
-``env.render()``. Output is one mp4 per camera under ``video_folder``,
-named ``<name_prefix>-<cam>-step-<N>.mp4``.
+``env.render()``. Output is one mp4 per (env, camera) under ``video_folder``,
+named ``<name_prefix>-env<N>-<cam>-step-<S>.mp4``.
 
 policy_runner.py wraps the env with this alongside ``RecordVideo`` so
 the kit viewport mp4 (third-person scene view) and the embodiment-
 mounted camera mp4s (what the policy actually sees) are written
 together when ``--video --camera_video`` is set.
 
-Multi-env note: Arena batches camera observations as
-``[N_envs, H, W, C]``. This wrapper records env 0 only (``frame[0]``);
-other envs are silently dropped. ``RecordVideo`` for the kit viewport
-is unaffected — the viewport shows the full scene regardless of
-``num_envs``.
+Memory note: with N envs, L steps, and H×W×C frames, the in-memory
+buffer is N×L×H×W×C bytes. For 10 envs, 500 steps, 512×512×3 frames
+that is ~3.8 GB — consider reducing num_envs or video_length for long runs.
 """
 
 from __future__ import annotations
@@ -54,10 +52,11 @@ def _sanitize_cam_key(key: str) -> str:
 
 
 class CameraObsVideoRecorder(gym.Wrapper):
-    """Record an mp4 per camera in ``obs['camera_obs']``.
+    """Record one mp4 per (env, camera) in ``obs['camera_obs']``.
 
-    Records env 0 only: cameras are batched as ``[N_envs, H, W, C]`` and the
-    wrapper picks ``frame[0]``. Intended for single-env evaluation rollouts.
+    Cameras are batched as ``[N_envs, H, W, C]``. All envs are recorded;
+    each produces a separate file named
+    ``<name_prefix>-env<N>-<cam>-step-<S>.mp4``.
     """
 
     def __init__(
@@ -80,7 +79,8 @@ class CameraObsVideoRecorder(gym.Wrapper):
         self.step_id = -1
         self.recording = False
         self.recording_start_step = 0
-        self.buffers: dict[str, list[np.ndarray]] = {}
+        # cam_key -> list of per-env frame lists: buffers[cam][env_idx] = [frame, ...]
+        self.buffers: dict[str, list[list[np.ndarray]]] = {}
 
     def step(self, action):
         result = self.env.step(action)
@@ -91,34 +91,48 @@ class CameraObsVideoRecorder(gym.Wrapper):
         if not self.recording and self.step_trigger(self.step_id):
             self.recording = True
             self.recording_start_step = self.step_id
-            self.buffers = {k: [] for k in cam_obs}
+            self.buffers = {}
 
         if self.recording and cam_obs:
-            for k, frame in cam_obs.items():
-                # frame: [N_envs, H, W, C]; record env 0 only.
-                self.buffers.setdefault(k, []).append(_to_uint8(frame[0]))
-            if self.buffers and all(len(v) >= self.video_length for v in self.buffers.values()):
+            for k, frames in cam_obs.items():
+                # frames: [N_envs, H, W, C]
+                n_envs = frames.shape[0]
+                if k not in self.buffers:
+                    self.buffers[k] = [[] for _ in range(n_envs)]
+                for env_idx in range(n_envs):
+                    self.buffers[k][env_idx].append(_to_uint8(frames[env_idx]))
+
+            if self.buffers and all(
+                len(env_frames) >= self.video_length
+                for env_frame_lists in self.buffers.values()
+                for env_frames in env_frame_lists
+            ):
                 self._flush()
 
         return result
 
     def _flush(self) -> None:
-        for cam, frames in self.buffers.items():
-            if not frames:
-                continue
-            path = os.path.join(
-                self.video_folder,
-                f"{self.name_prefix}-{_sanitize_cam_key(cam)}-step-{self.recording_start_step}.mp4",
-            )
-            clip = ImageSequenceClip(list(frames), fps=self.fps)
-            clip.write_videofile(path, logger=None, audio=False)
-            del clip
+        for cam, env_frame_lists in self.buffers.items():
+            for env_idx, frames in enumerate(env_frame_lists):
+                if not frames:
+                    continue
+                path = os.path.join(
+                    self.video_folder,
+                    f"{self.name_prefix}-env{env_idx}-{_sanitize_cam_key(cam)}-step-{self.recording_start_step}.mp4",
+                )
+                clip = ImageSequenceClip(list(frames), fps=self.fps)
+                clip.write_videofile(path, logger=None, audio=False)
+                del clip
         self.recording = False
         self.buffers = {}
 
     def close(self) -> None:
         try:
-            if self.recording and any(len(v) > 0 for v in self.buffers.values()):
+            if self.recording and any(
+                len(env_frames) > 0
+                for env_frame_lists in self.buffers.values()
+                for env_frames in env_frame_lists
+            ):
                 self._flush()
         finally:
             self.env.close()
