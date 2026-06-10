@@ -81,11 +81,12 @@ def match_asset(
     events: list[TraceEvent] = []
     required_tags = required_tags or []
     candidates = sorted(registry.get_assets_with_all_tags(required_tags))
-
+    # 1. Exact name match in a pool of assets with only the required tags.
     if query in candidates:
         events.append(TraceEvent(f"{trace_prefix}.exact", query, query))
         return query, events
 
+    # 2. Fuzzy matching in a pool of assets with the required tags.
     preferred_tags = preferred_tags or []
     if preferred_tags:
         preferred_candidates = sorted(registry.get_assets_with_all_tags(required_tags + preferred_tags))
@@ -99,6 +100,7 @@ def match_asset(
         if chosen is not None:
             return chosen, events
 
+    # 3. Fuzzy matching in a pool of assets with only the required tags.
     chosen, sub_events = _fuzzy_match(
         candidates,
         query,
