@@ -12,9 +12,10 @@ import os
 import subprocess
 import sys
 import tempfile
-import torch
-from datetime import datetime
 import traceback
+from datetime import datetime
+
+import torch
 from gymnasium.wrappers import RecordVideo
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -205,15 +206,21 @@ def main():
 
     with SimulationAppContext(args_cli):
         job_manager = JobManager(eval_jobs_config["jobs"])
-        metrics_logger = MetricsLogger()
+        metrics_logger = MetricsLogger(metrics_file=args_cli.metrics_file or "metrics.json")
 
         job_manager.print_jobs_info()
 
-        if args_cli.video or args_cli.camera_video:
+        if args_cli.video or args_cli.camera_video or args_cli.episode_record_dir or args_cli.metrics_file:
             run_ts = datetime.now().strftime("%Y%m%dT%H%M%S")
-            args_cli.video_dir = os.path.join(args_cli.video_dir, run_ts)
-            os.makedirs(args_cli.video_dir, exist_ok=True)
-            print(f"[INFO] Video recording enabled. Videos will be saved to: {args_cli.video_dir}")
+            if args_cli.video or args_cli.camera_video:
+                args_cli.video_dir = os.path.join(args_cli.video_dir, run_ts)
+                os.makedirs(args_cli.video_dir, exist_ok=True)
+                print(f"[INFO] Video recording enabled. Videos will be saved to: {args_cli.video_dir}")
+            if args_cli.episode_record_dir is not None:
+                args_cli.episode_record_dir = os.path.join(args_cli.episode_record_dir, run_ts)
+            if args_cli.metrics_file is not None:
+                base, ext = os.path.splitext(args_cli.metrics_file)
+                args_cli.metrics_file = f"{base}_{run_ts}{ext}"
 
         for job in job_manager:
             if job is not None:
@@ -317,9 +324,8 @@ def main():
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()
         if args_cli.metrics_file is not None:
-            metrics_logger.metrics_file = args_cli.metrics_file
             metrics_logger.save_metrics_to_file()
-            print(f"[INFO] Metrics saved to: {args_cli.metrics_file}")
+            print(f"[INFO] Metrics saved to: {metrics_logger.metrics_file}")
 
 
 if __name__ == "__main__":

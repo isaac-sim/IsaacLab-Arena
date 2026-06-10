@@ -98,8 +98,10 @@ class ModelOutput:
 
     @classmethod
     def from_dict(cls, data: dict) -> "ModelOutput":
+        data = dict(data)  # don't mutate the caller's dict
         phases_raw = data.pop("subtask_phases", [])
-        obj = cls(**data)
+        known = {f.name for f in dataclasses.fields(cls)}
+        obj = cls(**{k: v for k, v in data.items() if k in known})
         obj.subtask_phases = [SubtaskPhase.from_dict(p) for p in phases_raw]
         return obj
 
@@ -173,8 +175,10 @@ class EpisodeRecord:
 
     @classmethod
     def from_dict(cls, data: dict) -> "EpisodeRecord":
+        data = dict(data)
         data.setdefault("schema_version", SCHEMA_VERSION)
-        return cls(**data)
+        known = {f.name for f in dataclasses.fields(cls)}
+        return cls(**{k: v for k, v in data.items() if k in known})
 
     def to_json(self, indent: int = 2) -> str:
         return json.dumps(self.to_dict(), indent=indent)
@@ -206,10 +210,7 @@ class EpisodeTrace:
     created_at: str = dataclasses.field(default_factory=lambda: _utc_now())
 
     def to_dict(self) -> dict:
-        d = dataclasses.asdict(self)
-        d["episode_record"] = self.episode_record.to_dict()
-        d["model_outputs"] = [m.to_dict() for m in self.model_outputs]
-        return d
+        return dataclasses.asdict(self)
 
 
 # ---------------------------------------------------------------------------

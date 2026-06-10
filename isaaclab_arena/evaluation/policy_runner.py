@@ -143,6 +143,18 @@ def rollout_policy(
 
         pbar.close()
 
+        # Append boundaries for episodes still in progress when the rollout ended.
+        # num_steps mode: last executed step = num_steps_completed - 1 (increment fired before break)
+        # num_episodes mode: last executed step = num_steps_completed (break fired before increment)
+        last_step = (num_steps_completed - 1) if num_steps is not None else num_steps_completed
+        n_envs = terminated.shape[0]
+        for env_idx in range(n_envs):
+            start = episode_starts.get(env_idx, 0)
+            if start <= last_step:
+                episode_boundaries.append(
+                    {"env_idx": env_idx, "start_step": start, "end_step": last_step}
+                )
+
     except Exception as e:
         if pbar is not None:
             pbar.close()
