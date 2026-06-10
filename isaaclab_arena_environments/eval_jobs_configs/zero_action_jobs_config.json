@@ -7,7 +7,7 @@
                 "object":"cracker_box",
                 "embodiment":"gr1_joint"
             },
-            "num_episodes": 2,
+            "num_episodes": 4,
             "num_rebuilds": 2,
             "policy_type": "zero_action",
             "policy_config_dict": {}

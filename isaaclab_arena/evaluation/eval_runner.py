@@ -129,6 +129,29 @@ def _close_job_resources(policy: "PolicyBase | None", env) -> None:
         _close_env(env)
 
 
+def _split_episodes_across_rebuilds(num_episodes: int | None, num_rebuilds: int, job_name: str) -> list[int | None]:
+    """Split a job's total ``num_episodes`` as evenly as possible across its rebuilds.
+
+    ``num_episodes`` is the total accumulated across rebuilds. The first ``remainder`` rebuilds
+    get one extra episode when the split is uneven (e.g. ``num_episodes=5, num_rebuilds=2`` ->
+    ``[3, 2]``). Returns a list of ``None`` (one per rebuild) when the job is length-driven by
+    steps rather than episodes.
+    """
+    if num_episodes is None:
+        return [None] * num_rebuilds
+    assert num_episodes >= num_rebuilds, (
+        f"Job '{job_name}': num_episodes ({num_episodes}) must be >= num_rebuilds"
+        f" ({num_rebuilds}) so each rebuild runs at least one episode"
+    )
+    # Give every rebuild ``base`` episodes, then hand out the leftover episodes one at a
+    # time to the first ``remainder`` rebuilds.
+    base, remainder = divmod(num_episodes, num_rebuilds)
+    episodes_per_rebuild = [base] * num_rebuilds
+    for rebuild_idx in range(remainder):
+        episodes_per_rebuild[rebuild_idx] += 1
+    return episodes_per_rebuild
+
+
 def _run_chunk(chunk_label: str, chunk_jobs: list[dict]) -> int:
     """Run ``chunk_jobs`` in a fresh ``eval_runner`` subprocess and return its exit code."""
     print(f"[eval_runner] {chunk_label}", flush=True)
@@ -217,6 +240,9 @@ def main():
 
             metrics_per_run: list[MetricsDataCollection] = []
 
+            # num_episodes is the TOTAL across rebuilds, so split it over the rebuilds.
+            num_episodes_per_rebuild = _split_episodes_across_rebuilds(job.num_episodes, job.num_rebuilds, job.name)
+
             # Rebuild the environment and re-run the rollout job.num_rebuilds times, then
             # aggregate the metrics across rebuilds into a single result.
             for rebuild_idx in range(job.num_rebuilds):
@@ -226,9 +252,12 @@ def main():
 
                     policy = get_policy_from_job(job)
 
+                    # Episodes allotted to this rebuild (None when the job is length-driven by steps).
+                    num_episodes_this_rebuild = num_episodes_per_rebuild[rebuild_idx]
+
                     # Resolve simulation length: num_steps and num_episodes are mutually exclusive.
                     # Priority: job config -> policy length -> CLI default
-                    if job.num_steps is None and job.num_episodes is None:
+                    if job.num_steps is None and num_episodes_this_rebuild is None:
                         if policy.has_length():
                             job.num_steps = policy.length()
                         else:
@@ -238,7 +267,7 @@ def main():
                         if job.num_steps is not None:
                             video_length = job.num_steps
                         else:
-                            video_length = job.num_episodes * env.unwrapped.max_episode_length
+                            video_length = num_episodes_this_rebuild * env.unwrapped.max_episode_length
                         video_kwargs = {
                             "video_folder": os.path.join(args_cli.video_dir, job.name),
                             "step_trigger": lambda step: step == 0,
@@ -252,7 +281,7 @@ def main():
                         env,
                         policy,
                         num_steps=job.num_steps,
-                        num_episodes=job.num_episodes,
+                        num_episodes=num_episodes_this_rebuild,
                         language_instruction=job.language_instruction,
                     )
 
