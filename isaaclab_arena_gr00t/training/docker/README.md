@@ -36,6 +36,58 @@ config changes first, then rebuild with
 `--build-arg ARENA_REF=$(git rev-parse HEAD)` (changing the build-arg also
 busts the cached clone layer; plain rebuilds reuse the old cached checkout).
 
+## On a GPU cluster (SSH, no Docker)
+
+Most clusters don't allow Docker but provide **Apptainer/Singularity**, which
+can run this exact image as your own user. The image must already be pushed to
+a registry (see push/pull above) — clusters can pull images but not build them.
+
+```bash
+mkdir -p $SCRATCH/alex/{hf_cache,checkpoints}
+
+# One-time: convert the registry image to a .sif file
+apptainer pull alex-gr00t-train.sif docker://ghcr.io/eaozone/alex-gr00t-train:latest
+
+# Run (interactive node)
+apptainer run --nv \
+  --env HF_TOKEN=hf_xxx \
+  --bind $SCRATCH/alex/hf_cache:/cache \
+  --bind $SCRATCH/alex/checkpoints:/checkpoints \
+  alex-gr00t-train.sif
+```
+
+(`singularity` is a drop-in replacement for `apptainer` on older clusters. If
+the registry package is private, set `APPTAINER_DOCKER_USERNAME=EAOZONE` and
+`APPTAINER_DOCKER_PASSWORD=<ghcr token>` before `apptainer pull`.)
+
+SLURM batch job:
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=alex-gr00t
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=64G
+#SBATCH --time=24:00:00
+
+apptainer run --nv \
+  --env HF_TOKEN=$HF_TOKEN \
+  --bind $SCRATCH/alex/hf_cache:/cache \
+  --bind $SCRATCH/alex/checkpoints:/checkpoints \
+  alex-gr00t-train.sif
+```
+
+If the job hits the time limit or gets preempted, just resubmit — training
+resumes from the last checkpoint in the bound checkpoints directory.
+
+On clusters with **enroot/pyxis** instead of Apptainer:
+
+```bash
+srun --gres=gpu:1 --container-image=ghcr.io#eaozone/alex-gr00t-train:latest \
+  --container-mounts=$SCRATCH/alex/hf_cache:/cache,$SCRATCH/alex/checkpoints:/checkpoints \
+  --container-env=HF_TOKEN /entrypoint.sh
+```
+
 ## Knobs (all via `-e`)
 
 | Variable | Default | Meaning |

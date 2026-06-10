@@ -61,9 +61,11 @@ class AlexOpenMicrowaveEnvironment(ExampleEnvironmentBase):
         microwave = self.asset_registry.get_asset_by_name("microwave")()
         assets = [background, microwave]
 
-        assert args_cli.embodiment in ["alex_pink", "alex_ability_hands"], "Invalid Alex embodiment {}".format(
-            args_cli.embodiment
-        )
+        assert args_cli.embodiment in [
+            "alex_pink",
+            "alex_ability_hands",
+            "alex_ability_hands_joint_pos",
+        ], "Invalid Alex embodiment {}".format(args_cli.embodiment)
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
         # Alex stands ~0.15 m further back than GR1T2 to account for the longer arm reach.
         embodiment.set_initial_pose(Pose(position_xyz=(-0.55, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))

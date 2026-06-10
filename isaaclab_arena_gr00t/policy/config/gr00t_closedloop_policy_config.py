@@ -118,5 +118,9 @@ class Gr00tClosedloopPolicyConfig:
             assert self.embodiment_tag == "GR1", "embodiment_tag must be GR1 for GR1 tabletop manipulation"
         elif self.task_mode_name == TaskMode.DROID_MANIPULATION.value:
             assert self.embodiment_tag == "OXE_DROID", "embodiment_tag must be OXE_DROID for DROID manipulation"
+        elif self.task_mode_name == TaskMode.ALEX_TABLETOP_MANIPULATION.value:
+            assert (
+                self.embodiment_tag == "NEW_EMBODIMENT"
+            ), "embodiment_tag must be NEW_EMBODIMENT for Alex tabletop manipulation"
         else:
-            raise ValueError(f"Invalid inference mode: {self.task_mode}")
+            raise ValueError(f"Invalid inference mode: {self.task_mode_name}")

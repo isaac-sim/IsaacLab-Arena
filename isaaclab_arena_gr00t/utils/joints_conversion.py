@@ -37,9 +37,19 @@ def _joint_name_to_policy_group(
 
     if tag == "NEW_EMBODIMENT":
         if prefix == "left":
-            return "left_hand" if "hand" in joint_name else "left_arm"
+            if "hand" in joint_name:
+                # Prefer a unified "hands" group (e.g. Alex ability hands) when the joint
+                # is in it; otherwise fall back to the per-side "left_hand" group (e.g. G1).
+                if "hands" in policy_joints_config and joint_name in policy_joints_config["hands"]:
+                    return "hands"
+                return "left_hand"
+            return "left_arm"
         if prefix == "right":
-            return "right_hand" if "hand" in joint_name else "right_arm"
+            if "hand" in joint_name:
+                if "hands" in policy_joints_config and joint_name in policy_joints_config["hands"]:
+                    return "hands"
+                return "right_hand"
+            return "right_arm"
         if prefix == "waist":
             return "waist"
         return None

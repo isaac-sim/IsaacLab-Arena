@@ -24,6 +24,7 @@ from isaaclab.actuators import DelayedPDActuatorCfg, ImplicitActuatorCfg
 from isaaclab.assets.articulation import ArticulationCfg
 from isaaclab.controllers.pink_ik import DampingTaskCfg, LocalFrameTaskCfg, NullSpacePostureTaskCfg, PinkIKControllerCfg
 from isaaclab.envs import ManagerBasedEnv, ManagerBasedRLMimicEnv
+from isaaclab.envs.mdp.actions import JointPositionActionCfg
 from isaaclab.envs.mdp.actions.pink_actions_cfg import PinkInverseKinematicsActionCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
@@ -1316,3 +1317,104 @@ class AlexAbilityHandEmbodiment(EmbodimentBase):
         self.camera_config.__post_init__()
 
         self.xr = copy.deepcopy(_ALEX_XR_CFG)
+
+
+@configclass
+class AlexAbilityHandJointPositionActionsCfg:
+    """Direct joint-position actions for Alex with Ability Hands.
+
+    Layout matches ``alex_34dof_action_joint_space.yaml``:
+      arms+wrists 0-13  (ARM_WRIST_JOINT_NAMES_LIST order)
+      hands       14-33 (ABILITY_HAND_TELEOP_JOINT_ORDER)
+
+    ``preserve_order=True`` is required because ABILITY_HAND_TELEOP_JOINT_ORDER
+    groups all q1 joints before all q2 joints, while the articulation interleaves
+    them per-finger (index_q1, index_q2, middle_q1, …).
+    """
+
+    joint_pos = JointPositionActionCfg(
+        asset_name="robot",
+        joint_names=ARM_WRIST_JOINT_NAMES_LIST + ABILITY_HAND_TELEOP_JOINT_ORDER,
+        scale=1.0,
+        use_default_offset=False,
+        preserve_order=True,
+        offset={".*GRIPPER_Z": -math.pi / 2},
+    )
+
+
+@register_asset
+class AlexAbilityHandJointPositionEmbodiment(EmbodimentBase):
+    """Alex V1 with Ability Hands using direct joint-position actions (no IK).
+
+    Drop-in policy-eval counterpart to :class:`AlexAbilityHandEmbodiment`.
+    Accepts 34-DOF absolute joint position commands in the order defined by
+    ``alex_34dof_action_joint_space.yaml`` (arms 0-13, hands 14-33).
+    Use this embodiment when the policy was trained on direct joint-angle data
+    (e.g. ``H2Ozone/alex_demo``) rather than PINK IK wrist-pose targets.
+    """
+
+    name = "alex_ability_hands_joint_pos"
+    default_arm_mode = ArmMode.RIGHT
+
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        use_tiled_camera: bool = False,
+    ):
+        super().__init__(enable_cameras, initial_pose)
+
+        merged_urdf = _merge_ability_hands_urdf(ALEX_V1)
+        resolved_urdf = _resolve_mesh_paths_ability_hands(merged_urdf, _ALEX_ABILITY_HANDS_RESOLVED_URDF_PATH)
+
+        robot_cfg = copy.deepcopy(ALEX_V1_NUBS_DEFAULT_CFG)
+        robot_cfg.prim_path = "{ENV_REGEX_NS}/Robot"
+        robot_cfg.spawn.asset_path = resolved_urdf
+        robot_cfg.soft_joint_pos_limit_factor = 1.0
+
+        robot_cfg.actuators["arms"] = ImplicitActuatorCfg(
+            joint_names_expr=[".*SHOULDER.*", ".*ELBOW.*", ".*WRIST.*", ".*GRIPPER.*"],
+            effort_limit=torch.inf,
+            velocity_limit=torch.inf,
+            stiffness=400.0,
+            damping=40.0,
+            armature=0.0,
+        )
+        robot_cfg.actuators["hands"] = ImplicitActuatorCfg(
+            joint_names_expr=[".*ability_hand.*_q[12]"],
+            effort_limit=5.0,
+            velocity_limit=10.0,
+            stiffness=500.0,
+            damping=20.0,
+            armature=0.0,
+        )
+
+        robot_cfg.init_state.joint_pos = {
+            "LEFT_ELBOW_Y": -1.5708,
+            "RIGHT_ELBOW_Y": -1.5708,
+            "LEFT_GRIPPER_Z": -math.pi / 2,
+            "RIGHT_GRIPPER_Z": -math.pi / 2,
+            **_ABILITY_HAND_DEFAULT_JOINT_POS,
+        }
+
+        self.scene_config = AlexSceneCfg()
+        self.scene_config.robot = robot_cfg
+
+        self.action_config = AlexAbilityHandJointPositionActionsCfg()
+
+        self.observation_config = AlexAbilityHandObservationsCfg()
+        self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
+        self.event_config = AlexEventCfg()
+        if enable_cameras:
+            self.event_config.sync_zed_cameras = EventTerm(
+                func=sync_alex_zed_cameras,
+                mode="interval",
+                interval_range_s=(CONTROL_DT, CONTROL_DT),
+            )
+            self.event_config.sync_zed_cameras_reset = EventTerm(
+                func=sync_alex_zed_cameras,
+                mode="reset",
+            )
+        self.camera_config = AlexCameraCfg()
+        self.camera_config._use_tiled_camera = use_tiled_camera
+        self.camera_config.__post_init__()

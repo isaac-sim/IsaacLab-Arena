@@ -20,8 +20,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git curl ca-certificates build-essential ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH=/root/.local/bin:$PATH
+# Install uv system-wide (not under /root) so the image also works on GPU
+# clusters where Apptainer/Singularity runs the container as a non-root user.
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
 # Pin Isaac-GR00T to the same commit as the submodules/Isaac-GR00T checkout.
 ARG GR00T_REPO=https://github.com/NVIDIA/Isaac-GR00T
@@ -37,6 +38,10 @@ RUN git clone "${GR00T_REPO}" Isaac-GR00T \
 WORKDIR /workspace/Isaac-GR00T
 ENV MAX_JOBS=4
 RUN uv sync --python 3.10 && uv pip install -e .
+
+# At runtime `uv run` must never try to re-sync the env: the filesystem is
+# read-only under Apptainer/Singularity on clusters.
+ENV UV_NO_SYNC=1
 
 # Alex embodiment files (modality config, joint-space yamls) from the Arena fork.
 # Pass --build-arg ARENA_REF=<commit> to pin / bust the layer cache after pushing

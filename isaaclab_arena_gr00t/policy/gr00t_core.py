@@ -341,7 +341,11 @@ def build_gr00t_action_np(
         base_h = np.asarray(robot_action_policy["base_height_command"], dtype=np.float64)
         torso_rpy = np.zeros_like(nav, dtype=np.float64)
         return np.concatenate([joints_sim_np, nav, base_h, torso_rpy], axis=2)
-    elif task_mode in (TaskMode.GR1_TABLETOP_MANIPULATION, TaskMode.DROID_MANIPULATION):
+    elif task_mode in (
+        TaskMode.GR1_TABLETOP_MANIPULATION,
+        TaskMode.DROID_MANIPULATION,
+        TaskMode.ALEX_TABLETOP_MANIPULATION,
+    ):
         return joints_sim_np
     else:
         raise ValueError(f"Unsupported task mode: {task_mode}")

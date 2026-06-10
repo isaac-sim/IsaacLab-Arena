@@ -23,7 +23,9 @@ set -euo pipefail
 HF_DATASET_ID="${HF_DATASET_ID:-H2Ozone/alex_microwave}"
 HF_MODEL_REPO="${HF_MODEL_REPO:-H2Ozone/alex_open_microwave_gr00t}"
 SKIP_UPLOAD="${SKIP_UPLOAD:-0}"
-DATASET_PATH="${DATASET_PATH:-/data/lerobot}"
+# Lives under /cache so the dataset download persists with the same volume/bind
+# as the HF model cache (and lands on writable storage on clusters).
+DATASET_PATH="${DATASET_PATH:-/cache/dataset/lerobot}"
 OUTPUT_DIR="${OUTPUT_DIR:-/checkpoints}"
 MODALITY_CONFIG=/workspace/IsaacLab-Arena/isaaclab_arena_gr00t/embodiments/alex/alex_data_config.py
 BASE_MODEL_PATH="${BASE_MODEL_PATH:-nvidia/GR00T-N1.6-3B}"
