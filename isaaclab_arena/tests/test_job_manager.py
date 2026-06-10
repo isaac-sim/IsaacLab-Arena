@@ -263,3 +263,38 @@ def test_job_manager_iterator():
 
     assert job_names == ["job1", "job2", "job3"]
     assert job_manager.is_empty()
+
+
+def test_job_from_dict_task_metadata():
+    """Test that task_name, embodiment, and env_params are extracted from arena_env_args."""
+    job_dict = {
+        "name": "test_meta",
+        "arena_env_args": {
+            "environment": "put_item_in_fridge_and_close_door",
+            "embodiment": "gr1_joint",
+            "object": "jug",
+            "num_envs": 2,
+        },
+        "policy_type": "zero_action",
+        "num_steps": 10,
+    }
+    job = Job.from_dict(job_dict)
+
+    assert job.task_name == "put_item_in_fridge_and_close_door"
+    assert job.embodiment == "gr1_joint"
+    assert job.env_params["environment"] == "put_item_in_fridge_and_close_door"
+    assert job.env_params["object"] == "jug"
+    assert job.num_envs == 2
+
+
+def test_job_task_metadata_defaults():
+    """Task metadata fields default to None / empty when not provided."""
+    job = Job(
+        "test_defaults",
+        num_envs=1,
+        arena_env_args=[],
+        policy_type="zero_action",
+    )
+    assert job.task_name is None
+    assert job.embodiment is None
+    assert job.env_params == {}

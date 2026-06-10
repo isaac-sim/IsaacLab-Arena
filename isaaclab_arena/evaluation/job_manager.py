@@ -47,7 +47,7 @@ class Job:
                 takes precedence over the task's own description.
             task_name: Environment/task name (e.g. "put_item_in_fridge_and_close_door").
             embodiment: Robot embodiment name (e.g. "gr1_joint").
-            env_params: Raw arena_env_args dict from the job config, preserved for EpisodeRecord.
+            env_params: Raw arena_env_args dict from the job config.
         """
         self.name = name
         self.arena_env_args = arena_env_args
