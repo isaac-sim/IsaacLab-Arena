@@ -135,17 +135,19 @@ def test_candidate_bbox_aligns_with_candidate_yaw():
 
 
 def test_rotate_candidate_bboxes_encloses_marker_plus_sampled_yaw():
-    """_rotate_candidate_bboxes folds the marker yaw into the box, not just the sampled yaw."""
+    """_rotate_candidate_bboxes applies the total yaw (marker + sampled) passed by the caller."""
     box = _make_long_box("box")
     marker_yaw, sampled_yaw = math.pi / 6, math.pi / 3
+    total_yaw = marker_yaw + sampled_yaw
     box.add_relation(RotateAroundSolution(yaw_rad=marker_yaw))
 
-    rotated = ObjectPlacer._rotate_candidate_bboxes([box], {box: box.get_bounding_box()}, [{box: sampled_yaw}])
+    # In production, _generate_initial_orientations computes total_yaw before calling this method.
+    rotated = ObjectPlacer._rotate_candidate_bboxes([box], {box: box.get_bounding_box()}, [{box: total_yaw}])
 
-    expected = box.get_bounding_box().rotated_around_z(marker_yaw + sampled_yaw)
+    expected = box.get_bounding_box().rotated_around_z(total_yaw)
     torch.testing.assert_close(rotated[box].min_point, expected.min_point, atol=1e-6, rtol=0)
     torch.testing.assert_close(rotated[box].max_point, expected.max_point, atol=1e-6, rtol=0)
-    # Dropping the marker (sampled yaw only) would enclose an undersized, misaligned footprint.
+    # Passing only sampled_yaw (without marker) would enclose an undersized, misaligned footprint.
     sampled_only = box.get_bounding_box().rotated_around_z(sampled_yaw)
     assert not torch.allclose(rotated[box].max_point, sampled_only.max_point, atol=1e-6)
 
