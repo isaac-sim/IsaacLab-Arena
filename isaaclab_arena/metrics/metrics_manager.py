@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.metrics import get_metric_recorder_dataset_path, get_num_episodes, get_recorded_metric_data
@@ -24,9 +24,9 @@ class MetricData:
 
 
 @dataclass
-class MetricsData:
+class MetricsDataCollection:
     num_episodes: int
-    metric_data: list[MetricData]
+    metric_data_entries: list[MetricData]
 
 
 class MetricsManager:
@@ -63,7 +63,7 @@ class MetricsManager:
         """Names of the metric terms registered on this manager."""
         return list(self._term_names)
 
-    def compute(self) -> MetricsData:
+    def compute(self) -> MetricsDataCollection:
         """Compute every registered metric from the recorded HDF5 dataset.
 
         Returns:
@@ -77,16 +77,14 @@ class MetricsManager:
             recorded_data = get_recorded_metric_data(dataset_path, term_cfg.recorder_term_name)
             metrics_value = term_cfg.compute_metric_func(recorded_data, **term_cfg.params)
             metric_data = MetricData(
-                term_name=term_name,
-                term_cfg=term_cfg,
-                recorded_data=recorded_data,
-                metric_value=metrics_value
+                term_name=term_name, term_cfg=term_cfg, recorded_data=recorded_data, metric_value=metrics_value
             )
             metric_data_list.append(metric_data)
         # Combine the metric data into a MetricsData instance.
-        metrics_data = MetricsData(get_num_episodes(dataset_path), metric_data_list)
-        print(f"metrics_data: {metrics_data}")
-        return metrics_data
+        metrics_data_collection = MetricsDataCollection(
+            num_episodes=get_num_episodes(dataset_path), metric_data_entries=metric_data_list
+        )
+        return metrics_data_collection
         # dataset_path = get_metric_recorder_dataset_path(self._env)
         # metrics_data: dict[str, Any] = {}
         # recorded_metrics_data: dict[str, Any] = {}

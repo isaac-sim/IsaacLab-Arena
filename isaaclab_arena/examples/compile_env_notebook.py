@@ -25,8 +25,8 @@ from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.scene.scene import Scene
-from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+from isaaclab_arena.utils.pose import Pose
 
 asset_registry = AssetRegistry()
 
@@ -55,11 +55,8 @@ env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
 env = env_builder.make_registered()
 env.reset()
 
+
 # %%
-
-env.reset()
-
-#%% 
 
 # Run some zero actions.
 RESET_ON_EVERY_N_STEPS = 1000
@@ -75,57 +72,81 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
         if NUM_EPISODES == 0:
             break
 
-#%%
+# %%
 
-from isaaclab_arena.metrics.metrics_manager import MetricsData, MetricData
+from isaaclab_arena.metrics.metrics_manager import MetricsDataCollection
 
-metrics = env.unwrapped.compute_metrics()
-print(f"metrics: {metrics}")
+metrics_data_collection = env.unwrapped.compute_metrics()
+print(f"metrics_data_collection: {metrics_data_collection}")
 
 # %%
 
 from copy import deepcopy
 
-metrics_1 = deepcopy(metrics)
-metrics_2 = deepcopy(metrics)
+from isaaclab_arena.metrics.metrics_manager import MetricData
 
-metrics_per_run = [metrics_1, metrics_2]
+metrics_1 = deepcopy(metrics_data_collection)
+metrics_2 = deepcopy(metrics_data_collection)
 
-#%%
+metrics_per_run: list[MetricsDataCollection] = [metrics_1, metrics_2]
+
+# %%
 
 import numpy as np
-
 from typing import Any
 
 # Check that all metrics have the same names
-metric_names = [metric_data.term_name for metric_data in metrics_per_run[0].metric_data]
-for metrics in metrics_per_run:
-    for metric_data in metrics.metric_data:
+metric_names = [metric_data.term_name for metric_data in metrics_per_run[0].metric_data_entries]
+for metrics_data_collection in metrics_per_run:
+    for metric_data in metrics_data_collection.metric_data_entries:
         assert metric_data.term_name in metric_names, f"Metric {metric_data.term_name} not found in all runs"
+
+# Total number of episodes
+total_num_episodes = sum(metrics_data_collection.num_episodes for metrics_data_collection in metrics_per_run)
+print(f"total_num_episodes: {total_num_episodes}")
 
 # Aggregate the recorded data, for all runs, for each metric name
 metric_name_to_aggregated_data: dict[str, list[np.ndarray]] = {}
-for metrics in metrics_per_run:
-    for metric_data in metrics.metric_data:
+print(f"test: {metric_name_to_aggregated_data}")
+for metrics_data_collection in metrics_per_run:
+    for metric_data in metrics_data_collection.metric_data_entries:
         if metric_data.term_name not in metric_name_to_aggregated_data:
-            metric_name_to_aggregated_data[metric_data.term_name] = metric_data.recorded_data
+            metric_name_to_aggregated_data[metric_data.term_name] = list(metric_data.recorded_data)
         else:
             metric_name_to_aggregated_data[metric_data.term_name].extend(metric_data.recorded_data)
+print(f"test2: {metric_name_to_aggregated_data['success_rate']}")
 
 # Re-compute the metric values
-metric_cfgs = {metric_data.term_name: metric_data.term_cfg for metric_data in metrics_per_run[0].metric_data}
+metric_cfgs = {metric_data.term_name: metric_data.term_cfg for metric_data in metrics_per_run[0].metric_data_entries}
 metric_name_to_aggregated_metric_values: dict[str, Any] = {}
 for metric_name, recorded_data in metric_name_to_aggregated_data.items():
     metric_cfg = metric_cfgs[metric_name]
     metric = metric_cfg.compute_metric_func(recorded_data, **metric_cfg.params)
     metric_name_to_aggregated_metric_values[metric_name] = metric
 
-print(f"metric_name_to_aggregated_metric_values: {metric_name_to_aggregated_metric_values}")
+# Assemble a new MetricsDataCollection with the aggregated metric values
+metric_data_entries: list[MetricData] = []
+for metric_name in metric_names:
+    metric_data_entry = MetricData(
+        term_name=metric_name,
+        term_cfg=metric_cfgs[metric_name],
+        recorded_data=metric_name_to_aggregated_data[metric_name],
+        metric_value=metric_name_to_aggregated_metric_values[metric_name],
+    )
+    metric_data_entries.append(metric_data_entry)
+
+metrics_data_collection_aggregated = MetricsDataCollection(
+    num_episodes=total_num_episodes, metric_data_entries=metric_data_entries
+)
+
+print(f"metrics_data_collection_aggregated: {metrics_data_collection_aggregated}")
+
+# print(f"metric_name_to_aggregated_metric_values: {metric_name_to_aggregated_metric_values}")
 
 
-#%%
+# %%
 
-#%%
+# %%
 
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import teardown_simulation_app
 from isaaclab_arena.utils.reload_modules import reload_arena_modules
