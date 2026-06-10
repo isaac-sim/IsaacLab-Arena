@@ -5,28 +5,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
+from isaaclab_arena.metrics.metric_data import MetricData, MetricsDataCollection
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.metrics import get_metric_recorder_dataset_path, get_num_episodes, get_recorded_metric_data
 
 if TYPE_CHECKING:
     from isaaclab.envs.manager_based_rl_env import ManagerBasedRLEnv
-
-
-@dataclass
-class MetricData:
-    term_name: str
-    term_cfg: MetricTermCfg
-    recorded_data: Any
-    metric_value: Any
-
-
-@dataclass
-class MetricsDataCollection:
-    num_episodes: int
-    metric_data_entries: list[MetricData]
 
 
 class MetricsManager:

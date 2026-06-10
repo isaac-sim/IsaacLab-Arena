@@ -74,7 +74,7 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
 
 # %%
 
-from isaaclab_arena.metrics.metrics_manager import MetricsDataCollection
+from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 
 metrics_data_collection = env.unwrapped.compute_metrics()
 print(f"metrics_data_collection: {metrics_data_collection}")
@@ -83,7 +83,7 @@ print(f"metrics_data_collection: {metrics_data_collection}")
 
 from copy import deepcopy
 
-from isaaclab_arena.metrics.metrics_manager import MetricData
+from isaaclab_arena.metrics.metric_data import MetricData
 
 metrics_1 = deepcopy(metrics_data_collection)
 metrics_2 = deepcopy(metrics_data_collection)

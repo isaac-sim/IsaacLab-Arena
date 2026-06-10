@@ -11,7 +11,7 @@ import torch
 import tqdm
 from gymnasium.wrappers import RecordVideo
 from importlib import import_module
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.camera_video import CameraObsVideoRecorder
@@ -23,11 +23,11 @@ from isaaclab_arena.utils.random import set_seed
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
+    from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase
-    from isaaclab_arena.metrics.metrics_manager import MetricsData
 
 
-def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
+def get_policy_cls(policy_type: str) -> type[PolicyBase]:
     """Get the policy class for the given policy type name.
 
     Note that this function:
@@ -62,11 +62,11 @@ def is_distributed(args_cli: argparse.Namespace) -> bool:
 
 def rollout_policy(
     env,
-    policy: "PolicyBase",
+    policy: PolicyBase,
     num_steps: int | None,
     num_episodes: int | None,
     language_instruction: str | None = None,
-) -> MetricsData | None:
+) -> MetricsDataCollection | None:
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
 

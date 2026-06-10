@@ -22,13 +22,15 @@ from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
+from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
+    from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase
-    from isaaclab_arena.metrics.metrics_manager import MetricsData, MetricData
+
 
 def load_env(arena_env_args: list[str], job_name: str, render_mode: str | None = None):
 
@@ -213,12 +215,11 @@ def main():
             env = None
             policy = None
 
+            metrics_per_run: list[MetricsDataCollection] = []
 
-            metrics_per_run: list[MetricsData] = []
-
-            # RIGHT NOW WE HARD CODE THE NUMBER OF EXPERIMENTS TO 2
-            NUM_EXPERIMENTS = 2
-            for experiment_idx in range(NUM_EXPERIMENTS):
+            # Rebuild the environment and re-run the rollout job.num_rebuilds times, then
+            # aggregate the metrics across rebuilds into a single result.
+            for rebuild_idx in range(job.num_rebuilds):
                 try:
                     render_mode = "rgb_array" if args_cli.video else None
                     env = load_env(job.arena_env_args, job.name, render_mode=render_mode)
@@ -254,13 +255,12 @@ def main():
                         num_episodes=job.num_episodes,
                         language_instruction=job.language_instruction,
                     )
-                    metrics_per_run.append(metrics)
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
 
                     # users may not specify metrics for a task, although it's not recommended
                     if metrics is not None:
-                        metrics_logger.append_job_metrics(job.name, metrics)
+                        metrics_per_run.append(metrics)
 
                 except Exception as e:
                     job_manager.complete_job(job, metrics={}, status=Status.FAILED)
@@ -277,9 +277,10 @@ def main():
                         env = None
                         _collect_garbage_and_clear_cuda_cache()
 
-
-            # UP TO HERE. We need to aggregate the metrics from the different experiments.
-            # TODO
+            # Aggregate the metrics from the different experiments into a single view.
+            if metrics_per_run:
+                aggregated_metrics = aggregate_metrics(metrics_per_run)
+                metrics_logger.append_job_metrics(job.name, aggregated_metrics)
 
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()

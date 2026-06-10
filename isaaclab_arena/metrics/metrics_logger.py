@@ -10,13 +10,13 @@ import numpy as np
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from isaaclab_arena.metrics.metrics_manager import MetricsData
+    from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 
 
-def metrics_to_plain_python_types(metrics_data: MetricsData) -> dict[str, int | float | list]:
+def metrics_to_plain_python_types(metrics_data: MetricsDataCollection) -> dict[str, int | float | list]:
     """Convert numpy scalars/arrays in a metrics data to plain Python types."""
     sanitized = {}
-    for metric_data in metrics_data.metric_data:
+    for metric_data in metrics_data.metric_data_entries:
         name = metric_data.term_name
         value = metric_data.metric_value
         if isinstance(value, np.bool_):
@@ -37,12 +37,12 @@ class MetricsLogger:
         self.metrics_file = metrics_file
         self.metrics_data = {}
 
-    def append_job_metrics(self, job_name: str, metrics_data: MetricsData):
+    def append_job_metrics(self, job_name: str, metrics_data: MetricsDataCollection):
         """Add or update metrics for a specific job.
 
         Args:
             job_name: Name of the job
-            metrics_data: MetricsData instance containing the data for all metrics.
+            metrics_data: MetricsDataCollection instance containing the data for all metrics.
         """
         if job_name not in self.metrics_data:
             self.metrics_data[job_name] = {}
