@@ -310,6 +310,9 @@ class ArenaEnvBuilder:
                 viewer=viewer_cfg,
             )
 
+        # Set seed for Isaac Lab env.
+        env_cfg.seed = getattr(self.args, "seed", None)
+
         # Apply the environment configuration callback if it is set
         # This can be used to modify the simulation configuration, etc.
         if self.arena_env.env_cfg_callback is not None:
