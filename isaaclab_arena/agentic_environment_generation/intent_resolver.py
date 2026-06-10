@@ -106,12 +106,21 @@ class IntentResolver:
         first_kind = spec.tasks[0].kind if spec.tasks else "task"
         return f"llm_gen_{spec.background}_{first_kind}"
 
+    @staticmethod
+    def _agent_node_id(query: str, *, instance_name: str | None = None) -> str:
+        """Return the graph node id for an agent-emitted asset reference.
+
+        The id stays as the agent's string so task params and spatial relations
+        can reference it. ``instance_name`` overrides ``query`` for duplicate items.
+        """
+        return instance_name or query
+
     def _resolve_background_node(self, query: str) -> ArenaEnvGraphNodeSpec | None:
         cls = self._assets.resolve_name(query, required_tag="background")
         if cls is None:
             return None
         return ArenaEnvGraphNodeSpec(
-            id=query,
+            id=self._agent_node_id(query),
             name=cls.name,
             type=ArenaEnvGraphNodeType.BACKGROUND,
         )
@@ -121,7 +130,7 @@ class IntentResolver:
         if embodiment_name is None:
             return None
         return ArenaEnvGraphNodeSpec(
-            id=query,  # use original query so task params can reference the robot by the name the agent emitted
+            id=self._agent_node_id(query),
             name=embodiment_name,
             type=ArenaEnvGraphNodeType.EMBODIMENT,
         )
@@ -131,7 +140,7 @@ class IntentResolver:
         if cls is None:
             return None
         return ArenaEnvGraphNodeSpec(
-            id=item.instance_name or item.query,
+            id=self._agent_node_id(item.query, instance_name=item.instance_name),
             name=cls.name,
             type=ArenaEnvGraphNodeType.OBJECT,
         )
