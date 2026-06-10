@@ -5,6 +5,9 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from difflib import get_close_matches
+
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.environments.arena_env_graph_spec import UnresolvedArenaEnvGraphSpec
 from isaaclab_arena.environments.arena_env_graph_types import (
@@ -16,10 +19,125 @@ from isaaclab_arena.environments.arena_env_graph_types import (
     TaskSpec,
 )
 
-from .asset_matcher import AssetMatcher, TraceEvent
 from .environment_intent_spec import EnvironmentIntentSpec, Item
 
 _INITIAL_STATE_SPEC_ID = "state_initial"
+
+
+@dataclass
+class TraceEvent:
+    """One step in the resolution pipeline for debugging."""
+
+    # Identifier for the resolution step, e.g. item.preferred_tags.substring.
+    stage: str
+    # The original query string that triggered this event.
+    query: str
+    # The registry key that was selected, or ``None`` when resolution failed.
+    chosen: str | None
+    # Human-readable annotation explaining why this choice was made.
+    note: str = ""
+
+
+# =============================================================================
+# Asset query matching
+#
+# These module-level helpers resolve an agent's free-text query to a registered
+# asset key via a two-stage strategy:
+#   1. Exact key match.
+#   2. Fuzzy matching: substring then difflib fuzzy, within the tag-narrowed pool.
+# =============================================================================
+
+_ASSET_ERROR_STAGES: frozenset[str] = frozenset({
+    "item.required_tags.miss",
+    "background.required_tags.miss",
+    "embodiment.required_tags.miss",
+})
+"""Trace stage identifiers that indicate an asset-query failure."""
+
+
+def match_asset(
+    registry: AssetRegistry,
+    query: str,
+    trace_prefix: str,
+    required_tags: list[str] | None = None,
+    preferred_tags: list[str] | None = None,
+) -> tuple[str | None, list[TraceEvent]]:
+    """Match a free-text ``query`` to a registered asset key.
+
+    Args:
+        registry: Registry to look up asset names in.
+        query: Asset name as emitted by the agent.
+        trace_prefix: Prefix for trace event stages (e.g. ``"item"``,
+            ``"background"``, ``"embodiment"``).
+
+        required_tags: Tags every candidate must carry (e.g. ``["object"]``).
+        preferred_tags: Additional tags that narrow the first-pass pool
+            (e.g. item ``category_tags`` or ``["ik"]`` for embodiments).
+
+    Returns:
+        ``(chosen_key, events)`` — the resolved asset key (or ``None`` on
+        miss) and all trace events produced during this call.
+    """
+    events: list[TraceEvent] = []
+    required_tags = required_tags or []
+    candidates = sorted(registry.get_assets_with_all_tags(required_tags))
+
+    if query in candidates:
+        events.append(TraceEvent(f"{trace_prefix}.exact", query, query))
+        return query, events
+
+    preferred_tags = preferred_tags or []
+    if preferred_tags:
+        preferred_candidates = sorted(registry.get_assets_with_all_tags(required_tags + preferred_tags))
+        chosen, sub_events = _best_match(
+            query,
+            preferred_candidates,
+            trace_prefix=f"{trace_prefix}.preferred_tags",
+            note=f"tags={required_tags + preferred_tags}, pool size={len(preferred_candidates)}",
+        )
+        events.extend(sub_events)
+        if chosen is not None:
+            return chosen, events
+
+    chosen, sub_events = _best_match(
+        query,
+        candidates,
+        trace_prefix=f"{trace_prefix}.required_tags",
+        note=f"tags={required_tags}, pool size={len(candidates)}",
+    )
+    events.extend(sub_events)
+    return chosen, events
+
+
+def _best_match(
+    query: str,
+    pool: list[str],
+    trace_prefix: str,
+    note: str = "",
+) -> tuple[str | None, list[TraceEvent]]:
+    """Match ``query`` within ``pool``: substring then difflib fuzzy.
+
+    Returns a ``(chosen, events)`` pair.
+    """
+    if not pool:
+        return None, [TraceEvent(f"{trace_prefix}.empty_pool", query, None, note=note)]
+
+    q = query.lower()
+    substrs = [name for name in pool if q in name.lower()]
+    if substrs:
+        chosen = min(substrs, key=len)
+        return chosen, [TraceEvent(f"{trace_prefix}.substring", query, chosen, note=note)]
+
+    matches = get_close_matches(query, pool, n=3, cutoff=0.5)
+    if matches:
+        return matches[0], [TraceEvent(f"{trace_prefix}.fuzzy", query, matches[0], note=note)]
+
+    return None, [TraceEvent(f"{trace_prefix}.miss", query, None, note=note)]
+
+
+# =============================================================================
+# IntentCompiler
+# =============================================================================
 
 
 class IntentCompiler:
@@ -38,17 +156,11 @@ class IntentCompiler:
         """
         self.registry = registry or AssetRegistry()
         self.trace: list[TraceEvent] = []
-        self._assets = AssetMatcher(self.registry, self.trace)
-
-    @property
-    def asset_matcher(self) -> AssetMatcher:
-        """The :class:`AssetMatcher` instance shared with this compiler's trace."""
-        return self._assets
 
     @property
     def resolution_errors(self) -> list[TraceEvent]:
         """Trace events flagged as failures of the last :meth:`compile` call."""
-        error_stages = AssetMatcher._ERROR_TRACE_STAGES | self._ERROR_TRACE_STAGES
+        error_stages = _ASSET_ERROR_STAGES | self._ERROR_TRACE_STAGES
         return [e for e in self.trace if e.stage in error_stages]
 
     @property
@@ -70,7 +182,6 @@ class IntentCompiler:
             further resolution via :meth:`~UnresolvedArenaEnvGraphSpec.resolve`.
         """
         self.trace = []
-        self._assets = AssetMatcher(self.registry, self.trace)
 
         nodes: list[ArenaEnvGraphNodeSpec] = []
 
@@ -116,7 +227,8 @@ class IntentCompiler:
         return instance_name or query
 
     def _resolve_background_node(self, query: str) -> ArenaEnvGraphNodeSpec | None:
-        asset_name = self._assets.resolve_name(query, "background", ["background"])
+        asset_name, events = match_asset(self.registry, query, "background", ["background"])
+        self.trace.extend(events)
         if asset_name is None:
             return None
         return ArenaEnvGraphNodeSpec(
@@ -126,7 +238,8 @@ class IntentCompiler:
         )
 
     def _resolve_embodiment_node(self, query: str) -> ArenaEnvGraphNodeSpec | None:
-        asset_name = self._assets.resolve_name(query, "embodiment", ["embodiment"], ["ik"])
+        asset_name, events = match_asset(self.registry, query, "embodiment", ["embodiment"], ["ik"])
+        self.trace.extend(events)
         if asset_name is None:
             return None
         return ArenaEnvGraphNodeSpec(
@@ -136,7 +249,8 @@ class IntentCompiler:
         )
 
     def _resolve_item_node(self, item: Item) -> ArenaEnvGraphNodeSpec | None:
-        asset_name = self._assets.resolve_name(item.query, "item", ["object"], item.category_tags)
+        asset_name, events = match_asset(self.registry, item.query, "item", ["object"], item.category_tags)
+        self.trace.extend(events)
         if asset_name is None:
             return None
         return ArenaEnvGraphNodeSpec(

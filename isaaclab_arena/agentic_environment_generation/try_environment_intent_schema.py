@@ -24,7 +24,6 @@ import json
 import re
 from pathlib import Path
 
-from isaaclab_arena.agentic_environment_generation.asset_matcher import TraceEvent
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
     EnvironmentGenerationAgent,
     build_asset_catalogue,
@@ -32,7 +31,7 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     build_task_catalogue,
 )
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
-from isaaclab_arena.agentic_environment_generation.intent_compiler import IntentCompiler
+from isaaclab_arena.agentic_environment_generation.intent_compiler import IntentCompiler, TraceEvent
 from isaaclab_arena.environments.arena_env_graph_spec import UnresolvedArenaEnvGraphSpec
 
 _LLM_GENERATED_DIR = Path("isaaclab_arena_environments/llm_generated")
