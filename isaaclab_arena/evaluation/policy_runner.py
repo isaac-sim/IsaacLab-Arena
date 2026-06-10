@@ -26,7 +26,6 @@ from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaa
 if TYPE_CHECKING:
     from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase
-    from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
 
 
 def get_policy_cls(policy_type: str) -> type[PolicyBase]:
@@ -75,13 +74,6 @@ def rollout_policy(
     pbar = None
     try:
         obs, _ = env.reset()
-        # Re-select any placement that doesn't physically settle after the reset, then adopt the
-        # refreshed observation it returns.
-        # No-ops internally when the env has no pooled placement at the builder level, returning None.
-        if enable_physics_settle_check:
-            refreshed_obs = run_placement_physics_settle_check(env, physics_settle_params)
-            if refreshed_obs is not None:
-                obs = refreshed_obs
         policy.reset()
         # Determine language instruction: CLI/job-level override takes precedence over the task's own
         # description. Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing).
