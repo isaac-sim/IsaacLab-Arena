@@ -56,8 +56,6 @@ class MetricsManager:
             A MetricsData instance containing the data for all metrics.
         """
         dataset_path = get_metric_recorder_dataset_path(self._env)
-        # metrics_data: MetricsData = MetricsData(get_num_episodes(dataset_path), [])
-        # recorded_metrics_data: dict[str, Any] = {}
         metric_data_list: list[MetricData] = []
         for term_name, term_cfg in zip(self._term_names, self._term_cfgs):
             recorded_data = get_recorded_metric_data(dataset_path, term_cfg.recorder_term_name)
@@ -71,13 +69,3 @@ class MetricsManager:
             num_episodes=get_num_episodes(dataset_path), metric_data_entries=metric_data_list
         )
         return metrics_data_collection
-        # dataset_path = get_metric_recorder_dataset_path(self._env)
-        # metrics_data: dict[str, Any] = {}
-        # recorded_metrics_data: dict[str, Any] = {}
-        # for term_name, term_cfg in zip(self._term_names, self._term_cfgs):
-        #     recorded_metric_data = get_recorded_metric_data(dataset_path, term_cfg.recorder_term_name)
-        #     recorded_metrics_data[term_name] = recorded_metric_data
-        #     metrics_data[term_name] = term_cfg.compute_metric_func(recorded_metric_data, **term_cfg.params)
-        # metrics_data["num_episodes"] = get_num_episodes(dataset_path)
-        # print(f"recorded_metrics_data: {recorded_metrics_data}")
-        # return metrics_data

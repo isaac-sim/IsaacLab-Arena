@@ -240,7 +240,7 @@ def main():
 
             metrics_per_run: list[MetricsDataCollection] = []
 
-            # num_episodes is the TOTAL across rebuilds, so split it over the rebuilds.
+            # num_episodes is the total across rebuilds, so split it over the rebuilds.
             num_episodes_per_rebuild = _split_episodes_across_rebuilds(job.num_episodes, job.num_rebuilds, job.name)
 
             # Rebuild the environment and re-run the rollout job.num_rebuilds times, then
