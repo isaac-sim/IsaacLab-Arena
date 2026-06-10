@@ -116,7 +116,7 @@ class IntentCompiler:
         return instance_name or query
 
     def _resolve_background_node(self, query: str) -> ArenaEnvGraphNodeSpec | None:
-        asset_name = self._assets.resolve_name(query, ["background"], stage_prefix="background")
+        asset_name = self._assets.resolve_name(query, "background", ["background"])
         if asset_name is None:
             return None
         return ArenaEnvGraphNodeSpec(
@@ -126,7 +126,7 @@ class IntentCompiler:
         )
 
     def _resolve_embodiment_node(self, query: str) -> ArenaEnvGraphNodeSpec | None:
-        asset_name = self._assets.resolve_name(query, ["embodiment"], ["ik"], stage_prefix="embodiment")
+        asset_name = self._assets.resolve_name(query, "embodiment", ["embodiment"], ["ik"])
         if asset_name is None:
             return None
         return ArenaEnvGraphNodeSpec(
@@ -136,12 +136,7 @@ class IntentCompiler:
         )
 
     def _resolve_item_node(self, item: Item) -> ArenaEnvGraphNodeSpec | None:
-        asset_name = self._assets.resolve_name(
-            item.query,
-            ["object"],
-            item.category_tags,
-            stage_prefix="item",
-        )
+        asset_name = self._assets.resolve_name(item.query, "item", ["object"], item.category_tags)
         if asset_name is None:
             return None
         return ArenaEnvGraphNodeSpec(

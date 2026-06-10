@@ -53,10 +53,9 @@ class AssetMatcher:
     def resolve_name(
         self,
         query: str,
+        trace_prefix: str,
         required_tags: list[str],
         preferred_tags: list[str] | None = None,
-        *,
-        stage_prefix: str = "background",
     ) -> str | None:
         """Match ``query`` to a registered asset key using tag-narrowed pools.
 
@@ -65,11 +64,11 @@ class AssetMatcher:
 
         Args:
             query: Asset name as emitted by the agent.
+            trace_prefix: Prefix for trace event stages (e.g. ``"item"``,
+                ``"background"``, ``"embodiment"``).
             required_tags: Tags every candidate must carry (e.g. ``["object"]``).
             preferred_tags: Additional tags that narrow the first-pass pool
                 (e.g. item ``category_tags`` or ``["ik"]`` for embodiments).
-            stage_prefix: Trace-event prefix (``"item"``, ``"background"``,
-                ``"embodiment"``).
 
         Returns:
             A registered asset key, or ``None`` if no match was found.
@@ -80,11 +79,11 @@ class AssetMatcher:
             asset = self.registry.get_asset_by_name(query)
             tags = getattr(asset, "tags", None) or []
             if all(tag in tags for tag in required_tags):
-                self.trace.append(TraceEvent(f"{stage_prefix}.exact", query, query))
+                self.trace.append(TraceEvent(f"{trace_prefix}.exact", query, query))
                 return query
-            if stage_prefix == "background":
+            if trace_prefix == "background":
                 self.trace.append(
-                    TraceEvent("background.wrong_tag", query, None, note=f"expected tags {required_tags!r}")
+                    TraceEvent(f"{trace_prefix}.wrong_tag", query, None, note=f"expected tags {required_tags!r}")
                 )
                 return None
 
@@ -92,30 +91,30 @@ class AssetMatcher:
             narrow_tags = required_tags + preferred_tags
             narrow_pool = self._pool_for(narrow_tags)
             if not narrow_pool:
-                if stage_prefix == "item":
+                if trace_prefix == "item":
                     self.trace.append(
                         TraceEvent(
-                            "item.tag_pool_empty",
+                            f"{trace_prefix}.tag_pool_empty",
                             query,
                             None,
                             note=f"no assets matched tags={preferred_tags}; relaxing to objects",
                         )
                     )
             else:
-                preferred_prefix = "item.in_tags" if stage_prefix == "item" else stage_prefix
+                preferred_stage_prefix = f"{trace_prefix}.in_tags" if trace_prefix == "item" else trace_prefix
                 chosen = self._best_match(
                     query,
                     narrow_pool,
-                    stage_prefix=preferred_prefix,
+                    stage_prefix=preferred_stage_prefix,
                     note=f"tags={preferred_tags}",
-                    ik_family=stage_prefix == "embodiment",
+                    ik_family=trace_prefix == "embodiment",
                 )
                 if chosen is not None:
                     return chosen
-                if stage_prefix == "item":
+                if trace_prefix == "item":
                     self.trace.append(
                         TraceEvent(
-                            "item.no_match_in_tags",
+                            f"{trace_prefix}.no_match_in_tags",
                             query,
                             None,
                             candidates=narrow_pool[:_MAX_CANDIDATES],
@@ -123,15 +122,14 @@ class AssetMatcher:
                         )
                     )
 
-        relaxed_prefix = "item.relaxed" if stage_prefix == "item" else stage_prefix
-        relaxed_note = "closest object; category ignored" if stage_prefix == "item" else f"tags={required_tags}"
+        relaxed_stage_prefix = f"{trace_prefix}.relaxed" if trace_prefix == "item" else trace_prefix
+        relaxed_note = "closest object; category ignored" if trace_prefix == "item" else f"tags={required_tags}"
         relaxed_pool = self._pool_for(required_tags)
-        chosen = self._best_match(query, relaxed_pool, stage_prefix=relaxed_prefix, note=relaxed_note)
+        chosen = self._best_match(query, relaxed_pool, stage_prefix=relaxed_stage_prefix, note=relaxed_note)
         if chosen is not None:
             return chosen
 
-        miss_stage = f"{stage_prefix}.miss"
-        self.trace.append(TraceEvent(miss_stage, query, None, candidates=relaxed_pool[:_MAX_CANDIDATES]))
+        self.trace.append(TraceEvent(f"{trace_prefix}.miss", query, None, candidates=relaxed_pool[:_MAX_CANDIDATES]))
         return None
 
     def _best_match(
@@ -156,9 +154,10 @@ class AssetMatcher:
         if substrs:
             chosen = min(substrs, key=len)
             if ik_family:
+                base = stage_prefix.removesuffix(".in_tags")
                 self.trace.append(
                     TraceEvent(
-                        "embodiment.ik_family",
+                        f"{base}.ik_family",
                         query,
                         chosen,
                         candidates=substrs[:_MAX_CANDIDATES],
