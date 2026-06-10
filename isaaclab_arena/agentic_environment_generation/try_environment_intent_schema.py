@@ -21,8 +21,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
+from isaaclab_arena.agentic_environment_generation.asset_resolver import TraceEvent
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
     EnvironmentGenerationAgent,
     build_asset_catalogue,
@@ -31,6 +33,7 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
 )
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
 from isaaclab_arena.agentic_environment_generation.intent_resolver import IntentResolver
+from isaaclab_arena.environments.arena_env_graph_spec import UnresolvedArenaEnvGraphSpec
 
 _LLM_GENERATED_DIR = Path("isaaclab_arena_environments/llm_generated")
 
@@ -42,6 +45,59 @@ SEQUENTIAL_PROMPT = (
     "franka opens a microwave, picks up avocado on the table, place it into the microwave and close the microwave door."
     " There are other utensils on the table as distractor"
 )
+
+
+def _safe_filename_stem(name: str) -> str:
+    """Return a filesystem-safe stem derived from ``env_name``."""
+    stem = re.sub(r"[^\w.-]+", "_", name).strip("._")
+    return stem or "unnamed_env"
+
+
+def _format_trace_event(event: TraceEvent) -> str:
+    chosen = event.chosen if event.chosen is not None else "<none>"
+    extra = f"  [{event.note}]" if event.note else ""
+    return f"  {event.stage:34s} {event.query!s:24s} -> {chosen}{extra}"
+
+
+def print_unresolved_graph(spec: UnresolvedArenaEnvGraphSpec) -> None:
+    """Print the resolved graph in a human-readable tabular layout."""
+    print(f"\n=== resolved UnresolvedArenaEnvGraphSpec (env_name={spec.env_name!r}) ===")
+
+    print("\nnodes:")
+    for node in spec.nodes:
+        params_str = f"  params={node.params}" if node.params else ""
+        print(f"  {node.id:24s} type={node.type.value:18s} name={node.name}{params_str}")
+
+    print("\ninitial_state_spec:")
+    initial = spec.initial_state_spec
+    s_count = len(initial.spatial_constraints)
+    t_count = len(initial.task_constraints)
+    print(f"  {initial.id:24s} spatial={s_count} task={t_count}")
+    for constraint in initial.spatial_constraints:
+        ref_str = f"  reference={constraint.reference}" if constraint.reference is not None else ""
+        params_str = f"  params={constraint.params}" if constraint.params else ""
+        print(f"    {constraint.kind:16s} subject={constraint.subject}{ref_str}{params_str}")
+    for constraint in initial.task_constraints:
+        print(f"    {constraint.type.value:16s} parent={constraint.parent}  child={constraint.child}")
+
+    print("\ntasks:")
+    for i, task in enumerate(spec.tasks):
+        print(f"  [{i}] kind={task.kind}")
+        print(f"    params: {task.params}")
+        if task.description:
+            print(f"    description: {task.description}")
+
+
+def print_resolution_trace(resolver: IntentResolver) -> None:
+    """Print resolver trace events and any resolution errors."""
+    print("\n=== trace ===")
+    for event in resolver.trace:
+        print(_format_trace_event(event))
+
+    if resolver.has_resolution_errors:
+        print("\n=== resolution errors ===")
+        for event in resolver.resolution_errors:
+            print(_format_trace_event(event))
 
 
 def main() -> None:
@@ -89,47 +145,10 @@ def main() -> None:
 
     resolver = IntentResolver()
     env_graph_spec = resolver.resolve(spec)
+    print_unresolved_graph(env_graph_spec)
+    print_resolution_trace(resolver)
 
-    print(f"\n=== resolved UnresolvedArenaEnvGraphSpec (env_name={env_graph_spec.env_name!r}) ===")
-
-    print("\nnodes:")
-    for node in env_graph_spec.nodes:
-        params_str = f"  params={node.params}" if node.params else ""
-        print(f"  {node.id:24s} type={node.type.value:18s} name={node.name}{params_str}")
-
-    print("\ninitial_state_spec:")
-    initial = env_graph_spec.initial_state_spec
-    s_count = len(initial.spatial_constraints)
-    t_count = len(initial.task_constraints)
-    print(f"  {initial.id:24s} spatial={s_count} task={t_count}")
-    for constraint in initial.spatial_constraints:
-        ref_str = f"  reference={constraint.reference}" if constraint.reference is not None else ""
-        params_str = f"  params={constraint.params}" if constraint.params else ""
-        print(f"    {constraint.kind:16s} subject={constraint.subject}{ref_str}{params_str}")
-    for constraint in initial.task_constraints:
-        print(f"    {constraint.type.value:16s} parent={constraint.parent}  child={constraint.child}")
-
-    print("\ntasks:")
-    for i, task in enumerate(env_graph_spec.tasks):
-        print(f"  [{i}] kind={task.kind}")
-        print(f"    params: {task.params}")
-        if task.description:
-            print(f"    description: {task.description}")
-
-    print("\n=== trace ===")
-    for event in resolver.trace:
-        chosen = event.chosen if event.chosen is not None else "<none>"
-        extra = f"  [{event.note}]" if event.note else ""
-        print(f"  {event.stage:34s} {event.query!s:24s} -> {chosen}{extra}")
-
-    if resolver.has_resolution_errors:
-        print("\n=== resolution errors ===")
-        for event in resolver.resolution_errors:
-            chosen = event.chosen if event.chosen is not None else "<none>"
-            extra = f"  [{event.note}]" if event.note else ""
-            print(f"  {event.stage:34s} {event.query!s:24s} -> {chosen}{extra}")
-
-    out_path = _LLM_GENERATED_DIR / f"{env_graph_spec.env_name}_proposal.yaml"
+    out_path = _LLM_GENERATED_DIR / f"{_safe_filename_stem(env_graph_spec.env_name)}_proposal.yaml"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     env_graph_spec.write_yaml(out_path)
     print(f"\n=== wrote UnresolvedArenaEnvGraphSpec YAML to {out_path} ===")
