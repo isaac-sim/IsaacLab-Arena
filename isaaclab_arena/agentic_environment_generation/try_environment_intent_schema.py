@@ -24,7 +24,7 @@ import json
 import re
 from pathlib import Path
 
-from isaaclab_arena.agentic_environment_generation.asset_resolver import TraceEvent
+from isaaclab_arena.agentic_environment_generation.asset_matcher import TraceEvent
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
     EnvironmentGenerationAgent,
     build_asset_catalogue,
@@ -32,7 +32,7 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     build_task_catalogue,
 )
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
-from isaaclab_arena.agentic_environment_generation.intent_resolver import IntentResolver
+from isaaclab_arena.agentic_environment_generation.intent_compiler import IntentCompiler
 from isaaclab_arena.environments.arena_env_graph_spec import UnresolvedArenaEnvGraphSpec
 
 _LLM_GENERATED_DIR = Path("isaaclab_arena_environments/llm_generated")
@@ -88,15 +88,15 @@ def print_unresolved_graph(spec: UnresolvedArenaEnvGraphSpec) -> None:
             print(f"    description: {task.description}")
 
 
-def print_resolution_trace(resolver: IntentResolver) -> None:
-    """Print resolver trace events and any resolution errors."""
+def print_resolution_trace(compiler: IntentCompiler) -> None:
+    """Print compiler trace events and any resolution errors."""
     print("\n=== trace ===")
-    for event in resolver.trace:
+    for event in compiler.trace:
         print(_format_trace_event(event))
 
-    if resolver.has_resolution_errors:
+    if compiler.has_resolution_errors:
         print("\n=== resolution errors ===")
-        for event in resolver.resolution_errors:
+        for event in compiler.resolution_errors:
             print(_format_trace_event(event))
 
 
@@ -143,10 +143,10 @@ def main() -> None:
     print("\n=== parsed EnvironmentIntentSpec ===")
     print(spec.model_dump_json(indent=2))
 
-    resolver = IntentResolver()
-    env_graph_spec = resolver.resolve(spec)
+    compiler = IntentCompiler()
+    env_graph_spec = compiler.compile(spec)
     print_unresolved_graph(env_graph_spec)
-    print_resolution_trace(resolver)
+    print_resolution_trace(compiler)
 
     out_path = _LLM_GENERATED_DIR / f"{_safe_filename_stem(env_graph_spec.env_name)}_proposal.yaml"
     out_path.parent.mkdir(parents=True, exist_ok=True)

@@ -3,9 +3,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for :class:`~isaaclab_arena.agentic_environment_generation.intent_resolver.IntentResolver`.
+"""Unit tests for :class:`~isaaclab_arena.agentic_environment_generation.intent_compiler.IntentCompiler`.
 
-Covers the graph-wiring logic of :meth:`~IntentResolver.resolve`:
+Covers the graph-wiring logic of :meth:`~IntentCompiler.compile`:
 
 - Node ordering (background → embodiment → items)
 - ``env_name`` derivation and override
@@ -13,7 +13,7 @@ Covers the graph-wiring logic of :meth:`~IntentResolver.resolve`:
 - Spatial constraint construction: id format, subject/reference wiring,
   params pass-through, graceful skip for unknown nodes
 - Task spec construction: id format, state-spec wiring, ``unknown_param`` detection
-- Resolution-error reporting via :attr:`~IntentResolver.has_resolution_errors`
+- Resolution-error reporting via :attr:`~IntentCompiler.has_resolution_errors`
 """
 
 from __future__ import annotations
@@ -21,10 +21,10 @@ from __future__ import annotations
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec, Item
 from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeType, SpatialRelationSpec, TaskSpec
 
-from ._resolver_test_helpers import make_resolver, make_scene
+from ._intent_compiler_test_helpers import make_compiler, make_scene
 
 # ---------------------------------------------------------------------------
-# Top-level resolve()
+# Top-level compile()
 # ---------------------------------------------------------------------------
 
 
@@ -49,7 +49,7 @@ def test_resolve_happy_path():
             description="put avocado in bowl",
         )
     ]
-    spec = make_resolver().resolve(make_scene(items=items, initial_state_graph=initial, tasks=tasks))
+    spec = make_compiler().compile(make_scene(items=items, initial_state_graph=initial, tasks=tasks))
 
     # Auto-derived env_name: f"llm_gen_{background}_{first_task_kind}".
     assert spec.env_name == "llm_gen_maple_table_PickAndPlaceTask"
@@ -93,26 +93,26 @@ def test_resolve_happy_path():
 
 
 def test_resolve_overrides_env_name():
-    resolver = make_resolver()
-    spec = resolver.resolve(make_scene(), env_name="my_custom_env")
+    compiler = make_compiler()
+    spec = compiler.compile(make_scene(), env_name="my_custom_env")
     assert spec.env_name == "my_custom_env"
 
 
 def test_resolve_clears_trace_between_calls():
-    resolver = make_resolver()
-    resolver.resolve(make_scene())
-    n_after_first = len(resolver.trace)
+    compiler = make_compiler()
+    compiler.compile(make_scene())
+    n_after_first = len(compiler.trace)
     # Sanity: at least background, embodiment, and task events should be present.
     assert n_after_first > 0
 
-    resolver.resolve(make_scene())
-    n_after_second = len(resolver.trace)
+    compiler.compile(make_scene())
+    n_after_second = len(compiler.trace)
     # Deterministic input → identical trace length when the trace is cleared.
     assert n_after_second == n_after_first
 
 
 def test_resolve_with_empty_initial_state_graph():
-    spec = make_resolver().resolve(make_scene(initial_state_graph=[]))
+    spec = make_compiler().compile(make_scene(initial_state_graph=[]))
     assert spec.initial_state_spec.id == "state_initial"
     assert spec.initial_state_spec.spatial_constraints == []
     assert spec.initial_state_spec.task_constraints == []
@@ -147,10 +147,10 @@ def _clean_scene_kwargs() -> dict:
 
 
 def test_has_resolution_errors_false_on_clean_run():
-    resolver = make_resolver()
-    resolver.resolve(make_scene(**_clean_scene_kwargs()))
-    assert resolver.resolution_errors == []
-    assert resolver.has_resolution_errors is False
+    compiler = make_compiler()
+    compiler.compile(make_scene(**_clean_scene_kwargs()))
+    assert compiler.resolution_errors == []
+    assert compiler.has_resolution_errors is False
 
 
 def test_has_resolution_errors_true_when_item_unresolvable():
@@ -158,10 +158,10 @@ def test_has_resolution_errors_true_when_item_unresolvable():
     # stage that fires is "item.miss".
     kwargs = _clean_scene_kwargs()
     kwargs["items"] = kwargs["items"] + [Item(query="zzz_no_match_anywhere", category_tags=["object"])]
-    resolver = make_resolver()
-    resolver.resolve(make_scene(**kwargs))
-    assert resolver.has_resolution_errors is True
-    assert [e.stage for e in resolver.resolution_errors] == ["item.miss"]
+    compiler = make_compiler()
+    compiler.compile(make_scene(**kwargs))
+    assert compiler.has_resolution_errors is True
+    assert [e.stage for e in compiler.resolution_errors] == ["item.miss"]
 
 
 def test_has_resolution_errors_false_when_only_tag_relaxation():
@@ -183,20 +183,20 @@ def test_has_resolution_errors_false_when_only_tag_relaxation():
             description="d",
         )
     ]
-    resolver = make_resolver()
-    resolver.resolve(make_scene(**kwargs))
-    trace_stages = [e.stage for e in resolver.trace]
+    compiler = make_compiler()
+    compiler.compile(make_scene(**kwargs))
+    trace_stages = [e.stage for e in compiler.trace]
     assert "item.no_match_in_tags" in trace_stages
-    assert resolver.has_resolution_errors is False
+    assert compiler.has_resolution_errors is False
 
 
 def test_has_resolution_errors_true_when_embodiment_unknown():
     # An unknown embodiment with no fuzzy match emits "embodiment.miss" which
     # is an error stage — no silent fallback to a hardcoded default.
-    resolver = make_resolver()
-    resolver.resolve(make_scene(embodiment="totally_unknown_robot"))
-    assert "embodiment.miss" in [e.stage for e in resolver.trace]
-    assert resolver.has_resolution_errors is True
+    compiler = make_compiler()
+    compiler.compile(make_scene(embodiment="totally_unknown_robot"))
+    assert "embodiment.miss" in [e.stage for e in compiler.trace]
+    assert compiler.has_resolution_errors is True
 
 
 # ---------------------------------------------------------------------------
@@ -207,7 +207,7 @@ def test_has_resolution_errors_true_when_embodiment_unknown():
 def test_spatial_constraint_binary_relation_id_and_fields():
     items = [Item(query="cracker_box", category_tags=["graspable"])]
     initial = [SpatialRelationSpec(kind="on", subject="cracker_box", reference="maple_table")]
-    spec = make_resolver().resolve(make_scene(items=items, initial_state_graph=initial))
+    spec = make_compiler().compile(make_scene(items=items, initial_state_graph=initial))
     constraint = spec.initial_state_spec.spatial_constraints[0]
     assert constraint.reference == "maple_table"
     assert constraint.subject == "cracker_box"
@@ -216,7 +216,7 @@ def test_spatial_constraint_binary_relation_id_and_fields():
 
 def test_spatial_constraint_unary_relation_id_and_fields():
     initial = [SpatialRelationSpec(kind="is_anchor", subject="maple_table")]
-    spec = make_resolver().resolve(make_scene(initial_state_graph=initial))
+    spec = make_compiler().compile(make_scene(initial_state_graph=initial))
     constraint = spec.initial_state_spec.spatial_constraints[0]
     assert constraint.kind == "is_anchor"
     assert constraint.subject == "maple_table"
@@ -226,18 +226,18 @@ def test_spatial_constraint_unary_relation_id_and_fields():
 
 def test_spatial_constraint_unknown_subject_skipped():
     initial = [SpatialRelationSpec(kind="on", subject="not_a_node", reference="maple_table")]
-    resolver = make_resolver()
-    spec = resolver.resolve(make_scene(initial_state_graph=initial))
+    compiler = make_compiler()
+    spec = compiler.compile(make_scene(initial_state_graph=initial))
     assert spec.initial_state_spec.spatial_constraints == []
-    assert any(e.stage == "relation.initial.unknown_subject" for e in resolver.trace)
+    assert any(e.stage == "relation.initial.unknown_subject" for e in compiler.trace)
 
 
 def test_spatial_constraint_unknown_reference_skipped():
     initial = [SpatialRelationSpec(kind="on", subject="maple_table", reference="missing_node")]
-    resolver = make_resolver()
-    spec = resolver.resolve(make_scene(initial_state_graph=initial))
+    compiler = make_compiler()
+    spec = compiler.compile(make_scene(initial_state_graph=initial))
     assert spec.initial_state_spec.spatial_constraints == []
-    assert any(e.stage == "relation.initial.unknown_reference" for e in resolver.trace)
+    assert any(e.stage == "relation.initial.unknown_reference" for e in compiler.trace)
 
 
 def test_spatial_constraint_params_passed_through():
@@ -249,7 +249,7 @@ def test_spatial_constraint_params_passed_through():
             params={"position_xyz": [0.1, 0.2, 0.3]},
         ),
     ]
-    spec = make_resolver().resolve(make_scene(items=items, initial_state_graph=initial))
+    spec = make_compiler().compile(make_scene(items=items, initial_state_graph=initial))
     constraint = spec.initial_state_spec.spatial_constraints[0]
     assert constraint.kind == "at_position"
     # params are passed through verbatim; downstream builders interpret them.
@@ -276,7 +276,7 @@ def test_multiple_tasks_preserved_in_order():
         TaskSpec(kind="CloseDoorTask", params={"openable_object": "bowl"}, description="d3"),
     ]
     items = [Item(query="bowl", category_tags=["bowl"])]
-    spec = make_resolver().resolve(make_scene(items=items, tasks=tasks))
+    spec = make_compiler().compile(make_scene(items=items, tasks=tasks))
 
     # Tasks are plain TaskSpec entries (no id / wiring) preserved in declaration order.
     assert len(spec.tasks) == 3
@@ -299,10 +299,10 @@ def test_task_unknown_param_emits_error_trace():
             description="d",
         )
     ]
-    resolver = make_resolver()
-    resolver.resolve(make_scene(items=items, tasks=tasks))
-    assert resolver.has_resolution_errors is True
-    error_stages = [e.stage for e in resolver.resolution_errors]
+    compiler = make_compiler()
+    compiler.compile(make_scene(items=items, tasks=tasks))
+    assert compiler.has_resolution_errors is True
+    error_stages = [e.stage for e in compiler.resolution_errors]
     assert "task.unknown_param" in error_stages
 
 
@@ -316,5 +316,5 @@ def test_resolve_scene_with_no_tasks_derives_env_name():
         initial_state_graph=[],
         tasks=[],
     )
-    spec = make_resolver().resolve(scene)
+    spec = make_compiler().compile(scene)
     assert spec.env_name == "llm_gen_maple_table_task"

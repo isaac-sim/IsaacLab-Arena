@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared fixtures for test_asset_resolver.py and test_intent_resolver.py.
+"""Shared fixtures for test_asset_matcher.py and test_intent_compiler.py.
 
 Leading underscore keeps pytest from collecting this module as a test file.
 """
@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec, Item
-from isaaclab_arena.agentic_environment_generation.intent_resolver import IntentResolver
+from isaaclab_arena.agentic_environment_generation.intent_compiler import IntentCompiler
 from isaaclab_arena.environments.arena_env_graph_types import SpatialRelationSpec, TaskSpec
 
 
@@ -76,9 +76,9 @@ def default_assets() -> list[FakeAsset]:
     ]
 
 
-def make_resolver(assets: list[FakeAsset] | None = None) -> IntentResolver:
-    """Return an :class:`IntentResolver` backed by a :class:`FakeAssetRegistry`."""
-    return IntentResolver(registry=FakeAssetRegistry(assets or default_assets()))
+def make_compiler(assets: list[FakeAsset] | None = None) -> IntentCompiler:
+    """Return an :class:`IntentCompiler` backed by a :class:`FakeAssetRegistry`."""
+    return IntentCompiler(registry=FakeAssetRegistry(assets or default_assets()))
 
 
 def make_scene(

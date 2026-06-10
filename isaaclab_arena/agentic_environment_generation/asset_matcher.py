@@ -32,8 +32,8 @@ class TraceEvent:
 _MAX_CANDIDATES = 10
 
 
-class AssetResolver:
-    """Resolves catalog query strings against :class:`AssetRegistry`."""
+class AssetMatcher:
+    """Matches agent query strings to registered assets in :class:`AssetRegistry`."""
 
     _ERROR_TRACE_STAGES: set[str] = {
         "item.miss",  # no object asset matched the agent's query even after tag relaxation
@@ -46,7 +46,7 @@ class AssetResolver:
         """Args:
         registry: Asset registry to look up asset classes in.
         trace: Mutable list that receives one :class:`TraceEvent` per
-            resolution decision; shared with the parent :class:`IntentResolver`.
+            matching decision; shared with the parent :class:`IntentCompiler`.
         """
         self.registry = registry
         self.trace = trace

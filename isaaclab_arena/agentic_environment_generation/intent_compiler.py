@@ -16,14 +16,14 @@ from isaaclab_arena.environments.arena_env_graph_types import (
     TaskSpec,
 )
 
-from .asset_resolver import AssetResolver, TraceEvent
+from .asset_matcher import AssetMatcher, TraceEvent
 from .environment_intent_spec import EnvironmentIntentSpec, Item
 
 _INITIAL_STATE_SPEC_ID = "state_initial"
 
 
-class IntentResolver:
-    """Turns an agent intent spec into a validated :class:`UnresolvedArenaEnvGraphSpec`."""
+class IntentCompiler:
+    """Compiles an agent intent spec into a validated :class:`UnresolvedArenaEnvGraphSpec`."""
 
     _ERROR_TRACE_STAGES: frozenset[str] = frozenset({
         "relation.initial.unknown_subject",
@@ -38,26 +38,26 @@ class IntentResolver:
         """
         self.registry = registry or AssetRegistry()
         self.trace: list[TraceEvent] = []
-        self._assets = AssetResolver(self.registry, self.trace)
+        self._assets = AssetMatcher(self.registry, self.trace)
 
     @property
-    def asset_resolver(self) -> AssetResolver:
-        """The :class:`AssetResolver` instance shared with this resolver's trace."""
+    def asset_matcher(self) -> AssetMatcher:
+        """The :class:`AssetMatcher` instance shared with this compiler's trace."""
         return self._assets
 
     @property
     def resolution_errors(self) -> list[TraceEvent]:
-        """Trace events flagged as failures of the last :meth:`resolve` call."""
-        error_stages = AssetResolver._ERROR_TRACE_STAGES | self._ERROR_TRACE_STAGES
+        """Trace events flagged as failures of the last :meth:`compile` call."""
+        error_stages = AssetMatcher._ERROR_TRACE_STAGES | self._ERROR_TRACE_STAGES
         return [e for e in self.trace if e.stage in error_stages]
 
     @property
     def has_resolution_errors(self) -> bool:
-        """``True`` if the last :meth:`resolve` call produced any error-stage trace events."""
+        """``True`` if the last :meth:`compile` call produced any error-stage trace events."""
         return bool(self.resolution_errors)
 
-    def resolve(self, spec: EnvironmentIntentSpec, env_name: str | None = None) -> UnresolvedArenaEnvGraphSpec:
-        """Resolve an :class:`EnvironmentIntentSpec` into an :class:`UnresolvedArenaEnvGraphSpec`.
+    def compile(self, spec: EnvironmentIntentSpec, env_name: str | None = None) -> UnresolvedArenaEnvGraphSpec:
+        """Compile an :class:`EnvironmentIntentSpec` into an :class:`UnresolvedArenaEnvGraphSpec`.
 
         Args:
             spec: Agent-produced intent spec describing the scene, initial relations,
@@ -70,7 +70,7 @@ class IntentResolver:
             further resolution via :meth:`~UnresolvedArenaEnvGraphSpec.resolve`.
         """
         self.trace = []
-        self._assets = AssetResolver(self.registry, self.trace)
+        self._assets = AssetMatcher(self.registry, self.trace)
 
         nodes: list[ArenaEnvGraphNodeSpec] = []
 
