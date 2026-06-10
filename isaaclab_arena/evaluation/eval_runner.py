@@ -216,7 +216,9 @@ def main():
 
             metrics_per_run: list[MetricsData] = []
 
-            for _ in range(2):
+            # RIGHT NOW WE HARD CODE THE NUMBER OF EXPERIMENTS TO 2
+            NUM_EXPERIMENTS = 2
+            for experiment_idx in range(NUM_EXPERIMENTS):
                 try:
                     render_mode = "rgb_array" if args_cli.video else None
                     env = load_env(job.arena_env_args, job.name, render_mode=render_mode)
@@ -276,37 +278,8 @@ def main():
                         _collect_garbage_and_clear_cuda_cache()
 
 
-            from isaaclab_arena.metrics.metrics_manager import MetricsData, MetricData
-
-            def aggregate_metrics(metrics_per_run: list[MetricsData]) -> MetricsData:
-                total_num_episodes = sum(metrics.num_episodes for metrics in metrics_per_run)
-
-                metric_names = [metric_data.term_name for metric_data in metrics_per_run[0].metric_data]
-                metric_cfgs = {metric_data.term_name: metric_data.term_cfg for metric_data in metrics_per_run[0].metric_data}
-
-                
-                metric_data_dict: dict[str, MetricData] = {}
-                for metrics in metrics_per_run:
-                    for metric_data in metrics.metric_data:
-                        if metric_data.term_name not in metric_data_dict:
-                            metric_data_dict[metric_data.term_name] = MetricData(
-                                term_name=metric_data.term_name,
-                                recorded_data=metric_data.recorded_data,
-                                metric_value=None
-                            )
-                        else:
-                            metric_data_dict[metric_data.term_name].recorded_data.extend(metric_data.recorded_data)
-                
-                # (Re-)compute the metric values
-
-
-                return MetricsData(total_num_episodes, list(metric_data_dict.values()))
-
-            aggregated_metrics = aggregate_metrics(metrics_per_run)
-            print(f"metrics_per_run: {metrics_per_run}")
-
-            print(f"aggregated_metrics: {aggregated_metrics}")
-
+            # UP TO HERE. We need to aggregate the metrics from the different experiments.
+            # TODO
 
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()
