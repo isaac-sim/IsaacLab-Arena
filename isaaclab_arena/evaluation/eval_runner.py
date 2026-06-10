@@ -22,14 +22,13 @@ from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
-from isaaclab_arena.metrics.metrics_manager import MetricsData
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase
-
+    from isaaclab_arena.metrics.metrics_manager import MetricsData, MetricData
 
 def load_env(arena_env_args: list[str], job_name: str, render_mode: str | None = None):
 
@@ -213,6 +212,10 @@ def main():
                 continue
             env = None
             policy = None
+
+
+            metrics_per_run: list[MetricsData] = []
+
             for _ in range(2):
                 try:
                     render_mode = "rgb_array" if args_cli.video else None
@@ -249,6 +252,7 @@ def main():
                         num_episodes=job.num_episodes,
                         language_instruction=job.language_instruction,
                     )
+                    metrics_per_run.append(metrics)
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
 
@@ -270,6 +274,39 @@ def main():
                         policy = None
                         env = None
                         _collect_garbage_and_clear_cuda_cache()
+
+
+            from isaaclab_arena.metrics.metrics_manager import MetricsData, MetricData
+
+            def aggregate_metrics(metrics_per_run: list[MetricsData]) -> MetricsData:
+                total_num_episodes = sum(metrics.num_episodes for metrics in metrics_per_run)
+
+                metric_names = [metric_data.term_name for metric_data in metrics_per_run[0].metric_data]
+                metric_cfgs = {metric_data.term_name: metric_data.term_cfg for metric_data in metrics_per_run[0].metric_data}
+
+                
+                metric_data_dict: dict[str, MetricData] = {}
+                for metrics in metrics_per_run:
+                    for metric_data in metrics.metric_data:
+                        if metric_data.term_name not in metric_data_dict:
+                            metric_data_dict[metric_data.term_name] = MetricData(
+                                term_name=metric_data.term_name,
+                                recorded_data=metric_data.recorded_data,
+                                metric_value=None
+                            )
+                        else:
+                            metric_data_dict[metric_data.term_name].recorded_data.extend(metric_data.recorded_data)
+                
+                # (Re-)compute the metric values
+
+
+                return MetricsData(total_num_episodes, list(metric_data_dict.values()))
+
+            aggregated_metrics = aggregate_metrics(metrics_per_run)
+            print(f"metrics_per_run: {metrics_per_run}")
+
+            print(f"aggregated_metrics: {aggregated_metrics}")
+
 
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()

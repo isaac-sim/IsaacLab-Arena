@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import argparse
 import os
 import torch
@@ -14,7 +16,6 @@ from typing import TYPE_CHECKING, Any
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.camera_video import CameraObsVideoRecorder
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
-from isaaclab_arena.metrics.metrics_manager import MetricsData
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
@@ -23,6 +24,7 @@ from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaa
 
 if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase
+    from isaaclab_arena.metrics.metrics_manager import MetricsData
 
 
 def get_policy_cls(policy_type: str) -> type["PolicyBase"]:

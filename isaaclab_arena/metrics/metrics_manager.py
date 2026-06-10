@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 @dataclass
 class MetricData:
     term_name: str
+    term_cfg: MetricTermCfg
     recorded_data: Any
     metric_value: Any
 
@@ -75,7 +76,12 @@ class MetricsManager:
         for term_name, term_cfg in zip(self._term_names, self._term_cfgs):
             recorded_data = get_recorded_metric_data(dataset_path, term_cfg.recorder_term_name)
             metrics_value = term_cfg.compute_metric_func(recorded_data, **term_cfg.params)
-            metric_data = MetricData(term_name, recorded_data, metrics_value)
+            metric_data = MetricData(
+                term_name=term_name,
+                term_cfg=term_cfg,
+                recorded_data=recorded_data,
+                metric_value=metrics_value
+            )
             metric_data_list.append(metric_data)
         # Combine the metric data into a MetricsData instance.
         metrics_data = MetricsData(get_num_episodes(dataset_path), metric_data_list)

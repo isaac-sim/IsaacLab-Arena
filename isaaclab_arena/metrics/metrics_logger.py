@@ -3,9 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import json
 import numpy as np
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from isaaclab_arena.metrics.metrics_manager import MetricsData
