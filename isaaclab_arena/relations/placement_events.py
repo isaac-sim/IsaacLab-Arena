@@ -10,17 +10,12 @@ from typing import TYPE_CHECKING
 
 from isaaclab.envs import ManagerBasedEnv
 
-from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
-from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
-from isaaclab_arena.utils import physics_settle
 from isaaclab_arena.utils.pose import Pose, rotate_quat_by_yaw
 from isaaclab_arena.utils.velocity import Velocity
 
 if TYPE_CHECKING:
-    from isaaclab.envs.common import VecEnvObs
-
     from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.placement_validation import PlacementResult
 
@@ -50,6 +45,23 @@ def get_rotation_xyzw(obj: ObjectBase) -> tuple[float, float, float, float]:
     """Return the RotateAroundSolution rotation for *obj*, or identity if none."""
     rotate_marker = next((r for r in obj.get_relations() if isinstance(r, RotateAroundSolution)), None)
     return rotate_marker.get_rotation_xyzw() if rotate_marker else IDENTITY_ROTATION_XYZW
+
+
+
+def get_base_rotations(
+    objects: list[ObjectBase],
+    anchor_objects_set: set[ObjectBase],
+) -> dict[ObjectBase, tuple[float, float, float, float]]:
+    """Return the base rotation for each non-anchor object."""
+    return {obj: get_rotation_xyzw(obj) for obj in objects if obj not in anchor_objects_set}
+
+
+def get_movable_object_names(
+    objects: list[ObjectBase],
+    anchor_objects_set: set[ObjectBase],
+) -> list[str]:
+    """Return the names of non-anchor objects, used for the settle velocity check."""
+    return [obj.name for obj in objects if obj not in anchor_objects_set]
 
 
 def write_layout_to_sim(
@@ -120,7 +132,7 @@ def solve_and_place_objects(
         results_by_env = dict(zip(reset_env_ids, reset_results))
 
     anchor_objects_set = set(get_anchor_objects(objects))
-    base_rotations = {obj: get_rotation_xyzw(obj) for obj in objects if obj not in anchor_objects_set}
+    base_rotations = get_base_rotations(objects, anchor_objects_set)
 
     for cur_env in reset_env_ids:
         result = results_by_env[cur_env]

@@ -56,10 +56,11 @@ class PlacementValidationChecklist:
         """Get the failed checklist items."""
         return [item for item in self.checklist_items.keys() if not self.checklist_items[item]]
 
-    @property
-    def physics_settled_failed(self) -> bool:
-        """True when this layout was stepped in sim and did not settle."""
-        return self.checklist_items.get(PlacementCheck.PHYSICS_SETTLED) is False
+    def report(self) -> str:
+        """One-line report check items and their results."""
+        verdict = "PASS" if self.pass_validation_checklist() else "FAIL"
+        items = ", ".join(f"{name}={passed}" for name, passed in self.checklist_items.items()) or "no checks"
+        return f"{verdict} [{items}]"
 
     @property
     def rank_required_and_optional_failures(self) -> tuple[int, int]:

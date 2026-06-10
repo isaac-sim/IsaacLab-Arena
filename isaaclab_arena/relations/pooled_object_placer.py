@@ -461,14 +461,8 @@ class PooledObjectPlacer:
         """All objects (including anchors) participating in relation solving."""
         return self._objects
 
-    def candidates_per_env(self) -> list[list[PlacementResult]]:
-        """Non-consuming snapshot of every stored candidate layout, grouped by env pool index.
-
-        For env-specific pools each inner list holds the candidates solved for that absolute env; for
-        reusable pools the grouping just reflects how interchangeable layouts were distributed across
-        pools. Includes already-consumed layouts (the consumption cursor is ignored) so the full pool
-        can be inspected by the offline validation sweep. Advances nothing.
-        """
+    def layouts_per_env(self) -> list[list[PlacementResult]]:
+        """Flattened list of every stored layout, grouped by env pool index."""
         return [list(pool.layouts) for pool in self._env_pools]
 
     @property

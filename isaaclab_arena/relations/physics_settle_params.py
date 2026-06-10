@@ -8,10 +8,11 @@ from dataclasses import dataclass
 
 @dataclass
 class PhysicsSettleParams:
-    """Configuration for the post-reset, in-sim physics settle check."""
+    """Configuration for the in-sim physics settle check."""
 
-    num_steps: int = 10
-    """Number of physics steps to advance before reading back object velocities in the settle check."""
+    num_steps: int = 2
+    """Number of env steps to advance before reading back object state in the settle check. The settle
+    check converts this to ``num_steps * decimation`` physics substeps internally."""
 
     lin_vel_thresh: float = 0.1
     """Max per-object linear speed (m/s) after settling. Above this the layout is considered unsettled."""
