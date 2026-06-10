@@ -12,7 +12,7 @@ from isaaclab_arena.analysis.sensitivity.analyzer_base import SUCCESS_THRESHOLD
 
 if TYPE_CHECKING:
     from isaaclab_arena.analysis.sensitivity.analyzer_base import BaseAnalyzer
-    from isaaclab_arena.analysis.sensitivity.dataset import FactorSpec
+    from isaaclab_arena.analysis.sensitivity.dataset import FactorSpec, SensitivityDataset
 
 # Shared styling — kept in one place so the continuous and categorical drawers stay
 # visually consistent (same colours mean the same thing across both plot types).
@@ -49,6 +49,74 @@ def draw_marginal(
         _draw_categorical_marginal(ax, analyzer, factor_spec, outcome_value, num_samples)
     else:
         raise NotImplementedError(f"Unsupported factor type {factor_spec.type!r}")
+
+
+def draw_success_rate(
+    ax,
+    dataset: SensitivityDataset,
+    factor_name: str,
+    outcome_name: str,
+    num_bins: int = 12,
+) -> None:
+    """Plot the empirical success rate of a binary outcome against a continuous factor.
+
+    Bins the factor (log-spaced when it spans more than ~2 decades), then plots the
+    per-bin success rate with a 95% Wilson confidence band on a 0-1 axis. The rate is
+    read straight off the y-axis, and because each bin is counted independently the
+    result is correct regardless of how the factor was sampled.
+    """
+    factor_column_slice = dataset.factor_columns[factor_name]
+    factor_values = dataset.theta[:, factor_column_slice].squeeze(-1).cpu().numpy()
+    outcome_column_index = dataset.outcome_columns[outcome_name]
+    outcome_values = dataset.x[:, outcome_column_index].cpu().numpy()
+
+    # Log-spaced bins when the factor is positive and spans many decades, so a wide-range
+    # factor (e.g. light) resolves its low end instead of collapsing into the first bin.
+    range_low, range_high = float(factor_values.min()), float(factor_values.max())
+    use_log_axis = range_low > 0 and np.log10(range_high / range_low) > 2
+    if use_log_axis:
+        bin_edges = np.logspace(np.log10(range_low), np.log10(range_high), num_bins + 1)
+    else:
+        bin_edges = np.linspace(range_low, range_high, num_bins + 1)
+
+    z = 1.959963985  # 95% normal quantile, for the Wilson score interval
+    bin_centers, rates, ci_low, ci_high, bin_counts = [], [], [], [], []
+    for bin_index in range(num_bins):
+        # Last bin is closed on the right so the maximum value isn't dropped.
+        upper = bin_edges[bin_index + 1]
+        in_bin = (factor_values >= bin_edges[bin_index]) & (
+            factor_values <= upper if bin_index == num_bins - 1 else factor_values < upper
+        )
+        num_in_bin = int(in_bin.sum())
+        if num_in_bin == 0:
+            continue
+        num_success = int((outcome_values[in_bin] >= SUCCESS_THRESHOLD).sum())
+        rate = num_success / num_in_bin
+        # Wilson score interval — stays inside [0, 1] even at rate 0/1 or small n.
+        denominator = 1 + z * z / num_in_bin
+        center = (rate + z * z / (2 * num_in_bin)) / denominator
+        margin = z / denominator * np.sqrt(rate * (1 - rate) / num_in_bin + z * z / (4 * num_in_bin * num_in_bin))
+        if use_log_axis:
+            bin_centers.append(float(np.sqrt(bin_edges[bin_index] * upper)))
+        else:
+            bin_centers.append(float(0.5 * (bin_edges[bin_index] + upper)))
+        rates.append(rate)
+        ci_low.append(max(0.0, center - margin))
+        ci_high.append(min(1.0, center + margin))
+        bin_counts.append(num_in_bin)
+
+    ax.plot(bin_centers, rates, "o-", color=_POSTERIOR_COLOR, linewidth=2, label=f"empirical {outcome_name}")
+    ax.fill_between(bin_centers, ci_low, ci_high, color=_POSTERIOR_COLOR, alpha=0.2, label="95% Wilson CI")
+    for center_x, rate, count in zip(bin_centers, rates, bin_counts):
+        ax.text(center_x, min(rate + 0.04, 1.04), f"n={count}", ha="center", fontsize=7, color="gray")
+
+    if use_log_axis:
+        ax.set_xscale("log")
+    ax.set_xlabel(factor_name)
+    ax.set_ylabel(f"{outcome_name} (success rate)")
+    ax.set_ylim(0, 1.1)
+    ax.legend(loc="best", fontsize=9)
+    ax.grid(alpha=0.3)
 
 
 def _draw_continuous_marginal(

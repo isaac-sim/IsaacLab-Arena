@@ -10,7 +10,7 @@ from pathlib import Path
 
 from isaaclab_arena.analysis.sensitivity.dataset import SensitivityDataset
 from isaaclab_arena.analysis.sensitivity.factory import make_analyzer
-from isaaclab_arena.analysis.sensitivity.plotting import draw_marginal
+from isaaclab_arena.analysis.sensitivity.plotting import draw_marginal, draw_success_rate
 
 
 def generate_pdf_report(
@@ -41,16 +41,28 @@ def generate_pdf_report(
 
     figure, axes = plt.subplots(n_rows, n_cols, figsize=(6.5 * n_cols, 4.5 * n_rows), squeeze=False)
     for row_index, outcome in enumerate(outcomes):
-        analyzer = make_analyzer(dataset, outcome.name)
-        print(f"[INFO]   Fitting {type(analyzer).__name__} for outcome={outcome.name!r}")
-        analyzer.fit()
+        outcome_is_binary = _is_binary_outcome(dataset, outcome.name)
+        # The fitted analyzer is only needed for categorical cells or non-binary outcomes.
+        # An all-continuous binary report is answered entirely by empirical success-rate plots.
+        needs_analyzer = (not outcome_is_binary) or any(factor.type != "continuous" for factor in factors)
+        analyzer = None
+        if needs_analyzer:
+            analyzer = make_analyzer(dataset, outcome.name)
+            print(f"[INFO]   Fitting {type(analyzer).__name__} for outcome={outcome.name!r}")
+            analyzer.fit()
         outcome_value = _default_outcome_value_for_analysis(dataset, outcome)
         for col_index, factor in enumerate(factors):
             ax = axes[row_index][col_index]
-            draw_marginal(ax, analyzer, factor.name, outcome_value=outcome_value)
-            ax.set_title(
-                f"{outcome.name} vs {factor.name}\n(conditioned on {outcome.name}={outcome_value:g})", fontsize=10
-            )
+            # Binary outcome + continuous factor: the empirical success-rate curve reads
+            # directly off a 0-1 axis and is correct regardless of how the factor was sampled.
+            if outcome_is_binary and factor.type == "continuous":
+                draw_success_rate(ax, dataset, factor.name, outcome.name)
+                ax.set_title(f"{outcome.name} vs {factor.name}", fontsize=10)
+            else:
+                draw_marginal(ax, analyzer, factor.name, outcome_value=outcome_value)
+                ax.set_title(
+                    f"{outcome.name} vs {factor.name}\n(conditioned on {outcome.name}={outcome_value:g})", fontsize=10
+                )
 
     slice_info = dataset.schema.slice
     # Two lines so the title doesn't clip on narrow (single-factor) figures.
@@ -70,14 +82,19 @@ def generate_pdf_report(
     return output_pdf_path
 
 
+def _is_binary_outcome(dataset: SensitivityDataset, outcome_name: str) -> bool:
+    """True iff the outcome column only ever takes values in ``{0, 1}``."""
+    outcome_column_index = dataset.outcome_columns[outcome_name]
+    return set(dataset.x[:, outcome_column_index].flatten().tolist()).issubset({0.0, 1.0})
+
+
 def _default_outcome_value_for_analysis(dataset: SensitivityDataset, outcome) -> float:
     """Pick a sensible value to condition the posterior on for this outcome.
 
     Binary outcomes (only ``{0, 1}`` observed) → ``1.0`` (the "success" branch).
     Continuous outcomes → empirical median; a "typical case" value always inside the data range.
     """
-    outcome_column_index = dataset.outcome_columns[outcome.name]
-    values = dataset.x[:, outcome_column_index].cpu().numpy()
-    if set(values.flatten().tolist()).issubset({0.0, 1.0}):
+    if _is_binary_outcome(dataset, outcome.name):
         return 1.0
-    return float(np.median(values))
+    outcome_column_index = dataset.outcome_columns[outcome.name]
+    return float(np.median(dataset.x[:, outcome_column_index].cpu().numpy()))
