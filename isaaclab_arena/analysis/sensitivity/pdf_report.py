@@ -36,6 +36,11 @@ def generate_pdf_report(
     dataset = SensitivityDataset(Path(factors_yaml_path), Path(jsonl_path))
     outcomes = dataset.schema.outcomes
     factors = dataset.schema.factors
+    # A low-cardinality categorical to split continuous success-rate curves by, so a
+    # light×object-style interaction shows per category instead of being averaged away.
+    split_factor = next(
+        (f.name for f in factors if f.type == "categorical" and f.choices and len(f.choices) <= 6), None
+    )
     n_rows, n_cols = len(outcomes), len(factors)
     print(f"[INFO] PDF report: {n_rows} outcomes × {n_cols} factors  ({len(dataset.rows)} episodes)")
 
@@ -56,8 +61,11 @@ def generate_pdf_report(
             # Binary outcome + continuous factor: the empirical success-rate curve reads
             # directly off a 0-1 axis and is correct regardless of how the factor was sampled.
             if outcome_is_binary and factor.type == "continuous":
-                draw_success_rate(ax, dataset, factor.name, outcome.name)
-                ax.set_title(f"{outcome.name} vs {factor.name}", fontsize=10)
+                draw_success_rate(ax, dataset, factor.name, outcome.name, group_by=split_factor)
+                title = f"{outcome.name} vs {factor.name}"
+                if split_factor:
+                    title += f"  (split by {split_factor})"
+                ax.set_title(title, fontsize=10)
             else:
                 draw_marginal(ax, analyzer, factor.name, outcome_value=outcome_value)
                 ax.set_title(
