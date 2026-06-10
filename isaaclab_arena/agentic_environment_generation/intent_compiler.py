@@ -48,9 +48,15 @@ class TraceEvent:
 # =============================================================================
 
 _ASSET_ERROR_STAGES: frozenset[str] = frozenset({
+    # Required-tag pool is non-empty but no asset matched the query.
     "item.required_tags.miss",
     "background.required_tags.miss",
     "embodiment.required_tags.miss",
+    # Required-tag pool is empty: the registry has no assets for this category.
+    # The node is silently dropped in both cases, so both are resolution errors.
+    "item.required_tags.empty_pool",
+    "background.required_tags.empty_pool",
+    "embodiment.required_tags.empty_pool",
 })
 """Trace stage identifiers that indicate an asset-query failure."""
 
@@ -132,6 +138,7 @@ def _fuzzy_match(
 
     matches = get_close_matches(query, pool, n=3, cutoff=0.5)
     if matches:
+        # TODO(qianl): support object sets when there's multiple matching assets.
         return matches[0], [TraceEvent(f"{trace_prefix}.fuzzy", query, matches[0], note=note)]
 
     return None, [TraceEvent(f"{trace_prefix}.miss", query, None, note=note)]

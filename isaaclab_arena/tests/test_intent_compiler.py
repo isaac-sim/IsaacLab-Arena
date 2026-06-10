@@ -287,7 +287,7 @@ def test_embodiment_unknown_records_miss_and_omits_node():
 
 def test_background_with_wrong_tag_omitted():
     # A registered name that lacks the required background tag is not in the
-    # background pool; the background node is absent from the resulting spec.
+    # background pool; the background node is absent and counted as a resolution error.
     assets = [
         FakeAsset(name="franka_ik", tags=["embodiment"]),
         FakeAsset(name="maple_table", tags=["object"]),  # wrong tag
@@ -296,6 +296,35 @@ def test_background_with_wrong_tag_omitted():
     spec = compiler.compile(_make_scene(background="maple_table"))
     assert "maple_table" not in spec.nodes_by_id
     assert any(e.stage == "background.required_tags.empty_pool" for e in compiler.trace)
+    assert compiler.has_resolution_errors is True
+
+
+def test_embodiment_required_tag_pool_empty_records_error():
+    # When no embodiment assets are registered the pool is empty and the node is
+    # absent — this must be a resolution error, not a silent omission.
+    assets = [
+        FakeAsset(name="maple_table", tags=["background"]),
+        FakeAsset(name="cracker_box", tags=["object"]),
+    ]
+    compiler = _make_compiler(assets)
+    spec = compiler.compile(_make_scene(embodiment="franka_ik"))
+    assert not any(n.type.value == "embodiment" for n in spec.nodes)
+    assert any(e.stage == "embodiment.required_tags.empty_pool" for e in compiler.trace)
+    assert compiler.has_resolution_errors is True
+
+
+def test_item_required_tag_pool_empty_records_error():
+    # When no object assets are registered the pool is empty and the item node is
+    # absent — this must be a resolution error, not a silent omission.
+    assets = [
+        FakeAsset(name="maple_table", tags=["background"]),
+        FakeAsset(name="franka_ik", tags=["embodiment"]),
+    ]
+    compiler = _make_compiler(assets)
+    spec = compiler.compile(_make_scene(items=[Item(query="bowl", category_tags=["bowl"])]))
+    assert "bowl" not in spec.nodes_by_id
+    assert any(e.stage == "item.required_tags.empty_pool" for e in compiler.trace)
+    assert compiler.has_resolution_errors is True
 
 
 # =============================================================================
