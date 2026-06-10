@@ -155,13 +155,13 @@ def test_has_resolution_errors_false_on_clean_run():
 
 def test_has_resolution_errors_true_when_item_unresolvable():
     # An unresolvable item on top of the clean baseline means the only error
-    # stage that fires is "item.miss".
+    # stage that fires is "item.required_tags.miss".
     kwargs = _clean_scene_kwargs()
     kwargs["items"] = kwargs["items"] + [Item(query="zzz_no_match_anywhere", category_tags=["object"])]
     compiler = make_compiler()
     compiler.compile(make_scene(**kwargs))
     assert compiler.has_resolution_errors is True
-    assert [e.stage for e in compiler.resolution_errors] == ["item.miss"]
+    assert [e.stage for e in compiler.resolution_errors] == ["item.required_tags.miss"]
 
 
 def test_has_resolution_errors_false_when_only_tag_relaxation():
@@ -186,16 +186,16 @@ def test_has_resolution_errors_false_when_only_tag_relaxation():
     compiler = make_compiler()
     compiler.compile(make_scene(**kwargs))
     trace_stages = [e.stage for e in compiler.trace]
-    assert "item.no_match_in_tags" in trace_stages
+    assert "item.preferred_tags.miss" in trace_stages
     assert compiler.has_resolution_errors is False
 
 
 def test_has_resolution_errors_true_when_embodiment_unknown():
-    # An unknown embodiment with no fuzzy match emits "embodiment.miss" which
-    # is an error stage — no silent fallback to a hardcoded default.
+    # An unknown embodiment with no fuzzy match emits "embodiment.required_tags.miss"
+    # which is an error stage — no silent fallback to a hardcoded default.
     compiler = make_compiler()
     compiler.compile(make_scene(embodiment="totally_unknown_robot"))
-    assert "embodiment.miss" in [e.stage for e in compiler.trace]
+    assert "embodiment.required_tags.miss" in [e.stage for e in compiler.trace]
     assert compiler.has_resolution_errors is True
 
 

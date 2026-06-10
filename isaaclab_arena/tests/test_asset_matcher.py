@@ -14,14 +14,37 @@ Covers the catalog-binding strategies exercised by
 - Fuzzy (difflib) fallback
 - Miss / omission behaviour
 - Embodiment bare-family expansion via the ``["embodiment", "ik"]`` tag pool
-- Background tag enforcement
+- Background resolution when the required-tag pool is empty
 """
 
 from __future__ import annotations
 
 from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeType
 
-from ._intent_compiler_test_helpers import FakeAsset, make_compiler, make_scene
+from ._intent_compiler_test_helpers import FakeAsset, FakeAssetRegistry, default_assets, make_compiler, make_scene
+
+# ---------------------------------------------------------------------------
+# AssetRegistry.get_assets_with_all_tags
+# ---------------------------------------------------------------------------
+
+
+def test_get_assets_with_all_tags_empty_returns_all_assets():
+    registry = FakeAssetRegistry(default_assets())
+    assert registry.get_assets_with_all_tags([]) == sorted(registry.get_all_keys())
+
+
+def test_get_assets_with_all_tags_filters_by_every_tag():
+    registry = FakeAssetRegistry(default_assets())
+    assert registry.get_assets_with_all_tags(["object", "fruit"]) == [
+        "apple01_fruits_robolab",
+        "avocado01_fruits_robolab",
+    ]
+
+
+def test_get_assets_with_all_tags_no_match_returns_empty():
+    registry = FakeAssetRegistry(default_assets())
+    assert registry.get_assets_with_all_tags(["nonexistent"]) == []
+
 
 # ---------------------------------------------------------------------------
 # Item resolution strategies
@@ -46,7 +69,7 @@ def test_item_substring_match_in_tag_pool():
     compiler = make_compiler()
     spec = compiler.compile(make_scene(items=items))
     assert spec.nodes_by_id["bowl"].name == "bowl_ycb_robolab"
-    assert any(e.stage == "item.in_tags.substring" for e in compiler.trace)
+    assert any(e.stage == "item.preferred_tags.substring" for e in compiler.trace)
 
 
 def test_item_relaxes_when_tag_pool_yields_no_match():
@@ -60,19 +83,19 @@ def test_item_relaxes_when_tag_pool_yields_no_match():
     spec = compiler.compile(make_scene(items=items))
     assert spec.nodes_by_id["cracker"].name == "cracker_box"
     trace_stages = [e.stage for e in compiler.trace]
-    assert "item.no_match_in_tags" in trace_stages
-    assert any(s.startswith("item.relaxed") for s in trace_stages)
+    assert "item.preferred_tags.miss" in trace_stages
+    assert any(s.startswith("item.required_tags") for s in trace_stages)
 
 
 def test_item_relaxes_when_tag_pool_empty():
-    # Unknown tag → empty pool → resolver short-circuits and relaxes immediately.
+    # Unknown tag → empty pool → resolver relaxes to the required-tag pool.
     from isaaclab_arena.agentic_environment_generation.environment_intent_spec import Item
 
     items = [Item(query="cracker", category_tags=["nonexistent"])]
     compiler = make_compiler()
     spec = compiler.compile(make_scene(items=items))
     assert spec.nodes_by_id["cracker"].name == "cracker_box"
-    assert any(e.stage == "item.tag_pool_empty" for e in compiler.trace)
+    assert any(e.stage == "item.preferred_tags.empty_pool" for e in compiler.trace)
 
 
 def test_item_miss_omits_node():
@@ -84,7 +107,7 @@ def test_item_miss_omits_node():
     compiler = make_compiler()
     spec = compiler.compile(make_scene(items=items))
     assert "zzz_no_match_anywhere" not in spec.nodes_by_id
-    assert any(e.stage == "item.miss" for e in compiler.trace)
+    assert any(e.stage == "item.required_tags.miss" for e in compiler.trace)
 
 
 def test_item_instance_name_overrides_query_for_node_id():
@@ -106,15 +129,30 @@ def test_item_instance_name_overrides_query_for_node_id():
 
 def test_embodiment_exact_match():
     # Node ID matches the original query so task params can reference it by the agent-emitted name.
-    spec = make_compiler().compile(make_scene(embodiment="franka_joint_pos"))
+    compiler = make_compiler()
+    spec = compiler.compile(make_scene(embodiment="franka_ik"))
+    node = spec.nodes_by_id["franka_ik"]
+    assert node.type == ArenaEnvGraphNodeType.EMBODIMENT
+    assert node.name == "franka_ik"
+    assert any(e.stage == "embodiment.exact" for e in compiler.trace)
+
+
+def test_embodiment_joint_pos_not_fuzzy_matched_to_ik():
+    # Exact hit on the required-tag pool must run before the ik-narrowed preferred pool,
+    # so joint-position control is not fuzzy-matched to franka_ik.
+    compiler = make_compiler()
+    spec = compiler.compile(make_scene(embodiment="franka_joint_pos"))
     node = spec.nodes_by_id["franka_joint_pos"]
     assert node.type == ArenaEnvGraphNodeType.EMBODIMENT
     assert node.name == "franka_joint_pos"
+    trace_stages = [e.stage for e in compiler.trace]
+    assert "embodiment.exact" in trace_stages
+    assert "embodiment.preferred_tags.fuzzy" not in trace_stages
 
 
 def test_embodiment_ik_default_for_bare_family():
     # Bare family names (e.g. "franka") are expanded to the IK variant by
-    # querying the ["embodiment", "ik"] tag pool and picking the shortest match.
+    # narrowing embodiment candidates by the "ik" tag and picking the shortest match.
     # The node ID stays as the original query "franka" so downstream task params
     # that reference the robot by its original name resolve correctly.
     compiler = make_compiler()
@@ -122,16 +160,16 @@ def test_embodiment_ik_default_for_bare_family():
     node = spec.nodes_by_id["franka"]  # ID = original query, not "franka_ik"
     assert node.type == ArenaEnvGraphNodeType.EMBODIMENT
     assert node.name == "franka_ik"  # name = resolved asset
-    assert any(e.stage == "embodiment.ik_family" for e in compiler.trace)
+    assert any(e.stage == "embodiment.preferred_tags.substring" for e in compiler.trace)
 
 
 def test_embodiment_unknown_records_miss_and_omits_node():
-    # Completely unknown names emit an "embodiment.miss" trace event and
+    # Completely unknown names emit an "embodiment.required_tags.miss" trace event and
     # produce no embodiment node (no silent fallback).
     compiler = make_compiler()
     spec = compiler.compile(make_scene(embodiment="totally_unknown_robot"))
     assert not any(n.type == ArenaEnvGraphNodeType.EMBODIMENT for n in spec.nodes)
-    assert any(e.stage == "embodiment.miss" for e in compiler.trace)
+    assert any(e.stage == "embodiment.required_tags.miss" for e in compiler.trace)
 
 
 # ---------------------------------------------------------------------------
@@ -140,8 +178,8 @@ def test_embodiment_unknown_records_miss_and_omits_node():
 
 
 def test_background_with_wrong_tag_omitted():
-    # An asset registered under the right name but lacking the "background" tag
-    # is rejected; the background node is absent from the resulting spec.
+    # A registered name that lacks the required background tag is not in the
+    # background pool; the background node is absent from the resulting spec.
     assets = [
         FakeAsset(name="franka_ik", tags=["embodiment"]),
         FakeAsset(name="maple_table", tags=["object"]),  # wrong tag
@@ -149,4 +187,4 @@ def test_background_with_wrong_tag_omitted():
     compiler = make_compiler(assets)
     spec = compiler.compile(make_scene(background="maple_table"))
     assert "maple_table" not in spec.nodes_by_id
-    assert any(e.stage == "background.wrong_tag" for e in compiler.trace)
+    assert any(e.stage == "background.required_tags.empty_pool" for e in compiler.trace)

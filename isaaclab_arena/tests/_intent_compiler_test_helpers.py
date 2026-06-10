@@ -33,8 +33,9 @@ class FakeAsset:
 class FakeAssetRegistry:
     """Duck-typed AssetRegistry for unit tests.
 
-    Implements the four methods the resolvers call — ``is_registered``,
-    ``get_asset_by_name``, ``get_assets_by_tag``, ``get_all_keys`` — without
+    Implements the methods the resolvers call — ``is_registered``,
+    ``get_asset_by_name``, ``get_assets_by_tag``, ``get_assets_with_all_tags``,
+    ``get_all_keys`` — without
     pulling in isaaclab.  We deliberately don't subclass :class:`AssetRegistry`
     because it uses ``SingletonMeta``, which would force test-isolation gymnastics.
     Duck-typing via the resolver's ``registry`` argument is the supported
@@ -53,6 +54,9 @@ class FakeAssetRegistry:
 
     def get_assets_by_tag(self, tag: str) -> list[FakeAsset]:
         return [a for a in self._by_name.values() if tag in a.tags]
+
+    def get_assets_with_all_tags(self, tags: list[str]) -> list[str]:
+        return sorted(asset.name for asset in self._by_name.values() if all(tag in asset.tags for tag in tags))
 
     def get_all_keys(self) -> list[str]:
         return list(self._by_name)
