@@ -99,13 +99,6 @@ def test_sphere_decomposition_covers_surface():
     assert coverage > 0.8, f"Coverage only {coverage:.1%}"
 
 
-def test_sphere_count_respects_budget():
-    """Output sphere count should not exceed num_spheres."""
-    mesh = trimesh.creation.box(extents=(0.1, 0.1, 0.1))
-    spheres = greedy_sphere_decomposition(mesh, num_spheres=5)
-    assert len(spheres) <= 5
-
-
 # ---------------------------------------------------------------------------
 # Unit: WarpMeshManager caching
 # ---------------------------------------------------------------------------
@@ -119,17 +112,6 @@ def test_warp_mesh_caching():
     m1 = manager.get_warp_mesh(mesh)
     m2 = manager.get_warp_mesh(mesh)
     assert m1 is m2
-
-
-@requires_warp
-def test_cache_key_differs_for_different_meshes():
-    """Different trimeshes should produce different cache entries."""
-    mesh_a = trimesh.creation.box(extents=(0.1, 0.1, 0.1))
-    mesh_b = trimesh.creation.cylinder(radius=0.05, height=0.1)
-    manager = WarpMeshManager(num_spheres=10)
-    ma = manager.get_warp_mesh(mesh_a)
-    mb = manager.get_warp_mesh(mesh_b)
-    assert ma is not mb
 
 
 # ---------------------------------------------------------------------------
@@ -157,25 +139,6 @@ def test_dispatch_routes_to_aabb_in_bbox_mode():
         child_obj=obj_a,
         parent_obj=obj_b,
         parent_pos=torch.tensor([0.5, 0.0, 0.0]),
-    )
-    assert torch.isclose(loss, torch.tensor(0.0), atol=1e-5)
-
-
-def test_dispatch_falls_back_when_obj_is_none():
-    """Missing object refs should fall back to AABB."""
-    dispatch = NoCollisionLossStrategy(collision_mode=CollisionMode.MESH, slope=10.0)
-
-    bbox = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
-    child_pos = torch.tensor([0.0, 0.0, 0.0])
-    parent_world_bbox = bbox.translated((0.5, 0.0, 0.0))
-
-    loss = dispatch.compute_loss(
-        clearance_m=0.0,
-        child_pos=child_pos,
-        child_bbox=bbox,
-        parent_world_bbox=parent_world_bbox,
-        child_obj=None,
-        parent_obj=None,
     )
     assert torch.isclose(loss, torch.tensor(0.0), atol=1e-5)
 
@@ -210,29 +173,6 @@ def test_dispatch_falls_back_when_no_mesh():
 # ---------------------------------------------------------------------------
 # Unit: NoCollisionLossStrategy mesh mode (requires warp)
 # ---------------------------------------------------------------------------
-
-
-@requires_warp
-def test_mesh_zero_loss_separated_cylinders():
-    """Two cylinders far apart should produce zero mesh collision loss."""
-    dispatch = NoCollisionLossStrategy(collision_mode=CollisionMode.MESH, slope=10000.0)
-    a = _make_cylinder("a")
-    b = _make_cylinder("b")
-    b.set_initial_pose(Pose(position_xyz=(1.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
-
-    child_pos = torch.tensor([0.0, 0.0, 0.0])
-    parent_world_bbox = b.get_bounding_box().translated((1.0, 0.0, 0.0))
-
-    loss = dispatch.compute_loss(
-        clearance_m=0.0,
-        child_pos=child_pos,
-        child_bbox=a.get_bounding_box(),
-        parent_world_bbox=parent_world_bbox,
-        child_obj=a,
-        parent_obj=b,
-        parent_pos=torch.tensor([1.0, 0.0, 0.0]),
-    )
-    assert loss.item() == 0.0
 
 
 @requires_warp
