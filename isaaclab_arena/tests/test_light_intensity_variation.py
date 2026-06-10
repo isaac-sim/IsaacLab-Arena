@@ -11,13 +11,12 @@ from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 HEADLESS = True
 
 TEST_LIGHT_NAME = "light"
-TEST_VARIATION_NAME = "dome_light_intensity"
+TEST_VARIATION_NAME = "intensity"
 TEST_APPLIED_INTENSITY = 1234.0
-DEFAULT_INTENSITY = 3000.0
 
 
 def get_test_environment(*, enabled: bool):
-    """Build a minimal arena env with an optional enabled dome light intensity variation."""
+    """Build a minimal arena env with an optional enabled light intensity variation."""
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -37,12 +36,12 @@ def get_test_environment(*, enabled: bool):
     assert variation.enabled is enabled
 
     return IsaacLabArenaEnvironment(
-        name="test_dome_light_intensity_variation",
+        name="test_light_intensity_variation",
         scene=Scene(assets=[light]),
     )
 
 
-def _test_disabled_dome_light_intensity_variation_not_applied(simulation_app):
+def _test_disabled_light_intensity_variation_not_applied(simulation_app):
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
@@ -59,7 +58,7 @@ def _test_disabled_dome_light_intensity_variation_not_applied(simulation_app):
     return True
 
 
-def _test_enabled_dome_light_intensity_variation_applied(simulation_app):
+def _test_enabled_light_intensity_variation_applied(simulation_app):
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
@@ -75,15 +74,15 @@ def _test_enabled_dome_light_intensity_variation_applied(simulation_app):
     return True
 
 
-def test_disabled_dome_light_intensity_variation_not_applied():
+def test_disabled_light_intensity_variation_not_applied():
     assert run_simulation_app_function(
-        _test_disabled_dome_light_intensity_variation_not_applied,
+        _test_disabled_light_intensity_variation_not_applied,
         headless=HEADLESS,
     )
 
 
-def test_enabled_dome_light_intensity_variation_applied():
+def test_enabled_light_intensity_variation_applied():
     assert run_simulation_app_function(
-        _test_enabled_dome_light_intensity_variation_applied,
+        _test_enabled_light_intensity_variation_applied,
         headless=HEADLESS,
     )
