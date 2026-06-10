@@ -89,9 +89,9 @@ def match_asset(
     preferred_tags = preferred_tags or []
     if preferred_tags:
         preferred_candidates = sorted(registry.get_assets_with_all_tags(required_tags + preferred_tags))
-        chosen, sub_events = _best_match(
-            query,
+        chosen, sub_events = _fuzzy_match(
             preferred_candidates,
+            query,
             trace_prefix=f"{trace_prefix}.preferred_tags",
             note=f"tags={required_tags + preferred_tags}, pool size={len(preferred_candidates)}",
         )
@@ -99,9 +99,9 @@ def match_asset(
         if chosen is not None:
             return chosen, events
 
-    chosen, sub_events = _best_match(
-        query,
+    chosen, sub_events = _fuzzy_match(
         candidates,
+        query,
         trace_prefix=f"{trace_prefix}.required_tags",
         note=f"tags={required_tags}, pool size={len(candidates)}",
     )
@@ -109,9 +109,9 @@ def match_asset(
     return chosen, events
 
 
-def _best_match(
-    query: str,
+def _fuzzy_match(
     pool: list[str],
+    query: str,
     trace_prefix: str,
     note: str = "",
 ) -> tuple[str | None, list[TraceEvent]]:
