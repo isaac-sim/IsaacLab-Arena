@@ -276,10 +276,10 @@ def _test_validate_pool_layouts_grades_each_layout(simulation_app):
         assert len(movable) == 1, f"Expected exactly one movable object, got {[o.name for o in movable]}."
         cracker_obj = movable[0]
 
-        # The reset applied a solver layout that rests the cracker box on the table -- use its position
-        # (env-local, valid in any env) as the resting candidate, and lift a copy by drop_height for the
-        # unstable one.
-        rest_x, rest_y, rest_z = pool.last_applied[0].positions[cracker_obj]
+        # Every stored solver layout rests the cracker box on the table (the On relation), so use one of
+        # them (env-local, valid in any env) as the resting candidate, and lift a copy by drop_height for
+        # the unstable one.
+        rest_x, rest_y, rest_z = pool.layouts_per_env()[0][0].positions[cracker_obj]
         unstable_z = rest_z + drop_height
 
         def _layout(z: float) -> PlacementResult:

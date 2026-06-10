@@ -137,9 +137,7 @@ def validate_pool_layouts(
         )
         if layouts:
             physics_settle.step_physics(env, num_physics_steps, render=render)
-            graded_layouts = _grade_settled_batch(
-                env, layouts, movable_object_names, settle_params
-            )
+            graded_layouts = _grade_settled_batch(env, layouts, movable_object_names, settle_params)
             for env_id, checklist in graded_layouts:
                 results.append((env_id, episode_index, checklist))
 

@@ -141,5 +141,3 @@ def solve_and_place_objects(
                 f"env {cur_env}; layout failed strict placement validation."
             )
         write_layout_to_sim(env, cur_env, result, anchor_objects_set, base_rotations)
-        # Record what landed in each env so the post-reset settle pass can verify and re-select it.
-        placement_pool.last_applied[cur_env] = result

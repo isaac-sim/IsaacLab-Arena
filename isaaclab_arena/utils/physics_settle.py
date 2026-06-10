@@ -33,7 +33,7 @@ def step_physics(env: ManagerBasedEnv, num_steps: int, render: bool = False) -> 
     """
     dt = env.unwrapped.sim.get_physics_dt()
     for _ in range(num_steps):
-        # Does not perturb metric recoder as no env.step is called.
+        # Does not perturb metric recorder as no env.step is called.
         env.unwrapped.sim.step(render=render)
         env.unwrapped.scene.update(dt)
 

@@ -259,7 +259,6 @@ def main():
             num_steps,
             num_episodes,
             args_cli.language_instruction,
-            enable_physics_settle_check=args_cli.enable_physics_settle_check,
         )
 
         if metrics is not None:

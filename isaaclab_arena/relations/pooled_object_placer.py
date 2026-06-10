@@ -106,10 +106,6 @@ class PooledObjectPlacer:
         self._env_rngs = get_rngs(self._num_envs, placer_params.placement_seed)
         self._env_pools: list[EnvLayoutPool] = [EnvLayoutPool([]) for _ in range(self._num_envs)]
 
-        # Tracks the layout most recently written to each scene env, so the post-reset settle pass
-        # can verify it and re-select any that do not physically settle.
-        self._last_applied: dict[int, PlacementResult] = {}
-
         self._solve_and_store(pool_size)
         for cur_env, pool in enumerate(self._env_pools):
             if not pool.layouts:
@@ -453,7 +449,7 @@ class PooledObjectPlacer:
         return self._total_available()
 
     # ------------------------------------------------------------------
-    # Physics settle re-selection support (sim-free)
+    # Pool introspection for the offline layout validator (sim-free)
     # ------------------------------------------------------------------
 
     @property
@@ -464,26 +460,3 @@ class PooledObjectPlacer:
     def layouts_per_env(self) -> list[list[PlacementResult]]:
         """Flattened list of every stored layout, grouped by env pool index."""
         return [list(pool.layouts) for pool in self._env_pools]
-
-    @property
-    def last_applied(self) -> dict[int, PlacementResult]:
-        """Map of the layout most recently written to each env, keyed by env id.
-
-        The reset event records here what it wrote so the post-reset physics settle check can verify and re-select it.
-        """
-        return self._last_applied
-
-    def draw_replacement(self, env_id: int) -> PlacementResult:
-        """Draw the next pooled layout to retry in one env, skipping layouts known to fail to settle.
-
-        ``env_id`` selects the source queue only for env-indexed (heterogeneous-object) pools, where each
-        layout is solved against that env's specific object geometry and is not valid in another env. For
-        reusable pools layouts are interchangeable, so ``env_id`` is ignored and the next free layout is
-        taken from wherever. The caller passes ``env_id`` either way so the retry loop need not branch on
-        pool type.
-        """
-        # heterogeneous-object pools are one queue per env, so the replacement comes from the same env's queue.
-        if self._uses_env_specific_bboxes:
-            return self.sample_for_envs([env_id])[env_id]
-        # reusable pools are one flat queue, so the replacement comes from the next free layout.
-        return self._sample_reusable_without_replacement(1)[0]

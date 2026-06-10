@@ -331,7 +331,6 @@ def test_solve_and_place_objects_writes_invalid_fallback_layout(capsys):
 
     class InvalidPool:
         requires_env_indexed_layouts = False
-        last_applied: dict = {}
 
         def sample_without_replacement(self, count: int) -> list[PlacementResult]:
             assert count == 1
@@ -367,7 +366,6 @@ def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_res
         requires_env_indexed_layouts = True
         num_envs = 4
         requested_env_ids = None
-        last_applied: dict = {}
 
         def sample_without_replacement(self, count: int) -> list[PlacementResult]:
             raise AssertionError(f"partial reset should not consume a full env round, got count={count}")
