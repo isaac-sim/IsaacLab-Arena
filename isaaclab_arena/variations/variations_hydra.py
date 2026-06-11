@@ -26,8 +26,7 @@ def apply_overrides(
     """Apply Hydra-style overrides to ``variations`` in-place.
 
     Composes ``hydra_overrides`` into a typed ``VariationsCfg`` and pushes
-    each per-variation cfg through
-    :meth:`~isaaclab_arena.variations.variation_base.VariationBase.apply_cfg`.
+    each per-variation cfg through ``VariationBase.apply_cfg``.
 
     Args:
         variations: ``{asset_name: [variation, ...]}`` mapping whose cfgs
@@ -45,7 +44,7 @@ def apply_overrides(
     all_variations_cfg = compose_variations_cfg_and_apply_overrides(variations, hydra_overrides)
     if all_variations_cfg is None:
         return
-    # Loop over the run-time variations and apply the overrides, in the cfg class.
+    # Loop over the variations' cfgs and apply the overrides.
     for asset_name, asset_variations in variations.items():
         asset_cfg = getattr(all_variations_cfg, asset_name)
         for variation in asset_variations:
@@ -144,5 +143,6 @@ def _raise_unknown_override_error(
     raise ValueError(
         f"Unknown Hydra variation override ({override_hint}). "
         "No matching host or variation name in this environment.\n"
-        f"Available variation paths:\n{_format_available_variation_paths(variations)}"
+        f"Available variation paths:\n{_format_available_variation_paths(variations)}\n"
+        f"Original error:\n{cause}"
     ) from cause
