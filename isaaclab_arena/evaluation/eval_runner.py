@@ -31,14 +31,19 @@ if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase
 
 
-def load_env(arena_env_args: list[str], job_name: str, render_mode: str | None = None):
+def load_env(
+    arena_env_args: list[str],
+    job_name: str,
+    variations: list[str] | None = None,
+    render_mode: str | None = None,
+):
 
     reload_arena_modules()
 
     args_parser = get_isaaclab_arena_environments_cli_parser()
 
     arena_env_args_cli = args_parser.parse_args(arena_env_args)
-    arena_builder = get_arena_builder_from_cli(arena_env_args_cli)
+    arena_builder = get_arena_builder_from_cli(arena_env_args_cli, hydra_overrides=variations)
 
     env_name, env_cfg = arena_builder.build_registered()
 
@@ -216,7 +221,7 @@ def main():
                 policy = None
                 try:
                     render_mode = "rgb_array" if args_cli.video else None
-                    env = load_env(job.arena_env_args, job.name, render_mode=render_mode)
+                    env = load_env(job.arena_env_args, job.name, variations=job.variations, render_mode=render_mode)
 
                     policy = get_policy_from_job(job)
 

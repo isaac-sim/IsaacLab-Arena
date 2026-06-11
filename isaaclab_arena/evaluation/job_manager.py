@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 import time
 from enum import Enum
 from prettytable import PrettyTable
@@ -28,6 +29,7 @@ class Job:
         policy_config_dict: dict = None,
         status: Status = None,
         language_instruction: str = None,
+        variations: list[str] = None,
     ):
         """Initialize a Job instance.
 
@@ -42,9 +44,12 @@ class Job:
             status: Job status (defaults to PENDING)
             language_instruction: Optional language instruction override for the policy. When set,
                 takes precedence over the task's own description.
+            variations: Hydra variation override strings (e.g. ``"cracker_box.color.enabled=true"``)
+                applied when composing the environment cfg. Defaults to no overrides.
         """
         self.name = name
         self.arena_env_args = arena_env_args
+        self.variations = variations if variations is not None else []
         assert num_envs > 0, "num_envs must be greater than 0"
         assert not (
             num_steps is not None and num_episodes is not None
@@ -72,6 +77,7 @@ class Job:
                   - policy_type: Type of policy to use
                   - policy_config_dict: Dictionary of configuration for the policy.
                   - status: Status string (optional, defaults to PENDING)
+                  - variations: Nested dict of variation overrides (optional)
 
         Returns:
             New Job instance
@@ -109,7 +115,37 @@ class Job:
             policy_config_dict=data["policy_config_dict"],
             status=status,
             language_instruction=data.get("language_instruction"),
+            variations=cls.convert_variations_dict_to_hydra_overrides(data.get("variations", {})),
         )
+
+    @classmethod
+    def convert_variations_dict_to_hydra_overrides(cls, variations: dict) -> list[str]:
+        """Flatten a nested variations dict into Hydra override strings (``a.b.c=value``).
+
+        Walks ``variations``. every non-dict leaf becomes a "<dotted.path>=<value>" token
+
+        Args:
+            variations: Nested dict mirroring the dotted Hydra variation paths.
+
+        Returns:
+            List of Hydra override strings (empty when ``variations`` is empty).
+        """
+        overrides: list[str] = []
+        # Iterative depth-first walk over (dotted-path-prefix, node) pairs.
+        stack: list[tuple[str, object]] = [("", variations)]
+        while stack:
+            prefix, node = stack.pop()
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    assert key != "", "Variation override keys must be non-empty"
+                    child_prefix = f"{prefix}.{key}" if prefix else str(key)
+                    stack.append((child_prefix, value))
+                continue
+            assert prefix != "", "Variation override path must be non-empty"
+            # json.dumps with compact separators yields Hydra-parseable values
+            # (true/false, null, [a,b,c]) without spaces.
+            overrides.append(f"{prefix}={json.dumps(node, separators=(',', ':'))}")
+        return overrides
 
     @classmethod
     def convert_args_dict_to_cli_args_list(cls, args_dict: dict) -> list[str]:
