@@ -55,6 +55,23 @@ def load_env(
     return env
 
 
+def list_variations(eval_jobs_config: dict) -> None:
+    """Print the Hydra-configurable variations for each job's environment.
+
+    Mirrors policy_runner's ``--list-variations`` but, because each eval job defines its own
+    environment via ``arena_env_args``, the catalogue is printed per job. Each job's own
+    ``variations`` overrides are applied so the catalogue reflects what the run would use.
+    Must be called inside a ``SimulationAppContext``.
+    """
+    job_manager = JobManager(eval_jobs_config["jobs"])
+    for job in job_manager.all_jobs:
+        args_parser = get_isaaclab_arena_environments_cli_parser()
+        arena_env_args_cli = args_parser.parse_args(job.arena_env_args)
+        arena_builder = get_arena_builder_from_cli(arena_env_args_cli, hydra_overrides=job.variations)
+        print(f"=== Variations for job '{job.name}' ===", flush=True)
+        print(arena_builder.get_variations_catalogue_as_string(), flush=True)
+
+
 def enable_cameras_if_required(eval_jobs_config: dict, args_cli: argparse.Namespace) -> None:
     """
     Check if any job requires cameras and enable them in args_cli if needed. Users can set
@@ -211,6 +228,12 @@ def main():
 
     with open(args_cli.eval_jobs_config, encoding="utf-8") as f:
         eval_jobs_config = json.load(f)
+
+    # Print the variations catalogue for each job's environment and exit, without running anything.
+    if args_cli.list_variations:
+        with SimulationAppContext(args_cli):
+            list_variations(eval_jobs_config)
+        return
 
     # Chunked dispatch (--chunk_size N). Splits this config across subprocesses so each
     # gets a fresh SimulationApp. Required for long sweeps because some host memory leaks
