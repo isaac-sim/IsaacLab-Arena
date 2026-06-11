@@ -243,7 +243,8 @@ class EnvironmentGenerationAgent:
                 yields creative but invalid schemas.
             max_tokens: Hard cap on the response length.
             max_retries: Number of additional attempts after a recoverable failure
-                (malformed JSON from the endpoint). Each retry is a fresh API call.
+                (network errors, timeouts, empty responses, malformed JSON). Each
+                retry is a fresh API call.
 
         Returns:
             A ``(EnvironmentIntentSpec, raw_response)`` tuple. The raw text is
@@ -269,38 +270,42 @@ class EnvironmentGenerationAgent:
             if attempt > 0:
                 print(f"[generate_spec] retry {attempt}/{max_retries} after: {last_exc}", flush=True)
 
-            resp = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": {"name": "EnvironmentIntentSpec", "strict": True, "schema": self._spec_schema},
-                },
-                temperature=temperature,
-                max_tokens=max_tokens,
-            )
-            choices = getattr(resp, "choices", None) or []
-            assert choices, (
-                f"Model {self.model!r} returned HTTP 200 with no choices "
-                "(content filter / guardrail / rate-limit response with empty body)."
-            )
-            text, route = extract_response_text(choices[0].message)
-            assert route != "empty", (
-                f"Model {self.model!r} returned an empty structured-outputs envelope. "
-                "Verify the endpoint/model supports response_format=json_schema."
-            )
             try:
+                resp = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    response_format={
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": "EnvironmentIntentSpec",
+                            "strict": True,
+                            "schema": self._spec_schema,
+                        },
+                    },
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                choices = getattr(resp, "choices", None) or []
+                assert choices, (
+                    f"Model {self.model!r} returned HTTP 200 with no choices "
+                    "(content filter / guardrail / rate-limit response with empty body)."
+                )
+                text, route = extract_response_text(choices[0].message)
+                assert route != "empty", (
+                    f"Model {self.model!r} returned an empty structured-outputs envelope. "
+                    "Verify the endpoint/model supports response_format=json_schema."
+                )
                 # ``strict=False`` lets json.loads accept unescaped control characters
                 # (e.g. literal tabs) inside JSON strings — DeepSeek-v4-flash is known
                 # to emit these.
                 data = json.loads(text, strict=False)
                 spec = EnvironmentIntentSpec.model_validate(data)
                 return spec, text
-            except (json.JSONDecodeError, Exception) as exc:
+            except Exception as exc:
                 last_exc = exc
 
         raise RuntimeError(
-            f"Model {self.model!r} returned unparsable JSON after {1 + max_retries} attempts. Last error: {last_exc}"
+            f"Model {self.model!r} failed after {1 + max_retries} attempts. Last error: {last_exc}"
         ) from last_exc
 
     def _system_prompt(self) -> str:
