@@ -11,6 +11,7 @@ from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
+from isaaclab_arena.tasks.task_transition import TaskTransition
 
 
 class TaskBase(ABC):
@@ -62,3 +63,12 @@ class TaskBase(ABC):
 
     def get_task_description(self) -> str | None:
         return self.task_description
+
+    @classmethod
+    def success_state_transition(cls, **_) -> TaskTransition:
+        """Inform constraint resolution what the task's success condition implies about the state change.
+
+        Resolution forwards all of the task's args; subclasses override this to bind the ones they act
+        on as named parameters and absorb the rest with ``**_``.
+        """
+        raise NotImplementedError("success_state_transition not implemented yet.")
