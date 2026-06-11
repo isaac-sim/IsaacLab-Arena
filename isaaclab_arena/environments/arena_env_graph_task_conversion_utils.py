@@ -47,8 +47,8 @@ def build_task_from_specs(task_specs: list[ArenaEnvGraphTaskSpec], assets_by_nod
 
 def _build_task_from_spec(task_spec: ArenaEnvGraphTaskSpec, assets_by_node_id: dict[str, Any]) -> Any:
     """Look up the task class by name, resolve any Asset-typed kwargs, instantiate."""
-    task_class = TaskRegistry().get_task_by_name(task_spec.type)
-    task_init_kwargs = _resolve_node_refs_in_task_args(task_class, task_spec.task_args, assets_by_node_id)
+    task_class = TaskRegistry().get_task_by_name(task_spec.kind)
+    task_init_kwargs = _resolve_node_refs_in_task_args(task_class, task_spec.params, assets_by_node_id)
     return task_class(**task_init_kwargs)
 
 

@@ -15,13 +15,17 @@ RUNTIME_DEPS = [
     "lightwheel-sdk",
     "pytest",
     "pydantic>=2.0",
+    "openai>=2.0",
+    # Sensitivity analysis (isaaclab_arena.analysis.sensitivity), imported at module level.
+    "sbi",
+    "scipy",
+    "matplotlib",
 ]
 
 DEV_DEPS = [
     "jupyter",
     "debugpy",
     "tenacity",
-    "sbi",
 ]
 
 setup(
