@@ -146,11 +146,7 @@ def validate_pool_layouts(
 
 
 def log_validation_results(results: list[tuple[int, int, PlacementValidationChecklist]]) -> None:
-    """Print each layout's checklist verdict plus a pass/settle summary for a pool validation sweep.
-
-    Uses ``print`` rather than ``logging`` because the SimulationApp reconfigures the root logger on
-    launch, which otherwise suppresses module-level log records.
-    """
+    """Print each layout's checklist items and a pass/fail summary for a pool validation run."""
     if not results:
         print("Placement pool has no layouts to validate.")
         return

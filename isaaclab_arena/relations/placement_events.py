@@ -17,7 +17,7 @@ from isaaclab_arena.utils.velocity import Velocity
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
-    from isaaclab_arena.relations.placement_validation import PlacementResult
+    from isaaclab_arena.relations.placement_result import PlacementResult
 
 IDENTITY_ROTATION_XYZW = (0.0, 0.0, 0.0, 1.0)
 

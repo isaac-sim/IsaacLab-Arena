@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import annotations
 
 import argparse
 import os
@@ -28,7 +27,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase
 
 
-def get_policy_cls(policy_type: str) -> type[PolicyBase]:
+def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
     """Get the policy class for the given policy type name.
 
     Note that this function:
@@ -63,7 +62,7 @@ def is_distributed(args_cli: argparse.Namespace) -> bool:
 
 def rollout_policy(
     env,
-    policy: PolicyBase,
+    policy: "PolicyBase",
     num_steps: int | None,
     num_episodes: int | None,
     language_instruction: str | None = None,
@@ -253,13 +252,7 @@ def main():
 
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
         print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")
-        metrics = rollout_policy(
-            env,
-            policy,
-            num_steps,
-            num_episodes,
-            args_cli.language_instruction,
-        )
+        metrics = rollout_policy(env, policy, num_steps, num_episodes, args_cli.language_instruction)
 
         if metrics is not None:
             print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics_to_plain_python_types(metrics)}")

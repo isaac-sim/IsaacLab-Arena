@@ -40,16 +40,16 @@ class PlacementValidationChecklist:
         """Required check names, defaulting to every check when none are declared."""
         return self.required_items or set(self.checklist_items.keys())
 
-    def pass_validation_checklist(self, checklist_items: list[str] | None = None) -> bool:
+    def pass_validation_checklist(self, required_checks: list[PlacementCheck] | None = None) -> bool:
         """Check whether the gating checks pass. Defaults to the required checks only.
         Args:
-            checklist_items: checks that must pass. If None, only required checks gate (optional checks are ignored).
+            required_checks: checks that must pass. If None, only required checks gate (optional checks are ignored).
         Returns:
-            True if all the considered checks pass, False otherwise
+            True if all the required checks pass, False otherwise
         """
-        if checklist_items is None:
-            checklist_items = self._required()
-        return all(self.checklist_items[item] for item in checklist_items)
+        if required_checks is None:
+            required_checks = self._required()
+        return all(self.checklist_items[item] for item in required_checks)
 
     @property
     def failed_checklist_items(self) -> list[str]:
