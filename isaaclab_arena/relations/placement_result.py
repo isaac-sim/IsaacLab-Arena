@@ -5,19 +5,72 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
 
 
+@dataclass(frozen=True)
+class ValidationReport:
+    """Per-check outcome of placement validation.
+
+    The check set is open: further validation checks add their own named result by deriving a new
+    report via with_check, so acceptance can consider more than the built-in geometry checks.
+    """
+
+    checks: Mapping[str, bool]
+    """Each check name (e.g. "no_overlap", "on_relations") mapped to its pass/fail result."""
+
+    def __post_init__(self) -> None:
+        # Enforce bool here so passed/failed_checks stay sound: with_check (the path engineers use)
+        # must not store a truthy non-bool (e.g. a tensor) that silently satisfies all(...).
+        assert all(
+            isinstance(v, bool) for v in self.checks.values()
+        ), f"ValidationReport checks must be bools, got {dict(self.checks)}"
+        # Read-only snapshot: neither the caller's original dict nor report.checks[...] can mutate it.
+        object.__setattr__(self, "checks", MappingProxyType(dict(self.checks)))
+
+    def __reduce__(self):
+        # MappingProxyType can't be pickled/deepcopied, and Isaac Lab deepcopies the EventTermCfg
+        # params that carry this report; rebuild from a plain dict so copy/pickle round-trip.
+        return (self.__class__, (dict(self.checks),))
+
+    @property
+    def passed(self) -> bool:
+        """True only when at least one check ran and every check passed (empty fails closed)."""
+        return bool(self.checks) and all(self.checks.values())
+
+    @property
+    def failed_checks(self) -> tuple[str, ...]:
+        """Names of the checks that failed, in insertion order."""
+        return tuple(name for name, ok in self.checks.items() if not ok)
+
+    def with_check(self, name: str, passed: bool) -> ValidationReport:
+        """Return a new report with one more named check (an existing name is overwritten).
+
+        Reports are immutable, so a further validation check records its outcome by deriving a new
+        report rather than mutating this one.
+        """
+        assert isinstance(passed, bool), f"with_check('{name}', ...) requires a bool, got {type(passed).__name__}"
+        return ValidationReport(checks={**self.checks, name: passed})
+
+
+LayoutFilter = Callable[[ValidationReport], bool]
+"""Acceptance predicate: given a layout's ValidationReport, whether the layout is kept."""
+
+
+def default_layout_filter(report: ValidationReport) -> bool:
+    """Default acceptance: keep a layout iff every check passed (the built-in geometry checks and any added later)."""
+    return report.passed
+
+
 @dataclass
 class PlacementResult:
     """Result of an ObjectPlacer.place() call."""
-
-    success: bool
-    """Whether placement passed validation checks."""
 
     positions: dict[ObjectBase, tuple[float, float, float]]
     """Final positions for each object."""
@@ -28,9 +81,17 @@ class PlacementResult:
     attempts: int
     """Number of attempts made."""
 
+    validation: ValidationReport
+    """Per-check validation outcome; success is derived from it."""
+
     orientations: dict[ObjectBase, float] = field(default_factory=dict)
     """Per-object yaw (radians) about the world up (Z) axis, composed on top of each object's
     base rotation. Keyed by object, like positions. Empty when unrotated."""
+
+    @property
+    def success(self) -> bool:
+        """Whether placement passed validation checks."""
+        return self.validation.passed
 
 
 @dataclass

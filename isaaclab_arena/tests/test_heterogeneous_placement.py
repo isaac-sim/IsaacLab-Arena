@@ -15,15 +15,22 @@ import pytest
 
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes, get_bounding_box_per_env
-from isaaclab_arena.relations.object_placer import ObjectPlacer
+from isaaclab_arena.relations.object_placer import ObjectPlacer, PlacementCandidate
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
-from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult, ValidationReport
+from isaaclab_arena.relations.pooled_object_placer import PooledLayout, PooledObjectPlacer
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
+from isaaclab_arena.tests.utils.placement import layout_signature
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
+
+
+def _report(passed: bool) -> ValidationReport:
+    """Build a single-check ValidationReport for fixtures that only care about pass/fail."""
+    return ValidationReport(checks={"no_overlap": passed})
+
 
 # ---------------------------------------------------------------------------
 # Fixture: let HeterogeneousDummyObject trigger the heterogeneous path
@@ -397,6 +404,24 @@ def test_object_placer_place_ranked_per_env_returns_sorted_env_lists():
     assert hetero.get_initial_pose() is None
 
 
+def test_object_placer_ranking_uses_layout_filter():
+    """Ranking should rank a filter-accepted candidate ahead of a lower-loss rejected one."""
+    placer = ObjectPlacer(
+        params=ObjectPlacerParams(),
+        layout_filter=lambda report: report.checks.get("on_relations", False),
+    )
+    low_loss_rejected = PlacementCandidate(
+        loss=0.1, positions={}, validation=ValidationReport(checks={"no_overlap": True, "on_relations": False})
+    )
+    high_loss_accepted = PlacementCandidate(
+        loss=0.9, positions={}, validation=ValidationReport(checks={"no_overlap": True, "on_relations": True})
+    )
+
+    ranked = placer._rank_candidates([low_loss_rejected, high_loss_accepted], num_envs=1, candidates_per_env=2)
+
+    assert ranked[0][0] is high_loss_accepted
+
+
 def test_object_placer_homogeneous_objects_return_multi_env_result():
     """Homogeneous objects return one layout per env (bboxes identical across envs)."""
 
@@ -479,11 +504,13 @@ def test_pooled_placer_sample_for_envs_consumes_only_requested_envs():
 
     for env_id in range(4):
         pool._env_pools[env_id].layouts = [
-            PlacementResult(
-                success=True,
-                positions={hetero: (float(env_id), 0.0, 0.0)},
-                final_loss=0.0,
-                attempts=1,
+            PooledLayout(
+                PlacementResult(
+                    validation=_report(True),
+                    positions={hetero: (float(env_id), 0.0, 0.0)},
+                    final_loss=0.0,
+                    attempts=1,
+                )
             )
         ]
         pool._env_pools[env_id].cursor = 0
@@ -503,13 +530,28 @@ def test_pooled_placer_heterogeneous_sample_with_replacement():
 
     for env_id in range(4):
         pool._env_pools[env_id].layouts = [
-            PlacementResult(success=True, positions={hetero: (float(env_id), 0.0, 0.0)}, final_loss=0.0, attempts=1)
+            PooledLayout(
+                PlacementResult(
+                    validation=_report(True), positions={hetero: (float(env_id), 0.0, 0.0)}, final_loss=0.0, attempts=1
+                )
+            )
         ]
         pool._env_pools[env_id].cursor = 0
     initial_remaining = pool.remaining
     samples = pool.sample_with_replacement(8)
     assert [sample.positions[hetero][0] for sample in samples] == [0.0, 1.0, 2.0, 3.0, 0.0, 1.0, 2.0, 3.0]
     assert pool.remaining == initial_remaining, "sample_with_replacement should not consume layouts"
+
+
+def test_pooled_placer_heterogeneous_sample_with_replacement_empty_env_pool_asserts():
+    """An empty env pool in the env-specific branch should fail loudly rather than draw silently."""
+    desk, hetero, placer_params = _make_hetero_pool_objects()
+    pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=8, num_envs=2)
+    pool._env_pools[1].layouts = []
+    pool._env_pools[1].cursor = 0
+
+    with pytest.raises(AssertionError, match="no accepted layouts"):
+        pool.sample_with_replacement(2)
 
 
 def test_pooled_placer_heterogeneous_sample_with_replacement_reproducible_per_env_id():
@@ -566,8 +608,8 @@ def test_pooled_placer_seeded_refills_are_reproducible():
     assert _draw_sequence() == _draw_sequence()
 
 
-def test_pooled_placer_env_specific_fallbacks_are_reported(capsys):
-    """Env-specific best-loss fallbacks should be reported to callers."""
+def test_pooled_placer_env_specific_fallbacks_are_reported():
+    """Env-specific best-loss fallbacks should be reported via had_fallbacks."""
     desk, hetero, placer_params = _make_hetero_pool_objects()
     pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=2, num_envs=2)
     for env_pool in pool._env_pools:
@@ -578,7 +620,7 @@ def test_pooled_placer_env_specific_fallbacks_are_reported(capsys):
     fallback_results = [
         [
             PlacementResult(
-                success=False,
+                validation=_report(False),
                 positions={hetero: (float(cur_env), 0.0, 0.0)},
                 final_loss=1.0,
                 attempts=1,
@@ -588,14 +630,12 @@ def test_pooled_placer_env_specific_fallbacks_are_reported(capsys):
     ]
 
     pool._store_env_matched_results(fallback_results, layouts_per_env=1, target_per_env=1, allow_fallback=True)
-    captured = capsys.readouterr()
 
     assert pool.had_fallbacks
-    assert "Falling back to best-loss layouts" in captured.out
     assert [env_pool.available for env_pool in pool._env_pools] == [1, 1]
 
 
-def test_pooled_placer_env_specific_fallbacks_wait_for_final_retry(capsys):
+def test_pooled_placer_env_specific_fallbacks_wait_for_final_retry():
     """Invalid env-specific candidates should not fill pools before fallback is allowed."""
     desk, hetero, placer_params = _make_hetero_pool_objects()
     pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=2, num_envs=2)
@@ -607,7 +647,7 @@ def test_pooled_placer_env_specific_fallbacks_wait_for_final_retry(capsys):
     fallback_results = [
         [
             PlacementResult(
-                success=False,
+                validation=_report(False),
                 positions={hetero: (float(cur_env), 0.0, 0.0)},
                 final_loss=1.0,
                 attempts=1,
@@ -617,14 +657,12 @@ def test_pooled_placer_env_specific_fallbacks_wait_for_final_retry(capsys):
     ]
 
     pool._store_env_matched_results(fallback_results, layouts_per_env=1, target_per_env=1)
-    captured = capsys.readouterr()
 
     assert not pool.had_fallbacks
-    assert "Falling back to best-loss layouts" not in captured.out
     assert [env_pool.available for env_pool in pool._env_pools] == [0, 0]
 
 
-def test_pooled_placer_env_specific_fallback_only_fills_short_env(capsys):
+def test_pooled_placer_env_specific_fallback_only_fills_short_env():
     """Final-batch fallback should not overfill env pools that already met the target."""
     desk, hetero, placer_params = _make_hetero_pool_objects()
     pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=2, num_envs=2)
@@ -634,7 +672,7 @@ def test_pooled_placer_env_specific_fallback_only_fills_short_env(capsys):
     pool._had_fallbacks = False
 
     existing_layout = PlacementResult(
-        success=True,
+        validation=_report(True),
         positions={hetero: (10.0, 0.0, 0.0)},
         final_loss=0.0,
         attempts=1,
@@ -644,7 +682,7 @@ def test_pooled_placer_env_specific_fallback_only_fills_short_env(capsys):
     fallback_results = [
         [
             PlacementResult(
-                success=False,
+                validation=_report(False),
                 positions={hetero: (float(cur_env), 0.0, 0.0)},
                 final_loss=1.0,
                 attempts=1,
@@ -659,13 +697,11 @@ def test_pooled_placer_env_specific_fallback_only_fills_short_env(capsys):
         allow_fallback=True,
         target_per_env=1,
     )
-    captured = capsys.readouterr()
 
     assert pool.had_fallbacks
-    assert "envs: [1]" in captured.out
     assert [env_pool.available for env_pool in pool._env_pools] == [1, 1]
-    assert pool._env_pools[0].layouts == [existing_layout]
-    assert pool._env_pools[1].layouts[0] is fallback_results[1][0]
+    assert pool._env_pools[0].layouts[0].result is existing_layout
+    assert pool._env_pools[1].layouts[0].result is fallback_results[1][0]
 
 
 def test_pooled_placer_env_specific_valid_results_only_fill_short_envs():
@@ -677,7 +713,7 @@ def test_pooled_placer_env_specific_valid_results_only_fill_short_envs():
         env_pool.cursor = 0
 
     existing_layout = PlacementResult(
-        success=True,
+        validation=_report(True),
         positions={hetero: (10.0, 0.0, 0.0)},
         final_loss=0.0,
         attempts=1,
@@ -687,7 +723,7 @@ def test_pooled_placer_env_specific_valid_results_only_fill_short_envs():
     ranked_results = [
         [
             PlacementResult(
-                success=True,
+                validation=_report(True),
                 positions={hetero: (float(cur_env), float(candidate_idx), 0.0)},
                 final_loss=0.0,
                 attempts=1,
@@ -700,8 +736,8 @@ def test_pooled_placer_env_specific_valid_results_only_fill_short_envs():
     pool._store_env_matched_results(ranked_results, layouts_per_env=2, target_per_env=1)
 
     assert [env_pool.available for env_pool in pool._env_pools] == [1, 1]
-    assert pool._env_pools[0].layouts == [existing_layout]
-    assert pool._env_pools[1].layouts == [ranked_results[1][0]]
+    assert pool._env_pools[0].layouts[0].result is existing_layout
+    assert pool._env_pools[1].layouts[0].result is ranked_results[1][0]
 
 
 def test_pooled_placer_reusable_layouts_report_complete_env_rounds():
@@ -741,7 +777,7 @@ def test_pooled_placer_reusable_layouts_keep_partial_valid_results():
         env_pool.cursor = 0
 
     layouts = [
-        PlacementResult(success=True, positions={box: (float(i), 0.0, 0.0)}, final_loss=0.0, attempts=1)
+        PlacementResult(validation=_report(True), positions={box: (float(i), 0.0, 0.0)}, final_loss=0.0, attempts=1)
         for i in range(3)
     ]
     pool._store_reusable_results(layouts)
@@ -938,3 +974,56 @@ def test_real_rigid_object_set_through_pooled_placer():
         assert obj_set in draw.positions
         z = draw.positions[obj_set][2]
         assert abs(z - 0.11) < 0.05, f"z={z:.4f}, expected ~0.11"
+
+
+# ---------------------------------------------------------------------------
+# Save/load round trip — env-specific (variant) layouts
+# ---------------------------------------------------------------------------
+
+
+def _seeded_hetero_params() -> ObjectPlacerParams:
+    return ObjectPlacerParams(
+        solver_params=RelationSolverParams(max_iters=200, convergence_threshold=1e-3, verbose=False),
+        placement_seed=7,
+    )
+
+
+def test_pooled_placer_heterogeneous_save_load_round_trip(tmp_path):
+    """Env-specific pools round-trip per env, preserving each env's variant-specific layouts."""
+    desk, hetero, _ = _make_hetero_pool_objects()
+    placer_params = _seeded_hetero_params()
+    pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=20, num_envs=4)
+
+    path = tmp_path / "hetero_layouts.json"
+    pool.save(path)
+
+    desk2, hetero2, _ = _make_hetero_pool_objects()
+    loaded = PooledObjectPlacer.load(path, [desk2, hetero2], placer_params, num_envs=4)
+
+    original = [[layout_signature(p.result) for p in env.layouts] for env in pool._env_pools]
+    restored = [[layout_signature(p.result) for p in env.layouts] for env in loaded._env_pools]
+    assert restored == original
+    assert loaded.requires_env_indexed_layouts
+    # Variant geometry differs across envs, so a swapped env mapping would change these signatures.
+    assert original[0] != original[1]
+
+
+def test_pooled_placer_load_rejects_heterogeneity_mismatch(tmp_path):
+    """A heterogeneous-saved file loaded against homogeneous objects must fail loudly."""
+    desk, hetero, _ = _make_hetero_pool_objects()
+    placer_params = _seeded_hetero_params()
+    pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=20, num_envs=4)
+
+    path = tmp_path / "hetero_layouts.json"
+    pool.save(path)
+
+    # Homogeneous stand-ins with the same names flip uses_env_specific_bboxes to False.
+    desk2 = _make_desk()
+    box = DummyObject(
+        name="hetero",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1)),
+    )
+    box.add_relation(On(desk2, clearance_m=0.01))
+
+    with pytest.raises(AssertionError, match="heterogeneity does not match"):
+        PooledObjectPlacer.load(path, [desk2, box], placer_params, num_envs=4)

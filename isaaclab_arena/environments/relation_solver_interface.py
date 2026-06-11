@@ -68,8 +68,8 @@ def solve_and_apply_relation_placement(
 
     if placement_pool.had_fallbacks:
         print(
-            "Warning: Relation placement pool accepted best-loss fallback layouts "
-            "that failed strict placement validation."
+            "Warning: Relation placement pool served best-loss fallback layouts "
+            "that did not meet the pool's acceptance criteria."
         )
 
     return _apply_relation_placement_result(

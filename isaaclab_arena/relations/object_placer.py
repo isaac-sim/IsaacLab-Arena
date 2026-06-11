@@ -11,7 +11,13 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
+from isaaclab_arena.relations.placement_result import (
+    LayoutFilter,
+    MultiEnvPlacementResult,
+    PlacementResult,
+    ValidationReport,
+    default_layout_filter,
+)
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import (
     IsAnchor,
@@ -38,8 +44,8 @@ class PlacementCandidate:
     positions: dict[ObjectBase, tuple[float, float, float]]
     """Solved positions for each object."""
 
-    is_valid: bool
-    """Whether the placement passed validation checks."""
+    validation: ValidationReport
+    """Per-check validation outcome for this candidate."""
 
     orientations: dict[ObjectBase, float] = field(default_factory=dict)
     """Per-object yaw (radians about Z) sampled for this candidate. Empty when unrotated."""
@@ -52,7 +58,7 @@ class ObjectPlacer:
     1. Random initialization of candidate positions per environment
     2. Running the RelationSolver on all candidates in one batch
     3. Validating each candidate
-    4. Ranking candidates per environment (valid first, then by loss)
+    4. Ranking candidates per environment (accepted first, then by loss)
     5. Applying the best layout per environment to the objects
 
     Supports single-env (num_envs=1) and batched (num_envs>1) placement.
@@ -64,9 +70,12 @@ class ObjectPlacer:
         position may fall outside the actual surface.
     """
 
-    def __init__(self, params: ObjectPlacerParams | None = None):
+    def __init__(self, params: ObjectPlacerParams | None = None, layout_filter: LayoutFilter | None = None):
         self.params = params or ObjectPlacerParams()
         self._solver = RelationSolver(params=self.params.solver_params)
+        # Acceptance predicate that ranking sorts by, so place() returns the best accepted layout.
+        # Defaults to "all checks pass"; a pool injects its own to keep ranking and storage aligned.
+        self._accepts = layout_filter or default_layout_filter
 
     def place(
         self,
@@ -123,7 +132,7 @@ class ObjectPlacer:
         candidate layouts. Use place() for selected placement results.
         The return value has shape (num_envs, results_per_env): each
         outer list entry corresponds to a real env, and each inner list is
-        sorted with valid lower-loss layouts first.
+        sorted with accepted lower-loss layouts first.
         """
         assert results_per_env > 0, f"results_per_env must be positive, got {results_per_env}"
         anchor_objects_set, generator = self._prepare_placement(objects)
@@ -182,7 +191,7 @@ class ObjectPlacer:
         """Solve and rank placement candidates per environment.
 
         Each env is solved against its own per-env bounding boxes, and its
-        candidates are ranked independently (valid first, then by loss), so a
+        candidates are ranked independently (accepted first, then by loss), so a
         candidate is never compared against another env's geometry.
         """
         # Variant assignment fixes the env-to-USD mapping before bbox expansion.
@@ -214,7 +223,7 @@ class ObjectPlacer:
         assert self._solver.last_loss_per_env is not None
         all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
         all_validations = [
-            self._validate_placement(
+            self._validate_geometry(
                 positions, self._get_bounding_boxes_for_candidate_index(candidate_bboxes, candidate_idx)
             )
             for candidate_idx, positions in enumerate(all_positions)
@@ -235,7 +244,7 @@ class ObjectPlacer:
         ranked_results = [
             [
                 PlacementResult(
-                    success=candidate.is_valid,
+                    validation=candidate.validation,
                     positions=candidate.positions,
                     final_loss=candidate.loss,
                     attempts=attempts_per_result,
@@ -251,19 +260,19 @@ class ObjectPlacer:
 
         return ranked_results
 
-    @staticmethod
     def _rank_candidates(
+        self,
         candidates: list[PlacementCandidate],
         num_envs: int,
         candidates_per_env: int,
     ) -> list[list[PlacementCandidate]]:
-        """Return one loss-sorted candidate slice per env (valid candidates first)."""
+        """Return one loss-sorted candidate slice per env (accepted candidates first)."""
         ranked_candidate_slices: list[list[PlacementCandidate]] = []
         for cur_env in range(num_envs):
             start = cur_env * candidates_per_env
             env_candidates = candidates[start : start + candidates_per_env]
             ranked_candidate_slices.append(
-                sorted(env_candidates, key=lambda candidate: (not candidate.is_valid, candidate.loss))
+                sorted(env_candidates, key=lambda candidate: (not self._accepts(candidate.validation), candidate.loss))
             )
         return ranked_candidate_slices
 
@@ -273,8 +282,10 @@ class ObjectPlacer:
         num_candidates: int,
         num_envs: int,
     ) -> None:
-        n_valid = sum(1 for candidate_slice in ranked_candidate_slices if candidate_slice[0].is_valid)
-        print(f"Solved {num_candidates} candidates in one batch: {n_valid}/{num_envs} env(s) valid")
+        n_accepted = sum(
+            1 for candidate_slice in ranked_candidate_slices if self._accepts(candidate_slice[0].validation)
+        )
+        print(f"Solved {num_candidates} candidates in one batch: {n_accepted}/{num_envs} env(s) accepted")
 
     def _generate_initial_positions(
         self,
@@ -598,21 +609,29 @@ class ObjectPlacer:
                     return False
         return True
 
-    def _validate_placement(
+    def _validate_geometry(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
-    ) -> bool:
-        """Validate that no two objects overlap in 3D and On relations are satisfied.
+    ) -> ValidationReport:
+        """Run the geometry checks and return them as a per-check ValidationReport.
+
+        This is the geometry validation stage. Further validation checks extend the result with
+        ValidationReport.with_check rather than adding cases here.
 
         Args:
             positions: Dictionary mapping objects to their solved (x, y, z) positions.
             env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
 
         Returns:
-            True if no overlaps exist and On relations hold, False otherwise.
+            A ValidationReport mapping each geometry check name to whether it passed.
         """
-        return self._validate_no_overlap(positions, env_bboxes) and self._validate_on_relations(positions, env_bboxes)
+        return ValidationReport(
+            checks={
+                "no_overlap": self._validate_no_overlap(positions, env_bboxes),
+                "on_relations": self._validate_on_relations(positions, env_bboxes),
+            }
+        )
 
     def _apply_poses(
         self,

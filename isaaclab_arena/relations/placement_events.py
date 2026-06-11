@@ -67,10 +67,10 @@ def solve_and_place_objects(
     for cur_env in reset_env_ids:
         env_id_tensor = torch.tensor([cur_env], device=env.device)
         result = results_by_env[cur_env]
-        if not result.success:
+        if not placement_pool.accepts(result):
             print(
                 "Warning: Writing best-loss fallback placement for "
-                f"env {cur_env}; layout failed strict placement validation."
+                f"env {cur_env}; layout did not meet the placement pool's acceptance criteria."
             )
         for obj, pos in result.positions.items():
             if obj in anchor_objects_set:
