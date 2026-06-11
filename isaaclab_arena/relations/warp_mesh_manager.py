@@ -62,8 +62,8 @@ def greedy_sphere_decomposition(
     candidates = points[:n_candidates]
     try:
         centers, radii = _trimesh.proximity.max_tangent_sphere(work_mesh, candidates)
-    except (IndexError, ValueError):
-        # Fallback: uniform spheres at surface samples
+    except (IndexError, ValueError) as e:
+        print(f"  [SphereDecomp] max_tangent_sphere failed ({e}), using uniform fallback — coverage may be poor")
         centers = candidates[:num_spheres]
         radii = np.full(len(centers), sphere_radius)
         return np.column_stack([centers, radii])
@@ -75,7 +75,7 @@ def greedy_sphere_decomposition(
     centers, radii = centers[valid], radii[valid]
 
     if len(centers) == 0:
-        # Last resort: uniform spheres
+        print("  [SphereDecomp] All tangent spheres filtered (degenerate mesh?) — using uniform fallback")
         pts = points[:num_spheres]
         return np.column_stack([pts, np.full(len(pts), sphere_radius)])
 
@@ -105,6 +105,7 @@ def greedy_sphere_decomposition(
         selected.append(idx)
 
     if not selected:
+        print("  [SphereDecomp] Set-cover selected 0 spheres — using uniform fallback")
         pts = points[:num_spheres]
         return np.column_stack([pts, np.full(len(pts), sphere_radius)])
 
@@ -160,11 +161,23 @@ class WarpMeshManager:
         return (_mesh_content_hash(mesh), self._num_spheres, self._sphere_radius)
 
     def get_warp_mesh(self, mesh: trimesh.Trimesh, obj=None) -> wp.Mesh:
-        """Get or create a Warp BVH mesh for SDF queries."""
+        """Get or create a Warp BVH mesh for SDF queries.
+
+        Non-watertight meshes are replaced by their convex hull so that
+        mesh_query_point_sign_normal produces correct inside/outside signs.
+        """
         key = self._cache_key(mesh, obj)
         if key not in self._warp_mesh_cache:
-            vertices = wp.array(np.asarray(mesh.vertices, dtype=np.float32), dtype=wp.vec3, device=self._device)
-            indices = wp.array(np.asarray(mesh.faces, dtype=np.int32).flatten(), dtype=wp.int32, device=self._device)
+            if not mesh.is_watertight:
+                name = getattr(obj, "name", None) or "unknown"
+                print(
+                    f"  [MeshManager] '{name}' mesh is not watertight — using convex hull (concavities will be filled)"
+                )
+            work_mesh = mesh if mesh.is_watertight else mesh.convex_hull
+            vertices = wp.array(np.asarray(work_mesh.vertices, dtype=np.float32), dtype=wp.vec3, device=self._device)
+            indices = wp.array(
+                np.asarray(work_mesh.faces, dtype=np.int32).flatten(), dtype=wp.int32, device=self._device
+            )
             self._warp_mesh_cache[key] = wp.Mesh(points=vertices, indices=indices)
         return self._warp_mesh_cache[key]
 

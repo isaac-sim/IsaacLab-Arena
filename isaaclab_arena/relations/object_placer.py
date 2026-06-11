@@ -11,10 +11,10 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
+from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
 from isaaclab_arena.relations.relation_solver import RelationSolver
-from isaaclab_arena.relations.relation_solver_params import CollisionMode
 from isaaclab_arena.relations.relations import (
     IsAnchor,
     On,
@@ -23,7 +23,7 @@ from isaaclab_arena.relations.relations import (
     get_anchor_objects,
 )
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.pose import Pose, PosePerEnv, rotate_quat_by_yaw, wrap_angle_to_pi
+from isaaclab_arena.utils.pose import Pose, PosePerEnv, rotate_quat_by_yaw, wrap_angle_to_pi, yaw_from_quat_xyzw
 from isaaclab_arena.utils.random import get_random_rotation
 
 if TYPE_CHECKING:
@@ -673,9 +673,35 @@ class ObjectPlacer:
                         if mesh is None and obj.name not in warned_no_mesh:
                             warned_no_mesh.add(obj.name)
                             print(
-                                f"  [NoCollision] MESH mode: '{obj.name}' has no collision mesh, skipping mesh"
-                                " validation"
+                                f"  [NoCollision] MESH mode: '{obj.name}' has no collision mesh,"
+                                " falling back to AABB validation for this pair"
                             )
+                    # Fall back to AABB overlap check (matching the solver AABB fallback).
+                    for obj in (a, b):
+                        if id(obj) in anchor_ids:
+                            pose = obj.get_initial_pose()
+                            if pose is not None and hasattr(pose, "rotation_xyzw"):
+                                qx, qy = pose.rotation_xyzw[0], pose.rotation_xyzw[1]
+                                assert abs(qx) < 1e-6 and abs(qy) < 1e-6, (
+                                    f"AABB fallback requires anchor '{obj.name}' to have pure-Z rotation, "
+                                    f"got rotation_xyzw={pose.rotation_xyzw}"
+                                )
+                    a_pos = torch.tensor(positions[a], dtype=torch.float32)
+                    b_pos = torch.tensor(positions[b], dtype=torch.float32)
+                    a_bbox = a.get_bounding_box()
+                    b_bbox = b.get_bounding_box()
+                    a_yaw = ObjectPlacer._effective_yaw(a, orientations)
+                    b_yaw = ObjectPlacer._effective_yaw(b, orientations)
+                    if a_yaw != 0.0:
+                        a_bbox = a_bbox.rotated_around_z(a_yaw)
+                    if b_yaw != 0.0:
+                        b_bbox = b_bbox.rotated_around_z(b_yaw)
+                    a_world = a_bbox.translated(a_pos)
+                    b_world = b_bbox.translated(b_pos)
+                    if a_world.overlaps(b_world, margin=tolerance).item():
+                        if self.params.verbose:
+                            print(f"  AABB overlap between '{a.name}' and '{b.name}' (mesh unavailable)")
+                        return False
                     continue
 
                 a_pos = torch.tensor(positions[a], dtype=torch.float32)
@@ -718,10 +744,7 @@ class ObjectPlacer:
         pose = obj.get_initial_pose()
         if pose is None or not hasattr(pose, "rotation_xyzw"):
             return 0.0
-        qx, qy, qz, qw = pose.rotation_xyzw
-        if abs(qx) > 1e-6 or abs(qy) > 1e-6:
-            return 0.0
-        return 2.0 * math.atan2(qz, qw)
+        return yaw_from_quat_xyzw(pose.rotation_xyzw)
 
     @staticmethod
     def _centers_in_target_frame(

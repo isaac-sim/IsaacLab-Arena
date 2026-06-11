@@ -5,12 +5,14 @@
 
 from __future__ import annotations
 
+import math
 import torch
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.loss_primitives import (
     interval_overlap_axis_loss,
     linear_band_loss,
@@ -20,7 +22,11 @@ from isaaclab_arena.relations.loss_primitives import (
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
+    import trimesh
+
+    from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.relations import AtPosition, NextTo, NotNextTo, On, PositionLimits, Relation
+    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshManager
 
 from isaaclab_arena.relations.relations import Side
 
@@ -427,7 +433,7 @@ class NoCollisionLossStrategy:
         self,
         slope: float = 10.0,
         debug: bool = False,
-        collision_mode=None,
+        collision_mode: CollisionMode | None = None,
         num_spheres: int = 30,
     ):
         """
@@ -437,15 +443,12 @@ class NoCollisionLossStrategy:
             collision_mode: CollisionMode enum value (BBOX or MESH). Defaults to BBOX.
             num_spheres: Number of spheres for mesh decomposition (MESH mode only).
         """
-        from isaaclab_arena.relations.relation_solver_params import CollisionMode
-
         self.slope = slope
         self.debug = debug
         self._mode = collision_mode if collision_mode is not None else CollisionMode.BBOX
         self._num_spheres = num_spheres
-        self._CollisionMode = CollisionMode
         self._warned_no_mesh: set[str] = set()
-        self._mesh_managers: dict[str, object] = {}  # keyed by device string
+        self._mesh_managers: dict[str, WarpMeshManager] = {}
 
         if self._mode == CollisionMode.MESH:
             try:
@@ -461,9 +464,11 @@ class NoCollisionLossStrategy:
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
-        child_obj=None,
-        parent_obj=None,
+        child_obj: ObjectBase | None = None,
+        parent_obj: ObjectBase | None = None,
         parent_pos: torch.Tensor | None = None,
+        child_yaw: float = 0.0,
+        parent_yaw: float = 0.0,
     ) -> torch.Tensor:
         """Compute collision loss, dispatching based on mode and mesh availability.
 
@@ -475,16 +480,26 @@ class NoCollisionLossStrategy:
             child_obj: Object with get_collision_mesh() (MESH mode).
             parent_obj: Object with get_collision_mesh() (MESH mode).
             parent_pos: Parent position tensor, or None for anchors (MESH mode).
+            child_yaw: Z-yaw (radians) of the child object (MESH mode).
+            parent_yaw: Z-yaw (radians) of the parent object (MESH mode).
 
         Returns:
             Loss tensor of shape (N,).
         """
-        if self._mode == self._CollisionMode.MESH and child_obj is not None and parent_obj is not None:
+        if self._mode == CollisionMode.MESH and child_obj is not None and parent_obj is not None:
             child_mesh = child_obj.get_collision_mesh()
             parent_mesh = parent_obj.get_collision_mesh()
             if child_mesh is not None and parent_mesh is not None:
                 return self._compute_mesh_loss(
-                    clearance_m, child_pos, child_obj, child_mesh, parent_pos, parent_obj, parent_mesh
+                    clearance_m,
+                    child_pos,
+                    child_obj,
+                    child_mesh,
+                    parent_pos,
+                    parent_obj,
+                    parent_mesh,
+                    child_yaw=child_yaw,
+                    parent_yaw=parent_yaw,
                 )
             for obj, mesh in [(child_obj, child_mesh), (parent_obj, parent_mesh)]:
                 name = getattr(obj, "name", "?")
@@ -544,7 +559,7 @@ class NoCollisionLossStrategy:
 
         return total_loss.squeeze(0) if single_input else total_loss
 
-    def _get_mesh_manager(self, device: str = "cuda:0"):
+    def _get_mesh_manager(self, device: str = "cuda:0") -> WarpMeshManager:
         """Return a cached WarpMeshManager for the given device."""
         if device not in self._mesh_managers:
             from isaaclab_arena.relations.warp_mesh_manager import WarpMeshManager
@@ -556,13 +571,15 @@ class NoCollisionLossStrategy:
         self,
         clearance_m: float,
         child_pos: torch.Tensor,
-        child_obj,
-        child_mesh,
+        child_obj: ObjectBase,
+        child_mesh: trimesh.Trimesh,
         parent_pos: torch.Tensor | None,
-        parent_obj,
-        parent_mesh,
+        parent_obj: ObjectBase,
+        parent_mesh: trimesh.Trimesh,
+        child_yaw: float = 0.0,
+        parent_yaw: float = 0.0,
     ) -> torch.Tensor:
-        """Sphere-to-SDF penetration loss using mesh geometry."""
+        """Per-pair sphere-to-SDF penetration loss."""
         from isaaclab_arena.relations.warp_sdf_kernels import sphere_penetration_loss
 
         single_input = child_pos.dim() == 1
@@ -577,12 +594,11 @@ class NoCollisionLossStrategy:
             assert isinstance(
                 pose, Pose
             ), f"Anchor '{getattr(parent_obj, 'name', '?')}' must have a fixed Pose for mesh collision"
-            identity = (0.0, 0.0, 0.0, 1.0)
-            assert pose.rotation_xyzw == identity, (
-                f"Mesh collision with rotated anchor '{getattr(parent_obj, 'name', '?')}' "
-                f"is not yet supported (rotation={pose.rotation_xyzw})"
-            )
             parent_pos = torch.tensor(pose.position_xyz, dtype=child_pos.dtype, device=child_pos.device)
+            if parent_yaw == 0.0:
+                from isaaclab_arena.utils.pose import yaw_from_quat_xyzw
+
+                parent_yaw = yaw_from_quat_xyzw(pose.rotation_xyzw)
 
         assert parent_pos is not None
         parent_pos_resolved: torch.Tensor = parent_pos
@@ -596,14 +612,31 @@ class NoCollisionLossStrategy:
         radii = spheres[:, 3]
         warp_mesh = manager.get_warp_mesh(parent_mesh, obj=parent_obj)
 
+        # Rotate child sphere centers by net_yaw = child_yaw - parent_yaw.
+        net_yaw = child_yaw - parent_yaw
+        if net_yaw != 0.0:
+            cos_n = math.cos(net_yaw)
+            sin_n = math.sin(net_yaw)
+            rx = centers_local[:, 0] * cos_n - centers_local[:, 1] * sin_n
+            ry = centers_local[:, 0] * sin_n + centers_local[:, 1] * cos_n
+            centers_local = torch.stack([rx, ry, centers_local[:, 2]], dim=-1)
+
         batch_size = child_pos.shape[0]
         parent_pos_resolved = parent_pos_resolved.expand(batch_size, -1)
         total_loss = torch.zeros(batch_size, device=device, dtype=child_pos.dtype)
 
         for b in range(batch_size):
-            centers_world = centers_local + child_pos[b] - parent_pos_resolved[b]
+            offset = child_pos[b] - parent_pos_resolved[b]
+            # Rotate offset into the parent's local frame.
+            if parent_yaw != 0.0:
+                cos_p = math.cos(-parent_yaw)
+                sin_p = math.sin(-parent_yaw)
+                ox = offset[0] * cos_p - offset[1] * sin_p
+                oy = offset[0] * sin_p + offset[1] * cos_p
+                offset = torch.stack([ox, oy, offset[2]])
+            centers_in_parent = centers_local + offset
             total_loss[b] = self.slope * sphere_penetration_loss(
-                centers_world, radii, warp_mesh, clearance_m=clearance_m
+                centers_in_parent, radii, warp_mesh, clearance_m=clearance_m
             )
 
         return total_loss.squeeze(0) if single_input else total_loss
