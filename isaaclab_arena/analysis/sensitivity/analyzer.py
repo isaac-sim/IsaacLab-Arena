@@ -7,11 +7,14 @@ from __future__ import annotations
 
 import torch
 
+from sbi.inference import MNPE, NPE
+from sbi.utils import BoxUniform
+
 from isaaclab_arena.analysis.sensitivity.dataset import SensitivityDataset
 
 
 class SensitivityAnalyzer:
-    """Fits a neural posterior over all factors, conditioned on all outcomes (robolab-style).
+    """Fits a neural posterior over all factors, conditioned on all outcomes.
 
     Picks the sbi estimator from the schema:
 
@@ -41,15 +44,10 @@ class SensitivityAnalyzer:
         Returns MNPE when any factor is categorical (its mixed density estimator handles
         continuous + categorical theta together), and NPE when every factor is continuous.
         """
-        # Import sbi lazily — it is heavy and only needed once an analysis actually fits.
-        from sbi.inference import MNPE, NPE
-
         return MNPE if self.dataset.has_categorical_factors else NPE
 
     def _normalized_prior(self):
         """Uniform prior matching the normalized theta: continuous dims [0, 1], categoricals [0, k-1]."""
-        from sbi.utils import BoxUniform
-
         low_bounds = [0.0] * self._num_continuous
         high_bounds = [1.0] * self._num_continuous
         for factor in self.dataset.schema.factors:

@@ -6,8 +6,10 @@
 from __future__ import annotations
 
 import math
+import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
+from scipy.stats import gaussian_kde
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -25,12 +27,11 @@ def plot_marginals(
     num_samples: int = 5000,
     output_path: str | None = None,
 ):
-    """Plot the posterior marginal of every factor in a single figure (robolab-style).
+    """Plot the posterior marginal of every factor in a single figure.
 
     Samples the joint posterior at observation (default: analyzer.default_observation()),
     then draws one panel per factor — a density curve for continuous factors, a probability
-    bar chart for categorical ones, wrapped into a grid. This is the whole deliverable: one
-    figure summarising which factor values are consistent with the observed outcomes.
+    bar chart for categorical ones, wrapped into a grid.
 
     Args:
         analyzer: A fitted SensitivityAnalyzer.
@@ -42,8 +43,6 @@ def plot_marginals(
     Returns:
         The matplotlib Figure.
     """
-    import matplotlib.pyplot as plt
-
     if observation is None:
         observation = analyzer.default_observation()
     samples = analyzer.sample_posterior(observation, num_samples).cpu().numpy()
@@ -87,12 +86,10 @@ def plot_marginals(
 def _draw_continuous_marginal(ax, factor: FactorSpec, factor_samples: np.ndarray) -> None:
     """Smooth posterior density (filled KDE curve) of a continuous factor, with a mean line.
 
-    A KDE line over the posterior samples — like robolab's published plots — reads the shape
-    of a continuous posterior better than a binned histogram. Falls back to a single line at
-    the mean when the samples have no spread (KDE bandwidth is then undefined).
+    A KDE line over the posterior samples reads the shape of a continuous posterior better
+    than a binned histogram. Falls back to a single line at the mean when the samples have
+    no spread (KDE bandwidth is then undefined).
     """
-    from scipy.stats import gaussian_kde
-
     range_low, range_high = factor.range[0]
     sample_mean = float(np.mean(factor_samples))
     if float(np.std(factor_samples)) >= 1e-9:

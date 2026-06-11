@@ -5,11 +5,11 @@
 
 """Synthetic sensitivity datasets with a *known* ground-truth relationship.
 
-This is the Arena analogue of the simple_simulator in robolab's MNPE demo: it samples
-factors from a uniform prior, runs them through a fixed generative model, and returns a
-SensitivityDataset of in-memory theta / x tensors — no factors.yaml or
-episode_summary.jsonl round-trip. Because the planted relationship is known, a test can
-fit a SensitivityAnalyzer on the data and assert the recovered posterior reflects it.
+A simple forward simulator: it samples factors from a uniform prior, runs them through a
+fixed generative model, and returns a SensitivityDataset of in-memory theta / x tensors —
+no factors.yaml or episode_summary.jsonl round-trip. Because the planted relationship is
+known, a test can fit a SensitivityAnalyzer on the data and assert the recovered posterior
+reflects it.
 
 Ground truth (single-sourced in the constants below):
   - light_intensity is continuous; higher light raises success (LIGHT_WEIGHT > 0).
@@ -24,8 +24,10 @@ exercises the NPE path with two continuous factors (NPE restricts to a Gaussian 
 
 from __future__ import annotations
 
+import argparse
 import torch
 
+from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
 from isaaclab_arena.analysis.sensitivity.dataset import (
     FactorSchema,
     FactorSpec,
@@ -33,6 +35,7 @@ from isaaclab_arena.analysis.sensitivity.dataset import (
     SensitivityDataset,
     SliceSpec,
 )
+from isaaclab_arena.analysis.sensitivity.plotting import plot_marginals
 
 LIGHT_RANGE: tuple[float, float] = (0.0, 5000.0)
 """Range of the continuous light_intensity factor."""
@@ -200,13 +203,11 @@ def make_rich_dataset(seed: int, num_episodes: int = 3000) -> SensitivityDataset
 def _demo():
     """Run the full pipeline on a synthetic dataset and save the marginals plot.
 
-    The Arena counterpart of running robolab's posterior_inference.py in generated-data
-    mode: simulate → fit → plot, with no eval data needed. Run as::
+    Runs the pipeline end to end on generated data: simulate → fit → plot, with no eval
+    data needed. Run as::
 
         python -m isaaclab_arena.tests.utils.synthetic_sensitivity --kind mixed --output /tmp/demo.png
     """
-    import argparse
-
     parser = argparse.ArgumentParser(description="Run the sensitivity pipeline on a synthetic dataset and plot it.")
     parser.add_argument(
         "--kind",
@@ -215,18 +216,13 @@ def _demo():
         help="'mixed' (1 cont + 1 cat, MNPE), 'continuous' (2 cont, NPE), or 'rich' (3 cont + 2 cat, MNPE).",
     )
     parser.add_argument(
-        "--output", default="./sensitivity_synthetic.png", help="Output figure path; format follows the extension."
+        "--output",
+        default="eval/sensitivity_synthetic.png",
+        help="Output figure path; format follows the extension.",
     )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--num-episodes", type=int, default=2000)
     args = parser.parse_args()
-
-    import matplotlib
-
-    matplotlib.use("Agg")
-
-    from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
-    from isaaclab_arena.analysis.sensitivity.plotting import plot_marginals
 
     builder = {"mixed": make_mixed_dataset, "continuous": make_continuous_dataset, "rich": make_rich_dataset}[args.kind]
     dataset = builder(seed=args.seed, num_episodes=args.num_episodes)

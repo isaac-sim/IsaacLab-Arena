@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from sbi.utils import BoxUniform
+
 
 @dataclass
 class FactorSpec:
@@ -235,10 +237,6 @@ class SensitivityDataset:
         Continuous factors use their [low, high] range; categorical factors use
         [0, num_choices - 1] over their integer codes, in continuous-first order.
         """
-        # Import sbi lazily so loading the dataset does not pay the sbi import cost
-        # unless an analyzer actually runs.
-        from sbi.utils import BoxUniform
-
         low_bounds: list[float] = []
         high_bounds: list[float] = []
 

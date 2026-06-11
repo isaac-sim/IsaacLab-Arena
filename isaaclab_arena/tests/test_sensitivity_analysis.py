@@ -5,11 +5,11 @@
 
 """End-to-end sensitivity-analysis tests on synthetic data with a known ground truth.
 
-Each test fits a ``SensitivityAnalyzer`` on a dataset whose factor→outcome relationship is
-planted by ``synthetic_sensitivity`` (brighter light, smaller grasp offset, and oak raise
+Each test fits a SensitivityAnalyzer on a dataset whose factor→outcome relationship is
+planted by synthetic_sensitivity (brighter light, smaller grasp offset, and oak raise
 success), then asserts the posterior conditioned on success recovers that relationship. The
-data is built in memory, so these run on CPU without Isaac Sim. They mirror robolab's
-generated-data demo: MNPE for mixed schemas, NPE for continuous-only (with 2-D theta).
+data is built in memory, so these run on CPU without Isaac Sim. They cover both estimator
+paths: MNPE for mixed schemas, NPE for continuous-only (with 2-D theta).
 """
 
 from __future__ import annotations
