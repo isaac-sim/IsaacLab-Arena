@@ -11,11 +11,10 @@ no factors.yaml or episode_summary.jsonl round-trip. Because the planted relatio
 known, a test can fit a SensitivityAnalyzer on the data and assert the recovered posterior
 reflects it.
 
-Ground truth (single-sourced in the constants below):
-  - light_intensity is continuous; higher light raises success (LIGHT_WEIGHT > 0).
-  - grasp_offset is continuous; a *smaller* offset raises success (OFFSET_WEIGHT > 0).
-  - table_material is categorical; MATERIAL_BASE_LOGIT makes oak the most successful
-    material and bamboo the least.
+Ground truth (single-sourced in the factor definitions below):
+  - light_intensity is continuous; brighter raises success (LIGHT.weight > 0).
+  - grasp_offset is continuous; a *smaller* offset raises success (GRASP_OFFSET.weight < 0).
+  - table_material is categorical; MATERIAL makes oak the most successful, bamboo the least.
   - success is a binary outcome drawn from Bernoulli(sigmoid(logit)).
 
 make_mixed_dataset exercises the MNPE path (continuous + categorical); make_continuous_dataset
@@ -26,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import torch
+from dataclasses import dataclass
 
 from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
 from isaaclab_arena.analysis.sensitivity.dataset import (
@@ -37,52 +37,66 @@ from isaaclab_arena.analysis.sensitivity.dataset import (
 )
 from isaaclab_arena.analysis.sensitivity.plotting import plot_marginals
 
-LIGHT_RANGE: tuple[float, float] = (0.0, 5000.0)
-"""Range of the continuous light_intensity factor."""
 
-LIGHT_WEIGHT: float = 2.5
-"""Success-logit gain per unit of normalized light. Positive ⇒ brighter is more successful."""
+@dataclass(frozen=True)
+class _ContinuousFactor:
+    """A continuous factor with a planted, signed effect on the success logit."""
 
-GRASP_OFFSET_RANGE: tuple[float, float] = (0.0, 0.2)
-"""Range (metres) of the continuous grasp_offset factor."""
+    name: str
+    value_range: tuple[float, float]
+    weight: float  # success-logit gain per normalized unit; the sign sets the direction of the effect
 
-OFFSET_WEIGHT: float = 2.5
-"""Success-logit gain per unit of normalized offset. Subtracted ⇒ a smaller offset is more successful."""
+    def sample(self, num_episodes: int) -> torch.Tensor:
+        low, high = self.value_range
+        return torch.rand(num_episodes) * (high - low) + low
 
-MATERIAL_BASE_LOGIT: dict[str, float] = {"oak": 1.5, "walnut": 0.0, "bamboo": -1.5}
-"""Per-material base success logit. Ordered best→worst, so oak should dominate the posterior."""
+    def logit(self, values: torch.Tensor) -> torch.Tensor:
+        low, high = self.value_range
+        normalized = (values - 0.5 * (low + high)) / (0.5 * (high - low))  # map value_range onto [-1, 1]
+        return self.weight * normalized
 
-OBJECT_MASS_RANGE: tuple[float, float] = (0.05, 2.0)
-"""Range (kg) of the continuous object_mass factor."""
+    def spec(self) -> FactorSpec:
+        return FactorSpec(name=self.name, type="continuous", range=[list(self.value_range)])
 
-MASS_WEIGHT: float = 1.5
-"""Success-logit gain per unit of normalized mass. Subtracted ⇒ a lighter object is more successful."""
+    def column(self, values: torch.Tensor) -> torch.Tensor:
+        return values
 
-CAMERA_DISTANCE_RANGE: tuple[float, float] = (0.3, 1.5)
-"""Range (m) of the continuous camera_distance factor."""
 
-DISTANCE_WEIGHT: float = 1.5
-"""Success-logit gain per unit of normalized distance. Subtracted ⇒ a closer camera is more successful."""
+@dataclass(frozen=True)
+class _CategoricalFactor:
+    """A categorical factor with a per-choice base success logit (ordered best→worst)."""
 
-OBJECT_TYPE_BASE_LOGIT: dict[str, float] = {"cube": 1.2, "can": 0.0, "mug": -1.2}
-"""Per-object-type base success logit. Ordered best→worst, so cube should dominate the posterior."""
+    name: str
+    base_logit: dict[str, float]
+
+    @property
+    def choices(self) -> list[str]:
+        return list(self.base_logit)
+
+    def sample(self, num_episodes: int) -> torch.Tensor:
+        return torch.randint(0, len(self.base_logit), (num_episodes,))
+
+    def logit(self, codes: torch.Tensor) -> torch.Tensor:
+        return torch.tensor([self.base_logit[choice] for choice in self.choices])[codes]
+
+    def spec(self) -> FactorSpec:
+        return FactorSpec(name=self.name, type="categorical", choices=self.choices)
+
+    def column(self, codes: torch.Tensor) -> torch.Tensor:
+        return codes.float()
+
+
+# Planted ground truth: brighter light, a smaller grasp offset, a lighter object, a closer
+# camera, and the leading category (oak / cube) all raise success.
+LIGHT = _ContinuousFactor("light_intensity", (0.0, 5000.0), weight=2.5)
+GRASP_OFFSET = _ContinuousFactor("grasp_offset", (0.0, 0.2), weight=-2.5)
+OBJECT_MASS = _ContinuousFactor("object_mass", (0.05, 2.0), weight=-1.5)
+CAMERA_DISTANCE = _ContinuousFactor("camera_distance", (0.3, 1.5), weight=-1.5)
+MATERIAL = _CategoricalFactor("table_material", {"oak": 1.5, "walnut": 0.0, "bamboo": -1.5})
+OBJECT_TYPE = _CategoricalFactor("object_type", {"cube": 1.2, "can": 0.0, "mug": -1.2})
 
 _OUTCOME_NAME = "success"
 _SLICE = SliceSpec(policy="synthetic", task="SyntheticTask", embodiment="synthetic")
-
-
-def _normalized(values: torch.Tensor, value_range: tuple[float, float]) -> torch.Tensor:
-    """Map values from value_range onto roughly [-1, 1] for the success logit."""
-    low, high = value_range
-    midpoint = 0.5 * (low + high)
-    half_range = 0.5 * (high - low)
-    return (values - midpoint) / half_range
-
-
-def _sample_uniform(value_range: tuple[float, float], num_episodes: int) -> torch.Tensor:
-    """Draw num_episodes values uniformly over value_range."""
-    low, high = value_range
-    return torch.rand(num_episodes) * (high - low) + low
 
 
 def _sample_success(success_logit: torch.Tensor) -> torch.Tensor:
@@ -90,36 +104,23 @@ def _sample_success(success_logit: torch.Tensor) -> torch.Tensor:
     return torch.bernoulli(torch.sigmoid(success_logit))
 
 
-def _sample_categorical(
-    base_logit: dict[str, float], num_episodes: int
-) -> tuple[list[str], torch.Tensor, torch.Tensor]:
-    """Uniformly sample a categorical factor from its base-logit table.
-
-    Returns (choices, per-episode integer codes, per-episode base success logit).
-    """
-    choices = list(base_logit)
-    codes = torch.randint(0, len(choices), (num_episodes,))
-    base_logit_per_choice = torch.tensor([base_logit[choice] for choice in choices])
-    return choices, codes, base_logit_per_choice[codes]
-
-
 def _build_dataset(
-    continuous: list[tuple[str, tuple[float, float], torch.Tensor]],
-    categorical: list[tuple[str, list[str], torch.Tensor]],
+    factors_and_columns: list[tuple[_ContinuousFactor | _CategoricalFactor, torch.Tensor]],
     success: torch.Tensor,
 ) -> SensitivityDataset:
-    """Assemble a SensitivityDataset from sampled factors and the binary success outcome.
+    """Assemble a SensitivityDataset from (factor, sampled column) pairs and the success outcome.
 
-    continuous: (name, value_range, values) per continuous factor.
-    categorical: (name, choices, integer codes) per categorical factor.
+    Continuous factors are placed before the categorical ones, matching the layout
+    SensitivityDataset.factor_columns expects.
     """
-    factors = [FactorSpec(name=n, type="continuous", range=[list(r)]) for n, r, _ in continuous]
-    factors += [FactorSpec(name=n, type="categorical", choices=c) for n, c, _ in categorical]
-    schema = FactorSchema(slice=_SLICE, factors=factors, outcomes=[OutcomeSpec(name=_OUTCOME_NAME, type="bool")])
-    # Continuous columns first, then integer-coded categorical columns — the layout
-    # SensitivityDataset.factor_columns describes and the estimators expect.
-    columns = [values for _, _, values in continuous] + [codes.float() for _, _, codes in categorical]
-    return SensitivityDataset(schema, torch.stack(columns, dim=1), success.unsqueeze(1))
+    ordered = sorted(factors_and_columns, key=lambda pair: isinstance(pair[0], _CategoricalFactor))
+    schema = FactorSchema(
+        slice=_SLICE,
+        factors=[factor.spec() for factor, _ in ordered],
+        outcomes=[OutcomeSpec(name=_OUTCOME_NAME, type="bool")],
+    )
+    theta = torch.stack([factor.column(values) for factor, values in ordered], dim=1)
+    return SensitivityDataset(schema, theta, success.unsqueeze(1))
 
 
 def make_continuous_dataset(seed: int, num_episodes: int = 2000) -> SensitivityDataset:
@@ -130,20 +131,10 @@ def make_continuous_dataset(seed: int, num_episodes: int = 2000) -> SensitivityD
     and low offset values. Two factors keep theta 2-D, away from NPE's 1-D Gaussian fallback.
     """
     torch.manual_seed(seed)
-    light_intensity = _sample_uniform(LIGHT_RANGE, num_episodes)
-    grasp_offset = _sample_uniform(GRASP_OFFSET_RANGE, num_episodes)
-    success = _sample_success(
-        LIGHT_WEIGHT * _normalized(light_intensity, LIGHT_RANGE)
-        - OFFSET_WEIGHT * _normalized(grasp_offset, GRASP_OFFSET_RANGE)
-    )
-    return _build_dataset(
-        continuous=[
-            ("light_intensity", LIGHT_RANGE, light_intensity),
-            ("grasp_offset", GRASP_OFFSET_RANGE, grasp_offset),
-        ],
-        categorical=[],
-        success=success,
-    )
+    light = LIGHT.sample(num_episodes)
+    grasp_offset = GRASP_OFFSET.sample(num_episodes)
+    success = _sample_success(LIGHT.logit(light) + GRASP_OFFSET.logit(grasp_offset))
+    return _build_dataset([(LIGHT, light), (GRASP_OFFSET, grasp_offset)], success)
 
 
 def make_mixed_dataset(seed: int, num_episodes: int = 2000) -> SensitivityDataset:
@@ -154,14 +145,10 @@ def make_mixed_dataset(seed: int, num_episodes: int = 2000) -> SensitivityDatase
     favor high light values and oak.
     """
     torch.manual_seed(seed)
-    light_intensity = _sample_uniform(LIGHT_RANGE, num_episodes)
-    materials, material_code, material_logit = _sample_categorical(MATERIAL_BASE_LOGIT, num_episodes)
-    success = _sample_success(material_logit + LIGHT_WEIGHT * _normalized(light_intensity, LIGHT_RANGE))
-    return _build_dataset(
-        continuous=[("light_intensity", LIGHT_RANGE, light_intensity)],
-        categorical=[("table_material", materials, material_code)],
-        success=success,
-    )
+    light = LIGHT.sample(num_episodes)
+    material = MATERIAL.sample(num_episodes)
+    success = _sample_success(LIGHT.logit(light) + MATERIAL.logit(material))
+    return _build_dataset([(LIGHT, light), (MATERIAL, material)], success)
 
 
 def make_rich_dataset(seed: int, num_episodes: int = 3000) -> SensitivityDataset:
@@ -173,29 +160,27 @@ def make_rich_dataset(seed: int, num_episodes: int = 3000) -> SensitivityDataset
     posterior conditioned on success should recover all of them at once.
     """
     torch.manual_seed(seed)
-    light_intensity = _sample_uniform(LIGHT_RANGE, num_episodes)
-    object_mass = _sample_uniform(OBJECT_MASS_RANGE, num_episodes)
-    camera_distance = _sample_uniform(CAMERA_DISTANCE_RANGE, num_episodes)
-    object_types, object_type_code, object_type_logit = _sample_categorical(OBJECT_TYPE_BASE_LOGIT, num_episodes)
-    materials, material_code, material_logit = _sample_categorical(MATERIAL_BASE_LOGIT, num_episodes)
+    light = LIGHT.sample(num_episodes)
+    object_mass = OBJECT_MASS.sample(num_episodes)
+    camera_distance = CAMERA_DISTANCE.sample(num_episodes)
+    object_type = OBJECT_TYPE.sample(num_episodes)
+    material = MATERIAL.sample(num_episodes)
     success = _sample_success(
-        LIGHT_WEIGHT * _normalized(light_intensity, LIGHT_RANGE)
-        - MASS_WEIGHT * _normalized(object_mass, OBJECT_MASS_RANGE)
-        - DISTANCE_WEIGHT * _normalized(camera_distance, CAMERA_DISTANCE_RANGE)
-        + object_type_logit
-        + material_logit
+        LIGHT.logit(light)
+        + OBJECT_MASS.logit(object_mass)
+        + CAMERA_DISTANCE.logit(camera_distance)
+        + OBJECT_TYPE.logit(object_type)
+        + MATERIAL.logit(material)
     )
     return _build_dataset(
-        continuous=[
-            ("light_intensity", LIGHT_RANGE, light_intensity),
-            ("object_mass", OBJECT_MASS_RANGE, object_mass),
-            ("camera_distance", CAMERA_DISTANCE_RANGE, camera_distance),
+        [
+            (LIGHT, light),
+            (OBJECT_MASS, object_mass),
+            (CAMERA_DISTANCE, camera_distance),
+            (OBJECT_TYPE, object_type),
+            (MATERIAL, material),
         ],
-        categorical=[
-            ("object_type", object_types, object_type_code),
-            ("table_material", materials, material_code),
-        ],
-        success=success,
+        success,
     )
 
 

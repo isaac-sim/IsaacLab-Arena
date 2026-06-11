@@ -19,17 +19,17 @@ import torch
 
 from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
 from isaaclab_arena.analysis.sensitivity.synthetic import (
-    GRASP_OFFSET_RANGE,
-    LIGHT_RANGE,
-    MATERIAL_BASE_LOGIT,
+    GRASP_OFFSET,
+    LIGHT,
+    MATERIAL,
     make_continuous_dataset,
     make_mixed_dataset,
 )
 
 _NUM_SAMPLES = 5000
 
-_LIGHT_MIDPOINT = 0.5 * (LIGHT_RANGE[0] + LIGHT_RANGE[1])
-_OFFSET_MIDPOINT = 0.5 * (GRASP_OFFSET_RANGE[0] + GRASP_OFFSET_RANGE[1])
+_LIGHT_MIDPOINT = 0.5 * (LIGHT.value_range[0] + LIGHT.value_range[1])
+_OFFSET_MIDPOINT = 0.5 * (GRASP_OFFSET.value_range[0] + GRASP_OFFSET.value_range[1])
 
 
 def _factor_samples(analyzer: SensitivityAnalyzer, samples: torch.Tensor, factor_name: str) -> np.ndarray:
@@ -51,7 +51,7 @@ def test_mnpe_recovers_light_and_material_effects():
     assert _factor_samples(analyzer, samples, "light_intensity").mean() > _LIGHT_MIDPOINT
 
     # Categorical effect: oak is the planted best material, bamboo the worst.
-    materials = list(MATERIAL_BASE_LOGIT)
+    materials = MATERIAL.choices
     material_codes = np.clip(np.round(_factor_samples(analyzer, samples, "table_material")), 0, len(materials) - 1)
     probabilities = np.bincount(material_codes.astype(int), minlength=len(materials)) / len(material_codes)
     assert materials[int(probabilities.argmax())] == "oak", f"expected oak most likely, got {probabilities}"
