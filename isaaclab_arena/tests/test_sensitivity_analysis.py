@@ -1,4 +1,4 @@
-# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -41,7 +41,7 @@ def test_mnpe_recovers_light_and_material_effects():
     """Mixed continuous + categorical (MNPE): recover the light trend and the material ranking."""
     dataset = make_mixed_dataset(seed=0)
     analyzer = SensitivityAnalyzer(dataset)
-    assert analyzer._inference_cls().__name__ == "MNPE", "mixed schema should select MNPE"
+    assert analyzer._select_inference_class().__name__ == "MNPE", "mixed schema should select MNPE"
 
     torch.manual_seed(0)
     analyzer.fit()
@@ -62,7 +62,7 @@ def test_npe_recovers_two_continuous_effects():
     """Two continuous factors (NPE): recover that bright light and a small grasp offset drive success."""
     dataset = make_continuous_dataset(seed=0)
     analyzer = SensitivityAnalyzer(dataset)
-    assert analyzer._inference_cls().__name__.startswith("NPE"), "continuous-only schema should select NPE"
+    assert analyzer._select_inference_class().__name__.startswith("NPE"), "continuous-only schema should select NPE"
 
     torch.manual_seed(0)
     analyzer.fit()

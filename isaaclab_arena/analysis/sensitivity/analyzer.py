@@ -30,15 +30,17 @@ class SensitivityAnalyzer:
     def __init__(self, dataset: SensitivityDataset):
         self.dataset = dataset
         self.posterior = None
-        # Continuous factors occupy the leading theta columns (one each); cache their
-        # [low, high] bounds for the normalize/denormalize round-trip around sbi.
         continuous_factors = [factor for factor in dataset.schema.factors if factor.type == "continuous"]
         self._num_continuous = len(continuous_factors)
         self._continuous_low = torch.tensor([factor.range[0][0] for factor in continuous_factors])
         self._continuous_high = torch.tensor([factor.range[0][1] for factor in continuous_factors])
 
-    def _inference_cls(self):
-        """Return the sbi inference class for this schema (MNPE if categoricals, else NPE)."""
+    def _select_inference_class(self):
+        """Choose the sbi inference class for this schema.
+
+        Returns MNPE when any factor is categorical (its mixed density estimator handles
+        continuous + categorical theta together), and NPE when every factor is continuous.
+        """
         # Import sbi lazily — it is heavy and only needed once an analysis actually fits.
         from sbi.inference import MNPE, NPE
 
@@ -70,17 +72,18 @@ class SensitivityAnalyzer:
         denormalized[:, : self._num_continuous] = theta[:, : self._num_continuous] * span + self._continuous_low
         return denormalized
 
-    def fit(self, training_batch_size: int = 50) -> None:
-        """Train the estimator on the full (theta, x) and store the posterior on self."""
+    def fit(self, training_batch_size: int = 50):
+        """Train the estimator on the full (theta, x); store and return the fitted posterior."""
         print(
-            f"[INFO] SensitivityAnalyzer: fitting {self._inference_cls().__name__} on"
+            f"[INFO] SensitivityAnalyzer: fitting {self._select_inference_class().__name__} on"
             f" {self.dataset.num_episodes} episodes"
             f" (theta dim={self.dataset.theta.shape[1]}, x dim={self.dataset.x.shape[1]})."
         )
-        inference = self._inference_cls()(prior=self._normalized_prior())
+        inference = self._select_inference_class()(prior=self._normalized_prior())
         inference.append_simulations(self._normalize(self.dataset.theta), self.dataset.x)
         density_estimator = inference.train(training_batch_size=training_batch_size)
         self.posterior = inference.build_posterior(density_estimator)
+        return self.posterior
 
     def default_observation(self) -> torch.Tensor:
         """Default observation to condition on: 1.0 for binary outcomes, the mean otherwise.
