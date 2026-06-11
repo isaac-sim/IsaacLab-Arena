@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.evaluation.episode_writer import write_episode_summaries
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
@@ -200,6 +201,15 @@ def main():
     # Check if any job requires cameras and enable them if needed before starting simulation
     enable_cameras_if_required(eval_jobs_config, args_cli)
 
+    # --episode_summary (opt-in): the writer logs the full arena_env_args per episode;
+    # the analyzer's factors.yaml decides which keys are factors (no eval-side knowledge).
+    episode_summary_enabled = args_cli.episode_summary is not None
+    if episode_summary_enabled:
+        print(
+            "[INFO] Episode summary recording enabled. Per-episode arena_env_args + outcomes"
+            f" → {args_cli.episode_summary}"
+        )
+
     with SimulationAppContext(args_cli):
         job_manager = JobManager(eval_jobs_config["jobs"])
         metrics_logger = MetricsLogger()
@@ -249,6 +259,10 @@ def main():
                         num_episodes=job.num_episodes,
                         language_instruction=job.language_instruction,
                     )
+
+                    if episode_summary_enabled:
+                        rows = write_episode_summaries(env, job, args_cli.episode_summary)
+                        print(f"[INFO] Wrote {rows} episode summaries for job '{job.name}'")
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
 
