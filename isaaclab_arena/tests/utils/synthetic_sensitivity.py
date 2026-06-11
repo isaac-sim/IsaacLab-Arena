@@ -49,6 +49,21 @@ OFFSET_WEIGHT: float = 2.5
 MATERIAL_BASE_LOGIT: dict[str, float] = {"oak": 1.5, "walnut": 0.0, "bamboo": -1.5}
 """Per-material base success logit. Ordered best→worst, so oak should dominate the posterior."""
 
+OBJECT_MASS_RANGE: tuple[float, float] = (0.05, 2.0)
+"""Range (kg) of the continuous ``object_mass`` factor."""
+
+MASS_WEIGHT: float = 1.5
+"""Success-logit gain per unit of normalized mass. Subtracted ⇒ a lighter object is more successful."""
+
+CAMERA_DISTANCE_RANGE: tuple[float, float] = (0.3, 1.5)
+"""Range (m) of the continuous ``camera_distance`` factor."""
+
+DISTANCE_WEIGHT: float = 1.5
+"""Success-logit gain per unit of normalized distance. Subtracted ⇒ a closer camera is more successful."""
+
+OBJECT_TYPE_BASE_LOGIT: dict[str, float] = {"cube": 1.2, "can": 0.0, "mug": -1.2}
+"""Per-object-type base success logit. Ordered best→worst, so cube should dominate the posterior."""
+
 _OUTCOME_NAME = "success"
 _SLICE = SliceSpec(policy="synthetic", task="SyntheticTask", embodiment="synthetic")
 
@@ -133,6 +148,55 @@ def make_mixed_dataset(seed: int, num_episodes: int = 2000) -> SensitivityDatase
     return SensitivityDataset(schema, theta, x)
 
 
+def make_rich_dataset(seed: int, num_episodes: int = 3000) -> SensitivityDataset:
+    """A realistic mix — three continuous + two categorical factors — driving ``success`` (MNPE).
+
+    Mirrors the kind of data a real sweep produces: several continuous factors on different
+    scales (light, mass, camera distance) and several categoricals (object type, table material).
+    Every effect is planted (brighter / lighter / closer / cube / oak raise success), so the
+    posterior conditioned on success should recover all of them at once.
+    """
+    torch.manual_seed(seed)
+
+    object_types = list(OBJECT_TYPE_BASE_LOGIT)
+    materials = list(MATERIAL_BASE_LOGIT)
+
+    light_intensity = _sample_uniform(LIGHT_RANGE, num_episodes)
+    object_mass = _sample_uniform(OBJECT_MASS_RANGE, num_episodes)
+    camera_distance = _sample_uniform(CAMERA_DISTANCE_RANGE, num_episodes)
+    object_type_code = torch.randint(0, len(object_types), (num_episodes,))
+    material_code = torch.randint(0, len(materials), (num_episodes,))
+
+    object_type_base = torch.tensor([OBJECT_TYPE_BASE_LOGIT[t] for t in object_types])
+    material_base = torch.tensor([MATERIAL_BASE_LOGIT[m] for m in materials])
+    success_logit = (
+        LIGHT_WEIGHT * _normalized(light_intensity, LIGHT_RANGE)
+        - MASS_WEIGHT * _normalized(object_mass, OBJECT_MASS_RANGE)
+        - DISTANCE_WEIGHT * _normalized(camera_distance, CAMERA_DISTANCE_RANGE)
+        + object_type_base[object_type_code]
+        + material_base[material_code]
+    )
+    success = _sample_success(success_logit)
+
+    schema = FactorSchema(
+        slice=_SLICE,
+        factors=[
+            FactorSpec(name="light_intensity", type="continuous", range=[list(LIGHT_RANGE)]),
+            FactorSpec(name="object_mass", type="continuous", range=[list(OBJECT_MASS_RANGE)]),
+            FactorSpec(name="camera_distance", type="continuous", range=[list(CAMERA_DISTANCE_RANGE)]),
+            FactorSpec(name="object_type", type="categorical", choices=object_types),
+            FactorSpec(name="table_material", type="categorical", choices=materials),
+        ],
+        outcomes=[OutcomeSpec(name=_OUTCOME_NAME, type="bool")],
+    )
+    # Continuous columns first (in declared order), then the integer-coded categorical columns.
+    theta = torch.stack(
+        [light_intensity, object_mass, camera_distance, object_type_code.float(), material_code.float()], dim=1
+    )
+    x = success.unsqueeze(1)
+    return SensitivityDataset(schema, theta, x)
+
+
 def _demo():
     """Run the full pipeline on a synthetic dataset and save the marginals plot.
 
@@ -145,7 +209,10 @@ def _demo():
 
     parser = argparse.ArgumentParser(description="Run the sensitivity pipeline on a synthetic dataset and plot it.")
     parser.add_argument(
-        "--kind", choices=["mixed", "continuous"], default="mixed", help="'mixed' (MNPE) or 'continuous' (NPE)."
+        "--kind",
+        choices=["mixed", "continuous", "rich"],
+        default="mixed",
+        help="'mixed' (1 cont + 1 cat, MNPE), 'continuous' (2 cont, NPE), or 'rich' (3 cont + 2 cat, MNPE).",
     )
     parser.add_argument(
         "--output", default="./sensitivity_synthetic.png", help="Output figure path; format follows the extension."
@@ -161,7 +228,7 @@ def _demo():
     from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
     from isaaclab_arena.analysis.sensitivity.plotting import plot_marginals
 
-    builder = make_mixed_dataset if args.kind == "mixed" else make_continuous_dataset
+    builder = {"mixed": make_mixed_dataset, "continuous": make_continuous_dataset, "rich": make_rich_dataset}[args.kind]
     dataset = builder(seed=args.seed, num_episodes=args.num_episodes)
     analyzer = SensitivityAnalyzer(dataset)
     analyzer.fit()

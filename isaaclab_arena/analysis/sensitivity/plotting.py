@@ -26,9 +26,9 @@ def plot_marginals(
     """Plot the posterior marginal of every factor in a single figure (robolab-style).
 
     Samples the joint posterior at ``observation`` (default: ``analyzer.default_observation()``),
-    then draws one panel per factor — a histogram for continuous factors, a probability bar
-    chart for categorical ones. This is the whole deliverable: one figure summarising which
-    factor values are consistent with the observed outcomes.
+    then draws one panel per factor — a density curve for continuous factors, a probability
+    bar chart for categorical ones, wrapped into a grid. This is the whole deliverable: one
+    figure summarising which factor values are consistent with the observed outcomes.
 
     Args:
         analyzer: A fitted :class:`SensitivityAnalyzer`.
@@ -40,6 +40,7 @@ def plot_marginals(
     Returns:
         The matplotlib ``Figure``.
     """
+    import math
     import matplotlib.pyplot as plt
 
     if observation is None:
@@ -48,15 +49,21 @@ def plot_marginals(
 
     dataset = analyzer.dataset
     factors = dataset.schema.factors
-    figure, axes = plt.subplots(1, len(factors), figsize=(6.0 * len(factors), 4.5), squeeze=False)
-    for column_index, factor in enumerate(factors):
-        ax = axes[0][column_index]
+    # Wrap panels into a grid (at most 3 columns) so many factors stay readable.
+    num_columns = min(3, len(factors))
+    num_rows = math.ceil(len(factors) / num_columns)
+    figure, axes = plt.subplots(num_rows, num_columns, figsize=(6.0 * num_columns, 4.5 * num_rows), squeeze=False)
+    flat_axes = axes.flatten()
+    for axis_index, factor in enumerate(factors):
+        ax = flat_axes[axis_index]
         factor_samples = samples[:, dataset.factor_columns[factor.name]].squeeze(-1)
         if factor.type == "continuous":
             _draw_continuous_marginal(ax, factor, factor_samples)
         else:
             _draw_categorical_marginal(ax, factor, factor_samples)
         ax.set_title(factor.name, fontsize=11)
+    for unused_index in range(len(factors), len(flat_axes)):
+        flat_axes[unused_index].axis("off")
 
     slice_info = dataset.schema.slice
     observation_label = ", ".join(
@@ -79,11 +86,24 @@ def plot_marginals(
 
 
 def _draw_continuous_marginal(ax, factor: FactorSpec, factor_samples: np.ndarray) -> None:
-    """Histogram of a continuous factor's posterior samples, with a mean line."""
+    """Smooth posterior density (filled KDE curve) of a continuous factor, with a mean line.
+
+    A KDE line over the posterior samples — like robolab's published plots — reads the shape
+    of a continuous posterior better than a binned histogram. Falls back to a single line at
+    the mean when the samples have no spread (KDE bandwidth is then undefined).
+    """
+    from scipy.stats import gaussian_kde
+
     range_low, range_high = factor.range[0]
-    ax.hist(factor_samples, bins=50, range=(range_low, range_high), color=_CONTINUOUS_COLOR, alpha=0.7, density=True)
     sample_mean = float(np.mean(factor_samples))
+    if float(np.std(factor_samples)) >= 1e-9:
+        grid = np.linspace(range_low, range_high, 200)
+        density = gaussian_kde(factor_samples)(grid)
+        ax.plot(grid, density, color=_CONTINUOUS_COLOR, linewidth=2)
+        ax.fill_between(grid, 0, density, color=_CONTINUOUS_COLOR, alpha=0.2)
+        ax.set_ylim(bottom=0)
     ax.axvline(sample_mean, color=_MEAN_COLOR, linestyle="--", linewidth=2, label=f"mean = {sample_mean:.3g}")
+    ax.set_xlim(range_low, range_high)
     ax.set_xlabel(factor.name)
     ax.set_ylabel("posterior density")
     ax.legend(loc="best", fontsize=9)
