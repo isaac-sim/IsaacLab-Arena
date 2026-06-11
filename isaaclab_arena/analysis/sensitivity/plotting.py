@@ -13,8 +13,9 @@ from scipy.stats import gaussian_kde
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
-    from isaaclab_arena.analysis.sensitivity.dataset import FactorSpec
+    import torch
+
+    from isaaclab_arena.analysis.sensitivity.dataset import FactorSpec, SensitivityDataset
 
 _CONTINUOUS_COLOR = "steelblue"
 _CATEGORICAL_COLOR = "steelblue"
@@ -22,32 +23,29 @@ _MEAN_COLOR = "firebrick"
 
 
 def plot_marginals(
-    analyzer: SensitivityAnalyzer,
-    observation=None,
-    num_samples: int = 5000,
+    samples: torch.Tensor,
+    dataset: SensitivityDataset,
+    observation: torch.Tensor,
     output_path: str | None = None,
 ):
     """Plot the posterior marginal of every factor in a single figure.
 
-    Samples the joint posterior at observation (default: analyzer.default_observation()),
-    then draws one panel per factor — a density curve for continuous factors, a probability
-    bar chart for categorical ones, wrapped into a grid.
+    A pure renderer: it draws already-sampled posterior draws and does not run inference.
+    One panel per factor — a density curve for continuous factors, a probability bar chart
+    for categorical ones, wrapped into a grid.
 
     Args:
-        analyzer: A fitted SensitivityAnalyzer.
-        observation: Outcome vector to condition on. Defaults to the analyzer's default.
-        num_samples: Number of posterior samples to draw.
+        samples: ``(num_samples, total_factor_dim)`` posterior draws in the dataset's factor
+            layout (continuous-first, original units), e.g. from ``SensitivityAnalyzer.sample_posterior``.
+        dataset: The dataset, for the factor schema and column layout.
+        observation: The outcome vector the samples were conditioned on (shown in the title).
         output_path: If given, save the figure here. The format follows the path's
             extension (.png, .pdf, …); parent directories are created.
 
     Returns:
         The matplotlib Figure.
     """
-    if observation is None:
-        observation = analyzer.default_observation()
-    samples = analyzer.sample_posterior(observation, num_samples).cpu().numpy()
-
-    dataset = analyzer.dataset
+    samples = samples.cpu().numpy()
     factors = dataset.schema.factors
     # Wrap panels into a grid (at most 3 columns) so many factors stay readable.
     num_columns = min(3, len(factors))

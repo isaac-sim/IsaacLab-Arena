@@ -40,9 +40,12 @@ def generate_report(
     analyzer = SensitivityAnalyzer(dataset)
     analyzer.fit()
 
-    observation_tensor = None if observation is None else torch.tensor(observation, dtype=torch.float32)
+    observation_tensor = (
+        analyzer.default_observation() if observation is None else torch.tensor(observation, dtype=torch.float32)
+    )
+    samples = analyzer.sample_posterior(observation_tensor)
     output_path = Path(output_path)
-    plot_marginals(analyzer, observation=observation_tensor, output_path=str(output_path))
+    plot_marginals(samples, dataset, observation_tensor, output_path=str(output_path))
     plt.close("all")
     print(f"[INFO] Wrote report → {output_path}")
     return output_path
