@@ -64,7 +64,7 @@ def plot_marginals(
         flat_axes[unused_index].axis("off")
 
     observation_label = ", ".join(
-        f"{outcome.name}={value:g}" for outcome, value in zip(dataset.schema.outcomes, observation.tolist())
+        f"{name}={value:g}" for name, value in zip(dataset.outcome_names, observation.tolist())
     )
     figure.suptitle(
         f"Posterior marginals — {dataset.num_episodes} episodes  (observed: {observation_label})",

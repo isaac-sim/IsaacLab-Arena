@@ -19,6 +19,7 @@ def generate_report(
     factors_yaml_path: str | Path,
     jsonl_path: str | Path,
     output_path: str | Path,
+    outcome_names: list[str] | tuple[str, ...] = ("success",),
     observation: list[float] | None = None,
 ) -> Path:
     """Build a sensitivity report from a factors.yaml / episode_summary.jsonl pair.
@@ -27,16 +28,17 @@ def generate_report(
     figure. The output format follows the output_path extension (.png, .pdf, …).
 
     Args:
-        factors_yaml_path: Schema file declaring factors and outcomes.
+        factors_yaml_path: Schema file declaring the factors.
         jsonl_path: episode_summary.jsonl produced by eval_runner.
         output_path: Destination figure file (parent dirs created if absent).
-        observation: Outcome values to condition on, one per declared outcome. Defaults to
-            conditioning on success (1) for every binary outcome.
+        outcome_names: Which per-episode outcome(s) to condition on.
+        observation: Outcome values to condition on, one per outcome name. Defaults to
+            conditioning on success (1) for every (binary) outcome.
 
     Returns:
         The resolved output path.
     """
-    dataset = SensitivityDataset.from_files(Path(factors_yaml_path), Path(jsonl_path))
+    dataset = SensitivityDataset.from_files(Path(factors_yaml_path), Path(jsonl_path), outcome_names)
     analyzer = SensitivityAnalyzer(dataset)
     analyzer.fit()
 
@@ -69,18 +71,27 @@ def main():
         help="Output figure file; format follows the extension (.png, .pdf, …). Default: eval/sensitivity_report.png.",
     )
     parser.add_argument(
+        "--outcome",
+        type=str,
+        nargs="+",
+        default=["success"],
+        help="Which per-episode outcome(s) to condition on (keys in the rows' outcomes block). Default: success.",
+    )
+    parser.add_argument(
         "--observation",
         type=float,
         nargs="*",
         default=None,
         help=(
-            "Outcome values to condition on, one per declared outcome (in schema order). "
+            "Outcome values to condition on, one per --outcome (in order). "
             "Outcomes are binary, so use 1 for success or 0 for failure. Defaults to 1 (success)."
         ),
     )
     args = parser.parse_args()
 
-    generate_report(args.factors_yaml, args.episode_summary, args.output, observation=args.observation)
+    generate_report(
+        args.factors_yaml, args.episode_summary, args.output, outcome_names=args.outcome, observation=args.observation
+    )
 
 
 if __name__ == "__main__":

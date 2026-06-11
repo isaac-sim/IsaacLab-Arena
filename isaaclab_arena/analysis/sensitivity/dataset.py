@@ -31,27 +31,22 @@ class FactorSpec:
 
 
 @dataclass
-class OutcomeSpec:
-    """One outcome's schema (just a name and a type hint; the loader treats all as float)."""
-
-    name: str
-    type: str  # "bool", "float", "int" — informational; loader treats all as float
-
-
-@dataclass
 class FactorSchema:
-    """Parsed factors.yaml — factor list + outcome list."""
+    """Parsed factors.yaml — the list of factors that were varied.
+
+    Factors carry structure (continuous vs categorical, range/choices) needed to build theta.
+    Outcomes are not part of the schema: they are always read as floats and *which* outcome to
+    condition on is a query, chosen at analysis time (see SensitivityDataset.from_files).
+    """
 
     factors: list[FactorSpec]
-    outcomes: list[OutcomeSpec]
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> FactorSchema:
         """Load a factors.yaml from disk into a typed FactorSchema.
 
-        The YAML must have two top-level blocks: factors (one entry per varied input) and
-        outcomes (one entry per measured output). Each factor's type must be continuous or
-        categorical.
+        The YAML has one top-level block, factors (one entry per varied input). Each factor's
+        type must be continuous or categorical.
         """
         # TODO: add a robolab-style filter (e.g. select rows by policy/task/embodiment) so a
         # single episode_summary.jsonl can be sliced to one coherent (policy, task, embodiment)
@@ -59,8 +54,7 @@ class FactorSchema:
         with open(path, encoding="utf-8") as yaml_file:
             yaml_data = yaml.safe_load(yaml_file)
         assert isinstance(yaml_data, dict), f"factors.yaml at {path} must be a mapping at top level"
-        for required_key in ("factors", "outcomes"):
-            assert required_key in yaml_data, f"factors.yaml at {path} is missing top-level `{required_key}:` block"
+        assert "factors" in yaml_data, f"factors.yaml at {path} is missing top-level `factors:` block"
 
         factors: list[FactorSpec] = []
         for factor_name, factor_block in yaml_data["factors"].items():
@@ -83,12 +77,7 @@ class FactorSchema:
                 )
             )
 
-        outcomes = [
-            OutcomeSpec(name=outcome_name, type=outcome_block.get("type", "float"))
-            for outcome_name, outcome_block in yaml_data["outcomes"].items()
-        ]
-
-        return cls(factors=factors, outcomes=outcomes)
+        return cls(factors=factors)
 
     @property
     def total_factor_dim(self) -> int:
@@ -127,14 +116,21 @@ class SensitivityDataset:
         describes: continuous columns first, then one integer-coded column per categorical.
     """
 
-    def __init__(self, schema: FactorSchema, theta: torch.Tensor, x: torch.Tensor):
+    def __init__(
+        self,
+        schema: FactorSchema,
+        theta: torch.Tensor,
+        x: torch.Tensor,
+        outcome_names: list[str] | tuple[str, ...] = ("success",),
+    ):
         """Wrap an in-memory schema plus its theta / x tensors, validating shapes.
 
         Args:
-            schema: The parsed factor/outcome schema. Continuous factors must carry a
-                range; categorical factors must carry choices.
+            schema: The parsed factor schema. Continuous factors must carry a range;
+                categorical factors must carry choices.
             theta: (num_episodes, total_factor_dim) factor matrix, continuous-first.
             x: (num_episodes, num_outcomes) outcome matrix.
+            outcome_names: Name of each outcome column in x, in order (used for plot labels).
         """
         assert theta.ndim == 2 and x.ndim == 2, f"theta and x must be 2D; got {theta.shape} and {x.shape}"
         assert theta.shape[0] == x.shape[0], f"theta/x row counts disagree: {theta.shape[0]} vs {x.shape[0]}"
@@ -143,18 +139,25 @@ class SensitivityDataset:
             theta.shape[1] == schema.total_factor_dim
         ), f"theta has {theta.shape[1]} columns but schema declares {schema.total_factor_dim} factor dims"
         assert x.shape[1] == len(
-            schema.outcomes
-        ), f"x has {x.shape[1]} columns but schema declares {len(schema.outcomes)} outcomes"
+            outcome_names
+        ), f"x has {x.shape[1]} columns but {len(outcome_names)} outcome name(s) were given"
         self.schema = schema
+        self.outcome_names = list(outcome_names)
         self._theta = theta
         self._x = x
 
     @classmethod
-    def from_files(cls, factors_yaml: str | Path, jsonl_path: str | Path) -> SensitivityDataset:
+    def from_files(
+        cls,
+        factors_yaml: str | Path,
+        jsonl_path: str | Path,
+        outcome_names: list[str] | tuple[str, ...] = ("success",),
+    ) -> SensitivityDataset:
         """Build a dataset from a factors.yaml schema and an episode_summary.jsonl.
 
         Parses and validates both, infers any missing continuous range from the data, and
-        assembles the theta / x tensors in the layout the analyzers expect.
+        assembles the theta / x tensors in the layout the analyzers expect. ``outcome_names``
+        selects which per-episode outcome columns to condition on (the analysis-time query).
         """
         schema = FactorSchema.from_yaml(factors_yaml)
 
@@ -162,12 +165,12 @@ class SensitivityDataset:
         rows = [json.loads(line) for line in jsonl_text.splitlines() if line.strip()]
         assert len(rows) > 0, f"Empty episode_summary.jsonl at {jsonl_path}"
 
-        _validate_rows(schema, rows, jsonl_path)
+        _validate_rows(schema, rows, outcome_names, jsonl_path)
         _infer_missing_factor_ranges(schema, rows)
 
         theta = _build_factor_tensor(schema, rows)
-        x = _build_outcome_tensor(schema, rows)
-        return cls(schema, theta, x)
+        x = _build_outcome_tensor(rows, outcome_names)
+        return cls(schema, theta, x, outcome_names)
 
     @property
     def theta(self) -> torch.Tensor:
@@ -182,9 +185,8 @@ class SensitivityDataset:
     def x(self) -> torch.Tensor:
         """(num_episodes, num_outcomes) matrix of outcome values, one row per episode.
 
-        This is what the analyzer conditions queries on. The analyzer typically selects a
-        single outcome column at fit time (e.g. success_rate) and asks
-        "what theta values were consistent with observing this outcome?"
+        This is what the analyzer conditions queries on — "what factor values were consistent
+        with observing these outcomes?". Columns are named by ``outcome_names``.
         """
         return self._x
 
@@ -197,11 +199,6 @@ class SensitivityDataset:
     def factor_columns(self) -> dict[str, slice]:
         """Map factor name → its column slice in theta. Same as schema.factor_columns."""
         return self.schema.factor_columns
-
-    @property
-    def outcome_columns(self) -> dict[str, int]:
-        """Map outcome name → its column index in x."""
-        return {outcome.name: index for index, outcome in enumerate(self.schema.outcomes)}
 
     def default_observation(self) -> torch.Tensor:
         """The default outcome vector to condition a query on: success (1) for every outcome.
@@ -254,14 +251,16 @@ class SensitivityDataset:
         )
 
 
-def _validate_rows(schema: FactorSchema, rows: list[dict], jsonl_path: str | Path) -> None:
-    """Assert every JSONL row carries the schema's declared factor and outcome keys.
+def _validate_rows(
+    schema: FactorSchema, rows: list[dict], outcome_names: list[str] | tuple[str, ...], jsonl_path: str | Path
+) -> None:
+    """Assert every JSONL row carries the declared factor keys and the requested outcome keys.
 
     The declared names need only be a subset of each row's arena_env_args / outcomes;
     extra keys are ignored. Raises pointing at the first offending row.
     """
     expected_factor_names = {factor.name for factor in schema.factors}
-    expected_outcome_names = {outcome.name for outcome in schema.outcomes}
+    expected_outcome_names = set(outcome_names)
     for row_index, row in enumerate(rows):
         assert (
             "arena_env_args" in row and "outcomes" in row
@@ -338,14 +337,13 @@ def _build_factor_tensor(schema: FactorSchema, rows: list[dict]) -> torch.Tensor
     return torch.zeros((len(rows), 0), dtype=torch.float32)
 
 
-def _build_outcome_tensor(schema: FactorSchema, rows: list[dict]) -> torch.Tensor:
-    """Assemble the per-episode outcome matrix x (one column per declared outcome).
+def _build_outcome_tensor(rows: list[dict], outcome_names: list[str] | tuple[str, ...]) -> torch.Tensor:
+    """Assemble the per-episode outcome matrix x (one column per requested outcome).
 
-    Each outcome value is cast to float; bool outcomes become 0.0/1.0. The analyzer usually
-    selects a single outcome column at fit time and conditions queries on it.
+    Each outcome value is cast to float; bool outcomes become 0.0/1.0.
     """
     outcome_column_tensors = [
-        torch.tensor([float(row["outcomes"][outcome.name]) for row in rows], dtype=torch.float32).unsqueeze(1)
-        for outcome in schema.outcomes
+        torch.tensor([float(row["outcomes"][name]) for row in rows], dtype=torch.float32).unsqueeze(1)
+        for name in outcome_names
     ]
     return torch.cat(outcome_column_tensors, dim=1)

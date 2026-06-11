@@ -34,8 +34,10 @@ neural posterior estimators. The flow is:
 
 1. **Per-episode recording.** During evaluation, ``episode_writer`` appends one row per
    episode to an ``episode_summary.jsonl`` file.
-2. **Schema.** A ``factors.yaml`` declares which of those columns are *factors* to analyse
-   (and whether each is continuous or categorical) and which are *outcomes* to condition on.
+2. **Schema.** A ``factors.yaml`` declares the *factors* — which ``arena_env_args`` columns
+   were varied and whether each is continuous or categorical, plus the continuous ranges
+   that were swept (so the analyzer's prior matches the simulation). It does **not** list
+   outcomes — *which* outcome to condition on is chosen at analysis time, not saved here.
 3. **Inference.** ``SensitivityAnalyzer`` loads the pair, trains an estimator on the full
    ``(theta, x)`` jointly, and samples the joint posterior conditioned on a chosen
    observation (by default, success).
@@ -45,23 +47,21 @@ neural posterior estimators. The flow is:
 Inputs
 ------
 
-**factors.yaml** declares the factors to study and the outcomes to condition on:
+**factors.yaml** declares only the factors that were varied (and the continuous ranges that
+were swept). Outcomes are not declared here — they're selected at analysis time (see below):
 
 .. code-block:: yaml
 
    factors:
      light_intensity:
        type: continuous
-       range: [[0.0, 5000.0]]   # one [low, high] pair; inferred from data if omitted
+       range: [[0.0, 5000.0]]   # the swept range; inferred from the data's min/max if omitted
      table_material:
        type: categorical
        choices: [oak, walnut, bamboo]
 
-   outcomes:
-     success:
-       type: bool
-
-**episode_summary.jsonl** is produced by the eval runner — one JSON object per episode:
+**episode_summary.jsonl** is produced by the eval runner — one JSON object per episode. It
+carries every measured outcome; the analysis picks which one(s) to condition on:
 
 .. code-block:: json
 
@@ -106,11 +106,13 @@ format follows the file extension (``.png``, ``.pdf``, …); reports are written
    python -m isaaclab_arena.analysis.sensitivity.generate_report \
      --factors_yaml factors.yaml \
      --episode_summary episode_summary.jsonl \
+     --outcome success \
      --output eval/sensitivity_report.png
 
-Pass ``--observation`` to condition on specific outcome values (one per declared outcome,
-in schema order); since outcomes are binary, use ``1`` for success or ``0`` for failure.
-It defaults to ``1`` (success).
+``--outcome`` selects which per-episode outcome(s) to condition on (keys in the rows'
+``outcomes`` block); it defaults to ``success``. Pass ``--observation`` to set the value
+per outcome — since outcomes are binary, use ``1`` for success or ``0`` for failure; it
+defaults to ``1`` (success).
 
 Trying it on synthetic data
 ---------------------------

@@ -28,7 +28,7 @@ import torch
 from dataclasses import dataclass
 
 from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
-from isaaclab_arena.analysis.sensitivity.dataset import FactorSchema, FactorSpec, OutcomeSpec, SensitivityDataset
+from isaaclab_arena.analysis.sensitivity.dataset import FactorSchema, FactorSpec, SensitivityDataset
 from isaaclab_arena.analysis.sensitivity.plotting import plot_marginals
 
 
@@ -89,8 +89,6 @@ CAMERA_DISTANCE = _ContinuousFactor("camera_distance", (0.3, 1.5), weight=-1.5)
 MATERIAL = _CategoricalFactor("table_material", {"oak": 1.5, "walnut": 0.0, "bamboo": -1.5})
 OBJECT_TYPE = _CategoricalFactor("object_type", {"cube": 1.2, "can": 0.0, "mug": -1.2})
 
-_OUTCOME_NAME = "success"
-
 
 def _sample_success(success_logit: torch.Tensor) -> torch.Tensor:
     """Draw a binary success outcome per episode from Bernoulli(sigmoid(logit))."""
@@ -107,11 +105,9 @@ def _build_dataset(
     SensitivityDataset.factor_columns expects.
     """
     ordered = sorted(factors_and_columns, key=lambda pair: isinstance(pair[0], _CategoricalFactor))
-    schema = FactorSchema(
-        factors=[factor.spec() for factor, _ in ordered],
-        outcomes=[OutcomeSpec(name=_OUTCOME_NAME, type="bool")],
-    )
+    schema = FactorSchema(factors=[factor.spec() for factor, _ in ordered])
     theta = torch.stack([factor.column(values) for factor, values in ordered], dim=1)
+    # outcome_names defaults to ("success",), matching the single binary outcome built here.
     return SensitivityDataset(schema, theta, success.unsqueeze(1))
 
 
