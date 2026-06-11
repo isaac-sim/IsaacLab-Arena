@@ -25,6 +25,7 @@ class Job:
         policy_type: str,
         num_steps: int = None,
         num_episodes: int = None,
+        num_rebuilds: int = 1,
         policy_config_dict: dict = None,
         status: Status = None,
         language_instruction: str = None,
@@ -37,6 +38,8 @@ class Job:
             num_envs: Number of environments to simulate
             num_steps: Number of steps to run the policy for (mutually exclusive with num_episodes)
             num_episodes: Number of episodes to run the policy for (mutually exclusive with num_steps)
+            num_rebuilds: Number of times to rebuild the environment and re-run the rollout for this
+                job. Metrics from each rebuild are aggregated into a single result. Defaults to 1.
             policy_type: Type of policy to use
             policy_config_dict: Dictionary configuration for the policy.
             status: Job status (defaults to PENDING)
@@ -49,9 +52,11 @@ class Job:
         assert not (
             num_steps is not None and num_episodes is not None
         ), f"Job '{name}': num_steps and num_episodes are mutually exclusive, got both"
+        assert num_rebuilds > 0, f"Job '{name}': num_rebuilds must be greater than 0, got {num_rebuilds}"
         self.num_envs = num_envs
         self.num_steps = num_steps
         self.num_episodes = num_episodes
+        self.num_rebuilds = num_rebuilds
         self.policy_type = policy_type
         self.policy_config_dict = policy_config_dict if policy_config_dict is not None else {}
         self.language_instruction = language_instruction
@@ -93,6 +98,7 @@ class Job:
             num_episodes = data["num_episodes"]
         else:
             num_episodes = None
+        num_rebuilds = data.get("num_rebuilds", 1)
         if "status" in data and data["status"] is not None:
             status = Status(data["status"])
         else:
@@ -106,6 +112,7 @@ class Job:
             num_envs=num_envs,
             num_steps=num_steps,
             num_episodes=num_episodes,
+            num_rebuilds=num_rebuilds,
             policy_config_dict=data["policy_config_dict"],
             status=status,
             language_instruction=data.get("language_instruction"),
@@ -238,7 +245,25 @@ class JobManager:
         """Print information about the jobs."""
 
         # print using pretty table as data fields may have various lengths
-        table = PrettyTable(field_names=["Job Name", "Status", "Policy Type", "Num Envs", "Num Steps", "Num Episodes"])
+        table = PrettyTable(
+            field_names=[
+                "Job Name",
+                "Status",
+                "Policy Type",
+                "Num Envs",
+                "Num Steps",
+                "Num Episodes",
+                "Num Rebuilds",
+            ]
+        )
         for job in self.all_jobs:
-            table.add_row([job.name, job.status.value, job.policy_type, job.num_envs, job.num_steps, job.num_episodes])
+            table.add_row([
+                job.name,
+                job.status.value,
+                job.policy_type,
+                job.num_envs,
+                job.num_steps,
+                job.num_episodes,
+                job.num_rebuilds,
+            ])
         print(table)

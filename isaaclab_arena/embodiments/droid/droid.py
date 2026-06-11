@@ -100,6 +100,7 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
     """Embodiment for the DROID setup with differential inverse kinematics action controller."""
 
     name = "droid_differential_ik"
+    tags = ["embodiment", "ik"]
     default_arm_mode = ArmMode.SINGLE_ARM
 
     def __init__(
