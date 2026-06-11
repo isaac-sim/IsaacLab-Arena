@@ -33,9 +33,7 @@ except Exception:
 requires_warp = pytest.mark.skipif(not _WARP_AVAILABLE, reason="Warp not available")
 
 
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
 
 
 def _make_cylinder(name: str, radius: float = 0.033, height: float = 0.1) -> DummyObject:
@@ -74,9 +72,7 @@ def _make_table() -> DummyObject:
     return table
 
 
-# ---------------------------------------------------------------------------
 # Unit: greedy_sphere_decomposition
-# ---------------------------------------------------------------------------
 
 
 def test_sphere_decomposition_covers_surface():
@@ -99,9 +95,7 @@ def test_sphere_decomposition_covers_surface():
     assert coverage > 0.8, f"Coverage only {coverage:.1%}"
 
 
-# ---------------------------------------------------------------------------
 # Unit: WarpMeshManager caching
-# ---------------------------------------------------------------------------
 
 
 @requires_warp
@@ -114,9 +108,7 @@ def test_warp_mesh_caching():
     assert m1 is m2
 
 
-# ---------------------------------------------------------------------------
 # Unit: NoCollisionLossStrategy routing
-# ---------------------------------------------------------------------------
 
 
 def test_dispatch_routes_to_aabb_in_bbox_mode():
@@ -170,9 +162,7 @@ def test_dispatch_falls_back_when_no_mesh():
     assert torch.isclose(loss, torch.tensor(0.0), atol=1e-5)
 
 
-# ---------------------------------------------------------------------------
 # Unit: NoCollisionLossStrategy mesh mode (requires warp)
-# ---------------------------------------------------------------------------
 
 
 @requires_warp
@@ -233,9 +223,7 @@ def test_mesh_loss_respects_clearance_m():
     assert loss_with_clearance.item() > loss_no_clearance.item()
 
 
-# ---------------------------------------------------------------------------
 # Integration: solver with mesh mode
-# ---------------------------------------------------------------------------
 
 
 @requires_warp
@@ -287,9 +275,7 @@ def test_on_pairs_skipped_in_mesh_mode():
     assert 0.0 < z < 0.15, f"Object pushed too far: z={z}"
 
 
-# ---------------------------------------------------------------------------
 # Guard: yaw + mesh incompatibility
-# ---------------------------------------------------------------------------
 
 
 @requires_warp
@@ -644,9 +630,7 @@ def test_solver_mesh_batch_size_two():
     assert dist_1 > 0.3, f"Env 1: separated objects moved too much, dist={dist_1:.4f}"
 
 
-# ---------------------------------------------------------------------------
 # Unit: AABB broadphase in production path
-# ---------------------------------------------------------------------------
 
 
 @requires_warp
@@ -695,9 +679,7 @@ def test_broadphase_does_not_skip_overlapping_pairs():
     assert loss > 0.0, "Overlapping objects should produce nonzero loss"
 
 
-# ---------------------------------------------------------------------------
-# multi_mesh_sdf: distinct meshes + backward
-# ---------------------------------------------------------------------------
+# Unit: multi_mesh_sdf
 
 
 @requires_warp

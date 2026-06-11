@@ -5,16 +5,16 @@
 
 from __future__ import annotations
 
-import math
 import torch
 from typing import TYPE_CHECKING, cast
 
+from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.relation_loss_strategies import (
     NoCollisionLossStrategy,
     RelationLossStrategy,
     UnaryRelationLossStrategy,
 )
-from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
+from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import On, Relation, RelationBase, UnaryRelation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -182,7 +182,9 @@ class RelationSolver:
             Per-environment loss tensor of shape (batch_size,).
         """
         if self.params.collision_mode == CollisionMode.MESH:
-            return self._compute_no_overlap_loss_mesh(state, debug)
+            mesh_loss = self._compute_no_overlap_loss_mesh(state, debug)
+            aabb_loss = self._compute_no_overlap_loss_aabb(state, debug, skip_mesh_pairs=True)
+            return mesh_loss + aabb_loss
         else:
             return self._compute_no_overlap_loss_aabb(state, debug)
 
@@ -190,17 +192,19 @@ class RelationSolver:
         self,
         state: RelationSolverState,
         debug: bool,
+        skip_mesh_pairs: bool = False,
     ) -> torch.Tensor:
-        """Per-pair AABB collision loss (used when collision_mode != MESH)."""
+        """Per-pair AABB collision loss.
+
+        When skip_mesh_pairs=True (used as AABB fallback in MESH mode), only
+        processes pairs where at least one object lacks a collision mesh.
+        """
         device = state.device
         total_loss = torch.zeros(state.batch_size, device=device, dtype=torch.float32)
 
         non_anchor_objects = state.optimizable_objects
         anchor_objects = list(state.anchor_objects)
 
-        # Skip no-overlap for On-linked pairs: the On constraint already forces
-        # vertical contact, and penalizing overlap here would fight it, causing
-        # oscillation between "push apart" and "keep on surface" gradients.
         on_pairs: set[tuple[int, int]] = set()
         for obj in [*non_anchor_objects, *anchor_objects]:
             for rel in obj.get_relations():
@@ -214,6 +218,12 @@ class RelationSolver:
 
             for anchor in anchor_objects:
                 if (id(child), id(anchor)) in on_pairs:
+                    continue
+                if (
+                    skip_mesh_pairs
+                    and child.get_collision_mesh() is not None
+                    and anchor.get_collision_mesh() is not None
+                ):
                     continue
                 anchor_world_bbox = anchor.get_world_bounding_box().to(device)
                 loss = self._no_collision_strategy.compute_loss(
@@ -232,6 +242,12 @@ class RelationSolver:
             for j in range(i + 1, len(non_anchor_objects)):
                 other = non_anchor_objects[j]
                 if (id(child), id(other)) in on_pairs:
+                    continue
+                if (
+                    skip_mesh_pairs
+                    and child.get_collision_mesh() is not None
+                    and other.get_collision_mesh() is not None
+                ):
                     continue
                 other_pos = state.get_position(other)
                 other_bbox = state.get_bbox(other)
@@ -302,7 +318,7 @@ class RelationSolver:
 
         import warp as wp
 
-        from isaaclab_arena.utils.pose import Pose
+        from isaaclab_arena.utils.pose import Pose, yaw_from_quat_xyzw
 
         centers_list: list[torch.Tensor] = []
         radii_list: list[torch.Tensor] = []
@@ -352,14 +368,13 @@ class RelationSolver:
                     p_bbox_max = parent_bbox.max_point.to(device)
                     pose = anchor.get_initial_pose()
                     assert pose is not None and isinstance(pose, Pose)
-                    qx, qy, qz, qw = pose.rotation_xyzw
-                    assert abs(qx) < 1e-6 and abs(qy) < 1e-6, (
+                    assert abs(pose.rotation_xyzw[0]) < 1e-6 and abs(pose.rotation_xyzw[1]) < 1e-6, (
                         f"MESH collision requires anchor '{anchor.name}' to have identity or "
                         f"pure-Z rotation, got rotation_xyzw={pose.rotation_xyzw}. "
                         "Roll/pitch anchors are not supported in MESH mode."
                     )
                     anchor_pos = torch.tensor(pose.position_xyz, dtype=torch.float32, device=device)
-                    anchor_yaw = 2.0 * math.atan2(qz, qw)
+                    anchor_yaw = yaw_from_quat_xyzw(pose.rotation_xyzw)
 
                     n_spheres = child_centers_local.shape[0]
                     mesh_key = id(warp_mesh)

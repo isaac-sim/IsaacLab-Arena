@@ -4,8 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import dataclass, field
-from enum import Enum
 
+from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.relation_loss_strategies import (
     AtPositionLossStrategy,
     NextToLossStrategy,
@@ -16,16 +16,6 @@ from isaaclab_arena.relations.relation_loss_strategies import (
     UnaryRelationLossStrategy,
 )
 from isaaclab_arena.relations.relations import AtPosition, NextTo, NotNextTo, On, PositionLimits, RelationBase
-
-
-class CollisionMode(Enum):
-    """Selects which collision detection method the solver uses for no-overlap constraints."""
-
-    BBOX = "bbox"
-    """Axis-aligned bounding box overlap volume (fast, conservative)."""
-
-    MESH = "mesh"
-    """Sphere-to-SDF queries against actual mesh geometry (accurate, slower)."""
 
 
 def _default_strategies() -> dict[type[RelationBase], RelationLossStrategy | UnaryRelationLossStrategy]:

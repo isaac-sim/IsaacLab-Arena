@@ -19,7 +19,11 @@ def _sdf_query_kernel(
     sdf_out: wp.array(dtype=wp.float32),
     grad_out: wp.array(dtype=wp.vec3),
 ):
-    """Query signed distance and gradient for each point against a Warp mesh."""
+    """Query signed distance and gradient for each point against a Warp mesh.
+
+    Points must be in mesh-local frame. Sign convention: negative = inside mesh.
+    Returns 1e6 sentinel when the BVH finds no enclosing face (non-watertight mesh).
+    """
     tid = wp.tid()
     p = query_points[tid]
 
@@ -132,7 +136,7 @@ def reset_sdf_sentinel_warning() -> None:
 
 
 def sphere_penetration_loss(
-    sphere_centers_world: torch.Tensor,
+    sphere_centers: torch.Tensor,
     sphere_radii: torch.Tensor,
     warp_mesh: wp.Mesh,
     clearance_m: float = 0.0,
@@ -143,15 +147,15 @@ def sphere_penetration_loss(
     Total loss = mean over all spheres.
 
     Args:
-        sphere_centers_world: (K, 3) world-space sphere centers.
+        sphere_centers: (K, 3) sphere centers in mesh-local frame.
         sphere_radii: (K,) sphere radii.
         warp_mesh: Target Warp mesh to check against.
         clearance_m: Additional clearance added to radii.
 
     Returns:
-        Scalar loss tensor (differentiable w.r.t. sphere_centers_world).
+        Scalar loss tensor (differentiable w.r.t. sphere_centers).
     """
-    sdf_values = mesh_sdf(sphere_centers_world, warp_mesh)
+    sdf_values = mesh_sdf(sphere_centers, warp_mesh)
     _check_sdf_sentinel(sdf_values)
 
     effective_radii = sphere_radii + clearance_m
@@ -172,7 +176,11 @@ def _multi_mesh_sdf_kernel(
     sdf_out: wp.array(dtype=wp.float32),
     grad_out: wp.array(dtype=wp.vec3),
 ):
-    """Query signed distance per point against its assigned mesh (indexed by mesh_indices)."""
+    """Query signed distance per point against its assigned mesh (indexed by mesh_indices).
+
+    Points must be in mesh-local frame. Sign convention: negative = inside mesh.
+    Returns 1e6 sentinel when the BVH finds no enclosing face (non-watertight mesh).
+    """
     tid = wp.tid()
     p = query_points[tid]
     mesh_id = mesh_ids[mesh_indices[tid]]

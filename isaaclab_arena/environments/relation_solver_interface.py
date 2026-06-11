@@ -52,6 +52,7 @@ def solve_and_apply_relation_placement(
         print("No objects with relations found in scene. Skipping relation solving.")
         return None
 
+    assert collision_mode in ("bbox", "mesh"), f"Invalid collision_mode '{collision_mode}', expected 'bbox' or 'mesh'"
     mode = CollisionMode.MESH if collision_mode == "mesh" else CollisionMode.BBOX
     placer_params = ObjectPlacerParams(
         placement_seed=placement_seed,
