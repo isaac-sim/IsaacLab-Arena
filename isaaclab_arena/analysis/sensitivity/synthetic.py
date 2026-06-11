@@ -125,27 +125,13 @@ def make_continuous_dataset(seed: int, num_episodes: int = 2000) -> SensitivityD
     return _build_dataset([(LIGHT, light), (GRASP_OFFSET, grasp_offset)], success)
 
 
-def make_mixed_dataset(seed: int, num_episodes: int = 2000) -> SensitivityDataset:
-    """Continuous light_intensity + categorical table_material driving success.
+def make_mixed_dataset(seed: int, num_episodes: int = 3000) -> SensitivityDataset:
+    """Mixed continuous + categorical factors driving success (MNPE path).
 
-    Uses the MNPE path. Both effects are planted: brighter light and "better" materials
-    (oak > walnut > bamboo) raise success, so conditioning the posterior on success should
-    favor high light values and oak.
-    """
-    torch.manual_seed(seed)
-    light = LIGHT.sample(num_episodes)
-    material = MATERIAL.sample(num_episodes)
-    success = _sample_success(LIGHT.logit(light) + MATERIAL.logit(material))
-    return _build_dataset([(LIGHT, light), (MATERIAL, material)], success)
-
-
-def make_rich_dataset(seed: int, num_episodes: int = 3000) -> SensitivityDataset:
-    """A realistic mix — three continuous + two categorical factors — driving success (MNPE).
-
-    Mirrors the kind of data a real sweep produces: several continuous factors on different
-    scales (light, mass, camera distance) and several categoricals (object type, table material).
-    Every effect is planted (brighter / lighter / closer / cube / oak raise success), so the
-    posterior conditioned on success should recover all of them at once.
+    A realistic multi-factor sweep: three continuous factors on different scales (light,
+    mass, camera distance) and two categoricals (object type, table material). Every effect
+    is planted (brighter / lighter / closer / cube / oak raise success), so the posterior
+    conditioned on success should recover all of them at once.
     """
     torch.manual_seed(seed)
     light = LIGHT.sample(num_episodes)
@@ -183,9 +169,9 @@ def _demo():
     parser = argparse.ArgumentParser(description="Run the sensitivity pipeline on a synthetic dataset and plot it.")
     parser.add_argument(
         "--kind",
-        choices=["mixed", "continuous", "rich"],
+        choices=["mixed", "continuous"],
         default="mixed",
-        help="'mixed' (1 cont + 1 cat, MNPE), 'continuous' (2 cont, NPE), or 'rich' (3 cont + 2 cat, MNPE).",
+        help="'mixed' (continuous + categorical, MNPE) or 'continuous' (continuous-only, NPE).",
     )
     parser.add_argument(
         "--output",
@@ -196,7 +182,7 @@ def _demo():
     parser.add_argument("--num-episodes", type=int, default=2000)
     args = parser.parse_args()
 
-    builder = {"mixed": make_mixed_dataset, "continuous": make_continuous_dataset, "rich": make_rich_dataset}[args.kind]
+    builder = {"mixed": make_mixed_dataset, "continuous": make_continuous_dataset}[args.kind]
     dataset = builder(seed=args.seed, num_episodes=args.num_episodes)
     analyzer = SensitivityAnalyzer(dataset)
     analyzer.fit()

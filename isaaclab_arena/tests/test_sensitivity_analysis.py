@@ -5,11 +5,11 @@
 
 """End-to-end sensitivity-analysis tests on synthetic data with a known ground truth.
 
-Each test fits a SensitivityAnalyzer on a dataset whose factor→outcome relationship is
-planted by the synthetic module (brighter light, smaller grasp offset, and oak raise
-success), then asserts the posterior conditioned on success recovers that relationship. The
-data is built in memory, so these run on CPU without Isaac Sim. They cover both estimator
-paths: MNPE for mixed schemas, NPE for continuous-only (with 2-D theta).
+Each test fits a SensitivityAnalyzer on a dataset whose factor→outcome relationships are
+planted by the synthetic module (brighter / lighter / closer / cube / oak raise success),
+then asserts the posterior conditioned on success recovers them. The data is built in
+memory, so these run on CPU without Isaac Sim. They cover both estimator paths: MNPE for a
+mixed schema, NPE for a continuous-only one (2-D theta).
 """
 
 from __future__ import annotations
@@ -19,17 +19,17 @@ import torch
 
 from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
 from isaaclab_arena.analysis.sensitivity.synthetic import (
+    CAMERA_DISTANCE,
     GRASP_OFFSET,
     LIGHT,
     MATERIAL,
+    OBJECT_MASS,
+    OBJECT_TYPE,
     make_continuous_dataset,
     make_mixed_dataset,
 )
 
 _NUM_SAMPLES = 5000
-
-_LIGHT_MIDPOINT = 0.5 * (LIGHT.value_range[0] + LIGHT.value_range[1])
-_OFFSET_MIDPOINT = 0.5 * (GRASP_OFFSET.value_range[0] + GRASP_OFFSET.value_range[1])
 
 
 def _factor_samples(analyzer: SensitivityAnalyzer, samples: torch.Tensor, factor_name: str) -> np.ndarray:
@@ -37,8 +37,21 @@ def _factor_samples(analyzer: SensitivityAnalyzer, samples: torch.Tensor, factor
     return samples[:, analyzer.dataset.factor_columns[factor_name]].squeeze(-1).cpu().numpy()
 
 
-def test_mnpe_recovers_light_and_material_effects():
-    """Mixed continuous + categorical (MNPE): recover the light trend and the material ranking."""
+def _midpoint(factor) -> float:
+    """Midpoint of a continuous factor's range — the threshold a recovered mean should beat."""
+    low, high = factor.value_range
+    return 0.5 * (low + high)
+
+
+def _most_likely_choice(analyzer, samples, factor_name: str, choices: list[str]) -> str:
+    """The categorical choice the posterior favors (mode over rounded integer-coded samples)."""
+    codes = np.clip(np.round(_factor_samples(analyzer, samples, factor_name)), 0, len(choices) - 1).astype(int)
+    probabilities = np.bincount(codes, minlength=len(choices)) / len(codes)
+    return choices[int(probabilities.argmax())]
+
+
+def test_mnpe_recovers_all_planted_effects():
+    """Mixed continuous + categorical (MNPE): recover every planted effect at once."""
     dataset = make_mixed_dataset(seed=0)
     analyzer = SensitivityAnalyzer(dataset)
     assert analyzer._select_inference_class().__name__ == "MNPE", "mixed schema should select MNPE"
@@ -47,15 +60,14 @@ def test_mnpe_recovers_light_and_material_effects():
     analyzer.fit()
     samples = analyzer.sample_posterior(num_samples=_NUM_SAMPLES)  # conditions on success=1 by default
 
-    # Continuous effect: brighter light is planted to raise success.
-    assert _factor_samples(analyzer, samples, "light_intensity").mean() > _LIGHT_MIDPOINT
+    # Continuous effects: brighter light, a lighter object, and a closer camera raise success.
+    assert _factor_samples(analyzer, samples, "light_intensity").mean() > _midpoint(LIGHT)
+    assert _factor_samples(analyzer, samples, "object_mass").mean() < _midpoint(OBJECT_MASS)
+    assert _factor_samples(analyzer, samples, "camera_distance").mean() < _midpoint(CAMERA_DISTANCE)
 
-    # Categorical effect: oak is the planted best material, bamboo the worst.
-    materials = MATERIAL.choices
-    material_codes = np.clip(np.round(_factor_samples(analyzer, samples, "table_material")), 0, len(materials) - 1)
-    probabilities = np.bincount(material_codes.astype(int), minlength=len(materials)) / len(material_codes)
-    assert materials[int(probabilities.argmax())] == "oak", f"expected oak most likely, got {probabilities}"
-    assert probabilities[materials.index("oak")] > probabilities[materials.index("bamboo")]
+    # Categorical effects: cube and oak are the planted best choices.
+    assert _most_likely_choice(analyzer, samples, "object_type", OBJECT_TYPE.choices) == "cube"
+    assert _most_likely_choice(analyzer, samples, "table_material", MATERIAL.choices) == "oak"
 
 
 def test_npe_recovers_two_continuous_effects():
@@ -69,6 +81,6 @@ def test_npe_recovers_two_continuous_effects():
     samples = analyzer.sample_posterior(num_samples=_NUM_SAMPLES)  # conditions on success=1 by default
 
     # Brighter light raises success → light posterior skews high.
-    assert _factor_samples(analyzer, samples, "light_intensity").mean() > _LIGHT_MIDPOINT
+    assert _factor_samples(analyzer, samples, "light_intensity").mean() > _midpoint(LIGHT)
     # A smaller grasp offset raises success → offset posterior skews low.
-    assert _factor_samples(analyzer, samples, "grasp_offset").mean() < _OFFSET_MIDPOINT
+    assert _factor_samples(analyzer, samples, "grasp_offset").mean() < _midpoint(GRASP_OFFSET)
