@@ -38,3 +38,12 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
             " set only if a long sweep grows in host memory or gets OOM-killed."
         ),
     )
+    parser.add_argument(
+        "--episode_summary",
+        type=str,
+        default=None,
+        help=(
+            "Append one JSONL row per recorded episode (arena_env_args + outcomes) to"
+            " this file. Consumed by the sensitivity analyzer. Default unset — no recording."
+        ),
+    )

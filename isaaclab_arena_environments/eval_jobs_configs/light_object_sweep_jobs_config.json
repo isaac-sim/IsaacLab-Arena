@@ -1,0 +1,3304 @@
+{
+  "jobs": [
+    {
+      "name": "rubiks_cube_000_light2",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 2.3,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_000_light43",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 43.3,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_001_light28",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 28.1,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_001_light46",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 45.6,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_002_light161",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 160.9,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_002_light53",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 53.4,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_003_light201",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 201.4,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_003_light73",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 72.8,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_004_light218",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 218.1,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_004_light79",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 78.8,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_005_light373",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 373.5,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_005_light90",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 90.5,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_006_light379",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 378.8,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_006_light165",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 164.7,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_007_light382",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 382.1,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_007_light180",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 179.6,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_008_light477",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 477.2,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_008_light201",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 201.2,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_009_light488",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 487.8,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_009_light202",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 201.8,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_010_light501",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 501.0,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_010_light203",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 203.0,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_011_light518",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 517.8,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_011_light234",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 234.3,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_012_light521",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 521.0,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_012_light248",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 247.8,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_013_light564",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 563.7,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_013_light293",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 292.7,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_014_light581",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 580.7,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_014_light339",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 338.8,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_015_light607",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 606.6,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_015_light361",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 360.6,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_016_light620",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 620.3,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_016_light370",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 369.9,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_017_light640",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 640.1,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_017_light399",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 398.7,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_018_light650",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 650.4,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_018_light421",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 421.2,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_019_light770",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 769.8,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_019_light441",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 440.9,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_020_light798",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 797.6,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_020_light442",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 441.7,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_021_light810",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 809.9,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_021_light486",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 486.1,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_022_light841",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 841.1,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_022_light520",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 519.8,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_023_light868",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 868.3,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_023_light551",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 551.3,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_024_light890",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 890.0,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_024_light665",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 665.1,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_025_light896",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 895.9,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_025_light701",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 700.6,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_026_light944",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 944.3,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_026_light717",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 717.1,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_027_light953",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 953.1,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_027_light740",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 740.3,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_028_light953",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 953.2,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_028_light782",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 782.4,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_029_light954",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 954.0,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_029_light783",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 782.6,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_030_light987",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 987.2,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_030_light851",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 851.2,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_031_light1009",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1009.4,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_031_light901",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 901.1,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_032_light1016",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1015.9,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_032_light973",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 972.9,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_033_light1023",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1022.5,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_033_light1007",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1007.3,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_034_light1081",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1080.6,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_034_light1068",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1068.4,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_035_light1095",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1094.9,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_035_light1081",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1081.2,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_036_light1097",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1097.4,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_036_light1148",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1147.7,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_037_light1103",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1102.5,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_037_light1152",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1151.9,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_038_light1135",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1135.0,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_038_light1159",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1159.4,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_039_light1151",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1151.3,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_039_light1180",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1179.6,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_040_light1167",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1166.8,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_040_light1213",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1212.7,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_041_light1175",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1175.2,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_041_light1226",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1225.6,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_042_light1193",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1192.6,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_042_light1260",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1260.3,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_043_light1206",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1206.4,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_043_light1270",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1270.0,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_044_light1222",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1221.8,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_044_light1294",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1293.9,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_045_light1226",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1225.5,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_045_light1320",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1320.5,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_046_light1237",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1236.7,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_046_light1361",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1361.2,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_047_light1313",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1313.3,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_047_light1395",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1395.3,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_048_light1336",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1336.3,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_048_light1411",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1410.6,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_049_light1368",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1368.0,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_049_light1463",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1463.0,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_050_light1413",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1413.1,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_050_light1463",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1463.2,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_051_light1439",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1439.4,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_051_light1515",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1515.2,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_052_light1460",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1459.7,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_052_light1587",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1586.7,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_053_light1512",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1511.6,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_053_light1589",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1589.2,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_054_light1516",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1515.9,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_054_light1601",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1601.5,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_055_light1568",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1567.6,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_055_light1623",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1623.3,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_056_light1606",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1606.4,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_056_light1632",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1631.8,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_057_light1610",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1610.1,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_057_light1677",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1676.7,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_058_light1620",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1620.4,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_058_light1685",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1684.9,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_059_light1629",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1628.9,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_059_light1690",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1690.2,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_060_light1650",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1649.7,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_060_light1699",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1699.0,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_061_light1689",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1688.8,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_061_light1754",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1753.5,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_062_light1731",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1730.6,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_062_light1790",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1790.1,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_063_light1735",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1735.2,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_063_light1796",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1796.3,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_064_light1741",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1740.9,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_064_light1820",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1820.0,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_065_light1798",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1797.7,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_065_light1834",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1833.9,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_066_light1804",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1804.3,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_066_light1837",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1837.0,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_067_light1816",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1816.2,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_067_light1846",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1846.2,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_068_light1819",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1819.5,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_068_light1847",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1846.8,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_069_light1826",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1826.0,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_069_light1874",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1873.9,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_070_light1866",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1865.7,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_070_light1900",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1899.5,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_071_light1928",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1927.7,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_071_light1922",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1922.1,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_072_light1933",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1933.2,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_072_light1961",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1961.0,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_073_light1935",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1935.1,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_073_light1976",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1976.5,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "rubiks_cube_074_light1966",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1965.6,
+        "pick_up_object": "rubiks_cube_hot3d_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    },
+    {
+      "name": "tomato_soup_can_074_light1993",
+      "arena_env_args": {
+        "enable_cameras": true,
+        "environment": "pick_and_place_maple_table",
+        "embodiment": "droid_abs_joint_pos",
+        "hdr": "billiard_hall_robolab",
+        "num_envs": 2,
+        "light_intensity": 1992.5,
+        "pick_up_object": "tomato_soup_can_ycb_robolab"
+      },
+      "num_episodes": 2,
+      "language_instruction": "Pick up the tomato soup can and place it in the bowl.",
+      "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+      "policy_config_dict": {
+        "policy_variant": "pi05",
+        "policy_device": "cuda:0",
+        "remote_host": "127.0.0.1",
+        "remote_port": 8000,
+        "openpi_embodiment_adapter": "droid"
+      }
+    }
+  ]
+}
