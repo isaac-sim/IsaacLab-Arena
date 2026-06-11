@@ -224,7 +224,7 @@ class EnvironmentGenerationAgent:
         relation_catalog: RelationCatalogue | None = None,
         task_catalog: TaskCatalogue | None = None,
         temperature: float = 0.2,
-        max_tokens: int = 2000,
+        max_tokens: int = 4096,
     ) -> tuple[EnvironmentIntentSpec, str]:
         """Call the model with user prompt and return the parsed EnvironmentIntentSpec.
 
