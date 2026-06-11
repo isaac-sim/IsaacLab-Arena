@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from difflib import get_close_matches
 
+from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec, Item
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.environments.arena_env_graph_spec import UnresolvedArenaEnvGraphSpec
 from isaaclab_arena.environments.arena_env_graph_types import (
@@ -19,14 +20,12 @@ from isaaclab_arena.environments.arena_env_graph_types import (
     TaskSpec,
 )
 
-from .environment_intent_spec import EnvironmentIntentSpec, Item
-
 _INITIAL_STATE_SPEC_ID = "state_initial"
 
 
 @dataclass
-class TraceEvent:
-    """One step in the resolution pipeline for debugging."""
+class IntentResolutionTraceEvent:
+    """One step in the intent-resolution pipeline for debugging."""
 
     # Identifier for the resolution step, e.g. item.preferred_tags.substring.
     stage: str
@@ -67,8 +66,15 @@ def match_asset(
     trace_prefix: str,
     required_tags: list[str] | None = None,
     preferred_tags: list[str] | None = None,
-) -> tuple[str | None, list[TraceEvent]]:
+) -> tuple[str | None, list[IntentResolutionTraceEvent]]:
     """Match a free-text ``query`` to a registered asset key.
+
+    Resolution proceeds in three stages:
+
+    1. **Exact match** in the pool of assets that carry ``required_tags``.
+    2. **Fuzzy match** (substring, then difflib) in the pool narrowed by
+       ``required_tags + preferred_tags`` when ``preferred_tags`` is non-empty.
+    3. **Fuzzy match** in the ``required_tags`` pool only (relaxed fallback).
 
     Args:
         registry: Registry to look up asset names in.
@@ -84,16 +90,15 @@ def match_asset(
         ``(chosen_key, events)`` — the resolved asset key (or ``None`` on
         miss) and all trace events produced during this call.
     """
-    events: list[TraceEvent] = []
+    events: list[IntentResolutionTraceEvent] = []
     required_tags = required_tags or []
     candidates = sorted(registry.get_assets_with_all_tags(required_tags))
     # 1. Exact name match in a pool of assets with only the required tags.
     if query in candidates:
-        events.append(TraceEvent(f"{trace_prefix}.exact", query, query))
+        events.append(IntentResolutionTraceEvent(f"{trace_prefix}.exact", query, query))
         return query, events
 
-    # 2. Fuzzy matching in a pool of assets with the required tags.
-    preferred_tags = preferred_tags or []
+    # 2. Fuzzy matching in a pool narrowed by required + preferred tags.
     if preferred_tags:
         preferred_candidates = sorted(registry.get_assets_with_all_tags(required_tags + preferred_tags))
         chosen, sub_events = _fuzzy_match(
@@ -122,26 +127,31 @@ def _fuzzy_match(
     query: str,
     trace_prefix: str,
     note: str = "",
-) -> tuple[str | None, list[TraceEvent]]:
+) -> tuple[str | None, list[IntentResolutionTraceEvent]]:
     """Match ``query`` within ``pool``: substring then difflib fuzzy.
 
     Returns a ``(chosen, events)`` pair.
     """
     if not pool:
-        return None, [TraceEvent(f"{trace_prefix}.empty_pool", query, None, note=note)]
+        return None, [IntentResolutionTraceEvent(f"{trace_prefix}.empty_pool", query, None, note=note)]
 
     q = query.lower()
     substrs = [name for name in pool if q in name.lower()]
     if substrs:
         chosen = min(substrs, key=len)
-        return chosen, [TraceEvent(f"{trace_prefix}.substring", query, chosen, note=note)]
+        return chosen, [IntentResolutionTraceEvent(f"{trace_prefix}.substring", query, chosen, note=note)]
 
     matches = get_close_matches(query, pool, n=3, cutoff=0.5)
     if matches:
         # TODO(qianl): support object sets when there's multiple matching assets.
-        return matches[0], [TraceEvent(f"{trace_prefix}.fuzzy", query, matches[0], note=note)]
+        chosen = matches[0]
+        fuzzy_note = note
+        if len(matches) > 1:
+            ambiguity = f"multiple matches={matches}, taking first={chosen!r}"
+            fuzzy_note = f"{note}; {ambiguity}" if note else ambiguity
+        return chosen, [IntentResolutionTraceEvent(f"{trace_prefix}.fuzzy", query, chosen, note=fuzzy_note)]
 
-    return None, [TraceEvent(f"{trace_prefix}.miss", query, None, note=note)]
+    return None, [IntentResolutionTraceEvent(f"{trace_prefix}.miss", query, None, note=note)]
 
 
 # =============================================================================
@@ -164,10 +174,10 @@ class IntentCompiler:
             the global singleton :class:`AssetRegistry` when ``None``.
         """
         self.registry = registry or AssetRegistry()
-        self.trace: list[TraceEvent] = []
+        self.trace: list[IntentResolutionTraceEvent] = []
 
     @property
-    def resolution_errors(self) -> list[TraceEvent]:
+    def resolution_errors(self) -> list[IntentResolutionTraceEvent]:
         """Trace events flagged as failures of the last :meth:`compile` call."""
         error_stages = _ASSET_ERROR_STAGES | self._ERROR_TRACE_STAGES
         return [e for e in self.trace if e.stage in error_stages]
@@ -289,15 +299,19 @@ class IntentCompiler:
         # rel.kind is guaranteed registered by SpatialRelationSpec._validate_kind_and_arity.
         stage_prefix = "relation.initial"
         if rel.subject not in known_ids:
-            self.trace.append(TraceEvent(f"{stage_prefix}.unknown_subject", rel.subject, None, note=rel.kind))
+            self.trace.append(
+                IntentResolutionTraceEvent(f"{stage_prefix}.unknown_subject", rel.subject, None, note=rel.kind)
+            )
             return None
         if rel.reference is not None and rel.reference not in known_ids:
-            self.trace.append(TraceEvent(f"{stage_prefix}.unknown_reference", rel.reference, None, note=rel.kind))
+            self.trace.append(
+                IntentResolutionTraceEvent(f"{stage_prefix}.unknown_reference", rel.reference, None, note=rel.kind)
+            )
             return None
 
         reference_part = f"_{rel.reference}" if rel.reference is not None else ""
         constraint_id = f"{_INITIAL_STATE_SPEC_ID}_{index}_{rel.kind}{reference_part}_{rel.subject}"
-        self.trace.append(TraceEvent(f"{stage_prefix}.ok", rel.subject, rel.reference, note=rel.kind))
+        self.trace.append(IntentResolutionTraceEvent(f"{stage_prefix}.ok", rel.subject, rel.reference, note=rel.kind))
         return ArenaEnvGraphSpatialRelationSpec(
             id=constraint_id,
             kind=rel.kind,
@@ -312,7 +326,7 @@ class IntentCompiler:
         not reference a resolved node ID."""
         for task in tasks:
             self.trace.append(
-                TraceEvent(
+                IntentResolutionTraceEvent(
                     "task.resolve",
                     task.kind,
                     task.kind,
@@ -322,7 +336,7 @@ class IntentCompiler:
             for param_name, param_value in task.params.items():
                 if isinstance(param_value, str) and param_value not in known_ids:
                     self.trace.append(
-                        TraceEvent(
+                        IntentResolutionTraceEvent(
                             "task.unknown_param",
                             param_value,
                             None,

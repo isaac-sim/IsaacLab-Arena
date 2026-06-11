@@ -31,7 +31,7 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     build_task_catalogue,
 )
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
-from isaaclab_arena.agentic_environment_generation.intent_compiler import IntentCompiler, TraceEvent
+from isaaclab_arena.agentic_environment_generation.intent_compiler import IntentCompiler, IntentResolutionTraceEvent
 from isaaclab_arena.environments.arena_env_graph_spec import UnresolvedArenaEnvGraphSpec
 
 _LLM_GENERATED_DIR = Path("isaaclab_arena_environments/llm_generated")
@@ -52,7 +52,7 @@ def _safe_filename_stem(name: str) -> str:
     return stem or "unnamed_env"
 
 
-def _format_trace_event(event: TraceEvent) -> str:
+def _format_trace_event(event: IntentResolutionTraceEvent) -> str:
     chosen = event.chosen if event.chosen is not None else "<none>"
     extra = f"  [{event.note}]" if event.note else ""
     return f"  {event.stage:34s} {event.query!s:24s} -> {chosen}{extra}"
