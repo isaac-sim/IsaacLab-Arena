@@ -15,9 +15,6 @@ from hydra.core.override_parser.overrides_parser import OverridesParser
 def assert_hydra_overrides(args: list[str], parser: argparse.ArgumentParser) -> None:
     """Assert args are all Hydra overrides.
 
-    Delegates to Hydra's own override grammar (via :class:`OverridesParser`) instead of
-    re-implementing it, so this stays correct if Hydra's grammar changes.
-
     Args:
         args: The arguments to assert are all Hydra overrides.
         parser: The parser the args came from; used to format the error.
