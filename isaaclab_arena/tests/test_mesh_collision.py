@@ -816,9 +816,6 @@ def test_anchor_initial_pose_yaw_affects_collision():
     solver_id = RelationSolver(
         params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False)
     )
-    child_rels = child.get_relations()
-    child._relations = [r for r in child_rels if not isinstance(r, On)]
-    child.add_relation(On(table))
     solver_id.solve([table, target_id, child], initial_id, orientations=None)
     loss_identity = solver_id.last_loss_per_env[0].item()
 
