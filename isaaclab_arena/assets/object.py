@@ -87,7 +87,7 @@ class Object(ObjectBase):
                 try:
                     self._collision_mesh = extract_trimesh_from_usd(self.usd_path, self.scale)
                 except (ValueError, RuntimeError, OSError) as e:
-                    print(f"  [MeshCollision] Could not extract mesh for '{self.name}': {e}")
+                    print(f"  [MeshManager] Could not extract mesh for '{self.name}': {e}")
         return self._collision_mesh
 
     def __deepcopy__(self, memo):
