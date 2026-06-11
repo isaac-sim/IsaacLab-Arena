@@ -135,118 +135,59 @@ class FactorSchema:
 
 
 class SensitivityDataset:
-    """A ``factors.yaml`` schema paired with its ``episode_summary.jsonl`` rows.
+    """A ``FactorSchema`` paired with its per-episode ``theta`` (factors) and ``x`` (outcomes).
 
-    Parses and validates both on construction, then exposes the ``theta`` (factors),
-    ``x`` (outcomes), ``prior`` and ``factor_columns`` an analyzer consumes.
+    The object is a pure container: it holds the schema and the two tensors, and exposes
+    the ``prior`` and column layouts an analyzer consumes. It can be built two ways:
+
+      - :meth:`from_files` — parse a ``factors.yaml`` / ``episode_summary.jsonl`` pair
+        (the path eval runs take).
+      - the constructor — wrap in-memory tensors directly (what a synthetic simulator or
+        a unit test takes). The tensors must already be in the layout :meth:`factor_columns`
+        describes: continuous columns first, then one integer-coded column per categorical.
     """
 
-    def __init__(self, factors_yaml: str | Path, jsonl_path: str | Path):
-        self.schema = FactorSchema.from_yaml(factors_yaml)
+    def __init__(self, schema: FactorSchema, theta: torch.Tensor, x: torch.Tensor):
+        """Wrap an in-memory ``schema`` plus its ``theta`` / ``x`` tensors, validating shapes.
+
+        Args:
+            schema: The parsed factor/outcome schema. Continuous factors must carry a
+                ``range``; categorical factors must carry ``choices``.
+            theta: ``(num_episodes, total_factor_dim)`` factor matrix, continuous-first.
+            x: ``(num_episodes, num_outcomes)`` outcome matrix.
+        """
+        assert theta.ndim == 2 and x.ndim == 2, f"theta and x must be 2D; got {theta.shape} and {x.shape}"
+        assert theta.shape[0] == x.shape[0], f"theta/x row counts disagree: {theta.shape[0]} vs {x.shape[0]}"
+        assert theta.shape[0] > 0, "Dataset is empty (no episodes)"
+        assert (
+            theta.shape[1] == schema.total_factor_dim
+        ), f"theta has {theta.shape[1]} columns but schema declares {schema.total_factor_dim} factor dims"
+        assert x.shape[1] == len(
+            schema.outcomes
+        ), f"x has {x.shape[1]} columns but schema declares {len(schema.outcomes)} outcomes"
+        self.schema = schema
+        self._theta = theta
+        self._x = x
+
+    @classmethod
+    def from_files(cls, factors_yaml: str | Path, jsonl_path: str | Path) -> SensitivityDataset:
+        """Build a dataset from a ``factors.yaml`` schema and an ``episode_summary.jsonl``.
+
+        Parses and validates both, infers any missing continuous range from the data, and
+        assembles the ``theta`` / ``x`` tensors in the layout the analyzers expect.
+        """
+        schema = FactorSchema.from_yaml(factors_yaml)
 
         jsonl_text = Path(jsonl_path).read_text(encoding="utf-8")
-        self.rows = [json.loads(line) for line in jsonl_text.splitlines() if line.strip()]
-        assert len(self.rows) > 0, f"Empty episode_summary.jsonl at {jsonl_path}"
+        rows = [json.loads(line) for line in jsonl_text.splitlines() if line.strip()]
+        assert len(rows) > 0, f"Empty episode_summary.jsonl at {jsonl_path}"
 
-        self._validate_rows(jsonl_path)
-        self._infer_missing_factor_ranges()
+        _validate_rows(schema, rows, jsonl_path)
+        _infer_missing_factor_ranges(schema, rows)
 
-        self._theta = self._build_factor_tensor()
-        self._x = self._build_outcome_tensor()
-
-    def _validate_rows(self, jsonl_path: str | Path) -> None:
-        """Assert every JSONL row carries the schema's declared factor and outcome keys.
-
-        The declared names need only be a subset of each row's ``arena_env_args`` /
-        ``outcomes``; extra keys are ignored. Raises pointing at the first offending row.
-        """
-        expected_factor_names = {factor.name for factor in self.schema.factors}
-        expected_outcome_names = {outcome.name for outcome in self.schema.outcomes}
-        for row_index, row in enumerate(self.rows):
-            assert (
-                "arena_env_args" in row and "outcomes" in row
-            ), f"Row {row_index} of {jsonl_path} missing arena_env_args/outcomes block"
-            missing_factor_names = expected_factor_names - set(row["arena_env_args"].keys())
-            assert not missing_factor_names, (
-                f"Row {row_index} of {jsonl_path} is missing factor(s) "
-                f"{sorted(missing_factor_names)} from its arena_env_args block; "
-                f"factors.yaml declares: {sorted(expected_factor_names)}"
-            )
-            missing_outcome_names = expected_outcome_names - set(row["outcomes"].keys())
-            assert (
-                not missing_outcome_names
-            ), f"Row {row_index} of {jsonl_path} missing outcomes {sorted(missing_outcome_names)}"
-
-    def _infer_missing_factor_ranges(self) -> None:
-        """Fill any continuous factor's missing ``range`` from the observed min/max.
-
-        A ``range`` declared in factors.yaml takes precedence and is left untouched.
-        """
-        for factor in self.schema.factors:
-            if factor.type != "continuous" or factor.range is not None:
-                continue
-            if factor.dim != 1:
-                raise NotImplementedError(
-                    "Range inference for vector factors (dim > 1) is not implemented;"
-                    f" factor {factor.name!r} has dim={factor.dim}"
-                )
-            observed_values = [float(row["arena_env_args"][factor.name]) for row in self.rows]
-            factor.range = [[min(observed_values), max(observed_values)]]
-
-    def _build_factor_tensor(self) -> torch.Tensor:
-        """Assemble the per-episode factor matrix ``theta``.
-
-        Continuous columns first (one per dim), then one column per categorical factor
-        with its value integer-coded as a ``float32`` index into ``FactorSpec.choices``.
-        """
-        continuous_factors = [factor for factor in self.schema.factors if factor.type == "continuous"]
-        categorical_factors = [factor for factor in self.schema.factors if factor.type == "categorical"]
-
-        factor_columns: list[torch.Tensor] = []
-
-        # Continuous columns come first (sbi MNPE convention).
-        for factor in continuous_factors:
-            if factor.dim != 1:
-                raise NotImplementedError(
-                    "Vector continuous factors (dim > 1) are not yet supported;"
-                    f" factor {factor.name!r} has dim={factor.dim}"
-                )
-            raw_values = [float(row["arena_env_args"][factor.name]) for row in self.rows]
-            factor_column = torch.tensor(raw_values, dtype=torch.float32).unsqueeze(1)
-            factor_columns.append(factor_column)
-
-        # Categorical columns: integer-code each string value as its index in FactorSpec.choices.
-        for factor in categorical_factors:
-            assert (
-                factor.choices is not None and len(factor.choices) > 0
-            ), f"Categorical factor {factor.name!r} has no `choices:` block in factors.yaml"
-            choice_to_code = {choice: code for code, choice in enumerate(factor.choices)}
-            category_codes: list[int] = []
-            for row_index, row in enumerate(self.rows):
-                value = row["arena_env_args"][factor.name]
-                assert value in choice_to_code, (
-                    f"Row {row_index} factor {factor.name!r} has value {value!r}"
-                    f" not in declared choices {factor.choices}"
-                )
-                category_codes.append(choice_to_code[value])
-            factor_column = torch.tensor(category_codes, dtype=torch.float32).unsqueeze(1)
-            factor_columns.append(factor_column)
-
-        if factor_columns:
-            return torch.cat(factor_columns, dim=1)
-        return torch.zeros((len(self.rows), 0), dtype=torch.float32)
-
-    def _build_outcome_tensor(self) -> torch.Tensor:
-        """Assemble the per-episode outcome matrix ``x`` (one column per declared outcome).
-
-        Each outcome value is cast to float; bool outcomes become 0.0/1.0. The analyzer
-        usually selects a single outcome column at fit time and conditions queries on it.
-        """
-        outcome_column_tensors = [
-            torch.tensor([float(row["outcomes"][outcome.name]) for row in self.rows], dtype=torch.float32).unsqueeze(1)
-            for outcome in self.schema.outcomes
-        ]
-        return torch.cat(outcome_column_tensors, dim=1)
+        theta = _build_factor_tensor(schema, rows)
+        x = _build_outcome_tensor(schema, rows)
+        return cls(schema, theta, x)
 
     @property
     def theta(self) -> torch.Tensor:
@@ -266,6 +207,11 @@ class SensitivityDataset:
         "what theta values were consistent with observing this outcome?"
         """
         return self._x
+
+    @property
+    def num_episodes(self) -> int:
+        """Number of episodes (rows) in the dataset."""
+        return self._theta.shape[0]
 
     @property
     def factor_columns(self) -> dict[str, slice]:
@@ -319,3 +265,100 @@ class SensitivityDataset:
             low=torch.tensor(low_bounds, dtype=torch.float32),
             high=torch.tensor(high_bounds, dtype=torch.float32),
         )
+
+
+def _validate_rows(schema: FactorSchema, rows: list[dict], jsonl_path: str | Path) -> None:
+    """Assert every JSONL row carries the schema's declared factor and outcome keys.
+
+    The declared names need only be a subset of each row's ``arena_env_args`` / ``outcomes``;
+    extra keys are ignored. Raises pointing at the first offending row.
+    """
+    expected_factor_names = {factor.name for factor in schema.factors}
+    expected_outcome_names = {outcome.name for outcome in schema.outcomes}
+    for row_index, row in enumerate(rows):
+        assert (
+            "arena_env_args" in row and "outcomes" in row
+        ), f"Row {row_index} of {jsonl_path} missing arena_env_args/outcomes block"
+        missing_factor_names = expected_factor_names - set(row["arena_env_args"].keys())
+        assert not missing_factor_names, (
+            f"Row {row_index} of {jsonl_path} is missing factor(s) "
+            f"{sorted(missing_factor_names)} from its arena_env_args block; "
+            f"factors.yaml declares: {sorted(expected_factor_names)}"
+        )
+        missing_outcome_names = expected_outcome_names - set(row["outcomes"].keys())
+        assert (
+            not missing_outcome_names
+        ), f"Row {row_index} of {jsonl_path} missing outcomes {sorted(missing_outcome_names)}"
+
+
+def _infer_missing_factor_ranges(schema: FactorSchema, rows: list[dict]) -> None:
+    """Fill any continuous factor's missing ``range`` from the observed min/max.
+
+    A ``range`` declared in factors.yaml takes precedence and is left untouched.
+    """
+    for factor in schema.factors:
+        if factor.type != "continuous" or factor.range is not None:
+            continue
+        if factor.dim != 1:
+            raise NotImplementedError(
+                "Range inference for vector factors (dim > 1) is not implemented;"
+                f" factor {factor.name!r} has dim={factor.dim}"
+            )
+        observed_values = [float(row["arena_env_args"][factor.name]) for row in rows]
+        factor.range = [[min(observed_values), max(observed_values)]]
+
+
+def _build_factor_tensor(schema: FactorSchema, rows: list[dict]) -> torch.Tensor:
+    """Assemble the per-episode factor matrix ``theta``.
+
+    Continuous columns first (one per dim), then one column per categorical factor with its
+    value integer-coded as a ``float32`` index into ``FactorSpec.choices``.
+    """
+    continuous_factors = [factor for factor in schema.factors if factor.type == "continuous"]
+    categorical_factors = [factor for factor in schema.factors if factor.type == "categorical"]
+
+    factor_columns: list[torch.Tensor] = []
+
+    # Continuous columns come first (sbi MNPE convention).
+    for factor in continuous_factors:
+        if factor.dim != 1:
+            raise NotImplementedError(
+                "Vector continuous factors (dim > 1) are not yet supported;"
+                f" factor {factor.name!r} has dim={factor.dim}"
+            )
+        raw_values = [float(row["arena_env_args"][factor.name]) for row in rows]
+        factor_column = torch.tensor(raw_values, dtype=torch.float32).unsqueeze(1)
+        factor_columns.append(factor_column)
+
+    # Categorical columns: integer-code each string value as its index in FactorSpec.choices.
+    for factor in categorical_factors:
+        assert (
+            factor.choices is not None and len(factor.choices) > 0
+        ), f"Categorical factor {factor.name!r} has no `choices:` block in factors.yaml"
+        choice_to_code = {choice: code for code, choice in enumerate(factor.choices)}
+        category_codes: list[int] = []
+        for row_index, row in enumerate(rows):
+            value = row["arena_env_args"][factor.name]
+            assert (
+                value in choice_to_code
+            ), f"Row {row_index} factor {factor.name!r} has value {value!r} not in declared choices {factor.choices}"
+            category_codes.append(choice_to_code[value])
+        factor_column = torch.tensor(category_codes, dtype=torch.float32).unsqueeze(1)
+        factor_columns.append(factor_column)
+
+    if factor_columns:
+        return torch.cat(factor_columns, dim=1)
+    return torch.zeros((len(rows), 0), dtype=torch.float32)
+
+
+def _build_outcome_tensor(schema: FactorSchema, rows: list[dict]) -> torch.Tensor:
+    """Assemble the per-episode outcome matrix ``x`` (one column per declared outcome).
+
+    Each outcome value is cast to float; bool outcomes become 0.0/1.0. The analyzer usually
+    selects a single outcome column at fit time and conditions queries on it.
+    """
+    outcome_column_tensors = [
+        torch.tensor([float(row["outcomes"][outcome.name]) for row in rows], dtype=torch.float32).unsqueeze(1)
+        for outcome in schema.outcomes
+    ]
+    return torch.cat(outcome_column_tensors, dim=1)

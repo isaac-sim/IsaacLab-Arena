@@ -25,6 +25,65 @@ _RUG_SUCCESS_OFFSET = -0.05  # rug y-offset (× density.max()) for successes / n
 _RUG_FAILURE_OFFSET = -0.10  # rug y-offset (× density.max()) for failures
 
 
+def plot_posterior_marginals(
+    dataset: SensitivityDataset,
+    outcome_name: str,
+    outcome_value: float | None = None,
+    output_path: str | None = None,
+):
+    """robolab-style quick look: one marginal-posterior panel per factor in a single figure.
+
+    Fits the analyzer for ``outcome_name`` and draws each factor's marginal conditioned on a
+    single observation — the simple "did the posterior recover the relationship?" view, the
+    counterpart to the full grid in ``generate_pdf_report``. Operates on an in-memory dataset
+    (e.g. a synthetic simulator's output), so no ``factors.yaml`` / JSONL round-trip is needed.
+
+    Args:
+        dataset: The factors+outcomes to analyze.
+        outcome_name: Which outcome to condition the posteriors on.
+        outcome_value: Value to condition on. Defaults to ``1.0`` for a binary outcome
+            (the "success" branch) or the empirical median otherwise.
+        output_path: If given, save the figure here (parent dirs created). PNG/PDF/etc.
+
+    Returns:
+        The matplotlib ``Figure`` (so the caller can show, tweak, or save it).
+    """
+    import matplotlib.pyplot as plt
+
+    from isaaclab_arena.analysis.sensitivity.factory import make_analyzer
+
+    analyzer = make_analyzer(dataset, outcome_name)
+    analyzer.fit()
+
+    outcome_column = dataset.x[:, dataset.outcome_columns[outcome_name]].cpu().numpy()
+    if outcome_value is None:
+        is_binary = set(outcome_column.flatten().tolist()).issubset({0.0, 1.0})
+        outcome_value = 1.0 if is_binary else float(np.median(outcome_column))
+
+    factors = dataset.schema.factors
+    figure, axes = plt.subplots(1, len(factors), figsize=(6.0 * len(factors), 4.5), squeeze=False)
+    for column_index, factor in enumerate(factors):
+        ax = axes[0][column_index]
+        draw_marginal(ax, analyzer, factor.name, outcome_value=outcome_value)
+        ax.set_title(f"{factor.name}  (| {outcome_name}={outcome_value:g})", fontsize=10)
+
+    slice_info = dataset.schema.slice
+    figure.suptitle(
+        f"Posterior marginals — {dataset.num_episodes} episodes  ({outcome_name}={outcome_value:g})\n"
+        f"{slice_info.policy} / {slice_info.task} / {slice_info.embodiment}",
+        fontsize=12,
+        fontweight="bold",
+    )
+    figure.tight_layout(rect=[0, 0, 1, 0.92])
+
+    if output_path is not None:
+        from pathlib import Path
+
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        figure.savefig(output_path, dpi=150, bbox_inches="tight")
+    return figure
+
+
 def draw_marginal(
     ax,
     analyzer: BaseAnalyzer,
@@ -151,6 +210,115 @@ def _binned_success_rate(factor_values, outcome_values, bin_edges, use_log_axis)
         ci_high.append(min(1.0, center + margin))
         counts.append(num_in_bin)
     return centers, rates, ci_low, ci_high, counts
+
+
+def draw_conditional_marginal(
+    ax,
+    analyzer: BaseAnalyzer,
+    factor_name: str,
+    num_curves: int = 3,
+    num_grid_points: int = 200,
+) -> None:
+    """Overlay the posterior ``P(factor | outcome=v)`` at several outcome values ``v``.
+
+    For a continuous outcome there is no single "success" value to condition on, so the
+    conditioning value is swept across the observed outcome range (5th-95th percentile)
+    and the resulting posteriors are overlaid. The shift between curves shows how the
+    factor's posterior depends on the outcome — e.g. fast vs slow episodes favouring
+    brighter vs darker light — the conditional query only a posterior model provides.
+    """
+    from matplotlib import colormaps
+
+    factor_spec = analyzer._factor_spec(factor_name)
+    outcome_column_index = analyzer.dataset.outcome_columns[analyzer.outcome_name]
+    outcome_data = analyzer.dataset.x[:, outcome_column_index].cpu().numpy()
+    low_value, high_value = np.percentile(outcome_data, [5, 95])
+    conditioning_values = np.linspace(low_value, high_value, num_curves)
+    colors = colormaps["coolwarm"](np.linspace(0, 1, num_curves))
+
+    for conditioning_value, color in zip(conditioning_values, colors):
+        grid, density = analyzer.continuous_marginal_density(factor_name, float(conditioning_value), num_grid_points)
+        ax.plot(grid, density, color=color, linewidth=2, label=f"{analyzer.outcome_name}={conditioning_value:g}")
+
+    # Multi-decade factor: show the conditioning shift on a log axis instead of cramping it.
+    if (
+        factor_spec.range is not None
+        and factor_spec.range[0][0] > 0
+        and np.log10(factor_spec.range[0][1] / factor_spec.range[0][0]) > 2
+    ):
+        ax.set_xscale("log")
+    ax.set_xlabel(factor_name)
+    ax.set_ylabel("posterior density")
+    ax.legend(loc="best", fontsize=8, title=f"conditioned on {analyzer.outcome_name}")
+    ax.grid(alpha=0.3)
+
+
+def draw_posterior_overlay(
+    ax,
+    dataset: SensitivityDataset,
+    factor_name: str,
+    outcome_name: str,
+    group_by: str | None = None,
+    num_grid_points: int = 200,
+) -> None:
+    """Overlay ``P(factor | outcome=1)`` as filled KDE curves, one per group (robolab style).
+
+    For each group, fits a Gaussian KDE to the factor values of the *successful* episodes
+    (``outcome >= SUCCESS_THRESHOLD``) — the posterior over the factor given success under a
+    uniform prior. Curves are filled and overlaid for comparison. A wide-range factor is fit
+    in log space so the density is sharp instead of crammed at the low end.
+    """
+    from scipy.stats import gaussian_kde
+
+    factor_column_slice = dataset.factor_columns[factor_name]
+    factor_values = dataset.theta[:, factor_column_slice].squeeze(-1).cpu().numpy()
+    outcome_column_index = dataset.outcome_columns[outcome_name]
+    success_mask = dataset.x[:, outcome_column_index].cpu().numpy() >= SUCCESS_THRESHOLD
+
+    range_low, range_high = float(factor_values.min()), float(factor_values.max())
+    use_log = range_low > 0 and np.log10(range_high / range_low) > 2
+    to_fit_space = (lambda v: np.log10(v)) if use_log else (lambda v: v)
+    grid_fit = np.linspace(to_fit_space(range_low), to_fit_space(range_high), num_grid_points)
+    grid_display = 10**grid_fit if use_log else grid_fit
+
+    if group_by is None:
+        groups = [(f"{outcome_name}=1", np.ones(len(factor_values), dtype=bool))]
+    else:
+        group_spec = next(factor for factor in dataset.schema.factors if factor.name == group_by)
+        assert group_spec.choices is not None, f"group_by factor {group_by!r} must be categorical"
+        group_codes = dataset.theta[:, dataset.factor_columns[group_by]].squeeze(-1).long().cpu().numpy()
+        groups = [(choice, group_codes == code) for code, choice in enumerate(group_spec.choices)]
+
+    # Draw the curves, collecting each group's successful samples for a rug below the axis.
+    max_density = 0.0
+    rug_series = []  # (sample display-values, color) per group
+    for group_label, group_mask in groups:
+        successful_factor = factor_values[group_mask & success_mask]
+        fit_values = to_fit_space(successful_factor)
+        if len(successful_factor) < 2 or float(np.std(fit_values)) < 1e-9:
+            continue  # KDE undefined for fewer than 2 points or zero spread
+        density = gaussian_kde(fit_values)(grid_fit)
+        max_density = max(max_density, float(density.max()))
+        (line,) = ax.plot(grid_display, density, linewidth=2, label=f"{group_label}  (n={len(successful_factor)})")
+        ax.fill_between(grid_display, 0, density, color=line.get_color(), alpha=0.3)
+        rug_series.append((successful_factor, line.get_color()))
+
+    # Rug of the actual successful samples per group, stacked just below the axis: it shows
+    # where the data really is, so the KDE's taper reads as thinning data, not as signal.
+    for rug_index, (sample_values, color) in enumerate(rug_series):
+        rug_y = -(0.03 + 0.025 * rug_index) * max_density
+        ax.scatter(
+            sample_values, np.full(len(sample_values), rug_y), marker="|", color=color, s=_RUG_MARKER_SIZE, alpha=0.5
+        )
+
+    if use_log:
+        ax.set_xscale("log")
+    if max_density > 0:
+        ax.set_ylim(-(0.03 + 0.025 * len(rug_series)) * max_density, max_density * 1.1)
+    ax.set_xlabel(factor_name)
+    ax.set_ylabel("posterior density")
+    ax.legend(loc="best", fontsize=8)
+    ax.grid(alpha=0.3)
 
 
 def _draw_continuous_marginal(

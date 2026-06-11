@@ -10,7 +10,12 @@ from pathlib import Path
 
 from isaaclab_arena.analysis.sensitivity.dataset import SensitivityDataset
 from isaaclab_arena.analysis.sensitivity.factory import make_analyzer
-from isaaclab_arena.analysis.sensitivity.plotting import draw_marginal, draw_success_rate
+from isaaclab_arena.analysis.sensitivity.plotting import (
+    draw_conditional_marginal,
+    draw_marginal,
+    draw_posterior_overlay,
+    draw_success_rate,
+)
 
 
 def generate_pdf_report(
@@ -32,8 +37,9 @@ def generate_pdf_report(
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_pdf import PdfPages
 
-    dataset = SensitivityDataset(Path(factors_yaml_path), Path(jsonl_path))
+    dataset = SensitivityDataset.from_files(Path(factors_yaml_path), Path(jsonl_path))
     outcomes = dataset.schema.outcomes
     factors = dataset.schema.factors
     # A low-cardinality categorical to split continuous success-rate curves by, so a
@@ -42,7 +48,7 @@ def generate_pdf_report(
         (f.name for f in factors if f.type == "categorical" and f.choices and len(f.choices) <= 6), None
     )
     n_rows, n_cols = len(outcomes), len(factors)
-    print(f"[INFO] PDF report: {n_rows} outcomes × {n_cols} factors  ({len(dataset.rows)} episodes)")
+    print(f"[INFO] PDF report: {n_rows} outcomes × {n_cols} factors  ({dataset.num_episodes} episodes)")
 
     figure, axes = plt.subplots(n_rows, n_cols, figsize=(6.5 * n_cols, 4.5 * n_rows), squeeze=False)
     for row_index, outcome in enumerate(outcomes):
@@ -66,6 +72,11 @@ def generate_pdf_report(
                 if split_factor:
                     title += f"  (split by {split_factor})"
                 ax.set_title(title, fontsize=10)
+            elif factor.type == "continuous":
+                # Continuous outcome: no single success value to condition on, so sweep the
+                # outcome value and overlay the MNPE posteriors to show the conditional shift.
+                draw_conditional_marginal(ax, analyzer, factor.name)
+                ax.set_title(f"{outcome.name} vs {factor.name}\n(MNPE posterior, swept {outcome.name})", fontsize=10)
             else:
                 draw_marginal(ax, analyzer, factor.name, outcome_value=outcome_value)
                 ax.set_title(
@@ -73,19 +84,46 @@ def generate_pdf_report(
                 )
 
     slice_info = dataset.schema.slice
+    slice_label = f"{slice_info.policy} / {slice_info.task} / {slice_info.embodiment}"
     # Two lines so the title doesn't clip on narrow (single-factor) figures.
     figure.suptitle(
-        f"Sensitivity report — {len(dataset.rows)} episodes\n"
-        f"{slice_info.policy} / {slice_info.task} / {slice_info.embodiment}",
+        f"Sensitivity report — {dataset.num_episodes} episodes\n{slice_label}",
         fontsize=12,
         fontweight="bold",
     )
     figure.tight_layout(rect=[0, 0, 1, 0.94])  # leave room for the two-line suptitle
 
+    # Page 2 (robolab-style): P(factor | success=1) as filled KDE overlays per group, one
+    # panel per continuous factor, conditioned on the first binary ("success") outcome.
+    continuous_factors = [factor for factor in factors if factor.type == "continuous"]
+    binary_outcomes = [outcome for outcome in outcomes if _is_binary_outcome(dataset, outcome.name)]
+    posterior_figure = None
+    if continuous_factors and binary_outcomes:
+        success_outcome = binary_outcomes[0]
+        posterior_figure, posterior_axes = plt.subplots(
+            1, len(continuous_factors), figsize=(6.5 * len(continuous_factors), 4.5), squeeze=False
+        )
+        for col_index, factor in enumerate(continuous_factors):
+            ax = posterior_axes[0][col_index]
+            draw_posterior_overlay(ax, dataset, factor.name, success_outcome.name, group_by=split_factor)
+            title = f"P({factor.name} | {success_outcome.name}=1)"
+            if split_factor:
+                title += f"  (by {split_factor})"
+            ax.set_title(title, fontsize=10)
+        posterior_figure.suptitle(
+            f"Posterior densities — Observation: {success_outcome.name}=1\n{slice_label}",
+            fontsize=12,
+            fontweight="bold",
+        )
+        posterior_figure.tight_layout(rect=[0, 0, 1, 0.92])
+
     output_pdf_path = Path(output_pdf_path)
     output_pdf_path.parent.mkdir(parents=True, exist_ok=True)
-    figure.savefig(output_pdf_path)  # .pdf extension → matplotlib's PDF backend
-    plt.close(figure)
+    with PdfPages(output_pdf_path) as pdf:
+        pdf.savefig(figure)
+        if posterior_figure is not None:
+            pdf.savefig(posterior_figure)
+    plt.close("all")
     print(f"[INFO] Wrote report → {output_pdf_path}")
     return output_pdf_path
 
