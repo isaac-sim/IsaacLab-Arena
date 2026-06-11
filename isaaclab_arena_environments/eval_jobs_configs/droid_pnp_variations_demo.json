@@ -3,6 +3,7 @@
         {
             "name": "variations_demo",
             "arena_env_args": {
+                "enable_cameras": true,
                 "environment": "pick_and_place_maple_table",
                 "embodiment": "droid_rel_joint_pos",
                 "pick_up_object": "rubiks_cube_hot3d_robolab",
