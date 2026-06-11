@@ -28,6 +28,16 @@ def coerce_number_sequence(value: Any, length: int, field_name: str) -> tuple[fl
     return tuple(float(item) for item in value)
 
 
+def unique_node_id(existing_ids: set[str], base: str) -> str:
+    """Return the first non-colliding id from ``base``, ``base_1``, ``base_2``, ... given ``existing_ids``."""
+    if base not in existing_ids:
+        return base
+    suffix = 1
+    while f"{base}_{suffix}" in existing_ids:
+        suffix += 1
+    return f"{base}_{suffix}"
+
+
 def assert_unique_ids(nodes: list[Any], tasks: list[Any], state_specs: list[Any]) -> None:
     """Ensure every graph id is unique, including spatial constraint ids inside states."""
     id_locations: dict[str, list[str]] = {}
