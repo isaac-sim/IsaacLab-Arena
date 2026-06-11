@@ -1,0 +1,19 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Factor schema for light_object_sweep_jobs_config.json.
+# Factor names must match keys logged in each episode's arena_env_args.
+# Mixed schema (continuous light + categorical object) → the analyzer selects MNPE.
+#
+# Outcomes are chosen at analysis time, not declared here. This task logs
+# `success_rate` and `object_moved_rate` per episode, so pass e.g. --outcome success_rate.
+
+factors:
+  light_intensity:
+    type: continuous
+    range: [[0, 2000]]
+  pick_up_object:
+    type: categorical
+    choices: [rubiks_cube_hot3d_robolab, tomato_soup_can_ycb_robolab]
