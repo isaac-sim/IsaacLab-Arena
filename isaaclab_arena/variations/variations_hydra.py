@@ -105,6 +105,11 @@ def _compose_variation_cfgs(variations: dict[str, list[VariationBase]]) -> type 
     # Loop over all the assets and their variations.
     asset_fields: list[tuple[str, type, Any]] = []
     for asset_name, asset_variations in variations.items():
+        # TODO(alexmillane, 2026-06-11): Support asset names that are not valid Python identifiers.
+        assert asset_name.isidentifier(), (
+            f"Asset name '{asset_name}' must be a valid Python identifier to build its variations "
+            "config schema; non-identifier asset names are not yet supported."
+        )
         # The list of variation fields for this asset.
         variation_fields: list[tuple[str, type, Any]] = []
         # Make a field for each variation.

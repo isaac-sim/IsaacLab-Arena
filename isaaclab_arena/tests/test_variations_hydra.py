@@ -104,3 +104,17 @@ def test_unknown_variation_override_raises_with_available_paths():
     message = str(exc_info.value)
     assert f"{TEST_ASSET_NAME}.test_build_time" in message
     assert "Available variation paths" in message
+
+
+def test_asset_name_not_valid_identifier_raises():
+    # An asset name that is not a valid Python identifier (e.g. "3-box") is used as a
+    # field name when building the VariationsCfg dataclass. _compose_variation_cfgs asserts
+    # this up front with a clear message rather than letting make_dataclass raise an opaque
+    # error.
+    invalid_asset_name = "3-box"
+    variations = {invalid_asset_name: [TestBuildTimeVariation(_MockHost())]}
+    with pytest.raises(AssertionError, match="must be a valid Python identifier"):
+        variations_hydra.apply_overrides(
+            variations,
+            [f"{invalid_asset_name}.test_build_time.enabled=true"],
+        )
