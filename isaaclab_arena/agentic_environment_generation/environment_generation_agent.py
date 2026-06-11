@@ -299,6 +299,7 @@ class EnvironmentGenerationAgent:
             "  Do NOT hallucinate values — the resolver tolerates nulls; it cannot fix invented data.\n"
             "- For binary relations (e.g. on), subject is the placed object and reference is "
             "the surface it is relative to (typically the background name).\n"
+            "- REQUIRED: include an is_anchor (unary) relation for the surface other objects rest on.\n"
             "- Articulated objects (microwave, fridge, cabinet) still need an "
             "'on' relation in initial_state_graph (subject=object, reference=background) "
             "to anchor them.\n"
