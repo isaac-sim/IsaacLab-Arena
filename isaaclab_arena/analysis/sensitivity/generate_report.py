@@ -31,7 +31,7 @@ def generate_report(
         jsonl_path: episode_summary.jsonl produced by eval_runner.
         output_path: Destination figure file (parent dirs created if absent).
         observation: Outcome values to condition on, one per declared outcome. Defaults to
-            the analyzer's default (1.0 for binary outcomes, the mean otherwise).
+            conditioning on success (1) for every binary outcome.
 
     Returns:
         The resolved output path.
@@ -72,7 +72,7 @@ def main():
         default=None,
         help=(
             "Outcome values to condition on, one per declared outcome (in schema order). "
-            "Defaults to 1.0 for binary outcomes and the mean otherwise."
+            "Outcomes are binary, so use 1 for success or 0 for failure. Defaults to 1 (success)."
         ),
     )
     args = parser.parse_args()

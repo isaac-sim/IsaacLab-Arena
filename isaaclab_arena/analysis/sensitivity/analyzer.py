@@ -84,17 +84,15 @@ class SensitivityAnalyzer:
         return self.posterior
 
     def default_observation(self) -> torch.Tensor:
-        """Default observation to condition on: 1.0 for binary outcomes, the mean otherwise.
+        """Condition on success (outcome = 1) for every outcome.
 
-        A binary outcome's interesting query is "what produced success?" (condition on 1.0);
-        a continuous outcome has no such value, so its mean is the natural "typical case".
+        Outcomes are binary (0/1) in the current scope, so the natural default query is
+        "what produced success?". Asserts the outcomes are binary, so adding a continuous
+        outcome later fails loudly here instead of silently conditioning on a meaningless value.
         """
-        outcome_values = []
-        for column_index in range(self.dataset.x.shape[1]):
-            column = self.dataset.x[:, column_index]
-            is_binary = set(column.tolist()).issubset({0.0, 1.0})
-            outcome_values.append(1.0 if is_binary else float(column.mean()))
-        return torch.tensor(outcome_values, dtype=torch.float32)
+        is_binary = set(self.dataset.x.flatten().tolist()).issubset({0.0, 1.0})
+        assert is_binary, "default_observation assumes binary (0/1) outcomes; pass an explicit observation otherwise."
+        return torch.ones(self.dataset.x.shape[1], dtype=torch.float32)
 
     def sample_posterior(self, observation: torch.Tensor | None = None, num_samples: int = 5000) -> torch.Tensor:
         """Sample the joint posterior over all factors at observation (default: see above).
