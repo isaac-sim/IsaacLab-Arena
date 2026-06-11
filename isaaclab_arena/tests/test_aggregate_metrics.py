@@ -29,10 +29,10 @@ def _make_collection(
     count_cfg = MetricTermCfg(compute_metric_func=_scaled_count, params={"scale": 2.0}, recorder_term_name="count")
     return MetricsDataCollection(
         num_episodes=num_episodes,
-        metric_data_entries=[
-            MetricData("success_rate", success_cfg, success_data, _mean_metric(success_data)),
-            MetricData("count_metric", count_cfg, count_data, _scaled_count(count_data, scale=2.0)),
-        ],
+        metric_data_entries={
+            "success_rate": MetricData("success_rate", success_cfg, success_data, _mean_metric(success_data)),
+            "count_metric": MetricData("count_metric", count_cfg, count_data, _scaled_count(count_data, scale=2.0)),
+        },
     )
 
 
@@ -47,7 +47,7 @@ def test_aggregate_metrics_accumulates_and_recomputes():
     # num_episodes is summed across runs.
     assert aggregated.num_episodes == 4
 
-    entries = {entry.term_name: entry for entry in aggregated.metric_data_entries}
+    entries = aggregated.metric_data_entries
     assert set(entries) == {"success_rate", "count_metric"}
 
     # Recorded per-episode data is concatenated across runs (data accumulation).
@@ -71,7 +71,7 @@ def test_aggregate_metrics_single_run_is_identity():
     aggregated = aggregate_metrics([run])
 
     assert aggregated.num_episodes == 3
-    entries = {entry.term_name: entry for entry in aggregated.metric_data_entries}
+    entries = aggregated.metric_data_entries
     assert entries["success_rate"].metric_value == pytest.approx(2.0 / 3.0)
 
 
@@ -81,7 +81,7 @@ def test_aggregate_metrics_requires_consistent_metric_names():
     mismatched_cfg = MetricTermCfg(compute_metric_func=_mean_metric, params={}, recorder_term_name="other")
     run2 = MetricsDataCollection(
         num_episodes=1,
-        metric_data_entries=[MetricData("other_metric", mismatched_cfg, [np.array([1.0])], 1.0)],
+        metric_data_entries={"other_metric": MetricData("other_metric", mismatched_cfg, [np.array([1.0])], 1.0)},
     )
 
     with pytest.raises(AssertionError):

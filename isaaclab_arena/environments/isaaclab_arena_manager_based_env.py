@@ -5,11 +5,10 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from isaaclab.envs import ManagerBasedRLEnv
 
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
+from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.metrics.metrics_manager import MetricsManager
 
 
@@ -22,11 +21,10 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         super().load_managers()
         self.metrics_manager = MetricsManager(self.cfg.metrics, self)
 
-    def compute_metrics(self) -> dict[str, Any]:
+    def compute_metrics(self) -> MetricsDataCollection:
         """Compute all registered metrics.
 
         Returns:
-            A dictionary mapping metric name to metric value. Always includes a
-            ``"num_episodes"`` entry.
+            A MetricsDataCollection instance.
         """
         return self.metrics_manager.compute()

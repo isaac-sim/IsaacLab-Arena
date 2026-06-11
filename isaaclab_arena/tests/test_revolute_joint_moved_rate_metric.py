@@ -8,6 +8,7 @@ import torch
 import tqdm
 import traceback
 
+from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_STEPS = 100
@@ -70,7 +71,7 @@ def _test_revolute_joint_moved_rate(simulation_app):
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 env.step(actions)
 
-        metrics = env.unwrapped.compute_metrics()
+        metrics: MetricsDataCollection = env.unwrapped.compute_metrics()
         print(f"Metrics: {metrics}")
 
         # Calculate the expected door moved rate.
@@ -79,11 +80,15 @@ def _test_revolute_joint_moved_rate(simulation_app):
         num_steps_door_closed = NUM_STEPS / 2
         num_episodes_no_movement = int(num_steps_door_closed / num_steps_per_episode)
         print(f"Number of episodes no movement: {num_episodes_no_movement}")
-        num_episodes_with_movement = metrics["num_episodes"] - num_episodes_no_movement
-        expected_movement_rate = num_episodes_with_movement / metrics["num_episodes"]
+        num_episodes_with_movement = metrics.num_episodes - num_episodes_no_movement
+        expected_movement_rate = num_episodes_with_movement / metrics.num_episodes
         print(f"Expected movement rate: {expected_movement_rate}")
-        print(f"Measured movement rate: {metrics['revolute_joint_moved_rate']}")
-        assert abs(metrics["revolute_joint_moved_rate"] - expected_movement_rate) < EXPECTED_MOVEMENT_RATE_EPS
+
+        # The value returned by the system
+
+        metrics_calculated_joint_moved_rate = metrics.metric_data_entries["revolute_joint_moved_rate"].metric_value
+        print(f"Measured movement rate: {metrics_calculated_joint_moved_rate}")
+        assert abs(metrics_calculated_joint_moved_rate - expected_movement_rate) < EXPECTED_MOVEMENT_RATE_EPS
 
     except Exception as e:
         print(f"Error: {e}")
