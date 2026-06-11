@@ -83,26 +83,16 @@ class SensitivityAnalyzer:
         self.posterior = inference.build_posterior(density_estimator)
         return self.posterior
 
-    def default_observation(self) -> torch.Tensor:
-        """Condition on success (outcome = 1) for every outcome.
-
-        Outcomes are binary (0/1) in the current scope, so the natural default query is
-        "what produced success?". Asserts the outcomes are binary, so adding a continuous
-        outcome later fails loudly here instead of silently conditioning on a meaningless value.
-        """
-        is_binary = set(self.dataset.x.flatten().tolist()).issubset({0.0, 1.0})
-        assert is_binary, "default_observation assumes binary (0/1) outcomes; pass an explicit observation otherwise."
-        return torch.ones(self.dataset.x.shape[1], dtype=torch.float32)
-
     def sample_posterior(self, observation: torch.Tensor | None = None, num_samples: int = 5000) -> torch.Tensor:
-        """Sample the joint posterior over all factors at observation (default: see above).
+        """Sample the joint posterior over all factors at observation.
 
-        Returns a (num_samples, total_factor_dim) tensor laid out like theta — continuous
-        columns first (in original, denormalized units), then integer-coded categorical columns.
+        Defaults to the dataset's default observation (condition on success). Returns a
+        (num_samples, total_factor_dim) tensor laid out like theta — continuous columns first
+        (in original, denormalized units), then integer-coded categorical columns.
         """
         assert self.posterior is not None, "Call fit() before sampling the posterior"
         if observation is None:
-            observation = self.default_observation()
+            observation = self.dataset.default_observation()
         with torch.no_grad():
             normalized_samples = self.posterior.sample((num_samples,), x=observation)
         return self._denormalize(normalized_samples)

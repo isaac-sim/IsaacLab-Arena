@@ -41,7 +41,7 @@ def generate_report(
     analyzer.fit()
 
     observation_tensor = (
-        analyzer.default_observation() if observation is None else torch.tensor(observation, dtype=torch.float32)
+        dataset.default_observation() if observation is None else torch.tensor(observation, dtype=torch.float32)
     )
     samples = analyzer.sample_posterior(observation_tensor)
     output_path = Path(output_path)

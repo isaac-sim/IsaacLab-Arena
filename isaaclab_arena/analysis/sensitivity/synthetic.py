@@ -212,7 +212,7 @@ def _demo():
     dataset = builder(seed=args.seed, num_episodes=args.num_episodes)
     analyzer = SensitivityAnalyzer(dataset)
     analyzer.fit()
-    observation = analyzer.default_observation()
+    observation = dataset.default_observation()
     samples = analyzer.sample_posterior(observation)
     plot_marginals(samples, dataset, observation, output_path=args.output)
     print(f"[INFO] Wrote synthetic sensitivity report → {args.output}")

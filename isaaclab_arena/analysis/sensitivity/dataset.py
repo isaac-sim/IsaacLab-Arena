@@ -225,6 +225,17 @@ class SensitivityDataset:
         """Map outcome name → its column index in x."""
         return {outcome.name: index for index, outcome in enumerate(self.schema.outcomes)}
 
+    def default_observation(self) -> torch.Tensor:
+        """The default outcome vector to condition a query on: success (1) for every outcome.
+
+        Outcomes are binary (0/1) in the current scope, so the natural default query is
+        "what produced success?". Asserts the outcomes are binary, so adding a continuous
+        outcome later fails loudly here instead of silently conditioning on a meaningless value.
+        """
+        is_binary = set(self._x.flatten().tolist()).issubset({0.0, 1.0})
+        assert is_binary, "default_observation assumes binary (0/1) outcomes; pass an explicit observation otherwise."
+        return torch.ones(self._x.shape[1], dtype=torch.float32)
+
     @property
     def has_categorical_factors(self) -> bool:
         """True iff the schema declares at least one categorical factor."""
