@@ -28,7 +28,6 @@ class Job:
         policy_config_dict: dict = None,
         status: Status = None,
         language_instruction: str = None,
-        arena_env_args_dict: dict | None = None,
     ):
         """Initialize a Job instance.
 
@@ -43,13 +42,9 @@ class Job:
             status: Job status (defaults to PENDING)
             language_instruction: Optional language instruction override for the policy. When set,
                 takes precedence over the task's own description.
-            arena_env_args_dict: The original dict form of arena_env_args before conversion to
-                CLI args list. Preserves typed values (e.g. floats stay floats) for downstream
-                consumers that need to index by key.
         """
         self.name = name
         self.arena_env_args = arena_env_args
-        self.arena_env_args_dict = arena_env_args_dict if arena_env_args_dict is not None else {}
         assert num_envs > 0, "num_envs must be greater than 0"
         assert not (
             num_steps is not None and num_episodes is not None
@@ -107,7 +102,6 @@ class Job:
         return cls(
             name=data["name"],
             arena_env_args=cls.convert_args_dict_to_cli_args_list(data["arena_env_args"]),
-            arena_env_args_dict=data["arena_env_args"],
             policy_type=data["policy_type"],
             num_envs=num_envs,
             num_steps=num_steps,
