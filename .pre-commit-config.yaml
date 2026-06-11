@@ -75,3 +75,10 @@ repos:
         language: system
         pass_filenames: false
         types: [python]
+      - id: pylint-relative-imports
+        name: pylint (relative imports)
+        entry: python3 tools/run_pylint_relative_imports.py
+        language: python
+        additional_dependencies: ["pylint>=3.3,<4"]
+        types: [python]
+        exclude: ^(submodules/|docs/|.*/__init__\.py$)

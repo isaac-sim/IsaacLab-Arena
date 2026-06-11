@@ -29,6 +29,10 @@ unsafe-load-any-extension=no
 
 [MESSAGES CONTROL]
 
+# relative-import (W0403) is enforced on commit via
+# tools/run_pylint_relative_imports.py. Stock pylint 3.x removed the built-in
+# checker; the pre-commit hook loads a small plugin instead.
+
 # Only show warnings with the listed confidence levels. Leave empty to show
 # all. Valid levels: HIGH, INFERENCE, INFERENCE_FAILURE, UNDEFINED
 confidence=
@@ -117,7 +121,6 @@ disable=abstract-method,
         raw_input-builtin,
         rdiv-method,
         reduce-builtin,
-        relative-import,
         reload-builtin,
         round-builtin,
         setslice-method,
