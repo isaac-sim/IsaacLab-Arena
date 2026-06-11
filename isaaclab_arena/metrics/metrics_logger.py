@@ -15,7 +15,9 @@ if TYPE_CHECKING:
 
 def metrics_to_plain_python_types(metrics_data: MetricsDataCollection) -> dict[str, int | float | list]:
     """Convert numpy scalars/arrays in a metrics data to plain Python types."""
-    sanitized = {}
+    sanitized = {
+        "num_episodes": metrics_data.num_episodes,
+    }
     for metric_data in metrics_data.metric_data_entries:
         name = metric_data.term_name
         value = metric_data.metric_value

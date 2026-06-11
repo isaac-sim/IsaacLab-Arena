@@ -30,9 +30,13 @@ def aggregate_metrics(metrics_per_run: list[MetricsDataCollection]) -> MetricsDa
 
     # All runs must expose the same set of metric names.
     metric_names = [metric_data.term_name for metric_data in metrics_per_run[0].metric_data_entries]
+    expected_metric_names = set(metric_names)
     for metrics_data_collection in metrics_per_run:
-        for metric_data in metrics_data_collection.metric_data_entries:
-            assert metric_data.term_name in metric_names, f"Metric {metric_data.term_name} not found in all runs"
+        run_metric_names = {metric_data.term_name for metric_data in metrics_data_collection.metric_data_entries}
+        assert run_metric_names == expected_metric_names, (
+            f"Metric name mismatch across runs: missing {expected_metric_names - run_metric_names}, "
+            f"unexpected {run_metric_names - expected_metric_names}"
+        )
 
     total_num_episodes = sum(metrics_data_collection.num_episodes for metrics_data_collection in metrics_per_run)
 
