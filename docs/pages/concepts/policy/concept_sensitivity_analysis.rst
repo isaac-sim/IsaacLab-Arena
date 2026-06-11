@@ -7,9 +7,24 @@ evaluation sweep — where factors such as lighting, object mass, or table mater
 varied — it fits a posterior over those factors conditioned on the outcome and renders
 one figure summarising which factor values are associated with success.
 
-It builds directly on the evaluation pipeline described in
-:doc:`concept_evaluation_types` and the metrics described in
-:doc:`../task/concept_metrics_design`.
+Why a joint posterior, not a success rate per factor?
+-----------------------------------------------------
+
+The simplest analysis would chart a success rate for each factor independently. That hides
+the two things that matter most in a multi-factor sweep:
+
+- **Factors interact.** How much light a policy needs can depend on the object — a matte
+  object may succeed at low light while a shiny one needs far more. A per-factor
+  "success vs light" curve averages over objects and reports one blurry gate that is wrong
+  for both. The joint posterior keeps the interaction, so you can condition on a specific
+  object and see its gate.
+- **Factors confound each other.** If bright-light episodes also happened to use an easy
+  object, a per-factor light chart cannot tell which one drove success. Modelling all
+  factors together attributes the effect to the factor that actually carries it.
+
+The per-factor rate is a projection of the joint posterior — derivable from it, but not the
+other way around. The toolbox therefore always fits the joint — via simulation-based
+inference (MNPE or NPE) — and reads the per-factor marginals from it.
 
 How it works
 ------------
@@ -18,16 +33,14 @@ The toolbox is a thin analysis layer over `sbi <https://sbi.readthedocs.io>`_'s
 neural posterior estimators. The flow is:
 
 1. **Per-episode recording.** During evaluation, ``episode_writer`` appends one row per
-   episode to an ``episode_summary.jsonl`` file — the factor values that were used
-   (``arena_env_args``) and the measured per-episode ``outcomes``.
-2. **Schema.** A hand-authored ``factors.yaml`` declares which of those columns are
-   *factors* to analyse (and whether each is continuous or categorical) and which are
-   *outcomes* to condition on.
+   episode to an ``episode_summary.jsonl`` file.
+2. **Schema.** A ``factors.yaml`` declares which of those columns are *factors* to analyse
+   (and whether each is continuous or categorical) and which are *outcomes* to condition on.
 3. **Inference.** ``SensitivityAnalyzer`` loads the pair, trains an estimator on the full
-   ``(theta, x)`` — every factor and every outcome jointly — and samples the joint
-   posterior conditioned on a chosen observation (by default, success).
-4. **Report.** One figure is produced: a smooth density curve for each continuous factor
-   and a probability bar chart for each categorical factor.
+   ``(theta, x)`` jointly, and samples the joint posterior conditioned on a chosen
+   observation (by default, success).
+4. **Report.** A smooth density curve for each continuous factor and a probability bar chart
+   for each categorical factor.
 
 Inputs
 ------
@@ -61,10 +74,6 @@ outcomes:
    {"job_name": "pi0_sweep", "episode_idx": 0,
     "arena_env_args": {"light_intensity": 3200.0, "table_material": "oak"},
     "outcomes": {"success": 1}}
-
-The schema's factor and outcome names need only be a subset of the keys present in each
-row; extra ``arena_env_args`` keys are ignored, so the same JSONL can back several
-different analyses.
 
 Choice of estimator
 -------------------
@@ -130,30 +139,15 @@ without Isaac Sim — useful for seeing the output shape and for validating the 
 Reading the output
 ------------------
 
+.. todo::
+
+   Add a sample report figure here and walk through reading it.
+
 Each panel is the posterior over one factor *conditioned on success* — "given the policy
 succeeded, which values of this factor were responsible?" For a continuous factor, mass
 concentrated at one end of its range means success favoured that end (e.g. a curve rising
 toward bright light → the policy is light-gated). For a categorical factor, the tallest
 bar is the value most associated with success.
-
-Why a joint posterior, not a success rate per factor?
------------------------------------------------------
-
-The simplest analysis would chart a success rate for each factor independently. That hides
-the two things that matter most in a multi-factor sweep:
-
-- **Factors interact.** How much light a policy needs can depend on the object — a matte
-  object may succeed at low light while a shiny one needs far more. A per-factor
-  "success vs light" curve averages over objects and reports one blurry gate that is wrong
-  for both. The joint posterior keeps the interaction, so you can condition on a specific
-  object and see its gate.
-- **Factors confound each other.** If bright-light episodes also happened to use an easy
-  object, a per-factor light chart cannot tell which one drove success. Modelling all
-  factors together attributes the effect to the factor that actually carries it.
-
-The per-factor rate is a projection of the joint posterior — derivable from it, but not the
-other way around. The toolbox therefore always fits the joint and reads the per-factor
-marginals from it.
 
 Current scope
 -------------
