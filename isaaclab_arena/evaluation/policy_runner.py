@@ -21,6 +21,7 @@ from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
 from isaaclab_arena.utils.random import set_seed
+from isaaclab_arena.utils.stage_profiler import get_profiler
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
@@ -71,9 +72,12 @@ def rollout_policy(
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
 
+    prof = get_profiler()
     pbar = None
     try:
+        t0 = prof.tic()
         obs, _ = env.reset()
+        prof.toc("reset_initial", t0)
         policy.reset()
         # Determine language instruction: CLI/job-level override takes precedence over the task's own
         # description. Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing).
@@ -91,22 +95,34 @@ def rollout_policy(
 
         while True:
             with torch.inference_mode():
+                t0 = prof.tic()
                 actions = policy.get_action(env, obs)
-                obs, _, terminated, truncated, _ = env.step(actions)
+                prof.toc("inference", t0)
 
-                if terminated.any() or truncated.any():
+                t0 = prof.tic()
+                obs, _, terminated, truncated, _ = env.step(actions)
+                # IsaacLab auto-resets done envs on the *next* step, so a step that follows a
+                # termination also pays the scene respawn cost. Bucket those separately.
+                episode_done = bool(terminated.any() or truncated.any())
+                prof.toc("sim_step_reset" if episode_done else "sim_step", t0)
+
+                if episode_done:
                     # Only reset policy for those envs that are terminated or truncated
                     print(
                         f"Resetting policy for terminated env_ids: {terminated.nonzero().flatten()}"
                         f" and truncated env_ids: {truncated.nonzero().flatten()}"
                     )
                     env_ids = (terminated | truncated).nonzero().flatten()
+                    t0 = prof.tic()
                     policy.reset(env_ids=env_ids)
+                    prof.toc("policy_reset", t0)
                     # Break if number of episodes is reached
                     completed_episodes = env_ids.shape[0]
                     num_episodes_completed += completed_episodes
                     if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
+                        t0 = prof.tic()
                         metrics = env.unwrapped.compute_metrics()
+                        prof.toc("metrics", t0)
                         tqdm.tqdm.write(
                             f"[Rank {get_local_rank()}/{get_world_size()}] Metrics:"
                             f" {metrics_to_plain_python_types(metrics)}"

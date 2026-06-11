@@ -25,6 +25,7 @@ from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_poli
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
+from isaaclab_arena.utils.stage_profiler import get_profiler
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
@@ -225,6 +226,7 @@ def main():
     with SimulationAppContext(args_cli):
         job_manager = JobManager(eval_jobs_config["jobs"])
         metrics_logger = MetricsLogger()
+        profiler = get_profiler()
 
         job_manager.print_jobs_info()
 
@@ -246,11 +248,14 @@ def main():
             # Rebuild the environment and re-run the rollout job.num_rebuilds times, then
             # aggregate the metrics across rebuilds into a single result.
             for rebuild_idx in range(job.num_rebuilds):
+                profiler.start_job(f"{job.name} (rebuild {rebuild_idx + 1}/{job.num_rebuilds})")
                 try:
                     render_mode = "rgb_array" if args_cli.video else None
-                    env = load_env(job.arena_env_args, job.name, render_mode=render_mode)
+                    with profiler.section("build_env"):
+                        env = load_env(job.arena_env_args, job.name, render_mode=render_mode)
 
-                    policy = get_policy_from_job(job)
+                    with profiler.section("create_policy"):
+                        policy = get_policy_from_job(job)
 
                     # Episodes allotted to this rebuild (None when the job is length-driven by steps).
                     num_episodes_this_rebuild = num_episodes_per_rebuild[rebuild_idx]
@@ -300,11 +305,13 @@ def main():
 
                 finally:
                     try:
-                        _close_job_resources(policy, env)
+                        with profiler.section("teardown"):
+                            _close_job_resources(policy, env)
                     finally:
                         policy = None
                         env = None
                         _collect_garbage_and_clear_cuda_cache()
+                        profiler.end_job()
 
             # Aggregate the metrics from the different experiments into a single view.
             if metrics_per_run:
@@ -313,6 +320,7 @@ def main():
 
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()
+        profiler.print_cross_job_summary()
 
 
 if __name__ == "__main__":
