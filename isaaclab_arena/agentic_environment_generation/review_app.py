@@ -8,6 +8,9 @@
 Wraps :func:`isaaclab_arena.agentic_environment_generation.review_graph.render_html_for_spec`
 in a two-pane Streamlit page so the user can edit the ``ArenaEnvInitialGraphSpec``
 YAML directly in the browser and see the visualization update automatically.
+``SimulationApp`` is booted once via ``@st.cache_resource`` and reused for
+every thumbnail render (disk-cache hit when possible, live USD viewport
+capture when not).
 
 Launch (always via the wrapper in review_graph.py — handles streamlit flags):
     /isaac-sim/python.sh -m isaaclab_arena.agentic_environment_generation.review_graph \\
@@ -19,15 +22,16 @@ Design:
     is valid and has changed since the last render, the visualization updates
     automatically — no button click required.
   * Right pane — sandboxed iframe with the rendered review HTML.
-  * Thumbnails — cached USD viewport captures served from disk under
-    ``.cache/llm_env_gen_thumbnails/``. The snapshot panel is shown only if
-    the cache directory exists and contains matching PNGs; otherwise node cards
-    fall back to the two-letter placeholder.
+  * Thumbnails — real USD viewport captures. Booted ``SimulationApp`` lives
+    inside an ``@st.cache_resource`` so its ~30s startup is paid once per
+    server lifetime. PNGs are cached on disk under
+    ``.cache/llm_env_gen_thumbnails/`` and survive across runs.
 """
 
 from __future__ import annotations
 
 import argparse
+import atexit
 import traceback
 import yaml
 from dataclasses import dataclass
@@ -35,7 +39,11 @@ from pathlib import Path
 
 import streamlit as st
 
-from isaaclab_arena.agentic_environment_generation.review_graph import load_cached_thumbnails, render_html_for_spec
+from isaaclab_arena.agentic_environment_generation.review_graph import (
+    SimAppSidecar,
+    SimAppSidecarError,
+    render_html_for_spec,
+)
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 
 # Visualization iframe height. Tuned so the graph + tasks + node grid all
@@ -44,20 +52,105 @@ _IFRAME_HEIGHT_PX = 1100
 
 
 # ---------------------------------------------------------------------------
-# Snapshot rendering (cached thumbnails, no Isaac Sim required)
+# SimulationApp sidecar lifecycle
 # ---------------------------------------------------------------------------
+#
+# Kit's ``SimulationApp`` cannot live inside the Streamlit worker thread:
+# its bootstrap installs signal handlers (main-thread only) and the
+# ``omni.usd`` UsdContext does not tolerate being driven from different
+# threads across Streamlit reruns ("[Error] [omni.usd] UsdContext busy").
+# We host it in a dedicated subprocess (``simapp_sidecar.py``) and talk to
+# it over a JSON-RPC pipe. The wrapper class ``SimAppSidecar`` in
+# ``review_graph`` owns the subprocess; we hold one instance per Streamlit
+# server process via ``@st.cache_resource``.
 
 
-def _render_with_cached_thumbnails(spec: ArenaEnvInitialGraphSpec) -> str:
-    """Render review HTML, inlining any thumbnails already cached on disk.
+@st.cache_resource(show_spinner="Booting Isaac Sim sidecar (≈30s first run, cached afterwards)…")
+def _get_simapp_sidecar() -> SimAppSidecar | None:
+    """Spawn the SimApp sidecar once per Streamlit server process.
 
-    Reads from the persistent cache under ``.cache/llm_env_gen_thumbnails/``
-    without booting Isaac Sim. Nodes whose USD thumbnail has never been
-    rendered fall back to the placeholder card — no warning is shown since
-    a cold cache is the expected state before the first live-render run.
+    Returns ``None`` if the sidecar fails to boot — the app then falls back
+    to placeholder thumbnails so the review page still renders. We register
+    an ``atexit`` cleanup so the sidecar is reaped on normal interpreter
+    shutdown (Ctrl-C of the terminal that owns Streamlit).
+
+    The ``@st.cache_resource`` decorator gives us a single instance shared
+    across reruns AND across browser sessions, which is exactly what we
+    want: one Kit, many requests, serialized by the sidecar's own
+    ``threading.Lock``.
     """
-    thumbnails = load_cached_thumbnails(spec)
-    return render_html_for_spec(spec, thumbnails=thumbnails if thumbnails else None)
+    sidecar = SimAppSidecar()
+    try:
+        sidecar.start()
+    except SimAppSidecarError as exc:
+        print(f"[review_app] SimApp sidecar failed to start: {exc}", flush=True)
+        return None
+
+    # atexit covers the common-case shutdown path (Ctrl-C in the launching
+    # terminal -> Python interpreter shutdown -> atexit handlers fire).
+    # Abnormal exits (SIGKILL of the Streamlit process) are handled by the
+    # sidecar itself: it watches for EOF on stdin and exits via its own
+    # ``finally`` block. So the SimApp gets closed either way.
+    atexit.register(sidecar.close)
+    return sidecar
+
+
+def _ensure_sidecar() -> SimAppSidecar | None:
+    """Return a healthy sidecar, re-spawning if the cached one died.
+
+    If the cached resource exists but the subprocess crashed (e.g. an asset
+    triggered an unrecoverable Kit error), we clear the Streamlit cache and
+    start fresh. The single re-spawn keeps the user from having to restart
+    the whole Streamlit process for a transient render failure.
+    """
+    sidecar = _get_simapp_sidecar()
+    if sidecar is not None and sidecar.is_alive():
+        return sidecar
+    if sidecar is not None:
+        # Sidecar died (crash / SIGKILL / whatever). Clean it up and ask
+        # Streamlit for a fresh one on the next call.
+        sidecar.close()
+    _get_simapp_sidecar.clear()
+    return _get_simapp_sidecar()
+
+
+def _render_with_thumbnails(spec: ArenaEnvInitialGraphSpec) -> str:
+    """Render review HTML, asking the sidecar for thumbnails.
+
+    Cache-aware in two layers:
+      * The disk cache under ``.cache/llm_env_gen_thumbnails/`` survives
+        across runs; the sidecar's internal renderer reads it directly.
+      * Within a server lifetime, ``@st.cache_resource`` keeps Kit warm so
+        only the cache-misses pay the ~2s-per-USD capture cost.
+
+    If the sidecar is unavailable (boot failed and re-spawn also failed) we
+    fall back to placeholder thumbnails so the user still gets a usable page
+    and a visible warning explaining why.
+    """
+    sidecar = _ensure_sidecar()
+    if sidecar is None:
+        st.warning(
+            "Isaac Sim sidecar is unavailable — falling back to placeholder thumbnails. "
+            "Check the terminal where you launched the server for the underlying error.",
+            icon="⚠️",
+        )
+        return render_html_for_spec(spec, thumbnails=None)
+
+    try:
+        thumbnails = sidecar.render_spec(spec)
+    except SimAppSidecarError as exc:
+        st.error(
+            f"Sidecar render failed; falling back to placeholder thumbnails.\n\n```\n{exc}\n```",
+            icon="🛑",
+        )
+        # Force a re-spawn on the next call — most "render failed" errors
+        # that propagate up are pipe-broken / process-died and the next
+        # invocation will boot a fresh Kit.
+        with st.spinner("Resetting the SimApp sidecar…"):
+            _get_simapp_sidecar.clear()
+        return render_html_for_spec(spec, thumbnails=None)
+
+    return render_html_for_spec(spec, thumbnails=thumbnails)
 
 
 # ---------------------------------------------------------------------------
@@ -66,20 +159,24 @@ def _render_with_cached_thumbnails(spec: ArenaEnvInitialGraphSpec) -> str:
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--yaml",
-        type=Path,
-        required=True,
-        help="Path to the ArenaEnvInitialGraphSpec YAML to open in the editor.",
-    )
-    return parser.parse_args()
+    """Pull ``--yaml`` from ``sys.argv`` (post ``--`` from the streamlit CLI).
+
+    Streamlit forwards anything after ``--`` on its command line into the
+    script's ``sys.argv``. We use a tolerant parser so reruns (which keep
+    argv intact) never abort the app.
+    """
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--yaml", type=Path, required=True)
+    args, _unknown = parser.parse_known_args()
+    return args
 
 
 @dataclass
 class _ValidationResult:
+    """Outcome of validating editor text against ``ArenaEnvInitialGraphSpec``."""
+
     spec: ArenaEnvInitialGraphSpec | None
-    error: str | None
+    error: str | None  # human-readable, multi-line; None iff spec is not None
 
     @property
     def is_valid(self) -> bool:
@@ -87,12 +184,34 @@ class _ValidationResult:
 
 
 def _validate_yaml_text(text: str) -> _ValidationResult:
+    """Two-stage validation: yaml.safe_load → ArenaEnvInitialGraphSpec.from_dict.
+
+    Returns a populated error string on the first failing stage so the UI can
+    render exactly one red banner with the most actionable message.
+    """
+    # Stage 1: YAML parse. PyYAML's ``problem_mark`` is the most useful
+    # location info we get for syntax errors — surface it explicitly.
     try:
-        raw = yaml.safe_load(text)
-        spec = ArenaEnvInitialGraphSpec.model_validate(raw)
-        return _ValidationResult(spec=spec, error=None)
-    except Exception:
-        return _ValidationResult(spec=None, error=traceback.format_exc())
+        loaded = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        mark = getattr(exc, "problem_mark", None)
+        loc = f" (line {mark.line + 1}, column {mark.column + 1})" if mark is not None else ""
+        return _ValidationResult(spec=None, error=f"YAML parse error{loc}:\n{exc}")
+
+    if not isinstance(loaded, dict):
+        return _ValidationResult(
+            spec=None,
+            error=f"Top-level YAML must be a mapping, got {type(loaded).__name__}.",
+        )
+
+    # Stage 2: schema validation via the Pydantic parser.
+    try:
+        spec = ArenaEnvInitialGraphSpec.from_dict(loaded)
+    except Exception as exc:
+        tb = traceback.format_exception_only(type(exc), exc)
+        return _ValidationResult(spec=None, error="".join(tb).rstrip())
+
+    return _ValidationResult(spec=spec, error=None)
 
 
 def _initialize_state(yaml_path: Path) -> None:
@@ -122,7 +241,10 @@ def _initialize_state(yaml_path: Path) -> None:
         # YAML in the editor, then hits Regenerate.
         st.session_state["rendered_html"] = _BROKEN_PLACEHOLDER_HTML
     else:
-        st.session_state["rendered_html"] = _render_with_cached_thumbnails(initial.spec)
+        # First render boots ``SimulationApp`` (≈30s) via the cached resource
+        # and renders any uncached USD thumbnails. Both steps are amortized
+        # across subsequent regenerations.
+        st.session_state["rendered_html"] = _render_with_thumbnails(initial.spec)
 
 
 # Tiny standalone HTML used when the on-disk YAML is itself invalid.
@@ -238,7 +360,7 @@ def _render_editor_panel(yaml_path: Path) -> _ValidationResult:
     edited_since_render = st.session_state["edited_text"] != st.session_state["last_rendered_text"]
     if validation.is_valid and edited_since_render:
         with st.spinner("Rendering visualization…"):
-            st.session_state["rendered_html"] = _render_with_cached_thumbnails(validation.spec)
+            st.session_state["rendered_html"] = _render_with_thumbnails(validation.spec)
         st.session_state["last_rendered_text"] = st.session_state["edited_text"]
         st.toast("Visualization updated.", icon="🔄")
 
