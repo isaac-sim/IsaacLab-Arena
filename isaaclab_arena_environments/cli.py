@@ -105,7 +105,17 @@ def get_isaaclab_arena_environments_cli_parser(
     return args_parser
 
 
-def get_arena_builder_from_cli(args_cli: argparse.Namespace) -> ArenaEnvBuilder:
+def get_arena_builder_from_cli(
+    args_cli: argparse.Namespace,
+    hydra_overrides: list[str] | None = None,
+) -> ArenaEnvBuilder:
+    """Build an :class:`ArenaEnvBuilder` from parsed CLI args.
+
+    Args:
+        args_cli: Parsed argparse namespace.
+        hydra_overrides: Optional Hydra variation override strings (e.g.
+            ``"light.hdr_image.enabled=true"``).
+    """
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     # The env comes from exactly one source: a graph spec YAML (--env_graph_spec_yaml) or a
@@ -119,9 +129,8 @@ def get_arena_builder_from_cli(args_cli: argparse.Namespace) -> ArenaEnvBuilder:
 
     if env_graph_spec_yaml is not None:
         spec = ArenaEnvGraphSpec.from_yaml(env_graph_spec_yaml)
-        # YAML can declare its own swappable flags under `cli_override_specs`. Apply them here.
         spec.apply_cli_override_args(args_cli)
-        return ArenaEnvBuilder(spec.to_arena_env(), args_cli)
+        return ArenaEnvBuilder(spec.to_arena_env(), args_cli, hydra_overrides=hydra_overrides)
 
     ensure_environments_registered()
     env_registry = EnvironmentRegistry()
@@ -129,4 +138,4 @@ def get_arena_builder_from_cli(args_cli: argparse.Namespace) -> ArenaEnvBuilder:
         example_environment
     ), f"Example environment type {example_environment} not supported"
     example_env = env_registry.get_component_by_name(example_environment)()
-    return ArenaEnvBuilder(example_env.get_env(args_cli), args_cli)
+    return ArenaEnvBuilder(example_env.get_env(args_cli), args_cli, hydra_overrides=hydra_overrides)
