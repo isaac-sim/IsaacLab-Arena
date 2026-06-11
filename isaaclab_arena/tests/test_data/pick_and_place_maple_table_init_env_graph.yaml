@@ -1,0 +1,98 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Unresolved env graph for UnresolvedArenaEnvGraphSpec: tasks carry only kind/params; the initial
+# state is an explicit ArenaEnvGraphStateSpec.  Call UnresolvedArenaEnvGraphSpec.resolve() to
+# produce the fully-wired ArenaEnvGraphSpec.
+
+env_name: pick_and_place_maple_table_init
+
+nodes:
+  - id: droid_abs_joint_pos
+    name: droid_abs_joint_pos
+    type: embodiment
+
+  - id: maple_table_robolab
+    name: maple_table_robolab
+    type: background
+
+  - id: maple_table_robolab_table
+    name: table
+    type: object_reference
+    parent: maple_table_robolab
+    prim_path: "{ENV_REGEX_NS}/maple_table_robolab/table"
+    object_type: rigid
+
+  - id: rubiks_cube_hot3d_robolab
+    name: rubiks_cube_hot3d_robolab
+    type: object
+
+  - id: bowl_ycb_robolab
+    name: bowl_ycb_robolab
+    type: object
+
+  - id: mug_ycb_robolab
+    name: mug_ycb_robolab
+    type: object
+
+tasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: rubiks_cube_hot3d_robolab
+      destination_location: bowl_ycb_robolab
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: mug_ycb_robolab
+      destination_location: bowl_ycb_robolab
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+
+initial_state_spec:
+  id: state_spec_0
+  is_delta: false
+  spatial_constraints:
+    - id: state_spec_0_maple_table_robolab_table_is_anchor
+      kind: is_anchor
+      subject: maple_table_robolab_table
+
+    - id: state_spec_0_rubiks_cube_hot3d_robolab_on_maple_table_robolab_table
+      kind: "on"
+      subject: rubiks_cube_hot3d_robolab
+      reference: maple_table_robolab_table
+
+    - id: state_spec_0_rubiks_cube_hot3d_robolab_position_limits
+      kind: position_limits
+      subject: rubiks_cube_hot3d_robolab
+      params:
+        x_min: 0.55
+        x_max: 0.70
+        y_min: -0.40
+        y_max: -0.10
+
+    - id: state_spec_0_bowl_ycb_robolab_on_maple_table_robolab_table
+      kind: "on"
+      subject: bowl_ycb_robolab
+      reference: maple_table_robolab_table
+
+    - id: state_spec_0_bowl_ycb_robolab_position_limits
+      kind: position_limits
+      subject: bowl_ycb_robolab
+      params:
+        x_min: 0.55
+        x_max: 0.70
+        y_min: -0.40
+        y_max: -0.10
+
+    # TODO(qianl): replace with at_pose once placer supports it
+    - id: state_spec_0_mug_ycb_robolab_at_position
+      kind: at_position
+      subject: mug_ycb_robolab
+      params:
+        x: 0.65
+        y: 0.25
+        z: 0.85

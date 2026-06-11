@@ -22,6 +22,10 @@ from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.environments.graph_spec_utils import coerce_number_sequence
 
+# =============================================================================
+# Nodes
+# =============================================================================
+
 
 class ArenaEnvGraphNodeType(Enum):
     EMBODIMENT = "embodiment"
@@ -52,11 +56,6 @@ def parse_graph_node(data: Any) -> Any:
     return data
 
 
-# TODO(qianl): remove this enum and check against relation registry for task constraints
-class ArenaEnvGraphTaskConstraintType(Enum):
-    REACH = "reach"
-
-
 class ArenaEnvGraphNodeSpec(BaseModel):
     """Node in an environment graph (all types except ``object_reference``)."""
 
@@ -67,8 +66,9 @@ class ArenaEnvGraphNodeSpec(BaseModel):
 
     @model_validator(mode="after")
     def _reject_object_reference_without_extra_fields(self) -> ArenaEnvGraphNodeSpec:
-        if type(self) is ArenaEnvGraphNodeSpec and self.type == ArenaEnvGraphNodeType.OBJECT_REFERENCE:
-            raise ValueError("object_reference nodes require parent, prim_path, and object_type fields")
+        assert not (
+            type(self) is ArenaEnvGraphNodeSpec and self.type == ArenaEnvGraphNodeType.OBJECT_REFERENCE
+        ), "object_reference nodes require parent, prim_path, and object_type fields"
         return self
 
 
@@ -86,36 +86,123 @@ class ArenaEnvGraphObjectReferenceNodeSpec(ArenaEnvGraphNodeSpec):
         return self
 
 
-class ArenaEnvGraphSpatialConstraintSpec(BaseModel):
-    """Spatial constraint edge in an environment graph state spec."""
+# =============================================================================
+# Tasks
+# =============================================================================
 
-    id: str = Field(min_length=1)
-    type: str = Field(min_length=1)
-    parent: str = Field(min_length=1)
-    child: str | None = None  # Optional, e.g. is_anchor constraint does not have a child
-    # Type-specific optional kwargs for the underlying RelationBase subclass selected by `type`
-    # (e.g. {x_min, x_max, y_min, y_max} for position_limits; {side, distance} for next_to etc.).
-    # The Arena environment builder forwards these when constructing the Relation instance.
-    params: dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator("type")
+class TaskSpec(BaseModel):
+    """Task shared by agent intent specs and env-graph task entries."""
+
+    kind: str = Field(
+        min_length=1,
+        description=(
+            "Registered task class name from the TASKS block in the user message "
+            "(e.g. 'PickAndPlaceTask', 'OpenDoorTask'). Must match TaskRegistry exactly."
+        ),
+    )
+    params: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Constructor kwargs for the task (listed in TASKS). "
+            "Values are Item.query strings or the background name for scene parameters."
+        ),
+    )
+    description: str | None = Field(
+        default=None,
+        description="Natural-language summary of the task (e.g. 'pick up the avocado and place it in the bowl'). ",
+    )
+
+    @field_validator("kind")
     @classmethod
-    def _validate_registered_relation_type(cls, value: str) -> str:
-        registry = ObjectRelationLibraryRegistry()
-        if not registry.is_registered(value):
-            valid_values = sorted(registry.get_all_keys())
-            raise ValueError(f"Unknown spatial constraint type '{value}'. Expected one of {valid_values}")
+    def _validate_registered_task_type(cls, value: str) -> str:
+        registry = TaskRegistry()
+        assert registry.is_registered(value), f"Unknown task kind '{value}'"
         return value
 
-    @field_validator("params", mode="after")
-    @classmethod
-    def _normalize_pose_params(cls, params: dict[str, Any]) -> dict[str, Any]:
-        normalized = dict(params)
-        if "position_xyz" in normalized:
-            normalized["position_xyz"] = coerce_number_sequence(normalized["position_xyz"], 3, "position_xyz")
-        if "rotation_xyzw" in normalized:
-            normalized["rotation_xyzw"] = coerce_number_sequence(normalized["rotation_xyzw"], 4, "rotation_xyzw")
-        return normalized
+
+class ArenaEnvGraphTaskSpec(TaskSpec):
+    """Task entry in an environment graph (task payload plus state-spec wiring)."""
+
+    id: str = Field(min_length=1)
+    initial_state_spec_id: str = Field(min_length=1)
+    success_state_spec_id: str = Field(min_length=1)
+
+
+# =============================================================================
+# Constraints and state specs
+# =============================================================================
+
+
+class SpatialRelationSpec(BaseModel):
+    """Spatial relation shared by agent intent specs and env-graph spatial constraints."""
+
+    kind: str = Field(
+        min_length=1,
+        description=(
+            "Relation name from the RELATIONS block in the user message "
+            "(e.g. 'on', 'next_to', 'is_anchor'). Must match a registered relation exactly."
+        ),
+    )
+    subject: str = Field(
+        min_length=1,
+        description=(
+            "Object (Item.query) this relation applies to. For binary relations "
+            "(e.g. 'on'), this is the object placed relative to ``reference``. "
+            "For unary relations (e.g. 'is_anchor', 'position_limits'), this is "
+            "the anchored or constrained object."
+        ),
+    )
+    reference: str | None = Field(
+        default=None,
+        description=(
+            "Reference (Item.query or background name) for binary relations only "
+            "— e.g. for 'on', the surface the subject rests on. Must be null "
+            "for unary relations."
+        ),
+    )
+    # TODO(qianl): free-form ``dict`` emits ``additionalProperties: true``,
+    # which strict-mode structured-outputs endpoints reject with a 400.
+    params: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional kind-specific parameters; leave empty by default.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_kind_and_arity(self) -> SpatialRelationSpec:
+        registry = ObjectRelationLibraryRegistry()
+        assert registry.is_registered(self.kind), f"Unknown relation kind '{self.kind}'"
+        relation_cls = registry.get_object_relation_by_name(self.kind)
+        if relation_cls.is_unary():
+            assert self.reference is None, f"Relation kind '{self.kind}' must not define relation.reference"
+        else:
+            assert self.reference is not None, f"Relation kind '{self.kind}' requires relation.reference"
+        return self
+
+
+def _normalize_relation_params(params: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(params)
+    if "position_xyz" in normalized:
+        normalized["position_xyz"] = coerce_number_sequence(normalized["position_xyz"], 3, "position_xyz")
+    if "rotation_xyzw" in normalized:
+        normalized["rotation_xyzw"] = coerce_number_sequence(normalized["rotation_xyzw"], 4, "rotation_xyzw")
+    return normalized
+
+
+class ArenaEnvGraphSpatialRelationSpec(SpatialRelationSpec):
+    """Spatial constraint edge in an environment graph state spec (relation plus constraint id)."""
+
+    id: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _normalize_relation_params(self) -> ArenaEnvGraphSpatialRelationSpec:
+        self.params = _normalize_relation_params(self.params)
+        return self
+
+
+# TODO(qianl): remove this enum and check against relation registry for task constraints
+class ArenaEnvGraphTaskConstraintType(Enum):
+    REACH = "reach"
 
 
 class ArenaEnvGraphTaskConstraintSpec(BaseModel):
@@ -129,11 +216,22 @@ class ArenaEnvGraphTaskConstraintSpec(BaseModel):
 
 
 class ArenaEnvGraphStateSpec(BaseModel):
-    """Snapshot of the environment state in the graph."""
+    """Snapshot of the environment state in the graph.
+
+    When ``is_delta`` is True the constraints are a delta of the preceding state -- this
+    is how every derived state (``state_spec_i`` for ``i > 0``) is expressed. When ``is_delta`` is False the constraints
+    are a full snapshot of the scene -- this is how the initial state (``state_spec_0``) is expressed.
+    """
 
     id: str = Field(min_length=1)
-    spatial_constraints: list[ArenaEnvGraphSpatialConstraintSpec] = Field(default_factory=list)
+    is_delta: bool = True
+    spatial_constraints: list[ArenaEnvGraphSpatialRelationSpec] = Field(default_factory=list)
     task_constraints: list[ArenaEnvGraphTaskConstraintSpec] = Field(default_factory=list)
+
+
+# =============================================================================
+# CLI overrides
+# =============================================================================
 
 
 class ArenaEnvGraphCliOverrideSpec(BaseModel):
@@ -149,22 +247,3 @@ class ArenaEnvGraphCliOverrideSpec(BaseModel):
     def dest(self) -> str:
         """The argparse attribute name for this flag (dashes become underscores)."""
         return self.arg.replace("-", "_")
-
-
-class ArenaEnvGraphTaskSpec(BaseModel):
-    """Task entry in an environment graph."""
-
-    id: str = Field(min_length=1)
-    type: str = Field(min_length=1)
-    initial_state_spec_id: str = Field(min_length=1)
-    success_state_spec_id: str = Field(min_length=1)
-    task_args: dict[str, Any] = Field(default_factory=dict)
-
-    @field_validator("type")
-    @classmethod
-    def _validate_registered_task_type(cls, value: str) -> str:
-        registry = TaskRegistry()
-        if not registry.is_registered(value):
-            valid_values = sorted(registry.get_all_keys())
-            raise ValueError(f"Unknown task type '{value}'. Expected one of {valid_values}")
-        return value
