@@ -151,8 +151,8 @@ class ArenaEnvGraphSpec(ArenaEnvGraphSpecBase):
         return build_arena_env_from_graph_spec(self)
 
 
-class UnresolvedArenaEnvGraphSpec(ArenaEnvGraphSpecBase):
-    """Partially-specified environment graph produced by the LLM intent pipeline."""
+class ArenaEnvInitialGraphSpec(ArenaEnvGraphSpecBase):
+    """Initial-state environment graph produced by the agent intent pipeline."""
 
     tasks: list[TaskSpec] = Field(default_factory=list)
     initial_state_spec: ArenaEnvGraphStateSpec
@@ -165,8 +165,8 @@ class UnresolvedArenaEnvGraphSpec(ArenaEnvGraphSpecBase):
         assert_spatial_constraint_shapes([self.initial_state_spec])
         return self
 
-    def resolve(self) -> ArenaEnvGraphSpec:
-        """Derive a fully-wired :class:`ArenaEnvGraphSpec` from this unresolved graph.
+    def link(self) -> ArenaEnvGraphSpec:
+        """Link this initial graph into a fully-wired :class:`ArenaEnvGraphSpec`.
 
         Uses :attr:`initial_state_spec` as ``state_spec_0``, then chains each task's declared
         ``success_state_transition`` to produce a delta state.  The topology is implicit in the
@@ -203,7 +203,7 @@ class UnresolvedArenaEnvGraphSpec(ArenaEnvGraphSpecBase):
 
 
 # ---------------------------------------------------------------------------
-# Resolution helpers (used by UnresolvedArenaEnvGraphSpec.resolve)
+# Link helpers (used by ArenaEnvInitialGraphSpec.link)
 # ---------------------------------------------------------------------------
 
 

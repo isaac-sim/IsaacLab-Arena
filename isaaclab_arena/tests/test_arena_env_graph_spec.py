@@ -13,7 +13,7 @@ from isaaclab_arena.assets.registries import TaskRegistry
 from isaaclab_arena.environments.arena_env_graph_spec import (
     ArenaEnvGraphSpec,
     ArenaEnvGraphStateSpec,
-    UnresolvedArenaEnvGraphSpec,
+    ArenaEnvInitialGraphSpec,
 )
 from isaaclab_arena.environments.arena_env_graph_types import (
     ArenaEnvGraphNodeType,
@@ -301,39 +301,39 @@ def test_arena_env_graph_spec_rejects_invalid_data():
         assert error_match in str(exc_info.value), label
 
 
-# --- ArenaEnvGraphSpec.resolve_constraints: chaining a partially-wired graph into a full one ---
+# --- ArenaEnvInitialGraphSpec.link: chaining a partially-wired graph into a full one ---
 
 
-def test_resolve_constraints_reproduces_groundtruth_full_graph():
-    """Resolving the partial init graph yields the hand-authored full graph (structurally)."""
-    resolved = UnresolvedArenaEnvGraphSpec.from_yaml(_INIT_GRAPH).resolve()
+def test_link_reproduces_groundtruth_full_graph():
+    """Linking the partial init graph yields the hand-authored full graph (structurally)."""
+    linked = ArenaEnvInitialGraphSpec.from_yaml(_INIT_GRAPH).link()
     groundtruth = ArenaEnvGraphSpec.from_yaml(_FULL_GRAPH)
 
     # N tasks yield N+1 state specs, chained 0..N.
-    assert set(resolved.state_specs_by_id) == set(groundtruth.state_specs_by_id)
-    assert len(resolved.state_specs) == len(resolved.tasks) + 1
+    assert set(linked.state_specs_by_id) == set(groundtruth.state_specs_by_id)
+    assert len(linked.state_specs) == len(linked.tasks) + 1
 
     # Each state's spatial constraints match content-wise (IDs are auto-generated and may differ
     # from hand-authored ones, so compare as sets of (kind, subject, reference, params) tuples).
     for state_id, groundtruth_state in groundtruth.state_specs_by_id.items():
-        got = resolved.state_specs_by_id[state_id]
+        got = linked.state_specs_by_id[state_id]
         assert _spatial_contents(got) == _spatial_contents(groundtruth_state), f"spatial mismatch in {state_id}"
         assert got.is_delta == groundtruth_state.is_delta, f"is_delta mismatch in {state_id}"
 
     # The initial state is a full snapshot; every derived state is a delta off its predecessor.
-    assert resolved.state_specs_by_id["state_spec_0"].is_delta is False
-    assert all(resolved.state_specs_by_id[f"state_spec_{i}"].is_delta for i in range(1, len(resolved.tasks) + 1))
+    assert linked.state_specs_by_id["state_spec_0"].is_delta is False
+    assert all(linked.state_specs_by_id[f"state_spec_{i}"].is_delta for i in range(1, len(linked.tasks) + 1))
 
     # Tasks are wired correctly (compared in order; auto-generated IDs differ from hand-authored ones).
-    assert len(resolved.tasks) == len(groundtruth.tasks)
-    for got_task, groundtruth_task in zip(resolved.tasks, groundtruth.tasks):
+    assert len(linked.tasks) == len(groundtruth.tasks)
+    for got_task, groundtruth_task in zip(linked.tasks, groundtruth.tasks):
         assert got_task.kind == groundtruth_task.kind
         assert got_task.initial_state_spec_id == groundtruth_task.initial_state_spec_id
         assert got_task.success_state_spec_id == groundtruth_task.success_state_spec_id
         assert got_task.params == groundtruth_task.params
 
 
-def test_unresolved_graph_is_not_directly_loadable():
+def test_initial_graph_is_not_directly_loadable():
     """The init graph leaves tasks unwired, so the strict ArenaEnvGraphSpec loader rejects it."""
     with pytest.raises(ValidationError):
         ArenaEnvGraphSpec.from_yaml(_INIT_GRAPH)
@@ -341,24 +341,24 @@ def test_unresolved_graph_is_not_directly_loadable():
 
 def test_chain_wires_each_success_state_as_next_initial_state():
     """task[i].success_state_spec_id == task[i+1].initial_state_spec_id (a single chain)."""
-    resolved = UnresolvedArenaEnvGraphSpec.from_yaml(_INIT_GRAPH).resolve()
-    ordered = resolved.tasks  # preserved in execution order by resolve()
+    linked = ArenaEnvInitialGraphSpec.from_yaml(_INIT_GRAPH).link()
+    ordered = linked.tasks  # preserved in execution order by link()
     for earlier, later in zip(ordered, ordered[1:]):
         assert earlier.success_state_spec_id == later.initial_state_spec_id
 
 
 def test_task_without_a_transition_is_rejected():
     """A task whose class declares no success_state_transition fails loudly rather than silently skipping."""
-    spec = UnresolvedArenaEnvGraphSpec.from_yaml(_INIT_GRAPH)
+    spec = ArenaEnvInitialGraphSpec.from_yaml(_INIT_GRAPH)
     spec.tasks[0].kind = "NoTask"  # registered, but declares no transition
     with pytest.raises(NotImplementedError, match="success_state_transition not implemented"):
-        spec.resolve()
+        spec.link()
 
 
 def _spatial_contents(state: ArenaEnvGraphStateSpec) -> set[tuple]:
     """Project a state's spatial constraints to a set of (kind, subject, reference, params) tuples.
 
-    ID-independent, so auto-generated constraint IDs from resolve() compare correctly against
+    ID-independent, so auto-generated constraint IDs from link() compare correctly against
     hand-authored IDs in the groundtruth YAML.
     """
     return {(c.kind, c.subject, c.reference, tuple(sorted(c.params.items()))) for c in state.spatial_constraints}

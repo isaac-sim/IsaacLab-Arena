@@ -12,7 +12,7 @@ from isaaclab_arena.agentic_environment_generation.asset_matcher import (
 )
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec, Item
 from isaaclab_arena.assets.registries import AssetRegistry
-from isaaclab_arena.environments.arena_env_graph_spec import UnresolvedArenaEnvGraphSpec
+from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena.environments.arena_env_graph_types import (
     ArenaEnvGraphNodeSpec,
     ArenaEnvGraphNodeType,
@@ -26,7 +26,7 @@ _INITIAL_STATE_SPEC_ID = "state_initial"
 
 
 class IntentCompiler:
-    """Compiles an agent intent spec into a validated :class:`UnresolvedArenaEnvGraphSpec`."""
+    """Compiles an agent intent spec into a validated :class:`ArenaEnvInitialGraphSpec`."""
 
     _ERROR_TRACE_STAGES: frozenset[str] = frozenset({
         "relation.initial.unknown_subject",
@@ -53,8 +53,8 @@ class IntentCompiler:
         """``True`` if the last :meth:`compile` call produced any error-stage trace events."""
         return bool(self.resolution_errors)
 
-    def compile(self, spec: EnvironmentIntentSpec, env_name: str | None = None) -> UnresolvedArenaEnvGraphSpec:
-        """Compile an :class:`EnvironmentIntentSpec` into an :class:`UnresolvedArenaEnvGraphSpec`.
+    def compile(self, spec: EnvironmentIntentSpec, env_name: str | None = None) -> ArenaEnvInitialGraphSpec:
+        """Compile an :class:`EnvironmentIntentSpec` into an :class:`ArenaEnvInitialGraphSpec`.
 
         Args:
             spec: Agent-produced intent spec describing the scene, initial relations,
@@ -63,8 +63,8 @@ class IntentCompiler:
                 the name is derived as ``llm_gen_{background}_{first_task_kind}``.
 
         Returns:
-            An :class:`UnresolvedArenaEnvGraphSpec` ready for YAML round-tripping or
-            further resolution via :meth:`~UnresolvedArenaEnvGraphSpec.resolve`.
+            An :class:`ArenaEnvInitialGraphSpec` ready for YAML round-tripping or
+            further linking via :meth:`~ArenaEnvInitialGraphSpec.link`.
         """
         self.trace = []
 
@@ -90,7 +90,7 @@ class IntentCompiler:
         initial_state_spec = self._build_initial_state_spec(spec.initial_state_graph, known_ids)
         self._trace_tasks(spec.tasks, known_ids)
 
-        return UnresolvedArenaEnvGraphSpec(
+        return ArenaEnvInitialGraphSpec(
             env_name=env_name or self._derive_env_name(spec),
             nodes=nodes,
             tasks=spec.tasks,
