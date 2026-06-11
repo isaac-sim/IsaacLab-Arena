@@ -70,15 +70,26 @@ def extract_response_text(message: Any) -> tuple[str, str]:
 
       * ``"content"`` — the standard OpenAI-compatible channel.
       * ``"reasoning_content"`` — NVIDIA DeepSeek's provider-specific
-        channel; the model emits structured outputs here instead of
-        ``content``. We treat it as equivalent.
+        channel.  When ``response_format=json_schema`` is used, the NVIDIA
+        inference endpoint for DeepSeek models emits the structured JSON
+        here while placing a spurious ``json_schema_validation: ok`` marker
+        in ``content``.  We prefer ``reasoning_content`` whenever it starts
+        with a JSON object or array delimiter.
       * ``"empty"`` — both channels were empty / missing; the caller
         should surface a clear error.
     """
+    reasoning = getattr(message, "reasoning_content", None)
+    # Prefer reasoning_content when it begins with a JSON object/array — this
+    # is the actual structured-output payload on DeepSeek via NVIDIA's API.
+    if reasoning and reasoning.lstrip()[:1] in ("{", "["):
+        return reasoning, "reasoning_content"
+
     content = getattr(message, "content", None)
     if content:
         return content, "content"
-    reasoning = getattr(message, "reasoning_content", None)
+
+    # reasoning_content present but not JSON-shaped (e.g. plain-text thinking).
     if reasoning:
         return reasoning, "reasoning_content"
+
     return "", "empty"
