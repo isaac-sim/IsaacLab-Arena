@@ -1,7 +1,5 @@
 **/build
 
-# Eval outputs (generated sensitivity reports, etc.)
-/eval/
 
 # Prerequisites
 *.d
