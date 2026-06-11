@@ -8,21 +8,27 @@
 from __future__ import annotations
 
 import argparse
-import re
 
-# Hydra override token shapes we accept on the CLI
-# See: https://hydra.cc/docs/advanced/override_grammar/basic/
-_HYDRA_KEY = r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*"
-_HYDRA_OVERRIDE_RE = re.compile(rf"^(?:~{_HYDRA_KEY}(?:=.*)?|(?:\+{{1,2}})?{_HYDRA_KEY}=.*)$")
+from hydra.core.override_parser.overrides_parser import OverridesParser
 
 
 def assert_hydra_overrides(args: list[str], parser: argparse.ArgumentParser) -> None:
     """Assert args are all Hydra overrides.
 
+    Delegates to Hydra's own override grammar (via :class:`OverridesParser`) instead of
+    re-implementing it, so this stays correct if Hydra's grammar changes.
+
     Args:
         args: The arguments to assert are all Hydra overrides.
         parser: The parser the args came from; used to format the error.
     """
-    bad = [arg for arg in args if not _HYDRA_OVERRIDE_RE.match(arg)]
+    overrides_parser = OverridesParser.create()
+    # Parse token-by-token so the error message can name the offending tokens.
+    bad = []
+    for arg in args:
+        try:
+            overrides_parser.parse_overrides([arg])
+        except Exception:  # noqa: BLE001 -- Hydra raises its own parse exceptions
+            bad.append(arg)
     if bad:
         parser.error(f"Unrecognized arguments: {' '.join(bad)}")

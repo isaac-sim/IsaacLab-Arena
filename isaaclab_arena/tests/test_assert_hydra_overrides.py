@@ -60,7 +60,6 @@ def test_empty_input_accepted():
         "stray_positional",  # bare positional (no '=' so not a Hydra set)
         "1.0",  # numeric -- not a valid key
         "key with space=value",  # whitespace not allowed in key
-        "=value_only",  # missing key
         "+just_plus",  # `+` prefix without `=value` is not a delete (`~` is)
         "a..b=value",  # consecutive dots are not a valid dotted key
         "key.=value",  # trailing dot is not a valid dotted key
