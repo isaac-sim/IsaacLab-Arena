@@ -128,13 +128,13 @@ without Isaac Sim — useful for seeing the output shape and for validating the 
 .. code-block:: bash
 
    # mixed (MNPE): one continuous + one categorical factor
-   python -m isaaclab_arena.tests.utils.synthetic_sensitivity --kind mixed   --output eval/demo.png
+   python -m isaaclab_arena.analysis.sensitivity.synthetic --kind mixed   --output eval/demo.png
 
    # continuous (NPE): two continuous factors
-   python -m isaaclab_arena.tests.utils.synthetic_sensitivity --kind continuous --output eval/demo.png
+   python -m isaaclab_arena.analysis.sensitivity.synthetic --kind continuous --output eval/demo.png
 
    # rich: three continuous + two categorical factors
-   python -m isaaclab_arena.tests.utils.synthetic_sensitivity --kind rich    --output eval/demo.png
+   python -m isaaclab_arena.analysis.sensitivity.synthetic --kind rich    --output eval/demo.png
 
 Reading the output
 ------------------

@@ -6,7 +6,7 @@
 """End-to-end sensitivity-analysis tests on synthetic data with a known ground truth.
 
 Each test fits a SensitivityAnalyzer on a dataset whose factor→outcome relationship is
-planted by synthetic_sensitivity (brighter light, smaller grasp offset, and oak raise
+planted by the synthetic module (brighter light, smaller grasp offset, and oak raise
 success), then asserts the posterior conditioned on success recovers that relationship. The
 data is built in memory, so these run on CPU without Isaac Sim. They cover both estimator
 paths: MNPE for mixed schemas, NPE for continuous-only (with 2-D theta).
@@ -18,7 +18,7 @@ import numpy as np
 import torch
 
 from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
-from isaaclab_arena.tests.utils.synthetic_sensitivity import (
+from isaaclab_arena.analysis.sensitivity.synthetic import (
     GRASP_OFFSET_RANGE,
     LIGHT_RANGE,
     MATERIAL_BASE_LOGIT,

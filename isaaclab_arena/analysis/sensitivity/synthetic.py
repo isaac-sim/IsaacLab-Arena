@@ -90,6 +90,38 @@ def _sample_success(success_logit: torch.Tensor) -> torch.Tensor:
     return torch.bernoulli(torch.sigmoid(success_logit))
 
 
+def _sample_categorical(
+    base_logit: dict[str, float], num_episodes: int
+) -> tuple[list[str], torch.Tensor, torch.Tensor]:
+    """Uniformly sample a categorical factor from its base-logit table.
+
+    Returns (choices, per-episode integer codes, per-episode base success logit).
+    """
+    choices = list(base_logit)
+    codes = torch.randint(0, len(choices), (num_episodes,))
+    base_logit_per_choice = torch.tensor([base_logit[choice] for choice in choices])
+    return choices, codes, base_logit_per_choice[codes]
+
+
+def _build_dataset(
+    continuous: list[tuple[str, tuple[float, float], torch.Tensor]],
+    categorical: list[tuple[str, list[str], torch.Tensor]],
+    success: torch.Tensor,
+) -> SensitivityDataset:
+    """Assemble a SensitivityDataset from sampled factors and the binary success outcome.
+
+    continuous: (name, value_range, values) per continuous factor.
+    categorical: (name, choices, integer codes) per categorical factor.
+    """
+    factors = [FactorSpec(name=n, type="continuous", range=[list(r)]) for n, r, _ in continuous]
+    factors += [FactorSpec(name=n, type="categorical", choices=c) for n, c, _ in categorical]
+    schema = FactorSchema(slice=_SLICE, factors=factors, outcomes=[OutcomeSpec(name=_OUTCOME_NAME, type="bool")])
+    # Continuous columns first, then integer-coded categorical columns — the layout
+    # SensitivityDataset.factor_columns describes and the estimators expect.
+    columns = [values for _, _, values in continuous] + [codes.float() for _, _, codes in categorical]
+    return SensitivityDataset(schema, torch.stack(columns, dim=1), success.unsqueeze(1))
+
+
 def make_continuous_dataset(seed: int, num_episodes: int = 2000) -> SensitivityDataset:
     """Two continuous factors (light_intensity, grasp_offset) driving success.
 
@@ -98,25 +130,20 @@ def make_continuous_dataset(seed: int, num_episodes: int = 2000) -> SensitivityD
     and low offset values. Two factors keep theta 2-D, away from NPE's 1-D Gaussian fallback.
     """
     torch.manual_seed(seed)
-
     light_intensity = _sample_uniform(LIGHT_RANGE, num_episodes)
     grasp_offset = _sample_uniform(GRASP_OFFSET_RANGE, num_episodes)
-    success_logit = LIGHT_WEIGHT * _normalized(light_intensity, LIGHT_RANGE) - OFFSET_WEIGHT * _normalized(
-        grasp_offset, GRASP_OFFSET_RANGE
+    success = _sample_success(
+        LIGHT_WEIGHT * _normalized(light_intensity, LIGHT_RANGE)
+        - OFFSET_WEIGHT * _normalized(grasp_offset, GRASP_OFFSET_RANGE)
     )
-    success = _sample_success(success_logit)
-
-    schema = FactorSchema(
-        slice=_SLICE,
-        factors=[
-            FactorSpec(name="light_intensity", type="continuous", range=[list(LIGHT_RANGE)]),
-            FactorSpec(name="grasp_offset", type="continuous", range=[list(GRASP_OFFSET_RANGE)]),
+    return _build_dataset(
+        continuous=[
+            ("light_intensity", LIGHT_RANGE, light_intensity),
+            ("grasp_offset", GRASP_OFFSET_RANGE, grasp_offset),
         ],
-        outcomes=[OutcomeSpec(name=_OUTCOME_NAME, type="bool")],
+        categorical=[],
+        success=success,
     )
-    theta = torch.stack([light_intensity, grasp_offset], dim=1)
-    x = success.unsqueeze(1)
-    return SensitivityDataset(schema, theta, x)
 
 
 def make_mixed_dataset(seed: int, num_episodes: int = 2000) -> SensitivityDataset:
@@ -127,28 +154,14 @@ def make_mixed_dataset(seed: int, num_episodes: int = 2000) -> SensitivityDatase
     favor high light values and oak.
     """
     torch.manual_seed(seed)
-
-    materials = list(MATERIAL_BASE_LOGIT)
-    material_base_logits = torch.tensor([MATERIAL_BASE_LOGIT[m] for m in materials])
-
     light_intensity = _sample_uniform(LIGHT_RANGE, num_episodes)
-    material_code = torch.randint(0, len(materials), (num_episodes,))
-    success_logit = material_base_logits[material_code] + LIGHT_WEIGHT * _normalized(light_intensity, LIGHT_RANGE)
-    success = _sample_success(success_logit)
-
-    schema = FactorSchema(
-        slice=_SLICE,
-        factors=[
-            FactorSpec(name="light_intensity", type="continuous", range=[list(LIGHT_RANGE)]),
-            FactorSpec(name="table_material", type="categorical", choices=materials),
-        ],
-        outcomes=[OutcomeSpec(name=_OUTCOME_NAME, type="bool")],
+    materials, material_code, material_logit = _sample_categorical(MATERIAL_BASE_LOGIT, num_episodes)
+    success = _sample_success(material_logit + LIGHT_WEIGHT * _normalized(light_intensity, LIGHT_RANGE))
+    return _build_dataset(
+        continuous=[("light_intensity", LIGHT_RANGE, light_intensity)],
+        categorical=[("table_material", materials, material_code)],
+        success=success,
     )
-    # Continuous column first, then the integer-coded categorical column — the layout
-    # SensitivityDataset.factor_columns describes and the estimators expect.
-    theta = torch.stack([light_intensity, material_code.float()], dim=1)
-    x = success.unsqueeze(1)
-    return SensitivityDataset(schema, theta, x)
 
 
 def make_rich_dataset(seed: int, num_episodes: int = 3000) -> SensitivityDataset:
@@ -160,44 +173,30 @@ def make_rich_dataset(seed: int, num_episodes: int = 3000) -> SensitivityDataset
     posterior conditioned on success should recover all of them at once.
     """
     torch.manual_seed(seed)
-
-    object_types = list(OBJECT_TYPE_BASE_LOGIT)
-    materials = list(MATERIAL_BASE_LOGIT)
-
     light_intensity = _sample_uniform(LIGHT_RANGE, num_episodes)
     object_mass = _sample_uniform(OBJECT_MASS_RANGE, num_episodes)
     camera_distance = _sample_uniform(CAMERA_DISTANCE_RANGE, num_episodes)
-    object_type_code = torch.randint(0, len(object_types), (num_episodes,))
-    material_code = torch.randint(0, len(materials), (num_episodes,))
-
-    object_type_base = torch.tensor([OBJECT_TYPE_BASE_LOGIT[t] for t in object_types])
-    material_base = torch.tensor([MATERIAL_BASE_LOGIT[m] for m in materials])
-    success_logit = (
+    object_types, object_type_code, object_type_logit = _sample_categorical(OBJECT_TYPE_BASE_LOGIT, num_episodes)
+    materials, material_code, material_logit = _sample_categorical(MATERIAL_BASE_LOGIT, num_episodes)
+    success = _sample_success(
         LIGHT_WEIGHT * _normalized(light_intensity, LIGHT_RANGE)
         - MASS_WEIGHT * _normalized(object_mass, OBJECT_MASS_RANGE)
         - DISTANCE_WEIGHT * _normalized(camera_distance, CAMERA_DISTANCE_RANGE)
-        + object_type_base[object_type_code]
-        + material_base[material_code]
+        + object_type_logit
+        + material_logit
     )
-    success = _sample_success(success_logit)
-
-    schema = FactorSchema(
-        slice=_SLICE,
-        factors=[
-            FactorSpec(name="light_intensity", type="continuous", range=[list(LIGHT_RANGE)]),
-            FactorSpec(name="object_mass", type="continuous", range=[list(OBJECT_MASS_RANGE)]),
-            FactorSpec(name="camera_distance", type="continuous", range=[list(CAMERA_DISTANCE_RANGE)]),
-            FactorSpec(name="object_type", type="categorical", choices=object_types),
-            FactorSpec(name="table_material", type="categorical", choices=materials),
+    return _build_dataset(
+        continuous=[
+            ("light_intensity", LIGHT_RANGE, light_intensity),
+            ("object_mass", OBJECT_MASS_RANGE, object_mass),
+            ("camera_distance", CAMERA_DISTANCE_RANGE, camera_distance),
         ],
-        outcomes=[OutcomeSpec(name=_OUTCOME_NAME, type="bool")],
+        categorical=[
+            ("object_type", object_types, object_type_code),
+            ("table_material", materials, material_code),
+        ],
+        success=success,
     )
-    # Continuous columns first (in declared order), then the integer-coded categorical columns.
-    theta = torch.stack(
-        [light_intensity, object_mass, camera_distance, object_type_code.float(), material_code.float()], dim=1
-    )
-    x = success.unsqueeze(1)
-    return SensitivityDataset(schema, theta, x)
 
 
 def _demo():
@@ -206,7 +205,7 @@ def _demo():
     Runs the pipeline end to end on generated data: simulate → fit → plot, with no eval
     data needed. Run as::
 
-        python -m isaaclab_arena.tests.utils.synthetic_sensitivity --kind mixed --output /tmp/demo.png
+        python -m isaaclab_arena.analysis.sensitivity.synthetic --kind mixed --output eval/demo.png
     """
     parser = argparse.ArgumentParser(description="Run the sensitivity pipeline on a synthetic dataset and plot it.")
     parser.add_argument(
