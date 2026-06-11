@@ -3,17 +3,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Run the agent on a prompt and dump the resolved UnresolvedArenaEnvGraphSpec.
+"""Run the agent on a prompt and dump the compiled UnresolvedArenaEnvGraphSpec.
 
 Examples:
     # Print the Pydantic EnvironmentIntentSpec JSON schema (no agent call):
-    /isaac-sim/python.sh -m isaaclab_arena.agentic_environment_generation.try_environment_intent_schema --print-schema
+    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.try_environment_intent_schema --print-schema
 
     # Print the catalog sent to the agent (no agent call):
-    /isaac-sim/python.sh -m isaaclab_arena.agentic_environment_generation.try_environment_intent_schema --print-catalog
+    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.try_environment_intent_schema --print-catalog
 
-    # Call the agent, resolve, print, and dump YAML:
-    /isaac-sim/python.sh -m isaaclab_arena.agentic_environment_generation.try_environment_intent_schema \
+    # Call the agent, compile, print, and dump YAML:
+    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.try_environment_intent_schema \
         --prompt "franka pick up avocado from the table and place it into a bowl on the table. there are other veggies on the table as distractor"
 """
 
@@ -60,8 +60,8 @@ def _format_trace_event(event: IntentResolutionTraceEvent) -> str:
 
 
 def print_unresolved_graph(spec: UnresolvedArenaEnvGraphSpec) -> None:
-    """Print the resolved graph in a human-readable tabular layout."""
-    print(f"\n=== resolved UnresolvedArenaEnvGraphSpec (env_name={spec.env_name!r}) ===")
+    """Print the compiled graph in a human-readable tabular layout."""
+    print(f"\n=== UnresolvedArenaEnvGraphSpec (env_name={spec.env_name!r}) ===")
 
     print("\nnodes:")
     for node in spec.nodes:
