@@ -43,9 +43,10 @@ def match_asset(
     registry: AssetRegistry,
     query: str,
     trace_prefix: str,
+    trace: list[IntentResolutionTraceEvent],
     required_tags: list[str] | None = None,
     preferred_tags: list[str] | None = None,
-) -> tuple[str | None, list[IntentResolutionTraceEvent]]:
+) -> str | None:
     """Match a free-text ``query`` to a registered asset key.
 
     Resolution proceeds in three stages:
@@ -60,65 +61,66 @@ def match_asset(
         query: Asset name as emitted by the agent.
         trace_prefix: Prefix for trace event stages (e.g. ``"item"``,
             ``"background"``, ``"embodiment"``).
+        trace: Mutable list that receives one :class:`IntentResolutionTraceEvent`
+            per resolution step. Matcher events are appended to the trace in order.
 
         required_tags: Tags every candidate must carry (e.g. ``["object"]``).
         preferred_tags: Additional tags that narrow the first-pass pool
             (e.g. item ``category_tags`` or ``["ik"]`` for embodiments).
+            When ``None`` or empty, stage 2 is skipped and matching falls
+            through directly to the required-tag pool.
 
     Returns:
-        ``(chosen_key, events)`` — the resolved asset key (or ``None`` on
-        miss) and all trace events produced during this call.
+        The resolved asset key, or ``None`` when no match is found.
     """
-    events: list[IntentResolutionTraceEvent] = []
     required_tags = required_tags or []
     candidates = sorted(registry.get_assets_with_all_tags(required_tags))
     # 1. Exact name match in a pool of assets with only the required tags.
     if query in candidates:
-        events.append(IntentResolutionTraceEvent(f"{trace_prefix}.exact", query, query))
-        return query, events
+        trace.append(IntentResolutionTraceEvent(f"{trace_prefix}.exact", query, query))
+        return query
 
     # 2. Fuzzy matching in a pool narrowed by required + preferred tags.
     if preferred_tags:
         preferred_candidates = sorted(registry.get_assets_with_all_tags(required_tags + preferred_tags))
-        chosen, sub_events = _fuzzy_match(
+        chosen = _fuzzy_match(
             preferred_candidates,
             query,
             trace_prefix=f"{trace_prefix}.preferred_tags",
+            trace=trace,
             note=f"tags={required_tags + preferred_tags}, pool size={len(preferred_candidates)}",
         )
-        events.extend(sub_events)
         if chosen is not None:
-            return chosen, events
+            return chosen
 
     # 3. Fuzzy matching in a pool of assets with only the required tags.
-    chosen, sub_events = _fuzzy_match(
+    return _fuzzy_match(
         candidates,
         query,
         trace_prefix=f"{trace_prefix}.required_tags",
+        trace=trace,
         note=f"tags={required_tags}, pool size={len(candidates)}",
     )
-    events.extend(sub_events)
-    return chosen, events
 
 
 def _fuzzy_match(
     pool: list[str],
     query: str,
     trace_prefix: str,
+    trace: list[IntentResolutionTraceEvent],
     note: str = "",
-) -> tuple[str | None, list[IntentResolutionTraceEvent]]:
-    """Match ``query`` within ``pool``: substring then difflib fuzzy.
-
-    Returns a ``(chosen, events)`` pair.
-    """
+) -> str | None:
+    """Match ``query`` within ``pool``: substring then difflib fuzzy."""
     if not pool:
-        return None, [IntentResolutionTraceEvent(f"{trace_prefix}.empty_pool", query, None, note=note)]
+        trace.append(IntentResolutionTraceEvent(f"{trace_prefix}.empty_pool", query, None, note=note))
+        return None
 
     q = query.lower()
     substrs = [name for name in pool if q in name.lower()]
     if substrs:
         chosen = min(substrs, key=len)
-        return chosen, [IntentResolutionTraceEvent(f"{trace_prefix}.substring", query, chosen, note=note)]
+        trace.append(IntentResolutionTraceEvent(f"{trace_prefix}.substring", query, chosen, note=note))
+        return chosen
 
     matches = get_close_matches(query, pool, n=3, cutoff=0.5)
     if matches:
@@ -128,6 +130,8 @@ def _fuzzy_match(
         if len(matches) > 1:
             ambiguity = f"multiple matches={matches}, taking first={chosen!r}"
             fuzzy_note = f"{note}; {ambiguity}" if note else ambiguity
-        return chosen, [IntentResolutionTraceEvent(f"{trace_prefix}.fuzzy", query, chosen, note=fuzzy_note)]
+        trace.append(IntentResolutionTraceEvent(f"{trace_prefix}.fuzzy", query, chosen, note=fuzzy_note))
+        return chosen
 
-    return None, [IntentResolutionTraceEvent(f"{trace_prefix}.miss", query, None, note=note)]
+    trace.append(IntentResolutionTraceEvent(f"{trace_prefix}.miss", query, None, note=note))
+    return None
