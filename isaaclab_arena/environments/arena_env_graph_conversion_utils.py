@@ -64,11 +64,14 @@ def _partition_nodes_into_embodiment_and_scene(
 
     Asserts at most one EMBODIMENT node; zero is allowed and returns ``None`` here — the env
     builder substitutes a ``NoEmbodiment`` for scene-only specs. BACKGROUND / OBJECT /
-    OBJECT_REFERENCE nodes become scene assets; any other node type raises. Lighting is not handled yet.
+    OBJECT_REFERENCE / LIGHTING nodes become scene assets; any other node type raises.
+
+    If no LIGHTING node is present (e.g. manually-authored or pre-lighting YAMLs) a default
+    dome light is appended so every env is properly illuminated.
     """
     embodiment = None
     scene_assets: list[Asset] = []
-    # TODO(xinjieyao, 2026-05-26): include lighting later
+    has_lighting = False
     for node_spec in node_specs:
         if node_spec.type == ArenaEnvGraphNodeType.EMBODIMENT:
             assert embodiment is None, "Only one embodiment node can be converted to an IsaacLabArenaEnvironment"
@@ -79,8 +82,16 @@ def _partition_nodes_into_embodiment_and_scene(
             ArenaEnvGraphNodeType.OBJECT_REFERENCE,
         ):
             scene_assets.append(assets_by_node_id[node_spec.id])
+        elif node_spec.type == ArenaEnvGraphNodeType.LIGHTING:
+            scene_assets.append(assets_by_node_id[node_spec.id])
+            has_lighting = True
         else:
             raise ValueError(f"Unsupported node type: {node_spec.type}")
+    # Fallback: no LIGHTING node in the spec (legacy or manually-authored YAML) — add a
+    # default dome light so the env is never unlit.
+    if not has_lighting:
+        light_cls = AssetRegistry().get_asset_by_name("light")
+        scene_assets.append(light_cls())
     # No embodiment node -> embodiment stays None; the env builder resolves that to a
     # NoEmbodiment (`self.arena_env.embodiment or NoEmbodiment()`), so scene-only specs are valid.
     return embodiment, scene_assets

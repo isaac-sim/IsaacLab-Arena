@@ -22,6 +22,7 @@ from isaaclab_arena.environments.arena_env_graph_types import (
 from .environment_intent_spec import EnvironmentIntentSpec, Item
 
 _INITIAL_STATE_SPEC_ID = "state_initial"
+_LIGHT_NODE_ID = "light"
 
 
 @dataclass
@@ -208,6 +209,16 @@ class IntentCompiler:
             item_node = self._resolve_item_node(item)
             if item_node is not None:
                 nodes.append(item_node)
+
+        # Always inject a default dome light so every compiled spec is properly lit.
+        # The conversion layer materialises this node via the "light" asset class.
+        nodes.append(
+            ArenaEnvGraphNodeSpec(
+                id=_LIGHT_NODE_ID,
+                name="light",
+                type=ArenaEnvGraphNodeType.LIGHTING,
+            )
+        )
 
         known_ids = {node.id for node in nodes}
 

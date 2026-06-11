@@ -323,4 +323,6 @@ initial_state_graph (subject=object, reference=background) to anchor them.
 - Do not invent relation or task kinds absent from RELATIONS / TASKS.
 - Each task entry needs kind, params (all required keys from TASKS), and description.
 - params values are Item.query strings or the background name, not registry asset names.
+- Lighting is auto-injected as a default dome light — do not include a light entry \
+in items or initial_state_graph.
 """
