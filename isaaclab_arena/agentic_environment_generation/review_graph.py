@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""UnresolvedArenaEnvGraphSpec review tool — Streamlit live editor.
+"""UnresolvedArenaEnvGraphSpec review tool — Streamlit live editor + USD thumbnails.
 
 The CLI is a thin launcher: it boots the Streamlit app in ``review_app.py``.
 
@@ -18,7 +18,9 @@ Three panels (dark dashboard style) inside the embedded view:
     the graph rather than rendered as self-loops.
   * Bottom-left — task table (index, kind, description, params).
   * Right — node card grid: type badge, asset name, and the per-node YAML
-    stanza.
+    stanza. The per-node thumbnail is a USD viewport capture when cached on
+    disk under ``.cache/llm_env_gen_thumbnails/``, otherwise a two-letter
+    placeholder.
 
 Usage:
     /isaac-sim/python.sh -m isaaclab_arena.agentic_environment_generation.review_graph \\
@@ -29,12 +31,16 @@ Usage:
         --yaml <path> --port 8600
 
 Public API used by ``review_app.py``:
-    * :func:`render_html_for_spec` — full HTML payload for a spec.
+    * :func:`render_html_for_spec` — full HTML payload with optional thumbnails inlined.
+    * :func:`load_cached_thumbnails` — read previously-rendered PNGs from the disk
+      cache without booting Isaac Sim. Returns an empty dict if the cache is cold.
 """
 
 from __future__ import annotations
 
 import argparse
+import base64
+import hashlib
 import html as html_lib
 import os
 import re
@@ -45,6 +51,12 @@ from pathlib import Path
 
 from isaaclab_arena.environments.arena_env_graph_spec import UnresolvedArenaEnvGraphSpec
 from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeSpec, ArenaEnvGraphStateSpec
+
+# Disk cache for rendered thumbnails. Keyed by sha1(usd_path) so identical
+# USDs across envs reuse the same PNG. Survives across runs to avoid the
+# ~30s SimulationApp boot when nothing changed.
+_THUMBNAIL_CACHE_DIR = Path(__file__).resolve().parents[2] / ".cache" / "llm_env_gen_thumbnails"
+_THUMBNAIL_SIZE = 256
 
 
 def main() -> None:
@@ -132,13 +144,31 @@ def _serve_live_editor(yaml_path: Path, port: int = 8501) -> None:
 # ---------------------------------------------------------------------------
 
 
-def render_html_for_spec(spec: UnresolvedArenaEnvGraphSpec) -> str:
-    """Render the review HTML for ``spec`` with placeholder node thumbnails.
+def render_html_for_spec(spec: UnresolvedArenaEnvGraphSpec, thumbnails: dict[str, bytes] | None = None) -> str:
+    """Render the review HTML for ``spec``, inlining the given thumbnails.
 
     Thin public alias of :func:`_render_html` so external entry points don't
-    have to reach into a private name.
+    have to reach into a private name. Pass ``thumbnails=None`` (or omit) to
+    fall back to placeholder thumbnails.
     """
-    return _render_html(spec)
+    return _render_html(spec, thumbnails=thumbnails)
+
+
+def load_cached_thumbnails(spec: UnresolvedArenaEnvGraphSpec) -> dict[str, bytes]:
+    """Return PNG bytes for any nodes whose USD thumbnail is already on disk.
+
+    Reads from ``_THUMBNAIL_CACHE_DIR`` without booting Isaac Sim. Nodes with
+    no cached file are simply absent from the returned dict; the caller passes
+    the dict to :func:`render_html_for_spec` and missing entries fall through
+    to the placeholder thumbnail.
+    """
+    asset_paths = _resolve_node_usd_paths(spec)
+    result: dict[str, bytes] = {}
+    for node_id, usd_path in asset_paths.items():
+        cache_path = _THUMBNAIL_CACHE_DIR / f"{_usd_cache_key(usd_path)}.png"
+        if cache_path.exists() and cache_path.stat().st_size > 0:
+            result[node_id] = cache_path.read_bytes()
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -146,8 +176,9 @@ def render_html_for_spec(spec: UnresolvedArenaEnvGraphSpec) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _render_html(spec: UnresolvedArenaEnvGraphSpec) -> str:
+def _render_html(spec: UnresolvedArenaEnvGraphSpec, thumbnails: dict[str, bytes] | None = None) -> str:
     initial_state = spec.initial_state_spec
+    thumbnails = thumbnails or {}
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -173,7 +204,7 @@ def _render_html(spec: UnresolvedArenaEnvGraphSpec) -> str:
   </section>
   <section class="panel nodes-panel">
     <h2>Nodes</h2>
-    <div class="node-grid">{_render_node_cards(spec)}</div>
+    <div class="node-grid">{_render_node_cards(spec, thumbnails)}</div>
   </section>
 </main>
 <script>mermaid.initialize({{ startOnLoad: true, theme: 'dark', themeVariables: {{ fontFamily: 'ui-monospace, monospace' }} }});</script>
@@ -337,14 +368,14 @@ def _render_tasks_table(spec: UnresolvedArenaEnvGraphSpec) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _render_node_cards(spec: UnresolvedArenaEnvGraphSpec) -> str:
-    return "\n".join(_render_one_node_card(node) for node in spec.nodes)
+def _render_node_cards(spec: UnresolvedArenaEnvGraphSpec, thumbnails: dict[str, bytes]) -> str:
+    return "\n".join(_render_one_node_card(node, thumbnails.get(node.id)) for node in spec.nodes)
 
 
-def _render_one_node_card(node: ArenaEnvGraphNodeSpec) -> str:
+def _render_one_node_card(node: ArenaEnvGraphNodeSpec, png_bytes: bytes | None) -> str:
     node_dict = node.model_dump(mode="json", exclude_none=True)
     node_yaml = yaml.safe_dump(node_dict, sort_keys=False).rstrip()
-    thumb = _render_node_thumbnail(node)
+    thumb = _render_node_thumbnail(node, png_bytes)
     return f"""<article class="node-card type-{html_lib.escape(node.type.value)}">
   {thumb}
   <div class="node-meta">
@@ -355,13 +386,89 @@ def _render_one_node_card(node: ArenaEnvGraphNodeSpec) -> str:
 </article>"""
 
 
-def _render_node_thumbnail(node: ArenaEnvGraphNodeSpec) -> str:
-    """Per-node placeholder thumbnail — two-letter initial."""
+def _render_node_thumbnail(node: ArenaEnvGraphNodeSpec, png_bytes: bytes | None = None) -> str:
+    """Per-node thumbnail: cached USD viewport capture if available, else placeholder.
+
+    When ``png_bytes`` is provided (i.e. a previously-rendered PNG was found
+    in the disk cache), inline it as a ``data:image/png;base64,...`` URI so
+    the resulting HTML is fully self-contained.
+
+    Otherwise fall back to the lightweight two-letter placeholder card.
+    """
+    if png_bytes:
+        b64 = base64.b64encode(png_bytes).decode("ascii")
+        return (
+            '<div class="thumb thumb-rendered">'
+            f'<img src="data:image/png;base64,{b64}" alt="{html_lib.escape(node.name)} thumbnail">'
+            f'<span class="thumb-name">{html_lib.escape(node.name)}</span>'
+            "</div>"
+        )
     initial = (node.name[:2] if node.name else "?").upper()
     return f"""<div class="thumb">
     <span class="thumb-initial">{html_lib.escape(initial)}</span>
     <span class="thumb-name">{html_lib.escape(node.name)}</span>
   </div>"""
+
+
+# ---------------------------------------------------------------------------
+# Disk-cache helpers (no Isaac Sim required)
+# ---------------------------------------------------------------------------
+
+
+def _resolve_node_usd_paths(spec: UnresolvedArenaEnvGraphSpec) -> dict[str, str]:
+    """Map ``node.id → usd_path`` via :class:`AssetRegistry`, skipping unresolvable nodes.
+
+    Tries two lookup strategies in order:
+
+    1. Class-attribute ``cls.usd_path`` — the convention every ``LibraryObject``
+       subclass in ``object_library.py`` follows. No instantiation, cheap.
+
+    2. ``cls().scene_config.robot.spawn.usd_path`` — the convention every
+       :class:`EmbodimentBase` subclass uses. Requires instantiating the
+       embodiment because the Franka embodiments populate ``scene_config.robot``
+       inside ``__init__`` rather than as a class default.
+    """
+    try:
+        from isaaclab_arena.assets.registries import AssetRegistry  # noqa: PLC0415
+    except Exception as exc:
+        print(f"[review_graph] AssetRegistry import failed: {exc}", file=sys.stderr)
+        return {}
+
+    registry = AssetRegistry()
+    paths: dict[str, str] = {}
+    for node in spec.nodes:
+        try:
+            if not registry.is_registered(node.name):
+                print(f"[review_graph]   {node.id}: asset '{node.name}' not registered, skipping.", file=sys.stderr)
+                continue
+            cls = registry.get_asset_by_name(node.name)
+            usd_path = _extract_usd_path(cls)
+            if not usd_path:
+                print(f"[review_graph]   {node.id}: '{node.name}' has no usd_path, skipping.", file=sys.stderr)
+                continue
+            paths[node.id] = usd_path
+        except Exception as exc:
+            print(f"[review_graph]   {node.id}: lookup failed for '{node.name}': {exc}", file=sys.stderr)
+    return paths
+
+
+def _extract_usd_path(cls) -> str | None:
+    """Return the asset's root USD path, or ``None`` if not extractable."""
+    usd_path = getattr(cls, "usd_path", None)
+    if usd_path:
+        return usd_path
+    try:
+        instance = cls()
+    except Exception:
+        return None
+    scene_config = getattr(instance, "scene_config", None)
+    robot = getattr(scene_config, "robot", None) if scene_config is not None else None
+    spawn = getattr(robot, "spawn", None) if robot is not None else None
+    return getattr(spawn, "usd_path", None) if spawn is not None else None
+
+
+def _usd_cache_key(usd_path: str) -> str:
+    return hashlib.sha1(usd_path.encode("utf-8")).hexdigest()[:16]
 
 
 # ---------------------------------------------------------------------------

@@ -19,6 +19,10 @@ Design:
     is valid and has changed since the last render, the visualization updates
     automatically — no button click required.
   * Right pane — sandboxed iframe with the rendered review HTML.
+  * Thumbnails — cached USD viewport captures served from disk under
+    ``.cache/llm_env_gen_thumbnails/``. The snapshot panel is shown only if
+    the cache directory exists and contains matching PNGs; otherwise node cards
+    fall back to the two-letter placeholder.
 """
 
 from __future__ import annotations
@@ -31,12 +35,29 @@ from pathlib import Path
 
 import streamlit as st
 
-from isaaclab_arena.agentic_environment_generation.review_graph import render_html_for_spec
+from isaaclab_arena.agentic_environment_generation.review_graph import load_cached_thumbnails, render_html_for_spec
 from isaaclab_arena.environments.arena_env_graph_spec import UnresolvedArenaEnvGraphSpec
 
 # Visualization iframe height. Tuned so the graph + tasks + node grid all
 # fit without an outer Streamlit scrollbar swallowing the inner one.
 _IFRAME_HEIGHT_PX = 1100
+
+
+# ---------------------------------------------------------------------------
+# Snapshot rendering (cached thumbnails, no Isaac Sim required)
+# ---------------------------------------------------------------------------
+
+
+def _render_with_cached_thumbnails(spec: UnresolvedArenaEnvGraphSpec) -> str:
+    """Render review HTML, inlining any thumbnails already cached on disk.
+
+    Reads from the persistent cache under ``.cache/llm_env_gen_thumbnails/``
+    without booting Isaac Sim. Nodes whose USD thumbnail has never been
+    rendered fall back to the placeholder card — no warning is shown since
+    a cold cache is the expected state before the first live-render run.
+    """
+    thumbnails = load_cached_thumbnails(spec)
+    return render_html_for_spec(spec, thumbnails=thumbnails if thumbnails else None)
 
 
 # ---------------------------------------------------------------------------
@@ -101,7 +122,7 @@ def _initialize_state(yaml_path: Path) -> None:
         # YAML in the editor, then hits Regenerate.
         st.session_state["rendered_html"] = _BROKEN_PLACEHOLDER_HTML
     else:
-        st.session_state["rendered_html"] = render_html_for_spec(initial.spec)
+        st.session_state["rendered_html"] = _render_with_cached_thumbnails(initial.spec)
 
 
 # Tiny standalone HTML used when the on-disk YAML is itself invalid.
@@ -217,7 +238,7 @@ def _render_editor_panel(yaml_path: Path) -> _ValidationResult:
     edited_since_render = st.session_state["edited_text"] != st.session_state["last_rendered_text"]
     if validation.is_valid and edited_since_render:
         with st.spinner("Rendering visualization…"):
-            st.session_state["rendered_html"] = render_html_for_spec(validation.spec)
+            st.session_state["rendered_html"] = _render_with_cached_thumbnails(validation.spec)
         st.session_state["last_rendered_text"] = st.session_state["edited_text"]
         st.toast("Visualization updated.", icon="🔄")
 
