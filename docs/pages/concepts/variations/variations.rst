@@ -161,7 +161,7 @@ each job's environment:
    python isaaclab_arena/evaluation/eval_runner.py \
      --headless \
      --list-variations \
-     --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_demo.json
+     --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json
 
 How Hydra override paths are structured
 -----------------------------------------
