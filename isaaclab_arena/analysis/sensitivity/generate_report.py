@@ -80,7 +80,7 @@ def main():
     parser.add_argument(
         "--observation",
         type=float,
-        nargs="*",
+        nargs="+",
         default=None,
         help=(
             "Outcome values to condition on, one per --outcome (in order). "
