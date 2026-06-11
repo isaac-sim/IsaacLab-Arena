@@ -1,0 +1,21 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Sensitivity-analysis factor schema for the light_intensity sweep on droid + pi0.
+# Paired with: light_intensity_sweep_jobs_config.json (and the minimal variant).
+# Hand-authored — the factor names here must match keys in the eval's arena_env_args.
+#
+# Outcomes are not declared here. The eval writer logs the full arena_env_args plus every
+# per-episode metric (--episode_summary); which outcome to condition on is chosen at analysis
+# time, e.g. `generate_report ... --outcome success_rate` (success_rate and object_moved_rate
+# are available from the registered task metrics).
+
+factors:
+  light_intensity:
+    type: continuous
+    dim: 1
+    # Spans the dark / normal / bright regimes around the policy's trained operating point
+    # (~500); the [10, 5000] endpoints match those used in the eval jobs config.
+    range: [[10, 5000]]
