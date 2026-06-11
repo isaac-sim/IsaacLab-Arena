@@ -45,15 +45,9 @@ neural posterior estimators. The flow is:
 Inputs
 ------
 
-**factors.yaml** declares the slice the data came from, the factors to study, and the
-outcomes:
+**factors.yaml** declares the factors to study and the outcomes to condition on:
 
 .. code-block:: yaml
-
-   slice:
-     policy: pi0
-     task: PickUpObject
-     embodiment: droid
 
    factors:
      light_intensity:
@@ -157,3 +151,7 @@ Current scope
 - Continuous **vector** factors (``dim > 1``) are reserved for a future extension.
 - The estimators run on CPU and do not require Isaac Sim, so a report can be generated
   anywhere the evaluation JSONL is available.
+- The analysis assumes the ``episode_summary.jsonl`` is a single coherent slice — one
+  policy, task, and embodiment. **TODO:** add a filter (in the spirit of robolab's
+  ``--filter-policy`` / ``--filter-task``) to select that slice from a larger JSONL,
+  rather than relying on the caller to pre-filter it.

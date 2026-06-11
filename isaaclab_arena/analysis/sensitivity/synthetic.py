@@ -28,13 +28,7 @@ import torch
 from dataclasses import dataclass
 
 from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
-from isaaclab_arena.analysis.sensitivity.dataset import (
-    FactorSchema,
-    FactorSpec,
-    OutcomeSpec,
-    SensitivityDataset,
-    SliceSpec,
-)
+from isaaclab_arena.analysis.sensitivity.dataset import FactorSchema, FactorSpec, OutcomeSpec, SensitivityDataset
 from isaaclab_arena.analysis.sensitivity.plotting import plot_marginals
 
 
@@ -96,7 +90,6 @@ MATERIAL = _CategoricalFactor("table_material", {"oak": 1.5, "walnut": 0.0, "bam
 OBJECT_TYPE = _CategoricalFactor("object_type", {"cube": 1.2, "can": 0.0, "mug": -1.2})
 
 _OUTCOME_NAME = "success"
-_SLICE = SliceSpec(policy="synthetic", task="SyntheticTask", embodiment="synthetic")
 
 
 def _sample_success(success_logit: torch.Tensor) -> torch.Tensor:
@@ -115,7 +108,6 @@ def _build_dataset(
     """
     ordered = sorted(factors_and_columns, key=lambda pair: isinstance(pair[0], _CategoricalFactor))
     schema = FactorSchema(
-        slice=_SLICE,
         factors=[factor.spec() for factor, _ in ordered],
         outcomes=[OutcomeSpec(name=_OUTCOME_NAME, type="bool")],
     )

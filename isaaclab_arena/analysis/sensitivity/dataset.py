@@ -39,23 +39,9 @@ class OutcomeSpec:
 
 
 @dataclass
-class SliceSpec:
-    """Where a dataset came from: which policy ran which task on which embodiment.
-
-    Read from the slice: block of factors.yaml and shown in the report title.
-    It just labels the data — nothing checks it against the rows.
-    """
-
-    policy: str
-    task: str
-    embodiment: str
-
-
-@dataclass
 class FactorSchema:
-    """Parsed factors.yaml — slice + factor list + outcome list."""
+    """Parsed factors.yaml — factor list + outcome list."""
 
-    slice: SliceSpec
     factors: list[FactorSpec]
     outcomes: list[OutcomeSpec]
 
@@ -63,26 +49,18 @@ class FactorSchema:
     def from_yaml(cls, path: str | Path) -> FactorSchema:
         """Load a factors.yaml from disk into a typed FactorSchema.
 
-        The YAML must have three top-level blocks: slice (policy/task/embodiment),
-        factors (one entry per varied input), and outcomes (one entry per
-        measured output). Each factor's type must be continuous or categorical.
+        The YAML must have two top-level blocks: factors (one entry per varied input) and
+        outcomes (one entry per measured output). Each factor's type must be continuous or
+        categorical.
         """
+        # TODO: add a robolab-style filter (e.g. select rows by policy/task/embodiment) so a
+        # single episode_summary.jsonl can be sliced to one coherent (policy, task, embodiment)
+        # before analysis, instead of assuming the caller pre-filtered it.
         with open(path, encoding="utf-8") as yaml_file:
             yaml_data = yaml.safe_load(yaml_file)
         assert isinstance(yaml_data, dict), f"factors.yaml at {path} must be a mapping at top level"
-        for required_key in ("slice", "factors", "outcomes"):
+        for required_key in ("factors", "outcomes"):
             assert required_key in yaml_data, f"factors.yaml at {path} is missing top-level `{required_key}:` block"
-
-        slice_block = yaml_data["slice"]
-        for required_key in ("policy", "task", "embodiment"):
-            assert (
-                required_key in slice_block
-            ), f"factors.yaml at {path} `slice:` block is missing `{required_key}` (need policy/task/embodiment)"
-        slice_spec = SliceSpec(
-            policy=slice_block["policy"],
-            task=slice_block["task"],
-            embodiment=slice_block["embodiment"],
-        )
 
         factors: list[FactorSpec] = []
         for factor_name, factor_block in yaml_data["factors"].items():
@@ -110,7 +88,7 @@ class FactorSchema:
             for outcome_name, outcome_block in yaml_data["outcomes"].items()
         ]
 
-        return cls(slice=slice_spec, factors=factors, outcomes=outcomes)
+        return cls(factors=factors, outcomes=outcomes)
 
     @property
     def total_factor_dim(self) -> int:

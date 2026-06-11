@@ -63,17 +63,15 @@ def plot_marginals(
     for unused_index in range(len(factors), len(flat_axes)):
         flat_axes[unused_index].axis("off")
 
-    slice_info = dataset.schema.slice
     observation_label = ", ".join(
         f"{outcome.name}={value:g}" for outcome, value in zip(dataset.schema.outcomes, observation.tolist())
     )
     figure.suptitle(
-        f"Posterior marginals — {dataset.num_episodes} episodes  (observed: {observation_label})\n"
-        f"{slice_info.policy} / {slice_info.task} / {slice_info.embodiment}",
+        f"Posterior marginals — {dataset.num_episodes} episodes  (observed: {observation_label})",
         fontsize=12,
         fontweight="bold",
     )
-    figure.tight_layout(rect=[0, 0, 1, 0.92])
+    figure.tight_layout(rect=[0, 0, 1, 0.95])
 
     if output_path is not None:
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
