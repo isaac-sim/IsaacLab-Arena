@@ -5,20 +5,20 @@
 
 """Synthetic sensitivity datasets with a *known* ground-truth relationship.
 
-This is the Arena analogue of the ``simple_simulator`` in robolab's MNPE demo: it samples
+This is the Arena analogue of the simple_simulator in robolab's MNPE demo: it samples
 factors from a uniform prior, runs them through a fixed generative model, and returns a
-:class:`SensitivityDataset` of in-memory ``theta`` / ``x`` tensors — no ``factors.yaml`` or
-``episode_summary.jsonl`` round-trip. Because the planted relationship is known, a test can
-fit a :class:`SensitivityAnalyzer` on the data and assert the recovered posterior reflects it.
+SensitivityDataset of in-memory theta / x tensors — no factors.yaml or
+episode_summary.jsonl round-trip. Because the planted relationship is known, a test can
+fit a SensitivityAnalyzer on the data and assert the recovered posterior reflects it.
 
 Ground truth (single-sourced in the constants below):
-  - ``light_intensity`` is continuous; higher light raises success (``LIGHT_WEIGHT > 0``).
-  - ``grasp_offset`` is continuous; a *smaller* offset raises success (``OFFSET_WEIGHT > 0``).
-  - ``table_material`` is categorical; ``MATERIAL_BASE_LOGIT`` makes oak the most successful
+  - light_intensity is continuous; higher light raises success (LIGHT_WEIGHT > 0).
+  - grasp_offset is continuous; a *smaller* offset raises success (OFFSET_WEIGHT > 0).
+  - table_material is categorical; MATERIAL_BASE_LOGIT makes oak the most successful
     material and bamboo the least.
-  - ``success`` is a binary outcome drawn from ``Bernoulli(sigmoid(logit))``.
+  - success is a binary outcome drawn from Bernoulli(sigmoid(logit)).
 
-``make_mixed_dataset`` exercises the MNPE path (continuous + categorical); ``make_continuous_dataset``
+make_mixed_dataset exercises the MNPE path (continuous + categorical); make_continuous_dataset
 exercises the NPE path with two continuous factors (NPE restricts to a Gaussian on 1-D theta).
 """
 
@@ -35,13 +35,13 @@ from isaaclab_arena.analysis.sensitivity.dataset import (
 )
 
 LIGHT_RANGE: tuple[float, float] = (0.0, 5000.0)
-"""Range of the continuous ``light_intensity`` factor."""
+"""Range of the continuous light_intensity factor."""
 
 LIGHT_WEIGHT: float = 2.5
 """Success-logit gain per unit of normalized light. Positive ⇒ brighter is more successful."""
 
 GRASP_OFFSET_RANGE: tuple[float, float] = (0.0, 0.2)
-"""Range (metres) of the continuous ``grasp_offset`` factor."""
+"""Range (metres) of the continuous grasp_offset factor."""
 
 OFFSET_WEIGHT: float = 2.5
 """Success-logit gain per unit of normalized offset. Subtracted ⇒ a smaller offset is more successful."""
@@ -50,13 +50,13 @@ MATERIAL_BASE_LOGIT: dict[str, float] = {"oak": 1.5, "walnut": 0.0, "bamboo": -1
 """Per-material base success logit. Ordered best→worst, so oak should dominate the posterior."""
 
 OBJECT_MASS_RANGE: tuple[float, float] = (0.05, 2.0)
-"""Range (kg) of the continuous ``object_mass`` factor."""
+"""Range (kg) of the continuous object_mass factor."""
 
 MASS_WEIGHT: float = 1.5
 """Success-logit gain per unit of normalized mass. Subtracted ⇒ a lighter object is more successful."""
 
 CAMERA_DISTANCE_RANGE: tuple[float, float] = (0.3, 1.5)
-"""Range (m) of the continuous ``camera_distance`` factor."""
+"""Range (m) of the continuous camera_distance factor."""
 
 DISTANCE_WEIGHT: float = 1.5
 """Success-logit gain per unit of normalized distance. Subtracted ⇒ a closer camera is more successful."""
@@ -69,7 +69,7 @@ _SLICE = SliceSpec(policy="synthetic", task="SyntheticTask", embodiment="synthet
 
 
 def _normalized(values: torch.Tensor, value_range: tuple[float, float]) -> torch.Tensor:
-    """Map ``values`` from ``value_range`` onto roughly ``[-1, 1]`` for the success logit."""
+    """Map values from value_range onto roughly [-1, 1] for the success logit."""
     low, high = value_range
     midpoint = 0.5 * (low + high)
     half_range = 0.5 * (high - low)
@@ -77,18 +77,18 @@ def _normalized(values: torch.Tensor, value_range: tuple[float, float]) -> torch
 
 
 def _sample_uniform(value_range: tuple[float, float], num_episodes: int) -> torch.Tensor:
-    """Draw ``num_episodes`` values uniformly over ``value_range``."""
+    """Draw num_episodes values uniformly over value_range."""
     low, high = value_range
     return torch.rand(num_episodes) * (high - low) + low
 
 
 def _sample_success(success_logit: torch.Tensor) -> torch.Tensor:
-    """Draw a binary success outcome per episode from ``Bernoulli(sigmoid(logit))``."""
+    """Draw a binary success outcome per episode from Bernoulli(sigmoid(logit))."""
     return torch.bernoulli(torch.sigmoid(success_logit))
 
 
 def make_continuous_dataset(seed: int, num_episodes: int = 2000) -> SensitivityDataset:
-    """Two continuous factors (``light_intensity``, ``grasp_offset``) driving ``success``.
+    """Two continuous factors (light_intensity, grasp_offset) driving success.
 
     Uses the NPE path. Both effects are planted — brighter light and a smaller grasp offset
     raise success — so conditioning the posterior on success should favor high light values
@@ -117,7 +117,7 @@ def make_continuous_dataset(seed: int, num_episodes: int = 2000) -> SensitivityD
 
 
 def make_mixed_dataset(seed: int, num_episodes: int = 2000) -> SensitivityDataset:
-    """Continuous ``light_intensity`` + categorical ``table_material`` driving ``success``.
+    """Continuous light_intensity + categorical table_material driving success.
 
     Uses the MNPE path. Both effects are planted: brighter light and "better" materials
     (oak > walnut > bamboo) raise success, so conditioning the posterior on success should
@@ -149,7 +149,7 @@ def make_mixed_dataset(seed: int, num_episodes: int = 2000) -> SensitivityDatase
 
 
 def make_rich_dataset(seed: int, num_episodes: int = 3000) -> SensitivityDataset:
-    """A realistic mix — three continuous + two categorical factors — driving ``success`` (MNPE).
+    """A realistic mix — three continuous + two categorical factors — driving success (MNPE).
 
     Mirrors the kind of data a real sweep produces: several continuous factors on different
     scales (light, mass, camera distance) and several categoricals (object type, table material).
@@ -200,7 +200,7 @@ def make_rich_dataset(seed: int, num_episodes: int = 3000) -> SensitivityDataset
 def _demo():
     """Run the full pipeline on a synthetic dataset and save the marginals plot.
 
-    The Arena counterpart of running robolab's ``posterior_inference.py`` in generated-data
+    The Arena counterpart of running robolab's posterior_inference.py in generated-data
     mode: simulate → fit → plot, with no eval data needed. Run as::
 
         python -m isaaclab_arena.tests.utils.synthetic_sensitivity --kind mixed --output /tmp/demo.png

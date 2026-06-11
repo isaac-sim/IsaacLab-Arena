@@ -19,14 +19,14 @@ def generate_report(
     output_path: str | Path,
     observation: list[float] | None = None,
 ) -> Path:
-    """Build a sensitivity report from a ``factors.yaml`` / ``episode_summary.jsonl`` pair.
+    """Build a sensitivity report from a factors.yaml / episode_summary.jsonl pair.
 
-    Loads the data, fits a :class:`SensitivityAnalyzer`, and saves a single posterior-marginals
-    figure. The output format follows the ``output_path`` extension (``.png``, ``.pdf``, …).
+    Loads the data, fits a SensitivityAnalyzer, and saves a single posterior-marginals
+    figure. The output format follows the output_path extension (.png, .pdf, …).
 
     Args:
         factors_yaml_path: Schema file declaring factors and outcomes.
-        jsonl_path: ``episode_summary.jsonl`` produced by eval_runner.
+        jsonl_path: episode_summary.jsonl produced by eval_runner.
         output_path: Destination figure file (parent dirs created if absent).
         observation: Outcome values to condition on, one per declared outcome. Defaults to
             the analyzer's default (1.0 for binary outcomes, the mean otherwise).

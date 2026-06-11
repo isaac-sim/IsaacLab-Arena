@@ -15,10 +15,10 @@ from typing import Literal
 
 @dataclass
 class FactorSpec:
-    """One factor's schema as declared in ``factors.yaml``.
+    """One factor's schema as declared in factors.yaml.
 
-    Continuous factors carry a ``range`` (one ``[low, high]`` pair per dim); categorical
-    factors carry ``choices`` (a list of string labels, integer-encoded by index in theta).
+    Continuous factors carry a range (one [low, high] pair per dim); categorical
+    factors carry choices (a list of string labels, integer-encoded by index in theta).
     """
 
     name: str
@@ -40,7 +40,7 @@ class OutcomeSpec:
 class SliceSpec:
     """Where a dataset came from: which policy ran which task on which embodiment.
 
-    Read from the ``slice:`` block of ``factors.yaml`` and shown in the report title.
+    Read from the slice: block of factors.yaml and shown in the report title.
     It just labels the data — nothing checks it against the rows.
     """
 
@@ -51,7 +51,7 @@ class SliceSpec:
 
 @dataclass
 class FactorSchema:
-    """Parsed ``factors.yaml`` — slice + factor list + outcome list."""
+    """Parsed factors.yaml — slice + factor list + outcome list."""
 
     slice: SliceSpec
     factors: list[FactorSpec]
@@ -59,11 +59,11 @@ class FactorSchema:
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> FactorSchema:
-        """Load a ``factors.yaml`` from disk into a typed ``FactorSchema``.
+        """Load a factors.yaml from disk into a typed FactorSchema.
 
-        The YAML must have three top-level blocks: ``slice`` (policy/task/embodiment),
-        ``factors`` (one entry per varied input), and ``outcomes`` (one entry per
-        measured output). Each factor's ``type`` must be ``continuous`` or ``categorical``.
+        The YAML must have three top-level blocks: slice (policy/task/embodiment),
+        factors (one entry per varied input), and outcomes (one entry per
+        measured output). Each factor's type must be continuous or categorical.
         """
         with open(path, encoding="utf-8") as yaml_file:
             yaml_data = yaml.safe_load(yaml_file)
@@ -112,14 +112,14 @@ class FactorSchema:
 
     @property
     def total_factor_dim(self) -> int:
-        """Total width of theta — sum of ``dim`` over continuous factors plus 1 per categorical."""
+        """Total width of theta — sum of dim over continuous factors plus 1 per categorical."""
         return sum(factor.dim if factor.type == "continuous" else 1 for factor in self.factors)
 
     @property
     def factor_columns(self) -> dict[str, slice]:
         """Map factor name → its column slice in theta.
 
-        Continuous factors occupy the leading columns (``dim`` each), then each categorical
+        Continuous factors occupy the leading columns (dim each), then each categorical
         factor occupies one trailing column. This continuous-first layout is what sbi's
         mixed density estimator expects.
         """
@@ -135,26 +135,26 @@ class FactorSchema:
 
 
 class SensitivityDataset:
-    """A ``FactorSchema`` paired with its per-episode ``theta`` (factors) and ``x`` (outcomes).
+    """A FactorSchema paired with its per-episode theta (factors) and x (outcomes).
 
     The object is a pure container: it holds the schema and the two tensors, and exposes
-    the ``prior`` and column layouts an analyzer consumes. It can be built two ways:
+    the prior and column layouts an analyzer consumes. It can be built two ways:
 
-      - :meth:`from_files` — parse a ``factors.yaml`` / ``episode_summary.jsonl`` pair
+      - from_files — parse a factors.yaml / episode_summary.jsonl pair
         (the path eval runs take).
       - the constructor — wrap in-memory tensors directly (what a synthetic simulator or
-        a unit test takes). The tensors must already be in the layout :meth:`factor_columns`
+        a unit test takes). The tensors must already be in the layout factor_columns
         describes: continuous columns first, then one integer-coded column per categorical.
     """
 
     def __init__(self, schema: FactorSchema, theta: torch.Tensor, x: torch.Tensor):
-        """Wrap an in-memory ``schema`` plus its ``theta`` / ``x`` tensors, validating shapes.
+        """Wrap an in-memory schema plus its theta / x tensors, validating shapes.
 
         Args:
             schema: The parsed factor/outcome schema. Continuous factors must carry a
-                ``range``; categorical factors must carry ``choices``.
-            theta: ``(num_episodes, total_factor_dim)`` factor matrix, continuous-first.
-            x: ``(num_episodes, num_outcomes)`` outcome matrix.
+                range; categorical factors must carry choices.
+            theta: (num_episodes, total_factor_dim) factor matrix, continuous-first.
+            x: (num_episodes, num_outcomes) outcome matrix.
         """
         assert theta.ndim == 2 and x.ndim == 2, f"theta and x must be 2D; got {theta.shape} and {x.shape}"
         assert theta.shape[0] == x.shape[0], f"theta/x row counts disagree: {theta.shape[0]} vs {x.shape[0]}"
@@ -171,10 +171,10 @@ class SensitivityDataset:
 
     @classmethod
     def from_files(cls, factors_yaml: str | Path, jsonl_path: str | Path) -> SensitivityDataset:
-        """Build a dataset from a ``factors.yaml`` schema and an ``episode_summary.jsonl``.
+        """Build a dataset from a factors.yaml schema and an episode_summary.jsonl.
 
         Parses and validates both, infers any missing continuous range from the data, and
-        assembles the ``theta`` / ``x`` tensors in the layout the analyzers expect.
+        assembles the theta / x tensors in the layout the analyzers expect.
         """
         schema = FactorSchema.from_yaml(factors_yaml)
 
@@ -191,19 +191,19 @@ class SensitivityDataset:
 
     @property
     def theta(self) -> torch.Tensor:
-        """``(num_episodes, total_factor_dim)`` matrix of factor values, one row per episode.
+        """(num_episodes, total_factor_dim) matrix of factor values, one row per episode.
 
         This is the "input" sbi infers a posterior over. Column layout is given by
-        ``factor_columns`` — continuous factors first, then categoricals (integer-coded).
+        factor_columns — continuous factors first, then categoricals (integer-coded).
         """
         return self._theta
 
     @property
     def x(self) -> torch.Tensor:
-        """``(num_episodes, num_outcomes)`` matrix of outcome values, one row per episode.
+        """(num_episodes, num_outcomes) matrix of outcome values, one row per episode.
 
         This is what the analyzer conditions queries on. The analyzer typically selects a
-        single outcome column at fit time (e.g. ``success_rate``) and asks
+        single outcome column at fit time (e.g. success_rate) and asks
         "what theta values were consistent with observing this outcome?"
         """
         return self._x
@@ -215,7 +215,7 @@ class SensitivityDataset:
 
     @property
     def factor_columns(self) -> dict[str, slice]:
-        """Map factor name → its column slice in theta. Same as ``schema.factor_columns``."""
+        """Map factor name → its column slice in theta. Same as schema.factor_columns."""
         return self.schema.factor_columns
 
     @property
@@ -230,10 +230,10 @@ class SensitivityDataset:
 
     @property
     def prior(self):
-        """Uniform prior (``sbi.utils.BoxUniform``) over all factor dims.
+        """Uniform prior (sbi.utils.BoxUniform) over all factor dims.
 
-        Continuous factors use their ``[low, high]`` range; categorical factors use
-        ``[0, num_choices - 1]`` over their integer codes, in continuous-first order.
+        Continuous factors use their [low, high] range; categorical factors use
+        [0, num_choices - 1] over their integer codes, in continuous-first order.
         """
         # Import sbi lazily so loading the dataset does not pay the sbi import cost
         # unless an analyzer actually runs.
@@ -270,7 +270,7 @@ class SensitivityDataset:
 def _validate_rows(schema: FactorSchema, rows: list[dict], jsonl_path: str | Path) -> None:
     """Assert every JSONL row carries the schema's declared factor and outcome keys.
 
-    The declared names need only be a subset of each row's ``arena_env_args`` / ``outcomes``;
+    The declared names need only be a subset of each row's arena_env_args / outcomes;
     extra keys are ignored. Raises pointing at the first offending row.
     """
     expected_factor_names = {factor.name for factor in schema.factors}
@@ -292,9 +292,9 @@ def _validate_rows(schema: FactorSchema, rows: list[dict], jsonl_path: str | Pat
 
 
 def _infer_missing_factor_ranges(schema: FactorSchema, rows: list[dict]) -> None:
-    """Fill any continuous factor's missing ``range`` from the observed min/max.
+    """Fill any continuous factor's missing range from the observed min/max.
 
-    A ``range`` declared in factors.yaml takes precedence and is left untouched.
+    A range declared in factors.yaml takes precedence and is left untouched.
     """
     for factor in schema.factors:
         if factor.type != "continuous" or factor.range is not None:
@@ -309,10 +309,10 @@ def _infer_missing_factor_ranges(schema: FactorSchema, rows: list[dict]) -> None
 
 
 def _build_factor_tensor(schema: FactorSchema, rows: list[dict]) -> torch.Tensor:
-    """Assemble the per-episode factor matrix ``theta``.
+    """Assemble the per-episode factor matrix theta.
 
     Continuous columns first (one per dim), then one column per categorical factor with its
-    value integer-coded as a ``float32`` index into ``FactorSpec.choices``.
+    value integer-coded as a float32 index into FactorSpec.choices.
     """
     continuous_factors = [factor for factor in schema.factors if factor.type == "continuous"]
     categorical_factors = [factor for factor in schema.factors if factor.type == "categorical"]
@@ -352,7 +352,7 @@ def _build_factor_tensor(schema: FactorSchema, rows: list[dict]) -> torch.Tensor
 
 
 def _build_outcome_tensor(schema: FactorSchema, rows: list[dict]) -> torch.Tensor:
-    """Assemble the per-episode outcome matrix ``x`` (one column per declared outcome).
+    """Assemble the per-episode outcome matrix x (one column per declared outcome).
 
     Each outcome value is cast to float; bool outcomes become 0.0/1.0. The analyzer usually
     selects a single outcome column at fit time and conditions queries on it.

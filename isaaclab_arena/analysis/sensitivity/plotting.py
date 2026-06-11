@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
+import math
 import numpy as np
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -25,22 +27,21 @@ def plot_marginals(
 ):
     """Plot the posterior marginal of every factor in a single figure (robolab-style).
 
-    Samples the joint posterior at ``observation`` (default: ``analyzer.default_observation()``),
+    Samples the joint posterior at observation (default: analyzer.default_observation()),
     then draws one panel per factor — a density curve for continuous factors, a probability
     bar chart for categorical ones, wrapped into a grid. This is the whole deliverable: one
     figure summarising which factor values are consistent with the observed outcomes.
 
     Args:
-        analyzer: A fitted :class:`SensitivityAnalyzer`.
+        analyzer: A fitted SensitivityAnalyzer.
         observation: Outcome vector to condition on. Defaults to the analyzer's default.
         num_samples: Number of posterior samples to draw.
         output_path: If given, save the figure here. The format follows the path's
-            extension (``.png``, ``.pdf``, …); parent directories are created.
+            extension (.png, .pdf, …); parent directories are created.
 
     Returns:
-        The matplotlib ``Figure``.
+        The matplotlib Figure.
     """
-    import math
     import matplotlib.pyplot as plt
 
     if observation is None:
@@ -78,8 +79,6 @@ def plot_marginals(
     figure.tight_layout(rect=[0, 0, 1, 0.92])
 
     if output_path is not None:
-        from pathlib import Path
-
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         figure.savefig(output_path, dpi=150, bbox_inches="tight")
     return figure
@@ -114,7 +113,7 @@ def _draw_categorical_marginal(ax, factor: FactorSpec, factor_samples: np.ndarra
     """Bar chart of a categorical factor's posterior probability per choice.
 
     sbi returns categorical columns as floats over the integer-code support, so samples are
-    rounded to the nearest code in ``[0, num_choices - 1]`` and tallied into frequencies.
+    rounded to the nearest code in [0, num_choices - 1] and tallied into frequencies.
     """
     assert factor.choices is not None
     num_choices = len(factor.choices)
