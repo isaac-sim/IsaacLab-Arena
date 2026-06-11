@@ -55,11 +55,7 @@ class RelationSolver:
         self._warned_no_mesh: set[str] = set()
 
     def __deepcopy__(self, memo):
-        """Copy without the lazily-built Warp mesh state (holds unpicklable C pointers).
-
-        The mesh manager and vectorized caches are rebuilt on the next solve, so
-        the copy starts without them.
-        """
+        """Deep copy, dropping lazy Warp caches (unpicklable C pointers); rebuilt on next solve."""
         import copy
 
         cls = self.__class__

@@ -131,10 +131,7 @@ class WarpMeshManager:
         self._sphere_cache: dict[tuple, torch.Tensor] = {}
 
     def __deepcopy__(self, memo):
-        """Copy without the Warp caches (wp.Mesh holds unpicklable C pointers).
-
-        The caches are pure lazy lookups, so the copy rebuilds them on demand.
-        """
+        """Deep copy, dropping lazy Warp caches (unpicklable C pointers); rebuilt on demand."""
         import copy
 
         cls = self.__class__

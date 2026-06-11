@@ -33,7 +33,7 @@ except Exception:
 requires_warp = pytest.mark.skipif(not _WARP_AVAILABLE, reason="Warp not available")
 
 
-# Helpers
+# Unit tests
 
 
 def _make_cylinder(name: str, radius: float = 0.033, height: float = 0.1) -> DummyObject:
@@ -72,9 +72,6 @@ def _make_table() -> DummyObject:
     return table
 
 
-# Unit: greedy_sphere_decomposition
-
-
 def test_sphere_decomposition_covers_surface():
     """Sphere decomposition should cover >80% of surface sample points."""
     mesh = trimesh.creation.cylinder(radius=0.05, height=0.1, sections=32)
@@ -95,9 +92,6 @@ def test_sphere_decomposition_covers_surface():
     assert coverage > 0.8, f"Coverage only {coverage:.1%}"
 
 
-# Unit: WarpMeshManager caching
-
-
 @requires_warp
 def test_warp_mesh_caching():
     """Same mesh object should return identical Warp mesh from cache."""
@@ -106,9 +100,6 @@ def test_warp_mesh_caching():
     m1 = manager.get_warp_mesh(mesh)
     m2 = manager.get_warp_mesh(mesh)
     assert m1 is m2
-
-
-# Unit: NoCollisionLossStrategy routing
 
 
 def test_dispatch_routes_to_aabb_in_bbox_mode():
@@ -160,9 +151,6 @@ def test_dispatch_falls_back_when_no_mesh():
         parent_pos=torch.tensor([0.5, 0.0, 0.0]),
     )
     assert torch.isclose(loss, torch.tensor(0.0), atol=1e-5)
-
-
-# Unit: NoCollisionLossStrategy mesh mode (requires warp)
 
 
 @requires_warp
@@ -223,7 +211,7 @@ def test_mesh_loss_respects_clearance_m():
     assert loss_with_clearance.item() > loss_no_clearance.item()
 
 
-# Integration: solver with mesh mode
+# Integration tests
 
 
 @requires_warp
@@ -275,7 +263,7 @@ def test_on_pairs_skipped_in_mesh_mode():
     assert 0.0 < z < 0.15, f"Object pushed too far: z={z}"
 
 
-# Guard: yaw + mesh incompatibility
+# Guard tests
 
 
 @requires_warp
@@ -364,11 +352,7 @@ def test_centers_in_target_frame_applies_both_yaws():
 
 @requires_warp
 def test_mesh_zero_loss_well_separated_cylinders():
-    """Mesh mode correctly reports zero loss when objects are clearly separated.
-
-    Uses large enough separation that sphere decomposition inflation (sphere_radius=0.01)
-    cannot bridge the gap, proving mesh mode reads actual geometry.
-    """
+    """Zero loss when objects are clearly separated (gap >> sphere_radius)."""
     a = _make_cylinder("a", radius=0.03, height=0.1)
     b = _make_cylinder("b", radius=0.03, height=0.1)
 
@@ -630,9 +614,6 @@ def test_solver_mesh_batch_size_two():
     assert dist_1 > 0.3, f"Env 1: separated objects moved too much, dist={dist_1:.4f}"
 
 
-# Unit: AABB broadphase in production path
-
-
 @requires_warp
 def test_broadphase_skips_separated_pairs():
     """Well-separated objects produce zero mesh loss from the solver path."""
@@ -677,9 +658,6 @@ def test_broadphase_does_not_skip_overlapping_pairs():
     solver.solve([table, a, b], initial)
     loss = solver.last_loss_per_env[0].item()
     assert loss > 0.0, "Overlapping objects should produce nonzero loss"
-
-
-# Unit: multi_mesh_sdf
 
 
 @requires_warp

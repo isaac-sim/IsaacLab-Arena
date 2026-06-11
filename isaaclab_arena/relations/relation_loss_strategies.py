@@ -470,21 +470,10 @@ class NoCollisionLossStrategy:
         child_yaw: float = 0.0,
         parent_yaw: float = 0.0,
     ) -> torch.Tensor:
-        """Compute collision loss, dispatching based on mode and mesh availability.
+        """Dispatch to MESH (sphere-to-SDF) or BBOX (overlap volume) based on mode.
 
-        Args:
-            clearance_m: Minimum clearance in meters.
-            child_pos: Child position (N, 3) in world coords -- gradient target.
-            child_bbox: Child AABB (used in BBOX mode).
-            parent_world_bbox: Parent world AABB (used in BBOX mode).
-            child_obj: Object with get_collision_mesh() (MESH mode).
-            parent_obj: Object with get_collision_mesh() (MESH mode).
-            parent_pos: Parent position tensor, or None for anchors (MESH mode).
-            child_yaw: Z-yaw (radians) of the child object (MESH mode).
-            parent_yaw: Z-yaw (radians) of the parent object (MESH mode).
-
-        Returns:
-            Loss tensor of shape (N,).
+        MESH-mode args (child_obj, parent_obj, parent_pos, yaws) ignored in BBOX mode.
+        Returns loss tensor of shape (N,).
         """
         if self._mode == CollisionMode.MESH and child_obj is not None and parent_obj is not None:
             child_mesh = child_obj.get_collision_mesh()

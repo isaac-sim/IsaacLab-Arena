@@ -71,7 +71,7 @@ class ObjectPlacer:
         self._solver = RelationSolver(params=self.params.solver_params)
 
     def __deepcopy__(self, memo):
-        """Skip lazy Warp caches that hold unpicklable C pointers."""
+        """Deep copy, dropping lazy Warp caches (unpicklable C pointers); rebuilt on demand."""
         import copy
 
         cls = self.__class__
@@ -807,11 +807,9 @@ class ObjectPlacer:
         anchor_objects: set[ObjectBase],
         orientations_per_env: list[dict[ObjectBase, float]],
     ) -> None:
-        """Apply solved positions and orientation to objects (skipping anchors).
+        """Apply solved positions and orientations to non-anchor objects.
 
-        The applied rotation is the marker's full quaternion (preserves roll/pitch)
-        with the sampled Z-yaw composed on top.  orientations_per_env carries total
-        Z-yaw (marker_yaw + sampled); the sampled portion is extracted here.
+        orientations_per_env carries total Z-yaw; marker yaw is subtracted to get the sampled delta.
         """
         num_envs = len(positions_per_env)
         objects = list(positions_per_env[0])

@@ -239,16 +239,16 @@ def extract_trimesh_from_usd(
         if not prim.IsA(UsdGeom.Mesh):
             continue
         mesh_prim = UsdGeom.Mesh(prim)
-        pts = mesh_prim.GetPointsAttr().Get()
-        fvc = mesh_prim.GetFaceVertexCountsAttr().Get()
-        fvi = mesh_prim.GetFaceVertexIndicesAttr().Get()
-        if pts is None or fvc is None or fvi is None:
+        points = mesh_prim.GetPointsAttr().Get()
+        face_vertex_counts = mesh_prim.GetFaceVertexCountsAttr().Get()
+        face_vertex_indices = mesh_prim.GetFaceVertexIndicesAttr().Get()
+        if points is None or face_vertex_counts is None or face_vertex_indices is None:
             continue
 
         xform = UsdGeom.Xformable(prim)
         world_tf = np.array(xform.ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
 
-        verts = np.asarray(pts, dtype=np.float64)
+        verts = np.asarray(points, dtype=np.float64)
         verts_h = np.hstack([verts, np.ones((len(verts), 1))])
         verts_world = (verts_h @ world_tf)[:, :3]
         verts_world[:, 0] *= scale[0]
@@ -257,9 +257,13 @@ def extract_trimesh_from_usd(
 
         # Fan-triangulate faces
         idx = 0
-        for count in fvc:
+        for count in face_vertex_counts:
             for k in range(1, count - 1):
-                all_faces.append([fvi[idx] + offset, fvi[idx + k] + offset, fvi[idx + k + 1] + offset])
+                all_faces.append([
+                    face_vertex_indices[idx] + offset,
+                    face_vertex_indices[idx + k] + offset,
+                    face_vertex_indices[idx + k + 1] + offset,
+                ])
             idx += count
 
         all_verts.append(verts_world)
