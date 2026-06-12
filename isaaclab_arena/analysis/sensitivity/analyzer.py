@@ -21,7 +21,9 @@ class SensitivityAnalyzer:
     - MNPE when any factor is categorical (it handles mixed continuous + categorical theta).
     - NPE when every factor is continuous.
 
-    It then trains on the full (theta, x) and samples the joint posterior at a chosen
+    Following sbi's convention, ``theta`` is the per-episode factor values (the inputs the
+    posterior is inferred over) and ``x`` is the per-episode outcomes (the observations a query
+    conditions on). It trains on the full (theta, x) and samples the joint posterior at a chosen
     observation. The single observation conditions on *all* outcome columns at once, so a
     query like "which factors produced success?" is answered for every factor jointly.
 
