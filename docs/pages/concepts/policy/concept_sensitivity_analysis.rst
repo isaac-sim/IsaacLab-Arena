@@ -149,11 +149,13 @@ Reading the output
 
    Add a sample report figure here and walk through reading it.
 
-Each panel is the posterior over one factor *conditioned on success* — "given the policy
-succeeded, which values of this factor were responsible?" For a continuous factor, mass
-concentrated at one end of its range means success favoured that end (e.g. a curve rising
-toward bright light → the policy is light-gated). For a categorical factor, the tallest
-bar is the value most associated with success.
+Each panel is the posterior over one factor *conditioned on success*. Intuitively it answers
+"given the policy succeeded, which values of this factor were responsible?" More precisely,
+among the successful episodes it shows the probability density that the factor took each
+value. For a continuous factor, mass concentrated at one end of its range means success
+favoured that end — e.g. a curve rising toward bright light means successful episodes were
+almost all bright ones, i.e. the policy needs bright light to succeed.
+For a categorical factor, the tallest bar is the value most associated with success.
 
 Current scope
 -------------
