@@ -55,12 +55,28 @@ class VariationBase(ABC):
     def __init__(self, cfg: VariationBaseCfg, name: str):
         self.name = name
         self._sampler: SamplerBase | None = None
+        self._last_draw: object | None = None
         self.apply_cfg(cfg)
 
     @property
     def enabled(self) -> bool:
         """Whether this variation is active and should be built into ``events_cfg``."""
         return self.cfg.enabled
+
+    @property
+    def last_draw(self) -> object | None:
+        """The value most recently sampled by this variation, or ``None`` if never sampled.
+
+        Set by subclasses via :meth:`_record_draw` when they realise a sample, so eval recording
+        can log the realized factor value per build/episode. Build-time variations populate it once
+        per env build; run-time variations do not record here yet (their per-reset draws would need
+        a per-env buffer — tracked as a follow-up).
+        """
+        return self._last_draw
+
+    def _record_draw(self, value: object) -> None:
+        """Store ``value`` as the realized sample of this variation (see :attr:`last_draw`)."""
+        self._last_draw = value
 
     def enable(self) -> None:
         """Mark this variation as active."""

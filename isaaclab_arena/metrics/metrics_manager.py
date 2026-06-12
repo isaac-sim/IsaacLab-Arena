@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.metrics.metric_data import MetricData, MetricsDataCollection
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
@@ -68,3 +68,33 @@ class MetricsManager:
             num_episodes=get_num_episodes(dataset_path), metric_data_entries=metric_data_entries
         )
         return metrics_data_collection
+
+    def compute_per_episode(self) -> list[dict[str, Any]]:
+        """Compute every registered metric separately for each recorded episode.
+
+        Where :meth:`compute` reduces across all episodes to one aggregate value per
+        metric, this returns one ``{metric_name: value}`` dict per episode — each metric's
+        compute func is fed that single episode's recorded array (a one-element list).
+
+        Returns:
+            A list with one metric dict per episode, in recorded order.
+        """
+        dataset_path = get_metric_recorder_dataset_path(self._env)
+        num_episodes = get_num_episodes(dataset_path)
+
+        # Recorded data arrives grouped by metric (each term -> one array per episode).
+        # Read it once here, then transpose into one metric dict per episode below.
+        episode_arrays_by_term = {
+            term_name: get_recorded_metric_data(dataset_path, term_cfg.recorder_term_name)
+            for term_name, term_cfg in zip(self._term_names, self._term_cfgs)
+        }
+
+        per_episode_metrics: list[dict[str, Any]] = []
+        for episode_index in range(num_episodes):
+            episode_metrics: dict[str, Any] = {}
+            for term_name, term_cfg in zip(self._term_names, self._term_cfgs):
+                # compute_metric_func reduces a list of per-episode arrays; give it just this one.
+                episode_array = episode_arrays_by_term[term_name][episode_index]
+                episode_metrics[term_name] = term_cfg.compute_metric_func([episode_array], **term_cfg.params)
+            per_episode_metrics.append(episode_metrics)
+        return per_episode_metrics

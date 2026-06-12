@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.evaluation.episode_writer import write_episode_summaries
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
@@ -51,6 +52,12 @@ def load_env(
         env_cfg.recorders.dataset_filename = f"dataset_{job_name}"
 
     env = arena_builder.make_registered(env_cfg, render_mode=render_mode)
+
+    # Surface the enabled variations so the episode summary writer can record them: the factor
+    # schema (run-level prior) and this build's realized build-time draws (fixed for the env's life).
+    env.unwrapped.arena_variation_factor_schema = arena_builder.get_enabled_variation_factor_schema()
+    env.unwrapped.arena_variation_draws = arena_builder.get_enabled_variation_draws()
+
     # Don't reset here - rollout_policy() will reset the env. Every reset triggers a new episode, initializing recorder & creating a new hdf5 entry.
     return env
 
@@ -244,6 +251,15 @@ def main():
     # Check if any job requires cameras and enable them if needed before starting simulation
     enable_cameras_if_required(eval_jobs_config, args_cli)
 
+    # --episode_summary (opt-in): the writer logs the full arena_env_args + realized variation
+    # draws per episode; the analyzer's factors / header decide which keys are factors.
+    episode_summary_enabled = args_cli.episode_summary is not None
+    if episode_summary_enabled:
+        print(
+            "[INFO] Episode summary recording enabled. Per-episode arena_env_args + variation_draws"
+            f" + outcomes → {args_cli.episode_summary}"
+        )
+
     with SimulationAppContext(args_cli):
         job_manager = JobManager(eval_jobs_config["jobs"])
         metrics_logger = MetricsLogger()
@@ -306,6 +322,16 @@ def main():
                         num_episodes=num_episodes_this_rebuild,
                         language_instruction=job.language_instruction,
                     )
+
+                    if episode_summary_enabled:
+                        # Opt-in instrumentation: a write failure here must not fail an
+                        # otherwise-successful rebuild (which would discard its real metrics).
+                        # Written per rebuild — each re-samples this build's variation draws.
+                        try:
+                            rows = write_episode_summaries(env, job, args_cli.episode_summary)
+                            print(f"[INFO] Wrote {rows} episode summaries for job '{job.name}' (rebuild {rebuild_idx})")
+                        except Exception as summary_error:
+                            print(f"[WARNING] Failed to write episode summaries for job '{job.name}': {summary_error}")
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
 
