@@ -111,6 +111,11 @@ _SDF_SENTINEL = 1.0e5
 _sentinel_warned_this_solve = False
 
 
+def has_sdf_sentinel(sdf_values: torch.Tensor) -> bool:
+    """True when any query hit the no-face sentinel, so the collision result is unreliable."""
+    return bool((sdf_values >= _SDF_SENTINEL).any())
+
+
 def _check_sdf_sentinel(sdf_values: torch.Tensor) -> None:
     """Per-solve warning when SDF queries return the sentinel (no mesh face found).
 
@@ -120,7 +125,7 @@ def _check_sdf_sentinel(sdf_values: torch.Tensor) -> None:
     global _sentinel_warned_this_solve
     if _sentinel_warned_this_solve:
         return
-    if (sdf_values >= _SDF_SENTINEL).any():
+    if has_sdf_sentinel(sdf_values):
         _sentinel_warned_this_solve = True
         n_bad = int((sdf_values >= _SDF_SENTINEL).sum().item())
         print(

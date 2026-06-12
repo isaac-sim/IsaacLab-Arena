@@ -2,8 +2,13 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
+from __future__ import annotations
+
 import torch
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import trimesh
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
@@ -79,7 +84,7 @@ class Object(ObjectBase):
             self.bounding_box = compute_local_bounding_box_from_usd(self.usd_path, self.scale)
         return self.bounding_box
 
-    def get_collision_mesh(self):
+    def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Lazily extract collision mesh from USD. Cached after first call."""
         if not hasattr(self, "_collision_mesh"):
             self._collision_mesh = None
