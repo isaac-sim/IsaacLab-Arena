@@ -21,6 +21,7 @@ def generate_report(
     output_path: str | Path,
     outcome_names: list[str] | tuple[str, ...] = ("success",),
     observation: list[float] | None = None,
+    seed: int | None = 0,
 ) -> Path:
     """Build a sensitivity report from a factors.yaml / episode_summary.jsonl pair.
 
@@ -34,10 +35,17 @@ def generate_report(
         outcome_names: Which per-episode outcome(s) to condition on.
         observation: Outcome values to condition on, one per outcome name. Defaults to
             conditioning on success (1) for every (binary) outcome.
+        seed: Seed for torch's global RNG, set once before fitting so the estimator training
+            and posterior sampling are reproducible. Pass ``None`` to leave the RNG untouched.
 
     Returns:
         The resolved output path.
     """
+    # Estimator training (fit) and posterior sampling both draw from torch's global RNG in
+    # sequence, so seeding once here makes the whole report reproducible.
+    if seed is not None:
+        torch.manual_seed(seed)
+
     dataset = SensitivityDataset.from_files(Path(factors_yaml_path), Path(jsonl_path), outcome_names)
     analyzer = SensitivityAnalyzer(dataset)
     analyzer.fit()
@@ -87,10 +95,21 @@ def main():
             "Outcomes are binary, so use 1 for success or 0 for failure. Defaults to 1 (success)."
         ),
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=0,
+        help="Seed for torch's global RNG, so estimator training + sampling are reproducible. Default: 0.",
+    )
     args = parser.parse_args()
 
     generate_report(
-        args.factors_yaml, args.episode_summary, args.output, outcome_names=args.outcome, observation=args.observation
+        args.factors_yaml,
+        args.episode_summary,
+        args.output,
+        outcome_names=args.outcome,
+        observation=args.observation,
+        seed=args.seed,
     )
 
 
