@@ -30,6 +30,7 @@ from isaaclab_arena.environments.relation_solver_interface import solve_and_appl
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
+from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
@@ -189,7 +190,7 @@ class ArenaEnvBuilder:
         if self._placement_event_cfg is not None:
             PlacementEventCfg = make_configclass(
                 "PlacementEventCfg",
-                [("placement_reset", EventTermCfg, self._placement_event_cfg)],
+                [(PLACEMENT_RESET_EVENT_NAME, EventTermCfg, self._placement_event_cfg)],
             )
             placement_event_cfg = PlacementEventCfg()
         variations_event_cfg = self._compose_variations_event_cfg()
