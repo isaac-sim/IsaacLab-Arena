@@ -354,7 +354,7 @@ class ObjectPlacer:
         anchor_objects: set[ObjectBase],
         generator: torch.Generator | None = None,
     ) -> dict[ObjectBase, float]:
-        """Total applied Z-yaw (marker + sampled) per non-anchor object.
+        """Compute the total applied Z-yaw (marker + sampled) for each non-anchor object.
 
         Empty dict when random_yaw_init is off.
         """
@@ -636,7 +636,12 @@ class ObjectPlacer:
 
         Skips On pairs, anchor-anchor, and mesh-less objects.
         """
-        from isaaclab_arena.relations.warp_sdf_kernels import _check_sdf_sentinel, mesh_sdf, reset_sdf_sentinel_warning
+        from isaaclab_arena.relations.warp_sdf_kernels import (
+            _check_sdf_sentinel,
+            has_sdf_sentinel,
+            mesh_sdf,
+            reset_sdf_sentinel_warning,
+        )
 
         reset_sdf_sentinel_warning()
 
@@ -712,6 +717,10 @@ class ObjectPlacer:
                 centers_a_in_b = self._centers_in_target_frame(spheres_a[:, :3], a, b, a_pos, b_pos, orientations)
                 sdf_a = mesh_sdf(centers_a_in_b, warp_b)
                 _check_sdf_sentinel(sdf_a)
+                # A sentinel means the SDF could not resolve a face, so "no overlap" is not
+                # trustworthy. Fail the layout rather than certify it collision-free.
+                if has_sdf_sentinel(sdf_a):
+                    return False
                 if (sdf_a < spheres_a[:, 3] + tolerance).any():
                     if self.params.verbose:
                         print(f"  Mesh overlap between '{a.name}' and '{b.name}'")
@@ -722,6 +731,8 @@ class ObjectPlacer:
                 centers_b_in_a = self._centers_in_target_frame(spheres_b[:, :3], b, a, b_pos, a_pos, orientations)
                 sdf_b = mesh_sdf(centers_b_in_a, warp_a)
                 _check_sdf_sentinel(sdf_b)
+                if has_sdf_sentinel(sdf_b):
+                    return False
                 if (sdf_b < spheres_b[:, 3] + tolerance).any():
                     if self.params.verbose:
                         print(f"  Mesh overlap between '{b.name}' and '{a.name}'")

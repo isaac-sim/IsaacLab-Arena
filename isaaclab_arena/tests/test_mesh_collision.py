@@ -466,6 +466,35 @@ def test_validate_no_overlap_mesh_catches_overlap():
 
 
 @requires_warp
+def test_validate_no_overlap_mesh_sentinel_fails(monkeypatch):
+    """A sentinel SDF (no resolvable face) must fail validation, not certify collision-free."""
+    from isaaclab_arena.relations import warp_sdf_kernels
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+
+    table = _make_table()
+    a = _make_cylinder("cyl_a")
+    b = _make_cylinder("cyl_b")
+    a.add_relation(On(table))
+    b.add_relation(On(table))
+
+    params = ObjectPlacerParams(
+        solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, verbose=False),
+        verbose=False,
+    )
+    placer = ObjectPlacer(params=params)
+    positions = {table: (0.0, 0.0, 0.0), a: (0.2, 0.0, 0.05), b: (-0.2, 0.0, 0.05)}
+    assert placer._validate_no_overlap_mesh(positions)
+
+    # Force every query to hit the sentinel; the same separated layout must now fail.
+    real_mesh_sdf = warp_sdf_kernels.mesh_sdf
+    monkeypatch.setattr(
+        warp_sdf_kernels, "mesh_sdf", lambda points, mesh: torch.full_like(real_mesh_sdf(points, mesh), 1.0e6)
+    )
+    assert not placer._validate_no_overlap_mesh(positions)
+
+
+@requires_warp
 def test_validate_no_overlap_mesh_respects_anchor_yaw():
     """Validator must use anchor's initial_pose yaw (not identity) when checking overlap."""
     import math

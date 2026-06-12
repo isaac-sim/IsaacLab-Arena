@@ -219,8 +219,8 @@ def extract_trimesh_from_usd(
         scale: (sx, sy, sz) scale factors applied to the final mesh.
 
     Returns:
-        Combined trimesh in the USD stage's world frame (per-prim local-to-world
-        transforms baked in), scale applied.
+        Combined trimesh in the USD stage's world frame: per-prim local-to-world
+        transforms baked in, then scaled component-wise along world X/Y/Z.
 
     Raises:
         ValueError: If the file cannot be opened or contains no mesh prims.

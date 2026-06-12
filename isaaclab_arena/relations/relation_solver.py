@@ -702,9 +702,7 @@ class RelationSolver:
             loss_history.append(loss.item())
 
             # Backprop and update (only optimizable positions will update).
-            # When all mesh pairs are filtered by broadphase and no relation losses
-            # exist, the total loss is a constant zero (no grad_fn). This is the
-            # legitimate "nothing to push apart" case — skip the step rather than crash.
+            # Constant-zero loss (all pairs broadphase-culled, no relations) has no grad_fn; nothing to step.
             if loss.grad_fn is not None:
                 loss.backward()
                 optimizer.step()
