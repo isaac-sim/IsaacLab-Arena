@@ -27,7 +27,9 @@ def get_recorded_metric_data(dataset_path: pathlib.Path, recorder_term_name: str
     recorded_metric_data_per_demo: list[np.ndarray] = []
     with h5py.File(dataset_path, "r") as f:
         demos = f["data"]
-        for demo in demos:
+        # h5py iterates group members alphabetically (demo_0, demo_1, demo_10, demo_2, ...),
+        # so sort by the numeric demo index to return episodes in recorded order.
+        for demo in sorted(demos, key=lambda name: int(name.split("_")[-1])):
             recorded_metric_data_per_demo.append(demos[demo][recorder_term_name][:])
     return recorded_metric_data_per_demo
 

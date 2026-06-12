@@ -38,3 +38,13 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
             " set only if a long sweep grows in host memory or gets OOM-killed."
         ),
     )
+    parser.add_argument(
+        "--episode_summary",
+        type=str,
+        default=None,
+        help=(
+            "Opt-in: append one self-describing JSONL row per episode (arena_env_args, realized"
+            " variation_draws, and outcomes) to this path, for sensitivity analysis. The first"
+            " line is a run-level header (slice + factor schema). Unset disables recording."
+        ),
+    )

@@ -31,6 +31,7 @@ class Job:
         status: Status = None,
         language_instruction: str = None,
         variations: list[str] = None,
+        arena_env_args_dict: dict = None,
     ):
         """Initialize a Job instance.
 
@@ -49,9 +50,12 @@ class Job:
                 takes precedence over the task's own description.
             variations: Hydra variation override strings (e.g. ``"cracker_box.color.enabled=true"``)
                 applied when composing the environment cfg. Defaults to no overrides.
+            arena_env_args_dict: The original dict form of arena_env_args (before conversion to a
+                CLI list). Logged verbatim per episode by the sensitivity episode-summary writer.
         """
         self.name = name
         self.arena_env_args = arena_env_args
+        self.arena_env_args_dict = arena_env_args_dict if arena_env_args_dict is not None else {}
         self.variations = variations if variations is not None else []
         assert num_envs > 0, "num_envs must be greater than 0"
         assert not (
@@ -114,6 +118,7 @@ class Job:
         return cls(
             name=data["name"],
             arena_env_args=cls.convert_args_dict_to_cli_args_list(data["arena_env_args"]),
+            arena_env_args_dict=data["arena_env_args"],
             policy_type=data["policy_type"],
             num_envs=num_envs,
             num_steps=num_steps,
