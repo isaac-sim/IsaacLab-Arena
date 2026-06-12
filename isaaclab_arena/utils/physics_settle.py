@@ -3,14 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Sim-side primitives for the post-reset physics settle pass.
-
-These functions are the only part of the settle check that touches the live SimulationApp:
-advancing physics and reading back object velocities. They are intentionally decoupled from the
-placement pool and its config so the high-level re-selection loop can swap in any other
-sim-app-bringup routine without changing its interface.
-"""
-
 from __future__ import annotations
 
 import torch
@@ -29,7 +21,7 @@ def step_physics(env: ManagerBasedEnv, num_steps: int, render: bool = False) -> 
         env: The Isaac Lab env to step.
         num_steps: Number of physics steps to advance.
         render: When True, render each step so the settle is visible in the GUI. Defaults to
-            False (physics-only) for the rollout path; a no-op visual cost when headless.
+            False (physics-only).
     """
     dt = env.unwrapped.sim.get_physics_dt()
     for _ in range(num_steps):

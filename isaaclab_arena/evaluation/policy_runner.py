@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import argparse
 import os
 import torch
@@ -26,7 +28,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase
 
 
-def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
+def get_policy_cls(policy_type: str) -> type[PolicyBase]:
     """Get the policy class for the given policy type name.
 
     Note that this function:
@@ -61,7 +63,7 @@ def is_distributed(args_cli: argparse.Namespace) -> bool:
 
 def rollout_policy(
     env,
-    policy: "PolicyBase",
+    policy: PolicyBase,
     num_steps: int | None,
     num_episodes: int | None,
     language_instruction: str | None = None,

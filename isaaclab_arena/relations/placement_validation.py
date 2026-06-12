@@ -13,15 +13,15 @@ class PlacementCheck(StrEnum):
     """Standard names for the placement validation checks."""
 
     NO_OVERLAP = "no_overlap"
-    """Geometric check (sim-free): no two placed object bounding boxes intersect. Gates success."""
+    """Build-time check: no two placed object bounding boxes intersect."""
 
     ON_RELATION = "on_relation"
-    """Geometric check (sim-free): every ``On`` relation holds — the child rests on its parent within the
-    configured Z tolerance. Gates success."""
+    """Build-time check: every ``On`` relation holds — the child rests on its parent within the
+    configured Z tolerance."""
 
     PHYSICS_SETTLED = "physics_settled"
-    """Dynamic check (needs the live Sim App): after stepping physics the movable objects' velocities fall
-    below threshold, i.e. the layout is stable and does not drift or topple. Optional (a failure triggers re-selection rather than failing the layout outright)."""
+    """Run-time check: after stepping physics the movable objects' velocities fall
+    below threshold, i.e. the layout is stable and does not drift or topple."""
 
 
 @dataclass
