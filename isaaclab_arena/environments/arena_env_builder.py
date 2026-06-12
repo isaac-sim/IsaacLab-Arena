@@ -36,6 +36,7 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cf
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBase
+from isaaclab_arena.variations.variations_recorder import VariationRecorder
 
 
 class ArenaEnvBuilder:
@@ -54,6 +55,11 @@ class ArenaEnvBuilder:
             num_envs=args.num_envs, env_spacing=args.env_spacing, replicate_physics=False
         )
         self._placement_event_cfg: EventTermCfg | None = None
+        # Built in ``compose_manager_cfg`` and attached to ``env.unwrapped`` in
+        # ``make_registered_and_return_cfg``. Stashed on the builder rather than the
+        # env cfg: configclass ``__post_init__`` deep-copies its attributes, which
+        # would orphan the recorder's sampler-listener closures.
+        self.variations_recorder: VariationRecorder | None = None
 
     def _solve_relations(self) -> None:
         """Solve spatial relations for objects in the scene.
@@ -165,6 +171,13 @@ class ArenaEnvBuilder:
         if self.hydra_overrides:
             variations: dict[str, list[VariationBase]] = self.get_all_variations()
             variations_hydra.apply_overrides(variations, self.hydra_overrides)
+
+        # Attach the variation recorder after overrides but before any sampling, so it
+        # observes both build-time samples (drawn just below) and run-time samples (drawn
+        # during simulation). Covers scene-side assets and the embodiment.
+        variations_recorder = VariationRecorder()
+        variations_recorder.attach(self.get_all_variations())
+        self.variations_recorder = variations_recorder
 
         # Apply build-time variations now, before scene_cfg is materialised.
         self._apply_build_time_variations()
@@ -382,4 +395,7 @@ class ArenaEnvBuilder:
         # ViewportCameraController sets the camera before KitVisualizer.initialize() is called,
         # so the call is silently ignored. Re-apply here once the visualizers are fully initialized.
         reapply_viewer_cfg(env)
+        # Attach the variation recorder to the unwrapped env. Hosting it on the env cfg
+        # would deep-copy (and break) the recorder's listener wiring; see ``__init__``.
+        env.unwrapped.variations_recorder = self.variations_recorder
         return env, cfg

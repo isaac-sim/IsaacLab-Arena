@@ -27,7 +27,7 @@ class ChoiceSamplerCfg(SamplerBaseCfg):
 class ChoiceSampler(SamplerBase, Generic[T]):
     """Uniform sampler returning items drawn from a per-call ``choices`` sequence."""
 
-    def sample(self, num_samples: int, choices: Sequence[T]) -> list[T]:
+    def _sample(self, num_samples: int, choices: Sequence[T], **kwargs) -> list[T]:  # noqa: ARG002
         """Draw ``num_samples`` items from ``choices``.
 
         Args:

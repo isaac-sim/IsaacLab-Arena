@@ -26,20 +26,12 @@ class ContinuousSamplerCfg(SamplerBaseCfg):
 
 
 class ContinuousSampler(SamplerBase):
-    """Draws continuous numeric values from a fixed-shape distribution."""
+    """Draws continuous numeric values from a fixed-shape distribution.
 
-    @abstractmethod
-    def sample(self, num_samples: int) -> torch.Tensor:
-        """Draw ``num_samples`` values from this distribution.
-
-        Args:
-            num_samples: Number of independent samples to draw, typically the
-                number of environments we're drawing a sample for.
-
-        Returns:
-            A tensor of shape ``(num_samples, *shape_per_sample)``.
-        """
-        ...
+    Concrete subclasses implement
+    :meth:`~isaaclab_arena.variations.sampler_base.SamplerBase._sample` to return
+    a tensor of shape ``(num_samples, *shape_per_sample)``.
+    """
 
     @property
     @abstractmethod
