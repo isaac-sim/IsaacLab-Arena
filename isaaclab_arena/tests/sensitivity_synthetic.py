@@ -164,7 +164,7 @@ def _demo():
     Runs the pipeline end to end on generated data: simulate → fit → plot, with no eval
     data needed. Run as::
 
-        python -m isaaclab_arena.analysis.sensitivity.synthetic --kind mixed --output eval/demo.png
+        python -m isaaclab_arena.tests.sensitivity_synthetic --kind mixed --output eval/demo.png
     """
     parser = argparse.ArgumentParser(description="Run the sensitivity pipeline on a synthetic dataset and plot it.")
     parser.add_argument(

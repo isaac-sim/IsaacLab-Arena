@@ -124,7 +124,7 @@ without Isaac Sim — useful for seeing the output shape and for validating the 
 .. code-block:: bash
 
    # mixed: three continuous + two categorical factors (MNPE)
-   python -m isaaclab_arena.analysis.sensitivity.synthetic --kind mixed --output eval/demo.png
+   python -m isaaclab_arena.tests.sensitivity_synthetic --kind mixed --output eval/demo.png
 
 ``--kind`` also accepts ``continuous`` (continuous-only factors, which exercises the NPE path).
 

@@ -20,7 +20,7 @@ import torch
 
 from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
 from isaaclab_arena.analysis.sensitivity.dataset import SensitivityDataset
-from isaaclab_arena.analysis.sensitivity.synthetic import (
+from isaaclab_arena.tests.sensitivity_synthetic import (
     CAMERA_DISTANCE,
     GRASP_OFFSET,
     LIGHT,
