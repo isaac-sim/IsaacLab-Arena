@@ -7,6 +7,13 @@ evaluation sweep — where factors such as lighting, object mass, or table mater
 varied — it fits a posterior over those factors conditioned on the outcome (e.g. success
 rate) and renders one figure summarising which factor values are associated with success.
 
+Two distinct ideas are at work. *Joint* means all factors are modelled together rather than
+one at a time, which is what captures interactions and confounds (see the next section).
+*Posterior* means the result is conditioned on the outcome: starting from the prior — the
+factor values the sweep actually drew, uniform over the declared ranges — it reweights them
+by how often each led to the chosen outcome. So the figure answers *given success, which
+factor values were in play?*, not merely *how were the factors distributed in the sweep?*
+
 Why a joint posterior, not a success rate per factor?
 -----------------------------------------------------
 
