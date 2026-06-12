@@ -1,0 +1,774 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Sensitivity Analysis &#8212; isaaclab_arena 0.2</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=0790524f97105ba85085" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=0790524f97105ba85085" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=42eea36e" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../../../_static/scripts/fontawesome.js?digest=0790524f97105ba85085"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
+
+    <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pages/concepts/policy/concept_sensitivity_analysis';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="../../../_static/favicon.png"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Variations" href="../variations/index.html" />
+    <link rel="prev" title="Evaluation Types" href="concept_evaluation_types.html" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  
+    
+    <script src="../../../_static/searchtools.js"></script>
+    <script src="../../../_static/language_data.js"></script>
+    <script src="../../../searchindex.js"></script>
+  
+
+
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.2 - Home"/>
+    <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.2 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.2</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="isaaclab_arena 0.2 - Home"/>
+    <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="isaaclab_arena 0.2 - Home"/>
+  
+  
+    <p class="title logo__title">isaaclab_arena 0.2</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/isaac-sim/IsaacLab-Arena" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i><span class="visually-hidden">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-links bd-docs-nav">
+    <div class="bd-toc-item navbar-nav">
+      <ul class="nav bd-sidenav">
+        <li class="toctree-l1 has-children" style="display: flex; justify-content: center; align-items: center; flex-direction: column;">
+          <div  style ="text-align:center;">
+            <label for="version-select" style="font-weight: bold; display: block;">Version</label>
+          </div>
+          <select id="version-select" class="version-dropdown" style="margin: 0 auto; display: block;" onchange="location = this.value;">
+            <option value="concept_sensitivity_analysis.html" selected>main</option>
+            <option value="../../../../release/0.1.0/index.html" >release/0.1.0</option>
+            <option value="../../../../release/0.1.1/index.html" >release/0.1.1</option>
+            <option value="../../../../release/0.2.0/index.html" >release/0.2.0</option>
+            <option value="../../../../release/0.2.1/index.html" >release/0.2.1</option>
+          </select>
+        </li>
+      </ul>
+    </div>
+</nav>
+</div>
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Set Up</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/installation.html">Installation</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/first_arena_env.html">First Arena Environment</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../quickstart/first_experiments/index.html">Running your First Experiments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../quickstart/first_experiments/exploring_variations.html">Exploring Environment Variations</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../quickstart/first_experiments/running_a_real_policy/index.html">Running a Real Policy</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../quickstart/first_experiments/running_a_real_policy/openpi.html">OpenPi</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../quickstart/first_experiments/running_a_real_policy/gr00t.html">GR00T</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Arena in Your Repo</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../arena_in_your_repo/index.html">Arena in Your Repository</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../arena_in_your_repo/external_installation.html">Installing IsaacLab-Arena in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../arena_in_your_repo/external_environments.html">Defining Environments in Your Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../arena_in_your_repo/external_tasks_and_embodiments.html">Your Own Tasks and Embodiments</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../example_workflows/example_environments.html">Example Environments</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../example_workflows/imitation_learning/index.html">Imitation Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/locomanipulation/index.html">G1 Loco-Manipulation Box Pick and Place Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/locomanipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/locomanipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/locomanipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/locomanipulation/step_4_policy_training.html">Policy Post-Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/locomanipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/static_apple/index.html">Unitree G1 Static Apple-to-Plate Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_apple/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_apple/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_apple/step_3_policy_training.html">Policy Post-Training (GR00T N1.7)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_apple/step_4_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/static_manipulation/index.html">GR1 Open Microwave Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/index.html">GR1 Sequential Pick &amp; Place and Close Door Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/step_2_teleoperation.html">Teleoperation Data Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/step_3_data_generation.html">Data Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/step_4_policy_training.html">Policy Post-training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/sequential_static_manipulation/step_5_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../example_workflows/reinforcement_learning_workflows/index.html">Reinforcement Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/reinforcement_learning/index.html">Franka Lift Object Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/reinforcement_learning/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/reinforcement_learning/step_2_policy_training.html">Policy Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/reinforcement_learning/step_3_evaluation.html">Closed-Loop Policy Inference and Evaluation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../example_workflows/dexsuite_lift/index.html">Dexsuite Kuka Allegro Lift Task (Newton)</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/dexsuite_lift/step_1_environment_setup.html">Environment Setup and Validation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/dexsuite_lift/step_2_policy_training.html">Policy Training (Isaac Lab)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../example_workflows/dexsuite_lift/step_3_evaluation.html">Evaluation in Arena</a></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../concept_overview.html">Concept Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concept_environment_compilation.html">Environment Compilation</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../scene/index.html">Scene</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../scene/concept_assets_design.html">Assets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../scene/concept_affordances_design.html">Affordances</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../task/index.html">Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../task/concept_sequential_tasks_design.html">Sequential Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../task/concept_rl_tasks_design.html">RL Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../task/concept_metrics_design.html">Metrics</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../embodiment/concept_teleop_devices_design.html">Teleop Devices</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../concept_object_placement.html">Object Placement</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Policy</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="concept_evaluation_types.html">Evaluation Types</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Sensitivity Analysis</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../variations/index.html">Variations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../variations/variations.html">Variations</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/private_omniverse.html">Omniverse Authentication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/assets_management.html">Assets Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/jupyter_notebooks.html">Jupyter Notebooks</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../references/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../references/citing_us.html">Citing Isaac Lab-Arena</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Policy</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Sensitivity Analysis</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="sensitivity-analysis">
+<h1>Sensitivity Analysis<a class="headerlink" href="#sensitivity-analysis" title="Link to this heading">#</a></h1>
+<p>The sensitivity-analysis toolbox answers a single question about a policy:
+<em>which environment conditions drive success?</em> Given the per-episode results of an
+evaluation sweep — where factors such as lighting, object mass, or table material were
+varied — it fits a posterior over those factors conditioned on the outcome (e.g. success
+rate) and renders one figure summarising which factor values are associated with success.</p>
+<p>Two distinct ideas are at work. <em>Joint</em> means all factors are modelled together rather than
+one at a time, which is what captures interactions and confounds (see the next section).
+<em>Posterior</em> means the result is conditioned on the outcome: starting from the prior — the
+factor values the sweep actually drew, uniform over the declared ranges — it reweights them
+by how often each led to the chosen outcome. So the figure answers <em>given success, which
+factor values were in play?</em>, not merely <em>how were the factors distributed in the sweep?</em></p>
+<section id="why-a-joint-posterior-not-a-success-rate-per-factor">
+<h2>Why a joint posterior, not a success rate per factor?<a class="headerlink" href="#why-a-joint-posterior-not-a-success-rate-per-factor" title="Link to this heading">#</a></h2>
+<p>The simplest analysis would chart a success rate for each factor independently. That hides
+the two things that matter most in a multi-factor sweep:</p>
+<ul class="simple">
+<li><p><strong>Factors interact.</strong> How much light a policy needs can depend on the object — a matte
+object may succeed at low light while a shiny one needs far more. A per-factor
+“success vs light” curve averages over objects and reports one blurry gate that is wrong
+for both. The joint posterior keeps the interaction, so you can condition on a specific
+object and see its gate.</p></li>
+<li><p><strong>Factors confound each other.</strong> If bright-light episodes also happened to use an easy
+object, a per-factor light chart cannot tell which one drove success. Modelling all
+factors together attributes the effect to the factor that actually carries it.</p></li>
+</ul>
+<p>The per-factor rate is a projection of the joint posterior — derivable from it, but not the
+other way around. The toolbox therefore always fits the joint — via simulation-based
+inference (MNPE or NPE) — and reads the per-factor marginals from it.</p>
+</section>
+<section id="how-it-works">
+<h2>How it works<a class="headerlink" href="#how-it-works" title="Link to this heading">#</a></h2>
+<p>The toolbox is a thin analysis layer over <a class="reference external" href="https://sbi.readthedocs.io">sbi</a>’s
+neural posterior estimators. The flow is:</p>
+<ol class="arabic simple">
+<li><p><strong>Per-episode input.</strong> The analysis reads an <code class="docutils literal notranslate"><span class="pre">episode_summary.jsonl</span></code> — one row per
+episode, holding that episode’s factor values and outcomes.</p></li>
+<li><p><strong>Schema.</strong> A <code class="docutils literal notranslate"><span class="pre">factors.yaml</span></code> declares the <em>factors</em> — which <code class="docutils literal notranslate"><span class="pre">arena_env_args</span></code> columns
+were varied and whether each is continuous or categorical, plus the continuous ranges
+that were swept (so the analyzer’s prior matches the simulation). It does <strong>not</strong> list
+outcomes — <em>which</em> outcome to condition on is chosen at analysis time, not saved here.</p></li>
+<li><p><strong>Inference.</strong> <code class="docutils literal notranslate"><span class="pre">SensitivityAnalyzer</span></code> loads the pair, trains an estimator on the full
+<code class="docutils literal notranslate"><span class="pre">(theta,</span> <span class="pre">x)</span></code> jointly — sbi’s terms for the factor values (<code class="docutils literal notranslate"><span class="pre">theta</span></code>) and the per-episode
+outcomes (<code class="docutils literal notranslate"><span class="pre">x</span></code>) — and samples the joint posterior conditioned on a chosen observation
+(by default, success).</p></li>
+<li><p><strong>Report.</strong> A probability density curve for each continuous factor and a probability bar
+chart for each categorical factor.</p></li>
+</ol>
+<div class="admonition-todo admonition" id="id1">
+<p class="admonition-title">Todo</p>
+<p>The eval-runner writer (<code class="docutils literal notranslate"><span class="pre">episode_writer</span></code>) that emits <code class="docutils literal notranslate"><span class="pre">episode_summary.jsonl</span></code> during
+evaluation is not part of this version — it lands in a follow-up. For now, run the analysis
+on synthetic data (see below) or on a JSONL produced externally.</p>
+</div>
+</section>
+<section id="inputs">
+<h2>Inputs<a class="headerlink" href="#inputs" title="Link to this heading">#</a></h2>
+<p><strong>factors.yaml</strong> declares only the factors that were varied (and the continuous ranges that
+were swept). Outcomes are not declared here — they’re selected at analysis time (see below):</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">factors</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">light_intensity</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">continuous</span>
+<span class="w">    </span><span class="nt">range</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[[</span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">5000.0</span><span class="p p-Indicator">]]</span><span class="w">   </span><span class="c1"># the swept range; inferred from the data&#39;s min/max if omitted</span>
+<span class="w">  </span><span class="nt">table_material</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">categorical</span>
+<span class="w">    </span><span class="nt">choices</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">oak</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">walnut</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">bamboo</span><span class="p p-Indicator">]</span>
+</pre></div>
+</div>
+<p><strong>episode_summary.jsonl</strong> holds one JSON object per episode. It carries every measured
+outcome; the analysis picks which one(s) to condition on:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;job_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pi0_sweep&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;episode_idx&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w"> </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;light_intensity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">3200.0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;table_material&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;oak&quot;</span><span class="p">},</span>
+<span class="w"> </span><span class="nt">&quot;outcomes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">}}</span>
+</pre></div>
+</div>
+</section>
+<section id="choice-of-estimator">
+<h2>Choice of estimator<a class="headerlink" href="#choice-of-estimator" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">SensitivityAnalyzer</span></code> picks the estimator from the schema automatically:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 25.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Schema</p></th>
+<th class="head"><p>Estimator</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Any categorical factor</p></td>
+<td><p>MNPE</p></td>
+<td><p>Mixed density estimator; handles continuous + categorical factors together.</p></td>
+</tr>
+<tr class="row-odd"><td><p>All continuous factors</p></td>
+<td><p>NPE</p></td>
+<td><p>Restricts to a Gaussian on a single factor, so a meaningful continuous-only
+analysis needs at least two continuous factors.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Continuous factors are normalised to <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code> before fitting and de-normalised when
+sampling, so factors on very different scales (e.g. light in the thousands, an offset in
+the hundredths) train on equal footing. Outcomes are binary (0/1); the default query
+conditions on success (1).</p>
+</section>
+<section id="running-a-report">
+<h2>Running a report<a class="headerlink" href="#running-a-report" title="Link to this heading">#</a></h2>
+<p>Point the report generator at a <code class="docutils literal notranslate"><span class="pre">(factors.yaml,</span> <span class="pre">episode_summary.jsonl)</span></code> pair. The output
+format follows the file extension (<code class="docutils literal notranslate"><span class="pre">.png</span></code>, <code class="docutils literal notranslate"><span class="pre">.pdf</span></code>, …); reports are written under
+<code class="docutils literal notranslate"><span class="pre">eval/</span></code> by default.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>isaaclab_arena.analysis.sensitivity.generate_report<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--factors_yaml<span class="w"> </span>factors.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--episode_summary<span class="w"> </span>episode_summary.jsonl<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--outcome<span class="w"> </span>success<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output<span class="w"> </span>eval/sensitivity_report.png
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">--outcome</span></code> selects which per-episode outcome(s) to condition on (keys in the rows’
+<code class="docutils literal notranslate"><span class="pre">outcomes</span></code> block); it defaults to <code class="docutils literal notranslate"><span class="pre">success</span></code>. Pass <code class="docutils literal notranslate"><span class="pre">--observation</span></code> to set the value
+per outcome — since outcomes are binary, use <code class="docutils literal notranslate"><span class="pre">1</span></code> for success or <code class="docutils literal notranslate"><span class="pre">0</span></code> for failure; it
+defaults to <code class="docutils literal notranslate"><span class="pre">1</span></code> (success).</p>
+</section>
+<section id="trying-it-on-synthetic-data">
+<h2>Trying it on synthetic data<a class="headerlink" href="#trying-it-on-synthetic-data" title="Link to this heading">#</a></h2>
+<p>A synthetic simulator with a <em>known</em> ground truth lets you run the whole pipeline without
+Isaac Sim — useful for seeing the output shape and for validating the toolbox
+(the recovered posterior should reflect the planted relationship):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># mixed: three continuous + two categorical factors (MNPE)</span>
+python<span class="w"> </span>-m<span class="w"> </span>isaaclab_arena.tests.sensitivity_synthetic<span class="w"> </span>--kind<span class="w"> </span>mixed<span class="w"> </span>--output<span class="w"> </span>eval/demo.png
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">--kind</span></code> also accepts <code class="docutils literal notranslate"><span class="pre">continuous</span></code> (continuous-only factors, which exercises the NPE path).</p>
+</section>
+<section id="reading-the-output">
+<h2>Reading the output<a class="headerlink" href="#reading-the-output" title="Link to this heading">#</a></h2>
+<div class="admonition-todo admonition" id="id2">
+<p class="admonition-title">Todo</p>
+<p>Add a sample report figure here and walk through reading it.</p>
+</div>
+<p>Each panel is the posterior over one factor <em>conditioned on success</em>. Intuitively it answers
+“given the policy succeeded, which values of this factor were responsible?” More precisely,
+among the successful episodes it shows the probability density that the factor took each
+value. For a continuous factor, mass concentrated at one end of its range means success
+favoured that end — e.g. a curve rising toward bright light means successful episodes were
+almost all bright ones, i.e. the policy needs bright light to succeed.
+For a categorical factor, the tallest bar is the value most associated with success.</p>
+</section>
+<section id="current-scope">
+<h2>Current scope<a class="headerlink" href="#current-scope" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Outcomes are treated as <strong>binary</strong> (0/1). Conditioning defaults to success; a continuous
+outcome is rejected with a clear error rather than silently averaged.</p></li>
+<li><p>Continuous <strong>vector</strong> factors (<code class="docutils literal notranslate"><span class="pre">dim</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>) are reserved for a future extension. The likely
+approach is to record scalar reductions (e.g. a norm or distance-to-reference) alongside the
+raw vector, so a pose or RGB factor becomes one or more analysable scalar columns.</p></li>
+<li><p>The estimators run on CPU and do not require Isaac Sim, so a report can be generated
+anywhere the evaluation JSONL is available.</p></li>
+<li><p>The analysis assumes the <code class="docutils literal notranslate"><span class="pre">episode_summary.jsonl</span></code> is a single coherent slice — one
+policy, task, and embodiment. <strong>TODO:</strong> add a filter (in the spirit of robolab’s
+<code class="docutils literal notranslate"><span class="pre">--filter-policy</span></code> / <code class="docutils literal notranslate"><span class="pre">--filter-task</span></code>) to select that slice from a larger JSONL,
+rather than relying on the caller to pre-filter it.</p></li>
+</ul>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="concept_evaluation_types.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Evaluation Types</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../variations/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Variations</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-a-joint-posterior-not-a-success-rate-per-factor">Why a joint posterior, not a success rate per factor?</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-it-works">How it works</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#inputs">Inputs</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choice-of-estimator">Choice of estimator</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-a-report">Running a report</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#trying-it-on-synthetic-data">Trying it on synthetic data</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reading-the-output">Reading the output</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#current-scope">Current scope</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=0790524f97105ba85085"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../../../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../../../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2025, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>
