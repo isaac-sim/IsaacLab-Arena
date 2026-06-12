@@ -101,6 +101,24 @@ The ``hdr_names`` list restricts HDR sampling to the three named maps instead of
 registered set.  The ``sampler_cfg.low`` / ``sampler_cfg.high`` vectors widen the camera
 extrinsics jitter range to ±10 mm per axis.
 
+How Hydra override paths are structured
+-----------------------------------------
+
+All override paths follow the pattern::
+
+   <asset>.<variation_name>.<cfg_field>
+
+where:
+
+* ``<asset>`` is the scene asset name (e.g. ``light``) or the embodiment name
+  (e.g. ``droid_abs_joint_pos``).
+* ``<variation_name>`` is the name under which the variation is registered on that asset
+  (e.g. ``hdr_image``, ``camera_extrinsics_wrist_camera``).
+* ``<cfg_field>`` is any attribute path within the variation's ``*Cfg`` dataclass
+  (e.g. ``enabled``, ``sampler_cfg.low``).
+
+Use ``--list-variations`` on any environment to discover the exact paths available.
+
 Configuring variations in an eval jobs config
 ---------------------------------------------
 
@@ -111,7 +129,7 @@ the ``<asset>.<variation_name>.<cfg_field>`` path.  For example, the nested entr
 ``{"light": {"hdr_image": {"enabled": true}}}`` is equivalent to the command-line override
 ``light.hdr_image.enabled=true``.
 
-The example config ``isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_demo.json``
+The example config ``isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json``
 enables three variations on a single job:
 
 .. code-block:: json
@@ -151,7 +169,7 @@ Run it with:
    python isaaclab_arena/evaluation/eval_runner.py \
      --headless \
      --enable_cameras \
-     --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_demo.json
+     --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json
 
 ``--list-variations`` works with ``eval_runner.py`` too, printing the variations catalogue for
 each job's environment:
@@ -162,21 +180,3 @@ each job's environment:
      --headless \
      --list-variations \
      --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json
-
-How Hydra override paths are structured
------------------------------------------
-
-All override paths follow the pattern::
-
-   <asset>.<variation_name>.<cfg_field>
-
-where:
-
-* ``<asset>`` is the scene asset name (e.g. ``light``) or the embodiment name
-  (e.g. ``droid_abs_joint_pos``).
-* ``<variation_name>`` is the name under which the variation is registered on that asset
-  (e.g. ``hdr_image``, ``camera_extrinsics_wrist_camera``).
-* ``<cfg_field>`` is any attribute path within the variation's ``*Cfg`` dataclass
-  (e.g. ``enabled``, ``sampler_cfg.low``).
-
-Use ``--list-variations`` on any environment to discover the exact paths available.

@@ -67,9 +67,7 @@ def test_job_convert_variations_dict_to_hydra_overrides():
     # No spaces in any token (Hydra overrides must be single clean tokens).
     assert all(" " not in override for override in overrides)
 
-
-def test_job_convert_variations_dict_empty():
-    """An empty/missing variations dict yields no overrides."""
+    # An empty/missing variations dict yields no overrides.
     assert Job.convert_variations_dict_to_hydra_overrides({}) == []
 
 
@@ -87,19 +85,15 @@ def test_job_from_dict_with_variations():
 
     assert job.variations == ["light.hdr_image.enabled=true"]
 
-
-def test_job_from_dict_without_variations_defaults_empty():
-    """A job without a variations field defaults to no overrides."""
-    job_dict = {
+    # A job without a variations field defaults to no overrides.
+    job_dict_without_variations = {
         "name": "job_without_variations",
         "arena_env_args": {"environment": "env1"},
         "policy_type": "zero_action",
         "policy_config_dict": {},
     }
 
-    job = Job.from_dict(job_dict)
-
-    assert job.variations == []
+    assert Job.from_dict(job_dict_without_variations).variations == []
 
 
 def test_job_manager_update_job_status():

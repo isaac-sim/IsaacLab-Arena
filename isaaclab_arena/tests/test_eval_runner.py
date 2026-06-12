@@ -210,12 +210,7 @@ def test_eval_runner_enable_cameras(tmp_path):
 
 
 def _test_eval_config_variation_lands_in_events_cfg(simulation_app):
-    """Drive the eval-config path (Job.from_dict -> load_env) and check the override reached a manager.
-
-    A runtime variation enabled via the job's ``variations`` block must surface as an
-    ``EventTermCfg`` in the composed ``env_cfg.events`` manager. We use the droid wrist-camera
-    extrinsics variation, which produces the event term ``wrist_camera_extrinsics_variation``.
-    """
+    """Enable a wrist camera extrinsics variation and check that it shows up as an event term in the cfg."""
     from isaaclab_arena.evaluation.eval_runner import load_env
     from isaaclab_arena.evaluation.job_manager import Job
 
@@ -233,6 +228,7 @@ def _test_eval_config_variation_lands_in_events_cfg(simulation_app):
         "num_steps": NUM_STEPS,
         "policy_type": "zero_action",
         "policy_config_dict": {},
+        # Enabling wrist camera extrinsics variation.
         "variations": {"droid_abs_joint_pos": {f"camera_extrinsics_{camera_name}": {"enabled": True}}},
     })
 

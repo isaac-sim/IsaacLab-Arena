@@ -56,13 +56,7 @@ def load_env(
 
 
 def list_variations(eval_jobs_config: dict) -> None:
-    """Print the Hydra-configurable variations for each job's environment.
-
-    Mirrors policy_runner's ``--list-variations`` but, because each eval job defines its own
-    environment via ``arena_env_args``, the catalogue is printed per job. Each job's own
-    ``variations`` overrides are applied so the catalogue reflects what the run would use.
-    Must be called inside a ``SimulationAppContext``.
-    """
+    """Print the Hydra-configurable variations for each job's environment."""
     job_manager = JobManager(eval_jobs_config["jobs"])
     for job in job_manager.all_jobs:
         args_parser = get_isaaclab_arena_environments_cli_parser()
@@ -229,7 +223,7 @@ def main():
     with open(args_cli.eval_jobs_config, encoding="utf-8") as f:
         eval_jobs_config = json.load(f)
 
-    # Print the variations catalogue for each job's environment and exit, without running anything.
+    # Print the variations catalogue for each job's environment and exit.
     if args_cli.list_variations:
         with SimulationAppContext(args_cli):
             list_variations(eval_jobs_config)
