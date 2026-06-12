@@ -121,7 +121,7 @@ def test_from_files_parses_mixed_schema_and_builds_tensors(tmp_path):
     # Schema parsed with the declared structure.
     factors_by_name = {factor.name: factor for factor in dataset.schema.factors}
     assert factors_by_name["light_intensity"].type == "continuous"
-    assert factors_by_name["light_intensity"].range == [[0.0, 1000.0]]
+    assert factors_by_name["light_intensity"].range == [(0.0, 1000.0)]
     assert factors_by_name["pick_up_object"].type == "categorical"
     assert factors_by_name["pick_up_object"].choices == ["cube", "can"]
 
@@ -149,4 +149,4 @@ def test_from_files_infers_missing_continuous_range(tmp_path):
 
     dataset = SensitivityDataset.from_files(factors_yaml, jsonl, outcome_names=["success"])
 
-    assert dataset.schema.factors[0].range == [[30.0, 90.0]]
+    assert dataset.schema.factors[0].range == [(30.0, 90.0)]

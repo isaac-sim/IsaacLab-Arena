@@ -31,12 +31,15 @@ class FactorSpec:
     name: str
     type: FactorType
     dim: int = 1
-    range: list[list[float]] | None = None  # one [low, high] pair per dim, continuous only
+    range: list[tuple[float, float]] | None = None  # one (low, high) pair per dim, continuous only
     choices: list[str] | None = None  # categorical only
 
     def __post_init__(self) -> None:
         # Accept the raw string form (from YAML / callers) and normalize to the enum.
         self.type = FactorType(self.type)
+        # Normalize each (low, high) pair to a tuple (YAML/JSON deliver them as lists).
+        if self.range is not None:
+            self.range = [tuple(pair) for pair in self.range]
 
 
 @dataclass
@@ -266,7 +269,7 @@ def _infer_missing_factor_ranges(schema: FactorSchema, rows: list[dict]) -> None
                 f" factor {factor.name!r} has dim={factor.dim}"
             )
         observed_values = [float(row["arena_env_args"][factor.name]) for row in rows]
-        factor.range = [[min(observed_values), max(observed_values)]]
+        factor.range = [(min(observed_values), max(observed_values))]
 
 
 def _build_factor_tensor(schema: FactorSchema, rows: list[dict]) -> torch.Tensor:
