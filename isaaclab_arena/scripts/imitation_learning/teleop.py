@@ -67,6 +67,7 @@ def main() -> None:
     """
     # parse configuration
     arena_builder = get_arena_builder_from_cli(args_cli)
+    embodiment = arena_builder.arena_env.embodiment
     env_name, env_cfg = arena_builder.build_registered()
     # modify configuration
     env_cfg.terminations.time_out = None
@@ -129,6 +130,8 @@ def main() -> None:
         """
         nonlocal teleoperation_active
         teleoperation_active = True
+        if embodiment is not None and hasattr(embodiment, "begin_teleop_action_warmup"):
+            embodiment.begin_teleop_action_warmup()
         print("Teleoperation activated")
 
     def stop_teleoperation() -> None:
@@ -231,7 +234,12 @@ def main() -> None:
                     # action is None when IsaacTeleop session hasn't started yet (e.g. waiting for "Start AR")
                     if action is None:
                         env.sim.render()
+                    elif not torch.isfinite(action).all():
+                        omni.log.warn("Skipping teleop step: non-finite action from IsaacTeleop.")
+                        env.sim.render()
                     elif teleoperation_active:
+                        if embodiment is not None and hasattr(embodiment, "stabilize_teleop_action"):
+                            action = embodiment.stabilize_teleop_action(env, action)
                         actions = action.repeat(env.num_envs, 1)
                         env.step(actions)
                     else:
@@ -239,6 +247,8 @@ def main() -> None:
                     if should_reset_recording_instance:
                         env.reset()
                         teleop_interface.reset()
+                        if embodiment is not None and hasattr(embodiment, "reset_teleop_action_warmup"):
+                            embodiment.reset_teleop_action_warmup()
                         should_reset_recording_instance = False
                         print("Environment reset complete")
             except Exception as e:

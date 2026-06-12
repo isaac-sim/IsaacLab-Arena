@@ -45,14 +45,18 @@ from isaaclab_arena.utils.pose import Pose
 # ---------------------------------------------------------------------------
 # Paths
 #
-# Alex models (``alex_V1_description/``):
+# Alex models (``alex_V1_description/``, ``alex_V2_description/``):
 #   Option A (recommended for ability hands): mount the ihmc-alex-sdk *root*:
 #       ./docker/run_docker.sh -m /path/to/ihmc-alex-sdk
 #     Auto-detects ``/models/alex-models`` and ``/models/alex-ros2/ihmc_hands_ros2``.
-#   Option B (nubs only): mount alex-models alone:
+#   Option B: mount alex-models alone:
 #       ./docker/run_docker.sh -m /path/to/ihmc-alex-sdk/alex-models
 #     Lands at ``/models`` inside the container.
 #   Option C: set ``ALEX_MODELS_DIR`` explicitly inside the container.
+#
+# Alex V2 URDFs also reference ``package://alex_V1_description/`` meshes (legs and
+# cycloidal arms), so the mounted alex-models tree must contain *both* description
+# packages when using V2.
 #
 # Ability Hand models (``ihmc_hands_ros2`` package):
 #   Resolved automatically when the SDK root is mounted (Option A).
@@ -61,8 +65,8 @@ from isaaclab_arena.utils.pose import Pose
 _ABILITY_HAND_LEFT_URDF = os.path.join("urdf", "abilityHand", "ability_hand_left_large.urdf")
 
 
-def _has_alex_v1_description(models_dir: str) -> bool:
-    return os.path.isdir(os.path.join(models_dir, "alex_V1_description"))
+def _has_alex_description(models_dir: str, robot_version: str) -> bool:
+    return os.path.isdir(os.path.join(models_dir, f"alex_{robot_version}_description"))
 
 
 def _resolve_alex_models_dir() -> str:
@@ -71,9 +75,52 @@ def _resolve_alex_models_dir() -> str:
     # Docker -m mounts a host directory at /models. Accept either alex-models alone
     # or the full ihmc-alex-sdk root (alex-models is then /models/alex-models).
     for candidate in ("/models", "/models/alex-models"):
-        if _has_alex_v1_description(candidate):
+        if _has_alex_description(candidate, "V1") or _has_alex_description(candidate, "V2"):
             return candidate
     return "/models"
+
+
+def _alex_description_dir(robot_version: str) -> str:
+    return os.path.join(_ALEX_MODELS_DIR, f"alex_{robot_version}_description")
+
+
+def _alex_urdf_dir(robot_version: str) -> str:
+    return os.path.join(_alex_description_dir(robot_version), "urdf")
+
+
+def _assert_alex_sdk_layout(robot_version: str) -> None:
+    assert _has_alex_description(_ALEX_MODELS_DIR, robot_version), (
+        f"Missing alex_{robot_version}_description under {_ALEX_MODELS_DIR}.\n"
+        "Mount the ihmc-alex-sdk alex-models directory:\n"
+        "  ./docker/run_docker.sh -m /path/to/ihmc-alex-sdk\n"
+        "Or set ALEX_MODELS_DIR."
+    )
+    if robot_version == ALEX_V2:
+        assert _has_alex_description(_ALEX_MODELS_DIR, ALEX_V1), (
+            "Alex V2 URDFs reference alex_V1_description meshes (legs, cycloidal arms).\n"
+            "Mount the full ihmc-alex-sdk alex-models directory, not alex_V2_description alone."
+        )
+
+
+def _alex_arena_urdf_paths(robot_version: str) -> dict[str, str]:
+    ver = robot_version.lower()
+    urdf_dir = _alex_urdf_dir(robot_version)
+    return {
+        "urdf_dir": urdf_dir,
+        "nubs_resolved": os.path.join(urdf_dir, f"alex_{ver}_nubs_arena_resolved.urdf"),
+        "nubs_pink_ik": os.path.join(urdf_dir, f"alex_{ver}_nubs_arena_pink_ik.urdf"),
+        "ability_hands_resolved": os.path.join(urdf_dir, f"alex_{ver}_ability_hands_arena_resolved.urdf"),
+        "ability_hands_pink_ik": os.path.join(urdf_dir, f"alex_{ver}_ability_hands_arena_pink_ik.urdf"),
+    }
+
+
+def _mesh_path_replacements() -> dict[str, str]:
+    replacements = {
+        f"package://alex_{version}_description/": _alex_description_dir(version) + "/"
+        for version in (ALEX_V1, ALEX_V2)
+    }
+    replacements["package://abilityHand/"] = os.path.join(_ABILITY_HAND_MODELS_DIR, "meshes", "abilityHand") + "/"
+    return replacements
 
 
 def _resolve_ability_hand_models_dir(alex_models_dir: str) -> str:
@@ -100,7 +147,7 @@ _ABILITY_HAND_MODELS_DIR = _resolve_ability_hand_models_dir(_ALEX_MODELS_DIR)
 # Only ALEX_URDF_PATH is changed: relative → absolute via _ALEX_MODELS_DIR.
 # ---------------------------------------------------------------------------
 ALEX_URDF_PATH = _ALEX_MODELS_DIR + "/"
-HANDS_PATH = ""  # not used for nub-forearm configuration
+HANDS_PATH = _ABILITY_HAND_MODELS_DIR + "/"
 
 ALEX_V1 = "V1"
 ALEX_V2 = "V2"
@@ -141,6 +188,9 @@ STIFFNESS_85_SHOULDER_Y = EFFORT_LIMIT_85 / 9.0
 STIFFNESS_85_SHOULDER_X = EFFORT_LIMIT_85 / 9.0
 STIFFNESS_68_SHOULDER_Z = EFFORT_LIMIT_68 / 4.5
 STIFFNESS_68_ELBOW_Y = EFFORT_LIMIT_68 / 4.5
+STIFFNESS_S_WRIST_Z = 5.0
+STIFFNESS_S_WRIST_X = 5.0
+STIFFNESS_S_GRIPPER_Z = 5.0
 
 DAMPING_85_HIP_X = EFFORT_LIMIT_85 / 20.0
 DAMPING_68_HIP_Z = EFFORT_LIMIT_68 / 10.0
@@ -155,6 +205,9 @@ DAMPING_85_SHOULDER_Y = 8.0
 DAMPING_85_SHOULDER_X = 8.0
 DAMPING_68_SHOULDER_Z = 4.0
 DAMPING_68_ELBOW_Y = 4.0
+DAMPING_S_WRIST_Z = 1.0
+DAMPING_S_WRIST_X = 1.0
+DAMPING_S_GRIPPER_Z = 1.0
 
 ARMATURE_SCALE = 1.0
 ARMATURE_ANKLE_SCALE = 1.0
@@ -170,23 +223,27 @@ ARMATURE_S = 0.005 * ARMATURE_SCALE
 def merge_urdfs(
     robot_version: str,
     wanted_parts: List[str],
-    fixed_joints: List[str] = [""],
+    fixed_joints: List[str] | None = None,
     allowed_collisions: List[str] | None = None,
     output_name: str = "temp",
 ):
     """Assemble a URDF from per-part component files.
 
-    Copied verbatim from isaaclab_assets/ihmc/robots/alex/alex.py;
-    uses lxml so the output preserves the original formatting.
+    Matches ``isaaclab_assets/ihmc/robots/alex/alex.py``; uses lxml so the
+    output preserves the original formatting.
     """
     from lxml import etree
+
+    _assert_alex_sdk_layout(robot_version)
+    if fixed_joints is None:
+        fixed_joints = [""]
 
     prefix = "alex_"
     excluded_name = "IMU"
 
-    main_directory = ALEX_URDF_PATH + prefix + robot_version + "_description/urdf/"
+    main_directory = os.path.join(_alex_urdf_dir(robot_version), "")
 
-    base_urdf_file = main_directory + prefix + robot_version.lower() + ".lowerBody.urdf"
+    base_urdf_file = os.path.join(main_directory, f"{prefix}{robot_version.lower()}.lowerBody.urdf")
     base_urdf = etree.parse(base_urdf_file)
     base_robot = base_urdf.getroot()
 
@@ -201,9 +258,13 @@ def merge_urdfs(
             base_robot.remove(gazebo)
 
     for wanted_part in wanted_parts:
-        directory = main_directory
-        filename = prefix + robot_version.lower() + "." + wanted_part + ".urdf"
-        curr_urdf = etree.parse(directory + filename).getroot()
+        if "ability_hand" in wanted_part:
+            directory = os.path.join(HANDS_PATH, "urdf", "abilityHand", "")
+            filename = f"{wanted_part}.urdf"
+        else:
+            directory = main_directory
+            filename = f"{prefix}{robot_version.lower()}.{wanted_part}.urdf"
+        curr_urdf = etree.parse(os.path.join(directory, filename)).getroot()
 
         for joint in curr_urdf.findall("joint"):
             if excluded_name not in joint.get("name", ""):
@@ -213,6 +274,11 @@ def merge_urdfs(
 
         for link in curr_urdf.findall("link"):
             if excluded_name not in link.get("name", ""):
+                if "ability_hand" in wanted_part:
+                    for visual in link.findall("visual"):
+                        mesh_location = visual.find("geometry/mesh").get("filename")
+                        new_location = mesh_location.replace("package://", os.path.join(HANDS_PATH, "meshes") + "/")
+                        visual.find("geometry/mesh").set("filename", new_location)
                 base_robot.append(link)
 
         for gazebo in curr_urdf.findall("gazebo"):
@@ -225,28 +291,23 @@ def merge_urdfs(
                 if collision.get("name") not in allowed_collisions:
                     link.remove(collision)
 
-    save_filepath = main_directory + output_name + ".urdf"
+    save_filepath = os.path.join(main_directory, output_name + ".urdf")
     base_urdf.write(save_filepath, pretty_print=True, xml_declaration=True, encoding="UTF-8")
     return save_filepath
 
 
-def _resolve_mesh_paths(src_path: str, output_path: str) -> str:
-    """Rewrite ``package://alex_V1_description/`` mesh paths to absolute paths.
-
-    The merged URDF from merge_urdfs still uses package:// prefixes that the
-    Isaac Sim USD importer cannot resolve without a ROS package index.
-    """
-    pkg_prefix = "package://alex_V1_description/"
-    abs_prefix = os.path.join(_ALEX_MODELS_DIR, "alex_V1_description") + "/"
-    marker = f"<!-- models_dir={_ALEX_MODELS_DIR} -->"
+def _resolve_mesh_paths(src_path: str, output_path: str, robot_version: str) -> str:
+    """Rewrite ``package://`` mesh paths to absolute paths for Isaac Sim import."""
+    marker = f"<!-- models_dir={_ALEX_MODELS_DIR},robot_version={robot_version} -->"
 
     if (
         os.path.exists(output_path)
         and os.path.getmtime(output_path) >= os.path.getmtime(src_path)
-        and marker in open(output_path).read(256)
+        and marker in open(output_path).read(512)
     ):
         return output_path
 
+    replacements = _mesh_path_replacements()
     tree = ET.parse(src_path)
     root = tree.getroot()
     for el in root.iter():
@@ -257,8 +318,10 @@ def _resolve_mesh_paths(src_path: str, output_path: str) -> str:
                 el.set(attr, normalised)
         if el.tag == "mesh":
             fn = el.get("filename", "")
-            if fn.startswith(pkg_prefix):
-                el.set("filename", abs_prefix + fn[len(pkg_prefix):])
+            for pkg_prefix, abs_prefix in replacements.items():
+                if fn.startswith(pkg_prefix):
+                    el.set("filename", abs_prefix + fn[len(pkg_prefix):])
+                    break
 
     tree.write(output_path, xml_declaration=True, encoding="unicode")
     with open(output_path, "a") as f:
@@ -294,44 +357,41 @@ def _strip_collisions_for_pink_ik(src_path: str, output_path: str) -> str:
     return output_path
 
 
-# Merged + resolved URDF paths (written once, cached by mtime).
-_ALEX_URDF_DIR = os.path.join(_ALEX_MODELS_DIR, "alex_V1_description", "urdf")
-_ALEX_MERGED_URDF_PATH = os.path.join(_ALEX_URDF_DIR, "alex_v1_nubs_arena.urdf")
-_ALEX_RESOLVED_URDF_PATH = os.path.join(_ALEX_URDF_DIR, "alex_v1_nubs_arena_resolved.urdf")
-_ALEX_PINK_IK_URDF_PATH = os.path.join(_ALEX_URDF_DIR, "alex_v1_nubs_arena_pink_ik.urdf")
+# Shared spawn / init defaults for Alex V1 and V2 (joint naming is identical).
+_ALEX_SPAWN_CFG = sim_utils.UrdfFileCfg(
+    fix_base=False,
+    replace_cylinders_with_capsules=False,
+    asset_path="",
+    activate_contact_sensors=True,
+    rigid_props=sim_utils.RigidBodyPropertiesCfg(
+        disable_gravity=False,
+        retain_accelerations=False,
+        linear_damping=0.0,
+        angular_damping=0.0,
+        max_linear_velocity=1000.0,
+        max_angular_velocity=1000.0,
+        max_depenetration_velocity=1.0,
+    ),
+    articulation_props=sim_utils.ArticulationRootPropertiesCfg(
+        enabled_self_collisions=True, solver_position_iteration_count=8, solver_velocity_iteration_count=4
+    ),
+    joint_drive=sim_utils.UrdfConverterCfg.JointDriveCfg(
+        gains=sim_utils.UrdfConverterCfg.JointDriveCfg.PDGainsCfg(stiffness=0, damping=0)
+    ),
+)
+_ALEX_INIT_STATE_CFG = ArticulationCfg.InitialStateCfg(
+    pos=(0.0, 0.0, 0.93),
+    joint_pos={".*": 0.0},
+    joint_vel={".*": 0.0},
+)
 
 # ---------------------------------------------------------------------------
-# ArticulationCfg — copied verbatim from ALEX_V1_NUBS_DEFAULT_CFG in
-#   isaaclab_assets/ihmc/robots/alex/alex.py
+# ArticulationCfg — copied from isaaclab_assets/ihmc/robots/alex/alex.py
 # asset_path is left empty here and filled in at embodiment __init__ time.
 # ---------------------------------------------------------------------------
 ALEX_V1_NUBS_DEFAULT_CFG = ArticulationCfg(
-    spawn=sim_utils.UrdfFileCfg(
-        fix_base=False,
-        replace_cylinders_with_capsules=False,
-        asset_path="",
-        activate_contact_sensors=True,
-        rigid_props=sim_utils.RigidBodyPropertiesCfg(
-            disable_gravity=False,
-            retain_accelerations=False,
-            linear_damping=0.0,
-            angular_damping=0.0,
-            max_linear_velocity=1000.0,
-            max_angular_velocity=1000.0,
-            max_depenetration_velocity=1.0,
-        ),
-        articulation_props=sim_utils.ArticulationRootPropertiesCfg(
-            enabled_self_collisions=True, solver_position_iteration_count=8, solver_velocity_iteration_count=4
-        ),
-        joint_drive=sim_utils.UrdfConverterCfg.JointDriveCfg(
-            gains=sim_utils.UrdfConverterCfg.JointDriveCfg.PDGainsCfg(stiffness=0, damping=0)
-        ),
-    ),
-    init_state=ArticulationCfg.InitialStateCfg(
-        pos=(0.0, 0.0, 0.93),
-        joint_pos={".*": 0.0},
-        joint_vel={".*": 0.0},
-    ),
+    spawn=copy.deepcopy(_ALEX_SPAWN_CFG),
+    init_state=copy.deepcopy(_ALEX_INIT_STATE_CFG),
     soft_joint_pos_limit_factor=0.9,
     actuators={
         "legs": DelayedPDActuatorCfg(
@@ -446,6 +506,9 @@ ALEX_V1_NUBS_DEFAULT_CFG = ArticulationCfg(
         ),
     },
 )
+
+# V2 uses the same joint naming and actuator grouping as V1.
+ALEX_V2_NUBS_DEFAULT_CFG = copy.deepcopy(ALEX_V1_NUBS_DEFAULT_CFG)
 
 # ---------------------------------------------------------------------------
 # Arm joints used by the PINK IK action config
@@ -656,24 +719,27 @@ def build_alex_ability_hand_teleop_action_order() -> list[str]:
         + ABILITY_HAND_TELEOP_JOINT_ORDER
     )
 
-_ALEX_ABILITY_HANDS_MERGED_URDF_PATH = os.path.join(_ALEX_URDF_DIR, "alex_v1_ability_hands_arena.urdf")
-_ALEX_ABILITY_HANDS_RESOLVED_URDF_PATH = os.path.join(_ALEX_URDF_DIR, "alex_v1_ability_hands_arena_resolved.urdf")
-_ALEX_ABILITY_HANDS_PINK_IK_URDF_PATH = os.path.join(_ALEX_URDF_DIR, "alex_v1_ability_hands_arena_pink_ik.urdf")
-
-
-def _merge_ability_hands_urdf(robot_version: str, output_name: str = "alex_v1_ability_hands_arena") -> str:
-    """Assemble Alex with full forearms and Psyonic Ability Hands.
-
-    Calls merge_urdfs for the base + forearm + adapter parts, then appends
-    joints and links from the separate ability hand URDFs.
-    """
+def _merge_ability_hands_urdf(robot_version: str) -> str:
+    """Assemble Alex with cycloidal forearms and Psyonic Ability Hands."""
     from lxml import etree
 
+    ver = robot_version.lower()
+    output_name = f"alex_{ver}_ability_hands_arena"
+    urdf_dir = _alex_urdf_dir(robot_version)
     temp_name = "_temp_" + output_name
     merged_path = merge_urdfs(robot_version, ALEX_ABILITY_HANDS_PARTS, output_name=temp_name)
 
     tree = etree.parse(merged_path)
     base_robot = tree.getroot()
+
+    # The SDK forearm URDFs carry hand stand-in collisions on the gripper links
+    # (fist/finger/thumb proxies for the no-hand configs). The real Ability Hand
+    # links spawn inside them; with self-collisions enabled the permanent
+    # interpenetration shakes the fingers at ~90 rad/s and blows up teleop.
+    for link in base_robot.findall("link"):
+        if link.get("name", "") in ("LEFT_GRIPPER_Z_LINK", "RIGHT_GRIPPER_Z_LINK"):
+            for collision in link.findall("collision"):
+                link.remove(collision)
 
     hand_urdf_dir = os.path.join(_ABILITY_HAND_MODELS_DIR, "urdf", "abilityHand")
     for hand_urdf_name in ["ability_hand_left_large.urdf", "ability_hand_right_large.urdf"]:
@@ -689,19 +755,16 @@ def _merge_ability_hands_urdf(robot_version: str, output_name: str = "alex_v1_ab
         for child in hand_root:
             base_robot.append(child)
 
-    save_filepath = os.path.join(_ALEX_URDF_DIR, output_name + ".urdf")
+    save_filepath = os.path.join(urdf_dir, output_name + ".urdf")
     tree.write(save_filepath, pretty_print=True, xml_declaration=True, encoding="UTF-8")
     return save_filepath
 
 
-def _resolve_standalone_hand_urdf(side: str) -> str:
+def _resolve_standalone_hand_urdf(side: str, robot_version: str = ALEX_V1) -> str:
     """Resolve ``package://abilityHand/`` paths in a standalone hand URDF for dex-retargeting."""
     src_path = os.path.join(_ABILITY_HAND_MODELS_DIR, "urdf", "abilityHand", f"ability_hand_{side}_large.urdf")
-    output_path = os.path.join(_ALEX_URDF_DIR, f"ability_hand_{side}_large_resolved.urdf")
-    replacements = {
-        "package://abilityHand/": os.path.join(_ABILITY_HAND_MODELS_DIR, "meshes", "abilityHand") + "/",
-    }
-    marker = f"<!-- hands_dir={_ABILITY_HAND_MODELS_DIR},side={side} -->"
+    output_path = os.path.join(_alex_urdf_dir(robot_version), f"ability_hand_{side}_large_resolved.urdf")
+    marker = f"<!-- hands_dir={_ABILITY_HAND_MODELS_DIR},side={side},robot_version={robot_version} -->"
 
     if (
         os.path.exists(output_path)
@@ -710,58 +773,99 @@ def _resolve_standalone_hand_urdf(side: str) -> str:
     ):
         return output_path
 
-    tree = ET.parse(src_path)
-    root = tree.getroot()
-    for el in root.iter():
-        if el.tag == "mesh":
-            fn = el.get("filename", "")
-            for pkg_prefix, abs_prefix in replacements.items():
-                if fn.startswith(pkg_prefix):
-                    el.set("filename", abs_prefix + fn[len(pkg_prefix):])
-                    break
-
-    tree.write(output_path, xml_declaration=True, encoding="unicode")
-    with open(output_path, "a") as f:
-        f.write(f"\n{marker}\n")
-    return output_path
+    return _resolve_mesh_paths(src_path, output_path, robot_version)
 
 
-def _resolve_mesh_paths_ability_hands(src_path: str, output_path: str) -> str:
-    """Rewrite package:// mesh paths to absolute paths for the ability-hands URDF.
+def _default_nubs_cfg(robot_version: str) -> ArticulationCfg:
+    if robot_version == ALEX_V2:
+        return copy.deepcopy(ALEX_V2_NUBS_DEFAULT_CFG)
+    return copy.deepcopy(ALEX_V1_NUBS_DEFAULT_CFG)
 
-    Resolves both ``package://alex_V1_description/`` and ``package://abilityHand/``.
-    """
-    replacements = {
-        "package://alex_V1_description/": os.path.join(_ALEX_MODELS_DIR, "alex_V1_description") + "/",
-        "package://abilityHand/": os.path.join(_ABILITY_HAND_MODELS_DIR, "meshes", "abilityHand") + "/",
+
+def _configure_teleop_fixed_base(robot_cfg: ArticulationCfg) -> None:
+    """Pin the pelvis during OpenXR teleop so arm IK torques cannot launch the robot."""
+    robot_cfg.spawn.fix_base = True
+
+
+def _configure_teleop_arm_actuators(robot_cfg: ArticulationCfg, include_wrists: bool) -> None:
+    joint_expr = (
+        [".*SHOULDER.*", ".*ELBOW.*", ".*WRIST.*", ".*GRIPPER.*"]
+        if include_wrists
+        else [".*SHOULDER.*", ".*ELBOW.*"]
+    )
+    robot_cfg.actuators["arms"] = ImplicitActuatorCfg(
+        joint_names_expr=joint_expr,
+        effort_limit=torch.inf,
+        velocity_limit=torch.inf,
+        stiffness=3000.0,
+        damping=100.0,
+        armature=0.0,
+    )
+
+
+def _configure_policy_arm_actuators(robot_cfg: ArticulationCfg) -> None:
+    robot_cfg.actuators["arms"] = ImplicitActuatorCfg(
+        joint_names_expr=[".*SHOULDER.*", ".*ELBOW.*", ".*WRIST.*", ".*GRIPPER.*"],
+        effort_limit=torch.inf,
+        velocity_limit=torch.inf,
+        stiffness=400.0,
+        damping=40.0,
+        armature=0.0,
+    )
+
+
+def _configure_hand_actuators(robot_cfg: ArticulationCfg) -> None:
+    robot_cfg.actuators["hands"] = ImplicitActuatorCfg(
+        joint_names_expr=[".*ability_hand.*_q[12]"],
+        effort_limit=5.0,
+        velocity_limit=10.0,
+        stiffness=500.0,
+        damping=20.0,
+        armature=0.0,
+    )
+
+
+def _configure_ability_hand_robot(
+    robot_version: str,
+    *,
+    teleop: bool,
+) -> tuple[ArticulationCfg, str, str]:
+    """Build robot cfg and resolved/pink-ik URDF paths for ability-hand embodiments."""
+    paths = _alex_arena_urdf_paths(robot_version)
+    merged_urdf = _merge_ability_hands_urdf(robot_version)
+    resolved_urdf = _resolve_mesh_paths(merged_urdf, paths["ability_hands_resolved"], robot_version)
+    pink_ik_urdf = _strip_collisions_for_pink_ik(resolved_urdf, paths["ability_hands_pink_ik"])
+
+    robot_cfg = _default_nubs_cfg(robot_version)
+    robot_cfg.prim_path = "{ENV_REGEX_NS}/Robot"
+    robot_cfg.spawn.asset_path = resolved_urdf
+    robot_cfg.soft_joint_pos_limit_factor = 1.0
+
+    if teleop:
+        _configure_teleop_fixed_base(robot_cfg)
+        _configure_teleop_arm_actuators(robot_cfg, include_wrists=True)
+    else:
+        _configure_policy_arm_actuators(robot_cfg)
+    _configure_hand_actuators(robot_cfg)
+    robot_cfg.init_state.joint_pos = {
+        "LEFT_ELBOW_Y": -1.5708,
+        "RIGHT_ELBOW_Y": -1.5708,
+        **_ABILITY_HAND_DEFAULT_JOINT_POS,
     }
-    marker = f"<!-- models_dir={_ALEX_MODELS_DIR},hands_dir={_ABILITY_HAND_MODELS_DIR} -->"
+    return robot_cfg, resolved_urdf, pink_ik_urdf
 
-    if (
-        os.path.exists(output_path)
-        and os.path.getmtime(output_path) >= os.path.getmtime(src_path)
-        and marker in open(output_path).read(512)
-    ):
-        return output_path
 
-    tree = ET.parse(src_path)
-    root = tree.getroot()
-    for el in root.iter():
-        for attr, val in list(el.attrib.items()):
-            normalised = re.sub(r"\s+", " ", val).strip()
-            if normalised != val:
-                el.set(attr, normalised)
-        if el.tag == "mesh":
-            fn = el.get("filename", "")
-            for pkg_prefix, abs_prefix in replacements.items():
-                if fn.startswith(pkg_prefix):
-                    el.set("filename", abs_prefix + fn[len(pkg_prefix):])
-                    break
-
-    tree.write(output_path, xml_declaration=True, encoding="unicode")
-    with open(output_path, "a") as f:
-        f.write(f"\n{marker}\n")
-    return output_path
+def _configure_camera_events(event_config: AlexEventCfg, enable_cameras: bool) -> None:
+    if enable_cameras:
+        event_config.sync_zed_cameras = EventTerm(
+            func=sync_alex_zed_cameras,
+            mode="interval",
+            interval_range_s=(CONTROL_DT, CONTROL_DT),
+        )
+        event_config.sync_zed_cameras_reset = EventTerm(
+            func=sync_alex_zed_cameras,
+            mode="reset",
+        )
 
 
 # Alex URDF links live under ``Robot/Geometry/PELVIS_LINK/...`` after USD import.
@@ -819,17 +923,100 @@ _ZED_X_MINI_PINHOLE_SPAWN = sim_utils.PinholeCameraCfg.from_intrinsic_matrix(
     clipping_range=(0.1, 10.0),
 )
 
+# After URDF import robot links live under ``Robot/Geometry/<LINK_NAME>``.
+# OpenXR anchoring follows the torso prim for XR view sync.  Wrist targets stay in
+# world frame for Pink IK (which rebases to pelvis internally).
+_ALEX_XR_ANCHOR_TORSO_PRIM_PATH = "/World/envs/env_0/Robot/Geometry/TORSO_LINK"
+
+
+def stabilize_alex_ability_hand_teleop_action(
+    env: ManagerBasedEnv,
+    action: torch.Tensor,
+    *,
+    max_wrist_pos_error: float = 0.35,
+    max_wrist_rot_error_rad: float = 1.0,
+    force_hold_wrists: bool = False,
+) -> torch.Tensor:
+    """Replace wildly offset wrist targets with the current EEF pose.
+
+    Simulated / mis-anchored OpenXR tracking can jump on the first recorded
+    step; holding wrists until targets are nearby prevents Pink IK blow-ups.
+    """
+    if action.numel() < ALEX_ABILITY_HAND_WRIST_ACTION_DIM:
+        return action
+
+    robot = env.scene["robot"]
+    try:
+        left_ids, _ = robot.find_bodies(["LEFT_GRIPPER_Z_LINK"])
+        right_ids, _ = robot.find_bodies(["RIGHT_GRIPPER_Z_LINK"])
+    except Exception:
+        return action
+
+    left_idx = int(left_ids[0])
+    right_idx = int(right_ids[0])
+    left_pos = wp.to_torch(robot.data.body_pos_w)[0, left_idx]
+    left_quat = wp.to_torch(robot.data.body_quat_w)[0, left_idx]
+    right_pos = wp.to_torch(robot.data.body_pos_w)[0, right_idx]
+    right_quat = wp.to_torch(robot.data.body_quat_w)[0, right_idx]
+
+    action = action.clone()
+
+    # body_quat_w and the wrist action blocks are both (x, y, z, w).
+    def _hold_wrist(block_start: int, cur_pos: torch.Tensor, cur_quat_xyzw: torch.Tensor) -> None:
+        action[block_start : block_start + 3] = cur_pos
+        action[block_start + 3 : block_start + 7] = cur_quat_xyzw
+
+    def _stabilize_wrist(block_start: int, cur_pos: torch.Tensor, cur_quat_xyzw: torch.Tensor) -> None:
+        if force_hold_wrists:
+            _hold_wrist(block_start, cur_pos, cur_quat_xyzw)
+            return
+
+        tgt_pos = action[block_start : block_start + 3]
+        pos_error = torch.linalg.norm(tgt_pos - cur_pos)
+        tgt_quat_xyzw = action[block_start + 3 : block_start + 7]
+        quat_dot = torch.abs(torch.sum(cur_quat_xyzw * tgt_quat_xyzw)).clamp(max=1.0)
+        rot_error = 2.0 * torch.acos(quat_dot)
+        if pos_error > max_wrist_pos_error or rot_error > max_wrist_rot_error_rad:
+            _hold_wrist(block_start, cur_pos, cur_quat_xyzw)
+
+    _stabilize_wrist(0, left_pos, left_quat)
+    _stabilize_wrist(7, right_pos, right_quat)
+    return action
+
+
 _ALEX_XR_CFG = XrCfg(
     anchor_pos=(0.0, 0.0, -1.0),
     anchor_rot=(0.0, 0.0, -0.70711, 0.70711),
-    anchor_prim_path="/World/envs/env_0/Robot/PELVIS_LINK",
-    anchor_rotation_mode=XrAnchorRotationMode.FOLLOW_PRIM_SMOOTHED,
+    anchor_prim_path=_ALEX_XR_ANCHOR_TORSO_PRIM_PATH,
+    # FIXED: follow torso translation but keep anchor_rot.  FOLLOW_PRIM_* reads yaw
+    # from Fabric on physics-driven link prims and can yield zero-norm quaternions.
+    anchor_rotation_mode=XrAnchorRotationMode.FIXED,
     fixed_anchor_height=True,
 )
 
 
+class AlexTeleopEmbodimentMixin:
+    """Shared OpenXR anchor configuration for Alex V1 and V2."""
+
+    _teleop_warmup_steps_remaining: int = 0
+
+    def get_teleop_target_frame_prim_path(self) -> str | None:
+        """Do not rebase teleop poses into a robot link; Pink IK expects world-frame targets."""
+        return None
+
+    def begin_teleop_action_warmup(self, steps: int = 30) -> None:
+        """Hold wrist targets for the first ``steps`` teleop actions after record/teleop start."""
+        self._teleop_warmup_steps_remaining = max(0, steps)
+
+    def reset_teleop_action_warmup(self) -> None:
+        self._teleop_warmup_steps_remaining = 0
+
+    def _assign_xr_cfg(self) -> None:
+        self.xr = copy.deepcopy(_ALEX_XR_CFG)
+
+
 @register_asset
-class AlexPinkEmbodiment(EmbodimentBase):
+class AlexPinkEmbodiment(AlexTeleopEmbodimentMixin, EmbodimentBase):
     """Embodiment for the IHMC Alex V1 robot with PINK IK end-effector control.
 
     Requires the alex-models directory to be mounted into the container at /models:
@@ -838,6 +1025,7 @@ class AlexPinkEmbodiment(EmbodimentBase):
 
     name = "alex_pink"
     default_arm_mode = ArmMode.RIGHT
+    robot_version = ALEX_V1
 
     def __init__(
         self,
@@ -846,26 +1034,23 @@ class AlexPinkEmbodiment(EmbodimentBase):
         use_tiled_camera: bool = False,
     ):
         super().__init__(enable_cameras, initial_pose)
+        self._init_pink_embodiment(enable_cameras, use_tiled_camera)
 
-        merged_urdf = merge_urdfs(ALEX_V1, ALEX_NUBFOREARMS_PARTS, output_name="alex_v1_nubs_arena")
-        resolved_urdf = _resolve_mesh_paths(merged_urdf, _ALEX_RESOLVED_URDF_PATH)
+    def _init_pink_embodiment(self, enable_cameras: bool, use_tiled_camera: bool) -> None:
+        paths = _alex_arena_urdf_paths(self.robot_version)
+        ver = self.robot_version.lower()
+        merged_urdf = merge_urdfs(
+            self.robot_version,
+            ALEX_NUBFOREARMS_PARTS,
+            output_name=f"alex_{ver}_nubs_arena",
+        )
+        resolved_urdf = _resolve_mesh_paths(merged_urdf, paths["nubs_resolved"], self.robot_version)
 
-        robot_cfg = copy.deepcopy(ALEX_V1_NUBS_DEFAULT_CFG)
+        robot_cfg = _default_nubs_cfg(self.robot_version)
         robot_cfg.prim_path = "{ENV_REGEX_NS}/Robot"
         robot_cfg.spawn.asset_path = resolved_urdf
-
-        # Teleop needs high-stiffness arms to track IK targets precisely.
-        # DelayedPDActuatorCfg uses physical gains (~18 Nm/rad) which lets arms sag.
-        robot_cfg.actuators["arms"] = ImplicitActuatorCfg(
-            joint_names_expr=[".*SHOULDER.*", ".*ELBOW.*"],
-            effort_limit=torch.inf,
-            velocity_limit=torch.inf,
-            stiffness=3000.0,
-            damping=100.0,
-            armature=0.0,
-        )
-
-        # Start with elbows bent so IK has a natural initial configuration.
+        _configure_teleop_fixed_base(robot_cfg)
+        _configure_teleop_arm_actuators(robot_cfg, include_wrists=False)
         robot_cfg.init_state.joint_pos = {
             "LEFT_ELBOW_Y": -1.5708,
             "RIGHT_ELBOW_Y": -1.5708,
@@ -875,31 +1060,29 @@ class AlexPinkEmbodiment(EmbodimentBase):
         self.scene_config.robot = robot_cfg
 
         self.action_config = AlexActionsCfg()
-        # PINK IK: kinematics-only URDF (Alex capsule collisions break urdfdom).
-        pink_ik_urdf = _strip_collisions_for_pink_ik(merged_urdf, _ALEX_PINK_IK_URDF_PATH)
+        pink_ik_urdf = _strip_collisions_for_pink_ik(resolved_urdf, paths["nubs_pink_ik"])
         self.action_config.upper_body_ik.controller.urdf_path = pink_ik_urdf
         self.action_config.upper_body_ik.controller.mesh_path = _ALEX_MODELS_DIR
 
         self.observation_config = AlexObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.event_config = AlexEventCfg()
-        if enable_cameras:
-            self.event_config.sync_zed_cameras = EventTerm(
-                func=sync_alex_zed_cameras,
-                mode="interval",
-                interval_range_s=(CONTROL_DT, CONTROL_DT),
-            )
-            self.event_config.sync_zed_cameras_reset = EventTerm(
-                func=sync_alex_zed_cameras,
-                mode="reset",
-            )
+        _configure_camera_events(self.event_config, enable_cameras)
 
         self.mimic_env = AlexMimicEnv
         self.camera_config = AlexCameraCfg()
         self.camera_config._use_tiled_camera = use_tiled_camera
         self.camera_config.__post_init__()
 
-        self.xr = copy.deepcopy(_ALEX_XR_CFG)
+        self._assign_xr_cfg()
+
+
+@register_asset
+class AlexV2PinkEmbodiment(AlexPinkEmbodiment):
+    """Embodiment for the IHMC Alex V2 robot with PINK IK end-effector control."""
+
+    name = "alex_v2_pink"
+    robot_version = ALEX_V2
 
 
 @configclass
@@ -1236,7 +1419,7 @@ class AlexAbilityHandObservationsCfg:
 
 
 @register_asset
-class AlexAbilityHandEmbodiment(EmbodimentBase):
+class AlexAbilityHandEmbodiment(AlexTeleopEmbodimentMixin, EmbodimentBase):
     """Embodiment for the IHMC Alex V1 robot with Psyonic Ability Hands and PINK IK wrist control.
 
     Requires alex-models mounted at /models and the ihmc_hands_ros2 package accessible.
@@ -1246,6 +1429,7 @@ class AlexAbilityHandEmbodiment(EmbodimentBase):
 
     name = "alex_ability_hands"
     default_arm_mode = ArmMode.RIGHT
+    robot_version = ALEX_V1
 
     def __init__(
         self,
@@ -1255,68 +1439,44 @@ class AlexAbilityHandEmbodiment(EmbodimentBase):
     ):
         super().__init__(enable_cameras, initial_pose)
 
-        merged_urdf = _merge_ability_hands_urdf(ALEX_V1)
-        resolved_urdf = _resolve_mesh_paths_ability_hands(merged_urdf, _ALEX_ABILITY_HANDS_RESOLVED_URDF_PATH)
-
-        robot_cfg = copy.deepcopy(ALEX_V1_NUBS_DEFAULT_CFG)
-        robot_cfg.prim_path = "{ENV_REGEX_NS}/Robot"
-        robot_cfg.spawn.asset_path = resolved_urdf
-        # Ability Hand joints have narrow, asymmetric limits — keep full URDF range.
-        robot_cfg.soft_joint_pos_limit_factor = 1.0
-
-        # High-stiffness arms + wrists for teleop tracking.
-        robot_cfg.actuators["arms"] = ImplicitActuatorCfg(
-            joint_names_expr=[".*SHOULDER.*", ".*ELBOW.*", ".*WRIST.*", ".*GRIPPER.*"],
-            effort_limit=torch.inf,
-            velocity_limit=torch.inf,
-            stiffness=3000.0,
-            damping=100.0,
-            armature=0.0,
+        robot_cfg, _resolved_urdf, pink_ik_urdf = _configure_ability_hand_robot(
+            self.robot_version,
+            teleop=True,
         )
-        # Finger joints driven by hand-tracker retargeting (not PINK IK).
-        robot_cfg.actuators["hands"] = ImplicitActuatorCfg(
-            joint_names_expr=[".*ability_hand.*_q[12]"],
-            effort_limit=5.0,
-            velocity_limit=10.0,
-            stiffness=500.0,
-            damping=20.0,
-            armature=0.0,
-        )
-
-        robot_cfg.init_state.joint_pos = {
-            "LEFT_ELBOW_Y": -1.5708,
-            "RIGHT_ELBOW_Y": -1.5708,
-            **_ABILITY_HAND_DEFAULT_JOINT_POS,
-        }
 
         self.scene_config = AlexSceneCfg()
         self.scene_config.robot = robot_cfg
 
         self.action_config = AlexAbilityHandActionsCfg()
-        # PINK IK: kinematics-only URDF (Alex capsule collisions break urdfdom).
-        pink_ik_urdf = _strip_collisions_for_pink_ik(resolved_urdf, _ALEX_ABILITY_HANDS_PINK_IK_URDF_PATH)
         self.action_config.upper_body_ik.controller.urdf_path = pink_ik_urdf
         self.action_config.upper_body_ik.controller.mesh_path = None
 
         self.observation_config = AlexAbilityHandObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.event_config = AlexEventCfg()
-        if enable_cameras:
-            self.event_config.sync_zed_cameras = EventTerm(
-                func=sync_alex_zed_cameras,
-                mode="interval",
-                interval_range_s=(CONTROL_DT, CONTROL_DT),
-            )
-            self.event_config.sync_zed_cameras_reset = EventTerm(
-                func=sync_alex_zed_cameras,
-                mode="reset",
-            )
+        _configure_camera_events(self.event_config, enable_cameras)
         self.mimic_env = AlexAbilityHandMimicEnv
         self.camera_config = AlexCameraCfg()
         self.camera_config._use_tiled_camera = use_tiled_camera
         self.camera_config.__post_init__()
 
-        self.xr = copy.deepcopy(_ALEX_XR_CFG)
+        self._assign_xr_cfg()
+
+    def stabilize_teleop_action(self, env: ManagerBasedEnv, action: torch.Tensor) -> torch.Tensor:
+        """Clamp ability-hand wrist teleop targets before Pink IK."""
+        force_hold_wrists = self._teleop_warmup_steps_remaining > 0
+        action = stabilize_alex_ability_hand_teleop_action(env, action, force_hold_wrists=force_hold_wrists)
+        if self._teleop_warmup_steps_remaining > 0:
+            self._teleop_warmup_steps_remaining -= 1
+        return action
+
+
+@register_asset
+class AlexV2AbilityHandEmbodiment(AlexAbilityHandEmbodiment):
+    """Embodiment for the IHMC Alex V2 robot with Psyonic Ability Hands and PINK IK wrist control."""
+
+    name = "alex_v2_ability_hands"
+    robot_version = ALEX_V2
 
 
 @configclass
@@ -1355,6 +1515,7 @@ class AlexAbilityHandJointPositionEmbodiment(EmbodimentBase):
 
     name = "alex_ability_hands_joint_pos"
     default_arm_mode = ArmMode.RIGHT
+    robot_version = ALEX_V1
 
     def __init__(
         self,
@@ -1364,36 +1525,10 @@ class AlexAbilityHandJointPositionEmbodiment(EmbodimentBase):
     ):
         super().__init__(enable_cameras, initial_pose)
 
-        merged_urdf = _merge_ability_hands_urdf(ALEX_V1)
-        resolved_urdf = _resolve_mesh_paths_ability_hands(merged_urdf, _ALEX_ABILITY_HANDS_RESOLVED_URDF_PATH)
-
-        robot_cfg = copy.deepcopy(ALEX_V1_NUBS_DEFAULT_CFG)
-        robot_cfg.prim_path = "{ENV_REGEX_NS}/Robot"
-        robot_cfg.spawn.asset_path = resolved_urdf
-        robot_cfg.soft_joint_pos_limit_factor = 1.0
-
-        robot_cfg.actuators["arms"] = ImplicitActuatorCfg(
-            joint_names_expr=[".*SHOULDER.*", ".*ELBOW.*", ".*WRIST.*", ".*GRIPPER.*"],
-            effort_limit=torch.inf,
-            velocity_limit=torch.inf,
-            stiffness=400.0,
-            damping=40.0,
-            armature=0.0,
+        robot_cfg, _resolved_urdf, _pink_ik_urdf = _configure_ability_hand_robot(
+            self.robot_version,
+            teleop=False,
         )
-        robot_cfg.actuators["hands"] = ImplicitActuatorCfg(
-            joint_names_expr=[".*ability_hand.*_q[12]"],
-            effort_limit=5.0,
-            velocity_limit=10.0,
-            stiffness=500.0,
-            damping=20.0,
-            armature=0.0,
-        )
-
-        robot_cfg.init_state.joint_pos = {
-            "LEFT_ELBOW_Y": -1.5708,
-            "RIGHT_ELBOW_Y": -1.5708,
-            **_ABILITY_HAND_DEFAULT_JOINT_POS,
-        }
 
         self.scene_config = AlexSceneCfg()
         self.scene_config.robot = robot_cfg
@@ -1403,16 +1538,15 @@ class AlexAbilityHandJointPositionEmbodiment(EmbodimentBase):
         self.observation_config = AlexAbilityHandObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.event_config = AlexEventCfg()
-        if enable_cameras:
-            self.event_config.sync_zed_cameras = EventTerm(
-                func=sync_alex_zed_cameras,
-                mode="interval",
-                interval_range_s=(CONTROL_DT, CONTROL_DT),
-            )
-            self.event_config.sync_zed_cameras_reset = EventTerm(
-                func=sync_alex_zed_cameras,
-                mode="reset",
-            )
+        _configure_camera_events(self.event_config, enable_cameras)
         self.camera_config = AlexCameraCfg()
         self.camera_config._use_tiled_camera = use_tiled_camera
         self.camera_config.__post_init__()
+
+
+@register_asset
+class AlexV2AbilityHandJointPositionEmbodiment(AlexAbilityHandJointPositionEmbodiment):
+    """Alex V2 with Ability Hands using direct joint-position actions (no IK)."""
+
+    name = "alex_v2_ability_hands_joint_pos"
+    robot_version = ALEX_V2

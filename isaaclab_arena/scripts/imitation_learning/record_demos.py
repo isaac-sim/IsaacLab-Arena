@@ -175,7 +175,7 @@ def setup_output_directories() -> tuple[str, str]:
 
 def create_environment_config(
     output_dir: str, output_file_name: str
-) -> tuple[ManagerBasedRLEnvCfg | DirectRLEnvCfg, str, object | None]:
+) -> tuple[ManagerBasedRLEnvCfg | DirectRLEnvCfg, str, object | None, object | None]:
     """Create and configure the environment configuration.
 
     Parses the environment configuration and makes necessary adjustments for demo recording.
@@ -189,6 +189,7 @@ def create_environment_config(
         tuple[isaaclab_tasks.utils.parse_cfg.EnvCfg, Optional[object]]: A tuple containing:
             - env_cfg: The configured environment configuration
             - success_term: The success termination object or None if not available
+            - embodiment: The arena embodiment instance, if any
 
     Raises:
         Exception: If parsing the environment configuration fails
@@ -196,6 +197,7 @@ def create_environment_config(
     # parse configuration
     try:
         arena_builder = get_arena_builder_from_cli(args_cli)
+        embodiment = arena_builder.arena_env.embodiment
         env_name, env_cfg = arena_builder.build_registered()
 
     except Exception as e:
@@ -234,7 +236,7 @@ def create_environment_config(
     env_cfg.recorders.dataset_filename = output_file_name
     env_cfg.recorders.dataset_export_mode = DatasetExportMode.EXPORT_SUCCEEDED_ONLY
 
-    return env_cfg, env_name, success_term
+    return env_cfg, env_name, success_term, embodiment
 
 
 def create_environment(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg, env_name: str) -> gym.Env:
@@ -411,6 +413,7 @@ def run_simulation_loop(
     teleop_interface: object | None,
     success_term: object | None,
     rate_limiter: RateLimiter | None,
+    embodiment: object | None = None,
 ) -> int:
     """Run the main simulation loop for collecting demonstrations.
 
@@ -447,6 +450,8 @@ def run_simulation_loop(
     def start_recording_instance():
         nonlocal running_recording_instance
         running_recording_instance = True
+        if embodiment is not None and hasattr(embodiment, "begin_teleop_action_warmup"):
+            embodiment.begin_teleop_action_warmup()
         print("Recording started")
 
     def stop_recording_instance():
@@ -490,6 +495,14 @@ def run_simulation_loop(
                 if action is None:
                     env.sim.render()
                     continue
+                if not torch.isfinite(action).all():
+                    omni.log.warn("Skipping teleop step: non-finite action from IsaacTeleop.")
+                    env.sim.render()
+                    continue
+                if running_recording_instance and embodiment is not None and hasattr(
+                    embodiment, "stabilize_teleop_action"
+                ):
+                    action = embodiment.stabilize_teleop_action(env, action)
                 # Expand to batch dimension
                 actions = action.repeat(env.num_envs, 1)
 
@@ -538,6 +551,9 @@ def run_simulation_loop(
                 # Handle reset if requested
                 if should_reset_recording_instance:
                     success_step_count = handle_reset(env, success_step_count, instruction_display, label_text)
+                    teleop_interface.reset()
+                    if embodiment is not None and hasattr(embodiment, "reset_teleop_action_warmup"):
+                        embodiment.reset_teleop_action_warmup()
                     should_reset_recording_instance = False
 
                 # Check if simulation is stopped
@@ -586,13 +602,13 @@ def main() -> None:
 
     # Create and configure environment
     global env_cfg  # Make env_cfg available to setup_teleop_device
-    env_cfg, env_name, success_term = create_environment_config(output_dir, output_file_name)
+    env_cfg, env_name, success_term, embodiment = create_environment_config(output_dir, output_file_name)
 
     # Create environment
     env = create_environment(env_cfg, env_name)
 
     # Run simulation loop
-    current_recorded_demo_count = run_simulation_loop(env, None, success_term, rate_limiter)
+    current_recorded_demo_count = run_simulation_loop(env, None, success_term, rate_limiter, embodiment)
 
     # Clean up
     env.close()

@@ -129,7 +129,7 @@ def _build_alex_pipeline():
     return OutputCombiner({"action": connected_reorderer.output("output")})
 
 
-def _build_alex_ability_hands_pipeline():
+def _build_alex_ability_hands_pipeline(robot_version: str = "V1"):
     """Build IsaacTeleop pipeline for Alex with PINK IK wrists and dex hand retargeting.
 
     Output tensor layout: [left_wrist(7), right_wrist(7), hand_joints(20)].
@@ -167,7 +167,7 @@ def _build_alex_ability_hands_pipeline():
             use_wrist_position=True,
             target_offset_roll=0.0,
             target_offset_pitch=0.0,
-            target_offset_yaw=90.0,
+            target_offset_yaw=0.0,
         ),
         name="left_ee_pose",
     )
@@ -181,7 +181,7 @@ def _build_alex_ability_hands_pipeline():
             use_wrist_position=True,
             target_offset_roll=0.0,
             target_offset_pitch=0.0,
-            target_offset_yaw=90.0,
+            target_offset_yaw=180.0,
         ),
         name="right_ee_pose",
     )
@@ -196,7 +196,7 @@ def _build_alex_ability_hands_pipeline():
     left_dex = DexHandRetargeter(
         DexHandRetargeterConfig(
             hand_retargeting_config=os.path.join(_ABILITY_HAND_DEX_CONFIG_DIR, "ability_hand_left_dexpilot.yml"),
-            hand_urdf=_resolve_standalone_hand_urdf("left"),
+            hand_urdf=_resolve_standalone_hand_urdf("left", robot_version),
             hand_joint_names=left_independent_joint_names,
             hand_side="left",
             handtracking_to_baselink_frame_transform=operator2mano,
@@ -208,7 +208,7 @@ def _build_alex_ability_hands_pipeline():
     right_dex = DexHandRetargeter(
         DexHandRetargeterConfig(
             hand_retargeting_config=os.path.join(_ABILITY_HAND_DEX_CONFIG_DIR, "ability_hand_right_dexpilot.yml"),
-            hand_urdf=_resolve_standalone_hand_urdf("right"),
+            hand_urdf=_resolve_standalone_hand_urdf("right", robot_version),
             hand_joint_names=right_independent_joint_names,
             hand_side="right",
             handtracking_to_baselink_frame_transform=operator2mano,
@@ -276,6 +276,30 @@ class AlexAbilityHandIsaacTeleopRetargeter(RetargetterBase):
 
     def get_retargeters_to_tune(self, embodiment: object) -> Callable:
         return lambda: _build_alex_ability_hands_pipeline()[1]
+
+
+@register_retargeter
+class AlexV2PinkIsaacTeleopRetargeter(AlexPinkIsaacTeleopRetargeter):
+    """Isaac Teleop pipeline builder for Alex V2 with PINK IK arm control (no fingers)."""
+
+    embodiment = "alex_v2_pink"
+
+
+@register_retargeter
+class AlexV2AbilityHandIsaacTeleopRetargeter(AlexAbilityHandIsaacTeleopRetargeter):
+    """Isaac Teleop pipeline builder for Alex V2 with Psyonic Ability Hands and PINK IK wrist control."""
+
+    embodiment = "alex_v2_ability_hands"
+
+    def get_pipeline_builder(self, embodiment: object) -> Callable:
+        from isaaclab_arena.embodiments.alex.alex import ALEX_V2
+
+        return lambda: _build_alex_ability_hands_pipeline(ALEX_V2)[0]
+
+    def get_retargeters_to_tune(self, embodiment: object) -> Callable:
+        from isaaclab_arena.embodiments.alex.alex import ALEX_V2
+
+        return lambda: _build_alex_ability_hands_pipeline(ALEX_V2)[1]
 
 
 @register_retargeter

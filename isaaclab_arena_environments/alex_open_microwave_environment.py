@@ -17,9 +17,10 @@ if TYPE_CHECKING:
 
 @register_environment
 class AlexOpenMicrowaveEnvironment(ExampleEnvironmentBase):
-    """Open-microwave task with the IHMC Alex V1 robot.
+    """Open-microwave task with the IHMC Alex V1 or V2 robot.
 
     For ability hands (default), mount the ihmc-alex-sdk root so both alex-models
+    (must include ``alex_V1_description`` and ``alex_V2_description`` for V2)
     and ihmc_hands_ros2 are visible inside the container::
 
         ./docker/run_docker.sh -m /path/to/ihmc-alex-sdk
@@ -27,6 +28,9 @@ class AlexOpenMicrowaveEnvironment(ExampleEnvironmentBase):
     For nubs forearms only, alex-models alone is sufficient::
 
         ./docker/run_docker.sh -m /path/to/ihmc-alex-sdk/alex-models
+
+    V2 embodiments: ``alex_v2_pink``, ``alex_v2_ability_hands``,
+    ``alex_v2_ability_hands_joint_pos``.
 
     Usage::
 
@@ -65,6 +69,9 @@ class AlexOpenMicrowaveEnvironment(ExampleEnvironmentBase):
             "alex_pink",
             "alex_ability_hands",
             "alex_ability_hands_joint_pos",
+            "alex_v2_pink",
+            "alex_v2_ability_hands",
+            "alex_v2_ability_hands_joint_pos",
         ], "Invalid Alex embodiment {}".format(args_cli.embodiment)
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
         # Alex stands ~0.15 m further back than GR1T2 to account for the longer arm reach.

@@ -106,6 +106,10 @@ class EmbodimentBase(Asset):
     def get_teleop_target_frame_prim_path(self) -> str | None:
         """Optional USD prim path for rebasing teleop poses (e.g. robot base link). Returns None if not set."""
 
+    def get_teleop_target_T_world(self, env: Any, device_anchor_matrix: Any | None = None) -> Any | None:
+        """Optional OpenXR anchor correction for ``IsaacTeleopDevice.advance``."""
+        return None
+
     def get_camera_cfg(self) -> Any:
         return self.camera_config
 
