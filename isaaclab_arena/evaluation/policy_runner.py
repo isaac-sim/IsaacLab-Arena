@@ -3,28 +3,32 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import argparse
 import os
 import torch
 import tqdm
 from gymnasium.wrappers import RecordVideo
 from importlib import import_module
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.camera_video import CameraObsVideoRecorder
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
+from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
 from isaaclab_arena.utils.random import set_seed
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
+    from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase
 
 
-def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
+def get_policy_cls(policy_type: str) -> type[PolicyBase]:
     """Get the policy class for the given policy type name.
 
     Note that this function:
@@ -59,11 +63,11 @@ def is_distributed(args_cli: argparse.Namespace) -> bool:
 
 def rollout_policy(
     env,
-    policy: "PolicyBase",
+    policy: PolicyBase,
     num_steps: int | None,
     num_episodes: int | None,
     language_instruction: str | None = None,
-) -> dict[str, Any]:
+) -> MetricsDataCollection | None:
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
 
@@ -165,14 +169,20 @@ def main():
         # Add the example environment arguments + policy-related arguments to the parser
         args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
         args_parser = policy_cls.add_args_to_parser(args_parser)
-        args_cli = args_parser.parse_args()
+        args_cli, hydra_overrides = args_parser.parse_known_args()
+        assert_hydra_overrides(hydra_overrides, args_parser)
         # Re-apply per-rank device after parse preventing device got overwritten by the default value
         if is_distributed(args_cli):
             args_cli.distributed = True
             args_cli.device = f"cuda:{local_rank}"
 
         # Build scene. Use rgb_array render mode when recording so RecordVideo can grab frames.
-        arena_builder = get_arena_builder_from_cli(args_cli)
+        arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
+
+        if args_cli.list_variations:
+            print(arena_builder.get_variations_catalogue_as_string())
+            return
+
         render_mode = "rgb_array" if args_cli.video else None
         env, cfg = arena_builder.make_registered_and_return_cfg(render_mode=render_mode)
 

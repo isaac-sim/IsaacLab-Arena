@@ -3,8 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Unresolved env graph for UnresolvedArenaEnvGraphSpec: tasks carry only kind/params; the initial
-# state is an explicit ArenaEnvGraphStateSpec.  Call UnresolvedArenaEnvGraphSpec.resolve() to
+# Initial env graph for ArenaEnvInitialGraphSpec: tasks carry only kind/params; the initial
+# state is an explicit ArenaEnvGraphStateSpec.  Call ArenaEnvInitialGraphSpec.link() to
 # produce the fully-wired ArenaEnvGraphSpec.
 
 env_name: pick_and_place_maple_table_init

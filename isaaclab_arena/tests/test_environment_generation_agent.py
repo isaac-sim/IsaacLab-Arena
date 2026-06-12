@@ -208,13 +208,42 @@ class TestGenerateSpec:
         resp = MagicMock()
         resp.choices = []
         agent.client.chat.completions.create.return_value = resp
-        with pytest.raises(AssertionError, match="no choices"):
+        with pytest.raises(RuntimeError, match="failed after 4 attempts"):
             agent.generate_spec(
                 "p",
                 asset_catalog=_catalog("catalog"),
                 relation_catalog=_relation_catalog("RELATIONS"),
                 task_catalog=_task_catalog("TASKS"),
+                max_retries=3,
             )
+        assert agent.client.chat.completions.create.call_count == 4
+
+    def test_retries_after_api_error_then_succeeds(self, agent):
+        agent.client.chat.completions.create.side_effect = [
+            ConnectionError("timeout"),
+            _chat_response(content=json.dumps(_MINIMAL_SPEC)),
+        ]
+        spec, _ = agent.generate_spec(
+            "p",
+            asset_catalog=_catalog("catalog"),
+            relation_catalog=_relation_catalog("RELATIONS"),
+            task_catalog=_task_catalog("TASKS"),
+            max_retries=3,
+        )
+        assert spec.background == "kitchen"
+        assert agent.client.chat.completions.create.call_count == 2
+
+    def test_raises_after_api_errors_exhaust_retries(self, agent):
+        agent.client.chat.completions.create.side_effect = ConnectionError("timeout")
+        with pytest.raises(RuntimeError, match="failed after 2 attempts"):
+            agent.generate_spec(
+                "p",
+                asset_catalog=_catalog("catalog"),
+                relation_catalog=_relation_catalog("RELATIONS"),
+                task_catalog=_task_catalog("TASKS"),
+                max_retries=1,
+            )
+        assert agent.client.chat.completions.create.call_count == 2
 
 
 # ---------------------------------------------------------------------------

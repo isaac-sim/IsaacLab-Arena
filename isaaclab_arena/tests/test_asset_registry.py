@@ -269,9 +269,43 @@ def test_multi_light_in_scene():
     assert result, "Test failed"
 
 
+def _test_get_assets_with_all_tags(simulation_app):
+    from isaaclab_arena.assets.registries import AssetRegistry
+
+    registry = AssetRegistry()
+
+    # Empty tag list → returns every registered asset name.
+    all_names = registry.get_assets_with_all_tags([])
+    assert len(all_names) > 0
+    assert all_names == sorted(all_names), "result must be sorted"
+
+    # Single tag → subset of all names.
+    object_names = registry.get_assets_with_all_tags(["object"])
+    assert len(object_names) > 0
+    assert set(object_names) <= set(all_names)
+    assert object_names == sorted(object_names)
+
+    # Multi-tag intersection is a subset of each single-tag result.
+    background_names = registry.get_assets_with_all_tags(["background"])
+    assert len(background_names) > 0
+    # No asset should be tagged both "object" and "background".
+    assert set(object_names).isdisjoint(set(background_names))
+
+    # Nonexistent tag → empty list.
+    assert registry.get_assets_with_all_tags(["__nonexistent_tag__"]) == []
+
+    return True
+
+
+def test_get_assets_with_all_tags():
+    result = run_simulation_app_function(_test_get_assets_with_all_tags)
+    assert result, "Test failed"
+
+
 if __name__ == "__main__":
     test_default_assets_registered()
     test_all_assets_in_registry()
     test_hdr_images_registered()
     test_hdr_image_spawn()
     test_multi_light_in_scene()
+    test_get_assets_with_all_tags()
