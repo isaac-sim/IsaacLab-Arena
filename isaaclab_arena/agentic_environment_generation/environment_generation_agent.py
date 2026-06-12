@@ -224,7 +224,8 @@ class EnvironmentGenerationAgent:
         relation_catalog: RelationCatalogue | None = None,
         task_catalog: TaskCatalogue | None = None,
         temperature: float = 0.2,
-        max_tokens: int = 2000,
+        max_tokens: int = 4096,
+        max_retries: int = 3,
     ) -> tuple[EnvironmentIntentSpec, str]:
         """Call the model with user prompt and return the parsed EnvironmentIntentSpec.
 
@@ -241,6 +242,9 @@ class EnvironmentGenerationAgent:
                 deterministic-ish translation task — high temperature
                 yields creative but invalid schemas.
             max_tokens: Hard cap on the response length.
+            max_retries: Number of additional attempts after a recoverable failure
+                (network errors, timeouts, empty responses, malformed JSON). Each
+                retry is a fresh API call.
 
         Returns:
             A ``(EnvironmentIntentSpec, raw_response)`` tuple. The raw text is
@@ -256,36 +260,53 @@ class EnvironmentGenerationAgent:
         )
         system = self._system_prompt()
         user = f"{vocabulary}\n\nUSER PROMPT:\n{prompt}"
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
 
-        resp = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            response_format={
-                "type": "json_schema",
-                "json_schema": {"name": "EnvironmentIntentSpec", "strict": True, "schema": self._spec_schema},
-            },
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-        choices = getattr(resp, "choices", None) or []
-        assert choices, (
-            f"Model {self.model!r} returned HTTP 200 with no choices "
-            "(content filter / guardrail / rate-limit response with empty body)."
-        )
-        text, route = extract_response_text(choices[0].message)
-        assert route != "empty", (
-            f"Model {self.model!r} returned an empty structured-outputs envelope. "
-            "Verify the endpoint/model supports response_format=json_schema."
-        )
-        # ``strict=False`` lets json.loads accept unescaped control characters
-        # (e.g. literal tabs) inside JSON strings — DeepSeek-v4-flash is known
-        # to emit these.
-        data = json.loads(text, strict=False)
-        spec = EnvironmentIntentSpec.model_validate(data)
-        return spec, text
+        last_exc: Exception | None = None
+        for attempt in range(1 + max_retries):
+            if attempt > 0:
+                print(f"[generate_spec] retry {attempt}/{max_retries} after: {last_exc}", flush=True)
+
+            try:
+                resp = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    response_format={
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": "EnvironmentIntentSpec",
+                            "strict": True,
+                            "schema": self._spec_schema,
+                        },
+                    },
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                choices = getattr(resp, "choices", None) or []
+                assert choices, (
+                    f"Model {self.model!r} returned HTTP 200 with no choices "
+                    "(content filter / guardrail / rate-limit response with empty body)."
+                )
+                text, route = extract_response_text(choices[0].message)
+                assert route != "empty", (
+                    f"Model {self.model!r} returned an empty structured-outputs envelope. "
+                    "Verify the endpoint/model supports response_format=json_schema."
+                )
+                # ``strict=False`` lets json.loads accept unescaped control characters
+                # (e.g. literal tabs) inside JSON strings — DeepSeek-v4-flash is known
+                # to emit these.
+                data = json.loads(text, strict=False)
+                spec = EnvironmentIntentSpec.model_validate(data)
+                return spec, text
+            except Exception as exc:
+                last_exc = exc
+
+        raise RuntimeError(
+            f"Model {self.model!r} failed after {1 + max_retries} attempts. Last error: {last_exc}"
+        ) from last_exc
 
     def _system_prompt(self) -> str:
         return (

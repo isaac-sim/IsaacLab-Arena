@@ -29,10 +29,10 @@ def aggregate_metrics(metrics_per_run: list[MetricsDataCollection]) -> MetricsDa
     assert len(metrics_per_run) > 0, "metrics_per_run must contain at least one run"
 
     # All runs must expose the same set of metric names.
-    metric_names = [metric_data.term_name for metric_data in metrics_per_run[0].metric_data_entries]
+    metric_names = list(metrics_per_run[0].metric_data_entries.keys())
     expected_metric_names = set(metric_names)
     for metrics_data_collection in metrics_per_run:
-        run_metric_names = {metric_data.term_name for metric_data in metrics_data_collection.metric_data_entries}
+        run_metric_names = set(metrics_data_collection.metric_data_entries.keys())
         assert run_metric_names == expected_metric_names, (
             f"Metric name mismatch across runs: missing {expected_metric_names - run_metric_names}, "
             f"unexpected {run_metric_names - expected_metric_names}"
@@ -43,12 +43,12 @@ def aggregate_metrics(metrics_per_run: list[MetricsDataCollection]) -> MetricsDa
     # Concatenate the recorded per-episode data across runs, for each metric name.
     metric_name_to_aggregated_data: dict[str, list[np.ndarray]] = {}
     for metrics_data_collection in metrics_per_run:
-        for metric_data in metrics_data_collection.metric_data_entries:
-            metric_name_to_aggregated_data.setdefault(metric_data.term_name, []).extend(metric_data.recorded_data)
+        for metric_name, metric_data in metrics_data_collection.metric_data_entries.items():
+            metric_name_to_aggregated_data.setdefault(metric_name, []).extend(metric_data.recorded_data)
 
     # Recompute each metric value from the concatenated recorded data, reusing the term config.
     metric_cfgs = {
-        metric_data.term_name: metric_data.term_cfg for metric_data in metrics_per_run[0].metric_data_entries
+        metric_name: metric_data.term_cfg for metric_name, metric_data in metrics_per_run[0].metric_data_entries.items()
     }
     metric_name_to_aggregated_metric_value: dict[str, Any] = {}
     for metric_name, recorded_data in metric_name_to_aggregated_data.items():
@@ -58,15 +58,13 @@ def aggregate_metrics(metrics_per_run: list[MetricsDataCollection]) -> MetricsDa
         )
 
     # Assemble a new MetricsDataCollection with the aggregated metric values.
-    metric_data_entries: list[MetricData] = []
+    metric_data_entries: dict[str, MetricData] = {}
     for metric_name in metric_names:
-        metric_data_entries.append(
-            MetricData(
-                term_name=metric_name,
-                term_cfg=metric_cfgs[metric_name],
-                recorded_data=metric_name_to_aggregated_data[metric_name],
-                metric_value=metric_name_to_aggregated_metric_value[metric_name],
-            )
+        metric_data_entries[metric_name] = MetricData(
+            term_name=metric_name,
+            term_cfg=metric_cfgs[metric_name],
+            recorded_data=metric_name_to_aggregated_data[metric_name],
+            metric_value=metric_name_to_aggregated_metric_value[metric_name],
         )
 
     return MetricsDataCollection(num_episodes=total_num_episodes, metric_data_entries=metric_data_entries)

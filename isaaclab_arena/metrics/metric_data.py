@@ -5,21 +5,35 @@
 
 from __future__ import annotations
 
+import numpy as np
 from dataclasses import dataclass
-from typing import Any
 
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 
 
 @dataclass
 class MetricData:
+    """Data entry for a metric."""
+
     term_name: str
+    """The name of the metric."""
+
     term_cfg: MetricTermCfg
-    recorded_data: Any
-    metric_value: Any
+    """The configuration for the metric."""
+
+    recorded_data: list[np.ndarray]
+    """The recorded data for the metric, one array per simulated episode."""
+
+    metric_value: float | list[float]
+    """The computed value of the metric."""
 
 
 @dataclass
 class MetricsDataCollection:
+    """Collection of metric data entries."""
+
     num_episodes: int
-    metric_data_entries: list[MetricData]
+    """The number of episodes in the collection."""
+
+    metric_data_entries: dict[str, MetricData]
+    """The metric data entries, keyed by metric term name."""

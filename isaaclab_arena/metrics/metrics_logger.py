@@ -18,8 +18,7 @@ def metrics_to_plain_python_types(metrics_data: MetricsDataCollection) -> dict[s
     sanitized = {
         "num_episodes": metrics_data.num_episodes,
     }
-    for metric_data in metrics_data.metric_data_entries:
-        name = metric_data.term_name
+    for name, metric_data in metrics_data.metric_data_entries.items():
         value = metric_data.metric_value
         if isinstance(value, np.bool_):
             sanitized[name] = bool(value)

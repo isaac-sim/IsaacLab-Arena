@@ -113,6 +113,20 @@ class AssetRegistry(Registry):
         ensure_assets_registered()
         return [asset for asset in self._components.values() if tag in asset.tags]
 
+    def get_assets_with_all_tags(self, tags: list[str]) -> list[str]:
+        """Return asset names whose ``tags`` include every tag in ``tags``.
+
+        Args:
+            tags: Tags that must all be present on a candidate asset.
+                When empty, every registered asset name is returned.
+
+        Returns:
+            Sorted asset names matching every tag, or all asset names when
+            ``tags`` is empty.
+        """
+        ensure_assets_registered()
+        return sorted(asset.name for asset in self._components.values() if all(tag in asset.tags for tag in tags))
+
     def get_random_asset_by_tag(self, tag: str) -> type["Asset"]:
         """Gets a random asset which has the given tag.
 
