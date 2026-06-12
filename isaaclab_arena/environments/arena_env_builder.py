@@ -36,6 +36,7 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cf
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBase
+from isaaclab_arena.variations.variation_recording import collect_variation_draws, collect_variation_factor_schema
 
 
 class ArenaEnvBuilder:
@@ -97,6 +98,22 @@ class ArenaEnvBuilder:
         """Return a human-readable catalog of Hydra-configurable variations for this env."""
         variations: dict[str, list[VariationBase]] = self.get_all_variations()
         return variations_printing.get_variations_catalogue_as_string(variations, hydra_overrides=self.hydra_overrides)
+
+    def get_enabled_variation_factor_schema(self) -> dict[str, dict]:
+        """Return the sensitivity factor schema for every enabled variation (``<asset>.<variation>``).
+
+        Run-level metadata: which variations were varied and the prior (type + range) each samples
+        from. Logged once into the episode-summary header so the analysis is self-describing.
+        """
+        return collect_variation_factor_schema(self.get_all_variations())
+
+    def get_enabled_variation_draws(self) -> dict[str, object]:
+        """Return ``{<asset>.<variation>: realized_value}`` for this build's enabled variations.
+
+        Build-time variations sample once per build, so the returned draws are fixed for the
+        lifetime of the env this builder produced. Call after the env is built.
+        """
+        return collect_variation_draws(self.get_all_variations())
 
     def _compose_variations_event_cfg(self) -> Any | None:
         """Build a configclass with one :class:`EventTermCfg` per enabled run-time variation.
