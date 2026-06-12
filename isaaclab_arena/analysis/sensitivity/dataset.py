@@ -46,9 +46,9 @@ class FactorSpec:
 class FactorSchema:
     """Parsed factors.yaml — the list of factors that were varied.
 
-    Factors carry structure (continuous vs categorical, range/choices) needed to build theta.
-    Outcomes are not part of the schema: they are always read as floats and *which* outcome to
-    condition on is a query, chosen at analysis time (see SensitivityDataset.from_files).
+    The schema describes what *can* vary (continuous vs categorical, range/choices), not the
+    values taken in any given episode. Outcomes are not part of the schema; which outcome to
+    condition on is chosen at analysis time.
     """
 
     factors: list[FactorSpec]
