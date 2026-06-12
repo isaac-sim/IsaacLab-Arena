@@ -25,23 +25,24 @@ class PlacementCheck(StrEnum):
 
 
 @dataclass
-class PlacementValidationChecklist:
-    """A checklist of each validation check result for placement layouts.
+class PlacementValidationResults:
+    """A collection of validation check results for placement layouts.
 
     Keys are check names (see :class:`PlacementCheck` for the standard set and what each check means).
     """
 
-    checklist_items: dict[str, bool] = field(default_factory=dict)
+    validation_results: dict[PlacementCheck, bool] = field(default_factory=dict)
 
-    required_items: set[str] = field(default_factory=set)
+    required_checks: set[PlacementCheck] = field(default_factory=set)
     """Names of checks that must pass for the layout to be valid. Empty means every check is required."""
 
-    def _required(self) -> set[str]:
+    def _required(self) -> set[PlacementCheck]:
         """Required check names, defaulting to every check when none are declared."""
-        return self.required_items or set(self.checklist_items.keys())
+        return self.required_checks or set(PlacementCheck)
 
-    def pass_validation_checklist(self, required_checks: list[PlacementCheck] | None = None) -> bool:
-        """Check whether the gating checks pass. Defaults to the required checks only.
+    def do_all_required_validation_checks_pass(self, required_checks: list[PlacementCheck] | None = None) -> bool:
+        """Check whether all the required validation checks pass.
+
         Args:
             required_checks: checks that must pass. If None, only required checks gate (optional checks are ignored).
         Returns:
@@ -49,37 +50,37 @@ class PlacementValidationChecklist:
         """
         if required_checks is None:
             required_checks = self._required()
-        return all(self.checklist_items[item] for item in required_checks)
+        return all(self.validation_results.get(check, True) for check in required_checks)
 
     @property
-    def failed_checklist_items(self) -> list[str]:
-        """Get the failed checklist items."""
-        return [item for item in self.checklist_items.keys() if not self.checklist_items[item]]
+    def get_failed_validation_check_names(self) -> list[str]:
+        """Get the failed validation check names."""
+        return [check for check in self.validation_results.keys() if not self.validation_results[check]]
 
     def report(self) -> str:
         """One-line report check items and their results."""
-        verdict = "PASS" if self.pass_validation_checklist() else "FAIL"
-        items = ", ".join(f"{name}={passed}" for name, passed in self.checklist_items.items()) or "no checks"
-        return f"{verdict} [{items}]"
+        verdict = "PASS" if self.do_all_required_validation_checks_pass() else "FAIL"
+        checks = ", ".join(f"{check}={passed}" for check, passed in self.validation_results.items()) or "no checks"
+        return f"{verdict} [{checks}]"
 
     @property
-    def rank_required_and_optional_failures(self) -> tuple[int, int]:
-        """Ranking number of failed checks: required checks first, then optional checks.
-        The lower the number, the better."""
+    def get_number_of_required_and_optional_failures(self) -> tuple[int, int]:
+        """Get the number of required and optional validation checks that failed."""
         required = self._required()
-        required_failed = sum(1 for item, passed in self.checklist_items.items() if item in required and not passed)
-        optional_failed = sum(1 for item, passed in self.checklist_items.items() if item not in required and not passed)
+        failed = [check for check, passed in self.validation_results.items() if not passed]
+        required_failed = sum(1 for check in failed if check in required)
+        optional_failed = sum(1 for check in failed if check not in required)
         return (required_failed, optional_failed)
 
-    def add_checklist_item(self, item: str, value: bool, required: bool = False) -> None:
-        """Add a checklist item.
+    def add_validation_check(self, check: PlacementCheck, value: bool, required: bool = False) -> None:
+        """Add a validation check.
 
         Args:
-            item: Check name; must not already exist.
+            check: Check name; must not already exist.
             value: Whether the check passed.
-            required: If True, the item also gates pass_validation_checklist() (and thus success).
+            required: If True, the check also gates do_all_required_validation_checks_pass() (and thus success).
         """
-        assert item not in self.checklist_items, f"'{item}' already exists in checklist."
-        self.checklist_items[item] = value
+        assert check not in self.validation_results, f"'{check}' already exists in validation results."
+        self.validation_results[check] = value
         if required:
-            self.required_items.add(item)
+            self.required_checks.add(check)

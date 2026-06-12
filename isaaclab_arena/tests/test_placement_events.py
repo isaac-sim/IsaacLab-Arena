@@ -13,9 +13,9 @@ import pytest
 
 def _checklist(passed: bool):
     """Single-item checklist standing in for a solved layout's validation verdict."""
-    from isaaclab_arena.relations.placement_validation import PlacementValidationChecklist
+    from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 
-    return PlacementValidationChecklist(checklist_items={"valid": passed})
+    return PlacementValidationResults(validation_results={"valid": passed}, required_checks={"valid"})
 
 
 def _create_test_objects():
@@ -336,7 +336,7 @@ def test_solve_and_place_objects_writes_invalid_fallback_layout(capsys):
             assert count == 1
             return [
                 PlacementResult(
-                    validation_checklist=_checklist(False),
+                    validation_results=_checklist(False),
                     positions={box1: (0.0, 0.0, 0.0), box2: (0.0, 0.0, 0.0)},
                     final_loss=float("nan"),
                     attempts=1,
@@ -374,7 +374,7 @@ def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_res
             self.requested_env_ids = env_ids
             return {
                 cur_env: PlacementResult(
-                    validation_checklist=_checklist(True),
+                    validation_results=_checklist(True),
                     positions={
                         box1: (float(cur_env), 0.0, 0.0),
                         box2: (float(cur_env), 1.0, 0.0),
@@ -543,7 +543,7 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
             assert count == 1
             return [
                 PlacementResult(
-                    validation_checklist=_checklist(True),
+                    validation_results=_checklist(True),
                     positions={box: (float(env_id), 0.0, 0.1)},
                     final_loss=0.0,
                     attempts=1,
@@ -598,7 +598,7 @@ def test_env_indexed_static_poses_apply_per_env_positions():
         def sample_with_replacement(self, count: int):
             return [
                 PlacementResult(
-                    validation_checklist=_checklist(True),
+                    validation_results=_checklist(True),
                     positions={box: (0.1 * env_id, 0.2 * env_id, 0.11)},
                     final_loss=0.0,
                     attempts=1,

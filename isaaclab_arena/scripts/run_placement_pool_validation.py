@@ -6,10 +6,7 @@
 """Offline placement-pool validator.
 
 Builds any registered (or graph-spec) Arena environment, then physics-validates every candidate layout
-its placement pool holds and logs the per-candidate result. This is a standalone diagnostic, distinct
-from the rollout-time settle check in the policy runner: that one verifies and re-selects only the layout
-applied to each env on reset, whereas this sweeps the whole pool so you can see which candidates are
-physically stable before running an evaluation.
+its placement pool holds and logs the validation results.
 
 Run inside the container (example with a registered example environment):
 
@@ -73,7 +70,7 @@ def main() -> None:
 
     with SimulationAppContext(args_cli):
         from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
-        from isaaclab_arena.relations.placement_pool_validation import log_validation_results, validate_pool_layouts
+        from isaaclab_arena.relations.placement_pool_validation import print_validation_results, validate_pool_layouts
         from isaaclab_arena_environments.cli import (
             get_arena_builder_from_cli,
             get_isaaclab_arena_environments_cli_parser,
@@ -93,12 +90,12 @@ def main() -> None:
             lin_vel_thresh=args_cli.lin_vel_thresh,
             ang_vel_thresh=args_cli.ang_vel_thresh,
         )
-        results = validate_pool_layouts(env, settle_params=settle_params, render=args_cli.render)
-        assert results is not None, (
+        validation_results = validate_pool_layouts(env, settle_params=settle_params, render=args_cli.render)
+        assert validation_results is not None, (
             "The selected environment has no pooled placement, so there are no candidates to validate. "
             "Pooled placement is created when objects declare placement relations (e.g. On)."
         )
-        log_validation_results(results)
+        print_validation_results(validation_results)
 
         env.close()
 

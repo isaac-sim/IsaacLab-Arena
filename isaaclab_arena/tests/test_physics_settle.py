@@ -6,8 +6,8 @@
 """Sim tests for the physics-settle primitives and the pooled placement-validation sweep.
 
 Each scenario runs end to end against a live SimulationApp:
-- objects at rest stay at rest -> objects_settled_per_episode() is True,
-- two objects launched on a collision course keep moving -> objects_settled_per_episode() is False,
+- objects at rest stay at rest -> are_all_objects_settled_per_env() is True,
+- two objects launched on a collision course keep moving -> are_all_objects_settled_per_env() is False,
 - a per-env batch of layouts is graded independently in one settle pass,
 - validate_pool_layouts() sweeps every pooled candidate and stamps each layout's PHYSICS_SETTLED verdict.
 """
@@ -89,7 +89,9 @@ def _test_objects_settled_when_at_rest(simulation_app):
     env, object_names = _build_two_sphere_env(poses, velocities)
     try:
         physics_settle.step_physics(env, SETTLE_STEPS)
-        settled = physics_settle.objects_settled_per_episode(env, [0], object_names, LIN_VEL_THRESH, ANG_VEL_THRESH)[0]
+        settled = physics_settle.are_all_objects_settled_per_env(
+            env, [0], object_names, LIN_VEL_THRESH, ANG_VEL_THRESH
+        )[0]
         assert settled, "Motionless objects should settle"
     except Exception as e:
         print(f"Error: {e}")
@@ -120,7 +122,9 @@ def _test_objects_not_settled_when_colliding(simulation_app):
     env, object_names = _build_two_sphere_env(poses, velocities)
     try:
         physics_settle.step_physics(env, SETTLE_STEPS)
-        settled = physics_settle.objects_settled_per_episode(env, [0], object_names, LIN_VEL_THRESH, ANG_VEL_THRESH)[0]
+        settled = physics_settle.are_all_objects_settled_per_env(
+            env, [0], object_names, LIN_VEL_THRESH, ANG_VEL_THRESH
+        )[0]
         assert not settled, "Colliding objects should not settle"
     except Exception as e:
         print(f"Error: {e}")
@@ -191,7 +195,7 @@ def _test_parallel_layout_validation_per_env(simulation_app):
     env, object_names = _build_parallel_layout_env(num_envs, expected_settled)
     try:
         physics_settle.step_physics(env, SETTLE_STEPS)
-        settled_per_env = physics_settle.objects_settled_per_episode(
+        settled_per_env = physics_settle.are_all_objects_settled_per_env(
             env, list(range(num_envs)), object_names, LIN_VEL_THRESH, ANG_VEL_THRESH
         )
         print(f"Per-env settle verdicts={settled_per_env} expected={expected_settled}")
@@ -228,7 +232,7 @@ def _test_validate_pool_layouts_grades_each_layout(simulation_app):
     from isaaclab_arena.relations.placement_events import get_placement_pool
     from isaaclab_arena.relations.placement_pool_validation import validate_pool_layouts
     from isaaclab_arena.relations.placement_result import PlacementResult
-    from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationChecklist
+    from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
     from isaaclab_arena.relations.pooled_object_placer import EnvLayoutPool
     from isaaclab_arena.relations.relations import IsAnchor, On, get_anchor_objects
     from isaaclab_arena.scene.scene import Scene
@@ -285,9 +289,9 @@ def _test_validate_pool_layouts_grades_each_layout(simulation_app):
         def _layout(z: float) -> PlacementResult:
             # Each candidate carries its own checklist so the sweep stamps PHYSICS_SETTLED independently.
             return PlacementResult(
-                validation_checklist=PlacementValidationChecklist(
-                    checklist_items={PlacementCheck.NO_OVERLAP: True, PlacementCheck.ON_RELATION: True},
-                    required_items={PlacementCheck.NO_OVERLAP, PlacementCheck.ON_RELATION},
+                validation_results=PlacementValidationResults(
+                    validation_results={PlacementCheck.NO_OVERLAP: True, PlacementCheck.ON_RELATION: True},
+                    required_checks={PlacementCheck.NO_OVERLAP, PlacementCheck.ON_RELATION},
                 ),
                 positions={cracker_obj: (rest_x, rest_y, z)},
                 final_loss=0.0,
@@ -310,9 +314,9 @@ def _test_validate_pool_layouts_grades_each_layout(simulation_app):
         assert len(results) == len(expected_settled), f"Expected {len(expected_settled)} candidates, got {len(results)}"
         for env_id, candidate_index, checklist in results:
             assert (
-                PlacementCheck.PHYSICS_SETTLED in checklist.checklist_items
+                PlacementCheck.PHYSICS_SETTLED in checklist.validation_results
             ), f"env {env_id} candidate {candidate_index}: settle sweep did not stamp PHYSICS_SETTLED."
-            settled = checklist.checklist_items[PlacementCheck.PHYSICS_SETTLED]
+            settled = checklist.validation_results[PlacementCheck.PHYSICS_SETTLED]
             want = expected_settled[(env_id, candidate_index)]
             print(
                 f"env {env_id} candidate {candidate_index}: settled={settled} expected={want} -> {checklist.report()}"
@@ -320,7 +324,7 @@ def _test_validate_pool_layouts_grades_each_layout(simulation_app):
             assert settled is want, f"env {env_id} candidate {candidate_index}: settled={settled}, expected {want}"
             # PHYSICS_SETTLED is optional, so the geometric gate must still pass even for the dropped layout.
             assert (
-                checklist.pass_validation_checklist()
+                checklist.do_all_required_validation_checks_pass()
             ), f"env {env_id} candidate {candidate_index}: geometric gate should be unaffected by the settle sweep."
     except Exception as e:
         print(f"Error: {e}")

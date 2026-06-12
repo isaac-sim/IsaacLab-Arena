@@ -52,7 +52,9 @@ def test_no_overlap_returns_true():
     a = _make_box("a")
     b = _make_box("b")
     positions = {a: (0.0, 0.0, 0.0), b: (1.0, 0.0, 0.0)}
-    assert placer._validate_placement(positions, _env_bboxes(positions)).pass_validation_checklist() is True
+    assert (
+        placer._validate_placement(positions, _env_bboxes(positions)).do_all_required_validation_checks_pass() is True
+    )
 
 
 def test_overlapping_returns_false():
@@ -61,7 +63,9 @@ def test_overlapping_returns_false():
     a = _make_box("a")
     b = _make_box("b")
     positions = {a: (0.0, 0.0, 0.0), b: (0.0, 0.0, 0.0)}
-    assert placer._validate_placement(positions, _env_bboxes(positions)).pass_validation_checklist() is False
+    assert (
+        placer._validate_placement(positions, _env_bboxes(positions)).do_all_required_validation_checks_pass() is False
+    )
 
 
 def test_partial_overlap_returns_false():
@@ -70,7 +74,9 @@ def test_partial_overlap_returns_false():
     a = _make_box("a", size=0.2)
     b = _make_box("b", size=0.2)
     positions = {a: (0.0, 0.0, 0.0), b: (0.1, 0.1, 0.0)}
-    assert placer._validate_placement(positions, _env_bboxes(positions)).pass_validation_checklist() is False
+    assert (
+        placer._validate_placement(positions, _env_bboxes(positions)).do_all_required_validation_checks_pass() is False
+    )
 
 
 def test_separated_in_z_passes():
@@ -79,7 +85,9 @@ def test_separated_in_z_passes():
     a = _make_box("a")
     b = _make_box("b")
     positions = {a: (0.0, 0.0, 0.0), b: (0.0, 0.0, 5.0)}
-    assert placer._validate_placement(positions, _env_bboxes(positions)).pass_validation_checklist() is True
+    assert (
+        placer._validate_placement(positions, _env_bboxes(positions)).do_all_required_validation_checks_pass() is True
+    )
 
 
 def test_object_on_surface_no_overlap():
@@ -89,7 +97,9 @@ def test_object_on_surface_no_overlap():
     box = _make_box("box", size=0.2)
     # Desk top at z=0.05; box at z=0.16 → box occupies z=[0.06, 0.26], clear of desk
     positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.16)}
-    assert placer._validate_placement(positions, _env_bboxes(positions)).pass_validation_checklist() is True
+    assert (
+        placer._validate_placement(positions, _env_bboxes(positions)).do_all_required_validation_checks_pass() is True
+    )
 
 
 def test_colocated_siblings_overlap_rejected():
@@ -99,7 +109,9 @@ def test_colocated_siblings_overlap_rejected():
     a = _make_box("a", size=0.2)
     b = _make_box("b", size=0.2)
     positions = {desk: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.15), b: (0.0, 0.0, 0.15)}
-    assert placer._validate_placement(positions, _env_bboxes(positions)).pass_validation_checklist() is False
+    assert (
+        placer._validate_placement(positions, _env_bboxes(positions)).do_all_required_validation_checks_pass() is False
+    )
 
 
 def test_rotation_aware_overlap_uses_yaw():
@@ -109,9 +121,9 @@ def test_rotation_aware_overlap_uses_yaw():
     b = _make_box("b", size=0.1)
     positions = {a: (0.0, 0.0, 0.0), b: (0.0, 0.2, 0.0)}
     axis_aligned = {a: a.get_bounding_box(), b: b.get_bounding_box()}
-    assert placer._validate_placement(positions, axis_aligned).pass_validation_checklist() is True
+    assert placer._validate_placement(positions, axis_aligned).do_all_required_validation_checks_pass() is True
     rotated = {a: a.get_bounding_box().rotated_around_z(math.pi / 2), b: b.get_bounding_box()}
-    assert placer._validate_placement(positions, rotated).pass_validation_checklist() is False
+    assert placer._validate_placement(positions, rotated).do_all_required_validation_checks_pass() is False
 
 
 def test_candidate_bbox_aligns_with_candidate_yaw():
@@ -129,7 +141,7 @@ def test_candidate_bbox_aligns_with_candidate_yaw():
     validations = [
         placer._validate_placement(
             positions, ObjectPlacer._get_bounding_boxes_for_candidate_index(rotated, idx)
-        ).pass_validation_checklist()
+        ).do_all_required_validation_checks_pass()
         for idx in range(2)
     ]
     # Axis-aligned `a` clears b; rotated 90° it sweeps into b. A row/candidate swap would flip both.

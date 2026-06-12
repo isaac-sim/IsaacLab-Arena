@@ -10,14 +10,14 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
-    from isaaclab_arena.relations.placement_validation import PlacementValidationChecklist
+    from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 
 
 @dataclass
 class PlacementResult:
     """Result of an ObjectPlacer.place() call."""
 
-    validation_checklist: PlacementValidationChecklist
+    validation_results: PlacementValidationResults
     """Validation checklist for the placement."""
 
     positions: dict[ObjectBase, tuple[float, float, float]]
@@ -41,7 +41,7 @@ class PlacementResult:
         candidate validated. Callers check success to distinguish a validated layout from a
         lowest-loss fallback; failed_items on the checklist says which checks failed.
         """
-        return self.validation_checklist.pass_validation_checklist()
+        return self.validation_results.do_all_required_validation_checks_pass()
 
 
 @dataclass

@@ -3,19 +3,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Offline tool that physics-validates every candidate layout in a placement pool and logs the result.
-
-It steps physics on *every* stored candidate so its stability can be inspected ahead of time. The settle outcome is
-recorded onto each candidate's ``PlacementValidationChecklist``.
-"""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
 from isaaclab_arena.relations.placement_events import (
-    get_base_rotations,
+    get_base_rotation_per_object,
     get_movable_object_names,
     get_placement_pool,
     write_layout_to_sim,
@@ -27,56 +21,57 @@ from isaaclab_arena.utils import physics_settle
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
+    from isaaclab_arena.relations.object_base import ObjectBase
     from isaaclab_arena.relations.placement_result import PlacementResult
-    from isaaclab_arena.relations.placement_validation import PlacementValidationChecklist
+    from isaaclab_arena.relations.placement_validation import PlacementValidationResults
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 
 
-def _write_layouts_per_episode(
+def _write_layout_to_envs_for_episode_index(
     env: ManagerBasedEnv,
     layouts_per_env: list[list[PlacementResult]],
     num_envs: int,
     episode_index: int,
     anchor_objects_set: set,
-    base_rotations,
+    base_rotations: dict[ObjectBase, tuple[float, float, float, float]],
 ) -> list[tuple[int, PlacementResult]]:
-    """Write one layout per env for this episode; return the ``(env_id, layout)`` batch written.
+    """Write one layout per env for this episode; return the ``(env_id, layout)`` layouts written.
 
-    Envs whose queue is shorter than ``episode_index`` contribute nothing, so the batch holds at most one
+    Envs whose queue is shorter than ``episode_index`` contribute nothing, so the layouts written holds at most one
     entry per env and may be empty on the final episodes.
     """
-    batch: list[tuple[int, PlacementResult]] = []
+    layouts_written: list[tuple[int, PlacementResult]] = []
     for env_id in range(num_envs):
         layouts = layouts_per_env[env_id]
         if episode_index < len(layouts):
             layout = layouts[episode_index]
             write_layout_to_sim(env.unwrapped, env_id, layout, anchor_objects_set, base_rotations)
-            batch.append((env_id, layout))
-    return batch
+            layouts_written.append((env_id, layout))
+    return layouts_written
 
 
-def _grade_settled_batch(
+def _compute_physics_settled_and_add_to_validation_results(
     env: ManagerBasedEnv,
     layouts: list[tuple[int, PlacementResult]],
     movable_object_names: list[str],
     settle_params: PhysicsSettleParams,
-) -> list[tuple[int, PlacementValidationChecklist]]:
+) -> list[tuple[int, PlacementValidationResults]]:
     """Read back per-object velocities for a list of layouts and stamp ``PHYSICS_SETTLED`` per layout.
 
-    Returns ``(env_id, checklist)`` per layout; the settle verdict is stamped only if not already present.
+    Returns ``(env_id, validation_results)`` per layout; the settle verdict is stamped only if not already present.
     """
 
     env_ids = [env_id for env_id, _ in layouts]
-    settled_results = physics_settle.objects_settled_per_episode(
+    settled_per_env = physics_settle.are_all_objects_settled_per_env(
         env, env_ids, movable_object_names, settle_params.lin_vel_thresh, settle_params.ang_vel_thresh
     )
-    graded_layouts: list[tuple[int, PlacementValidationChecklist]] = []
-    for (env_id, layout), settled in zip(layouts, settled_results):
-        checklist = layout.validation_checklist
-        if PlacementCheck.PHYSICS_SETTLED not in checklist.checklist_items:
-            checklist.add_checklist_item(PlacementCheck.PHYSICS_SETTLED, settled)
-        graded_layouts.append((env_id, checklist))
-    return graded_layouts
+    validation_results_all_envs: list[tuple[int, PlacementValidationResults]] = []
+    for (env_id, layout), settled in zip(layouts, settled_per_env):
+        validation_results_per_env = layout.validation_results
+        if PlacementCheck.PHYSICS_SETTLED not in validation_results_per_env.validation_results:
+            validation_results_per_env.add_validation_check(PlacementCheck.PHYSICS_SETTLED, settled)
+        validation_results_all_envs.append((env_id, validation_results_per_env))
+    return validation_results_all_envs
 
 
 def validate_pool_layouts(
@@ -84,12 +79,11 @@ def validate_pool_layouts(
     placement_pool: PooledObjectPlacer | None = None,
     settle_params: PhysicsSettleParams | None = None,
     render: bool = False,
-) -> list[tuple[int, int, PlacementValidationChecklist]] | None:
-    """Physics-validate every layout in a placement pool, recording the result on its checklist.
+) -> list[tuple[int, int, PlacementValidationResults]] | None:
+    """Physics-validate every layout in a placement pool, recording the result on its validation results.
 
     Steps physics on every stored layout and stamps the ``PHYSICS_SETTLED`` outcome onto that
-    layout's ``PlacementValidationChecklist``.
-
+    layout's ``PlacementValidationResults``.
 
     Args:
         env: The Isaac Lab env.
@@ -113,7 +107,7 @@ def validate_pool_layouts(
 
     objects = placement_pool.objects
     anchor_objects_set = set(get_anchor_objects(objects))
-    base_rotations = get_base_rotations(objects, anchor_objects_set)
+    base_rotations = get_base_rotation_per_object(objects)
     movable_object_names = get_movable_object_names(objects, anchor_objects_set)
 
     # The length of each env queue is controlled by min_unique_layouts_per_env in ObjectPlacerParams.
@@ -129,32 +123,40 @@ def validate_pool_layouts(
     # settle_params.num_steps is in env-step units; convert to physics substeps
     num_physics_steps = settle_params.num_steps * env.unwrapped.cfg.decimation
 
-    results: list[tuple[int, int, PlacementValidationChecklist]] = []
+    results: list[tuple[int, int, PlacementValidationResults]] = []
     for episode_index in range(max_episodes):
-        # Set layout, then settle and grade them in parallel.
-        layouts = _write_layouts_per_episode(
+        # Set layout, then settle and collect results in parallel.
+        layouts = _write_layout_to_envs_for_episode_index(
             env, layouts_per_env, num_envs, episode_index, anchor_objects_set, base_rotations
         )
         if layouts:
             physics_settle.step_physics(env, num_physics_steps, render=render)
-            graded_layouts = _grade_settled_batch(env, layouts, movable_object_names, settle_params)
-            for env_id, checklist in graded_layouts:
-                results.append((env_id, episode_index, checklist))
-
+            validation_results = _compute_physics_settled_and_add_to_validation_results(
+                env, layouts, movable_object_names, settle_params
+            )
+            for env_id, validation_results_per_env in validation_results:
+                results.append((env_id, episode_index, validation_results_per_env))
+    # The results are in (env_id, episode_index) order, so sort by env_id and then episode_index.
     results.sort(key=lambda item: (item[0], item[1]))
     return results
 
 
-def log_validation_results(results: list[tuple[int, int, PlacementValidationChecklist]]) -> None:
-    """Print each layout's checklist items and a pass/fail summary for a pool validation run."""
+def print_validation_results(results: list[tuple[int, int, PlacementValidationResults]]) -> None:
+    """Print each layout's validation results and a pass/fail summary for a pool validation run."""
     if not results:
         print("Placement pool has no layouts to validate.")
         return
 
     print(f"Validated {len(results)} pooled placement layout(s):")
-    for env_id, episode_index, checklist in results:
-        print(f"  env {env_id} episode {episode_index}: {checklist.report()}")
+    for env_id, episode_index, validation_results in results:
+        print(f"env {env_id} episode {episode_index}: {validation_results.report()}")
 
-    num_pass = sum(1 for _, _, checklist in results if checklist.pass_validation_checklist())
-    num_settled = sum(1 for _, _, checklist in results if checklist.checklist_items.get(PlacementCheck.PHYSICS_SETTLED))
+    num_pass = sum(
+        1 for _, _, validation_results in results if validation_results.do_all_required_validation_checks_pass()
+    )
+    num_settled = sum(
+        1
+        for _, _, validation_results in results
+        if validation_results.validation_results.get(PlacementCheck.PHYSICS_SETTLED)
+    )
     print(f"Summary: {num_pass}/{len(results)} pass validation, {num_settled}/{len(results)} physically settled.")

@@ -18,7 +18,7 @@ from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
-from isaaclab_arena.relations.placement_validation import PlacementValidationChecklist
+from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -27,9 +27,9 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 
-def _checklist(passed: bool) -> PlacementValidationChecklist:
+def _checklist(passed: bool) -> PlacementValidationResults:
     """Single-item checklist standing in for a solved layout's validation verdict."""
-    return PlacementValidationChecklist(checklist_items={"valid": passed})
+    return PlacementValidationResults(validation_results={"valid": passed}, required_checks={"valid"})
 
 
 # ---------------------------------------------------------------------------
@@ -487,7 +487,7 @@ def test_pooled_placer_sample_for_envs_consumes_only_requested_envs():
     for env_id in range(4):
         pool._env_pools[env_id].layouts = [
             PlacementResult(
-                validation_checklist=_checklist(True),
+                validation_results=_checklist(True),
                 positions={hetero: (float(env_id), 0.0, 0.0)},
                 final_loss=0.0,
                 attempts=1,
@@ -511,7 +511,7 @@ def test_pooled_placer_heterogeneous_sample_with_replacement():
     for env_id in range(4):
         pool._env_pools[env_id].layouts = [
             PlacementResult(
-                validation_checklist=_checklist(True),
+                validation_results=_checklist(True),
                 positions={hetero: (float(env_id), 0.0, 0.0)},
                 final_loss=0.0,
                 attempts=1,
@@ -590,7 +590,7 @@ def test_pooled_placer_env_specific_fallbacks_are_reported(capsys):
     fallback_results = [
         [
             PlacementResult(
-                validation_checklist=_checklist(False),
+                validation_results=_checklist(False),
                 positions={hetero: (float(cur_env), 0.0, 0.0)},
                 final_loss=1.0,
                 attempts=1,
@@ -619,7 +619,7 @@ def test_pooled_placer_env_specific_fallbacks_wait_for_final_retry(capsys):
     fallback_results = [
         [
             PlacementResult(
-                validation_checklist=_checklist(False),
+                validation_results=_checklist(False),
                 positions={hetero: (float(cur_env), 0.0, 0.0)},
                 final_loss=1.0,
                 attempts=1,
@@ -646,7 +646,7 @@ def test_pooled_placer_env_specific_fallback_only_fills_short_env(capsys):
     pool._had_fallbacks = False
 
     existing_layout = PlacementResult(
-        validation_checklist=_checklist(True),
+        validation_results=_checklist(True),
         positions={hetero: (10.0, 0.0, 0.0)},
         final_loss=0.0,
         attempts=1,
@@ -656,7 +656,7 @@ def test_pooled_placer_env_specific_fallback_only_fills_short_env(capsys):
     fallback_results = [
         [
             PlacementResult(
-                validation_checklist=_checklist(False),
+                validation_results=_checklist(False),
                 positions={hetero: (float(cur_env), 0.0, 0.0)},
                 final_loss=1.0,
                 attempts=1,
@@ -689,7 +689,7 @@ def test_pooled_placer_env_specific_valid_results_only_fill_short_envs():
         env_pool.cursor = 0
 
     existing_layout = PlacementResult(
-        validation_checklist=_checklist(True),
+        validation_results=_checklist(True),
         positions={hetero: (10.0, 0.0, 0.0)},
         final_loss=0.0,
         attempts=1,
@@ -699,7 +699,7 @@ def test_pooled_placer_env_specific_valid_results_only_fill_short_envs():
     ranked_results = [
         [
             PlacementResult(
-                validation_checklist=_checklist(True),
+                validation_results=_checklist(True),
                 positions={hetero: (float(cur_env), float(candidate_idx), 0.0)},
                 final_loss=0.0,
                 attempts=1,
@@ -754,7 +754,7 @@ def test_pooled_placer_reusable_layouts_keep_partial_valid_results():
 
     layouts = [
         PlacementResult(
-            validation_checklist=_checklist(True), positions={box: (float(i), 0.0, 0.0)}, final_loss=0.0, attempts=1
+            validation_results=_checklist(True), positions={box: (float(i), 0.0, 0.0)}, final_loss=0.0, attempts=1
         )
         for i in range(3)
     ]

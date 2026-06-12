@@ -44,10 +44,10 @@ class _FakePlacementPool:
 def _fallback_layout(positions):
     """A failed (best-loss fallback) PlacementResult: a failing required check makes success False."""
     from isaaclab_arena.relations.placement_result import PlacementResult
-    from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationChecklist
+    from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
 
     return PlacementResult(
-        validation_checklist=PlacementValidationChecklist(checklist_items={PlacementCheck.NO_OVERLAP: False}),
+        validation_results=PlacementValidationResults(validation_results={PlacementCheck.NO_OVERLAP: False}),
         positions=positions,
         final_loss=1.0,
         attempts=1,

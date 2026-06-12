@@ -30,7 +30,7 @@ def step_physics(env: ManagerBasedEnv, num_steps: int, render: bool = False) -> 
         env.unwrapped.scene.update(dt)
 
 
-def objects_settled_per_episode(
+def are_all_objects_settled_per_env(
     env: ManagerBasedEnv,
     env_ids: list[int],
     object_names: list[str],

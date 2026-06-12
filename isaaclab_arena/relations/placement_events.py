@@ -47,19 +47,16 @@ def get_rotation_xyzw(obj: ObjectBase) -> tuple[float, float, float, float]:
     return rotate_marker.get_rotation_xyzw() if rotate_marker else IDENTITY_ROTATION_XYZW
 
 
-def get_base_rotations(
-    objects: list[ObjectBase],
-    anchor_objects_set: set[ObjectBase],
-) -> dict[ObjectBase, tuple[float, float, float, float]]:
-    """Return the base rotation for each non-anchor object."""
-    return {obj: get_rotation_xyzw(obj) for obj in objects if obj not in anchor_objects_set}
+def get_base_rotation_per_object(objects: list[ObjectBase]) -> dict[ObjectBase, tuple[float, float, float, float]]:
+    """Return the base rotation for each object."""
+    return {obj: get_rotation_xyzw(obj) for obj in objects}
 
 
 def get_movable_object_names(
     objects: list[ObjectBase],
     anchor_objects_set: set[ObjectBase],
 ) -> list[str]:
-    """Return the names of non-anchor objects, used for the settle velocity check."""
+    """Return the names of non-anchor objects."""
     return [obj.name for obj in objects if obj not in anchor_objects_set]
 
 
@@ -80,7 +77,7 @@ def write_layout_to_sim(
         env_id: The environment index.
         result: The placement result to write to the sim.
         anchor_objects_set: The set of anchor objects.
-        base_rotations: The base rotations for the non-anchor objects.
+        base_rotations: The base rotations for all objects.
     """
     env_id_tensor = torch.tensor([env_id], device=env.device)
     zero_velocity = Velocity.zero().to_tensor(device=env.device).unsqueeze(0)
@@ -131,7 +128,7 @@ def solve_and_place_objects(
         results_by_env = dict(zip(reset_env_ids, reset_results))
 
     anchor_objects_set = set(get_anchor_objects(objects))
-    base_rotations = get_base_rotations(objects, anchor_objects_set)
+    base_rotations = get_base_rotation_per_object(objects)
 
     for cur_env in reset_env_ids:
         result = results_by_env[cur_env]
@@ -140,4 +137,5 @@ def solve_and_place_objects(
                 "Warning: Writing best-loss fallback placement for "
                 f"env {cur_env}; layout failed strict placement validation."
             )
+        # only write the non-anchor objects to the sim
         write_layout_to_sim(env, cur_env, result, anchor_objects_set, base_rotations)
