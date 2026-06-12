@@ -40,6 +40,12 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         help="Path to save metrics as JSON. If not set, metrics are only printed to stdout.",
     )
     parser.add_argument(
+        "--episode_record_dir",
+        type=str,
+        default=None,
+        help="Directory to write one JSON record per job after it completes.",
+    )
+    parser.add_argument(
         "--chunk_size",
         type=int,
         default=None,

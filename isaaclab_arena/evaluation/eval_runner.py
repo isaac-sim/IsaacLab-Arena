@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import contextlib
 import dataclasses
 import gc
 import json
@@ -14,7 +15,7 @@ import sys
 import tempfile
 import torch
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from gymnasium.wrappers import RecordVideo
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -24,7 +25,7 @@ from isaaclab_arena.evaluation.camera_video import CameraObsVideoRecorder
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
-from isaaclab_arena.metrics.metrics_logger import MetricsLogger
+from isaaclab_arena.metrics.metrics_logger import MetricsLogger, metrics_to_plain_python_types
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
 from isaaclab_arena.utils.reload_modules import reload_arena_modules
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
@@ -133,6 +134,73 @@ def _close_job_resources(policy: "PolicyBase | None", env) -> None:
         _close_env(env)
 
 
+def _write_episode_record(
+    record_dir: str,
+    job: Job,
+    metrics: dict | None,
+    status: str,
+    video_dir: str | None,
+    episode_boundaries: list[dict],
+    env=None,
+) -> str:
+    """Write a JSON record for one completed or failed job."""
+    os.makedirs(record_dir, exist_ok=True)
+
+    video_paths: list[str] = []
+    if video_dir:
+        job_video_dir = os.path.join(video_dir, job.name)
+        if os.path.isdir(job_video_dir):
+            video_paths = sorted(
+                os.path.join(job_video_dir, n) for n in os.listdir(job_video_dir) if n.endswith(".mp4")
+            )
+
+    wall_time = None
+    if job.start_time is not None and job.end_time is not None:
+        wall_time = round(job.end_time - job.start_time, 3)
+
+    language_instruction = job.language_instruction
+    if language_instruction is None and env is not None:
+        with contextlib.suppress(Exception):
+            language_instruction = env.unwrapped.cfg.task_description
+
+    hdf5_path = None
+    if env is not None:
+        with contextlib.suppress(Exception):
+            cfg = env.unwrapped.cfg
+            if hasattr(cfg, "recorders") and cfg.recorders is not None:
+                hdf5_path = str(
+                    Path(cfg.recorders.dataset_export_dir_path) / (cfg.recorders.dataset_filename + ".hdf5")
+                )
+
+    plain_metrics = metrics_to_plain_python_types(metrics) if metrics else {}
+
+    record = {
+        "schema_version": "1.0",
+        "job_name": job.name,
+        "task_name": job.task_name,
+        "embodiment": job.embodiment,
+        "env_params": dict(job.env_params),
+        "policy_type": job.policy_type,
+        "policy_config": dict(job.policy_config_dict),
+        "num_envs": job.num_envs,
+        "num_steps": job.num_steps,
+        "num_episodes": job.num_episodes,
+        "language_instruction": language_instruction,
+        "status": status,
+        "metrics": plain_metrics,
+        "hdf5_path": hdf5_path,
+        "video_paths": video_paths,
+        "wall_time_seconds": wall_time,
+        "episode_boundaries": episode_boundaries,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    path = os.path.join(record_dir, f"{job.name}.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(record, f, indent=2)
+    return path
+
+
 def _run_chunk(chunk_label: str, chunk_jobs: list[dict]) -> int:
     """Run ``chunk_jobs`` in a fresh ``eval_runner`` subprocess and return its exit code."""
     print(f"[eval_runner] {chunk_label}", flush=True)
@@ -209,7 +277,7 @@ def main():
 
         job_manager.print_jobs_info()
 
-        if args_cli.video or args_cli.camera_video or args_cli.metrics_file:
+        if args_cli.video or args_cli.camera_video or args_cli.metrics_file or args_cli.episode_record_dir:
             run_ts = datetime.now().strftime("%Y%m%dT%H%M%S")
             if args_cli.video or args_cli.camera_video:
                 args_cli.video_dir = os.path.join(args_cli.video_dir, run_ts)
@@ -218,11 +286,15 @@ def main():
             if args_cli.metrics_file is not None:
                 base, ext = os.path.splitext(args_cli.metrics_file)
                 args_cli.metrics_file = f"{base}_{run_ts}{ext}"
+            if args_cli.episode_record_dir is not None:
+                args_cli.episode_record_dir = os.path.join(args_cli.episode_record_dir, run_ts)
+                print(f"[INFO] Episode records will be written to: {args_cli.episode_record_dir}")
 
         for job in job_manager:
             if job is not None:
                 env = None
                 policy = None
+                episode_boundaries: list[dict] = []
                 try:
                     render_mode = "rgb_array" if args_cli.video else None
                     env = load_env(job.arena_env_args, job.name, render_mode=render_mode)
@@ -263,7 +335,7 @@ def main():
                             video_length=video_length,
                         )
 
-                    metrics, _ = rollout_policy(
+                    metrics, episode_boundaries = rollout_policy(
                         env,
                         policy,
                         num_steps=job.num_steps,
@@ -277,8 +349,30 @@ def main():
                     if metrics is not None:
                         metrics_logger.append_job_metrics(job.name, metrics)
 
+                    if args_cli.episode_record_dir:
+                        rec_path = _write_episode_record(
+                            args_cli.episode_record_dir,
+                            job,
+                            metrics,
+                            "completed",
+                            args_cli.video_dir if (args_cli.video or args_cli.camera_video) else None,
+                            episode_boundaries,
+                            env=env,
+                        )
+                        print(f"[INFO] Episode record written to: {rec_path}")
+
                 except Exception as e:
                     job_manager.complete_job(job, metrics={}, status=Status.FAILED)
+                    if args_cli.episode_record_dir:
+                        _write_episode_record(
+                            args_cli.episode_record_dir,
+                            job,
+                            {},
+                            "failed",
+                            args_cli.video_dir if (args_cli.video or args_cli.camera_video) else None,
+                            episode_boundaries,
+                            env=env,
+                        )
                     print(f"Job {job.name} failed with error: {e}")
                     print(f"Traceback: {traceback.format_exc()}")
                     if not args_cli.continue_on_error:
