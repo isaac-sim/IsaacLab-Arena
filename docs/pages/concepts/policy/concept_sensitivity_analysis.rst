@@ -46,8 +46,9 @@ neural posterior estimators. The flow is:
    that were swept (so the analyzer's prior matches the simulation). It does **not** list
    outcomes — *which* outcome to condition on is chosen at analysis time, not saved here.
 3. **Inference.** ``SensitivityAnalyzer`` loads the pair, trains an estimator on the full
-   ``(theta, x)`` jointly, and samples the joint posterior conditioned on a chosen
-   observation (by default, success).
+   ``(theta, x)`` jointly — sbi's terms for the factor values (``theta``) and the per-episode
+   outcomes (``x``) — and samples the joint posterior conditioned on a chosen observation
+   (by default, success).
 4. **Report.** A probability density curve for each continuous factor and a probability bar
    chart for each categorical factor.
 
