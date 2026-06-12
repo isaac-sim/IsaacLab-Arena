@@ -14,10 +14,12 @@ mixed schema, NPE for a continuous-only one (2-D theta).
 
 from __future__ import annotations
 
+import json
 import numpy as np
 import torch
 
 from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
+from isaaclab_arena.analysis.sensitivity.dataset import SensitivityDataset
 from isaaclab_arena.analysis.sensitivity.synthetic import (
     CAMERA_DISTANCE,
     GRASP_OFFSET,
@@ -84,3 +86,67 @@ def test_npe_recovers_two_continuous_effects():
     assert _factor_samples(analyzer, samples, "light_intensity").mean() > _midpoint(LIGHT)
     # A smaller grasp offset raises success → offset posterior skews low.
     assert _factor_samples(analyzer, samples, "grasp_offset").mean() < _midpoint(GRASP_OFFSET)
+
+
+def _write_jsonl(path, rows: list[dict]) -> None:
+    """Write one JSON object per line to ``path``."""
+    path.write_text("\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8")
+
+
+def test_from_files_parses_mixed_schema_and_builds_tensors(tmp_path):
+    """from_files parses a factors.yaml + episode_summary.jsonl into the expected theta / x layout."""
+    factors_yaml = tmp_path / "factors.yaml"
+    factors_yaml.write_text(
+        "factors:\n"
+        "  light_intensity:\n"
+        "    type: continuous\n"
+        "    range: [[0.0, 1000.0]]\n"
+        "  pick_up_object:\n"
+        "    type: categorical\n"
+        "    choices: [cube, can]\n",
+        encoding="utf-8",
+    )
+    jsonl = tmp_path / "episode_summary.jsonl"
+    _write_jsonl(
+        jsonl,
+        [
+            {"arena_env_args": {"light_intensity": 250.0, "pick_up_object": "cube"}, "outcomes": {"success": 1}},
+            {"arena_env_args": {"light_intensity": 750.0, "pick_up_object": "can"}, "outcomes": {"success": 0}},
+            {"arena_env_args": {"light_intensity": 500.0, "pick_up_object": "cube"}, "outcomes": {"success": 1}},
+        ],
+    )
+
+    dataset = SensitivityDataset.from_files(factors_yaml, jsonl, outcome_names=["success"])
+
+    # Schema parsed with the declared structure.
+    factors_by_name = {factor.name: factor for factor in dataset.schema.factors}
+    assert factors_by_name["light_intensity"].type == "continuous"
+    assert factors_by_name["light_intensity"].range == [[0.0, 1000.0]]
+    assert factors_by_name["pick_up_object"].type == "categorical"
+    assert factors_by_name["pick_up_object"].choices == ["cube", "can"]
+
+    # Continuous-first theta layout; categorical integer-coded by its index into choices.
+    assert dataset.theta.shape == (3, 2)
+    assert dataset.x.shape == (3, 1)
+    assert dataset.factor_columns == {"light_intensity": slice(0, 1), "pick_up_object": slice(1, 2)}
+    assert dataset.theta[:, 0].tolist() == [250.0, 750.0, 500.0]
+    assert dataset.theta[:, 1].tolist() == [0.0, 1.0, 0.0]  # cube -> 0, can -> 1
+    assert dataset.x[:, 0].tolist() == [1.0, 0.0, 1.0]
+
+
+def test_from_files_infers_missing_continuous_range(tmp_path):
+    """A continuous factor with no declared range gets [min, max] inferred from the observed values."""
+    factors_yaml = tmp_path / "factors.yaml"
+    factors_yaml.write_text("factors:\n  light_intensity:\n    type: continuous\n", encoding="utf-8")
+    jsonl = tmp_path / "episode_summary.jsonl"
+    _write_jsonl(
+        jsonl,
+        [
+            {"arena_env_args": {"light_intensity": 30.0}, "outcomes": {"success": 0}},
+            {"arena_env_args": {"light_intensity": 90.0}, "outcomes": {"success": 1}},
+        ],
+    )
+
+    dataset = SensitivityDataset.from_files(factors_yaml, jsonl, outcome_names=["success"])
+
+    assert dataset.schema.factors[0].range == [[30.0, 90.0]]
