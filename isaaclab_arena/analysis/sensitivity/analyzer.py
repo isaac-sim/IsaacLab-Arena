@@ -35,6 +35,12 @@ class SensitivityAnalyzer:
         self.posterior = None
         continuous_factors = [factor for factor in dataset.schema.factors if factor.type == "continuous"]
         self._num_continuous = len(continuous_factors)
+        for factor in continuous_factors:
+            assert factor.range is not None, (
+                f"Continuous factor {factor.name!r} has no range to normalize against. Declare a"
+                " range in factors.yaml, or build the dataset via from_files()/from_file() so the"
+                " range is inferred from the data before constructing the analyzer."
+            )
         self._continuous_low = torch.tensor([factor.range[0][0] for factor in continuous_factors])
         self._continuous_high = torch.tensor([factor.range[0][1] for factor in continuous_factors])
 
