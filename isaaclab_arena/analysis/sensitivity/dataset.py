@@ -9,8 +9,15 @@ import json
 import torch
 import yaml
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
-from typing import Literal
+
+
+class FactorType(str, Enum):
+    """Whether a factor's values are continuous (numeric range) or categorical (labelled choices)."""
+
+    CONTINUOUS = "continuous"
+    CATEGORICAL = "categorical"
 
 
 @dataclass
@@ -22,10 +29,14 @@ class FactorSpec:
     """
 
     name: str
-    type: Literal["continuous", "categorical"]
+    type: FactorType
     dim: int = 1
     range: list[list[float]] | None = None  # one [low, high] pair per dim, continuous only
     choices: list[str] | None = None  # categorical only
+
+    def __post_init__(self) -> None:
+        # Accept the raw string form (from YAML / callers) and normalize to the enum.
+        self.type = FactorType(self.type)
 
 
 @dataclass
