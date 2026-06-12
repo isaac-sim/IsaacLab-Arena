@@ -162,7 +162,9 @@ Current scope
 
 - Outcomes are treated as **binary** (0/1). Conditioning defaults to success; a continuous
   outcome is rejected with a clear error rather than silently averaged.
-- Continuous **vector** factors (``dim > 1``) are reserved for a future extension.
+- Continuous **vector** factors (``dim > 1``) are reserved for a future extension. The likely
+  approach is to record scalar reductions (e.g. a norm or distance-to-reference) alongside the
+  raw vector, so a pose or RGB factor becomes one or more analysable scalar columns.
 - The estimators run on CPU and do not require Isaac Sim, so a report can be generated
   anywhere the evaluation JSONL is available.
 - The analysis assumes the ``episode_summary.jsonl`` is a single coherent slice — one
