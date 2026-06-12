@@ -39,8 +39,8 @@ How it works
 The toolbox is a thin analysis layer over `sbi <https://sbi.readthedocs.io>`_'s
 neural posterior estimators. The flow is:
 
-1. **Per-episode recording.** During evaluation, ``episode_writer`` appends one row per
-   episode to an ``episode_summary.jsonl`` file.
+1. **Per-episode input.** The analysis reads an ``episode_summary.jsonl`` — one row per
+   episode, holding that episode's factor values and outcomes.
 2. **Schema.** A ``factors.yaml`` declares the *factors* — which ``arena_env_args`` columns
    were varied and whether each is continuous or categorical, plus the continuous ranges
    that were swept (so the analyzer's prior matches the simulation). It does **not** list
@@ -50,6 +50,12 @@ neural posterior estimators. The flow is:
    observation (by default, success).
 4. **Report.** A probability density curve for each continuous factor and a probability bar
    chart for each categorical factor.
+
+.. todo::
+
+   The eval-runner writer (``episode_writer``) that emits ``episode_summary.jsonl`` during
+   evaluation is not part of this version — it lands in a follow-up. For now, run the analysis
+   on synthetic data (see below) or on a JSONL produced externally.
 
 Inputs
 ------
@@ -67,8 +73,8 @@ were swept). Outcomes are not declared here — they're selected at analysis tim
        type: categorical
        choices: [oak, walnut, bamboo]
 
-**episode_summary.jsonl** is produced by the eval runner — one JSON object per episode. It
-carries every measured outcome; the analysis picks which one(s) to condition on:
+**episode_summary.jsonl** holds one JSON object per episode. It carries every measured
+outcome; the analysis picks which one(s) to condition on:
 
 .. code-block:: json
 
