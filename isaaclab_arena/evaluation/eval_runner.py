@@ -44,9 +44,10 @@ def load_env(arena_env_args: list[str], job_name: str, render_mode: str | None =
 
     env_name, env_cfg = arena_builder.build_registered()
 
-    # Set unique dataset filename for this job to avoid file locking conflicts
+    # Timestamp suffix prevents EAGAIN from a stale lock left by a crashed previous run
     if hasattr(env_cfg, "recorders") and env_cfg.recorders is not None:
-        env_cfg.recorders.dataset_filename = f"dataset_{job_name}"
+        ts = datetime.now().strftime("%Y%m%dT%H%M%S")
+        env_cfg.recorders.dataset_filename = f"dataset_{job_name}_{ts}"
 
     env = arena_builder.make_registered(env_cfg, render_mode=render_mode)
     # Don't reset here - rollout_policy() will reset the env. Every reset triggers a new episode, initializing recorder & creating a new hdf5 entry.
