@@ -36,6 +36,9 @@ class SensitivityAnalyzer:
         self.dataset = dataset
         self.posterior = None
         continuous_factors = [factor for factor in dataset.schema.factors if factor.type == "continuous"]
+        # theta is laid out continuous-first then categorical — built that way by
+        # SensitivityDataset and defined by FactorSchema.factor_columns — so the leading
+        # self._num_continuous columns are the continuous factors that _normalize/_denormalize slice.
         self._num_continuous = len(continuous_factors)
         for factor in continuous_factors:
             assert factor.range is not None, (
