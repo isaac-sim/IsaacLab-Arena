@@ -4,8 +4,8 @@ Sensitivity Analysis
 The sensitivity-analysis toolbox answers a single question about a policy:
 *which environment conditions drive success?* Given the per-episode results of an
 evaluation sweep — where factors such as lighting, object mass, or table material were
-varied — it fits a posterior over those factors conditioned on the outcome and renders
-one figure summarising which factor values are associated with success.
+varied — it fits a posterior over those factors conditioned on the outcome (e.g. success
+rate) and renders one figure summarising which factor values are associated with success.
 
 Why a joint posterior, not a success rate per factor?
 -----------------------------------------------------
@@ -41,8 +41,8 @@ neural posterior estimators. The flow is:
 3. **Inference.** ``SensitivityAnalyzer`` loads the pair, trains an estimator on the full
    ``(theta, x)`` jointly, and samples the joint posterior conditioned on a chosen
    observation (by default, success).
-4. **Report.** A smooth density curve for each continuous factor and a probability bar chart
-   for each categorical factor.
+4. **Report.** A probability density curve for each continuous factor and a probability bar
+   chart for each categorical factor.
 
 Inputs
 ------
@@ -117,8 +117,8 @@ defaults to ``1`` (success).
 Trying it on synthetic data
 ---------------------------
 
-A synthetic simulator with a *known* ground truth lets you run the whole pipeline on CPU,
-without Isaac Sim — useful for seeing the output shape and for validating the toolbox
+A synthetic simulator with a *known* ground truth lets you run the whole pipeline without
+Isaac Sim — useful for seeing the output shape and for validating the toolbox
 (the recovered posterior should reflect the planted relationship):
 
 .. code-block:: bash
