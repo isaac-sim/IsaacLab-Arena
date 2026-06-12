@@ -12,8 +12,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from sbi.utils import BoxUniform
-
 
 @dataclass
 class FactorSpec:
@@ -215,40 +213,6 @@ class SensitivityDataset:
     def has_categorical_factors(self) -> bool:
         """True iff the schema declares at least one categorical factor."""
         return any(factor.type == "categorical" for factor in self.schema.factors)
-
-    @property
-    def prior(self):
-        """Uniform prior (sbi.utils.BoxUniform) over all factor dims.
-
-        Continuous factors use their [low, high] range; categorical factors use
-        [0, num_choices - 1] over their integer codes, in continuous-first order.
-        """
-        low_bounds: list[float] = []
-        high_bounds: list[float] = []
-
-        # Continuous bounds (one [low, high] per dim).
-        for factor in self.schema.factors:
-            if factor.type != "continuous":
-                continue
-            assert factor.range is not None, f"Factor {factor.name!r} has no range and was not inferred"
-            for dim_low, dim_high in factor.range:
-                low_bounds.append(float(dim_low))
-                high_bounds.append(float(dim_high))
-
-        # Categorical factor bounds: [0, num_choices - 1] per factor (one column).
-        for factor in self.schema.factors:
-            if factor.type != "categorical":
-                continue
-            assert (
-                factor.choices is not None and len(factor.choices) > 0
-            ), f"Categorical factor {factor.name!r} has no `choices:` block"
-            low_bounds.append(0.0)
-            high_bounds.append(float(len(factor.choices) - 1))
-
-        return BoxUniform(
-            low=torch.tensor(low_bounds, dtype=torch.float32),
-            high=torch.tensor(high_bounds, dtype=torch.float32),
-        )
 
 
 def _validate_rows(
