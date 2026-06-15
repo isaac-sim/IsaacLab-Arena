@@ -11,6 +11,9 @@ Usage:
     /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.review_gui.server \\
         --yaml isaaclab_arena/tests/test_data/pick_and_place_maple_table_init_env_graph.yaml
 
+    # Prompt-only (empty editor until you generate or paste YAML):
+    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.review_gui.server
+
     # Custom port:
     /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.review_gui.server \\
         --yaml <path> --port 8600
@@ -33,8 +36,8 @@ def main() -> None:
     parser.add_argument(
         "--yaml",
         type=Path,
-        required=True,
-        help="Path to an ArenaEnvInitialGraphSpec YAML file.",
+        default=None,
+        help="Optional ArenaEnvInitialGraphSpec YAML to open in the editor.",
     )
     parser.add_argument(
         "--port",
@@ -46,8 +49,8 @@ def main() -> None:
     serve_live_editor(args.yaml, port=args.port)
 
 
-def serve_live_editor(yaml_path: Path, port: int = 8501) -> None:
-    """Spawn ``streamlit run streamlit_ui.py -- --yaml <path>`` and wait."""
+def serve_live_editor(yaml_path: Path | None, port: int = 8501) -> None:
+    """Spawn ``streamlit run streamlit_ui.py`` and wait."""
     app_path = Path(__file__).with_name("streamlit_ui.py")
     if not app_path.exists():
         raise FileNotFoundError(f"Streamlit app not found at {app_path} — installation is incomplete.")
@@ -65,9 +68,9 @@ def serve_live_editor(yaml_path: Path, port: int = 8501) -> None:
         "--server.fileWatcherType",
         "none",
         "--",
-        "--yaml",
-        str(yaml_path.resolve()),
     ]
+    if yaml_path is not None:
+        cmd.extend(["--yaml", str(yaml_path.resolve())])
 
     print(f"[review_gui] launching Streamlit live editor: {' '.join(cmd)}", file=sys.stderr)
     try:

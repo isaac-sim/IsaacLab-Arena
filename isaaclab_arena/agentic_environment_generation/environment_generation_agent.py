@@ -250,6 +250,33 @@ class EnvironmentGenerationAgent:
             A ``(EnvironmentIntentSpec, raw_response)`` tuple. The raw text is
             useful for debugging.
         """
+        data, text = self.fetch_intent_from_prompt(
+            prompt,
+            asset_catalog=asset_catalog,
+            relation_catalog=relation_catalog,
+            task_catalog=task_catalog,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            max_retries=max_retries,
+        )
+        spec = EnvironmentIntentSpec.model_validate(data)
+        return spec, text
+
+    def fetch_intent_from_prompt(
+        self,
+        prompt: str,
+        asset_catalog: AssetCatalogue | None = None,
+        relation_catalog: RelationCatalogue | None = None,
+        task_catalog: TaskCatalogue | None = None,
+        temperature: float = 0.2,
+        max_tokens: int = 4096,
+        max_retries: int = 3,
+    ) -> tuple[dict[str, Any], str]:
+        """Call the model and return parsed intent JSON without registry validation.
+
+        Registry-backed :class:`EnvironmentIntentSpec` validation should run in a
+        SimApp process (e.g. the review GUI sidecar) where registries are warm.
+        """
         asset_catalog = asset_catalog or build_asset_catalogue()
         relation_catalog = relation_catalog or build_relation_catalogue()
         task_catalog = task_catalog or build_task_catalogue()
@@ -268,7 +295,7 @@ class EnvironmentGenerationAgent:
         last_exc: Exception | None = None
         for attempt in range(1 + max_retries):
             if attempt > 0:
-                print(f"[generate_spec] retry {attempt}/{max_retries} after: {last_exc}", flush=True)
+                print(f"[fetch_intent_from_prompt] retry {attempt}/{max_retries} after: {last_exc}", flush=True)
 
             try:
                 resp = self.client.chat.completions.create(
@@ -299,8 +326,7 @@ class EnvironmentGenerationAgent:
                 # (e.g. literal tabs) inside JSON strings — DeepSeek-v4-flash is known
                 # to emit these.
                 data = json.loads(text, strict=False)
-                spec = EnvironmentIntentSpec.model_validate(data)
-                return spec, text
+                return data, text
             except Exception as exc:
                 last_exc = exc
 

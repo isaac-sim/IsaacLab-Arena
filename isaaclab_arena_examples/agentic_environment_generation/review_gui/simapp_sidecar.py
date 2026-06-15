@@ -43,6 +43,16 @@ Protocol (newline-delimited JSON over stdin/stdout):
         (paths are absolute filesystem paths on the disk cache. The PNGs
          themselves stay on disk — the parent reads them itself.)
 
+    {"cmd": "build_catalogues"}
+      → {"ok": true, "asset_catalogue": {...}, "relation_catalogue": {...},
+                       "task_catalogue": {...}}
+        (registry vocabulary for :meth:`EnvironmentGenerationAgent.fetch_intent_from_prompt`)
+
+    {"cmd": "compile_intent", "intent_dict": {...}}
+      → {"ok": true, "spec_dict": {...}, "has_resolution_errors": bool,
+                       "trace": [{"stage": "...", "query": "...", ...}]}
+        (validates :class:`EnvironmentIntentSpec` and compiles to initial graph spec)
+
     {"cmd": "shutdown"}
       → {"ok": true}   # sidecar exits cleanly after replying
 
@@ -141,6 +151,14 @@ def _serve() -> int:
                 _send(_handle_render_spec(app, req, _render_thumbnails_with_app, ArenaEnvInitialGraphSpec))
                 continue
 
+            if cmd == "build_catalogues":
+                _send(_handle_build_catalogues())
+                continue
+
+            if cmd == "compile_intent":
+                _send(_handle_compile_intent(req))
+                continue
+
             _send({"ok": False, "error": f"unknown cmd: {cmd!r}"})
 
         return 0
@@ -171,6 +189,64 @@ def _handle_validate_spec(req: dict[str, Any], spec_cls) -> dict[str, Any]:
         return {"ok": False, "error": f"spec validation failed: {exc}", "traceback": traceback.format_exc()}
 
     return {"ok": True, "spec_dict": spec.to_dict()}
+
+
+def _handle_build_catalogues() -> dict[str, Any]:
+    """Return asset/relation/task catalogues for the env-generation agent."""
+    from dataclasses import asdict  # noqa: PLC0415
+
+    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (  # noqa: PLC0415
+        build_asset_catalogue,
+        build_relation_catalogue,
+        build_task_catalogue,
+    )
+
+    try:
+        asset_catalogue = build_asset_catalogue()
+        relation_catalogue = build_relation_catalogue()
+        task_catalogue = build_task_catalogue()
+    except Exception as exc:
+        return {"ok": False, "error": f"catalogue build failed: {exc}", "traceback": traceback.format_exc()}
+
+    return {
+        "ok": True,
+        "asset_catalogue": asdict(asset_catalogue),
+        "relation_catalogue": {
+            "relations": [asdict(entry) for entry in relation_catalogue.relations],
+        },
+        "task_catalogue": {
+            "tasks": [asdict(entry) for entry in task_catalogue.tasks],
+        },
+    }
+
+
+def _handle_compile_intent(req: dict[str, Any]) -> dict[str, Any]:
+    """Validate an EnvironmentIntentSpec and compile it to an initial graph spec."""
+    from dataclasses import asdict  # noqa: PLC0415
+
+    from isaaclab_arena.agentic_environment_generation.environment_intent_spec import (  # noqa: PLC0415
+        EnvironmentIntentSpec,
+    )
+    from isaaclab_arena.agentic_environment_generation.intent_compiler import IntentCompiler  # noqa: PLC0415
+
+    intent_dict = req.get("intent_dict")
+    if not isinstance(intent_dict, dict):
+        return {"ok": False, "error": "compile_intent requires mapping 'intent_dict'"}
+
+    try:
+        intent = EnvironmentIntentSpec.model_validate(intent_dict)
+        compiler = IntentCompiler()
+        spec = compiler.compile(intent)
+    except Exception as exc:
+        return {"ok": False, "error": f"intent compile failed: {exc}", "traceback": traceback.format_exc()}
+
+    return {
+        "ok": True,
+        "spec_dict": spec.to_dict(),
+        "has_resolution_errors": compiler.has_resolution_errors,
+        "trace": [asdict(event) for event in compiler.trace],
+        "reasoning": intent.reasoning,
+    }
 
 
 def _handle_render_spec(
