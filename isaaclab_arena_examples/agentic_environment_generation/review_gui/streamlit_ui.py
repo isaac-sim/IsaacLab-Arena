@@ -22,7 +22,7 @@ from pathlib import Path
 import streamlit as st
 
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.html_document import render_html_for_spec
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import render_dashboard_html
 
 # Visualization iframe height. Tuned so the graph + tasks + node grid all
 # fit without an outer Streamlit scrollbar swallowing the inner one.
@@ -85,7 +85,7 @@ def initialize_state(yaml_path: Path) -> None:
     if not initial.is_valid:
         st.session_state["rendered_html"] = _BROKEN_PLACEHOLDER_HTML
     else:
-        st.session_state["rendered_html"] = render_html_for_spec(initial.spec)
+        st.session_state["rendered_html"] = render_dashboard_html(initial.spec)
 
 
 def render_validation_badge(validation: ValidationResult) -> None:
@@ -166,7 +166,7 @@ def render_editor_panel(yaml_path: Path) -> ValidationResult:
     edited_since_render = st.session_state["edited_text"] != st.session_state["last_rendered_text"]
     if validation.is_valid and edited_since_render:
         with st.spinner("Rendering visualization…"):
-            st.session_state["rendered_html"] = render_html_for_spec(validation.spec)
+            st.session_state["rendered_html"] = render_dashboard_html(validation.spec)
         st.session_state["last_rendered_text"] = st.session_state["edited_text"]
         st.toast("Visualization updated.", icon="🔄")
 

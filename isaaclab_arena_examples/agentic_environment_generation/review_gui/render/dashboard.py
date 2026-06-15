@@ -17,8 +17,8 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.pa
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.styles import DASHBOARD_CSS
 
 
-def render_html_for_spec(spec: ArenaEnvInitialGraphSpec) -> str:
-    """Render the self-contained review HTML dashboard for ``spec``."""
+def render_dashboard_html(spec: ArenaEnvInitialGraphSpec) -> str:
+    """Render the self-contained review dashboard HTML for ``spec``."""
     initial_state = spec.initial_state_spec
     return f"""<!DOCTYPE html>
 <html lang="en">
