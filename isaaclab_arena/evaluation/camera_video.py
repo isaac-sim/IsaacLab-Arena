@@ -117,6 +117,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
     def _flush_envs(self, env_ids: list[int]) -> None:
         for env_idx in env_ids:
             episode_num = self.episode_counts[env_idx]
+            wrote_any = False
             for cam, env_frame_lists in self.buffers.items():
                 frames = env_frame_lists[env_idx]
                 if not frames:
@@ -129,7 +130,9 @@ class CameraObsVideoRecorder(gym.Wrapper):
                 clip.write_videofile(path, logger=None, audio=False)
                 del clip
                 env_frame_lists[env_idx] = []
-            self.episode_counts[env_idx] += 1
+                wrote_any = True
+            if wrote_any:
+                self.episode_counts[env_idx] += 1
 
     def close(self) -> None:
         try:
