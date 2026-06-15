@@ -6,8 +6,8 @@
 """Gym wrapper that records one mp4 per (env, camera, episode) in ``obs['camera_obs']``.
 
 Frames are flushed to disk each time an environment resets (terminated or
-truncated), so each output file corresponds to exactly one episode.  A final
-flush on ``close()`` captures any trailing incomplete episode.
+truncated), so each output file corresponds to exactly one complete episode.
+Partial episodes cut off by ``num_steps`` are discarded on ``close()``.
 
 Output filename: ``<name_prefix>-env<N>-<cam>-episode-<E>.mp4``
 
@@ -135,12 +135,5 @@ class CameraObsVideoRecorder(gym.Wrapper):
                 self.episode_counts[env_idx] += 1
 
     def close(self) -> None:
-        try:
-            if self._n_envs is not None and self.buffers:
-                envs_with_frames = [
-                    i for i in range(self._n_envs) if any(len(self.buffers[cam][i]) > 0 for cam in self.buffers)
-                ]
-                if envs_with_frames:
-                    self._flush_envs(envs_with_frames)
-        finally:
-            self.env.close()
+        # Partial episodes (cut off by num_steps rather than a real reset) are discarded.
+        self.env.close()
