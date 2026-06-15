@@ -154,7 +154,7 @@ def main():
         print(f"[Rank {local_rank}/{world_size}] One Isaac Lab instance per process on cuda:{local_rank}")
 
     # --camera_video requires cameras to be enabled at sim startup, before SimulationAppContext.
-    if "--camera_video" in unknown:
+    if "--camera_video" in unknown or "--camera-video" in unknown:
         args_cli.enable_cameras = True
 
     with SimulationAppContext(args_cli):
