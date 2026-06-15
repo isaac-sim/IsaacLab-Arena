@@ -183,25 +183,19 @@ class IntentCompiler:
         reference_part = f"_{rel.reference}" if rel.reference is not None else ""
         constraint_id = f"{INITIAL_STATE_SPEC_ID}_{index}_{rel.kind}{reference_part}_{rel.subject}"
         self.trace.append(IntentResolutionTraceEvent(f"{stage_prefix}.ok", rel.subject, rel.reference, note=rel.kind))
-        params = self._with_on_edge_margin(rel, on_edge_margin_m)
+        self._inject_edge_margin_to_on_relation_params(rel, on_edge_margin_m)
         return ArenaEnvGraphSpatialRelationSpec(
             id=constraint_id,
             kind=rel.kind,
             subject=rel.subject,
             reference=rel.reference,
-            params=params,
+            params=dict(rel.params),
         )
 
-    def _with_on_edge_margin(self, rel: SpatialRelationSpec, on_edge_margin_m: float) -> dict:
-        """Return ``rel.params``, injecting ``edge_margin_m`` for ``on`` relations.
-
-        Keeps the placed object off the rim of its support surface. A margin the
-        agent set explicitly wins; the injection is also skipped when
-        ``on_edge_margin_m`` is ``0.0``.
-        """
-        params = dict(rel.params)
-        if rel.kind == "on" and on_edge_margin_m > 0.0 and "edge_margin_m" not in params:
-            params["edge_margin_m"] = on_edge_margin_m
+    def _inject_edge_margin_to_on_relation_params(self, rel: SpatialRelationSpec, on_edge_margin_m: float) -> None:
+        """Inject ``edge_margin_m`` into ``rel.params`` in place for ``on`` relations."""
+        if rel.kind == "on" and on_edge_margin_m > 0.0 and "edge_margin_m" not in rel.params:
+            rel.params["edge_margin_m"] = on_edge_margin_m
             self.trace.append(
                 IntentResolutionTraceEvent(
                     "relation.initial.on_edge_margin",
@@ -210,7 +204,6 @@ class IntentCompiler:
                     note=f"edge_margin_m={on_edge_margin_m}",
                 )
             )
-        return params
 
     def _trace_tasks(self, tasks: list[TaskSpec], known_ids: set[str]) -> None:
         """Emit trace events for each task: one ``task.resolve`` event and one

@@ -321,20 +321,33 @@ def test_multiple_tasks_preserved_in_order():
     assert [t.description for t in spec.tasks] == ["d1", "d2", "d3"]
 
 
-def test_on_relation_injects_default_edge_margin():
-    # `on` constraints get a non-empty default edge margin so the object stays off the rim.
+def _compile_on_relation(rel: SpatialRelationSpec, **compile_kwargs) -> dict:
+    """Compile a scene with a single ``on`` relation and return its output constraint params."""
     items = [Item(query="cracker_box", category_tags=["graspable"])]
-    initial = [SpatialRelationSpec(kind="on", subject="cracker_box", reference="maple_table")]
-    spec = _make_compiler().compile(_make_scene(items=items, initial_state_graph=initial))
-    assert spec.initial_state_spec.spatial_constraints[0].params == {"edge_margin_m": 0.05}
+    spec = _make_compiler().compile(_make_scene(items=items, initial_state_graph=[rel]), **compile_kwargs)
+    return spec.initial_state_spec.spatial_constraints[0].params
+
+
+def test_on_relation_injects_default_edge_margin():
+    # `on` constraints get the default margin, mutated in place on the source relation.
+    rel = SpatialRelationSpec(kind="on", subject="cracker_box", reference="maple_table")
+    assert _compile_on_relation(rel) == {"edge_margin_m": 0.05}
+    assert rel.params == {"edge_margin_m": 0.05}
 
 
 def test_on_edge_margin_uses_value_passed_to_compile():
-    # Whatever margin is passed to compile() is exactly what gets injected.
-    items = [Item(query="cracker_box", category_tags=["graspable"])]
-    initial = [SpatialRelationSpec(kind="on", subject="cracker_box", reference="maple_table")]
-    spec = _make_compiler().compile(_make_scene(items=items, initial_state_graph=initial), on_edge_margin_m=0.12)
-    assert spec.initial_state_spec.spatial_constraints[0].params == {"edge_margin_m": 0.12}
+    rel = SpatialRelationSpec(kind="on", subject="cracker_box", reference="maple_table")
+    assert _compile_on_relation(rel, on_edge_margin_m=0.12) == {"edge_margin_m": 0.12}
+
+
+def test_on_edge_margin_zero_injects_nothing():
+    rel = SpatialRelationSpec(kind="on", subject="cracker_box", reference="maple_table")
+    assert _compile_on_relation(rel, on_edge_margin_m=0.0) == {}
+
+
+def test_on_edge_margin_does_not_override_explicit_value():
+    rel = SpatialRelationSpec(kind="on", subject="cracker_box", reference="maple_table", params={"edge_margin_m": 0.2})
+    assert _compile_on_relation(rel) == {"edge_margin_m": 0.2}
 
 
 def test_task_unknown_param_emits_error_trace():
