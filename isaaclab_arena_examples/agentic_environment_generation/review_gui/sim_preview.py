@@ -9,12 +9,13 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import math
 import sys
 import time
 import uuid
 from pathlib import Path
 from typing import Any
+
+from isaaclab.envs.common import ViewerCfg
 
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 
@@ -22,7 +23,7 @@ PREVIEW_CACHE_DIR = Path(__file__).resolve().parents[3] / ".cache" / "llm_env_ge
 
 NUM_ENVS = 16
 ENV_SPACING_M = 1.5
-NUM_STEPS = 50
+NUM_STEPS = 10
 
 
 def _preview_args() -> argparse.Namespace:
@@ -39,21 +40,6 @@ def _preview_args() -> argparse.Namespace:
         distributed=False,
         presets=None,
     )
-
-
-def _overview_camera(
-    num_envs: int, env_spacing: float
-) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
-    """Return (eye, target) for a diagonal overview of the env grid."""
-    cols = int(math.ceil(math.sqrt(num_envs)))
-    rows = int(math.ceil(num_envs / cols))
-    span_x = max((cols - 1) * env_spacing, env_spacing)
-    span_y = max((rows - 1) * env_spacing, env_spacing)
-    cx, cy = span_x * 0.5, span_y * 0.5
-    radius = max(span_x, span_y) + env_spacing
-    eye = (cx + radius * 0.2, cy - radius * 1.15, radius * 1.25)
-    target = (cx, cy, 0.35)
-    return eye, target
 
 
 def _capture_viewport(app, cache_path: Path) -> bytes | None:
@@ -75,12 +61,12 @@ def _capture_viewport(app, cache_path: Path) -> bytes | None:
 
 
 def run_sim_preview(app, yaml_text: str) -> dict[str, Any]:
-    """Link spec → arena env → relation solver → 50 zero-action steps; capture overview frames."""
+    """Link spec → arena env → relation solver → zero-action steps; capture viewport frames."""
     import yaml
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyArgs
-    from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg, teardown_simulation_app
+    from isaaclab_arena.utils.isaaclab_utils.simulation_app import teardown_simulation_app
 
     raw = yaml.safe_load(yaml_text)
     if not isinstance(raw, dict):
@@ -103,20 +89,17 @@ def run_sim_preview(app, yaml_text: str) -> dict[str, Any]:
 
     env = None
     try:
-        env = builder.make_registered()
-        reapply_viewer_cfg(env)
-
-        eye, target = _overview_camera(args.num_envs, args.env_spacing)
-        env.unwrapped.sim.set_camera_view(eye, target)
-        for _ in range(15):
-            app.update()
+        # Match policy_runner: default Isaac Lab ViewerCfg (not task look-at-object offsets).
+        env_cfg = builder.compose_manager_cfg()
+        env_cfg.viewer = ViewerCfg()
+        env = builder.make_registered(env_cfg)
 
         obs, _ = env.reset()
         for _ in range(10):
             app.update()
 
         if _capture_viewport(app, first_path) is None:
-            raise RuntimeError("failed to capture first-frame overview screenshot")
+            raise RuntimeError("failed to capture first-frame viewport screenshot")
 
         for _ in range(NUM_STEPS):
             action = policy.get_action(env, obs)
@@ -126,7 +109,7 @@ def run_sim_preview(app, yaml_text: str) -> dict[str, Any]:
             app.update()
 
         if _capture_viewport(app, last_path) is None:
-            raise RuntimeError("failed to capture last-frame overview screenshot")
+            raise RuntimeError("failed to capture last-frame viewport screenshot")
 
         print(
             f"[sim_preview] captured {NUM_ENVS} envs @ {ENV_SPACING_M}m spacing, {NUM_STEPS} zero-action steps",

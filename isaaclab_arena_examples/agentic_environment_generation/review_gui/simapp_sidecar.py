@@ -55,8 +55,8 @@ Protocol (newline-delimited JSON over stdin/stdout):
 
     {"cmd": "run_sim_preview", "yaml_text": "..."}
       → {"ok": true, "first_frame": "/abs/first.png", "last_frame": "/abs/last.png",
-                       "num_envs": 16, "env_spacing": 1.5, "num_steps": 50}
-        (link → to_arena_env → relation solver → 50 zero-action steps; overview captures)
+                       "num_envs": 16, "env_spacing": 1.5, "num_steps": 10}
+        (link → to_arena_env → relation solver → 10 zero-action steps; viewport captures)
 
     {"cmd": "shutdown"}
       → {"ok": true}   # sidecar exits cleanly after replying

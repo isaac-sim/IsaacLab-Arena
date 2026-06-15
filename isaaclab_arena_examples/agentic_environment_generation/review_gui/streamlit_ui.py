@@ -593,7 +593,7 @@ def render_visualization_panel(validation: ValidationResult) -> None:
     st.caption(
         f"Runs link → to_arena_env → relation solver, then {NUM_STEPS} zero-action steps "
         f"with {NUM_ENVS} parallel envs at {ENV_SPACING_M} m spacing. "
-        "Overview captures are taken after reset and after the rollout."
+        "Viewport captures use the default scene camera (same as policy_runner)."
     )
 
     if st.button(
@@ -618,10 +618,10 @@ def render_visualization_panel(validation: ValidationResult) -> None:
     if first_frame and last_frame:
         frame_cols = st.columns(2)
         with frame_cols[0]:
-            st.caption("Overview — frame 1 (after reset)")
+            st.caption("Viewport — frame 1 (after reset)")
             st.image(first_frame, use_container_width=True)
         with frame_cols[1]:
-            st.caption(f"Overview — frame 2 (after {NUM_STEPS} zero-action steps)")
+            st.caption(f"Viewport — frame 2 (after {NUM_STEPS} zero-action steps)")
             st.image(last_frame, use_container_width=True)
 
 
