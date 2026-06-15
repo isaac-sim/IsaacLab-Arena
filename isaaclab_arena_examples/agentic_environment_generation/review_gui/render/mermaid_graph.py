@@ -20,7 +20,7 @@ def render_mermaid_graph(spec: ArenaEnvInitialGraphSpec, state: ArenaEnvGraphSta
         subject -->|kind| reference
 
     Unary spatial constraints (no reference) are omitted from the graph and
-    listed below it by :func:`render_unary_constraints` so their params are
+    listed to its right by :func:`render_unary_constraints` so their params are
     visible.
 
     Task constraints with a child are drawn as dashed edges:

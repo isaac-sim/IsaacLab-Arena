@@ -16,7 +16,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.th
 
 
 def render_unary_constraints(state: ArenaEnvGraphStateSpec) -> str:
-    """List constraints without a reference below the graph (anchors, position_limits, ...)."""
+    """List constraints without a reference beside the spatial graph."""
     rows = []
     for constraint in state.spatial_constraints:
         if constraint.reference is not None:
@@ -32,10 +32,10 @@ def render_unary_constraints(state: ArenaEnvGraphStateSpec) -> str:
             f" on <code>{html_lib.escape(constraint.subject)}</code>{params}</li>"
         )
     if not rows:
-        return ""
+        return '<p class="muted unary-empty"><em>No unary constraints.</em></p>'
     return (
-        f'<details open class="unary"><summary>Unary constraints ({len(rows)})</summary>'
-        f'<ul>{"".join(rows)}</ul></details>'
+        f'<h3 class="unary-heading">Unary constraints <span class="muted">({len(rows)})</span></h3>'
+        f'<ul class="unary-list">{"".join(rows)}</ul>'
     )
 
 
