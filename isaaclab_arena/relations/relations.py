@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from isaaclab.utils.math import euler_xyz_from_quat
 
 from isaaclab_arena.assets.register import register_object_relation
-from isaaclab_arena.utils.pose import PoseRange
+from isaaclab_arena.utils.pose import PoseRange  # runtime: constructed in to_pose_range_centered_at()
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
@@ -45,11 +45,19 @@ class UnaryRelation(RelationBase):
     without referencing another object (e.g., AtPosition, PositionLimits).
     """
 
-    pass
+    @staticmethod
+    def is_unary() -> bool:
+        """Return whether the relation constrains a single object."""
+        return True
 
 
 class Relation(RelationBase):
     """Base class for binary spatial relationships between objects."""
+
+    @staticmethod
+    def is_unary() -> bool:
+        """Return whether the relation constrains a single object."""
+        return False
 
     def __init__(self, parent: ObjectBase, relation_loss_weight: float = 1.0):
         """
@@ -134,6 +142,36 @@ class On(Relation):
 
 
 @register_object_relation
+class NotNextTo(Relation):
+    """Forbids placing the child next to the parent on the given side.
+
+    The inverse of ``NextTo``. Blocks the whole half-plane past the parent's edge
+    on that side, within the parent's perpendicular footprint (for ``side=+Y``:
+    all of ``+Y`` past the ``+Y`` edge, clipped to the parent's ``X`` extent).
+    Anywhere off to either side of that footprint stays free, at any distance.
+
+    Note: Loss computation is handled by NotNextToLossStrategy in relation_loss_strategies.py.
+    """
+
+    name = "not_next_to"
+
+    def __init__(
+        self,
+        parent: ObjectBase,
+        relation_loss_weight: float = 1.0,
+        side: Side = Side.POSITIVE_X,
+    ):
+        """
+        Args:
+            parent: The parent asset whose adjacent half-plane is forbidden.
+            relation_loss_weight: Weight for the relationship loss function.
+            side: Which side of the parent is blocked (default: Side.POSITIVE_X).
+        """
+        super().__init__(parent, relation_loss_weight)
+        self.side = side
+
+
+@register_object_relation
 class IsAnchor(RelationBase):
     """Marker indicating this object is an anchor for relation solving.
 
@@ -153,6 +191,11 @@ class IsAnchor(RelationBase):
     """
 
     name = "is_anchor"
+
+    @staticmethod
+    def is_unary() -> bool:
+        """Return whether the relation constrains a single object."""
+        return True
 
 
 @register_object_relation
@@ -175,6 +218,11 @@ class RandomAroundSolution(RelationBase):
     """
 
     name = "random_around_solution"
+
+    @staticmethod
+    def is_unary() -> bool:
+        """Return whether the relation constrains a single object."""
+        return True
 
     def __init__(
         self,
@@ -266,6 +314,11 @@ class RotateAroundSolution(RelationBase):
 
     name = "rotate_around_solution"
 
+    @staticmethod
+    def is_unary() -> bool:
+        """Return whether the relation constrains a single object."""
+        return True
+
     def __init__(
         self,
         roll_rad: float = 0.0,
@@ -288,6 +341,8 @@ class RotateAroundSolution(RelationBase):
         Returns:
             Quaternion rotation converted from roll/pitch/yaw.
         """
+        import torch
+
         from isaaclab.utils.math import quat_from_euler_xyz
 
         roll = torch.tensor(self.roll_rad)

@@ -7,28 +7,32 @@ import argparse
 import dataclasses
 import gc
 import json
+import math
 import os
+import subprocess
+import sys
+import tempfile
 import torch
 import traceback
 from gymnasium.wrappers import RecordVideo
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
+from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
-from isaaclab_arena.utils.reload_modules import reload_arena_modules
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
+    from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase
 
 
 def load_env(arena_env_args: list[str], job_name: str, render_mode: str | None = None):
-
-    reload_arena_modules()
 
     args_parser = get_isaaclab_arena_environments_cli_parser()
 
@@ -125,6 +129,68 @@ def _close_job_resources(policy: "PolicyBase | None", env) -> None:
         _close_env(env)
 
 
+def _split_episodes_across_rebuilds(num_episodes: int | None, num_rebuilds: int, job_name: str) -> list[int | None]:
+    """Split a job's total ``num_episodes`` as evenly as possible across its rebuilds.
+
+    ``num_episodes`` is the total accumulated across rebuilds. The first ``remainder`` rebuilds
+    get one extra episode when the split is uneven (e.g. ``num_episodes=5, num_rebuilds=2`` ->
+    ``[3, 2]``). Returns a list of ``None`` (one per rebuild) when the job is length-driven by
+    steps rather than episodes.
+    """
+    if num_episodes is None:
+        return [None] * num_rebuilds
+    assert num_episodes >= num_rebuilds, (
+        f"Job '{job_name}': num_episodes ({num_episodes}) must be >= num_rebuilds"
+        f" ({num_rebuilds}) so each rebuild runs at least one episode"
+    )
+    # Give every rebuild ``base`` episodes, then hand out the leftover episodes one at a
+    # time to the first ``remainder`` rebuilds.
+    base, remainder = divmod(num_episodes, num_rebuilds)
+    episodes_per_rebuild = [base] * num_rebuilds
+    for rebuild_idx in range(remainder):
+        episodes_per_rebuild[rebuild_idx] += 1
+    return episodes_per_rebuild
+
+
+def _run_chunk(chunk_label: str, chunk_jobs: list[dict]) -> int:
+    """Run ``chunk_jobs`` in a fresh ``eval_runner`` subprocess and return its exit code."""
+    print(f"[eval_runner] {chunk_label}", flush=True)
+    # Serialize this chunk's jobs to a temp config the child loads via --eval_jobs_config.
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+        json.dump({"jobs": chunk_jobs}, tmp)
+        chunk_path = Path(tmp.name)
+    # Re-run this invocation in the child, with --eval_jobs_config appended so it wins over
+    # the master config (argparse keeps the last value).
+    this_invocation = sys.argv
+    config_override = ["--eval_jobs_config", str(chunk_path)]
+    child_cmd = [sys.executable, *this_invocation, *config_override]
+    try:
+        result = subprocess.run(child_cmd, check=False)
+    finally:
+        # Remove the temp chunk config now that the child has loaded it.
+        chunk_path.unlink(missing_ok=True)
+    return result.returncode
+
+
+def _run_in_chunks(args_cli: argparse.Namespace, master_cfg: dict) -> None:
+    """Run each chunk of ``master_cfg['jobs']`` in a fresh ``eval_runner`` subprocess."""
+    jobs = master_cfg["jobs"]
+    chunk_size = args_cli.chunk_size
+    if chunk_size <= 0:
+        raise ValueError(f"--chunk_size must be positive, got {chunk_size}")
+    n_chunks = math.ceil(len(jobs) / chunk_size)
+    print(f"[eval_runner] {len(jobs)} jobs → {n_chunks} chunks of <= {chunk_size}", flush=True)
+
+    for chunk_idx in range(n_chunks):
+        start = chunk_idx * chunk_size
+        end = min(start + chunk_size, len(jobs))
+        chunk_label = f"chunk {chunk_idx + 1}/{n_chunks}: jobs {start}..{end - 1}"
+        returncode = _run_chunk(chunk_label, jobs[start:end])
+        if returncode != 0:
+            print(f"[eval_runner] chunk {chunk_idx} failed (exit {returncode}).", flush=True)
+            sys.exit(returncode)
+
+
 def main():
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli, unknown = args_parser.parse_known_args()
@@ -141,6 +207,18 @@ def main():
     with open(args_cli.eval_jobs_config, encoding="utf-8") as f:
         eval_jobs_config = json.load(f)
 
+    # Chunked dispatch (--chunk_size N). Splits this config across subprocesses so each
+    # gets a fresh SimulationApp. Required for long sweeps because some host memory leaks
+    # each cycle and is only reclaimed when the process exits — in-process teardown can't
+    # release it.
+    if args_cli.chunk_size is not None and len(eval_jobs_config["jobs"]) > args_cli.chunk_size:
+        # TODO(cvolk): aggregate per-chunk metrics into one centralized view. Each chunk
+        # subprocess currently prints its own MetricsLogger summary and nothing is merged
+        # or persisted (save_metrics_to_file() is unused). Follow-up: have each chunk write
+        # metrics JSON to a temp file (forward --metrics_file), then merge + print/save here.
+        _run_in_chunks(args_cli, eval_jobs_config)
+        return
+
     # Check if any job requires cameras and enable them if needed before starting simulation
     enable_cameras_if_required(eval_jobs_config, args_cli)
 
@@ -155,18 +233,31 @@ def main():
             print(f"[INFO] Video recording enabled. Videos will be saved to: {args_cli.video_dir}")
 
         for job in job_manager:
-            if job is not None:
-                env = None
-                policy = None
+            if job is None:
+                continue
+            env = None
+            policy = None
+
+            metrics_per_run: list[MetricsDataCollection] = []
+
+            # num_episodes is the total across rebuilds, so split it over the rebuilds.
+            num_episodes_per_rebuild = _split_episodes_across_rebuilds(job.num_episodes, job.num_rebuilds, job.name)
+
+            # Rebuild the environment and re-run the rollout job.num_rebuilds times, then
+            # aggregate the metrics across rebuilds into a single result.
+            for rebuild_idx in range(job.num_rebuilds):
                 try:
                     render_mode = "rgb_array" if args_cli.video else None
                     env = load_env(job.arena_env_args, job.name, render_mode=render_mode)
 
                     policy = get_policy_from_job(job)
 
+                    # Episodes allotted to this rebuild (None when the job is length-driven by steps).
+                    num_episodes_this_rebuild = num_episodes_per_rebuild[rebuild_idx]
+
                     # Resolve simulation length: num_steps and num_episodes are mutually exclusive.
                     # Priority: job config -> policy length -> CLI default
-                    if job.num_steps is None and job.num_episodes is None:
+                    if job.num_steps is None and num_episodes_this_rebuild is None:
                         if policy.has_length():
                             job.num_steps = policy.length()
                         else:
@@ -176,7 +267,7 @@ def main():
                         if job.num_steps is not None:
                             video_length = job.num_steps
                         else:
-                            video_length = job.num_episodes * env.unwrapped.max_episode_length
+                            video_length = num_episodes_this_rebuild * env.unwrapped.max_episode_length
                         video_kwargs = {
                             "video_folder": os.path.join(args_cli.video_dir, job.name),
                             "step_trigger": lambda step: step == 0,
@@ -190,7 +281,7 @@ def main():
                         env,
                         policy,
                         num_steps=job.num_steps,
-                        num_episodes=job.num_episodes,
+                        num_episodes=num_episodes_this_rebuild,
                         language_instruction=job.language_instruction,
                     )
 
@@ -198,7 +289,7 @@ def main():
 
                     # users may not specify metrics for a task, although it's not recommended
                     if metrics is not None:
-                        metrics_logger.append_job_metrics(job.name, metrics)
+                        metrics_per_run.append(metrics)
 
                 except Exception as e:
                     job_manager.complete_job(job, metrics={}, status=Status.FAILED)
@@ -214,6 +305,11 @@ def main():
                         policy = None
                         env = None
                         _collect_garbage_and_clear_cuda_cache()
+
+            # Aggregate the metrics from the different experiments into a single view.
+            if metrics_per_run:
+                aggregated_metrics = aggregate_metrics(metrics_per_run)
+                metrics_logger.append_job_metrics(job.name, aggregated_metrics)
 
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()

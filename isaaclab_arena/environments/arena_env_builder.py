@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import gymnasium as gym
+from typing import Any
 
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
@@ -33,14 +34,22 @@ from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
+from isaaclab_arena.variations import variations_hydra, variations_printing
+from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBase
 
 
 class ArenaEnvBuilder:
     """Compose IsaacLab Arena → IsaacLab configs"""
 
-    def __init__(self, arena_env: IsaacLabArenaEnvironment, args: argparse.Namespace):
+    def __init__(
+        self,
+        arena_env: IsaacLabArenaEnvironment,
+        args: argparse.Namespace,
+        hydra_overrides: list[str] | None = None,
+    ):
         self.arena_env = arena_env
         self.args = args
+        self.hydra_overrides = hydra_overrides
         self.interactive_scene_cfg = InteractiveSceneCfg(
             num_envs=args.num_envs, env_spacing=args.env_spacing, replicate_physics=False
         )
@@ -70,7 +79,64 @@ class ArenaEnvBuilder:
             num_envs=self.args.num_envs,
             placement_seed=self.args.placement_seed,
             resolve_on_reset=self.args.resolve_on_reset,
+            random_yaw_init=self.args.random_yaw_init,
         )
+
+    def get_all_variations(self) -> dict[str, list[VariationBase]]:
+        """Return ``{asset_name: [variation, ...]}`` for every variation host in the env.
+
+        Merges scene variations with the embodiment own variations.
+        """
+        scene_and_embodiment_variations = self.arena_env.scene.get_asset_variations()
+        if self.arena_env.embodiment is not None:
+            embodiment_variations = self.arena_env.embodiment.get_variations()
+            scene_and_embodiment_variations[self.arena_env.embodiment.name] = embodiment_variations
+        return scene_and_embodiment_variations
+
+    def get_variations_catalogue_as_string(self) -> str:
+        """Return a human-readable catalog of Hydra-configurable variations for this env."""
+        variations: dict[str, list[VariationBase]] = self.get_all_variations()
+        return variations_printing.get_variations_catalogue_as_string(variations, hydra_overrides=self.hydra_overrides)
+
+    def _compose_variations_event_cfg(self) -> Any | None:
+        """Build a configclass with one :class:`EventTermCfg` per enabled run-time variation.
+
+        Returns ``None`` when no run-time variation is enabled.
+        """
+        # Assemble all the variations together into a single configclass.
+        fields: list[tuple[str, type, EventTermCfg]] = []
+        added_event_names: set[str] = set()
+        for variations_per_asset in self.get_all_variations().values():
+            for variation in variations_per_asset:
+                if not variation.enabled:
+                    continue
+                if not isinstance(variation, RunTimeVariationBase):
+                    continue
+                event_name, event_cfg = variation.build_event_cfg()
+                assert event_name not in added_event_names, (
+                    f"Duplicate variation event term name '{event_name}'. "
+                    "Each variation must produce a unique name; consider prefixing with the asset name."
+                )
+                added_event_names.add(event_name)
+                fields.append((event_name, EventTermCfg, event_cfg))
+        if not fields:
+            return None
+        VariationsEventCfg = make_configclass("VariationsEventCfg", fields)
+        return VariationsEventCfg()
+
+    def _apply_build_time_variations(self) -> None:
+        """Sample and apply every enabled :class:`BuildTimeVariationBase`.
+
+        These mutate asset configs in place (e.g. a dome light's spawner
+        texture), so this must run before ``scene_cfg`` is materialised.
+        """
+        for asset_variations in self.get_all_variations().values():
+            for variation in asset_variations:
+                if not variation.enabled:
+                    continue
+                if not isinstance(variation, BuildTimeVariationBase):
+                    continue
+                variation.apply()
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""
@@ -95,6 +161,14 @@ class ArenaEnvBuilder:
         if self.args.solve_relations:
             self._solve_relations()
 
+        # Apply Hydra variation overrides. Needs to happen before build-time variations are applied.
+        if self.hydra_overrides:
+            variations: dict[str, list[VariationBase]] = self.get_all_variations()
+            variations_hydra.apply_overrides(variations, self.hydra_overrides)
+
+        # Apply build-time variations now, before scene_cfg is materialised.
+        self._apply_build_time_variations()
+
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
         embodiment = self.arena_env.embodiment or NoEmbodiment()
         task = self.arena_env.task or NoTask()
@@ -118,12 +192,14 @@ class ArenaEnvBuilder:
                 [("placement_reset", EventTermCfg, self._placement_event_cfg)],
             )
             placement_event_cfg = PlacementEventCfg()
+        variations_event_cfg = self._compose_variations_event_cfg()
         events_cfg = combine_configclass_instances(
             "EventsCfg",
             embodiment.get_events_cfg(),
             self.arena_env.scene.get_events_cfg(),
             task.get_events_cfg(),
             placement_event_cfg,
+            variations_event_cfg,
         )
         termination_cfg = combine_configclass_instances(
             "TerminationCfg",
@@ -177,11 +253,11 @@ class ArenaEnvBuilder:
             task.get_commands_cfg(),
         )
 
-        isaaclab_arena_env = self.arena_env
-
         viewer_cfg = task.get_viewer_cfg()
 
         episode_length_s = task.get_episode_length_s()
+
+        task_description = task.get_task_description()
 
         # Build the environment configuration
         if not self.args.mimic:
@@ -199,7 +275,7 @@ class ArenaEnvBuilder:
                 teleop_devices=teleop_devices_cfg,
                 recorders=recorder_manager_cfg,
                 metrics=metrics_cfg,
-                isaaclab_arena_env=isaaclab_arena_env,
+                task_description=task_description,
                 viewer=viewer_cfg,
             )
             if episode_length_s is not None:
@@ -229,7 +305,7 @@ class ArenaEnvBuilder:
                 # I assume that they're not needed for the mimic env.
                 # recorders=recorder_manager_cfg,
                 # metrics=metrics_cfg,
-                isaaclab_arena_env=isaaclab_arena_env,
+                task_description=task_description,
                 viewer=viewer_cfg,
             )
 

@@ -5,7 +5,10 @@
 
 """Tests for AxisAlignedBoundingBox with always-tensor API."""
 
+import math
 import torch
+
+import pytest
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
@@ -41,6 +44,77 @@ def test_bounding_box_single_env_transforms():
     rotated = aabb.rotated_90_around_z(1)
     torch.testing.assert_close(rotated.min_point, torch.tensor([[-1.0, 0.0, 0.0]]), atol=1e-6, rtol=0)
     torch.testing.assert_close(rotated.max_point, torch.tensor([[0.0, 2.0, 0.5]]), atol=1e-6, rtol=0)
+
+
+def test_rotated_around_z_single_angle():
+    """90° matches rotated_90_around_z; 45° inflates a centered box to its conservative enclosure."""
+    off_origin = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 1.0, 0.5))
+    rot90 = off_origin.rotated_around_z(math.pi / 2)
+    torch.testing.assert_close(rot90.min_point, off_origin.rotated_90_around_z(1).min_point, atol=1e-6, rtol=0)
+    torch.testing.assert_close(rot90.min_point, torch.tensor([[-1.0, 0.0, 0.0]]), atol=1e-6, rtol=0)
+    torch.testing.assert_close(rot90.max_point, torch.tensor([[0.0, 2.0, 0.5]]), atol=1e-6, rtol=0)
+
+    # Half-extents (0.2, 0.1); enclosing half-extent = a|cos| + b|sin| = 0.3*cos(45°) on each axis.
+    centered = AxisAlignedBoundingBox(min_point=(-0.2, -0.1, -0.05), max_point=(0.2, 0.1, 0.05))
+    rot45 = centered.rotated_around_z(math.pi / 4)
+    half = (0.2 + 0.1) * math.cos(math.pi / 4)
+    torch.testing.assert_close(rot45.min_point, torch.tensor([[-half, -half, -0.05]]), atol=1e-6, rtol=0)
+    torch.testing.assert_close(rot45.max_point, torch.tensor([[half, half, 0.05]]), atol=1e-6, rtol=0)
+
+
+def test_rotated_around_z_off_center_arbitrary_angle():
+    """An off-center box at 30° enclosed by hand-computed corner extents (center shifts, Z fixed)."""
+    box = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 1.0, 0.5))
+    rot = box.rotated_around_z(math.pi / 6)
+    cos, sin = math.cos(math.pi / 6), math.sin(math.pi / 6)
+    corners = [(0.0, 0.0), (2.0, 0.0), (2.0, 1.0), (0.0, 1.0)]
+    xs = [x * cos - y * sin for x, y in corners]
+    ys = [x * sin + y * cos for x, y in corners]
+    torch.testing.assert_close(rot.min_point, torch.tensor([[min(xs), min(ys), 0.0]]), atol=1e-6, rtol=0)
+    torch.testing.assert_close(rot.max_point, torch.tensor([[max(xs), max(ys), 0.5]]), atol=1e-6, rtol=0)
+
+
+def test_rotated_around_z_batched_angles_broadcasts_single_box():
+    """An (M,) angle tensor broadcasts an N=1 box to M enclosing boxes (one per angle)."""
+    aabb = AxisAlignedBoundingBox(min_point=(-0.2, -0.1, 0.0), max_point=(0.2, 0.1, 0.5))
+    angles = torch.tensor([0.0, math.pi / 2])
+    rotated = aabb.rotated_around_z(angles)
+    assert rotated.num_envs == 2
+    # Angle 0: unchanged.
+    torch.testing.assert_close(rotated.min_point[0], torch.tensor([-0.2, -0.1, 0.0]), atol=1e-6, rtol=0)
+    torch.testing.assert_close(rotated.max_point[0], torch.tensor([0.2, 0.1, 0.5]), atol=1e-6, rtol=0)
+    # Angle 90°: X/Y extents swap for this origin-centered box.
+    torch.testing.assert_close(rotated.min_point[1], torch.tensor([-0.1, -0.2, 0.0]), atol=1e-6, rtol=0)
+    torch.testing.assert_close(rotated.max_point[1], torch.tensor([0.1, 0.2, 0.5]), atol=1e-6, rtol=0)
+
+
+def test_getitem_selects_single_row():
+    """Indexing a batched bbox returns the (N=1) box for that row; out-of-range asserts."""
+    boxes = AxisAlignedBoundingBox(
+        min_point=torch.tensor([[0.0, 0.0, 0.0], [1.0, 2.0, 3.0]]),
+        max_point=torch.tensor([[1.0, 1.0, 1.0], [4.0, 5.0, 6.0]]),
+    )
+    first = boxes[0]
+    assert first.num_envs == 1
+    torch.testing.assert_close(first.min_point, torch.tensor([[0.0, 0.0, 0.0]]))
+    torch.testing.assert_close(first.max_point, torch.tensor([[1.0, 1.0, 1.0]]))
+
+    last = boxes[1]
+    torch.testing.assert_close(last.min_point, torch.tensor([[1.0, 2.0, 3.0]]))
+    torch.testing.assert_close(last.max_point, torch.tensor([[4.0, 5.0, 6.0]]))
+
+    with pytest.raises(AssertionError):
+        _ = boxes[2]
+
+
+def test_rotated_around_z_mismatched_box_and_angle_counts_raises():
+    """Multiple boxes paired with a different count of multiple angles is ambiguous and must assert."""
+    boxes = AxisAlignedBoundingBox(
+        min_point=torch.tensor([[-0.2, -0.1, 0.0], [-0.2, -0.1, 0.0]]),
+        max_point=torch.tensor([[0.2, 0.1, 0.5], [0.2, 0.1, 0.5]]),
+    )
+    with pytest.raises(AssertionError):
+        boxes.rotated_around_z(torch.tensor([0.0, math.pi / 2, math.pi]))
 
 
 def test_bounding_box_single_env_overlaps():

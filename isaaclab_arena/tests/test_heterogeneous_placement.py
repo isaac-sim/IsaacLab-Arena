@@ -512,6 +512,26 @@ def test_pooled_placer_heterogeneous_sample_with_replacement():
     assert pool.remaining == initial_remaining, "sample_with_replacement should not consume layouts"
 
 
+def test_pooled_placer_heterogeneous_sample_with_replacement_reproducible_per_env_id():
+    """sample_with_replacement should reproduce each env's layout under a fixed seed (env-specific branch)."""
+    num_envs = 4
+    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3, verbose=False)
+    placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=42)
+
+    desk1, hetero1, _ = _make_hetero_pool_objects()
+    desk2, hetero2, _ = _make_hetero_pool_objects()
+    pool1 = PooledObjectPlacer(objects=[desk1, hetero1], placer_params=placer_params, pool_size=20, num_envs=num_envs)
+    pool2 = PooledObjectPlacer(objects=[desk2, hetero2], placer_params=placer_params, pool_size=20, num_envs=num_envs)
+
+    samples1 = pool1.sample_with_replacement(num_envs * 3)
+    samples2 = pool2.sample_with_replacement(num_envs * 3)
+
+    for i, (s1, s2) in enumerate(zip(samples1, samples2)):
+        assert (
+            s1.positions[hetero1] == s2.positions[hetero2]
+        ), f"slot {i} (env {i % num_envs}) not reproducible: {s1.positions[hetero1]} != {s2.positions[hetero2]}"
+
+
 def test_pooled_placer_heterogeneous_sample_without_replacement_triggers_refill():
     """Exhausting an env pool should trigger a refill."""
     desk, hetero, placer_params = _make_hetero_pool_objects()

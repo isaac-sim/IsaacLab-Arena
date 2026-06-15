@@ -471,7 +471,10 @@ class DomeLight(LibraryObject):
     # Setting a global prim path for the dome light. Will not get repeated for each environment.
     default_prim_path = "/World/Light"
     object_type = ObjectType.BASE
-    default_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=3000.0)
+    default_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=500.0)
+
+    spawner_cfg: sim_utils.DomeLightCfg
+    """Narrows the base-class spawner cfg type to ``DomeLightCfg`` for this asset."""
 
     def __init__(
         self,
@@ -481,11 +484,16 @@ class DomeLight(LibraryObject):
         spawner_cfg: sim_utils.DomeLightCfg = default_spawner_cfg,
         hdr: "HDRImage | None" = None,  # noqa: F821
     ):
+        from isaaclab_arena.variations.hdr_image_variation import HDRImageVariation
+        from isaaclab_arena.variations.light_intensity_variation import LightIntensityVariation
+
         super().__init__(
             instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, spawner_cfg=spawner_cfg
         )
         if hdr is not None:
             self.add_hdr(hdr)
+        self.add_variation(HDRImageVariation(self))
+        self.add_variation(LightIntensityVariation(self))
 
     def add_hdr(self, hdr: "HDRImage") -> None:  # noqa: F821
         """Attach an HDR environment map texture to this dome light.
@@ -496,15 +504,21 @@ class DomeLight(LibraryObject):
         from isaaclab_arena.assets.hdr_image import HDRImage
 
         assert isinstance(hdr, HDRImage), f"Expected an HDRImage instance, got {type(hdr)}"
-        # Rebuild the spawner cfg with the HDR texture while preserving
-        # user-specified intensity and other settings.
-        self.spawner_cfg = sim_utils.DomeLightCfg(
-            texture_file=hdr.texture_file,
-            texture_format=hdr.texture_format,  # type: ignore[arg-type]
-            intensity=self.spawner_cfg.intensity,
-            color=self.spawner_cfg.color,
-            visible_in_primary_ray=True,
-        )
+        # Apply the HDR texture in place, preserving user-specified intensity, color, etc.
+        self.spawner_cfg.texture_file = hdr.texture_file
+        self.spawner_cfg.texture_format = hdr.texture_format  # type: ignore[assignment]
+        self.spawner_cfg.visible_in_primary_ray = True
+        # Re-initialize the object cfg so the scene picks up the change.
+        self.object_cfg = self._init_object_cfg()
+
+    def set_intensity(self, intensity: float) -> None:
+        """Set the dome light's intensity and refresh the object cfg.
+
+        Args:
+            intensity: The new dome light intensity. Must be non-negative.
+        """
+        assert intensity >= 0.0, f"Dome light intensity must be non-negative, got {intensity}."
+        self.spawner_cfg.intensity = intensity
         # Re-initialize the object cfg so the scene picks up the change.
         self.object_cfg = self._init_object_cfg()
 

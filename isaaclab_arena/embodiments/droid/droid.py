@@ -41,6 +41,7 @@ from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos,
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
 
 
 class DroidEmbodimentBase(EmbodimentBase, ABC):
@@ -71,6 +72,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
             self.set_initial_joint_pose(initial_joint_pose)
         self.reward_config = None
         self.mimic_env = None
+        self.add_variation(CameraExtrinsicsVariation(camera_name="wrist_camera"))
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
         # We override the default initial pose setting function in order to also set
@@ -98,6 +100,7 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
     """Embodiment for the DROID setup with differential inverse kinematics action controller."""
 
     name = "droid_differential_ik"
+    tags = ["embodiment", "ik"]
     default_arm_mode = ArmMode.SINGLE_ARM
 
     def __init__(
