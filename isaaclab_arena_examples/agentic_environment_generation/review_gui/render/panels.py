@@ -10,9 +10,7 @@ import yaml
 
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeSpec, ArenaEnvGraphStateSpec
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnails import (
-    render_placeholder_thumbnail,
-)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnails import render_node_thumbnail
 
 
 def render_unary_constraints(state: ArenaEnvGraphStateSpec) -> str:
@@ -62,14 +60,15 @@ def render_tasks_table(spec: ArenaEnvInitialGraphSpec) -> str:
     )
 
 
-def render_node_cards(spec: ArenaEnvInitialGraphSpec) -> str:
-    return "\n".join(render_node_card(node) for node in spec.nodes)
+def render_node_cards(spec: ArenaEnvInitialGraphSpec, thumbnails: dict[str, bytes] | None = None) -> str:
+    thumbnails = thumbnails or {}
+    return "\n".join(render_node_card(node, thumbnails.get(node.id)) for node in spec.nodes)
 
 
-def render_node_card(node: ArenaEnvGraphNodeSpec) -> str:
+def render_node_card(node: ArenaEnvGraphNodeSpec, png_bytes: bytes | None = None) -> str:
     node_dict = node.model_dump(mode="json", exclude_none=True)
     node_yaml = yaml.safe_dump(node_dict, sort_keys=False).rstrip()
-    thumb = render_placeholder_thumbnail(node)
+    thumb = render_node_thumbnail(node, png_bytes)
     return f"""<article class="node-card type-{html_lib.escape(node.type.value)}">
   {thumb}
   <div class="node-meta">

@@ -13,7 +13,11 @@ import os
 import subprocess
 import sys
 import threading
+import yaml
+from pathlib import Path
 from typing import Any
+
+from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 
 
 class SimAppSidecarError(RuntimeError):
@@ -21,11 +25,7 @@ class SimAppSidecarError(RuntimeError):
 
 
 class SimAppSidecar:
-    """Long-lived Kit/SimApp host process exposed as a validation service.
-
-    See ``simapp_sidecar.py`` for the protocol. Cached via ``@st.cache_resource``
-    in the Streamlit app; pipe access is serialized with an internal lock.
-    """
+    """Long-lived Kit/SimApp host process exposed as a validation and render service."""
 
     def __init__(self, *, boot_timeout_s: float = 180.0, shutdown_timeout_s: float = 10.0) -> None:
         self._proc: subprocess.Popen | None = None
@@ -105,6 +105,34 @@ class SimAppSidecar:
 
         with self._lock:
             return self._request({"cmd": "validate_spec", "yaml_text": yaml_text})
+
+    def render_spec(self, spec: ArenaEnvInitialGraphSpec) -> dict[str, bytes]:
+        """Ask the sidecar to render thumbnails for ``spec``."""
+        if not self.is_alive():
+            raise SimAppSidecarError("SimApp sidecar is not running — start it first")
+
+        yaml_text = yaml.safe_dump(spec.to_dict(), sort_keys=False)
+
+        with self._lock:
+            response = self._request({"cmd": "render_spec", "yaml_text": yaml_text})
+
+        if not response.get("ok"):
+            raise SimAppSidecarError(
+                f"sidecar render failed: {response.get('error', 'unknown')}\n{response.get('traceback', '')}"
+            )
+
+        paths: dict[str, str] = response.get("paths", {}) or {}
+        results: dict[str, bytes] = {}
+        for node_id, path_str in paths.items():
+            path = Path(path_str)
+            if path.exists() and path.stat().st_size > 0:
+                results[node_id] = path.read_bytes()
+            else:
+                print(
+                    f"[review_gui]   sidecar reported {node_id} -> {path_str} but file is missing.",
+                    file=sys.stderr,
+                )
+        return results
 
     def ping(self) -> bool:
         """Cheap liveness check round-trip — returns True on a healthy reply."""

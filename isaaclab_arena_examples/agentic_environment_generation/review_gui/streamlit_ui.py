@@ -10,8 +10,9 @@ Launch via :mod:`~isaaclab_arena_examples.agentic_environment_generation.review_
     /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.review_gui.server \\
         --yaml isaaclab_arena/tests/test_data/pick_and_place_maple_table_init_env_graph.yaml
 
-Registry lookups (task kinds, relation kinds) run in a persistent SimApp
-sidecar so YAML re-validation stays fast after the first ~30s sidecar boot.
+Registry lookups (task kinds, relation kinds, asset USD paths) run in a
+persistent SimApp sidecar so YAML re-validation stays fast after the first
+~30s sidecar boot. Thumbnails are rendered live by the same sidecar.
 """
 
 from __future__ import annotations
@@ -72,6 +73,31 @@ def _ensure_sidecar() -> SimAppSidecar | None:
 def _spec_from_sidecar_dict(spec_dict: dict[str, Any]) -> ArenaEnvInitialGraphSpec:
     """Rebuild a validated spec locally without registry imports."""
     return ArenaEnvInitialGraphSpec.model_validate(spec_dict, context=_SKIP_REGISTRY_CONTEXT)
+
+
+def _render_with_thumbnails(spec: ArenaEnvInitialGraphSpec) -> str:
+    """Render review HTML, asking the sidecar for live USD thumbnails."""
+    sidecar = _ensure_sidecar()
+    if sidecar is None:
+        st.warning(
+            "Isaac Sim sidecar is unavailable — showing placeholder thumbnails. "
+            "Check the terminal where you launched the server for the underlying error.",
+            icon="⚠️",
+        )
+        return render_dashboard_html(spec)
+
+    try:
+        thumbnails = sidecar.render_spec(spec)
+    except SimAppSidecarError as exc:
+        st.error(
+            f"Sidecar render failed; showing placeholder thumbnails.\n\n```\n{exc}\n```",
+            icon="🛑",
+        )
+        with st.spinner("Resetting the SimApp sidecar…"):
+            _get_simapp_sidecar.clear()
+        return render_dashboard_html(spec)
+
+    return render_dashboard_html(spec, thumbnails=thumbnails if thumbnails else None)
 
 
 @dataclass
@@ -156,7 +182,7 @@ def initialize_state(yaml_path: Path) -> None:
     if not initial.is_valid:
         st.session_state["rendered_html"] = _BROKEN_PLACEHOLDER_HTML
     else:
-        st.session_state["rendered_html"] = render_dashboard_html(initial.spec)
+        st.session_state["rendered_html"] = _render_with_thumbnails(initial.spec)
 
 
 def render_validation_badge(validation: ValidationResult) -> None:
@@ -237,7 +263,7 @@ def render_editor_panel(yaml_path: Path) -> ValidationResult:
     edited_since_render = st.session_state["edited_text"] != st.session_state["last_rendered_text"]
     if validation.is_valid and edited_since_render:
         with st.spinner("Rendering visualization…"):
-            st.session_state["rendered_html"] = render_dashboard_html(validation.spec)
+            st.session_state["rendered_html"] = _render_with_thumbnails(validation.spec)
         st.session_state["last_rendered_text"] = st.session_state["edited_text"]
         st.toast("Visualization updated.", icon="🔄")
 

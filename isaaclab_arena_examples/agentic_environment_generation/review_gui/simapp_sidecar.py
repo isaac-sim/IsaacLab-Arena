@@ -6,9 +6,10 @@
 """Long-lived ``SimulationApp`` host process for the live review editor.
 
 Boots Kit's ``SimulationApp`` once on *its own* main thread and serves
-spec-validation requests over a newline-delimited JSON-RPC pipe on
-stdin/stdout. The parent (``streamlit_ui.py`` running inside Streamlit) spawns
-exactly one of these and reuses it for the entire server lifetime via
+validation and thumbnail-render requests over a newline-delimited JSON-RPC
+pipe on stdin/stdout. The parent (``streamlit_ui.py`` running inside
+Streamlit) spawns exactly one of these and reuses it for the entire server
+lifetime via
 :class:`isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_sidecar_client.SimAppSidecar`.
 
 Why a sidecar and not an in-process ``SimulationApp``:
@@ -16,8 +17,10 @@ Why a sidecar and not an in-process ``SimulationApp``:
 * ``signal.signal`` only works in the main thread. Streamlit's
   ``ScriptRunner`` runs the script in a worker thread, so SimApp's signal
   setup raises ``ValueError("signal only works in main thread …")``.
-* Registry imports transitively load ``pxr``, which must happen only after
-  ``SimulationApp`` starts. A dedicated process keeps that ordering safe.
+* ``omni.usd.UsdContext`` is process-singleton AND can't tolerate cross-
+  thread driving from Streamlit reruns — driving it from worker threads
+  triggers ``[Error] [omni.usd] UsdContext busy`` and the open_stage call
+  fails. A dedicated process with serialized request handling avoids both.
 
 Protocol (newline-delimited JSON over stdin/stdout):
 
@@ -33,6 +36,12 @@ Protocol (newline-delimited JSON over stdin/stdout):
       → {"ok": true, "spec_dict": {...}}
         (full :class:`ArenaEnvInitialGraphSpec` validation including registry
          lookups — runs in the sidecar where registries are already warm)
+
+    {"cmd": "render_spec", "yaml_text": "..."}
+      → {"ok": true, "paths": {"node_id": "/abs/path/to.png", ...},
+                       "errors": [{"node_id": "...", "error": "..."}]}
+        (paths are absolute filesystem paths on the disk cache. The PNGs
+         themselves stay on disk — the parent reads them itself.)
 
     {"cmd": "shutdown"}
       → {"ok": true}   # sidecar exits cleanly after replying
@@ -51,7 +60,6 @@ appears on the user's terminal via inherited stderr.
 
 from __future__ import annotations
 
-import argparse
 import contextlib
 import json
 import os
@@ -59,15 +67,10 @@ import signal
 import sys
 import traceback
 import yaml
+from pathlib import Path
 from typing import Any
 
-# ---------------------------------------------------------------------------
-# stdout multiplexing setup — run BEFORE importing anything that might
-# touch Kit or print to stdout, otherwise Kit's chatter pollutes the JSON
-# channel and the parent crashes on the first bad json.loads.
-# ---------------------------------------------------------------------------
-
-_JSON_FD = os.dup(1)  # save real stdout for our JSON channel
+_JSON_FD = os.dup(1)
 os.dup2(2, 1)
 sys.stdout = sys.stderr
 
@@ -76,18 +79,6 @@ def _send(payload: dict[str, Any]) -> None:
     """Write one JSON line to the parent on the saved stdout fd."""
     data = (json.dumps(payload) + "\n").encode("utf-8")
     os.write(_JSON_FD, data)
-
-
-def _launch_simulation_app():
-    """Boot Isaac Sim's ``SimulationApp`` for registry-backed validation."""
-    try:
-        from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher  # noqa: PLC0415
-
-        sim_args = argparse.Namespace(headless=True, enable_cameras=False, hide_ui=True, livestream=-1)
-        return get_app_launcher(sim_args).app
-    except Exception as exc:
-        print(f"[simapp_sidecar] SimulationApp launch failed: {exc}", file=sys.stderr)
-        return None
 
 
 def _install_signal_handlers() -> None:
@@ -99,8 +90,16 @@ def _install_signal_handlers() -> None:
 
 
 def _serve() -> int:
-    """Boot SimApp, hand-shake with the parent, then service validation requests."""
+    """Boot SimApp, hand-shake with the parent, then service requests."""
     _install_signal_handlers()
+
+    try:
+        from isaaclab_arena_examples.agentic_environment_generation.review_gui.thumbnail_render import (  # noqa: PLC0415
+            _launch_simulation_app,
+        )
+    except Exception as exc:
+        _send({"ready": False, "error": f"import failed: {exc}", "traceback": traceback.format_exc()})
+        return 1
 
     app = _launch_simulation_app()
     if app is None:
@@ -108,6 +107,9 @@ def _serve() -> int:
         return 1
 
     from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec  # noqa: PLC0415
+    from isaaclab_arena_examples.agentic_environment_generation.review_gui.thumbnail_render import (  # noqa: PLC0415
+        _render_thumbnails_with_app,
+    )
 
     _send({"ready": True})
 
@@ -133,6 +135,10 @@ def _serve() -> int:
 
             if cmd == "validate_spec":
                 _send(_handle_validate_spec(req, ArenaEnvInitialGraphSpec))
+                continue
+
+            if cmd == "render_spec":
+                _send(_handle_render_spec(app, req, _render_thumbnails_with_app, ArenaEnvInitialGraphSpec))
                 continue
 
             _send({"ok": False, "error": f"unknown cmd: {cmd!r}"})
@@ -165,6 +171,34 @@ def _handle_validate_spec(req: dict[str, Any], spec_cls) -> dict[str, Any]:
         return {"ok": False, "error": f"spec validation failed: {exc}", "traceback": traceback.format_exc()}
 
     return {"ok": True, "spec_dict": spec.to_dict()}
+
+
+def _handle_render_spec(
+    app,
+    req: dict[str, Any],
+    render_fn,
+    spec_cls,
+) -> dict[str, Any]:
+    """Parse the spec, run thumbnail rendering, marshal the response."""
+    yaml_text = req.get("yaml_text")
+    if not isinstance(yaml_text, str):
+        return {"ok": False, "error": "render_spec requires string 'yaml_text'"}
+
+    try:
+        spec = spec_cls.from_dict(yaml.safe_load(yaml_text))
+    except Exception as exc:
+        return {"ok": False, "error": f"spec parse failed: {exc}", "traceback": traceback.format_exc()}
+
+    try:
+        paths: dict[str, Path] = render_fn(app, spec)
+    except Exception as exc:
+        return {"ok": False, "error": f"render failed: {exc}", "traceback": traceback.format_exc()}
+
+    return {
+        "ok": True,
+        "paths": {node_id: str(p) for node_id, p in paths.items()},
+        "errors": [],
+    }
 
 
 def main() -> int:
