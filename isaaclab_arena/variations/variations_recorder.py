@@ -14,6 +14,7 @@ is no singleton or global lookup.
 from __future__ import annotations
 
 import torch
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from omegaconf import OmegaConf
@@ -42,21 +43,34 @@ class VariationRecord:
         #: (e.g. a list returned by a categorical sampler) are stored as-is.
         self.samples: list[Any] = []
 
-    def summary(self) -> str:
-        """Return a multi-line human-readable summary of this record."""
+    def _header_lines(self) -> list[str]:
+        """Return the shared preamble (identity, cfg, sample-call count) for renderers."""
         lines = [f"--- {self.source_id} ---", "cfg:"]
         lines.append(OmegaConf.to_yaml(OmegaConf.structured(self.cfg)).rstrip())
         lines.append(f"sample calls: {len(self.samples)}")
+        if self.samples and isinstance(self.samples[0], torch.Tensor):
+            stacked_shape = (len(self.samples), *tuple(self.samples[0].shape))
+            lines.append(f"stacked shape: {stacked_shape}")
+        return lines
+
+    @staticmethod
+    def _format_sample(sample: Any) -> str:
+        """Render a single sample value (tensors as nested lists, others via ``repr``)."""
+        return f"{sample.tolist()}" if isinstance(sample, torch.Tensor) else f"{sample!r}"
+
+    def summary(self) -> str:
+        """Return a multi-line human-readable summary of this record (first/last sample only)."""
+        lines = self._header_lines()
         if self.samples:
-            first = self.samples[0]
-            if isinstance(first, torch.Tensor):
-                stacked_shape = (len(self.samples), *tuple(first.shape))
-                lines.append(f"stacked shape: {stacked_shape}")
-                lines.append(f"first call:   {first.tolist()}")
-                lines.append(f"last call:    {self.samples[-1].tolist()}")
-            else:
-                lines.append(f"first call:   {first!r}")
-                lines.append(f"last call:    {self.samples[-1]!r}")
+            lines.append(f"first call:   {self._format_sample(self.samples[0])}")
+            lines.append(f"last call:    {self._format_sample(self.samples[-1])}")
+        return "\n".join(lines)
+
+    def details(self) -> str:
+        """Return a multi-line human-readable view of this record, listing every sample."""
+        lines = self._header_lines()
+        for i, sample in enumerate(self.samples):
+            lines.append(f"call {i}: {self._format_sample(sample)}")
         return "\n".join(lines)
 
     def __str__(self) -> str:
@@ -124,13 +138,21 @@ class VariationRecorder:
         """All per-variation records, in attach order."""
         return list(self._records.values())
 
-    def summary(self) -> str:
-        """Return a multi-line human-readable summary of every attached record."""
+    def _render(self, render_record: Callable[[VariationRecord], str]) -> str:
+        """Join ``render_record`` applied to every attached record under a shared header."""
         parts = [f"VariationRecorder: {len(self._records)} record(s)"]
         for record in self._records.values():
             parts.append("")
-            parts.append(record.summary())
+            parts.append(render_record(record))
         return "\n".join(parts)
+
+    def summary(self) -> str:
+        """Return a multi-line human-readable summary of every attached record (first/last sample)."""
+        return self._render(VariationRecord.summary)
+
+    def details(self) -> str:
+        """Return a multi-line human-readable view of every attached record, listing all samples."""
+        return self._render(VariationRecord.details)
 
     def __str__(self) -> str:
         return self.summary()
