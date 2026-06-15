@@ -26,7 +26,7 @@ from isaaclab_arena.tasks.rewards import lift_object_rewards, rewards
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.terminations import lift_object_il_success, lift_object_rl_success
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
-from isaaclab_arena.utils.pose import PoseRange
+from isaaclab_arena.utils.pose import as_single_pose
 
 
 @register_task
@@ -54,9 +54,7 @@ class LiftObjectTask(TaskBase):
         self.background_scene = background_scene
 
         # Compute goal position from object's initial pose + delta
-        initial_pose = lift_object.get_initial_pose()
-        if isinstance(initial_pose, PoseRange):
-            initial_pose = initial_pose.get_midpoint()
+        initial_pose = as_single_pose(lift_object.get_initial_pose())
 
         # Store goal pose for success termination (IL/teleoperation uses fixed goal)
         self.goal_position_xyz = (
@@ -163,9 +161,7 @@ class LiftObjectTaskRL(LiftObjectTask):
 
         self.minimum_height_to_lift = minimum_height_to_lift
         # Get object's initial pose to compute absolute target ranges
-        initial_pose = lift_object.get_initial_pose()
-        if isinstance(initial_pose, PoseRange):
-            initial_pose = initial_pose.get_midpoint()
+        initial_pose = as_single_pose(lift_object.get_initial_pose())
 
         # Compute absolute target ranges from deltas
         self.target_x_range = (
