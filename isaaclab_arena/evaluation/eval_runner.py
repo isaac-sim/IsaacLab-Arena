@@ -305,7 +305,11 @@ def main():
                     if args_cli.camera_video:
                         job_video_dir = os.path.join(args_cli.video_dir, job.name)
                         print(f"[INFO] Recording per-episode camera videos for job '{job.name}' -> {job_video_dir}")
-                        env = CameraObsVideoRecorder(env, video_folder=job_video_dir)
+                        env = CameraObsVideoRecorder(
+                            env,
+                            video_folder=job_video_dir,
+                            name_prefix=f"robot-cam-rebuild{rebuild_idx}",
+                        )
 
                     metrics = rollout_policy(
                         env,
