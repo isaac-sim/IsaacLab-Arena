@@ -97,7 +97,6 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--embodiment", type=str, default="droid_abs_joint_pos")
-        parser.add_argument("--teleop_device", type=str, default=None)
         parser.add_argument("--hdr", type=str, default=None)
         parser.add_argument("--light_intensity", type=float, default=500.0)
         parser.add_argument("--pick_up_object", type=str, default="rubiks_cube_hot3d_robolab")

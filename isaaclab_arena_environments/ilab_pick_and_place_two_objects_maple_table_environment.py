@@ -26,7 +26,6 @@ class IlabPickAndPlaceTwoObjectsMapleTableEnvironment(ExampleEnvironmentBase):
     name: str = "ilab_pick_and_place_two_objects_maple_table"
 
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-        import isaaclab.sim as sim_utils
         from isaaclab.envs.common import ViewerCfg
 
         from isaaclab_arena.assets.object_base import ObjectType
@@ -57,9 +56,7 @@ class IlabPickAndPlaceTwoObjectsMapleTableEnvironment(ExampleEnvironmentBase):
         destination_location.add_relation(On(table_reference))
 
         # Step 3: Configure lighting
-        light = self.asset_registry.get_asset_by_name("light")(
-            spawner_cfg=sim_utils.DomeLightCfg(intensity=args_cli.light_intensity),
-        )
+        light = self.asset_registry.get_asset_by_name("light")()
         if args_cli.hdr is not None:
             light.add_hdr(self.hdr_registry.get_hdr_by_name(args_cli.hdr)())
 
@@ -110,9 +107,7 @@ class IlabPickAndPlaceTwoObjectsMapleTableEnvironment(ExampleEnvironmentBase):
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--embodiment", type=str, default="droid_abs_joint_pos")
-        parser.add_argument("--teleop_device", type=str, default=None)
-        parser.add_argument("--hdr", type=str, default=None)
-        parser.add_argument("--light_intensity", type=float, default=500.0)
         parser.add_argument("--pick_up_object_1", type=str, default="rubiks_cube_hot3d_robolab")
         parser.add_argument("--pick_up_object_2", type=str, default="mug_ycb_robolab")
         parser.add_argument("--destination_location", type=str, default="bowl_ycb_robolab")
+        parser.add_argument("--hdr", type=str, default=None)
