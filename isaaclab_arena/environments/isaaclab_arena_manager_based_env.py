@@ -14,7 +14,7 @@ from isaaclab_arena.variations.variations_recorder import VariationRecorder
 
 
 class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
-    """Arena extension to ManagerBasedRLEnv that adds metrics."""
+    """Arena extension to ManagerBasedRLEnv that adds additional Arena-specific functionality."""
 
     cfg: IsaacLabArenaManagerBasedRLEnvCfg
 
@@ -25,12 +25,9 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         variations_recorder: VariationRecorder | None = None,
         **kwargs,
     ):
-        assert variations_recorder is not None, (
-            "IsaacLabArenaManagerBasedRLEnv requires a variations_recorder. Build the env through "
-            "ArenaEnvBuilder (which creates one in compose_manager_cfg and threads it via env_kwargs), "
-            "or pass env_kwargs into gym.make when constructing the env directly."
-        )
-        # Stored before super().__init__ because load_managers() runs inside it.
+        assert (
+            variations_recorder is not None
+        ), "IsaacLabArenaManagerBasedRLEnv requires a variations_recorder. Build the env through ArenaEnvBuilder"
         self.variations_recorder = variations_recorder
         super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
 

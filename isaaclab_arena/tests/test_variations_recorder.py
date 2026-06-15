@@ -122,7 +122,7 @@ def test_recorder_skips_disabled_variations():
     assert recorder.records == []
 
 
-def test_recorder_duplicate_source_id_asserts():
+def test_recorder_duplicate_asset_name_asserts():
     variation = _RecorderTestVariation()
     variation.enable()
     recorder = VariationRecorder()
@@ -148,7 +148,7 @@ def _test_hdr_variation_recorder_captures_chosen_hdr_name(simulation_app):
     # Attach the recorder after the cfg is finalized but before apply(), mirroring
     # the order ArenaEnvBuilder.compose_manager_cfg uses.
     recorder = VariationRecorder()
-    recorder.attach_to_scene(scene)
+    recorder.attach(scene.get_asset_variations())
 
     record = recorder["light.hdr_image"]
     assert len(record.samples) == 0

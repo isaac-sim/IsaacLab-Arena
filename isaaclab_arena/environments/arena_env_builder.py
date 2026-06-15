@@ -172,9 +172,8 @@ class ArenaEnvBuilder:
             variations: dict[str, list[VariationBase]] = self.get_all_variations()
             variations_hydra.apply_overrides(variations, self.hydra_overrides)
 
-        # Attach the variation recorder after overrides but before any sampling, so it
-        # observes both build-time samples (drawn just below) and run-time samples (drawn
-        # during simulation). Covers scene-side assets and the embodiment.
+        # Attach the variation recorder before any sampling, so it observes both build-time samples
+        # (drawn just below) and run-time samples (drawn during simulation).
         variations_recorder = VariationRecorder()
         variations_recorder.attach(self.get_all_variations())
 
@@ -361,9 +360,12 @@ class ArenaEnvBuilder:
     ) -> tuple[str, IsaacLabArenaManagerBasedRLEnvCfg, dict[str, Any]]:
         """Register the Gym env and parse the runtime cfg.
 
-        When ``env_cfg`` is omitted it is composed here (also producing ``env_kwargs``); when
-        provided, pass the matching ``env_kwargs`` from ``compose_manager_cfg`` so the variation
-        recorder reaches the env.
+        When ``env_cfg`` is omitted it is compiled/composed in this function from the IsaacLabArenaEnvironment
+        passed to the ArenaEnvBuilder at construction.
+
+        Args:
+            env_cfg: The optional environment cfg to use.
+            env_kwargs: The optional environment kwargs to use.
 
         Returns:
             A ``(name, cfg, env_kwargs)`` tuple.
@@ -400,6 +402,16 @@ class ArenaEnvBuilder:
         env_kwargs: dict[str, Any] | None = None,
         render_mode: str | None = None,
     ) -> ManagerBasedEnv:
+        """Build and return the environment from the registered environment configuration.
+
+        Args:
+            env_cfg: The optional environment cfg to use.
+            env_kwargs: The optional environment kwargs to use.
+            render_mode: The optional render mode to use.
+
+        Returns:
+            The environment.
+        """
         env, _ = self.make_registered_and_return_cfg(env_cfg, env_kwargs, render_mode=render_mode)
         return env
 
@@ -409,10 +421,17 @@ class ArenaEnvBuilder:
         env_kwargs: dict[str, Any] | None = None,
         render_mode: str | None = None,
     ) -> tuple[ManagerBasedEnv, IsaacLabArenaManagerBasedRLEnvCfg]:
+        """Build and return the environment from the registered environment configuration and return the configuration.
+
+        Args:
+            env_cfg: The optional environment cfg to use.
+            env_kwargs: The optional environment kwargs to use.
+            render_mode: The optional render mode to use.
+
+        Returns:
+            A tuple containing the environment and the environment configuration.
+        """
         name, cfg, env_kwargs = self.build_registered(env_cfg, env_kwargs)
-        # Forward env_kwargs (the variation recorder) as gym.make call-time kwargs so the env owns
-        # the recorder from construction. Hosting it on the env cfg would deep-copy (and break) the
-        # recorder's listener wiring; see ``IsaacLabArenaManagerBasedRLEnv.__init__``.
         env = gym.make(name, cfg=cfg, render_mode=render_mode, **env_kwargs)
         # ViewportCameraController sets the camera before KitVisualizer.initialize() is called,
         # so the call is silently ignored. Re-apply here once the visualizers are fully initialized.
