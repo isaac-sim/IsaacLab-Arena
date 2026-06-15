@@ -26,9 +26,6 @@ DEV_DEPS = [
     "jupyter",
     "debugpy",
     "tenacity",
-]
-
-ENV_REVIEW_DEPS = [
     "streamlit>=1.30",
     "streamlit-ace>=0.1.1",
 ]
@@ -51,7 +48,6 @@ setup(
     install_requires=RUNTIME_DEPS,
     extras_require={
         "dev": DEV_DEPS,
-        "env-review": ENV_REVIEW_DEPS,
     },
     zip_safe=False,
 )
