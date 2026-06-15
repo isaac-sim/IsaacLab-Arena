@@ -118,7 +118,7 @@ def _scene_already_has_light(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: d
         return True
     # Implicit: any base scene asset whose USD already contains a light.
     for node in graph_spec.nodes:
-        if node.type == ArenaEnvGraphNodeType.EMBODIMENT or node.type == ArenaEnvGraphNodeType.OBJECTREFERENCE:
+        if node.type == ArenaEnvGraphNodeType.EMBODIMENT or node.type == ArenaEnvGraphNodeType.OBJECT_REFERENCE:
             continue
         asset = assets_by_node_id[node.id]
         # Only USD-backed base assets can carry a baked-in light; assets with an explicit
