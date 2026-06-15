@@ -53,6 +53,11 @@ Protocol (newline-delimited JSON over stdin/stdout):
                        "trace": [{"stage": "...", "query": "...", ...}]}
         (validates :class:`EnvironmentIntentSpec` and compiles to initial graph spec)
 
+    {"cmd": "run_sim_preview", "yaml_text": "..."}
+      → {"ok": true, "first_frame": "/abs/first.png", "last_frame": "/abs/last.png",
+                       "num_envs": 16, "env_spacing": 1.5, "num_steps": 50}
+        (link → to_arena_env → relation solver → 50 zero-action steps; overview captures)
+
     {"cmd": "shutdown"}
       → {"ok": true}   # sidecar exits cleanly after replying
 
@@ -159,6 +164,10 @@ def _serve() -> int:
                 _send(_handle_compile_intent(req))
                 continue
 
+            if cmd == "run_sim_preview":
+                _send(_handle_run_sim_preview(app, req))
+                continue
+
             _send({"ok": False, "error": f"unknown cmd: {cmd!r}"})
 
         return 0
@@ -247,6 +256,22 @@ def _handle_compile_intent(req: dict[str, Any]) -> dict[str, Any]:
         "trace": [asdict(event) for event in compiler.trace],
         "reasoning": intent.reasoning,
     }
+
+
+def _handle_run_sim_preview(app, req: dict[str, Any]) -> dict[str, Any]:
+    """Build linked env, solve relations, roll out zero actions, capture overview frames."""
+    from isaaclab_arena_examples.agentic_environment_generation.review_gui.sim_preview import (  # noqa: PLC0415
+        run_sim_preview,
+    )
+
+    yaml_text = req.get("yaml_text")
+    if not isinstance(yaml_text, str):
+        return {"ok": False, "error": "run_sim_preview requires string 'yaml_text'"}
+
+    try:
+        return run_sim_preview(app, yaml_text)
+    except Exception as exc:
+        return {"ok": False, "error": f"sim preview failed: {exc}", "traceback": traceback.format_exc()}
 
 
 def _handle_render_spec(

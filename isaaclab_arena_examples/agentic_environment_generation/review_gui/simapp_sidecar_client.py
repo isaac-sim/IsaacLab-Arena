@@ -122,6 +122,14 @@ class SimAppSidecar:
         with self._lock:
             return self._request({"cmd": "compile_intent", "intent_dict": intent_dict})
 
+    def run_sim_preview(self, yaml_text: str) -> dict[str, Any]:
+        """Link, build env, solve relations, and capture overview rollout frames."""
+        if not self.is_alive():
+            raise SimAppSidecarError("SimApp sidecar is not running — start it first")
+
+        with self._lock:
+            return self._request({"cmd": "run_sim_preview", "yaml_text": yaml_text})
+
     def render_spec(self, spec: ArenaEnvInitialGraphSpec) -> dict[str, bytes]:
         """Ask the sidecar to render thumbnails for ``spec``."""
         if not self.is_alive():

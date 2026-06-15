@@ -45,6 +45,11 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
 from isaaclab_arena.agentic_environment_generation.intent_compiler import IntentCompiler
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import render_dashboard_html
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.sim_preview import (
+    ENV_SPACING_M,
+    NUM_ENVS,
+    NUM_STEPS,
+)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_sidecar_client import (
     SimAppSidecar,
     SimAppSidecarError,
@@ -353,6 +358,46 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
     return True, "Spec generated and loaded into the YAML editor."
 
 
+def run_sim_preview_pipeline(yaml_text: str) -> tuple[bool, str]:
+    """Link, build, solve relations, and capture overview frames in the sidecar."""
+    validation = validate_yaml_text(yaml_text)
+    if not validation.is_valid:
+        return False, validation.error or "YAML must be valid before running sim preview."
+
+    sidecar = _ensure_sidecar()
+    if sidecar is None:
+        return False, "SimApp sidecar is unavailable — cannot run sim preview."
+
+    try:
+        response = sidecar.run_sim_preview(yaml_text)
+    except SimAppSidecarError as exc:
+        _get_simapp_sidecar.clear()
+        return False, str(exc)
+
+    if not response.get("ok"):
+        err = response.get("error", "sim preview failed")
+        tb = response.get("traceback", "")
+        message = f"{err}\n\n{tb}" if tb else str(err)
+        return False, message
+
+    try:
+        first_path = Path(response["first_frame"])
+        last_path = Path(response["last_frame"])
+        st.session_state["sim_preview_first"] = first_path.read_bytes()
+        st.session_state["sim_preview_last"] = last_path.read_bytes()
+    except OSError as exc:
+        return False, f"Failed to read preview frames: {exc}"
+
+    return (
+        True,
+        (
+            f"Sim preview complete — {response.get('num_envs', NUM_ENVS)} envs, "
+            f"{response.get('env_spacing', ENV_SPACING_M)} m spacing, "
+            f"{response.get('num_steps', NUM_STEPS)} steps."
+        ),
+    )
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -531,19 +576,53 @@ def render_generation_panel() -> None:
             st.code(_format_trace_lines(trace), language=None)
 
 
-def render_visualization_panel() -> None:
+def render_visualization_panel(validation: ValidationResult) -> None:
     st.subheader("Visualization")
     if not st.session_state.get("last_rendered_text", "").strip():
         st.caption("Generate or enter valid YAML to see the visualization.")
-        return
+    else:
+        st.caption("Updates automatically when the YAML is valid.")
+        st.components.v1.html(
+            st.session_state["rendered_html"],
+            height=_IFRAME_HEIGHT_PX,
+            scrolling=True,
+        )
 
-    st.caption("Updates automatically when the YAML is valid.")
-
-    st.components.v1.html(
-        st.session_state["rendered_html"],
-        height=_IFRAME_HEIGHT_PX,
-        scrolling=True,
+    st.divider()
+    st.subheader("Sim preview")
+    st.caption(
+        f"Runs link → to_arena_env → relation solver, then {NUM_STEPS} zero-action steps "
+        f"with {NUM_ENVS} parallel envs at {ENV_SPACING_M} m spacing. "
+        "Overview captures are taken after reset and after the rollout."
     )
+
+    if st.button(
+        "Run link + relation solver preview",
+        type="secondary",
+        use_container_width=True,
+        disabled=not validation.is_valid,
+        help="Requires valid YAML and a healthy SimApp sidecar. This may take several minutes.",
+    ):
+        with st.spinner(
+            f"Building env, solving relations, and rolling out {NUM_STEPS} steps ({NUM_ENVS} envs @ {ENV_SPACING_M} m)…"
+        ):
+            ok, message = run_sim_preview_pipeline(st.session_state["edited_text"])
+        if ok:
+            st.success(message, icon="✅")
+            st.rerun()
+        else:
+            st.error(f"Sim preview failed\n\n```\n{message}\n```", icon="🛑")
+
+    first_frame = st.session_state.get("sim_preview_first")
+    last_frame = st.session_state.get("sim_preview_last")
+    if first_frame and last_frame:
+        frame_cols = st.columns(2)
+        with frame_cols[0]:
+            st.caption("Overview — frame 1 (after reset)")
+            st.image(first_frame, use_container_width=True)
+        with frame_cols[1]:
+            st.caption(f"Overview — frame 2 (after {NUM_STEPS} zero-action steps)")
+            st.image(last_frame, use_container_width=True)
 
 
 def main() -> None:
@@ -565,9 +644,9 @@ def main() -> None:
     left, right = st.columns([2, 3], gap="large")
     with left:
         render_generation_panel()
-        render_editor_panel(yaml_path)
+        validation = render_editor_panel(yaml_path)
     with right:
-        render_visualization_panel()
+        render_visualization_panel(validation)
 
 
 main()
