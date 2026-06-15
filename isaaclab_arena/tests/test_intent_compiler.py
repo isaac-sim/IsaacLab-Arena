@@ -170,6 +170,8 @@ def test_resolve_happy_path():
     assert on_bowl.reference == "maple_table"
     assert on_bowl.subject == "bowl"
     assert on_bowl.id == "state_initial_1_on_maple_table_bowl"
+    # Every ``on`` constraint carries the default edge margin keeping the object off the rim.
+    assert on_bowl.params == {"edge_margin_m": 0.05}
 
     assert len(spec.tasks) == 1
     task = spec.tasks[0]
@@ -317,6 +319,22 @@ def test_multiple_tasks_preserved_in_order():
     assert len(spec.tasks) == 3
     assert [t.kind for t in spec.tasks] == ["PickAndPlaceTask", "OpenDoorTask", "CloseDoorTask"]
     assert [t.description for t in spec.tasks] == ["d1", "d2", "d3"]
+
+
+def test_on_relation_injects_default_edge_margin():
+    # `on` constraints get a non-empty default edge margin so the object stays off the rim.
+    items = [Item(query="cracker_box", category_tags=["graspable"])]
+    initial = [SpatialRelationSpec(kind="on", subject="cracker_box", reference="maple_table")]
+    spec = _make_compiler().compile(_make_scene(items=items, initial_state_graph=initial))
+    assert spec.initial_state_spec.spatial_constraints[0].params == {"edge_margin_m": 0.05}
+
+
+def test_on_edge_margin_uses_value_passed_to_compile():
+    # Whatever margin is passed to compile() is exactly what gets injected.
+    items = [Item(query="cracker_box", category_tags=["graspable"])]
+    initial = [SpatialRelationSpec(kind="on", subject="cracker_box", reference="maple_table")]
+    spec = _make_compiler().compile(_make_scene(items=items, initial_state_graph=initial), on_edge_margin_m=0.12)
+    assert spec.initial_state_spec.spatial_constraints[0].params == {"edge_margin_m": 0.12}
 
 
 def test_task_unknown_param_emits_error_trace():

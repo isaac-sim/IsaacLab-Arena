@@ -10,6 +10,7 @@ from isaaclab_arena.agentic_environment_generation.asset_matcher import (
     IntentResolutionTraceEvent,
     match_asset,
 )
+from isaaclab_arena.agentic_environment_generation.default_params import DEFAULT_ON_EDGE_MARGIN_M, INITIAL_STATE_SPEC_ID
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec, Item
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
@@ -21,8 +22,6 @@ from isaaclab_arena.environments.arena_env_graph_types import (
     SpatialRelationSpec,
     TaskSpec,
 )
-
-_INITIAL_STATE_SPEC_ID = "state_initial"
 
 
 class IntentCompiler:
@@ -53,7 +52,12 @@ class IntentCompiler:
         """``True`` if the last :meth:`compile` call produced any error-stage trace events."""
         return bool(self.resolution_errors)
 
-    def compile(self, spec: EnvironmentIntentSpec, env_name: str | None = None) -> ArenaEnvInitialGraphSpec:
+    def compile(
+        self,
+        spec: EnvironmentIntentSpec,
+        env_name: str | None = None,
+        on_edge_margin_m: float = DEFAULT_ON_EDGE_MARGIN_M,
+    ) -> ArenaEnvInitialGraphSpec:
         """Compile an :class:`EnvironmentIntentSpec` into an :class:`ArenaEnvInitialGraphSpec`.
 
         Args:
@@ -61,11 +65,15 @@ class IntentCompiler:
                 and task chain.
             env_name: Override for the graph's ``env_name`` field.  When ``None``
                 the name is derived as ``llm_gen_{background}_{first_task_kind}``.
+            on_edge_margin_m: Inward inset (meters) injected as ``edge_margin_m`` on every
+                ``on`` relation, keeping the subject's footprint off the edge of its support
+                surface.  Set to ``0.0`` to inject nothing (plain ``on`` behavior).
 
         Returns:
             An :class:`ArenaEnvInitialGraphSpec` ready for YAML round-tripping or
             further linking via :meth:`~ArenaEnvInitialGraphSpec.link`.
         """
+        assert on_edge_margin_m >= 0.0, f"on_edge_margin_m must be non-negative, got {on_edge_margin_m}"
         self.trace = []
 
         nodes: list[ArenaEnvGraphNodeSpec] = []
@@ -87,7 +95,7 @@ class IntentCompiler:
 
         known_ids = {node.id for node in nodes}
 
-        initial_state_spec = self._build_initial_state_spec(spec.initial_state_graph, known_ids)
+        initial_state_spec = self._build_initial_state_spec(spec.initial_state_graph, known_ids, on_edge_margin_m)
         self._trace_tasks(spec.tasks, known_ids)
 
         return ArenaEnvInitialGraphSpec(
@@ -142,22 +150,22 @@ class IntentCompiler:
         )
 
     def _build_initial_state_spec(
-        self, graph: list[SpatialRelationSpec], known_ids: set[str]
+        self, graph: list[SpatialRelationSpec], known_ids: set[str], on_edge_margin_m: float
     ) -> ArenaEnvGraphStateSpec:
         constraints: list[ArenaEnvGraphSpatialRelationSpec] = []
         for index, rel in enumerate(graph):
-            constraint = self._build_spatial_constraint(rel, index, known_ids)
+            constraint = self._build_spatial_constraint(rel, index, known_ids, on_edge_margin_m)
             if constraint is not None:
                 constraints.append(constraint)
         return ArenaEnvGraphStateSpec(
-            id=_INITIAL_STATE_SPEC_ID,
+            id=INITIAL_STATE_SPEC_ID,
             is_delta=False,
             spatial_constraints=constraints,
             task_constraints=[],
         )
 
     def _build_spatial_constraint(
-        self, rel: SpatialRelationSpec, index: int, known_ids: set[str]
+        self, rel: SpatialRelationSpec, index: int, known_ids: set[str], on_edge_margin_m: float
     ) -> ArenaEnvGraphSpatialRelationSpec | None:
         # rel.kind is guaranteed registered by SpatialRelationSpec._validate_kind_and_arity.
         stage_prefix = "relation.initial"
@@ -173,15 +181,36 @@ class IntentCompiler:
             return None
 
         reference_part = f"_{rel.reference}" if rel.reference is not None else ""
-        constraint_id = f"{_INITIAL_STATE_SPEC_ID}_{index}_{rel.kind}{reference_part}_{rel.subject}"
+        constraint_id = f"{INITIAL_STATE_SPEC_ID}_{index}_{rel.kind}{reference_part}_{rel.subject}"
         self.trace.append(IntentResolutionTraceEvent(f"{stage_prefix}.ok", rel.subject, rel.reference, note=rel.kind))
+        params = self._with_on_edge_margin(rel, on_edge_margin_m)
         return ArenaEnvGraphSpatialRelationSpec(
             id=constraint_id,
             kind=rel.kind,
             subject=rel.subject,
             reference=rel.reference,
-            params=dict(rel.params),
+            params=params,
         )
+
+    def _with_on_edge_margin(self, rel: SpatialRelationSpec, on_edge_margin_m: float) -> dict:
+        """Return ``rel.params``, injecting ``edge_margin_m`` for ``on`` relations.
+
+        Keeps the placed object off the rim of its support surface. A margin the
+        agent set explicitly wins; the injection is also skipped when
+        ``on_edge_margin_m`` is ``0.0``.
+        """
+        params = dict(rel.params)
+        if rel.kind == "on" and on_edge_margin_m > 0.0 and "edge_margin_m" not in params:
+            params["edge_margin_m"] = on_edge_margin_m
+            self.trace.append(
+                IntentResolutionTraceEvent(
+                    "relation.initial.on_edge_margin",
+                    rel.subject,
+                    rel.reference,
+                    note=f"edge_margin_m={on_edge_margin_m}",
+                )
+            )
+        return params
 
     def _trace_tasks(self, tasks: list[TaskSpec], known_ids: set[str]) -> None:
         """Emit trace events for each task: one ``task.resolve`` event and one
