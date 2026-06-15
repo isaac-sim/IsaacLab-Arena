@@ -28,8 +28,8 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../../../_static/styles/theme.css?digest=0790524f97105ba85085" rel="stylesheet" />
-<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=0790524f97105ba85085" rel="stylesheet" />
+  <link href="../../../_static/styles/theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=a95f357e85573c9b56d5" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
@@ -38,10 +38,10 @@
     <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=42eea36e" />
   
   <!-- So that users can add custom icons -->
-  <script defer src="../../../_static/scripts/fontawesome.js?digest=0790524f97105ba85085"></script>
+  <script defer src="../../../_static/scripts/fontawesome.js?digest=a95f357e85573c9b56d5"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
-<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5" />
 
     <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
@@ -599,6 +599,61 @@ extrinsics jitter range to ±10 mm per axis.</p>
 </ul>
 <p>Use <code class="docutils literal notranslate"><span class="pre">--list-variations</span></code> on any environment to discover the exact paths available.</p>
 </section>
+<section id="configuring-variations-in-an-eval-jobs-config">
+<h2>Configuring variations in an eval jobs config<a class="headerlink" href="#configuring-variations-in-an-eval-jobs-config" title="Link to this heading">#</a></h2>
+<p>When running batches of jobs with <code class="docutils literal notranslate"><span class="pre">eval_runner.py</span></code>, variations are configured per job via a
+dedicated <code class="docutils literal notranslate"><span class="pre">variations</span></code> field instead of command-line override tokens.  The field is a nested
+dict that mirrors the dotted Hydra paths: each level of nesting corresponds to one segment of
+the <code class="docutils literal notranslate"><span class="pre">&lt;asset&gt;.&lt;variation_name&gt;.&lt;cfg_field&gt;</span></code> path.  For example, the nested entry
+<code class="docutils literal notranslate"><span class="pre">{&quot;light&quot;:</span> <span class="pre">{&quot;hdr_image&quot;:</span> <span class="pre">{&quot;enabled&quot;:</span> <span class="pre">true}}}</span></code> is equivalent to the command-line override
+<code class="docutils literal notranslate"><span class="pre">light.hdr_image.enabled=true</span></code>.</p>
+<p>The example config <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json</span></code>
+enables three variations on a single job:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;jobs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;variations_demo&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;pick_and_place_maple_table&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;embodiment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;droid_rel_joint_pos&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;pick_up_object&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rubiks_cube_hot3d_robolab&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;destination_location&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bowl_ycb_robolab&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;hdr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;home_office_robolab&quot;</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">            </span><span class="nt">&quot;num_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;num_rebuilds&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;policy_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zero_action&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;policy_config_dict&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span>
+<span class="w">            </span><span class="nt">&quot;variations&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;light&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;hdr_image&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;enabled&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span>
+<span class="w">                    </span><span class="nt">&quot;intensity&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;enabled&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<span class="w">                </span><span class="p">},</span>
+<span class="w">                </span><span class="nt">&quot;droid_rel_joint_pos&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;camera_extrinsics_wrist_camera&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;enabled&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Run it with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--eval_jobs_config<span class="w"> </span>isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">--list-variations</span></code> works with <code class="docutils literal notranslate"><span class="pre">eval_runner.py</span></code> too, printing the variations catalogue for
+each job’s environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--list-variations<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--eval_jobs_config<span class="w"> </span>isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json
+</pre></div>
+</div>
+</section>
 </section>
 
 
@@ -654,6 +709,7 @@ extrinsics jitter range to ±10 mm per axis.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#enabling-variations-minimal">Enabling variations (minimal)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#enabling-variations-with-explicit-parameters">Enabling variations with explicit parameters</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-hydra-override-paths-are-structured">How Hydra override paths are structured</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuring-variations-in-an-eval-jobs-config">Configuring variations in an eval jobs config</a></li>
 </ul>
   </nav></div>
 
@@ -671,8 +727,8 @@ extrinsics jitter range to ±10 mm per axis.</p>
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="../../../_static/scripts/bootstrap.js?digest=0790524f97105ba85085"></script>
-<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085"></script>
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=a95f357e85573c9b56d5"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=a95f357e85573c9b56d5"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
