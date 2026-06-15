@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Run the agent on a prompt and dump the compiled UnresolvedArenaEnvGraphSpec.
+"""Run the agent on a prompt and dump the compiled ArenaEnvInitialGraphSpec.
 
 Examples:
     # Print the Pydantic EnvironmentIntentSpec JSON schema (no agent call):
@@ -33,7 +33,7 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
 )
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
 from isaaclab_arena.agentic_environment_generation.intent_compiler import IntentCompiler
-from isaaclab_arena.environments.arena_env_graph_spec import UnresolvedArenaEnvGraphSpec
+from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 
 _LLM_GENERATED_DIR = Path("isaaclab_arena_environments/llm_generated")
 
@@ -59,9 +59,9 @@ def _format_trace_event(event: IntentResolutionTraceEvent) -> str:
     return f"  {event.stage:34s} {event.query!s:24s} -> {chosen}{extra}"
 
 
-def print_unresolved_graph(spec: UnresolvedArenaEnvGraphSpec) -> None:
+def print_initial_graph(spec: ArenaEnvInitialGraphSpec) -> None:
     """Print the compiled graph in a human-readable tabular layout."""
-    print(f"\n=== UnresolvedArenaEnvGraphSpec (env_name={spec.env_name!r}) ===")
+    print(f"\n=== ArenaEnvInitialGraphSpec (env_name={spec.env_name!r}) ===")
 
     print("\nnodes:")
     for node in spec.nodes:
@@ -145,13 +145,13 @@ def main() -> None:
 
     compiler = IntentCompiler()
     env_graph_spec = compiler.compile(spec)
-    print_unresolved_graph(env_graph_spec)
+    print_initial_graph(env_graph_spec)
     print_resolution_trace(compiler)
 
     out_path = _LLM_GENERATED_DIR / f"{_safe_filename_stem(env_graph_spec.env_name)}_proposal.yaml"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     env_graph_spec.write_yaml(out_path)
-    print(f"\n=== wrote UnresolvedArenaEnvGraphSpec YAML to {out_path} ===")
+    print(f"\n=== wrote ArenaEnvInitialGraphSpec YAML to {out_path} ===")
 
 
 if __name__ == "__main__":

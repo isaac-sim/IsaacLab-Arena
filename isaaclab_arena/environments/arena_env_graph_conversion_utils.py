@@ -20,6 +20,7 @@ from isaaclab_arena.environments.arena_env_graph_types import (
 from isaaclab_arena.environments.graph_spec_utils import relation_class_for_spatial_constraint_type
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.scene.scene import Scene
+from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -125,6 +126,11 @@ def _attach_spatial_constraints_to_assets(
         # is passed as the Relation constructor's first arg — matches how add_relation is wired.
         if relation_class.is_unary():
             subject_asset.add_relation(relation_class(**spatial_constraint.params))
+            # An is_anchor asset must have a fixed initial pose for the placement solver.
+            # If the asset class does not declare one, default to the world origin so
+            # LLM-generated specs (which never set an explicit pose) work out of the box.
+            if spatial_constraint.kind == "is_anchor" and subject_asset.get_initial_pose() is None:
+                subject_asset.set_initial_pose(Pose.identity())
         else:
             reference_asset = assets_by_node_id[spatial_constraint.reference]
             subject_asset.add_relation(relation_class(reference_asset, **spatial_constraint.params))

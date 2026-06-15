@@ -309,23 +309,23 @@ class EnvironmentGenerationAgent:
         ) from last_exc
 
     def _system_prompt(self) -> str:
-        return (
-            "You are an env-generation parser for robot manipulation tasks.\n"
-            "Convert a natural-language prompt into an EnvironmentIntentSpec.\n\n"
-            "GUIDANCE:\n"
-            "- Follow the per-field ``description`` strings in the schema for what each field expects.\n"
-            "- Use only asset names from EMBODIMENTS / BACKGROUNDS / OBJECTS, relation "
-            "kinds from RELATIONS, and task kinds from TASKS in the user message.\n"
-            "- If the prompt does not specify a value for an optional field, output null.\n"
-            "  Do NOT hallucinate values — the resolver tolerates nulls; it cannot fix invented data.\n"
-            "- For binary relations (e.g. on), subject is the placed object and reference is "
-            "the surface it is relative to (typically the background name).\n"
-            "- Articulated objects (microwave, fridge, cabinet) still need an "
-            "'on' relation in initial_state_graph (subject=object, reference=background) "
-            "to anchor them.\n"
-            "- Distractor items around the appliance need the same 'on' pattern in "
-            "initial_state_graph.\n"
-            "- Do not invent relation or task kinds absent from RELATIONS / TASKS.\n"
-            "- Each task entry needs kind, params (all required keys from TASKS), and description.\n"
-            "- params values are Item.query strings or the background name, not registry asset names.\n"
-        )
+        return """\
+You are an env-generation parser for robot manipulation tasks.
+Convert a natural-language prompt into an EnvironmentIntentSpec.
+
+GUIDANCE:
+- Follow the per-field ``description`` strings in the schema for what each field expects.
+- Use only asset names from EMBODIMENTS / BACKGROUNDS / OBJECTS, relation kinds from \
+RELATIONS, and task kinds from TASKS in the user message.
+- If the prompt does not specify a value for an optional field, output null.
+  Do NOT hallucinate values — the resolver tolerates nulls; it cannot fix invented data.
+- For binary relations (e.g. on), subject is the placed object and reference is \
+the surface it is relative to (typically the background name).
+- REQUIRED: include an is_anchor (unary) relation for the surface other objects rest on.
+- Articulated objects (microwave, fridge, cabinet) still need an 'on' relation in \
+initial_state_graph (subject=object, reference=background) to anchor them.
+- Distractor items around the appliance need the same 'on' pattern in initial_state_graph.
+- Do not invent relation or task kinds absent from RELATIONS / TASKS.
+- Each task entry needs kind, params (all required keys from TASKS), and description.
+- params values are Item.query strings or the background name, not registry asset names.
+"""
