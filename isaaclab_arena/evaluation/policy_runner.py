@@ -153,6 +153,10 @@ def main():
         args_cli.device = f"cuda:{local_rank}"
         print(f"[Rank {local_rank}/{world_size}] One Isaac Lab instance per process on cuda:{local_rank}")
 
+    # --camera_video requires cameras to be enabled at sim startup, before SimulationAppContext.
+    if "--camera_video" in unknown:
+        args_cli.enable_cameras = True
+
     with SimulationAppContext(args_cli):
 
         # Get the policy-type flag before proceeding to other arguments
@@ -175,6 +179,9 @@ def main():
         if is_distributed(args_cli):
             args_cli.distributed = True
             args_cli.device = f"cuda:{local_rank}"
+        # Re-apply enable_cameras: the full parse resets it to default False.
+        if args_cli.camera_video:
+            args_cli.enable_cameras = True
 
         # Build scene. Use rgb_array render mode when recording so RecordVideo can grab frames.
         arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
@@ -238,16 +245,14 @@ def main():
             )
 
         if args_cli.camera_video:
-            # Record one mp4 per camera in obs["camera_obs"] (what the policy sees),
-            # using the same encoder as RecordVideo.
+            # Record one mp4 per (env, camera, episode) in obs["camera_obs"].
+            # Flushed at each episode reset rather than after a fixed number of steps.
             env = CameraObsVideoRecorder(
                 env,
                 video_folder=args_cli.video_dir,
-                step_trigger=lambda step: step == 0,
-                video_length=video_length,
             )
             print(
-                f"[Rank {local_rank}/{world_size}] Recording {video_length}-step per-camera videos to:"
+                f"[Rank {local_rank}/{world_size}] Recording per-episode per-camera videos to:"
                 f" {args_cli.video_dir}"
             )
 

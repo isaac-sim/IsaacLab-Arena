@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.evaluation.camera_video import CameraObsVideoRecorder
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
@@ -242,6 +243,8 @@ def main():
         return
 
     # Check if any job requires cameras and enable them if needed before starting simulation
+    if args_cli.camera_video:
+        args_cli.enable_cameras = True
     enable_cameras_if_required(eval_jobs_config, args_cli)
 
     with SimulationAppContext(args_cli):
@@ -298,6 +301,11 @@ def main():
                         }
                         print(f"[INFO] Recording video for job '{job.name}' -> {video_kwargs['video_folder']}")
                         env = RecordVideo(env, **video_kwargs)
+
+                    if args_cli.camera_video:
+                        job_video_dir = os.path.join(args_cli.video_dir, job.name)
+                        print(f"[INFO] Recording per-episode camera videos for job '{job.name}' -> {job_video_dir}")
+                        env = CameraObsVideoRecorder(env, video_folder=job_video_dir)
 
                     metrics = rollout_policy(
                         env,

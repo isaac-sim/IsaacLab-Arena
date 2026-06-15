@@ -3,24 +3,23 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Gym wrapper that records one mp4 per camera in ``obs['camera_obs']``.
+"""Gym wrapper that records one mp4 per (env, camera, episode) in ``obs['camera_obs']``.
 
-Mirrors ``gymnasium.wrappers.RecordVideo`` — same ``step_trigger`` /
-``video_length`` semantics and the same moviepy ``ImageSequenceClip``
-encoder, but frames come from ``obs["camera_obs"][<cam>]`` rather than
-``env.render()``. Output is one mp4 per camera under ``video_folder``,
-named ``<name_prefix>-<cam>-step-<N>.mp4``.
+Frames are flushed to disk each time an environment resets (terminated or
+truncated), so each output file corresponds to exactly one episode.  A final
+flush on ``close()`` captures any trailing incomplete episode.
+
+Output filename: ``<name_prefix>-env<N>-<cam>-episode-<E>.mp4``
 
 policy_runner.py wraps the env with this alongside ``RecordVideo`` so
 the kit viewport mp4 (third-person scene view) and the embodiment-
 mounted camera mp4s (what the policy actually sees) are written
 together when ``--video --camera_video`` is set.
 
-Multi-env note: Arena batches camera observations as
-``[N_envs, H, W, C]``. This wrapper records env 0 only (``frame[0]``);
-other envs are silently dropped. ``RecordVideo`` for the kit viewport
-is unaffected — the viewport shows the full scene regardless of
-``num_envs``.
+Memory note: each env buffers raw uint8 frames for its current episode before
+encoding.  Peak RAM is N×L×H×W×C bytes where L is max episode length, not the
+full rollout.  For 10 envs, 500-step episodes, 512×512×3 frames that is ~3.8 GB
+of raw frames — the encoded mp4s are far smaller (H.264 compresses ~100:1).
 """
 
 from __future__ import annotations
@@ -29,8 +28,6 @@ import gymnasium as gym
 import numpy as np
 import os
 import torch
-from collections.abc import Callable
-
 from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 
 CAMERA_OBS_GROUP_KEY = "camera_obs"
@@ -54,71 +51,93 @@ def _sanitize_cam_key(key: str) -> str:
 
 
 class CameraObsVideoRecorder(gym.Wrapper):
-    """Record an mp4 per camera in ``obs['camera_obs']``.
+    """Record one mp4 per (env, camera, episode) in ``obs['camera_obs']``.
 
-    Records env 0 only: cameras are batched as ``[N_envs, H, W, C]`` and the
-    wrapper picks ``frame[0]``. Intended for single-env evaluation rollouts.
+    Cameras are batched as ``[N_envs, H, W, C]``.  Each env is recorded
+    independently; its buffer is flushed when that env resets (terminated
+    or truncated), producing one file per completed episode:
+    ``<name_prefix>-env<N>-<cam>-episode-<E>.mp4``.
     """
 
     def __init__(
         self,
         env: gym.Env,
         video_folder: str,
-        step_trigger: Callable[[int], bool],
-        video_length: int,
         name_prefix: str = "robot-cam",
         fps: int | None = None,
     ):
         super().__init__(env)
         os.makedirs(video_folder, exist_ok=True)
         self.video_folder = video_folder
-        self.step_trigger = step_trigger
-        self.video_length = video_length
         self.name_prefix = name_prefix
         self.fps = fps if fps is not None else int(env.metadata.get("render_fps", 30))
 
-        self.step_id = -1
-        self.recording = False
-        self.recording_start_step = 0
-        self.buffers: dict[str, list[np.ndarray]] = {}
+        # cam_key -> list of per-env frame lists: buffers[cam][env_idx] = [frame, ...]
+        self.buffers: dict[str, list[list[np.ndarray]]] = {}
+        # How many episodes have been flushed for each env.
+        self.episode_counts: list[int] = []
+        self._n_envs: int | None = None
 
     def step(self, action):
         result = self.env.step(action)
-        self.step_id += 1
-        obs = result[0]
+        obs, _, terminated, truncated, _ = result
         cam_obs = obs.get(CAMERA_OBS_GROUP_KEY, {}) if isinstance(obs, dict) else {}
 
-        if not self.recording and self.step_trigger(self.step_id):
-            self.recording = True
-            self.recording_start_step = self.step_id
-            self.buffers = {k: [] for k in cam_obs}
+        if cam_obs:
+            frames_sample = next(iter(cam_obs.values()))
+            n_envs = frames_sample.shape[0]
 
-        if self.recording and cam_obs:
-            for k, frame in cam_obs.items():
-                # frame: [N_envs, H, W, C]; record env 0 only.
-                self.buffers.setdefault(k, []).append(_to_uint8(frame[0]))
-            if self.buffers and all(len(v) >= self.video_length for v in self.buffers.values()):
-                self._flush()
+            if self._n_envs is None:
+                self._n_envs = n_envs
+                self.episode_counts = [0] * n_envs
+
+            # Determine done envs before appending frames. Isaac Lab auto-resets on
+            # termination, so the obs returned for a done env is the post-reset first
+            # frame of the new episode — discard it so it doesn't contaminate the
+            # current episode or create a phantom one-frame episode on close().
+            if isinstance(terminated, torch.Tensor):
+                done_envs = (terminated | truncated).nonzero().flatten().tolist()
+            else:
+                done_envs = [0] if (terminated or truncated) else []
+            done_set = set(done_envs)
+
+            for k, frames in cam_obs.items():
+                if k not in self.buffers:
+                    self.buffers[k] = [[] for _ in range(n_envs)]
+                for env_idx in range(n_envs):
+                    if env_idx not in done_set:
+                        self.buffers[k][env_idx].append(_to_uint8(frames[env_idx]))
+
+            if done_envs:
+                self._flush_envs(done_envs)
 
         return result
 
-    def _flush(self) -> None:
-        for cam, frames in self.buffers.items():
-            if not frames:
-                continue
-            path = os.path.join(
-                self.video_folder,
-                f"{self.name_prefix}-{_sanitize_cam_key(cam)}-step-{self.recording_start_step}.mp4",
-            )
-            clip = ImageSequenceClip(list(frames), fps=self.fps)
-            clip.write_videofile(path, logger=None, audio=False)
-            del clip
-        self.recording = False
-        self.buffers = {}
+    def _flush_envs(self, env_ids: list[int]) -> None:
+        for env_idx in env_ids:
+            episode_num = self.episode_counts[env_idx]
+            for cam, env_frame_lists in self.buffers.items():
+                frames = env_frame_lists[env_idx]
+                if not frames:
+                    continue
+                path = os.path.join(
+                    self.video_folder,
+                    f"{self.name_prefix}-env{env_idx}-{_sanitize_cam_key(cam)}-episode-{episode_num}.mp4",
+                )
+                clip = ImageSequenceClip(list(frames), fps=self.fps)
+                clip.write_videofile(path, logger=None, audio=False)
+                del clip
+                env_frame_lists[env_idx] = []
+            self.episode_counts[env_idx] += 1
 
     def close(self) -> None:
         try:
-            if self.recording and any(len(v) > 0 for v in self.buffers.values()):
-                self._flush()
+            if self._n_envs is not None and self.buffers:
+                envs_with_frames = [
+                    i for i in range(self._n_envs)
+                    if any(len(self.buffers[cam][i]) > 0 for cam in self.buffers)
+                ]
+                if envs_with_frames:
+                    self._flush_envs(envs_with_frames)
         finally:
             self.env.close()
