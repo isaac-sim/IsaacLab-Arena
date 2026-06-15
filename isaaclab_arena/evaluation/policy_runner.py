@@ -251,10 +251,7 @@ def main():
                 env,
                 video_folder=args_cli.video_dir,
             )
-            print(
-                f"[Rank {local_rank}/{world_size}] Recording per-episode per-camera videos to:"
-                f" {args_cli.video_dir}"
-            )
+            print(f"[Rank {local_rank}/{world_size}] Recording per-episode per-camera videos to: {args_cli.video_dir}")
 
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
         print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")

@@ -28,6 +28,7 @@ import gymnasium as gym
 import numpy as np
 import os
 import torch
+
 from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 
 CAMERA_OBS_GROUP_KEY = "camera_obs"
@@ -134,8 +135,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
         try:
             if self._n_envs is not None and self.buffers:
                 envs_with_frames = [
-                    i for i in range(self._n_envs)
-                    if any(len(self.buffers[cam][i]) > 0 for cam in self.buffers)
+                    i for i in range(self._n_envs) if any(len(self.buffers[cam][i]) > 0 for cam in self.buffers)
                 ]
                 if envs_with_frames:
                     self._flush_envs(envs_with_frames)
