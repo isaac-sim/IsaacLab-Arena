@@ -142,7 +142,7 @@ def setup_env_config(
     else:
         env_cfg.recorders.dataset_export_mode = DatasetExportMode.EXPORT_SUCCEEDED_ONLY
 
-    return env_cfg, env_name, success_term
+    return env_cfg, env_name, success_term, env_kwargs
 
 
 def main():
@@ -152,7 +152,7 @@ def main():
     output_dir, output_file_name = setup_output_paths(args_cli.output_file)
 
     # Configure environment
-    env_cfg, env_name, success_term = setup_env_config(
+    env_cfg, env_name, success_term, env_kwargs = setup_env_config(
         args_cli=args_cli,
         output_dir=output_dir,
         output_file_name=output_file_name,
