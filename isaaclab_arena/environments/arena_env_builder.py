@@ -158,15 +158,11 @@ class ArenaEnvBuilder:
     def compose_manager_cfg(self) -> tuple[IsaacLabArenaManagerBasedRLEnvCfg, dict[str, Any]]:
         """Return the base ManagerBased cfg and the env kwargs (no registration).
 
-        ``env_kwargs`` carries the live ``VariationRecorder``, forwarded verbatim into
-        ``gym.make`` so the env owns it from construction. The recorder is returned rather than
-        stashed on the cfg so its sampler-listener wiring is never deep-copied by configclass
-        ``__post_init__``.
+        env_kwargs carries arguments to be forwarded to gym.make for construction of the IsaacLabArenaManagerBasedRLEnv.
 
         Returns:
-            An ``(env_cfg, env_kwargs)`` tuple.
+            An (env_cfg, env_kwargs) tuple.
         """
-
         # Solve relations before building scene config so positions are captured correctly.
         if self.args.solve_relations:
             self._solve_relations()
