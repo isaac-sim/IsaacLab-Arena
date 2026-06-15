@@ -106,7 +106,7 @@ def setup_env_config(
         NotImplementedError: If no success termination term found
     """
     arena_builder = get_arena_builder_from_cli(args_cli)
-    env_name, env_cfg = arena_builder.build_registered()
+    env_name, env_cfg, env_kwargs = arena_builder.build_registered()
 
     if generation_num_trials is not None:
         env_cfg.datagen_config.generation_num_trials = generation_num_trials
@@ -162,7 +162,7 @@ def main():
     )
 
     # create environment
-    env = gym.make(env_name, cfg=env_cfg)
+    env = gym.make(env_name, cfg=env_cfg, **env_kwargs)
     from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 
     reapply_viewer_cfg(env)

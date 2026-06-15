@@ -50,9 +50,9 @@ def get_test_environment(dont_reset_placeable_object_pose: bool, num_envs: int):
         task=PlaceUprightTask(mug, mug.orientation_threshold),
     )
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
-    name, cfg = env_builder.build_registered()
+    name, cfg, env_kwargs = env_builder.build_registered()
 
-    env = gym.make(name, cfg=cfg).unwrapped
+    env = gym.make(name, cfg=cfg, **env_kwargs).unwrapped
     env.reset()
 
     return env, mug

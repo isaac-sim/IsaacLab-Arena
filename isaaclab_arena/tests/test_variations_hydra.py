@@ -71,7 +71,7 @@ def _test_hydra_override_enables_runtime_variation_in_events_cfg(simulation_app)
     )
 
     # Overrides are applied during composition, so compose first, then check the effect.
-    env_cfg = builder.compose_manager_cfg()
+    env_cfg, _ = builder.compose_manager_cfg()
 
     assert hasattr(
         env_cfg.events, TEST_EVENT_NAME

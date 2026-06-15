@@ -95,8 +95,8 @@ def get_test_environment(num_envs: int):
     )
 
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
-    name, cfg = env_builder.build_registered()
-    env = gym.make(name, cfg=cfg).unwrapped
+    name, cfg, env_kwargs = env_builder.build_registered()
+    env = gym.make(name, cfg=cfg, **env_kwargs).unwrapped
     env.reset()
 
     return env, red_cube, green_cube, red_container, green_container

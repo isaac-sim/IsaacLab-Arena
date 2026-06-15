@@ -55,11 +55,6 @@ class ArenaEnvBuilder:
             num_envs=args.num_envs, env_spacing=args.env_spacing, replicate_physics=False
         )
         self._placement_event_cfg: EventTermCfg | None = None
-        # Built in ``compose_manager_cfg`` and attached to ``env.unwrapped`` in
-        # ``make_registered_and_return_cfg``. Stashed on the builder rather than the
-        # env cfg: configclass ``__post_init__`` deep-copies its attributes, which
-        # would orphan the recorder's sampler-listener closures.
-        self.variations_recorder: VariationRecorder | None = None
 
     def _solve_relations(self) -> None:
         """Solve spatial relations for objects in the scene.
@@ -160,8 +155,14 @@ class ArenaEnvBuilder:
         fields = [(m.name, MetricTermCfg, m.get_metric_term_cfg()) for m in metrics]
         return make_configclass("MetricsCfg", fields)()
 
-    def compose_manager_cfg(self) -> IsaacLabArenaManagerBasedRLEnvCfg:
-        """Return base ManagerBased cfg (scene+events+terminations+xr), no registration."""
+    def compose_manager_cfg(self) -> tuple[IsaacLabArenaManagerBasedRLEnvCfg, dict[str, Any]]:
+        """Return the base ManagerBased cfg and the env kwargs (no registration).
+
+        Returns a ``(env_cfg, env_kwargs)`` tuple. ``env_kwargs`` carries the live
+        :class:`VariationRecorder` and is forwarded verbatim into ``gym.make`` so the env owns
+        it from construction. The recorder is returned (rather than stashed on the builder or the
+        env cfg) so its sampler-listener wiring is never deep-copied by configclass ``__post_init__``.
+        """
 
         # Solve relations before building scene config so positions are captured correctly.
         if self.args.solve_relations:
@@ -177,7 +178,6 @@ class ArenaEnvBuilder:
         # during simulation). Covers scene-side assets and the embodiment.
         variations_recorder = VariationRecorder()
         variations_recorder.attach(self.get_all_variations())
-        self.variations_recorder = variations_recorder
 
         # Apply build-time variations now, before scene_cfg is materialised.
         self._apply_build_time_variations()
@@ -341,7 +341,8 @@ class ArenaEnvBuilder:
             if presets == "newton":
                 env_cfg.scene.replicate_physics = True
 
-        return env_cfg
+        env_kwargs: dict[str, Any] = {"variations_recorder": variations_recorder}
+        return env_cfg, env_kwargs
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:
         """Return the entry point of the environment."""
@@ -355,15 +356,25 @@ class ArenaEnvBuilder:
             return "isaaclab_arena.environments.isaaclab_arena_manager_based_env:IsaacLabArenaManagerBasedRLEnv"
 
     def build_registered(
-        self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None
-    ) -> tuple[str, IsaacLabArenaManagerBasedRLEnvCfg]:
-        """Register Gym env and parse runtime cfg."""
+        self,
+        env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None,
+        env_kwargs: dict[str, Any] | None = None,
+    ) -> tuple[str, IsaacLabArenaManagerBasedRLEnvCfg, dict[str, Any]]:
+        """Register Gym env and parse runtime cfg.
+
+        Returns ``(name, cfg, env_kwargs)``. When ``env_cfg`` is not provided it is composed here
+        (which also produces ``env_kwargs``); when it is provided, pass the matching ``env_kwargs``
+        from :meth:`compose_manager_cfg` so the variation recorder reaches the env.
+        """
         name = self.arena_env.name
-        cfg_entry = env_cfg if env_cfg is not None else self.compose_manager_cfg()
+        if env_cfg is None:
+            env_cfg, env_kwargs = self.compose_manager_cfg()
+        elif env_kwargs is None:
+            env_kwargs = {}
         entry_point = self.get_entry_point()
         # Register the environment with the Gym registry.
         kwargs = {
-            "env_cfg_entry_point": cfg_entry,
+            "env_cfg_entry_point": env_cfg,
         }
         if self.arena_env.rl_framework_entry_point is not None:
             kwargs[self.arena_env.rl_framework_entry_point] = self.arena_env.rl_policy_cfg
@@ -379,23 +390,29 @@ class ArenaEnvBuilder:
             num_envs=self.args.num_envs,
             use_fabric=not self.args.disable_fabric,
         )
-        return name, cfg
+        return name, cfg, env_kwargs
 
     def make_registered(
-        self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None, render_mode: str | None = None
+        self,
+        env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None,
+        env_kwargs: dict[str, Any] | None = None,
+        render_mode: str | None = None,
     ) -> ManagerBasedEnv:
-        env, _ = self.make_registered_and_return_cfg(env_cfg, render_mode=render_mode)
+        env, _ = self.make_registered_and_return_cfg(env_cfg, env_kwargs, render_mode=render_mode)
         return env
 
     def make_registered_and_return_cfg(
-        self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None, render_mode: str | None = None
+        self,
+        env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None,
+        env_kwargs: dict[str, Any] | None = None,
+        render_mode: str | None = None,
     ) -> tuple[ManagerBasedEnv, IsaacLabArenaManagerBasedRLEnvCfg]:
-        name, cfg = self.build_registered(env_cfg)
-        env = gym.make(name, cfg=cfg, render_mode=render_mode)
+        name, cfg, env_kwargs = self.build_registered(env_cfg, env_kwargs)
+        # Forward env_kwargs (the variation recorder) as gym.make call-time kwargs so the env owns
+        # the recorder from construction. Hosting it on the env cfg would deep-copy (and break) the
+        # recorder's listener wiring; see ``IsaacLabArenaManagerBasedRLEnv.__init__``.
+        env = gym.make(name, cfg=cfg, render_mode=render_mode, **env_kwargs)
         # ViewportCameraController sets the camera before KitVisualizer.initialize() is called,
         # so the call is silently ignored. Re-apply here once the visualizers are fully initialized.
         reapply_viewer_cfg(env)
-        # Attach the variation recorder to the unwrapped env. Hosting it on the env cfg
-        # would deep-copy (and break) the recorder's listener wiring; see ``__init__``.
-        env.unwrapped.variations_recorder = self.variations_recorder
         return env, cfg

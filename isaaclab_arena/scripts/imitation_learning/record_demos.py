@@ -195,7 +195,7 @@ def create_environment_config(
     # parse configuration
     try:
         arena_builder = get_arena_builder_from_cli(args_cli)
-        env_name, env_cfg = arena_builder.build_registered()
+        env_name, env_cfg, env_kwargs = arena_builder.build_registered()
 
     except Exception as e:
         omni.log.error(f"Failed to parse environment configuration: {e}")
@@ -248,7 +248,7 @@ def create_environment(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg, env_name:
         Exception: If environment creation fails for any reason.
     """
     try:
-        env = gym.make(env_name, cfg=env_cfg)
+        env = gym.make(env_name, cfg=env_cfg, **env_kwargs)
         from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 
         reapply_viewer_cfg(env)
