@@ -56,6 +56,7 @@ Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, i
 - Document `Args` and `Returns`, but **not** `Raises`. Omit `Returns` when it only returns None
     or the summary already covers it.
 - Don't use Sphinx-style cross-references.
+- Omit backticks around inline code, just write the code directly.
 
 
 ## Conventions
