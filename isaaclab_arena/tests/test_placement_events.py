@@ -84,7 +84,7 @@ def test_placement_without_seed_multi_env_gives_different_layouts():
 
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
+    from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
     num_envs = 4
@@ -99,7 +99,7 @@ def test_placement_without_seed_multi_env_gives_different_layouts():
     placer = ObjectPlacer(params=params)
     result = placer.place([desk, box1, box2], num_envs=num_envs)
 
-    assert isinstance(result, MultiEnvPlacementResult)
+    assert isinstance(result, PlacementResult)
     positions_box1 = [result.results[env_idx].positions[box1] for env_idx in range(num_envs)]
     any_different = any(positions_box1[i] != positions_box1[j] for i in range(num_envs) for j in range(i + 1, num_envs))
     assert any_different, "Unseeded multi-env placement should produce different positions across environments"

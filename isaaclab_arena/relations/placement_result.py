@@ -15,7 +15,11 @@ if TYPE_CHECKING:
 
 @dataclass
 class PlacementResult:
-    """Result of an ObjectPlacer.place() call."""
+    """Result of an ObjectPlacer.place() call (single-env or multi-env).
+
+    Use fields directly for single-env; iterate ``results`` for multi-env.
+    On wrappers built by ``from_per_env``, top-level fields mirror ``results[0]``.
+    """
 
     validation_results: PlacementValidationResults
     """Validation checklist for the placement."""
@@ -33,30 +37,49 @@ class PlacementResult:
     """Per-object yaw (radians) about the world up (Z) axis, composed on top of each object's
     base rotation. Keyed by object, like positions. Empty when unrotated."""
 
-    @property
-    def success(self) -> bool:
-        """True when this layout passed every validation check.
+    _per_env_results: list[PlacementResult] | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
+    # dataclasses.replace() resets this to None; use from_per_env(self.results) to copy a wrapper.
 
-        Soft selection: place() always returns the best-ranked layout per env, even when no
-        candidate validated. Callers check success to distinguish a validated layout from a
-        lowest-loss fallback; failed_items on the checklist says which checks failed.
+    @classmethod
+    def from_per_env(cls, results: list[PlacementResult]) -> PlacementResult:
+        """Wrap per-env leaf results into a single PlacementResult.
+
+        Args:
+            results: One leaf PlacementResult per environment (not itself a wrapper).
+
+        Returns:
+            A PlacementResult whose top-level fields mirror ``results[0]``;
+            iterate ``results`` to access all per-env layouts.
         """
-        return self.validation_results.do_all_required_validation_checks_pass()
+        assert results, "from_per_env requires at least one result"
+        assert all(r._per_env_results is None for r in results), (
+            "from_per_env requires bare PlacementResult leaves; wrapping a wrapper is not supported"
+        )
+        first = results[0]
+        obj = cls(
+            validation_results=first.validation_results,
+            positions=first.positions,
+            final_loss=first.final_loss,
+            attempts=first.attempts,
+            orientations=first.orientations,
+        )
+        obj._per_env_results = results
+        return obj
 
-
-@dataclass
-class MultiEnvPlacementResult:
-    """Result of an ObjectPlacer.place() call for multiple environments."""
-
-    results: list[PlacementResult]
-    """One PlacementResult per environment (same length as num_envs)."""
+    @property
+    def results(self) -> list[PlacementResult]:
+        """Per-env result list; ``[self]`` for a directly-constructed leaf."""
+        return self._per_env_results if self._per_env_results is not None else [self]
 
     @property
     def success(self) -> bool:
-        """True if every environment's placement succeeded."""
-        return all(r.success for r in self.results)
+        """True when every env passed all required validation checks.
 
-    @property
-    def attempts(self) -> int:
-        """Number of attempts (same for all envs in the batched run)."""
-        return self.results[0].attempts if self.results else 0
+        place() always returns a best-ranked layout per env even when validation fails;
+        check this to distinguish a validated layout from a lowest-loss fallback.
+        """
+        if self._per_env_results is not None:
+            return all(r.success for r in self._per_env_results)
+        return self.validation_results.do_all_required_validation_checks_pass()

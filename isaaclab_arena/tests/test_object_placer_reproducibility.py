@@ -12,7 +12,7 @@ import pytest
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
+from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -142,7 +142,7 @@ def test_object_placer_different_seeds_produce_different_results():
 
 
 def test_object_placer_multi_env_returns_multi_env_result():
-    """Test that ObjectPlacer.place with num_envs>1 returns MultiEnvPlacementResult."""
+    """Test that ObjectPlacer.place with num_envs>1 returns PlacementResult with per-env results."""
     num_envs = 4
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     desk, box1, box2 = _create_test_objects()
@@ -150,7 +150,7 @@ def test_object_placer_multi_env_returns_multi_env_result():
     placer = ObjectPlacer(params=ObjectPlacerParams(placement_seed=42, solver_params=solver_params))
     result = placer.place(objects, num_envs=num_envs)
 
-    assert isinstance(result, MultiEnvPlacementResult)
+    assert isinstance(result, PlacementResult)
     assert len(result.results) == num_envs
     for r in result.results:
         assert isinstance(r, PlacementResult)
@@ -169,7 +169,7 @@ def test_object_placer_multi_env_produces_different_positions():
     placer = ObjectPlacer(params=ObjectPlacerParams(placement_seed=42, solver_params=solver_params))
     result = placer.place(objects, num_envs=num_envs)
 
-    assert isinstance(result, MultiEnvPlacementResult)
+    assert isinstance(result, PlacementResult)
     # At least one pair of envs should have different positions for a non-anchor object.
     positions_box1 = [result.results[e].positions[box1] for e in range(num_envs)]
     any_different = any(positions_box1[i] != positions_box1[j] for i in range(num_envs) for j in range(i + 1, num_envs))
