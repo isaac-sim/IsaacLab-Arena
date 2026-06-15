@@ -5,10 +5,9 @@
 
 """In-memory recording of variation samples.
 
-A :class:`VariationRecorder` collects every value drawn by an enabled variation's
-sampler so downstream sensitivity-analysis tooling has the input factors that
-produced each episode. The recorder is explicitly attached by the caller: there
-is no singleton or global lookup.
+A ``VariationRecorder`` collects every value drawn by an enabled variation's sampler so
+downstream sensitivity-analysis tooling has the input factors that produced each episode.
+The recorder is explicitly attached by the caller; there is no singleton or global lookup.
 """
 
 from __future__ import annotations
@@ -25,23 +24,16 @@ if TYPE_CHECKING:
 
 
 class VariationRecord:
-    """Per-variation slice of a :class:`VariationRecorder`.
-
-    Bundles a variation's identity (:attr:`source_id`), the cfg driving its
-    sampler at attach time (:attr:`cfg`), and the ordered sequence of samples
-    drawn into the record (:attr:`samples`).
-    """
+    """Per-variation slice of a ``VariationRecorder``: a variation's identity, cfg, and samples."""
 
     def __init__(self, source_id: str, cfg: VariationBaseCfg) -> None:
         self.source_id = source_id
-        #: Cfg reference captured at :meth:`VariationRecorder.attach` time. The recorder
-        #: is attached after Hydra overrides have been applied, so the cfg is
-        #: treated as finalized; deep-copy if a frozen archival snapshot is needed.
+
         self.cfg = cfg
-        #: One entry per :meth:`~isaaclab_arena.variations.sampler_base.SamplerBase.sample`
-        #: call. Tensor samples are stored detached on CPU; non-tensor samples
-        #: (e.g. a list returned by a categorical sampler) are stored as-is.
+        """Cfg driving the sampler, captured at attach time (after Hydra overrides, so treated as finalized)."""
+
         self.samples: list[Any] = []
+        """One entry per ``sample()`` call. Tensors stored detached on CPU; other values as-is."""
 
     def _header_lines(self) -> list[str]:
         """Return the shared preamble (identity, cfg, sample-call count) for renderers."""
@@ -90,9 +82,8 @@ class VariationRecorder:
     def attach(self, variations: dict[str, list[VariationBase]]) -> None:
         """Attach every enabled variation in ``variations`` under ``"{asset}.{variation}"``.
 
-        Used by :class:`~isaaclab_arena.environments.arena_env_builder.ArenaEnvBuilder`
-        to attach variations sourced from both the scene and the embodiment.
-        Disabled variations are skipped.
+        Used by ``ArenaEnvBuilder`` to attach variations sourced from both the scene and
+        the embodiment. Disabled variations are skipped.
         """
         for asset_name, asset_variations in variations.items():
             for variation in asset_variations:
@@ -107,13 +98,11 @@ class VariationRecorder:
     def _attach(self, source_id: str, variation: VariationBase) -> None:
         """Subscribe this recorder to ``variation`` under ``source_id``.
 
-        The listener is registered via
-        :meth:`~isaaclab_arena.variations.variation_base.VariationBase.add_sample_listener`
-        so it survives subsequent sampler swaps.
+        Registers the listener through ``variation.add_sample_listener`` so it survives
+        subsequent sampler swaps.
 
         Args:
-            source_id: Identifier the record is stored under. By convention
-                ``"{asset_name}.{variation.name}"``.
+            source_id: Identifier the record is stored under, by convention ``"{asset}.{variation}"``.
             variation: The variation to observe.
         """
         assert source_id not in self._records, (

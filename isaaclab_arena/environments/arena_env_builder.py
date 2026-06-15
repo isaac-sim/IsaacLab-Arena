@@ -158,10 +158,13 @@ class ArenaEnvBuilder:
     def compose_manager_cfg(self) -> tuple[IsaacLabArenaManagerBasedRLEnvCfg, dict[str, Any]]:
         """Return the base ManagerBased cfg and the env kwargs (no registration).
 
-        Returns a ``(env_cfg, env_kwargs)`` tuple. ``env_kwargs`` carries the live
-        :class:`VariationRecorder` and is forwarded verbatim into ``gym.make`` so the env owns
-        it from construction. The recorder is returned (rather than stashed on the builder or the
-        env cfg) so its sampler-listener wiring is never deep-copied by configclass ``__post_init__``.
+        ``env_kwargs`` carries the live ``VariationRecorder``, forwarded verbatim into
+        ``gym.make`` so the env owns it from construction. The recorder is returned rather than
+        stashed on the cfg so its sampler-listener wiring is never deep-copied by configclass
+        ``__post_init__``.
+
+        Returns:
+            An ``(env_cfg, env_kwargs)`` tuple.
         """
 
         # Solve relations before building scene config so positions are captured correctly.
@@ -360,11 +363,14 @@ class ArenaEnvBuilder:
         env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None,
         env_kwargs: dict[str, Any] | None = None,
     ) -> tuple[str, IsaacLabArenaManagerBasedRLEnvCfg, dict[str, Any]]:
-        """Register Gym env and parse runtime cfg.
+        """Register the Gym env and parse the runtime cfg.
 
-        Returns ``(name, cfg, env_kwargs)``. When ``env_cfg`` is not provided it is composed here
-        (which also produces ``env_kwargs``); when it is provided, pass the matching ``env_kwargs``
-        from :meth:`compose_manager_cfg` so the variation recorder reaches the env.
+        When ``env_cfg`` is omitted it is composed here (also producing ``env_kwargs``); when
+        provided, pass the matching ``env_kwargs`` from ``compose_manager_cfg`` so the variation
+        recorder reaches the env.
+
+        Returns:
+            A ``(name, cfg, env_kwargs)`` tuple.
         """
         name = self.arena_env.name
         if env_cfg is None:

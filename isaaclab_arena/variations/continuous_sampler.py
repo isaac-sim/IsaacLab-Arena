@@ -28,9 +28,8 @@ class ContinuousSamplerCfg(SamplerBaseCfg):
 class ContinuousSampler(SamplerBase):
     """Draws continuous numeric values from a fixed-shape distribution.
 
-    Concrete subclasses implement
-    :meth:`~isaaclab_arena.variations.sampler_base.SamplerBase._sample` to return
-    a tensor of shape ``(num_samples, *shape_per_sample)``.
+    Concrete subclasses implement ``_sample`` to return a tensor of shape
+    ``(num_samples, *shape_per_sample)``.
     """
 
     @property

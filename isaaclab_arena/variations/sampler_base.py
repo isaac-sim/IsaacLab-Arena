@@ -30,11 +30,9 @@ class SamplerBaseCfg:
 class SamplerBase(ABC):
     """Base class shared by every sampler family.
 
-    External observers can subscribe via :meth:`add_listener` to see every value
-    drawn; prefer
-    :meth:`~isaaclab_arena.variations.variation_base.VariationBase.add_sample_listener`
-    so subscriptions survive sampler swaps. Concrete subclasses implement
-    :meth:`_sample`; :meth:`sample` wraps it and notifies listeners.
+    Observers subscribe via ``add_listener`` to see every value drawn; prefer
+    ``VariationBase.add_sample_listener`` so subscriptions survive sampler swaps. Concrete
+    subclasses implement ``_sample``; ``sample`` wraps it and notifies listeners.
     """
 
     def __init__(self) -> None:
@@ -43,8 +41,8 @@ class SamplerBase(ABC):
     def add_listener(self, listener: Callable[[Any], None]) -> None:
         """Register ``listener`` to be called with every sample drawn from this sampler.
 
-        Listeners are invoked synchronously inside :meth:`sample`, in registration
-        order, with the raw sample value (no copy / detach).
+        Listeners are invoked synchronously inside ``sample``, in registration order, with
+        the raw sample value (no copy / detach).
         """
         self._listeners.append(listener)
 
@@ -53,21 +51,19 @@ class SamplerBase(ABC):
         self._listeners.remove(listener)
 
     def sample(self, num_samples: int, **kwargs) -> Any:
-        """Draw ``num_samples`` values and notify listeners.
+        """Draw ``num_samples`` values via ``_sample`` and forward the result to every listener.
 
-        Delegates to the concrete :meth:`_sample` and then forwards the result to
-        every registered listener. Subclasses customize drawing by overriding
-        :meth:`_sample`, not this method.
+        Subclasses customize drawing by overriding ``_sample``, not this method.
 
         Args:
             num_samples: Number of independent samples to draw.
-            **kwargs: Extra per-call arguments forwarded to :meth:`_sample`
-                (e.g. a ``choices`` sequence for a categorical sampler).
+            **kwargs: Extra per-call arguments forwarded to ``_sample`` (e.g. a ``choices``
+                sequence for a categorical sampler).
 
         Returns:
-            Whatever the concrete sampler produces. Tensor-based samplers return
-            a tensor of shape ``(num_samples, *shape_per_sample)``; categorical
-            samplers return a ``list`` of length ``num_samples``.
+            Whatever the concrete sampler produces: tensor samplers return a tensor of shape
+            ``(num_samples, *shape_per_sample)``; categorical samplers return a list of length
+            ``num_samples``.
         """
         sample = self._sample(num_samples, **kwargs)
         for listener in self._listeners:

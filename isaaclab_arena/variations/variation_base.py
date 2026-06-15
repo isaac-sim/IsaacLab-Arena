@@ -81,8 +81,8 @@ class VariationBase(ABC):
     def add_sample_listener(self, listener: Callable[[Any], None]) -> None:
         """Subscribe ``listener`` to every sample drawn by this variation's sampler.
 
-        Listeners are stored on the variation, so they are re-bound to the new
-        sampler on every :meth:`apply_cfg` and survive cfg/sampler swaps.
+        Listeners are stored on the variation, so ``apply_cfg`` re-binds them onto the
+        rebuilt sampler and they survive cfg/sampler swaps.
         """
         self._sample_listeners.append(listener)
         if self._sampler is not None:
@@ -97,13 +97,12 @@ class VariationBase(ABC):
     def apply_cfg(self, cfg: VariationBaseCfg) -> None:
         """Install ``cfg`` as the variation's new source of truth.
 
-        Replaces :attr:`cfg` and rebuilds :attr:`sampler` from ``cfg.sampler_cfg``,
-        re-binding any variation-owned sample listeners onto the new sampler.
-        Subclasses with extra derived state should override and call
-        ``super().apply_cfg(cfg)`` first.
+        Replaces ``cfg`` and rebuilds ``sampler`` from ``cfg.sampler_cfg``, re-binding any
+        variation-owned sample listeners onto the new sampler. Subclasses with extra derived
+        state should override and call ``super().apply_cfg(cfg)`` first.
 
         Args:
-            cfg: A cfg of the :class:`VariationBaseCfg` subclass this variation accepts.
+            cfg: A cfg of the ``VariationBaseCfg`` subclass this variation accepts.
         """
         self.cfg = cfg
         assert isinstance(

@@ -3,12 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for sample listeners and :class:`VariationRecorder`.
+"""Tests for sample listeners and ``VariationRecorder``.
 
-Listener and recorder mechanics are plain Python (no SimulationApp). The
-end-to-end test that records a real HDR draw runs inside
-:func:`~isaaclab_arena.tests.utils.subprocess.run_simulation_app_function`
-because constructing a dome light via the registry pulls in ``isaaclab.sim``.
+Listener and recorder mechanics are plain Python (no SimulationApp). The end-to-end test that
+records a real HDR draw runs inside ``run_simulation_app_function`` because constructing a dome
+light via the registry pulls in ``isaaclab.sim``.
 """
 
 from dataclasses import field
