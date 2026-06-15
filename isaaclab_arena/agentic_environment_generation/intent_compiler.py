@@ -183,8 +183,8 @@ class IntentCompiler:
         reference_part = f"_{rel.reference}" if rel.reference is not None else ""
         constraint_id = f"{INITIAL_STATE_SPEC_ID}_{index}_{rel.kind}{reference_part}_{rel.subject}"
         self.trace.append(IntentResolutionTraceEvent(f"{stage_prefix}.ok", rel.subject, rel.reference, note=rel.kind))
-        if rel.kind == "on" and on_edge_margin_m > 0.0 and "edge_margin_m" not in rel.params:
-            self._inject_edge_margin_to_on_relation_params(rel, on_edge_margin_m)
+        if rel.kind == "on" and on_edge_margin_m > 0.0:
+            self._override_on_edge_margin_in_params(rel, on_edge_margin_m)
         return ArenaEnvGraphSpatialRelationSpec(
             id=constraint_id,
             kind=rel.kind,
@@ -193,8 +193,8 @@ class IntentCompiler:
             params=dict(rel.params),
         )
 
-    def _inject_edge_margin_to_on_relation_params(self, rel: SpatialRelationSpec, on_edge_margin_m: float) -> None:
-        """Inject ``edge_margin_m`` into ``rel.params`` in place for ``On`` relations."""
+    def _override_on_edge_margin_in_params(self, rel: SpatialRelationSpec, on_edge_margin_m: float) -> None:
+        """Override ``edge_margin_m`` in ``rel.params`` for ``On`` relations."""
         rel.params["edge_margin_m"] = on_edge_margin_m
         self.trace.append(
             IntentResolutionTraceEvent(

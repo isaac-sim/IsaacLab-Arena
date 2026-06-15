@@ -186,16 +186,18 @@ def test_on_loss_strategy_oversized_child_keeps_plateau_without_margin():
     assert torch.isclose(loss_edge, loss_center, atol=1e-4)  # flat plateau: no preferred X position
 
 
-def test_on_loss_strategy_rejects_margin_too_large_for_surface():
-    """A margin too wide for the footprint to fit is rejected rather than silently centered."""
+def test_on_loss_strategy_margin_too_large_yields_high_loss():
+    """A margin too wide to fit inverts the band into a high constant loss instead of asserting."""
 
     table = _create_table()  # X/Y extent [0, 1]
     box = _create_box()  # 0.2m wide -> max feasible margin = (1 - 0.2) / 2 = 0.4
     strategy = OnLossStrategy(slope=10.0)
     relation = On(table, clearance_m=0.01, edge_margin_m=0.5)  # 0.5 > 0.4 -> infeasible
 
-    with pytest.raises(AssertionError, match="edge_margin_m"):
-        strategy.compute_loss(relation, torch.tensor([0.4, 0.4, 0.11]), box.bounding_box, table.bounding_box)
+    # Each axis band inverts to [0.5, 0.3]; anywhere inside floors at slope * (0.5 - 0.3) = 2.0.
+    # X and Y both contribute 2.0 and Z is on target -> total 4.0, with no assertion raised.
+    loss = strategy.compute_loss(relation, torch.tensor([0.4, 0.4, 0.11]), box.bounding_box, table.bounding_box)
+    assert torch.isclose(loss, torch.tensor(4.0), atol=1e-4)
 
 
 # =============================================================================

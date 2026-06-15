@@ -282,18 +282,8 @@ class OnLossStrategy(RelationLossStrategy):
         valid_y_min = parent_y_min + m - child_bbox.min_point[:, 1]
         valid_y_max = parent_y_max - m - child_bbox.max_point[:, 1]
 
-        # The lower and upper bounds can be inverted under 2 conditions:
-        # 1. The margin is too large for the support surface.
-        # 2. The child is oversized.
-        # Reject the case where margin is too large. Keep the case where child is oversized.
-        if m > 0.0:
-            feasible = bool((valid_x_min <= valid_x_max).all()) and bool((valid_y_min <= valid_y_max).all())
-            assert feasible, (
-                f"On.edge_margin_m={m} m is too large for this support surface: the child footprint cannot stay {m} m"
-                " off every rim (max feasible margin here is"
-                f" {torch.minimum(parent_x_max - parent_x_min - child_bbox.size[:, 0], parent_y_max - parent_y_min - child_bbox.size[:, 1]).min().item() / 2.0:.3f} m)."
-                " Reduce edge_margin_m or use a larger support surface."
-            )
+        # The bounds invert (lower > upper) when the margin is too large for the surface or the
+        # child is oversized. The loss becomes a non-zero constant with gradient zero.
 
         # 1. X band loss: child's footprint entirely within parent's X extent
         x_band_loss = linear_band_loss(

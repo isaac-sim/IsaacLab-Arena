@@ -528,8 +528,8 @@ class ObjectPlacer:
     ) -> bool:
         """Validate each On relation; keep in sync with OnLossStrategy in relation_loss_strategies.py.
 
-        1. X: child's footprint entirely within parent's X extent.
-        2. Y: child's footprint entirely within parent's Y extent.
+        1. X: child's footprint within parent's X extent, inset by the relation's edge_margin_m.
+        2. Y: child's footprint within parent's Y extent, inset by the relation's edge_margin_m.
         3. Z: child_bottom in (parent_top, parent_top+clearance_m], within on_relation_z_tolerance_m.
 
         Args:
@@ -547,11 +547,34 @@ class ObjectPlacer:
                 parent_bbox = env_bboxes[parent]
                 child_world = child_bbox.translated(positions[obj])
                 parent_world = parent_bbox.translated(positions[parent])
+
+                m = rel.edge_margin_m
+                # A margin too large for the surface inverts the inset band so containment can never
+                # pass. It shall be rejected in validation.
+                if m > 0.0:
+                    free_x = (
+                        parent_world.max_point[0, 0]
+                        - parent_world.min_point[0, 0]
+                        - (child_world.max_point[0, 0] - child_world.min_point[0, 0])
+                    ).item()
+                    free_y = (
+                        parent_world.max_point[0, 1]
+                        - parent_world.min_point[0, 1]
+                        - (child_world.max_point[0, 1] - child_world.min_point[0, 1])
+                    ).item()
+                    if free_x < 2 * m or free_y < 2 * m:
+                        print(
+                            f"  WARNING: On.edge_margin_m={m} m is too large for parent '{parent.name}': the child"
+                            f" footprint cannot stay {m} m off every rim (max feasible margin here is"
+                            f" {min(free_x, free_y) / 2.0:.3f} m). Reduce edge_margin_m or use a larger parent;"
+                            " this layout is rejected."
+                        )
+                        return False
                 if (
-                    child_world.min_point[0, 0] < parent_world.min_point[0, 0]
-                    or child_world.max_point[0, 0] > parent_world.max_point[0, 0]
-                    or child_world.min_point[0, 1] < parent_world.min_point[0, 1]
-                    or child_world.max_point[0, 1] > parent_world.max_point[0, 1]
+                    child_world.min_point[0, 0] < parent_world.min_point[0, 0] + m
+                    or child_world.max_point[0, 0] > parent_world.max_point[0, 0] - m
+                    or child_world.min_point[0, 1] < parent_world.min_point[0, 1] + m
+                    or child_world.max_point[0, 1] > parent_world.max_point[0, 1] - m
                 ):
                     if self.params.verbose:
                         print(f"  On relation: '{obj.name}' XY outside parent (retrying)")
