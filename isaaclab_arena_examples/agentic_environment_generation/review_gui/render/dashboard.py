@@ -35,18 +35,24 @@ def render_dashboard_html(spec: ArenaEnvInitialGraphSpec, thumbnails: dict[str, 
   <p class="sub">{len(spec.nodes)} nodes · {len(spec.tasks)} tasks · initial state: <code>{html_lib.escape(initial_state.id)}</code></p>
 </header>
 <main>
+  <section class="panel nodes-panel">
+    <h2>Nodes</h2>
+    <div class="node-grid">{render_node_cards(spec, thumbnails)}</div>
+  </section>
   <section class="panel graph-panel">
     <h2>Spatial graph <span class="muted">(initial state: <code>{html_lib.escape(initial_state.id)}</code>)</span></h2>
-    <pre class="mermaid">{render_mermaid_graph(spec, initial_state)}</pre>
-    {render_unary_constraints(initial_state)}
+    <div class="graph-row">
+      <div class="graph-mermaid">
+        <pre class="mermaid">{render_mermaid_graph(spec, initial_state)}</pre>
+      </div>
+      <aside class="graph-unary">
+        {render_unary_constraints(initial_state)}
+      </aside>
+    </div>
   </section>
   <section class="panel tasks-panel">
     <h2>Tasks</h2>
     {render_tasks_table(spec)}
-  </section>
-  <section class="panel nodes-panel">
-    <h2>Nodes</h2>
-    <div class="node-grid">{render_node_cards(spec, thumbnails)}</div>
   </section>
 </main>
 <script>mermaid.initialize({{ startOnLoad: true, theme: 'dark', themeVariables: {{ fontFamily: 'ui-monospace, monospace' }} }});</script>
