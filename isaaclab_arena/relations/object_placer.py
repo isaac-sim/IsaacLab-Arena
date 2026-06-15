@@ -93,7 +93,7 @@ class ObjectPlacer:
                 placement (one layout per env).
 
         Returns:
-            A PlacementResult. For multi-env runs, iterate ``result.results``
+            A PlacementResult. For multi-env runs, iterate result.results
             to access each per-env layout.
         """
         anchor_objects_set, generator = self._prepare_placement(objects)
