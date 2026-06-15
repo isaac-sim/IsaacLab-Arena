@@ -150,7 +150,7 @@ class IntentCompiler:
         )
 
     def _build_initial_state_spec(
-        self, graph: list[SpatialRelationSpec], known_ids: set[str], on_edge_margin_m: float
+        self, graph: list[SpatialRelationSpec], known_ids: set[str], on_edge_margin_m: float = 0.0
     ) -> ArenaEnvGraphStateSpec:
         constraints: list[ArenaEnvGraphSpatialRelationSpec] = []
         for index, rel in enumerate(graph):
@@ -165,7 +165,7 @@ class IntentCompiler:
         )
 
     def _build_spatial_constraint(
-        self, rel: SpatialRelationSpec, index: int, known_ids: set[str], on_edge_margin_m: float
+        self, rel: SpatialRelationSpec, index: int, known_ids: set[str], on_edge_margin_m: float = 0.0
     ) -> ArenaEnvGraphSpatialRelationSpec | None:
         # rel.kind is guaranteed registered by SpatialRelationSpec._validate_kind_and_arity.
         stage_prefix = "relation.initial"
@@ -183,7 +183,8 @@ class IntentCompiler:
         reference_part = f"_{rel.reference}" if rel.reference is not None else ""
         constraint_id = f"{INITIAL_STATE_SPEC_ID}_{index}_{rel.kind}{reference_part}_{rel.subject}"
         self.trace.append(IntentResolutionTraceEvent(f"{stage_prefix}.ok", rel.subject, rel.reference, note=rel.kind))
-        self._inject_edge_margin_to_on_relation_params(rel, on_edge_margin_m)
+        if rel.kind == "on" and on_edge_margin_m > 0.0 and "edge_margin_m" not in rel.params:
+            self._inject_edge_margin_to_on_relation_params(rel, on_edge_margin_m)
         return ArenaEnvGraphSpatialRelationSpec(
             id=constraint_id,
             kind=rel.kind,
@@ -193,17 +194,16 @@ class IntentCompiler:
         )
 
     def _inject_edge_margin_to_on_relation_params(self, rel: SpatialRelationSpec, on_edge_margin_m: float) -> None:
-        """Inject ``edge_margin_m`` into ``rel.params`` in place for ``on`` relations."""
-        if rel.kind == "on" and on_edge_margin_m > 0.0 and "edge_margin_m" not in rel.params:
-            rel.params["edge_margin_m"] = on_edge_margin_m
-            self.trace.append(
-                IntentResolutionTraceEvent(
-                    "relation.initial.on_edge_margin",
-                    rel.subject,
-                    rel.reference,
-                    note=f"edge_margin_m={on_edge_margin_m}",
-                )
+        """Inject ``edge_margin_m`` into ``rel.params`` in place for ``On`` relations."""
+        rel.params["edge_margin_m"] = on_edge_margin_m
+        self.trace.append(
+            IntentResolutionTraceEvent(
+                "relation.initial.on_edge_margin",
+                rel.subject,
+                rel.reference,
+                note=f"edge_margin_m={on_edge_margin_m}",
             )
+        )
 
     def _trace_tasks(self, tasks: list[TaskSpec], known_ids: set[str]) -> None:
         """Emit trace events for each task: one ``task.resolve`` event and one
