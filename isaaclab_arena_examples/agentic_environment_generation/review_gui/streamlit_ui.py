@@ -9,30 +9,69 @@ Launch via :mod:`~isaaclab_arena_examples.agentic_environment_generation.review_
 
     /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.review_gui.server \\
         --yaml isaaclab_arena/tests/test_data/pick_and_place_maple_table_init_env_graph.yaml
+
+Registry lookups (task kinds, relation kinds) run in a persistent SimApp
+sidecar so YAML re-validation stays fast after the first ~30s sidecar boot.
 """
 
 from __future__ import annotations
 
 import argparse
+import atexit
 import traceback
 import yaml
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import streamlit as st
 
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import render_dashboard_html
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_sidecar_client import (
+    SimAppSidecar,
+    SimAppSidecarError,
+)
 
-# Visualization iframe height. Tuned so the graph + tasks + node grid all
-# fit without an outer Streamlit scrollbar swallowing the inner one.
 _IFRAME_HEIGHT_PX = 1100
+
+_SKIP_REGISTRY_CONTEXT: dict[str, Any] = {"skip_registry": True}
 
 _BROKEN_PLACEHOLDER_HTML = """<!DOCTYPE html><html><body style="
     font-family: ui-monospace, monospace;
     background:#15181d; color:#e4e6eb; padding:24px; margin:0;">
 <p>No visualization yet — fix the YAML errors to auto-render.</p>
 </body></html>"""
+
+
+@st.cache_resource(show_spinner="Booting Isaac Sim sidecar (≈30s first run, cached afterwards)…")
+def _get_simapp_sidecar() -> SimAppSidecar | None:
+    """Spawn the SimApp sidecar once per Streamlit server process."""
+    sidecar = SimAppSidecar()
+    try:
+        sidecar.start()
+    except SimAppSidecarError as exc:
+        print(f"[review_gui] SimApp sidecar failed to start: {exc}", flush=True)
+        return None
+
+    atexit.register(sidecar.close)
+    return sidecar
+
+
+def _ensure_sidecar() -> SimAppSidecar | None:
+    """Return a healthy sidecar, re-spawning if the cached one died."""
+    sidecar = _get_simapp_sidecar()
+    if sidecar is not None and sidecar.is_alive():
+        return sidecar
+    if sidecar is not None:
+        sidecar.close()
+    _get_simapp_sidecar.clear()
+    return _get_simapp_sidecar()
+
+
+def _spec_from_sidecar_dict(spec_dict: dict[str, Any]) -> ArenaEnvInitialGraphSpec:
+    """Rebuild a validated spec locally without registry imports."""
+    return ArenaEnvInitialGraphSpec.model_validate(spec_dict, context=_SKIP_REGISTRY_CONTEXT)
 
 
 @dataclass
@@ -48,13 +87,45 @@ class ValidationResult:
 
 
 def validate_yaml_text(text: str) -> ValidationResult:
-    """Parse ``text`` as YAML and validate it as an :class:`ArenaEnvInitialGraphSpec`."""
+    """Parse YAML and validate via the SimApp sidecar (registry lookups run there)."""
     try:
         raw = yaml.safe_load(text)
-        spec = ArenaEnvInitialGraphSpec.model_validate(raw)
-        return ValidationResult(spec=spec, error=None)
     except Exception:
         return ValidationResult(spec=None, error=traceback.format_exc())
+
+    if raw is None:
+        return ValidationResult(spec=None, error="YAML is empty")
+    if not isinstance(raw, dict):
+        return ValidationResult(spec=None, error=f"Expected mapping, got {type(raw).__name__}")
+
+    sidecar = _ensure_sidecar()
+    if sidecar is None:
+        return ValidationResult(
+            spec=None,
+            error=(
+                "SimApp sidecar is unavailable — cannot validate registry entries. "
+                "Check the terminal where you launched the server."
+            ),
+        )
+
+    try:
+        response = sidecar.validate_yaml_text(text)
+    except SimAppSidecarError as exc:
+        _get_simapp_sidecar.clear()
+        return ValidationResult(spec=None, error=str(exc))
+
+    if not response.get("ok"):
+        err = response.get("error", "validation failed")
+        tb = response.get("traceback", "")
+        message = f"{err}\n\n{tb}" if tb else str(err)
+        return ValidationResult(spec=None, error=message)
+
+    try:
+        spec = _spec_from_sidecar_dict(response["spec_dict"])
+    except Exception:
+        return ValidationResult(spec=None, error=traceback.format_exc())
+
+    return ValidationResult(spec=spec, error=None)
 
 
 def parse_args() -> argparse.Namespace:
@@ -208,5 +279,4 @@ def main() -> None:
         render_visualization_panel()
 
 
-# Streamlit invokes the script top-level on every rerun.
 main()
