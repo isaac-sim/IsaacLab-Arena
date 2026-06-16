@@ -593,7 +593,7 @@ def render_visualization_panel(validation: ValidationResult) -> None:
     st.caption(
         f"Runs link → to_arena_env → relation solver, then {NUM_STEPS} zero-action steps "
         f"with {NUM_ENVS} parallel envs at {ENV_SPACING_M} m spacing. "
-        "Viewport captures use the default scene camera (same as policy_runner)."
+        "Viewport captures use a world-frame overview of the full env grid."
     )
 
     if st.button(

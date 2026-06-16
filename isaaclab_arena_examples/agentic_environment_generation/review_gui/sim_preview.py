@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 import time
 import uuid
@@ -39,6 +40,39 @@ def _preview_args() -> argparse.Namespace:
         distributed=False,
         presets=None,
     )
+
+
+def _overview_camera(
+    num_envs: int, env_spacing: float
+) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    """Return (eye, lookat) in world frame for a high oblique view of the full env grid."""
+    cols = int(math.ceil(math.sqrt(num_envs)))
+    rows = int(math.ceil(num_envs / cols))
+    max_x = max((cols - 1) * env_spacing, 0.0)
+    max_y = max((rows - 1) * env_spacing, 0.0)
+    cx, cy = max_x * 0.5, max_y * 0.5
+    span = max(max_x, max_y, env_spacing)
+    # Oblique overview: close enough to fill the frame, still high enough for all clones.
+    height = span * 1.75 + env_spacing * 2.5
+    back = span * 1.4 + env_spacing * 2.0
+    side = span * 0.25
+    eye = (cx + side, cy - back, height)
+    target = (cx, cy, 0.75)
+    return eye, target
+
+
+def _apply_overview_camera(env, app, num_envs: int, env_spacing: float) -> None:
+    """Point the Kit viewport at the full multi-env grid (world frame)."""
+    eye, target = _overview_camera(num_envs, env_spacing)
+    unwrapped = env.unwrapped
+    vcc = getattr(unwrapped, "viewport_camera_controller", None)
+    if vcc is not None:
+        vcc.update_view_to_world()
+        vcc.update_view_location(eye=list(eye), lookat=list(target))
+    else:
+        unwrapped.sim.set_camera_view(eye, target)
+    for _ in range(20):
+        app.update()
 
 
 def _capture_viewport(app, cache_path: Path) -> bytes | None:
@@ -88,14 +122,14 @@ def run_sim_preview(app, yaml_text: str) -> dict[str, Any]:
 
     env = None
     try:
-        # Match policy_runner: default Isaac Lab ViewerCfg (not task look-at-object offsets).
+        eye, target = _overview_camera(args.num_envs, args.env_spacing)
         env_cfg = builder.compose_manager_cfg()
-        env_cfg.viewer = ViewerCfg()
+        # World-frame overview (not task look-at-object) so all env clones are visible.
+        env_cfg.viewer = ViewerCfg(eye=eye, lookat=target, origin_type="world")
         env = builder.make_registered(env_cfg)
 
         obs, _ = env.reset()
-        for _ in range(10):
-            app.update()
+        _apply_overview_camera(env, app, args.num_envs, args.env_spacing)
 
         if _capture_viewport(app, first_path) is None:
             raise RuntimeError("failed to capture first-frame viewport screenshot")
@@ -104,8 +138,7 @@ def run_sim_preview(app, yaml_text: str) -> dict[str, Any]:
             action = policy.get_action(env, obs)
             obs, _, _, _, _ = env.step(action)
 
-        for _ in range(10):
-            app.update()
+        _apply_overview_camera(env, app, args.num_envs, args.env_spacing)
 
         if _capture_viewport(app, last_path) is None:
             raise RuntimeError("failed to capture last-frame viewport screenshot")
