@@ -78,12 +78,7 @@ class ObjectBase(Asset, ABC):
         ...
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
-        """Return the collision mesh for this object, or None.
-
-        When None, the mesh-based collision system falls back to AABB overlap
-        for any pair involving this object. Subclasses with mesh geometry
-        should override this method.
-        """
+        """Return collision mesh, or None to fall back to AABB overlap."""
 
     def _get_initial_pose_as_pose(self) -> Pose | None:
         """Return a single ``Pose`` suitable for *init_state* and bounding-box calculations.
@@ -181,6 +176,13 @@ class ObjectBase(Asset, ABC):
     def get_relations(self) -> list[RelationBase]:
         """Get all relations for this object."""
         return self.relations
+
+    @property
+    def is_anchor(self) -> bool:
+        """True if this object has an IsAnchor relation."""
+        from isaaclab_arena.relations.relations import IsAnchor
+
+        return any(isinstance(r, IsAnchor) for r in self.relations)
 
     def get_spatial_relations(self) -> list[RelationBase]:
         """Get only spatial relations (On, NextTo, AtPosition, etc.), excluding markers like IsAnchor."""

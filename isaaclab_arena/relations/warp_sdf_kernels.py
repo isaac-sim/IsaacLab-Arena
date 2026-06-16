@@ -22,7 +22,7 @@ def _sdf_query_kernel(
     """Query signed distance and gradient for each point against a Warp mesh.
 
     Points must be in mesh-local frame. Sign convention: negative = inside mesh.
-    Returns 1e6 sentinel when the BVH finds no enclosing face (non-watertight mesh).
+    No-hit writes ~1e6; detected via _SDF_SENTINEL = 1e5.
     """
     tid = wp.tid()
     p = query_points[tid]
@@ -184,7 +184,7 @@ def _multi_mesh_sdf_kernel(
     """Query signed distance per point against its assigned mesh (indexed by mesh_indices).
 
     Points must be in mesh-local frame. Sign convention: negative = inside mesh.
-    Returns 1e6 sentinel when the BVH finds no enclosing face (non-watertight mesh).
+    No-hit writes ~1e6; detected via _SDF_SENTINEL = 1e5.
     """
     tid = wp.tid()
     p = query_points[tid]

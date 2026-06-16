@@ -540,13 +540,38 @@ class RelationSolver:
                     for p in range(num_pairs)
                 ])
 
-                # AABB broadphase: skip pairs separated beyond margin
+                # Resolve per-pair yaw (shared by broadphase + narrowphase)
+                anchor_yaws = cache["pair_anchor_yaw"]
+                has_any_yaw = self._mesh_orientations is not None or any(y != 0.0 for y in anchor_yaws)
+                if has_any_yaw:
+                    ori_b = self._mesh_orientations[b] if self._mesh_orientations is not None else {}
+                    child_yaws = torch.tensor(
+                        [ori_b.get(cache["pair_child_objs"][p], 0.0) for p in range(num_pairs)],
+                        dtype=torch.float32,
+                        device=device,
+                    )
+                    parent_yaws = torch.tensor(
+                        [ori_b.get(cache["pair_parent_objs"][p], anchor_yaws[p]) for p in range(num_pairs)],
+                        dtype=torch.float32,
+                        device=device,
+                    )
+
+                # AABB broadphase (yaw-aware): skip separated pairs.
                 margins = cache["pair_max_r"] + clearance_m
                 batch_idx = min(b, cache["pair_c_bbox_min"].shape[1] - 1)
-                child_min = child_positions + cache["pair_c_bbox_min"][:, batch_idx, :]
-                child_max = child_positions + cache["pair_c_bbox_max"][:, batch_idx, :]
-                parent_min = parent_positions + cache["pair_p_bbox_min"][:, batch_idx, :]
-                parent_max = parent_positions + cache["pair_p_bbox_max"][:, batch_idx, :]
+                c_bbox_min = cache["pair_c_bbox_min"][:, batch_idx, :]
+                c_bbox_max = cache["pair_c_bbox_max"][:, batch_idx, :]
+                p_bbox_min = cache["pair_p_bbox_min"][:, batch_idx, :]
+                p_bbox_max = cache["pair_p_bbox_max"][:, batch_idx, :]
+
+                if has_any_yaw:
+                    c_bbox_min, c_bbox_max = self._rotate_bbox_extents(c_bbox_min, c_bbox_max, child_yaws)
+                    p_bbox_min, p_bbox_max = self._rotate_bbox_extents(p_bbox_min, p_bbox_max, parent_yaws)
+
+                child_min = child_positions + c_bbox_min
+                child_max = child_positions + c_bbox_max
+                parent_min = parent_positions + p_bbox_min
+                parent_max = parent_positions + p_bbox_max
 
                 sep_child = (child_min - margins.unsqueeze(1)) > parent_max
                 sep_parent = (parent_min - margins.unsqueeze(1)) > child_max
@@ -565,21 +590,7 @@ class RelationSolver:
                 local_centers = cache["all_centers_local"][active_idx]
 
                 # Z-yaw rotation: query = R(-parent_yaw) · (R(child_yaw) · local + offset)
-                # Anchor parent yaw: orientations dict overrides, else from initial_pose.
-                anchor_yaws = cache["pair_anchor_yaw"]
-                has_any_yaw = self._mesh_orientations is not None or any(y != 0.0 for y in anchor_yaws)
                 if has_any_yaw:
-                    ori_b = self._mesh_orientations[b] if self._mesh_orientations is not None else {}
-                    child_yaws = torch.tensor(
-                        [ori_b.get(cache["pair_child_objs"][p], 0.0) for p in range(num_pairs)],
-                        dtype=torch.float32,
-                        device=device,
-                    )
-                    parent_yaws = torch.tensor(
-                        [ori_b.get(cache["pair_parent_objs"][p], anchor_yaws[p]) for p in range(num_pairs)],
-                        dtype=torch.float32,
-                        device=device,
-                    )
                     net_yaws = (child_yaws - parent_yaws)[active_sphere_pair_id]
                     cos_y = torch.cos(net_yaws)
                     sin_y = torch.sin(net_yaws)
@@ -616,6 +627,20 @@ class RelationSolver:
             print(f"  [NoOverlap MESH] total_loss={total_loss.tolist()}")
 
         return total_loss
+
+    @staticmethod
+    def _rotate_bbox_extents(
+        bbox_min: torch.Tensor, bbox_max: torch.Tensor, yaws: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return the AABB enclosing a Z-rotated bbox (bbox_min/max: (N,3), yaws: (N,))."""
+        cos_y = torch.cos(yaws).abs().unsqueeze(1)
+        sin_y = torch.sin(yaws).abs().unsqueeze(1)
+        half = (bbox_max - bbox_min) / 2.0
+        center = (bbox_max + bbox_min) / 2.0
+        new_hx = half[:, 0:1] * cos_y + half[:, 1:2] * sin_y
+        new_hy = half[:, 0:1] * sin_y + half[:, 1:2] * cos_y
+        new_half = torch.cat([new_hx, new_hy, half[:, 2:3]], dim=1)
+        return center - new_half, center + new_half
 
     def solve(
         self,

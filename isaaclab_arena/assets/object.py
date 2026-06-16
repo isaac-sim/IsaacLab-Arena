@@ -91,8 +91,8 @@ class Object(ObjectBase):
             if self.usd_path is not None:
                 try:
                     self._collision_mesh = extract_trimesh_from_usd(self.usd_path, self.scale)
-                except (ValueError, RuntimeError, OSError) as e:
-                    print(f"  [MeshManager] Could not extract mesh for '{self.name}': {e}")
+                except (ValueError, OSError, AttributeError, TypeError, IndexError) as e:
+                    print(f"  [MeshManager] Could not extract mesh for '{self.name}': {type(e).__name__}: {e}")
         return self._collision_mesh
 
     def __deepcopy__(self, memo):

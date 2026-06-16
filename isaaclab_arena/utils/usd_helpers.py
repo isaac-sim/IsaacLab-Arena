@@ -226,7 +226,7 @@ def extract_trimesh_from_usd(
 
     Args:
         usd_path: Path to the .usd/.usda/.usdc file.
-        scale: (sx, sy, sz) scale factors applied to the final mesh.
+        scale: (sx, sy, sz) scale factors applied to the final mesh. Must be positive.
 
     Returns:
         Combined trimesh in the USD stage's world frame: per-prim local-to-world
@@ -236,6 +236,10 @@ def extract_trimesh_from_usd(
         ValueError: If the file cannot be opened or contains no mesh prims.
     """
     import trimesh as _trimesh
+
+    assert all(
+        s > 0 for s in scale
+    ), f"All scale components must be positive (negative scale flips winding/SDF sign), got {scale}"
 
     stage = Usd.Stage.Open(usd_path)
     if stage is None:

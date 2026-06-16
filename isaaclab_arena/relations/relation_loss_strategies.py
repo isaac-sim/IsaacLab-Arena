@@ -20,6 +20,7 @@ from isaaclab_arena.relations.loss_primitives import (
     single_point_linear_loss,
 )
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.pose import Pose, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
     import trimesh
@@ -496,10 +497,9 @@ class NoCollisionLossStrategy:
                     parent_yaw=parent_yaw,
                 )
             for obj, mesh in [(child_obj, child_mesh), (parent_obj, parent_mesh)]:
-                name = getattr(obj, "name", "?")
-                if mesh is None and name not in self._warned_no_mesh:
-                    self._warned_no_mesh.add(name)
-                    print(f"  [NoCollision] MESH mode: '{name}' has no collision mesh, falling back to AABB")
+                if mesh is None and obj.name not in self._warned_no_mesh:
+                    self._warned_no_mesh.add(obj.name)
+                    print(f"  [NoCollision] MESH mode: '{obj.name}' has no collision mesh, falling back to AABB")
 
         return self._compute_aabb_loss(clearance_m, child_pos, child_bbox, parent_world_bbox)
 
@@ -581,23 +581,16 @@ class NoCollisionLossStrategy:
             child_pos = child_pos.unsqueeze(0)
 
         if parent_pos is None:
-            from isaaclab_arena.utils.pose import Pose
-
             pose = parent_obj.get_initial_pose()
-            assert pose is not None, f"parent_pos=None but '{getattr(parent_obj, 'name', '?')}' has no initial pose"
-            assert isinstance(
-                pose, Pose
-            ), f"Anchor '{getattr(parent_obj, 'name', '?')}' must have a fixed Pose for mesh collision"
+            assert pose is not None, f"parent_pos=None but '{parent_obj.name}' has no initial pose"
+            assert isinstance(pose, Pose), f"Anchor '{parent_obj.name}' must have a fixed Pose for mesh collision"
             parent_pos = torch.tensor(pose.position_xyz, dtype=child_pos.dtype, device=child_pos.device)
             if parent_yaw == 0.0:
-                from isaaclab_arena.utils.pose import yaw_from_quat_xyzw
-
                 parent_yaw = yaw_from_quat_xyzw(pose.rotation_xyzw)
 
         assert parent_pos is not None
-        parent_pos_resolved: torch.Tensor = parent_pos
-        if parent_pos_resolved.dim() == 1:
-            parent_pos_resolved = parent_pos_resolved.unsqueeze(0)
+        if parent_pos.dim() == 1:
+            parent_pos = parent_pos.unsqueeze(0)
 
         device = child_pos.device
         manager = self._get_mesh_manager(str(device))
@@ -616,11 +609,11 @@ class NoCollisionLossStrategy:
             centers_local = torch.stack([rx, ry, centers_local[:, 2]], dim=-1)
 
         batch_size = child_pos.shape[0]
-        parent_pos_resolved = parent_pos_resolved.expand(batch_size, -1)
+        parent_pos = parent_pos.expand(batch_size, -1)
         total_loss = torch.zeros(batch_size, device=device, dtype=child_pos.dtype)
 
         for b in range(batch_size):
-            offset = child_pos[b] - parent_pos_resolved[b]
+            offset = child_pos[b] - parent_pos[b]
             # Rotate offset into the parent's local frame.
             if parent_yaw != 0.0:
                 cos_p = math.cos(-parent_yaw)

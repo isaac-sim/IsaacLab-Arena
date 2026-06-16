@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import copy
+
 import numpy as np
 import torch
 from collections import defaultdict
@@ -49,19 +51,19 @@ def greedy_sphere_decomposition(
     Returns:
         (K, 4) array of [cx, cy, cz, radius] in mesh-local frame. K <= num_spheres.
     """
-    import trimesh as _trimesh
+    import trimesh
 
     n_candidates = max(num_spheres, n_candidates)
     n_surface = max(n_candidates, n_surface)
 
     rng = np.random.default_rng(seed)
-    points = _trimesh.sample.sample_surface(mesh, n_surface, seed=rng)[0]
-    cloud = _trimesh.PointCloud(points)
+    points = trimesh.sample.sample_surface(mesh, n_surface, seed=rng)[0]
+    cloud = trimesh.PointCloud(points)
 
     work_mesh = mesh if mesh.is_watertight else mesh.convex_hull
     candidates = points[:n_candidates]
     try:
-        centers, radii = _trimesh.proximity.max_tangent_sphere(work_mesh, candidates)
+        centers, radii = trimesh.proximity.max_tangent_sphere(work_mesh, candidates)
     except (IndexError, ValueError) as e:
         print(f"  [SphereDecomp] max_tangent_sphere failed ({e}), using uniform fallback — coverage may be poor")
         centers = candidates[:num_spheres]
@@ -132,8 +134,6 @@ class WarpMeshManager:
 
     def __deepcopy__(self, memo):
         """Deep copy, dropping lazy Warp caches (unpicklable C pointers); rebuilt on demand."""
-        import copy
-
         cls = self.__class__
         result = cls.__new__(cls)
         memo[id(self)] = result
