@@ -56,3 +56,12 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
             " Independent of --record_viewport_video; use either or both."
         ),
     )
+    parser.add_argument(
+        "--gallery",
+        action="store_true",
+        default=False,
+        help=(
+            "After the rollout, generate an HTML gallery (index.html) of the per-camera per-episode"
+            " videos in --video_base_dir. Requires --record_camera_video to have produced videos."
+        ),
+    )
