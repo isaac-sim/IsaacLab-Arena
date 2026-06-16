@@ -22,7 +22,7 @@ from isaaclab_arena.affordances.turnable import Turnable
 from isaaclab_arena.assets.lightwheel_lazy import LightwheelLazyPath
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
-from isaaclab_arena.assets.object_spawn_defaults import (
+from isaaclab_arena.assets.object_utils import (
     EMPTY_ARTICULATION_INIT_STATE_CFG,
     RIGID_BODY_PROPS_HIGH_PRECISION,
     RIGID_BODY_PROPS_MEDIUM_PRECISION,
