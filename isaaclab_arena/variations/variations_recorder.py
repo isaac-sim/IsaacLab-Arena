@@ -25,7 +25,7 @@ class VariationRecord:
 
     def _header_lines(self) -> list[str]:
         """Return the shared preamble (identity, cfg, sample-call count) for renderers."""
-        #
+        # Add the title for this variation
         lines = [f"--- {self.name} ---", "cfg:"]
         # Print the Cfg
         lines.append(OmegaConf.to_yaml(OmegaConf.structured(self.cfg)).rstrip())

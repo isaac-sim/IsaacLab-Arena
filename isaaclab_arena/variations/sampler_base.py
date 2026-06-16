@@ -28,28 +28,14 @@ class SamplerBaseCfg:
 
 
 class SamplerBase(ABC):
-    """Base class shared by every sampler family.
-
-    Observers subscribe via ``add_listener`` to see every value drawn; prefer
-    ``VariationBase.add_sample_listener`` so subscriptions survive sampler swaps. Each sampler
-    family declares its own typed ``sample``; that method draws the value and forwards it to
-    listeners via ``_notify``.
-    """
+    """Base class shared by every sampler family."""
 
     def __init__(self) -> None:
         self._listeners: list[Callable[[Any], None]] = []
 
     def add_listener(self, listener: Callable[[Any], None]) -> None:
-        """Register ``listener`` to be called with every sample drawn from this sampler.
-
-        Listeners are invoked synchronously inside ``sample``, in registration order, with
-        the raw sample value (no copy / detach).
-        """
+        """Register ``listener`` to be called with every sample drawn from this sampler."""
         self._listeners.append(listener)
-
-    def remove_listener(self, listener: Callable[[Any], None]) -> None:
-        """Remove a previously-registered ``listener``."""
-        self._listeners.remove(listener)
 
     def _notify(self, sample: Any) -> None:
         """Forward ``sample`` to every registered listener, in registration order."""

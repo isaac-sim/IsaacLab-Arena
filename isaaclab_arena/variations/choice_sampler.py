@@ -28,7 +28,7 @@ class ChoiceSampler(SamplerBase, Generic[T]):
     """Uniform sampler returning items drawn from a per-call ``choices`` sequence."""
 
     def sample(self, num_samples: int, choices: Sequence[T]) -> list[T]:
-        """Draw ``num_samples`` items from ``choices`` and notify listeners.
+        """Draw ``num_samples`` items from ``choices``.
 
         Args:
             num_samples: Number of independent samples to draw, typically the

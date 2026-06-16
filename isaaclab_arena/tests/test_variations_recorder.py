@@ -69,20 +69,6 @@ def test_choice_sampler_notifies_listeners():
     assert isinstance(seen[0], list) and len(seen[0]) == 3
 
 
-def test_remove_listener_stops_notifications():
-    sampler = UniformSamplerCfg(low=[0.0], high=[1.0]).build()
-    seen: list = []
-
-    def listener(sample):
-        seen.append(sample)
-
-    sampler.add_listener(listener)
-    sampler.sample(num_samples=1)
-    sampler.remove_listener(listener)
-    sampler.sample(num_samples=1)
-    assert len(seen) == 1
-
-
 def test_variation_listener_survives_sampler_swap():
     """A listener added via the variation must re-bind to the sampler rebuilt by apply_cfg."""
     variation = _RecorderTestVariation()

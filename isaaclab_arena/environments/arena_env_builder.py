@@ -358,10 +358,10 @@ class ArenaEnvBuilder:
         env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None,
         env_kwargs: dict[str, Any] | None = None,
     ) -> tuple[str, IsaacLabArenaManagerBasedRLEnvCfg, dict[str, Any]]:
-        """Register the Gym env and parse the runtime cfg.
+        """Build env cfg and register the env with gym. Stop short of env.make().
 
-        When ``env_cfg`` is omitted it is compiled/composed in this function from the IsaacLabArenaEnvironment
-        passed to the ArenaEnvBuilder at construction.
+        The default operation is to call with no arguments, in which case the env_cfg is built from the
+        Arena description passed to the builder at construction.
 
         Args:
             env_cfg: The optional environment cfg to use.
@@ -402,7 +402,10 @@ class ArenaEnvBuilder:
         env_kwargs: dict[str, Any] | None = None,
         render_mode: str | None = None,
     ) -> ManagerBasedEnv:
-        """Build and return the environment from the registered environment configuration.
+        """Build env cfg, register the env with gym, and make the env.
+
+        The default operation is to call with no arguments, in which case the env_cfg is built from the
+        Arena description passed to the builder at construction.
 
         Args:
             env_cfg: The optional environment cfg to use.
@@ -421,7 +424,10 @@ class ArenaEnvBuilder:
         env_kwargs: dict[str, Any] | None = None,
         render_mode: str | None = None,
     ) -> tuple[ManagerBasedEnv, IsaacLabArenaManagerBasedRLEnvCfg]:
-        """Build and return the environment from the registered environment configuration and return the configuration.
+        """Build env cfg, register the env with gym, and make the env.
+
+        The default operation is to call with no arguments, in which case the env_cfg is built from the
+        Arena description passed to the builder at construction.
 
         Args:
             env_cfg: The optional environment cfg to use.

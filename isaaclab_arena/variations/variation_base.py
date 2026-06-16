@@ -88,14 +88,8 @@ class VariationBase(ABC):
         if self._sampler is not None:
             self._sampler.add_listener(listener)
 
-    def remove_sample_listener(self, listener: Callable[[Any], None]) -> None:
-        """Unsubscribe a previously-registered ``listener``."""
-        self._sample_listeners.remove(listener)
-        if self._sampler is not None:
-            self._sampler.remove_listener(listener)
-
     def apply_cfg(self, cfg: VariationBaseCfg) -> None:
-        """Install ``cfg`` as the variation's new source of truth.
+        """Apply new ``cfg``.
 
         Replaces ``cfg`` and rebuilds ``sampler`` from ``cfg.sampler_cfg``, re-binding any
         variation-owned sample listeners onto the new sampler. Subclasses with extra derived
