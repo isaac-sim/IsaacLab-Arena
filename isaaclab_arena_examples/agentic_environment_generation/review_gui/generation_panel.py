@@ -29,7 +29,9 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_pa
     SpecParseResult,
     try_save_initial_graph_spec,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import render_dashboard_html
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.sidecar_service import (
+    render_dashboard_with_thumbnails,
+)
 
 DEFAULT_GENERATION_PROMPT = (
     "franka pick up avocado from the maple table and place it into a bowl on the table. "
@@ -98,7 +100,7 @@ def _apply_generated_yaml(yaml_text: str, *, spec: ArenaEnvInitialGraphSpec | No
     st.session_state["editor_version"] = st.session_state.get("editor_version", 0) + 1
     st.session_state["last_rendered_text"] = yaml_text
     if spec is not None:
-        st.session_state["rendered_html"] = render_dashboard_html(spec)
+        st.session_state["rendered_html"] = render_dashboard_with_thumbnails(spec)
         st.session_state["_validation_text"] = yaml_text
         st.session_state["_validation_result"] = SpecParseResult(spec=spec, error=None)
     else:

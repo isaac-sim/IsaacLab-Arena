@@ -9,7 +9,7 @@ import yaml
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Self
 
-from pydantic import BaseModel, Field, SerializeAsAny, field_validator, model_validator
+from pydantic import BaseModel, Field, SerializeAsAny, ValidationInfo, field_validator, model_validator
 
 from isaaclab_arena.assets.registries import TaskRegistry
 from isaaclab_arena.environments.arena_env_graph_types import (
@@ -161,8 +161,10 @@ class ArenaEnvInitialGraphSpec(ArenaEnvGraphSpecBase):
     initial_state_spec: ArenaEnvGraphStateSpec
 
     @model_validator(mode="after")
-    def validate(self) -> Self:
+    def validate(self, info: ValidationInfo) -> Self:
         """Check unique IDs, constraint references, and spatial constraint shapes."""
+        if info.context and info.context.get("skip_registry"):
+            return self
         assert_unique_ids(self.nodes, [], [self.initial_state_spec])
         assert_constraint_references(self.nodes, [self.initial_state_spec])
         assert_spatial_constraint_shapes([self.initial_state_spec])
