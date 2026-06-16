@@ -97,23 +97,47 @@ def close_env_and_reset_sim(
     *,
     suppress_exceptions: bool = False,
     make_new_stage: bool = True,
+    app=None,
 ) -> None:
     """Tear down sim state and close a gym env so another can be built in the same SimApp.
 
-    Order matches :func:`isaaclab_arena.evaluation.eval_runner._close_env`: stop
-    :class:`~isaaclab.sim.SimulationContext`, open a fresh USD stage, then close
-    env managers and collect GPU garbage.
+    Close the gym env first so scene managers release prims while
+    :class:`~isaaclab.sim.SimulationContext` is still valid, then stop the timeline
+    and open a fresh USD stage.
     """
-    try:
-        teardown_simulation_app(suppress_exceptions=suppress_exceptions, make_new_stage=make_new_stage)
-    finally:
-        if env is not None:
-            if suppress_exceptions:
-                with suppress(Exception):
-                    env.close()
-            else:
-                env.close()
-        collect_garbage_and_clear_cuda_cache()
+    error_manager = suppress(Exception) if suppress_exceptions else nullcontext()
+
+    with error_manager:
+        if env is not None and not getattr(env.unwrapped, "_is_closed", True):
+            env.close()
+
+    # env.close() clears the singleton, but callers may omit env or close may fail partway.
+    with error_manager:
+        from isaaclab.sim import SimulationContext
+
+        sim = SimulationContext.instance()
+        if sim is not None:
+            sim._disable_app_control_on_stop_handle = True  # noqa: SLF001 (intentional private attr)
+            sim.stop()
+            sim.clear_instance()
+
+    with error_manager:
+        import omni.timeline
+
+        omni.timeline.get_timeline_interface().stop()
+
+    if make_new_stage:
+        with error_manager:
+            import omni.usd
+
+            omni.usd.get_context().new_stage()
+
+    if app is not None:
+        with error_manager:
+            for _ in range(20):
+                app.update()
+
+    collect_garbage_and_clear_cuda_cache()
 
 
 def reapply_viewer_cfg(env) -> None:

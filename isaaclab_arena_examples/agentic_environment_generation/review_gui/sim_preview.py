@@ -12,6 +12,7 @@ import math
 import sys
 import time
 import uuid
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -95,11 +96,15 @@ def _capture_viewport(app, cache_path: Path) -> bytes | None:
 
 def run_sim_preview(app, yaml_text: str) -> dict[str, Any]:
     """Link spec → arena env → relation solver → zero-action steps; capture viewport frames."""
+    import gymnasium as gym
     import yaml
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyArgs
     from isaaclab_arena.utils.isaaclab_utils.simulation_app import close_env_and_reset_sim
+
+    # Drop any stale sim/scene state left from a prior preview in this sidecar.
+    close_env_and_reset_sim(suppress_exceptions=True, app=app)
 
     raw = yaml.safe_load(yaml_text)
     if not isinstance(raw, dict):
@@ -157,4 +162,7 @@ def run_sim_preview(app, yaml_text: str) -> dict[str, Any]:
             "num_steps": NUM_STEPS,
         }
     finally:
-        close_env_and_reset_sim(env)
+        close_env_and_reset_sim(env, app=app)
+        with suppress(Exception):
+            if preview_name in gym.registry:
+                del gym.registry[preview_name]
