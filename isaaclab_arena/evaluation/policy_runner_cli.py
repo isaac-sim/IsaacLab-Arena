@@ -34,14 +34,12 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--record_viewport_video",
-        "--record-viewport-video",
         action="store_true",
         default=False,
         help="Record an mp4 video of the rollout viewport (uses gymnasium.wrappers.RecordVideo).",
     )
     parser.add_argument(
         "--video_base_dir",
-        "--video-base-dir",
         type=str,
         default="/eval/videos",
         help=(
@@ -51,7 +49,6 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--record_camera_video",
-        "--record-camera-video",
         action="store_true",
         default=False,
         help=(
