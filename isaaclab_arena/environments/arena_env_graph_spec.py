@@ -83,18 +83,6 @@ class ArenaEnvGraphSpecBase(BaseModel):
         with Path(path).open("w", encoding="utf-8") as f:
             yaml.safe_dump(self.to_dict(), f, sort_keys=False)
 
-    def to_yaml(self, path: str | Path) -> Path:
-        """Write this spec to ``path`` as YAML. Creates parent dirs as needed.
-
-        Returns the resolved :class:`Path` written. Symmetric with
-        :meth:`from_yaml`.
-        """
-        out_path = Path(path)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        with out_path.open("w", encoding="utf-8") as f:
-            yaml.safe_dump(self.to_dict(), f, sort_keys=False)
-        return out_path
-
     @property
     def nodes_by_id(self) -> dict[str, ArenaEnvGraphNodeSpec]:
         return {node.id: node for node in self.nodes}
