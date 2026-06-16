@@ -169,7 +169,7 @@ def test_on_relation_containment_uses_rotated_bbox():
     placer = ObjectPlacer(params=ObjectPlacerParams())
     desk = _make_desk()  # XY in [-0.5, 0.5]
     child = _make_long_box("child")  # x in [-0.3, 0.3], y in [-0.05, 0.05]
-    child.add_relation(On(desk, clearance_m=0.01))
+    child.add_relation(On(desk, clearance_m=0.01, edge_margin_m=0.0))
     # Near the +Y rim: axis-aligned half-Y 0.05 stays inside; rotated 90° half-Y 0.3 spills past +0.5.
     positions = {desk: (0.0, 0.0, 0.0), child: (0.0, 0.44, 0.105)}
 

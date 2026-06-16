@@ -547,32 +547,27 @@ class ObjectPlacer:
                 parent_bbox = env_bboxes[parent]
                 child_world = child_bbox.translated(positions[obj])
                 parent_world = parent_bbox.translated(positions[parent])
+                parent_size = parent_world.max_point - parent_world.min_point
+                child_size = child_world.max_point - child_world.min_point
 
                 m = rel.edge_margin_m
-                # A margin too large for the surface inverts the inset band so containment can never
-                # pass. It shall be rejected in validation.
+                # 1) Checking that with the specified margin, the parent is wide enough to place the child on top
                 if m > 0.0:
-                    free_x = (
-                        parent_world.max_point[0, 0]
-                        - parent_world.min_point[0, 0]
-                        - (child_world.max_point[0, 0] - child_world.min_point[0, 0])
-                    ).item()
-                    free_y = (
-                        parent_world.max_point[0, 1]
-                        - parent_world.min_point[0, 1]
-                        - (child_world.max_point[0, 1] - child_world.min_point[0, 1])
-                    ).item()
-                    if free_x < 2 * m or free_y < 2 * m:
-                        max_feasible_margin = max(0.0, min(free_x, free_y) / 2.0)
-                        # When parent < child, free_x & free_y are negative and max_feasible_margin is 0.0.
+                    freespace = parent_size - child_size
+                    # A margin too large for the surface inverts the inset band so containment can never pass.
+                    if torch.any(freespace[0, :2] < 2 * m):
+                        # The maximum feasible margin is the minimum of the freespace on the xy axes.
+                        max_feasible_margin = max(0.0, min(freespace[0, :2]) / 2.0)
+                        # When parent < child, freespace[0, :2] is negative and max_feasible_margin is 0.0.
                         if max_feasible_margin > 0.0:
                             if self.params.verbose:
                                 print(
-                                    f"On relation: On.edge_margin_m={m} m is too large for parent '{parent.name}'. Max"
+                                    f"On relation: edge_margin_m={m} m is too large for parent '{parent.name}'. Max"
                                     f" feasible margin here is {max_feasible_margin:.3f} m. Use a smaller"
                                     " edge_margin_m."
                                 )
                             return False
+                # 2) Checking that the child lies within the parent's xy
                 if (
                     child_world.min_point[0, 0] < parent_world.min_point[0, 0] + m
                     or child_world.max_point[0, 0] > parent_world.max_point[0, 0] - m
@@ -582,6 +577,7 @@ class ObjectPlacer:
                     if self.params.verbose:
                         print(f"On relation: '{obj.name}' XY outside parent (retrying)")
                     return False
+                # 3) Checking that the child lies within an acceptable z-range.
                 parent_local_top_z: float = parent_bbox.max_point[0, 2].item()
                 child_local_bottom_z: float = child_bbox.min_point[0, 2].item()
                 parent_top_z = parent_local_top_z + positions[parent][2]

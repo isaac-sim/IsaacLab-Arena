@@ -153,7 +153,9 @@ def test_on_loss_strategy_edge_margin_insets_band_by_margin():
     # A 0.05 margin moves that bound to 0.75, leaving x=0.8 exactly 0.05 over -> loss = slope * 0.05 = 0.5.
     child_pos = torch.tensor([0.8, 0.4, 0.11])
 
-    loss_no_margin = strategy.compute_loss(On(table, clearance_m=0.01), child_pos, box.bounding_box, table.bounding_box)
+    loss_no_margin = strategy.compute_loss(
+        On(table, clearance_m=0.01, edge_margin_m=0.0), child_pos, box.bounding_box, table.bounding_box
+    )
     loss_margin = strategy.compute_loss(
         On(table, clearance_m=0.01, edge_margin_m=0.05), child_pos, box.bounding_box, table.bounding_box
     )
@@ -171,7 +173,7 @@ def test_on_loss_strategy_oversized_child_keeps_plateau_without_margin():
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.4, 0.2, 0.15)),
     )
     strategy = OnLossStrategy(slope=10.0)
-    relation = On(table, clearance_m=0.01)  # edge_margin_m defaults to 0.0
+    relation = On(table, clearance_m=0.01, edge_margin_m=0.0)
 
     # The valid X band inverts to [-0.4, 0]; the loss is a constant slope * 0.4 = 4.0 anywhere inside it,
     # so the centered origin (-0.2) and the rim-aligned origin (0.0) carry the *same* nonzero penalty.

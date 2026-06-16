@@ -17,6 +17,10 @@ from isaaclab_arena.utils.pose import PoseRange  # runtime: constructed in to_po
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
 
+# Default inward inset (meters) from each X/Y edge of an ``On`` support surface, keeping
+# the placed object's footprint off the rim.
+DEFAULT_ON_EDGE_MARGIN_M = 0.05
+
 
 class Side(Enum):
     """Axis direction for spatial relationships."""
@@ -130,7 +134,7 @@ class On(Relation):
         parent: ObjectBase,
         relation_loss_weight: float = 1.0,
         clearance_m: float = 0.01,
-        edge_margin_m: float = 0.0,
+        edge_margin_m: float = DEFAULT_ON_EDGE_MARGIN_M,
     ):
         """
         Args:
@@ -138,7 +142,7 @@ class On(Relation):
             relation_loss_weight: Weight for the relationship loss function.
             clearance_m: Safety clearance above parent's surface in meters (default: 1cm).
             edge_margin_m: Inward inset from each X/Y edge of the parent's surface in
-                meters (default: 0cm). The child's whole footprint is kept at least this
+                meters (default: 5cm). The child's whole footprint is kept at least this
                 far from the rim. The solver rejects a margin too large for the surface
                 to honor (``2 * edge_margin_m`` wider than ``parent_extent - child_extent``
                 on either axis).
