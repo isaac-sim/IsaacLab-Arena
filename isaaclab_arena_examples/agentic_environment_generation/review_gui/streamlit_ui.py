@@ -93,25 +93,29 @@ def _get_catalogue_bundle() -> CatalogueBundle:
 
 def validate_yaml_text(text: str) -> ValidationResult:
     """Parse ``text`` as YAML and validate it as an :class:`ArenaEnvInitialGraphSpec`."""
+    cached_text = st.session_state.get("_validation_text")
+    cached_result = st.session_state.get("_validation_result")
+    if cached_text == text and isinstance(cached_result, ValidationResult):
+        return cached_result
+
     if not text.strip():
-        return ValidationResult(spec=None, error=None)
+        result = ValidationResult(spec=None, error=None)
+    else:
+        try:
+            raw = yaml.safe_load(text)
+            if raw is None:
+                result = ValidationResult(spec=None, error="YAML is empty")
+            elif not isinstance(raw, dict):
+                result = ValidationResult(spec=None, error=f"Expected mapping, got {type(raw).__name__}")
+            else:
+                spec = ArenaEnvInitialGraphSpec.from_dict(raw)
+                result = ValidationResult(spec=spec, error=None)
+        except Exception:
+            result = ValidationResult(spec=None, error=traceback.format_exc())
 
-    try:
-        raw = yaml.safe_load(text)
-    except Exception:
-        return ValidationResult(spec=None, error=traceback.format_exc())
-
-    if raw is None:
-        return ValidationResult(spec=None, error="YAML is empty")
-    if not isinstance(raw, dict):
-        return ValidationResult(spec=None, error=f"Expected mapping, got {type(raw).__name__}")
-
-    try:
-        spec = ArenaEnvInitialGraphSpec.model_validate(raw)
-    except Exception:
-        return ValidationResult(spec=None, error=traceback.format_exc())
-
-    return ValidationResult(spec=spec, error=None)
+    st.session_state["_validation_text"] = text
+    st.session_state["_validation_result"] = result
+    return result
 
 
 def _get_generation_agent() -> EnvironmentGenerationAgent | None:
@@ -150,11 +154,19 @@ def _format_trace_lines(trace: list[dict[str, Any]], *, errors_only: bool = Fals
     return "\n".join(lines)
 
 
-def _apply_generated_yaml(yaml_text: str) -> None:
-    """Push compiled spec YAML into the editor and force a re-render on the next pass."""
+def _apply_generated_yaml(yaml_text: str, *, spec: ArenaEnvInitialGraphSpec | None = None) -> None:
+    """Push compiled spec YAML into the editor and sync the dashboard preview."""
     st.session_state["edited_text"] = yaml_text
-    st.session_state["last_rendered_text"] = ""
     st.session_state["editor_version"] = st.session_state.get("editor_version", 0) + 1
+    st.session_state["last_rendered_text"] = yaml_text
+    if spec is not None:
+        st.session_state["rendered_html"] = render_dashboard_html(spec)
+        st.session_state["_validation_text"] = yaml_text
+        st.session_state["_validation_result"] = ValidationResult(spec=spec, error=None)
+    else:
+        st.session_state["rendered_html"] = ""
+        st.session_state.pop("_validation_text", None)
+        st.session_state.pop("_validation_result", None)
 
 
 def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
@@ -196,7 +208,7 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
     except Exception:
         return False, traceback.format_exc()
 
-    _apply_generated_yaml(yaml_text)
+    _apply_generated_yaml(yaml_text, spec=spec)
 
     if reasoning:
         st.session_state["last_generation_reasoning"] = reasoning
@@ -237,6 +249,8 @@ def initialize_state(yaml_path: Path | None) -> None:
     st.session_state["_yaml_path"] = session_key
     st.session_state.setdefault("generation_prompt", _DEFAULT_GENERATION_PROMPT)
     st.session_state.setdefault("editor_version", 0)
+    st.session_state.pop("_validation_text", None)
+    st.session_state.pop("_validation_result", None)
 
     if yaml_path is None:
         st.session_state["original_text"] = ""
@@ -250,14 +264,9 @@ def initialize_state(yaml_path: Path | None) -> None:
 
     st.session_state["original_text"] = original_text
     st.session_state["edited_text"] = original_text
-    st.session_state["last_rendered_text"] = original_text
+    st.session_state["last_rendered_text"] = ""
+    st.session_state["rendered_html"] = ""
     st.session_state["save_path"] = str(yaml_path)
-
-    initial = validate_yaml_text(original_text)
-    if not initial.is_valid:
-        st.session_state["rendered_html"] = _BROKEN_PLACEHOLDER_HTML
-    else:
-        st.session_state["rendered_html"] = render_dashboard_html(initial.spec)
 
 
 def render_validation_badge(validation: ValidationResult) -> None:
@@ -348,11 +357,15 @@ def render_editor_panel(yaml_path: Path | None) -> ValidationResult:
     render_validation_badge(validation)
 
     edited_since_render = st.session_state["edited_text"] != st.session_state["last_rendered_text"]
-    if validation.is_valid and edited_since_render:
-        with st.spinner("Rendering visualization…"):
-            st.session_state["rendered_html"] = render_dashboard_html(validation.spec)
+    if edited_since_render:
+        if validation.is_valid:
+            with st.spinner("Rendering visualization…"):
+                st.session_state["rendered_html"] = render_dashboard_html(validation.spec)
+        else:
+            st.session_state["rendered_html"] = _BROKEN_PLACEHOLDER_HTML
         st.session_state["last_rendered_text"] = st.session_state["edited_text"]
-        st.toast("Visualization updated.", icon="🔄")
+        if validation.is_valid:
+            st.toast("Visualization updated.", icon="🔄")
 
     render_save_button(validation)
     return validation
