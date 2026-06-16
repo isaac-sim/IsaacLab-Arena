@@ -195,15 +195,15 @@ class IntentCompiler:
         )
 
     def _inject_on_edge_margin_in_params(
-        self, params: dict, subject: str, reference: str | None, on_edge_margin_m: float
+        self, params: dict, subject: str, reference: str, on_edge_margin_m: float
     ) -> None:
-        """Inject ``edge_margin_m`` into the constraint's ``params`` copy, leaving ``rel`` untouched."""
+        """Inject ``edge_margin_m`` into the constraint's ``params`` copy for ``On`` relations."""
         params["edge_margin_m"] = on_edge_margin_m
         self.trace.append(
             IntentResolutionTraceEvent(
                 "relation.initial.on_edge_margin",
-                rel.subject,
-                rel.reference,
+                subject,
+                reference,
                 note=f"edge_margin_m={on_edge_margin_m}",
             )
         )
