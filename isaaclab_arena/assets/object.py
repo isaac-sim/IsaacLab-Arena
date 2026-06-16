@@ -11,12 +11,9 @@ from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
-from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
-from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd, has_light, open_stage
 
 
 class Object(ObjectBase):
@@ -49,6 +46,8 @@ class Object(ObjectBase):
                 "object_type is None (indicating auto-detect) but usd_path is also None. usd_path is required to detect"
                 " object type"
             )
+            from isaaclab_arena.assets.object_utils import detect_object_type
+
             object_type = detect_object_type(usd_path=usd_path)
         super().__init__(name=name, prim_path=prim_path, object_type=object_type, **kwargs)
         self.usd_path = usd_path
@@ -69,6 +68,8 @@ class Object(ObjectBase):
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get local bounding box (relative to object origin)."""
+        from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
+
         assert self.usd_path is not None
         if self.bounding_box is None:
             self.bounding_box = compute_local_bounding_box_from_usd(self.usd_path, self.scale)
@@ -88,6 +89,8 @@ class Object(ObjectBase):
         return local_bbox.rotated_90_around_z(quarters).translated(self.initial_pose.position_xyz)
 
     def get_corners(self, pos: torch.Tensor) -> torch.Tensor:
+        from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
+
         assert self.usd_path is not None
         if self.bounding_box is None:
             self.bounding_box = compute_local_bounding_box_from_usd(self.usd_path, self.scale)
@@ -107,6 +110,8 @@ class Object(ObjectBase):
     def get_contact_sensor_cfg(
         self, contact_against_object: ObjectBase | None = None, usd_path: str | None = None
     ) -> ContactSensorCfg:
+        from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
+
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
         # We override this function from the parent class because in some assets, the rigid body
         # is not at the root of the USD file. To be robust to this, we find the shallowest rigid body
@@ -177,6 +182,8 @@ class Object(ObjectBase):
         return self._add_initial_pose_to_cfg(object_cfg)
 
     def _generate_base_cfg(self) -> AssetBaseCfg:
+        from isaaclab_arena.utils.usd_helpers import has_light, open_stage
+
         assert self.object_type == ObjectType.BASE
         if self.spawner_cfg is None:
             with open_stage(self.usd_path) as stage:
