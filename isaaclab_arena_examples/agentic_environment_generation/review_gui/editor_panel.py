@@ -15,7 +15,13 @@ from streamlit_ace import st_ace
 
 from isaaclab_arena.agentic_environment_generation.spec_io import save_initial_graph_spec
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import render_dashboard_html
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.sidecar_service import (
+    ensure_sidecar,
+    get_simapp_sidecar,
+    render_dashboard_with_thumbnails,
+    spec_from_sidecar_dict,
+)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_sidecar_client import SimAppSidecarError
 
 _BROKEN_PLACEHOLDER_HTML = """<!DOCTYPE html><html><body style="
     font-family: ui-monospace, monospace;
@@ -54,8 +60,32 @@ def validate_yaml_text(text: str) -> SpecParseResult:
             elif not isinstance(raw, dict):
                 result = SpecParseResult(spec=None, error=f"Expected mapping, got {type(raw).__name__}")
             else:
-                spec = ArenaEnvInitialGraphSpec.from_dict(raw)
-                result = SpecParseResult(spec=spec, error=None)
+                sidecar = ensure_sidecar()
+                if sidecar is None:
+                    result = SpecParseResult(
+                        spec=None,
+                        error=(
+                            "SimApp sidecar is unavailable — cannot validate registry entries. "
+                            "Check the terminal where you launched the server."
+                        ),
+                    )
+                else:
+                    try:
+                        response = sidecar.validate_yaml_text(text)
+                    except SimAppSidecarError as exc:
+                        get_simapp_sidecar.clear()
+                        result = SpecParseResult(spec=None, error=str(exc))
+                    elif not response.get("ok"):
+                        err = response.get("error", "validation failed")
+                        tb = response.get("traceback", "")
+                        message = f"{err}\n\n{tb}" if tb else str(err)
+                        result = SpecParseResult(spec=None, error=message)
+                    else:
+                        try:
+                            spec = spec_from_sidecar_dict(response["spec_dict"])
+                            result = SpecParseResult(spec=spec, error=None)
+                        except Exception:
+                            result = SpecParseResult(spec=None, error=traceback.format_exc())
         except Exception:
             result = SpecParseResult(spec=None, error=traceback.format_exc())
 
@@ -165,7 +195,7 @@ def render_editor_panel(yaml_path: Path | None) -> SpecParseResult:
         # Editor text changed since last dashboard render — refresh preview iframe.
         if validation.is_valid:
             with st.spinner("Rendering visualization…"):
-                st.session_state["rendered_html"] = render_dashboard_html(validation.spec)
+                st.session_state["rendered_html"] = render_dashboard_with_thumbnails(validation.spec)
         else:
             st.session_state["rendered_html"] = _BROKEN_PLACEHOLDER_HTML
         st.session_state["last_rendered_text"] = st.session_state["edited_text"]

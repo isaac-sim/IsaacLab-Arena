@@ -16,7 +16,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, TaskRegistry
@@ -115,7 +115,9 @@ class TaskSpec(BaseModel):
 
     @field_validator("kind")
     @classmethod
-    def _validate_registered_task_type(cls, value: str) -> str:
+    def _validate_registered_task_type(cls, value: str, info: ValidationInfo) -> str:
+        if info.context and info.context.get("skip_registry"):
+            return value
         registry = TaskRegistry()
         assert registry.is_registered(value), f"Unknown task kind '{value}'"
         return value
@@ -169,7 +171,9 @@ class SpatialRelationSpec(BaseModel):
     )
 
     @model_validator(mode="after")
-    def _validate_kind_and_arity(self) -> SpatialRelationSpec:
+    def _validate_kind_and_arity(self, info: ValidationInfo) -> SpatialRelationSpec:
+        if info.context and info.context.get("skip_registry"):
+            return self
         registry = ObjectRelationLibraryRegistry()
         assert registry.is_registered(self.kind), f"Unknown relation kind '{self.kind}'"
         relation_cls = registry.get_object_relation_by_name(self.kind)
