@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import argparse
-import contextlib
 import sys
 import time
 import uuid
@@ -66,7 +65,7 @@ def run_sim_preview(app, yaml_text: str) -> dict[str, Any]:
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyArgs
-    from isaaclab_arena.utils.isaaclab_utils.simulation_app import teardown_simulation_app
+    from isaaclab_arena.utils.isaaclab_utils.simulation_app import close_env_and_reset_sim
 
     raw = yaml.safe_load(yaml_text)
     if not isinstance(raw, dict):
@@ -125,7 +124,4 @@ def run_sim_preview(app, yaml_text: str) -> dict[str, Any]:
             "num_steps": NUM_STEPS,
         }
     finally:
-        if env is not None:
-            with contextlib.suppress(Exception):
-                env.close()
-        teardown_simulation_app(suppress_exceptions=True)
+        close_env_and_reset_sim(env)

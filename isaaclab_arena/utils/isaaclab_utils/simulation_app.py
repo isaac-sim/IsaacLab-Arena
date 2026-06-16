@@ -82,6 +82,40 @@ def teardown_simulation_app(suppress_exceptions: bool = False, make_new_stage: b
             omni.usd.get_context().new_stage()
 
 
+def collect_garbage_and_clear_cuda_cache() -> None:
+    """Run GC and release cached CUDA allocations after a sim env is torn down."""
+    import gc
+    import torch
+
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
+def close_env_and_reset_sim(
+    env=None,
+    *,
+    suppress_exceptions: bool = False,
+    make_new_stage: bool = True,
+) -> None:
+    """Tear down sim state and close a gym env so another can be built in the same SimApp.
+
+    Order matches :func:`isaaclab_arena.evaluation.eval_runner._close_env`: stop
+    :class:`~isaaclab.sim.SimulationContext`, open a fresh USD stage, then close
+    env managers and collect GPU garbage.
+    """
+    try:
+        teardown_simulation_app(suppress_exceptions=suppress_exceptions, make_new_stage=make_new_stage)
+    finally:
+        if env is not None:
+            if suppress_exceptions:
+                with suppress(Exception):
+                    env.close()
+            else:
+                env.close()
+        collect_garbage_and_clear_cuda_cache()
+
+
 def reapply_viewer_cfg(env) -> None:
     """Re-apply ViewerCfg camera position after visualizers are initialized.
 
