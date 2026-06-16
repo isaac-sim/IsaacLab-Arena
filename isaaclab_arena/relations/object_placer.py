@@ -563,13 +563,12 @@ class ObjectPlacer:
                         - (child_world.max_point[0, 1] - child_world.min_point[0, 1])
                     ).item()
                     if free_x < 2 * m or free_y < 2 * m:
-                        print(
-                            f"  WARNING: On.edge_margin_m={m} m is too large for parent '{parent.name}': the child"
-                            f" footprint cannot stay {m} m off every rim (max feasible margin here is"
-                            f" {min(free_x, free_y) / 2.0:.3f} m). Reduce edge_margin_m or use a larger parent;"
-                            " this layout is rejected."
-                        )
-                        return False
+                        max_feasible_margin = max(0.0, min(free_x, free_y) / 2.0)
+                        # When parent < child, free_x & free_y are negative and max_feasible_margin is 0.0.
+                        if max_feasible_margin > 0.0:
+                            if self.params.verbose:
+                                print(f"On relation: On.edge_margin_m={m} m is too large for parent '{parent.name}'. Max feasible margin here is {max_feasible_margin:.3f} m. Use a smaller edge_margin_m.")
+                            return False
                 if (
                     child_world.min_point[0, 0] < parent_world.min_point[0, 0] + m
                     or child_world.max_point[0, 0] > parent_world.max_point[0, 0] - m
@@ -577,7 +576,7 @@ class ObjectPlacer:
                     or child_world.max_point[0, 1] > parent_world.max_point[0, 1] - m
                 ):
                     if self.params.verbose:
-                        print(f"  On relation: '{obj.name}' XY outside parent (retrying)")
+                        print(f"On relation: '{obj.name}' XY outside parent (retrying)")
                     return False
                 parent_local_top_z: float = parent_bbox.max_point[0, 2].item()
                 child_local_bottom_z: float = child_bbox.min_point[0, 2].item()

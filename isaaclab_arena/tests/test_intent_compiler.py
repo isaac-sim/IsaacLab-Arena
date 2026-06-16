@@ -329,10 +329,17 @@ def _compile_on_relation(rel: SpatialRelationSpec, **compile_kwargs) -> dict:
 
 
 def test_on_relation_injects_default_edge_margin():
-    # `on` constraints get the default margin, mutated in place on the source relation.
+    # `on` constraints get the default margin without mutating the source relation.
     rel = SpatialRelationSpec(kind="on", subject="cracker_box", reference="maple_table")
     assert _compile_on_relation(rel) == {"edge_margin_m": 0.05}
-    assert rel.params == {"edge_margin_m": 0.05}
+    assert rel.params == {}
+
+
+def test_on_relation_compile_does_not_leak_across_calls():
+    # Compiling the same spec twice must not let the first call's injected margin persist.
+    rel = SpatialRelationSpec(kind="on", subject="cracker_box", reference="maple_table")
+    assert _compile_on_relation(rel, on_edge_margin_m=0.05) == {"edge_margin_m": 0.05}
+    assert _compile_on_relation(rel, on_edge_margin_m=0.12) == {"edge_margin_m": 0.12}
 
 
 def test_on_edge_margin_uses_value_passed_to_compile():
