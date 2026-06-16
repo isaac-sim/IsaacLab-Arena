@@ -358,11 +358,16 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
     return True, "Spec generated and loaded into the YAML editor."
 
 
-def run_sim_preview_pipeline(yaml_text: str) -> tuple[bool, str]:
-    """Link, build, solve relations, and capture overview frames in the sidecar."""
-    validation = validate_yaml_text(yaml_text)
-    if not validation.is_valid:
-        return False, validation.error or "YAML must be valid before running sim preview."
+def run_sim_preview_pipeline(yaml_text: str, *, validation: ValidationResult | None = None) -> tuple[bool, str]:
+    """Link, build, solve relations, and capture overview frames in the sidecar.
+
+    When ``validation`` is already valid (e.g. from the editor panel on the same
+    rerun), skip the redundant sidecar ``validate_spec`` round-trip.
+    """
+    if validation is None or not validation.is_valid:
+        validation = validate_yaml_text(yaml_text)
+        if not validation.is_valid:
+            return False, validation.error or "YAML must be valid before running sim preview."
 
     sidecar = _ensure_sidecar()
     if sidecar is None:
@@ -606,7 +611,7 @@ def render_visualization_panel(validation: ValidationResult) -> None:
         with st.spinner(
             f"Building env, solving relations, and rolling out {NUM_STEPS} steps ({NUM_ENVS} envs @ {ENV_SPACING_M} m)…"
         ):
-            ok, message = run_sim_preview_pipeline(st.session_state["edited_text"])
+            ok, message = run_sim_preview_pipeline(st.session_state["edited_text"], validation=validation)
         if ok:
             st.success(message, icon="✅")
             st.rerun()
