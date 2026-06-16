@@ -8,11 +8,15 @@
 Usage::
 
     # Resolve an environment intent spec into an initial environment graph spec and a linked environment graph spec:
-    /isaac-sim/python.sh -m ...environment_generation_runner --mode resolve --prompt "..."
+    /isaac-sim/python.sh -m ...environment_generation_runner --mode resolve --prompt ...
 
     # Build a gym env from a linked environment graph spec YAML and run the zero-action policy:
     /isaac-sim/python.sh -m ...environment_generation_runner --mode build --headless \\
         --num_envs 1 --linked_env_graph_spec_yaml <env>_linked.yaml
+
+    # Resolve and build in one process:
+    /isaac-sim/python.sh -m ...environment_generation_runner --mode full --headless \\
+        --num_envs 1 --prompt ...
 """
 
 from __future__ import annotations
