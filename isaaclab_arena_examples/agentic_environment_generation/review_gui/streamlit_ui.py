@@ -5,13 +5,13 @@
 
 """Streamlit UI for the initial-graph live editor.
 
-Launch via :mod:`~isaaclab_arena_examples.agentic_environment_generation.review_gui.server`:
+Launch via :mod:`~isaaclab_arena_examples.agentic_environment_generation.gui_runner`:
 
-    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.review_gui.server \\
+    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner \\
         --yaml isaaclab_arena/tests/test_data/pick_and_place_maple_table_init_env_graph.yaml
 
     # Prompt-only (empty editor until you generate or paste YAML):
-    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.review_gui.server
+    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner
 
 Natural-language generation calls the LLM from Streamlit (``NV_API_KEY``) and
 compiles the returned intent in-process with :class:`IntentCompiler`.

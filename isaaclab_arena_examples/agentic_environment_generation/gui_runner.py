@@ -8,17 +8,17 @@
 Spawns Streamlit with :mod:`~isaaclab_arena_examples.agentic_environment_generation.review_gui.streamlit_ui`.
 
 Usage:
-    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.review_gui.server \\
+    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner \\
         --yaml isaaclab_arena/tests/test_data/pick_and_place_maple_table_init_env_graph.yaml
 
     # Prompt-only (empty editor until you generate or paste YAML):
-    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.review_gui.server
+    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner
 
     # Prompt-only (empty editor until you generate or paste YAML):
-    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.review_gui.server
+    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner
 
     # Custom port:
-    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.review_gui.server \\
+    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner \\
         --yaml <path> --port 8600
 """
 
@@ -29,6 +29,8 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+
+_REVIEW_GUI_DIR = Path(__file__).resolve().parent / "review_gui"
 
 
 def main() -> None:
@@ -54,7 +56,7 @@ def main() -> None:
 
 def serve_live_editor(yaml_path: Path | None, port: int = 8501) -> None:
     """Spawn ``streamlit run streamlit_ui.py`` and wait."""
-    app_path = Path(__file__).with_name("streamlit_ui.py")
+    app_path = _REVIEW_GUI_DIR / "streamlit_ui.py"
     if not app_path.exists():
         raise FileNotFoundError(f"Streamlit app not found at {app_path} — installation is incomplete.")
 
