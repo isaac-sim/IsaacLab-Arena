@@ -5,7 +5,7 @@
 
 """Long-lived ``SimulationApp`` host process for the live review editor.
 
-Boots Kit's ``SimulationApp`` once on *its own* main thread and serves
+Boots Kit's ``SimulationApp`` once (with ``--viz kit``) on *its own* main thread and serves
 validation and thumbnail-render requests over a newline-delimited JSON-RPC
 pipe on stdin/stdout. The parent (``streamlit_ui.py`` running inside
 Streamlit) spawns exactly one of these and reuses it for the entire server

@@ -80,8 +80,13 @@ def _render_thumbnails_with_app(app, spec: ArenaEnvInitialGraphSpec) -> dict[str
     return resolved
 
 
+def _sidecar_launch_args() -> argparse.Namespace:
+    """AppLauncher args for the review GUI sidecar (Kit UI + viewport capture)."""
+    return argparse.Namespace(visualizer=["kit"], enable_cameras=True, livestream=-1)
+
+
 def _launch_simulation_app():
-    """Boot Isaac Sim's ``SimulationApp`` for headless viewport capture, or ``None`` on failure.
+    """Boot Isaac Sim's ``SimulationApp`` with the Kit visualizer, or ``None`` on failure.
 
     Kept as a tiny helper so the call site can lazy-import inside this
     function — module-level import of ``simulation_app`` would drag Kit
@@ -91,8 +96,7 @@ def _launch_simulation_app():
         # Lazy-import: keeps the default ``review_graph`` invocation Kit-free.
         from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher  # noqa: PLC0415
 
-        sim_args = argparse.Namespace(headless=True, enable_cameras=True, hide_ui=True, livestream=-1)
-        return get_app_launcher(sim_args).app
+        return get_app_launcher(_sidecar_launch_args()).app
     except Exception as exc:
         print(f"[thumbnail_render] SimulationApp launch failed: {exc}", file=sys.stderr)
         return None
