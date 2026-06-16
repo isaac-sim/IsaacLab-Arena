@@ -78,7 +78,7 @@ class ObjectPlacer:
         self,
         objects: list[ObjectBase],
         num_envs: int = 1,
-    ) -> PlacementResult:
+    ) -> list[PlacementResult]:
         """Place objects according to their spatial relations.
 
         Every environment is solved against its own per-env bounding boxes and
@@ -93,8 +93,7 @@ class ObjectPlacer:
                 placement (one layout per env).
 
         Returns:
-            A PlacementResult. For multi-env runs, iterate result.results
-            to access each per-env layout.
+            One PlacementResult per environment.
         """
         anchor_objects_set, generator = self._prepare_placement(objects)
         max_attempts = self.params.max_placement_attempts
@@ -123,7 +122,7 @@ class ObjectPlacer:
             orientations_per_env = [r.orientations for r in results_per_env]
             self._apply_poses(positions_per_env, anchor_objects_set, orientations_per_env)
 
-        return PlacementResult.from_per_env(results_per_env)
+        return results_per_env
 
     def place_ranked_per_env(
         self,
@@ -650,6 +649,9 @@ class ObjectPlacer:
         Args:
             positions: Dictionary mapping objects to their solved (x, y, z) positions.
             env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
+
+        Returns:
+            PlacementValidationResults with the overlap and on-relation checks.
         """
         no_overlap = self._validate_no_overlap(positions, env_bboxes)
         on_relation = self._validate_on_relations(positions, env_bboxes)

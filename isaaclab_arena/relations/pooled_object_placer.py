@@ -186,9 +186,7 @@ class PooledObjectPlacer:
         """
         self._prepare_seeded_solve(num_layouts * self._placer.params.max_placement_attempts)
         with torch.inference_mode(False):
-            result = self._placer.place(self._objects, num_envs=num_layouts)
-
-        all_layouts = result.results
+            all_layouts = self._placer.place(self._objects, num_envs=num_layouts)
         valid_layouts = [layout for layout in all_layouts if layout.success]
 
         if len(valid_layouts) < num_layouts:
