@@ -16,6 +16,7 @@ from isaaclab_arena.agentic_environment_generation.agent_utils import (
     apply_strict_constraints,
     build_strict_schema,
     ping,
+    safe_filename_stem,
 )
 
 # ---------------------------------------------------------------------------
@@ -69,3 +70,18 @@ class TestPing:
         # Model name surfaces in the message — most-grepped field when
         # triaging a CI ping failure.
         assert "'guardrailed-model'" in str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# safe_filename_stem
+# ---------------------------------------------------------------------------
+
+
+class TestSafeFilenameStem:
+    def test_replaces_unsafe_chars_and_trims(self):
+        assert safe_filename_stem("llm_gen maple/table") == "llm_gen_maple_table"
+        assert safe_filename_stem("__weird..name__") == "weird..name"
+
+    def test_empty_or_all_unsafe_falls_back(self):
+        assert safe_filename_stem("") == "unnamed_env"
+        assert safe_filename_stem("///") == "unnamed_env"
