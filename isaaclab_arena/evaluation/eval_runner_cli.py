@@ -37,8 +37,9 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         default=False,
         help=(
-            "After all jobs finish, generate and serve an evaluation report of the per-camera per-episode"
-            " videos in --video_base_dir. Requires --record_camera_video to have produced videos."
+            "After all jobs finish, serve the evaluation report over HTTP until interrupted. The report"
+            " (index.html) covering the whole run is written into the video dir whenever"
+            " --record_camera_video is set; this flag additionally serves it."
         ),
     )
     parser.add_argument(

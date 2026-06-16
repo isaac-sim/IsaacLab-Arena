@@ -61,7 +61,8 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         default=False,
         help=(
-            "After the rollout, generate and serve an evaluation report of the per-camera per-episode"
-            " videos in --video_base_dir. Requires --record_camera_video to have produced videos."
+            "After the rollout, serve the evaluation report over HTTP until interrupted. The report"
+            " (index.html) is written into the video dir whenever --record_camera_video is set; this"
+            " flag additionally serves it."
         ),
     )

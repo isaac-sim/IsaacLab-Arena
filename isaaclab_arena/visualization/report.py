@@ -17,9 +17,12 @@ import re
 import socketserver
 import string
 
-# Matches the recorder output filename: <name_prefix>-env<N>-<camera_name>-episode-<E>.mp4
-# See CameraObsVideoRecorder._flush_envs in camera_observation_video_recorder.py.
-_VIDEO_FILENAME_PATTERN = re.compile(r"^(?P<prefix>.+)-env(?P<env>\d+)-(?P<camera>.+)-episode-(?P<episode>\d+)\.mp4$")
+# Matches the recorder output filename: <prefix>[-rebuild<R>]-env<N>-<camera>-episode-<E>.mp4
+# See CameraObsVideoRecorder._flush_envs in camera_observation_video_recorder.py. The optional
+# "-rebuild<R>" segment is added by the eval runner's per-rebuild prefix; the policy runner omits it.
+_VIDEO_FILENAME_PATTERN = re.compile(
+    r"^(?P<prefix>.+?)(?:-rebuild(?P<rebuild>\d+))?-env(?P<env>\d+)-(?P<camera>.+)-episode-(?P<episode>\d+)\.mp4$"
+)
 
 _TEMPLATE_PATH = pathlib.Path(__file__).parent / "report_template.html"
 
@@ -29,66 +32,95 @@ _DEFAULT_PORT = 8000
 
 @dataclasses.dataclass
 class EpisodeVideos:
-    """The recorded camera videos for a single (group, env, episode)."""
-
-    group: str
-    """Sub-directory the videos live in, relative to the scanned root (the eval job name); "" when flat."""
+    """The recorded camera videos for a single (env, episode) of one job."""
 
     env_index: int
     """Index of the environment the episode ran in."""
 
     episode_index: int
-    """Index of the episode within that environment."""
+    """Contiguous episode index within the (job, env), spanning rebuilds (which are not surfaced)."""
 
     video_by_camera: dict[str, str]
     """Camera name -> mp4 path, relative to the scanned root (and so to the report's index.html)."""
 
 
 @dataclasses.dataclass
-class VideoGrid:
-    """Recorded episode videos laid out as a grid: one row per (group, env, episode), one column per camera."""
+class JobReport:
+    """All recorded episode videos for a single eval job, laid out as an env x episode grid per camera."""
+
+    name: str
+    """The job name (its sub-directory under the run dir); "" for a single unnamed run (policy runner)."""
+
+    cameras: list[str]
+    """Ordered camera column names recorded for this job."""
 
     episodes: list[EpisodeVideos]
-    cameras: list[str]
+    """Episode rows, ordered by (env, episode)."""
+
+
+@dataclasses.dataclass
+class EvaluationReport:
+    """A whole evaluation run: one or more jobs, each with its own grid of episode videos."""
+
+    title: str
+    jobs: list[JobReport]
 
     @property
     def is_empty(self) -> bool:
-        """Whether any episode videos were found."""
-        return not self.episodes
+        """Whether any job recorded any episode videos."""
+        return not any(job.episodes for job in self.jobs)
 
 
-def scan_video_dir(root: pathlib.Path) -> VideoGrid:
-    """Recursively scan ``root`` for recorder mp4s and group them into a VideoGrid.
+def _scan_jobs(root: pathlib.Path) -> list[JobReport]:
+    """Recursively scan ``root`` for recorder mp4s and group them into per-job reports.
 
-    Files that do not match the recorder's naming pattern (e.g. the kit-viewport
-    ``rl-video-step-*.mp4``) are ignored. The scan recurses so the per-job sub-directories
-    written by the eval runner are picked up, with the sub-directory used as the row group.
+    Files that do not match the recorder's naming pattern (e.g. the kit-viewport ``rl-video-step-*.mp4``)
+    are ignored. The scan recurses, so each per-job sub-directory written by the eval runner becomes a
+    job; videos written directly under ``root`` (the policy runner) form a single unnamed job. The
+    rebuild index encoded in the filename is used only to order and disambiguate episodes — episodes are
+    renumbered into a contiguous per-(job, env) index and rebuilds are not surfaced.
 
     Args:
         root: Directory of recorded rollout videos to scan.
     """
-    videos_by_key: dict[tuple[str, int, int], dict[str, str]] = {}
-    cameras: list[str] = []
+    # job -> env -> {(rebuild, recorder_episode): {camera: relative_path}}
+    raw: dict[str, dict[int, dict[tuple[int, int], dict[str, str]]]] = {}
+    cameras_by_job: dict[str, list[str]] = {}
+
     for path in sorted(root.rglob("*.mp4")):
         match = _VIDEO_FILENAME_PATTERN.match(path.name)
         if match is None:
             continue
         relative = path.relative_to(root)
-        group = "" if relative.parent == pathlib.Path(".") else str(relative.parent)
+        job = "" if relative.parent == pathlib.Path(".") else str(relative.parent)
+        rebuild = int(match.group("rebuild")) if match.group("rebuild") is not None else 0
         env_index = int(match.group("env"))
-        episode_index = int(match.group("episode"))
+        recorder_episode = int(match.group("episode"))
         camera = match.group("camera")
-        # Collect one entry per (group, env, episode), filling in each camera column as it is found.
-        videos_by_key.setdefault((group, env_index, episode_index), {})[camera] = str(relative)
+
+        envs = raw.setdefault(job, {})
+        recordings = envs.setdefault(env_index, {})
+        recordings.setdefault((rebuild, recorder_episode), {})[camera] = str(relative)
+
+        cameras = cameras_by_job.setdefault(job, [])
         if camera not in cameras:
             cameras.append(camera)
 
-    cameras.sort()
-    episodes = [
-        EpisodeVideos(group=group, env_index=env, episode_index=episode, video_by_camera=videos)
-        for (group, env, episode), videos in sorted(videos_by_key.items())
-    ]
-    return VideoGrid(episodes=episodes, cameras=cameras)
+    jobs = []
+    for job in sorted(raw):
+        episodes = []
+        for env_index in sorted(raw[job]):
+            # Renumber (rebuild, recorder_episode) pairs into a contiguous, rebuild-agnostic index.
+            for episode_index, recording_key in enumerate(sorted(raw[job][env_index])):
+                episodes.append(
+                    EpisodeVideos(
+                        env_index=env_index,
+                        episode_index=episode_index,
+                        video_by_camera=raw[job][env_index][recording_key],
+                    )
+                )
+        jobs.append(JobReport(name=job, cameras=sorted(cameras_by_job[job]), episodes=episodes))
+    return jobs
 
 
 def _render_video_cell(src: str) -> str:
@@ -102,39 +134,34 @@ def _render_video_cell(src: str) -> str:
     )
 
 
-def _render_row_label(episode: EpisodeVideos) -> str:
-    """Render the sticky left-hand label identifying an episode row."""
-    parts = []
-    if episode.group:
-        parts.append(html.escape(episode.group))
-    parts.append(f"env {episode.env_index}")
-    parts.append(f"episode {episode.episode_index}")
-    return f'<th class="rowlabel">{"<br>".join(parts)}</th>'
-
-
 def _render_row(episode: EpisodeVideos, cameras: list[str]) -> str:
-    """Render one table row: the row label followed by one cell per camera column."""
-    cells = [_render_row_label(episode)]
+    """Render one table row: the env/episode label followed by one cell per camera column."""
+    cells = [f'<th class="rowlabel">env {episode.env_index}<br>episode {episode.episode_index}</th>']
     for camera in cameras:
         src = episode.video_by_camera.get(camera)
         cells.append('<td class="missing">&mdash;</td>' if src is None else _render_video_cell(src))
     return "<tr>" + "".join(cells) + "</tr>"
 
 
-def render_report(grid: VideoGrid, title: str) -> str:
-    """Render ``grid`` into a self-contained HTML document using the report template.
-
-    Args:
-        grid: The episode videos to lay out.
-        title: Page title and heading.
-    """
-    header_cells = "".join(f"<th>{html.escape(camera)}</th>" for camera in grid.cameras)
-    body_rows = "\n".join(_render_row(episode, grid.cameras) for episode in grid.episodes)
-    summary = f"{len(grid.episodes)} episode(s) &middot; {len(grid.cameras)} camera(s)"
-    template = string.Template(_TEMPLATE_PATH.read_text(encoding="utf-8"))
-    return template.substitute(
-        title=html.escape(title), summary=summary, header_cells=header_cells, body_rows=body_rows
+def _render_job_section(job: JobReport) -> str:
+    """Render one job as a heading (when named) followed by its env x episode video grid."""
+    heading = f"<h2>{html.escape(job.name)}</h2>" if job.name else ""
+    header_cells = "".join(f"<th>{html.escape(camera)}</th>" for camera in job.cameras)
+    body_rows = "\n".join(_render_row(episode, job.cameras) for episode in job.episodes)
+    return (
+        f"<section>{heading}<table>"
+        f'<thead><tr><th class="rowlabel">env / episode</th>{header_cells}</tr></thead>'
+        f"<tbody>\n{body_rows}\n</tbody></table></section>"
     )
+
+
+def render_report(report: EvaluationReport) -> str:
+    """Render ``report`` into a self-contained HTML document using the report template."""
+    sections = "\n".join(_render_job_section(job) for job in report.jobs)
+    num_episodes = sum(len(job.episodes) for job in report.jobs)
+    summary = f"{len(report.jobs)} job(s) &middot; {num_episodes} episode(s)"
+    template = string.Template(_TEMPLATE_PATH.read_text(encoding="utf-8"))
+    return template.substitute(title=html.escape(report.title), summary=summary, sections=sections)
 
 
 def build_report(video_dir: str | pathlib.Path, title: str = _DEFAULT_TITLE) -> pathlib.Path | None:
@@ -151,15 +178,14 @@ def build_report(video_dir: str | pathlib.Path, title: str = _DEFAULT_TITLE) -> 
     if not video_dir.is_dir():
         return None
 
-    grid = scan_video_dir(video_dir)
-    if grid.is_empty:
+    report = EvaluationReport(title=title, jobs=_scan_jobs(video_dir))
+    if report.is_empty:
         return None
 
     output = video_dir / "index.html"
-    output.write_text(render_report(grid, title), encoding="utf-8")
-    print(
-        f"Wrote evaluation report with {len(grid.episodes)} episode(s) and {len(grid.cameras)} camera(s) to: {output}"
-    )
+    output.write_text(render_report(report), encoding="utf-8")
+    num_episodes = sum(len(job.episodes) for job in report.jobs)
+    print(f"Wrote evaluation report with {len(report.jobs)} job(s) and {num_episodes} episode(s) to: {output}")
     return output
 
 
@@ -186,20 +212,26 @@ def serve_until_ctrl_c(directory: pathlib.Path, port: int, filename: str) -> Non
             print("\nStopping server.")
 
 
-def build_and_serve_report(video_dir: str | pathlib.Path, port: int = _DEFAULT_PORT) -> None:
-    """Build the evaluation report for ``video_dir`` and serve it over HTTP until interrupted.
+def write_report(video_dir: str | pathlib.Path, serve: bool, port: int = _DEFAULT_PORT) -> pathlib.Path | None:
+    """Build the evaluation report for ``video_dir`` and, when ``serve`` is set, serve it until interrupted.
 
-    Prints a hint and returns immediately when no recorder videos are found.
+    Prints a hint and returns ``None`` when no recorder videos are found. When not serving, prints the
+    command to view the report later.
 
     Args:
-        video_dir: Directory of recorded rollout videos to scan and serve.
+        video_dir: Directory of recorded rollout videos to scan and report on.
+        serve: Whether to serve the report over HTTP (blocks until Ctrl+C) once built.
         port: TCP port to serve the report on.
     """
     output = build_report(video_dir)
     if output is None:
         print(f"No per-camera videos found in {video_dir}; nothing to report (did you pass --record_camera_video?).")
-        return
-    serve_until_ctrl_c(output.parent, port, output.name)
+        return None
+    if serve:
+        serve_until_ctrl_c(output.parent, port, output.name)
+    else:
+        print(f"To view it, run: python isaaclab_arena/visualization/report.py {video_dir}")
+    return output
 
 
 def _parse_args() -> argparse.Namespace:
@@ -219,7 +251,7 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
-    build_and_serve_report(args.video_dir, args.port)
+    write_report(args.video_dir, serve=True, port=args.port)
 
 
 if __name__ == "__main__":
