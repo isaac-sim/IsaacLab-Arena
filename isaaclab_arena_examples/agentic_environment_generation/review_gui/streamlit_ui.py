@@ -38,7 +38,6 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     build_relation_catalogue,
     build_task_catalogue,
 )
-from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
 from isaaclab_arena.agentic_environment_generation.intent_compiler import IntentCompiler
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import render_dashboard_html
@@ -175,7 +174,7 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
         return False, traceback.format_exc()
 
     try:
-        intent_data, _raw = agent.fetch_intent_from_prompt(
+        intent, _raw = agent.generate_spec(
             prompt,
             asset_catalog=catalogues.asset_catalogue,
             relation_catalog=catalogues.relation_catalogue,
@@ -185,7 +184,6 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
         return False, traceback.format_exc()
 
     try:
-        intent = EnvironmentIntentSpec.model_validate(intent_data)
         compiler = IntentCompiler()
         spec = compiler.compile(intent)
         yaml_text = yaml.safe_dump(spec.to_dict(), sort_keys=False)
