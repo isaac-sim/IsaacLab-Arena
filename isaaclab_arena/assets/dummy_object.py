@@ -7,7 +7,7 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
+from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, UnaryRelation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
 
@@ -69,6 +69,10 @@ class DummyObject:
 
     def is_initial_pose_set(self) -> bool:
         return self.initial_pose is not None
+
+    @property
+    def is_anchor(self) -> bool:
+        return any(isinstance(r, IsAnchor) for r in self.relations)
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return the collision mesh, or None to fall back to AABB."""
