@@ -68,6 +68,7 @@ class ValidationResult:
 
     @property
     def is_valid(self) -> bool:
+        """True when ``spec`` parsed successfully."""
         return self.spec is not None
 
 
@@ -134,6 +135,7 @@ def _get_generation_agent() -> EnvironmentGenerationAgent | None:
 
 
 def _format_trace_lines(trace: list[dict[str, Any]], *, errors_only: bool = False) -> str:
+    """Format intent-compiler trace events as fixed-width log lines."""
     error_stages = ASSET_ERROR_STAGES | IntentCompiler._ERROR_TRACE_STAGES
     lines: list[str] = []
     for event in trace:
@@ -215,6 +217,7 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse Streamlit CLI args forwarded after ``--`` by :mod:`gui_runner`."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--yaml",
@@ -258,6 +261,7 @@ def initialize_state(yaml_path: Path | None) -> None:
 
 
 def render_validation_badge(validation: ValidationResult) -> None:
+    """Show a success or error badge for the current editor YAML."""
     if validation.spec is None and validation.error is None:
         return
     if validation.is_valid:
@@ -272,6 +276,7 @@ def render_validation_badge(validation: ValidationResult) -> None:
 
 
 def render_save_button(validation: ValidationResult) -> None:
+    """Render save controls and optional save-path editor."""
     can_save = validation.is_valid
     save_path_str = st.session_state["save_path"]
     save_label = f"Save to {Path(save_path_str).name}" if save_path_str else "Save YAML"
@@ -303,6 +308,7 @@ def render_save_button(validation: ValidationResult) -> None:
 
 
 def render_editor_panel(yaml_path: Path | None) -> ValidationResult:
+    """Render the ACE YAML editor and refresh the dashboard when text changes."""
     try:
         from streamlit_ace import st_ace  # noqa: PLC0415
     except ImportError as exc:
@@ -393,6 +399,7 @@ def render_generation_panel() -> None:
 
 
 def render_visualization_panel() -> None:
+    """Embed the rendered dashboard HTML in the right-hand column."""
     st.subheader("Visualization")
     if not st.session_state.get("last_rendered_text", "").strip():
         st.caption("Generate or enter valid YAML to see the visualization.")
@@ -407,6 +414,7 @@ def render_visualization_panel() -> None:
 
 
 def main() -> None:
+    """Build the two-column Streamlit layout for generation, editing, and preview."""
     st.set_page_config(
         page_title="ArenaEnvInitialGraphSpec live editor",
         layout="wide",
