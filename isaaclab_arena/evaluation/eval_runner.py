@@ -14,15 +14,14 @@ import sys
 import tempfile
 import torch
 import traceback
-from gymnasium.wrappers import RecordVideo
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.evaluation.camera_video import CameraObsVideoRecorder
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
+from isaaclab_arena.evaluation.video_recording import VideoRecordingCfg, wrap_env_for_video
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
@@ -272,8 +271,16 @@ def main():
             # aggregate the metrics across rebuilds into a single result.
             for rebuild_idx in range(job.num_rebuilds):
                 try:
-                    render_mode = "rgb_array" if args_cli.video else None
-                    env = load_env(job.arena_env_args, job.name, variations=job.variations, render_mode=render_mode)
+                    # Per-job video output directory; cameras are tagged with the rebuild index.
+                    video_cfg = VideoRecordingCfg(
+                        video=args_cli.video,
+                        camera_video=args_cli.camera_video,
+                        video_dir=os.path.join(args_cli.video_dir, job.name),
+                        camera_name_prefix=f"robot-cam-rebuild{rebuild_idx}",
+                    )
+                    env = load_env(
+                        job.arena_env_args, job.name, variations=job.variations, render_mode=video_cfg.render_mode
+                    )
 
                     policy = get_policy_from_job(job)
 
@@ -288,28 +295,7 @@ def main():
                         else:
                             job.num_steps = args_cli.num_steps
 
-                    if args_cli.video:
-                        if job.num_steps is not None:
-                            video_length = job.num_steps
-                        else:
-                            video_length = num_episodes_this_rebuild * env.unwrapped.max_episode_length
-                        video_kwargs = {
-                            "video_folder": os.path.join(args_cli.video_dir, job.name),
-                            "step_trigger": lambda step: step == 0,
-                            "video_length": video_length,
-                            "disable_logger": True,
-                        }
-                        print(f"[INFO] Recording video for job '{job.name}' -> {video_kwargs['video_folder']}")
-                        env = RecordVideo(env, **video_kwargs)
-
-                    if args_cli.camera_video:
-                        job_video_dir = os.path.join(args_cli.video_dir, job.name)
-                        print(f"[INFO] Recording per-episode camera videos for job '{job.name}' -> {job_video_dir}")
-                        env = CameraObsVideoRecorder(
-                            env,
-                            video_folder=job_video_dir,
-                            name_prefix=f"robot-cam-rebuild{rebuild_idx}",
-                        )
+                    env = wrap_env_for_video(env, video_cfg, job.num_steps, num_episodes_this_rebuild)
 
                     metrics = rollout_policy(
                         env,
