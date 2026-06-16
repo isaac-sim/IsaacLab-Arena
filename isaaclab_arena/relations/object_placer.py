@@ -567,7 +567,11 @@ class ObjectPlacer:
                         # When parent < child, free_x & free_y are negative and max_feasible_margin is 0.0.
                         if max_feasible_margin > 0.0:
                             if self.params.verbose:
-                                print(f"On relation: On.edge_margin_m={m} m is too large for parent '{parent.name}'. Max feasible margin here is {max_feasible_margin:.3f} m. Use a smaller edge_margin_m.")
+                                print(
+                                    f"On relation: On.edge_margin_m={m} m is too large for parent '{parent.name}'. Max"
+                                    f" feasible margin here is {max_feasible_margin:.3f} m. Use a smaller"
+                                    " edge_margin_m."
+                                )
                             return False
                 if (
                     child_world.min_point[0, 0] < parent_world.min_point[0, 0] + m
