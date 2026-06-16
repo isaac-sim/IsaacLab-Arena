@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections.abc import Callable
 from typing import Any
 
@@ -31,8 +31,9 @@ class SamplerBase(ABC):
     """Base class shared by every sampler family.
 
     Observers subscribe via ``add_listener`` to see every value drawn; prefer
-    ``VariationBase.add_sample_listener`` so subscriptions survive sampler swaps. Concrete
-    subclasses implement ``_sample``; ``sample`` wraps it and notifies listeners.
+    ``VariationBase.add_sample_listener`` so subscriptions survive sampler swaps. Each sampler
+    family declares its own typed ``sample``; that method draws the value and forwards it to
+    listeners via ``_notify``.
     """
 
     def __init__(self) -> None:
@@ -50,27 +51,7 @@ class SamplerBase(ABC):
         """Remove a previously-registered ``listener``."""
         self._listeners.remove(listener)
 
-    def sample(self, num_samples: int, **kwargs) -> Any:
-        """Draw ``num_samples`` values via ``_sample`` and forward the result to every listener.
-
-        Subclasses customize drawing by overriding ``_sample``, not this method.
-
-        Args:
-            num_samples: Number of independent samples to draw.
-            **kwargs: Extra per-call arguments forwarded to ``_sample`` (e.g. a ``choices``
-                sequence for a categorical sampler).
-
-        Returns:
-            Whatever the concrete sampler produces: tensor samplers return a tensor of shape
-            ``(num_samples, *shape_per_sample)``; categorical samplers return a list of length
-            ``num_samples``.
-        """
-        sample = self._sample(num_samples, **kwargs)
+    def _notify(self, sample: Any) -> None:
+        """Forward ``sample`` to every registered listener, in registration order."""
         for listener in self._listeners:
             listener(sample)
-        return sample
-
-    @abstractmethod
-    def _sample(self, num_samples: int, **kwargs) -> Any:
-        """Draw ``num_samples`` values from this distribution."""
-        ...
