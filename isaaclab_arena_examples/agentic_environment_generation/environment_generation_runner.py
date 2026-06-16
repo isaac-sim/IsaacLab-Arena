@@ -22,12 +22,11 @@ Usage::
 from __future__ import annotations
 
 import argparse
-import re
 import sys
-import torch
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.agentic_environment_generation.agent_utils import safe_filename_stem
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
@@ -37,16 +36,8 @@ if TYPE_CHECKING:
     from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
     from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec, ArenaEnvInitialGraphSpec
 
-DEFAULT_PROMPT = (
-    "Franka picks up a cube from the maple table and places it into a bowl on the table."
-)
+DEFAULT_PROMPT = "Franka picks up a cube from the maple table and places it into a bowl on the table."
 DEFAULT_OUT_DIR = Path("isaaclab_arena_environments/agent_generated")
-
-
-def safe_stem(name: str) -> str:
-    """Return a filesystem-safe stem derived from an env name."""
-    stem = re.sub(r"[^\w.-]+", "_", name).strip("._")
-    return stem or "unnamed_env"
 
 
 def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None:
@@ -168,7 +159,7 @@ def write_env_graph_specs(
 ) -> Path:
     """Dump both environment graph specs to YAML under out_dir and return the linked-spec path."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    stem = safe_stem(initial_env_graph_spec.env_name)
+    stem = safe_filename_stem(initial_env_graph_spec.env_name)
 
     initial_path = out_dir / f"{stem}_initial.yaml"
     linked_path = out_dir / f"{stem}_linked.yaml"
@@ -214,6 +205,8 @@ def build_env_from_linked_env_graph_spec(
 
 def run_zero_action_policy(env: ManagerBasedEnv, num_steps: int) -> None:
     """Run the zero-action policy for a given number of steps."""
+    import torch
+
     from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyArgs
 
     policy = ZeroActionPolicy(ZeroActionPolicyArgs())

@@ -8,9 +8,16 @@
 from __future__ import annotations
 
 import copy
+import re
 from typing import Any
 
 from pydantic import BaseModel
+
+
+def safe_filename_stem(name: str) -> str:
+    """Return a filesystem-safe stem derived from an env name."""
+    stem = re.sub(r"[^\w.-]+", "_", name).strip("._")
+    return stem or "unnamed_env"
 
 
 def ping(client: Any, model: str) -> str:
