@@ -316,7 +316,7 @@ class ArenaEnvBuilder:
             env_cfg = self.arena_env.env_cfg_callback(env_cfg)
 
         # Set seed for Isaac Lab env.
-        env_cfg.seed = getattr(self.args, "seed", None)
+        env_cfg.seed = self.args.seed
 
         # Apply the --presets CLI flag (e.g. --presets newton).
         # This runs after the callback so the user's CLI choice is the final authority.
