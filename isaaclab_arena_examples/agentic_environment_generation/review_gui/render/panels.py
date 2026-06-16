@@ -40,6 +40,7 @@ def render_unary_constraints(state: ArenaEnvGraphStateSpec) -> str:
 
 
 def render_tasks_table(spec: ArenaEnvInitialGraphSpec) -> str:
+    """Render task rows as an HTML table for the dashboard tasks panel."""
     if not spec.tasks:
         return "<p class='muted'><em>No tasks defined.</em></p>"
     rows = []
@@ -63,10 +64,12 @@ def render_tasks_table(spec: ArenaEnvInitialGraphSpec) -> str:
 
 
 def render_node_cards(spec: ArenaEnvInitialGraphSpec) -> str:
+    """Render one card per graph node for the dashboard nodes panel."""
     return "\n".join(render_node_card(node) for node in spec.nodes)
 
 
 def render_node_card(node: ArenaEnvGraphNodeSpec) -> str:
+    """Render a single node card with placeholder thumbnail and YAML dump."""
     node_dict = node.model_dump(mode="json", exclude_none=True)
     node_yaml = yaml.safe_dump(node_dict, sort_keys=False).rstrip()
     thumb = render_placeholder_thumbnail(node)
