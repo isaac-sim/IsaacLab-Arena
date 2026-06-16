@@ -28,24 +28,11 @@ from __future__ import annotations
 import gymnasium as gym
 import numpy as np
 import os
-import torch
 from collections.abc import Callable
 
-from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
+from isaaclab_arena.utils import video_io
 
 CAMERA_OBS_GROUP_KEY = "camera_obs"
-
-
-def _to_uint8(frame: torch.Tensor | np.ndarray) -> np.ndarray:
-    if isinstance(frame, torch.Tensor):
-        frame = frame.detach().cpu().numpy()
-    if frame.dtype == np.uint8:
-        return frame
-    if frame.dtype.kind == "f":
-        # mdp.image with normalize=True returns float in [0, 1]; rescale.
-        scale = 255.0 if float(frame.max()) <= 1.0 else 1.0
-        return np.clip(frame * scale, 0, 255).astype(np.uint8)
-    return frame.astype(np.uint8)
 
 
 def _sanitize_cam_key(key: str) -> str:
@@ -91,30 +78,31 @@ class CameraObsVideoRecorder(gym.Wrapper):
         if not self.recording and self.step_trigger(self.step_id):
             self.recording = True
             self.recording_start_step = self.step_id
-            self.buffers = {k: [] for k in cam_obs}
+            self.buffers = {cam: [] for cam in cam_obs}
 
         if self.recording and cam_obs:
-            for k, frame in cam_obs.items():
+            for cam, frame in cam_obs.items():
                 # frame: [N_envs, H, W, C]; record env 0 only.
-                self.buffers.setdefault(k, []).append(_to_uint8(frame[0]))
-            if self.buffers and all(len(v) >= self.video_length for v in self.buffers.values()):
+                self.buffers.setdefault(cam, []).append(video_io.to_uint8(frame[0]))
+            if self.buffers and all(len(frames) >= self.video_length for frames in self.buffers.values()):
                 self._flush()
 
         return result
 
     def _flush(self) -> None:
-        for cam, frames in self.buffers.items():
+        # Reset state before writing so a write failure can't leave stale buffers
+        # that double-flush on the next step() or in close().
+        pending = self.buffers
+        self.buffers = {}
+        self.recording = False
+        for cam, frames in pending.items():
             if not frames:
                 continue
             path = os.path.join(
                 self.video_folder,
                 f"{self.name_prefix}-{_sanitize_cam_key(cam)}-step-{self.recording_start_step}.mp4",
             )
-            clip = ImageSequenceClip(list(frames), fps=self.fps)
-            clip.write_videofile(path, logger=None, audio=False)
-            del clip
-        self.recording = False
-        self.buffers = {}
+            video_io.write_video(frames, path, self.fps)
 
     def close(self) -> None:
         try:
