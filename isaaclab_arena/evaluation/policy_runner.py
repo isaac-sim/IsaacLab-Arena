@@ -13,12 +13,12 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
-from isaaclab_arena.evaluation.video_recording import VideoRecordingCfg, wrap_env_for_video
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
 from isaaclab_arena.utils.random import set_seed
+from isaaclab_arena.utils.video_recording import VideoRecordingCfg, timestamped_run_dir, wrap_env_for_video
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
@@ -151,8 +151,8 @@ def main():
         args_cli.device = f"cuda:{local_rank}"
         print(f"[Rank {local_rank}/{world_size}] One Isaac Lab instance per process on cuda:{local_rank}")
 
-    # --camera_video requires cameras to be enabled at sim startup, before SimulationAppContext.
-    if "--camera_video" in unknown or "--camera-video" in unknown:
+    # --record_camera_video requires cameras to be enabled at sim startup, before SimulationAppContext.
+    if "--record_camera_video" in unknown or "--record-camera-video" in unknown:
         args_cli.enable_cameras = True
 
     with SimulationAppContext(args_cli):
@@ -178,7 +178,7 @@ def main():
             args_cli.distributed = True
             args_cli.device = f"cuda:{local_rank}"
         # Re-apply enable_cameras: the full parse resets it to default False.
-        if args_cli.camera_video:
+        if args_cli.record_camera_video:
             args_cli.enable_cameras = True
 
         # Build scene. Use rgb_array render mode when recording so RecordVideo can grab frames.
@@ -189,9 +189,9 @@ def main():
             return
 
         video_cfg = VideoRecordingCfg(
-            video=args_cli.video,
-            camera_video=args_cli.camera_video,
-            video_dir=args_cli.video_dir,
+            record_viewport_video=args_cli.record_viewport_video,
+            record_camera_video=args_cli.record_camera_video,
+            video_base_dir=timestamped_run_dir(args_cli.video_base_dir),
         )
         env, cfg = arena_builder.make_registered_and_return_cfg(render_mode=video_cfg.render_mode)
 

@@ -3,23 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Central helpers for wrapping a rollout env with video recorders.
-
-Two independent recordings are supported and may be active at the same time:
-
-* ``video`` records the kit viewport (third-person scene view) via ``env.render()``
-  using gymnasium's ``RecordVideo``.
-* ``camera_video`` records the embodiment-mounted cameras from ``obs['camera_obs']``
-  using ``CameraObsVideoRecorder``.
-
-The runners (``policy_runner``, ``eval_runner``) build a ``VideoRecordingCfg`` from their
-CLI/job options and apply it through ``wrap_env_for_video``, so the gym-wrapper plumbing lives
-in one place instead of being duplicated inline.
-"""
-
 from __future__ import annotations
 
 import dataclasses
+import datetime
 import os
 from gymnasium.wrappers import RecordVideo
 
@@ -30,14 +17,14 @@ from isaaclab_arena.evaluation.camera_video import CameraObsVideoRecorder
 class VideoRecordingCfg:
     """Options describing which rollout video recorders to enable and where to write them."""
 
-    video: bool = False
+    record_viewport_video: bool = False
     """Record the kit viewport (third-person scene view) via ``env.render()``."""
 
-    camera_video: bool = False
+    record_camera_video: bool = False
     """Record the embodiment-mounted cameras from ``obs['camera_obs']``."""
 
-    video_dir: str = "videos"
-    """Directory the mp4s are written to."""
+    video_base_dir: str = "videos"
+    """Base directory the mp4s are written to (a reverse-dated run subdirectory is added per run)."""
 
     camera_name_prefix: str = "robot-cam"
     """Filename prefix for the per-camera mp4s written by ``CameraObsVideoRecorder``."""
@@ -45,12 +32,22 @@ class VideoRecordingCfg:
     @property
     def enabled(self) -> bool:
         """Whether any recorder is requested."""
-        return self.video or self.camera_video
+        return self.record_viewport_video or self.record_camera_video
 
     @property
     def render_mode(self) -> str | None:
         """The ``render_mode`` the env must be built with to capture the viewport video."""
-        return "rgb_array" if self.video else None
+        return "rgb_array" if self.record_viewport_video else None
+
+
+def timestamped_run_dir(base_dir: str) -> str:
+    """Append a reverse-dated subdirectory to ``base_dir``, e.g. ``base_dir/2026-06-16_14-42-54``.
+
+    Mirrors Isaac Lab's log layout so repeated runs land in distinct folders. Call once per run and
+    share the result across recorders (and, for the eval runner, across jobs).
+    """
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    return os.path.join(base_dir, timestamp)
 
 
 def _resolve_video_length(env, num_steps: int | None, num_episodes: int | None) -> int:
@@ -60,6 +57,7 @@ def _resolve_video_length(env, num_steps: int | None, num_episodes: int | None) 
     """
     if num_steps is not None:
         return num_steps
+    assert num_episodes is not None, "Cannot determine video length: both num_steps and num_episodes are None."
     return num_episodes * env.unwrapped.max_episode_length
 
 
@@ -75,36 +73,36 @@ def wrap_env_for_video(
     are mutually exclusive and size the viewport video.
 
     Args:
-        env: The env to wrap (already built with ``video_cfg.render_mode`` when ``video`` is set).
-        video_cfg: Which recorders to enable and where to write them.
+        env: The env to wrap.
+        video_cfg: The video recording configuration struct.
         num_steps: Step budget for the rollout, or ``None`` when episode-driven.
         num_episodes: Episode budget for the rollout, or ``None`` when step-driven.
     """
     if not video_cfg.enabled:
         return env
 
-    os.makedirs(video_cfg.video_dir, exist_ok=True)
+    os.makedirs(video_cfg.video_base_dir, exist_ok=True)
 
-    # --video records the kit viewport (via env.render()).
-    if video_cfg.video:
+    # Record the kit viewport (via env.render()).
+    if video_cfg.record_viewport_video:
         video_length = _resolve_video_length(env, num_steps, num_episodes)
         env = RecordVideo(
             env,
-            video_folder=video_cfg.video_dir,
+            video_folder=video_cfg.video_base_dir,
             step_trigger=lambda step: step == 0,
             video_length=video_length,
             disable_logger=True,
         )
-        print(f"Recording {video_length}-step viewport video to: {video_cfg.video_dir}")
+        print(f"Recording {video_length}-step viewport video to: {video_cfg.video_base_dir}")
 
-    # --camera_video records the embodiment-mounted cameras (from obs["camera_obs"]),
+    # Record the embodiment-mounted cameras (from obs["camera_obs"]),
     # flushed at each episode reset rather than after a fixed number of steps.
-    if video_cfg.camera_video:
+    if video_cfg.record_camera_video:
         env = CameraObsVideoRecorder(
             env,
-            video_folder=video_cfg.video_dir,
+            video_folder=video_cfg.video_base_dir,
             name_prefix=video_cfg.camera_name_prefix,
         )
-        print(f"Recording per-episode per-camera videos to: {video_cfg.video_dir}")
+        print(f"Recording per-episode per-camera videos to: {video_cfg.video_base_dir}")
 
     return env

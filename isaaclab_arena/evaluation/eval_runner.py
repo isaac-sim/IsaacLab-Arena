@@ -21,10 +21,10 @@ from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
-from isaaclab_arena.evaluation.video_recording import VideoRecordingCfg, wrap_env_for_video
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
+from isaaclab_arena.utils.video_recording import VideoRecordingCfg, timestamped_run_dir, wrap_env_for_video
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
@@ -242,7 +242,7 @@ def main():
         return
 
     # Check if any job requires cameras and enable them if needed before starting simulation
-    if args_cli.camera_video:
+    if args_cli.record_camera_video:
         args_cli.enable_cameras = True
     enable_cameras_if_required(eval_jobs_config, args_cli)
 
@@ -252,9 +252,13 @@ def main():
 
         job_manager.print_jobs_info()
 
-        if args_cli.video:
-            os.makedirs(args_cli.video_dir, exist_ok=True)
-            print(f"[INFO] Video recording enabled. Videos will be saved to: {args_cli.video_dir}")
+        # One reverse-dated run directory shared by all jobs; each job gets a subdirectory within it.
+        recording = args_cli.record_viewport_video or args_cli.record_camera_video
+        run_video_dir = timestamped_run_dir(args_cli.video_base_dir) if recording else args_cli.video_base_dir
+
+        if args_cli.record_viewport_video:
+            os.makedirs(run_video_dir, exist_ok=True)
+            print(f"[INFO] Video recording enabled. Videos will be saved to: {run_video_dir}")
 
         for job in job_manager:
             if job is None:
@@ -273,9 +277,9 @@ def main():
                 try:
                     # Per-job video output directory; cameras are tagged with the rebuild index.
                     video_cfg = VideoRecordingCfg(
-                        video=args_cli.video,
-                        camera_video=args_cli.camera_video,
-                        video_dir=os.path.join(args_cli.video_dir, job.name),
+                        record_viewport_video=args_cli.record_viewport_video,
+                        record_camera_video=args_cli.record_camera_video,
+                        video_base_dir=os.path.join(run_video_dir, job.name),
                         camera_name_prefix=f"robot-cam-rebuild{rebuild_idx}",
                     )
                     env = load_env(
