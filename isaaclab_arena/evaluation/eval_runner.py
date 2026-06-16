@@ -25,6 +25,7 @@ from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir, wrap_env_for_video
+from isaaclab_arena.visualization.report import build_and_serve_report
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
@@ -337,6 +338,11 @@ def main():
 
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()
+
+        # Optionally render an HTML report of the per-camera per-episode videos and serve it.
+        # The report scans the run dir recursively, so each job's sub-directory becomes a row group.
+        if args_cli.evaluation_report:
+            build_and_serve_report(run_video_dir)
 
 
 if __name__ == "__main__":

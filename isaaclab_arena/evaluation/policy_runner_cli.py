@@ -57,11 +57,11 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
         ),
     )
     parser.add_argument(
-        "--gallery",
+        "--evaluation_report",
         action="store_true",
         default=False,
         help=(
-            "After the rollout, generate an HTML gallery (index.html) of the per-camera per-episode"
+            "After the rollout, generate and serve an evaluation report of the per-camera per-episode"
             " videos in --video_base_dir. Requires --record_camera_video to have produced videos."
         ),
     )

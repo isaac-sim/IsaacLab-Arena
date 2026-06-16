@@ -33,6 +33,15 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         help="Base directory for recorded videos; a reverse-dated run subdirectory and per-job subdirectory are added.",
     )
     parser.add_argument(
+        "--evaluation_report",
+        action="store_true",
+        default=False,
+        help=(
+            "After all jobs finish, generate and serve an evaluation report of the per-camera per-episode"
+            " videos in --video_base_dir. Requires --record_camera_video to have produced videos."
+        ),
+    )
+    parser.add_argument(
         "--continue_on_error",
         action="store_true",
         default=False,
