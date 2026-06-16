@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Dark-theme CSS for the review GUI embedded HTML dashboard."""
+
 DASHBOARD_CSS = """
 :root {
   --bg: #15181d;
