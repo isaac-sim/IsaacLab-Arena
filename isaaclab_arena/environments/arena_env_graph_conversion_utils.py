@@ -17,10 +17,14 @@ from isaaclab_arena.environments.arena_env_graph_types import (
     ArenaEnvGraphObjectReferenceNodeSpec,
     ArenaEnvGraphStateSpec,
 )
-from isaaclab_arena.environments.graph_spec_utils import relation_class_for_spatial_constraint_type
+from isaaclab_arena.environments.graph_spec_utils import relation_class_for_spatial_constraint_type, unique_node_id
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.usd_helpers import has_light, open_stage
+
+# Registered asset name (DomeLight) used as the default light when a scene has none.
+_DEFAULT_LIGHT_ASSET_NAME = "light"
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -40,14 +44,20 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec) -> Any:
     #    constraints and task args can reference each node by its graph-local id.
     assets_by_node_id = _instantiate_assets_from_nodes(graph_spec.nodes, AssetRegistry())
 
-    # 2. Wire the initial state's spatial relations / fixed poses into those assets.
+    # 2. Guarantee the scene has a light. A graph (or its background USD) with no light renders
+    #    black, which today only surfaces once the policy runner launches the generated env. When
+    #    nothing provides a light, inject a default DomeLight as a tracked LIGHTING node so the
+    #    augmented graph stays faithful to what actually spawns.
+    _ensure_scene_lighting(graph_spec, assets_by_node_id)
+
+    # 3. Wire the initial state's spatial relations / fixed poses into those assets.
     if initial_state_spec is not None:
         _attach_spatial_constraints_to_assets(initial_state_spec, assets_by_node_id)
 
-    # 3. Partition nodes into the env's embodiment (exactly one) and its scene assets.
+    # 4. Partition nodes into the env's embodiment (exactly one) and its scene assets.
     embodiment, scene_assets = _partition_nodes_into_embodiment_and_scene(graph_spec.nodes, assets_by_node_id)
 
-    # 4. Resolve task specs against the same assets_by_node_id so task args bind to the
+    # 5. Resolve task specs against the same assets_by_node_id so task args bind to the
     #    actual asset instances created in step 1 (not duplicates).
     return IsaacLabArenaEnvironment(
         name=graph_spec.env_name,
@@ -63,27 +73,62 @@ def _partition_nodes_into_embodiment_and_scene(
     """Split materialized nodes into the optional embodiment asset and the list of scene assets.
 
     Asserts at most one EMBODIMENT node; zero is allowed and returns ``None`` here — the env
-    builder substitutes a ``NoEmbodiment`` for scene-only specs. BACKGROUND / OBJECT /
-    OBJECT_REFERENCE nodes become scene assets; any other node type raises. Lighting is not handled yet.
+    builder substitutes a ``NoEmbodiment`` for scene-only specs. Every non-embodiment node is a
+    scene asset; ``Scene.add_asset`` validates each instance is an ``Asset``/``RigidObjectSet`` and
+    raises otherwise (embodiments are ``Asset`` too, so node type — not isinstance — separates them).
     """
     embodiment = None
     scene_assets: list[Asset] = []
-    # TODO(xinjieyao, 2026-05-26): include lighting later
     for node_spec in node_specs:
         if node_spec.type == ArenaEnvGraphNodeType.EMBODIMENT:
             assert embodiment is None, "Only one embodiment node can be converted to an IsaacLabArenaEnvironment"
             embodiment = assets_by_node_id[node_spec.id]
-        elif node_spec.type in (
-            ArenaEnvGraphNodeType.BACKGROUND,
-            ArenaEnvGraphNodeType.OBJECT,
-            ArenaEnvGraphNodeType.OBJECT_REFERENCE,
-        ):
-            scene_assets.append(assets_by_node_id[node_spec.id])
         else:
-            raise ValueError(f"Unsupported node type: {node_spec.type}")
+            scene_assets.append(assets_by_node_id[node_spec.id])
     # No embodiment node -> embodiment stays None; the env builder resolves that to a
     # NoEmbodiment (`self.arena_env.embodiment or NoEmbodiment()`), so scene-only specs are valid.
     return embodiment, scene_assets
+
+
+def _ensure_scene_lighting(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: dict[str, Any]) -> None:
+    """Inject a default light when the scene would otherwise render black.
+
+    Mutates ``graph_spec.nodes`` and ``assets_by_node_id`` in place: appends a ``LIGHTING`` node
+    backed by the registered ``DomeLight`` when no explicit light is declared and no base scene USD
+    already ships one. Tracking it as a real node keeps the augmented graph faithful to what spawns.
+    No-op when a light is already present, so a scene that defines or bakes in its own light is left
+    untouched (avoids double-lighting).
+    """
+    if _scene_already_has_light(graph_spec, assets_by_node_id):
+        return
+
+    node_id = unique_node_id({node.id for node in graph_spec.nodes}, "auto_dome_light")
+    light_node = ArenaEnvGraphNodeSpec(id=node_id, name=_DEFAULT_LIGHT_ASSET_NAME, type=ArenaEnvGraphNodeType.LIGHTING)
+    graph_spec.nodes.append(light_node)
+    assets_by_node_id[node_id] = AssetRegistry().get_asset_by_name(_DEFAULT_LIGHT_ASSET_NAME)()
+    print(f"INFO: no light found in scene or background USD(s); injected default light node '{node_id}'.")
+
+
+def _scene_already_has_light(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: dict[str, Any]) -> bool:
+    """Return whether the scene is already lit, either explicitly or via a baked-in USD light."""
+    # Explicit: a LIGHTING node, or any materialized asset tagged as a light (e.g. DomeLight).
+    if any(node.type == ArenaEnvGraphNodeType.LIGHTING for node in graph_spec.nodes):
+        return True
+    if any("light" in (getattr(asset, "tags", None) or []) for asset in assets_by_node_id.values()):
+        return True
+    # Implicit: any base scene asset whose USD already contains a light.
+    for node in graph_spec.nodes:
+        if node.type == ArenaEnvGraphNodeType.EMBODIMENT or node.type == ArenaEnvGraphNodeType.OBJECT_REFERENCE:
+            continue
+        asset = assets_by_node_id[node.id]
+        # Only USD-backed base assets can carry a baked-in light; assets with an explicit
+        # spawner_cfg (DomeLight, GroundPlane, primitives) declare their own prim instead.
+        usd_path = getattr(asset, "usd_path", None)
+        if usd_path is not None and getattr(asset, "spawner_cfg", None) is None:
+            with open_stage(usd_path) as stage:
+                if has_light(stage):
+                    return True
+    return False
 
 
 def _instantiate_assets_from_nodes(node_specs: list[ArenaEnvGraphNodeSpec], asset_registry: Any) -> dict[str, Any]:

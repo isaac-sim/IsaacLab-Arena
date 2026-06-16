@@ -52,7 +52,9 @@ def test_no_overlap_returns_true():
     a = _make_box("a")
     b = _make_box("b")
     positions = {a: (0.0, 0.0, 0.0), b: (1.0, 0.0, 0.0)}
-    assert placer._validate_placement(positions, _env_bboxes(positions)) is True
+    assert (
+        placer._validate_placement(positions, _env_bboxes(positions)).do_all_required_validation_checks_pass() is True
+    )
 
 
 def test_overlapping_returns_false():
@@ -61,7 +63,9 @@ def test_overlapping_returns_false():
     a = _make_box("a")
     b = _make_box("b")
     positions = {a: (0.0, 0.0, 0.0), b: (0.0, 0.0, 0.0)}
-    assert placer._validate_placement(positions, _env_bboxes(positions)) is False
+    assert (
+        placer._validate_placement(positions, _env_bboxes(positions)).do_all_required_validation_checks_pass() is False
+    )
 
 
 def test_partial_overlap_returns_false():
@@ -70,7 +74,9 @@ def test_partial_overlap_returns_false():
     a = _make_box("a", size=0.2)
     b = _make_box("b", size=0.2)
     positions = {a: (0.0, 0.0, 0.0), b: (0.1, 0.1, 0.0)}
-    assert placer._validate_placement(positions, _env_bboxes(positions)) is False
+    assert (
+        placer._validate_placement(positions, _env_bboxes(positions)).do_all_required_validation_checks_pass() is False
+    )
 
 
 def test_separated_in_z_passes():
@@ -79,7 +85,9 @@ def test_separated_in_z_passes():
     a = _make_box("a")
     b = _make_box("b")
     positions = {a: (0.0, 0.0, 0.0), b: (0.0, 0.0, 5.0)}
-    assert placer._validate_placement(positions, _env_bboxes(positions)) is True
+    assert (
+        placer._validate_placement(positions, _env_bboxes(positions)).do_all_required_validation_checks_pass() is True
+    )
 
 
 def test_object_on_surface_no_overlap():
@@ -89,7 +97,9 @@ def test_object_on_surface_no_overlap():
     box = _make_box("box", size=0.2)
     # Desk top at z=0.05; box at z=0.16 → box occupies z=[0.06, 0.26], clear of desk
     positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.16)}
-    assert placer._validate_placement(positions, _env_bboxes(positions)) is True
+    assert (
+        placer._validate_placement(positions, _env_bboxes(positions)).do_all_required_validation_checks_pass() is True
+    )
 
 
 def test_colocated_siblings_overlap_rejected():
@@ -99,7 +109,9 @@ def test_colocated_siblings_overlap_rejected():
     a = _make_box("a", size=0.2)
     b = _make_box("b", size=0.2)
     positions = {desk: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.15), b: (0.0, 0.0, 0.15)}
-    assert placer._validate_placement(positions, _env_bboxes(positions)) is False
+    assert (
+        placer._validate_placement(positions, _env_bboxes(positions)).do_all_required_validation_checks_pass() is False
+    )
 
 
 def test_rotation_aware_overlap_uses_yaw():
@@ -109,9 +121,9 @@ def test_rotation_aware_overlap_uses_yaw():
     b = _make_box("b", size=0.1)
     positions = {a: (0.0, 0.0, 0.0), b: (0.0, 0.2, 0.0)}
     axis_aligned = {a: a.get_bounding_box(), b: b.get_bounding_box()}
-    assert placer._validate_placement(positions, axis_aligned) is True
+    assert placer._validate_placement(positions, axis_aligned).do_all_required_validation_checks_pass() is True
     rotated = {a: a.get_bounding_box().rotated_around_z(math.pi / 2), b: b.get_bounding_box()}
-    assert placer._validate_placement(positions, rotated) is False
+    assert placer._validate_placement(positions, rotated).do_all_required_validation_checks_pass() is False
 
 
 def test_candidate_bbox_aligns_with_candidate_yaw():
@@ -127,7 +139,9 @@ def test_candidate_bbox_aligns_with_candidate_yaw():
 
     # Mirrors _place_ranked: each candidate validates against its own bbox row.
     validations = [
-        placer._validate_placement(positions, ObjectPlacer._get_bounding_boxes_for_candidate_index(rotated, idx))
+        placer._validate_placement(
+            positions, ObjectPlacer._get_bounding_boxes_for_candidate_index(rotated, idx)
+        ).do_all_required_validation_checks_pass()
         for idx in range(2)
     ]
     # Axis-aligned `a` clears b; rotated 90° it sweeps into b. A row/candidate swap would flip both.
@@ -155,7 +169,7 @@ def test_on_relation_containment_uses_rotated_bbox():
     placer = ObjectPlacer(params=ObjectPlacerParams())
     desk = _make_desk()  # XY in [-0.5, 0.5]
     child = _make_long_box("child")  # x in [-0.3, 0.3], y in [-0.05, 0.05]
-    child.add_relation(On(desk, clearance_m=0.01))
+    child.add_relation(On(desk, clearance_m=0.01, edge_margin_m=0.0))
     # Near the +Y rim: axis-aligned half-Y 0.05 stays inside; rotated 90° half-Y 0.3 spills past +0.5.
     positions = {desk: (0.0, 0.0, 0.0), child: (0.0, 0.44, 0.105)}
 
@@ -229,3 +243,28 @@ def test_on_relation_check_child_outside_xy_returns_false():
     box.add_relation(On(desk))
     positions = {desk: (0.0, 0.0, 0.0), box: (10.0, 10.0, 0.1)}
     assert placer._validate_on_relations(positions, _env_bboxes(positions)) is False
+
+
+def _validate_box_on_desk(edge_margin_m: float, box_x: float) -> bool:
+    """Validate a 0.2m box at (box_x, 0) on a desk (XY in [-0.5, 0.5]) under the given edge margin."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    desk = _make_desk()
+    box = _make_box("box", size=0.2)
+    box.add_relation(On(desk, edge_margin_m=edge_margin_m))
+    positions = {desk: (0.0, 0.0, 0.0), box: (box_x, 0.0, 0.16)}
+    return placer._validate_on_relations(positions, _env_bboxes(positions))
+
+
+def test_on_relation_edge_margin_within_inset_band_passes():
+    # Box right edge 0.3 + 0.1 == rim 0.5 - margin 0.1: on the inset bound, still inside.
+    assert _validate_box_on_desk(edge_margin_m=0.1, box_x=0.3) is True
+
+
+def test_on_relation_edge_margin_inside_rim_but_in_margin_gap_fails():
+    # Box right edge 0.45 is inside the rim but past the inset bound 0.4 (in the margin gap).
+    assert _validate_box_on_desk(edge_margin_m=0.1, box_x=0.35) is False
+
+
+def test_on_relation_edge_margin_too_large_for_surface_rejected():
+    # Desk free span 0.8 caps the margin at 0.4; 0.5 inverts the inset band so containment fails.
+    assert _validate_box_on_desk(edge_margin_m=0.5, box_x=0.0) is False

@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.evaluation.camera_video import CameraObsVideoRecorder
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
@@ -32,12 +33,17 @@ if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase
 
 
-def load_env(arena_env_args: list[str], job_name: str, render_mode: str | None = None):
+def load_env(
+    arena_env_args: list[str],
+    job_name: str,
+    variations: list[str] | None = None,
+    render_mode: str | None = None,
+):
 
     args_parser = get_isaaclab_arena_environments_cli_parser()
 
     arena_env_args_cli = args_parser.parse_args(arena_env_args)
-    arena_builder = get_arena_builder_from_cli(arena_env_args_cli)
+    arena_builder = get_arena_builder_from_cli(arena_env_args_cli, hydra_overrides=variations)
 
     env_name, env_cfg, env_kwargs = arena_builder.build_registered()
 
@@ -48,6 +54,17 @@ def load_env(arena_env_args: list[str], job_name: str, render_mode: str | None =
     env = arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
     # Don't reset here - rollout_policy() will reset the env. Every reset triggers a new episode, initializing recorder & creating a new hdf5 entry.
     return env
+
+
+def list_variations(eval_jobs_config: dict) -> None:
+    """Print the Hydra-configurable variations for each job's environment."""
+    job_manager = JobManager(eval_jobs_config["jobs"])
+    for job in job_manager.all_jobs:
+        args_parser = get_isaaclab_arena_environments_cli_parser()
+        arena_env_args_cli = args_parser.parse_args(job.arena_env_args)
+        arena_builder = get_arena_builder_from_cli(arena_env_args_cli, hydra_overrides=job.variations)
+        print(f"=== Variations for job '{job.name}' ===", flush=True)
+        print(arena_builder.get_variations_catalogue_as_string(), flush=True)
 
 
 def enable_cameras_if_required(eval_jobs_config: dict, args_cli: argparse.Namespace) -> None:
@@ -207,6 +224,12 @@ def main():
     with open(args_cli.eval_jobs_config, encoding="utf-8") as f:
         eval_jobs_config = json.load(f)
 
+    # Print the variations catalogue for each job's environment and exit.
+    if args_cli.list_variations:
+        with SimulationAppContext(args_cli):
+            list_variations(eval_jobs_config)
+        return
+
     # Chunked dispatch (--chunk_size N). Splits this config across subprocesses so each
     # gets a fresh SimulationApp. Required for long sweeps because some host memory leaks
     # each cycle and is only reclaimed when the process exits — in-process teardown can't
@@ -220,6 +243,8 @@ def main():
         return
 
     # Check if any job requires cameras and enable them if needed before starting simulation
+    if args_cli.camera_video:
+        args_cli.enable_cameras = True
     enable_cameras_if_required(eval_jobs_config, args_cli)
 
     with SimulationAppContext(args_cli):
@@ -248,7 +273,7 @@ def main():
             for rebuild_idx in range(job.num_rebuilds):
                 try:
                     render_mode = "rgb_array" if args_cli.video else None
-                    env = load_env(job.arena_env_args, job.name, render_mode=render_mode)
+                    env = load_env(job.arena_env_args, job.name, variations=job.variations, render_mode=render_mode)
 
                     policy = get_policy_from_job(job)
 
@@ -276,6 +301,15 @@ def main():
                         }
                         print(f"[INFO] Recording video for job '{job.name}' -> {video_kwargs['video_folder']}")
                         env = RecordVideo(env, **video_kwargs)
+
+                    if args_cli.camera_video:
+                        job_video_dir = os.path.join(args_cli.video_dir, job.name)
+                        print(f"[INFO] Recording per-episode camera videos for job '{job.name}' -> {job_video_dir}")
+                        env = CameraObsVideoRecorder(
+                            env,
+                            video_folder=job_video_dir,
+                            name_prefix=f"robot-cam-rebuild{rebuild_idx}",
+                        )
 
                     metrics = rollout_policy(
                         env,

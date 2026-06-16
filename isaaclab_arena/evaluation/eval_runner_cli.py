@@ -16,6 +16,12 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--video", action="store_true", default=False, help="Record videos for each eval job.")
     parser.add_argument(
+        "--camera_video",
+        action="store_true",
+        default=False,
+        help="Record one mp4 per (env, camera, episode) from obs['camera_obs'] for each eval job.",
+    )
+    parser.add_argument(
         "--video_dir",
         type=str,
         default="/eval/videos",

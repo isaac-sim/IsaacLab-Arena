@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
+from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import (
     IsAnchor,
@@ -38,11 +39,16 @@ class PlacementCandidate:
     positions: dict[ObjectBase, tuple[float, float, float]]
     """Solved positions for each object."""
 
-    is_valid: bool
-    """Whether the placement passed validation checks."""
+    validation_results: PlacementValidationResults
+    """Per-check validation results for this candidate's layout."""
 
     orientations: dict[ObjectBase, float] = field(default_factory=dict)
     """Per-object yaw (radians about Z) sampled for this candidate. Empty when unrotated."""
+
+    @property
+    def is_valid(self) -> bool:
+        """True when all validation checks pass."""
+        return self.validation_results.do_all_required_validation_checks_pass()
 
 
 class ObjectPlacer:
@@ -101,6 +107,16 @@ class ObjectPlacer:
             generator=generator,
         )
         results_per_env = [env_results[0] for env_results in ranked_results_per_env]
+
+        if self.params.verbose:
+            # If no valid layout is found, print the failed checks for the lowest-loss fallback
+            # So we can debug the placement problem and it still produces some layouts for the envs
+            for env_idx, result in enumerate(results_per_env):
+                if not result.success:
+                    print(
+                        f"  env {env_idx}: no valid layout; using lowest-loss fallback "
+                        f"(failed: {result.validation_results.get_failed_validation_check_names})"
+                    )
 
         if self.params.apply_positions_to_objects:
             positions_per_env = [r.positions for r in results_per_env]
@@ -235,7 +251,7 @@ class ObjectPlacer:
         ranked_results = [
             [
                 PlacementResult(
-                    success=candidate.is_valid,
+                    validation_results=candidate.validation_results,
                     positions=candidate.positions,
                     final_loss=candidate.loss,
                     attempts=attempts_per_result,
@@ -257,13 +273,19 @@ class ObjectPlacer:
         num_envs: int,
         candidates_per_env: int,
     ) -> list[list[PlacementCandidate]]:
-        """Return one loss-sorted candidate slice per env (valid candidates first)."""
+        """Return one ranked candidate slice per env: most validation checks passed first, then lowest loss."""
         ranked_candidate_slices: list[list[PlacementCandidate]] = []
         for cur_env in range(num_envs):
             start = cur_env * candidates_per_env
             env_candidates = candidates[start : start + candidates_per_env]
             ranked_candidate_slices.append(
-                sorted(env_candidates, key=lambda candidate: (not candidate.is_valid, candidate.loss))
+                sorted(
+                    env_candidates,
+                    key=lambda candidate: (
+                        *candidate.validation_results.get_number_of_required_and_optional_failures,
+                        candidate.loss,
+                    ),
+                )
             )
         return ranked_candidate_slices
 
@@ -506,8 +528,8 @@ class ObjectPlacer:
     ) -> bool:
         """Validate each On relation; keep in sync with OnLossStrategy in relation_loss_strategies.py.
 
-        1. X: child's footprint entirely within parent's X extent.
-        2. Y: child's footprint entirely within parent's Y extent.
+        1. X: child's footprint within parent's X extent, inset by the relation's edge_margin_m.
+        2. Y: child's footprint within parent's Y extent, inset by the relation's edge_margin_m.
         3. Z: child_bottom in (parent_top, parent_top+clearance_m], within on_relation_z_tolerance_m.
 
         Args:
@@ -525,15 +547,37 @@ class ObjectPlacer:
                 parent_bbox = env_bboxes[parent]
                 child_world = child_bbox.translated(positions[obj])
                 parent_world = parent_bbox.translated(positions[parent])
+                parent_size = parent_world.max_point - parent_world.min_point
+                child_size = child_world.max_point - child_world.min_point
+
+                m = rel.edge_margin_m
+                # 1) Checking that with the specified margin, the parent is wide enough to place the child on top
+                if m > 0.0:
+                    freespace = parent_size - child_size
+                    # A margin too large for the surface inverts the inset band so containment can never pass.
+                    if torch.any(freespace[0, :2] < 2 * m):
+                        # The maximum feasible margin is the minimum of the freespace on the xy axes.
+                        max_feasible_margin = max(0.0, min(freespace[0, :2]) / 2.0)
+                        # When parent < child, freespace[0, :2] is negative and max_feasible_margin is 0.0.
+                        if max_feasible_margin > 0.0:
+                            if self.params.verbose:
+                                print(
+                                    f"On relation: edge_margin_m={m} m is too large for parent '{parent.name}'. Max"
+                                    f" feasible margin here is {max_feasible_margin:.3f} m. Use a smaller"
+                                    " edge_margin_m."
+                                )
+                            return False
+                # 2) Checking that the child lies within the parent's xy
                 if (
-                    child_world.min_point[0, 0] < parent_world.min_point[0, 0]
-                    or child_world.max_point[0, 0] > parent_world.max_point[0, 0]
-                    or child_world.min_point[0, 1] < parent_world.min_point[0, 1]
-                    or child_world.max_point[0, 1] > parent_world.max_point[0, 1]
+                    child_world.min_point[0, 0] < parent_world.min_point[0, 0] + m
+                    or child_world.max_point[0, 0] > parent_world.max_point[0, 0] - m
+                    or child_world.min_point[0, 1] < parent_world.min_point[0, 1] + m
+                    or child_world.max_point[0, 1] > parent_world.max_point[0, 1] - m
                 ):
                     if self.params.verbose:
-                        print(f"  On relation: '{obj.name}' XY outside parent (retrying)")
+                        print(f"On relation: '{obj.name}' XY outside parent (retrying)")
                     return False
+                # 3) Checking that the child lies within an acceptable z-range.
                 parent_local_top_z: float = parent_bbox.max_point[0, 2].item()
                 child_local_bottom_z: float = child_bbox.min_point[0, 2].item()
                 parent_top_z = parent_local_top_z + positions[parent][2]
@@ -602,7 +646,7 @@ class ObjectPlacer:
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
-    ) -> bool:
+    ) -> PlacementValidationResults:
         """Validate that no two objects overlap in 3D and On relations are satisfied.
 
         Args:
@@ -610,9 +654,18 @@ class ObjectPlacer:
             env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
 
         Returns:
-            True if no overlaps exist and On relations hold, False otherwise.
+            PlacementValidationResults containing the validation results.
         """
-        return self._validate_no_overlap(positions, env_bboxes) and self._validate_on_relations(positions, env_bboxes)
+        no_overlap = self._validate_no_overlap(positions, env_bboxes)
+        on_relation = self._validate_on_relations(positions, env_bboxes)
+
+        return PlacementValidationResults(
+            validation_results={
+                PlacementCheck.NO_OVERLAP: no_overlap,
+                PlacementCheck.ON_RELATION: on_relation,
+            },
+            required_checks={PlacementCheck.NO_OVERLAP, PlacementCheck.ON_RELATION},
+        )
 
     def _apply_poses(
         self,

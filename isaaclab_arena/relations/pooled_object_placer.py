@@ -447,3 +447,16 @@ class PooledObjectPlacer:
     def total_remaining(self) -> int:
         """Total unread layouts across all env pools."""
         return self._total_available()
+
+    # ------------------------------------------------------------------
+    # Pool introspection for the offline layout validator (sim-free)
+    # ------------------------------------------------------------------
+
+    @property
+    def objects(self) -> list[ObjectBase]:
+        """All objects (including anchors) participating in relation solving."""
+        return self._objects
+
+    def layouts_per_env(self) -> list[list[PlacementResult]]:
+        """Flattened list of every stored layout, grouped by env pool index."""
+        return [list(pool.layouts) for pool in self._env_pools]

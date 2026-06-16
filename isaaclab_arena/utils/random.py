@@ -3,21 +3,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import gymnasium as gym
 import math
-import numpy as np
 import random
 import torch
-
-
-def set_seed(seed: int, env: gym.Env = None):
-    """Set the seed for the random number generators."""
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-    if env is not None:
-        env.unwrapped.seed(seed)
 
 
 def get_random_rotation(generator: torch.Generator | None = None) -> float:

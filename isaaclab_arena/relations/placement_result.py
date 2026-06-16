@@ -10,14 +10,15 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 
 
 @dataclass
 class PlacementResult:
     """Result of an ObjectPlacer.place() call."""
 
-    success: bool
-    """Whether placement passed validation checks."""
+    validation_results: PlacementValidationResults
+    """Validation checklist for the placement."""
 
     positions: dict[ObjectBase, tuple[float, float, float]]
     """Final positions for each object."""
@@ -31,6 +32,16 @@ class PlacementResult:
     orientations: dict[ObjectBase, float] = field(default_factory=dict)
     """Per-object yaw (radians) about the world up (Z) axis, composed on top of each object's
     base rotation. Keyed by object, like positions. Empty when unrotated."""
+
+    @property
+    def success(self) -> bool:
+        """True when this layout passed every validation check.
+
+        Soft selection: place() always returns the best-ranked layout per env, even when no
+        candidate validated. Callers check success to distinguish a validated layout from a
+        lowest-loss fallback; failed_items on the checklist says which checks failed.
+        """
+        return self.validation_results.do_all_required_validation_checks_pass()
 
 
 @dataclass
