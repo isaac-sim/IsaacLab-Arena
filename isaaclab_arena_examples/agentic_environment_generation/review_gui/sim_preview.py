@@ -26,6 +26,14 @@ NUM_ENVS = 16
 ENV_SPACING_M = 1.5
 NUM_STEPS = 10
 
+# Placement pool size when preview uses resolve_on_reset=False (see ObjectPlacerParams).
+_PREVIEW_LAYOUTS_PER_ENV = 5
+
+
+def _preview_log(started_at: float, message: str) -> None:
+    elapsed = time.monotonic() - started_at
+    print(f"[sim_preview] +{elapsed:.1f}s {message}", file=sys.stderr, flush=True)
+
 
 def _preview_args() -> argparse.Namespace:
     return argparse.Namespace(
@@ -103,8 +111,12 @@ def run_sim_preview(app, yaml_text: str) -> dict[str, Any]:
     from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyArgs
     from isaaclab_arena.utils.isaaclab_utils.simulation_app import close_env_and_reset_sim
 
+    started_at = time.monotonic()
+    _preview_log(started_at, "run_sim_preview started")
+
     # Drop any stale sim/scene state left from a prior preview in this sidecar.
     close_env_and_reset_sim(suppress_exceptions=True, app=app)
+    _preview_log(started_at, "cleared stale sim state")
 
     raw = yaml.safe_load(yaml_text)
     if not isinstance(raw, dict):
@@ -115,6 +127,7 @@ def run_sim_preview(app, yaml_text: str) -> dict[str, Any]:
     arena_env = graph_spec.to_arena_env()
     preview_name = f"{arena_env.name}_preview_{uuid.uuid4().hex[:8]}"
     arena_env.name = preview_name
+    _preview_log(started_at, f"linked spec → arena env ({preview_name})")
 
     args = _preview_args()
     builder = ArenaEnvBuilder(arena_env, args)
@@ -125,13 +138,24 @@ def run_sim_preview(app, yaml_text: str) -> dict[str, Any]:
     first_path = PREVIEW_CACHE_DIR / f"{preview_name}_{stamp}_first.png"
     last_path = PREVIEW_CACHE_DIR / f"{preview_name}_{stamp}_last.png"
 
+    pool_layouts = args.num_envs * _PREVIEW_LAYOUTS_PER_ENV
     env = None
     try:
         eye, target = _overview_camera(args.num_envs, args.env_spacing)
+        _preview_log(
+            started_at,
+            f"solving spatial relations ({args.num_envs} envs, {pool_layouts} layout pool)…",
+        )
+        t_relations = time.monotonic()
         env_cfg = builder.compose_manager_cfg()
+        _preview_log(started_at, f"relation solver finished ({time.monotonic() - t_relations:.1f}s)")
+
         # World-frame overview (not task look-at-object) so all env clones are visible.
         env_cfg.viewer = ViewerCfg(eye=eye, lookat=target, origin_type="world")
+        _preview_log(started_at, "spawning sim scene (gym.make)…")
+        t_spawn = time.monotonic()
         env = builder.make_registered(env_cfg)
+        _preview_log(started_at, f"sim scene ready ({time.monotonic() - t_spawn:.1f}s)")
 
         obs, _ = env.reset()
         _apply_overview_camera(env, app, args.num_envs, args.env_spacing)
@@ -149,8 +173,10 @@ def run_sim_preview(app, yaml_text: str) -> dict[str, Any]:
             raise RuntimeError("failed to capture last-frame viewport screenshot")
 
         print(
-            f"[sim_preview] captured {NUM_ENVS} envs @ {ENV_SPACING_M}m spacing, {NUM_STEPS} zero-action steps",
+            f"[sim_preview] captured {NUM_ENVS} envs @ {ENV_SPACING_M}m spacing, {NUM_STEPS} zero-action steps "
+            f"(total {time.monotonic() - started_at:.1f}s)",
             file=sys.stderr,
+            flush=True,
         )
         return {
             "ok": True,
