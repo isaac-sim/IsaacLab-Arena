@@ -24,7 +24,7 @@ from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_poli
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
-from isaaclab_arena.utils.video_recording import VideoRecordingCfg, timestamped_run_dir, wrap_env_for_video
+from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir, wrap_env_for_video
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:

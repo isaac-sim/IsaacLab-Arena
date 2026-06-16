@@ -10,7 +10,7 @@ import datetime
 import os
 from gymnasium.wrappers import RecordVideo
 
-from isaaclab_arena.evaluation.camera_video import CameraObsVideoRecorder
+from isaaclab_arena.video.camera_observation_video_recorder import CameraObsVideoRecorder
 
 
 @dataclasses.dataclass

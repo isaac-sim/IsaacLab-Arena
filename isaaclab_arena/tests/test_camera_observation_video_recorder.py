@@ -17,7 +17,7 @@ from unittest.mock import patch
 
 import pytest
 
-from isaaclab_arena.evaluation.camera_video import CAMERA_OBS_GROUP_KEY, CameraObsVideoRecorder
+from isaaclab_arena.video.camera_observation_video_recorder import CAMERA_OBS_GROUP_KEY, CameraObsVideoRecorder
 
 # ---------------------------------------------------------------------------
 # Minimal gym.Env stub — satisfies gymnasium.Wrapper's isinstance check
@@ -69,7 +69,7 @@ def _configure_step(env: _StubEnv, done_envs: list[int] | None = None, n_envs: i
 def test_video_files_written_on_termination(tmp_path):
     """A file per camera is written when an env terminates."""
     env = _make_env()
-    with patch("isaaclab_arena.evaluation.camera_video.ImageSequenceClip") as mock_clip_cls:
+    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip") as mock_clip_cls:
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
 
         _configure_step(env)
@@ -87,7 +87,7 @@ def test_video_files_written_on_termination(tmp_path):
 def test_episode_counter_increments_per_env(tmp_path):
     """Each env tracks its own episode count independently."""
     env = _make_env()
-    with patch("isaaclab_arena.evaluation.camera_video.ImageSequenceClip"):
+    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip"):
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
 
         _configure_step(env)
@@ -114,7 +114,7 @@ def test_multiple_episodes_produce_sequential_filenames(tmp_path):
     env = _make_env()
     written_paths = []
 
-    with patch("isaaclab_arena.evaluation.camera_video.ImageSequenceClip") as mock_clip_cls:
+    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip") as mock_clip_cls:
         mock_clip_cls.return_value.write_videofile.side_effect = lambda path, **_: written_paths.append(path)
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
 
@@ -132,7 +132,7 @@ def test_multiple_episodes_produce_sequential_filenames(tmp_path):
 def test_partial_episode_dropped_on_close(tmp_path):
     """Frames accumulated without termination are silently discarded on close()."""
     env = _make_env()
-    with patch("isaaclab_arena.evaluation.camera_video.ImageSequenceClip") as mock_clip_cls:
+    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip") as mock_clip_cls:
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
 
         _configure_step(env)
@@ -146,7 +146,7 @@ def test_partial_episode_dropped_on_close(tmp_path):
 def test_episode_counter_not_incremented_for_empty_buffer(tmp_path):
     """Episode count stays at 0 if the env terminates before any frame is appended."""
     env = _make_env()
-    with patch("isaaclab_arena.evaluation.camera_video.ImageSequenceClip"):
+    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip"):
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
 
         # Terminate on the very first step — no prior frames were recorded.
@@ -159,7 +159,7 @@ def test_episode_counter_not_incremented_for_empty_buffer(tmp_path):
 def test_post_reset_frame_not_appended(tmp_path):
     """The obs on a terminal step (post-reset) is not buffered for the next episode."""
     env = _make_env()
-    with patch("isaaclab_arena.evaluation.camera_video.ImageSequenceClip"):
+    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip"):
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
 
         _configure_step(env)
