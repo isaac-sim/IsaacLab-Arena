@@ -38,6 +38,19 @@ ASSET_ERROR_STAGES: frozenset[str] = frozenset({
 })
 """Trace stage identifiers that indicate an asset-query failure."""
 
+_EXCLUDED_MATCH_TAGS: frozenset[str] = frozenset({"procedural"})
+"""Registry tags that disqualify an asset from LLM intent resolution."""
+
+
+def _matching_candidates(registry: AssetRegistry, tags: list[str]) -> list[str]:
+    """Return sorted asset names matching ``tags``, omitting excluded tags."""
+    names = registry.get_assets_with_all_tags(tags)
+    return sorted(
+        name
+        for name in names
+        if not _EXCLUDED_MATCH_TAGS.intersection(getattr(registry.get_asset_by_name(name), "tags", []))
+    )
+
 
 def match_asset(
     registry: AssetRegistry,
@@ -55,6 +68,9 @@ def match_asset(
     2. **Fuzzy match** (substring, then difflib) in the pool narrowed by
        ``required_tags + preferred_tags`` when ``preferred_tags`` is non-empty.
     3. **Fuzzy match** in the ``required_tags`` pool only (relaxed fallback).
+
+    Assets tagged ``procedural`` are never considered (Newton cuboid spawners, not
+    catalogued USD scenes/objects for LLM-generated layouts).
 
     Args:
         registry: Registry to look up asset names in.
@@ -74,7 +90,7 @@ def match_asset(
         The resolved asset key, or ``None`` when no match is found.
     """
     required_tags = required_tags or []
-    candidates = sorted(registry.get_assets_with_all_tags(required_tags))
+    candidates = _matching_candidates(registry, required_tags)
     # 1. Exact name match in a pool of assets with only the required tags.
     if query in candidates:
         trace.append(IntentResolutionTraceEvent(f"{trace_prefix}.exact", query, query))
@@ -82,7 +98,7 @@ def match_asset(
 
     # 2. Fuzzy matching in a pool narrowed by required + preferred tags.
     if preferred_tags:
-        preferred_candidates = sorted(registry.get_assets_with_all_tags(required_tags + preferred_tags))
+        preferred_candidates = _matching_candidates(registry, required_tags + preferred_tags)
         chosen = _fuzzy_match(
             preferred_candidates,
             query,
