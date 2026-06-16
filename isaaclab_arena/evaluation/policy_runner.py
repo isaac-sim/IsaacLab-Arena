@@ -263,7 +263,8 @@ def main():
         # unless collection is actually requested.
         collector = None
         if getattr(args_cli, "collect_datagen", False):
-            assert args_cli.enable_cameras, "--collect-datagen requires --enable_cameras."
+            cameras_enabled = args_cli.enable_cameras or os.environ.get("ENABLE_CAMERAS") == "1"
+            assert cameras_enabled, "--collect-datagen requires --enable_cameras or ENABLE_CAMERAS=1."
             from isaaclab_arena_datagen.collection.collector import DatagenCollector, DatagenCollectorConfig
 
             # Optional explicit camera viewpoint (look-at). When

@@ -63,6 +63,48 @@ class _PixelTrackingResult:
     """Mapping from articulation integer key to scene asset name."""
 
 
+def _unproject_depth_to_world_points(
+    depth_hw: torch.Tensor,
+    intrinsics_33: torch.Tensor,
+    T_W_from_C: TransformSE3,
+) -> torch.Tensor:
+    """Unproject a depth map to per-pixel world points via an explicit pinhole.
+
+    Uses the same row-major ``(H, W)`` pixel grid and pinhole convention as the
+    re-projection in :meth:`SceneFlowComputer.compute_true_optical_flow`, so the
+    unproject -> reproject round trip is the identity: pixel ``(row, col)`` with
+    depth ``d`` maps to a world point that projects back to exactly ``(row, col)``.
+    This guarantees that zero 3-D scene flow yields zero 2-D optical flow.
+
+    Args:
+        depth_hw: ``(H, W)`` depth map (camera +Z, metres).
+        intrinsics_33: ``(3, 3)`` camera intrinsic matrix.
+        T_W_from_C: Camera-to-world transform (TransformSE3).
+
+    Returns:
+        ``(H, W, 3)`` world-space points, one per pixel.
+    """
+    H, W = depth_hw.shape
+    device = depth_hw.device
+
+    fx, fy = intrinsics_33[0, 0], intrinsics_33[1, 1]
+    cx, cy = intrinsics_33[0, 2], intrinsics_33[1, 2]
+
+    v_hw, u_hw = torch.meshgrid(
+        torch.arange(H, device=device, dtype=depth_hw.dtype),
+        torch.arange(W, device=device, dtype=depth_hw.dtype),
+        indexing="ij",
+    )
+    x_C_hw = (u_hw - cx) / fx * depth_hw
+    y_C_hw = (v_hw - cy) / fy * depth_hw
+    points_C_hw3 = torch.stack([x_C_hw, y_C_hw, depth_hw], dim=-1)
+
+    rotation_W_from_C = T_W_from_C.rotation.R.reshape(3, 3)
+    translation_W_from_C = T_W_from_C.translation.t.reshape(3)
+    points_W_hw3 = (points_C_hw3.reshape(-1, 3) @ rotation_W_from_C.T + translation_W_from_C).reshape(H, W, 3)
+    return points_W_hw3
+
+
 def _classify_pixels_by_tracking(  # pylint: disable=too-many-statements  # per-object-type classification pipeline
     depth_hw: torch.Tensor,
     intrinsics_33: torch.Tensor,
@@ -88,16 +130,12 @@ def _classify_pixels_by_tracking(  # pylint: disable=too-many-statements  # per-
     Returns:
         A :class:`_PixelTrackingResult` with per-pixel tracking data.
     """
-    from isaaclab.utils.math import quat_apply_inverse, unproject_depth
+    from isaaclab.utils.math import quat_apply_inverse
 
     H, W = depth_hw.shape
     device = depth_hw.device
 
-    points_C_n3 = unproject_depth(depth_hw, intrinsics_33)
-    rotation_W_from_C = T_W_from_C.rotation.R.reshape(3, 3)
-    translation_W_from_C = T_W_from_C.translation.t.reshape(3)
-    points_W_hw3 = (points_C_n3 @ rotation_W_from_C.T) + translation_W_from_C
-    points_W_hw3 = points_W_hw3.reshape(W, H, 3).permute(1, 0, 2).contiguous()
+    points_W_hw3 = _unproject_depth_to_world_points(depth_hw, intrinsics_33, T_W_from_C)
 
     valid_mask_hw = torch.isfinite(depth_hw)
 
