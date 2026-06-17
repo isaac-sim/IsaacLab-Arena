@@ -57,12 +57,12 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
         ),
     )
     parser.add_argument(
-        "--evaluation_report",
+        "--serve_evaluation_report",
         action="store_true",
         default=False,
         help=(
             "After the rollout, serve the evaluation report over HTTP until interrupted. The report"
-            " (index.html) is written into the video dir whenever --record_camera_video is set; this"
-            " flag additionally serves it."
+            " (index.html) is written into the video dir automatically whenever --record_camera_video"
+            " is set; this flag additionally serves it."
         ),
     )

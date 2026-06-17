@@ -245,7 +245,7 @@ def main():
         # Write an HTML report of the per-camera per-episode videos (and serve it when requested).
         # Only the local rank 0 writes it, to avoid races on a shared video dir.
         if video_cfg.record_camera_video and get_local_rank() == 0:
-            write_report(video_cfg.video_base_dir, serve=args_cli.evaluation_report)
+            write_report(video_cfg.video_base_dir, serve=args_cli.serve_evaluation_report)
 
 
 if __name__ == "__main__":
