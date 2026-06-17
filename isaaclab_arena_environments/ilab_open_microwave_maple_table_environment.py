@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
@@ -16,14 +17,15 @@ if TYPE_CHECKING:
 
 
 @register_environment
-class IlabPickAndPlaceTwoObjectsMapleTableEnvironment(ExampleEnvironmentBase):
-    """Pick-and-place of two objects into a destination on the maple table.
+class IlabOpenMicrowaveMapleTableEnvironment(ExampleEnvironmentBase):
+    """Open the door of a microwave resting on the maple table.
 
-    Completion order does not matter; the composite task succeeds once both
-    objects rest on the destination.
+    Shares the maple-table background used by the first ilab environment; the
+    microwave is placed on the table and the task succeeds once its door swings
+    past the openness threshold.
     """
 
-    name: str = "ilab_pick_and_place_two_objects_maple_table"
+    name: str = "ilab_open_microwave_maple_table"
 
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
         from isaaclab.envs.common import ViewerCfg
@@ -31,18 +33,18 @@ class IlabPickAndPlaceTwoObjectsMapleTableEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.relations.relations import IsAnchor, On
+        from isaaclab_arena.relations.relations import IsAnchor, On, RotateAroundSolution
         from isaaclab_arena.scene.scene import Scene
-        from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
-        from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+        from isaaclab_arena.tasks.open_door_task import OpenDoorTask
+        from isaaclab_arena.utils.pose import Pose
 
         # Step 1: Retrieve assets from the registry
         background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
-        pick_up_object_1 = self.asset_registry.get_asset_by_name(args_cli.pick_up_object_1)()
-        pick_up_object_2 = self.asset_registry.get_asset_by_name(args_cli.pick_up_object_2)()
-        destination_location = self.asset_registry.get_asset_by_name(args_cli.destination_location)()
+        microwave = self.asset_registry.get_asset_by_name("microwave")()
 
-        # Step 2: Describe spatial relationships
+        # Step 2: Describe spatial relationships. The microwave sits on the same
+        # table the first ilab environment uses; the yaw rotation faces its door
+        # toward the robot.
         table_reference = ObjectReference(
             name="table",
             prim_path="{ENV_REGEX_NS}/maple_table_robolab/table",
@@ -51,41 +53,29 @@ class IlabPickAndPlaceTwoObjectsMapleTableEnvironment(ExampleEnvironmentBase):
         )
         table_reference.add_relation(IsAnchor())
 
-        pick_up_object_1.add_relation(On(table_reference))
-        pick_up_object_2.add_relation(On(table_reference))
-        destination_location.add_relation(On(table_reference))
+        microwave.add_relation(On(table_reference))
+        microwave.add_relation(RotateAroundSolution(yaw_rad=-math.pi / 2))
 
         # Step 3: Configure lighting
         light = self.asset_registry.get_asset_by_name("light")()
         if args_cli.hdr is not None:
             light.add_hdr(self.hdr_registry.get_hdr_by_name(args_cli.hdr)())
+        light.set_intensity(2000.0)
 
         # Step 4: Select the embodiment
         embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
             enable_cameras=args_cli.enable_cameras,
         )
+        embodiment.set_initial_pose(Pose(position_xyz=(-0.3, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
         # Step 5: Compose the scene
-        scene = Scene(
-            assets=[background, light, pick_up_object_1, pick_up_object_2, destination_location, table_reference]
-        )
+        scene = Scene(assets=[background, light, microwave, table_reference])
 
-        # Step 6: Define the task as a composite of two pick-and-place subtasks. Each subtask's contact
-        # sensor is named after its pick-up object, so the combined scene config does not collide.
-        pick_and_place_task_1 = PickAndPlaceTask(
-            pick_up_object=pick_up_object_1,
-            destination_location=destination_location,
-            destination_object=destination_location,
-            background_scene=background,
-        )
-        pick_and_place_task_2 = PickAndPlaceTask(
-            pick_up_object=pick_up_object_2,
-            destination_location=destination_location,
-            destination_object=destination_location,
-            background_scene=background,
-        )
-        task = CompositeTaskBase(
-            subtasks=[pick_and_place_task_1, pick_and_place_task_2],
+        # Step 6: Define the task as opening the microwave door
+        task = OpenDoorTask(
+            openable_object=microwave,
+            openness_threshold=args_cli.openness_threshold,
+            reset_openness=0.0,
             episode_length_s=20.0,
         )
 
@@ -107,7 +97,5 @@ class IlabPickAndPlaceTwoObjectsMapleTableEnvironment(ExampleEnvironmentBase):
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--embodiment", type=str, default="droid_abs_joint_pos")
-        parser.add_argument("--pick_up_object_1", type=str, default="rubiks_cube_hot3d_robolab")
-        parser.add_argument("--pick_up_object_2", type=str, default="mug_ycb_robolab")
-        parser.add_argument("--destination_location", type=str, default="bowl_ycb_robolab")
+        parser.add_argument("--openness_threshold", type=float, default=0.8)
         parser.add_argument("--hdr", type=str, default="home_office_robolab")
