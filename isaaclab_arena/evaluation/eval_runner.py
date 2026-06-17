@@ -178,12 +178,22 @@ def _stamp_path(path: str, run_ts: str) -> str:
     return os.path.join(d, run_ts, final) if d else os.path.join(final, run_ts)
 
 
+def _extract_hdf5_path(env) -> str | None:
+    """Return the HDF5 output path from env's recorder config, or None."""
+    with contextlib.suppress(Exception):
+        cfg = env.unwrapped.cfg
+        if hasattr(cfg, "recorders") and cfg.recorders is not None:
+            return str(Path(cfg.recorders.dataset_export_dir_path) / (cfg.recorders.dataset_filename + ".hdf5"))
+    return None
+
+
 def _write_job_record(
     record_dir: str,
     job: Job,
     metrics: "MetricsDataCollection | None",
     video_dir: str | None,
     env=None,
+    hdf5_path: str | None = None,
 ) -> str:
     """Write a JSON record for one completed or failed job."""
     os.makedirs(record_dir, exist_ok=True)
@@ -205,14 +215,8 @@ def _write_job_record(
         with contextlib.suppress(Exception):
             language_instruction = env.unwrapped.cfg.task_description
 
-    hdf5_path = None
-    if env is not None:
-        with contextlib.suppress(Exception):
-            cfg = env.unwrapped.cfg
-            if hasattr(cfg, "recorders") and cfg.recorders is not None:
-                hdf5_path = str(
-                    Path(cfg.recorders.dataset_export_dir_path) / (cfg.recorders.dataset_filename + ".hdf5")
-                )
+    if hdf5_path is None and env is not None:
+        hdf5_path = _extract_hdf5_path(env)
 
     plain_metrics = metrics_to_plain_python_types(metrics) if metrics else {}
     plain_metrics.pop("subtask_success_rate", None)
@@ -355,6 +359,7 @@ def main():
             policy = None
 
             metrics_per_run: list[MetricsDataCollection] = []
+            last_hdf5_path: str | None = None
 
             # num_episodes is the total across rebuilds, so split it over the rebuilds.
             num_episodes_per_rebuild = _split_episodes_across_rebuilds(job.num_episodes, job.num_rebuilds, job.name)
@@ -401,6 +406,7 @@ def main():
                         language_instruction=job.language_instruction,
                     )
 
+                    last_hdf5_path = _extract_hdf5_path(env)
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
 
                     # users may not specify metrics for a task, although it's not recommended
@@ -439,13 +445,14 @@ def main():
                 aggregated_metrics = aggregate_metrics(metrics_per_run)
                 metrics_logger.append_job_metrics(job.name, aggregated_metrics)
 
-            if args_cli.episode_record_dir and job.status != Status.FAILED:
+            if args_cli.episode_record_dir and aggregated_metrics is not None:
                 with contextlib.suppress(Exception):
                     rec_path = _write_job_record(
                         args_cli.episode_record_dir,
                         job,
                         aggregated_metrics,
                         run_video_dir if recording else None,
+                        hdf5_path=last_hdf5_path,
                     )
                     print(f"[INFO] Episode record written to: {rec_path}")
 
