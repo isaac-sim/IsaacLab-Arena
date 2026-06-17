@@ -342,7 +342,11 @@ def main():
         # Write one HTML report covering the whole run (and serve it when requested).
         # The report scans the run dir recursively, so each job's sub-directory becomes its own section.
         if args_cli.record_camera_video:
-            write_report(run_video_dir, serve=args_cli.serve_evaluation_report)
+            write_report(
+                run_video_dir,
+                serve=args_cli.serve_evaluation_report,
+                port=args_cli.evaluation_report_serve_port,
+            )
 
 
 if __name__ == "__main__":

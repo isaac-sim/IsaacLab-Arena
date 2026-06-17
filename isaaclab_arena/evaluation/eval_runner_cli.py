@@ -43,6 +43,12 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         ),
     )
     parser.add_argument(
+        "--evaluation_report_serve_port",
+        type=int,
+        default=8000,
+        help="Port to serve the evaluation report on when --serve_evaluation_report is set. Defaults to 8000.",
+    )
+    parser.add_argument(
         "--continue_on_error",
         action="store_true",
         default=False,

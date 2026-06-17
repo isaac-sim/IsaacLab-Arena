@@ -66,3 +66,9 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
             " is set; this flag additionally serves it."
         ),
     )
+    parser.add_argument(
+        "--evaluation_report_serve_port",
+        type=int,
+        default=8000,
+        help="Port to serve the evaluation report on when --serve_evaluation_report is set. Defaults to 8000.",
+    )
