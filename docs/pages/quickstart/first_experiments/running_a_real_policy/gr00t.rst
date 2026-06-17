@@ -145,20 +145,15 @@ Viewing rollouts as an HTML report
 ----------------------------------
 
 Both ``policy_runner.py`` and ``eval_runner.py`` can collect the rollouts into a browsable
-HTML evaluation report. Add ``--record_camera_video`` to record one mp4 per camera, per
-episode; the runner writes an ``index.html`` (a grid of episode rows by camera columns, one
-section per eval job) into a reverse-dated run directory under ``--video_base_dir``
-(default ``/eval/videos``).
-
-Add ``--serve_evaluation_report`` to serve the report over HTTP as soon as the run finishes,
-then open the printed ``http://localhost:8000`` URL from your host browser (the dev container
-runs with ``--net=host``); change the port with ``--evaluation_report_port``:
+HTML evaluation report. For visualization add ``--record_camera_video`` to record one mp4 per camera, per
+episode; the runner writes an ``index.html`` which is then served over HTTP.
 
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/eval_runner.py \
      --viz kit \
      --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_gr00t_jobs_config.json \
+     --video_base_dir ./output \
      --record_camera_video --serve_evaluation_report
 
 You can also (re)build and serve a report later by pointing the standalone tool at the output
@@ -166,7 +161,7 @@ root — it picks the most recent run:
 
 .. code-block:: bash
 
-   python isaaclab_arena/visualization/report.py --video_dir /eval/videos
+   python isaaclab_arena/visualization/report.py --video_dir ./output
 
 
 .. _Next Steps:
