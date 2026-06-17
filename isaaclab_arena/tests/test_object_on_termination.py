@@ -69,7 +69,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
         velocities_vec = []
         success_vec = []
         terminated_vec = []
-        sensor = env.unwrapped.scene.sensors["pick_up_object_contact_sensor"]
+        sensor = env.unwrapped.scene.sensors[f"{cracker_box.name}_contact_sensor"]
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
