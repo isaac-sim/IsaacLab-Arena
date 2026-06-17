@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.camera_video import CameraObsVideoRecorder
+from isaaclab_arena.evaluation.episode_results_recorder import EpisodeResultsMetadata
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
@@ -254,8 +255,8 @@ def main():
         job_manager.print_jobs_info()
 
         if args_cli.video:
-            os.makedirs(args_cli.video_dir, exist_ok=True)
-            print(f"[INFO] Video recording enabled. Videos will be saved to: {args_cli.video_dir}")
+            os.makedirs(args_cli.output_dir, exist_ok=True)
+            print(f"[INFO] Video recording enabled. Videos will be saved to: {args_cli.output_dir}")
 
         for job in job_manager:
             if job is None:
@@ -274,6 +275,15 @@ def main():
                 try:
                     render_mode = "rgb_array" if args_cli.video else None
                     env = load_env(job.arena_env_args, job.name, variations=job.variations, render_mode=render_mode)
+
+                    # Stamp the run-level metadata the env cannot infer on its own.
+                    env.unwrapped.episode_results_recorder.set_metadata(
+                        EpisodeResultsMetadata(
+                            job_name=job.name,
+                            rebuild_idx=rebuild_idx,
+                            language_instruction=job.language_instruction,
+                        )
+                    )
 
                     policy = get_policy_from_job(job)
 
@@ -294,7 +304,7 @@ def main():
                         else:
                             video_length = num_episodes_this_rebuild * env.unwrapped.max_episode_length
                         video_kwargs = {
-                            "video_folder": os.path.join(args_cli.video_dir, job.name),
+                            "video_folder": os.path.join(args_cli.output_dir, job.name),
                             "step_trigger": lambda step: step == 0,
                             "video_length": video_length,
                             "disable_logger": True,
@@ -303,7 +313,7 @@ def main():
                         env = RecordVideo(env, **video_kwargs)
 
                     if args_cli.camera_video:
-                        job_video_dir = os.path.join(args_cli.video_dir, job.name)
+                        job_video_dir = os.path.join(args_cli.output_dir, job.name)
                         print(f"[INFO] Recording per-episode camera videos for job '{job.name}' -> {job_video_dir}")
                         env = CameraObsVideoRecorder(
                             env,
@@ -318,6 +328,13 @@ def main():
                         num_episodes=num_episodes_this_rebuild,
                         language_instruction=job.language_instruction,
                     )
+
+                    # Request the per-episode results write into this job's output subdir
+                    # (the same directory the video recorders use), one file per rebuild.
+                    results_path = os.path.join(
+                        args_cli.output_dir, job.name, f"episode_results_rebuild{rebuild_idx}.jsonl"
+                    )
+                    env.unwrapped.episode_results_recorder.write(results_path)
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
 

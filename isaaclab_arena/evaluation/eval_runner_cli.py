@@ -22,10 +22,10 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         help="Record one mp4 per (env, camera, episode) from obs['camera_obs'] for each eval job.",
     )
     parser.add_argument(
-        "--video_dir",
+        "--output_dir",
         type=str,
-        default="/eval/videos",
-        help="Root directory for recorded videos. Each job gets a subdirectory.",
+        default="/eval/output",
+        help="Root output directory for recorded videos and per-episode results. Each job gets a subdirectory.",
     )
     parser.add_argument(
         "--continue_on_error",

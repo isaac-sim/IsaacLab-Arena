@@ -39,11 +39,11 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
         help="Record an mp4 video of the rollout (uses gymnasium.wrappers.RecordVideo).",
     )
     parser.add_argument(
-        "--video_dir",
-        "--video-dir",
+        "--output_dir",
+        "--output-dir",
         type=str,
-        default="/eval/videos",
-        help="Output directory for recorded videos. Created if missing. Used with --video and/or --camera_video.",
+        default="/eval/output",
+        help="Root output directory for recorded videos and per-episode results. Created if missing.",
     )
     parser.add_argument(
         "--camera_video",

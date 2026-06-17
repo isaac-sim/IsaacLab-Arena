@@ -5,9 +5,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from isaaclab.envs import ManagerBasedRLEnv
 
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
+from isaaclab_arena.evaluation.episode_results_recorder import EpisodeResultsRecorder
 from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
@@ -26,6 +29,9 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         **kwargs,
     ):
         self._variation_recorder = variation_recorder
+        # Empty recorder that only buffers per-episode captures. The caller sets its run-level
+        # metadata after the fact and requests a write (passing in the path) when done.
+        self._episode_results_recorder = EpisodeResultsRecorder()
         super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
 
     @property
@@ -38,9 +44,20 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             )
         return self._variation_recorder
 
+    @property
+    def episode_results_recorder(self) -> EpisodeResultsRecorder:
+        """The per-episode results recorder; set its ``metadata`` and call ``write(path)`` to persist."""
+        return self._episode_results_recorder
+
     def load_managers(self) -> None:
         super().load_managers()
         self.metrics_manager = MetricsManager(self.cfg.metrics, self)
+
+    def _reset_idx(self, env_ids: Sequence[int]) -> None:
+        # Capture BEFORE super() runs reset events (placement/variation) and resets the
+        # termination/episode-length buffers, so the just-finished episode is still intact.
+        self._episode_results_recorder.record_episode(self, env_ids)
+        super()._reset_idx(env_ids)
 
     def compute_metrics(self) -> MetricsDataCollection:
         """Compute all registered metrics.

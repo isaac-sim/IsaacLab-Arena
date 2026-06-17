@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.camera_video import CameraObsVideoRecorder
+from isaaclab_arena.evaluation.episode_results_recorder import EpisodeResultsMetadata
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
@@ -196,6 +197,14 @@ def main():
         render_mode = "rgb_array" if args_cli.video else None
         env, cfg = arena_builder.make_registered_and_return_cfg(render_mode=render_mode)
 
+        # Stamp the run-level metadata the env cannot infer on its own.
+        env.unwrapped.episode_results_recorder.set_metadata(
+            EpisodeResultsMetadata(
+                job_name="policy_runner",
+                language_instruction=args_cli.language_instruction,
+            )
+        )
+
         # Create the policy from the arguments
         policy = policy_cls.from_args(args_cli)
 
@@ -219,7 +228,7 @@ def main():
         # are independent: --video records the kit viewport (via env.render()),
         # --camera_video records the embodiment-mounted cameras (from obs["camera_obs"]).
         if args_cli.video or args_cli.camera_video:
-            os.makedirs(args_cli.video_dir, exist_ok=True)
+            os.makedirs(args_cli.output_dir, exist_ok=True)
             if num_steps is not None:
                 video_length = num_steps
             else:
@@ -230,14 +239,14 @@ def main():
         if args_cli.video:
             env = RecordVideo(
                 env,
-                video_folder=args_cli.video_dir,
+                video_folder=args_cli.output_dir,
                 step_trigger=lambda step: step == 0,
                 video_length=video_length,
                 disable_logger=True,
             )
             print(
                 f"[Rank {local_rank}/{world_size}] Recording {video_length}-step viewport video to:"
-                f" {args_cli.video_dir}"
+                f" {args_cli.output_dir}"
             )
 
         if args_cli.camera_video:
@@ -245,9 +254,9 @@ def main():
             # Flushed at each episode reset rather than after a fixed number of steps.
             env = CameraObsVideoRecorder(
                 env,
-                video_folder=args_cli.video_dir,
+                video_folder=args_cli.output_dir,
             )
-            print(f"[Rank {local_rank}/{world_size}] Recording per-episode per-camera videos to: {args_cli.video_dir}")
+            print(f"[Rank {local_rank}/{world_size}] Recording per-episode per-camera videos to: {args_cli.output_dir}")
 
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
         print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")
@@ -262,6 +271,11 @@ def main():
         # is not guaranteed, which makes resource cleanup unreliable.
         if policy.is_remote:
             policy.shutdown_remote(kill_server=args_cli.remote_kill_on_exit)
+
+        # Request the per-episode results write into the same output directory the video
+        # recorders use, passing in the path.
+        results_path = os.path.join(args_cli.output_dir, f"episode_results_rank{local_rank}.jsonl")
+        env.unwrapped.episode_results_recorder.write(results_path)
 
         # Close the environment.
         env.close()
