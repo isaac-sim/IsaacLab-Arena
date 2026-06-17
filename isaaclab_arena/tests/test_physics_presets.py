@@ -90,7 +90,8 @@ def _build_env_cfg(presets: str | None):
     )
 
     builder = ArenaEnvBuilder(arena_env, args_cli)
-    return builder.compose_manager_cfg()
+    env_cfg, _ = builder.compose_manager_cfg()
+    return env_cfg
 
 
 def _test_builder_no_presets_defaults_to_physx(simulation_app) -> bool:

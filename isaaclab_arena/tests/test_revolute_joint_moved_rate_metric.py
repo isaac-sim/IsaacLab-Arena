@@ -56,9 +56,9 @@ def _test_revolute_joint_moved_rate(simulation_app):
     # Build the cfg, but dont register so we can make some adjustments.
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
-    env_cfg = env_builder.compose_manager_cfg()
+    env_cfg, env_kwargs = env_builder.compose_manager_cfg()
     env_cfg.episode_length_s = 0.10
-    env = env_builder.make_registered(env_cfg)
+    env = env_builder.make_registered(env_cfg, env_kwargs)
     env.reset()
 
     try:

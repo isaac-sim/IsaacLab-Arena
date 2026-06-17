@@ -26,9 +26,12 @@ class ContinuousSamplerCfg(SamplerBaseCfg):
 
 
 class ContinuousSampler(SamplerBase):
-    """Draws continuous numeric values from a fixed-shape distribution."""
+    """Draws continuous numeric values from a fixed-shape distribution.
 
-    @abstractmethod
+    Concrete subclasses implement ``_sample`` to return a tensor of shape
+    ``(num_samples, *shape_per_sample)``.
+    """
+
     def sample(self, num_samples: int) -> torch.Tensor:
         """Draw ``num_samples`` values from this distribution.
 
@@ -39,6 +42,13 @@ class ContinuousSampler(SamplerBase):
         Returns:
             A tensor of shape ``(num_samples, *shape_per_sample)``.
         """
+        result = self._sample(num_samples)
+        self._notify(result)
+        return result
+
+    @abstractmethod
+    def _sample(self, num_samples: int) -> torch.Tensor:
+        """Draw ``num_samples`` values as a tensor of shape ``(num_samples, *shape_per_sample)``."""
         ...
 
     @property
