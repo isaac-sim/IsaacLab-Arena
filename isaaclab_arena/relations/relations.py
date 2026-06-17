@@ -17,6 +17,10 @@ from isaaclab_arena.utils.pose import PoseRange  # runtime: constructed in to_po
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
 
+# Default inward inset (meters) from each X/Y edge of an ``On`` support surface, keeping
+# the placed object's footprint off the rim.
+DEFAULT_ON_EDGE_MARGIN_M = 0.05
+
 
 class Side(Enum):
     """Axis direction for spatial relationships."""
@@ -116,8 +120,9 @@ class On(Relation):
     """Represents an 'on top of' relationship between objects.
 
     This relation specifies that a child object should be placed on top of
-    the parent object, with X/Y bounded within the parent's extent and Z
-    positioned on the parent's top surface.
+    the parent object, with X/Y bounded within the parent's extent (optionally
+    inset by ``edge_margin_m`` so the child stays off the rim) and Z positioned
+    on the parent's top surface.
 
     Note: Loss computation is handled by OnLossStrategy in relation_loss_strategies.py.
     """
@@ -129,16 +134,24 @@ class On(Relation):
         parent: ObjectBase,
         relation_loss_weight: float = 1.0,
         clearance_m: float = 0.01,
+        edge_margin_m: float = DEFAULT_ON_EDGE_MARGIN_M,
     ):
         """
         Args:
             parent: The parent asset that this object should be placed on top of.
             relation_loss_weight: Weight for the relationship loss function.
             clearance_m: Safety clearance above parent's surface in meters (default: 1cm).
+            edge_margin_m: Inward inset from each X/Y edge of the parent's surface in
+                meters (default: 5cm). The child's whole footprint is kept at least this
+                far from the rim. The solver rejects a margin too large for the surface
+                to honor (``2 * edge_margin_m`` wider than ``parent_extent - child_extent``
+                on either axis).
         """
         super().__init__(parent, relation_loss_weight)
         assert clearance_m >= 0.0, f"Clearance must be non-negative, got {clearance_m}"
+        assert edge_margin_m >= 0.0, f"edge_margin_m must be non-negative, got {edge_margin_m}"
         self.clearance_m = clearance_m
+        self.edge_margin_m = edge_margin_m
 
 
 @register_object_relation

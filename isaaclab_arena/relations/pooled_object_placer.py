@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
+from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.utils.random import get_rngs
 
 if TYPE_CHECKING:
@@ -186,10 +186,7 @@ class PooledObjectPlacer:
         """
         self._prepare_seeded_solve(num_layouts * self._placer.params.max_placement_attempts)
         with torch.inference_mode(False):
-            result = self._placer.place(self._objects, num_envs=num_layouts)
-
-        # place() returns a single PlacementResult only when num_envs == 1.
-        all_layouts = result.results if isinstance(result, MultiEnvPlacementResult) else [result]
+            all_layouts = self._placer.place(self._objects, num_envs=num_layouts)
         valid_layouts = [layout for layout in all_layouts if layout.success]
 
         if len(valid_layouts) < num_layouts:

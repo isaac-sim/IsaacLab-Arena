@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
+from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import (
@@ -78,7 +78,7 @@ class ObjectPlacer:
         self,
         objects: list[ObjectBase],
         num_envs: int = 1,
-    ) -> PlacementResult | MultiEnvPlacementResult:
+    ) -> list[PlacementResult]:
         """Place objects according to their spatial relations.
 
         Every environment is solved against its own per-env bounding boxes and
@@ -93,8 +93,7 @@ class ObjectPlacer:
                 placement (one layout per env).
 
         Returns:
-            PlacementResult when num_envs == 1, otherwise a
-            MultiEnvPlacementResult with one layout per environment.
+            One PlacementResult per environment.
         """
         anchor_objects_set, generator = self._prepare_placement(objects)
         max_attempts = self.params.max_placement_attempts
@@ -123,9 +122,7 @@ class ObjectPlacer:
             orientations_per_env = [r.orientations for r in results_per_env]
             self._apply_poses(positions_per_env, anchor_objects_set, orientations_per_env)
 
-        if num_envs == 1:
-            return results_per_env[0]
-        return MultiEnvPlacementResult(results=results_per_env)
+        return results_per_env
 
     def place_ranked_per_env(
         self,
@@ -528,8 +525,8 @@ class ObjectPlacer:
     ) -> bool:
         """Validate each On relation; keep in sync with OnLossStrategy in relation_loss_strategies.py.
 
-        1. X: child's footprint entirely within parent's X extent.
-        2. Y: child's footprint entirely within parent's Y extent.
+        1. X: child's footprint within parent's X extent, inset by the relation's edge_margin_m.
+        2. Y: child's footprint within parent's Y extent, inset by the relation's edge_margin_m.
         3. Z: child_bottom in (parent_top, parent_top+clearance_m], within on_relation_z_tolerance_m.
 
         Args:
@@ -547,15 +544,37 @@ class ObjectPlacer:
                 parent_bbox = env_bboxes[parent]
                 child_world = child_bbox.translated(positions[obj])
                 parent_world = parent_bbox.translated(positions[parent])
+                parent_size = parent_world.max_point - parent_world.min_point
+                child_size = child_world.max_point - child_world.min_point
+
+                m = rel.edge_margin_m
+                # 1) Checking that with the specified margin, the parent is wide enough to place the child on top
+                if m > 0.0:
+                    freespace = parent_size - child_size
+                    # A margin too large for the surface inverts the inset band so containment can never pass.
+                    if torch.any(freespace[0, :2] < 2 * m):
+                        # The maximum feasible margin is the minimum of the freespace on the xy axes.
+                        max_feasible_margin = max(0.0, min(freespace[0, :2]) / 2.0)
+                        # When parent < child, freespace[0, :2] is negative and max_feasible_margin is 0.0.
+                        if max_feasible_margin > 0.0:
+                            if self.params.verbose:
+                                print(
+                                    f"On relation: edge_margin_m={m} m is too large for parent '{parent.name}'. Max"
+                                    f" feasible margin here is {max_feasible_margin:.3f} m. Use a smaller"
+                                    " edge_margin_m."
+                                )
+                            return False
+                # 2) Checking that the child lies within the parent's xy
                 if (
-                    child_world.min_point[0, 0] < parent_world.min_point[0, 0]
-                    or child_world.max_point[0, 0] > parent_world.max_point[0, 0]
-                    or child_world.min_point[0, 1] < parent_world.min_point[0, 1]
-                    or child_world.max_point[0, 1] > parent_world.max_point[0, 1]
+                    child_world.min_point[0, 0] < parent_world.min_point[0, 0] + m
+                    or child_world.max_point[0, 0] > parent_world.max_point[0, 0] - m
+                    or child_world.min_point[0, 1] < parent_world.min_point[0, 1] + m
+                    or child_world.max_point[0, 1] > parent_world.max_point[0, 1] - m
                 ):
                     if self.params.verbose:
-                        print(f"  On relation: '{obj.name}' XY outside parent (retrying)")
+                        print(f"On relation: '{obj.name}' XY outside parent (retrying)")
                     return False
+                # 3) Checking that the child lies within an acceptable z-range.
                 parent_local_top_z: float = parent_bbox.max_point[0, 2].item()
                 child_local_bottom_z: float = child_bbox.min_point[0, 2].item()
                 parent_top_z = parent_local_top_z + positions[parent][2]
@@ -632,7 +651,7 @@ class ObjectPlacer:
             env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
 
         Returns:
-            PlacementValidationResults containing the validation results.
+            PlacementValidationResults with the overlap and on-relation checks.
         """
         no_overlap = self._validate_no_overlap(positions, env_bboxes)
         on_relation = self._validate_on_relations(positions, env_bboxes)

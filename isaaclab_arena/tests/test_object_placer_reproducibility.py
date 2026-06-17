@@ -12,7 +12,7 @@ import pytest
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
+from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -97,13 +97,13 @@ def test_object_placer_same_seed_produces_identical_result():
     desk1, box1_run1, box2_run1 = _create_test_objects()
     objects1 = [desk1, box1_run1, box2_run1]
     placer1 = ObjectPlacer(params=ObjectPlacerParams(placement_seed=seed, solver_params=solver_params))
-    result1 = placer1.place(objects=objects1)
+    (result1,) = placer1.place(objects=objects1)
 
     # Run 2
     desk2, box1_run2, box2_run2 = _create_test_objects()
     objects2 = [desk2, box1_run2, box2_run2]
     placer2 = ObjectPlacer(params=ObjectPlacerParams(placement_seed=seed, solver_params=solver_params))
-    result2 = placer2.place(objects=objects2)
+    (result2,) = placer2.place(objects=objects2)
 
     # Compare by name
     for obj1, obj2 in zip(objects1, objects2):
@@ -121,13 +121,13 @@ def test_object_placer_different_seeds_produce_different_results():
     desk1, box1_run1, box2_run1 = _create_test_objects()
     objects1 = [desk1, box1_run1, box2_run1]
     placer1 = ObjectPlacer(params=ObjectPlacerParams(placement_seed=42, solver_params=solver_params))
-    result1 = placer1.place(objects=objects1)
+    (result1,) = placer1.place(objects=objects1)
 
     # Run 2 with seed 123
     desk2, box1_run2, box2_run2 = _create_test_objects()
     objects2 = [desk2, box1_run2, box2_run2]
     placer2 = ObjectPlacer(params=ObjectPlacerParams(placement_seed=123, solver_params=solver_params))
-    result2 = placer2.place(objects=objects2)
+    (result2,) = placer2.place(objects=objects2)
 
     # Check that at least one non-anchor position differs
     any_different = False
@@ -142,7 +142,7 @@ def test_object_placer_different_seeds_produce_different_results():
 
 
 def test_object_placer_multi_env_returns_multi_env_result():
-    """Test that ObjectPlacer.place with num_envs>1 returns MultiEnvPlacementResult."""
+    """place() with num_envs>1 returns one PlacementResult per env."""
     num_envs = 4
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     desk, box1, box2 = _create_test_objects()
@@ -150,9 +150,8 @@ def test_object_placer_multi_env_returns_multi_env_result():
     placer = ObjectPlacer(params=ObjectPlacerParams(placement_seed=42, solver_params=solver_params))
     result = placer.place(objects, num_envs=num_envs)
 
-    assert isinstance(result, MultiEnvPlacementResult)
-    assert len(result.results) == num_envs
-    for r in result.results:
+    assert len(result) == num_envs
+    for r in result:
         assert isinstance(r, PlacementResult)
         assert box1 in r.positions
         assert box2 in r.positions
@@ -161,7 +160,7 @@ def test_object_placer_multi_env_returns_multi_env_result():
 
 
 def test_object_placer_multi_env_produces_different_positions():
-    """Test that multi-env placement produces different positions across environments."""
+    """Multi-env placement produces different positions across envs."""
     num_envs = 4
     solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3)
     desk, box1, box2 = _create_test_objects()
@@ -169,9 +168,8 @@ def test_object_placer_multi_env_produces_different_positions():
     placer = ObjectPlacer(params=ObjectPlacerParams(placement_seed=42, solver_params=solver_params))
     result = placer.place(objects, num_envs=num_envs)
 
-    assert isinstance(result, MultiEnvPlacementResult)
-    # At least one pair of envs should have different positions for a non-anchor object.
-    positions_box1 = [result.results[e].positions[box1] for e in range(num_envs)]
+    assert len(result) == num_envs
+    positions_box1 = [result[e].positions[box1] for e in range(num_envs)]
     any_different = any(positions_box1[i] != positions_box1[j] for i in range(num_envs) for j in range(i + 1, num_envs))
     assert any_different, "Multi-env placement should produce different positions across environments"
 
@@ -301,7 +299,7 @@ def test_random_yaw_init_applied_yaw_matches_selected_candidate():
     placer = ObjectPlacer(
         params=ObjectPlacerParams(placement_seed=11, solver_params=solver_params, random_yaw_init=True)
     )
-    result = placer.place([desk, box1, box2], num_envs=1)
+    (result,) = placer.place([desk, box1, box2], num_envs=1)
     for box in (box1, box2):
         applied = _yaw_rad_from_quat(box.get_initial_pose().rotation_xyzw)
         assert abs(wrap_angle_to_pi(applied - result.orientations[box])) < 1e-5
@@ -316,7 +314,7 @@ def test_random_yaw_init_composes_marker_yaw():
     placer = ObjectPlacer(
         params=ObjectPlacerParams(placement_seed=3, solver_params=solver_params, random_yaw_init=True)
     )
-    result = placer.place([desk, box1, box2], num_envs=1)
+    (result,) = placer.place([desk, box1, box2], num_envs=1)
     applied = _yaw_rad_from_quat(box1.get_initial_pose().rotation_xyzw)
     assert abs(wrap_angle_to_pi(applied - (marker_yaw + result.orientations[box1]))) < 1e-5
 

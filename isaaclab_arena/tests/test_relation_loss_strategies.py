@@ -143,6 +143,65 @@ def test_on_loss_strategy_constrains_entire_footprint():
     assert loss > 0.0, "Loss should penalize child footprint extending beyond parent"
 
 
+def test_on_loss_strategy_edge_margin_insets_band_by_margin():
+    """The edge margin shifts the valid X band inward by exactly the margin."""
+
+    table = _create_table()  # X extent [0, 1]
+    box = _create_box()  # 0.2m wide, local min at 0
+    strategy = OnLossStrategy(slope=10.0)
+    # Without a margin the rim-aligned upper bound for the origin is 1 - 0.2 = 0.8, so x=0.8 -> loss 0.
+    # A 0.05 margin moves that bound to 0.75, leaving x=0.8 exactly 0.05 over -> loss = slope * 0.05 = 0.5.
+    child_pos = torch.tensor([0.8, 0.4, 0.11])
+
+    loss_no_margin = strategy.compute_loss(
+        On(table, clearance_m=0.01, edge_margin_m=0.0), child_pos, box.bounding_box, table.bounding_box
+    )
+    loss_margin = strategy.compute_loss(
+        On(table, clearance_m=0.01, edge_margin_m=0.05), child_pos, box.bounding_box, table.bounding_box
+    )
+
+    assert torch.isclose(loss_no_margin, torch.tensor(0.0), atol=1e-4)
+    assert torch.isclose(loss_margin, torch.tensor(0.5), atol=1e-4)
+
+
+def test_on_loss_strategy_oversized_child_keeps_plateau_without_margin():
+    """Without a margin, a child wider than the parent keeps a flat-plateau penalty (no centering pull)."""
+
+    table = _create_table()  # X extent [0, 1]
+    wide_box = DummyObject(
+        name="wide_box",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.4, 0.2, 0.15)),
+    )
+    strategy = OnLossStrategy(slope=10.0)
+    relation = On(table, clearance_m=0.01, edge_margin_m=0.0)
+
+    # The valid X band inverts to [-0.4, 0]; the loss is a constant slope * 0.4 = 4.0 anywhere inside it,
+    # so the centered origin (-0.2) and the rim-aligned origin (0.0) carry the *same* nonzero penalty.
+    loss_center = strategy.compute_loss(
+        relation, torch.tensor([-0.2, 0.4, 0.11]), wide_box.bounding_box, table.bounding_box
+    )
+    loss_edge = strategy.compute_loss(
+        relation, torch.tensor([0.0, 0.4, 0.11]), wide_box.bounding_box, table.bounding_box
+    )
+
+    assert torch.isclose(loss_center, torch.tensor(4.0), atol=1e-4)
+    assert torch.isclose(loss_edge, loss_center, atol=1e-4)  # flat plateau: no preferred X position
+
+
+def test_on_loss_strategy_margin_too_large_yields_high_loss():
+    """A margin too wide to fit inverts the band into a high constant loss instead of asserting."""
+
+    table = _create_table()  # X/Y extent [0, 1]
+    box = _create_box()  # 0.2m wide -> max feasible margin = (1 - 0.2) / 2 = 0.4
+    strategy = OnLossStrategy(slope=10.0)
+    relation = On(table, clearance_m=0.01, edge_margin_m=0.5)  # 0.5 > 0.4 -> infeasible
+
+    # Each axis band inverts to [0.5, 0.3]; anywhere inside floors at slope * (0.5 - 0.3) = 2.0.
+    # X and Y both contribute 2.0 and Z is on target -> total 4.0, with no assertion raised.
+    loss = strategy.compute_loss(relation, torch.tensor([0.4, 0.4, 0.11]), box.bounding_box, table.bounding_box)
+    assert torch.isclose(loss, torch.tensor(4.0), atol=1e-4)
+
+
 # =============================================================================
 # NextToLossStrategy tests
 # =============================================================================

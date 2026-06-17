@@ -17,7 +17,7 @@ from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes, get_bounding_box_per_env
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
+from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relation_solver import RelationSolver
@@ -252,9 +252,8 @@ def test_object_placer_heterogeneous_produces_per_env_results():
     placer = ObjectPlacer(params=params)
     result = placer.place(objects, num_envs=num_envs)
 
-    assert isinstance(result, MultiEnvPlacementResult)
-    assert len(result.results) == num_envs
-    for r in result.results:
+    assert len(result) == num_envs
+    for r in result:
         assert hetero_box in r.positions
 
 
@@ -283,10 +282,8 @@ def test_object_placer_heterogeneous_z_height_matches_variant():
     placer = ObjectPlacer(params=params)
     result = placer.place(objects, num_envs=num_envs)
 
-    assert isinstance(result, MultiEnvPlacementResult)
-    # Both envs should have solved z near the desk top + clearance (0.11).
-    # The On loss targets: z = parent_top + clearance - child_min_z = 0.1 + 0.01 - 0.0 = 0.11
-    for env_idx, r in enumerate(result.results):
+    assert len(result) == num_envs
+    for env_idx, r in enumerate(result):
         z = r.positions[hetero][2]
         assert abs(z - 0.11) < 0.05, f"Env {env_idx}: z={z:.4f}, expected ~0.11"
 
@@ -329,10 +326,9 @@ def test_mixed_heterogeneous_and_homogeneous_placement():
     placer = ObjectPlacer(params=params)
     result = placer.place(objects, num_envs=num_envs)
 
-    assert isinstance(result, MultiEnvPlacementResult)
-    assert len(result.results) == num_envs
+    assert len(result) == num_envs
 
-    for env_idx, r in enumerate(result.results):
+    for env_idx, r in enumerate(result):
         assert obj_a in r.positions and obj_x in r.positions
         # Verify z-height is near desk top + clearance for both objects.
         for obj in (obj_a, obj_x):
@@ -365,8 +361,7 @@ def test_heterogeneous_placement_always_returns_per_env_results():
     placer = ObjectPlacer(params=params)
     result = placer.place([desk, hetero], num_envs=4)
 
-    assert isinstance(result, MultiEnvPlacementResult)
-    assert len(result.results) == 4
+    assert len(result) == 4
 
 
 def test_object_placer_place_ranked_per_env_returns_sorted_env_lists():
@@ -424,9 +419,8 @@ def test_object_placer_homogeneous_objects_return_multi_env_result():
     placer = ObjectPlacer(params=params)
     result = placer.place([desk, box], num_envs=2)
 
-    assert isinstance(result, MultiEnvPlacementResult)
-    assert len(result.results) == 2
-    assert all(r.success for r in result.results)
+    assert len(result) == 2
+    assert all(r.success for r in result)
 
 
 # ---------------------------------------------------------------------------
