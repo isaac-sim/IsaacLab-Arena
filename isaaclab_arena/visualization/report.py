@@ -24,6 +24,9 @@ _VIDEO_FILENAME_PATTERN = re.compile(
     r"^(?P<prefix>.+?)(?:-rebuild(?P<rebuild>\d+))?-env(?P<env>\d+)-(?P<camera>.+)-episode-(?P<episode>\d+)\.mp4$"
 )
 
+# Reverse-dated run directory written by ``timestamped_run_dir`` (e.g. ``2026-06-17_14-42-54``).
+_RUN_DIR_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$")
+
 _TEMPLATE_PATH = pathlib.Path(__file__).parent / "report_template.html"
 
 _DEFAULT_TITLE = "Evaluation Report"
@@ -74,14 +77,14 @@ class EvaluationReport:
 def _scan_jobs(root: pathlib.Path) -> list[JobReport]:
     """Recursively scan ``root`` for recorder mp4s and group them into per-job reports.
 
-    Files that do not match the recorder's naming pattern (e.g. the kit-viewport ``rl-video-step-*.mp4``)
-    are ignored. The scan recurses, so each per-job sub-directory written by the eval runner becomes a
-    job; videos written directly under ``root`` (the policy runner) form a single unnamed job. The
-    rebuild index encoded in the filename is used only to order and disambiguate episodes — episodes are
-    renumbered into a contiguous per-(job, env) index and rebuilds are not surfaced.
+    Intended for use with two different output folder structures:
+    - The eval_runner.py writes one per-job sub-directory under ``root``.
+    - The policy_runner.py writes directly under ``root``.
+
+    Files that do not match the recorder's naming pattern are ignored.
 
     Args:
-        root: Directory of recorded rollout videos to scan.
+        root: Directory of evaluation results to scan.
     """
     # job -> env -> {(rebuild, recorder_episode): {camera: relative_path}}
     raw: dict[str, dict[int, dict[tuple[int, int], dict[str, str]]]] = {}
@@ -234,15 +237,43 @@ def write_report(video_dir: str | pathlib.Path, serve: bool, port: int = _DEFAUL
     return output
 
 
+def _resolve_results_dir(video_dir: pathlib.Path) -> pathlib.Path:
+    """Return the directory to report on, descending into the most recent dated run dir when present.
+
+    When ``video_dir`` is a parent that holds reverse-dated run sub-directories (as written by
+    ``timestamped_run_dir``, e.g. ``isaaclab_arena/output``), the newest one is used so the user can
+    point at the output root and get the latest results. Otherwise ``video_dir`` is returned unchanged.
+
+    Args:
+        video_dir: Directory the user pointed at.
+    """
+    if not video_dir.is_dir():
+        return video_dir
+    run_dirs = sorted(child for child in video_dir.iterdir() if child.is_dir() and _RUN_DIR_PATTERN.match(child.name))
+    if not run_dirs:
+        return video_dir
+    # Names sort chronologically, so the last is the most recent run.
+    most_recent = run_dirs[-1]
+    print(f"Using most recent run directory in {video_dir}: {most_recent.name}")
+    return most_recent
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Build and serve an HTML evaluation report of the per-camera per-episode rollout videos in a folder."
-            " The report (index.html) is written into the folder and served over HTTP; because the dev container"
-            " runs with --net=host, the printed http://localhost:<port> URL opens straight from the host browser."
+            "Build and serve an HTML evaluation report of evaluation results."
+            " The report (index.html) is written alongside the evaluation data into the folder and served over HTTP"
         )
     )
-    parser.add_argument("video_dir", type=str, help="Folder of recorded rollout videos to scan.")
+    parser.add_argument(
+        "--video_dir",
+        required=True,
+        type=str,
+        help=(
+            "Folder of recorded rollout videos to scan. May also be a parent of the reverse-dated run"
+            " directories (e.g. the output root), in which case the most recent run is reported on."
+        ),
+    )
     parser.add_argument(
         "--port", type=int, default=_DEFAULT_PORT, help=f"Port to serve on. Defaults to {_DEFAULT_PORT}."
     )
@@ -251,7 +282,8 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
-    write_report(args.video_dir, serve=True, port=args.port)
+    video_dir = _resolve_results_dir(pathlib.Path(args.video_dir))
+    write_report(video_dir, serve=True, port=args.port)
 
 
 if __name__ == "__main__":
