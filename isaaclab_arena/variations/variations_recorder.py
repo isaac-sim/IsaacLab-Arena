@@ -69,6 +69,14 @@ class VariationRecorder:
         # Records are keyed by: "{asset_name}.{variation_name}"
         self.records: dict[str, VariationRecord] = {}
 
+    def __getitem__(self, key: str) -> VariationRecord:
+        """Return the record stored under "{asset_name}.{variation_name}"."""
+        return self.records[key]
+
+    def __contains__(self, key: str) -> bool:
+        """Whether a record is stored under "{asset_name}.{variation_name}"."""
+        return key in self.records
+
     def attach(self, variations: dict[str, list[VariationBase]]) -> None:
         """Attach every enabled variation in ``variations`` under "{asset_name}.{variation_name}"."""
         for asset_name, asset_variations in variations.items():

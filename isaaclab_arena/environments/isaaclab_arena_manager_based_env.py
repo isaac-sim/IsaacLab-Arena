@@ -25,11 +25,18 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         variations_recorder: VariationRecorder | None = None,
         **kwargs,
     ):
-        assert (
-            variations_recorder is not None
-        ), "IsaacLabArenaManagerBasedRLEnv requires a variations_recorder. Build the env through ArenaEnvBuilder"
-        self.variations_recorder = variations_recorder
+        self._variations_recorder = variations_recorder
         super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
+
+    @property
+    def variations_recorder(self) -> VariationRecorder | None:
+        """The recorder of variation samples, or ``None`` if the env was not built with one."""
+        if self._variations_recorder is None:
+            print(
+                "[WARNING] variations_recorder is None; no variation samples were recorded. "
+                "Build the env through ArenaEnvBuilder to record variations."
+            )
+        return self._variations_recorder
 
     def load_managers(self) -> None:
         super().load_managers()

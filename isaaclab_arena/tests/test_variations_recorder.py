@@ -105,7 +105,7 @@ def test_recorder_skips_disabled_variations():
     recorder = VariationRecorder()
     recorder.attach({"asset": [variation]})
     assert "asset.recorder_test" not in recorder
-    assert recorder.records == []
+    assert recorder.records == {}
 
 
 def test_recorder_duplicate_asset_name_asserts():
