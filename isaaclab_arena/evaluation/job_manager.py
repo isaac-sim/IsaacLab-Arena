@@ -23,6 +23,7 @@ class Job:
         name: str,
         num_envs: int,
         arena_env_args: list[str],
+        arena_env_args_dict: dict,
         policy_type: str,
         num_steps: int = None,
         num_episodes: int = None,
@@ -31,15 +32,14 @@ class Job:
         status: Status = None,
         language_instruction: str = None,
         variations: list[str] = None,
-        task_name: str = None,
-        embodiment: str = None,
-        env_params: dict = None,
     ):
         """Initialize a Job instance.
 
         Args:
             name: Job name, used to identify the job in the queue and in the logs.
-            arena_env_args: arguments for configuring the arena environment
+            arena_env_args: arguments for configuring the arena environment as a CLI args list.
+            arena_env_args_dict: original arena_env_args dict from the job config, kept for
+                serialization (e.g. episode records) without re-parsing the CLI list.
             num_envs: Number of environments to simulate
             num_steps: Number of steps to run the policy for (mutually exclusive with num_episodes)
             num_episodes: Number of episodes to run the policy for (mutually exclusive with num_steps)
@@ -52,12 +52,10 @@ class Job:
                 takes precedence over the task's own description.
             variations: Hydra variation override strings (e.g. ``"cracker_box.color.enabled=true"``)
                 applied when composing the environment cfg. Defaults to no overrides.
-            task_name: Environment/task name (e.g. "put_item_in_fridge_and_close_door").
-            embodiment: Robot embodiment name (e.g. "gr1_joint").
-            env_params: Raw arena_env_args dict from the job config.
         """
         self.name = name
         self.arena_env_args = arena_env_args
+        self.arena_env_args_dict = arena_env_args_dict
         self.variations = variations if variations is not None else []
         assert num_envs > 0, "num_envs must be greater than 0"
         assert not (
@@ -71,9 +69,6 @@ class Job:
         self.policy_type = policy_type
         self.policy_config_dict = policy_config_dict if policy_config_dict is not None else {}
         self.language_instruction = language_instruction
-        self.task_name = task_name
-        self.embodiment = embodiment
-        self.env_params = env_params if env_params is not None else {}
         self.status = status if status is not None else Status.PENDING
         self.start_time = None
         self.end_time = None
@@ -119,13 +114,11 @@ class Job:
         else:
             status = Status.PENDING
         num_envs = data["arena_env_args"].get("num_envs", 1)
-        task_name = data["arena_env_args"].get("environment")
-        embodiment = data["arena_env_args"].get("embodiment")
-        env_params = dict(data["arena_env_args"])
 
         return cls(
             name=data["name"],
             arena_env_args=cls.convert_args_dict_to_cli_args_list(data["arena_env_args"]),
+            arena_env_args_dict=dict(data["arena_env_args"]),
             policy_type=data["policy_type"],
             num_envs=num_envs,
             num_steps=num_steps,
@@ -135,9 +128,6 @@ class Job:
             status=status,
             language_instruction=data.get("language_instruction"),
             variations=cls.convert_variations_dict_to_hydra_overrides(data.get("variations", {})),
-            task_name=task_name,
-            embodiment=embodiment,
-            env_params=env_params,
         )
 
     @classmethod

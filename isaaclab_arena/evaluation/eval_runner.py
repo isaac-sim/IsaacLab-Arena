@@ -15,7 +15,6 @@ import sys
 import tempfile
 import torch
 import traceback
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -187,33 +186,14 @@ def _stamp_path(path: str, run_ts: str) -> str:
     return os.path.join(final, run_ts)
 
 
-def _extract_hdf5_path(env) -> str | None:
-    """Return the HDF5 output path from env's recorder config, or None."""
-    with contextlib.suppress(Exception):
-        cfg = env.unwrapped.cfg
-        if hasattr(cfg, "recorders") and cfg.recorders is not None:
-            return str(Path(cfg.recorders.dataset_export_dir_path) / (cfg.recorders.dataset_filename + ".hdf5"))
-    return None
-
-
 def _write_job_record(
     record_dir: str,
     job: Job,
     metrics: "MetricsDataCollection | None",
-    video_dir: str | None,
     env=None,
-    hdf5_path: str | None = None,
 ) -> str:
     """Write a JSON record for one completed or failed job."""
     os.makedirs(record_dir, exist_ok=True)
-
-    video_paths: list[str] = []
-    if video_dir:
-        job_video_dir = os.path.join(video_dir, job.name)
-        if os.path.isdir(job_video_dir):
-            video_paths = sorted(
-                os.path.join(job_video_dir, n) for n in os.listdir(job_video_dir) if n.endswith(".mp4")
-            )
 
     wall_time = None
     if job.start_time is not None and job.end_time is not None:
@@ -223,9 +203,6 @@ def _write_job_record(
     if language_instruction is None and env is not None:
         with contextlib.suppress(Exception):
             language_instruction = env.unwrapped.cfg.task_description
-
-    if hdf5_path is None and env is not None:
-        hdf5_path = _extract_hdf5_path(env)
 
     plain_metrics = metrics_to_plain_python_types(metrics) if metrics else {}
     plain_metrics.pop("subtask_success_rate", None)
@@ -239,9 +216,7 @@ def _write_job_record(
     record = {
         "schema_version": "1.0",
         "job_name": job.name,
-        "task_name": job.task_name,
-        "embodiment": job.embodiment,
-        "env_params": dict(job.env_params),
+        "arena_env_args": job.arena_env_args_dict,
         "policy_type": job.policy_type,
         "policy_config": dict(job.policy_config_dict),
         "num_envs": job.num_envs,
@@ -251,10 +226,7 @@ def _write_job_record(
         "status": job.status.value,
         "metrics": plain_metrics,
         "per_episode_metrics": per_episode_metrics,
-        "hdf5_path": hdf5_path,
-        "video_paths": video_paths,
         "wall_time_seconds": wall_time,
-        "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
     path = os.path.join(record_dir, f"{job.name}.json")
@@ -368,7 +340,6 @@ def main():
             policy = None
 
             metrics_per_run: list[MetricsDataCollection] = []
-            last_hdf5_path: str | None = None
 
             # num_episodes is the total across rebuilds, so split it over the rebuilds.
             num_episodes_per_rebuild = _split_episodes_across_rebuilds(job.num_episodes, job.num_rebuilds, job.name)
@@ -415,7 +386,6 @@ def main():
                         language_instruction=job.language_instruction,
                     )
 
-                    last_hdf5_path = _extract_hdf5_path(env)
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
 
                     # users may not specify metrics for a task, although it's not recommended
@@ -426,13 +396,7 @@ def main():
                     job_manager.complete_job(job, metrics={}, status=Status.FAILED)
                     if args_cli.episode_record_dir:
                         with contextlib.suppress(Exception):
-                            _write_job_record(
-                                args_cli.episode_record_dir,
-                                job,
-                                None,
-                                run_video_dir if recording else None,
-                                env=env,
-                            )
+                            _write_job_record(args_cli.episode_record_dir, job, None, env=env)
                     print(f"Job {job.name} failed with error: {e}")
                     print(f"Traceback: {traceback.format_exc()}")
                     if not args_cli.continue_on_error:
@@ -456,13 +420,7 @@ def main():
 
             if args_cli.episode_record_dir and aggregated_metrics is not None:
                 with contextlib.suppress(Exception):
-                    rec_path = _write_job_record(
-                        args_cli.episode_record_dir,
-                        job,
-                        aggregated_metrics,
-                        run_video_dir if recording else None,
-                        hdf5_path=last_hdf5_path,
-                    )
+                    rec_path = _write_job_record(args_cli.episode_record_dir, job, aggregated_metrics)
                     print(f"[INFO] Episode record written to: {rec_path}")
 
         job_manager.print_jobs_info()
