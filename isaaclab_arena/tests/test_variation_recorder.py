@@ -19,7 +19,7 @@ from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 from isaaclab_arena.variations.choice_sampler import ChoiceSampler
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
-from isaaclab_arena.variations.variations_recorder import VariationRecorder
+from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 HEADLESS = True
 

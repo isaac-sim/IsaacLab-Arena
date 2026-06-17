@@ -37,7 +37,7 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cf
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBase
-from isaaclab_arena.variations.variations_recorder import VariationRecorder
+from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 
 class ArenaEnvBuilder:
@@ -175,8 +175,8 @@ class ArenaEnvBuilder:
 
         # Attach the variation recorder before any sampling, so it observes both build-time samples
         # (drawn just below) and run-time samples (drawn during simulation).
-        variations_recorder = VariationRecorder()
-        variations_recorder.attach(self.get_all_variations())
+        variation_recorder = VariationRecorder()
+        variation_recorder.attach(self.get_all_variations())
 
         # Apply build-time variations now, before scene_cfg is materialised.
         self._apply_build_time_variations()
@@ -343,7 +343,7 @@ class ArenaEnvBuilder:
             if presets == "newton":
                 env_cfg.scene.replicate_physics = True
 
-        env_kwargs: dict[str, Any] = {"variations_recorder": variations_recorder}
+        env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
         return env_cfg, env_kwargs
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:
