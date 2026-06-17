@@ -65,11 +65,11 @@ def test_successive_placements_without_seed_produce_different_layouts():
 
     desk1, box1_a, box2_a = _create_test_objects()
     placer_a = ObjectPlacer(params=params)
-    result_a = placer_a.place([desk1, box1_a, box2_a], num_envs=1)
+    (result_a,) = placer_a.place([desk1, box1_a, box2_a], num_envs=1)
 
     desk2, box1_b, box2_b = _create_test_objects()
     placer_b = ObjectPlacer(params=params)
-    result_b = placer_b.place([desk2, box1_b, box2_b], num_envs=1)
+    (result_b,) = placer_b.place([desk2, box1_b, box2_b], num_envs=1)
 
     any_different = False
     for obj_a, obj_b in zip([box1_a, box2_a], [box1_b, box2_b]):
@@ -84,7 +84,6 @@ def test_placement_without_seed_multi_env_gives_different_layouts():
 
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
     num_envs = 4
@@ -99,8 +98,8 @@ def test_placement_without_seed_multi_env_gives_different_layouts():
     placer = ObjectPlacer(params=params)
     result = placer.place([desk, box1, box2], num_envs=num_envs)
 
-    assert isinstance(result, MultiEnvPlacementResult)
-    positions_box1 = [result.results[env_idx].positions[box1] for env_idx in range(num_envs)]
+    assert len(result) == num_envs
+    positions_box1 = [result[env_idx].positions[box1] for env_idx in range(num_envs)]
     any_different = any(positions_box1[i] != positions_box1[j] for i in range(num_envs) for j in range(i + 1, num_envs))
     assert any_different, "Unseeded multi-env placement should produce different positions across environments"
 
@@ -121,11 +120,11 @@ def test_successive_seeded_placements_produce_same_layout():
 
     desk1, box1_a, box2_a = _create_test_objects()
     placer_a = ObjectPlacer(params=params)
-    result_a = placer_a.place([desk1, box1_a, box2_a], num_envs=1)
+    (result_a,) = placer_a.place([desk1, box1_a, box2_a], num_envs=1)
 
     desk2, box1_b, box2_b = _create_test_objects()
     placer_b = ObjectPlacer(params=params)
-    result_b = placer_b.place([desk2, box1_b, box2_b], num_envs=1)
+    (result_b,) = placer_b.place([desk2, box1_b, box2_b], num_envs=1)
 
     for obj_a, obj_b in zip([box1_a, box2_a], [box1_b, box2_b]):
         assert (

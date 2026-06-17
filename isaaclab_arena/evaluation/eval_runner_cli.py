@@ -14,18 +14,38 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         default="isaaclab_arena_environments/eval_jobs_configs/zero_action_jobs_config.json",
         help="Path to the eval jobs config file.",
     )
-    parser.add_argument("--video", action="store_true", default=False, help="Record videos for each eval job.")
     parser.add_argument(
-        "--camera_video",
+        "--record_viewport_video",
+        action="store_true",
+        default=False,
+        help="Record viewport videos for each eval job.",
+    )
+    parser.add_argument(
+        "--record_camera_video",
         action="store_true",
         default=False,
         help="Record one mp4 per (env, camera, episode) from obs['camera_obs'] for each eval job.",
     )
     parser.add_argument(
-        "--output_dir",
+        "--video_base_dir",
         type=str,
-        default="/eval/output",
-        help="Root output directory for recorded videos and per-episode results. Each job gets a subdirectory.",
+        default="/eval/videos",
+        help=(
+            "Base directory for recorded videos and per-episode results; a reverse-dated run"
+            " subdirectory and per-job subdirectory are added."
+        ),
+    )
+    parser.add_argument(
+        "--serve_evaluation_report",
+        action="store_true",
+        default=False,
+        help="After all jobs finish, serve the evaluation report over HTTP.",
+    )
+    parser.add_argument(
+        "--evaluation_report_port",
+        type=int,
+        default=8000,
+        help="Port to serve the evaluation report on when --serve_evaluation_report is set. Defaults to 8000.",
     )
     parser.add_argument(
         "--continue_on_error",

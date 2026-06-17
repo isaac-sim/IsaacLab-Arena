@@ -33,25 +33,38 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
         help="Language instruction for the policy. Takes precedence over the task's own description.",
     )
     parser.add_argument(
-        "--video",
+        "--record_viewport_video",
         action="store_true",
         default=False,
-        help="Record an mp4 video of the rollout (uses gymnasium.wrappers.RecordVideo).",
+        help="Record an mp4 video of the rollout viewport (uses gymnasium.wrappers.RecordVideo).",
     )
     parser.add_argument(
-        "--output_dir",
-        "--output-dir",
+        "--video_base_dir",
         type=str,
-        default="/eval/output",
-        help="Root output directory for recorded videos and per-episode results. Created if missing.",
+        default="/eval/videos",
+        help=(
+            "Base directory for recorded videos and per-episode results; a reverse-dated run"
+            " subdirectory is added per run."
+        ),
     )
     parser.add_argument(
-        "--camera_video",
-        "--camera-video",
+        "--record_camera_video",
         action="store_true",
         default=False,
         help=(
             "Record one mp4 per camera in obs['camera_obs'] (what the policy actually sees)."
-            " Independent of --video; use either or both."
+            " Independent of --record_viewport_video; use either or both."
         ),
+    )
+    parser.add_argument(
+        "--serve_evaluation_report",
+        action="store_true",
+        default=False,
+        help="After all jobs finish, serve the evaluation report over HTTP.",
+    )
+    parser.add_argument(
+        "--evaluation_report_port",
+        type=int,
+        default=8000,
+        help="Port to serve the evaluation report on when --serve_evaluation_report is set. Defaults to 8000.",
     )
