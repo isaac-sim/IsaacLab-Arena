@@ -37,9 +37,9 @@ if TYPE_CHECKING:
 def load_env(
     arena_env_args: list[str],
     job_name: str,
+    run_ts: str,
     variations: list[str] | None = None,
     render_mode: str | None = None,
-    run_dir: str | None = None,
 ):
 
     args_parser = get_isaaclab_arena_environments_cli_parser()
@@ -50,10 +50,9 @@ def load_env(
     env_name, env_cfg = arena_builder.build_registered()
 
     # Timestamp suffix prevents EAGAIN from a stale lock left by a crashed previous run.
-    # Reuse the run_dir basename so the HDF5 filename shares the same timestamp as all other outputs.
+    # Reuse run_ts so the HDF5 filename shares the same timestamp as all other outputs.
     if hasattr(env_cfg, "recorders") and env_cfg.recorders is not None:
-        ts = os.path.basename(run_dir) if run_dir else datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        env_cfg.recorders.dataset_filename = f"dataset_{job_name}_{ts}"
+        env_cfg.recorders.dataset_filename = f"dataset_{job_name}_{run_ts}"
 
     env = arena_builder.make_registered(env_cfg, render_mode=render_mode)
     # Don't reset here - rollout_policy() will reset the env. Every reset triggers a new episode, initializing recorder & creating a new hdf5 entry.
@@ -171,6 +170,12 @@ def _split_episodes_across_rebuilds(num_episodes: int | None, num_rebuilds: int,
     for rebuild_idx in range(remainder):
         episodes_per_rebuild[rebuild_idx] += 1
     return episodes_per_rebuild
+
+
+def _stamp_path(path: str, run_ts: str) -> str:
+    """Insert run_ts between the parent dir and the final segment of path."""
+    d, final = os.path.split(path.rstrip(os.sep))
+    return os.path.join(d, run_ts, final) if d else os.path.join(final, run_ts)
 
 
 def _write_job_record(
@@ -330,15 +335,15 @@ def main():
 
         # One reverse-dated run directory shared by all jobs; each job gets a subdirectory within it.
         recording = args_cli.record_viewport_video or args_cli.record_camera_video
-        run_dir = timestamped_run_dir(args_cli.video_base_dir)
-        run_video_dir = run_dir if recording else args_cli.video_base_dir
+        run_ts = timestamped_run_dir("")
+        run_video_dir = _stamp_path(args_cli.video_base_dir, run_ts) if recording else args_cli.video_base_dir
         if args_cli.record_viewport_video:
             os.makedirs(run_video_dir, exist_ok=True)
             print(f"[INFO] Video recording enabled. Videos will be saved to: {run_video_dir}")
         if args_cli.metrics_file is not None:
-            args_cli.metrics_file = os.path.join(run_dir, os.path.basename(args_cli.metrics_file))
+            args_cli.metrics_file = _stamp_path(args_cli.metrics_file, run_ts)
         if args_cli.episode_record_dir is not None:
-            args_cli.episode_record_dir = os.path.join(run_dir, os.path.basename(args_cli.episode_record_dir))
+            args_cli.episode_record_dir = _stamp_path(args_cli.episode_record_dir, run_ts)
             print(f"[INFO] Episode records will be written to: {args_cli.episode_record_dir}")
 
         metrics_logger = MetricsLogger(metrics_file=args_cli.metrics_file or "metrics.json")
@@ -370,7 +375,7 @@ def main():
                         job.name,
                         variations=job.variations,
                         render_mode=video_cfg.render_mode,
-                        run_dir=run_dir,
+                        run_ts=run_ts,
                     )
 
                     policy = get_policy_from_job(job)
