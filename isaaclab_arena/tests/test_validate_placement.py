@@ -169,7 +169,7 @@ def test_on_relation_containment_uses_rotated_bbox():
     placer = ObjectPlacer(params=ObjectPlacerParams())
     desk = _make_desk()  # XY in [-0.5, 0.5]
     child = _make_long_box("child")  # x in [-0.3, 0.3], y in [-0.05, 0.05]
-    child.add_relation(On(desk, clearance_m=0.01))
+    child.add_relation(On(desk, clearance_m=0.01, edge_margin_m=0.0))
     # Near the +Y rim: axis-aligned half-Y 0.05 stays inside; rotated 90° half-Y 0.3 spills past +0.5.
     positions = {desk: (0.0, 0.0, 0.0), child: (0.0, 0.44, 0.105)}
 
@@ -243,3 +243,28 @@ def test_on_relation_check_child_outside_xy_returns_false():
     box.add_relation(On(desk))
     positions = {desk: (0.0, 0.0, 0.0), box: (10.0, 10.0, 0.1)}
     assert placer._validate_on_relations(positions, _env_bboxes(positions)) is False
+
+
+def _validate_box_on_desk(edge_margin_m: float, box_x: float) -> bool:
+    """Validate a 0.2m box at (box_x, 0) on a desk (XY in [-0.5, 0.5]) under the given edge margin."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    desk = _make_desk()
+    box = _make_box("box", size=0.2)
+    box.add_relation(On(desk, edge_margin_m=edge_margin_m))
+    positions = {desk: (0.0, 0.0, 0.0), box: (box_x, 0.0, 0.16)}
+    return placer._validate_on_relations(positions, _env_bboxes(positions))
+
+
+def test_on_relation_edge_margin_within_inset_band_passes():
+    # Box right edge 0.3 + 0.1 == rim 0.5 - margin 0.1: on the inset bound, still inside.
+    assert _validate_box_on_desk(edge_margin_m=0.1, box_x=0.3) is True
+
+
+def test_on_relation_edge_margin_inside_rim_but_in_margin_gap_fails():
+    # Box right edge 0.45 is inside the rim but past the inset bound 0.4 (in the margin gap).
+    assert _validate_box_on_desk(edge_margin_m=0.1, box_x=0.35) is False
+
+
+def test_on_relation_edge_margin_too_large_for_surface_rejected():
+    # Desk free span 0.8 caps the margin at 0.4; 0.5 inverts the inset band so containment fails.
+    assert _validate_box_on_desk(edge_margin_m=0.5, box_x=0.0) is False

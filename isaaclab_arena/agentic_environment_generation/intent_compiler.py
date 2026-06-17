@@ -10,6 +10,7 @@ from isaaclab_arena.agentic_environment_generation.asset_matcher import (
     IntentResolutionTraceEvent,
     match_asset,
 )
+from isaaclab_arena.agentic_environment_generation.default_params import INITIAL_STATE_SPEC_ID
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec, Item
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
@@ -21,8 +22,6 @@ from isaaclab_arena.environments.arena_env_graph_types import (
     SpatialRelationSpec,
     TaskSpec,
 )
-
-_INITIAL_STATE_SPEC_ID = "state_initial"
 
 
 class IntentCompiler:
@@ -53,7 +52,11 @@ class IntentCompiler:
         """``True`` if the last :meth:`compile` call produced any error-stage trace events."""
         return bool(self.resolution_errors)
 
-    def compile(self, spec: EnvironmentIntentSpec, env_name: str | None = None) -> ArenaEnvInitialGraphSpec:
+    def compile(
+        self,
+        spec: EnvironmentIntentSpec,
+        env_name: str | None = None,
+    ) -> ArenaEnvInitialGraphSpec:
         """Compile an :class:`EnvironmentIntentSpec` into an :class:`ArenaEnvInitialGraphSpec`.
 
         Args:
@@ -150,7 +153,7 @@ class IntentCompiler:
             if constraint is not None:
                 constraints.append(constraint)
         return ArenaEnvGraphStateSpec(
-            id=_INITIAL_STATE_SPEC_ID,
+            id=INITIAL_STATE_SPEC_ID,
             is_delta=False,
             spatial_constraints=constraints,
             task_constraints=[],
@@ -173,7 +176,7 @@ class IntentCompiler:
             return None
 
         reference_part = f"_{rel.reference}" if rel.reference is not None else ""
-        constraint_id = f"{_INITIAL_STATE_SPEC_ID}_{index}_{rel.kind}{reference_part}_{rel.subject}"
+        constraint_id = f"{INITIAL_STATE_SPEC_ID}_{index}_{rel.kind}{reference_part}_{rel.subject}"
         self.trace.append(IntentResolutionTraceEvent(f"{stage_prefix}.ok", rel.subject, rel.reference, note=rel.kind))
         return ArenaEnvGraphSpatialRelationSpec(
             id=constraint_id,
