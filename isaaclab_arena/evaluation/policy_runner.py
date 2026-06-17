@@ -19,7 +19,7 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppCont
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
 from isaaclab_arena.utils.random import set_seed
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir, wrap_env_for_video
-from isaaclab_arena.visualization.report import write_report
+from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
@@ -242,14 +242,12 @@ def main():
         # Close the environment.
         env.close()
 
-        # Write an HTML report of the per-camera per-episode videos (and serve it when requested).
-        # Only the local rank 0 writes it, to avoid races on a shared video dir.
-        if video_cfg.record_camera_video and get_local_rank() == 0:
-            write_report(
-                video_cfg.video_base_dir,
-                serve=args_cli.serve_evaluation_report,
-                port=args_cli.evaluation_report_serve_port,
-            )
+        # Always write the evaluation report (empty when nothing was recorded), and serve it on request.
+        # Only the local rank 0 writes/serves it, to avoid races on a shared output dir.
+        if get_local_rank() == 0:
+            report_path = build_report(video_cfg.video_base_dir)
+            if args_cli.serve_evaluation_report:
+                serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
 
 
 if __name__ == "__main__":

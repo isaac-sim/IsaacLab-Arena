@@ -160,31 +160,27 @@ def _render_job_section(job: JobReport) -> str:
 
 def render_report(report: EvaluationReport) -> str:
     """Render ``report`` into a self-contained HTML document using the report template."""
-    sections = "\n".join(_render_job_section(job) for job in report.jobs)
     num_episodes = sum(len(job.episodes) for job in report.jobs)
     summary = f"{len(report.jobs)} job(s) &middot; {num_episodes} episode(s)"
+    sections = "\n".join(_render_job_section(job) for job in report.jobs) or "<p>No results recorded yet.</p>"
     template = string.Template(_TEMPLATE_PATH.read_text(encoding="utf-8"))
     return template.substitute(title=html.escape(report.title), summary=summary, sections=sections)
 
 
-def build_report(video_dir: str | pathlib.Path, title: str = _DEFAULT_TITLE) -> pathlib.Path | None:
-    """Scan ``video_dir`` for recorder mp4s and write the report ``index.html``, returning its path.
+def build_report(video_dir: str | pathlib.Path, title: str = _DEFAULT_TITLE) -> pathlib.Path:
+    """Scan ``video_dir`` for results and write the report ``index.html`` into it, returning its path.
 
-    Returns ``None`` (rather than raising) when ``video_dir`` does not exist or holds no recorder
-    videos, so callers can print a hint instead of crashing.
+    The report is always written (the directory is created if missing); when no results are present the
+    report is simply empty. Writing is independent of serving — see ``serve_until_ctrl_c``.
 
     Args:
-        video_dir: Directory of recorded rollout videos to scan (the report is written here).
+        video_dir: Directory of recorded results to scan (the report is written here).
         title: Title and heading for the generated page.
     """
     video_dir = pathlib.Path(video_dir).resolve()
-    if not video_dir.is_dir():
-        return None
+    video_dir.mkdir(parents=True, exist_ok=True)
 
     report = EvaluationReport(title=title, jobs=_scan_jobs(video_dir))
-    if report.is_empty:
-        return None
-
     output = video_dir / "index.html"
     output.write_text(render_report(report), encoding="utf-8")
     num_episodes = sum(len(job.episodes) for job in report.jobs)
@@ -213,28 +209,6 @@ def serve_until_ctrl_c(directory: pathlib.Path, port: int, filename: str) -> Non
             httpd.serve_forever()
         except KeyboardInterrupt:
             print("\nStopping server.")
-
-
-def write_report(video_dir: str | pathlib.Path, serve: bool, port: int = _DEFAULT_PORT) -> pathlib.Path | None:
-    """Build the evaluation report for ``video_dir`` and, when ``serve`` is set, serve it until interrupted.
-
-    Prints a hint and returns ``None`` when no recorder videos are found. When not serving, prints the
-    command to view the report later.
-
-    Args:
-        video_dir: Directory of recorded rollout videos to scan and report on.
-        serve: Whether to serve the report over HTTP (blocks until Ctrl+C) once built.
-        port: TCP port to serve the report on.
-    """
-    output = build_report(video_dir)
-    if output is None:
-        print(f"No per-camera videos found in {video_dir}; nothing to report (did you pass --record_camera_video?).")
-        return None
-    if serve:
-        serve_until_ctrl_c(output.parent, port, output.name)
-    else:
-        print(f"To view it, run: python isaaclab_arena/visualization/report.py {video_dir}")
-    return output
 
 
 def _resolve_results_dir(video_dir: pathlib.Path) -> pathlib.Path:
@@ -283,7 +257,8 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     args = _parse_args()
     video_dir = _resolve_results_dir(pathlib.Path(args.video_dir))
-    write_report(video_dir, serve=True, port=args.port)
+    output = build_report(video_dir)
+    serve_until_ctrl_c(output.parent, args.port, output.name)
 
 
 if __name__ == "__main__":

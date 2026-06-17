@@ -25,7 +25,7 @@ from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir, wrap_env_for_video
-from isaaclab_arena.visualization.report import write_report
+from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
@@ -254,8 +254,8 @@ def main():
         job_manager.print_jobs_info()
 
         # One reverse-dated run directory shared by all jobs; each job gets a subdirectory within it.
-        recording = args_cli.record_viewport_video or args_cli.record_camera_video
-        run_video_dir = timestamped_run_dir(args_cli.video_base_dir) if recording else args_cli.video_base_dir
+        # Always dated so every run produces its own report dir, recording or not.
+        run_video_dir = timestamped_run_dir(args_cli.video_base_dir)
 
         if args_cli.record_viewport_video:
             os.makedirs(run_video_dir, exist_ok=True)
@@ -339,14 +339,12 @@ def main():
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()
 
-        # Write one HTML report covering the whole run (and serve it when requested).
-        # The report scans the run dir recursively, so each job's sub-directory becomes its own section.
-        if args_cli.record_camera_video:
-            write_report(
-                run_video_dir,
-                serve=args_cli.serve_evaluation_report,
-                port=args_cli.evaluation_report_serve_port,
-            )
+        # Always write one HTML report covering the whole run (empty when nothing was recorded), and
+        # serve it on request. The report scans the run dir recursively, so each job's sub-directory
+        # becomes its own section.
+        report_path = build_report(run_video_dir)
+        if args_cli.serve_evaluation_report:
+            serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
 
 
 if __name__ == "__main__":

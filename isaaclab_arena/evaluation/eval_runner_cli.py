@@ -38,12 +38,12 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         default=False,
         help=(
             "After all jobs finish, serve the evaluation report over HTTP until interrupted. The report"
-            " (index.html) covering the whole run is written into the video dir automatically whenever"
-            " --record_camera_video is set; this flag additionally serves it."
+            " (index.html) covering the whole run is always written to the output dir (empty if nothing"
+            " was recorded); this flag additionally serves it."
         ),
     )
     parser.add_argument(
-        "--evaluation_report_serve_port",
+        "--evaluation_report_port",
         type=int,
         default=8000,
         help="Port to serve the evaluation report on when --serve_evaluation_report is set. Defaults to 8000.",
