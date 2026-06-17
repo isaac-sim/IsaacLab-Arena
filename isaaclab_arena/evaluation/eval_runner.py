@@ -193,7 +193,8 @@ def _write_job_record(
     env=None,
 ) -> str:
     """Write a JSON record for one completed or failed job."""
-    os.makedirs(record_dir, exist_ok=True)
+    path = os.path.join(record_dir, f"{job.name}.json")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
 
     wall_time = None
     if job.start_time is not None and job.end_time is not None:
@@ -228,7 +229,6 @@ def _write_job_record(
         "wall_time_seconds": wall_time,
     }
 
-    path = os.path.join(record_dir, f"{job.name}.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(record, f, indent=2)
     return path

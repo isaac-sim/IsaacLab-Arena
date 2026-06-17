@@ -99,7 +99,6 @@ def rollout_policy(
                     )
                     env_ids = (terminated | truncated).nonzero().flatten()
                     policy.reset(env_ids=env_ids)
-
                     # Break if number of episodes is reached
                     completed_episodes = env_ids.shape[0]
                     num_episodes_completed += completed_episodes
