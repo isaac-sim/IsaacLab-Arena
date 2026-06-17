@@ -23,6 +23,7 @@ class Job:
         name: str,
         num_envs: int,
         arena_env_args: list[str],
+        arena_env_args_dict: dict,
         policy_type: str,
         num_steps: int = None,
         num_episodes: int = None,
@@ -36,7 +37,9 @@ class Job:
 
         Args:
             name: Job name, used to identify the job in the queue and in the logs.
-            arena_env_args: arguments for configuring the arena environment
+            arena_env_args: arguments for configuring the arena environment as a CLI args list.
+            arena_env_args_dict: original arena_env_args dict from the job config, kept for
+                serialization (e.g. episode records) without re-parsing the CLI list.
             num_envs: Number of environments to simulate
             num_steps: Number of steps to run the policy for (mutually exclusive with num_episodes)
             num_episodes: Number of episodes to run the policy for (mutually exclusive with num_steps)
@@ -52,6 +55,7 @@ class Job:
         """
         self.name = name
         self.arena_env_args = arena_env_args
+        self.arena_env_args_dict = arena_env_args_dict
         self.variations = variations if variations is not None else []
         assert num_envs > 0, "num_envs must be greater than 0"
         assert not (
@@ -114,6 +118,7 @@ class Job:
         return cls(
             name=data["name"],
             arena_env_args=cls.convert_args_dict_to_cli_args_list(data["arena_env_args"]),
+            arena_env_args_dict=dict(data["arena_env_args"]),
             policy_type=data["policy_type"],
             num_envs=num_envs,
             num_steps=num_steps,

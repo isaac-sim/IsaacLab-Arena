@@ -103,6 +103,7 @@ def test_job_manager_update_job_status():
         "test_job",
         num_envs=1,
         arena_env_args={"environment": "test_env"},
+        arena_env_args_dict={"environment": "test_env"},
         policy_type="zero_action",
         policy_config_dict={},
     )
@@ -127,6 +128,7 @@ def test_job_manager_failed_job():
         "failing_job",
         num_envs=1,
         arena_env_args={"environment": "test_env"},
+        arena_env_args_dict={"environment": "test_env"},
         policy_type="zero_action",
         policy_config_dict={},
     )
@@ -313,3 +315,24 @@ def test_job_manager_iterator():
 
     assert job_names == ["job1", "job2", "job3"]
     assert job_manager.is_empty()
+
+
+def test_job_from_dict_arena_env_args_dict():
+    """arena_env_args_dict preserves the original config dict for serialization."""
+    job_dict = {
+        "name": "test_meta",
+        "arena_env_args": {
+            "environment": "put_item_in_fridge_and_close_door",
+            "embodiment": "gr1_joint",
+            "object": "jug",
+            "num_envs": 2,
+        },
+        "policy_type": "zero_action",
+        "num_steps": 10,
+    }
+    job = Job.from_dict(job_dict)
+
+    assert job.arena_env_args_dict["environment"] == "put_item_in_fridge_and_close_door"
+    assert job.arena_env_args_dict["embodiment"] == "gr1_joint"
+    assert job.arena_env_args_dict["object"] == "jug"
+    assert job.num_envs == 2
