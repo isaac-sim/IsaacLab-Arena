@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import numpy as np
+import os
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -51,6 +52,7 @@ class MetricsLogger:
 
     def save_metrics_to_file(self):
         """Save all metrics to JSON file."""
+        os.makedirs(os.path.dirname(self.metrics_file) or ".", exist_ok=True)
         with open(self.metrics_file, "w", encoding="utf-8") as f:
             json.dump(self.metrics_data, f, indent=2)
 
