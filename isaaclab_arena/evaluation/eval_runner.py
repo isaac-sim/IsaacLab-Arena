@@ -173,9 +173,18 @@ def _split_episodes_across_rebuilds(num_episodes: int | None, num_rebuilds: int,
 
 
 def _stamp_path(path: str, run_ts: str) -> str:
-    """Insert run_ts between the parent dir and the final segment of path."""
+    """Insert run_ts so all run artifacts share a common timestamped ancestor.
+
+    ``parent/name``      -> ``parent/<ts>/name``   (file or directory with a parent)
+    ``name``             -> ``name/<ts>``           (bare directory name)
+    ``name.ext``         -> ``<ts>/name.ext``       (bare filename — ts prepended)
+    """
     d, final = os.path.split(path.rstrip(os.sep))
-    return os.path.join(d, run_ts, final) if d else os.path.join(final, run_ts)
+    if d:
+        return os.path.join(d, run_ts, final)
+    if os.path.splitext(final)[1]:
+        return os.path.join(run_ts, final)
+    return os.path.join(final, run_ts)
 
 
 def _extract_hdf5_path(env) -> str | None:
