@@ -201,8 +201,7 @@ def _write_job_record(
 
     language_instruction = job.language_instruction
     if language_instruction is None and env is not None:
-        with contextlib.suppress(Exception):
-            language_instruction = env.unwrapped.cfg.task_description
+        language_instruction = env.unwrapped.cfg.task_description
 
     plain_metrics = metrics_to_plain_python_types(metrics) if metrics else {}
     plain_metrics.pop("subtask_success_rate", None)
