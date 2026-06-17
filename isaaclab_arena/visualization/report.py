@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import argparse
-import dataclasses
 import functools
 import html
 import http.server
@@ -16,6 +15,7 @@ import pathlib
 import re
 import socketserver
 import string
+from dataclasses import dataclass
 
 # Matches the recorder output filename: <prefix>[-rebuild<R>]-env<N>-<camera>-episode-<E>.mp4
 # See CameraObsVideoRecorder._flush_envs in camera_observation_video_recorder.py. The optional
@@ -33,7 +33,7 @@ _DEFAULT_TITLE = "Evaluation Report"
 _DEFAULT_PORT = 8000
 
 
-@dataclasses.dataclass
+@dataclass
 class EpisodeVideos:
     """The recorded camera videos for a single (env, episode) of one job."""
 
@@ -41,27 +41,27 @@ class EpisodeVideos:
     """Index of the environment the episode ran in."""
 
     episode_index: int
-    """Contiguous episode index within the (job, env), spanning rebuilds (which are not surfaced)."""
+    """Episode index within the (job, env)"""
 
     video_by_camera: dict[str, str]
     """Camera name -> mp4 path, relative to the scanned root (and so to the report's index.html)."""
 
 
-@dataclasses.dataclass
+@dataclass
 class JobReport:
-    """All recorded episode videos for a single eval job, laid out as an env x episode grid per camera."""
+    """All recorded episode videos for a single eval job."""
 
     name: str
-    """The job name (its sub-directory under the run dir); "" for a single unnamed run (policy runner)."""
+    """The job name."""
 
     cameras: list[str]
-    """Ordered camera column names recorded for this job."""
+    """Ordered camera names recorded for this job."""
 
     episodes: list[EpisodeVideos]
-    """Episode rows, ordered by (env, episode)."""
+    """All recorded episode videos for this job."""
 
 
-@dataclasses.dataclass
+@dataclass
 class EvaluationReport:
     """A whole evaluation run: one or more jobs, each with its own grid of episode videos."""
 

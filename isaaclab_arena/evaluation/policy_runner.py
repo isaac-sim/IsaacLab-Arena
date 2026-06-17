@@ -242,7 +242,7 @@ def main():
         # Close the environment.
         env.close()
 
-        # Always write the evaluation report (empty when nothing was recorded), and serve it on request.
+        # Write and serve the evaluation report.
         # Only the local rank 0 writes/serves it, to avoid races on a shared output dir.
         if get_local_rank() == 0:
             report_path = build_report(video_cfg.video_base_dir)

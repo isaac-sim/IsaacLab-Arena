@@ -339,9 +339,7 @@ def main():
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()
 
-        # Always write one HTML report covering the whole run (empty when nothing was recorded), and
-        # serve it on request. The report scans the run dir recursively, so each job's sub-directory
-        # becomes its own section.
+        # Write HTML report
         report_path = build_report(run_video_dir)
         if args_cli.serve_evaluation_report:
             serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)

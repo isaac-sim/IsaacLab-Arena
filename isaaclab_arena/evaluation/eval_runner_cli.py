@@ -36,11 +36,7 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         "--serve_evaluation_report",
         action="store_true",
         default=False,
-        help=(
-            "After all jobs finish, serve the evaluation report over HTTP until interrupted. The report"
-            " (index.html) covering the whole run is always written to the output dir (empty if nothing"
-            " was recorded); this flag additionally serves it."
-        ),
+        help="After all jobs finish, serve the evaluation report over HTTP.",
     )
     parser.add_argument(
         "--evaluation_report_port",
