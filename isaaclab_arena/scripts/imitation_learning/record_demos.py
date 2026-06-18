@@ -32,6 +32,7 @@ optional arguments:
 
 # Standard library imports
 import contextlib
+from typing import Any
 
 # Isaac Lab AppLauncher
 from isaaclab.app import AppLauncher
@@ -174,7 +175,7 @@ def setup_output_directories() -> tuple[str, str]:
 
 def create_environment_config(
     output_dir: str, output_file_name: str
-) -> tuple[ManagerBasedRLEnvCfg | DirectRLEnvCfg, str, object | None]:
+) -> tuple[ManagerBasedRLEnvCfg | DirectRLEnvCfg, str, dict[str, Any], object | None]:
     """Create and configure the environment configuration.
 
     Parses the environment configuration and makes necessary adjustments for demo recording.
@@ -195,7 +196,7 @@ def create_environment_config(
     # parse configuration
     try:
         arena_builder = get_arena_builder_from_cli(args_cli)
-        env_name, env_cfg = arena_builder.build_registered()
+        env_name, env_cfg, env_kwargs = arena_builder.build_registered()
 
     except Exception as e:
         omni.log.error(f"Failed to parse environment configuration: {e}")
@@ -231,10 +232,12 @@ def create_environment_config(
     env_cfg.recorders.dataset_filename = output_file_name
     env_cfg.recorders.dataset_export_mode = DatasetExportMode.EXPORT_SUCCEEDED_ONLY
 
-    return env_cfg, env_name, success_term
+    return env_cfg, env_name, env_kwargs, success_term
 
 
-def create_environment(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg, env_name: str) -> gym.Env:
+def create_environment(
+    env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg, env_name: str, env_kwargs: dict[str, Any]
+) -> gym.Env:
     """Create the environment from the configuration.
 
     Args:
@@ -248,7 +251,7 @@ def create_environment(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg, env_name:
         Exception: If environment creation fails for any reason.
     """
     try:
-        env = gym.make(env_name, cfg=env_cfg)
+        env = gym.make(env_name, cfg=env_cfg, **env_kwargs)
         from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 
         reapply_viewer_cfg(env)
@@ -576,10 +579,10 @@ def main() -> None:
 
     # Create and configure environment
     global env_cfg  # Make env_cfg available to setup_teleop_device
-    env_cfg, env_name, success_term = create_environment_config(output_dir, output_file_name)
+    env_cfg, env_name, env_kwargs, success_term = create_environment_config(output_dir, output_file_name)
 
     # Create environment
-    env = create_environment(env_cfg, env_name)
+    env = create_environment(env_cfg, env_name, env_kwargs)
 
     # Run simulation loop
     current_recorded_demo_count = run_simulation_loop(env, None, success_term, rate_limiter)

@@ -21,9 +21,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from pathlib import Path
 
+from isaaclab_arena.agentic_environment_generation.agent_utils import safe_filename_stem
 from isaaclab_arena.agentic_environment_generation.asset_matcher import IntentResolutionTraceEvent
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
     EnvironmentGenerationAgent,
@@ -45,12 +45,6 @@ SEQUENTIAL_PROMPT = (
     "franka opens a microwave, picks up avocado on the table, place it into the microwave and close the microwave door."
     " There are other utensils on the table as distractor"
 )
-
-
-def _safe_filename_stem(name: str) -> str:
-    """Return a filesystem-safe stem derived from ``env_name``."""
-    stem = re.sub(r"[^\w.-]+", "_", name).strip("._")
-    return stem or "unnamed_env"
 
 
 def _format_trace_event(event: IntentResolutionTraceEvent) -> str:
@@ -148,7 +142,7 @@ def main() -> None:
     print_initial_graph(env_graph_spec)
     print_resolution_trace(compiler)
 
-    out_path = _LLM_GENERATED_DIR / f"{_safe_filename_stem(env_graph_spec.env_name)}_proposal.yaml"
+    out_path = _LLM_GENERATED_DIR / f"{safe_filename_stem(env_graph_spec.env_name)}_proposal.yaml"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     env_graph_spec.write_yaml(out_path)
     print(f"\n=== wrote ArenaEnvInitialGraphSpec YAML to {out_path} ===")

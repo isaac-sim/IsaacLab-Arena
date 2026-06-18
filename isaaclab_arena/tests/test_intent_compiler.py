@@ -255,6 +255,8 @@ def test_spatial_constraint_binary_relation_id_and_fields():
     assert constraint.reference == "maple_table"
     assert constraint.subject == "cracker_box"
     assert constraint.id == "state_initial_0_on_maple_table_cracker_box"
+    # The compiler does not special-case ``on``; the edge margin is the On relation's own default.
+    assert constraint.params == {}
 
 
 def test_spatial_constraint_unary_relation_id_and_fields():

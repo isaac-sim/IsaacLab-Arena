@@ -69,7 +69,6 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
 
 # %%
 
-
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import teardown_simulation_app
 from isaaclab_arena.utils.reload_modules import reload_arena_modules
 

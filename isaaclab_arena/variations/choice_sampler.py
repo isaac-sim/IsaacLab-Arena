@@ -38,6 +38,12 @@ class ChoiceSampler(SamplerBase, Generic[T]):
         Returns:
             A ``list`` of length ``num_samples`` of items drawn from ``choices``.
         """
+        result = self._sample(num_samples, choices)
+        self._notify(result)
+        return result
+
+    def _sample(self, num_samples: int, choices: Sequence[T]) -> list[T]:
+        """Draw ``num_samples`` items from ``choices`` (non-empty)."""
         assert num_samples >= 0, f"num_samples must be non-negative; got {num_samples}."
         assert len(choices) >= 1, "ChoiceSampler requires a non-empty 'choices' sequence."
         indices = torch.randint(low=0, high=len(choices), size=(num_samples,))

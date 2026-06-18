@@ -69,7 +69,7 @@ def _test_success_rate_metric(simulation_app):
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     args_cli.num_envs = NUM_ENVS
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
-    env_cfg = env_builder.compose_manager_cfg()
+    env_cfg, env_kwargs = env_builder.compose_manager_cfg()
 
     # Replace the pose reset term:
     # - from: constant per env,
@@ -89,7 +89,7 @@ def _test_success_rate_metric(simulation_app):
         },
     )
 
-    env = env_builder.make_registered(env_cfg)
+    env = env_builder.make_registered(env_cfg, env_kwargs)
     env.reset()
 
     try:

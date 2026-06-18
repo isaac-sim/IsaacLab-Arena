@@ -20,6 +20,9 @@ RUNTIME_DEPS = [
     "sbi",
     "scipy",
     "matplotlib",
+    # HDF5 -> LeRobot conversion (isaaclab_arena_gr00t.lerobot.convert_hdf5_to_lerobot), imported at module level.
+    # Pinned to 2.2.3 to match the version used in GR00T.
+    "pandas==2.2.3",
 ]
 
 DEV_DEPS = [

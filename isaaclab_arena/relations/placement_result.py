@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class PlacementResult:
-    """Result of an ObjectPlacer.place() call."""
+    """Solved object layout for one environment."""
 
     validation_results: PlacementValidationResults
     """Validation checklist for the placement."""
@@ -35,28 +35,8 @@ class PlacementResult:
 
     @property
     def success(self) -> bool:
-        """True when this layout passed every validation check.
+        """True when all required validation checks pass.
 
-        Soft selection: place() always returns the best-ranked layout per env, even when no
-        candidate validated. Callers check success to distinguish a validated layout from a
-        lowest-loss fallback; failed_items on the checklist says which checks failed.
+        place() returns a best-loss fallback even on failure; check this to tell validated from fallback.
         """
         return self.validation_results.do_all_required_validation_checks_pass()
-
-
-@dataclass
-class MultiEnvPlacementResult:
-    """Result of an ObjectPlacer.place() call for multiple environments."""
-
-    results: list[PlacementResult]
-    """One PlacementResult per environment (same length as num_envs)."""
-
-    @property
-    def success(self) -> bool:
-        """True if every environment's placement succeeded."""
-        return all(r.success for r in self.results)
-
-    @property
-    def attempts(self) -> int:
-        """Number of attempts (same for all envs in the batched run)."""
-        return self.results[0].attempts if self.results else 0

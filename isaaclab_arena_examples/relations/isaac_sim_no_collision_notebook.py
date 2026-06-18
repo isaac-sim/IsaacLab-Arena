@@ -129,7 +129,7 @@ def run_isaac_sim_no_collision_demo(
             env.unwrapped.sim.render()
         # Run the solver and apply solved poses to the sim.
         placer = ObjectPlacer()
-        result = placer.place(objects=objects_with_relations)
+        (result,) = placer.place(objects=objects_with_relations)
         for obj in placeable_objects:
             if obj.name not in env.unwrapped.scene.rigid_objects:
                 print(

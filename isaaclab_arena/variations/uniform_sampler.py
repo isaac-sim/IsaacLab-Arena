@@ -36,6 +36,7 @@ class UniformSampler(ContinuousSampler):
     """
 
     def __init__(self, low: float | Sequence[float], high: float | Sequence[float]):
+        super().__init__()
         self.low = torch.as_tensor(low, dtype=torch.float32)
         self.high = torch.as_tensor(high, dtype=torch.float32)
         assert (
@@ -49,16 +50,7 @@ class UniformSampler(ContinuousSampler):
     def shape_per_sample(self) -> torch.Size:
         return self.low.shape
 
-    def sample(self, num_samples: int) -> torch.Tensor:
-        """Draw ``num_samples`` values from this distribution.
-
-        Args:
-            num_samples: Number of independent samples to draw, typically the
-                number of environments we're drawing a sample for.
-
-        Returns:
-            A tensor of shape ``(num_samples, *shape_per_sample)``.
-        """
+    def _sample(self, num_samples: int) -> torch.Tensor:
         assert num_samples >= 0, f"num_samples must be non-negative; got {num_samples}."
         shape = (num_samples, *self.shape_per_sample)
         u = torch.rand(shape)
