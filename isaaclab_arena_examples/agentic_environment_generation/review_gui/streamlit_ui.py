@@ -51,7 +51,7 @@ _DEFAULT_SAVE_PATH = "isaaclab_arena_environments/agent_generated/generated_spec
 
 
 @dataclass
-class ValidationResult:
+class SpecParseResult:
     """Outcome of parsing and validating YAML text as an initial graph spec."""
 
     spec: ArenaEnvInitialGraphSpec | None
@@ -82,27 +82,27 @@ def _get_catalogue_bundle() -> CatalogueBundle:
     )
 
 
-def validate_yaml_text(text: str) -> ValidationResult:
+def validate_yaml_text(text: str) -> SpecParseResult:
     """Parse ``text`` as YAML and validate it as an :class:`ArenaEnvInitialGraphSpec`."""
     cached_text = st.session_state.get("_validation_text")
     cached_result = st.session_state.get("_validation_result")
-    if cached_text == text and isinstance(cached_result, ValidationResult):
+    if cached_text == text and isinstance(cached_result, SpecParseResult):
         return cached_result
 
     if not text.strip():
-        result = ValidationResult(spec=None, error=None)
+        result = SpecParseResult(spec=None, error=None)
     else:
         try:
             raw = yaml.safe_load(text)
             if raw is None:
-                result = ValidationResult(spec=None, error="YAML is empty")
+                result = SpecParseResult(spec=None, error="YAML is empty")
             elif not isinstance(raw, dict):
-                result = ValidationResult(spec=None, error=f"Expected mapping, got {type(raw).__name__}")
+                result = SpecParseResult(spec=None, error=f"Expected mapping, got {type(raw).__name__}")
             else:
                 spec = ArenaEnvInitialGraphSpec.from_dict(raw)
-                result = ValidationResult(spec=spec, error=None)
+                result = SpecParseResult(spec=spec, error=None)
         except Exception:
-            result = ValidationResult(spec=None, error=traceback.format_exc())
+            result = SpecParseResult(spec=None, error=traceback.format_exc())
 
     st.session_state["_validation_text"] = text
     st.session_state["_validation_result"] = result
@@ -153,7 +153,7 @@ def _apply_generated_yaml(yaml_text: str, *, spec: ArenaEnvInitialGraphSpec | No
     if spec is not None:
         st.session_state["rendered_html"] = render_dashboard_html(spec)
         st.session_state["_validation_text"] = yaml_text
-        st.session_state["_validation_result"] = ValidationResult(spec=spec, error=None)
+        st.session_state["_validation_result"] = SpecParseResult(spec=spec, error=None)
     else:
         st.session_state["rendered_html"] = ""
         st.session_state.pop("_validation_text", None)
@@ -260,7 +260,7 @@ def initialize_state(yaml_path: Path | None) -> None:
     st.session_state["save_path"] = str(yaml_path)
 
 
-def render_validation_badge(validation: ValidationResult) -> None:
+def render_validation_badge(validation: SpecParseResult) -> None:
     """Show a success or error badge for the current editor YAML."""
     if validation.spec is None and validation.error is None:
         return
@@ -275,7 +275,7 @@ def render_validation_badge(validation: ValidationResult) -> None:
         st.error(f"Invalid YAML\n\n```\n{validation.error}\n```", icon="🛑")
 
 
-def render_save_button(validation: ValidationResult) -> None:
+def render_save_button(validation: SpecParseResult) -> None:
     """Render save controls and optional save-path editor."""
     can_save = validation.is_valid
     save_path_str = st.session_state["save_path"]
@@ -307,7 +307,7 @@ def render_save_button(validation: ValidationResult) -> None:
             st.session_state["save_path"] = new_path
 
 
-def render_editor_panel(yaml_path: Path | None) -> ValidationResult:
+def render_editor_panel(yaml_path: Path | None) -> SpecParseResult:
     """Render the ACE YAML editor and refresh the dashboard when text changes."""
     try:
         from streamlit_ace import st_ace  # noqa: PLC0415
