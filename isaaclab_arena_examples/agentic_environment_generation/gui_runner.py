@@ -8,7 +8,7 @@
 Spawns Streamlit with :mod:`~isaaclab_arena_examples.agentic_environment_generation.review_gui.streamlit_ui`.
 
 Usage:
-    # Default — prompt-only (empty editor until you generate or paste YAML):
+    # Default — start with a prompt:
     /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner
 
     # Open an existing spec:
@@ -16,8 +16,7 @@ Usage:
         --yaml isaaclab_arena/tests/test_data/pick_and_place_maple_table_init_env_graph.yaml
 
     # Custom port:
-    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner \\
-        --yaml <path> --port 8600
+    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner --port 8600
 """
 
 from __future__ import annotations
