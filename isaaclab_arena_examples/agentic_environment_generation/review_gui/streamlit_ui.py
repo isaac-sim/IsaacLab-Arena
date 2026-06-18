@@ -436,6 +436,10 @@ def main() -> None:
 
     initialize_state(yaml_path)
 
+    # Populate @st.cache_resource catalogues on first page load so the initial
+    # Generate click does not stall on ensure_assets_registered (~10s).
+    _get_catalogue_bundle()
+
     st.markdown("### ArenaEnvInitialGraphSpec live editor")
     left, right = st.columns([2, 3], gap="large")
     with left:
