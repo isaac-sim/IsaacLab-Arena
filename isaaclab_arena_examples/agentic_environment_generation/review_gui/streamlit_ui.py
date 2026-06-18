@@ -100,4 +100,5 @@ def main() -> None:
         render_visualization_panel()
 
 
-main()
+if __name__ == "__main__":
+    main()
