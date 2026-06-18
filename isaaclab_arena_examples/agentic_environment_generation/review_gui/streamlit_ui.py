@@ -59,7 +59,7 @@ class SpecParseResult:
 
     @property
     def is_valid(self) -> bool:
-        """True when ``spec`` parsed successfully."""
+        """True when a spec was parsed and validated; False for empty or invalid input."""
         return self.spec is not None
 
 
