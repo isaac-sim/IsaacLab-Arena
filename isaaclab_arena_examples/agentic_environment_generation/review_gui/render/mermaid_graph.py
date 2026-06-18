@@ -93,5 +93,21 @@ def _mermaid_id(value: str) -> str:
 
 
 def _mermaid_label(value: str) -> str:
-    """Escape mermaid-significant characters inside node labels."""
+    """Escape characters that would break labels in *our* Mermaid output.
+
+    Mermaid flowchart syntax has many metacharacters overall (``]``, ``#``,
+    ``;``, arrow tokens, etc.) — this helper does **not** attempt to cover all
+    of them. It only handles the subset relevant to **this call site's inputs**:
+    node ids, relation kinds, and task-constraint type strings from a validated
+    :class:`ArenaEnvInitialGraphSpec` (snake_case identifiers, not free-form
+    user text). For those values we escape:
+
+    * ``"`` — would terminate a Mermaid string literal
+    * ``|`` — would split an edge label (``-->|label|``)
+
+    Brackets and newlines are not expected in spec ids/kinds; we assert rather
+    than silently strip them. If other Mermaid metacharacters ever appear in
+    spec fields, extend this helper for those cases explicitly.
+    """
+    assert "\n" not in value and "]" not in value, f"Mermaid label contains unexpected characters: {value!r}"
     return value.replace('"', "&quot;").replace("|", "&#124;")
