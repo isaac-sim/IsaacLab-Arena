@@ -47,7 +47,7 @@ _BROKEN_PLACEHOLDER_HTML = """<!DOCTYPE html><html><body style="
 <p>No visualization yet — fix the YAML errors to auto-render.</p>
 </body></html>"""
 
-_DEFAULT_SAVE_PATH = "isaaclab_arena_environments/llm_generated/generated_spec.yaml"
+_DEFAULT_SAVE_PATH = "isaaclab_arena_environments/agent_generated/generated_spec.yaml"
 
 
 @dataclass

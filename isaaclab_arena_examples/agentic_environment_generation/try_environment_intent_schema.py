@@ -35,7 +35,7 @@ from isaaclab_arena.agentic_environment_generation.environment_intent_spec impor
 from isaaclab_arena.agentic_environment_generation.intent_compiler import IntentCompiler
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 
-_LLM_GENERATED_DIR = Path("isaaclab_arena_environments/llm_generated")
+_LLM_GENERATED_DIR = Path("isaaclab_arena_environments/agent_generated")
 
 DEFAULT_PROMPT = (
     "franka pick up avocado from the maple table and place it into a bowl on the table. "
