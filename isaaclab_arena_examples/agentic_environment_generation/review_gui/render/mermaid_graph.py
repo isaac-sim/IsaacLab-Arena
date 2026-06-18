@@ -70,12 +70,13 @@ def render_mermaid_graph(spec: ArenaEnvInitialGraphSpec, state: ArenaEnvGraphSta
     for anchor_id in anchor_ids:
         lines.append(f"  style {_mermaid_id(anchor_id)} fill:#3a7d44,color:#fff,stroke:#7fd17f,stroke-width:2px")
 
+    # (fill, stroke) per node type — matches badge colors in styles.py / panels.py
     type_palette = {
-        "background": ("#3a4f7a", "#7aa0d8"),
-        "embodiment": ("#7a3a3a", "#d87a7a"),
-        "object": ("#7a6b3a", "#d8c47a"),
-        "object_reference": ("#6b3a7a", "#c47ad8"),
-        "lighting": ("#3a7a7a", "#7ad8d8"),
+        "background": ("#3a4f7a", "#7aa0d8"),  # blue
+        "embodiment": ("#7a3a3a", "#d87a7a"),  # red
+        "object": ("#7a6b3a", "#d8c47a"),  # gold
+        "object_reference": ("#6b3a7a", "#c47ad8"),  # purple
+        "lighting": ("#3a7a7a", "#7ad8d8"),  # teal
     }
     for node in spec.nodes:
         if node.id in anchor_ids:
