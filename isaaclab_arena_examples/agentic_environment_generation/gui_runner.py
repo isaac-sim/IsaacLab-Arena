@@ -13,7 +13,7 @@ Usage:
 
     # Open an existing spec:
     /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner \\
-        --yaml isaaclab_arena/tests/test_data/pick_and_place_maple_table_init_env_graph.yaml
+        --env_initial_graph_spec isaaclab_arena/tests/test_data/pick_and_place_maple_table_init_env_graph.yaml
 
     # Custom port:
     /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner --port 8600
@@ -36,7 +36,7 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--yaml",
+        "--env_initial_graph_spec",
         type=Path,
         default=None,
         help="Optional ArenaEnvInitialGraphSpec YAML to open in the editor.",
@@ -48,7 +48,7 @@ def main() -> None:
         help="Streamlit server port (default: 8501).",
     )
     args = parser.parse_args()
-    serve_live_editor(args.yaml, port=args.port)
+    serve_live_editor(args.env_initial_graph_spec, port=args.port)
 
 
 def serve_live_editor(yaml_path: Path | None, port: int = 8501) -> None:
@@ -72,7 +72,7 @@ def serve_live_editor(yaml_path: Path | None, port: int = 8501) -> None:
         "--",
     ]
     if yaml_path is not None:
-        cmd.extend(["--yaml", str(yaml_path.resolve())])
+        cmd.extend(["--env_initial_graph_spec", str(yaml_path.resolve())])
 
     print(f"[review_gui] launching Streamlit live editor: {' '.join(cmd)}", file=sys.stderr)
     try:

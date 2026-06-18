@@ -223,7 +223,7 @@ def parse_args() -> argparse.Namespace:
     """Parse Streamlit CLI args forwarded after ``--`` by :mod:`gui_runner`."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--yaml",
+        "--env_initial_graph_spec",
         type=Path,
         default=None,
         help="Optional path to an ArenaEnvInitialGraphSpec YAML to open in the editor.",
@@ -301,7 +301,10 @@ def render_save_button(validation: SpecParseResult) -> None:
             "Save path",
             value=save_path_str,
             key="save_path_input",
-            help="Defaults to the YAML file passed via --yaml, or a generated-spec path when none was given.",
+            help=(
+                "Defaults to the file passed via --env_initial_graph_spec, or a generated-spec path when none was"
+                " given."
+            ),
         )
         if new_path and new_path != save_path_str:
             st.session_state["save_path"] = new_path
@@ -426,7 +429,7 @@ def main() -> None:
     )
 
     args = parse_args()
-    yaml_path = args.yaml.resolve() if args.yaml is not None else None
+    yaml_path = args.env_initial_graph_spec.resolve() if args.env_initial_graph_spec is not None else None
     if yaml_path is not None and not yaml_path.exists():
         st.error(f"YAML file not found: {yaml_path}", icon="🛑")
         st.stop()
