@@ -89,7 +89,13 @@ def main() -> None:
 
     # Populate @st.cache_resource catalogues on first page load so the initial
     # Generate click does not stall on ensure_assets_registered (~10s).
-    get_catalogue_bundle()
+    try:
+        get_catalogue_bundle()
+    except Exception as exc:
+        st.warning(
+            f"Asset catalogues could not be loaded: {exc}\n\nGeneration will be unavailable.",
+            icon="⚠️",
+        )
 
     st.markdown("### ArenaEnvInitialGraphSpec live editor")
     left, right = st.columns([2, 3], gap="large")
