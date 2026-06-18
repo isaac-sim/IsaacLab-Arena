@@ -42,18 +42,23 @@ def validate_yaml_text(text: str) -> SpecParseResult:
     cached_text = st.session_state.get("_validation_text")
     cached_result = st.session_state.get("_validation_result")
     if cached_text == text and isinstance(cached_result, SpecParseResult):
+        # YAML text unchanged — return cached parse result.
         return cached_result
 
     if not text.strip():
+        # Blank editor — neither valid nor invalid.
         result = SpecParseResult(spec=None, error=None)
     else:
         try:
             raw = yaml.safe_load(text)
             if raw is None:
+                # YAML parsed to null.
                 result = SpecParseResult(spec=None, error="YAML is empty")
             elif not isinstance(raw, dict):
+                # Root must be a mapping for ArenaEnvInitialGraphSpec.
                 result = SpecParseResult(spec=None, error=f"Expected mapping, got {type(raw).__name__}")
             else:
+                # Validate dict as ArenaEnvInitialGraphSpec.
                 spec = ArenaEnvInitialGraphSpec.from_dict(raw)
                 result = SpecParseResult(spec=spec, error=None)
         except Exception:
@@ -91,6 +96,7 @@ def render_save_button(validation: SpecParseResult) -> None:
         use_container_width=True,
         help=f"Writes the editor contents to {save_path_str}. Disabled while YAML is invalid.",
     ):
+        # User clicked save — write editor text to disk.
         try:
             out_path = Path(save_path_str)
             out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -111,6 +117,7 @@ def render_save_button(validation: SpecParseResult) -> None:
             ),
         )
         if new_path and new_path != save_path_str:
+            # Expander override — update session save target for the next save click.
             st.session_state["save_path"] = new_path
 
 
@@ -119,6 +126,7 @@ def render_editor_panel(yaml_path: Path | None) -> SpecParseResult:
     try:
         from streamlit_ace import st_ace  # noqa: PLC0415
     except ImportError as exc:
+        # streamlit-ace is required for the YAML editor widget.
         st.error(
             "`streamlit-ace` is not installed. Inside the isaaclab_arena container run:\n"
             "`python -m pip install --user --ignore-installed streamlit-ace`\n\n"
@@ -149,6 +157,7 @@ def render_editor_panel(yaml_path: Path | None) -> SpecParseResult:
         key=f"ace_editor::{editor_key}::{st.session_state.get('editor_version', 0)}",
     )
     if new_text is not None:
+        # ACE returns None on first mount; otherwise sync widget text into session.
         st.session_state["edited_text"] = new_text
 
     validation = validate_yaml_text(st.session_state["edited_text"])
@@ -156,6 +165,7 @@ def render_editor_panel(yaml_path: Path | None) -> SpecParseResult:
 
     edited_since_render = st.session_state["edited_text"] != st.session_state["last_rendered_text"]
     if edited_since_render:
+        # Editor text changed since last dashboard render — refresh preview iframe.
         if validation.is_valid:
             with st.spinner("Rendering visualization…"):
                 st.session_state["rendered_html"] = render_dashboard_html(validation.spec)
