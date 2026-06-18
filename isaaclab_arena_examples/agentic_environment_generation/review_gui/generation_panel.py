@@ -74,7 +74,7 @@ def _get_generation_agent() -> EnvironmentGenerationAgent | None:
 
 def _format_trace_lines(trace: list[dict[str, Any]], *, errors_only: bool = False) -> str:
     """Format intent-compiler trace events as fixed-width log lines."""
-    error_stages = ASSET_ERROR_STAGES | IntentCompiler._ERROR_TRACE_STAGES
+    error_stages = ASSET_ERROR_STAGES | IntentCompiler.INTENT_ERROR_STAGES
     lines: list[str] = []
     for event in trace:
         stage = event.get("stage", "")
