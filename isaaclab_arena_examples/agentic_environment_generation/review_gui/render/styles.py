@@ -7,13 +7,14 @@
 
 DASHBOARD_CSS = """
 :root {
-  --bg: #15181d;
-  --bg-elev: #1d2128;
-  --bg-elev2: #262b34;
-  --border: #2f343d;
-  --fg: #e4e6eb;
-  --fg-muted: #8a9099;
-  --accent: #7fd17f;
+  /* page chrome */
+  --bg: #15181d;           /* charcoal page background */
+  --bg-elev: #1d2128;      /* panel background */
+  --bg-elev2: #262b34;    /* nested surface (cards, code blocks) */
+  --border: #2f343d;       /* panel / table borders */
+  --fg: #e4e6eb;           /* primary text */
+  --fg-muted: #8a9099;     /* secondary text */
+  --accent: #7fd17f;       /* green highlight (task badges, anchors) */
 }
 * { box-sizing: border-box; }
 body { margin: 0; padding: 24px; font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -41,14 +42,15 @@ pre { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px;
 .muted { color: var(--fg-muted); }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px;
          font-weight: 600; letter-spacing: 0.03em; background: var(--bg-elev2); color: var(--fg); }
-.badge.type-background { background: #3a4f7a; }
-.badge.type-embodiment { background: #7a3a3a; }
-.badge.type-object { background: #7a6b3a; }
-.badge.type-object_reference { background: #6b3a7a; }
-.badge.type-lighting { background: #3a7a7a; }
-.badge.type-is_anchor { background: #3a7d44; }
-.badge.type-position_limits, .badge.type-at_pose, .badge.type-at_position { background: #6b3a7a; }
-.badge.type-task { background: #2f343d; border: 1px solid #4a5; color: var(--accent); }
+/* node-type badge fills — same palette as mermaid_graph.type_palette */
+.badge.type-background { background: #3a4f7a; }       /* blue */
+.badge.type-embodiment { background: #7a3a3a; }       /* red */
+.badge.type-object { background: #7a6b3a; }           /* gold */
+.badge.type-object_reference { background: #6b3a7a; } /* purple */
+.badge.type-lighting { background: #3a7a7a; }         /* teal */
+.badge.type-is_anchor { background: #3a7d44; }          /* green (anchor nodes) */
+.badge.type-position_limits, .badge.type-at_pose, .badge.type-at_position { background: #6b3a7a; } /* purple */
+.badge.type-task { background: #2f343d; border: 1px solid #4a5; color: var(--accent); } /* dark gray + green border */
 .mermaid { background: var(--bg-elev2); padding: 8px; border-radius: 6px; min-height: 220px;
            display: flex; align-items: center; justify-content: center; margin: 0; }
 table.tasks { width: 100%; border-collapse: collapse; }
@@ -59,11 +61,11 @@ table.tasks pre { padding: 6px 8px; font-size: 11px; }
 .node-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .node-card { background: var(--bg-elev2); border: 1px solid var(--border); border-radius: 8px;
              padding: 12px; display: flex; flex-direction: column; gap: 10px; }
-.node-card .thumb { aspect-ratio: 1 / 1; background: linear-gradient(135deg, #2a2f37, #1c2026);
+.node-card .thumb { aspect-ratio: 1 / 1; background: linear-gradient(135deg, #2a2f37, #1c2026); /* placeholder gradient */
                     border-radius: 6px; display: flex; flex-direction: column;
                     align-items: center; justify-content: center; color: var(--fg-muted);
                     position: relative; overflow: hidden; }
-.node-card .thumb-rendered { background: #0e1115; }
+.node-card .thumb-rendered { background: #0e1115; } /* near-black viewport backdrop for USD captures */
 .node-card .thumb-rendered img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .node-card .thumb-rendered .thumb-name { position: absolute; bottom: 0; left: 0; right: 0;
                                          padding: 4px 6px; background: rgba(15, 17, 21, 0.78);
