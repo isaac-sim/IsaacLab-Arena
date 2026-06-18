@@ -41,7 +41,7 @@ def render_mermaid_graph(spec: ArenaEnvInitialGraphSpec, state: ArenaEnvGraphSta
         if constraint.reference is not None:
             lines.append(
                 f"  {_mermaid_id(constraint.subject)}[{_mermaid_label(constraint.subject)}]"
-                f" -->|{kind}| "
+                f" -->|{_mermaid_label(kind)}| "
                 f"{_mermaid_id(constraint.reference)}[{_mermaid_label(constraint.reference)}]"
             )
             edge_nodes.add(constraint.subject)
