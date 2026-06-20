@@ -13,8 +13,9 @@ from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeS
 # TODO(qianl): Replace placeholder thumbnails with sim-rendered snapshots .
 def render_placeholder_thumbnail(node: ArenaEnvGraphNodeSpec) -> str:
     """Per-node placeholder thumbnail — two-letter initial."""
-    initial = (node.name[:2] if node.name else "?").upper()
+    safe_name = node.name or ""
+    initial = (safe_name[:2] if safe_name else "?").upper()
     return f"""<div class="thumb">
     <span class="thumb-initial">{html_lib.escape(initial)}</span>
-    <span class="thumb-name">{html_lib.escape(node.name)}</span>
+    <span class="thumb-name">{html_lib.escape(safe_name)}</span>
   </div>"""
