@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""USD viewport thumbnail rendering for the review GUI SimApp sidecar."""
+"""USD viewport thumbnail rendering for the review GUI SimApp server."""
 
 from __future__ import annotations
 

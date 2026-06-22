@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""JSON-RPC client for the review GUI SimApp sidecar (Unix domain socket)."""
+"""JSON-RPC client for the review GUI SimApp server (Unix domain socket)."""
 
 from __future__ import annotations
 
@@ -21,15 +21,15 @@ from typing import Any, TextIO
 
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 
-SIDECAR_SOCKET_ENV = "ARENA_REVIEW_SIDECAR_SOCKET"
+SIMAPP_SOCKET_ENV = "ARENA_REVIEW_SIMAPP_SOCKET"
 
 
-class SimAppSidecarError(RuntimeError):
-    """Raised when the SimApp sidecar process can't fulfil a request."""
+class SimAppError(RuntimeError):
+    """Raised when the SimApp server process can't fulfil a request."""
 
 
-class SimAppSidecarClient:
-    """Client for a Kit sidecar listening on a Unix domain socket."""
+class SimAppClient:
+    """Client for a Kit SimApp server listening on a Unix domain socket."""
 
     def __init__(self, socket_path: str, reader: TextIO, writer: TextIO) -> None:
         self._socket_path = socket_path
@@ -39,8 +39,8 @@ class SimAppSidecarClient:
         self._lock = threading.Lock()
 
     @classmethod
-    def connect(cls, socket_path: str) -> SimAppSidecarClient:
-        """Open a persistent JSON-RPC session to the sidecar at ``socket_path``."""
+    def connect(cls, socket_path: str) -> SimAppClient:
+        """Open a persistent JSON-RPC session to the server at ``socket_path``."""
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.connect(socket_path)
         reader = sock.makefile("r", encoding="utf-8", newline="\n")
@@ -53,45 +53,37 @@ class SimAppSidecarClient:
     def socket_path(self) -> str:
         return self._socket_path
 
-    def is_alive(self) -> bool:
-        return self.ping()
-
     def disconnect(self) -> None:
-        """Close this client's socket without stopping the sidecar process."""
+        """Close this client's socket without stopping the SimApp server."""
         with self._lock:
             self._close_handles()
 
     def shutdown(self) -> None:
-        """Ask the sidecar to exit, then close this client's socket."""
+        """Ask the SimApp server to exit, then close this client's socket."""
         with self._lock:
             try:
                 self._writer.write(json.dumps({"cmd": "shutdown"}) + "\n")
                 self._writer.flush()
-                # Best-effort read so the sidecar can flush its reply before we close.
-                with contextlib.suppress(OSError, SimAppSidecarError):
+                with contextlib.suppress(OSError, SimAppError):
                     self._readline_or_die()
             except OSError:
                 pass
             self._close_handles()
 
-    def close(self) -> None:
-        """Close this client's socket (alias for :meth:`disconnect`)."""
-        self.disconnect()
-
     def validate_yaml_text(self, yaml_text: str) -> dict[str, Any]:
-        """Run full spec validation (including registry lookups) in the sidecar."""
+        """Run full spec validation (including registry lookups) in the SimApp server."""
         with self._lock:
             return self._request({"cmd": "validate_spec", "yaml_text": yaml_text})
 
     def render_spec(self, spec: ArenaEnvInitialGraphSpec) -> dict[str, bytes]:
-        """Ask the sidecar to render thumbnails for ``spec``."""
+        """Ask the SimApp server to render thumbnails for ``spec``."""
         yaml_text = yaml.safe_dump(spec.to_dict(), sort_keys=False)
         with self._lock:
             response = self._request({"cmd": "render_spec", "yaml_text": yaml_text})
 
         if not response.get("ok"):
-            raise SimAppSidecarError(
-                f"sidecar render failed: {response.get('error', 'unknown')}\n{response.get('traceback', '')}"
+            raise SimAppError(
+                f"SimApp render failed: {response.get('error', 'unknown')}\n{response.get('traceback', '')}"
             )
 
         paths: dict[str, str] = response.get("paths", {}) or {}
@@ -102,7 +94,7 @@ class SimAppSidecarClient:
                 results[node_id] = path.read_bytes()
             else:
                 print(
-                    f"[review_gui]   sidecar reported {node_id} -> {path_str} but file is missing.",
+                    f"[review_gui]   SimApp reported {node_id} -> {path_str} but file is missing.",
                     file=sys.stderr,
                 )
         return results
@@ -112,31 +104,31 @@ class SimAppSidecarClient:
         with self._lock:
             try:
                 response = self._request({"cmd": "ping"})
-            except SimAppSidecarError:
+            except SimAppError:
                 return False
         return bool(response.get("ok"))
 
     def _request(self, payload: dict[str, Any]) -> dict[str, Any]:
         if self._sock is None:
-            raise SimAppSidecarError("sidecar socket is closed")
+            raise SimAppError("SimApp socket is closed")
         line = json.dumps(payload) + "\n"
         try:
             self._writer.write(line)
             self._writer.flush()
         except OSError as exc:
-            raise SimAppSidecarError("sidecar socket closed unexpectedly") from exc
+            raise SimAppError("SimApp socket closed unexpectedly") from exc
 
         reply_line = self._readline_or_die()
         try:
             return json.loads(reply_line)
         except json.JSONDecodeError as exc:
-            raise SimAppSidecarError(f"sidecar replied with non-JSON: {reply_line!r}") from exc
+            raise SimAppError(f"SimApp replied with non-JSON: {reply_line!r}") from exc
 
     def _readline_or_die(self) -> str:
         line = self._reader.readline()
         if line == "":
-            raise SimAppSidecarError(
-                f"sidecar at {self._socket_path} closed the connection unexpectedly. "
+            raise SimAppError(
+                f"SimApp at {self._socket_path} closed the connection unexpectedly. "
                 "Restart the review GUI via gui_runner."
             )
         return line
@@ -151,13 +143,13 @@ class SimAppSidecarClient:
         self._sock = None
 
 
-def sidecar_socket_from_env() -> str | None:
-    """Return the sidecar socket path from ``ARENA_REVIEW_SIDECAR_SOCKET``, if set."""
-    path = os.environ.get(SIDECAR_SOCKET_ENV, "").strip()
+def simapp_socket_from_env() -> str | None:
+    """Return the SimApp socket path from ``ARENA_REVIEW_SIMAPP_SOCKET``, if set."""
+    path = os.environ.get(SIMAPP_SOCKET_ENV, "").strip()
     return path or None
 
 
-def wait_for_sidecar_socket(
+def wait_for_simapp_socket(
     socket_path: str,
     proc: subprocess.Popen[Any],
     *,
@@ -170,11 +162,9 @@ def wait_for_sidecar_socket(
     while time.monotonic() < deadline:
         exit_code = proc.poll()
         if exit_code is not None:
-            raise SimAppSidecarError(
-                f"Sidecar exited during boot (exit code: {exit_code}). See stderr above for details."
-            )
+            raise SimAppError(f"SimApp exited during boot (exit code: {exit_code}). See stderr above for details.")
         try:
-            client = SimAppSidecarClient.connect(socket_path)
+            client = SimAppClient.connect(socket_path)
         except OSError as exc:
             last_error = exc
             time.sleep(poll_interval_s)
@@ -182,38 +172,38 @@ def wait_for_sidecar_socket(
         try:
             if client.ping():
                 return
-        except SimAppSidecarError as exc:
+        except SimAppError as exc:
             last_error = exc
         finally:
             client.disconnect()
         time.sleep(poll_interval_s)
 
     detail = f" Last error: {last_error}" if last_error is not None else ""
-    raise SimAppSidecarError(f"Timed out after {timeout_s:.0f}s waiting for sidecar at {socket_path}.{detail}")
+    raise SimAppError(f"Timed out after {timeout_s:.0f}s waiting for SimApp at {socket_path}.{detail}")
 
 
-def spawn_sidecar_process(socket_path: str) -> subprocess.Popen[Any]:
-    """Launch the SimApp sidecar subprocess bound to ``socket_path``."""
+def spawn_simapp_process(socket_path: str) -> subprocess.Popen[Any]:
+    """Launch the SimApp server subprocess bound to ``socket_path``."""
     if Path(socket_path).exists():
         Path(socket_path).unlink()
     cmd = [
         sys.executable,
         "-m",
-        "isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_sidecar",
+        "isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.server",
         "--socket",
         socket_path,
     ]
     return subprocess.Popen(cmd, env=os.environ.copy())
 
 
-def stop_sidecar_process(proc: subprocess.Popen[Any] | None, socket_path: str) -> None:
-    """Ask the sidecar to shut down cleanly, then terminate the process and remove the socket."""
+def stop_simapp_process(proc: subprocess.Popen[Any] | None, socket_path: str) -> None:
+    """Ask the SimApp server to shut down cleanly, then terminate the process."""
     try:
-        client = SimAppSidecarClient.connect(socket_path)
+        client = SimAppClient.connect(socket_path)
     except OSError:
         client = None
     if client is not None:
-        with contextlib.suppress(SimAppSidecarError):
+        with contextlib.suppress(SimAppError):
             client.shutdown()
 
     if proc is not None and proc.poll() is None:
