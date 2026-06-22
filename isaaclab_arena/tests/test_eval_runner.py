@@ -209,6 +209,38 @@ def test_eval_runner_enable_cameras(tmp_path):
     run_eval_runner(temp_config_path)
 
 
+@pytest.mark.with_subprocess
+def test_eval_runner_graph_spec_with_variation(tmp_path):
+    """Eval a graph-spec env (built from YAML) with --enable_cameras and a camera variation.
+
+    Mirrors the example-environment camera-variation job but sources the env from a graph spec
+    YAML, exercising that the eval runner builds graph-spec envs and that --enable_cameras reaches
+    the embodiment so the wrist camera (and its variation) resolve.
+    """
+    graph_spec_yaml = f"{TestConstants.test_data_dir}/pick_and_place_maple_table_env_graph.yaml"
+    assert os.path.exists(graph_spec_yaml), f"Graph spec YAML not found: {graph_spec_yaml}"
+    jobs = [
+        {
+            "name": "maple_table_graph_spec_camera_variation",
+            "arena_env_args": {
+                "enable_cameras": True,
+                "environment": graph_spec_yaml,
+            },
+            "num_steps": NUM_STEPS,
+            "policy_type": "zero_action",
+            "policy_args": {},
+            "variations": {
+                "light": {"hdr_image": {"enabled": True}},
+                "droid_abs_joint_pos": {"camera_extrinsics_wrist_camera": {"enabled": True}},
+            },
+        },
+    ]
+
+    temp_config_path = str(tmp_path / "test_eval_runner_graph_spec_with_variation.json")
+    write_jobs_config_to_file(jobs, temp_config_path)
+    run_eval_runner(temp_config_path)
+
+
 def _test_eval_config_variation_lands_in_events_cfg(simulation_app):
     """Enable a wrist camera extrinsics variation and check that it shows up as an event term in the cfg."""
     from isaaclab_arena.evaluation.eval_runner import load_env

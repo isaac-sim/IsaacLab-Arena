@@ -46,6 +46,16 @@ def test_job_convert_args_dict_to_cli_args_list():
     assert "--enable_cameras" not in args_list  # False booleans are skipped
 
 
+def test_job_convert_args_dict_with_graph_spec_environment():
+    """A .yaml environment is emitted as --env_graph_spec_yaml; a plain name stays positional."""
+    graph_args = Job.convert_args_dict_to_cli_args_list({"environment": "/path/to/graph.yaml"})
+    assert graph_args[graph_args.index("--env_graph_spec_yaml") + 1] == "/path/to/graph.yaml"
+
+    name_args = Job.convert_args_dict_to_cli_args_list({"environment": "kitchen_pick_and_place"})
+    assert "kitchen_pick_and_place" in name_args
+    assert "--env_graph_spec_yaml" not in name_args
+
+
 def test_job_convert_variations_dict_to_hydra_overrides():
     """Test flattening a nested variations dict into Hydra override strings."""
     variations = {
