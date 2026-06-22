@@ -75,17 +75,18 @@ def validate_yaml_text(text: str) -> SpecParseResult:
                     except SimAppSidecarError as exc:
                         get_simapp_sidecar.clear()
                         result = SpecParseResult(spec=None, error=str(exc))
-                    elif not response.get("ok"):
-                        err = response.get("error", "validation failed")
-                        tb = response.get("traceback", "")
-                        message = f"{err}\n\n{tb}" if tb else str(err)
-                        result = SpecParseResult(spec=None, error=message)
                     else:
-                        try:
-                            spec = spec_from_sidecar_dict(response["spec_dict"])
-                            result = SpecParseResult(spec=spec, error=None)
-                        except Exception:
-                            result = SpecParseResult(spec=None, error=traceback.format_exc())
+                        if not response.get("ok"):
+                            err = response.get("error", "validation failed")
+                            tb = response.get("traceback", "")
+                            message = f"{err}\n\n{tb}" if tb else str(err)
+                            result = SpecParseResult(spec=None, error=message)
+                        else:
+                            try:
+                                spec = spec_from_sidecar_dict(response["spec_dict"])
+                                result = SpecParseResult(spec=spec, error=None)
+                            except Exception:
+                                result = SpecParseResult(spec=None, error=traceback.format_exc())
         except Exception:
             result = SpecParseResult(spec=None, error=traceback.format_exc())
 
