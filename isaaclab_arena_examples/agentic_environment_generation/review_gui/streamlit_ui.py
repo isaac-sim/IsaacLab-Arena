@@ -105,9 +105,9 @@ def main() -> None:
     left, right = st.columns([2, 3], gap="large")
     with left:
         render_generation_panel()
-        render_editor_panel(yaml_path)
+        validation = render_editor_panel(yaml_path)
     with right:
-        render_visualization_panel()
+        render_visualization_panel(validation)
 
     # After generation, paint YAML first, then rerun to start SimApp snapshot rendering.
     if st.session_state.pop("_defer_viz_render", False):
