@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import gymnasium as gym
 import torch
 import traceback
 
@@ -50,9 +49,7 @@ def get_test_environment(dont_reset_placeable_object_pose: bool, num_envs: int):
         task=PlaceUprightTask(mug, mug.orientation_threshold),
     )
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
-    name, cfg = env_builder.build_registered()
-
-    env = gym.make(name, cfg=cfg).unwrapped
+    env = env_builder.make_registered().unwrapped
     env.reset()
 
     return env, mug

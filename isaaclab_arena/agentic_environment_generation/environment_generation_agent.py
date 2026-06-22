@@ -224,7 +224,8 @@ class EnvironmentGenerationAgent:
         relation_catalog: RelationCatalogue | None = None,
         task_catalog: TaskCatalogue | None = None,
         temperature: float = 0.2,
-        max_tokens: int = 2000,
+        max_tokens: int = 4096,
+        max_retries: int = 3,
     ) -> tuple[EnvironmentIntentSpec, str]:
         """Call the model with user prompt and return the parsed EnvironmentIntentSpec.
 
@@ -241,6 +242,9 @@ class EnvironmentGenerationAgent:
                 deterministic-ish translation task — high temperature
                 yields creative but invalid schemas.
             max_tokens: Hard cap on the response length.
+            max_retries: Number of additional attempts after a recoverable failure
+                (network errors, timeouts, empty responses, malformed JSON). Each
+                retry is a fresh API call.
 
         Returns:
             A ``(EnvironmentIntentSpec, raw_response)`` tuple. The raw text is
@@ -256,55 +260,72 @@ class EnvironmentGenerationAgent:
         )
         system = self._system_prompt()
         user = f"{vocabulary}\n\nUSER PROMPT:\n{prompt}"
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
 
-        resp = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            response_format={
-                "type": "json_schema",
-                "json_schema": {"name": "EnvironmentIntentSpec", "strict": True, "schema": self._spec_schema},
-            },
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-        choices = getattr(resp, "choices", None) or []
-        assert choices, (
-            f"Model {self.model!r} returned HTTP 200 with no choices "
-            "(content filter / guardrail / rate-limit response with empty body)."
-        )
-        text, route = extract_response_text(choices[0].message)
-        assert route != "empty", (
-            f"Model {self.model!r} returned an empty structured-outputs envelope. "
-            "Verify the endpoint/model supports response_format=json_schema."
-        )
-        # ``strict=False`` lets json.loads accept unescaped control characters
-        # (e.g. literal tabs) inside JSON strings — DeepSeek-v4-flash is known
-        # to emit these.
-        data = json.loads(text, strict=False)
-        spec = EnvironmentIntentSpec.model_validate(data)
-        return spec, text
+        last_exc: Exception | None = None
+        for attempt in range(1 + max_retries):
+            if attempt > 0:
+                print(f"[generate_spec] retry {attempt}/{max_retries} after: {last_exc}", flush=True)
+
+            try:
+                resp = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    response_format={
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": "EnvironmentIntentSpec",
+                            "strict": True,
+                            "schema": self._spec_schema,
+                        },
+                    },
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                choices = getattr(resp, "choices", None) or []
+                assert choices, (
+                    f"Model {self.model!r} returned HTTP 200 with no choices "
+                    "(content filter / guardrail / rate-limit response with empty body)."
+                )
+                text, route = extract_response_text(choices[0].message)
+                assert route != "empty", (
+                    f"Model {self.model!r} returned an empty structured-outputs envelope. "
+                    "Verify the endpoint/model supports response_format=json_schema."
+                )
+                # ``strict=False`` lets json.loads accept unescaped control characters
+                # (e.g. literal tabs) inside JSON strings — DeepSeek-v4-flash is known
+                # to emit these.
+                data = json.loads(text, strict=False)
+                spec = EnvironmentIntentSpec.model_validate(data)
+                return spec, text
+            except Exception as exc:
+                last_exc = exc
+
+        raise RuntimeError(
+            f"Model {self.model!r} failed after {1 + max_retries} attempts. Last error: {last_exc}"
+        ) from last_exc
 
     def _system_prompt(self) -> str:
-        return (
-            "You are an env-generation parser for robot manipulation tasks.\n"
-            "Convert a natural-language prompt into an EnvironmentIntentSpec.\n\n"
-            "GUIDANCE:\n"
-            "- Follow the per-field ``description`` strings in the schema for what each field expects.\n"
-            "- Use only asset names from EMBODIMENTS / BACKGROUNDS / OBJECTS, relation "
-            "kinds from RELATIONS, and task kinds from TASKS in the user message.\n"
-            "- If the prompt does not specify a value for an optional field, output null.\n"
-            "  Do NOT hallucinate values — the resolver tolerates nulls; it cannot fix invented data.\n"
-            "- For binary relations (e.g. on), subject is the placed object and reference is "
-            "the surface it is relative to (typically the background name).\n"
-            "- Articulated objects (microwave, fridge, cabinet) still need an "
-            "'on' relation in initial_state_graph (subject=object, reference=background) "
-            "to anchor them.\n"
-            "- Distractor items around the appliance need the same 'on' pattern in "
-            "initial_state_graph.\n"
-            "- Do not invent relation or task kinds absent from RELATIONS / TASKS.\n"
-            "- Each task entry needs kind, params (all required keys from TASKS), and description.\n"
-            "- params values are Item.query strings or the background name, not registry asset names.\n"
-        )
+        return """\
+You are an env-generation parser for robot manipulation tasks.
+Convert a natural-language prompt into an EnvironmentIntentSpec.
+
+GUIDANCE:
+- Follow the per-field ``description`` strings in the schema for what each field expects.
+- Use only asset names from EMBODIMENTS / BACKGROUNDS / OBJECTS, relation kinds from \
+RELATIONS, and task kinds from TASKS in the user message.
+- If the prompt does not specify a value for an optional field, output null.
+  Do NOT hallucinate values — the resolver tolerates nulls; it cannot fix invented data.
+- For binary relations (e.g. on), subject is the placed object and reference is \
+the surface it is relative to (typically the background name).
+- REQUIRED: include an is_anchor (unary) relation for the surface other objects rest on.
+- Articulated objects (microwave, fridge, cabinet) still need an 'on' relation in \
+initial_state_graph (subject=object, reference=background) to anchor them.
+- Distractor items around the appliance need the same 'on' pattern in initial_state_graph.
+- Do not invent relation or task kinds absent from RELATIONS / TASKS.
+- Each task entry needs kind, params (all required keys from TASKS), and description.
+- params values are Item.query strings or the background name, not registry asset names.
+"""

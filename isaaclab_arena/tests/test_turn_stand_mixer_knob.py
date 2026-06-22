@@ -52,10 +52,10 @@ def get_test_environment(remove_reset_knob_state_event: bool, num_envs: int):
     )
 
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
-    name, cfg = env_builder.build_registered()
+    name, cfg, env_kwargs = env_builder.build_registered()
     if remove_reset_knob_state_event:
         cfg.events.reset_knob_state = None
-    env = gym.make(name, cfg=cfg).unwrapped
+    env = gym.make(name, cfg=cfg, **env_kwargs).unwrapped
     env.reset()
 
     return env, stand_mixer

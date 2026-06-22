@@ -50,6 +50,8 @@ dome_light.get_variation("hdr_image").enable()
 franka.get_variation("camera_extrinsics_wrist_cam").enable()
 
 env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+print(env_builder.get_variations_catalogue_as_string())
+
 env = env_builder.make_registered()
 env.reset()
 
@@ -66,7 +68,6 @@ for _ in tqdm.tqdm(range(NUM_STEPS)):
         env.reset()
 
 # %%
-
 
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import teardown_simulation_app
 from isaaclab_arena.utils.reload_modules import reload_arena_modules

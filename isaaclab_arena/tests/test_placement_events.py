@@ -11,6 +11,13 @@ from unittest.mock import MagicMock
 import pytest
 
 
+def _checklist(passed: bool):
+    """Single-item checklist standing in for a solved layout's validation verdict."""
+    from isaaclab_arena.relations.placement_validation import PlacementValidationResults
+
+    return PlacementValidationResults(validation_results={"valid": passed}, required_checks={"valid"})
+
+
 def _create_test_objects():
     """Create a desk (anchor) with two boxes (On + NextTo)."""
 
@@ -58,11 +65,11 @@ def test_successive_placements_without_seed_produce_different_layouts():
 
     desk1, box1_a, box2_a = _create_test_objects()
     placer_a = ObjectPlacer(params=params)
-    result_a = placer_a.place([desk1, box1_a, box2_a], num_envs=1)
+    (result_a,) = placer_a.place([desk1, box1_a, box2_a], num_envs=1)
 
     desk2, box1_b, box2_b = _create_test_objects()
     placer_b = ObjectPlacer(params=params)
-    result_b = placer_b.place([desk2, box1_b, box2_b], num_envs=1)
+    (result_b,) = placer_b.place([desk2, box1_b, box2_b], num_envs=1)
 
     any_different = False
     for obj_a, obj_b in zip([box1_a, box2_a], [box1_b, box2_b]):
@@ -77,7 +84,6 @@ def test_placement_without_seed_multi_env_gives_different_layouts():
 
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
     num_envs = 4
@@ -92,8 +98,8 @@ def test_placement_without_seed_multi_env_gives_different_layouts():
     placer = ObjectPlacer(params=params)
     result = placer.place([desk, box1, box2], num_envs=num_envs)
 
-    assert isinstance(result, MultiEnvPlacementResult)
-    positions_box1 = [result.results[env_idx].positions[box1] for env_idx in range(num_envs)]
+    assert len(result) == num_envs
+    positions_box1 = [result[env_idx].positions[box1] for env_idx in range(num_envs)]
     any_different = any(positions_box1[i] != positions_box1[j] for i in range(num_envs) for j in range(i + 1, num_envs))
     assert any_different, "Unseeded multi-env placement should produce different positions across environments"
 
@@ -114,11 +120,11 @@ def test_successive_seeded_placements_produce_same_layout():
 
     desk1, box1_a, box2_a = _create_test_objects()
     placer_a = ObjectPlacer(params=params)
-    result_a = placer_a.place([desk1, box1_a, box2_a], num_envs=1)
+    (result_a,) = placer_a.place([desk1, box1_a, box2_a], num_envs=1)
 
     desk2, box1_b, box2_b = _create_test_objects()
     placer_b = ObjectPlacer(params=params)
-    result_b = placer_b.place([desk2, box1_b, box2_b], num_envs=1)
+    (result_b,) = placer_b.place([desk2, box1_b, box2_b], num_envs=1)
 
     for obj_a, obj_b in zip([box1_a, box2_a], [box1_b, box2_b]):
         assert (
@@ -329,7 +335,7 @@ def test_solve_and_place_objects_writes_invalid_fallback_layout(capsys):
             assert count == 1
             return [
                 PlacementResult(
-                    success=False,
+                    validation_results=_checklist(False),
                     positions={box1: (0.0, 0.0, 0.0), box2: (0.0, 0.0, 0.0)},
                     final_loss=float("nan"),
                     attempts=1,
@@ -367,7 +373,7 @@ def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_res
             self.requested_env_ids = env_ids
             return {
                 cur_env: PlacementResult(
-                    success=True,
+                    validation_results=_checklist(True),
                     positions={
                         box1: (float(cur_env), 0.0, 0.0),
                         box2: (float(cur_env), 1.0, 0.0),
@@ -536,7 +542,7 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
             assert count == 1
             return [
                 PlacementResult(
-                    success=True,
+                    validation_results=_checklist(True),
                     positions={box: (float(env_id), 0.0, 0.1)},
                     final_loss=0.0,
                     attempts=1,
@@ -591,7 +597,7 @@ def test_env_indexed_static_poses_apply_per_env_positions():
         def sample_with_replacement(self, count: int):
             return [
                 PlacementResult(
-                    success=True,
+                    validation_results=_checklist(True),
                     positions={box: (0.1 * env_id, 0.2 * env_id, 0.11)},
                     final_loss=0.0,
                     attempts=1,

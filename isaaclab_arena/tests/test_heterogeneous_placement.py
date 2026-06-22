@@ -17,13 +17,20 @@ from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes, get_bounding_box_per_env
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_result import MultiEnvPlacementResult, PlacementResult
+from isaaclab_arena.relations.placement_result import PlacementResult
+from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
+
+
+def _checklist(passed: bool) -> PlacementValidationResults:
+    """Single-item checklist standing in for a solved layout's validation verdict."""
+    return PlacementValidationResults(validation_results={"valid": passed}, required_checks={"valid"})
+
 
 # ---------------------------------------------------------------------------
 # Fixture: let HeterogeneousDummyObject trigger the heterogeneous path
@@ -245,9 +252,8 @@ def test_object_placer_heterogeneous_produces_per_env_results():
     placer = ObjectPlacer(params=params)
     result = placer.place(objects, num_envs=num_envs)
 
-    assert isinstance(result, MultiEnvPlacementResult)
-    assert len(result.results) == num_envs
-    for r in result.results:
+    assert len(result) == num_envs
+    for r in result:
         assert hetero_box in r.positions
 
 
@@ -276,10 +282,8 @@ def test_object_placer_heterogeneous_z_height_matches_variant():
     placer = ObjectPlacer(params=params)
     result = placer.place(objects, num_envs=num_envs)
 
-    assert isinstance(result, MultiEnvPlacementResult)
-    # Both envs should have solved z near the desk top + clearance (0.11).
-    # The On loss targets: z = parent_top + clearance - child_min_z = 0.1 + 0.01 - 0.0 = 0.11
-    for env_idx, r in enumerate(result.results):
+    assert len(result) == num_envs
+    for env_idx, r in enumerate(result):
         z = r.positions[hetero][2]
         assert abs(z - 0.11) < 0.05, f"Env {env_idx}: z={z:.4f}, expected ~0.11"
 
@@ -322,10 +326,9 @@ def test_mixed_heterogeneous_and_homogeneous_placement():
     placer = ObjectPlacer(params=params)
     result = placer.place(objects, num_envs=num_envs)
 
-    assert isinstance(result, MultiEnvPlacementResult)
-    assert len(result.results) == num_envs
+    assert len(result) == num_envs
 
-    for env_idx, r in enumerate(result.results):
+    for env_idx, r in enumerate(result):
         assert obj_a in r.positions and obj_x in r.positions
         # Verify z-height is near desk top + clearance for both objects.
         for obj in (obj_a, obj_x):
@@ -358,8 +361,7 @@ def test_heterogeneous_placement_always_returns_per_env_results():
     placer = ObjectPlacer(params=params)
     result = placer.place([desk, hetero], num_envs=4)
 
-    assert isinstance(result, MultiEnvPlacementResult)
-    assert len(result.results) == 4
+    assert len(result) == 4
 
 
 def test_object_placer_place_ranked_per_env_returns_sorted_env_lists():
@@ -417,9 +419,8 @@ def test_object_placer_homogeneous_objects_return_multi_env_result():
     placer = ObjectPlacer(params=params)
     result = placer.place([desk, box], num_envs=2)
 
-    assert isinstance(result, MultiEnvPlacementResult)
-    assert len(result.results) == 2
-    assert all(r.success for r in result.results)
+    assert len(result) == 2
+    assert all(r.success for r in result)
 
 
 # ---------------------------------------------------------------------------
@@ -480,7 +481,7 @@ def test_pooled_placer_sample_for_envs_consumes_only_requested_envs():
     for env_id in range(4):
         pool._env_pools[env_id].layouts = [
             PlacementResult(
-                success=True,
+                validation_results=_checklist(True),
                 positions={hetero: (float(env_id), 0.0, 0.0)},
                 final_loss=0.0,
                 attempts=1,
@@ -503,7 +504,12 @@ def test_pooled_placer_heterogeneous_sample_with_replacement():
 
     for env_id in range(4):
         pool._env_pools[env_id].layouts = [
-            PlacementResult(success=True, positions={hetero: (float(env_id), 0.0, 0.0)}, final_loss=0.0, attempts=1)
+            PlacementResult(
+                validation_results=_checklist(True),
+                positions={hetero: (float(env_id), 0.0, 0.0)},
+                final_loss=0.0,
+                attempts=1,
+            )
         ]
         pool._env_pools[env_id].cursor = 0
     initial_remaining = pool.remaining
@@ -578,7 +584,7 @@ def test_pooled_placer_env_specific_fallbacks_are_reported(capsys):
     fallback_results = [
         [
             PlacementResult(
-                success=False,
+                validation_results=_checklist(False),
                 positions={hetero: (float(cur_env), 0.0, 0.0)},
                 final_loss=1.0,
                 attempts=1,
@@ -607,7 +613,7 @@ def test_pooled_placer_env_specific_fallbacks_wait_for_final_retry(capsys):
     fallback_results = [
         [
             PlacementResult(
-                success=False,
+                validation_results=_checklist(False),
                 positions={hetero: (float(cur_env), 0.0, 0.0)},
                 final_loss=1.0,
                 attempts=1,
@@ -634,7 +640,7 @@ def test_pooled_placer_env_specific_fallback_only_fills_short_env(capsys):
     pool._had_fallbacks = False
 
     existing_layout = PlacementResult(
-        success=True,
+        validation_results=_checklist(True),
         positions={hetero: (10.0, 0.0, 0.0)},
         final_loss=0.0,
         attempts=1,
@@ -644,7 +650,7 @@ def test_pooled_placer_env_specific_fallback_only_fills_short_env(capsys):
     fallback_results = [
         [
             PlacementResult(
-                success=False,
+                validation_results=_checklist(False),
                 positions={hetero: (float(cur_env), 0.0, 0.0)},
                 final_loss=1.0,
                 attempts=1,
@@ -677,7 +683,7 @@ def test_pooled_placer_env_specific_valid_results_only_fill_short_envs():
         env_pool.cursor = 0
 
     existing_layout = PlacementResult(
-        success=True,
+        validation_results=_checklist(True),
         positions={hetero: (10.0, 0.0, 0.0)},
         final_loss=0.0,
         attempts=1,
@@ -687,7 +693,7 @@ def test_pooled_placer_env_specific_valid_results_only_fill_short_envs():
     ranked_results = [
         [
             PlacementResult(
-                success=True,
+                validation_results=_checklist(True),
                 positions={hetero: (float(cur_env), float(candidate_idx), 0.0)},
                 final_loss=0.0,
                 attempts=1,
@@ -741,7 +747,9 @@ def test_pooled_placer_reusable_layouts_keep_partial_valid_results():
         env_pool.cursor = 0
 
     layouts = [
-        PlacementResult(success=True, positions={box: (float(i), 0.0, 0.0)}, final_loss=0.0, attempts=1)
+        PlacementResult(
+            validation_results=_checklist(True), positions={box: (float(i), 0.0, 0.0)}, final_loss=0.0, attempts=1
+        )
         for i in range(3)
     ]
     pool._store_reusable_results(layouts)

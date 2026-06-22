@@ -30,19 +30,28 @@ from isaaclab_arena.environments.relation_solver_interface import solve_and_appl
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
+from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
+from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBase
+from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 
 class ArenaEnvBuilder:
     """Compose IsaacLab Arena → IsaacLab configs"""
 
-    def __init__(self, arena_env: IsaacLabArenaEnvironment, args: argparse.Namespace):
+    def __init__(
+        self,
+        arena_env: IsaacLabArenaEnvironment,
+        args: argparse.Namespace,
+        hydra_overrides: list[str] | None = None,
+    ):
         self.arena_env = arena_env
         self.args = args
+        self.hydra_overrides = hydra_overrides
         self.interactive_scene_cfg = InteractiveSceneCfg(
             num_envs=args.num_envs, env_spacing=args.env_spacing, replicate_physics=False
         )
@@ -85,6 +94,11 @@ class ArenaEnvBuilder:
             embodiment_variations = self.arena_env.embodiment.get_variations()
             scene_and_embodiment_variations[self.arena_env.embodiment.name] = embodiment_variations
         return scene_and_embodiment_variations
+
+    def get_variations_catalogue_as_string(self) -> str:
+        """Return a human-readable catalog of Hydra-configurable variations for this env."""
+        variations: dict[str, list[VariationBase]] = self.get_all_variations()
+        return variations_printing.get_variations_catalogue_as_string(variations, hydra_overrides=self.hydra_overrides)
 
     def _compose_variations_event_cfg(self) -> Any | None:
         """Build a configclass with one :class:`EventTermCfg` per enabled run-time variation.
@@ -142,12 +156,27 @@ class ArenaEnvBuilder:
         fields = [(m.name, MetricTermCfg, m.get_metric_term_cfg()) for m in metrics]
         return make_configclass("MetricsCfg", fields)()
 
-    def compose_manager_cfg(self) -> IsaacLabArenaManagerBasedRLEnvCfg:
-        """Return base ManagerBased cfg (scene+events+terminations+xr), no registration."""
+    def compose_manager_cfg(self) -> tuple[IsaacLabArenaManagerBasedRLEnvCfg, dict[str, Any]]:
+        """Return the base ManagerBased cfg and the env kwargs (no registration).
 
+        env_kwargs carries arguments to be forwarded to gym.make for construction of the IsaacLabArenaManagerBasedRLEnv.
+
+        Returns:
+            An (env_cfg, env_kwargs) tuple.
+        """
         # Solve relations before building scene config so positions are captured correctly.
         if self.args.solve_relations:
             self._solve_relations()
+
+        # Apply Hydra variation overrides. Needs to happen before build-time variations are applied.
+        if self.hydra_overrides:
+            variations: dict[str, list[VariationBase]] = self.get_all_variations()
+            variations_hydra.apply_overrides(variations, self.hydra_overrides)
+
+        # Attach the variation recorder before any sampling, so it observes both build-time samples
+        # (drawn just below) and run-time samples (drawn during simulation).
+        variation_recorder = VariationRecorder()
+        variation_recorder.attach(self.get_all_variations())
 
         # Apply build-time variations now, before scene_cfg is materialised.
         self._apply_build_time_variations()
@@ -172,7 +201,7 @@ class ArenaEnvBuilder:
         if self._placement_event_cfg is not None:
             PlacementEventCfg = make_configclass(
                 "PlacementEventCfg",
-                [("placement_reset", EventTermCfg, self._placement_event_cfg)],
+                [(PLACEMENT_RESET_EVENT_NAME, EventTermCfg, self._placement_event_cfg)],
             )
             placement_event_cfg = PlacementEventCfg()
         variations_event_cfg = self._compose_variations_event_cfg()
@@ -299,6 +328,9 @@ class ArenaEnvBuilder:
         if self.arena_env.env_cfg_callback is not None:
             env_cfg = self.arena_env.env_cfg_callback(env_cfg)
 
+        # Set seed for Isaac Lab env.
+        env_cfg.seed = self.args.seed
+
         # Apply the --presets CLI flag (e.g. --presets newton).
         # This runs after the callback so the user's CLI choice is the final authority.
         presets = getattr(self.args, "presets", None)
@@ -313,7 +345,8 @@ class ArenaEnvBuilder:
             if presets == "newton":
                 env_cfg.scene.replicate_physics = True
 
-        return env_cfg
+        env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
+        return env_cfg, env_kwargs
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:
         """Return the entry point of the environment."""
@@ -327,15 +360,31 @@ class ArenaEnvBuilder:
             return "isaaclab_arena.environments.isaaclab_arena_manager_based_env:IsaacLabArenaManagerBasedRLEnv"
 
     def build_registered(
-        self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None
-    ) -> tuple[str, IsaacLabArenaManagerBasedRLEnvCfg]:
-        """Register Gym env and parse runtime cfg."""
+        self,
+        env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None,
+        env_kwargs: dict[str, Any] | None = None,
+    ) -> tuple[str, IsaacLabArenaManagerBasedRLEnvCfg, dict[str, Any]]:
+        """Build env cfg and register the env with gym. Stop short of env.make().
+
+        The default operation is to call with no arguments, in which case the env_cfg is built from the
+        Arena description passed to the builder at construction.
+
+        Args:
+            env_cfg: The optional environment cfg to use.
+            env_kwargs: The optional environment kwargs to use.
+
+        Returns:
+            A ``(name, cfg, env_kwargs)`` tuple.
+        """
         name = self.arena_env.name
-        cfg_entry = env_cfg if env_cfg is not None else self.compose_manager_cfg()
+        if env_cfg is None:
+            env_cfg, env_kwargs = self.compose_manager_cfg()
+        elif env_kwargs is None:
+            env_kwargs = {}
         entry_point = self.get_entry_point()
         # Register the environment with the Gym registry.
         kwargs = {
-            "env_cfg_entry_point": cfg_entry,
+            "env_cfg_entry_point": env_cfg,
         }
         if self.arena_env.rl_framework_entry_point is not None:
             kwargs[self.arena_env.rl_framework_entry_point] = self.arena_env.rl_policy_cfg
@@ -351,19 +400,51 @@ class ArenaEnvBuilder:
             num_envs=self.args.num_envs,
             use_fabric=not self.args.disable_fabric,
         )
-        return name, cfg
+        return name, cfg, env_kwargs
 
     def make_registered(
-        self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None, render_mode: str | None = None
+        self,
+        env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None,
+        env_kwargs: dict[str, Any] | None = None,
+        render_mode: str | None = None,
     ) -> ManagerBasedEnv:
-        env, _ = self.make_registered_and_return_cfg(env_cfg, render_mode=render_mode)
+        """Build env cfg, register the env with gym, and make the env.
+
+        The default operation is to call with no arguments, in which case the env_cfg is built from the
+        Arena description passed to the builder at construction.
+
+        Args:
+            env_cfg: The optional environment cfg to use.
+            env_kwargs: The optional environment kwargs to use.
+            render_mode: The optional render mode to use.
+
+        Returns:
+            The environment.
+        """
+        env, _ = self.make_registered_and_return_cfg(env_cfg, env_kwargs, render_mode=render_mode)
         return env
 
     def make_registered_and_return_cfg(
-        self, env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None, render_mode: str | None = None
+        self,
+        env_cfg: None | IsaacLabArenaManagerBasedRLEnvCfg = None,
+        env_kwargs: dict[str, Any] | None = None,
+        render_mode: str | None = None,
     ) -> tuple[ManagerBasedEnv, IsaacLabArenaManagerBasedRLEnvCfg]:
-        name, cfg = self.build_registered(env_cfg)
-        env = gym.make(name, cfg=cfg, render_mode=render_mode)
+        """Build env cfg, register the env with gym, and make the env.
+
+        The default operation is to call with no arguments, in which case the env_cfg is built from the
+        Arena description passed to the builder at construction.
+
+        Args:
+            env_cfg: The optional environment cfg to use.
+            env_kwargs: The optional environment kwargs to use.
+            render_mode: The optional render mode to use.
+
+        Returns:
+            A tuple containing the environment and the environment configuration.
+        """
+        name, cfg, env_kwargs = self.build_registered(env_cfg, env_kwargs)
+        env = gym.make(name, cfg=cfg, render_mode=render_mode, **env_kwargs)
         # ViewportCameraController sets the camera before KitVisualizer.initialize() is called,
         # so the call is silently ignored. Re-apply here once the visualizers are fully initialized.
         reapply_viewer_cfg(env)

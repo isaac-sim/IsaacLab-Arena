@@ -103,3 +103,46 @@ def test_get_arena_builder_from_cli_builds_env_from_graph_yaml():
 
     result = run_simulation_app_function(_test_get_arena_builder_from_cli_builds_env_from_graph_yaml)
     assert result
+
+
+def _test_default_light_is_injected_when_scene_has_none(simulation_app):
+    from isaaclab_arena.assets.object_library import DomeLight
+    from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeSpec, ArenaEnvGraphNodeType
+
+    # A single YCB object with no light node and no light baked into its USD: the converter
+    # must inject a default light so the env does not render black.
+    spec = ArenaEnvGraphSpec(
+        env_name="lighting_injection_test",
+        nodes=[ArenaEnvGraphNodeSpec(id="mug", name="mug_ycb_robolab", type=ArenaEnvGraphNodeType.OBJECT)],
+    )
+    arena_env = spec.to_arena_env()
+
+    # The injected light is tracked as a real LIGHTING node (so the augmented graph stays faithful)
+    # and materializes as a DomeLight scene asset.
+    light_nodes = [node for node in spec.nodes if node.type == ArenaEnvGraphNodeType.LIGHTING]
+    assert len(light_nodes) == 1, f"expected one injected light node, got {light_nodes}"
+    assert any(isinstance(asset, DomeLight) for asset in arena_env.scene.assets.values())
+
+    # An explicit light suppresses injection — no double-lighting.
+    explicit = ArenaEnvGraphSpec(
+        env_name="lighting_explicit_test",
+        nodes=[
+            ArenaEnvGraphNodeSpec(id="mug", name="mug_ycb_robolab", type=ArenaEnvGraphNodeType.OBJECT),
+            ArenaEnvGraphNodeSpec(id="my_light", name="light", type=ArenaEnvGraphNodeType.LIGHTING),
+        ],
+    )
+    num_nodes_before = len(explicit.nodes)
+    explicit_env = explicit.to_arena_env()
+    assert len(explicit.nodes) == num_nodes_before, "must not inject a light when one is already declared"
+    assert sum(isinstance(asset, DomeLight) for asset in explicit_env.scene.assets.values()) == 1
+
+    return True
+
+
+def test_default_light_is_injected_when_scene_has_none():
+    pytest.importorskip("isaaclab.app")
+
+    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+
+    result = run_simulation_app_function(_test_default_light_is_injected_when_scene_has_none)
+    assert result
