@@ -13,7 +13,7 @@ from isaaclab_newton.physics.newton_manager_cfg import MJWarpSolverCfg, NewtonCf
 from isaaclab_physx.physics import PhysxCfg
 from isaaclab_tasks.utils import PresetCfg
 
-from isaaclab_arena.evaluation.episode_recorder import EpisodeRecorderManagerCfg
+from isaaclab_arena.recording.common_terms import EpisodeRecorderManagerCfg
 
 
 @configclass

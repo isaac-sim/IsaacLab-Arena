@@ -10,9 +10,9 @@ from collections.abc import Sequence
 from isaaclab.envs import ManagerBasedRLEnv
 
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
-from isaaclab_arena.evaluation.episode_recorder import EpisodeRecorderManager
 from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.metrics.metrics_manager import MetricsManager
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 

@@ -18,12 +18,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.evaluation.episode_recorder import EpisodeResultsMetadata
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeResultsMetadata
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir, wrap_env_for_video
 from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c

@@ -47,15 +47,15 @@ def _test_episode_recorder(simulation_app):
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.evaluation.episode_recorder import EpisodeRecorderTermCfg, EpisodeResultsMetadata
+    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg, EpisodeResultsMetadata
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.terms.events import set_object_pose_per_env
     from isaaclab_arena.utils.pose import Pose
 
-    def record_step_bucket(env, context):
+    def record_step_bucket(env, env_id):
         """Custom term callable: records the finished episode's length bucketed into tens."""
-        return {CUSTOM_KEY: int(env.episode_length_buf[context.env_id].item()) // 10}
+        return {CUSTOM_KEY: int(env.episode_length_buf[env_id].item()) // 10}
 
     asset_registry = AssetRegistry()
 
