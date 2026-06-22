@@ -94,7 +94,9 @@ class TestValidateYamlText:
         assert session_state["_validation_text"] == text
         assert session_state["_validation_result"] is result
 
-    def test_valid_spec_yaml(self, session_state, sidecar_validation, valid_spec_yaml: str, valid_spec: ArenaEnvInitialGraphSpec):
+    def test_valid_spec_yaml(
+        self, session_state, sidecar_validation, valid_spec_yaml: str, valid_spec: ArenaEnvInitialGraphSpec
+    ):
         result = validate_yaml_text(valid_spec_yaml)
         assert result.is_valid
         assert result.error is None
@@ -362,3 +364,66 @@ class TestTrySaveInitialGraphSpec:
         assert paths is None
         assert "ValueError" in error
         assert "unknown node reference" in error
+
+
+class TestSimAppSidecarClient:
+    def test_disconnect_leaves_sidecar_listening(self, tmp_path: Path) -> None:
+        """Boot probe must not send shutdown — Streamlit connects after wait_for_sidecar."""
+        import json
+        import socket
+        import threading
+
+        from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_sidecar_client import (
+            SimAppSidecarClient,
+            wait_for_sidecar_socket,
+        )
+
+        socket_path = tmp_path / "probe.sock"
+        shutdowns = 0
+        pings = 0
+
+        def _serve() -> None:
+            nonlocal shutdowns, pings
+            server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            server.bind(str(socket_path))
+            server.listen(5)
+            try:
+                while True:
+                    conn, _ = server.accept()
+                    with conn:
+                        reader = conn.makefile("r", encoding="utf-8", newline="\n")
+                        writer = conn.makefile("w", encoding="utf-8", newline="\n")
+                        for raw_line in reader:
+                            req = json.loads(raw_line)
+                            if req.get("cmd") == "shutdown":
+                                shutdowns += 1
+                                writer.write(json.dumps({"ok": True}) + "\n")
+                                writer.flush()
+                                return
+                            if req.get("cmd") == "ping":
+                                pings += 1
+                                writer.write(json.dumps({"ok": True}) + "\n")
+                                writer.flush()
+            finally:
+                server.close()
+
+        thread = threading.Thread(target=_serve, daemon=True)
+        thread.start()
+
+        class _Proc:
+            def poll(self) -> None:
+                return None
+
+        wait_for_sidecar_socket(str(socket_path), _Proc(), timeout_s=5.0, poll_interval_s=0.05)
+        assert pings == 1
+        assert shutdowns == 0
+
+        client = SimAppSidecarClient.connect(str(socket_path))
+        assert client.ping()
+        client.disconnect()
+        assert shutdowns == 0
+
+        client = SimAppSidecarClient.connect(str(socket_path))
+        client.shutdown()
+        thread.join(timeout=2.0)
+        assert shutdowns == 1

@@ -89,8 +89,12 @@ def _serve_connection(
     app,
     render_fn,
     spec_cls,
-) -> None:
-    """Handle JSON-RPC requests on one connected client until disconnect."""
+) -> bool:
+    """Handle JSON-RPC requests on one connected client until disconnect.
+
+    Returns:
+        True when the client sent ``shutdown`` and the sidecar should exit.
+    """
     for raw_line in reader:
         line = raw_line.strip()
         if not line:
@@ -104,7 +108,7 @@ def _serve_connection(
         cmd = req.get("cmd")
         if cmd == "shutdown":
             _write_response(writer, {"ok": True})
-            return
+            return True
 
         if cmd == "ping":
             _write_response(writer, {"ok": True})
@@ -127,6 +131,8 @@ def _serve_connection(
             continue
 
         _write_response(writer, {"ok": False, "error": f"unknown cmd: {cmd!r}"})
+
+    return False
 
 
 def _serve_socket(socket_path: str) -> int:
@@ -169,7 +175,7 @@ def _serve_socket(socket_path: str) -> int:
                 reader = conn.makefile("r", encoding="utf-8", newline="\n")
                 writer = conn.makefile("w", encoding="utf-8", newline="\n")
                 try:
-                    _serve_connection(
+                    should_exit = _serve_connection(
                         reader,
                         writer,
                         app=app,
@@ -179,6 +185,8 @@ def _serve_socket(socket_path: str) -> int:
                 finally:
                     reader.close()
                     writer.close()
+                if should_exit:
+                    break
     finally:
         server.close()
         path.unlink(missing_ok=True)
