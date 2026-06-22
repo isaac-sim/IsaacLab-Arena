@@ -5,7 +5,7 @@
 
 """CLI launcher for the ArenaEnvInitialGraphSpec live editor.
 
-Spawns Streamlit with :mod:`~isaaclab_arena_examples.agentic_environment_generation.review_gui.streamlit_ui`.
+Spawns Streamlit with review_gui.streamlit_ui.
 
 Usage:
     # Default — start with a prompt:

@@ -14,20 +14,9 @@ _MERMAID_ID_SAFE = re.compile(r"[^A-Za-z0-9_]")
 
 
 def render_mermaid_graph(spec: ArenaEnvInitialGraphSpec, state: ArenaEnvGraphStateSpec) -> str:
-    """Emit a left-to-right mermaid graph of spatial and task constraints.
+    """Build left-to-right Mermaid flowchart syntax for spatial, task, and reference edges.
 
-    Binary spatial constraints (reference is set) are drawn as solid edges:
-        subject -->|kind| reference
-
-    Unary spatial constraints (no reference) are omitted from the graph and
-    listed to its right by :func:`render_unary_constraints` so their params are
-    visible.
-
-    Task constraints with a child are drawn as dashed edges:
-        parent -.->|type| child
-
-    object_reference nodes are drawn with a dotted edge to their parent node:
-        ref_node -. ref .-> parent_node
+    Unary spatial constraints (no reference) are omitted; panels.render_unary_constraints lists them.
     """
     lines = ["graph LR"]
 
@@ -93,21 +82,6 @@ def _mermaid_id(value: str) -> str:
 
 
 def _mermaid_label(value: str) -> str:
-    """Escape characters that would break labels in *our* Mermaid output.
-
-    Mermaid flowchart syntax has many metacharacters overall (``]``, ``#``,
-    ``;``, arrow tokens, etc.) — this helper does **not** attempt to cover all
-    of them. It only handles the subset relevant to **this call site's inputs**:
-    node ids, relation kinds, and task-constraint type strings from a validated
-    :class:`ArenaEnvInitialGraphSpec` (snake_case identifiers, not free-form
-    user text). For those values we escape:
-
-    * ``"`` — would terminate a Mermaid string literal
-    * ``|`` — would split an edge label (``-->|label|``)
-
-    Brackets and newlines are not expected in spec ids/kinds; we assert rather
-    than silently strip them. If other Mermaid metacharacters ever appear in
-    spec fields, extend this helper for those cases explicitly.
-    """
+    """Escape ``"`` and ``|`` in spec-derived Mermaid node and edge labels."""
     assert "\n" not in value and "]" not in value, f"Mermaid label contains unexpected characters: {value!r}"
     return value.replace('"', "&quot;").replace("|", "&#124;")

@@ -5,8 +5,7 @@
 
 """Streamlit UI for the initial-graph live editor.
 
-Launch via :mod:`~isaaclab_arena_examples.agentic_environment_generation.gui_runner`
-(see that module for CLI usage).
+Launch via gui_runner (see that module for CLI usage).
 """
 
 from __future__ import annotations
@@ -31,7 +30,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.visualiza
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse Streamlit CLI args forwarded after ``--`` by :mod:`gui_runner`."""
+    """Parse Streamlit CLI args forwarded after ``--`` by gui_runner."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--env_initial_graph_spec",

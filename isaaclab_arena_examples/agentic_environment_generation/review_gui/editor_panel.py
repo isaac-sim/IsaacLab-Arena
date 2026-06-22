@@ -38,27 +38,22 @@ class SpecParseResult:
 
 
 def validate_yaml_text(text: str) -> SpecParseResult:
-    """Parse ``text`` as YAML and validate it as an :class:`ArenaEnvInitialGraphSpec`."""
+    """Parse YAML text and validate it as an ArenaEnvInitialGraphSpec."""
     cached_text = st.session_state.get("_validation_text")
     cached_result = st.session_state.get("_validation_result")
     if cached_text == text and isinstance(cached_result, SpecParseResult):
-        # YAML text unchanged — return cached parse result.
         return cached_result
 
     if not text.strip():
-        # Blank editor — neither valid nor invalid.
         result = SpecParseResult(spec=None, error=None)
     else:
         try:
             raw = yaml.safe_load(text)
             if raw is None:
-                # YAML parsed to null.
                 result = SpecParseResult(spec=None, error="YAML is empty")
             elif not isinstance(raw, dict):
-                # Root must be a mapping for ArenaEnvInitialGraphSpec.
                 result = SpecParseResult(spec=None, error=f"Expected mapping, got {type(raw).__name__}")
             else:
-                # Validate dict as ArenaEnvInitialGraphSpec.
                 spec = ArenaEnvInitialGraphSpec.from_dict(raw)
                 result = SpecParseResult(spec=spec, error=None)
         except Exception:

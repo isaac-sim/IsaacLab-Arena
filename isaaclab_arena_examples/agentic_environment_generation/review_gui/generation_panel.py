@@ -118,13 +118,11 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
         return False, err
 
     try:
-        # Build registry-backed catalogues for LLM prompt assembly.
         catalogues = get_catalogue_bundle()
     except Exception:
         return False, traceback.format_exc()
 
     try:
-        # LLM call: natural-language prompt -> EnvironmentIntentSpec.
         intent, _raw = agent.generate_spec(
             prompt,
             asset_catalog=catalogues.asset_catalogue,
@@ -135,7 +133,6 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
         return False, traceback.format_exc()
 
     try:
-        # Compile intent -> validated ArenaEnvInitialGraphSpec YAML.
         compiler = IntentCompiler()
         spec = compiler.compile(intent)
         yaml_text = yaml.safe_dump(spec.to_dict(), sort_keys=False)
@@ -145,7 +142,6 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
     except Exception:
         return False, traceback.format_exc()
 
-    # Push compiled YAML into the editor and refresh the dashboard preview.
     _apply_generated_yaml(yaml_text, spec=spec)
 
     if reasoning:
@@ -154,7 +150,6 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
         st.session_state["last_generation_trace"] = trace
 
     if has_resolution_errors:
-        # Spec is usable but asset/relation resolution had warnings.
         error_trace = _format_trace_lines(trace, errors_only=True)
         return (
             True,
