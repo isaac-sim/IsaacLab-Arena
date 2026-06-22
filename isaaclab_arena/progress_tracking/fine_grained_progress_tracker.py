@@ -13,7 +13,7 @@ from isaaclab.managers import EventTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
 from isaaclab.utils import configclass
 
-from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
+from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
 
 _STATE_MACHINE_ATTR = "_fine_grained_progress_tracker"
 
