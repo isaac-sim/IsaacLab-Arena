@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import streamlit as st
+from streamlit_ace import st_ace
 
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import render_dashboard_html
@@ -118,18 +119,6 @@ def render_save_button(validation: SpecParseResult) -> None:
 
 def render_editor_panel(yaml_path: Path | None) -> SpecParseResult:
     """Render the ACE YAML editor and refresh the dashboard when text changes."""
-    try:
-        from streamlit_ace import st_ace  # noqa: PLC0415
-    except ImportError as exc:
-        # streamlit-ace is required for the YAML editor widget.
-        st.error(
-            "`streamlit-ace` is not installed. Inside the isaaclab_arena container run:\n"
-            "`python -m pip install --user --ignore-installed streamlit-ace`\n\n"
-            f"Underlying error: {exc}",
-            icon="🛑",
-        )
-        st.stop()
-
     st.subheader("YAML editor")
     if yaml_path is not None:
         st.caption(f"Source: `{yaml_path}`")
