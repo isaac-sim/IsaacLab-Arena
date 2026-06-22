@@ -5,12 +5,12 @@
 
 from __future__ import annotations
 
+import copy
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import get_rotation_xyzw, solve_and_place_objects
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
-from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, rotate_quat_by_yaw
 
@@ -23,45 +23,19 @@ if TYPE_CHECKING:
 def solve_and_apply_relation_placement(
     objects: list[ObjectBase],
     num_envs: int,
-    placement_seed: int | None = None,
-    resolve_on_reset: bool | None = None,
-    random_yaw_init: bool = False,
-    collision_mode: str = "bbox",
+    placer_params: ObjectPlacerParams | None = None,
 ) -> EventTermCfg | None:
-    """Solve relation placement and apply the result to object reset/static state.
-
-    Args:
-        objects: Objects with spatial predicates that should be relation-solved.
-        num_envs: Number of environments to prepare placements for.
-        placement_seed: Optional random seed for reproducible object placement.
-        resolve_on_reset: Optional override for whether to draw fresh layouts from
-            the placement pool on reset. When ``False``, fixed per-environment
-            initial poses are applied immediately.
-        random_yaw_init: If True, randomly rotates non-anchor objects around the vertical (Z)
-            axis at startup to add visual variety to the scene.
-        collision_mode: Collision detection mode: "bbox" or "mesh".
-
-    Returns:
-        Reset event config to attach to the environment when placement should be
-        resolved on reset. Returns ``None`` when no reset event is needed.
-    """
-    from isaaclab_arena.relations.relation_solver_params import CollisionMode
-
+    """Solve relation placement and return a reset EventTermCfg (or None if no objects)."""
     objects = list(objects)
     if not objects:
         print("No objects with relations found in scene. Skipping relation solving.")
         return None
 
-    assert collision_mode in ("bbox", "mesh"), f"Invalid collision_mode '{collision_mode}', expected 'bbox' or 'mesh'"
-    mode = CollisionMode.MESH if collision_mode == "mesh" else CollisionMode.BBOX
-    placer_params = ObjectPlacerParams(
-        placement_seed=placement_seed,
-        apply_positions_to_objects=False,
-        solver_params=RelationSolverParams(collision_mode=mode, save_position_history=False, verbose=False),
-        random_yaw_init=random_yaw_init,
-    )
-    if resolve_on_reset is not None:
-        placer_params.resolve_on_reset = resolve_on_reset
+    if placer_params is None:
+        placer_params = ObjectPlacerParams()
+    else:
+        placer_params = copy.copy(placer_params)
+    placer_params.apply_positions_to_objects = False
 
     # TODO(xinjieyao, 2026-05-22): Add joint object/embodiment placement once task-dependent
     # reachability constraints are available. For now this always uses the object-only placer.

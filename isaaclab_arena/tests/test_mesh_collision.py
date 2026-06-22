@@ -18,7 +18,7 @@ from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStr
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
-from isaaclab_arena.relations.warp_mesh_manager import WarpMeshManager, greedy_sphere_decomposition
+from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache, greedy_sphere_decomposition
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
@@ -96,7 +96,7 @@ def test_sphere_decomposition_covers_surface():
 def test_warp_mesh_caching():
     """Same mesh object should return identical Warp mesh from cache."""
     mesh = trimesh.creation.box(extents=(0.1, 0.1, 0.1))
-    manager = WarpMeshManager(num_spheres=10)
+    manager = WarpMeshAndSphereCache(num_spheres=10)
     m1 = manager.get_warp_mesh(mesh)
     m2 = manager.get_warp_mesh(mesh)
     assert m1 is m2
@@ -287,8 +287,8 @@ def test_random_yaw_mesh_mode_places_successfully():
     cyl_a.add_relation(On(table))
     cyl_b.add_relation(On(table))
 
-    result = placer.place([table, cyl_a, cyl_b])
-    assert result.success
+    results = placer.place([table, cyl_a, cyl_b])
+    assert results[0].success
 
 
 @requires_warp
@@ -392,8 +392,8 @@ def test_object_placer_mesh_mode_end_to_end():
         verbose=False,
     )
     placer = ObjectPlacer(params=params)
-    result = placer.place([table, a, b])
-    assert result.success, f"Placement failed with loss={result.final_loss}"
+    results = placer.place([table, a, b])
+    assert results[0].success, f"Placement failed with loss={results[0].final_loss}"
 
 
 @requires_warp
@@ -536,7 +536,7 @@ def test_mesh_sdf_backward_gradient():
     from isaaclab_arena.relations.warp_sdf_kernels import mesh_sdf
 
     mesh = trimesh.creation.box(extents=(0.2, 0.2, 0.2))
-    manager = WarpMeshManager(num_spheres=10, device="cpu")
+    manager = WarpMeshAndSphereCache(num_spheres=10, device="cpu")
     warp_mesh = manager.get_warp_mesh(mesh)
 
     # Off-center point inside the box, closer to +X face
@@ -697,7 +697,7 @@ def test_multi_mesh_sdf_distinct_meshes():
     # Tall cylinder vs flat box — maximally different SDF at the query point.
     cylinder = trimesh.creation.cylinder(radius=0.05, height=0.3, sections=32)
     box = trimesh.creation.box(extents=(0.4, 0.4, 0.02))
-    mgr = WarpMeshManager(num_spheres=10, device="cpu")
+    mgr = WarpMeshAndSphereCache(num_spheres=10, device="cpu")
 
     warp_cyl = mgr.get_warp_mesh(cylinder)
     warp_box = mgr.get_warp_mesh(box)
@@ -725,7 +725,7 @@ def test_multi_mesh_sdf_backward():
     from isaaclab_arena.relations.warp_sdf_kernels import multi_mesh_sdf
 
     mesh = trimesh.creation.cylinder(radius=0.05, height=0.1, sections=32)
-    mgr = WarpMeshManager(num_spheres=10, device="cpu")
+    mgr = WarpMeshAndSphereCache(num_spheres=10, device="cpu")
     warp_mesh = mgr.get_warp_mesh(mesh)
 
     mesh_id_array = wp.array([warp_mesh.id], dtype=wp.uint64, device="cpu")
@@ -830,3 +830,74 @@ def test_anchor_initial_pose_yaw_affects_collision():
         "Yawed anchor (from initial_pose) should produce higher collision "
         f"(got {loss_yawed:.2f} vs identity {loss_identity:.2f})"
     )
+
+
+@requires_warp
+def test_aabb_gate_does_not_reject_diagonal_cylinders():
+    """Regression: MESH-mode validator accepts cylinders whose AABBs overlap but meshes don't."""
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+
+    table = _make_table()
+    # r=0.05, b at (0.09, 0.09): AABB overlap (0.09 < 2*0.05=0.10) but geometric
+    # distance = 0.127 > sum-of-radii 0.10 + sphere_radius 0.01, plenty of margin.
+    a = _make_cylinder("a", radius=0.05, height=0.1)
+    b = _make_cylinder("b", radius=0.05, height=0.1)
+    a.add_relation(On(table))
+    b.add_relation(On(table))
+
+    params = ObjectPlacerParams(
+        solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, verbose=False),
+        verbose=False,
+    )
+    placer = ObjectPlacer(params=params)
+
+    positions = {table: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.05), b: (0.09, 0.09, 0.05)}
+
+    # Sanity: AABB check without skip_mesh_pairs REJECTS this layout
+    env_bboxes = {obj: obj.get_bounding_box() for obj in positions}
+    assert not placer._validate_no_overlap(
+        positions, env_bboxes, skip_mesh_pairs=False
+    ), "Sanity check failed: AABB should reject diagonal cylinders"
+
+    # With skip_mesh_pairs=True (MESH mode), AABB validator skips this pair
+    assert placer._validate_no_overlap(
+        positions, env_bboxes, skip_mesh_pairs=True
+    ), "AABB validator with skip_mesh_pairs should accept this pair"
+
+    # Mesh validator accepts (cylinders don't actually overlap)
+    assert placer._validate_no_overlap_mesh(
+        positions
+    ), "Mesh validator should accept diagonal cylinders that don't geometrically overlap"
+
+
+@requires_warp
+def test_deepcopy_safety_after_mesh_solve():
+    """Deepcopy of a MESH-mode solver after solve() must succeed and the copy must still solve."""
+    import copy
+
+    table = _make_table()
+    a = _make_cylinder("a", radius=0.033)
+    b = _make_cylinder("b", radius=0.033)
+    a.add_relation(On(table))
+    b.add_relation(On(table))
+
+    objects = [table, a, b]
+    initial = [{table: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.03), b: (0.01, 0.0, 0.03)}]
+
+    solver = RelationSolver(
+        params=RelationSolverParams(
+            collision_mode=CollisionMode.MESH, max_iters=50, convergence_threshold=1e-4, verbose=False
+        )
+    )
+    solver.solve(objects, initial)
+
+    solver_copy = copy.deepcopy(solver)
+    assert solver_copy is not solver, "deepcopy must produce a distinct object"
+    result = solver_copy.solve(objects, initial)[0]
+
+    assert a in result and b in result, "Copied solver must produce results for all objects"
+    pos_a = np.array(result[a])
+    pos_b = np.array(result[b])
+    dist = np.linalg.norm(pos_a[:2] - pos_b[:2])
+    assert dist > 0.06, f"Copied solver produced overlapping result: dist={dist:.4f}"

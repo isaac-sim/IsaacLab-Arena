@@ -8,6 +8,8 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING, cast
 
+from isaaclab.utils.math import quat_apply, quat_apply_inverse
+
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.relation_loss_strategies import (
     NoCollisionLossStrategy,
@@ -21,6 +23,8 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.mesh_pair_cache import MeshPairCache
+    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
 
 class RelationSolver:
@@ -53,19 +57,22 @@ class RelationSolver:
         self._last_loss_per_env: torch.Tensor | None = None
         self._mesh_orientations: list[dict[ObjectBase, float]] | None = None
         self._warned_no_mesh: set[str] = set()
+        self._mesh_manager: WarpMeshAndSphereCache | None = None
+        self._mesh_cache_fwd: MeshPairCache | None = None
+        self._mesh_cache_rev: MeshPairCache | None = None
 
     def __deepcopy__(self, memo):
-        """Deep copy, dropping lazy Warp caches (unpicklable C pointers); rebuilt on next solve."""
+        """Deep-copy resets ephemeral Warp caches (rebuilt on next solve)."""
         import copy
 
         cls = self.__class__
         result = cls.__new__(cls)
         memo[id(self)] = result
-        skip = {"_mesh_manager", "_mesh_cache_fwd", "_mesh_cache_rev", "_mesh_orientations"}
         for k, v in self.__dict__.items():
-            if k in skip:
-                continue
-            setattr(result, k, copy.deepcopy(v, memo))
+            if k in ("_mesh_manager", "_mesh_cache_fwd", "_mesh_cache_rev"):
+                setattr(result, k, None)
+            else:
+                setattr(result, k, copy.deepcopy(v, memo))
         return result
 
     def _get_strategy(self, relation: RelationBase) -> RelationLossStrategy | UnaryRelationLossStrategy:
@@ -217,8 +224,8 @@ class RelationSolver:
                     continue
                 if (
                     skip_mesh_pairs
-                    and child.get_collision_mesh() is not None
-                    and anchor.get_collision_mesh() is not None
+                    and self._mesh_manager.get_collision_mesh(child) is not None
+                    and self._mesh_manager.get_collision_mesh(anchor) is not None
                 ):
                     continue
                 anchor_world_bbox = anchor.get_world_bounding_box().to(device)
@@ -241,8 +248,8 @@ class RelationSolver:
                     continue
                 if (
                     skip_mesh_pairs
-                    and child.get_collision_mesh() is not None
-                    and other.get_collision_mesh() is not None
+                    and self._mesh_manager.get_collision_mesh(child) is not None
+                    and self._mesh_manager.get_collision_mesh(other) is not None
                 ):
                     continue
                 other_pos = state.get_position(other)
@@ -285,12 +292,12 @@ class RelationSolver:
         on_pairs: set[tuple[int, int]],
     ) -> None:
         """Precompute static per-pair mesh collision data (called once per solve)."""
-        from isaaclab_arena.relations.warp_mesh_manager import WarpMeshManager
+        from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
         device = state.device
         device_str = str(device)
-        if not hasattr(self, "_mesh_manager") or self._mesh_manager.device != device_str:
-            self._mesh_manager = WarpMeshManager(num_spheres=self.params.num_spheres, device=device_str)
+        if self._mesh_manager is None or self._mesh_manager.device != device_str:
+            self._mesh_manager = WarpMeshAndSphereCache(num_spheres=self.params.num_spheres, device=device_str)
         manager = self._mesh_manager
 
         non_anchor_objects = state.optimizable_objects
@@ -305,7 +312,7 @@ class RelationSolver:
 
     def _build_vectorized_cache(
         self, state, manager, non_anchor_objects, anchor_objects, on_pairs, device, direction: str
-    ) -> dict | None:
+    ) -> MeshPairCache | None:
         """Build vectorized pair cache for one direction.
 
         Returns None if no valid pairs exist for this direction.
@@ -335,7 +342,7 @@ class RelationSolver:
         offset = 0
 
         for i, child in enumerate(non_anchor_objects):
-            child_mesh = child.get_collision_mesh()
+            child_mesh = manager.get_collision_mesh(child)
             if child_mesh is None:
                 if child.name not in self._warned_no_mesh:
                     self._warned_no_mesh.add(child.name)
@@ -352,7 +359,7 @@ class RelationSolver:
                 for anchor in anchor_objects:
                     if (id(child), id(anchor)) in on_pairs:
                         continue
-                    parent_mesh = anchor.get_collision_mesh()
+                    parent_mesh = manager.get_collision_mesh(anchor)
                     if parent_mesh is None:
                         if anchor.name not in self._warned_no_mesh:
                             self._warned_no_mesh.add(anchor.name)
@@ -363,7 +370,9 @@ class RelationSolver:
                     p_bbox_min = parent_bbox.min_point.to(device)
                     p_bbox_max = parent_bbox.max_point.to(device)
                     pose = anchor.get_initial_pose()
-                    assert pose is not None and isinstance(pose, Pose)
+                    assert pose is not None and isinstance(
+                        pose, Pose
+                    ), f"MESH collision requires anchor '{anchor.name}' to have a fixed Pose initial_pose"
                     assert abs(pose.rotation_xyzw[0]) < 1e-6 and abs(pose.rotation_xyzw[1]) < 1e-6, (
                         f"MESH collision requires anchor '{anchor.name}' to have identity or "
                         f"pure-Z rotation, got rotation_xyzw={pose.rotation_xyzw}. "
@@ -399,7 +408,7 @@ class RelationSolver:
                     other = non_anchor_objects[j]
                     if (id(child), id(other)) in on_pairs:
                         continue
-                    other_mesh = other.get_collision_mesh()
+                    other_mesh = manager.get_collision_mesh(other)
                     if other_mesh is None:
                         if other.name not in self._warned_no_mesh:
                             self._warned_no_mesh.add(other.name)
@@ -438,7 +447,7 @@ class RelationSolver:
                     other = non_anchor_objects[j]
                     if (id(child), id(other)) in on_pairs:
                         continue
-                    other_mesh = other.get_collision_mesh()
+                    other_mesh = manager.get_collision_mesh(other)
                     if other_mesh is None:
                         if other.name not in self._warned_no_mesh:
                             self._warned_no_mesh.add(other.name)
@@ -478,43 +487,48 @@ class RelationSolver:
         if not centers_list:
             return None
 
+        from isaaclab_arena.relations.mesh_pair_cache import MeshPairCache
+
         wp_device = str(device)
-        # Maps each sphere to its pair — enables vectorized segment reduction.
         pair_sphere_count = torch.tensor([e - s for s, e in pair_slices], dtype=torch.float32, device=device)
         sphere_pair_id = torch.repeat_interleave(
             torch.arange(len(pair_slices), device=device), pair_sphere_count.long()
         )
 
-        return {
-            "all_centers_local": torch.cat(centers_list, dim=0),
-            "all_radii": torch.cat(radii_list, dim=0),
-            "pair_child_objs": pair_child_objs,
-            "pair_parent_objs": pair_parent_objs,
-            "pair_is_anchor": pair_is_anchor,
-            "pair_anchor_pos": pair_anchor_pos,
-            "pair_anchor_yaw": pair_anchor_yaw,
-            "pair_c_bbox_min": torch.stack(pair_c_bbox_min),
-            "pair_c_bbox_max": torch.stack(pair_c_bbox_max),
-            "pair_p_bbox_min": torch.stack(pair_p_bbox_min),
-            "pair_p_bbox_max": torch.stack(pair_p_bbox_max),
-            "pair_max_r": torch.tensor(pair_max_r, device=device),
-            "sphere_pair_id": sphere_pair_id,
-            "sphere_mesh_idx": torch.tensor(mesh_idx_per_sphere, dtype=torch.int32, device=device),
-            "pair_sphere_count": pair_sphere_count,
-            "mesh_id_array": wp.array(np.array(mesh_id_values, dtype=np.uint64), dtype=wp.uint64, device=wp_device),
-            "num_pairs": len(pair_slices),
-            "total_spheres": offset,
-        }
+        return MeshPairCache(
+            all_centers_local=torch.cat(centers_list, dim=0),
+            all_radii=torch.cat(radii_list, dim=0),
+            pair_child_objs=pair_child_objs,
+            pair_parent_objs=pair_parent_objs,
+            pair_is_anchor=pair_is_anchor,
+            pair_anchor_pos=pair_anchor_pos,
+            pair_anchor_yaw=pair_anchor_yaw,
+            pair_c_bbox_min=torch.stack(pair_c_bbox_min),
+            pair_c_bbox_max=torch.stack(pair_c_bbox_max),
+            pair_p_bbox_min=torch.stack(pair_p_bbox_min),
+            pair_p_bbox_max=torch.stack(pair_p_bbox_max),
+            pair_max_r=torch.tensor(pair_max_r, device=device),
+            sphere_pair_id=sphere_pair_id,
+            sphere_mesh_idx=torch.tensor(mesh_idx_per_sphere, dtype=torch.int32, device=device),
+            pair_sphere_count=pair_sphere_count,
+            mesh_id_array=wp.array(np.array(mesh_id_values, dtype=np.uint64), dtype=wp.uint64, device=wp_device),
+            num_pairs=len(pair_slices),
+            total_spheres=offset,
+        )
 
     def _compute_no_overlap_loss_mesh(
         self,
         state: RelationSolverState,
         debug: bool,
     ) -> torch.Tensor:
-        """Differentiable mesh no-overlap loss from precomputed pair cache."""
+        """Sphere-to-SDF penetration loss using the vectorized multi-mesh kernel.
+
+        Uses precomputed pair cache (centers, radii, mesh indices) to batch all
+        sphere queries into a single Warp kernel call per iteration.
+        """
         import warp as wp
 
-        from isaaclab_arena.relations.warp_sdf_kernels import _check_sdf_sentinel, multi_mesh_sdf
+        from isaaclab_arena.relations.warp_sdf_kernels import clamp_sdf_sentinel, multi_mesh_sdf
 
         device = state.device
         total_loss = torch.zeros(state.batch_size, device=device, dtype=torch.float32)
@@ -526,43 +540,42 @@ class RelationSolver:
                 if cache is None:
                     continue
 
-                num_pairs = cache["num_pairs"]
+                num_pairs = cache.num_pairs
 
                 child_positions = torch.stack(
-                    [state.get_position(cache["pair_child_objs"][p])[b] for p in range(num_pairs)]
+                    [state.get_position(cache.pair_child_objs[p])[b] for p in range(num_pairs)]
                 )
                 parent_positions = torch.stack([
                     (
-                        cache["pair_anchor_pos"][p]
-                        if cache["pair_is_anchor"][p]
-                        else state.get_position(cache["pair_parent_objs"][p])[b].detach()
+                        cache.pair_anchor_pos[p]
+                        if cache.pair_is_anchor[p]
+                        else state.get_position(cache.pair_parent_objs[p])[b].detach()
                     )
                     for p in range(num_pairs)
                 ])
 
-                # Resolve per-pair yaw (shared by broadphase + narrowphase)
-                anchor_yaws = cache["pair_anchor_yaw"]
+                anchor_yaws = cache.pair_anchor_yaw
                 has_any_yaw = self._mesh_orientations is not None or any(y != 0.0 for y in anchor_yaws)
                 if has_any_yaw:
                     ori_b = self._mesh_orientations[b] if self._mesh_orientations is not None else {}
                     child_yaws = torch.tensor(
-                        [ori_b.get(cache["pair_child_objs"][p], 0.0) for p in range(num_pairs)],
+                        [ori_b.get(cache.pair_child_objs[p], 0.0) for p in range(num_pairs)],
                         dtype=torch.float32,
                         device=device,
                     )
                     parent_yaws = torch.tensor(
-                        [ori_b.get(cache["pair_parent_objs"][p], anchor_yaws[p]) for p in range(num_pairs)],
+                        [ori_b.get(cache.pair_parent_objs[p], anchor_yaws[p]) for p in range(num_pairs)],
                         dtype=torch.float32,
                         device=device,
                     )
 
                 # AABB broadphase (yaw-aware): skip separated pairs.
-                margins = cache["pair_max_r"] + clearance_m
-                batch_idx = min(b, cache["pair_c_bbox_min"].shape[1] - 1)
-                c_bbox_min = cache["pair_c_bbox_min"][:, batch_idx, :]
-                c_bbox_max = cache["pair_c_bbox_max"][:, batch_idx, :]
-                p_bbox_min = cache["pair_p_bbox_min"][:, batch_idx, :]
-                p_bbox_max = cache["pair_p_bbox_max"][:, batch_idx, :]
+                margins = cache.pair_max_r + clearance_m
+                batch_idx = min(b, cache.pair_c_bbox_min.shape[1] - 1)
+                c_bbox_min = cache.pair_c_bbox_min[:, batch_idx, :]
+                c_bbox_max = cache.pair_c_bbox_max[:, batch_idx, :]
+                p_bbox_min = cache.pair_p_bbox_min[:, batch_idx, :]
+                p_bbox_max = cache.pair_p_bbox_max[:, batch_idx, :]
 
                 if has_any_yaw:
                     c_bbox_min, c_bbox_max = self._rotate_bbox_extents(c_bbox_min, c_bbox_max, child_yaws)
@@ -581,45 +594,44 @@ class RelationSolver:
                 if not active_pair.any():
                     continue
 
-                sphere_pair_id = cache["sphere_pair_id"]
                 offsets = child_positions - parent_positions
-                sphere_active_mask = active_pair[sphere_pair_id]
+                sphere_active_mask = active_pair[cache.sphere_pair_id]
                 active_idx = sphere_active_mask.nonzero(as_tuple=True)[0]
 
-                active_sphere_pair_id = sphere_pair_id[active_idx]
-                local_centers = cache["all_centers_local"][active_idx]
+                active_sphere_pair_id = cache.sphere_pair_id[active_idx]
+                local_centers = cache.all_centers_local[active_idx]
 
-                # Z-yaw rotation: query = R(-parent_yaw) · (R(child_yaw) · local + offset)
+                # R(child_yaw - parent_yaw) · local + R(-parent_yaw) · offset
                 if has_any_yaw:
                     net_yaws = (child_yaws - parent_yaws)[active_sphere_pair_id]
-                    cos_y = torch.cos(net_yaws)
-                    sin_y = torch.sin(net_yaws)
-                    rx = local_centers[:, 0] * cos_y - local_centers[:, 1] * sin_y
-                    ry = local_centers[:, 0] * sin_y + local_centers[:, 1] * cos_y
-                    local_centers = torch.stack([rx, ry, local_centers[:, 2]], dim=-1)
+                    half_net = net_yaws / 2.0
+                    q_net_z = torch.zeros(len(half_net), 4, device=device, dtype=local_centers.dtype)
+                    q_net_z[:, 2] = torch.sin(half_net)
+                    q_net_z[:, 3] = torch.cos(half_net)
+                    local_centers = quat_apply(q_net_z, local_centers)
 
                     pair_offsets = offsets[active_sphere_pair_id]
                     p_yaws = parent_yaws[active_sphere_pair_id]
-                    cos_p = torch.cos(-p_yaws)
-                    sin_p = torch.sin(-p_yaws)
-                    ox = pair_offsets[:, 0] * cos_p - pair_offsets[:, 1] * sin_p
-                    oy = pair_offsets[:, 0] * sin_p + pair_offsets[:, 1] * cos_p
-                    rotated_offsets = torch.stack([ox, oy, pair_offsets[:, 2]], dim=-1)
+                    half_p = p_yaws / 2.0
+                    q_parent_z = torch.zeros(len(half_p), 4, device=device, dtype=local_centers.dtype)
+                    q_parent_z[:, 2] = torch.sin(half_p)
+                    q_parent_z[:, 3] = torch.cos(half_p)
+                    rotated_offsets = quat_apply_inverse(q_parent_z, pair_offsets)
                     active_centers = local_centers + rotated_offsets
                 else:
                     active_centers = local_centers + offsets[active_sphere_pair_id]
-                active_radii = cache["all_radii"][active_idx]
-                active_mesh_idx = cache["sphere_mesh_idx"][active_idx].contiguous()
+                active_radii = cache.all_radii[active_idx]
+                active_mesh_idx = cache.sphere_mesh_idx[active_idx].contiguous()
 
                 active_mesh_indices_wp = wp.from_torch(active_mesh_idx, dtype=wp.int32)
-                sdf_values = multi_mesh_sdf(active_centers, cache["mesh_id_array"], active_mesh_indices_wp)
-                _check_sdf_sentinel(sdf_values)
+                sdf_values = multi_mesh_sdf(active_centers, cache.mesh_id_array, active_mesh_indices_wp)
+                self._mesh_manager.warn_sdf_sentinel(sdf_values)
+                sdf_values = clamp_sdf_sentinel(sdf_values)
                 penetration = torch.relu(active_radii + clearance_m - sdf_values)
 
-                # Per-pair mean via segment reduction (index_add), summed over active pairs.
                 pair_sum = torch.zeros(num_pairs, device=device, dtype=penetration.dtype)
                 pair_sum.index_add_(0, active_sphere_pair_id, penetration)
-                pair_mean = pair_sum / cache["pair_sphere_count"]
+                pair_mean = pair_sum / cache.pair_sphere_count
                 active_pair_idx = active_pair.nonzero(as_tuple=True)[0]
                 total_loss[b] = total_loss[b] + slope * pair_mean[active_pair_idx].sum()
 
@@ -700,9 +712,7 @@ class RelationSolver:
             self._prepare_mesh_collision_cache(state, on_pairs)
 
         if self.params.collision_mode == CollisionMode.MESH:
-            from isaaclab_arena.relations.warp_sdf_kernels import reset_sdf_sentinel_warning
-
-            reset_sdf_sentinel_warning()
+            self._mesh_manager.reset_sentinel_warning()
 
         # Setup optimizer (only for optimizable positions)
         optimizer = torch.optim.Adam([state.optimizable_positions], lr=self.params.lr)

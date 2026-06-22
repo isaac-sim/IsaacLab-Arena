@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from enum import IntEnum
 from typing import TYPE_CHECKING
 
+from isaaclab.utils.math import quat_apply, quat_apply_inverse
+
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.loss_primitives import (
     interval_overlap_axis_loss,
@@ -27,7 +29,7 @@ if TYPE_CHECKING:
 
     from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.relations import AtPosition, NextTo, NotNextTo, On, PositionLimits, Relation
-    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshManager
+    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
 from isaaclab_arena.relations.relations import Side
 
@@ -454,7 +456,7 @@ class NoCollisionLossStrategy:
         self._mode = collision_mode if collision_mode is not None else CollisionMode.BBOX
         self._num_spheres = num_spheres
         self._warned_no_mesh: set[str] = set()
-        self._mesh_managers: dict[str, WarpMeshManager] = {}
+        self._mesh_managers: dict[str, WarpMeshAndSphereCache] = {}
 
         if self._mode == CollisionMode.MESH:
             try:
@@ -482,8 +484,9 @@ class NoCollisionLossStrategy:
         Returns loss tensor of shape (N,).
         """
         if self._mode == CollisionMode.MESH and child_obj is not None and parent_obj is not None:
-            child_mesh = child_obj.get_collision_mesh()
-            parent_mesh = parent_obj.get_collision_mesh()
+            mesh_manager = self._get_mesh_manager(str(child_pos.device))
+            child_mesh = mesh_manager.get_collision_mesh(child_obj)
+            parent_mesh = mesh_manager.get_collision_mesh(parent_obj)
             if child_mesh is not None and parent_mesh is not None:
                 return self._compute_mesh_loss(
                     clearance_m,
@@ -553,12 +556,12 @@ class NoCollisionLossStrategy:
 
         return total_loss.squeeze(0) if single_input else total_loss
 
-    def _get_mesh_manager(self, device: str = "cuda:0") -> WarpMeshManager:
-        """Return a cached WarpMeshManager for the given device."""
+    def _get_mesh_manager(self, device: str = "cuda:0") -> WarpMeshAndSphereCache:
+        """Return a cached WarpMeshAndSphereCache for the given device."""
         if device not in self._mesh_managers:
-            from isaaclab_arena.relations.warp_mesh_manager import WarpMeshManager
+            from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
-            self._mesh_managers[device] = WarpMeshManager(num_spheres=self._num_spheres, device=device)
+            self._mesh_managers[device] = WarpMeshAndSphereCache(num_spheres=self._num_spheres, device=device)
         return self._mesh_managers[device]
 
     def _compute_mesh_loss(
@@ -574,7 +577,7 @@ class NoCollisionLossStrategy:
         parent_yaw: float = 0.0,
     ) -> torch.Tensor:
         """Per-pair sphere-to-SDF penetration loss."""
-        from isaaclab_arena.relations.warp_sdf_kernels import sphere_penetration_loss
+        from isaaclab_arena.relations.warp_sdf_kernels import clamp_sdf_sentinel, mesh_sdf
 
         single_input = child_pos.dim() == 1
         if single_input:
@@ -593,38 +596,45 @@ class NoCollisionLossStrategy:
             parent_pos = parent_pos.unsqueeze(0)
 
         device = child_pos.device
-        manager = self._get_mesh_manager(str(device))
-        spheres = manager.get_query_spheres(child_mesh, obj=child_obj).to(device)
+        mesh_manager = self._get_mesh_manager(str(device))
+        spheres = mesh_manager.get_query_spheres(child_mesh, obj=child_obj).to(device)
         centers_local = spheres[:, :3]
         radii = spheres[:, 3]
-        warp_mesh = manager.get_warp_mesh(parent_mesh, obj=parent_obj)
+        warp_mesh = mesh_manager.get_warp_mesh(parent_mesh, obj=parent_obj)
 
-        # Rotate child sphere centers by net_yaw = child_yaw - parent_yaw.
         net_yaw = child_yaw - parent_yaw
+        half_net = net_yaw / 2.0
+        q_parent_child_z = torch.tensor(
+            [0.0, 0.0, math.sin(half_net), math.cos(half_net)],
+            device=device,
+            dtype=child_pos.dtype,
+        )
+        half_parent = parent_yaw / 2.0
+        q_world_parent_z = torch.tensor(
+            [0.0, 0.0, math.sin(half_parent), math.cos(half_parent)],
+            device=device,
+            dtype=child_pos.dtype,
+        )
+
         if net_yaw != 0.0:
-            cos_n = math.cos(net_yaw)
-            sin_n = math.sin(net_yaw)
-            rx = centers_local[:, 0] * cos_n - centers_local[:, 1] * sin_n
-            ry = centers_local[:, 0] * sin_n + centers_local[:, 1] * cos_n
-            centers_local = torch.stack([rx, ry, centers_local[:, 2]], dim=-1)
+            centers_local = quat_apply(q_parent_child_z.expand(centers_local.shape[0], -1), centers_local)
 
         batch_size = child_pos.shape[0]
         parent_pos = parent_pos.expand(batch_size, -1)
         total_loss = torch.zeros(batch_size, device=device, dtype=child_pos.dtype)
 
         for b in range(batch_size):
-            offset = child_pos[b] - parent_pos[b]
-            # Rotate offset into the parent's local frame.
+            p_child_world = child_pos[b] - parent_pos[b]
             if parent_yaw != 0.0:
-                cos_p = math.cos(-parent_yaw)
-                sin_p = math.sin(-parent_yaw)
-                ox = offset[0] * cos_p - offset[1] * sin_p
-                oy = offset[0] * sin_p + offset[1] * cos_p
-                offset = torch.stack([ox, oy, offset[2]])
-            centers_in_parent = centers_local + offset
-            total_loss[b] = self.slope * sphere_penetration_loss(
-                centers_in_parent, radii, warp_mesh, clearance_m=clearance_m
-            )
+                p_child_in_parent = quat_apply_inverse(q_world_parent_z.unsqueeze(0), p_child_world.unsqueeze(0))[0]
+            else:
+                p_child_in_parent = p_child_world
+            centers_in_parent = centers_local + p_child_in_parent
+            sdf_values = mesh_sdf(centers_in_parent, warp_mesh)
+            mesh_manager.warn_sdf_sentinel(sdf_values)
+            sdf_values = clamp_sdf_sentinel(sdf_values)
+            penetration = torch.relu(radii + clearance_m - sdf_values)
+            total_loss[b] = self.slope * penetration.mean()
 
         return total_loss.squeeze(0) if single_input else total_loss
 

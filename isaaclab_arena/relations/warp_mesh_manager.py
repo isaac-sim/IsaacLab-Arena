@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import copy
 import numpy as np
 import torch
 from collections import defaultdict
@@ -18,6 +17,8 @@ import warp as wp
 
 if TYPE_CHECKING:
     import trimesh
+
+    from isaaclab_arena.assets.object_base import ObjectBase
 
 
 def _mesh_content_hash(mesh: trimesh.Trimesh) -> int:
@@ -113,10 +114,10 @@ def greedy_sphere_decomposition(
     return np.column_stack([centers[selected], radii[selected]])
 
 
-class WarpMeshManager:
-    """Manages Warp mesh creation, caching, and sphere decomposition for collision objects.
+class WarpMeshAndSphereCache:
+    """Caches Warp BVH meshes, sphere decompositions, and extracted trimeshes for collision objects.
 
-    Caches results by content hash (in-memory trimesh) or (usd_path, scale) for USD objects.
+    Keyed by content hash (in-memory trimesh) or (usd_path, scale) for USD objects.
     """
 
     def __init__(
@@ -130,25 +131,55 @@ class WarpMeshManager:
         self._device = device
         self._warp_mesh_cache: dict[tuple, wp.Mesh] = {}
         self._sphere_cache: dict[tuple, torch.Tensor] = {}
+        self._trimesh_cache: dict[tuple, trimesh.Trimesh | None] = {}
+        self._sentinel_warned: bool = False
 
-    def __deepcopy__(self, memo):
-        """Deep copy, dropping lazy Warp caches (unpicklable C pointers); rebuilt on demand."""
-        cls = self.__class__
-        result = cls.__new__(cls)
-        memo[id(self)] = result
-        for k, v in self.__dict__.items():
-            if k in ("_warp_mesh_cache", "_sphere_cache"):
-                setattr(result, k, {})
-            else:
-                setattr(result, k, copy.deepcopy(v, memo))
-        return result
+    def reset_sentinel_warning(self) -> None:
+        """Re-arm for a new solve/validation pass."""
+        self._sentinel_warned = False
+
+    def warn_sdf_sentinel(self, sdf_values: torch.Tensor) -> None:
+        """Warn (once per pass) if any query hit the no-face sentinel."""
+        from isaaclab_arena.relations.warp_sdf_kernels import _SDF_SENTINEL
+
+        if self._sentinel_warned:
+            return
+        if bool((sdf_values >= _SDF_SENTINEL).any()):
+            self._sentinel_warned = True
+            n_bad = int((sdf_values >= _SDF_SENTINEL).sum().item())
+            print(
+                f"  [MeshSDF] WARNING: {n_bad}/{len(sdf_values)} sphere queries returned sentinel SDF "
+                "(no mesh face found). Collision detection may be incomplete for these points."
+            )
+
+    def get_collision_mesh(self, obj: ObjectBase) -> trimesh.Trimesh | None:
+        """Extract or retrieve cached collision mesh for an object."""
+        usd_path = getattr(obj, "usd_path", None)
+        if usd_path is None:
+            return obj.get_collision_mesh()
+        scale = tuple(getattr(obj, "scale", (1.0, 1.0, 1.0)))
+        key = (usd_path, scale)
+        if key not in self._trimesh_cache:
+            from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd
+
+            try:
+                self._trimesh_cache[key] = extract_trimesh_from_usd(usd_path, scale)
+            except ValueError as e:
+                # Permanent: bad USD content, cache None to avoid re-parsing.
+                print(f"  [WarpMeshAndSphereCache] Could not extract mesh for '{obj.name}': {e}")
+                self._trimesh_cache[key] = None
+            except OSError as e:
+                # Transient: file I/O failure, don't cache so next call retries.
+                print(f"  [WarpMeshAndSphereCache] Could not extract mesh for '{obj.name}': {e}")
+                return None
+        return self._trimesh_cache[key]
 
     @property
     def device(self) -> str:
         """Target Warp device string (e.g. 'cuda:0', 'cpu')."""
         return self._device
 
-    def _cache_key(self, mesh: trimesh.Trimesh, obj=None) -> tuple:
+    def _cache_key(self, mesh: trimesh.Trimesh, obj: ObjectBase | None = None) -> tuple:
         """Compute cache key. Uses (usd_path, scale) for USD objects, content hash otherwise."""
         usd_path = getattr(obj, "usd_path", None) if obj is not None else None
         if usd_path is not None:
@@ -156,7 +187,7 @@ class WarpMeshManager:
             return (usd_path, scale, self._num_spheres, self._sphere_radius)
         return (_mesh_content_hash(mesh), self._num_spheres, self._sphere_radius)
 
-    def get_warp_mesh(self, mesh: trimesh.Trimesh, obj=None) -> wp.Mesh:
+    def get_warp_mesh(self, mesh: trimesh.Trimesh, obj: ObjectBase | None = None) -> wp.Mesh:
         """Get or create a Warp BVH mesh for SDF queries.
 
         Non-watertight meshes are replaced by their convex hull so that
@@ -165,9 +196,10 @@ class WarpMeshManager:
         key = self._cache_key(mesh, obj)
         if key not in self._warp_mesh_cache:
             if not mesh.is_watertight:
-                name = getattr(obj, "name", None) or "unknown"
+                name = obj.name
                 print(
-                    f"  [MeshManager] '{name}' mesh is not watertight — using convex hull (concavities will be filled)"
+                    f"  [WarpMeshAndSphereCache] '{name}' mesh is not watertight — using convex hull (concavities will"
+                    " be filled)"
                 )
             work_mesh = mesh if mesh.is_watertight else mesh.convex_hull
             vertices = wp.array(np.asarray(work_mesh.vertices, dtype=np.float32), dtype=wp.vec3, device=self._device)
@@ -177,7 +209,7 @@ class WarpMeshManager:
             self._warp_mesh_cache[key] = wp.Mesh(points=vertices, indices=indices)
         return self._warp_mesh_cache[key]
 
-    def get_query_spheres(self, mesh: trimesh.Trimesh, obj=None) -> torch.Tensor:
+    def get_query_spheres(self, mesh: trimesh.Trimesh, obj: ObjectBase | None = None) -> torch.Tensor:
         """Get or compute sphere decomposition as (K, 4) tensor [cx, cy, cz, radius]."""
         key = self._cache_key(mesh, obj)
         if key not in self._sphere_cache:

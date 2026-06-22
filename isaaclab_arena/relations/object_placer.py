@@ -70,21 +70,6 @@ class ObjectPlacer:
         self.params = params or ObjectPlacerParams()
         self._solver = RelationSolver(params=self.params.solver_params)
         self._cpu_mesh_manager = None
-        self._warned_no_mesh: set[str] = set()
-
-    def __deepcopy__(self, memo):
-        """Deep copy, dropping lazy Warp caches (unpicklable C pointers); rebuilt on demand."""
-        import copy
-
-        cls = self.__class__
-        result = cls.__new__(cls)
-        memo[id(self)] = result
-        for k, v in self.__dict__.items():
-            if k == "_cpu_mesh_manager":
-                setattr(result, k, None)
-            else:
-                setattr(result, k, copy.deepcopy(v, memo))
-        return result
 
     def place(
         self,
@@ -618,21 +603,14 @@ class ObjectPlacer:
                 anchor_ids.add(id(obj))
         return on_pairs, anchor_ids
 
-    def _validate_no_overlap(
+    def _non_skip_pairs(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
-    ) -> bool:
-        """Validate that no two objects overlap in 3D (axis-aligned bbox with margin).
-
-        Pairs linked by an On relation and anchor-anchor pairs are skipped.
-        """
+        skip_mesh_pairs: bool = False,
+    ):
+        """Yield (a, b) pairs for overlap checks, skipping On/anchor-anchor/mesh pairs as configured."""
         on_pairs, anchor_ids = self._collect_skip_pairs(positions)
-
-        clearance_m = self.params.solver_params.clearance_m
-        # Allow tiny residuals from the differentiable solver around the clearance boundary.
-        margin = max(0.0, clearance_m - 1e-6)
-
+        mesh_manager = self._get_cpu_mesh_manager() if skip_mesh_pairs else None
         objects = list(positions.keys())
         for i in range(len(objects)):
             for j in range(i + 1, len(objects)):
@@ -641,24 +619,42 @@ class ObjectPlacer:
                     continue
                 if (id(a), id(b)) in on_pairs:
                     continue
+                if (
+                    mesh_manager is not None
+                    and mesh_manager.get_collision_mesh(a) is not None
+                    and mesh_manager.get_collision_mesh(b) is not None
+                ):
+                    continue
+                yield a, b
 
-                a_bbox = env_bboxes[a]
-                b_bbox = env_bboxes[b]
-                a_world = a_bbox.translated(positions[a])
-                b_world = b_bbox.translated(positions[b])
+    def _validate_no_overlap(
+        self,
+        positions: dict[ObjectBase, tuple[float, float, float]],
+        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        skip_mesh_pairs: bool = False,
+    ) -> bool:
+        """AABB overlap check. Skips On-pairs, anchor-anchor, and (optionally) mesh-validated pairs."""
+        clearance_m = self.params.solver_params.clearance_m
+        margin = max(0.0, clearance_m - 1e-6)
 
-                if a_world.overlaps(b_world, margin=margin).item():
-                    if self.params.verbose:
-                        print(f"  Overlap between '{a.name}' and '{b.name}'")
-                    return False
+        for a, b in self._non_skip_pairs(positions, skip_mesh_pairs=skip_mesh_pairs):
+            a_bbox = env_bboxes[a]
+            b_bbox = env_bboxes[b]
+            a_world = a_bbox.translated(positions[a])
+            b_world = b_bbox.translated(positions[b])
+
+            if a_world.overlaps(b_world, margin=margin).item():
+                if self.params.verbose:
+                    print(f"  Overlap between '{a.name}' and '{b.name}'")
+                return False
         return True
 
     def _get_cpu_mesh_manager(self):
-        """Get CPU WarpMeshManager (created on first MESH-mode use to avoid importing warp in BBOX mode)."""
+        """Lazy-init CPU WarpMeshAndSphereCache (avoids importing warp in BBOX mode)."""
         if self._cpu_mesh_manager is None:
-            from isaaclab_arena.relations.warp_mesh_manager import WarpMeshManager
+            from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
-            self._cpu_mesh_manager = WarpMeshManager(
+            self._cpu_mesh_manager = WarpMeshAndSphereCache(
                 num_spheres=self.params.solver_params.num_spheres,
                 device="cpu",
             )
@@ -669,59 +665,39 @@ class ObjectPlacer:
         positions: dict[ObjectBase, tuple[float, float, float]],
         orientations: dict[ObjectBase, float] | None = None,
     ) -> bool:
-        """Validate no-overlap using sphere-to-SDF mesh queries.
-
-        Skips On pairs, anchor-anchor, and mesh-less objects.
-        """
-        from isaaclab_arena.relations.warp_sdf_kernels import reset_sdf_sentinel_warning
-
-        reset_sdf_sentinel_warning()
-
-        on_pairs, anchor_ids = self._collect_skip_pairs(positions)
-
+        """Sphere-to-SDF overlap check. Mesh-less pairs fall back to AABB."""
         clearance_m = self.params.solver_params.clearance_m
         tolerance = max(0.0, clearance_m - 1e-6)
         mesh_manager = self._get_cpu_mesh_manager()
+        mesh_manager.reset_sentinel_warning()
+        warned_no_mesh: set[str] = set()
 
-        warned_no_mesh = self._warned_no_mesh
-        objects = list(positions.keys())
-        for i in range(len(objects)):
-            for j in range(i + 1, len(objects)):
-                a, b = objects[i], objects[j]
-                if id(a) in anchor_ids and id(b) in anchor_ids:
-                    continue
-                if (id(a), id(b)) in on_pairs:
-                    continue
-
-                a_mesh = a.get_collision_mesh()
-                b_mesh = b.get_collision_mesh()
-                if a_mesh is None or b_mesh is None:
-                    for obj, mesh in [(a, a_mesh), (b, b_mesh)]:
-                        if mesh is None and obj.name not in warned_no_mesh:
-                            warned_no_mesh.add(obj.name)
-                            print(
-                                f"  [NoCollision] MESH mode: '{obj.name}' has no collision mesh,"
-                                " falling back to AABB validation for this pair"
-                            )
-                    a_pos = torch.tensor(positions[a], dtype=torch.float32)
-                    b_pos = torch.tensor(positions[b], dtype=torch.float32)
-                    if self._pair_aabb_overlaps(a, b, a_pos, b_pos, orientations, tolerance):
-                        if self.params.verbose:
-                            print(f"  AABB overlap between '{a.name}' and '{b.name}' (mesh unavailable)")
-                        return False
-                    continue
-
+        for a, b in self._non_skip_pairs(positions):
+            a_mesh = mesh_manager.get_collision_mesh(a)
+            b_mesh = mesh_manager.get_collision_mesh(b)
+            if a_mesh is None or b_mesh is None:
+                for obj, mesh in [(a, a_mesh), (b, b_mesh)]:
+                    if mesh is None and obj.name not in warned_no_mesh:
+                        warned_no_mesh.add(obj.name)
+                        print(
+                            f"  [NoCollision] MESH mode: '{obj.name}' has no collision mesh,"
+                            " falling back to AABB validation for this pair"
+                        )
                 a_pos = torch.tensor(positions[a], dtype=torch.float32)
                 b_pos = torch.tensor(positions[b], dtype=torch.float32)
+                if self._pair_aabb_overlaps(a, b, a_pos, b_pos, orientations, tolerance):
+                    if self.params.verbose:
+                        print(f"  AABB overlap between '{a.name}' and '{b.name}' (mesh unavailable)")
+                    return False
+                continue
 
-                if self._spheres_penetrate_mesh(
-                    a, a_mesh, a_pos, b, b_mesh, b_pos, mesh_manager, tolerance, orientations
-                ):
-                    return False
-                if self._spheres_penetrate_mesh(
-                    b, b_mesh, b_pos, a, a_mesh, a_pos, mesh_manager, tolerance, orientations
-                ):
-                    return False
+            a_pos = torch.tensor(positions[a], dtype=torch.float32)
+            b_pos = torch.tensor(positions[b], dtype=torch.float32)
+
+            if self._spheres_penetrate_mesh(a, a_mesh, a_pos, b, b_mesh, b_pos, mesh_manager, tolerance, orientations):
+                return False
+            if self._spheres_penetrate_mesh(b, b_mesh, b_pos, a, a_mesh, a_pos, mesh_manager, tolerance, orientations):
+                return False
 
         return True
 
@@ -738,13 +714,13 @@ class ObjectPlacer:
         orientations,
     ) -> bool:
         """True if source's spheres penetrate target's mesh."""
-        from isaaclab_arena.relations.warp_sdf_kernels import _check_sdf_sentinel, has_sdf_sentinel, mesh_sdf
+        from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, mesh_sdf
 
         spheres = mesh_manager.get_query_spheres(source_mesh, obj=source)
         warp_mesh = mesh_manager.get_warp_mesh(target_mesh, obj=target)
         centers = self._centers_in_target_frame(spheres[:, :3], source, target, source_pos, target_pos, orientations)
         sdf = mesh_sdf(centers, warp_mesh)
-        _check_sdf_sentinel(sdf)
+        mesh_manager.warn_sdf_sentinel(sdf)
         if has_sdf_sentinel(sdf):
             return True
         if (sdf < spheres[:, 3] + tolerance).any():
@@ -844,8 +820,9 @@ class ObjectPlacer:
         Returns:
             PlacementValidationResults with the overlap and on-relation checks.
         """
-        no_overlap = self._validate_no_overlap(positions, env_bboxes)
-        if no_overlap and self.params.solver_params.collision_mode == CollisionMode.MESH:
+        use_mesh = self.params.solver_params.collision_mode == CollisionMode.MESH
+        no_overlap = self._validate_no_overlap(positions, env_bboxes, skip_mesh_pairs=use_mesh)
+        if no_overlap and use_mesh:
             no_overlap = self._validate_no_overlap_mesh(positions, orientations)
         on_relation = self._validate_on_relations(positions, env_bboxes)
 

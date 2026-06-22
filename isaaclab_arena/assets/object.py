@@ -21,12 +21,7 @@ from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
-from isaaclab_arena.utils.usd_helpers import (
-    compute_local_bounding_box_from_usd,
-    extract_trimesh_from_usd,
-    has_light,
-    open_stage,
-)
+from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd, has_light, open_stage
 
 
 class Object(ObjectBase):
@@ -85,29 +80,7 @@ class Object(ObjectBase):
         return self.bounding_box
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
-        """Lazily extract collision mesh from USD. Cached after first call."""
-        if not hasattr(self, "_collision_mesh"):
-            self._collision_mesh = None
-            if self.usd_path is not None:
-                try:
-                    self._collision_mesh = extract_trimesh_from_usd(self.usd_path, self.scale)
-                except (ValueError, OSError, AttributeError, TypeError, IndexError) as e:
-                    print(f"  [MeshManager] Could not extract mesh for '{self.name}': {type(e).__name__}: {e}")
-        return self._collision_mesh
-
-    def __deepcopy__(self, memo):
-        """Exclude _collision_mesh from deepcopy (trimesh has unpicklable C pointers)."""
-        import copy
-
-        cls = self.__class__
-        result = cls.__new__(cls)
-        memo[id(self)] = result
-        for k, v in self.__dict__.items():
-            if k == "_collision_mesh":
-                setattr(result, k, None)
-            else:
-                setattr(result, k, copy.deepcopy(v, memo))
-        return result
+        """Returns None; mesh extraction is handled by WarpMeshAndSphereCache.get_collision_mesh()."""
 
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get bounding box in world coordinates (local bbox rotated and translated).

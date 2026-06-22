@@ -108,7 +108,6 @@ def mesh_sdf(points: torch.Tensor, warp_mesh: wp.Mesh) -> torch.Tensor:
 # Warp returns ~1e6 when a BVH query finds no enclosing face; 1e5 catches these
 # while staying safely below any realistic SDF magnitude.
 _SDF_SENTINEL = 1.0e5
-_sentinel_warned_this_solve = False
 
 
 def has_sdf_sentinel(sdf_values: torch.Tensor) -> bool:
@@ -116,56 +115,9 @@ def has_sdf_sentinel(sdf_values: torch.Tensor) -> bool:
     return bool((sdf_values >= _SDF_SENTINEL).any())
 
 
-def _check_sdf_sentinel(sdf_values: torch.Tensor) -> None:
-    """Per-solve warning when SDF queries return the sentinel (no mesh face found).
-
-    Warns at most once per solve. Call reset_sdf_sentinel_warning() at the start
-    of each solve to re-arm.
-    """
-    global _sentinel_warned_this_solve
-    if _sentinel_warned_this_solve:
-        return
-    if has_sdf_sentinel(sdf_values):
-        _sentinel_warned_this_solve = True
-        n_bad = int((sdf_values >= _SDF_SENTINEL).sum().item())
-        print(
-            f"  [MeshSDF] WARNING: {n_bad}/{len(sdf_values)} sphere queries returned sentinel SDF "
-            "(no mesh face found). Collision detection may be incomplete for these points."
-        )
-
-
-def reset_sdf_sentinel_warning() -> None:
-    """Re-arm the sentinel warning for a new solve pass."""
-    global _sentinel_warned_this_solve
-    _sentinel_warned_this_solve = False
-
-
-def sphere_penetration_loss(
-    sphere_centers: torch.Tensor,
-    sphere_radii: torch.Tensor,
-    warp_mesh: wp.Mesh,
-    clearance_m: float = 0.0,
-) -> torch.Tensor:
-    """Compute ReLU penetration loss for spheres against a mesh SDF.
-
-    Loss per sphere = ReLU(effective_radius - sdf).
-    Total loss = mean over all spheres.
-
-    Args:
-        sphere_centers: (K, 3) sphere centers in mesh-local frame.
-        sphere_radii: (K,) sphere radii.
-        warp_mesh: Target Warp mesh to check against.
-        clearance_m: Additional clearance added to radii.
-
-    Returns:
-        Scalar loss tensor (differentiable w.r.t. sphere_centers).
-    """
-    sdf_values = mesh_sdf(sphere_centers, warp_mesh)
-    _check_sdf_sentinel(sdf_values)
-
-    effective_radii = sphere_radii + clearance_m
-    penetration = torch.relu(effective_radii - sdf_values)
-    return penetration.mean()
+def clamp_sdf_sentinel(sdf_values: torch.Tensor) -> torch.Tensor:
+    """Replace sentinel SDF values with 0 (treat as "on surface") so they produce gradient."""
+    return torch.where(sdf_values >= _SDF_SENTINEL, torch.zeros_like(sdf_values), sdf_values)
 
 
 # ---------------------------------------------------------------------------

@@ -219,21 +219,17 @@ def extract_trimesh_from_usd(
     usd_path: str,
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
 ) -> trimesh.Trimesh:
-    """Extract all mesh geometry from a USD file into a single trimesh.
+    """Extract all mesh prims from a USD into a single trimesh.
 
-    Traverses the stage, applies per-prim world transforms, fan-triangulates
-    non-triangle faces, and applies scale to the combined result.
+    Scale is applied per-vertex in local frame before the prim-to-world transform.
+    All scale components must be positive (negative flips winding/SDF sign).
 
     Args:
         usd_path: Path to the .usd/.usda/.usdc file.
-        scale: (sx, sy, sz) scale factors applied to the final mesh. Must be positive.
+        scale: (sx, sy, sz) per-axis scale factors applied in local frame.
 
     Returns:
-        Combined trimesh in the USD stage's world frame: per-prim local-to-world
-        transforms baked in, then scaled component-wise along world X/Y/Z.
-
-    Raises:
-        ValueError: If the file cannot be opened or contains no mesh prims.
+        Combined trimesh with per-prim world transforms baked in.
     """
     import trimesh as _trimesh
 
@@ -263,11 +259,9 @@ def extract_trimesh_from_usd(
         world_tf = np.array(xform.ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
 
         verts = np.asarray(points, dtype=np.float64)
-        verts_h = np.hstack([verts, np.ones((len(verts), 1))])
+        verts_scaled = verts * np.array(scale, dtype=np.float64)
+        verts_h = np.hstack([verts_scaled, np.ones((len(verts_scaled), 1))])
         verts_world = (verts_h @ world_tf)[:, :3]
-        verts_world[:, 0] *= scale[0]
-        verts_world[:, 1] *= scale[1]
-        verts_world[:, 2] *= scale[2]
 
         # Fan-triangulate faces
         idx = 0
