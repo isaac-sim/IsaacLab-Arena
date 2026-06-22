@@ -21,9 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 
-from isaaclab_arena.agentic_environment_generation.agent_utils import safe_filename_stem
 from isaaclab_arena.agentic_environment_generation.asset_matcher import IntentResolutionTraceEvent
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
     EnvironmentGenerationAgent,
@@ -33,9 +31,8 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
 )
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
 from isaaclab_arena.agentic_environment_generation.intent_compiler import IntentCompiler
+from isaaclab_arena.agentic_environment_generation.spec_io import DEFAULT_AGENTIC_OUTPUT_DIR, save_initial_graph_spec
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
-
-_LLM_GENERATED_DIR = Path("isaaclab_arena_environments/agent_generated")
 
 DEFAULT_PROMPT = (
     "franka pick up avocado from the maple table and place it into a bowl on the table. "
@@ -142,10 +139,9 @@ def main() -> None:
     print_initial_graph(env_graph_spec)
     print_resolution_trace(compiler)
 
-    out_path = _LLM_GENERATED_DIR / f"{safe_filename_stem(env_graph_spec.env_name)}_proposal.yaml"
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    env_graph_spec.write_yaml(out_path)
+    out_path, linked_path = save_initial_graph_spec(env_graph_spec, DEFAULT_AGENTIC_OUTPUT_DIR)
     print(f"\n=== wrote ArenaEnvInitialGraphSpec YAML to {out_path} ===")
+    print(f"=== wrote linked ArenaEnvGraphSpec YAML to {linked_path} ===")
 
 
 if __name__ == "__main__":

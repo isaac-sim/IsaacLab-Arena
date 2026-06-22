@@ -13,10 +13,9 @@ from pathlib import Path
 import streamlit as st
 from streamlit_ace import st_ace
 
+from isaaclab_arena.agentic_environment_generation.spec_io import save_initial_graph_spec
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import render_dashboard_html
-
-DEFAULT_SAVE_PATH = "isaaclab_arena_environments/agent_generated/generated_spec.yaml"
 
 _BROKEN_PLACEHOLDER_HTML = """<!DOCTYPE html><html><body style="
     font-family: ui-monospace, monospace;
@@ -81,40 +80,37 @@ def render_validation_badge(validation: SpecParseResult) -> None:
 
 
 def render_save_button(validation: SpecParseResult) -> None:
-    """Render save controls and optional save-path editor."""
+    """Render save controls and optional output-directory editor."""
     can_save = validation.is_valid
-    save_path_str = st.session_state["save_path"]
+    assert validation.spec is not None or not can_save
+    save_path_str = st.session_state.get("save_path", "")
     save_label = f"Save to {Path(save_path_str).name}" if save_path_str else "Save YAML"
+    out_dir = Path(st.session_state["out_dir"])
 
     if st.button(
         save_label,
         disabled=not can_save,
         use_container_width=True,
-        help=f"Writes the editor contents to {save_path_str}. Disabled while YAML is invalid.",
+        help=f"Writes the validated spec to {out_dir}/<env_name>_initial.yaml and {out_dir}/<env_name>_linked.yaml.",
     ):
-        # User clicked save — write editor text to disk.
         try:
-            out_path = Path(save_path_str)
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-            out_path.write_text(st.session_state["edited_text"], encoding="utf-8")
+            initial_path, linked_path = save_initial_graph_spec(validation.spec, out_dir)
+            st.session_state["save_path"] = str(initial_path)
             st.session_state["original_text"] = st.session_state["edited_text"]
-            st.toast(f"Saved → {save_path_str}", icon="💾")
+            st.toast(f"Saved → {initial_path.name} (+ {linked_path.name})", icon="💾")
         except OSError as exc:
             st.error(f"Save failed: {exc}", icon="🛑")
 
-    with st.expander("Change save location", expanded=False):
-        new_path = st.text_input(
-            "Save path",
-            value=save_path_str,
-            key="save_path_input",
-            help=(
-                "Defaults to the file passed via --env_initial_graph_spec, or a generated-spec path when none was"
-                " given."
-            ),
+    with st.expander("Change output directory", expanded=False):
+        out_dir_str = st.session_state["out_dir"]
+        new_out_dir = st.text_input(
+            "Output directory",
+            value=out_dir_str,
+            key="out_dir_input",
+            help="Directory for generated <env_name>_initial.yaml and <env_name>_linked.yaml files.",
         )
-        if new_path and new_path != save_path_str:
-            # Expander override — update session save target for the next save click.
-            st.session_state["save_path"] = new_path
+        if new_out_dir and new_out_dir != out_dir_str:
+            st.session_state["out_dir"] = new_out_dir
 
 
 def render_editor_panel(yaml_path: Path | None) -> SpecParseResult:

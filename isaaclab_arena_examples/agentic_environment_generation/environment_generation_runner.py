@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.agentic_environment_generation.agent_utils import safe_filename_stem
+from isaaclab_arena.agentic_environment_generation.spec_io import DEFAULT_AGENTIC_OUTPUT_DIR, write_env_graph_specs
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
@@ -37,7 +37,6 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec, ArenaEnvInitialGraphSpec
 
 DEFAULT_PROMPT = "Franka picks up a cube from the maple table and places it into a bowl on the table."
-DEFAULT_OUT_DIR = Path("isaaclab_arena_environments/agent_generated")
 
 
 def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None:
@@ -85,7 +84,7 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
     group.add_argument(
         "--out_dir",
         type=Path,
-        default=DEFAULT_OUT_DIR,
+        default=DEFAULT_AGENTIC_OUTPUT_DIR,
         help="Directory for the generated YAML files (default: isaaclab_arena_environments/agent_generated).",
     )
 
@@ -154,25 +153,6 @@ def link_env_graph_spec(initial_env_graph_spec: ArenaEnvInitialGraphSpec) -> Are
     return linked_env_graph_spec
 
 
-def write_env_graph_specs(
-    initial_env_graph_spec: ArenaEnvInitialGraphSpec, linked_env_graph_spec: ArenaEnvGraphSpec, out_dir: Path
-) -> Path:
-    """Dump both environment graph specs to YAML under out_dir and return the linked-spec path."""
-    out_dir.mkdir(parents=True, exist_ok=True)
-    stem = safe_filename_stem(initial_env_graph_spec.env_name)
-
-    initial_path = out_dir / f"{stem}_initial.yaml"
-    linked_path = out_dir / f"{stem}_linked.yaml"
-
-    initial_env_graph_spec.write_yaml(initial_path)
-    print(f"[runner] wrote initial environment graph spec → {initial_path}", flush=True)
-
-    linked_env_graph_spec.write_yaml(linked_path)
-    print(f"[runner] wrote linked environment graph spec  → {linked_path}", flush=True)
-
-    return linked_path
-
-
 def resolve_env_spec(args_cli: argparse.Namespace) -> Path:
     """Resolve an environment intent spec into an initial environment graph spec and a linked environment graph spec."""
     # step 1: generate the environment intent spec
@@ -182,7 +162,10 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path:
     # step 3: link the initial environment graph spec into a fully wired environment graph spec
     linked_env_graph_spec = link_env_graph_spec(initial_env_graph_spec)
     # step 4: write the initial and linked environment graph specs to YAML files
-    return write_env_graph_specs(initial_env_graph_spec, linked_env_graph_spec, args_cli.out_dir)
+    initial_path, linked_path = write_env_graph_specs(initial_env_graph_spec, linked_env_graph_spec, args_cli.out_dir)
+    print(f"[runner] wrote initial environment graph spec → {initial_path}", flush=True)
+    print(f"[runner] wrote linked environment graph spec  → {linked_path}", flush=True)
+    return linked_path
 
 
 def build_env_from_linked_env_graph_spec(

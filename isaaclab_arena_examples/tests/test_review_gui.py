@@ -13,9 +13,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from isaaclab_arena.agentic_environment_generation.asset_matcher import ASSET_ERROR_STAGES
+from isaaclab_arena.agentic_environment_generation.spec_io import (
+    initial_spec_path,
+    linked_spec_path,
+    save_initial_graph_spec,
+)
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
-    DEFAULT_SAVE_PATH,
     SpecParseResult,
     validate_yaml_text,
 )
@@ -104,20 +108,28 @@ class TestParseArgs:
         args = parse_args()
         assert args.env_initial_graph_spec == spec_path
 
+    def test_parses_out_dir(self, monkeypatch, tmp_path: Path):
+        monkeypatch.setattr(sys, "argv", ["streamlit_ui.py", "--out_dir", str(tmp_path / "generated")])
+        args = parse_args()
+        assert args.out_dir == tmp_path / "generated"
+
 
 class TestInitializeState:
-    def test_seeds_empty_session_without_yaml_path(self, session_state):
-        initialize_state(None)
+    def test_seeds_empty_session_without_yaml_path(self, session_state, tmp_path: Path):
+        out_dir = tmp_path / "agent_generated"
+        initialize_state(None, out_dir)
         assert session_state["_yaml_path"] == ""
         assert session_state["edited_text"] == ""
-        assert session_state["save_path"] == DEFAULT_SAVE_PATH
+        assert session_state["save_path"] == ""
+        assert session_state["out_dir"] == str(out_dir.resolve())
         assert session_state["generation_prompt"] == DEFAULT_GENERATION_PROMPT
         assert session_state["editor_version"] == 0
 
     def test_loads_yaml_from_disk(self, session_state, valid_spec_yaml: str, tmp_path: Path):
         spec_path = tmp_path / "opened.yaml"
+        out_dir = tmp_path / "out"
         spec_path.write_text(valid_spec_yaml, encoding="utf-8")
-        initialize_state(spec_path)
+        initialize_state(spec_path, out_dir)
         assert session_state["edited_text"] == valid_spec_yaml
         assert session_state["original_text"] == valid_spec_yaml
         assert session_state["save_path"] == str(spec_path)
@@ -126,20 +138,22 @@ class TestInitializeState:
 
     def test_skips_reinitialization_for_same_path(self, session_state, tmp_path: Path):
         spec_path = tmp_path / "opened.yaml"
+        out_dir = tmp_path / "out"
         spec_path.write_text("env_name: first\n", encoding="utf-8")
-        initialize_state(spec_path)
+        initialize_state(spec_path, out_dir)
         session_state["edited_text"] = "user edits"
         spec_path.write_text("env_name: second\n", encoding="utf-8")
-        initialize_state(spec_path)
+        initialize_state(spec_path, out_dir)
         assert session_state["edited_text"] == "user edits"
 
     def test_reinitializes_when_path_changes(self, session_state, tmp_path: Path):
         first = tmp_path / "first.yaml"
         second = tmp_path / "second.yaml"
+        out_dir = tmp_path / "out"
         first.write_text("env_name: first\n", encoding="utf-8")
         second.write_text("env_name: second\n", encoding="utf-8")
-        initialize_state(first)
-        initialize_state(second)
+        initialize_state(first, out_dir)
+        initialize_state(second, out_dir)
         assert session_state["_yaml_path"] == str(second.resolve())
         assert session_state["edited_text"] == "env_name: second\n"
 
@@ -217,7 +231,10 @@ class TestRunGenerationPipeline:
         assert not ok
         assert "registry unavailable" in message
 
-    def test_success_loads_generated_yaml_into_session(self, session_state, valid_spec: ArenaEnvInitialGraphSpec):
+    def test_success_loads_generated_yaml_into_session(
+        self, session_state, valid_spec: ArenaEnvInitialGraphSpec, tmp_path: Path
+    ):
+        session_state["out_dir"] = str(tmp_path)
         mock_agent = MagicMock()
         mock_intent = MagicMock(reasoning="picked assets")
         mock_agent.generate_spec.return_value = (mock_intent, "{}")
@@ -248,3 +265,18 @@ class TestRunGenerationPipeline:
         assert ok
         assert "loaded into the YAML editor" in message
         assert session_state["last_generation_reasoning"] == "picked assets"
+        assert session_state["save_path"]
+        assert Path(session_state["save_path"]).is_file()
+        linked_path = Path(session_state["save_path"]).with_name(
+            Path(session_state["save_path"]).name.replace("_initial.yaml", "_linked.yaml")
+        )
+        assert linked_path.is_file()
+
+
+class TestSaveInitialGraphSpec:
+    def test_writes_initial_and_linked_yaml(self, valid_spec: ArenaEnvInitialGraphSpec, tmp_path: Path):
+        initial_path, linked_path = save_initial_graph_spec(valid_spec, tmp_path)
+        assert initial_path == initial_spec_path(valid_spec.env_name, tmp_path)
+        assert linked_path == linked_spec_path(valid_spec.env_name, tmp_path)
+        assert initial_path.is_file()
+        assert linked_path.is_file()

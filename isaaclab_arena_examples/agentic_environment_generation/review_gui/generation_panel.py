@@ -8,6 +8,7 @@ from __future__ import annotations
 import traceback
 import yaml
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any
 
 import streamlit as st
@@ -23,6 +24,7 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     build_task_catalogue,
 )
 from isaaclab_arena.agentic_environment_generation.intent_compiler import IntentCompiler
+from isaaclab_arena.agentic_environment_generation.spec_io import save_initial_graph_spec
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import SpecParseResult
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import render_dashboard_html
@@ -144,10 +146,19 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
 
     _apply_generated_yaml(yaml_text, spec=spec)
 
+    out_dir = Path(st.session_state["out_dir"])
+    try:
+        initial_path, linked_path = save_initial_graph_spec(spec, out_dir)
+    except OSError:
+        return False, traceback.format_exc()
+    st.session_state["save_path"] = str(initial_path)
+
     if reasoning:
         st.session_state["last_generation_reasoning"] = reasoning
     if trace:
         st.session_state["last_generation_trace"] = trace
+
+    saved_msg = f"Wrote {initial_path} and {linked_path}."
 
     if has_resolution_errors:
         error_trace = _format_trace_lines(trace, errors_only=True)
@@ -155,11 +166,11 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
             True,
             (
                 "Spec generated with resolution warnings — review the trace below and edit the YAML as needed.\n\n"
-                f"{error_trace}"
+                f"{saved_msg}\n\n{error_trace}"
             ),
         )
 
-    return True, "Spec generated and loaded into the YAML editor."
+    return True, f"Spec generated, loaded into the YAML editor, and saved.\n\n{saved_msg}"
 
 
 def render_generation_panel() -> None:

@@ -15,10 +15,8 @@ from pathlib import Path
 
 import streamlit as st
 
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
-    DEFAULT_SAVE_PATH,
-    render_editor_panel,
-)
+from isaaclab_arena.agentic_environment_generation.spec_io import DEFAULT_AGENTIC_OUTPUT_DIR
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import render_editor_panel
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel import (
     DEFAULT_GENERATION_PROMPT,
     get_catalogue_bundle,
@@ -38,10 +36,16 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional path to an ArenaEnvInitialGraphSpec YAML to open in the editor.",
     )
+    parser.add_argument(
+        "--out_dir",
+        type=Path,
+        default=DEFAULT_AGENTIC_OUTPUT_DIR,
+        help="Directory for generated initial/linked spec YAML files.",
+    )
     return parser.parse_args()
 
 
-def initialize_state(yaml_path: Path | None) -> None:
+def initialize_state(yaml_path: Path | None, out_dir: Path) -> None:
     """Seed ``st.session_state`` from disk exactly once per session."""
     session_key = str(yaml_path.resolve()) if yaml_path is not None else ""
     if st.session_state.get("_yaml_path") == session_key:
@@ -50,6 +54,7 @@ def initialize_state(yaml_path: Path | None) -> None:
     st.session_state["_yaml_path"] = session_key
     st.session_state.setdefault("generation_prompt", DEFAULT_GENERATION_PROMPT)
     st.session_state.setdefault("editor_version", 0)
+    st.session_state["out_dir"] = str(out_dir.resolve())
     st.session_state.pop("_validation_text", None)
     st.session_state.pop("_validation_result", None)
 
@@ -58,7 +63,7 @@ def initialize_state(yaml_path: Path | None) -> None:
         st.session_state["edited_text"] = ""
         st.session_state["last_rendered_text"] = ""
         st.session_state["rendered_html"] = ""
-        st.session_state["save_path"] = DEFAULT_SAVE_PATH
+        st.session_state["save_path"] = ""
         return
 
     original_text = yaml_path.read_text(encoding="utf-8")
@@ -84,7 +89,7 @@ def main() -> None:
         st.error(f"YAML file not found: {yaml_path}", icon="🛑")
         st.stop()
 
-    initialize_state(yaml_path)
+    initialize_state(yaml_path, args.out_dir.resolve())
 
     # Populate @st.cache_resource catalogues on first page load so the initial
     # Generate click does not stall on ensure_assets_registered (~10s).
