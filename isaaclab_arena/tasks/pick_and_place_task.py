@@ -23,7 +23,7 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
-from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
+from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
 from isaaclab_arena.tasks.predicates import object_lifted
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
