@@ -13,8 +13,16 @@ _IFRAME_HEIGHT_PX = 1100
 def render_visualization_panel() -> None:
     """Embed the rendered dashboard HTML in the right-hand column."""
     st.subheader("Visualization")
-    if not st.session_state.get("last_rendered_text", "").strip():
+    edited_text = st.session_state.get("edited_text", "").strip()
+    if not edited_text:
         st.caption("Generate or enter valid YAML to see the visualization.")
+        return
+
+    pending = st.session_state.get("_yaml_before_viz_pass") or edited_text != st.session_state.get(
+        "last_rendered_text", ""
+    )
+    if pending or not st.session_state.get("rendered_html"):
+        st.caption("Rendering visualization…")
         return
 
     st.caption("Updates automatically when the YAML is valid.")
