@@ -6,11 +6,9 @@
 """Long-lived ``SimulationApp`` host process for the live review editor.
 
 Boots Kit's ``SimulationApp`` once (with ``--viz kit``) on *its own* main thread and serves
-validation and thumbnail-render requests over a newline-delimited JSON-RPC
-pipe on stdin/stdout. The parent (``streamlit_ui.py`` running inside
-Streamlit) spawns exactly one of these and reuses it for the entire server
-lifetime via
-:class:`isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_sidecar_client.SimAppSidecar`.
+validation and thumbnail-render requests over a newline-delimited JSON-RPC protocol on a
+Unix domain socket. ``gui_runner`` spawns exactly one of these per review session and
+exports the socket path to Streamlit via ``ARENA_REVIEW_SIDECAR_SOCKET``.
 
 Why a sidecar and not an in-process ``SimulationApp``:
 
@@ -22,11 +20,7 @@ Why a sidecar and not an in-process ``SimulationApp``:
   triggers ``[Error] [omni.usd] UsdContext busy`` and the open_stage call
   fails. A dedicated process with serialized request handling avoids both.
 
-Protocol (newline-delimited JSON over stdin/stdout):
-
-  Ready handshake (sent by sidecar on boot before reading any request):
-    {"ready": true}                          # SimApp boot succeeded
-    {"ready": false, "error": "..."}         # boot failed; sidecar exits
+Protocol (newline-delimited JSON over a Unix domain socket):
 
   Requests:
     {"cmd": "ping"}
@@ -34,61 +28,45 @@ Protocol (newline-delimited JSON over stdin/stdout):
 
     {"cmd": "validate_spec", "yaml_text": "..."}
       → {"ok": true, "spec_dict": {...}}
-        (full :class:`ArenaEnvInitialGraphSpec` validation including registry
-         lookups — runs in the sidecar where registries are already warm)
 
     {"cmd": "render_spec", "yaml_text": "..."}
       → {"ok": true, "paths": {"node_id": "/abs/path/to.png", ...},
                        "errors": [{"node_id": "...", "error": "..."}]}
-        (paths are absolute filesystem paths on the disk cache. The PNGs
-         themselves stay on disk — the parent reads them itself.)
 
     {"cmd": "build_catalogues"}
       → {"ok": true, "asset_catalogue": {...}, "relation_catalogue": {...},
                        "task_catalogue": {...}}
-        (registry vocabulary for :meth:`EnvironmentGenerationAgent.fetch_intent_from_prompt`)
 
     {"cmd": "compile_intent", "intent_dict": {...}}
       → {"ok": true, "spec_dict": {...}, "has_resolution_errors": bool,
                        "trace": [{"stage": "...", "query": "...", ...}]}
-        (validates :class:`EnvironmentIntentSpec` and compiles to initial graph spec)
 
     {"cmd": "shutdown"}
       → {"ok": true}   # sidecar exits cleanly after replying
 
-  Parent EOF on stdin (parent process died) triggers the same graceful
-  shutdown as the explicit "shutdown" cmd.
-
 stdout multiplexing:
 
 Kit writes a lot to stdout (warnings, replicator startup, etc.) and that
-would corrupt the JSON channel the parent reads. We dup the original
-stdout fd before touching Kit, then redirect Kit's stdout to stderr —
-JSON replies go out through the saved fd; everything else from Kit
-appears on the user's terminal via inherited stderr.
+would corrupt any JSON channel on stdout. We redirect Kit's stdout to
+stderr so diagnostics appear on the user's terminal via inherited stderr.
 """
 
 from __future__ import annotations
 
+import argparse
 import contextlib
 import json
 import os
 import signal
+import socket
 import sys
 import traceback
 import yaml
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
-_JSON_FD = os.dup(1)
 os.dup2(2, 1)
 sys.stdout = sys.stderr
-
-
-def _send(payload: dict[str, Any]) -> None:
-    """Write one JSON line to the parent on the saved stdout fd."""
-    data = (json.dumps(payload) + "\n").encode("utf-8")
-    os.write(_JSON_FD, data)
 
 
 def _install_signal_handlers() -> None:
@@ -99,8 +77,60 @@ def _install_signal_handlers() -> None:
     signal.signal(signal.SIGINT, _exit)
 
 
-def _serve() -> int:
-    """Boot SimApp, hand-shake with the parent, then service requests."""
+def _write_response(writer: TextIO, payload: dict[str, Any]) -> None:
+    writer.write(json.dumps(payload) + "\n")
+    writer.flush()
+
+
+def _serve_connection(
+    reader: TextIO,
+    writer: TextIO,
+    *,
+    app,
+    render_fn,
+    spec_cls,
+) -> None:
+    """Handle JSON-RPC requests on one connected client until disconnect."""
+    for raw_line in reader:
+        line = raw_line.strip()
+        if not line:
+            continue
+        try:
+            req = json.loads(line)
+        except json.JSONDecodeError as exc:
+            _write_response(writer, {"ok": False, "error": f"bad json: {exc}"})
+            continue
+
+        cmd = req.get("cmd")
+        if cmd == "shutdown":
+            _write_response(writer, {"ok": True})
+            return
+
+        if cmd == "ping":
+            _write_response(writer, {"ok": True})
+            continue
+
+        if cmd == "validate_spec":
+            _write_response(writer, _handle_validate_spec(req, spec_cls))
+            continue
+
+        if cmd == "render_spec":
+            _write_response(writer, _handle_render_spec(app, req, render_fn, spec_cls))
+            continue
+
+        if cmd == "build_catalogues":
+            _write_response(writer, _handle_build_catalogues())
+            continue
+
+        if cmd == "compile_intent":
+            _write_response(writer, _handle_compile_intent(req))
+            continue
+
+        _write_response(writer, {"ok": False, "error": f"unknown cmd: {cmd!r}"})
+
+
+def _serve_socket(socket_path: str) -> int:
+    """Boot SimApp, bind ``socket_path``, and service requests sequentially."""
     _install_signal_handlers()
 
     try:
@@ -108,12 +138,13 @@ def _serve() -> int:
             _launch_simulation_app,
         )
     except Exception as exc:
-        _send({"ready": False, "error": f"import failed: {exc}", "traceback": traceback.format_exc()})
+        print(f"[simapp_sidecar] import failed: {exc}", file=sys.stderr)
+        print(traceback.format_exc(), file=sys.stderr)
         return 1
 
     app = _launch_simulation_app()
     if app is None:
-        _send({"ready": False, "error": "SimulationApp launch returned None"})
+        print("[simapp_sidecar] SimulationApp launch returned None", file=sys.stderr)
         return 1
 
     from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec  # noqa: PLC0415
@@ -121,50 +152,40 @@ def _serve() -> int:
         _render_thumbnails_with_app,
     )
 
-    _send({"ready": True})
+    path = Path(socket_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        path.unlink()
+
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    server.bind(str(path))
+    server.listen(5)
+    print(f"[simapp_sidecar] listening on {path}", file=sys.stderr)
 
     try:
-        for raw_line in sys.stdin:
-            line = raw_line.strip()
-            if not line:
-                continue
-            try:
-                req = json.loads(line)
-            except json.JSONDecodeError as exc:
-                _send({"ok": False, "error": f"bad json: {exc}"})
-                continue
-
-            cmd = req.get("cmd")
-            if cmd == "shutdown":
-                _send({"ok": True})
-                return 0
-
-            if cmd == "ping":
-                _send({"ok": True})
-                continue
-
-            if cmd == "validate_spec":
-                _send(_handle_validate_spec(req, ArenaEnvInitialGraphSpec))
-                continue
-
-            if cmd == "render_spec":
-                _send(_handle_render_spec(app, req, _render_thumbnails_with_app, ArenaEnvInitialGraphSpec))
-                continue
-
-            if cmd == "build_catalogues":
-                _send(_handle_build_catalogues())
-                continue
-
-            if cmd == "compile_intent":
-                _send(_handle_compile_intent(req))
-                continue
-
-            _send({"ok": False, "error": f"unknown cmd: {cmd!r}"})
-
-        return 0
+        while True:
+            conn, _ = server.accept()
+            with conn:
+                reader = conn.makefile("r", encoding="utf-8", newline="\n")
+                writer = conn.makefile("w", encoding="utf-8", newline="\n")
+                try:
+                    _serve_connection(
+                        reader,
+                        writer,
+                        app=app,
+                        render_fn=_render_thumbnails_with_app,
+                        spec_cls=ArenaEnvInitialGraphSpec,
+                    )
+                finally:
+                    reader.close()
+                    writer.close()
     finally:
+        server.close()
+        path.unlink(missing_ok=True)
         with contextlib.suppress(Exception):
             app.close()
+
+    return 0
 
 
 def _handle_validate_spec(req: dict[str, Any], spec_cls) -> dict[str, Any]:
@@ -277,8 +298,19 @@ def _handle_render_spec(
     }
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--socket",
+        required=True,
+        help="Unix domain socket path for newline-delimited JSON-RPC requests.",
+    )
+    return parser.parse_args()
+
+
 def main() -> int:
-    return _serve()
+    args = _parse_args()
+    return _serve_socket(args.socket)
 
 
 if __name__ == "__main__":

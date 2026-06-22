@@ -5,10 +5,10 @@
 
 """Streamlit UI for the initial-graph live editor.
 
-Launch via gui_runner (see that module for CLI usage).
+Launch via gui_runner (the only supported entrypoint).
 
 Registry lookups and USD thumbnail rendering run in a persistent SimApp sidecar
-so YAML re-validation stays fast after the first sidecar boot.
+started by gui_runner. Streamlit connects through ``ARENA_REVIEW_SIDECAR_SOCKET``.
 """
 
 from __future__ import annotations
@@ -25,7 +25,6 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.generatio
     get_catalogue_bundle,
     render_generation_panel,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.sidecar_service import ensure_sidecar
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.visualization_panel import (
     render_visualization_panel,
 )
@@ -102,17 +101,6 @@ def main() -> None:
     except Exception as exc:
         st.warning(
             f"Asset catalogues could not be loaded: {exc}\n\nGeneration will be unavailable.",
-            icon="⚠️",
-        )
-
-    # Boot the SimApp sidecar on first page load so the first validation/render
-    # does not stall on Kit startup (~30s).
-    try:
-        ensure_sidecar()
-    except Exception as exc:
-        st.warning(
-            f"Isaac Sim sidecar could not be started: {exc}\n\n"
-            "Validation and thumbnails will be unavailable until it is healthy.",
             icon="⚠️",
         )
 

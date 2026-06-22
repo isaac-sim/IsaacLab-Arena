@@ -66,7 +66,7 @@ def validate_yaml_text(text: str) -> SpecParseResult:
                         spec=None,
                         error=(
                             "SimApp sidecar is unavailable — cannot validate registry entries. "
-                            "Check the terminal where you launched the server."
+                            "Launch the review GUI via gui_runner and check its terminal for errors."
                         ),
                     )
                 else:
