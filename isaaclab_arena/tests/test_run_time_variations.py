@@ -76,7 +76,7 @@ def _test_disabled_runtime_variation_not_in_events_cfg(simulation_app):
 
     arena_env = get_test_environment(enabled=False)
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
-    env_cfg = ArenaEnvBuilder(arena_env, args_cli).compose_manager_cfg()
+    env_cfg, _ = ArenaEnvBuilder(arena_env, args_cli).compose_manager_cfg()
 
     assert not hasattr(env_cfg.events, TEST_EVENT_NAME), (
         f"Disabled variation must not add '{TEST_EVENT_NAME}' to env_cfg.events; "
@@ -91,7 +91,7 @@ def _test_enabled_runtime_variation_in_events_cfg(simulation_app):
 
     arena_env = get_test_environment(enabled=True)
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
-    env_cfg = ArenaEnvBuilder(arena_env, args_cli).compose_manager_cfg()
+    env_cfg, _ = ArenaEnvBuilder(arena_env, args_cli).compose_manager_cfg()
 
     assert hasattr(
         env_cfg.events, TEST_EVENT_NAME

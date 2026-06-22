@@ -43,7 +43,7 @@ def _test_get_local_poses_matches_camera_offset_cfg(simulation_app) -> bool:
     )
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
     builder = ArenaEnvBuilder(arena_env, args_cli)
-    env_cfg = builder.compose_manager_cfg()
+    env_cfg, env_kwargs = builder.compose_manager_cfg()
 
     env_cfg.scene.wrist_cam.offset = CameraCfg.OffsetCfg(
         pos=TEST_CAMERA_OFFSET.position_xyz,
@@ -51,7 +51,7 @@ def _test_get_local_poses_matches_camera_offset_cfg(simulation_app) -> bool:
         convention="opengl",
     )
 
-    env, _ = builder.make_registered_and_return_cfg(env_cfg)
+    env, _ = builder.make_registered_and_return_cfg(env_cfg, env_kwargs)
     env.reset()
 
     camera = env.unwrapped.scene[CAMERA_NAME]

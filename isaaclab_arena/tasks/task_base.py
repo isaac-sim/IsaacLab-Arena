@@ -16,6 +16,7 @@ from isaaclab_arena.tasks.fine_grained_progress_tracker import (
     make_fine_grained_progress_objective_events_cfg,
     make_fine_grained_progress_objective_recorder_cfg,
 )
+from isaaclab_arena.tasks.task_transition import TaskTransition
 
 
 class TaskBase(ABC):
@@ -88,3 +89,12 @@ class TaskBase(ABC):
         if not fine_grained_progress_objectives:
             return None
         return make_fine_grained_progress_objective_recorder_cfg(fine_grained_progress_objectives)
+
+    @classmethod
+    def success_state_transition(cls, **_) -> TaskTransition:
+        """Inform constraint resolution what the task's success condition implies about the state change.
+
+        Resolution forwards all of the task's args; subclasses override this to bind the ones they act
+        on as named parameters and absorb the rest with ``**_``.
+        """
+        raise NotImplementedError("success_state_transition not implemented yet.")

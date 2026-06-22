@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 from abc import ABC
+from collections.abc import Callable
+from typing import Any
 
 from isaaclab.utils import configclass
 
@@ -26,4 +28,16 @@ class SamplerBaseCfg:
 
 
 class SamplerBase(ABC):
-    """Marker base class shared by every sampler family."""
+    """Base class shared by every sampler family."""
+
+    def __init__(self) -> None:
+        self._listeners: list[Callable[[Any], None]] = []
+
+    def add_listener(self, listener: Callable[[Any], None]) -> None:
+        """Register ``listener`` to be called with every sample drawn from this sampler."""
+        self._listeners.append(listener)
+
+    def _notify(self, sample: Any) -> None:
+        """Forward ``sample`` to every registered listener, in registration order."""
+        for listener in self._listeners:
+            listener(sample)

@@ -100,6 +100,7 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
     """Embodiment for the DROID setup with differential inverse kinematics action controller."""
 
     name = "droid_differential_ik"
+    tags = ["embodiment", "ik"]
     default_arm_mode = ArmMode.SINGLE_ARM
 
     def __init__(
@@ -219,7 +220,9 @@ class DroidSceneCfg:
         prim_path="{ENV_REGEX_NS}/Robot_Stand",
         init_state=AssetBaseCfg.InitialStateCfg(pos=[-0.05, 0.0, 0.0], rot=[0.0, 0.0, 0.0, 1.0]),
         spawn=UsdFileCfg(
-            usd_path="https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/Isaac/Props/Mounts/Stand/stand_instanceable.usd",
+            usd_path=(
+                f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/robots/franka_stand_grey.usda"
+            ),
             scale=(1.2, 1.2, 1.7),
             activate_contact_sensors=False,
         ),

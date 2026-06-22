@@ -5,8 +5,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
+from isaaclab_arena.metrics.metric_data import MetricData, MetricsDataCollection
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.metrics import get_metric_recorder_dataset_path, get_num_episodes, get_recorded_metric_data
 
@@ -48,17 +49,22 @@ class MetricsManager:
         """Names of the metric terms registered on this manager."""
         return list(self._term_names)
 
-    def compute(self) -> dict[str, Any]:
+    def compute(self) -> MetricsDataCollection:
         """Compute every registered metric from the recorded HDF5 dataset.
 
         Returns:
-            A dictionary mapping metric name to metric value. Always includes a
-            ``"num_episodes"`` entry with the number of completed episodes.
+            A MetricsData instance containing the data for all metrics.
         """
         dataset_path = get_metric_recorder_dataset_path(self._env)
-        metrics_data: dict[str, Any] = {}
+        metric_data_entries: dict[str, MetricData] = {}
         for term_name, term_cfg in zip(self._term_names, self._term_cfgs):
-            recorded_metric_data = get_recorded_metric_data(dataset_path, term_cfg.recorder_term_name)
-            metrics_data[term_name] = term_cfg.compute_metric_func(recorded_metric_data, **term_cfg.params)
-        metrics_data["num_episodes"] = get_num_episodes(dataset_path)
-        return metrics_data
+            recorded_data = get_recorded_metric_data(dataset_path, term_cfg.recorder_term_name)
+            metrics_value = term_cfg.compute_metric_func(recorded_data, **term_cfg.params)
+            metric_data_entries[term_name] = MetricData(
+                term_name=term_name, term_cfg=term_cfg, recorded_data=recorded_data, metric_value=metrics_value
+            )
+        # Combine the metric data into a MetricsData instance.
+        metrics_data_collection = MetricsDataCollection(
+            num_episodes=get_num_episodes(dataset_path), metric_data_entries=metric_data_entries
+        )
+        return metrics_data_collection

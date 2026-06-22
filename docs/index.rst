@@ -229,6 +229,7 @@ TABLE OF CONTENTS
    pages/concepts/embodiment/index
    pages/concepts/concept_object_placement
    pages/concepts/policy/index
+   pages/concepts/variations/index
 
 .. toctree::
    :maxdepth: 1

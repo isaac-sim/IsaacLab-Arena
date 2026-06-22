@@ -67,7 +67,7 @@ def main() -> None:
     """
     # parse configuration
     arena_builder = get_arena_builder_from_cli(args_cli)
-    env_name, env_cfg = arena_builder.build_registered()
+    env_name, env_cfg, env_kwargs = arena_builder.build_registered()
     # modify configuration
     env_cfg.terminations.time_out = None
     if "Lift" in args_cli.example_environment:
@@ -84,7 +84,7 @@ def main() -> None:
 
     try:
         # create environment
-        env = gym.make(env_name, cfg=env_cfg)
+        env = gym.make(env_name, cfg=env_cfg, **env_kwargs)
         from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 
         reapply_viewer_cfg(env)

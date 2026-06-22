@@ -19,7 +19,9 @@ variations subclass one of two flavors:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import field
+from typing import Any
 
 from isaaclab.managers import EventTermCfg
 from isaaclab.utils import configclass
@@ -55,6 +57,7 @@ class VariationBase(ABC):
     def __init__(self, cfg: VariationBaseCfg, name: str):
         self.name = name
         self._sampler: SamplerBase | None = None
+        self._sample_listeners: list[Callable[[Any], None]] = []
         self.apply_cfg(cfg)
 
     @property
@@ -75,21 +78,34 @@ class VariationBase(ABC):
         """The sampler driving this variation, or ``None`` if not yet set."""
         return self._sampler
 
-    def apply_cfg(self, cfg: VariationBaseCfg) -> None:
-        """Install ``cfg`` as the variation's new source of truth.
+    def add_sample_listener(self, listener: Callable[[Any], None]) -> None:
+        """Subscribe ``listener`` to every sample drawn by this variation's sampler.
 
-        Replaces :attr:`cfg` and rebuilds :attr:`sampler` from ``cfg.sampler_cfg``.
-        Subclasses with extra derived state should override and call
-        ``super().apply_cfg(cfg)`` first.
+        Listeners are stored on the variation, so ``apply_cfg`` re-binds them onto the
+        rebuilt sampler and they survive cfg/sampler swaps.
+        """
+        self._sample_listeners.append(listener)
+        if self._sampler is not None:
+            self._sampler.add_listener(listener)
+
+    def apply_cfg(self, cfg: VariationBaseCfg) -> None:
+        """Apply new ``cfg``.
+
+        Replaces ``cfg`` and rebuilds ``sampler`` from ``cfg.sampler_cfg``, re-binding any
+        variation-owned sample listeners onto the new sampler. Subclasses with extra derived
+        state should override and call ``super().apply_cfg(cfg)`` first.
 
         Args:
-            cfg: A cfg of the :class:`VariationBaseCfg` subclass this variation accepts.
+            cfg: A cfg of the ``VariationBaseCfg`` subclass this variation accepts.
         """
         self.cfg = cfg
         assert isinstance(
             cfg.sampler_cfg, SamplerBaseCfg
         ), f"cfg.sampler_cfg must be a SamplerBaseCfg; got {type(cfg.sampler_cfg).__name__}."
         self._sampler = cfg.sampler_cfg.build()
+        # Re-bind variation-owned listeners so a cfg/sampler swap doesn't drop subscriptions.
+        for listener in self._sample_listeners:
+            self._sampler.add_listener(listener)
 
 
 class RunTimeVariationBase(VariationBase):

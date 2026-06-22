@@ -48,6 +48,15 @@ Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, i
 - PR bodies follow `.github/pull_request_template.md` — a one-line Summary plus 2–5 detail bullets. Resist the agent default of long, multi-section descriptions.
 - Attribute docstrings should be included below the attribute, rather than in the class-level docstring.
 
+## Docstrings style
+
+- Prefer one line; a 2–3 line paragraph may follow if needed.
+- The docstring should describe the function’s calling syntax and its semantics, but generally not its
+    implementation details, unless those details are relevant to how the function is to be used.
+- Document `Args` and `Returns`, but **not** `Raises`. Omit `Returns` when it only returns None
+    or the summary already covers it.
+- Don't use Sphinx-style cross-references.
+
 ## Conventions
 
 ### Wrapped Environment

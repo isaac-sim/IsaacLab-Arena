@@ -11,15 +11,20 @@ from pydantic import ValidationError
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import TaskRegistry
 from isaaclab_arena.environments.arena_env_graph_spec import (
-    ArenaEnvGraphNodeType,
-    ArenaEnvGraphObjectReferenceNodeSpec,
     ArenaEnvGraphSpec,
     ArenaEnvGraphStateSpec,
+    ArenaEnvInitialGraphSpec,
+)
+from isaaclab_arena.environments.arena_env_graph_types import (
+    ArenaEnvGraphNodeType,
+    ArenaEnvGraphObjectReferenceNodeSpec,
 )
 from isaaclab_arena.environments.graph_spec_utils import relation_class_for_spatial_constraint_type
 from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On, PositionLimits
 
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
+_INIT_GRAPH = TEST_DATA_DIR / "pick_and_place_maple_table_init_env_graph.yaml"
+_FULL_GRAPH = TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml"
 
 
 def test_arena_env_graph_spec_loads_pick_and_place_yaml():
@@ -41,84 +46,83 @@ def test_arena_env_graph_spec_loads_pick_and_place_yaml():
     assert mug.type == ArenaEnvGraphNodeType.OBJECT
 
     task = spec.tasks_by_id["pick_and_place_0"]
-    assert task.type == "PickAndPlaceTask"
-    assert TaskRegistry().is_registered(task.type)
+    assert task.kind == "PickAndPlaceTask"
+    assert TaskRegistry().is_registered(task.kind)
     assert task.initial_state_spec_id == "state_spec_0"
     assert task.success_state_spec_id == "state_spec_1"
-    assert task.task_args["pick_up_object"] == "rubiks_cube_hot3d_robolab"
-    assert task.task_args["destination_location"] == "bowl_ycb_robolab"
+    assert task.params["pick_up_object"] == "rubiks_cube_hot3d_robolab"
+    assert task.params["destination_location"] == "bowl_ycb_robolab"
 
     second_task = spec.tasks_by_id["pick_and_place_1"]
-    assert second_task.type == "PickAndPlaceTask"
+    assert second_task.kind == "PickAndPlaceTask"
     assert second_task.initial_state_spec_id == "state_spec_1"
     assert second_task.success_state_spec_id == "state_spec_2"
-    assert second_task.task_args["pick_up_object"] == "mug_ycb_robolab"
+    assert second_task.params["pick_up_object"] == "mug_ycb_robolab"
 
     initial_state = spec.state_specs_by_id["state_spec_0"]
     assert isinstance(initial_state, ArenaEnvGraphStateSpec)
     assert len(initial_state.spatial_constraints) == 6
-    assert len(initial_state.task_constraints) == 1
 
     cube_limits = initial_state.spatial_constraints[2]
-    assert cube_limits.type == "position_limits"
-    assert cube_limits.parent == "rubiks_cube_hot3d_robolab"
+    assert cube_limits.kind == "position_limits"
+    assert cube_limits.subject == "rubiks_cube_hot3d_robolab"
+    assert cube_limits.reference is None
     assert cube_limits.params == {"x_min": 0.55, "x_max": 0.70, "y_min": -0.40, "y_max": -0.10}
 
     initial_mug_position = initial_state.spatial_constraints[5]
-    assert initial_mug_position.type == "at_position"
-    assert initial_mug_position.parent == "mug_ycb_robolab"
-    assert initial_mug_position.child is None
+    assert initial_mug_position.kind == "at_position"
+    assert initial_mug_position.subject == "mug_ycb_robolab"
+    assert initial_mug_position.reference is None
     assert initial_mug_position.params == {"x": 0.65, "y": 0.25, "z": 0.85}
 
-    final_state = spec.state_specs_by_id["state_spec_1"]
-    cube_on_bowl = final_state.spatial_constraints[3]
-    assert cube_on_bowl.type == "on"
-    assert cube_on_bowl.parent == "bowl_ycb_robolab"
-    assert cube_on_bowl.child == "rubiks_cube_hot3d_robolab"
-
-    final_mug_position = final_state.spatial_constraints[4]
-    assert final_mug_position.type == "at_position"
-    assert final_mug_position.parent == "mug_ycb_robolab"
-    assert final_mug_position.params == {"x": 0.65, "y": 0.25, "z": 0.85}
+    # Derived states are differential: state_spec_1 records only the cube's relocation, not a
+    # full snapshot (the unchanged constraints are inherited from state_spec_0).
+    success_state = spec.state_specs_by_id["state_spec_1"]
+    assert len(success_state.spatial_constraints) == 1
+    cube_on_bowl = success_state.spatial_constraints[0]
+    assert cube_on_bowl.kind == "on"
+    assert cube_on_bowl.reference == "bowl_ycb_robolab"
+    assert cube_on_bowl.subject == "rubiks_cube_hot3d_robolab"
 
     table_anchor = initial_state.spatial_constraints[0]
-    assert table_anchor.type == "is_anchor"
-    assert relation_class_for_spatial_constraint_type(table_anchor.type) is IsAnchor
-    assert relation_class_for_spatial_constraint_type(cube_limits.type) is PositionLimits
-    assert relation_class_for_spatial_constraint_type(initial_mug_position.type) is AtPosition
-    assert relation_class_for_spatial_constraint_type(cube_on_bowl.type) is On
+    assert table_anchor.kind == "is_anchor"
+    assert table_anchor.subject == "maple_table_robolab_table"
+    assert table_anchor.reference is None
+    assert relation_class_for_spatial_constraint_type(table_anchor.kind) is IsAnchor
+    assert relation_class_for_spatial_constraint_type(cube_limits.kind) is PositionLimits
+    assert relation_class_for_spatial_constraint_type(initial_mug_position.kind) is AtPosition
+    assert relation_class_for_spatial_constraint_type(cube_on_bowl.kind) is On
 
 
-def test_arena_env_graph_spec_parses_optional_task_constraints_and_at_position():
+def test_arena_env_graph_spec_parses_at_position():
     data = _minimal_env_graph_data()
     data["state_specs"][0]["spatial_constraints"] = [_at_position_constraint()]
-    del data["state_specs"][0]["task_constraints"]
 
     spec = ArenaEnvGraphSpec.from_dict(data)
-    assert spec.tasks_by_id["task_0"].type == "PickAndPlaceTask"
+    assert spec.tasks_by_id["task_0"].kind == "PickAndPlaceTask"
     state_spec = spec.state_specs_by_id["state_0"]
     fixed_position = state_spec.spatial_constraints[0]
 
-    assert state_spec.task_constraints == []
-    assert fixed_position.type == "at_position"
-    assert fixed_position.parent == "cube"
+    assert fixed_position.kind == "at_position"
+    assert fixed_position.subject == "cube"
+    assert fixed_position.reference is None
     assert fixed_position.params == {"x": 0.1, "y": 0.2, "z": 0.3}
 
 
 def test_arena_env_graph_spec_validate_rejects_mutated_missing_reference():
     spec = ArenaEnvGraphSpec.from_dict(_minimal_env_graph_data())
-    spec.state_specs[0].spatial_constraints[0].parent = "missing_table"
+    spec.state_specs[0].spatial_constraints[0].subject = "missing_table"
 
-    with pytest.raises(AssertionError, match="unknown parent node 'missing_table'"):
+    with pytest.raises(AssertionError, match="unknown subject node 'missing_table'"):
         spec.validate()
 
 
 def test_arena_env_graph_spec_validate_rejects_mutated_invalid_relationship_shape():
     spec = ArenaEnvGraphSpec.from_dict(_minimal_env_graph_data())
     constraint = spec.state_specs[0].spatial_constraints[0]
-    constraint.type = "on"
+    constraint.kind = "on"
 
-    with pytest.raises(AssertionError, match="requires a child node"):
+    with pytest.raises(AssertionError, match="requires relation.reference"):
         spec.validate()
 
 
@@ -160,8 +164,6 @@ def test_apply_cli_override_args_swaps_declared_target_node_names():
     # The asset `name` is swapped; the `id` (and every edge that references it) is untouched.
     assert spec.nodes_by_id["cube"].name == "dex_cube"
     assert spec.nodes_by_id["robot"].name == "franka_ik"
-    assert spec.state_specs[0].task_constraints[0].child == "cube"
-    assert spec.state_specs[0].task_constraints[0].parent == "robot"
 
 
 def test_apply_cli_override_args_leaves_unset_flags_as_authored():
@@ -219,11 +221,6 @@ def test_arena_env_graph_spec_rejects_invalid_data():
             "Duplicate env graph ids",
         ),
         (
-            "duplicate constraint id",
-            lambda data: data["state_specs"][0]["task_constraints"][0].__setitem__("id", "table_is_anchor"),
-            "Duplicate env graph ids",
-        ),
-        (
             "missing task state reference",
             lambda data: data["tasks"][0].__setitem__("initial_state_spec_id", "missing_state"),
             "unknown state spec 'missing_state'",
@@ -239,19 +236,19 @@ def test_arena_env_graph_spec_rejects_invalid_data():
             "unknown child node 'missing_cube'",
         ),
         (
-            "missing spatial parent",
-            lambda data: data["state_specs"][0]["spatial_constraints"][0].pop("parent"),
-            "parent",
+            "missing spatial subject",
+            lambda data: data["state_specs"][0]["spatial_constraints"][0].pop("subject"),
+            "subject",
         ),
         (
-            "relationship missing child",
-            lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("type", "on"),
-            "requires a child node",
+            "binary relationship missing reference",
+            lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("kind", "on"),
+            "requires relation.reference",
         ),
         (
-            "unary relationship with child",
-            lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("child", "cube"),
-            "must not define a child node",
+            "unary relationship with reference",
+            lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("reference", "cube"),
+            "must not define relation.reference",
         ),
         (
             "missing node parent reference",
@@ -284,19 +281,14 @@ def test_arena_env_graph_spec_rejects_invalid_data():
             "type",
         ),
         (
-            "unknown task type",
-            lambda data: data["tasks"][0].__setitem__("type", "UnknownTask"),
-            "Unknown task type 'UnknownTask'",
+            "unknown task kind",
+            lambda data: data["tasks"][0].__setitem__("kind", "UnknownTask"),
+            "Unknown task kind 'UnknownTask'",
         ),
         (
-            "unknown spatial constraint type",
-            lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("type", "unknown"),
-            "Unknown spatial constraint type 'unknown'",
-        ),
-        (
-            "unknown task constraint type",
-            lambda data: data["state_specs"][0]["task_constraints"][0].__setitem__("type", "unknown"),
-            "type",
+            "unknown spatial constraint kind",
+            lambda data: data["state_specs"][0]["spatial_constraints"][0].__setitem__("kind", "unknown"),
+            "Unknown relation kind 'unknown'",
         ),
     ]
 
@@ -307,6 +299,69 @@ def test_arena_env_graph_spec_rejects_invalid_data():
         with pytest.raises(ValidationError) as exc_info:
             ArenaEnvGraphSpec.from_dict(data)
         assert error_match in str(exc_info.value), label
+
+
+# --- ArenaEnvInitialGraphSpec.link: chaining a partially-wired graph into a full one ---
+
+
+def test_link_reproduces_groundtruth_full_graph():
+    """Linking the partial init graph yields the hand-authored full graph (structurally)."""
+    linked = ArenaEnvInitialGraphSpec.from_yaml(_INIT_GRAPH).link()
+    groundtruth = ArenaEnvGraphSpec.from_yaml(_FULL_GRAPH)
+
+    # N tasks yield N+1 state specs, chained 0..N.
+    assert set(linked.state_specs_by_id) == set(groundtruth.state_specs_by_id)
+    assert len(linked.state_specs) == len(linked.tasks) + 1
+
+    # Each state's spatial constraints match content-wise (IDs are auto-generated and may differ
+    # from hand-authored ones, so compare as sets of (kind, subject, reference, params) tuples).
+    for state_id, groundtruth_state in groundtruth.state_specs_by_id.items():
+        got = linked.state_specs_by_id[state_id]
+        assert _spatial_contents(got) == _spatial_contents(groundtruth_state), f"spatial mismatch in {state_id}"
+        assert got.is_delta == groundtruth_state.is_delta, f"is_delta mismatch in {state_id}"
+
+    # The initial state is a full snapshot; every derived state is a delta off its predecessor.
+    assert linked.state_specs_by_id["state_spec_0"].is_delta is False
+    assert all(linked.state_specs_by_id[f"state_spec_{i}"].is_delta for i in range(1, len(linked.tasks) + 1))
+
+    # Tasks are wired correctly (compared in order; auto-generated IDs differ from hand-authored ones).
+    assert len(linked.tasks) == len(groundtruth.tasks)
+    for got_task, groundtruth_task in zip(linked.tasks, groundtruth.tasks):
+        assert got_task.kind == groundtruth_task.kind
+        assert got_task.initial_state_spec_id == groundtruth_task.initial_state_spec_id
+        assert got_task.success_state_spec_id == groundtruth_task.success_state_spec_id
+        assert got_task.params == groundtruth_task.params
+
+
+def test_initial_graph_is_not_directly_loadable():
+    """The init graph leaves tasks unwired, so the strict ArenaEnvGraphSpec loader rejects it."""
+    with pytest.raises(ValidationError):
+        ArenaEnvGraphSpec.from_yaml(_INIT_GRAPH)
+
+
+def test_chain_wires_each_success_state_as_next_initial_state():
+    """task[i].success_state_spec_id == task[i+1].initial_state_spec_id (a single chain)."""
+    linked = ArenaEnvInitialGraphSpec.from_yaml(_INIT_GRAPH).link()
+    ordered = linked.tasks  # preserved in execution order by link()
+    for earlier, later in zip(ordered, ordered[1:]):
+        assert earlier.success_state_spec_id == later.initial_state_spec_id
+
+
+def test_task_without_a_transition_is_rejected():
+    """A task whose class declares no success_state_transition fails loudly rather than silently skipping."""
+    spec = ArenaEnvInitialGraphSpec.from_yaml(_INIT_GRAPH)
+    spec.tasks[0].kind = "NoTask"  # registered, but declares no transition
+    with pytest.raises(NotImplementedError, match="success_state_transition not implemented"):
+        spec.link()
+
+
+def _spatial_contents(state: ArenaEnvGraphStateSpec) -> set[tuple]:
+    """Project a state's spatial constraints to a set of (kind, subject, reference, params) tuples.
+
+    ID-independent, so auto-generated constraint IDs from link() compare correctly against
+    hand-authored IDs in the groundtruth YAML.
+    """
+    return {(c.kind, c.subject, c.reference, tuple(sorted(c.params.items()))) for c in state.spatial_constraints}
 
 
 def _minimal_env_graph_data():
@@ -327,13 +382,18 @@ def _minimal_env_graph_data():
         ],
         "tasks": [{
             "id": "task_0",
-            "type": "PickAndPlaceTask",
             "initial_state_spec_id": "state_0",
             "success_state_spec_id": "state_0",
+            "kind": "PickAndPlaceTask",
+            "params": {},
         }],
         "state_specs": [{
             "id": "state_0",
-            "spatial_constraints": [{"id": "table_is_anchor", "type": "is_anchor", "parent": "table"}],
+            "spatial_constraints": [{
+                "id": "table_is_anchor",
+                "kind": "is_anchor",
+                "subject": "table",
+            }],
             "task_constraints": [{
                 "id": "robot_reach_cube",
                 "type": "reach",
@@ -347,7 +407,7 @@ def _minimal_env_graph_data():
 def _at_position_constraint(x=0.1, y=0.2, z=0.3):
     return {
         "id": "cube_fixed_position",
-        "type": "at_position",
-        "parent": "cube",
+        "kind": "at_position",
+        "subject": "cube",
         "params": {"x": x, "y": y, "z": z},
     }

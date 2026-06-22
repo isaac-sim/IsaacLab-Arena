@@ -9,7 +9,7 @@ import os
 import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
-from isaaclab_arena.tests.utils.subprocess import run_subprocess
+from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function, run_subprocess
 
 HEADLESS = True
 NUM_STEPS = 2
@@ -154,6 +154,28 @@ def test_eval_runner_from_existing_config():
 
 
 @pytest.mark.with_subprocess
+def test_eval_runner_with_variations(tmp_path):
+    """Test eval_runner applies a per-job variations block via Hydra overrides."""
+    jobs = [
+        {
+            "name": "maple_table_hdr_variation",
+            "arena_env_args": {
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_abs_joint_pos",
+            },
+            "num_steps": NUM_STEPS,
+            "policy_type": "zero_action",
+            "policy_config_dict": {},
+            "variations": {"light": {"hdr_image": {"enabled": True}}},
+        },
+    ]
+
+    temp_config_path = str(tmp_path / "test_eval_runner_with_variations.json")
+    write_jobs_config_to_file(jobs, temp_config_path)
+    run_eval_runner(temp_config_path)
+
+
+@pytest.mark.with_subprocess
 def test_eval_runner_enable_cameras(tmp_path):
     """Test eval_runner with enable_cameras set to true."""
     jobs = [
@@ -185,3 +207,52 @@ def test_eval_runner_enable_cameras(tmp_path):
     temp_config_path = str(tmp_path / "test_eval_runner_enable_cameras.json")
     write_jobs_config_to_file(jobs, temp_config_path)
     run_eval_runner(temp_config_path)
+
+
+def _test_eval_config_variation_lands_in_events_cfg(simulation_app):
+    """Enable a wrist camera extrinsics variation and check that it shows up as an event term in the cfg."""
+    from isaaclab_arena.evaluation.eval_runner import load_env
+    from isaaclab_arena.evaluation.job_manager import Job
+
+    camera_name = "wrist_camera"
+    event_name = f"{camera_name}_extrinsics_variation"
+
+    job = Job.from_dict({
+        "name": "maple_table_camera_extrinsics",
+        "arena_env_args": {
+            "num_envs": 1,
+            "enable_cameras": True,
+            "environment": "pick_and_place_maple_table",
+            "embodiment": "droid_abs_joint_pos",
+        },
+        "num_steps": NUM_STEPS,
+        "policy_type": "zero_action",
+        "policy_config_dict": {},
+        # Enabling wrist camera extrinsics variation.
+        "variations": {"droid_abs_joint_pos": {f"camera_extrinsics_{camera_name}": {"enabled": True}}},
+    })
+
+    env = load_env(job.arena_env_args, job.name, variations=job.variations)
+    try:
+        env_cfg = env.unwrapped.cfg
+        assert hasattr(env_cfg.events, event_name), (
+            f"Variation enabled via the job's variations block must add '{event_name}' to env_cfg.events; "
+            f"got event fields: {sorted(vars(env_cfg.events))}."
+        )
+        event_cfg = getattr(env_cfg.events, event_name)
+        # load_env() reloads arena modules, so compare by name rather than class identity.
+        assert event_cfg.func.__name__ == "apply_camera_extrinsics_from_sampler"
+        assert event_cfg.mode == "reset"
+        assert event_cfg.params["asset_cfg"].name == camera_name
+    finally:
+        env.close()
+    return True
+
+
+@pytest.mark.with_cameras
+def test_eval_config_variation_lands_in_events_cfg():
+    assert run_simulation_app_function(
+        _test_eval_config_variation_lands_in_events_cfg,
+        headless=HEADLESS,
+        enable_cameras=True,
+    )
