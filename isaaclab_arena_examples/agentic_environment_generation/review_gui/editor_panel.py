@@ -163,7 +163,7 @@ def render_editor_panel(yaml_path: Path | None) -> SpecParseResult:
     render_validation_badge(validation)
 
     edited_since_render = st.session_state["edited_text"] != st.session_state["last_rendered_text"]
-    if edited_since_render:
+    if edited_since_render and not st.session_state.get("_yaml_before_viz_pass"):
         # Editor text changed since last dashboard render — refresh preview iframe.
         if validation.is_valid:
             with st.spinner("Rendering visualization…"):

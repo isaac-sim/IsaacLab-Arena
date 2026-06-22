@@ -109,6 +109,10 @@ def main() -> None:
     with right:
         render_visualization_panel()
 
+    # After generation, show YAML on one run then trigger SimApp snapshot render on the next.
+    if st.session_state.pop("_yaml_before_viz_pass", False):
+        st.rerun()
+
 
 if __name__ == "__main__":
     main()

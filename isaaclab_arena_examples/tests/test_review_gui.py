@@ -186,16 +186,12 @@ class TestApplyGeneratedYaml:
     def test_with_spec_updates_editor_and_validation_cache(self, session_state, valid_spec: ArenaEnvInitialGraphSpec):
         session_state["editor_version"] = 2
         yaml_text = yaml.safe_dump(valid_spec.to_dict(), sort_keys=False)
-        with patch(
-            "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.render_dashboard_with_thumbnails",
-            return_value="<html>preview</html>",
-        ) as mock_render:
-            _apply_generated_yaml(yaml_text, spec=valid_spec)
-        mock_render.assert_called_once_with(valid_spec)
+        _apply_generated_yaml(yaml_text, spec=valid_spec)
         assert session_state["edited_text"] == yaml_text
         assert session_state["editor_version"] == 3
-        assert session_state["last_rendered_text"] == yaml_text
-        assert session_state["rendered_html"] == "<html>preview</html>"
+        assert session_state["last_rendered_text"] == ""
+        assert session_state["rendered_html"] == ""
+        assert session_state["_yaml_before_viz_pass"] is True
         assert session_state["_validation_text"] == yaml_text
         assert session_state["_validation_result"].spec is valid_spec
 
@@ -256,10 +252,6 @@ class TestRunGenerationPipeline:
                 "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.IntentCompiler",
                 return_value=mock_compiler,
             ),
-            patch(
-                "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.render_dashboard_with_thumbnails",
-                return_value="<html>generated</html>",
-            ),
         ):
             ok, message = run_generation_pipeline("pick up a cube")
 
@@ -296,10 +288,6 @@ class TestRunGenerationPipeline:
             patch(
                 "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.IntentCompiler",
                 return_value=mock_compiler,
-            ),
-            patch(
-                "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.render_dashboard_with_thumbnails",
-                return_value="<html>generated</html>",
             ),
             patch(
                 "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.try_save_initial_graph_spec",
