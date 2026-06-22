@@ -22,6 +22,31 @@ class VariationRecord:
         self.name = name
         self.cfg = cfg
         self.samples: list[Any] = []
+        # Latest drawn value per env id (runtime, per-reset draws).
+        self._value_by_env: dict[int, Any] = {}
+        # Latest value applied to all envs (a build-time / single-sample draw); None until set.
+        self._shared_value: Any = None
+
+    def update_env_values(self, sample: Any, env_ids: Any = None) -> None:
+        """Record ``sample`` as the latest value for each env it was drawn for.
+
+        Args:
+            sample: The drawn sample; row ``i`` is the value for the ``i``-th env in ``env_ids``.
+            env_ids: The env ids the sample's rows correspond to, or ``None`` when the single drawn
+                value applies to all envs (e.g. a build-time draw).
+        """
+        if env_ids is None:
+            # A single value shared by all envs (num_samples == 1).
+            self._shared_value = sample[0]
+            return
+        if isinstance(env_ids, torch.Tensor):
+            env_ids = env_ids.tolist()
+        for row, env_id in enumerate(env_ids):
+            self._value_by_env[int(env_id)] = sample[row]
+
+    def value_for_env(self, env_id: int) -> Any:
+        """Return the latest sampled value for ``env_id`` (its per-env value, else the shared value)."""
+        return self._value_by_env.get(env_id, self._shared_value)
 
     def _header_lines(self) -> list[str]:
         """Return the shared preamble (identity, cfg, sample-call count) for renderers."""
@@ -92,11 +117,11 @@ class VariationRecorder:
                 record = VariationRecord(name=variation_key, cfg=variation.cfg)
                 self.records[variation_key] = record
 
-                def on_sample(sample: Any, record: VariationRecord = record) -> None:
+                def on_sample(sample: Any, env_ids: Any = None, record: VariationRecord = record) -> None:
                     if isinstance(sample, torch.Tensor):
-                        record.samples.append(sample.detach().cpu())
-                    else:
-                        record.samples.append(sample)
+                        sample = sample.detach().cpu()
+                    record.samples.append(sample)
+                    record.update_env_values(sample, env_ids)
 
                 variation.add_sample_listener(on_sample)
 
