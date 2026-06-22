@@ -99,7 +99,12 @@ def _test_extract_trimesh_translated_child_nonuniform_scale(simulation_app):
 
 
 def _test_bbox_translated_child_nonuniform_scale(simulation_app):
-    """BBox scales in local frame (conservative overestimate for translated children)."""
+    """BBox uses ComputeLocalBound * scale (post-transform scale on root-local extents).
+
+    For a child translated +1 with verts ±0.5: root-local bound X=[0.5, 1.5], * scale_x=2 → [1.0, 3.0].
+    Note: mesh path scales per-prim verts first → X=[0.0, 2.0]. These differ for translated children
+    under non-uniform scale. AABB is conservative (larger), which is safe for collision checks.
+    """
     import tempfile
 
     from pxr import Gf, Usd, UsdGeom
@@ -162,13 +167,15 @@ def _test_bbox_translated_child_nonuniform_scale(simulation_app):
     scale = (2.0, 1.0, 1.0)
     bbox = compute_local_bounding_box_from_usd(usd_path, scale=scale)
 
-    # Local bound [0.5,1.5] * scale_x=2 → [1.0, 3.0] (conservative overestimate)
-    assert np.isclose(bbox.min_point[0], 1.0, atol=1e-5), f"got {bbox.min_point[0]:.4f}"
-    assert np.isclose(bbox.max_point[0], 3.0, atol=1e-5), f"got {bbox.max_point[0]:.4f}"
-    assert np.isclose(bbox.min_point[1], -0.5, atol=1e-5)
-    assert np.isclose(bbox.max_point[1], 0.5, atol=1e-5)
-    assert np.isclose(bbox.min_point[2], -0.5, atol=1e-5)
-    assert np.isclose(bbox.max_point[2], 0.5, atol=1e-5)
+    # ComputeLocalBound gives [0.5,1.5] * scale_x=2 → [1.0, 3.0]
+    min_pt = bbox.min_point[0]  # (3,) tensor
+    max_pt = bbox.max_point[0]  # (3,) tensor
+    assert np.isclose(min_pt[0].item(), 1.0, atol=1e-5), f"got {min_pt[0].item():.4f}"
+    assert np.isclose(max_pt[0].item(), 3.0, atol=1e-5), f"got {max_pt[0].item():.4f}"
+    assert np.isclose(min_pt[1].item(), -0.5, atol=1e-5)
+    assert np.isclose(max_pt[1].item(), 0.5, atol=1e-5)
+    assert np.isclose(min_pt[2].item(), -0.5, atol=1e-5)
+    assert np.isclose(max_pt[2].item(), 0.5, atol=1e-5)
 
     return True
 
@@ -245,12 +252,14 @@ def _test_both_paths_agree_origin_prim(simulation_app):
     assert np.isclose(verts[:, 2].max(), 0.25, atol=1e-5)
 
     # BBox must match mesh extents exactly for origin-centered single prim.
-    assert np.isclose(bbox.min_point[0], -1.0, atol=1e-5)
-    assert np.isclose(bbox.max_point[0], 1.0, atol=1e-5)
-    assert np.isclose(bbox.min_point[1], -1.5, atol=1e-5)
-    assert np.isclose(bbox.max_point[1], 1.5, atol=1e-5)
-    assert np.isclose(bbox.min_point[2], -0.25, atol=1e-5)
-    assert np.isclose(bbox.max_point[2], 0.25, atol=1e-5)
+    min_pt = bbox.min_point[0]  # (3,) tensor
+    max_pt = bbox.max_point[0]  # (3,) tensor
+    assert np.isclose(min_pt[0].item(), -1.0, atol=1e-5)
+    assert np.isclose(max_pt[0].item(), 1.0, atol=1e-5)
+    assert np.isclose(min_pt[1].item(), -1.5, atol=1e-5)
+    assert np.isclose(max_pt[1].item(), 1.5, atol=1e-5)
+    assert np.isclose(min_pt[2].item(), -0.25, atol=1e-5)
+    assert np.isclose(max_pt[2].item(), 0.25, atol=1e-5)
 
     return True
 
