@@ -79,6 +79,22 @@ def render_validation_badge(validation: SpecParseResult) -> None:
         st.error(f"Invalid YAML\n\n```\n{validation.error}\n```", icon="🛑")
 
 
+def try_save_initial_graph_spec(
+    spec: ArenaEnvInitialGraphSpec, out_dir: Path
+) -> tuple[tuple[Path, Path] | None, str | None]:
+    """Link and write ``spec`` under ``out_dir``.
+
+    Returns:
+        ``((initial_path, linked_path), None)`` on success, or ``(None, error_message)`` on failure.
+    """
+    try:
+        return save_initial_graph_spec(spec, out_dir), None
+    except OSError as exc:
+        return None, f"Save failed: {exc}"
+    except Exception:
+        return None, traceback.format_exc()
+
+
 def render_save_button(validation: SpecParseResult) -> None:
     """Render save controls and optional output-directory editor."""
     can_save = validation.is_valid
@@ -93,13 +109,14 @@ def render_save_button(validation: SpecParseResult) -> None:
         use_container_width=True,
         help=f"Writes the validated spec to {out_dir}/<env_name>_initial.yaml and {out_dir}/<env_name>_linked.yaml.",
     ):
-        try:
-            initial_path, linked_path = save_initial_graph_spec(validation.spec, out_dir)
+        paths, error = try_save_initial_graph_spec(validation.spec, out_dir)
+        if error is not None:
+            st.error(f"Save failed\n\n```\n{error}\n```", icon="🛑")
+        else:
+            initial_path, linked_path = paths
             st.session_state["save_path"] = str(initial_path)
             st.session_state["original_text"] = st.session_state["edited_text"]
             st.toast(f"Saved → {initial_path.name} (+ {linked_path.name})", icon="💾")
-        except OSError as exc:
-            st.error(f"Save failed: {exc}", icon="🛑")
 
     with st.expander("Change output directory", expanded=False):
         out_dir_str = st.session_state["out_dir"]

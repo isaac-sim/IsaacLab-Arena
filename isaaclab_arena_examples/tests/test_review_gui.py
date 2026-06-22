@@ -21,6 +21,7 @@ from isaaclab_arena.agentic_environment_generation.spec_io import (
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
     SpecParseResult,
+    try_save_initial_graph_spec,
     validate_yaml_text,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel import (
@@ -280,3 +281,15 @@ class TestSaveInitialGraphSpec:
         assert linked_path == linked_spec_path(valid_spec.env_name, tmp_path)
         assert initial_path.is_file()
         assert linked_path.is_file()
+
+
+class TestTrySaveInitialGraphSpec:
+    def test_returns_error_when_link_fails(self, valid_spec: ArenaEnvInitialGraphSpec, tmp_path: Path):
+        with patch(
+            "isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel.save_initial_graph_spec",
+            side_effect=ValueError("unknown node reference"),
+        ):
+            paths, error = try_save_initial_graph_spec(valid_spec, tmp_path)
+        assert paths is None
+        assert "ValueError" in error
+        assert "unknown node reference" in error

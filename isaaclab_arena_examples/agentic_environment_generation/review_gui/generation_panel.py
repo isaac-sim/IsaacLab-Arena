@@ -24,9 +24,11 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     build_task_catalogue,
 )
 from isaaclab_arena.agentic_environment_generation.intent_compiler import IntentCompiler
-from isaaclab_arena.agentic_environment_generation.spec_io import save_initial_graph_spec
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import SpecParseResult
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
+    SpecParseResult,
+    try_save_initial_graph_spec,
+)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import render_dashboard_html
 
 DEFAULT_GENERATION_PROMPT = (
@@ -147,10 +149,10 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
     _apply_generated_yaml(yaml_text, spec=spec)
 
     out_dir = Path(st.session_state["out_dir"])
-    try:
-        initial_path, linked_path = save_initial_graph_spec(spec, out_dir)
-    except OSError:
-        return False, traceback.format_exc()
+    paths, error = try_save_initial_graph_spec(spec, out_dir)
+    if error is not None:
+        return False, error
+    initial_path, linked_path = paths
     st.session_state["save_path"] = str(initial_path)
 
     if reasoning:
