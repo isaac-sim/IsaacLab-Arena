@@ -13,6 +13,8 @@ from isaaclab_newton.physics.newton_manager_cfg import MJWarpSolverCfg, NewtonCf
 from isaaclab_physx.physics import PhysxCfg
 from isaaclab_tasks.utils import PresetCfg
 
+from isaaclab_arena.evaluation.episode_recorder import EpisodeRecorderManagerCfg
+
 
 @configclass
 class ArenaPhysicsCfg(PresetCfg):
@@ -63,6 +65,10 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     curriculum = None
 
     metrics: object | None = None
+
+    # Per-episode results recorder terms (success, metadata, and any user-added terms). Captured at
+    # pre-reset by the env and written out as JSONL; separate from the HDF5 `recorders` above.
+    episode_recorders: EpisodeRecorderManagerCfg = EpisodeRecorderManagerCfg()
 
     # Task language description
     task_description: str | None = None

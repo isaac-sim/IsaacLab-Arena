@@ -13,7 +13,7 @@ from importlib import import_module
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.evaluation.episode_results_recorder import EpisodeResultsMetadata
+from isaaclab_arena.evaluation.episode_recorder import EpisodeResultsMetadata
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
@@ -202,7 +202,7 @@ def main():
         env, cfg = arena_builder.make_registered_and_return_cfg(render_mode=video_cfg.render_mode)
 
         # Stamp the run-level metadata the env cannot infer on its own.
-        env.unwrapped.episode_results_recorder.set_metadata(
+        env.unwrapped.episode_recorder.set_metadata(
             EpisodeResultsMetadata(
                 job_name="policy_runner",
                 language_instruction=args_cli.language_instruction,
@@ -248,7 +248,7 @@ def main():
         # Request the per-episode results write into the same run directory the video
         # recorders use, passing in the path.
         results_path = os.path.join(video_cfg.video_base_dir, f"episode_results_rank{local_rank}.jsonl")
-        env.unwrapped.episode_results_recorder.write(results_path)
+        env.unwrapped.episode_recorder.write(results_path)
 
         # Close the environment.
         env.close()

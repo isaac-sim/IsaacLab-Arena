@@ -3,12 +3,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""End-to-end test for ``EpisodeResultsRecorder``.
+"""End-to-end test for the ``EpisodeRecorderManager`` per-episode recording.
 
-Two envs roll deterministic episodes (env 0 always succeeds, env 1 always fails). The env builds an
-empty recorder; we set its metadata after the fact, roll, then request a write (passing in the
-path) and assert the JSONL file has one well-formed line per completed episode, with the success
-flag matching each env.
+Two envs roll deterministic episodes (env 0 always succeeds, env 1 always fails). A custom recorder
+term is declared through the cfg; we set the run-level metadata after the fact, roll, then request a
+write (passing in the path) and assert the JSONL file has one well-formed line per completed
+episode, with the success flag matching each env and the custom term's field present -- exercising
+the ``EpisodeRecorderTermCfg`` extension point.
 """
 
 import json
@@ -23,7 +24,8 @@ from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 NUM_STEPS = 200
 HEADLESS = True
 
-REQUIRED_KEYS = {
+# Fields stamped by the manager (metadata + indices) plus those from the default core term.
+CORE_KEYS = {
     "job_name",
     "rebuild_idx",
     "global_episode_index",
@@ -36,9 +38,11 @@ REQUIRED_KEYS = {
     "task_description",
     "timestamp",
 }
+# Field contributed by the custom term registered in this test.
+CUSTOM_KEY = "step_bucket"
 
 
-def _test_episode_results_recorder(simulation_app):
+def _test_episode_recorder(simulation_app):
     from isaaclab.managers import EventTermCfg, SceneEntityCfg
 
     from isaaclab_arena.assets.object_reference import ObjectReference
@@ -46,11 +50,15 @@ def _test_episode_results_recorder(simulation_app):
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.evaluation.episode_results_recorder import EpisodeResultsMetadata
+    from isaaclab_arena.evaluation.episode_recorder import EpisodeRecorderTermCfg, EpisodeResultsMetadata
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.terms.events import set_object_pose_per_env
     from isaaclab_arena.utils.pose import Pose
+
+    def record_step_bucket(env, context):
+        """Custom term callable: records the finished episode's length bucketed into tens."""
+        return {CUSTOM_KEY: int(env.episode_length_buf[context.env_id].item()) // 10}
 
     asset_registry = AssetRegistry()
 
@@ -65,7 +73,7 @@ def _test_episode_results_recorder(simulation_app):
 
     scene = Scene(assets=[background, cracker_box])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
-        name="episode_results_recorder",
+        name="episode_recorder",
         embodiment=embodiment,
         scene=scene,
         task=PickAndPlaceTask(cracker_box, destination_location, background),
@@ -92,13 +100,16 @@ def _test_episode_results_recorder(simulation_app):
         },
     )
 
-    tmp_dir = tempfile.mkdtemp(prefix="episode_results_recorder_")
+    # Register a custom episode recorder term through the cfg, exercising the extension point.
+    env_cfg.episode_recorders.step_bucket = EpisodeRecorderTermCfg(func=record_step_bucket)
+
+    tmp_dir = tempfile.mkdtemp(prefix="episode_recorder_")
     output_path = Path(tmp_dir) / "episode_results.jsonl"
 
     env = env_builder.make_registered(env_cfg, env_kwargs)
 
-    # The env auto-constructs an empty recorder; set its metadata after the fact.
-    env.unwrapped.episode_results_recorder.set_metadata(
+    # Set the run-level metadata on the dedicated episode recorder manager after the fact.
+    env.unwrapped.episode_recorder.set_metadata(
         EpisodeResultsMetadata(
             job_name="unit_test",
             rebuild_idx=0,
@@ -114,7 +125,7 @@ def _test_episode_results_recorder(simulation_app):
                 env.step(actions)
 
         # Request the write from outside the env, passing in the output path.
-        env.unwrapped.episode_results_recorder.write(output_path)
+        env.unwrapped.episode_recorder.write(output_path)
 
         assert output_path.exists(), f"Expected JSONL at {output_path}"
         with open(output_path, encoding="utf-8") as f:
@@ -123,14 +134,17 @@ def _test_episode_results_recorder(simulation_app):
         print(f"Recorded {len(records)} episode(s)")
         assert len(records) >= NUM_ENVS, f"Expected at least {NUM_ENVS} episodes, got {len(records)}"
 
-        # Schema and the constant run-level fields.
+        expected_keys = CORE_KEYS | {CUSTOM_KEY}
+        # Schema (core + custom term) and the constant run-level fields.
         for record in records:
-            assert REQUIRED_KEYS == set(record.keys()), f"Unexpected keys: {set(record.keys())}"
+            assert expected_keys == set(record.keys()), f"Unexpected keys: {set(record.keys())}"
             assert record["job_name"] == "unit_test"
             assert record["rebuild_idx"] == 0
             assert record["language_instruction"] == "put the box in the drawer"
             assert record["env_id"] in (0, 1)
             assert isinstance(record["episode_length"], int)
+            # The custom term's field is derived from the same intact episode-length buffer.
+            assert record[CUSTOM_KEY] == record["episode_length"] // 10
 
         # global_episode_index must be a contiguous 0..N-1 run in write order.
         assert [r["global_episode_index"] for r in records] == list(range(len(records)))
@@ -163,13 +177,13 @@ def _test_episode_results_recorder(simulation_app):
     return True
 
 
-def test_episode_results_recorder():
+def test_episode_recorder():
     result = run_simulation_app_function(
-        _test_episode_results_recorder,
+        _test_episode_recorder,
         headless=HEADLESS,
     )
-    assert result, f"Test {test_episode_results_recorder.__name__} failed"
+    assert result, f"Test {test_episode_recorder.__name__} failed"
 
 
 if __name__ == "__main__":
-    test_episode_results_recorder()
+    test_episode_recorder()

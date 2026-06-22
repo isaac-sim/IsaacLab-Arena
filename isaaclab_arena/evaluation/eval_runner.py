@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.evaluation.episode_results_recorder import EpisodeResultsMetadata
+from isaaclab_arena.evaluation.episode_recorder import EpisodeResultsMetadata
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
@@ -289,7 +289,7 @@ def main():
                     )
 
                     # Stamp the run-level metadata the env cannot infer on its own.
-                    env.unwrapped.episode_results_recorder.set_metadata(
+                    env.unwrapped.episode_recorder.set_metadata(
                         EpisodeResultsMetadata(
                             job_name=job.name,
                             rebuild_idx=rebuild_idx,
@@ -323,7 +323,7 @@ def main():
                     # Request the per-episode results write into this job's output subdir
                     # (the same directory the video recorders use), one file per rebuild.
                     results_path = os.path.join(video_cfg.video_base_dir, f"episode_results_rebuild{rebuild_idx}.jsonl")
-                    env.unwrapped.episode_results_recorder.write(results_path)
+                    env.unwrapped.episode_recorder.write(results_path)
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
 
