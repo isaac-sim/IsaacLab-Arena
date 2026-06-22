@@ -34,8 +34,6 @@ def _render_thumbnails_with_app(app, spec: ArenaEnvInitialGraphSpec) -> dict[str
 
     THUMBNAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Split into cache-hits vs to-render. Cache key is sha1(usd_path) so
-    # the same USD across multiple envs / nodes hits the same PNG.
     resolved: dict[str, Path] = {}
     to_render: dict[str, tuple[str, Path]] = {}
     for node_id, usd_path in asset_paths.items():
@@ -51,9 +49,6 @@ def _render_thumbnails_with_app(app, spec: ArenaEnvInitialGraphSpec) -> dict[str
             f"(reusing {len(resolved)} from cache at {THUMBNAIL_CACHE_DIR})...",
             file=sys.stderr,
         )
-        # ``_capture_usd_thumbnails`` still returns ``{node_id: bytes}``, but
-        # we only use it as a presence signal here — the same call also wrote
-        # the PNG to ``cache_path`` as a side effect, which is what we return.
         captured = _capture_usd_thumbnails(app, to_render)
         for node_id, (_usd_path, cache_path) in to_render.items():
             if node_id in captured and cache_path.exists() and cache_path.stat().st_size > 0:
@@ -94,17 +89,10 @@ def _resolve_node_usd_paths(spec: ArenaEnvInitialGraphSpec) -> dict[str, str]:
 
 def _extract_usd_path(cls) -> str | None:
     """Return the asset's root USD path, or ``None`` if not extractable."""
-    # Strategy 1: ``LibraryObject`` convention.
     usd_path = getattr(cls, "usd_path", None)
     if usd_path:
         return usd_path
 
-    # Strategy 2: ``EmbodimentBase`` convention. Walk
-    # ``instance.scene_config.robot.spawn.usd_path``. We instantiate with no
-    # args; every embodiment ``__init__`` defaults all parameters.
-    # NoEmbodiment legitimately has no robot — its instance.scene_config
-    # exists but ``.robot`` is absent / None, so the getattr chain returns
-    # None and we silently fall through.
     try:
         instance = cls()
     except Exception:
@@ -120,11 +108,7 @@ def _usd_cache_key(usd_path: str) -> str:
 
 
 def _capture_usd_thumbnails(app, to_render: dict[str, tuple[str, Path]]) -> dict[str, bytes]:
-    """Capture all queued USDs under one already-booted ``SimulationApp``.
-
-    Deduplicates by ``usd_path`` so the same USD shared by multiple nodes is
-    only rendered once and the bytes are fanned back out.
-    """
+    """Capture queued USDs under one booted ``SimulationApp``, deduplicated by path."""
     out: dict[str, bytes] = {}
 
     path_to_node_ids: dict[str, list[str]] = {}
@@ -148,16 +132,7 @@ def _capture_usd_thumbnails(app, to_render: dict[str, tuple[str, Path]]) -> dict
 
 
 def _render_one_usd(app, usd_path: str, cache_path: Path) -> bytes | None:
-    """Open ``usd_path`` directly as the stage, frame the camera, capture PNG.
-
-    Opening the USD as the stage root (rather than ``new_stage`` + reference
-    wrapper) is what makes viewport capture actually produce a file in
-    headless mode — Kit's viewport machinery binds to the just-opened stage
-    cleanly, whereas a referenced sub-stage left the render product empty in
-    every test we tried. The trade-off is that we lose isolation between
-    captures (each call replaces the stage), but Kit handles that fine
-    because we call ``open_stage`` again on the next asset.
-    """
+    """Open ``usd_path`` as the stage root, frame the default prim, capture PNG."""
     import omni.usd  # noqa: PLC0415
     from omni.kit.viewport.utility import (  # noqa: PLC0415
         capture_viewport_to_file,
@@ -172,40 +147,23 @@ def _render_one_usd(app, usd_path: str, cache_path: Path) -> bytes | None:
         return None
     stage = ctx.get_stage()
 
-    # Wait for textures / payloads / Nucleus fetches to settle before framing.
     _wait_for_stage_load(app, ctx)
-
-    # Standalone object USDs (avocado, bowl, ...) ship no lights, so a viewport
-    # capture renders them as a near-black silhouette against the dark skybox
-    # — that's the "blank thumbnail" symptom. Complete scene USDs (maple table)
-    # already include their own lighting, so this is a no-op for them.
     _ensure_default_lighting(stage)
 
-    # Use the default prim if present, otherwise the pseudo-root, for framing.
     target_prim = stage.GetDefaultPrim()
     if not target_prim or not target_prim.IsValid():
         target_prim = stage.GetPrimAtPath(Sdf.Path("/"))
 
     viewport = get_active_viewport()
-
-    # Use Kit's own ``frame_viewport_prims`` (the "F"-key equivalent / ``FramePrimsCommand``)
-    # so we go through the viewport camera controller. Manually editing the
-    # ``/OmniverseKit_Persp`` xform op directly worked sometimes but Kit's
-    # camera controller treats /OmniverseKit_Persp as an internal state and
-    # silently overrode our edits for small assets — that's why avocado / bowl
-    # captured as tiny specks even with the right math. Letting Kit do the
-    # framing is both correct and avoids us re-implementing the math.
     framed = frame_viewport_prims(viewport, prims=[str(target_prim.GetPath())])
     if not framed:
         print(f"[thumbnail_render]   warning: frame_viewport_prims failed for {usd_path}", file=sys.stderr)
 
-    # Settle Hydra after camera change so the captured frame matches the new pose.
     for _ in range(30):
         app.update()
 
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     capture_obj = capture_viewport_to_file(viewport, str(cache_path))
-
     _wait_for_capture(app, capture_obj, cache_path, max_updates=600)
 
     if cache_path.exists() and cache_path.stat().st_size > 0:
@@ -215,12 +173,7 @@ def _render_one_usd(app, usd_path: str, cache_path: Path) -> bytes | None:
 
 
 def _wait_for_stage_load(app, usd_context, max_updates: int = 600) -> None:
-    """Pump frames until ``usd_context.get_stage_loading_status()`` reports nothing pending.
-
-    Returns after stage load completes or after the budget is exhausted. We
-    also need a few extra frames after the count goes to zero so material
-    binding / texture upload finishes — they don't show up in the load count.
-    """
+    """Pump frames until stage loading settles (plus a short post-settle tail)."""
     settled = 0
     for _ in range(max_updates):
         app.update()
@@ -237,14 +190,7 @@ def _wait_for_stage_load(app, usd_context, max_updates: int = 600) -> None:
 
 
 def _wait_for_capture(app, capture_obj, cache_path: Path, max_updates: int = 600) -> None:
-    """Pump ``app.update()`` until the capture PNG lands on disk (or we time out).
-
-    Kit's capture future is fulfilled inside its async loop during
-    ``app.update()``, but future completion doesn't always coincide with the
-    file being flushed — checking the file directly is the most reliable
-    completion signal. We also keep the future-based fast path so a
-    successful capture doesn't have to wait for the file system to settle.
-    """
+    """Pump ``app.update()`` until the capture PNG exists or the budget expires."""
     if capture_obj is None:
         for _ in range(max_updates):
             app.update()
@@ -261,7 +207,6 @@ def _wait_for_capture(app, capture_obj, cache_path: Path, max_updates: int = 600
         if cache_path.exists() and cache_path.stat().st_size > 0:
             return
         if future is not None and future.done():
-            # Future is done but file might still be flushing — give it a few frames.
             for _ in range(15):
                 app.update()
                 if cache_path.exists() and cache_path.stat().st_size > 0:
@@ -270,13 +215,7 @@ def _wait_for_capture(app, capture_obj, cache_path: Path, max_updates: int = 600
 
 
 def _ensure_default_lighting(stage) -> None:
-    """Add a dome + key distant light if the stage has none.
-
-    Without this, standalone object USDs (which don't ship their own lights)
-    render as a near-black silhouette. We skip the addition if any
-    ``UsdLuxLight``-derived prim already exists on the stage to avoid
-    double-lighting scenes like the maple table that bake in their own rig.
-    """
+    """Add dome + key lights when the stage has none (standalone object USDs)."""
     from pxr import Gf, Sdf, UsdGeom, UsdLux  # noqa: PLC0415
 
     for prim in stage.Traverse():
@@ -287,9 +226,6 @@ def _ensure_default_lighting(stage) -> None:
         ):
             return
 
-    # Soft hemispherical fill so the asset is visible from any angle, plus a
-    # weak directional key for shape definition. Intensities are tuned for
-    # OmniPBR / RTX defaults; tweak if asset libraries adopt darker materials.
     dome = UsdLux.DomeLight.Define(stage, Sdf.Path("/_ReviewDomeLight"))
     dome.CreateIntensityAttr(800.0)
     dome.CreateColorAttr(Gf.Vec3f(1.0, 1.0, 1.0))
@@ -297,8 +233,6 @@ def _ensure_default_lighting(stage) -> None:
     key = UsdLux.DistantLight.Define(stage, Sdf.Path("/_ReviewKeyLight"))
     key.CreateIntensityAttr(2500.0)
     key.CreateAngleAttr(2.0)
-    # Aim the key roughly from the camera's 3/4 angle so the lit side faces
-    # the viewport.
     key_xformable = UsdGeom.Xformable(key.GetPrim())
     key_xformable.ClearXformOpOrder()
     rot = key_xformable.AddRotateXYZOp()
