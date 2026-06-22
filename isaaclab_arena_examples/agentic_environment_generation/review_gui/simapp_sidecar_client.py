@@ -56,15 +56,27 @@ class SimAppSidecarClient:
     def is_alive(self) -> bool:
         return self.ping()
 
-    def close(self) -> None:
-        """Send ``shutdown`` when possible, then close the socket."""
+    def disconnect(self) -> None:
+        """Close this client's socket without stopping the sidecar process."""
+        with self._lock:
+            self._close_handles()
+
+    def shutdown(self) -> None:
+        """Ask the sidecar to exit, then close this client's socket."""
         with self._lock:
             try:
                 self._writer.write(json.dumps({"cmd": "shutdown"}) + "\n")
                 self._writer.flush()
+                # Best-effort read so the sidecar can flush its reply before we close.
+                with contextlib.suppress(OSError, SimAppSidecarError):
+                    self._readline_or_die()
             except OSError:
                 pass
             self._close_handles()
+
+    def close(self) -> None:
+        """Close this client's socket (alias for :meth:`disconnect`)."""
+        self.disconnect()
 
     def validate_yaml_text(self, yaml_text: str) -> dict[str, Any]:
         """Run full spec validation (including registry lookups) in the sidecar."""
@@ -183,7 +195,7 @@ def wait_for_sidecar_socket(
         except SimAppSidecarError as exc:
             last_error = exc
         finally:
-            client.close()
+            client.disconnect()
         time.sleep(poll_interval_s)
 
     detail = f" Last error: {last_error}" if last_error is not None else ""
@@ -212,7 +224,7 @@ def stop_sidecar_process(proc: subprocess.Popen[Any] | None, socket_path: str) -
         client = None
     if client is not None:
         with contextlib.suppress(SimAppSidecarError):
-            client.close()
+            client.shutdown()
 
     if proc is not None and proc.poll() is None:
         proc.terminate()

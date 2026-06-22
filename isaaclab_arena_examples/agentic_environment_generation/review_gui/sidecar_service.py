@@ -41,13 +41,13 @@ def ensure_sidecar() -> SimAppSidecarClient | None:
     if sidecar is not None and sidecar.ping():
         return sidecar
     if sidecar is not None:
-        sidecar.close()
+        sidecar.disconnect()
     get_simapp_sidecar.clear()
     sidecar = get_simapp_sidecar()
     if sidecar is not None and sidecar.ping():
         return sidecar
     if sidecar is not None:
-        sidecar.close()
+        sidecar.disconnect()
         get_simapp_sidecar.clear()
     return None
 
