@@ -12,8 +12,17 @@ import sys
 from pathlib import Path
 
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
+from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeType
 
 THUMBNAIL_CACHE_DIR = Path(__file__).resolve().parents[3] / ".cache" / "llm_env_gen_thumbnails"
+
+# Registry-backed nodes with a root USD. ``object_reference`` nodes point at a prim
+# inside a parent background and need parent-stage framing — not supported yet.
+_RENDERABLE_NODE_TYPES = frozenset({
+    ArenaEnvGraphNodeType.EMBODIMENT,
+    ArenaEnvGraphNodeType.BACKGROUND,
+    ArenaEnvGraphNodeType.OBJECT,
+})
 
 
 def _render_thumbnails_with_app(app, spec: ArenaEnvInitialGraphSpec) -> dict[str, Path]:
@@ -66,6 +75,8 @@ def _resolve_node_usd_paths(spec: ArenaEnvInitialGraphSpec) -> dict[str, str]:
     registry = AssetRegistry()
     paths: dict[str, str] = {}
     for node in spec.nodes:
+        if node.type not in _RENDERABLE_NODE_TYPES:
+            continue
         try:
             if not registry.is_registered(node.name):
                 print(f"[thumbnail_render]   {node.id}: asset '{node.name}' not registered, skipping.", file=sys.stderr)
