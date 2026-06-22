@@ -7,6 +7,9 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+
 import streamlit as st
 
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
@@ -48,6 +51,24 @@ def ensure_simapp() -> SimAppClient | None:
     return None
 
 
+def _spec_render_key(spec: ArenaEnvInitialGraphSpec) -> str:
+    payload = json.dumps(spec.to_dict(), sort_keys=True)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _cached_dashboard_html(spec_key: str) -> str | None:
+    cache = st.session_state.get("_dashboard_render_cache")
+    if isinstance(cache, dict) and cache.get("key") == spec_key:
+        html = cache.get("html")
+        if isinstance(html, str):
+            return html
+    return None
+
+
+def _store_dashboard_html(spec_key: str, html: str) -> None:
+    st.session_state["_dashboard_render_cache"] = {"key": spec_key, "html": html}
+
+
 def _warn_simapp_unavailable_once() -> None:
     if st.session_state.get("_simapp_unavailable_warned"):
         return
@@ -71,12 +92,19 @@ def _show_simapp_render_error_once(exc: SimAppError) -> None:
 
 def render_dashboard_with_thumbnails(spec: ArenaEnvInitialGraphSpec) -> str:
     """Render review HTML, asking the SimApp server for live USD thumbnails when available."""
+    spec_key = _spec_render_key(spec)
+    cached_html = _cached_dashboard_html(spec_key)
+    if cached_html is not None:
+        return cached_html
+
     simapp_expected = simapp_socket_from_env() is not None
     client = ensure_simapp() if simapp_expected else None
     if client is None:
         if simapp_expected:
             _warn_simapp_unavailable_once()
-        return render_dashboard_html(spec)
+        html = render_dashboard_html(spec)
+        _store_dashboard_html(spec_key, html)
+        return html
 
     try:
         thumbnails = client.render_spec(spec)
@@ -85,4 +113,6 @@ def render_dashboard_with_thumbnails(spec: ArenaEnvInitialGraphSpec) -> str:
         get_simapp_client.clear()
         return render_dashboard_html(spec)
 
-    return render_dashboard_html(spec, thumbnails=thumbnails if thumbnails else None)
+    html = render_dashboard_html(spec, thumbnails=thumbnails if thumbnails else None)
+    _store_dashboard_html(spec_key, html)
+    return html
