@@ -15,10 +15,7 @@ from streamlit_ace import st_ace
 
 from isaaclab_arena.agentic_environment_generation.spec_io import save_initial_graph_spec
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import SimAppError
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
-    ensure_simapp,
-    get_simapp_client,
     render_dashboard_with_thumbnails,
 )
 
@@ -59,33 +56,8 @@ def validate_yaml_text(text: str) -> SpecParseResult:
             elif not isinstance(raw, dict):
                 result = SpecParseResult(spec=None, error=f"Expected mapping, got {type(raw).__name__}")
             else:
-                simapp = ensure_simapp()
-                if simapp is None:
-                    result = SpecParseResult(
-                        spec=None,
-                        error=(
-                            "SimApp is unavailable — cannot validate registry entries. "
-                            "Launch the review GUI via gui_runner and check its terminal for errors."
-                        ),
-                    )
-                else:
-                    try:
-                        response = simapp.validate_yaml_text(text)
-                    except SimAppError as exc:
-                        get_simapp_client.clear()
-                        result = SpecParseResult(spec=None, error=str(exc))
-                    else:
-                        if not response.get("ok"):
-                            err = response.get("error", "validation failed")
-                            tb = response.get("traceback", "")
-                            message = f"{err}\n\n{tb}" if tb else str(err)
-                            result = SpecParseResult(spec=None, error=message)
-                        else:
-                            try:
-                                spec = ArenaEnvInitialGraphSpec.model_validate(response["spec_dict"])
-                                result = SpecParseResult(spec=spec, error=None)
-                            except Exception:
-                                result = SpecParseResult(spec=None, error=traceback.format_exc())
+                spec = ArenaEnvInitialGraphSpec.from_dict(raw)
+                result = SpecParseResult(spec=spec, error=None)
         except Exception:
             result = SpecParseResult(spec=None, error=traceback.format_exc())
 

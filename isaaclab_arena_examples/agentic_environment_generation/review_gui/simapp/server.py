@@ -60,10 +60,6 @@ def _serve_connection(
             _write_response(writer, {"ok": True})
             continue
 
-        if cmd == "validate_spec":
-            _write_response(writer, _handle_validate_spec(req, spec_cls))
-            continue
-
         if cmd == "render_spec":
             _write_response(writer, _handle_render_spec(app, req, render_fn, spec_cls))
             continue
@@ -126,30 +122,6 @@ def _serve_socket(socket_path: str) -> int:
             app.close()
 
     return 0
-
-
-def _handle_validate_spec(req: dict[str, Any], spec_cls) -> dict[str, Any]:
-    """Parse and fully validate YAML as an initial graph spec."""
-    yaml_text = req.get("yaml_text")
-    if not isinstance(yaml_text, str):
-        return {"ok": False, "error": "validate_spec requires string 'yaml_text'"}
-
-    try:
-        raw = yaml.safe_load(yaml_text)
-    except Exception as exc:
-        return {"ok": False, "error": f"yaml parse failed: {exc}", "traceback": traceback.format_exc()}
-
-    if raw is None:
-        return {"ok": False, "error": "YAML is empty"}
-    if not isinstance(raw, dict):
-        return {"ok": False, "error": f"expected mapping, got {type(raw).__name__}"}
-
-    try:
-        spec = spec_cls.model_validate(raw)
-    except Exception as exc:
-        return {"ok": False, "error": f"spec validation failed: {exc}", "traceback": traceback.format_exc()}
-
-    return {"ok": True, "spec_dict": spec.to_dict()}
 
 
 def _handle_render_spec(
