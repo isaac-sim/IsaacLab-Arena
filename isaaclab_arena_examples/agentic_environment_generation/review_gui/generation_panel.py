@@ -165,7 +165,7 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
                     f"{error}\n\n{error_trace}"
                 ),
             )
-        return True, f"Spec generated and loaded into the YAML editor, but {error.lower()}"
+        return True, f"Spec generated and loaded into the YAML editor, but save failed: {error}"
 
     initial_path, linked_path = paths
     st.session_state["save_path"] = str(initial_path)
