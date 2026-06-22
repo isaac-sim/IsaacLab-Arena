@@ -27,35 +27,21 @@ from typing import Any
 
 @dataclass
 class EpisodeResultsMetadata:
-    """Run-level metadata that cannot be inferred from the env, stamped onto every episode record."""
+    """Episode metadata to be stamped onto every episode record."""
 
     job_name: str = "default"
-    """Name of the eval job (or run); identifies which job produced the records."""
-
-    rebuild_idx: int = 0
-    """Index of the env rebuild this run belongs to."""
+    """Name of the eval job (or run)."""
 
     language_instruction: str | None = None
-    """Job/CLI-level language-instruction override, if any."""
+    """Language-instruction override, if any."""
 
 
 class EpisodeResultsRecorder:
     """Buffers core per-episode metadata captured at pre-reset; written out on request."""
 
-    def __init__(self, metadata: EpisodeResultsMetadata | None = None) -> None:
-        """Create an empty recorder.
-
-        Args:
-            metadata: Run-level metadata stamped onto every record. May be set after construction
-                via ``set_metadata``; defaults are used when omitted.
-        """
-        self._metadata = metadata if metadata is not None else EpisodeResultsMetadata()
+    def __init__(self) -> None:
+        self._metadata = EpisodeResultsMetadata()
         self._records: list[dict] = []
-        # The initial reset touches every env before anything has happened; skip it.
-        self._first_reset = True
-        # Per-env count of completed episodes, keyed by env id.
-        self._episode_counts: dict[int, int] = {}
-        self.global_episode_index = 0
 
     def set_metadata(self, metadata: EpisodeResultsMetadata) -> None:
         """Set the run-level metadata stamped onto subsequently recorded episodes."""
@@ -69,11 +55,13 @@ class EpisodeResultsRecorder:
     def record_episode(self, env, env_ids: Any) -> None:
         """Buffer one record per finished episode in ``env_ids``.
 
-        Must be called at the top of ``_reset_idx`` (before reset events / manager resets) so the
-        just-finished episode's success flag and episode length are still intact.
+        Must be called by ``_reset_idx`` (before reset events / manager resets) so the just-finished
+        episode's success flag and episode length are still intact. The env skips the initial reset
+        and advances the episode counters itself; this recorder only reads them.
 
         Args:
-            env: The Arena env being reset (provides termination manager, cfg, buffers).
+            env: The Arena env being reset (provides termination manager, cfg, buffers, and the
+                per-env episode index via ``get_episode_index``).
             env_ids: The env ids being reset (tensor, sequence, or ``None`` for all envs).
         """
         if env_ids is None:
@@ -83,30 +71,20 @@ class EpisodeResultsRecorder:
         else:
             env_ids = list(env_ids)
 
-        # Skip the very first reset (all envs, nothing has happened yet).
-        if self._first_reset:
-            self._first_reset = False
-            return
-
         for env_id in env_ids:
             env_id = int(env_id)
             success = self._read_success(env, env_id)
-            episode_in_env = self._episode_counts.get(env_id, 0)
+            episode_in_env = env.get_episode_index(env_id)
             self._records.append({
                 "job_name": self._metadata.job_name,
-                "rebuild_idx": self._metadata.rebuild_idx,
-                "global_episode_index": self.global_episode_index,
                 "episode_in_env": episode_in_env,
                 "env_id": env_id,
                 "seed": getattr(env.cfg, "seed", None),
                 "success": success,
                 "episode_length": int(env.episode_length_buf[env_id].item()),
                 "language_instruction": self._metadata.language_instruction,
-                "task_description": getattr(env.cfg, "task_description", None),
                 "timestamp": datetime.datetime.now().isoformat(),
             })
-            self._episode_counts[env_id] = episode_in_env + 1
-            self.global_episode_index += 1
 
     def write(self, output_path: str | Path) -> None:
         """Write all buffered records to ``output_path`` as JSONL (one JSON object per line)."""

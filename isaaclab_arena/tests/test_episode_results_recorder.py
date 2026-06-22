@@ -25,15 +25,12 @@ HEADLESS = True
 
 REQUIRED_KEYS = {
     "job_name",
-    "rebuild_idx",
-    "global_episode_index",
     "episode_in_env",
     "env_id",
     "seed",
     "success",
     "episode_length",
     "language_instruction",
-    "task_description",
     "timestamp",
 }
 
@@ -101,7 +98,6 @@ def _test_episode_results_recorder(simulation_app):
     env.unwrapped.episode_results_recorder.set_metadata(
         EpisodeResultsMetadata(
             job_name="unit_test",
-            rebuild_idx=0,
             language_instruction="put the box in the drawer",
         )
     )
@@ -127,13 +123,9 @@ def _test_episode_results_recorder(simulation_app):
         for record in records:
             assert REQUIRED_KEYS == set(record.keys()), f"Unexpected keys: {set(record.keys())}"
             assert record["job_name"] == "unit_test"
-            assert record["rebuild_idx"] == 0
             assert record["language_instruction"] == "put the box in the drawer"
             assert record["env_id"] in (0, 1)
             assert isinstance(record["episode_length"], int)
-
-        # global_episode_index must be a contiguous 0..N-1 run in write order.
-        assert [r["global_episode_index"] for r in records] == list(range(len(records)))
 
         # episode_in_env must increment from 0 per env, and the deterministic poses fix success.
         per_env_counter: dict[int, int] = {}

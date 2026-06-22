@@ -292,7 +292,6 @@ def main():
                     env.unwrapped.episode_results_recorder.set_metadata(
                         EpisodeResultsMetadata(
                             job_name=job.name,
-                            rebuild_idx=rebuild_idx,
                             language_instruction=job.language_instruction,
                         )
                     )
