@@ -29,6 +29,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_pa
     SpecParseResult,
     try_save_initial_graph_spec,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.visualization_panel import reset_viz_render_state
 
 DEFAULT_GENERATION_PROMPT = (
     "franka pick up avocado from the maple table and place it into a bowl on the table. "
@@ -92,15 +93,16 @@ def _format_trace_lines(trace: list[dict[str, Any]], *, errors_only: bool = Fals
 
 
 def _apply_generated_yaml(yaml_text: str, *, spec: ArenaEnvInitialGraphSpec | None = None) -> None:
-    """Push compiled spec YAML into the editor; defer dashboard preview to a follow-up run."""
+    """Push compiled spec YAML into the editor; dashboard preview refreshes in the viz fragment."""
     st.session_state["edited_text"] = yaml_text
     st.session_state["editor_version"] = st.session_state.get("editor_version", 0) + 1
     st.session_state["last_rendered_text"] = ""
     st.session_state["rendered_html"] = ""
+    reset_viz_render_state()
     if spec is not None:
         st.session_state["_validation_text"] = yaml_text
         st.session_state["_validation_result"] = SpecParseResult(spec=spec, error=None)
-        st.session_state["_yaml_before_viz_pass"] = True
+        st.session_state["_defer_viz_render"] = True
     else:
         st.session_state.pop("_validation_text", None)
         st.session_state.pop("_validation_result", None)

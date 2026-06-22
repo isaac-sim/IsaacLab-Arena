@@ -109,8 +109,8 @@ def main() -> None:
     with right:
         render_visualization_panel()
 
-    # After generation, show YAML on one run then trigger SimApp snapshot render on the next.
-    if st.session_state.pop("_yaml_before_viz_pass", False):
+    # After generation, paint YAML first, then rerun to start SimApp snapshot rendering.
+    if st.session_state.pop("_defer_viz_render", False):
         st.rerun()
 
 

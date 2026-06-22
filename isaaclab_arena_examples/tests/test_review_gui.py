@@ -191,7 +191,7 @@ class TestApplyGeneratedYaml:
         assert session_state["editor_version"] == 3
         assert session_state["last_rendered_text"] == ""
         assert session_state["rendered_html"] == ""
-        assert session_state["_yaml_before_viz_pass"] is True
+        assert session_state["_defer_viz_render"] is True
         assert session_state["_validation_text"] == yaml_text
         assert session_state["_validation_result"].spec is valid_spec
 
