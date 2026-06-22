@@ -3,11 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""SimApp sidecar lifecycle and thumbnail rendering for the review GUI."""
+"""Attach to the review GUI SimApp sidecar and render USD thumbnails."""
 
 from __future__ import annotations
 
-import atexit
 from typing import Any
 
 import streamlit as st
@@ -15,36 +14,42 @@ import streamlit as st
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import render_dashboard_html
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_sidecar_client import (
-    SimAppSidecar,
+    SimAppSidecarClient,
     SimAppSidecarError,
+    sidecar_socket_from_env,
 )
 
 _SKIP_REGISTRY_CONTEXT: dict[str, Any] = {"skip_registry": True}
 
 
-@st.cache_resource(show_spinner="Booting Isaac Sim sidecar (≈30s first run, cached afterwards)…")
-def get_simapp_sidecar() -> SimAppSidecar | None:
-    """Spawn the SimApp sidecar once per Streamlit server process."""
-    sidecar = SimAppSidecar()
+@st.cache_resource(show_spinner=False)
+def get_simapp_sidecar() -> SimAppSidecarClient | None:
+    """Return a cached client for the sidecar socket exported by gui_runner."""
+    socket_path = sidecar_socket_from_env()
+    if socket_path is None:
+        return None
     try:
-        sidecar.start()
-    except SimAppSidecarError as exc:
-        print(f"[review_gui] SimApp sidecar failed to start: {exc}", flush=True)
+        return SimAppSidecarClient.connect(socket_path)
+    except OSError as exc:
+        print(f"[review_gui] SimApp sidecar connect failed: {exc}", flush=True)
         return None
 
-    atexit.register(sidecar.close)
-    return sidecar
 
-
-def ensure_sidecar() -> SimAppSidecar | None:
-    """Return a healthy sidecar, re-spawning if the cached one died."""
+def ensure_sidecar() -> SimAppSidecarClient | None:
+    """Return a healthy sidecar client, reconnecting if the cached session died."""
     sidecar = get_simapp_sidecar()
-    if sidecar is not None and sidecar.is_alive():
+    if sidecar is not None and sidecar.ping():
         return sidecar
     if sidecar is not None:
         sidecar.close()
     get_simapp_sidecar.clear()
-    return get_simapp_sidecar()
+    sidecar = get_simapp_sidecar()
+    if sidecar is not None and sidecar.ping():
+        return sidecar
+    if sidecar is not None:
+        sidecar.close()
+        get_simapp_sidecar.clear()
+    return None
 
 
 def spec_from_sidecar_dict(spec_dict: dict[str, Any]) -> ArenaEnvInitialGraphSpec:
@@ -58,7 +63,7 @@ def render_dashboard_with_thumbnails(spec: ArenaEnvInitialGraphSpec) -> str:
     if sidecar is None:
         st.warning(
             "Isaac Sim sidecar is unavailable — showing placeholder thumbnails. "
-            "Check the terminal where you launched the server for the underlying error.",
+            "Launch the review GUI via gui_runner and check its terminal for errors.",
             icon="⚠️",
         )
         return render_dashboard_html(spec)
@@ -70,8 +75,7 @@ def render_dashboard_with_thumbnails(spec: ArenaEnvInitialGraphSpec) -> str:
             f"Sidecar render failed; showing placeholder thumbnails.\n\n```\n{exc}\n```",
             icon="🛑",
         )
-        with st.spinner("Resetting the SimApp sidecar…"):
-            get_simapp_sidecar.clear()
+        get_simapp_sidecar.clear()
         return render_dashboard_html(spec)
 
     return render_dashboard_html(spec, thumbnails=thumbnails if thumbnails else None)
