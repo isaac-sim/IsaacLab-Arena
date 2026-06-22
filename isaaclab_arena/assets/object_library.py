@@ -1785,6 +1785,231 @@ class WoodBlockYcbRobolab(LibraryObject):
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/wood_block.usd"
 
 
+@register_asset
+class GreenServingSpoonHandalRobolab(LibraryObject):
+    name = "green_serving_spoon_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/green_serving_spoon.usd"
+    )
+
+
+@register_asset
+class PinkSpaghettiSpoonHandalRobolab(LibraryObject):
+    name = "pink_spaghetti_spoon_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/pink_spaghetti_spoon.usd"
+    )
+
+
+@register_asset
+class RedServingSpoonHandalRobolab(LibraryObject):
+    name = "red_serving_spoon_handal_robolab"
+    tags = ["object", "graspable", "tool", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/red_serving_spoon.usd"
+    )
+
+
+@register_asset
+class AnzaMediumVompRobolab(LibraryObject):
+    name = "anza_medium_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/anza_medium/anza_medium.usd"
+
+
+@register_asset
+class BinA06VompRobolab(LibraryObject):
+    name = "bin_a06_vomp_robolab"
+    tags = ["object", "container", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/bin_a06/bin_a06.usd"
+
+
+@register_asset
+class BinB03VompRobolab(LibraryObject):
+    name = "bin_b03_vomp_robolab"
+    tags = ["object", "container", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/bin_b03/bin_b03.usd"
+
+
+@register_asset
+class BinB04VompRobolab(LibraryObject):
+    name = "bin_b04_vomp_robolab"
+    tags = ["object", "container", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/bin_b04/bin_b04.usd"
+
+
+@register_asset
+class ContainerF24VompRobolab(LibraryObject):
+    name = "container_f24_vomp_robolab"
+    tags = ["object", "container", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_f24/container_f24.usd"
+
+
+@register_asset
+class CrabbypenholderVompRobolab(LibraryObject):
+    name = "crabbypenholder_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/crabbypenholder/crabbypenholder.usd"
+
+
+@register_asset
+class ForkBigVompRobolab(LibraryObject):
+    name = "fork_big_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/fork_big/fork_big.usd"
+    )
+
+
+@register_asset
+class ForkSmallVompRobolab(LibraryObject):
+    name = "fork_small_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/fork_small/fork_small.usd"
+    )
+
+
+@register_asset
+class MilkjugA01VompRobolab(LibraryObject):
+    name = "milkjug_a01_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/milkjug_a01/milkjug_a01.usd"
+
+
+@register_asset
+class PlasticpailA02VompRobolab(LibraryObject):
+    name = "plasticpail_a02_vomp_robolab"
+    tags = ["object", "container", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/plasticpail_a02/plasticpail_a02.usd"
+
+
+@register_asset
+class PlateLargeVompRobolab(LibraryObject):
+    name = "plate_large_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/plate_large/plate_large.usd"
+
+
+@register_asset
+class PlateSmallVompRobolab(LibraryObject):
+    name = "plate_small_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/plate_small/plate_small.usd"
+
+
+@register_asset
+class PumpkinlargeVompRobolab(LibraryObject):
+    name = "pumpkinlarge_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/pumpkinlarge/pumpkinlarge.usd"
+
+
+@register_asset
+class PumpkinsmallVompRobolab(LibraryObject):
+    name = "pumpkinsmall_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/pumpkinsmall/pumpkinsmall.usd"
+
+
+@register_asset
+class RackL04VompRobolab(LibraryObject):
+    name = "rack_l04_vomp_robolab"
+    tags = ["object", "container", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/rack_l04/rack_l04.usd"
+    )
+
+
+@register_asset
+class ServingBowlVompRobolab(LibraryObject):
+    name = "serving_bowl_vomp_robolab"
+    tags = ["object", "container", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/serving_bowl/serving_bowl.usd"
+
+
+@register_asset
+class Spatula01VompRobolab(LibraryObject):
+    name = "spatula_01_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/spatula_01/spatula_01.usd"
+    )
+
+
+@register_asset
+class Spatula13VompRobolab(LibraryObject):
+    name = "spatula_13_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/spatula_13/spatula_13.usd"
+    )
+
+
+@register_asset
+class Spatula14VompRobolab(LibraryObject):
+    name = "spatula_14_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/spatula_14/spatula_14.usd"
+    )
+
+
+@register_asset
+class Spatula15VompRobolab(LibraryObject):
+    name = "spatula_15_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/spatula_15/spatula_15.usd"
+    )
+
+
+@register_asset
+class SpoonBigVompRobolab(LibraryObject):
+    name = "spoon_big_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/spoon_big/spoon_big.usd"
+    )
+
+
+@register_asset
+class UtilityjugA01VompRobolab(LibraryObject):
+    name = "utilityjug_a01_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/utilityjug_a01/utilityjug_a01.usd"
+
+
+@register_asset
+class UtilityjugA03VompRobolab(LibraryObject):
+    name = "utilityjug_a03_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/utilityjug_a03/utilityjug_a03.usd"
+
+
+@register_asset
+class WhitepackerbottleA01VompRobolab(LibraryObject):
+    name = "whitepackerbottle_a01_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/whitepackerbottle_a01/whitepackerbottle_a01.usd"
+
+
+@register_asset
+class WireshelvingA01VompRobolab(LibraryObject):
+    name = "wireshelving_a01_vomp_robolab"
+    tags = ["object", "container", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/wireshelving_a01/wireshelving_a01.usd"
+
+
+@register_asset
+class GreyBinRobolab(LibraryObject):
+    name = "grey_bin_robolab"
+    tags = ["object", "container", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/grey_bin.usd"
+
+
 # ---------------------------------------------------------------------------
 # Procedural assets (Newton-safe, single-geometry cuboids)
 # ---------------------------------------------------------------------------
