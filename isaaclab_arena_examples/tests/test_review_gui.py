@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import sys
-import traceback
 import yaml
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -55,37 +54,9 @@ def session_state(monkeypatch):
     return state
 
 
-@pytest.fixture
-def simapp_validation(monkeypatch):
-    """Mock SimApp validation to exercise editor_panel without Kit."""
-
-    def _validate_yaml_text(yaml_text: str) -> dict:
-        try:
-            raw = yaml.safe_load(yaml_text)
-        except Exception:
-            return {"ok": False, "error": "yaml parse failed", "traceback": traceback.format_exc()}
-        if raw is None:
-            return {"ok": False, "error": "YAML is empty"}
-        if not isinstance(raw, dict):
-            return {"ok": False, "error": f"expected mapping, got {type(raw).__name__}"}
-        try:
-            spec = ArenaEnvInitialGraphSpec.from_dict(raw)
-        except Exception:
-            return {"ok": False, "error": "spec validation failed", "traceback": traceback.format_exc()}
-        return {"ok": True, "spec_dict": spec.to_dict()}
-
-    mock_simapp = MagicMock()
-    mock_simapp.validate_yaml_text.side_effect = _validate_yaml_text
-    monkeypatch.setattr(
-        "isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel.ensure_simapp",
-        lambda: mock_simapp,
-    )
-    return mock_simapp
-
-
 class TestValidateYamlText:
     @pytest.mark.parametrize("text", ["", "   \n  "], ids=["empty", "whitespace"])
-    def test_blank_text_is_neutral(self, session_state, simapp_validation, text: str):
+    def test_blank_text_is_neutral(self, session_state, text: str):
         result = validate_yaml_text(text)
         assert result.spec is None
         assert result.error is None
@@ -93,9 +64,7 @@ class TestValidateYamlText:
         assert session_state["_validation_text"] == text
         assert session_state["_validation_result"] is result
 
-    def test_valid_spec_yaml(
-        self, session_state, simapp_validation, valid_spec_yaml: str, valid_spec: ArenaEnvInitialGraphSpec
-    ):
+    def test_valid_spec_yaml(self, session_state, valid_spec_yaml: str, valid_spec: ArenaEnvInitialGraphSpec):
         result = validate_yaml_text(valid_spec_yaml)
         assert result.is_valid
         assert result.error is None
@@ -112,16 +81,18 @@ class TestValidateYamlText:
         ],
         ids=["null_document", "non_mapping_root", "invalid_syntax", "invalid_schema"],
     )
-    def test_rejects_invalid_yaml(self, session_state, simapp_validation, text: str, error_predicate):
+    def test_rejects_invalid_yaml(self, session_state, text: str, error_predicate):
         result = validate_yaml_text(text)
         assert result.spec is None
         assert error_predicate(result.error)
 
-    def test_caches_result_for_same_text(self, session_state, simapp_validation, valid_spec_yaml: str):
+    def test_caches_result_for_same_text(self, session_state, valid_spec_yaml: str):
         first = validate_yaml_text(valid_spec_yaml)
-        simapp_validation.validate_yaml_text.reset_mock()
-        second = validate_yaml_text(valid_spec_yaml)
-        simapp_validation.validate_yaml_text.assert_not_called()
+        with patch(
+            "isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel.ArenaEnvInitialGraphSpec.from_dict",
+        ) as mock_from_dict:
+            second = validate_yaml_text(valid_spec_yaml)
+            mock_from_dict.assert_not_called()
         assert second is first
 
 

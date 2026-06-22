@@ -70,11 +70,6 @@ class SimAppClient:
                 pass
             self._close_handles()
 
-    def validate_yaml_text(self, yaml_text: str) -> dict[str, Any]:
-        """Run full spec validation (including registry lookups) in the SimApp server."""
-        with self._lock:
-            return self._request({"cmd": "validate_spec", "yaml_text": yaml_text})
-
     def render_spec(self, spec: ArenaEnvInitialGraphSpec) -> dict[str, bytes]:
         """Ask the SimApp server to render thumbnails for ``spec``."""
         yaml_text = yaml.safe_dump(spec.to_dict(), sort_keys=False)
