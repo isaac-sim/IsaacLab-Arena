@@ -41,6 +41,7 @@ def _preview_args() -> argparse.Namespace:
         env_spacing=ENV_SPACING_M,
         device="cuda:0",
         disable_fabric=False,
+        seed=42,
         solve_relations=True,
         placement_seed=None,
         resolve_on_reset=False,
