@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import argparse
+import sys
 from typing import Any
 
 import streamlit as st
@@ -19,7 +21,21 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_si
     sidecar_socket_from_env,
 )
 
-_SKIP_REGISTRY_CONTEXT: dict[str, Any] = {"skip_registry": True}
+
+def sidecar_launch_args() -> argparse.Namespace:
+    """AppLauncher args for the review GUI sidecar (Kit UI + viewport capture)."""
+    return argparse.Namespace(visualizer=["kit"], enable_cameras=True, livestream=-1)
+
+
+def launch_simulation_app():
+    """Boot Isaac Sim's ``SimulationApp`` with the Kit visualizer, or ``None`` on failure."""
+    try:
+        from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher  # noqa: PLC0415
+
+        return get_app_launcher(sidecar_launch_args()).app
+    except Exception as exc:
+        print(f"[sidecar_service] SimulationApp launch failed: {exc}", file=sys.stderr)
+        return None
 
 
 @st.cache_resource(show_spinner=False)
@@ -53,8 +69,8 @@ def ensure_sidecar() -> SimAppSidecarClient | None:
 
 
 def spec_from_sidecar_dict(spec_dict: dict[str, Any]) -> ArenaEnvInitialGraphSpec:
-    """Rebuild a validated spec locally without registry imports."""
-    return ArenaEnvInitialGraphSpec.model_validate(spec_dict, context=_SKIP_REGISTRY_CONTEXT)
+    """Rebuild a sidecar-validated spec in the Streamlit process."""
+    return ArenaEnvInitialGraphSpec.model_validate(spec_dict)
 
 
 def render_dashboard_with_thumbnails(spec: ArenaEnvInitialGraphSpec) -> str:
