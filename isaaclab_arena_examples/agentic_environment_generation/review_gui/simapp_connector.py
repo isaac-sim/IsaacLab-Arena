@@ -7,10 +7,18 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import streamlit as st
 
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.sim_preview import (
+    ENV_SPACING_M,
+    NUM_ENVS,
+    NUM_STEPS,
+)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppClient,
+    SimAppError,
     simapp_socket_from_env,
 )
 
@@ -56,3 +64,46 @@ def ensure_simapp() -> SimAppClient | None:
 
     clear_simapp_client()
     return None
+
+
+def run_sim_preview_pipeline(yaml_text: str, *, validation=None) -> tuple[bool, str]:
+    """Link, build, solve relations, and capture overview frames via SimApp."""
+    from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (  # noqa: PLC0415
+        validate_yaml_text,
+    )
+
+    if validation is None or not validation.is_valid:
+        validation = validate_yaml_text(yaml_text)
+        if not validation.is_valid:
+            return False, validation.error or "YAML must be valid before running sim preview."
+
+    if simapp_socket_from_env() is None:
+        return False, "SimApp is unavailable — launch the review GUI via gui_runner."
+
+    client = ensure_simapp()
+    if client is None:
+        return False, "SimApp is unavailable — check the gui_runner terminal for boot errors."
+
+    try:
+        response = client.run_sim_preview(yaml_text)
+    except SimAppError as exc:
+        return False, str(exc)
+    finally:
+        clear_simapp_client()
+
+    try:
+        first_path = Path(response["first_frame"])
+        last_path = Path(response["last_frame"])
+        st.session_state["sim_preview_first"] = first_path.read_bytes()
+        st.session_state["sim_preview_last"] = last_path.read_bytes()
+    except OSError as exc:
+        return False, f"Failed to read preview frames: {exc}"
+
+    return (
+        True,
+        (
+            f"Sim preview complete — {response.get('num_envs', NUM_ENVS)} envs, "
+            f"{response.get('env_spacing', ENV_SPACING_M)} m spacing, "
+            f"{response.get('num_steps', NUM_STEPS)} steps."
+        ),
+    )

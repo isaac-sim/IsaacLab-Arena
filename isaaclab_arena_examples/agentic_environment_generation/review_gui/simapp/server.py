@@ -67,6 +67,10 @@ def _serve_connection(
             _write_response(writer, _handle_render_spec(app, req, render_fn, spec_cls))
             continue
 
+        if cmd == "run_sim_preview":
+            _write_response(writer, _handle_run_sim_preview(app, req))
+            continue
+
         _write_response(writer, {"ok": False, "error": f"unknown cmd: {cmd!r}"})
 
     return False
@@ -150,6 +154,22 @@ def _handle_render_spec(
         "paths": {node_id: str(p) for node_id, p in paths.items()},
         "aabb_dimensions_m": {node_id: list(dims) for node_id, dims in aabb_dimensions_m.items()},
     }
+
+
+def _handle_run_sim_preview(app, req: dict[str, Any]) -> dict[str, Any]:
+    """Build linked env, solve relations, roll out zero actions, capture overview frames."""
+    from isaaclab_arena_examples.agentic_environment_generation.review_gui.sim_preview import (  # noqa: PLC0415
+        run_sim_preview,
+    )
+
+    yaml_text = req.get("yaml_text")
+    if not isinstance(yaml_text, str):
+        return {"ok": False, "error": "run_sim_preview requires string 'yaml_text'"}
+
+    try:
+        return run_sim_preview(app, yaml_text)
+    except Exception as exc:
+        return {"ok": False, "error": f"sim preview failed: {exc}", "traceback": traceback.format_exc()}
 
 
 def _parse_args() -> argparse.Namespace:
