@@ -273,6 +273,47 @@ class TestRunGenerationPipeline:
         )
         assert linked_path.is_file()
 
+    def test_save_failure_still_reports_success_and_persists_reasoning(
+        self, session_state, valid_spec: ArenaEnvInitialGraphSpec, tmp_path: Path
+    ):
+        session_state["out_dir"] = str(tmp_path)
+        mock_agent = MagicMock()
+        mock_intent = MagicMock(reasoning="picked assets")
+        mock_agent.generate_spec.return_value = (mock_intent, "{}")
+        session_state["generation_agent"] = mock_agent
+
+        mock_catalogues = MagicMock()
+        mock_compiler = MagicMock()
+        mock_compiler.compile.return_value = valid_spec
+        mock_compiler.trace = []
+        mock_compiler.has_resolution_errors = False
+
+        with (
+            patch(
+                "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.get_catalogue_bundle",
+                return_value=mock_catalogues,
+            ),
+            patch(
+                "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.IntentCompiler",
+                return_value=mock_compiler,
+            ),
+            patch(
+                "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.render_dashboard_html",
+                return_value="<html>generated</html>",
+            ),
+            patch(
+                "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.try_save_initial_graph_spec",
+                return_value=(None, "Save failed: disk full"),
+            ),
+        ):
+            ok, message = run_generation_pipeline("pick up a cube")
+
+        assert ok
+        assert "save failed" in message.lower()
+        assert session_state["last_generation_reasoning"] == "picked assets"
+        assert session_state["edited_text"]
+        assert "save_path" not in session_state
+
 
 class TestSaveInitialGraphSpec:
     def test_writes_initial_and_linked_yaml(self, valid_spec: ArenaEnvInitialGraphSpec, tmp_path: Path):

@@ -148,17 +148,27 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
 
     _apply_generated_yaml(yaml_text, spec=spec)
 
-    out_dir = Path(st.session_state["out_dir"])
-    paths, error = try_save_initial_graph_spec(spec, out_dir)
-    if error is not None:
-        return False, error
-    initial_path, linked_path = paths
-    st.session_state["save_path"] = str(initial_path)
-
     if reasoning:
         st.session_state["last_generation_reasoning"] = reasoning
     if trace:
         st.session_state["last_generation_trace"] = trace
+
+    out_dir = Path(st.session_state["out_dir"])
+    paths, error = try_save_initial_graph_spec(spec, out_dir)
+    if error is not None:
+        if has_resolution_errors:
+            error_trace = _format_trace_lines(trace, errors_only=True)
+            return (
+                True,
+                (
+                    "Spec generated with resolution warnings — review the trace below and edit the YAML as needed.\n\n"
+                    f"{error}\n\n{error_trace}"
+                ),
+            )
+        return True, f"Spec generated and loaded into the YAML editor, but {error.lower()}"
+
+    initial_path, linked_path = paths
+    st.session_state["save_path"] = str(initial_path)
 
     saved_msg = f"Wrote {initial_path} and {linked_path}."
 
@@ -196,7 +206,7 @@ def render_generation_panel() -> None:
         with st.spinner("Generating spec (LLM call + intent compile)…"):
             ok, message = run_generation_pipeline(st.session_state["generation_prompt"])
         if ok:
-            if "resolution warnings" in message:
+            if "resolution warnings" in message or "save failed" in message.lower():
                 st.warning(message, icon="⚠️")
             else:
                 st.success(message, icon="✅")
