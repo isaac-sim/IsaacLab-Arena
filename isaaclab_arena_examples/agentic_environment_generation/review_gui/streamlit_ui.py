@@ -5,10 +5,7 @@
 
 """Streamlit UI for the initial-graph live editor.
 
-Launch via gui_runner (the only supported entrypoint).
-
-Registry lookups and USD thumbnail rendering run in a persistent SimApp sidecar
-started by gui_runner. Streamlit connects through ``ARENA_REVIEW_SIDECAR_SOCKET``.
+Launch via gui_runner (see that module for CLI usage).
 """
 
 from __future__ import annotations

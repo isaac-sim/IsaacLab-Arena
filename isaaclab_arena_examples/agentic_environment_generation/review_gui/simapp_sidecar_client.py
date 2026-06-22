@@ -83,16 +83,6 @@ class SimAppSidecarClient:
         with self._lock:
             return self._request({"cmd": "validate_spec", "yaml_text": yaml_text})
 
-    def build_catalogues(self) -> dict[str, Any]:
-        """Build asset/relation/task catalogues from warm registries in the sidecar."""
-        with self._lock:
-            return self._request({"cmd": "build_catalogues"})
-
-    def compile_intent(self, intent_dict: dict[str, Any]) -> dict[str, Any]:
-        """Validate and compile an EnvironmentIntentSpec in the sidecar."""
-        with self._lock:
-            return self._request({"cmd": "compile_intent", "intent_dict": intent_dict})
-
     def render_spec(self, spec: ArenaEnvInitialGraphSpec) -> dict[str, bytes]:
         """Ask the sidecar to render thumbnails for ``spec``."""
         yaml_text = yaml.safe_dump(spec.to_dict(), sort_keys=False)

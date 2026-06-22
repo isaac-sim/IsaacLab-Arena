@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import argparse
 import hashlib
 import sys
 from pathlib import Path
@@ -18,31 +17,7 @@ THUMBNAIL_CACHE_DIR = Path(__file__).resolve().parents[3] / ".cache" / "llm_env_
 
 
 def _render_thumbnails_with_app(app, spec: ArenaEnvInitialGraphSpec) -> dict[str, Path]:
-    """Resolve each node's USD via ``AssetRegistry``, render cache-misses, return PNG paths.
-
-    ``app`` must already be a booted ``SimulationApp``. The caller owns the
-    lifecycle (Kit may turn ``app.close()`` into ``os._exit(0)`` — that's why
-    the sidecar holds the only reference and closes it inside its ``finally``).
-
-    Returns ``{node.id: png_path}`` for nodes whose asset USD could be located
-    *and* whose PNG exists on disk (either from the persistent cache under
-    ``THUMBNAIL_CACHE_DIR`` or freshly rendered into the cache by
-    :func:`_capture_usd_thumbnails`). Missing entries fall through to the
-    placeholder in :func:`_render_node_thumbnail`, so a partial failure (one
-    bad asset) never breaks the rest of the page.
-
-    We return ``Path`` rather than ``bytes`` so the sidecar protocol can ship
-    just the filenames over its stdin/stdout pipe (a few hundred bytes of JSON
-    instead of multiple MB of base64 PNG data). The parent reads the bytes
-    itself off the shared filesystem cache.
-
-    Ordering matters: ``SimulationApp`` MUST be launched before any
-    ``AssetRegistry`` access, because ``ensure_assets_registered()`` imports
-    isaaclab asset modules which transitively load ``pxr``. ``pxr`` loaded
-    before ``AppLauncher`` puts Kit's extension manager into an unrecoverable
-    state ("extension class wrapper for base class ... has not been created
-    yet"). This is the same root cause we fixed for the pytest suite.
-    """
+    """Render cache-missed node thumbnails and return ``{node.id: png_path}``."""
     asset_paths = _resolve_node_usd_paths(spec)
     if not asset_paths:
         print("[thumbnail_render] no asset USD paths resolved; skipping thumbnail rendering.", file=sys.stderr)
@@ -80,46 +55,8 @@ def _render_thumbnails_with_app(app, spec: ArenaEnvInitialGraphSpec) -> dict[str
     return resolved
 
 
-def _sidecar_launch_args() -> argparse.Namespace:
-    """AppLauncher args for the review GUI sidecar (Kit UI + viewport capture)."""
-    return argparse.Namespace(visualizer=["kit"], enable_cameras=True, livestream=-1)
-
-
-def _launch_simulation_app():
-    """Boot Isaac Sim's ``SimulationApp`` with the Kit visualizer, or ``None`` on failure.
-
-    Kept as a tiny helper so the call site can lazy-import inside this
-    function — module-level import of ``simulation_app`` would drag Kit
-    into every invocation, including ``--help``.
-    """
-    try:
-        # Lazy-import: keeps the default ``review_graph`` invocation Kit-free.
-        from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher  # noqa: PLC0415
-
-        return get_app_launcher(_sidecar_launch_args()).app
-    except Exception as exc:
-        print(f"[thumbnail_render] SimulationApp launch failed: {exc}", file=sys.stderr)
-        return None
-
-
 def _resolve_node_usd_paths(spec: ArenaEnvInitialGraphSpec) -> dict[str, str]:
-    """Map ``node.id → usd_path`` via :class:`AssetRegistry`, skipping unresolvable nodes.
-
-    Tries two lookup strategies in order:
-
-    1. Class-attribute ``cls.usd_path`` — the convention every ``LibraryObject``
-       subclass in ``object_library.py`` follows. No instantiation, cheap.
-
-    2. ``cls().scene_config.robot.spawn.usd_path`` — the convention every
-       :class:`EmbodimentBase` subclass uses. Requires instantiating the
-       embodiment because the Franka embodiments populate ``scene_config.robot``
-       inside ``__init__`` rather than as a class default. Embodiment
-       ``__init__`` is light (no Kit / sim required) — it only constructs
-       configclass objects.
-
-    This function MUST be called only after ``SimulationApp`` has booted — see
-    the docstring of :func:`_render_thumbnails_with_app` for why.
-    """
+    """Map ``node.id → usd_path`` via :class:`AssetRegistry`."""
     try:
         from isaaclab_arena.assets.registries import AssetRegistry  # noqa: PLC0415
     except Exception as exc:
@@ -145,10 +82,7 @@ def _resolve_node_usd_paths(spec: ArenaEnvInitialGraphSpec) -> dict[str, str]:
 
 
 def _extract_usd_path(cls) -> str | None:
-    """Return the asset's root USD path, or ``None`` if not extractable.
-
-    See :func:`_resolve_node_usd_paths` for the two strategies tried in order.
-    """
+    """Return the asset's root USD path, or ``None`` if not extractable."""
     # Strategy 1: ``LibraryObject`` convention.
     usd_path = getattr(cls, "usd_path", None)
     if usd_path:

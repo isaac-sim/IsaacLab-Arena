@@ -9,7 +9,7 @@ import yaml
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Self
 
-from pydantic import BaseModel, Field, SerializeAsAny, ValidationInfo, field_validator, model_validator
+from pydantic import BaseModel, Field, SerializeAsAny, field_validator, model_validator
 
 from isaaclab_arena.assets.registries import TaskRegistry
 from isaaclab_arena.environments.arena_env_graph_types import (
@@ -157,19 +157,13 @@ class ArenaEnvInitialGraphSpec(ArenaEnvGraphSpecBase):
     tasks: list[TaskSpec] = Field(default_factory=list)
     initial_state_spec: ArenaEnvGraphStateSpec
 
+    @model_validator(mode="after")
     def validate(self) -> Self:
         """Check unique IDs, constraint references, and spatial constraint shapes."""
         assert_unique_ids(self.nodes, [], [self.initial_state_spec])
         assert_constraint_references(self.nodes, [self.initial_state_spec])
         assert_spatial_constraint_shapes([self.initial_state_spec])
         return self
-
-    @model_validator(mode="after")
-    def _validate_initial_graph(self, info: ValidationInfo) -> Self:
-        """Run graph invariant checks unless registry lookups were already done elsewhere."""
-        if info.context and info.context.get("skip_registry"):
-            return self
-        return self.validate()
 
     def link(self) -> ArenaEnvGraphSpec:
         """Link this initial graph into a fully-wired :class:`ArenaEnvGraphSpec`.

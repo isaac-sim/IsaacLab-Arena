@@ -5,9 +5,6 @@
 
 """CLI launcher for the ArenaEnvInitialGraphSpec live editor.
 
-Spawns the Isaac Sim sidecar and Streamlit review GUI. This is the supported
-entrypoint — do not run ``streamlit run review_gui/streamlit_ui.py`` directly.
-
 Usage:
     # Default — start with a prompt:
     /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner
