@@ -157,8 +157,8 @@ def _instantiate_assets_from_nodes(
             asset_class = asset_registry.get_asset_by_name(node_spec.name)
             params = dict(node_spec.params)
             # Embodiment cameras are enabled thru the flag passed to the env builder.
-            if node_spec.type == ArenaEnvGraphNodeType.EMBODIMENT:
-                params.setdefault("enable_cameras", enable_cameras)
+            if node_spec.type == ArenaEnvGraphNodeType.EMBODIMENT and enable_cameras:
+                params.setdefault("enable_cameras", True)
             assets_by_node_id[node_spec.id] = asset_class(**params)
     return assets_by_node_id
 
