@@ -3,17 +3,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Concrete episode recorder term callables and the default manager configuration.
-
-These are the ready-made terms Arena records out of the box. ``record_core_episode_results`` is the
-reference example for writing custom term callables, and ``EpisodeRecorderManagerCfg`` wires the
-default terms in. The framework pieces (manager, term-cfg base) live in ``episode_recorder_manager``.
-"""
+"""Concrete episode recorder term callables and their term configs."""
 
 from __future__ import annotations
 
 import datetime
 import torch
+from collections.abc import Callable
 from typing import Any
 
 from isaaclab.utils import configclass
@@ -22,15 +18,13 @@ from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTer
 
 
 def record_core_episode_results(env, env_id: int) -> dict[str, Any]:
-    """Record the core env-derived per-episode fields (seed, success, length, timestamp).
-
-    This is the default term Arena records and the reference example for custom term callables.
-    Run-level metadata and episode indices are added by the manager, so they are absent here.
-    """
+    """Record the core per-episode fields for ``env_id``."""
     success = None
     if "success" in env.termination_manager.active_terms:
         success = bool(env.termination_manager.get_term("success")[env_id].item())
     return {
+        "env_id": env_id,
+        "episode_in_env": env.get_episode_index(env_id),
         "seed": getattr(env.cfg, "seed", None),
         "success": success,
         "episode_length": int(env.episode_length_buf[env_id].item()),
@@ -39,38 +33,30 @@ def record_core_episode_results(env, env_id: int) -> dict[str, Any]:
 
 
 def record_variation_samples(env, env_id: int) -> dict[str, Any]:
-    """Record the variation sample value active for ``env_id``'s finished episode, per variation.
-
-    Reads the per-env latest value tracked by the env's variation recorder (the value sampled at the
-    start of the just-finished episode). Returns ``{}`` when the env has no variation recorder or no
-    enabled variations.
-    """
-    # Read the private attribute directly: the public ``variation_recorder`` property logs a warning
-    # when unset, which would be noisy since this term runs for every finished episode.
-    recorder = getattr(env, "_variation_recorder", None)
+    """Record each variation's sampled value for ``env_id``'s finished episode under ``variations``."""
+    recorder = env.variation_recorder
     if recorder is None or not recorder.records:
         return {}
-    samples = {key: _to_jsonable(record.value_for_env(env_id)) for key, record in recorder.records.items()}
-    return {"variations": samples}
-
-
-def _to_jsonable(value: Any) -> Any:
-    """Convert a recorded variation value to a JSON-serializable form (tensors -> nested lists)."""
-    if isinstance(value, torch.Tensor):
-        return value.tolist()
-    return value
+    samples: dict[str, Any] = {}
+    for key, record in recorder.records.items():
+        value = record.value_for_env(env_id)
+        if value is None:
+            continue
+        if isinstance(value, torch.Tensor):
+            value = value.tolist()
+        samples[key] = value
+    return {"variations": samples} if samples else {}
 
 
 @configclass
-class EpisodeRecorderManagerCfg:
-    """Configuration for the ``EpisodeRecorderManager``: one ``EpisodeRecorderTermCfg`` per term.
+class CoreEpisodeRecorderTermCfg(EpisodeRecorderTermCfg):
+    """Term recording the core per-episode metadata (env id, indices, success, seed, timing)."""
 
-    Subclass and add fields to record more per-episode metadata; set a field to ``None`` to disable
-    a term inherited from a base config.
-    """
+    func: Callable[..., dict[str, Any]] = record_core_episode_results
 
-    core: EpisodeRecorderTermCfg = EpisodeRecorderTermCfg(func=record_core_episode_results)
-    """The default term recording the core per-episode metadata."""
 
-    variations: EpisodeRecorderTermCfg = EpisodeRecorderTermCfg(func=record_variation_samples)
-    """The default term recording each variation's per-env sampled value for the episode."""
+@configclass
+class VariationEpisodeRecorderTermCfg(EpisodeRecorderTermCfg):
+    """Term recording each variation's per-env sampled value for the episode."""
+
+    func: Callable[..., dict[str, Any]] = record_variation_samples

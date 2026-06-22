@@ -3,22 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Extensible per-episode results recording via a dedicated manager.
-
-The HDF5 ``RecorderManager`` path stores each term's value as a tensor, so it cannot capture
-strings or arbitrary metadata. This module adds a separate, pure-Python ``EpisodeRecorderManager``
-that runs its terms at pre-reset (driven by the env's ``_reset_idx`` override, before the auto-reset
-overwrites the just-finished episode's success/length state), merges each term's fields into one
-record per episode, and writes them out as JSONL on request. The base ``RecorderManager`` keeps
-handling trajectories/metrics (tensors) unchanged.
-
-This module holds the framework pieces -- the manager, the ``EpisodeRecorderTermCfg`` base, and the
-``EpisodeResultsMetadata`` type. Each term cfg carries a callable -- a function
-``func(env, env_id, **params) -> dict`` or a ``ManagerTermBase`` callable class -- that the manager
-builds and invokes per finished episode. Concrete term callables (and a default manager config that
-wires them in) live in ``common_terms``. Run-level metadata and the per-episode indices are stamped
-by the manager itself, not by the terms.
-"""
+"""Extensible per-episode results recording via a dedicated manager."""
 
 from __future__ import annotations
 
@@ -53,33 +38,25 @@ class EpisodeRecorderTermCfg(ManagerTermBaseCfg):
     """The callable that records this term's fields for one finishing episode.
 
     Invoked as ``func(env, env_id, **params)`` for the env whose episode just finished, and must
-    return a flat, JSON-serializable dict that is merged into the episode's record. The env exposes
-    the per-env episode index via ``get_episode_index``. It may be a plain function or a callable
-    class inheriting from ManagerTermBase (built once by the manager).
+    return a flat, JSON-serializable dict that is merged into the episode's record. It may be a plain
+    function or a callable class inheriting from ManagerTermBase (built once by the manager).
     """
 
 
 class EpisodeRecorderManager(ManagerBase):
-    """Buffers one merged per-episode record from its terms, captured at pre-reset; written on request.
-
-    The manager builds a term callable per ``EpisodeRecorderTermCfg`` in its config and, for each
-    finished episode, stamps the run-level metadata and the env id / episode index then merges every
-    term's fields into a single record. The per-env episode index is owned by the env (read via
-    ``get_episode_index``), which also skips the initial reset and advances the counters.
-    ``record_pre_reset`` must be called by the env's ``_reset_idx`` (before reset events / manager
-    resets) so the just-finished episode's success flag and episode length are still intact.
-    """
+    """Buffers one merged per-episode record from its terms; written out as JSONL on request."""
 
     def __init__(self, cfg: object, env) -> None:
         """Initialize the manager and its episode-recording state.
 
         Args:
-            cfg: The ``EpisodeRecorderManagerCfg`` (or dict of ``EpisodeRecorderTermCfg``).
+            cfg: The episode recorder manager cfg (or dict of ``EpisodeRecorderTermCfg``).
             env: The environment instance.
         """
         self._term_names: list[str] = []
         self._term_cfgs: list[EpisodeRecorderTermCfg] = []
         self._metadata = EpisodeResultsMetadata()
+        # One dict per finished episode, in capture order; each merged from all terms' fields.
         self._records: list[dict] = []
         super().__init__(cfg, env)
 
@@ -110,18 +87,13 @@ class EpisodeRecorderManager(ManagerBase):
     def record_pre_reset(self, env_ids: Sequence[int] | torch.Tensor | None) -> None:
         """Buffer one record per finished episode in ``env_ids`` by merging all terms' fields.
 
-        Must be called by the env's ``_reset_idx`` (before reset events / manager resets). The env
-        skips the initial reset and owns the per-env episode index (read via ``get_episode_index``).
-
         Args:
             env_ids: The env ids being reset (tensor, sequence, or ``None`` for all envs).
         """
         for env_id in self._normalize_env_ids(env_ids):
-            # The manager stamps run-level metadata and the env id / episode index; terms add the rest.
+            # The manager stamps the run-level metadata; terms add the per-episode fields.
             record: dict[str, Any] = {
                 "job_name": self._metadata.job_name,
-                "episode_in_env": self._env.get_episode_index(env_id),
-                "env_id": env_id,
                 "language_instruction": self._metadata.language_instruction,
             }
             for term_name, term_cfg in zip(self._term_names, self._term_cfgs):
@@ -152,17 +124,12 @@ class EpisodeRecorderManager(ManagerBase):
 
     def _prepare_terms(self) -> None:
         """Build the term callables from the configuration object."""
-        cfg_items = self.cfg.items() if isinstance(self.cfg, dict) else self.cfg.__dict__.items()
-        for term_name, term_cfg in cfg_items:
+        for term_name, term_cfg in self.cfg.__dict__.items():
             if term_cfg is None:
                 continue
-            if not isinstance(term_cfg, EpisodeRecorderTermCfg):
-                raise TypeError(
-                    f"Configuration for the episode recorder term '{term_name}' is not of type"
-                    f" EpisodeRecorderTermCfg. Received: '{type(term_cfg)}'."
-                )
-            # Resolve/validate func and (deferred to sim play) instantiate callable-class terms.
-            # min_argc=2 since term callables take the env and the env id before any params.
+            # Validate the term's func/params and, for callable-class terms, instantiate it once the
+            # sim starts (the shared ``ManagerBase`` helper every Isaac Lab manager uses in
+            # ``_prepare_terms``, e.g. ``EventManager``). ``min_argc=2`` for the leading env, env_id.
             self._resolve_common_term_cfg(term_name, term_cfg, min_argc=2)
             self._term_names.append(term_name)
             self._term_cfgs.append(term_cfg)

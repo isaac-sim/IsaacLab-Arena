@@ -30,6 +30,8 @@ from isaaclab_arena.environments.relation_solver_interface import solve_and_appl
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
+from isaaclab_arena.recording.common_terms import CoreEpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
@@ -155,6 +157,15 @@ class ArenaEnvBuilder:
             return None
         fields = [(m.name, MetricTermCfg, m.get_metric_term_cfg()) for m in metrics]
         return make_configclass("MetricsCfg", fields)()
+
+    @staticmethod
+    def _episode_recorders_cfg() -> object:
+        """Build a configclass container with one ``EpisodeRecorderTermCfg`` field per default term."""
+        fields = [
+            ("core", EpisodeRecorderTermCfg, CoreEpisodeRecorderTermCfg()),
+            ("variations", EpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg()),
+        ]
+        return make_configclass("EpisodeRecorderManagerCfg", fields)()
 
     def compose_manager_cfg(self) -> tuple[IsaacLabArenaManagerBasedRLEnvCfg, dict[str, Any]]:
         """Return the base ManagerBased cfg and the env kwargs (no registration).
@@ -287,6 +298,7 @@ class ArenaEnvBuilder:
                 teleop_devices=teleop_devices_cfg,
                 recorders=recorder_manager_cfg,
                 metrics=metrics_cfg,
+                episode_recorders=self._episode_recorders_cfg(),
                 task_description=task_description,
                 viewer=viewer_cfg,
             )

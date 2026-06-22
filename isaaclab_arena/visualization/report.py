@@ -25,7 +25,7 @@ _VIDEO_FILENAME_PATTERN = re.compile(
     r"^(?P<prefix>.+?)(?:-rebuild(?P<rebuild>\d+))?-env(?P<env>\d+)-(?P<camera>.+)-episode-(?P<episode>\d+)\.mp4$"
 )
 
-# Matches the per-episode results filename written by EpisodeResultsRecorder.write. The eval runner
+# Matches the per-episode results filename written by EpisodeRecorderManager.write. The eval runner
 # writes one file per rebuild (``episode_results_rebuild<R>.jsonl``); the policy runner writes one
 # per rank (``episode_results_rank<N>.jsonl``, which carries no rebuild and so maps to rebuild 0).
 _RESULTS_FILENAME_PATTERN = re.compile(r"^episode_results(?:_rebuild(?P<rebuild>\d+))?(?:_rank\d+)?\.jsonl$")

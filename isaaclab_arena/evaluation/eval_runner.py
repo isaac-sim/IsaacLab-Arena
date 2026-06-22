@@ -256,11 +256,11 @@ def main():
 
         # One reverse-dated run directory shared by all jobs; each job gets a subdirectory within it.
         # Always dated so every run produces its own report dir, recording or not.
-        run_video_dir = timestamped_run_dir(args_cli.video_base_dir)
+        run_output_dir = timestamped_run_dir(args_cli.output_base_dir)
 
         if args_cli.record_viewport_video:
-            os.makedirs(run_video_dir, exist_ok=True)
-            print(f"[INFO] Video recording enabled. Videos will be saved to: {run_video_dir}")
+            os.makedirs(run_output_dir, exist_ok=True)
+            print(f"[INFO] Video recording enabled. Videos will be saved to: {run_output_dir}")
 
         for job in job_manager:
             if job is None:
@@ -281,7 +281,7 @@ def main():
                     video_cfg = VideoRecordingCfg(
                         record_viewport_video=args_cli.record_viewport_video,
                         record_camera_video=args_cli.record_camera_video,
-                        video_base_dir=os.path.join(run_video_dir, job.name),
+                        video_base_dir=os.path.join(run_output_dir, job.name),
                         camera_name_prefix=f"robot-cam-rebuild{rebuild_idx}",
                     )
                     env = load_env(
@@ -319,8 +319,7 @@ def main():
                         language_instruction=job.language_instruction,
                     )
 
-                    # Request the per-episode results write into this job's output subdir
-                    # (the same directory the video recorders use), one file per rebuild.
+                    # Write per-episode results to job's output subdir, one file per rebuild.
                     results_path = os.path.join(video_cfg.video_base_dir, f"episode_results_rebuild{rebuild_idx}.jsonl")
                     env.unwrapped.episode_recorder.write(results_path)
 
@@ -354,7 +353,7 @@ def main():
         metrics_logger.print_metrics()
 
         # Write HTML report
-        report_path = build_report(run_video_dir)
+        report_path = build_report(run_output_dir)
         if args_cli.serve_evaluation_report:
             serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
 

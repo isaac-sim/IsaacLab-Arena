@@ -197,7 +197,7 @@ def main():
         video_cfg = VideoRecordingCfg(
             record_viewport_video=args_cli.record_viewport_video,
             record_camera_video=args_cli.record_camera_video,
-            video_base_dir=timestamped_run_dir(args_cli.video_base_dir),
+            video_base_dir=timestamped_run_dir(args_cli.output_base_dir),
         )
         env, cfg = arena_builder.make_registered_and_return_cfg(render_mode=video_cfg.render_mode)
 

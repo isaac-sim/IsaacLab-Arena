@@ -107,20 +107,19 @@ def test_recorder_records_samples_from_attached_variation():
 
 
 def test_variation_record_tracks_per_env_values():
-    """Per-env values track the latest sample per env; an all-envs draw sets the shared fallback."""
+    """Per-env values track the latest sample per env; all-envs draws are not attributed per env."""
     record = VariationRecord(name="asset.var", cfg=_RecorderTestVariationCfg())
 
     # Runtime-style draw: rows map to the given env ids.
     record.update_env_values(torch.tensor([[1.0], [2.0]]), env_ids=torch.tensor([2, 5]))
     assert record.value_for_env(2).tolist() == [1.0]
     assert record.value_for_env(5).tolist() == [2.0]
-    # An env not drawn for falls back to the shared value (None until one is set).
+    # An env not drawn for has no recorded value.
     assert record.value_for_env(0) is None
 
-    # A build-time / all-envs draw (env_ids=None) sets the shared fallback...
+    # A build-time / all-envs draw (env_ids=None) is not attributed to any env.
     record.update_env_values(torch.tensor([[9.0]]), env_ids=None)
-    assert record.value_for_env(0).tolist() == [9.0]
-    # ...but per-env values still take precedence.
+    assert record.value_for_env(0) is None
     assert record.value_for_env(2).tolist() == [1.0]
 
 

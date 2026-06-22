@@ -22,22 +22,18 @@ class VariationRecord:
         self.name = name
         self.cfg = cfg
         self.samples: list[Any] = []
-        # Latest drawn value per env id (runtime, per-reset draws).
+        # Latest drawn value per env id (from per-env, per-reset draws).
         self._value_by_env: dict[int, Any] = {}
-        # Latest value applied to all envs (a build-time / single-sample draw); None until set.
-        self._shared_value: Any = None
 
     def update_env_values(self, sample: Any, env_ids: Any = None) -> None:
         """Record ``sample`` as the latest value for each env it was drawn for.
 
         Args:
             sample: The drawn sample; row ``i`` is the value for the ``i``-th env in ``env_ids``.
-            env_ids: The env ids the sample's rows correspond to, or ``None`` when the single drawn
-                value applies to all envs (e.g. a build-time draw).
+            env_ids: The env ids the sample's rows correspond to. ``None`` (an all-envs draw, e.g.
+                build time) is not attributed per env.
         """
         if env_ids is None:
-            # A single value shared by all envs (num_samples == 1).
-            self._shared_value = sample[0]
             return
         if isinstance(env_ids, torch.Tensor):
             env_ids = env_ids.tolist()
@@ -45,8 +41,8 @@ class VariationRecord:
             self._value_by_env[int(env_id)] = sample[row]
 
     def value_for_env(self, env_id: int) -> Any:
-        """Return the latest sampled value for ``env_id`` (its per-env value, else the shared value)."""
-        return self._value_by_env.get(env_id, self._shared_value)
+        """Return the latest sampled value for ``env_id``, or ``None`` if none was drawn for it."""
+        return self._value_by_env.get(env_id)
 
     def _header_lines(self) -> list[str]:
         """Return the shared preamble (identity, cfg, sample-call count) for renderers."""
