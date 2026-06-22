@@ -65,11 +65,6 @@ table.tasks pre { padding: 6px 8px; font-size: 11px; }
                     border-radius: 6px; display: flex; flex-direction: column;
                     align-items: center; justify-content: center; color: var(--fg-muted);
                     position: relative; overflow: hidden; }
-.node-card .thumb-rendered { background: #0e1115; } /* near-black viewport backdrop for USD captures */
-.node-card .thumb-rendered img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.node-card .thumb-rendered .thumb-name { position: absolute; bottom: 0; left: 0; right: 0;
-                                         padding: 4px 6px; background: rgba(15, 17, 21, 0.78);
-                                         color: var(--fg); margin: 0; }
 .thumb-initial { font-size: 36px; font-weight: 700; color: var(--fg); opacity: 0.6;
                  font-family: ui-monospace, monospace; }
 .thumb-name { font-size: 10px; margin-top: 6px; padding: 0 8px; text-align: center; word-break: break-word; }
