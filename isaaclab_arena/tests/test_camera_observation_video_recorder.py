@@ -35,12 +35,23 @@ class _StubEnv(gym.Env):
     def __init__(self):
         super().__init__()
         self._step_return = ({}, None, torch.zeros(1, dtype=torch.bool), torch.zeros(1, dtype=torch.bool), None)
+        # Per-env completed-episode counts, mirroring the Arena env's centralized episode index.
+        self._episode_counts: dict[int, int] = {}
 
     def reset(self, **kwargs):
         return {}, {}
 
     def step(self, action):
+        # Mirror the Arena env: advance the per-env episode index for each env that resets this
+        # step (the real env does this within _reset_idx, before step() returns).
+        _, _, terminated, truncated, _ = self._step_return
+        for env_id in (terminated | truncated).nonzero().flatten().tolist():
+            self._episode_counts[env_id] = self._episode_counts.get(env_id, 0) + 1
         return self._step_return
+
+    def get_episode_index(self, env_id: int) -> int:
+        """The current episode index for ``env_id`` (its count of completed episodes)."""
+        return self._episode_counts.get(env_id, 0)
 
     def render(self):
         pass
@@ -85,7 +96,7 @@ def test_video_files_written_on_termination(tmp_path):
 
 
 def test_episode_counter_increments_per_env(tmp_path):
-    """Each env tracks its own episode count independently."""
+    """Each env tracks its own episode count independently via the env's centralized index."""
     env = _make_env()
     with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip"):
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
@@ -105,8 +116,8 @@ def test_episode_counter_increments_per_env(tmp_path):
         _configure_step(env, done_envs=[1])
         recorder.step(None)  # env 1: episode 0 done
 
-        assert recorder.episode_counts[0] == 2
-        assert recorder.episode_counts[1] == 1
+        assert env.get_episode_index(0) == 2
+        assert env.get_episode_index(1) == 1
 
 
 def test_multiple_episodes_produce_sequential_filenames(tmp_path):
@@ -143,17 +154,20 @@ def test_partial_episode_dropped_on_close(tmp_path):
         mock_clip_cls.return_value.write_videofile.assert_not_called()
 
 
-def test_episode_counter_not_incremented_for_empty_buffer(tmp_path):
-    """Episode count stays at 0 if the env terminates before any frame is appended."""
+def test_no_video_written_for_empty_episode(tmp_path):
+    """An env terminating with no buffered frames writes no video; its episode index still advances."""
     env = _make_env()
-    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip"):
+    with patch("isaaclab_arena.video.camera_observation_video_recorder.ImageSequenceClip") as mock_clip_cls:
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
 
         # Terminate on the very first step — no prior frames were recorded.
         _configure_step(env, done_envs=[0])
         recorder.step(None)
 
-        assert recorder.episode_counts[0] == 0
+        # No video for the empty episode, but the env's centralized index still advanced past it
+        # (so a later episode's video number stays in lockstep with the per-episode results record).
+        mock_clip_cls.return_value.write_videofile.assert_not_called()
+        assert env.get_episode_index(0) == 1
 
 
 def test_post_reset_frame_not_appended(tmp_path):

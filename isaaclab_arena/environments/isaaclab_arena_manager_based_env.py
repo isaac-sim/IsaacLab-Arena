@@ -29,6 +29,11 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         **kwargs,
     ):
         self._variation_recorder = variation_recorder
+        # Per-env count of completed episodes. Read via ``get_episode_index`` (e.g. by the episode
+        # recorder manager and the camera recorder); advanced in ``_reset_idx``.
+        self._episode_counts: dict[int, int] = {}
+        # The initial reset touches every env before any episode has run; skip it.
+        self._first_reset = True
         super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
 
     @property
@@ -53,11 +58,30 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         # metadata via EpisodeRecorderTerms; driven by the _reset_idx override below.
         self.episode_recorder_manager = EpisodeRecorderManager(self.cfg.episode_recorders, self)
 
+    def get_episode_index(self, env_id: int) -> int:
+        """Return the index of the current episode in ``env_id`` (its count of completed episodes).
+
+        Pure read; the counter is advanced separately by ``_advance_episode_indices``.
+        """
+        return self._episode_counts.get(env_id, 0)
+
+    def _advance_episode_indices(self, env_ids: Sequence[int]) -> None:
+        """Advance the per-env episode counter for each finished episode in ``env_ids``."""
+        for env_id in env_ids:
+            env_id = int(env_id)
+            self._episode_counts[env_id] = self._episode_counts.get(env_id, 0) + 1
+
     def _reset_idx(self, env_ids: Sequence[int]) -> None:
+        # The initial reset touches every env before any episode has run; nothing to record or count.
+        if self._first_reset:
+            self._first_reset = False
+            super()._reset_idx(env_ids)
+            return
         # Capture BEFORE super() runs reset events (placement/variation) and resets the
         # termination/episode-length buffers, so the just-finished episode is still intact.
         self.episode_recorder_manager.record_pre_reset(env_ids)
         super()._reset_idx(env_ids)
+        self._advance_episode_indices(env_ids)
 
     def compute_metrics(self) -> MetricsDataCollection:
         """Compute all registered metrics.

@@ -42,25 +42,19 @@ class EpisodeResultsMetadata:
     job_name: str = "default"
     """Name of the eval job (or run); identifies which job produced the records."""
 
-    rebuild_idx: int = 0
-    """Index of the env rebuild this run belongs to."""
-
     language_instruction: str | None = None
     """Job/CLI-level language-instruction override, if any."""
 
 
 @dataclass
 class EpisodeContext:
-    """Identity of a finishing episode, tracked by the manager and passed to every term callable."""
+    """Identity of a finishing episode, tracked by the env and passed to every term callable."""
 
     env_id: int
     """The env id whose episode just finished."""
 
     episode_in_env: int
-    """Zero-based count of episodes already completed in this env (this episode's index within it)."""
-
-    global_episode_index: int
-    """Zero-based count of episodes already recorded across all envs (this episode's global index)."""
+    """Zero-based index of this episode within its env (the env's count of completed episodes)."""
 
 
 @configclass
@@ -77,7 +71,7 @@ class EpisodeRecorderTermCfg(ManagerTermBaseCfg):
 
 
 def record_core_episode_results(env, context: EpisodeContext) -> dict[str, Any]:
-    """Record the core env-derived per-episode fields (seed, success, length, task, timestamp).
+    """Record the core env-derived per-episode fields (seed, success, length, timestamp).
 
     This is the default term Arena records and the reference example for custom term callables.
     Run-level metadata and episode indices are added by the manager, so they are absent here.
@@ -89,7 +83,6 @@ def record_core_episode_results(env, context: EpisodeContext) -> dict[str, Any]:
         "seed": getattr(env.cfg, "seed", None),
         "success": success,
         "episode_length": int(env.episode_length_buf[context.env_id].item()),
-        "task_description": getattr(env.cfg, "task_description", None),
         "timestamp": datetime.datetime.now().isoformat(),
     }
 
@@ -110,10 +103,11 @@ class EpisodeRecorderManager(ManagerBase):
     """Buffers one merged per-episode record from its terms, captured at pre-reset; written on request.
 
     The manager builds a term callable per ``EpisodeRecorderTermCfg`` in its config and, for each
-    finished episode, stamps the run-level metadata and episode indices then merges every term's
-    fields into a single record. ``record_pre_reset`` must be called at the top of the env's
-    ``_reset_idx`` (before reset events / manager resets) so the just-finished episode's success flag
-    and episode length are still intact.
+    finished episode, stamps the run-level metadata and the env id / episode index then merges every
+    term's fields into a single record. The per-env episode index is owned by the env (read via
+    ``get_episode_index``), which also skips the initial reset and advances the counters.
+    ``record_pre_reset`` must be called by the env's ``_reset_idx`` (before reset events / manager
+    resets) so the just-finished episode's success flag and episode length are still intact.
     """
 
     def __init__(self, cfg: object, env) -> None:
@@ -127,11 +121,6 @@ class EpisodeRecorderManager(ManagerBase):
         self._term_cfgs: list[EpisodeRecorderTermCfg] = []
         self._metadata = EpisodeResultsMetadata()
         self._records: list[dict] = []
-        # Per-env count of completed episodes, keyed by env id.
-        self._episode_counts: dict[int, int] = {}
-        self._global_episode_index = 0
-        # The initial reset touches every env before anything has happened; skip it.
-        self._first_reset = True
         super().__init__(cfg, env)
 
     def __str__(self) -> str:
@@ -161,30 +150,17 @@ class EpisodeRecorderManager(ManagerBase):
     def record_pre_reset(self, env_ids: Sequence[int] | torch.Tensor | None) -> None:
         """Buffer one record per finished episode in ``env_ids`` by merging all terms' fields.
 
-        Must be called at the top of the env's ``_reset_idx`` (before reset events / manager resets).
+        Must be called by the env's ``_reset_idx`` (before reset events / manager resets). The env
+        skips the initial reset and owns the per-env episode index (read via ``get_episode_index``).
 
         Args:
             env_ids: The env ids being reset (tensor, sequence, or ``None`` for all envs).
         """
-        env_ids = self._normalize_env_ids(env_ids)
-
-        # Skip the very first reset (all envs, nothing has happened yet).
-        if self._first_reset:
-            self._first_reset = False
-            return
-
-        for env_id in env_ids:
-            episode_in_env = self._episode_counts.get(env_id, 0)
-            context = EpisodeContext(
-                env_id=env_id,
-                episode_in_env=episode_in_env,
-                global_episode_index=self._global_episode_index,
-            )
-            # The manager stamps run-level metadata and the episode indices; terms add the rest.
+        for env_id in self._normalize_env_ids(env_ids):
+            context = EpisodeContext(env_id=env_id, episode_in_env=self._env.get_episode_index(env_id))
+            # The manager stamps run-level metadata and the env id / episode index; terms add the rest.
             record: dict[str, Any] = {
                 "job_name": self._metadata.job_name,
-                "rebuild_idx": self._metadata.rebuild_idx,
-                "global_episode_index": context.global_episode_index,
                 "episode_in_env": context.episode_in_env,
                 "env_id": context.env_id,
                 "language_instruction": self._metadata.language_instruction,
@@ -198,8 +174,6 @@ class EpisodeRecorderManager(ManagerBase):
                 )
                 record.update(fields)
             self._records.append(record)
-            self._episode_counts[env_id] = episode_in_env + 1
-            self._global_episode_index += 1
 
     def write(self, output_path: str | Path) -> None:
         """Write all buffered per-episode records to ``output_path`` as JSONL (one object per line)."""
