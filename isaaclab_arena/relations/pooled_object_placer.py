@@ -62,8 +62,10 @@ class PooledObjectPlacer:
         objects: All objects (including anchors) participating in relation solving.
         placer_params: Parameters forwarded to ObjectPlacer for the batched solve.
         pool_size: Number of layouts to solve per batch.
-        num_envs: Total number of simulation environments. Required for
-            heterogeneous scenes; defaults to 1.
+        num_envs: Total number of simulation environments. Defaults to 1; set it to the
+            scene's env count for multi-env placement (otherwise solve_and_place_objects
+            rejects the env-count mismatch). Required for heterogeneous scenes, where it
+            also fixes each env's variant geometry.
     """
 
     def __init__(
@@ -205,9 +207,11 @@ class PooledObjectPlacer:
                 else:
                     total_valid += len(valid_results)
             elif allow_fallback and missing > 0:
-                self._env_pools[cur_env].extend(env_results[:missing])
-                fallback_envs.append(cur_env)
-                self._had_fallbacks = True
+                fallback = env_results[:missing]
+                if fallback:
+                    self._env_pools[cur_env].extend(fallback)
+                    fallback_envs.append(cur_env)
+                    self._had_fallbacks = True
 
         total_solved = sum(min(len(env_results), layouts_per_env) for env_results in ranked_results_per_env)
         if total_valid < total_solved or fallback_envs:
