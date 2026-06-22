@@ -60,13 +60,12 @@ def _overview_camera(
     rows = int(math.ceil(num_envs / cols))
     max_x = max((cols - 1) * env_spacing, 0.0)
     max_y = max((rows - 1) * env_spacing, 0.0)
-    cx, cy = max_x * 0.5, max_y * 0.5
     span = max(max_x, max_y, env_spacing)
-    height = span * 1.75 + env_spacing * 2.5
-    back = span * 1.4 + env_spacing * 2.0
-    side = span * 0.25
-    eye = (cx + side, cy - back, height)
-    target = (cx, cy, 0.75)
+    target = (0.0, 0.0, 0.0)
+    height = span * 0.8 + target[2]
+    back = span * 1.1
+    side = span * 1.1
+    eye = (side, back, height)
     return eye, target
 
 
