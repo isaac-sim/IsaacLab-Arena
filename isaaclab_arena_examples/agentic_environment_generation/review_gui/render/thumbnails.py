@@ -10,7 +10,7 @@ import html as html_lib
 from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeSpec
 
 
-# TODO(qianl): Replace placeholder thumbnails with sim-rendered snapshots .
+# TODO(qianl): Replace placeholder thumbnails with sim-rendered snapshots.
 def render_placeholder_thumbnail(node: ArenaEnvGraphNodeSpec) -> str:
     """Per-node placeholder thumbnail — two-letter initial."""
     safe_name = node.name or ""
