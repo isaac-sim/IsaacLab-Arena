@@ -54,8 +54,7 @@ def main() -> None:
 def serve_live_editor(yaml_path: Path | None, port: int = 8501) -> None:
     """Spawn ``streamlit run streamlit_ui.py`` and wait."""
     app_path = _REVIEW_GUI_DIR / "streamlit_ui.py"
-    if not app_path.exists():
-        raise FileNotFoundError(f"Streamlit app not found at {app_path} — installation is incomplete.")
+    assert app_path.exists(), f"Streamlit app not found at {app_path} — installation is incomplete."
 
     cmd = [
         sys.executable,
