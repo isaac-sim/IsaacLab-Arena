@@ -135,10 +135,13 @@ class ArenaEnvGraphSpec(ArenaEnvGraphSpecBase):
     def state_specs_by_id(self) -> dict[str, ArenaEnvGraphStateSpec]:
         return {state_spec.id: state_spec for state_spec in self.state_specs}
 
-    def to_arena_env(self) -> IsaacLabArenaEnvironment:
+    def to_arena_env(self, enable_cameras: bool = False) -> IsaacLabArenaEnvironment:
         """Convert this graph spec into an `IsaacLabArenaEnvironment`.
 
         The first ``state_spec`` is used as the scene's initial state.
+
+        Args:
+            enable_cameras: Forwarded to the embodiment so its cameras are spawned.
         """
         # Lazy import: build_arena_env_from_graph_spec pulls in Scene -> phyx_utils ->
         # pxr.PhysxSchema, which requires SimulationApp. Keeping the import here lets
@@ -148,7 +151,7 @@ class ArenaEnvGraphSpec(ArenaEnvGraphSpecBase):
         # this wrapper stays single-arg — no caller-side selection is needed.
         from isaaclab_arena.environments.arena_env_graph_conversion_utils import build_arena_env_from_graph_spec
 
-        return build_arena_env_from_graph_spec(self)
+        return build_arena_env_from_graph_spec(self, enable_cameras=enable_cameras)
 
 
 class ArenaEnvInitialGraphSpec(ArenaEnvGraphSpecBase):
