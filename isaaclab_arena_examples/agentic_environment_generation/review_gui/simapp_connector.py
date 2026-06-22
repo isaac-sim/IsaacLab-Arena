@@ -48,24 +48,40 @@ def ensure_simapp() -> SimAppClient | None:
     return None
 
 
+def _warn_simapp_unavailable_once() -> None:
+    if st.session_state.get("_simapp_unavailable_warned"):
+        return
+    st.session_state["_simapp_unavailable_warned"] = True
+    st.warning(
+        "Isaac Sim is unavailable — showing placeholder thumbnails. "
+        "Check the gui_runner terminal for SimApp boot errors.",
+        icon="⚠️",
+    )
+
+
+def _show_simapp_render_error_once(exc: SimAppError) -> None:
+    if st.session_state.get("_simapp_render_error_shown"):
+        return
+    st.session_state["_simapp_render_error_shown"] = True
+    st.error(
+        f"SimApp render failed; showing placeholder thumbnails.\n\n```\n{exc}\n```",
+        icon="🛑",
+    )
+
+
 def render_dashboard_with_thumbnails(spec: ArenaEnvInitialGraphSpec) -> str:
     """Render review HTML, asking the SimApp server for live USD thumbnails when available."""
-    client = ensure_simapp()
+    simapp_expected = simapp_socket_from_env() is not None
+    client = ensure_simapp() if simapp_expected else None
     if client is None:
-        st.warning(
-            "Isaac Sim is unavailable — showing placeholder thumbnails. "
-            "Launch the review GUI via gui_runner and check its terminal for errors.",
-            icon="⚠️",
-        )
+        if simapp_expected:
+            _warn_simapp_unavailable_once()
         return render_dashboard_html(spec)
 
     try:
         thumbnails = client.render_spec(spec)
     except SimAppError as exc:
-        st.error(
-            f"SimApp render failed; showing placeholder thumbnails.\n\n```\n{exc}\n```",
-            icon="🛑",
-        )
+        _show_simapp_render_error_once(exc)
         get_simapp_client.clear()
         return render_dashboard_html(spec)
 
