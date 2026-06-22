@@ -385,3 +385,34 @@ class TestSimAppClient:
         client.shutdown()
         thread.join(timeout=2.0)
         assert shutdowns == 1
+
+
+class TestSimAppSimPreview:
+    @pytest.mark.with_subprocess
+    def test_run_sim_preview_via_simapp_subprocess(self, tmp_path: Path) -> None:
+        from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
+            SimAppClient,
+            spawn_simapp_process,
+            stop_simapp_process,
+            wait_for_simapp_socket,
+        )
+
+        yaml_text = _VALID_SPEC_YAML_PATH.read_text(encoding="utf-8")
+        socket_path = tmp_path / "sim_preview.sock"
+        proc = spawn_simapp_process(str(socket_path))
+        try:
+            wait_for_simapp_socket(str(socket_path), proc, timeout_s=180.0, poll_interval_s=0.5)
+            client = SimAppClient.connect(str(socket_path))
+            response = client.run_sim_preview(yaml_text)
+            assert response["ok"] is True
+
+            first_frame = Path(response["first_frame"])
+            last_frame = Path(response["last_frame"])
+            assert first_frame.is_file() and first_frame.stat().st_size > 0
+            assert last_frame.is_file() and last_frame.stat().st_size > 0
+            assert response["num_envs"] == 16
+            assert response["num_steps"] == 10
+
+            client.shutdown()
+        finally:
+            stop_simapp_process(proc, str(socket_path))

@@ -146,13 +146,13 @@ def run_sim_preview(app, yaml_text: str) -> dict[str, Any]:
             f"solving spatial relations ({args.num_envs} envs, {pool_layouts} layout pool)…",
         )
         t_relations = time.monotonic()
-        env_cfg = builder.compose_manager_cfg()
+        env_cfg, env_kwargs = builder.compose_manager_cfg()
         _preview_log(started_at, f"relation solver finished ({time.monotonic() - t_relations:.1f}s)")
 
         env_cfg.viewer = ViewerCfg(eye=eye, lookat=target, origin_type="world")
         _preview_log(started_at, "spawning sim scene (gym.make)…")
         t_spawn = time.monotonic()
-        env = builder.make_registered(env_cfg)
+        env = builder.make_registered(env_cfg, env_kwargs)
         _preview_log(started_at, f"sim scene ready ({time.monotonic() - t_spawn:.1f}s)")
 
         obs, _ = env.reset()
