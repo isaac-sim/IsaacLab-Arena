@@ -15,15 +15,6 @@ from streamlit_ace import st_ace
 
 from isaaclab_arena.agentic_environment_generation.spec_io import save_initial_graph_spec
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
-    render_dashboard_with_thumbnails,
-)
-
-_BROKEN_PLACEHOLDER_HTML = """<!DOCTYPE html><html><body style="
-    font-family: ui-monospace, monospace;
-    background:#15181d; color:#e4e6eb; padding:24px; margin:0;">
-<p>No visualization yet — fix the YAML errors to auto-render.</p>
-</body></html>"""
 
 
 @dataclass
@@ -133,7 +124,7 @@ def render_save_button(validation: SpecParseResult) -> None:
 
 
 def render_editor_panel(yaml_path: Path | None) -> SpecParseResult:
-    """Render the ACE YAML editor and refresh the dashboard when text changes."""
+    """Render the ACE YAML editor; dashboard preview refreshes in the visualization fragment."""
     st.subheader("YAML editor")
     if yaml_path is not None:
         st.caption(f"Source: `{yaml_path}`")
@@ -161,18 +152,6 @@ def render_editor_panel(yaml_path: Path | None) -> SpecParseResult:
 
     validation = validate_yaml_text(st.session_state["edited_text"])
     render_validation_badge(validation)
-
-    edited_since_render = st.session_state["edited_text"] != st.session_state["last_rendered_text"]
-    if edited_since_render and not st.session_state.get("_yaml_before_viz_pass"):
-        # Editor text changed since last dashboard render — refresh preview iframe.
-        if validation.is_valid:
-            with st.spinner("Rendering visualization…"):
-                st.session_state["rendered_html"] = render_dashboard_with_thumbnails(validation.spec)
-        else:
-            st.session_state["rendered_html"] = _BROKEN_PLACEHOLDER_HTML
-        st.session_state["last_rendered_text"] = st.session_state["edited_text"]
-        if validation.is_valid:
-            st.toast("Visualization updated.", icon="🔄")
 
     render_save_button(validation)
     return validation
