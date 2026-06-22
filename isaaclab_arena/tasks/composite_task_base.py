@@ -20,8 +20,8 @@ from isaaclab.utils import configclass
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
+from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
-from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.configclass import (
     check_configclass_field_duplicates,

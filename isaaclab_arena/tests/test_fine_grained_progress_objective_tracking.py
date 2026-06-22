@@ -49,7 +49,10 @@ def _advance_step(env, n: int = 1):
 
 def _test_predicate_groups_single_callable(simulation_app) -> bool:
     """A bare predicate becomes a default-named group with weight 1.0."""
-    from isaaclab_arena.tasks.fine_grained_progress_objective import DEFAULT_GROUP_NAME, FineGrainedProgressObjective
+    from isaaclab_arena.progress_tracking.fine_grained_progress_objective import (
+        DEFAULT_GROUP_NAME,
+        FineGrainedProgressObjective,
+    )
 
     try:
         pred = _MockPredicate(num_envs=1)
@@ -68,7 +71,10 @@ def _test_predicate_groups_single_callable(simulation_app) -> bool:
 
 def _test_predicate_groups_list_of_callables(simulation_app) -> bool:
     """A list of callables becomes a single group with normalized equal scores."""
-    from isaaclab_arena.tasks.fine_grained_progress_objective import DEFAULT_GROUP_NAME, FineGrainedProgressObjective
+    from isaaclab_arena.progress_tracking.fine_grained_progress_objective import (
+        DEFAULT_GROUP_NAME,
+        FineGrainedProgressObjective,
+    )
 
     try:
         preds = [_MockPredicate(num_envs=1, name=f"p{i}") for i in range(3)]
@@ -88,7 +94,10 @@ def _test_predicate_groups_list_of_callables(simulation_app) -> bool:
 
 def _test_predicate_groups_weighted_tuples(simulation_app) -> bool:
     """Explicit (callable, score) tuples are normalized to sum to 1.0 within a group."""
-    from isaaclab_arena.tasks.fine_grained_progress_objective import DEFAULT_GROUP_NAME, FineGrainedProgressObjective
+    from isaaclab_arena.progress_tracking.fine_grained_progress_objective import (
+        DEFAULT_GROUP_NAME,
+        FineGrainedProgressObjective,
+    )
 
     try:
         p1 = _MockPredicate(num_envs=1, name="p1")
@@ -107,7 +116,7 @@ def _test_predicate_groups_weighted_tuples(simulation_app) -> bool:
 
 def _test_predicate_groups_dict_groups(simulation_app) -> bool:
     """Dict input gives one group per key and each group's scores are normalized independently."""
-    from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
+    from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
 
     try:
         p_a1 = _MockPredicate(num_envs=1, name="a1")
@@ -139,7 +148,7 @@ def _test_predicate_groups_dict_groups(simulation_app) -> bool:
 
 def _test_predicate_groups_rejects_invalid_inputs(simulation_app) -> bool:
     """Empty containers and non-callable entries should raise error."""
-    from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
+    from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
 
     try:
         for bad in ([], {}, 42, "string"):
@@ -170,8 +179,8 @@ def _test_predicate_groups_rejects_invalid_inputs(simulation_app) -> bool:
 
 def _test_state_machine_advances_sequentially(simulation_app) -> bool:
     """A single FineGrainedProgressObjective with a 3 predicate chain advances one step per satisfied predicate."""
-    from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
-    from isaaclab_arena.tasks.fine_grained_progress_tracker import FineGrainedProgressTracker
+    from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
+    from isaaclab_arena.progress_tracking.fine_grained_progress_tracker import FineGrainedProgressTracker
 
     try:
         env = _MockEnv(num_envs=1)
@@ -217,8 +226,8 @@ def _test_state_machine_advances_sequentially(simulation_app) -> bool:
 
 def _test_state_machine_ignores_out_of_order_success(simulation_app) -> bool:
     """If a later predicate fires first, it's ignored until preceding ones have advanced."""
-    from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
-    from isaaclab_arena.tasks.fine_grained_progress_tracker import FineGrainedProgressTracker
+    from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
+    from isaaclab_arena.progress_tracking.fine_grained_progress_tracker import FineGrainedProgressTracker
 
     try:
         env = _MockEnv(num_envs=1)
@@ -256,8 +265,8 @@ def _test_state_machine_ignores_out_of_order_success(simulation_app) -> bool:
 
 def _test_state_machine_logical_any(simulation_app) -> bool:
     """Two parallel groups with logical=any complete as soon as either one finishes."""
-    from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
-    from isaaclab_arena.tasks.fine_grained_progress_tracker import FineGrainedProgressTracker
+    from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
+    from isaaclab_arena.progress_tracking.fine_grained_progress_tracker import FineGrainedProgressTracker
 
     try:
         env = _MockEnv(num_envs=1)
@@ -290,8 +299,8 @@ def _test_state_machine_logical_any(simulation_app) -> bool:
 
 def _test_state_machine_logical_all(simulation_app) -> bool:
     """Two groups with logical=all complete once all groups are complete."""
-    from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
-    from isaaclab_arena.tasks.fine_grained_progress_tracker import FineGrainedProgressTracker
+    from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
+    from isaaclab_arena.progress_tracking.fine_grained_progress_tracker import FineGrainedProgressTracker
 
     try:
         env = _MockEnv(num_envs=1)
@@ -325,8 +334,8 @@ def _test_state_machine_logical_all(simulation_app) -> bool:
 
 def _test_state_machine_logical_choose(simulation_app) -> bool:
     """Three groups with logical=choose and K=2 complete once any two groups are complete."""
-    from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
-    from isaaclab_arena.tasks.fine_grained_progress_tracker import FineGrainedProgressTracker
+    from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
+    from isaaclab_arena.progress_tracking.fine_grained_progress_tracker import FineGrainedProgressTracker
 
     try:
         env = _MockEnv(num_envs=1)
@@ -362,8 +371,8 @@ def _test_state_machine_logical_choose(simulation_app) -> bool:
 
 def _test_state_machine_reset_clears_state(simulation_app) -> bool:
     """Resetting an env_id zeroes its progress and event log, but leaves other envs alone."""
-    from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
-    from isaaclab_arena.tasks.fine_grained_progress_tracker import FineGrainedProgressTracker
+    from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
+    from isaaclab_arena.progress_tracking.fine_grained_progress_tracker import FineGrainedProgressTracker
 
     try:
         env = _MockEnv(num_envs=2)
@@ -403,8 +412,8 @@ def _test_state_machine_reset_clears_state(simulation_app) -> bool:
 
 def _test_gating_advance_when_parent_subtask_idx_matches(simulation_app) -> bool:
     """A FineGrainedProgressObjective with parent_subtask_idx=N advances when the env's _current_subtask_idx=N."""
-    from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
-    from isaaclab_arena.tasks.fine_grained_progress_tracker import FineGrainedProgressTracker
+    from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
+    from isaaclab_arena.progress_tracking.fine_grained_progress_tracker import FineGrainedProgressTracker
 
     try:
         env = _MockEnv(num_envs=1)
@@ -429,8 +438,8 @@ def _test_gating_advance_when_parent_subtask_idx_matches(simulation_app) -> bool
 
 def _test_gating_blocked_when_parent_subtask_idx_mismatches(simulation_app) -> bool:
     """A FineGrainedProgressObjective with parent_subtask_idx=N doesn't advance when the env's _current_subtask_idx!=N."""
-    from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
-    from isaaclab_arena.tasks.fine_grained_progress_tracker import FineGrainedProgressTracker
+    from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
+    from isaaclab_arena.progress_tracking.fine_grained_progress_tracker import FineGrainedProgressTracker
 
     try:
         env = _MockEnv(num_envs=1)
@@ -466,8 +475,8 @@ def _test_gating_sequential_task_end_to_end(simulation_app) -> bool:
     """Two FGPOs with different parent subtask indices. The parent's
     _current_subtask_idx advances over time. Each FGPO only progresses
     during its active window."""
-    from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
-    from isaaclab_arena.tasks.fine_grained_progress_tracker import FineGrainedProgressTracker
+    from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
+    from isaaclab_arena.progress_tracking.fine_grained_progress_tracker import FineGrainedProgressTracker
 
     try:
         env = _MockEnv(num_envs=1)
@@ -502,8 +511,8 @@ def _test_gating_sequential_task_end_to_end(simulation_app) -> bool:
 
 def _test_gating_noop_when_env_has_no_current_subtask_idx(simulation_app) -> bool:
     """For unordered composite tasks gating is a no-op and all FGPOs advance whenever their predicates are True."""
-    from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
-    from isaaclab_arena.tasks.fine_grained_progress_tracker import FineGrainedProgressTracker
+    from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
+    from isaaclab_arena.progress_tracking.fine_grained_progress_tracker import FineGrainedProgressTracker
 
     try:
         env = _MockEnv(num_envs=1)
@@ -532,8 +541,8 @@ def _test_recorder_publishes_to_extras_and_records_nothing(simulation_app) -> bo
     episode data) while still ticking the tracker and publishing the per-step state to
     ``env.extras["fine_grained_progress"]``.
     """
-    from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
-    from isaaclab_arena.tasks.fine_grained_progress_tracker import (
+    from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
+    from isaaclab_arena.progress_tracking.fine_grained_progress_tracker import (
         FineGrainedProgressObjectiveRecorderCfg,
         fine_grained_progress_reset_func,
     )
@@ -587,7 +596,7 @@ def _test_task_base_fine_grained_progress_objective_hooks(simulation_app) -> boo
     ``get_fine_grained_progress_objectives`` causes the events/recorder helpers to
     return real cfgs that the env builder picks up automatically.
     """
-    from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
+    from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
     from isaaclab_arena.tasks.task_base import TaskBase
 
     try:

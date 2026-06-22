@@ -11,8 +11,8 @@ from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.tasks.fine_grained_progress_objective import FineGrainedProgressObjective
-from isaaclab_arena.tasks.fine_grained_progress_tracker import (
+from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
+from isaaclab_arena.progress_tracking.fine_grained_progress_tracker import (
     make_fine_grained_progress_objective_events_cfg,
     make_fine_grained_progress_objective_recorder_cfg,
 )
