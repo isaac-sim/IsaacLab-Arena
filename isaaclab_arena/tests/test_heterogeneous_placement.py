@@ -453,17 +453,6 @@ def test_pooled_placer_env_specific_layouts_sample_from_fixed_env_order():
         assert hetero in draw.positions
 
 
-def test_pooled_placer_heterogeneous_sample_without_replacement():
-    """sample_without_replacement should return one layout per requested sample."""
-    desk, hetero, placer_params = _make_hetero_pool_objects()
-    pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=20, num_envs=4)
-
-    draws = pool.sample_without_replacement(4)
-    assert len(draws) == 4
-    for d in draws:
-        assert hetero in d.positions
-
-
 def test_pooled_placer_heterogeneous_sample_without_replacement_requires_complete_rounds():
     """sample_without_replacement should consume complete env rounds."""
     desk, hetero, placer_params = _make_hetero_pool_objects()
@@ -710,8 +699,39 @@ def test_pooled_placer_env_specific_valid_results_only_fill_short_envs():
     assert pool._env_pools[1].layouts == [ranked_results[1][0]]
 
 
-def test_pooled_placer_reusable_layouts_report_complete_env_rounds():
-    """Reusable layouts should still expose equal without-replacement capacity per env."""
+def test_pooled_placer_env_specific_partial_valid_results_kept_for_available_envs():
+    """When only some envs have a valid layout this batch, those are stored and the rest stay empty."""
+    desk, hetero, placer_params = _make_hetero_pool_objects()
+    pool = PooledObjectPlacer(objects=[desk, hetero], placer_params=placer_params, pool_size=2, num_envs=2)
+    for env_pool in pool._env_pools:
+        env_pool.layouts = []
+        env_pool.cursor = 0
+
+    valid_for_env0 = PlacementResult(
+        validation_results=_checklist(True),
+        positions={hetero: (0.0, 0.0, 0.0)},
+        final_loss=0.0,
+        attempts=1,
+    )
+    invalid_for_env1 = PlacementResult(
+        validation_results=_checklist(False),
+        positions={hetero: (1.0, 0.0, 0.0)},
+        final_loss=1.0,
+        attempts=1,
+    )
+    ranked_results = [[valid_for_env0], [invalid_for_env1]]
+
+    # No fallback: env 1 has no valid candidate this batch, so it stays empty
+    # while env 0's valid layout is still kept (partial fill is preserved).
+    pool._store_env_matched_results(ranked_results, layouts_per_env=1, target_per_env=1)
+
+    assert [env_pool.available for env_pool in pool._env_pools] == [1, 0]
+    assert pool._env_pools[0].layouts == [valid_for_env0]
+    assert pool._env_pools[1].layouts == []
+
+
+def test_pooled_placer_homogeneous_reports_complete_env_rounds():
+    """Homogeneous objects use per-env pools too and expose equal capacity per env."""
     desk = _make_desk()
     box = DummyObject(
         name="box",
@@ -723,39 +743,13 @@ def test_pooled_placer_reusable_layouts_report_complete_env_rounds():
     placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
 
     pool = PooledObjectPlacer(objects=[desk, box], placer_params=placer_params, pool_size=10, num_envs=4)
+    # Homogeneous objects route through per-env pools: every env gets equal capacity.
+    assert [env_pool.available for env_pool in pool._env_pools] == [3, 3, 3, 3]
     assert pool.remaining == 3
     draws = pool.sample_without_replacement(4)
     assert len(draws) == 4
+    assert [env_pool.available for env_pool in pool._env_pools] == [2, 2, 2, 2]
     assert pool.remaining == 2
-
-
-def test_pooled_placer_reusable_layouts_keep_partial_valid_results():
-    """Reusable layouts should not be dropped when fewer than num_envs are valid."""
-    desk = _make_desk()
-    box = DummyObject(
-        name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
-    )
-    box.add_relation(On(desk, clearance_m=0.01))
-
-    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3, verbose=False)
-    placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=None)
-
-    pool = PooledObjectPlacer(objects=[desk, box], placer_params=placer_params, pool_size=4, num_envs=4)
-    for env_pool in pool._env_pools:
-        env_pool.layouts = []
-        env_pool.cursor = 0
-
-    layouts = [
-        PlacementResult(
-            validation_results=_checklist(True), positions={box: (float(i), 0.0, 0.0)}, final_loss=0.0, attempts=1
-        )
-        for i in range(3)
-    ]
-    pool._store_reusable_results(layouts)
-
-    assert sum(len(env_pool.layouts) for env_pool in pool._env_pools) == 3
-    assert pool.remaining == 0
 
 
 def test_pooled_placer_mixed_heterogeneous_and_homogeneous_objects():
@@ -937,7 +931,6 @@ def test_real_rigid_object_set_through_pooled_placer():
 
     pool = PooledObjectPlacer(objects=[desk, obj_set], placer_params=placer_params, pool_size=20, num_envs=num_envs)
 
-    assert pool.requires_env_indexed_layouts
     assert pool.remaining > 0
 
     draws = pool.sample_without_replacement(num_envs)
