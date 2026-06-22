@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Long-lived SimulationApp sidecar for the review GUI (Unix socket JSON-RPC)."""
+"""Long-lived SimulationApp server for the review GUI (Unix socket JSON-RPC)."""
 
 from __future__ import annotations
 
@@ -76,7 +76,7 @@ def _serve_connection(
 def _serve_socket(socket_path: str) -> int:
     """Boot SimApp, bind ``socket_path``, and service requests sequentially."""
     from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec  # noqa: PLC0415
-    from isaaclab_arena_examples.agentic_environment_generation.review_gui.sidecar_service import (  # noqa: PLC0415
+    from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.boot import (  # noqa: PLC0415
         launch_simulation_app,
     )
     from isaaclab_arena_examples.agentic_environment_generation.review_gui.thumbnail_render import (  # noqa: PLC0415
@@ -87,7 +87,7 @@ def _serve_socket(socket_path: str) -> int:
 
     app = launch_simulation_app()
     if app is None:
-        print("[simapp_sidecar] SimulationApp launch returned None", file=sys.stderr)
+        print("[simapp] SimulationApp launch returned None", file=sys.stderr)
         return 1
 
     path = Path(socket_path)
@@ -98,7 +98,7 @@ def _serve_socket(socket_path: str) -> int:
     server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     server.bind(str(path))
     server.listen(5)
-    print(f"[simapp_sidecar] listening on {path}", file=sys.stderr)
+    print(f"[simapp] listening on {path}", file=sys.stderr)
 
     try:
         while True:
@@ -176,7 +176,6 @@ def _handle_render_spec(
     return {
         "ok": True,
         "paths": {node_id: str(p) for node_id, p in paths.items()},
-        "errors": [],
     }
 
 

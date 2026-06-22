@@ -56,8 +56,8 @@ def session_state(monkeypatch):
 
 
 @pytest.fixture
-def sidecar_validation(monkeypatch):
-    """Mock SimApp sidecar validation to exercise editor_panel without Kit."""
+def simapp_validation(monkeypatch):
+    """Mock SimApp validation to exercise editor_panel without Kit."""
 
     def _validate_yaml_text(yaml_text: str) -> dict:
         try:
@@ -74,19 +74,18 @@ def sidecar_validation(monkeypatch):
             return {"ok": False, "error": "spec validation failed", "traceback": traceback.format_exc()}
         return {"ok": True, "spec_dict": spec.to_dict()}
 
-    mock_sidecar = MagicMock()
-    mock_sidecar.validate_yaml_text.side_effect = _validate_yaml_text
-    mock_sidecar.is_alive.return_value = True
+    mock_simapp = MagicMock()
+    mock_simapp.validate_yaml_text.side_effect = _validate_yaml_text
     monkeypatch.setattr(
-        "isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel.ensure_sidecar",
-        lambda: mock_sidecar,
+        "isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel.ensure_simapp",
+        lambda: mock_simapp,
     )
-    return mock_sidecar
+    return mock_simapp
 
 
 class TestValidateYamlText:
     @pytest.mark.parametrize("text", ["", "   \n  "], ids=["empty", "whitespace"])
-    def test_blank_text_is_neutral(self, session_state, sidecar_validation, text: str):
+    def test_blank_text_is_neutral(self, session_state, simapp_validation, text: str):
         result = validate_yaml_text(text)
         assert result.spec is None
         assert result.error is None
@@ -95,7 +94,7 @@ class TestValidateYamlText:
         assert session_state["_validation_result"] is result
 
     def test_valid_spec_yaml(
-        self, session_state, sidecar_validation, valid_spec_yaml: str, valid_spec: ArenaEnvInitialGraphSpec
+        self, session_state, simapp_validation, valid_spec_yaml: str, valid_spec: ArenaEnvInitialGraphSpec
     ):
         result = validate_yaml_text(valid_spec_yaml)
         assert result.is_valid
@@ -113,16 +112,16 @@ class TestValidateYamlText:
         ],
         ids=["null_document", "non_mapping_root", "invalid_syntax", "invalid_schema"],
     )
-    def test_rejects_invalid_yaml(self, session_state, sidecar_validation, text: str, error_predicate):
+    def test_rejects_invalid_yaml(self, session_state, simapp_validation, text: str, error_predicate):
         result = validate_yaml_text(text)
         assert result.spec is None
         assert error_predicate(result.error)
 
-    def test_caches_result_for_same_text(self, session_state, sidecar_validation, valid_spec_yaml: str):
+    def test_caches_result_for_same_text(self, session_state, simapp_validation, valid_spec_yaml: str):
         first = validate_yaml_text(valid_spec_yaml)
-        sidecar_validation.validate_yaml_text.reset_mock()
+        simapp_validation.validate_yaml_text.reset_mock()
         second = validate_yaml_text(valid_spec_yaml)
-        sidecar_validation.validate_yaml_text.assert_not_called()
+        simapp_validation.validate_yaml_text.assert_not_called()
         assert second is first
 
 
@@ -366,16 +365,16 @@ class TestTrySaveInitialGraphSpec:
         assert "unknown node reference" in error
 
 
-class TestSimAppSidecarClient:
-    def test_disconnect_leaves_sidecar_listening(self, tmp_path: Path) -> None:
-        """Boot probe must not send shutdown — Streamlit connects after wait_for_sidecar."""
+class TestSimAppClient:
+    def test_disconnect_leaves_server_listening(self, tmp_path: Path) -> None:
+        """Boot probe must not send shutdown — Streamlit connects after wait_for_simapp_socket."""
         import json
         import socket
         import threading
 
-        from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_sidecar_client import (
-            SimAppSidecarClient,
-            wait_for_sidecar_socket,
+        from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
+            SimAppClient,
+            wait_for_simapp_socket,
         )
 
         socket_path = tmp_path / "probe.sock"
@@ -414,16 +413,16 @@ class TestSimAppSidecarClient:
             def poll(self) -> None:
                 return None
 
-        wait_for_sidecar_socket(str(socket_path), _Proc(), timeout_s=5.0, poll_interval_s=0.05)
+        wait_for_simapp_socket(str(socket_path), _Proc(), timeout_s=5.0, poll_interval_s=0.05)
         assert pings == 1
         assert shutdowns == 0
 
-        client = SimAppSidecarClient.connect(str(socket_path))
+        client = SimAppClient.connect(str(socket_path))
         assert client.ping()
         client.disconnect()
         assert shutdowns == 0
 
-        client = SimAppSidecarClient.connect(str(socket_path))
+        client = SimAppClient.connect(str(socket_path))
         client.shutdown()
         thread.join(timeout=2.0)
         assert shutdowns == 1

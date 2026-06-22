@@ -15,13 +15,12 @@ from streamlit_ace import st_ace
 
 from isaaclab_arena.agentic_environment_generation.spec_io import save_initial_graph_spec
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.sidecar_service import (
-    ensure_sidecar,
-    get_simapp_sidecar,
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import SimAppError
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
+    ensure_simapp,
+    get_simapp_client,
     render_dashboard_with_thumbnails,
-    spec_from_sidecar_dict,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_sidecar_client import SimAppSidecarError
 
 _BROKEN_PLACEHOLDER_HTML = """<!DOCTYPE html><html><body style="
     font-family: ui-monospace, monospace;
@@ -60,20 +59,20 @@ def validate_yaml_text(text: str) -> SpecParseResult:
             elif not isinstance(raw, dict):
                 result = SpecParseResult(spec=None, error=f"Expected mapping, got {type(raw).__name__}")
             else:
-                sidecar = ensure_sidecar()
-                if sidecar is None:
+                simapp = ensure_simapp()
+                if simapp is None:
                     result = SpecParseResult(
                         spec=None,
                         error=(
-                            "SimApp sidecar is unavailable — cannot validate registry entries. "
+                            "SimApp is unavailable — cannot validate registry entries. "
                             "Launch the review GUI via gui_runner and check its terminal for errors."
                         ),
                     )
                 else:
                     try:
-                        response = sidecar.validate_yaml_text(text)
-                    except SimAppSidecarError as exc:
-                        get_simapp_sidecar.clear()
+                        response = simapp.validate_yaml_text(text)
+                    except SimAppError as exc:
+                        get_simapp_client.clear()
                         result = SpecParseResult(spec=None, error=str(exc))
                     else:
                         if not response.get("ok"):
@@ -83,7 +82,7 @@ def validate_yaml_text(text: str) -> SpecParseResult:
                             result = SpecParseResult(spec=None, error=message)
                         else:
                             try:
-                                spec = spec_from_sidecar_dict(response["spec_dict"])
+                                spec = ArenaEnvInitialGraphSpec.model_validate(response["spec_dict"])
                                 result = SpecParseResult(spec=spec, error=None)
                             except Exception:
                                 result = SpecParseResult(spec=None, error=traceback.format_exc())

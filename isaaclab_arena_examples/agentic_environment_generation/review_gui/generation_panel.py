@@ -29,7 +29,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_pa
     SpecParseResult,
     try_save_initial_graph_spec,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.sidecar_service import (
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
     render_dashboard_with_thumbnails,
 )
 
