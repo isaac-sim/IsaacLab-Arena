@@ -275,33 +275,42 @@ class IntentCompiler:
     def _resolve_task_params_to_node_ids(
         self, tasks: list[TaskSpec], known_ids: set[str], query_to_instances: dict[str, list[str]]
     ) -> list[TaskSpec]:
-        """Resolve object-valued task params in place to concrete node ids.
+        """Resolve object-valued task params to concrete node ids, returning new specs.
 
         Each string param is resolved to the node id it references, picking one
         instance at random when the query is shared by several. A param that
         resolves to no node is left unchanged and flagged with a ``task.unknown_param``
         error trace (so :attr:`has_resolution_errors` reports it).
 
+        The input ``tasks`` (and the ``EnvironmentIntentSpec`` they belong to) are left
+        unmodified: each task is copied with a fresh ``params`` dict, so a second
+        ``compile`` of the same spec re-samples from scratch instead of finding already
+        resolved ids in ``known_ids`` and silently diverging.
+
         Args:
             tasks: Agent-emitted task specs.
             known_ids: The set of resolved graph node ids.
             query_to_instances: Map from item query to the node ids it produced.
         """
+        resolved_tasks: list[TaskSpec] = []
         for task in tasks:
             self.trace.append(
                 IntentResolutionTraceEvent("task.resolve", task.kind, task.kind, note=f"params={task.params}")
             )
-            for param_name, param_value in task.params.items():
-                if not isinstance(param_value, str):
-                    continue
-                chosen = self._resolve_reference_to_node_id(
-                    param_value,
-                    known_ids,
-                    query_to_instances,
-                    resolved_stage="task.resolved_param",
-                    unknown_stage="task.unknown_param",
-                    note=f"param={param_name}, task kind={task.kind}",
-                )
-                if chosen is not None:
-                    task.params[param_name] = chosen
-        return tasks
+            resolved_params = dict(task.params)
+            for param_name, param_value in resolved_params.items():
+                # ASSUMPTION: every string-valued task param is a node reference.
+                # Downstream conversion will check against the task class signature.
+                if isinstance(param_value, str):
+                    chosen = self._resolve_reference_to_node_id(
+                        param_value,
+                        known_ids,
+                        query_to_instances,
+                        resolved_stage="task.resolved_param",
+                        unknown_stage="task.unknown_param",
+                        note=f"param={param_name}, task kind={task.kind}",
+                    )
+                    if chosen is not None:
+                        resolved_params[param_name] = chosen
+            resolved_tasks.append(task.model_copy(update={"params": resolved_params}))
+        return resolved_tasks
