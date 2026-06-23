@@ -542,13 +542,11 @@ class NoCollisionLossStrategy:
         fixed_min: torch.Tensor,
         fixed_max: torch.Tensor,
     ) -> torch.Tensor:
-        """Overlap-volume loss for boxes already reduced to world-space extents.
+        """Overlap-volume no-overlap loss for boxes already reduced to world-space extents.
 
-        Same formula as compute_loss (slope * per-axis overlap product, fixed box
-        expanded by clearance), but operating on pre-stacked extents so many pairs can
-        be scored at once. The moving box carries gradient; the fixed box is the
-        obstacle. Extents share a trailing axis of size 3 and any leading shape (e.g.
-        (N, 3) or (num_pairs, N, 3)); the loss drops the trailing axis.
+        Batched sibling of compute_loss: the moving box carries gradient, the fixed box is
+        the obstacle (expanded by clearance). Extents share a trailing axis of size 3 and any
+        leading shape (e.g. (N, 3) or (num_pairs, N, 3)).
 
         Args:
             clearance_m: Minimum clearance between boxes in meters.
@@ -556,6 +554,9 @@ class NoCollisionLossStrategy:
             moving_max: World-space max extent of the moving box (..., 3).
             fixed_min: World-space min extent of the fixed box (..., 3).
             fixed_max: World-space max extent of the fixed box (..., 3).
+
+        Returns:
+            Loss tensor matching the input leading shape (the trailing axis of 3 is dropped).
         """
         fixed_min = fixed_min - clearance_m
         fixed_max = fixed_max + clearance_m

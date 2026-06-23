@@ -231,7 +231,7 @@ class RelationSolver:
         fixed_min = torch.stack([p.fixed_min for p in pairs], dim=0)
         fixed_max = torch.stack([p.fixed_max for p in pairs], dim=0)
 
-        # Single batched op over all pairs; the strategy owns the loss formula.
+        # Strategy owns the loss formula; score every pair at once.
         pair_loss = self._no_collision_strategy.compute_loss_batched(
             self.params.clearance_m, moving_min, moving_max, fixed_min, fixed_max
         )  # (num_pairs, batch)

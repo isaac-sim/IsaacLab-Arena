@@ -472,6 +472,61 @@ def test_vectorized_no_overlap_matches_reference_anchor_pairs():
     _assert_vectorized_matches_reference(objects, initial_positions, expect_positive=True)
 
 
+def test_vectorized_no_overlap_empty_pairs_returns_zero():
+    """A lone non-anchor related only On the anchor leaves no scored pairs -> zero loss."""
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    box = _create_box("box")
+    box.add_relation(On(table, clearance_m=0.01))  # the only pair (box, table) is On -> skipped
+    objects = [table, box]
+    initial_positions = [{table: (0.0, 0.0, 0.0), box: (0.3, 0.3, 0.11)}]
+
+    solver = RelationSolver(params=RelationSolverParams(verbose=False))
+    state = RelationSolverState(objects, initial_positions, device=torch.device("cpu"))
+    loss = solver._compute_no_overlap_loss(state)  # pyright: ignore[reportPrivateUsage]
+
+    assert solver._last_no_overlap_pair_count == 0  # pyright: ignore[reportPrivateUsage]
+    assert loss.shape == (1,)
+    assert torch.allclose(loss, torch.zeros_like(loss))
+
+
+def test_vectorized_no_overlap_is_per_env_independent(capsys):
+    """Per-env losses stay independent (no batch-axis collapse) and the debug breakdown prints."""
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    box_a = _create_box("box_a")
+    box_b = _create_box("box_b")  # free (non-On): child-vs-anchor pairs are active
+    objects = [table, box_a, box_b]
+    initial_positions = [
+        {table: (0.0, 0.0, 0.0), box_a: (0.20, 0.20, 0.05), box_b: (0.22, 0.22, 0.05)},  # overlapping
+        {table: (0.0, 0.0, 0.0), box_a: (0.20, 0.20, 5.0), box_b: (5.0, 5.0, 5.0)},  # well separated
+    ]
+
+    solver = RelationSolver(params=RelationSolverParams(verbose=False))
+    state = RelationSolverState(objects, initial_positions, device=torch.device("cpu"))
+    loss = solver._compute_no_overlap_loss(state, debug=True)  # pyright: ignore[reportPrivateUsage]
+
+    assert loss[0] > 0
+    assert torch.allclose(loss[1], torch.zeros_like(loss[1]))
+    assert "[NoOverlap]" in capsys.readouterr().out
+
+
+def test_solver_profile_prints_timing(capsys):
+    """profile=True prints a timing line (covers the ms/iter division) without error."""
+    table, box_a, box_b = _create_no_collision_scene()
+    objects = [table, box_a, box_b]
+    initial_positions = [{table: (0.0, 0.0, 0.0), box_a: (0.2, 0.2, 0.11), box_b: (0.25, 0.25, 0.11)}]
+
+    solver = RelationSolver(params=RelationSolverParams(max_iters=5, verbose=False, profile=True))
+    solver.solve(objects=objects, initial_positions=initial_positions)
+
+    out = capsys.readouterr().out
+    assert "[RelationSolver] solve:" in out
+    assert "ms/iter" in out
+
+
 def test_relation_solver_multi_env_returns_list_of_dicts():
     """Test that solver returns list[dict] when given list[dict] input."""
     table, box_a, box_b = _create_no_collision_scene()
