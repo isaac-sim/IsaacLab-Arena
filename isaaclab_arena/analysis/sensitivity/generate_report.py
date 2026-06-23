@@ -32,11 +32,11 @@ def generate_report(
         episode_results_path: episode_results.jsonl produced by the per-episode recorder.
         output_path: Destination figure file (parent dirs created if absent).
         outcome_names: Which per-episode outcome(s) to condition on.
-        factor_names: Which recorded variations to analyze; None (default) analyzes all of them.
-        observation: Outcome values to condition on, one per outcome name. Defaults to
-            conditioning on success (1) for every (binary) outcome.
-        seed: Seed for torch's global RNG, set once before fitting so the estimator training
-            and posterior sampling are reproducible. Pass ``None`` to leave the RNG untouched.
+        factor_names: Which recorded variations to analyze. None analyzes all of them.
+        observation: Outcome values to condition on, one per outcome name. None conditions on
+            success (1) for every binary outcome.
+        seed: Seed for torch's global RNG so a report is reproducible. Pass None to leave the
+            RNG untouched.
 
     Returns:
         The resolved output path.
@@ -78,7 +78,7 @@ def main():
         "--output",
         type=str,
         default="eval/sensitivity_report.png",
-        help="Output figure file; format follows the extension (.png, .pdf, …). Default: eval/sensitivity_report.png.",
+        help="Output figure file. Format follows the extension (.png, .pdf, …). Default: eval/sensitivity_report.png.",
     )
     parser.add_argument(
         "--outcome",
@@ -93,7 +93,7 @@ def main():
         nargs="+",
         default=None,
         help=(
-            "Which recorded variations to analyze (keys in each row's variations block; a vector "
+            "Which recorded variations to analyze (keys in each row's variations block, a vector "
             "variation keeps all its components). Default: all recorded variations."
         ),
     )
@@ -111,7 +111,7 @@ def main():
         "--seed",
         type=int,
         default=0,
-        help="Seed for torch's global RNG, so estimator training + sampling are reproducible. Default: 0.",
+        help="Seed for torch's global RNG so a report is reproducible. Default: 0.",
     )
     args = parser.parse_args()
 

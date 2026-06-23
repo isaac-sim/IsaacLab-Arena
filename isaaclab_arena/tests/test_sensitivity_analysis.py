@@ -91,7 +91,7 @@ def test_npe_recovers_two_continuous_effects():
 
 
 def _write_jsonl(path, rows: list[dict]) -> None:
-    """Write one JSON object per line to ``path``."""
+    """Write one JSON object per line to path."""
     path.write_text("\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8")
 
 
@@ -151,7 +151,7 @@ def test_from_episode_results_discovers_mixed_continuous_and_categorical(tmp_pat
 
 
 def test_from_episode_results_drops_constant_factors(tmp_path):
-    """A factor that took a single value across all episodes is dropped; varying factors survive."""
+    """A factor that took a single value across all episodes is dropped, varying factors survive."""
     jsonl = tmp_path / "episode_results.jsonl"
     _write_jsonl(
         jsonl,
@@ -203,7 +203,7 @@ def test_from_episode_results_treats_bool_variation_as_categorical(tmp_path):
 
 
 def test_from_episode_results_rejects_inconsistent_factor_set(tmp_path):
-    """Every episode must record the same variations; a row with a different factor set raises."""
+    """Every episode must record the same variations, so a row with a different factor set raises."""
     jsonl = tmp_path / "episode_results.jsonl"
     _write_jsonl(
         jsonl,
@@ -230,7 +230,7 @@ def test_from_episode_results_rejects_non_numeric_vector_component(tmp_path):
 
 
 def test_from_episode_results_selects_factor_subset(tmp_path):
-    """factor_names restricts the analysis to the named variations; a vector keeps all components."""
+    """factor_names restricts the analysis to the named variations, a vector keeps all components."""
     jsonl = tmp_path / "episode_results.jsonl"
     _write_jsonl(
         jsonl,

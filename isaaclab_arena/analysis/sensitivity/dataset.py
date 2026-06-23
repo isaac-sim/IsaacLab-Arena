@@ -22,10 +22,10 @@ class FactorType(str, Enum):
 
 @dataclass
 class FactorSpec:
-    """One factor's schema. It occupies exactly one column of theta.
+    """One factor's schema, occupying a single column of theta.
 
-    Continuous factors carry a range (a single [low, high] pair); categorical
-    factors carry choices (a list of string labels, integer-encoded by index in theta).
+    A continuous factor carries a range, one [low, high] pair. A categorical factor carries
+    choices, a list of string labels that are integer-encoded by their index in theta.
     """
 
     name: str
@@ -44,14 +44,10 @@ class FactorSpec:
 class SensitivityDataset:
     """The varied factors paired with their per-episode theta (factor values) and x (outcomes).
 
-    The object is a pure container: it holds the factor list and the two tensors, and exposes
-    the column layout an analyzer consumes. It can be built two ways:
-
-      - from_episode_results — parse an episode_results.jsonl, discovering the factors from the
-        recorded variation draws (the path eval runs take).
-      - the constructor — wrap in-memory tensors directly (what a synthetic simulator or
-        a unit test takes). The tensors must already be in the layout factor_columns
-        describes: continuous columns first, then one integer-coded column per categorical.
+    A pure container holding the factor list, the two tensors, and the column layout an analyzer
+    reads. Build it from an episode_results.jsonl with from_episode_results, or pass tensors
+    straight to the constructor. Either way theta is continuous columns first, then one
+    integer-coded column per categorical factor.
     """
 
     def __init__(
@@ -64,8 +60,8 @@ class SensitivityDataset:
         """Wrap an in-memory factor list plus its theta / x tensors, validating shapes.
 
         Args:
-            factors: The varied factors, one per theta column. Continuous factors must carry
-                a range; categorical factors must carry choices.
+            factors: The varied factors, one per theta column. A continuous factor must carry a
+                range, a categorical factor must carry choices.
             theta: (num_episodes, num_factors) factor matrix, continuous-first.
             x: (num_episodes, num_outcomes) outcome matrix.
             outcome_names: Name of each outcome column in x, in order (used for plot labels).
@@ -91,28 +87,27 @@ class SensitivityDataset:
         outcome_names: list[str] | tuple[str, ...] = ("success",),
         factor_names: list[str] | tuple[str, ...] | None = None,
     ) -> SensitivityDataset:
-        """Build a dataset from an episode_results.jsonl, discovering the factor schema from the data.
+        """Build a dataset from an episode_results.jsonl, discovering the factors from the data.
 
-        Each line is one episode. The ``variations`` block holds the sampled factor draws, and the
-        top-level fields named by ``outcome_names`` hold the outcomes; any other top-level fields are
-        ignored. Factor types are inferred from the values: a number is a continuous factor, a numeric
-        vector becomes one continuous factor per component (named ``key[i]``), and a string is a
-        categorical factor over its observed labels.
+        Each line is one episode. The variations block holds the sampled factor draws, and the
+        top-level fields named by outcome_names hold the outcomes. Other top-level fields are
+        ignored. A number becomes a continuous factor, a numeric vector becomes one continuous
+        factor per component (named key[i]), and a string becomes a categorical factor over its
+        observed labels.
 
-        Example line (one vector and one string factor, conditioned on ``success``):
+        Example line, one vector and one string factor:
 
             {"success": true,
              "variations": {"wrist_camera": [0.01, -0.02, 0.0], "hdr_image": "sunset"}}
 
         Args:
-            jsonl_path: Path to the episode_results.jsonl (one JSON object per line).
-            outcome_names: Which top-level field(s) per line to use as outcomes.
-            factor_names: Which recorded variations to analyze (keys in each row's ``variations``
-                block; a vector variation is selected by its base name and keeps all components).
-                None — the default — analyzes every recorded variation.
+            jsonl_path: Path to the episode_results.jsonl, one JSON object per line.
+            outcome_names: Top-level field(s) per line to use as outcomes.
+            factor_names: Which recorded variations to analyze, by their variations-block name. A
+                vector is selected by its base name and keeps every component. None analyzes all.
 
         Returns:
-            A SensitivityDataset with theta / x in the continuous-first layout the analyzers expect.
+            A SensitivityDataset whose theta / x use the continuous-first layout the analyzers read.
         """
         jsonl_text = Path(jsonl_path).read_text(encoding="utf-8")
         rows = [json.loads(line) for line in jsonl_text.splitlines() if line.strip()]
@@ -125,8 +120,8 @@ class SensitivityDataset:
     def theta(self) -> torch.Tensor:
         """(num_episodes, num_factors) matrix of factor values, one row per episode.
 
-        This is the "input" sbi infers a posterior over. Column layout is given by
-        factor_columns — continuous factors first, then categoricals (integer-coded).
+        The column layout is given by factor_columns, continuous factors first then categoricals
+        (integer-coded).
         """
         return self._theta
 
@@ -134,8 +129,7 @@ class SensitivityDataset:
     def x(self) -> torch.Tensor:
         """(num_episodes, num_outcomes) matrix of outcome values, one row per episode.
 
-        This is what the analyzer conditions queries on — "what factor values were consistent
-        with observing these outcomes?". Columns are named by ``outcome_names``.
+        Columns are named by outcome_names. These are the values a query conditions on.
         """
         return self._x
 
@@ -146,21 +140,19 @@ class SensitivityDataset:
 
     @property
     def factor_columns(self) -> dict[str, slice]:
-        """Map factor name → its single-column slice in theta.
+        """Map each factor name to its single-column slice in theta.
 
-        Continuous factors take the leading columns, then categoricals — the continuous-first
-        layout sbi's mixed density estimator expects. Each factor occupies exactly one column.
+        Continuous factors take the leading columns, then categoricals. Each factor is one column.
         """
         continuous = [factor for factor in self.factors if factor.type == "continuous"]
         categorical = [factor for factor in self.factors if factor.type == "categorical"]
         return {factor.name: slice(index, index + 1) for index, factor in enumerate(continuous + categorical)}
 
     def default_observation(self) -> torch.Tensor:
-        """The default outcome vector to condition a query on: success (1) for every outcome.
+        """The outcome vector a query conditions on by default: success (1) for every outcome.
 
-        Outcomes are binary (0/1) in the current scope, so the natural default query is
-        "what produced success?". Asserts the outcomes are binary, so adding a continuous
-        outcome later fails loudly here instead of silently conditioning on a meaningless value.
+        Outcomes are binary (0/1), so the natural query is what produced success. The assertion
+        keeps a continuous outcome from being used here silently.
         """
         is_binary = set(self._x.flatten().tolist()).issubset({0.0, 1.0})
         assert is_binary, "default_observation assumes binary (0/1) outcomes; pass an explicit observation otherwise."
@@ -177,15 +169,15 @@ def _flatten_variation_value(
 ) -> list[tuple[str, float | str]]:
     """Turn one recorded variation draw into (factor_name, scalar) pairs.
 
-    A numeric vector is split into one pair per component (name suffixed ``[i]``); a bare number
-    or string yields a single pair under ``key``. Bools are treated as categorical labels, not
-    0/1 continuous values.
+    A numeric vector becomes one pair per component, each named key[i]. A bare number or string
+    becomes a single pair under key. A bool is treated as a categorical label rather than a 0/1
+    number.
 
     Args:
-        key: The variation key (``"<asset>.<variation>"``).
+        key: The variation name, asset.variation.
         value: The recorded draw for one episode.
-        row_index: Source row index, for error messages.
-        jsonl_path: Source path, for error messages.
+        row_index: Source row index, used in error messages.
+        jsonl_path: Source path, used in error messages.
 
     Returns:
         The (factor_name, scalar) pairs this draw contributes.
@@ -223,24 +215,21 @@ def _build_dataset_from_episode_rows(
     jsonl_path: str | Path,
     factor_names: list[str] | tuple[str, ...] | None = None,
 ) -> tuple[list[FactorSpec], torch.Tensor, torch.Tensor]:
-    """Discover the factors and assemble theta / x directly from episode_results rows.
+    """Discover the factors from the rows and build the theta and x tensors.
 
-    Each row's ``variations`` entries are flattened into (factor_name, value) pairs (see
-    _flatten_variation_value) and a factor's type is inferred from its values: numeric →
-    continuous (range = observed [min, max]), string → categorical (choices = sorted observed
-    labels). theta is laid out continuous-first with categoricals integer-coded; x has one column
-    per outcome name. The factor set must be identical across every row. Factors that took a single
-    value across all episodes are dropped (they carry no information); if none vary, this raises.
+    Each variation draw becomes a factor (see _flatten_variation_value), typed from its values:
+    numeric is continuous, string is categorical. theta is continuous columns first then
+    categorical (integer-coded), and x has one column per outcome. Every row must record the same
+    factors. A factor that never varied is dropped, and an all-constant input raises.
 
     Args:
         rows: Parsed episode_results records, one per episode.
         outcome_names: Top-level field name(s) to read as outcomes.
-        jsonl_path: Source path, for error messages.
-        factor_names: Which ``variations`` keys to keep (a vector keeps all its components);
-            None keeps every recorded variation.
+        jsonl_path: Source path, used in error messages.
+        factor_names: Which variations keys to keep, a vector keeping every component. None keeps all.
 
     Returns:
-        The discovered factors (continuous-first) and the theta / x tensors.
+        The discovered factors, continuous-first, and the theta / x tensors.
     """
     selected = set(factor_names) if factor_names is not None else None
     if selected is not None:
@@ -294,12 +283,12 @@ def _build_dataset_from_episode_rows(
 
     assert factor_order, f"No factors discovered in {jsonl_path}: every row's 'variations' block was empty."
 
-    # Continuous factors lead theta (sbi's mixed-estimator convention); categoricals follow.
+    # Continuous factors lead theta, then categorical.
     continuous_names = [name for name in factor_order if factor_kinds[name] == "continuous"]
     categorical_names = [name for name in factor_order if factor_kinds[name] == "categorical"]
 
-    # Drop factors that took a single value across all episodes: they carry no information, and a
-    # constant categorical would crash MNPE's mixed-density transform during fit.
+    # Drop factors that took a single value: they carry no information, and a constant categorical
+    # breaks the estimator fit.
     factors: list[FactorSpec] = []
     columns: list[torch.Tensor] = []
     dropped: list[str] = []
