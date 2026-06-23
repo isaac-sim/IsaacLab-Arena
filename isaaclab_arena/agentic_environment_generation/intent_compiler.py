@@ -27,7 +27,7 @@ from isaaclab_arena.environments.arena_env_graph_types import (
 class IntentCompiler:
     """Compiles an agent intent spec into a validated :class:`ArenaEnvInitialGraphSpec`."""
 
-    _ERROR_TRACE_STAGES: frozenset[str] = frozenset({
+    INTENT_ERROR_STAGES: frozenset[str] = frozenset({
         "relation.initial.unknown_subject",
         "relation.initial.unknown_reference",
         "task.unknown_param",
@@ -44,7 +44,7 @@ class IntentCompiler:
     @property
     def resolution_errors(self) -> list[IntentResolutionTraceEvent]:
         """Trace events flagged as failures of the last :meth:`compile` call."""
-        error_stages = ASSET_ERROR_STAGES | self._ERROR_TRACE_STAGES
+        error_stages = ASSET_ERROR_STAGES | self.INTENT_ERROR_STAGES
         return [e for e in self.trace if e.stage in error_stages]
 
     @property
