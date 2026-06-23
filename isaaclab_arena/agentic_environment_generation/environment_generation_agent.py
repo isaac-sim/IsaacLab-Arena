@@ -327,5 +327,10 @@ initial_state_graph (subject=object, reference=background) to anchor them.
 - Distractor items around the appliance need the same 'on' pattern in initial_state_graph.
 - Do not invent relation or task kinds absent from RELATIONS / TASKS.
 - Each task entry needs kind, params (all required keys from TASKS), and description.
-- params values are Item.query strings or the background name, not registry asset names.
+- params values are node ids or the background name, not registry asset names.
+- NODE IDS: an item's id is its instance_name if set, else its query. For multiple
+  items of the same kind, give each a unique instance_name and use those exact ids everywhere.
+- Every relation subject/reference and object task param must name one node id — never
+  a bare query that maps to several instances. Each must name exactly one;
+  if the prompt doesn't say which, pick any.
 """

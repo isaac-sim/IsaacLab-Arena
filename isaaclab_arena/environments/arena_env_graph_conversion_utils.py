@@ -155,6 +155,12 @@ def _instantiate_assets_from_nodes(node_specs: list[ArenaEnvGraphNodeSpec], asse
             # Standard nodes (object / background / embodiment): look up the registered class
             # by name and instantiate with the spec's verbatim kwargs.
             asset_class = asset_registry.get_asset_by_name(node_spec.name)
+
+            # Bind the asset's name to the unique node id so multiple instances of the same
+            # registered asset (e.g. 5 bananas) don't collapse to one name/prim_path and
+            # overwrite each other in the Scene (which keys assets by name).
+            if node_spec.type == ArenaEnvGraphNodeType.OBJECT and "instance_name" not in node_spec.params:
+                node_spec.params["instance_name"] = node_spec.id
             assets_by_node_id[node_spec.id] = asset_class(**node_spec.params)
     return assets_by_node_id
 

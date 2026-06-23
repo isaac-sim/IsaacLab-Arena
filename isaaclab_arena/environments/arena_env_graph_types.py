@@ -104,8 +104,10 @@ class TaskSpec(BaseModel):
     params: dict[str, Any] = Field(
         default_factory=dict,
         description=(
-            "Constructor kwargs for the task (listed in TASKS). "
-            "Values are Item.query strings or the background name for scene parameters."
+            "Constructor kwargs for the task (listed in TASKS). Each object param must "
+            "name exactly one node: its instance_name if set, else its query. If several "
+            "match (e.g. 5 bananas), pick one (e.g. 'banana_1'). Scene params use the "
+            "background name."
         ),
     )
     description: str | None = Field(
@@ -147,18 +149,18 @@ class SpatialRelationSpec(BaseModel):
     subject: str = Field(
         min_length=1,
         description=(
-            "Object (Item.query) this relation applies to. For binary relations "
-            "(e.g. 'on'), this is the object placed relative to ``reference``. "
-            "For unary relations (e.g. 'is_anchor', 'position_limits'), this is "
-            "the anchored or constrained object."
+            "Node id this relation applies to — its instance_name if set, else its query. "
+            "For binary relations (e.g. 'on'), it's the object placed relative to "
+            "``reference``. For unary relations (e.g. 'is_anchor', 'position_limits'), "
+            "it's the anchored or constrained object."
         ),
     )
     reference: str | None = Field(
         default=None,
         description=(
-            "Reference (Item.query or background name) for binary relations only "
-            "— e.g. for 'on', the surface the subject rests on. Must be null "
-            "for unary relations."
+            "Reference node id (an item's instance_name/query or the background name) "
+            "for binary relations only — e.g. for 'on', the surface the subject rests "
+            "on. Must be null for unary relations."
         ),
     )
     # TODO(qianl): free-form ``dict`` emits ``additionalProperties: true``,
