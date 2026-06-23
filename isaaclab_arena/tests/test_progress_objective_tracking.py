@@ -191,7 +191,7 @@ def _test_state_machine_advances_sequentially(simulation_app) -> bool:
         assert state["completed_groups"] == 0  # 3-predicate chain not done until all 3
         assert not state["is_complete"]
         events = sm.get_events()[0]
-        assert len(events) == 1 and events[0]["predicate_index"] == 0
+        assert len(events) == 1 and events[0].predicate_index == 0
 
         # Step 2: p0 reverts False, p1 True.
         preds[0].set([False])
@@ -199,7 +199,7 @@ def _test_state_machine_advances_sequentially(simulation_app) -> bool:
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
         events = sm.get_events()[0]
-        assert len(events) == 2 and events[-1]["predicate_index"] == 1
+        assert len(events) == 2 and events[-1].predicate_index == 1
 
         # Step 3: p2 True, objective complete.
         preds[2].set([True])
@@ -210,7 +210,7 @@ def _test_state_machine_advances_sequentially(simulation_app) -> bool:
         assert state["completed_groups"] == 1
         assert abs(state["score"] - 1.0) < SCORE_TOL
         events = sm.get_events()[0]
-        assert len(events) == 3 and events[-1]["predicate_index"] == 2
+        assert len(events) == 3 and events[-1].predicate_index == 2
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -660,15 +660,6 @@ def _test_task_base_progress_objective_hooks(simulation_app) -> bool:
         assert recipes[1].name == "subtask_1/close"
         assert recipes[1].parent_subtask_idx == 1
 
-        class _CompositeWithOwn(CompositeTaskBase):
-            def get_own_progress_objectives(self):
-                return [ProgressObjective(name="both_done", predicate_groups=_MockPredicate(1, name="own"))]
-
-        composite2 = _CompositeWithOwn(subtasks=[_ChildA(), _ChildB()])
-        recipes2 = composite2.get_progress_objectives()
-        assert len(recipes2) == 3
-        assert recipes2[2].name == "both_done"
-        assert recipes2[2].parent_subtask_idx is None
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()

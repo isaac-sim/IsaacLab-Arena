@@ -16,7 +16,7 @@ from isaaclab_arena.progress_tracking.progress_tracking_utils import (
 )
 
 
-class LogicalMode(str, Enum):
+class ProgressObjectiveCompletionMode(str, Enum):
     """How completed groups combine to determine whether a ProgressObjective is complete."""
 
     ALL = "all"
@@ -46,7 +46,7 @@ class ProgressObjective:
         predicate_groups: The sequential predicate chains that define the ProgressObjective.
         score: Weight of the ProgressObjective in the TaskBase-level overall_score.
         logical: How completed groups combine to determine if the ProgressObjective is complete.
-            A LogicalMode (ALL, ANY, or CHOOSE); a matching string value is also accepted.
+            A ProgressObjectiveCompletionMode (ALL, ANY, or CHOOSE); a matching string value is also accepted.
         K: Required when logical == "choose". Specifies the number of groups that must be completed
             to consider the ProgressObjective complete.
         description: An optional description of the ProgressObjective.
@@ -55,7 +55,7 @@ class ProgressObjective:
     name: str
     predicate_groups: PredicateGroups
     score: float = 1.0
-    logical: LogicalMode = LogicalMode.ALL
+    logical: ProgressObjectiveCompletionMode = ProgressObjectiveCompletionMode.ALL
     K: int | None = None
     description: str | None = None
 
@@ -67,8 +67,8 @@ class ProgressObjective:
 
     def __post_init__(self):
         assert 0.0 <= self.score <= 1.0, f"ProgressObjective '{self.name}': score must be in [0, 1], got {self.score}"
-        # Accept either a LogicalMode or its string value; normalize to the enum (raises on invalid).
-        self.logical = LogicalMode(self.logical)
+        # Accept either a ProgressObjectiveCompletionMode or its string value; normalize to the enum (raises on invalid).
+        self.logical = ProgressObjectiveCompletionMode(self.logical)
 
         # Format the predicate groups into the canonical form and normalize the scores.
         formatted = _format_predicate_groups(self.predicate_groups)
@@ -77,7 +77,7 @@ class ProgressObjective:
 
         # Validate the logical and K parameters.
         num_groups = len(self.canonical_predicate_groups)
-        if self.logical == LogicalMode.CHOOSE:
+        if self.logical == ProgressObjectiveCompletionMode.CHOOSE:
             assert self.K is not None, f"ProgressObjective '{self.name}': K is required when logical='choose'"
             assert 1 <= self.K <= num_groups, (
                 f"ProgressObjective '{self.name}': K={self.K} but must be in [1, {num_groups}]"
