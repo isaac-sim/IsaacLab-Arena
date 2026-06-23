@@ -25,6 +25,9 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.cl
     SimAppError,
     simapp_socket_from_env,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.thumbnail_render import (
+    resolve_node_aabb_dimensions_m,
+)
 
 
 @st.cache_resource(show_spinner=False)
@@ -105,21 +108,26 @@ def render_dashboard_with_thumbnails(spec: ArenaEnvInitialGraphSpec) -> str:
 
     simapp_expected = simapp_socket_from_env() is not None
     client = ensure_simapp() if simapp_expected else None
+    aabb_dimensions_m = resolve_node_aabb_dimensions_m(spec)
     if client is None:
         if simapp_expected:
             _warn_simapp_unavailable_once()
-        html = render_dashboard_html(spec)
+        html = render_dashboard_html(spec, aabb_dimensions_m=aabb_dimensions_m or None)
         _store_dashboard_html(spec_key, html)
         return html
 
     try:
-        thumbnails = client.render_spec(spec)
+        thumbnails, aabb_dimensions_m = client.render_spec(spec)
     except SimAppError as exc:
         _show_simapp_render_error_once(exc)
         get_simapp_client.clear()
-        return render_dashboard_html(spec)
+        return render_dashboard_html(spec, aabb_dimensions_m=aabb_dimensions_m or None)
 
-    html = render_dashboard_html(spec, thumbnails=thumbnails if thumbnails else None)
+    html = render_dashboard_html(
+        spec,
+        thumbnails=thumbnails if thumbnails else None,
+        aabb_dimensions_m=aabb_dimensions_m or None,
+    )
     _store_dashboard_html(spec_key, html)
     return html
 

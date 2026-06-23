@@ -61,17 +61,28 @@ def render_tasks_table(spec: ArenaEnvInitialGraphSpec) -> str:
     )
 
 
-def render_node_cards(spec: ArenaEnvInitialGraphSpec, thumbnails: dict[str, bytes] | None = None) -> str:
+def render_node_cards(
+    spec: ArenaEnvInitialGraphSpec,
+    thumbnails: dict[str, bytes] | None = None,
+    aabb_dimensions_m: dict[str, tuple[float, float, float]] | None = None,
+) -> str:
     """Render one card per graph node for the dashboard nodes panel."""
     thumbnails = thumbnails or {}
-    return "\n".join(render_node_card(node, thumbnails.get(node.id)) for node in spec.nodes)
+    aabb_dimensions_m = aabb_dimensions_m or {}
+    return "\n".join(
+        render_node_card(node, thumbnails.get(node.id), aabb_dimensions_m.get(node.id)) for node in spec.nodes
+    )
 
 
-def render_node_card(node: ArenaEnvGraphNodeSpec, png_bytes: bytes | None = None) -> str:
+def render_node_card(
+    node: ArenaEnvGraphNodeSpec,
+    png_bytes: bytes | None = None,
+    aabb_dimensions_m: tuple[float, float, float] | None = None,
+) -> str:
     """Render a single node card with USD snapshot or placeholder thumbnail and YAML dump."""
     node_dict = node.model_dump(mode="json", exclude_none=True)
     node_yaml = yaml.safe_dump(node_dict, sort_keys=False).rstrip()
-    thumb = render_node_thumbnail(node, png_bytes)
+    thumb = render_node_thumbnail(node, png_bytes, aabb_dimensions_m)
     return f"""<article class="node-card type-{html_lib.escape(node.type.value)}">
   {thumb}
   <div class="node-meta">

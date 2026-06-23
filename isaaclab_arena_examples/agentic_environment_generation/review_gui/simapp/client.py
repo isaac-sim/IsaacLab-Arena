@@ -70,7 +70,9 @@ class SimAppClient:
                 pass
             self._close_handles()
 
-    def render_spec(self, spec: ArenaEnvInitialGraphSpec) -> dict[str, bytes]:
+    def render_spec(
+        self, spec: ArenaEnvInitialGraphSpec
+    ) -> tuple[dict[str, bytes], dict[str, tuple[float, float, float]]]:
         """Ask the SimApp server to render thumbnails for ``spec``."""
         yaml_text = yaml.safe_dump(spec.to_dict(), sort_keys=False)
         with self._lock:
@@ -92,7 +94,14 @@ class SimAppClient:
                     f"[review_gui]   SimApp reported {node_id} -> {path_str} but file is missing.",
                     file=sys.stderr,
                 )
-        return results
+
+        raw_dims: dict[str, list[float]] = response.get("aabb_dimensions_m", {}) or {}
+        aabb_dimensions_m: dict[str, tuple[float, float, float]] = {}
+        for node_id, dims in raw_dims.items():
+            if isinstance(dims, list) and len(dims) == 3:
+                aabb_dimensions_m[node_id] = (float(dims[0]), float(dims[1]), float(dims[2]))
+
+        return results, aabb_dimensions_m
 
     def run_sim_preview(self, yaml_text: str) -> dict[str, Any]:
         """Run a multi-env relation-solver rollout preview in the SimApp server."""

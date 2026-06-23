@@ -25,12 +25,28 @@ _RENDERABLE_NODE_TYPES = frozenset({
 })
 
 
-def _render_thumbnails_with_app(app, spec: ArenaEnvInitialGraphSpec) -> dict[str, Path]:
-    """Render cache-missed node thumbnails and return ``{node.id: png_path}``."""
+AabbDimensionsM = tuple[float, float, float]
+
+
+def resolve_node_aabb_dimensions_m(spec: ArenaEnvInitialGraphSpec) -> dict[str, AabbDimensionsM]:
+    """Return axis-aligned bounding box sizes in meters for each node with a resolvable USD."""
+    asset_paths = _resolve_node_usd_paths(spec)
+    dimensions: dict[str, AabbDimensionsM] = {}
+    for node_id, usd_path in asset_paths.items():
+        dims = _aabb_dimensions_from_usd(usd_path)
+        if dims is not None:
+            dimensions[node_id] = dims
+    return dimensions
+
+
+def _render_thumbnails_with_app(
+    app, spec: ArenaEnvInitialGraphSpec
+) -> tuple[dict[str, Path], dict[str, AabbDimensionsM]]:
+    """Render cache-missed node thumbnails and return png paths plus AABB sizes in meters."""
     asset_paths = _resolve_node_usd_paths(spec)
     if not asset_paths:
         print("[thumbnail_render] no asset USD paths resolved; skipping thumbnail rendering.", file=sys.stderr)
-        return {}
+        return {}, {}
 
     THUMBNAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -56,7 +72,7 @@ def _render_thumbnails_with_app(app, spec: ArenaEnvInitialGraphSpec) -> dict[str
     else:
         print(f"[thumbnail_render] all {len(resolved)} thumbnail(s) served from cache.", file=sys.stderr)
 
-    return resolved
+    return resolved, resolve_node_aabb_dimensions_m(spec)
 
 
 def _resolve_node_usd_paths(spec: ArenaEnvInitialGraphSpec) -> dict[str, str]:
@@ -105,6 +121,19 @@ def _extract_usd_path(cls) -> str | None:
 
 def _usd_cache_key(usd_path: str) -> str:
     return hashlib.sha1(usd_path.encode("utf-8")).hexdigest()[:16]
+
+
+def _aabb_dimensions_from_usd(usd_path: str) -> AabbDimensionsM | None:
+    """Return local axis-aligned bounding box size (x, y, z) in meters for a USD asset."""
+    try:
+        from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd  # noqa: PLC0415
+
+        bbox = compute_local_bounding_box_from_usd(usd_path)
+        size = bbox.size[0]
+        return (float(size[0]), float(size[1]), float(size[2]))
+    except Exception as exc:
+        print(f"[thumbnail_render]   bbox failed for {usd_path}: {exc}", file=sys.stderr)
+        return None
 
 
 def _capture_usd_thumbnails(app, to_render: dict[str, tuple[str, Path]]) -> dict[str, bytes]:

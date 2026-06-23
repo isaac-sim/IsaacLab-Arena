@@ -61,6 +61,7 @@ table.tasks pre { padding: 6px 8px; font-size: 11px; }
 .node-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .node-card { background: var(--bg-elev2); border: 1px solid var(--border); border-radius: 8px;
              padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.thumb-wrap { display: flex; flex-direction: column; gap: 4px; }
 .node-card .thumb { aspect-ratio: 1 / 1; background: linear-gradient(135deg, #2a2f37, #1c2026); /* placeholder gradient */
                     border-radius: 6px; display: flex; flex-direction: column;
                     align-items: center; justify-content: center; color: var(--fg-muted);
@@ -73,6 +74,8 @@ table.tasks pre { padding: 6px 8px; font-size: 11px; }
 .thumb-initial { font-size: 36px; font-weight: 700; color: var(--fg); opacity: 0.6;
                  font-family: ui-monospace, monospace; }
 .thumb-name { font-size: 10px; margin-top: 6px; padding: 0 8px; text-align: center; word-break: break-word; }
+.thumb-dims { font-size: 10px; color: var(--fg-muted); text-align: center; word-break: break-word;
+              font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
 .node-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .node-id { font-family: ui-monospace, monospace; font-size: 13px; font-weight: 600; word-break: break-all; }
 .node-yaml { font-size: 11px; }
