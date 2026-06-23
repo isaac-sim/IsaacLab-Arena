@@ -72,9 +72,6 @@ TAGS
 *isaaclab_arena/embodiments/g1/wbc_policy/models/
 *isaaclab_arena/embodiments/g1/wbc_policy/robot_model/
 
-# Agent generated environments
-*isaaclab_arena_environments/agent_generated/
-
 # Datasets
 *datasets/
 
