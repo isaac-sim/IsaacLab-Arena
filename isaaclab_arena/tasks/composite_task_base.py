@@ -20,7 +20,7 @@ from isaaclab.utils import configclass
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
-from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
+from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.configclass import (
@@ -362,30 +362,30 @@ class CompositeTaskBase(TaskBase):
 
         return subtask_metrics
 
-    def get_own_fine_grained_progress_objectives(self) -> list[FineGrainedProgressObjective]:
-        """Composite-level FineGrainedProgressObjectives.
+    def get_own_progress_objectives(self) -> list[ProgressObjective]:
+        """Composite-level ProgressObjectives.
 
-        These are added on top of whatever FGPOs the child subtasks declare and are not gated.
+        These are added on top of whatever progress objectives the child subtasks declare and are not gated.
         """
         return []
 
-    def get_fine_grained_progress_objectives(self) -> list[FineGrainedProgressObjective]:
-        """Concatenate child subtasks's FineGrainedProgressObjectives with namespace prefixes.
+    def get_progress_objectives(self) -> list[ProgressObjective]:
+        """Concatenate child subtasks's ProgressObjectives with namespace prefixes.
 
-        Each child's FGPO gets a new name (subtask_{i}/{original_name}) and a parent_subtask_idx = i tag.
+        Each child's progress objectives gets a new name (subtask_{i}/{original_name}) and a parent_subtask_idx = i tag.
         """
-        fgpo_list: list[FineGrainedProgressObjective] = []
+        progress_objectives_list: list[ProgressObjective] = []
         for i, child in enumerate(self.subtasks):
-            for fgpo in child.get_fine_grained_progress_objectives():
-                fgpo_list.append(
+            for progress_objective in child.get_progress_objectives():
+                progress_objectives_list.append(
                     dataclasses.replace(
-                        fgpo,
-                        name=f"subtask_{i}/{fgpo.name}",
+                        progress_objective,
+                        name=f"subtask_{i}/{progress_objective.name}",
                         parent_subtask_idx=i,
                     )
                 )
-        fgpo_list.extend(self.get_own_fine_grained_progress_objectives())
-        return fgpo_list
+        progress_objectives_list.extend(self.get_own_progress_objectives())
+        return progress_objectives_list
 
     def _validate_consistent_mimic_eef_names(self, arm_mode: ArmMode) -> set[str]:
         "Check that all subtasks have the same Mimic eef_names."
