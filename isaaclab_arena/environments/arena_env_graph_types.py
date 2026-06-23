@@ -181,11 +181,15 @@ class SpatialRelationSpec(BaseModel):
 
 
 def _normalize_relation_params(params: dict[str, Any]) -> dict[str, Any]:
+    from isaaclab_arena.relations.relations import coerce_side
+
     normalized = dict(params)
     if "position_xyz" in normalized:
         normalized["position_xyz"] = coerce_number_sequence(normalized["position_xyz"], 3, "position_xyz")
     if "rotation_xyzw" in normalized:
         normalized["rotation_xyzw"] = coerce_number_sequence(normalized["rotation_xyzw"], 4, "rotation_xyzw")
+    if "side" in normalized:
+        normalized["side"] = coerce_side(normalized["side"])
     return normalized
 
 

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import torch
+from contextlib import suppress
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -29,6 +30,32 @@ class Side(Enum):
     NEGATIVE_X = "negative_x"  # -X
     POSITIVE_Y = "positive_y"  # +Y
     NEGATIVE_Y = "negative_y"  # -Y
+
+
+_SIDE_ALIASES: dict[str, Side] = {
+    "left": Side.NEGATIVE_X,
+    "right": Side.POSITIVE_X,
+    "front": Side.NEGATIVE_Y,
+    "back": Side.POSITIVE_Y,
+}
+
+
+def coerce_side(value: Side | str) -> Side:
+    """Normalize ``Side`` enum members and human-readable aliases from graph specs."""
+    if isinstance(value, Side):
+        return value
+    normalized = str(value).strip().lower().replace("-", "_")
+    if normalized in _SIDE_ALIASES:
+        return _SIDE_ALIASES[normalized]
+    with suppress(ValueError):
+        return Side(normalized)
+    try:
+        return Side[normalized.upper()]
+    except KeyError:
+        assert False, (
+            f"Unknown side '{value}'. Use left/right/front/back or Side values "
+            "(positive_x, negative_x, positive_y, negative_y)."
+        )
 
 
 class RelationBase:
@@ -90,7 +117,7 @@ class NextTo(Relation):
         parent: ObjectBase,
         relation_loss_weight: float = 1.0,
         distance_m: float = 0.05,
-        side: Side = Side.POSITIVE_X,
+        side: Side | str = Side.POSITIVE_X,
         cross_position_ratio: float = 0.0,
     ):
         """
@@ -98,7 +125,8 @@ class NextTo(Relation):
             parent: The parent asset that this object should be placed next to.
             relation_loss_weight: Weight for the relationship loss function.
             distance_m: Target distance from parent's boundary in meters (default: 5cm).
-            side: Which axis direction to place object (default: Side.POSITIVE_X).
+            side: Which axis direction to place object (default: Side.POSITIVE_X). Accepts
+                ``Side`` members or aliases ``left``/``right``/``front``/``back``.
             cross_position_ratio: Where to place the child along the parent's perpendicular
                 (cross) axis, from -1.0 (min edge) through 0.0 (centered) to 1.0 (max edge).
                 The cross axis depends on the side: for POSITIVE_X / NEGATIVE_X
@@ -111,7 +139,7 @@ class NextTo(Relation):
             -1.0 <= cross_position_ratio <= 1.0
         ), f"cross_position_ratio must be in [-1, 1], got {cross_position_ratio}"
         self.distance_m = distance_m
-        self.side = side
+        self.side = coerce_side(side)
         self.cross_position_ratio = cross_position_ratio
 
 
@@ -172,16 +200,17 @@ class NotNextTo(Relation):
         self,
         parent: ObjectBase,
         relation_loss_weight: float = 1.0,
-        side: Side = Side.POSITIVE_X,
+        side: Side | str = Side.POSITIVE_X,
     ):
         """
         Args:
             parent: The parent asset whose adjacent half-plane is forbidden.
             relation_loss_weight: Weight for the relationship loss function.
-            side: Which side of the parent is blocked (default: Side.POSITIVE_X).
+            side: Which side of the parent is blocked (default: Side.POSITIVE_X). Accepts
+                ``Side`` members or aliases ``left``/``right``/``front``/``back``.
         """
         super().__init__(parent, relation_loss_weight)
-        self.side = side
+        self.side = coerce_side(side)
 
 
 @register_object_relation
