@@ -148,3 +148,82 @@ def test_from_episode_results_discovers_mixed_continuous_and_categorical(tmp_pat
     assert dataset.x[:, 0].tolist() == [1.0, 0.0, 1.0]  # success bool → 1.0 / 0.0
     # A categorical factor selects MNPE; a continuous-only schema would select NPE.
     assert SensitivityAnalyzer(dataset)._select_inference_class().__name__ == "MNPE"
+
+
+def test_from_episode_results_drops_constant_factors(tmp_path):
+    """A factor that took a single value across all episodes is dropped; varying factors survive."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(
+        jsonl,
+        [
+            {"success": True, "variations": {"light_intensity": 250.0, "always_5": 5.0, "hdr": "only_one"}},
+            {"success": False, "variations": {"light_intensity": 750.0, "always_5": 5.0, "hdr": "only_one"}},
+        ],
+    )
+
+    dataset = SensitivityDataset.from_episode_results(jsonl, outcome_names=["success"])
+
+    # The constant continuous (always_5) and constant categorical (hdr) are dropped; only the varying one remains.
+    assert [factor.name for factor in dataset.factors] == ["light_intensity"]
+    assert dataset.theta.shape == (2, 1)
+
+
+def test_from_episode_results_raises_when_all_factors_constant(tmp_path):
+    """If every factor took a single value there is nothing to analyze, so building raises."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(
+        jsonl,
+        [
+            {"success": True, "variations": {"hdr": "only_one"}},
+            {"success": False, "variations": {"hdr": "only_one"}},
+        ],
+    )
+
+    with pytest.raises(AssertionError, match="constant"):
+        SensitivityDataset.from_episode_results(jsonl, outcome_names=["success"])
+
+
+def test_from_episode_results_treats_bool_variation_as_categorical(tmp_path):
+    """A boolean variation draw becomes a categorical factor labelled by str(value)."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(
+        jsonl,
+        [
+            {"success": True, "variations": {"distractor_present": True}},
+            {"success": False, "variations": {"distractor_present": False}},
+        ],
+    )
+
+    dataset = SensitivityDataset.from_episode_results(jsonl, outcome_names=["success"])
+
+    factor = dataset.factors[0]
+    assert factor.type == "categorical"
+    assert factor.choices == ["False", "True"]  # sorted str labels
+    assert dataset.theta[:, 0].tolist() == [1.0, 0.0]  # "True" -> 1, "False" -> 0 (index in sorted choices)
+
+
+def test_from_episode_results_rejects_inconsistent_factor_set(tmp_path):
+    """Every episode must record the same variations; a row with a different factor set raises."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(
+        jsonl,
+        [
+            {"success": True, "variations": {"light_intensity": 250.0}},
+            {"success": False, "variations": {"light_intensity": 750.0, "extra": 1.0}},  # new factor mid-stream
+        ],
+    )
+
+    with pytest.raises(AssertionError, match="same variations"):
+        SensitivityDataset.from_episode_results(jsonl, outcome_names=["success"])
+
+
+def test_from_episode_results_rejects_non_numeric_vector_component(tmp_path):
+    """A vector variation with a non-numeric component is rejected."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(
+        jsonl,
+        [{"success": True, "variations": {"pose": [0.1, "oops", 0.2]}}],
+    )
+
+    with pytest.raises(AssertionError, match="non-numeric"):
+        SensitivityDataset.from_episode_results(jsonl, outcome_names=["success"])

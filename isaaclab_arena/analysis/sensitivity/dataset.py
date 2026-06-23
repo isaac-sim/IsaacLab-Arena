@@ -222,7 +222,8 @@ def _build_dataset_from_episode_rows(
     _flatten_variation_value) and a factor's type is inferred from its values: numeric →
     continuous (range = observed [min, max]), string → categorical (choices = sorted observed
     labels). theta is laid out continuous-first with categoricals integer-coded; x has one column
-    per outcome name. The factor set must be identical across every row.
+    per outcome name. The factor set must be identical across every row. Factors that took a single
+    value across all episodes are dropped (they carry no information); if none vary, this raises.
 
     Args:
         rows: Parsed episode_results records, one per episode.
@@ -277,24 +278,37 @@ def _build_dataset_from_episode_rows(
     continuous_names = [name for name in factor_order if factor_kinds[name] == "continuous"]
     categorical_names = [name for name in factor_order if factor_kinds[name] == "categorical"]
 
+    # Drop factors that took a single value across all episodes: they carry no information, and a
+    # constant categorical would crash MNPE's mixed-density transform during fit.
     factors: list[FactorSpec] = []
     columns: list[torch.Tensor] = []
+    dropped: list[str] = []
     for name in continuous_names:
         values = factor_values[name]
+        if min(values) == max(values):
+            dropped.append(name)
+            continue
         factors.append(FactorSpec(name=name, type=FactorType.CONTINUOUS, range=[(min(values), max(values))]))
         columns.append(torch.tensor(values, dtype=torch.float32).unsqueeze(1))
     for name in categorical_names:
         choices = sorted(set(factor_values[name]))
         if len(choices) == 1:
-            print(
-                f"[WARNING] Categorical factor {name!r} took only the value {choices[0]!r} across all "
-                "episodes; it carries no information and will not constrain the posterior."
-            )
+            dropped.append(name)
+            continue
         code_of = {choice: code for code, choice in enumerate(choices)}
         factors.append(FactorSpec(name=name, type=FactorType.CATEGORICAL, choices=choices))
         columns.append(
             torch.tensor([code_of[value] for value in factor_values[name]], dtype=torch.float32).unsqueeze(1)
         )
+
+    if dropped:
+        print(
+            f"[INFO] Dropped {len(dropped)} constant factor(s) (single value across all episodes): {sorted(dropped)}."
+        )
+    assert factors, (
+        f"All discovered factors in {jsonl_path} are constant (each took a single value across all "
+        "episodes); nothing to analyze. Vary at least one factor."
+    )
 
     theta = torch.cat(columns, dim=1)
     x = torch.cat(
