@@ -114,7 +114,7 @@ def normalize_scores(
 class ProgressObjective:
     """Configuration object that defines a scored predicate sequence to track progress within a task.
 
-    A ProgressObjective specifies what the predicate state machine should track.
+    A ProgressObjective specifies what the progress tracker (ProgressTracker) should track.
     Each ProgressObjective holds one or more sequential predicate chains (groups).
     Within a group, predicates run in order. Across groups, predicates run in parallel.
 
