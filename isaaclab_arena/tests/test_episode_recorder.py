@@ -75,6 +75,8 @@ def _test_episode_recorder(simulation_app):
         scene=scene,
         task=PickAndPlaceTask(cracker_box, destination_location, background),
         teleop_device=None,
+        # Add a custom recorder term through the environment, exercising the extension point.
+        episode_recorder_terms={"step_bucket": EpisodeRecorderTermCfg(func=record_step_bucket)},
     )
 
     NUM_ENVS = 2
@@ -96,9 +98,6 @@ def _test_episode_recorder(simulation_app):
             "asset_cfg": SceneEntityCfg(cracker_box.name),
         },
     )
-
-    # Register a custom episode recorder term through the cfg, exercising the extension point.
-    env_cfg.episode_recorders.step_bucket = EpisodeRecorderTermCfg(func=record_step_bucket)
 
     tmp_dir = tempfile.mkdtemp(prefix="episode_recorder_")
     output_path = Path(tmp_dir) / "episode_results.jsonl"

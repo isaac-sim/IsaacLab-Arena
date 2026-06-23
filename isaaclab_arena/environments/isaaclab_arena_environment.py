@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
+    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.task_base import TaskBase
 
@@ -29,6 +30,7 @@ class IsaacLabArenaEnvironment:
         env_cfg_callback: Callable[IsaacLabArenaManagerBasedRLEnvCfg] | None = None,
         rl_framework_entry_point: str | None = None,
         rl_policy_cfg: str | None = None,
+        episode_recorder_terms: dict[str, EpisodeRecorderTermCfg] | None = None,
     ):
         """
         Args:
@@ -38,6 +40,9 @@ class IsaacLabArenaEnvironment:
             task: The task to use in the environment.
             teleop_device: The teleop device to use in the environment.
             env_cfg_callback: A callback function that modifies the environment configuration.
+            episode_recorder_terms: Custom per-episode recorder terms to record alongside the
+                built-in ones, keyed by name. Each name becomes a term in the env's
+                ``EpisodeRecorderManagerCfg`` and must not collide with a built-in term name.
             rl_framework_entry_point: Gym kwargs key under which the RL policy config is
                 registered. This is an IsaacLab convention: each supported RL framework has a
                 fixed key that its training scripts look up via ``load_cfg_from_registry``.
@@ -57,3 +62,4 @@ class IsaacLabArenaEnvironment:
             raise ValueError("rl_framework_entry_point and rl_policy_cfg must both be set or both be None.")
         self.rl_framework_entry_point = rl_framework_entry_point
         self.rl_policy_cfg = rl_policy_cfg
+        self.episode_recorder_terms = episode_recorder_terms or {}

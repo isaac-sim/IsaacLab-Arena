@@ -159,12 +159,18 @@ class ArenaEnvBuilder:
         return make_configclass("MetricsCfg", fields)()
 
     @staticmethod
-    def _episode_recorders_cfg() -> object:
-        """Build a configclass container with one ``EpisodeRecorderTermCfg`` field per default term."""
+    def _episode_recorders_cfg(extra_terms: dict[str, EpisodeRecorderTermCfg] | None = None) -> object:
+        """Build a configclass container with the built-in recorder terms plus any user-added terms."""
         fields = [
             ("core", EpisodeRecorderTermCfg, CoreEpisodeRecorderTermCfg()),
             ("variations", EpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg()),
         ]
+        for name, term_cfg in (extra_terms or {}).items():
+            assert name not in (
+                "core",
+                "variations",
+            ), f"Episode recorder term name '{name}' collides with a built-in term."
+            fields.append((name, EpisodeRecorderTermCfg, term_cfg))
         return make_configclass("EpisodeRecorderManagerCfg", fields)()
 
     def compose_manager_cfg(self) -> tuple[IsaacLabArenaManagerBasedRLEnvCfg, dict[str, Any]]:
@@ -298,7 +304,7 @@ class ArenaEnvBuilder:
                 teleop_devices=teleop_devices_cfg,
                 recorders=recorder_manager_cfg,
                 metrics=metrics_cfg,
-                episode_recorders=self._episode_recorders_cfg(),
+                episode_recorders=self._episode_recorders_cfg(self.arena_env.episode_recorder_terms),
                 task_description=task_description,
                 viewer=viewer_cfg,
             )
