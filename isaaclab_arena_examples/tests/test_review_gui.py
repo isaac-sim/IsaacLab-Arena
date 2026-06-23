@@ -19,6 +19,7 @@ from isaaclab_arena.agentic_environment_generation.spec_io import (
     save_initial_graph_spec,
 )
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
+from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeSpec, ArenaEnvGraphNodeType
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
     SpecParseResult,
     try_save_initial_graph_spec,
@@ -29,6 +30,10 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.generatio
     _apply_generated_yaml,
     _format_trace_lines,
     run_generation_pipeline,
+)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnails import (
+    format_aabb_dimensions_m,
+    render_node_thumbnail,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.streamlit_ui import initialize_state, parse_args
 
@@ -52,6 +57,18 @@ def session_state(monkeypatch):
     state: dict = {}
     monkeypatch.setattr("streamlit.session_state", state, raising=False)
     return state
+
+
+class TestNodeThumbnailAabb:
+    def test_format_aabb_dimensions_m(self):
+        assert format_aabb_dimensions_m((0.1, 0.2, 0.3)) == "0.100 × 0.200 × 0.300 m"
+
+    def test_render_node_thumbnail_includes_aabb_under_snapshot(self):
+        node = ArenaEnvGraphNodeSpec(id="mug", name="mug_ycb_robolab", type=ArenaEnvGraphNodeType.OBJECT)
+        html = render_node_thumbnail(node, png_bytes=b"fake", aabb_dimensions_m=(0.05, 0.05, 0.12))
+        assert "thumb-dims" in html
+        assert "0.050 × 0.050 × 0.120 m" in html
+        assert html.index("thumb-wrap") < html.index("thumb-dims")
 
 
 class TestValidateYamlText:

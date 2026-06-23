@@ -141,13 +141,14 @@ def _handle_render_spec(
         return {"ok": False, "error": f"spec parse failed: {exc}", "traceback": traceback.format_exc()}
 
     try:
-        paths: dict[str, Path] = render_fn(app, spec)
+        paths, aabb_dimensions_m = render_fn(app, spec)
     except Exception as exc:
         return {"ok": False, "error": f"render failed: {exc}", "traceback": traceback.format_exc()}
 
     return {
         "ok": True,
         "paths": {node_id: str(p) for node_id, p in paths.items()},
+        "aabb_dimensions_m": {node_id: list(dims) for node_id, dims in aabb_dimensions_m.items()},
     }
 
 
