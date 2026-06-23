@@ -156,6 +156,23 @@ def _handle_render_spec(
     }
 
 
+def _parse_sim_preview_params(req: dict[str, Any]) -> tuple[int, int, float]:
+    """Read sim-preview rollout settings from a JSON-RPC request."""
+    from isaaclab_arena_examples.agentic_environment_generation.review_gui.sim_preview import (  # noqa: PLC0415
+        ENV_SPACING_M,
+        NUM_ENVS,
+        NUM_STEPS,
+    )
+
+    num_envs = int(req.get("num_envs", NUM_ENVS))
+    num_steps = int(req.get("num_steps", NUM_STEPS))
+    env_spacing = float(req.get("env_spacing", ENV_SPACING_M))
+    assert num_envs >= 1, f"num_envs must be >= 1, got {num_envs}"
+    assert num_steps >= 0, f"num_steps must be >= 0, got {num_steps}"
+    assert env_spacing > 0, f"env_spacing must be > 0, got {env_spacing}"
+    return num_envs, num_steps, env_spacing
+
+
 def _handle_run_sim_preview(app, req: dict[str, Any]) -> dict[str, Any]:
     """Build linked env, solve relations, roll out zero actions, capture overview frames."""
     from isaaclab_arena_examples.agentic_environment_generation.review_gui.sim_preview import (  # noqa: PLC0415
@@ -167,7 +184,18 @@ def _handle_run_sim_preview(app, req: dict[str, Any]) -> dict[str, Any]:
         return {"ok": False, "error": "run_sim_preview requires string 'yaml_text'"}
 
     try:
-        return run_sim_preview(app, yaml_text)
+        num_envs, num_steps, env_spacing = _parse_sim_preview_params(req)
+    except (TypeError, ValueError, AssertionError) as exc:
+        return {"ok": False, "error": f"invalid sim preview params: {exc}"}
+
+    try:
+        return run_sim_preview(
+            app,
+            yaml_text,
+            num_envs=num_envs,
+            num_steps=num_steps,
+            env_spacing=env_spacing,
+        )
     except Exception as exc:
         return {"ok": False, "error": f"sim preview failed: {exc}", "traceback": traceback.format_exc()}
 

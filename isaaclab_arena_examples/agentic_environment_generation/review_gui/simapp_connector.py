@@ -132,7 +132,14 @@ def render_dashboard_with_thumbnails(spec: ArenaEnvInitialGraphSpec) -> str:
     return html
 
 
-def run_sim_preview_pipeline(yaml_text: str, *, validation=None) -> tuple[bool, str]:
+def run_sim_preview_pipeline(
+    yaml_text: str,
+    *,
+    validation=None,
+    num_envs: int = NUM_ENVS,
+    num_steps: int = NUM_STEPS,
+    env_spacing: float = ENV_SPACING_M,
+) -> tuple[bool, str]:
     """Link, build, solve relations, and capture overview frames via SimApp."""
     from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (  # noqa: PLC0415
         validate_yaml_text,
@@ -151,7 +158,12 @@ def run_sim_preview_pipeline(yaml_text: str, *, validation=None) -> tuple[bool, 
         return False, "SimApp is unavailable — check the gui_runner terminal for boot errors."
 
     try:
-        response = client.run_sim_preview(yaml_text)
+        response = client.run_sim_preview(
+            yaml_text,
+            num_envs=num_envs,
+            num_steps=num_steps,
+            env_spacing=env_spacing,
+        )
     except SimAppError as exc:
         get_simapp_client.clear()
         return False, str(exc)
@@ -161,6 +173,11 @@ def run_sim_preview_pipeline(yaml_text: str, *, validation=None) -> tuple[bool, 
         last_path = Path(response["last_frame"])
         st.session_state["sim_preview_first"] = first_path.read_bytes()
         st.session_state["sim_preview_last"] = last_path.read_bytes()
+        st.session_state["sim_preview_run_params"] = {
+            "num_envs": response.get("num_envs", num_envs),
+            "num_steps": response.get("num_steps", num_steps),
+            "env_spacing": response.get("env_spacing", env_spacing),
+        }
     except OSError as exc:
         return False, f"Failed to read preview frames: {exc}"
 
