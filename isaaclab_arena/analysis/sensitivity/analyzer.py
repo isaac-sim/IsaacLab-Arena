@@ -35,16 +35,16 @@ class SensitivityAnalyzer:
     def __init__(self, dataset: SensitivityDataset):
         self.dataset = dataset
         self.posterior = None
-        continuous_factors = [factor for factor in dataset.schema.factors if factor.type == "continuous"]
+        continuous_factors = [factor for factor in dataset.factors if factor.type == "continuous"]
         # theta is laid out continuous-first then categorical — built that way by
-        # SensitivityDataset and defined by FactorSchema.factor_columns — so the leading
+        # SensitivityDataset and defined by its factor_columns — so the leading
         # self._num_continuous columns are the continuous factors that _normalize/_denormalize slice.
         self._num_continuous = len(continuous_factors)
         for factor in continuous_factors:
             assert factor.range is not None, (
-                f"Continuous factor {factor.name!r} has no range to normalize against. Declare a"
-                " range in factors.yaml, or build the dataset via from_files()/from_file() so the"
-                " range is inferred from the data before constructing the analyzer."
+                f"Continuous factor {factor.name!r} has no range to normalize against. Set a range on"
+                " the FactorSpec, or build the dataset via from_episode_results() so the range is"
+                " inferred from the data before constructing the analyzer."
             )
         self._continuous_low = torch.tensor([factor.range[0][0] for factor in continuous_factors])
         self._continuous_high = torch.tensor([factor.range[0][1] for factor in continuous_factors])
@@ -61,7 +61,7 @@ class SensitivityAnalyzer:
         """Uniform prior matching the normalized theta: continuous dims [0, 1], categoricals [0, k-1]."""
         low_bounds = [0.0] * self._num_continuous
         high_bounds = [1.0] * self._num_continuous
-        for factor in self.dataset.schema.factors:
+        for factor in self.dataset.factors:
             if factor.type == "categorical":
                 low_bounds.append(0.0)
                 high_bounds.append(float(len(factor.choices) - 1))

@@ -18,6 +18,8 @@ import json
 import numpy as np
 import torch
 
+import pytest
+
 from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
 from isaaclab_arena.analysis.sensitivity.dataset import SensitivityDataset
 from isaaclab_arena.tests.sensitivity_synthetic import (
@@ -93,60 +95,56 @@ def _write_jsonl(path, rows: list[dict]) -> None:
     path.write_text("\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8")
 
 
-def test_from_files_parses_mixed_schema_and_builds_tensors(tmp_path):
-    """from_files parses a factors.yaml + episode_summary.jsonl into the expected theta / x layout."""
-    factors_yaml = tmp_path / "factors.yaml"
-    factors_yaml.write_text(
-        "factors:\n"
-        "  light_intensity:\n"
-        "    type: continuous\n"
-        "    range: [[0.0, 1000.0]]\n"
-        "  pick_up_object:\n"
-        "    type: categorical\n"
-        "    choices: [cube, can]\n",
-        encoding="utf-8",
-    )
-    jsonl = tmp_path / "episode_summary.jsonl"
+def test_from_episode_results_splits_vector_variation_into_scalar_factors(tmp_path):
+    """from_episode_results discovers a continuous factor per component of a vector variation draw."""
+    jsonl = tmp_path / "episode_results.jsonl"
     _write_jsonl(
         jsonl,
         [
-            {"arena_env_args": {"light_intensity": 250.0, "pick_up_object": "cube"}, "outcomes": {"success": 1}},
-            {"arena_env_args": {"light_intensity": 750.0, "pick_up_object": "can"}, "outcomes": {"success": 0}},
-            {"arena_env_args": {"light_intensity": 500.0, "pick_up_object": "cube"}, "outcomes": {"success": 1}},
+            {"success": True, "variations": {"droid.camera_extrinsics_wrist_camera": [0.001, -0.004, 0.002]}},
+            {"success": False, "variations": {"droid.camera_extrinsics_wrist_camera": [0.003, 0.001, -0.005]}},
         ],
     )
 
-    dataset = SensitivityDataset.from_files(factors_yaml, jsonl, outcome_names=["success"])
+    dataset = SensitivityDataset.from_episode_results(jsonl, outcome_names=["success"])
 
-    # Schema parsed with the declared structure.
-    factors_by_name = {factor.name: factor for factor in dataset.schema.factors}
-    assert factors_by_name["light_intensity"].type == "continuous"
-    assert factors_by_name["light_intensity"].range == [(0.0, 1000.0)]
-    assert factors_by_name["pick_up_object"].type == "categorical"
-    assert factors_by_name["pick_up_object"].choices == ["cube", "can"]
+    # A 3-vector draw becomes three continuous factors, named with a per-component suffix.
+    factors_by_name = {factor.name: factor for factor in dataset.factors}
+    expected_names = [f"droid.camera_extrinsics_wrist_camera[{i}]" for i in range(3)]
+    assert [factor.name for factor in dataset.factors] == expected_names
+    assert all(factors_by_name[name].type == "continuous" for name in expected_names)
 
-    # Continuous-first theta layout; categorical integer-coded by its index into choices.
-    assert dataset.theta.shape == (3, 2)
-    assert dataset.x.shape == (3, 1)
-    assert dataset.factor_columns == {"light_intensity": slice(0, 1), "pick_up_object": slice(1, 2)}
-    assert dataset.theta[:, 0].tolist() == [250.0, 750.0, 500.0]
-    assert dataset.theta[:, 1].tolist() == [0.0, 1.0, 0.0]  # cube -> 0, can -> 1
-    assert dataset.x[:, 0].tolist() == [1.0, 0.0, 1.0]
+    assert dataset.theta.shape == (2, 3)
+    assert dataset.x.shape == (2, 1)
+    assert dataset.theta[:, 0].tolist() == pytest.approx([0.001, 0.003])  # first component, both episodes (float32)
+    assert dataset.x[:, 0].tolist() == [1.0, 0.0]  # success bool → 1.0 / 0.0
 
 
-def test_from_files_infers_missing_continuous_range(tmp_path):
-    """A continuous factor with no declared range gets [min, max] inferred from the observed values."""
-    factors_yaml = tmp_path / "factors.yaml"
-    factors_yaml.write_text("factors:\n  light_intensity:\n    type: continuous\n", encoding="utf-8")
-    jsonl = tmp_path / "episode_summary.jsonl"
+def test_from_episode_results_discovers_mixed_continuous_and_categorical(tmp_path):
+    """A numeric and a string variation become a continuous and a categorical factor (choices observed)."""
+    jsonl = tmp_path / "episode_results.jsonl"
     _write_jsonl(
         jsonl,
         [
-            {"arena_env_args": {"light_intensity": 30.0}, "outcomes": {"success": 0}},
-            {"arena_env_args": {"light_intensity": 90.0}, "outcomes": {"success": 1}},
+            {"success": True, "variations": {"dome.light_intensity": 250.0, "dome.hdr_image": "studio"}},
+            {"success": False, "variations": {"dome.light_intensity": 750.0, "dome.hdr_image": "sunset"}},
+            {"success": True, "variations": {"dome.light_intensity": 500.0, "dome.hdr_image": "studio"}},
         ],
     )
 
-    dataset = SensitivityDataset.from_files(factors_yaml, jsonl, outcome_names=["success"])
+    dataset = SensitivityDataset.from_episode_results(jsonl, outcome_names=["success"])
 
-    assert dataset.schema.factors[0].range == [(30.0, 90.0)]
+    factors_by_name = {factor.name: factor for factor in dataset.factors}
+    assert factors_by_name["dome.light_intensity"].type == "continuous"
+    assert factors_by_name["dome.hdr_image"].type == "categorical"
+    assert factors_by_name["dome.hdr_image"].choices == ["studio", "sunset"]  # sorted observed labels
+    # A continuous factor's range is inferred as [min, max] of the observed values.
+    assert factors_by_name["dome.light_intensity"].range == [(250.0, 750.0)]
+
+    # Continuous-first layout; categorical integer-coded by its index into the discovered choices.
+    assert dataset.factor_columns == {"dome.light_intensity": slice(0, 1), "dome.hdr_image": slice(1, 2)}
+    assert dataset.theta[:, 0].tolist() == [250.0, 750.0, 500.0]  # continuous column, in row order
+    assert dataset.theta[:, 1].tolist() == [0.0, 1.0, 0.0]  # studio -> 0, sunset -> 1
+    assert dataset.x[:, 0].tolist() == [1.0, 0.0, 1.0]  # success bool → 1.0 / 0.0
+    # A categorical factor selects MNPE; a continuous-only schema would select NPE.
+    assert SensitivityAnalyzer(dataset)._select_inference_class().__name__ == "MNPE"

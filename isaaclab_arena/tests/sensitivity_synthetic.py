@@ -28,7 +28,7 @@ import torch
 from dataclasses import dataclass
 
 from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
-from isaaclab_arena.analysis.sensitivity.dataset import FactorSchema, FactorSpec, SensitivityDataset
+from isaaclab_arena.analysis.sensitivity.dataset import FactorSpec, SensitivityDataset
 from isaaclab_arena.analysis.sensitivity.plotting import plot_marginals
 
 
@@ -105,10 +105,10 @@ def _build_dataset(
     SensitivityDataset.factor_columns expects.
     """
     ordered = sorted(factors_and_columns, key=lambda pair: isinstance(pair[0], _CategoricalFactor))
-    schema = FactorSchema(factors=[factor.spec() for factor, _ in ordered])
+    factors = [factor.spec() for factor, _ in ordered]
     theta = torch.stack([factor.column(values) for factor, values in ordered], dim=1)
     # outcome_names defaults to ("success",), matching the single binary outcome built here.
-    return SensitivityDataset(schema, theta, success.unsqueeze(1))
+    return SensitivityDataset(factors, theta, success.unsqueeze(1))
 
 
 def make_continuous_dataset(seed: int, num_episodes: int = 2000) -> SensitivityDataset:

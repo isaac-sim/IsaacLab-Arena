@@ -7,10 +7,10 @@ from __future__ import annotations
 
 import json
 import torch
-import yaml
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 
 class FactorType(str, Enum):
@@ -22,7 +22,7 @@ class FactorType(str, Enum):
 
 @dataclass
 class FactorSpec:
-    """One factor's schema as declared in factors.yaml.
+    """One factor's schema.
 
     Continuous factors carry a range (one [low, high] pair per dim); categorical
     factors carry choices (a list of string labels, integer-encoded by index in theta).
@@ -42,87 +42,14 @@ class FactorSpec:
             self.range = [tuple(pair) for pair in self.range]
 
 
-@dataclass
-class FactorSchema:
-    """Parsed factors.yaml — the list of factors that were varied.
-
-    The schema describes what *can* vary (continuous vs categorical, range/choices), not the
-    values taken in any given episode. Outcomes are not part of the schema; which outcome to
-    condition on is chosen at analysis time.
-    """
-
-    factors: list[FactorSpec]
-
-    @classmethod
-    def from_yaml(cls, path: str | Path) -> FactorSchema:
-        """Load a factors.yaml from disk into a typed FactorSchema.
-
-        The YAML has one top-level block, factors (one entry per varied input). Each factor's
-        type must be continuous or categorical.
-        """
-        # TODO: add a robolab-style filter (e.g. select rows by policy/task/embodiment) so a
-        # single episode_summary.jsonl can be sliced to one coherent (policy, task, embodiment)
-        # before analysis, instead of assuming the caller pre-filtered it.
-        with open(path, encoding="utf-8") as yaml_file:
-            yaml_data = yaml.safe_load(yaml_file)
-        assert isinstance(yaml_data, dict), f"factors.yaml at {path} must be a mapping at top level"
-        assert "factors" in yaml_data, f"factors.yaml at {path} is missing top-level `factors:` block"
-
-        factors: list[FactorSpec] = []
-        for factor_name, factor_block in yaml_data["factors"].items():
-            assert "type" in factor_block, (
-                f"factors.yaml at {path} factor {factor_name!r} is missing required `type:` field"
-                " (expected 'continuous' or 'categorical')"
-            )
-            factor_type = factor_block["type"]
-            assert factor_type in ("continuous", "categorical"), (
-                f"factors.yaml at {path} factor {factor_name!r} has unknown type {factor_type!r};"
-                " expected 'continuous' or 'categorical'"
-            )
-            factors.append(
-                FactorSpec(
-                    name=factor_name,
-                    type=factor_type,
-                    dim=factor_block.get("dim", 1),
-                    range=factor_block.get("range"),
-                    choices=factor_block.get("choices"),
-                )
-            )
-
-        return cls(factors=factors)
-
-    @property
-    def total_factor_dim(self) -> int:
-        """Total width of theta — sum of dim over continuous factors plus 1 per categorical."""
-        return sum(factor.dim if factor.type == "continuous" else 1 for factor in self.factors)
-
-    @property
-    def factor_columns(self) -> dict[str, slice]:
-        """Map factor name → its column slice in theta.
-
-        Continuous factors occupy the leading columns (dim each), then each categorical
-        factor occupies one trailing column. This continuous-first layout is what sbi's
-        mixed density estimator expects.
-        """
-        continuous_factors = [factor for factor in self.factors if factor.type == "continuous"]
-        categorical_factors = [factor for factor in self.factors if factor.type == "categorical"]
-        column_slices: dict[str, slice] = {}
-        column_index = 0
-        for factor in continuous_factors + categorical_factors:
-            column_width = factor.dim if factor.type == "continuous" else 1
-            column_slices[factor.name] = slice(column_index, column_index + column_width)
-            column_index += column_width
-        return column_slices
-
-
 class SensitivityDataset:
-    """A FactorSchema paired with its per-episode theta (factors) and x (outcomes).
+    """The varied factors paired with their per-episode theta (factor values) and x (outcomes).
 
-    The object is a pure container: it holds the schema and the two tensors, and exposes
-    the prior and column layouts an analyzer consumes. It can be built two ways:
+    The object is a pure container: it holds the factor list and the two tensors, and exposes
+    the column layout an analyzer consumes. It can be built two ways:
 
-      - from_files — parse a factors.yaml / episode_summary.jsonl pair
-        (the path eval runs take).
+      - from_episode_results — parse an episode_results.jsonl, discovering the factors from the
+        recorded variation draws (the path eval runs take).
       - the constructor — wrap in-memory tensors directly (what a synthetic simulator or
         a unit test takes). The tensors must already be in the layout factor_columns
         describes: continuous columns first, then one integer-coded column per categorical.
@@ -130,59 +57,67 @@ class SensitivityDataset:
 
     def __init__(
         self,
-        schema: FactorSchema,
+        factors: list[FactorSpec],
         theta: torch.Tensor,
         x: torch.Tensor,
         outcome_names: list[str] | tuple[str, ...] = ("success",),
     ):
-        """Wrap an in-memory schema plus its theta / x tensors, validating shapes.
+        """Wrap an in-memory factor list plus its theta / x tensors, validating shapes.
 
         Args:
-            schema: The parsed factor schema. Continuous factors must carry a range;
+            factors: The varied factors. Continuous factors must carry a range;
                 categorical factors must carry choices.
             theta: (num_episodes, total_factor_dim) factor matrix, continuous-first.
             x: (num_episodes, num_outcomes) outcome matrix.
             outcome_names: Name of each outcome column in x, in order (used for plot labels).
         """
+        total_factor_dim = sum(factor.dim if factor.type == "continuous" else 1 for factor in factors)
         assert theta.ndim == 2 and x.ndim == 2, f"theta and x must be 2D; got {theta.shape} and {x.shape}"
         assert theta.shape[0] == x.shape[0], f"theta/x row counts disagree: {theta.shape[0]} vs {x.shape[0]}"
         assert theta.shape[0] > 0, "Dataset is empty (no episodes)"
         assert (
-            theta.shape[1] == schema.total_factor_dim
-        ), f"theta has {theta.shape[1]} columns but schema declares {schema.total_factor_dim} factor dims"
+            theta.shape[1] == total_factor_dim
+        ), f"theta has {theta.shape[1]} columns but the {len(factors)} factor(s) span {total_factor_dim} dims"
         assert x.shape[1] == len(
             outcome_names
         ), f"x has {x.shape[1]} columns but {len(outcome_names)} outcome name(s) were given"
-        self.schema = schema
+        self.factors = factors
         self.outcome_names = list(outcome_names)
         self._theta = theta
         self._x = x
 
     @classmethod
-    def from_files(
+    def from_episode_results(
         cls,
-        factors_yaml: str | Path,
         jsonl_path: str | Path,
         outcome_names: list[str] | tuple[str, ...] = ("success",),
     ) -> SensitivityDataset:
-        """Build a dataset from a factors.yaml schema and an episode_summary.jsonl.
+        """Build a dataset from an episode_results.jsonl, discovering the factor schema from the data.
 
-        Parses and validates both, infers any missing continuous range from the data, and
-        assembles the theta / x tensors in the layout the analyzers expect. ``outcome_names``
-        selects which per-episode outcome columns to condition on (the analysis-time query).
+        Each line is one episode. The ``variations`` block holds the sampled factor draws, and the
+        top-level fields named by ``outcome_names`` hold the outcomes; any other top-level fields are
+        ignored. Factor types are inferred from the values: a number is a continuous factor, a numeric
+        vector becomes one continuous factor per component (named ``key[i]``), and a string is a
+        categorical factor over its observed labels.
+
+        Example line (one vector and one string factor, conditioned on ``success``):
+
+            {"success": true,
+             "variations": {"wrist_camera": [0.01, -0.02, 0.0], "hdr_image": "sunset"}}
+
+        Args:
+            jsonl_path: Path to the episode_results.jsonl (one JSON object per line).
+            outcome_names: Which top-level field(s) per line to use as outcomes.
+
+        Returns:
+            A SensitivityDataset with theta / x in the continuous-first layout the analyzers expect.
         """
-        schema = FactorSchema.from_yaml(factors_yaml)
-
         jsonl_text = Path(jsonl_path).read_text(encoding="utf-8")
         rows = [json.loads(line) for line in jsonl_text.splitlines() if line.strip()]
-        assert len(rows) > 0, f"Empty episode_summary.jsonl at {jsonl_path}"
+        assert len(rows) > 0, f"Empty episode_results.jsonl at {jsonl_path}"
 
-        _validate_rows(schema, rows, outcome_names, jsonl_path)
-        _infer_missing_factor_ranges(schema, rows)
-
-        theta = _build_factor_tensor(schema, rows)
-        x = _build_outcome_tensor(rows, outcome_names)
-        return cls(schema, theta, x, outcome_names)
+        factors, theta, x = _build_dataset_from_episode_rows(rows, outcome_names, jsonl_path)
+        return cls(factors, theta, x, outcome_names)
 
     @property
     def theta(self) -> torch.Tensor:
@@ -209,8 +144,21 @@ class SensitivityDataset:
 
     @property
     def factor_columns(self) -> dict[str, slice]:
-        """Map factor name → its column slice in theta. Same as schema.factor_columns."""
-        return self.schema.factor_columns
+        """Map factor name → its column slice in theta.
+
+        Continuous factors occupy the leading columns (dim each), then each categorical
+        factor occupies one trailing column — the continuous-first layout sbi's mixed
+        density estimator expects.
+        """
+        continuous = [factor for factor in self.factors if factor.type == "continuous"]
+        categorical = [factor for factor in self.factors if factor.type == "categorical"]
+        slices: dict[str, slice] = {}
+        start = 0
+        for factor in continuous + categorical:
+            width = factor.dim if factor.type == "continuous" else 1
+            slices[factor.name] = slice(start, start + width)
+            start += width
+        return slices
 
     def default_observation(self) -> torch.Tensor:
         """The default outcome vector to condition a query on: success (1) for every outcome.
@@ -225,103 +173,137 @@ class SensitivityDataset:
 
     @property
     def has_categorical_factors(self) -> bool:
-        """True iff the schema declares at least one categorical factor."""
-        return any(factor.type == "categorical" for factor in self.schema.factors)
+        """True iff at least one factor is categorical."""
+        return any(factor.type == "categorical" for factor in self.factors)
 
 
-def _validate_rows(
-    schema: FactorSchema, rows: list[dict], outcome_names: list[str] | tuple[str, ...], jsonl_path: str | Path
-) -> None:
-    """Assert every JSONL row carries the declared factor keys and the requested outcome keys.
+def _flatten_variation_value(
+    key: str, value: Any, row_index: int, jsonl_path: str | Path
+) -> list[tuple[str, float | str]]:
+    """Turn one recorded variation draw into (factor_name, scalar) pairs.
 
-    The declared names need only be a subset of each row's arena_env_args / outcomes;
-    extra keys are ignored. Raises pointing at the first offending row.
+    A numeric vector is split into one pair per component (name suffixed ``[i]``); a bare number
+    or string yields a single pair under ``key``. Bools are treated as categorical labels, not
+    0/1 continuous values.
+
+    Args:
+        key: The variation key (``"<asset>.<variation>"``).
+        value: The recorded draw for one episode.
+        row_index: Source row index, for error messages.
+        jsonl_path: Source path, for error messages.
+
+    Returns:
+        The (factor_name, scalar) pairs this draw contributes.
     """
-    expected_factor_names = {factor.name for factor in schema.factors}
-    expected_outcome_names = set(outcome_names)
-    for row_index, row in enumerate(rows):
-        assert (
-            "arena_env_args" in row and "outcomes" in row
-        ), f"Row {row_index} of {jsonl_path} missing arena_env_args/outcomes block"
-        missing_factor_names = expected_factor_names - set(row["arena_env_args"].keys())
-        assert not missing_factor_names, (
-            f"Row {row_index} of {jsonl_path} is missing factor(s) "
-            f"{sorted(missing_factor_names)} from its arena_env_args block; "
-            f"factors.yaml declares: {sorted(expected_factor_names)}"
+    assert isinstance(value, (bool, int, float, str, list, tuple)), (
+        f"Variation {key!r} in row {row_index} of {jsonl_path} has unsupported value type "
+        f"{type(value).__name__}: {value!r}. Expected a number, string, or numeric vector."
+    )
+    # bool is an int subclass, so check it before int/float and keep it categorical.
+    if isinstance(value, bool):
+        return [(key, str(value))]
+    if isinstance(value, (int, float)):
+        return [(key, float(value))]
+    if isinstance(value, str):
+        return [(key, value)]
+    # list / tuple → one continuous scalar factor per component.
+    assert len(value) > 0, f"Variation {key!r} in row {row_index} of {jsonl_path} is an empty list."
+    pairs: list[tuple[str, float | str]] = []
+    for component_index, component in enumerate(value):
+        assert isinstance(component, (int, float)) and not isinstance(component, bool), (
+            f"Variation {key!r} in row {row_index} of {jsonl_path} is a vector with a non-numeric "
+            f"component at index {component_index}: {component!r}. Vector variations must be all-numeric."
         )
-        missing_outcome_names = expected_outcome_names - set(row["outcomes"].keys())
-        assert (
-            not missing_outcome_names
-        ), f"Row {row_index} of {jsonl_path} missing outcomes {sorted(missing_outcome_names)}"
+        pairs.append((f"{key}[{component_index}]", float(component)))
+    return pairs
 
 
-def _infer_missing_factor_ranges(schema: FactorSchema, rows: list[dict]) -> None:
-    """Fill any continuous factor's missing range from the observed min/max.
+def _build_dataset_from_episode_rows(
+    rows: list[dict], outcome_names: list[str] | tuple[str, ...], jsonl_path: str | Path
+) -> tuple[list[FactorSpec], torch.Tensor, torch.Tensor]:
+    """Discover the factors and assemble theta / x directly from episode_results rows.
 
-    A range declared in factors.yaml takes precedence and is left untouched.
+    Each row's ``variations`` entries are flattened into (factor_name, value) pairs (see
+    _flatten_variation_value) and a factor's type is inferred from its values: numeric →
+    continuous (range = observed [min, max]), string → categorical (choices = sorted observed
+    labels). theta is laid out continuous-first with categoricals integer-coded; x has one column
+    per outcome name. The factor set must be identical across every row.
+
+    Args:
+        rows: Parsed episode_results records, one per episode.
+        outcome_names: Top-level field name(s) to read as outcomes.
+        jsonl_path: Source path, for error messages.
+
+    Returns:
+        The discovered factors (continuous-first) and the theta / x tensors.
     """
-    for factor in schema.factors:
-        if factor.type != "continuous" or factor.range is not None:
-            continue
-        if factor.dim != 1:
-            raise NotImplementedError(
-                "Range inference for vector factors (dim > 1) is not implemented;"
-                f" factor {factor.name!r} has dim={factor.dim}"
+    factor_kinds: dict[str, str] = {}  # factor name → "continuous" | "categorical"
+    factor_values: dict[str, list[float | str]] = {}  # factor name → per-row value, in row order
+    factor_order: list[str] = []  # factor names in first-seen order, for a stable schema
+
+    for row_index, row in enumerate(rows):
+        assert "variations" in row, (
+            f"Row {row_index} of {jsonl_path} has no 'variations' block; episode_results rows must "
+            "carry recorded variation draws."
+        )
+        seen_in_row: set[str] = set()
+        for key, value in row["variations"].items():
+            for factor_name, scalar in _flatten_variation_value(key, value, row_index, jsonl_path):
+                kind = "categorical" if isinstance(scalar, str) else "continuous"
+                if factor_name not in factor_kinds:
+                    assert row_index == 0, (
+                        f"Factor {factor_name!r} first appears in row {row_index} of {jsonl_path}; "
+                        "every episode must record the same variations."
+                    )
+                    factor_kinds[factor_name] = kind
+                    factor_values[factor_name] = []
+                    factor_order.append(factor_name)
+                assert factor_kinds[factor_name] == kind, (
+                    f"Factor {factor_name!r} is {factor_kinds[factor_name]} in earlier rows but {kind} "
+                    f"in row {row_index} of {jsonl_path}; a variation must keep a single type."
+                )
+                factor_values[factor_name].append(scalar)
+                seen_in_row.add(factor_name)
+
+        missing = [name for name in factor_order if name not in seen_in_row]
+        assert not missing, (
+            f"Row {row_index} of {jsonl_path} is missing factor(s) {sorted(missing)}; "
+            "every episode must record the same variations."
+        )
+        for name in outcome_names:
+            assert name in row, (
+                f"Row {row_index} of {jsonl_path} is missing outcome field {name!r} "
+                f"(requested outcomes: {list(outcome_names)})."
             )
-        observed_values = [float(row["arena_env_args"][factor.name]) for row in rows]
-        factor.range = [(min(observed_values), max(observed_values))]
 
+    assert factor_order, f"No factors discovered in {jsonl_path}: every row's 'variations' block was empty."
 
-def _build_factor_tensor(schema: FactorSchema, rows: list[dict]) -> torch.Tensor:
-    """Assemble the per-episode factor matrix theta.
+    # Continuous factors lead theta (sbi's mixed-estimator convention); categoricals follow.
+    continuous_names = [name for name in factor_order if factor_kinds[name] == "continuous"]
+    categorical_names = [name for name in factor_order if factor_kinds[name] == "categorical"]
 
-    Continuous columns first (one per dim), then one column per categorical factor with its
-    value integer-coded as a float32 index into FactorSpec.choices.
-    """
-    continuous_factors = [factor for factor in schema.factors if factor.type == "continuous"]
-    categorical_factors = [factor for factor in schema.factors if factor.type == "categorical"]
-
-    factor_columns: list[torch.Tensor] = []
-
-    # Continuous columns come first (sbi MNPE convention).
-    for factor in continuous_factors:
-        if factor.dim != 1:
-            raise NotImplementedError(
-                "Vector continuous factors (dim > 1) are not yet supported;"
-                f" factor {factor.name!r} has dim={factor.dim}"
+    factors: list[FactorSpec] = []
+    columns: list[torch.Tensor] = []
+    for name in continuous_names:
+        values = factor_values[name]
+        factors.append(FactorSpec(name=name, type=FactorType.CONTINUOUS, range=[(min(values), max(values))]))
+        columns.append(torch.tensor(values, dtype=torch.float32).unsqueeze(1))
+    for name in categorical_names:
+        choices = sorted(set(factor_values[name]))
+        if len(choices) == 1:
+            print(
+                f"[WARNING] Categorical factor {name!r} took only the value {choices[0]!r} across all "
+                "episodes; it carries no information and will not constrain the posterior."
             )
-        raw_values = [float(row["arena_env_args"][factor.name]) for row in rows]
-        factor_column = torch.tensor(raw_values, dtype=torch.float32).unsqueeze(1)
-        factor_columns.append(factor_column)
+        code_of = {choice: code for code, choice in enumerate(choices)}
+        factors.append(FactorSpec(name=name, type=FactorType.CATEGORICAL, choices=choices))
+        columns.append(
+            torch.tensor([code_of[value] for value in factor_values[name]], dtype=torch.float32).unsqueeze(1)
+        )
 
-    # Categorical columns: integer-code each string value as its index in FactorSpec.choices.
-    for factor in categorical_factors:
-        assert (
-            factor.choices is not None and len(factor.choices) > 0
-        ), f"Categorical factor {factor.name!r} has no `choices:` block in factors.yaml"
-        choice_to_code = {choice: code for code, choice in enumerate(factor.choices)}
-        category_codes: list[int] = []
-        for row_index, row in enumerate(rows):
-            value = row["arena_env_args"][factor.name]
-            assert (
-                value in choice_to_code
-            ), f"Row {row_index} factor {factor.name!r} has value {value!r} not in declared choices {factor.choices}"
-            category_codes.append(choice_to_code[value])
-        factor_column = torch.tensor(category_codes, dtype=torch.float32).unsqueeze(1)
-        factor_columns.append(factor_column)
-
-    if factor_columns:
-        return torch.cat(factor_columns, dim=1)
-    return torch.zeros((len(rows), 0), dtype=torch.float32)
-
-
-def _build_outcome_tensor(rows: list[dict], outcome_names: list[str] | tuple[str, ...]) -> torch.Tensor:
-    """Assemble the per-episode outcome matrix x (one column per requested outcome).
-
-    Each outcome value is cast to float; bool outcomes become 0.0/1.0.
-    """
-    outcome_column_tensors = [
-        torch.tensor([float(row["outcomes"][name]) for row in rows], dtype=torch.float32).unsqueeze(1)
-        for name in outcome_names
-    ]
-    return torch.cat(outcome_column_tensors, dim=1)
+    theta = torch.cat(columns, dim=1)
+    x = torch.cat(
+        [torch.tensor([float(row[name]) for row in rows], dtype=torch.float32).unsqueeze(1) for name in outcome_names],
+        dim=1,
+    )
+    return factors, theta, x

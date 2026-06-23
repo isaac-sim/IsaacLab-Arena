@@ -46,7 +46,7 @@ def plot_marginals(
         The matplotlib Figure.
     """
     samples = samples.cpu().numpy()
-    factors = dataset.schema.factors
+    factors = dataset.factors
     # Wrap panels into a grid (at most 3 columns) so many factors stay readable.
     num_columns = min(3, len(factors))
     num_rows = math.ceil(len(factors) / num_columns)
