@@ -11,11 +11,7 @@ from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
-from isaaclab_arena.progress_tracking.fine_grained_progress_tracker import (
-    make_fine_grained_progress_objective_events_cfg,
-    make_fine_grained_progress_objective_recorder_cfg,
-)
+from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.task_transition import TaskTransition
 
 
@@ -69,26 +65,8 @@ class TaskBase(ABC):
     def get_task_description(self) -> str | None:
         return self.task_description
 
-    def get_fine_grained_progress_objectives(self) -> list[FineGrainedProgressObjective]:
+    def get_progress_objectives(self) -> list[ProgressObjective]:
         return []
-
-    def _resolve_fine_grained_progress_objectives(self) -> list[FineGrainedProgressObjective]:
-        # Resolve once and cache so the reset (events) and step (recorder) cfgs share the same objective objects.
-        if not hasattr(self, "_resolved_fine_grained_progress_objectives"):
-            self._resolved_fine_grained_progress_objectives = self.get_fine_grained_progress_objectives()
-        return self._resolved_fine_grained_progress_objectives
-
-    def get_fine_grained_progress_objective_events_cfg(self) -> Any:
-        fine_grained_progress_objectives = self._resolve_fine_grained_progress_objectives()
-        if not fine_grained_progress_objectives:
-            return None
-        return make_fine_grained_progress_objective_events_cfg(fine_grained_progress_objectives)
-
-    def get_fine_grained_progress_objective_recorder_cfg(self) -> Any:
-        fine_grained_progress_objectives = self._resolve_fine_grained_progress_objectives()
-        if not fine_grained_progress_objectives:
-            return None
-        return make_fine_grained_progress_objective_recorder_cfg(fine_grained_progress_objectives)
 
     @classmethod
     def success_state_transition(cls, **_) -> TaskTransition:

@@ -13,9 +13,9 @@ from isaaclab.managers import EventTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
 from isaaclab.utils import configclass
 
-from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
+from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 
-_STATE_MACHINE_ATTR = "_fine_grained_progress_tracker"
+_PROGRESS_TRACKER_ATTR = "_progress_tracker"
 
 
 def _predicate_repr(pred) -> str:
@@ -32,37 +32,37 @@ def _predicate_repr(pred) -> str:
     return f"{name}({', '.join(parts)})" if parts else name
 
 
-class FineGrainedProgressObjectiveRunner:
-    """State machine runner for a single FineGrainedProgressObjective object.
+class ProgressObjectiveRunner:
+    """ProgressTracker runner for a single ProgressObjective object.
 
     Each runner is responsible for tracking the progress of all predicate_groups
-    within a FineGrainedProgressObjective object across all parallel environments.
+    within a ProgressObjective object across all parallel environments.
     """
 
-    def __init__(self, fine_grained_progress_objective: FineGrainedProgressObjective, num_envs: int, device):
-        self.fine_grained_progress_objective = fine_grained_progress_objective
+    def __init__(self, progress_objective: ProgressObjective, num_envs: int, device):
+        self.progress_objective = progress_objective
         self.num_envs = num_envs
         self.device = device
 
-        # Initialize the state machine's internal state.
+        # Initialize the runner's internal state.
         self.current_index: dict[str, torch.Tensor] = {}
         self.group_score: dict[str, torch.Tensor] = {}
         self.group_complete: dict[str, torch.Tensor] = {}
 
-        for group_name in fine_grained_progress_objective.group_names:
+        for group_name in progress_objective.group_names:
             self.current_index[group_name] = torch.zeros(num_envs, dtype=torch.long, device=device)
             self.group_score[group_name] = torch.zeros(num_envs, dtype=torch.float32, device=device)
             self.group_complete[group_name] = torch.zeros(num_envs, dtype=torch.bool, device=device)
 
     def _compute_composite_task_gating_mask(self, env) -> torch.Tensor:
-        """Per-env mask of whether the FineGrainedProgressObjective is active.
+        """Per-env mask of whether the ProgressObjective is active.
 
         The gating is used to determine when tracking of predicates should
         be active for composite tasks.
         """
 
         # If no parent_subtask_idx -> always active (returns all True).
-        if self.fine_grained_progress_objective.parent_subtask_idx is None:
+        if self.progress_objective.parent_subtask_idx is None:
             return torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
 
         # If no env._current_subtask_idx -> composite task is not sequential (returns all True).
@@ -71,28 +71,28 @@ class FineGrainedProgressObjectiveRunner:
             return torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
 
         # Otherwise return True only for envs whose current
-        # parent-subtask index matches this FineGrainedProgressObjective's parent_subtask_idx.
+        # parent-subtask index matches this ProgressObjective's parent_subtask_idx.
         if torch.is_tensor(current_idx):
             ci = current_idx.to(self.device)
         else:
             ci = torch.as_tensor(current_idx, device=self.device)
-        return ci == int(self.fine_grained_progress_objective.parent_subtask_idx)
+        return ci == int(self.progress_objective.parent_subtask_idx)
 
     def step(self, env, step_index: torch.Tensor | None) -> list[dict]:
-        """Step the state machine runner for a single env.step.
+        """Step the runner for a single env.step.
 
         Advance each group's predicate chain by at most one position per env and return a
         transition event for every env/group that advanced this step.
         """
 
-        # If the FineGrainedProgressObjective is not active for the composite task, there is
+        # If the ProgressObjective is not active for the composite task, there is
         # nothing to advance for any env.
         gating_mask = self._compute_composite_task_gating_mask(env)
         if not bool(gating_mask.any().item()):
             return []
 
         events: list[dict] = []
-        for group_name, predicate_chain in self.fine_grained_progress_objective.canonical_predicate_groups.items():
+        for group_name, predicate_chain in self.progress_objective.canonical_predicate_groups.items():
             events += self._step_group(env, group_name, predicate_chain, gating_mask, step_index)
         return events
 
@@ -122,7 +122,7 @@ class FineGrainedProgressObjectiveRunner:
             # Envs should only be evaluated if:
             #   1) They are at the current predicate position
             #   2) They have not yet advanced this step
-            #   3) The FineGrainedProgressObjective is active for the composite task
+            #   3) The ProgressObjective is active for the composite task
             at_position = (self.current_index[group_name] == chain_idx) & ~advanced & gating_mask
             if not bool(at_position.any().item()):
                 continue
@@ -140,7 +140,7 @@ class FineGrainedProgressObjectiveRunner:
             if not bool(advance_mask.any().item()):
                 continue
 
-            # Advance the state machine to the next predicates.
+            # Advance the runner to the next predicates.
             self.current_index[group_name] = torch.where(
                 advance_mask,
                 self.current_index[group_name] + 1,
@@ -153,11 +153,11 @@ class FineGrainedProgressObjectiveRunner:
 
             # Emit an event for each env where a predicate was advanced.
             pred_name = _predicate_repr(predicate)
-            for eid in torch.nonzero(advance_mask, as_tuple=False).flatten().tolist():
+            for env_idx in torch.nonzero(advance_mask, as_tuple=False).flatten().tolist():
                 events.append({
-                    "env_idx": int(eid),
-                    "step": int(step_index[eid].item()) if step_index is not None else -1,
-                    "fine_grained_progress_objective": self.fine_grained_progress_objective.name,
+                    "env_idx": int(env_idx),
+                    "step": int(step_index[env_idx].item()) if step_index is not None else -1,
+                    "progress_objective": self.progress_objective.name,
                     "group": group_name,
                     "predicate_index": chain_idx,
                     "predicate_name": pred_name,
@@ -169,29 +169,29 @@ class FineGrainedProgressObjectiveRunner:
         return events
 
     def reset(self, env_ids) -> None:
-        """Reset the state machine runner for the provided envs."""
+        """Reset the runner for the provided envs."""
 
         env_ids = torch.as_tensor(env_ids, dtype=torch.long, device=self.device)
-        for group_name in self.fine_grained_progress_objective.group_names:
+        for group_name in self.progress_objective.group_names:
             self.current_index[group_name][env_ids] = 0
             self.group_score[group_name][env_ids] = 0.0
             self.group_complete[group_name][env_ids] = False
 
     def is_complete(self) -> torch.Tensor:
-        """Check if the FineGrainedProgressObjective is complete for all envs."""
+        """Check if the ProgressObjective is complete for all envs."""
 
-        groups = self.fine_grained_progress_objective.group_names
+        groups = self.progress_objective.group_names
         stacked = torch.stack([self.group_complete[g] for g in groups], dim=1)
-        if self.fine_grained_progress_objective.logical == "all":
+        if self.progress_objective.logical == "all":
             return stacked.all(dim=1)
-        if self.fine_grained_progress_objective.logical == "any":
+        if self.progress_objective.logical == "any":
             return stacked.any(dim=1)
-        return stacked.sum(dim=1) >= int(self.fine_grained_progress_objective.K or 1)
+        return stacked.sum(dim=1) >= int(self.progress_objective.K or 1)
 
     def overall_score_per_env(self) -> torch.Tensor:
-        """Compute mean group score within this FineGrainedProgressObjective (in [0, 1])."""
+        """Compute mean group score within this ProgressObjective (in [0, 1])."""
 
-        groups = self.fine_grained_progress_objective.group_names
+        groups = self.progress_objective.group_names
         stacked = torch.stack([self.group_score[g] for g in groups], dim=1)
         return stacked.mean(dim=1)
 
@@ -200,10 +200,10 @@ class FineGrainedProgressObjectiveRunner:
 
         is_complete and score are passed in (rather than recomputed here) so the full
         (num_envs,) tensor reductions run once per runner in
-        FineGrainedProgressTracker, instead of once per env.
+        ProgressTracker, instead of once per env.
         """
 
-        objective = self.fine_grained_progress_objective
+        objective = self.progress_objective
         completed_groups = 0
         active_predicates: dict[str, str | None] = {}
         # The active predicate for a group is the one at its current chain position. Any group
@@ -226,24 +226,22 @@ class FineGrainedProgressObjectiveRunner:
         }
 
 
-class FineGrainedProgressTracker:
-    """State machine that manages runners for all FineGrainedProgressObjectives.
+class ProgressTracker:
+    """The tracker object that manages runners for all ProgressObjectives.
 
     Attributes:
-        fine_grained_progress_objectives: List of FineGrainedProgressObjectives to manage.
+        progress_objectives: List of ProgressObjectives to manage.
         num_envs: Number of parallel environments.
-        device: Device to manage the state machine on.
-        runners: List of runners for each FineGrainedProgressObjective.
+        device: Device to manage the progress tracker on.
+        runners: List of runners for each ProgressObjective.
         _events: List of events for each environment.
     """
 
-    def __init__(self, fine_grained_progress_objectives: list[FineGrainedProgressObjective], num_envs: int, device):
-        self.fine_grained_progress_objectives = fine_grained_progress_objectives
+    def __init__(self, progress_objectives: list[ProgressObjective], num_envs: int, device):
+        self.progress_objectives = progress_objectives
         self.num_envs = num_envs
         self.device = device
-        self.runners = [
-            FineGrainedProgressObjectiveRunner(s, num_envs, device) for s in fine_grained_progress_objectives
-        ]
+        self.runners = [ProgressObjectiveRunner(s, num_envs, device) for s in progress_objectives]
         self._events: list[list[dict]] = [[] for _ in range(num_envs)]
 
     def step(self, env, step_index: torch.Tensor | None) -> None:
@@ -251,19 +249,19 @@ class FineGrainedProgressTracker:
 
         for runner in self.runners:
             for event in runner.step(env, step_index):
-                eid = event.pop("env_idx")
-                self._events[eid].append(event)
+                env_idx = event.pop("env_idx")
+                self._events[env_idx].append(event)
 
     def reset(self, env_ids) -> None:
         """Reset the runners for the provided envs."""
 
         for runner in self.runners:
             runner.reset(env_ids)
-        for eid in env_ids:
-            self._events[eid] = []
+        for env_idx in env_ids:
+            self._events[env_idx] = []
 
     def get_state(self) -> list[dict]:
-        """Get the state of each FineGrainedProgressObjective for all envs."""
+        """Get the state of each ProgressObjective for all envs."""
 
         # Compute the per-runner (num_envs,) tensors once
         completeness = [runner.is_complete() for runner in self.runners]
@@ -276,7 +274,7 @@ class FineGrainedProgressTracker:
             overall_score = 0.0
             all_complete = True
             for i, runner in enumerate(self.runners):
-                objective = runner.fine_grained_progress_objective
+                objective = runner.progress_objective
                 state = runner.get_state_for_env(env_idx, completeness[i][env_idx], scores[i][env_idx])
                 progress_objective_states[objective.name] = state
                 overall_score += objective.score * state["score"]
@@ -284,7 +282,7 @@ class FineGrainedProgressTracker:
 
             # Add the per-env state dict to the output.
             output.append({
-                "fine_grained_progress_objectives": progress_objective_states,
+                "progress_objectives": progress_objective_states,
                 "overall_score": overall_score,
                 "all_complete": all_complete,
             })
@@ -296,34 +294,32 @@ class FineGrainedProgressTracker:
         return [list(e) for e in self._events]
 
 
-def _ensure_progress_tracker(
-    env, fine_grained_progress_objectives: list[FineGrainedProgressObjective]
-) -> FineGrainedProgressTracker:
-    """Return the env's FineGrainedProgressTracker, lazily creating and caching it on first call."""
+def _ensure_progress_tracker(env, progress_objectives: list[ProgressObjective]) -> ProgressTracker:
+    """Return the env's ProgressTracker, lazily creating and caching it on first call."""
 
-    sm: FineGrainedProgressTracker | None = getattr(env, _STATE_MACHINE_ATTR, None)
-    if sm is None:
-        sm = FineGrainedProgressTracker(
-            fine_grained_progress_objectives=fine_grained_progress_objectives, num_envs=env.num_envs, device=env.device
+    progress_tracker: ProgressTracker | None = getattr(env, _PROGRESS_TRACKER_ATTR, None)
+    if progress_tracker is None:
+        progress_tracker = ProgressTracker(
+            progress_objectives=progress_objectives, num_envs=env.num_envs, device=env.device
         )
-        setattr(env, _STATE_MACHINE_ATTR, sm)
-    return sm
+        setattr(env, _PROGRESS_TRACKER_ATTR, progress_tracker)
+    return progress_tracker
 
 
-class FineGrainedProgressRecorder(RecorderTerm):
-    """Per-step hook that ticks the FineGrainedProgressTracker. Records nothing.
+class ProgressTrackingRecorder(RecorderTerm):
+    """Per-step hook that ticks the ProgressTracker. Records nothing.
 
     Registered as a recorder term so it runs once per env.step via
-    record_post_step. It advances the state machine and publishes the per-step state/events to
-    env.extras["fine_grained_progress"], then returns
+    record_post_step. It advances the progress tracker and publishes the per-step state/events to
+    env.extras["progress_tracking"], then returns
     (None, None) so nothing is written to the recorded episode data.
 
-    env.extras["fine_grained_progress"] format:
+    env.extras["progress_tracking"] format:
 
         {
             "states": [                                    # one entry per env
                 {
-                    "fine_grained_progress_objectives": {
+                    "progress_objectives": {
                         "<name>": {
                             "completed_groups": int,
                             "total_groups": int,
@@ -333,13 +329,13 @@ class FineGrainedProgressRecorder(RecorderTerm):
                         },
                         ...
                     },
-                    "overall_score": float,                # weighted by FineGrainedProgressObjective.score
+                    "overall_score": float,                # weighted by ProgressObjective.score
                     "all_complete": bool,
                 },
                 ...
             ],
             "events": [                                    # one list per env
-                [{"step": int, "fine_grained_progress_objective": str, "group": str,
+                [{"step": int, "progress_objective": str, "group": str,
                   "predicate_index": int, "predicate_name": str,
                   "score_delta": float}, ...],
                 ...
@@ -347,73 +343,71 @@ class FineGrainedProgressRecorder(RecorderTerm):
         }
     """
 
-    def __init__(self, cfg: FineGrainedProgressObjectiveRecorderCfg, env):
+    def __init__(self, cfg: ProgressTrackingRecorderCfg, env):
         super().__init__(cfg, env)
-        self._fine_grained_progress_objectives = cfg.fine_grained_progress_objectives
+        self._progress_objectives = cfg.progress_objectives
 
     def record_post_step(self):
-        """Ticks the state machine, writes events and states to env.extras["fine_grained_progress"]"""
+        """Ticks the progress tracker, writes events and states to env.extras["progress_tracking"]"""
 
-        sm = _ensure_progress_tracker(self._env, self._fine_grained_progress_objectives)
+        progress_tracker = _ensure_progress_tracker(self._env, self._progress_objectives)
         step_index = getattr(self._env, "episode_length_buf", None)
-        sm.step(self._env, step_index=step_index)
-        self._env.extras["fine_grained_progress"] = {
-            "states": sm.get_state(),
-            "events": sm.get_events(),
+        progress_tracker.step(self._env, step_index=step_index)
+        self._env.extras["progress_tracking"] = {
+            "states": progress_tracker.get_state(),
+            "events": progress_tracker.get_events(),
         }
         # This term is a per-step hook only — record nothing.
         return None, None
 
 
-def fine_grained_progress_reset_func(
-    env, env_ids, fine_grained_progress_objectives: list[FineGrainedProgressObjective]
-) -> None:
+def progress_tracking_reset_func(env, env_ids, progress_objectives: list[ProgressObjective]) -> None:
     """Reset-event entry point.
 
-    Resets the state machine whenever the Lab env is reset.
+    Resets the progress tracker whenever the Lab env is reset.
     """
 
-    sm = _ensure_progress_tracker(env, fine_grained_progress_objectives)
+    progress_tracker = _ensure_progress_tracker(env, progress_objectives)
     if env_ids is None:
         env_ids = list(range(env.num_envs))
     elif torch.is_tensor(env_ids):
         env_ids = env_ids.tolist()
-    sm.reset(env_ids)
+    progress_tracker.reset(env_ids)
 
 
 @configclass
-class FineGrainedProgressObjectiveEventsCfg:
-    reset_fine_grained_progress_objectives: EventTermCfg = MISSING
+class ProgressTrackingEventsCfg:
+    reset_progress_objectives: EventTermCfg = MISSING
 
 
 @configclass
-class FineGrainedProgressObjectiveRecorderCfg(RecorderTermCfg):
-    class_type: type[RecorderTerm] = FineGrainedProgressRecorder
-    fine_grained_progress_objectives: list[FineGrainedProgressObjective] = MISSING
+class ProgressTrackingRecorderCfg(RecorderTermCfg):
+    class_type: type[RecorderTerm] = ProgressTrackingRecorder
+    progress_objectives: list[ProgressObjective] = MISSING
 
 
 @configclass
-class FineGrainedProgressObjectiveRecorderManagerCfg(RecorderManagerBaseCfg):
-    fine_grained_progress: FineGrainedProgressObjectiveRecorderCfg = MISSING
+class ProgressTrackingRecorderManagerCfg(RecorderManagerBaseCfg):
+    progress_tracking: ProgressTrackingRecorderCfg = MISSING
 
 
-def make_fine_grained_progress_objective_events_cfg(
-    fine_grained_progress_objectives: list[FineGrainedProgressObjective],
+def make_progress_tracking_events_cfg(
+    progress_objectives: list[ProgressObjective],
 ) -> Any:
-    return FineGrainedProgressObjectiveEventsCfg(
-        reset_fine_grained_progress_objectives=EventTermCfg(
-            func=fine_grained_progress_reset_func,
+    return ProgressTrackingEventsCfg(
+        reset_progress_objectives=EventTermCfg(
+            func=progress_tracking_reset_func,
             mode="reset",
-            params={"fine_grained_progress_objectives": fine_grained_progress_objectives},
+            params={"progress_objectives": progress_objectives},
         )
     )
 
 
-def make_fine_grained_progress_objective_recorder_cfg(
-    fine_grained_progress_objectives: list[FineGrainedProgressObjective],
+def make_progress_tracking_recorder_cfg(
+    progress_objectives: list[ProgressObjective],
 ) -> Any:
-    return FineGrainedProgressObjectiveRecorderManagerCfg(
-        fine_grained_progress=FineGrainedProgressObjectiveRecorderCfg(
-            fine_grained_progress_objectives=fine_grained_progress_objectives,
+    return ProgressTrackingRecorderManagerCfg(
+        progress_tracking=ProgressTrackingRecorderCfg(
+            progress_objectives=progress_objectives,
         )
     )

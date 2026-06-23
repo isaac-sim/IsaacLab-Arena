@@ -30,6 +30,10 @@ from isaaclab_arena.environments.relation_solver_interface import solve_and_appl
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
+from isaaclab_arena.progress_tracking.progress_tracker import (
+    make_progress_tracking_events_cfg,
+    make_progress_tracking_recorder_cfg,
+)
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
@@ -205,6 +209,10 @@ class ArenaEnvBuilder:
             )
             placement_event_cfg = PlacementEventCfg()
         variations_event_cfg = self._compose_variations_event_cfg()
+        progress_objectives = task.get_progress_objectives()
+        progress_tracking_events_cfg: Any = (
+            make_progress_tracking_events_cfg(progress_objectives) if progress_objectives else None
+        )
         events_cfg = combine_configclass_instances(
             "EventsCfg",
             embodiment.get_events_cfg(),
@@ -212,7 +220,7 @@ class ArenaEnvBuilder:
             task.get_events_cfg(),
             placement_event_cfg,
             variations_event_cfg,
-            task.get_fine_grained_progress_objective_events_cfg(),
+            progress_tracking_events_cfg,
         )
         termination_cfg = combine_configclass_instances(
             "TerminationCfg",
@@ -234,6 +242,9 @@ class ArenaEnvBuilder:
         metrics = task.get_metrics()
         metrics_cfg = self._metrics_to_metrics_cfg(metrics)
         metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
+        progress_tracking_recorder_cfg: Any = (
+            make_progress_tracking_recorder_cfg(progress_objectives) if progress_objectives else None
+        )
 
         # Base has to be specified explicitly to avoid type errors and not lose inheritance.
         recorder_manager_cfg = combine_configclass_instances(
@@ -241,7 +252,7 @@ class ArenaEnvBuilder:
             metrics_recorder_manager_cfg,
             task.get_recorder_term_cfg(),
             embodiment.get_recorder_term_cfg(),
-            task.get_fine_grained_progress_objective_recorder_cfg(),
+            progress_tracking_recorder_cfg,
             bases=(RecorderManagerBaseCfg,),
         )
         recorder_manager_cfg = self._modify_recorder_cfg_dataset_filename(recorder_manager_cfg)
