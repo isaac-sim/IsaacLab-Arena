@@ -178,9 +178,11 @@ def _run_chunk(chunk_label: str, chunk_jobs: list[dict]) -> int:
         chunk_path = Path(tmp.name)
     # Re-run this invocation in the child, with --eval_jobs_config appended so it wins over
     # the master config (argparse keeps the last value).
-    this_invocation = sys.argv
+    # Strip --serve_evaluation_report: a child that served its report would block on
+    # serve_until_ctrl_c forever.
+    forwarded_args = [arg for arg in sys.argv if arg != "--serve_evaluation_report"]
     config_override = ["--eval_jobs_config", str(chunk_path)]
-    child_cmd = [sys.executable, *this_invocation, *config_override]
+    child_cmd = [sys.executable, *forwarded_args, *config_override]
     try:
         result = subprocess.run(child_cmd, check=False)
     finally:
@@ -197,6 +199,9 @@ def _run_in_chunks(args_cli: argparse.Namespace, master_cfg: dict) -> None:
         raise ValueError(f"--chunk_size must be positive, got {chunk_size}")
     n_chunks = math.ceil(len(jobs) / chunk_size)
     print(f"[eval_runner] {len(jobs)} jobs → {n_chunks} chunks of <= {chunk_size}", flush=True)
+
+    if args_cli.serve_evaluation_report:
+        print("--serve_evaluation_report is ignored with --chunk_size.", flush=True)
 
     for chunk_idx in range(n_chunks):
         start = chunk_idx * chunk_size
