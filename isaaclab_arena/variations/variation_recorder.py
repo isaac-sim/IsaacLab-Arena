@@ -6,81 +6,58 @@
 from __future__ import annotations
 
 import torch
-from collections.abc import Callable
+from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
-
-from omegaconf import OmegaConf
 
 if TYPE_CHECKING:
     from isaaclab_arena.variations.variation_base import VariationBase, VariationBaseCfg
 
 
+@dataclass(frozen=True)
+class EnvEpisodeKey:
+    """Hashable key identifying one env's draws during one episode."""
+
+    env_id: int
+    episode_idx: int
+
+
 class VariationRecord:
-    """Per-variation record configuration and samples."""
+    """Per-variation record of the values drawn for it."""
 
     def __init__(self, name: str, cfg: VariationBaseCfg) -> None:
         self.name = name
         self.cfg = cfg
-        self.samples: list[Any] = []
-        # Latest drawn value per env id (from per-env, per-reset draws).
-        self._value_by_env: dict[int, Any] = {}
+        # Run-time draws, per (env id, episode index), in draw order.
+        self._samples_by_env_episode: dict[EnvEpisodeKey, list[Any]] = {}
+        # Build-time (all-envs) draws; these apply to every episode of every env.
+        self._build_time_samples: list[Any] = []
 
-    def update_env_values(self, sample: Any, env_ids: Any = None) -> None:
-        """Record ``sample`` as the latest value for each env it was drawn for.
+    def record_runtime_sample(self, sample: Any, env_ids: Sequence[int], episode_indices: Sequence[int]) -> None:
+        """Append each row of ``sample`` to the per-env, per-episode list it was drawn for.
 
         Args:
             sample: The drawn sample; row ``i`` is the value for the ``i``-th env in ``env_ids``.
-            env_ids: The env ids the sample's rows correspond to. ``None`` (an all-envs draw, e.g.
-                build time) is not attributed per env.
+            env_ids: The env ids the sample's rows correspond to.
+            episode_indices: The episode index each row was drawn during, aligned with ``env_ids``.
         """
-        if env_ids is None:
-            return
-        if isinstance(env_ids, torch.Tensor):
-            env_ids = env_ids.tolist()
-        for row, env_id in enumerate(env_ids):
-            self._value_by_env[int(env_id)] = sample[row]
+        for row, (env_id, episode_idx) in enumerate(zip(env_ids, episode_indices)):
+            key = EnvEpisodeKey(env_id, episode_idx)
+            if key not in self._samples_by_env_episode:
+                self._samples_by_env_episode[key] = []
+            self._samples_by_env_episode[key].append(sample[row])
 
-    def value_for_env(self, env_id: int) -> Any:
-        """Return the latest sampled value for ``env_id``, or ``None`` if none was drawn for it."""
-        return self._value_by_env.get(env_id)
+    def record_buildtime_sample(self, sample: Any) -> None:
+        """Record an all-envs (build-time) ``sample`` whose rows apply to every episode of every env."""
+        self._build_time_samples.extend(sample[row] for row in range(len(sample)))
 
-    def _header_lines(self) -> list[str]:
-        """Return the shared preamble (identity, cfg, sample-call count) for renderers."""
-        # Add the title for this variation
-        lines = [f"--- {self.name} ---", "cfg:"]
-        # Print the Cfg
-        lines.append(OmegaConf.to_yaml(OmegaConf.structured(self.cfg)).rstrip())
-        # Print basic information about the samples
-        lines.append(f"sample calls: {len(self.samples)}")
-        if self.samples and isinstance(self.samples[0], torch.Tensor):
-            stacked_shape = (len(self.samples), *tuple(self.samples[0].shape))
-            lines.append(f"stacked shape: {stacked_shape}")
-        return lines
+    def samples_for_episode(self, env_id: int, episode_idx: int) -> list[Any]:
+        """Return every value attributed to ``env_id``'s ``episode_idx`` (empty if none).
 
-    @staticmethod
-    def _format_sample(sample: Any) -> str:
-        """Render a single sample value (tensors as nested lists, others via ``repr``)."""
-        return f"{sample.tolist()}" if isinstance(sample, torch.Tensor) else f"{sample!r}"
-
-    def summary(self) -> str:
-        """Return a multi-line human-readable summary of this record (first/last sample only)."""
-        lines = self._header_lines()
-        if self.samples:
-            # Print the first and last sample
-            lines.append(f"first call:   {self._format_sample(self.samples[0])}")
-            lines.append(f"last call:    {self._format_sample(self.samples[-1])}")
-        return "\n".join(lines)
-
-    def details(self) -> str:
-        """Return a multi-line human-readable view of this record, listing every sample."""
-        lines = self._header_lines()
-        # Print every sample
-        for i, sample in enumerate(self.samples):
-            lines.append(f"call {i}: {self._format_sample(sample)}")
-        return "\n".join(lines)
-
-    def __str__(self) -> str:
-        return self.summary()
+        Build-time (all-envs) draws come first, since they apply to every episode, followed by the
+        run-time draws made during that episode.
+        """
+        return self._build_time_samples + self._samples_by_env_episode.get(EnvEpisodeKey(env_id, episode_idx), [])
 
 
 class VariationRecorder:
@@ -89,6 +66,12 @@ class VariationRecorder:
     def __init__(self) -> None:
         # Records are keyed by: "{asset_name}.{variation_name}"
         self.records: dict[str, VariationRecord] = {}
+        # Bound after env construction; supplies the episode index for per-env run-time draws.
+        self._env: Any = None
+
+    def bind_env(self, env: Any) -> None:
+        """Bind the env so run-time draws can be attributed to its current episode index."""
+        self._env = env
 
     def __getitem__(self, key: str) -> VariationRecord:
         """Return the record stored under "{asset_name}.{variation_name}"."""
@@ -113,26 +96,21 @@ class VariationRecorder:
                 record = VariationRecord(name=variation_key, cfg=variation.cfg)
                 self.records[variation_key] = record
 
-                def on_sample(sample: Any, env_ids: Any = None, record: VariationRecord = record) -> None:
+                def on_sample(
+                    sample: Any, env_ids: torch.Tensor | None = None, record: VariationRecord = record
+                ) -> None:
                     if isinstance(sample, torch.Tensor):
                         sample = sample.detach().cpu()
-                    record.samples.append(sample)
-                    record.update_env_values(sample, env_ids)
+                    if env_ids is None:
+                        # Build-time / all-envs draw: applies to every episode of every env.
+                        record.record_buildtime_sample(sample)
+                    else:
+                        assert self._env is not None, (
+                            "VariationRecorder observed a per-env draw before an env was bound; "
+                            "call bind_env() so samples can be attributed to their episode."
+                        )
+                        env_id_list = env_ids.tolist()
+                        episode_indices = [self._env.get_episode_index(env_id) for env_id in env_id_list]
+                        record.record_runtime_sample(sample, env_id_list, episode_indices)
 
                 variation.add_sample_listener(on_sample)
-
-    def _render(self, render_record: Callable[[VariationRecord], str]) -> str:
-        """Join ``render_record`` applied to every attached record under a shared header."""
-        parts = [f"VariationRecorder: {len(self.records)} record(s)"]
-        for record in self.records.values():
-            parts.append("")
-            parts.append(render_record(record))
-        return "\n".join(parts)
-
-    def summary(self) -> str:
-        """Return a multi-line human-readable summary of every attached record (first/last sample)."""
-        return self._render(VariationRecord.summary)
-
-    def details(self) -> str:
-        """Return a multi-line human-readable view of every attached record, listing all samples."""
-        return self._render(VariationRecord.details)

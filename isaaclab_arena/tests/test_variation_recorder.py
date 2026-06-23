@@ -89,38 +89,81 @@ def test_variation_listener_survives_sampler_swap():
     assert sample.item() == pytest.approx(2.0, abs=1e-6)
 
 
-def test_recorder_records_samples_from_attached_variation():
+def test_recorder_records_build_time_samples_for_every_episode():
+    """Build-time draws (env_ids=None) are recorded and surfaced for every env/episode."""
     variation = _RecorderTestVariation()
     variation.enable()
     recorder = VariationRecorder()
     recorder.attach({"asset": [variation]})
 
     record = recorder["asset.recorder_test"]
-    assert len(record.samples) == 0
+    assert record.samples_for_episode(0, 0) == []
 
     variation.apply()
     variation.apply()
 
-    assert len(record.samples) == 2
+    values = record.samples_for_episode(0, 0)
+    assert len(values) == 2
     # Tensor samples are stored detached on CPU.
-    assert record.samples[0].device.type == "cpu"
+    assert values[0].device.type == "cpu"
+    # A build-time draw applies to every env and episode, not just (0, 0).
+    assert [v.tolist() for v in record.samples_for_episode(7, 3)] == [v.tolist() for v in values]
 
 
-def test_variation_record_tracks_per_env_values():
-    """Per-env values track the latest sample per env; all-envs draws are not attributed per env."""
+def test_variation_record_tracks_per_env_episode_values():
+    """Per-env, per-episode lists collect every draw, kept separate across envs and episodes."""
     record = VariationRecord(name="asset.var", cfg=_RecorderTestVariationCfg())
 
-    # Runtime-style draw: rows map to the given env ids.
-    record.update_env_values(torch.tensor([[1.0], [2.0]]), env_ids=torch.tensor([2, 5]))
-    assert record.value_for_env(2).tolist() == [1.0]
-    assert record.value_for_env(5).tolist() == [2.0]
-    # An env not drawn for has no recorded value.
-    assert record.value_for_env(0) is None
+    # Runtime-style draw: rows map to the given env ids, all in episode 0.
+    record.record_runtime_sample(torch.tensor([[1.0], [2.0]]), env_ids=[2, 5], episode_indices=[0, 0])
+    assert [v.tolist() for v in record.samples_for_episode(2, 0)] == [[1.0]]
+    assert [v.tolist() for v in record.samples_for_episode(5, 0)] == [[2.0]]
+    # An env/episode not drawn for has no recorded values.
+    assert record.samples_for_episode(0, 0) == []
+    assert record.samples_for_episode(2, 1) == []
 
-    # A build-time / all-envs draw (env_ids=None) is not attributed to any env.
-    record.update_env_values(torch.tensor([[9.0]]), env_ids=None)
-    assert record.value_for_env(0) is None
-    assert record.value_for_env(2).tolist() == [1.0]
+    # A second draw for env 2 within the same episode is appended, not overwritten.
+    record.record_runtime_sample(torch.tensor([[3.0]]), env_ids=[2], episode_indices=[0])
+    assert [v.tolist() for v in record.samples_for_episode(2, 0)] == [[1.0], [3.0]]
+
+    # A draw for env 2 in the next episode lands in its own list.
+    record.record_runtime_sample(torch.tensor([[4.0]]), env_ids=[2], episode_indices=[1])
+    assert [v.tolist() for v in record.samples_for_episode(2, 1)] == [[4.0]]
+    assert [v.tolist() for v in record.samples_for_episode(2, 0)] == [[1.0], [3.0]]
+
+
+class _FakeEnv:
+    """Minimal stand-in exposing the attributes ``record_variation_samples`` reads."""
+
+    def __init__(self, recorder: VariationRecorder, episode_index: int = 0) -> None:
+        self.variation_recorder = recorder
+        self._episode_index = episode_index
+
+    def get_episode_index(self, env_id: int) -> int:  # noqa: ARG002
+        return self._episode_index
+
+
+def test_record_variation_samples_emits_all_per_episode_draws():
+    """The episode term emits every draw made for the finishing episode, as a list per variation."""
+    from isaaclab_arena.recording.common_terms import record_variation_samples
+
+    variation = _RecorderTestVariation()
+    variation.enable()
+    recorder = VariationRecorder()
+    recorder.attach({"asset": [variation]})
+    env = _FakeEnv(recorder, episode_index=0)
+    recorder.bind_env(env)
+
+    # Two run-time draws for env 0 during episode 0.
+    variation.sampler.sample(num_samples=1, env_ids=torch.tensor([0]))
+    variation.sampler.sample(num_samples=1, env_ids=torch.tensor([0]))
+
+    fields = record_variation_samples(env, env_id=0)
+    samples = fields["variations"]["asset.recorder_test"]
+    assert isinstance(samples, list) and len(samples) == 2
+
+    # A different env in the same episode has nothing recorded, so no variations field is emitted.
+    assert record_variation_samples(env, env_id=1) == {}
 
 
 def test_recorder_skips_disabled_variations():
@@ -160,15 +203,15 @@ def _test_hdr_variation_recorder_captures_chosen_hdr_name(simulation_app):
     recorder.attach(scene.get_asset_variations())
 
     record = recorder["light.hdr_image"]
-    assert len(record.samples) == 0
+    assert record.samples_for_episode(0, 0) == []
 
     variation.apply()
 
-    assert len(record.samples) == 1
-    sample = record.samples[0]
+    # The HDR draw is build-time (env_ids=None), so it applies to every env/episode.
+    values = record.samples_for_episode(0, 0)
+    assert len(values) == 1
     # The recorder must capture the chosen HDR *name*, not an index.
-    assert isinstance(sample, list) and len(sample) == 1
-    assert sample[0] in pool
+    assert values[0] in pool
     return True
 
 

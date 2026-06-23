@@ -29,6 +29,9 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         **kwargs,
     ):
         self._variation_recorder = variation_recorder
+        if variation_recorder is not None:
+            # Bind so run-time variation draws can be attributed to the current episode index.
+            variation_recorder.bind_env(self)
         # Per-env count of completed episodes; advanced in ``_reset_idx``.
         self._episode_counts: dict[int, int] = {}
         # The initial reset touches every env before any episode has run; skip it.
@@ -73,8 +76,9 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             return
         # Runs recorder before super() so the just-finished episode is still intact.
         self.episode_recorder_manager.record_pre_reset(env_ids)
-        super()._reset_idx(env_ids)
+        # Advance before super() so reset-mode variation draws are tagged with the episode they begin.
         self._advance_episode_indices(env_ids)
+        super()._reset_idx(env_ids)
 
     def compute_metrics(self) -> MetricsDataCollection:
         """Compute all registered metrics.

@@ -33,18 +33,17 @@ def record_core_episode_results(env, env_id: int) -> dict[str, Any]:
 
 
 def record_variation_samples(env, env_id: int) -> dict[str, Any]:
-    """Record each variation's sampled value for ``env_id``'s finished episode under ``variations``."""
+    """Record every variation value drawn for ``env_id``'s finished episode under ``variations``."""
     recorder = env.variation_recorder
     if recorder is None or not recorder.records:
         return {}
+    episode_idx = env.get_episode_index(env_id)
     samples: dict[str, Any] = {}
     for key, record in recorder.records.items():
-        value = record.value_for_env(env_id)
-        if value is None:
+        values = record.samples_for_episode(env_id, episode_idx)
+        if not values:
             continue
-        if isinstance(value, torch.Tensor):
-            value = value.tolist()
-        samples[key] = value
+        samples[key] = [value.tolist() if isinstance(value, torch.Tensor) else value for value in values]
     return {"variations": samples} if samples else {}
 
 
