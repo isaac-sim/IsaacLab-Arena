@@ -13,23 +13,10 @@ from isaaclab.managers import EventTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
 from isaaclab.utils import configclass
 
-from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+from isaaclab_arena.progress_tracking.progress_objective import LogicalMode, ProgressObjective
+from isaaclab_arena.progress_tracking.progress_tracking_utils import _predicate_repr
 
 _PROGRESS_TRACKER_ATTR = "_progress_tracker"
-
-
-def _predicate_repr(pred) -> str:
-    """Generate human-readable string representation for a predicate."""
-
-    fn = getattr(pred, "func", pred)
-    name = getattr(fn, "__name__", repr(fn))
-    kwargs = getattr(pred, "keywords", None) or {}
-    args = getattr(pred, "args", ()) or ()
-    parts = [repr(a) for a in args]
-    for key, value in kwargs.items():
-        if isinstance(value, (str, int, float, bool)):
-            parts.append(f"{key}={value!r}")
-    return f"{name}({', '.join(parts)})" if parts else name
 
 
 class ProgressObjectiveRunner:
@@ -44,13 +31,15 @@ class ProgressObjectiveRunner:
         self.num_envs = num_envs
         self.device = device
 
-        # Initialize the runner's internal state.
-        self.current_index: dict[str, torch.Tensor] = {}
+        #   current_predicate_index: How far each env has advanced through the group's predicate chain.
+        #   group_score: Each env's accumulated score for the group, normalized to [0, 1].
+        #   group_complete: Whether each env has finished the group's entire predicate chain.
+        self.current_predicate_index: dict[str, torch.Tensor] = {}
         self.group_score: dict[str, torch.Tensor] = {}
         self.group_complete: dict[str, torch.Tensor] = {}
 
         for group_name in progress_objective.group_names:
-            self.current_index[group_name] = torch.zeros(num_envs, dtype=torch.long, device=device)
+            self.current_predicate_index[group_name] = torch.zeros(num_envs, dtype=torch.long, device=device)
             self.group_score[group_name] = torch.zeros(num_envs, dtype=torch.float32, device=device)
             self.group_complete[group_name] = torch.zeros(num_envs, dtype=torch.bool, device=device)
 
@@ -73,16 +62,26 @@ class ProgressObjectiveRunner:
         # Otherwise return True only for envs whose current
         # parent-subtask index matches this ProgressObjective's parent_subtask_idx.
         if torch.is_tensor(current_idx):
-            ci = current_idx.to(self.device)
+            current_idx_tensor = current_idx.to(self.device)
         else:
-            ci = torch.as_tensor(current_idx, device=self.device)
-        return ci == int(self.progress_objective.parent_subtask_idx)
+            current_idx_tensor = torch.as_tensor(current_idx, device=self.device)
+        return current_idx_tensor == int(self.progress_objective.parent_subtask_idx)
 
     def step(self, env, step_index: torch.Tensor | None) -> list[dict]:
         """Step the runner for a single env.step.
 
         Advance each group's predicate chain by at most one position per env and return a
         transition event for every env/group that advanced this step.
+
+        Returns:
+            One transition event (dict) per env that advanced this step with the keys:
+                "env_idx": index of the environment that advanced.
+                "step": episode step at which it advanced.
+                "progress_objective": the objective's name.
+                "group": name of the group whose predicate chain advanced.
+                "predicate_index": position of the group's predicate chain index.
+                "predicate_name": human-readable string of that predicate.
+                "score_delta": normalized score this advance added to the group.
         """
 
         # If the ProgressObjective is not active for the composite task, there is
@@ -123,17 +122,16 @@ class ProgressObjectiveRunner:
             #   1) They are at the current predicate position
             #   2) They have not yet advanced this step
             #   3) The ProgressObjective is active for the composite task
-            at_position = (self.current_index[group_name] == chain_idx) & ~advanced & gating_mask
+            at_position = (self.current_predicate_index[group_name] == chain_idx) & ~advanced & gating_mask
             if not bool(at_position.any().item()):
                 continue
 
             # Evaluate the predicate for all envs, reshaped to a flat (num_envs,) bool tensor.
             result = torch.as_tensor(predicate(env), dtype=torch.bool, device=self.device).reshape(-1)
-            if result.shape[0] != self.num_envs:
-                raise RuntimeError(
-                    f"Predicate {_predicate_repr(predicate)} returned shape {tuple(result.shape)};"
-                    f" expected ({self.num_envs},)"
-                )
+            assert result.shape[0] == self.num_envs, (
+                f"Predicate {_predicate_repr(predicate)} returned shape {tuple(result.shape)};"
+                f" expected ({self.num_envs},)"
+            )
 
             # Compute mask for which envs need to be advanced to the next predicate.
             advance_mask = at_position & result
@@ -141,10 +139,10 @@ class ProgressObjectiveRunner:
                 continue
 
             # Advance the runner to the next predicates.
-            self.current_index[group_name] = torch.where(
+            self.current_predicate_index[group_name] = torch.where(
                 advance_mask,
-                self.current_index[group_name] + 1,
-                self.current_index[group_name],
+                self.current_predicate_index[group_name] + 1,
+                self.current_predicate_index[group_name],
             )
             # Update the group score for the envs that were advanced.
             self.group_score[group_name] = self.group_score[group_name] + advance_mask.float() * float(score_weight)
@@ -165,7 +163,7 @@ class ProgressObjectiveRunner:
                 })
 
         # Update the group complete mask for the envs that have completed the group.
-        self.group_complete[group_name] = self.current_index[group_name] >= chain_length
+        self.group_complete[group_name] = self.current_predicate_index[group_name] >= chain_length
         return events
 
     def reset(self, env_ids) -> None:
@@ -173,7 +171,7 @@ class ProgressObjectiveRunner:
 
         env_ids = torch.as_tensor(env_ids, dtype=torch.long, device=self.device)
         for group_name in self.progress_objective.group_names:
-            self.current_index[group_name][env_ids] = 0
+            self.current_predicate_index[group_name][env_ids] = 0
             self.group_score[group_name][env_ids] = 0.0
             self.group_complete[group_name][env_ids] = False
 
@@ -182,9 +180,9 @@ class ProgressObjectiveRunner:
 
         groups = self.progress_objective.group_names
         stacked = torch.stack([self.group_complete[g] for g in groups], dim=1)
-        if self.progress_objective.logical == "all":
+        if self.progress_objective.logical == LogicalMode.ALL:
             return stacked.all(dim=1)
-        if self.progress_objective.logical == "any":
+        if self.progress_objective.logical == LogicalMode.ANY:
             return stacked.any(dim=1)
         return stacked.sum(dim=1) >= int(self.progress_objective.K or 1)
 
@@ -210,12 +208,12 @@ class ProgressObjectiveRunner:
         # whose pointer has run off the end of the chain is complete (no active predicate).
         for group_name in objective.group_names:
             predicate_chain = objective.canonical_predicate_groups[group_name]
-            cur_group_index = int(self.current_index[group_name][env_idx].item())
-            if cur_group_index >= len(predicate_chain):
+            cur_predicate_index = int(self.current_predicate_index[group_name][env_idx].item())
+            if cur_predicate_index >= len(predicate_chain):
                 active_predicates[group_name] = None
                 completed_groups += 1
             else:
-                active_predicates[group_name] = _predicate_repr(predicate_chain[cur_group_index][0])
+                active_predicates[group_name] = _predicate_repr(predicate_chain[cur_predicate_index][0])
 
         return {
             "completed_groups": completed_groups,

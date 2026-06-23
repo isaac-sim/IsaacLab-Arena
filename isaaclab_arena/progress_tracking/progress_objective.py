@@ -7,123 +7,46 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Literal, Union
+from enum import Enum
 
-PredicateGroups = Union[
-    Callable,
-    list[Callable],
-    list[tuple[Callable, float]],
-    dict[str, Callable],
-    dict[str, list[Callable]],
-    dict[str, list[tuple[Callable, float]]],
-]
+from isaaclab_arena.progress_tracking.progress_tracking_utils import (
+    PredicateGroups,
+    _format_predicate_groups,
+    _normalize_scores,
+)
 
 
-DEFAULT_GROUP_NAME = "default_group"
+class LogicalMode(str, Enum):
+    """How completed groups combine to determine whether a ProgressObjective is complete."""
 
+    ALL = "all"
+    """Complete when every group is complete."""
 
-def format_predicate_groups(predicate_groups: PredicateGroups) -> dict[str, list[tuple[Callable, float]]]:
-    """Format predicate_groups into the canonical form.
+    ANY = "any"
+    """Complete when at least one group is complete."""
 
-    Canonical form: ``dict[group_name: list[(callable, score)]]``.
-
-    Accepted input shapes:
-      1. func (single callable)                one group with one predicate
-      2. [func, func, ...]                     one group, sequential chain
-      3. [(func, score), ...]                  one group, sequential chain, weighted
-      4. {group: func}                         multiple groups, one predicate each
-      5. {group: [func, ...]}                  multiple groups, sequential chains
-      6. {group: [(func, score), ...]}         multiple groups, sequential chains, weighted
-    """
-
-    if callable(predicate_groups):
-        return {DEFAULT_GROUP_NAME: [(predicate_groups, 1.0)]}
-
-    if isinstance(predicate_groups, list):
-        if len(predicate_groups) == 0:
-            raise ValueError("ProgressObjective.predicate_groups list cannot be empty")
-        return {DEFAULT_GROUP_NAME: _format_group_chain(predicate_groups, group_name=DEFAULT_GROUP_NAME)}
-
-    if isinstance(predicate_groups, dict):
-        if len(predicate_groups) == 0:
-            raise ValueError("ProgressObjective.predicate_groups dict cannot be empty")
-        return {
-            group_name: _format_group_chain(value, group_name=group_name)
-            for group_name, value in predicate_groups.items()
-        }
-
-    raise TypeError(
-        f"ProgressObjective.predicate_groups must be a callable, list, or dict; got {type(predicate_groups).__name__}"
-    )
-
-
-def _format_group_chain(value, group_name: str) -> list[tuple[Callable, float]]:
-    if callable(value):
-        return [(value, 1.0)]
-    if not isinstance(value, list):
-        raise TypeError(
-            f"Predicate chain for group '{group_name}' must be a callable or a list; got {type(value).__name__}"
-        )
-    if len(value) == 0:
-        raise ValueError(f"Predicate chain for group '{group_name}' cannot be empty")
-
-    first = value[0]
-    if isinstance(first, tuple):
-        chain = []
-        for i, item in enumerate(value):
-            if not (isinstance(item, tuple) and len(item) == 2):
-                raise TypeError(f"Group '{group_name}' index {i}: expected (callable, score) tuple, got {item!r}")
-            fn, score = item
-            if not callable(fn):
-                raise TypeError(f"Group '{group_name}' index {i}: first tuple element must be callable")
-            if not isinstance(score, (int, float)):
-                raise TypeError(f"Group '{group_name}' index {i}: score must be a number")
-            chain.append((fn, float(score)))
-        return chain
-
-    if callable(first):
-        equal = 1.0 / len(value)
-        chain = []
-        for i, fn in enumerate(value):
-            if not callable(fn):
-                raise TypeError(f"Group '{group_name}' index {i}: expected callable, got {type(fn).__name__}")
-            chain.append((fn, equal))
-        return chain
-
-    raise TypeError(
-        f"Group '{group_name}' elements must be callables or (callable, score) tuples; got {type(first).__name__}"
-    )
-
-
-def normalize_scores(
-    predicate_groups: dict[str, list[tuple[Callable, float]]],
-) -> dict[str, list[tuple[Callable, float]]]:
-    """Scale each group's scores to sum to 1.0. Zero and negative-sum groups are left untouched."""
-
-    out: dict[str, list[tuple[Callable, float]]] = {}
-    for group, chain in predicate_groups.items():
-        total = sum(score for _, score in chain)
-        if total <= 0:
-            out[group] = list(chain)
-            continue
-        out[group] = [(fn, score / total) for fn, score in chain]
-    return out
+    CHOOSE = "choose"
+    """Complete when at least K groups are complete (K is set on the ProgressObjective)."""
 
 
 @dataclass
 class ProgressObjective:
     """Configuration object that defines a scored predicate sequence to track progress within a task.
 
-    A ProgressObjective specifies what the predicate state machine should track.
+    A ProgressObjective specifies what the progress tracker (ProgressTracker) should track.
     Each ProgressObjective holds one or more sequential predicate chains (groups).
     Within a group, predicates run in order. Across groups, predicates run in parallel.
+
+    A group is complete once every predicate in its chain has been satisfied. The ProgressObjective
+    is complete when enough of its groups, as set by logical, are complete. ALL requires every
+    group, ANY requires at least one, and CHOOSE requires at least K.
 
     Args:
         name: Identifies the ProgressObjective within the TaskBase.
         predicate_groups: The sequential predicate chains that define the ProgressObjective.
         score: Weight of the ProgressObjective in the TaskBase-level overall_score.
         logical: How completed groups combine to determine if the ProgressObjective is complete.
-            Can be "all", "any", or "choose"
+            A LogicalMode (ALL, ANY, or CHOOSE); a matching string value is also accepted.
         K: Required when logical == "choose". Specifies the number of groups that must be completed
             to consider the ProgressObjective complete.
         description: An optional description of the ProgressObjective.
@@ -132,7 +55,7 @@ class ProgressObjective:
     name: str
     predicate_groups: PredicateGroups
     score: float = 1.0
-    logical: Literal["all", "any", "choose"] = "all"
+    logical: LogicalMode = LogicalMode.ALL
     K: int | None = None
     description: str | None = None
 
@@ -143,25 +66,22 @@ class ProgressObjective:
     parent_subtask_idx: int | None = None
 
     def __post_init__(self):
-        if not (0.0 <= self.score <= 1.0):
-            raise ValueError(f"ProgressObjective '{self.name}': score must be in [0, 1], got {self.score}")
-        if self.logical not in ("all", "any", "choose"):
-            raise ValueError(
-                f"ProgressObjective '{self.name}': logical must be in ['all', 'any', 'choose'], got {self.logical}"
-            )
+        assert 0.0 <= self.score <= 1.0, f"ProgressObjective '{self.name}': score must be in [0, 1], got {self.score}"
+        # Accept either a LogicalMode or its string value; normalize to the enum (raises on invalid).
+        self.logical = LogicalMode(self.logical)
 
         # Format the predicate groups into the canonical form and normalize the scores.
-        formatted = format_predicate_groups(self.predicate_groups)
-        normalized = normalize_scores(formatted)
+        formatted = _format_predicate_groups(self.predicate_groups)
+        normalized = _normalize_scores(formatted)
         self.canonical_predicate_groups = normalized
 
         # Validate the logical and K parameters.
         num_groups = len(self.canonical_predicate_groups)
-        if self.logical == "choose":
-            if self.K is None:
-                raise ValueError(f"ProgressObjective '{self.name}': K is required when logical='choose'")
-            if not (1 <= self.K <= num_groups):
-                raise ValueError(f"ProgressObjective '{self.name}': K={self.K} but must be in [1, {num_groups}]")
+        if self.logical == LogicalMode.CHOOSE:
+            assert self.K is not None, f"ProgressObjective '{self.name}': K is required when logical='choose'"
+            assert 1 <= self.K <= num_groups, (
+                f"ProgressObjective '{self.name}': K={self.K} but must be in [1, {num_groups}]"
+            )
 
     @property
     def group_names(self) -> list[str]:

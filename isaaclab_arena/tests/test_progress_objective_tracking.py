@@ -1,4 +1,4 @@
-# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -49,7 +49,8 @@ def _advance_step(env, n: int = 1):
 
 def _test_predicate_groups_single_callable(simulation_app) -> bool:
     """A bare predicate becomes a default-named group with weight 1.0."""
-    from isaaclab_arena.progress_tracking.progress_objective import DEFAULT_GROUP_NAME, ProgressObjective
+    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_GROUP_NAME
 
     try:
         pred = _MockPredicate(num_envs=1)
@@ -68,7 +69,8 @@ def _test_predicate_groups_single_callable(simulation_app) -> bool:
 
 def _test_predicate_groups_list_of_callables(simulation_app) -> bool:
     """A list of callables becomes a single group with normalized equal scores."""
-    from isaaclab_arena.progress_tracking.progress_objective import DEFAULT_GROUP_NAME, ProgressObjective
+    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_GROUP_NAME
 
     try:
         preds = [_MockPredicate(num_envs=1, name=f"p{i}") for i in range(3)]
@@ -88,7 +90,8 @@ def _test_predicate_groups_list_of_callables(simulation_app) -> bool:
 
 def _test_predicate_groups_weighted_tuples(simulation_app) -> bool:
     """Explicit (callable, score) tuples are normalized to sum to 1.0 within a group."""
-    from isaaclab_arena.progress_tracking.progress_objective import DEFAULT_GROUP_NAME, ProgressObjective
+    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_GROUP_NAME
 
     try:
         p1 = _MockPredicate(num_envs=1, name="p1")
@@ -145,7 +148,7 @@ def _test_predicate_groups_rejects_invalid_inputs(simulation_app) -> bool:
         for bad in ([], {}, 42, "string"):
             try:
                 ProgressObjective(name="t", predicate_groups=bad)
-            except (ValueError, TypeError):
+            except (ValueError, TypeError, AssertionError):
                 continue
             print(f"Expected error for input {bad!r}")
             return False
@@ -156,10 +159,10 @@ def _test_predicate_groups_rejects_invalid_inputs(simulation_app) -> bool:
                 predicate_groups=_MockPredicate(num_envs=1),
                 logical="choose",
             )
-        except ValueError:
+        except AssertionError:
             pass
         else:
-            print("Expected ValueError for logical='choose' without K")
+            print("Expected AssertionError for logical='choose' without K")
             return False
     except Exception as e:
         print(f"Error: {e}")
@@ -255,7 +258,10 @@ def _test_state_machine_ignores_out_of_order_success(simulation_app) -> bool:
 
 
 def _test_state_machine_logical_any(simulation_app) -> bool:
-    """Two parallel groups with logical=any complete as soon as either one finishes."""
+    """Two parallel groups with logical=any complete as soon as either one finishes.
+
+    Also checks the score reaches 1.0 at completion (top-K mean with K=1), not 1/N.
+    """
     from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
 
@@ -271,16 +277,20 @@ def _test_state_machine_logical_any(simulation_app) -> bool:
         sm = ProgressTracker(progress_objectives=[objective], num_envs=1, device="cpu")
         sm.reset([0])
 
-        # Neither group complete -> not done.
+        # Neither group complete -> not done, zero score.
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert not sm.get_state()[0]["progress_objectives"]["either"]["is_complete"]
+        state = sm.get_state()[0]["progress_objectives"]["either"]
+        assert not state["is_complete"]
+        assert abs(state["score"] - 0.0) < SCORE_TOL
 
-        # Group p_a completes -> done.
+        # Group p_a completes -> done, and score is 1.0 even though only 1 of 2 groups finished.
         p_a.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert sm.get_state()[0]["progress_objectives"]["either"]["is_complete"]
+        state = sm.get_state()[0]["progress_objectives"]["either"]
+        assert state["is_complete"]
+        assert abs(state["score"] - 1.0) < SCORE_TOL
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -305,17 +315,21 @@ def _test_state_machine_logical_all(simulation_app) -> bool:
         sm = ProgressTracker(progress_objectives=[objective], num_envs=1, device="cpu")
         sm.reset([0])
 
-        # Only p_a completes -> still not done.
+        # Only p_a completes -> still not done; 1 of 2 groups done -> score 0.5.
         p_a.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert not sm.get_state()[0]["progress_objectives"]["both"]["is_complete"]
+        state = sm.get_state()[0]["progress_objectives"]["both"]
+        assert not state["is_complete"]
+        assert abs(state["score"] - 0.5) < SCORE_TOL
 
-        # p_b also completes -> done.
+        # p_b also completes -> done, score 1.0.
         p_b.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert sm.get_state()[0]["progress_objectives"]["both"]["is_complete"]
+        state = sm.get_state()[0]["progress_objectives"]["both"]
+        assert state["is_complete"]
+        assert abs(state["score"] - 1.0) < SCORE_TOL
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -342,17 +356,21 @@ def _test_state_machine_logical_choose(simulation_app) -> bool:
         sm = ProgressTracker(progress_objectives=[objective], num_envs=1, device="cpu")
         sm.reset([0])
 
-        # Only p_a group complete -> not done.
+        # Only p_a group complete -> not done; 1 of the required 2 groups -> top-2 mean = 0.5.
         p_a.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert not sm.get_state()[0]["progress_objectives"]["any_two"]["is_complete"]
+        state = sm.get_state()[0]["progress_objectives"]["any_two"]
+        assert not state["is_complete"]
+        assert abs(state["score"] - 0.5) < SCORE_TOL
 
-        # p_b also complete -> done.
+        # p_b also complete -> done; both required groups done -> score 1.0, not 2/3.
         p_b.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert sm.get_state()[0]["progress_objectives"]["any_two"]["is_complete"]
+        state = sm.get_state()[0]["progress_objectives"]["any_two"]
+        assert state["is_complete"]
+        assert abs(state["score"] - 1.0) < SCORE_TOL
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
