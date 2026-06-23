@@ -371,6 +371,107 @@ def test_no_collision_loss_multi_env_shape_and_values():
     assert loss[1] > 0.0
 
 
+def _reference_pairwise_no_overlap_loss(solver: RelationSolver, state: RelationSolverState) -> torch.Tensor:
+    """Per-pair no-overlap loss via NoCollisionLossStrategy.compute_loss, summed in Python.
+
+    Independent oracle for the solver's vectorized path: it scores one pair at a time
+    with the same per-direction detach routing, so it pins both the loss value and the
+    gradient flow the fast path must reproduce.
+    """
+    device = state.device
+    total = torch.zeros(state.batch_size, device=device, dtype=torch.float32)
+    non_anchors = state.optimizable_objects
+    anchors = list(state.anchor_objects)
+    clearance = solver.params.clearance_m
+    strategy = solver._no_collision_strategy  # pyright: ignore[reportPrivateUsage]
+
+    on_pairs: set[tuple[int, int]] = set()
+    for obj in [*non_anchors, *anchors]:
+        for rel in obj.get_relations():
+            if isinstance(rel, On):
+                on_pairs.add((id(obj), id(rel.parent)))
+                on_pairs.add((id(rel.parent), id(obj)))
+
+    for i, child in enumerate(non_anchors):
+        child_pos = state.get_position(child)
+        child_bbox = state.get_bbox(child)
+        for anchor in anchors:
+            if (id(child), id(anchor)) in on_pairs:
+                continue
+            total = total + strategy.compute_loss(
+                clearance_m=clearance,
+                child_pos=child_pos,
+                child_bbox=child_bbox,
+                parent_world_bbox=anchor.get_world_bounding_box().to(device),
+            )
+        for j in range(i + 1, len(non_anchors)):
+            other = non_anchors[j]
+            if (id(child), id(other)) in on_pairs:
+                continue
+            other_pos = state.get_position(other)
+            other_bbox = state.get_bbox(other)
+            total = total + strategy.compute_loss(
+                clearance_m=clearance,
+                child_pos=child_pos,
+                child_bbox=child_bbox,
+                parent_world_bbox=other_bbox.translated(other_pos.detach()),
+            )
+            total = total + strategy.compute_loss(
+                clearance_m=clearance,
+                child_pos=other_pos,
+                child_bbox=other_bbox,
+                parent_world_bbox=child_bbox.translated(child_pos.detach()),
+            )
+    return total
+
+
+def _assert_vectorized_matches_reference(objects, initial_positions, expect_positive: bool) -> None:
+    """Vectorized no-overlap loss and its gradient must match the per-pair oracle (CPU)."""
+    solver = RelationSolver(params=RelationSolverParams(verbose=False))
+
+    state_new = RelationSolverState(objects, initial_positions, device=torch.device("cpu"))
+    loss_new = solver._compute_no_overlap_loss(state_new)  # pyright: ignore[reportPrivateUsage]
+    loss_new.sum().backward()
+    grad_new = state_new.optimizable_positions.grad.clone()
+
+    state_ref = RelationSolverState(objects, initial_positions, device=torch.device("cpu"))
+    loss_ref = _reference_pairwise_no_overlap_loss(solver, state_ref)
+    loss_ref.sum().backward()
+    grad_ref = state_ref.optimizable_positions.grad.clone()
+
+    assert torch.allclose(loss_new, loss_ref, atol=1e-6), f"loss mismatch: {loss_new} vs {loss_ref}"
+    assert torch.allclose(grad_new, grad_ref, atol=1e-6), f"gradient mismatch:\n{grad_new}\nvs\n{grad_ref}"
+    if expect_positive:
+        assert (loss_new > 0).any(), "scene should produce a positive loss to exercise the overlap branch"
+
+
+def test_vectorized_no_overlap_matches_reference_non_anchor_pairs():
+    """Vectorized loss/gradient match the per-pair oracle for overlapping non-anchor boxes."""
+    table, box_a, box_b = _create_no_collision_scene()  # box_a/box_b On(table); anchor pairs are skipped
+    objects = [table, box_a, box_b]
+    initial_positions = [
+        {table: (0.0, 0.0, 0.0), box_a: (0.30, 0.30, 0.11), box_b: (0.35, 0.35, 0.11)},
+        {table: (0.0, 0.0, 0.0), box_a: (0.50, 0.50, 0.11), box_b: (0.90, 0.90, 0.11)},
+    ]
+    _assert_vectorized_matches_reference(objects, initial_positions, expect_positive=True)
+
+
+def test_vectorized_no_overlap_matches_reference_anchor_pairs():
+    """Free (non-On) boxes overlapping the anchor exercise the anchor-pair + expand branch."""
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    box_a = _create_box("box_a")
+    box_b = _create_box("box_b")  # no On relation: child-vs-anchor pairs are active
+    objects = [table, box_a, box_b]
+    # Boxes sit low enough to overlap the table slab (z in [0, 0.1]) and each other.
+    initial_positions = [
+        {table: (0.0, 0.0, 0.0), box_a: (0.20, 0.20, 0.05), box_b: (0.25, 0.25, 0.05)},
+        {table: (0.0, 0.0, 0.0), box_a: (0.40, 0.40, 0.05), box_b: (0.42, 0.42, 0.05)},
+    ]
+    _assert_vectorized_matches_reference(objects, initial_positions, expect_positive=True)
+
+
 def test_relation_solver_multi_env_returns_list_of_dicts():
     """Test that solver returns list[dict] when given list[dict] input."""
     table, box_a, box_b = _create_no_collision_scene()

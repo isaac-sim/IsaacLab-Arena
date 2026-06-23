@@ -534,6 +534,42 @@ class NoCollisionLossStrategy:
 
         return total_loss.squeeze(0) if single_input else total_loss
 
+    def compute_loss_batched(
+        self,
+        clearance_m: float,
+        moving_min: torch.Tensor,
+        moving_max: torch.Tensor,
+        fixed_min: torch.Tensor,
+        fixed_max: torch.Tensor,
+    ) -> torch.Tensor:
+        """Overlap-volume loss for boxes already reduced to world-space extents.
+
+        Same formula as compute_loss (slope * per-axis overlap product, fixed box
+        expanded by clearance), but operating on pre-stacked extents so many pairs can
+        be scored at once. The moving box carries gradient; the fixed box is the
+        obstacle. Extents share a trailing axis of size 3 and any leading shape (e.g.
+        (N, 3) or (num_pairs, N, 3)); the loss drops the trailing axis.
+
+        Args:
+            clearance_m: Minimum clearance between boxes in meters.
+            moving_min: World-space min extent of the moving box (..., 3).
+            moving_max: World-space max extent of the moving box (..., 3).
+            fixed_min: World-space min extent of the fixed box (..., 3).
+            fixed_max: World-space max extent of the fixed box (..., 3).
+        """
+        fixed_min = fixed_min - clearance_m
+        fixed_max = fixed_max + clearance_m
+        overlap_x = interval_overlap_axis_loss(
+            moving_min[..., 0], moving_max[..., 0], fixed_min[..., 0], fixed_max[..., 0]
+        )
+        overlap_y = interval_overlap_axis_loss(
+            moving_min[..., 1], moving_max[..., 1], fixed_min[..., 1], fixed_max[..., 1]
+        )
+        overlap_z = interval_overlap_axis_loss(
+            moving_min[..., 2], moving_max[..., 2], fixed_min[..., 2], fixed_max[..., 2]
+        )
+        return self.slope * (overlap_x * overlap_y * overlap_z)
+
 
 class AtPositionLossStrategy(UnaryRelationLossStrategy):
     """Loss strategy for AtPosition relations.

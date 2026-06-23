@@ -5,8 +5,9 @@
 
 from __future__ import annotations
 
+import time
 import torch
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, NamedTuple, cast
 
 from isaaclab_arena.relations.relation_loss_strategies import (
     NoCollisionLossStrategy,
@@ -20,6 +21,17 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
+
+
+class _PairEval(NamedTuple):
+    """One directed no-overlap evaluation: a moving box (gradient) vs a fixed box."""
+
+    moving_min: torch.Tensor
+    moving_max: torch.Tensor
+    fixed_min: torch.Tensor
+    fixed_max: torch.Tensor
+    child_name: str
+    parent_name: str
 
 
 class RelationSolver:
@@ -46,6 +58,7 @@ class RelationSolver:
         self._last_loss_history: list[float] = []
         self._last_position_history: list = []
         self._last_loss_per_env: torch.Tensor | None = None
+        self._last_no_overlap_pair_count: int = 0
 
     def _get_strategy(self, relation: RelationBase) -> RelationLossStrategy | UnaryRelationLossStrategy:
         """Look up the appropriate strategy for a relation type.
@@ -154,7 +167,8 @@ class RelationSolver:
             Per-environment loss tensor of shape (batch_size,).
         """
         device = state.device
-        total_loss = torch.zeros(state.batch_size, device=device, dtype=torch.float32)
+        batch_size = state.batch_size
+        zero_loss = torch.zeros(batch_size, device=device, dtype=torch.float32)
 
         non_anchor_objects = state.optimizable_objects
         anchor_objects = list(state.anchor_objects)
@@ -169,59 +183,64 @@ class RelationSolver:
                     on_pairs.add((id(obj), id(rel.parent)))
                     on_pairs.add((id(rel.parent), id(obj)))
 
-        for i, child in enumerate(non_anchor_objects):
-            child_pos = state.get_position(child)
-            child_bbox = state.get_bbox(child)
+        # World-space (min, max) extents once per object, shape (batch, 3). Non-anchor
+        # extents carry gradient through the object's position; anchor extents are constant.
+        extents: dict[ObjectBase, tuple[torch.Tensor, torch.Tensor]] = {}
+        for obj in non_anchor_objects:
+            pos = state.get_position(obj)
+            bbox = state.get_bbox(obj)
+            extents[obj] = (pos + bbox.min_point, pos + bbox.max_point)
+        for anchor in anchor_objects:
+            anchor_world_bbox = anchor.get_world_bounding_box().to(device)
+            extents[anchor] = (
+                anchor_world_bbox.min_point.expand(batch_size, 3),
+                anchor_world_bbox.max_point.expand(batch_size, 3),
+            )
 
-            # Against all anchors
+        pairs: list[_PairEval] = []
+        for child in non_anchor_objects:
+            child_min, child_max = extents[child]
             for anchor in anchor_objects:
                 if (id(child), id(anchor)) in on_pairs:
                     continue
-                anchor_world_bbox = anchor.get_world_bounding_box().to(device)
-                loss = self._no_collision_strategy.compute_loss(
-                    clearance_m=self.params.clearance_m,
-                    child_pos=child_pos,
-                    child_bbox=child_bbox,
-                    parent_world_bbox=anchor_world_bbox,
-                )
-                if debug:
-                    print(f"  [NoOverlap] {child.name} vs {anchor.name}: loss={loss.mean().item():.6f}")
-                total_loss = total_loss + loss
+                anchor_min, anchor_max = extents[anchor]
+                pairs.append(_PairEval(child_min, child_max, anchor_min, anchor_max, child.name, anchor.name))
 
-            # Against other non-anchors (unique pairs, both directions)
+        for i, child in enumerate(non_anchor_objects):
+            child_min, child_max = extents[child]
             for j in range(i + 1, len(non_anchor_objects)):
                 other = non_anchor_objects[j]
                 if (id(child), id(other)) in on_pairs:
                     continue
-                other_pos = state.get_position(other)
-                other_bbox = state.get_bbox(other)
-
-                # Forward: gradient flows to child (object i)
-                other_world_bbox = other_bbox.translated(other_pos.detach())
-                loss_fwd = self._no_collision_strategy.compute_loss(
-                    clearance_m=self.params.clearance_m,
-                    child_pos=child_pos,
-                    child_bbox=child_bbox,
-                    parent_world_bbox=other_world_bbox,
+                other_min, other_max = extents[other]
+                # Detaching the fixed side routes gradient only to the moving box, so each
+                # non-anchor pair is scored in both directions.
+                pairs.append(
+                    _PairEval(child_min, child_max, other_min.detach(), other_max.detach(), child.name, other.name)
+                )
+                pairs.append(
+                    _PairEval(other_min, other_max, child_min.detach(), child_max.detach(), other.name, child.name)
                 )
 
-                # Reverse: gradient flows to other (object j)
-                child_world_bbox = child_bbox.translated(child_pos.detach())
-                loss_rev = self._no_collision_strategy.compute_loss(
-                    clearance_m=self.params.clearance_m,
-                    child_pos=other_pos,
-                    child_bbox=other_bbox,
-                    parent_world_bbox=child_world_bbox,
-                )
+        self._last_no_overlap_pair_count = len(pairs)
+        if not pairs:
+            return zero_loss
 
-                if debug:
-                    print(
-                        f"  [NoOverlap] {child.name} vs {other.name}:"
-                        f" fwd={loss_fwd.mean().item():.6f}, rev={loss_rev.mean().item():.6f}"
-                    )
-                total_loss = total_loss + loss_fwd + loss_rev
+        moving_min = torch.stack([p.moving_min for p in pairs], dim=0)
+        moving_max = torch.stack([p.moving_max for p in pairs], dim=0)
+        fixed_min = torch.stack([p.fixed_min for p in pairs], dim=0)
+        fixed_max = torch.stack([p.fixed_max for p in pairs], dim=0)
 
-        return total_loss
+        # Single batched op over all pairs; the strategy owns the loss formula.
+        pair_loss = self._no_collision_strategy.compute_loss_batched(
+            self.params.clearance_m, moving_min, moving_max, fixed_min, fixed_max
+        )  # (num_pairs, batch)
+
+        if debug:
+            for pair, loss in zip(pairs, pair_loss):
+                print(f"  [NoOverlap] {pair.child_name} vs {pair.parent_name}: loss={loss.mean().item():.6f}")
+
+        return pair_loss.sum(dim=0)
 
     def solve(
         self,
@@ -275,6 +294,10 @@ class RelationSolver:
         loss_history = []
         position_history = []  # Track positions for visualization
 
+        if self.params.profile and torch.cuda.is_available():
+            torch.cuda.synchronize()
+        solve_start = time.perf_counter()
+
         for iter in range(self.params.max_iters):
             optimizer.zero_grad()
 
@@ -298,12 +321,30 @@ class RelationSolver:
                     print(f"Converged at iteration {iter}")
                 break
 
+        if self.params.profile and torch.cuda.is_available():
+            torch.cuda.synchronize()
+        solve_elapsed_ms = (time.perf_counter() - solve_start) * 1e3
+
         if self.params.save_position_history:
             position_history.append(state.get_all_positions_snapshot())
 
         if self.params.verbose and loss_history:
             print(f"\nFinal loss: {loss_history[-1]:.6f}")
             print(f"Total iterations: {len(loss_history)}")
+
+        if self.params.profile:
+            iters_run = len(loss_history)
+            num_optimizable = len(state.optimizable_objects)
+            num_anchors = len(state.anchor_objects)
+            num_pairs = self._last_no_overlap_pair_count
+            ms_per_iter = solve_elapsed_ms / iters_run if iters_run else 0.0
+            print(
+                f"[RelationSolver] solve: {solve_elapsed_ms:.1f} ms"
+                f" | batch={state.batch_size}"
+                f" | objects={num_optimizable} optimizable + {num_anchors} anchors"
+                f" | no-overlap pairs={num_pairs}"
+                f" | iters={iters_run} ({ms_per_iter:.2f} ms/iter)"
+            )
 
         # Store metadata for optional access
         self._last_loss_history = loss_history

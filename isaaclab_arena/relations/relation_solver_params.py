@@ -44,6 +44,9 @@ class RelationSolverParams:
     verbose: bool = True
     """Print optimization progress."""
 
+    profile: bool = False
+    """Print solve wall-time, scene size, pair count, and ms/iter for diagnosing slow solves."""
+
     save_position_history: bool = True
     """Save position snapshots during optimization for visualization/debugging. Disable to reduce memory."""
 
