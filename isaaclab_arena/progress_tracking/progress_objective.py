@@ -79,9 +79,9 @@ class ProgressObjective:
         num_groups = len(self.canonical_predicate_groups)
         if self.logical == ProgressObjectiveCompletionMode.CHOOSE:
             assert self.K is not None, f"ProgressObjective '{self.name}': K is required when logical='choose'"
-            assert 1 <= self.K <= num_groups, (
-                f"ProgressObjective '{self.name}': K={self.K} but must be in [1, {num_groups}]"
-            )
+            assert (
+                1 <= self.K <= num_groups
+            ), f"ProgressObjective '{self.name}': K={self.K} but must be in [1, {num_groups}]"
 
     @property
     def group_names(self) -> list[str]:
