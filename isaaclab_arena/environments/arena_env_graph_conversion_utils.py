@@ -155,11 +155,18 @@ def _instantiate_assets_from_nodes(
             # Standard nodes (object / background / embodiment): look up the registered class
             # by name and instantiate with the spec's verbatim kwargs.
             asset_class = asset_registry.get_asset_by_name(node_spec.name)
-            params = dict(node_spec.params)
+
             # Embodiment cameras are enabled thru the flag passed to the env builder.
             if node_spec.type == ArenaEnvGraphNodeType.EMBODIMENT and enable_cameras:
-                params.setdefault("enable_cameras", True)
-            assets_by_node_id[node_spec.id] = asset_class(**params)
+                node_spec.params.setdefault("enable_cameras", True)
+
+            # Bind the asset's name to the unique node id so multiple instances of the same
+            # registered asset (e.g. 5 bananas) don't collapse to one name/prim_path and
+            # overwrite each other in the Scene (which keys assets by name).
+            if node_spec.type == ArenaEnvGraphNodeType.OBJECT and "instance_name" not in node_spec.params:
+                node_spec.params["instance_name"] = node_spec.id
+            assets_by_node_id[node_spec.id] = asset_class(**node_spec.params)
+
     return assets_by_node_id
 
 
