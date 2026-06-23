@@ -142,7 +142,7 @@ def _arena_env_from_graph_spec(env_graph_spec_yaml: str, args_cli: argparse.Name
     spec = ArenaEnvGraphSpec.from_yaml(env_graph_spec_yaml)
     spec.apply_cli_override_args(args_cli)
     # cameras are enabled in embodiment, need to pass along to the env
-    return spec.to_arena_env(enable_cameras=getattr(args_cli, "enable_cameras", False))
+    return spec.to_arena_env(enable_cameras=args_cli.enable_cameras)
 
 
 def _arena_env_from_example_name(example_environment: str, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:

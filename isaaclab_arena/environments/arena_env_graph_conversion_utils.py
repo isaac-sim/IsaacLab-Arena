@@ -135,9 +135,9 @@ def _scene_already_has_light(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: d
 
 def _instantiate_assets_from_nodes(
     node_specs: list[ArenaEnvGraphNodeSpec], asset_registry: Any, enable_cameras: bool = False
-) -> dict[str, Any]:
+) -> dict[str, type[Asset]]:
     """Return ``{node.id: live_asset}`` after a single pass over ``node_specs``."""
-    assets_by_node_id: dict[str, Any] = {}
+    assets_by_node_id: dict[str, type[Asset]] = {}
     for node_spec in node_specs:
         # OBJECT_REFERENCE wraps a USD prim inside an already-instantiated parent asset
         # (e.g. a table inside a kitchen background). Validation guarantees the parent
@@ -164,7 +164,7 @@ def _instantiate_assets_from_nodes(
 
 
 def _attach_spatial_constraints_to_assets(
-    state_spec: ArenaEnvGraphStateSpec, assets_by_node_id: dict[str, Any]
+    state_spec: ArenaEnvGraphStateSpec, assets_by_node_id: dict[str, type[Asset]]
 ) -> None:
     """Attach one Relation per spatial constraint to the asset(s) it targets, in place."""
     for spatial_constraint in state_spec.spatial_constraints:
