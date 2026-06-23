@@ -187,11 +187,11 @@ def _test_state_machine_advances_sequentially(simulation_app) -> bool:
         preds[0].set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        state = sm.get_state()[0]["progress_objectives"]["lift"]
-        assert state["completed_groups"] == 0  # 3-predicate chain not done until all 3
-        assert not state["is_complete"]
+        state = sm.get_state()[0].progress_objectives["lift"]
+        assert state.completed_groups == 0  # 3-predicate chain not done until all 3
+        assert not state.is_complete
         events = sm.get_events()[0]
-        assert len(events) == 1 and events[0]["predicate_index"] == 0
+        assert len(events) == 1 and events[0].predicate_index == 0
 
         # Step 2: p0 reverts False, p1 True.
         preds[0].set([False])
@@ -199,18 +199,18 @@ def _test_state_machine_advances_sequentially(simulation_app) -> bool:
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
         events = sm.get_events()[0]
-        assert len(events) == 2 and events[-1]["predicate_index"] == 1
+        assert len(events) == 2 and events[-1].predicate_index == 1
 
         # Step 3: p2 True, objective complete.
         preds[2].set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        state = sm.get_state()[0]["progress_objectives"]["lift"]
-        assert state["is_complete"]
-        assert state["completed_groups"] == 1
-        assert abs(state["score"] - 1.0) < SCORE_TOL
+        state = sm.get_state()[0].progress_objectives["lift"]
+        assert state.is_complete
+        assert state.completed_groups == 1
+        assert abs(state.score - 1.0) < SCORE_TOL
         events = sm.get_events()[0]
-        assert len(events) == 3 and events[-1]["predicate_index"] == 2
+        assert len(events) == 3 and events[-1].predicate_index == 2
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -236,10 +236,10 @@ def _test_state_machine_ignores_out_of_order_success(simulation_app) -> bool:
         preds[2].set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        state = sm.get_state()[0]["progress_objectives"]["lift"]
-        assert state["completed_groups"] == 0
-        assert not state["is_complete"]
-        assert state["score"] == 0.0
+        state = sm.get_state()[0].progress_objectives["lift"]
+        assert state.completed_groups == 0
+        assert not state.is_complete
+        assert state.score == 0.0
         assert len(sm.get_events()[0]) == 0
 
         # Now p0 True, p1, p2 should advance over subsequent steps.
@@ -247,9 +247,9 @@ def _test_state_machine_ignores_out_of_order_success(simulation_app) -> bool:
         for _ in range(3):
             _advance_step(env)
             sm.step(env, step_index=env.episode_length_buf)
-        state = sm.get_state()[0]["progress_objectives"]["lift"]
-        assert state["is_complete"]
-        assert state["completed_groups"] == 1
+        state = sm.get_state()[0].progress_objectives["lift"]
+        assert state.is_complete
+        assert state.completed_groups == 1
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -280,17 +280,17 @@ def _test_state_machine_logical_any(simulation_app) -> bool:
         # Neither group complete -> not done, zero score.
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        state = sm.get_state()[0]["progress_objectives"]["either"]
-        assert not state["is_complete"]
-        assert abs(state["score"] - 0.0) < SCORE_TOL
+        state = sm.get_state()[0].progress_objectives["either"]
+        assert not state.is_complete
+        assert abs(state.score - 0.0) < SCORE_TOL
 
         # Group p_a completes -> done, and score is 1.0 even though only 1 of 2 groups finished.
         p_a.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        state = sm.get_state()[0]["progress_objectives"]["either"]
-        assert state["is_complete"]
-        assert abs(state["score"] - 1.0) < SCORE_TOL
+        state = sm.get_state()[0].progress_objectives["either"]
+        assert state.is_complete
+        assert abs(state.score - 1.0) < SCORE_TOL
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -319,17 +319,17 @@ def _test_state_machine_logical_all(simulation_app) -> bool:
         p_a.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        state = sm.get_state()[0]["progress_objectives"]["both"]
-        assert not state["is_complete"]
-        assert abs(state["score"] - 0.5) < SCORE_TOL
+        state = sm.get_state()[0].progress_objectives["both"]
+        assert not state.is_complete
+        assert abs(state.score - 0.5) < SCORE_TOL
 
         # p_b also completes -> done, score 1.0.
         p_b.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        state = sm.get_state()[0]["progress_objectives"]["both"]
-        assert state["is_complete"]
-        assert abs(state["score"] - 1.0) < SCORE_TOL
+        state = sm.get_state()[0].progress_objectives["both"]
+        assert state.is_complete
+        assert abs(state.score - 1.0) < SCORE_TOL
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -360,17 +360,17 @@ def _test_state_machine_logical_choose(simulation_app) -> bool:
         p_a.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        state = sm.get_state()[0]["progress_objectives"]["any_two"]
-        assert not state["is_complete"]
-        assert abs(state["score"] - 0.5) < SCORE_TOL
+        state = sm.get_state()[0].progress_objectives["any_two"]
+        assert not state.is_complete
+        assert abs(state.score - 0.5) < SCORE_TOL
 
         # p_b also complete -> done; both required groups done -> score 1.0, not 2/3.
         p_b.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        state = sm.get_state()[0]["progress_objectives"]["any_two"]
-        assert state["is_complete"]
-        assert abs(state["score"] - 1.0) < SCORE_TOL
+        state = sm.get_state()[0].progress_objectives["any_two"]
+        assert state.is_complete
+        assert abs(state.score - 1.0) < SCORE_TOL
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -399,16 +399,16 @@ def _test_state_machine_reset_clears_state(simulation_app) -> bool:
         sm.step(env, step_index=env.episode_length_buf)
 
         state = sm.get_state()
-        assert state[0]["progress_objectives"]["t"]["is_complete"]
-        assert not state[1]["progress_objectives"]["t"]["is_complete"]
+        assert state[0].progress_objectives["t"].is_complete
+        assert not state[1].progress_objectives["t"].is_complete
         assert len(sm.get_events()[0]) >= 2
         assert len(sm.get_events()[1]) >= 1
 
         # Reset only env 0.
         sm.reset([0])
         state = sm.get_state()
-        assert not state[0]["progress_objectives"]["t"]["is_complete"]
-        assert state[0]["progress_objectives"]["t"]["score"] == 0.0
+        assert not state[0].progress_objectives["t"].is_complete
+        assert state[0].progress_objectives["t"].score == 0.0
         assert sm.get_events()[0] == []
         # env 1 untouched.
         assert len(sm.get_events()[1]) >= 1
@@ -436,7 +436,7 @@ def _test_gating_advance_when_parent_subtask_idx_matches(simulation_app) -> bool
         pred.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert sm.get_state()[0]["progress_objectives"]["t"]["is_complete"]
+        assert sm.get_state()[0].progress_objectives["t"].is_complete
         assert len(sm.get_events()[0]) == 1
     except Exception as e:
         print(f"Error: {e}")
@@ -463,15 +463,15 @@ def _test_gating_blocked_when_parent_subtask_idx_mismatches(simulation_app) -> b
         pred.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert not sm.get_state()[0]["progress_objectives"]["t"]["is_complete"]
-        assert sm.get_state()[0]["progress_objectives"]["t"]["score"] == 0.0
+        assert not sm.get_state()[0].progress_objectives["t"].is_complete
+        assert sm.get_state()[0].progress_objectives["t"].score == 0.0
         assert len(sm.get_events()[0]) == 0
 
         # Parent advances to this objective's index, state machine advances.
         env._current_subtask_idx = [1]
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert sm.get_state()[0]["progress_objectives"]["t"]["is_complete"]
+        assert sm.get_state()[0].progress_objectives["t"].is_complete
         assert len(sm.get_events()[0]) == 1
     except Exception as e:
         print(f"Error: {e}")
@@ -503,14 +503,14 @@ def _test_gating_sequential_task_end_to_end(simulation_app) -> bool:
         pred_b.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert sm.get_state()[0]["progress_objectives"]["a"]["is_complete"]
-        assert not sm.get_state()[0]["progress_objectives"]["b"]["is_complete"]
+        assert sm.get_state()[0].progress_objectives["a"].is_complete
+        assert not sm.get_state()[0].progress_objectives["b"].is_complete
 
         # Advances to subtask 1 so pred_b is now active.
         env._current_subtask_idx = [1]
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert sm.get_state()[0]["progress_objectives"]["b"]["is_complete"]
+        assert sm.get_state()[0].progress_objectives["b"].is_complete
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -534,7 +534,7 @@ def _test_gating_noop_when_env_has_no_current_subtask_idx(simulation_app) -> boo
         pred.set([True])
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
-        assert sm.get_state()[0]["progress_objectives"]["t"]["is_complete"]
+        assert sm.get_state()[0].progress_objectives["t"].is_complete
         assert len(sm.get_events()[0]) == 1
     except Exception as e:
         print(f"Error: {e}")
@@ -571,7 +571,7 @@ def _test_recorder_publishes_to_extras_and_records_nothing(simulation_app) -> bo
         assert "progress_tracking" in env.extras
         assert len(env.extras["progress_tracking"]["states"]) == 2
         assert env.extras["progress_tracking"]["events"] == [[], []]
-        assert not env.extras["progress_tracking"]["states"][0]["progress_objectives"]["t"]["is_complete"]
+        assert not env.extras["progress_tracking"]["states"][0].progress_objectives["t"].is_complete
 
         # Step with env 0 predicate True, env 0 completes, env 1 does not.
         pred.set([True, False])
@@ -579,8 +579,8 @@ def _test_recorder_publishes_to_extras_and_records_nothing(simulation_app) -> bo
         assert recorder.record_post_step() == (None, None)
         states = env.extras["progress_tracking"]["states"]
         events = env.extras["progress_tracking"]["events"]
-        assert states[0]["progress_objectives"]["t"]["is_complete"]
-        assert not states[1]["progress_objectives"]["t"]["is_complete"]
+        assert states[0].progress_objectives["t"].is_complete
+        assert not states[1].progress_objectives["t"].is_complete
         assert len(events[0]) == 1
         assert len(events[1]) == 0
 
@@ -589,8 +589,8 @@ def _test_recorder_publishes_to_extras_and_records_nothing(simulation_app) -> bo
         progress_tracking_reset_func(env, env_ids=[0], progress_objectives=[objective])
         assert recorder.record_post_step() == (None, None)
         states = env.extras["progress_tracking"]["states"]
-        assert not states[0]["progress_objectives"]["t"]["is_complete"]
-        assert states[0]["progress_objectives"]["t"]["score"] == 0.0
+        assert not states[0].progress_objectives["t"].is_complete
+        assert states[0].progress_objectives["t"].score == 0.0
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -660,15 +660,6 @@ def _test_task_base_progress_objective_hooks(simulation_app) -> bool:
         assert recipes[1].name == "subtask_1/close"
         assert recipes[1].parent_subtask_idx == 1
 
-        class _CompositeWithOwn(CompositeTaskBase):
-            def get_own_progress_objectives(self):
-                return [ProgressObjective(name="both_done", predicate_groups=_MockPredicate(1, name="own"))]
-
-        composite2 = _CompositeWithOwn(subtasks=[_ChildA(), _ChildB()])
-        recipes2 = composite2.get_progress_objectives()
-        assert len(recipes2) == 3
-        assert recipes2[2].name == "both_done"
-        assert recipes2[2].parent_subtask_idx is None
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()

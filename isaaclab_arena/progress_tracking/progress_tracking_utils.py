@@ -96,18 +96,18 @@ def _format_group_chain(value, group_name: str) -> list[tuple[Callable, float]]:
 
     if callable(value):
         return [(value, 1.0)]
-    assert isinstance(value, list), (
-        f"Predicate chain for group '{group_name}' must be a callable or a list; got {type(value).__name__}"
-    )
+    assert isinstance(
+        value, list
+    ), f"Predicate chain for group '{group_name}' must be a callable or a list; got {type(value).__name__}"
     assert len(value) > 0, f"Predicate chain for group '{group_name}' cannot be empty"
 
     first = value[0]
     if isinstance(first, tuple):
         chain = []
         for i, item in enumerate(value):
-            assert isinstance(item, tuple) and len(item) == 2, (
-                f"Group '{group_name}' index {i}: expected (callable, score) tuple, got {item!r}"
-            )
+            assert (
+                isinstance(item, tuple) and len(item) == 2
+            ), f"Group '{group_name}' index {i}: expected (callable, score) tuple, got {item!r}"
             fn, score = item
             assert callable(fn), f"Group '{group_name}' index {i}: first tuple element must be callable"
             assert isinstance(score, (int, float)), f"Group '{group_name}' index {i}: score must be a number"

@@ -362,13 +362,6 @@ class CompositeTaskBase(TaskBase):
 
         return subtask_metrics
 
-    def get_own_progress_objectives(self) -> list[ProgressObjective]:
-        """Composite-level ProgressObjectives.
-
-        These are added on top of whatever progress objectives the child subtasks declare and are not gated.
-        """
-        return []
-
     def get_progress_objectives(self) -> list[ProgressObjective]:
         """Concatenate child subtasks's ProgressObjectives with namespace prefixes.
 
@@ -384,7 +377,6 @@ class CompositeTaskBase(TaskBase):
                         parent_subtask_idx=i,
                     )
                 )
-        progress_objectives_list.extend(self.get_own_progress_objectives())
         return progress_objectives_list
 
     def _validate_consistent_mimic_eef_names(self, arm_mode: ArmMode) -> set[str]:

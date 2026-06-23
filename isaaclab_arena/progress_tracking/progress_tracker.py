@@ -6,17 +6,77 @@
 from __future__ import annotations
 
 import torch
-from dataclasses import MISSING
+from dataclasses import MISSING, dataclass
 from typing import Any
 
 from isaaclab.managers import EventTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
 from isaaclab.utils import configclass
 
-from isaaclab_arena.progress_tracking.progress_objective import LogicalMode, ProgressObjective
+from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective, ProgressObjectiveCompletionMode
 from isaaclab_arena.progress_tracking.progress_tracking_utils import _predicate_repr
 
 _PROGRESS_TRACKER_ATTR = "_progress_tracker"
+
+
+@dataclass
+class PredicateEvent:
+    """A single predicate transition event emitted by the progress tracker."""
+
+    env_idx: int
+    """Index of the environment that advanced."""
+
+    step: int
+    """Episode step at which the advance happened (-1 if no step index was available)."""
+
+    progress_objective: str
+    """Name of the ProgressObjective whose group advanced."""
+
+    group: str
+    """Name of the group whose predicate chain advanced."""
+
+    predicate_index: int
+    """Index within the group's chain of the predicate that was satisfied."""
+
+    predicate_name: str
+    """Human-readable string of that predicate."""
+
+    score_delta: float
+    """Normalized score this advance added to the group."""
+
+
+@dataclass
+class ProgressObjectiveState:
+    """Per-env snapshot of a single ProgressObjective's progress."""
+
+    completed_groups: int
+    """Number of the objective's groups that are complete for this env."""
+
+    total_groups: int
+    """Total number of groups in the objective."""
+
+    score: float
+    """Progress score in [0, 1], normalized within the objective."""
+
+    is_complete: bool
+    """Whether the objective is complete for this env."""
+
+    active_predicates: dict[str, str | None]
+    """The human-readable string of the predicate currently being evaluated. None if the group is complete."""
+
+
+@dataclass
+class ProgressState:
+    """Per-env snapshot of progress across all ProgressObjectives."""
+
+    progress_objectives: dict[str, ProgressObjectiveState]
+    """Per-objective state, keyed by ProgressObjective name."""
+
+    overall_score: float
+    """Sum of each objective's score weighted by ProgressObjective.score."""
+
+    all_complete: bool
+    """Whether every objective is complete for this env."""
 
 
 class ProgressObjectiveRunner:
@@ -67,21 +127,11 @@ class ProgressObjectiveRunner:
             current_idx_tensor = torch.as_tensor(current_idx, device=self.device)
         return current_idx_tensor == int(self.progress_objective.parent_subtask_idx)
 
-    def step(self, env, step_index: torch.Tensor | None) -> list[dict]:
+    def step(self, env, step_index: torch.Tensor | None) -> list[PredicateEvent]:
         """Step the runner for a single env.step.
 
-        Advance each group's predicate chain by at most one position per env and return a
-        transition event for every env/group that advanced this step.
-
-        Returns:
-            One transition event (dict) per env that advanced this step with the keys:
-                "env_idx": index of the environment that advanced.
-                "step": episode step at which it advanced.
-                "progress_objective": the objective's name.
-                "group": name of the group whose predicate chain advanced.
-                "predicate_index": position of the group's predicate chain index.
-                "predicate_name": human-readable string of that predicate.
-                "score_delta": normalized score this advance added to the group.
+        Advance each group's predicate chain by at most one position per env and return one
+        PredicateEvent for every env/group that advanced this step.
         """
 
         # If the ProgressObjective is not active for the composite task, there is
@@ -90,7 +140,7 @@ class ProgressObjectiveRunner:
         if not bool(gating_mask.any().item()):
             return []
 
-        events: list[dict] = []
+        events: list[PredicateEvent] = []
         for group_name, predicate_chain in self.progress_objective.canonical_predicate_groups.items():
             events += self._step_group(env, group_name, predicate_chain, gating_mask, step_index)
         return events
@@ -102,7 +152,7 @@ class ProgressObjectiveRunner:
         predicate_chain: list[tuple],
         gating_mask: torch.Tensor,
         step_index: torch.Tensor | None,
-    ) -> list[dict]:
+    ) -> list[PredicateEvent]:
         """Advance a single group's predicate chain by at most one position per env.
 
         Evaluates the current predicate for the envs sitting at each chain position, advances
@@ -111,7 +161,7 @@ class ProgressObjectiveRunner:
         """
 
         # List of state transition events (events are emitted for an env when a predicate flips True)
-        events: list[dict] = []
+        events: list[PredicateEvent] = []
         chain_length = len(predicate_chain)
         # Mask for which envs have advanced this step (at most one advance per env per group).
         advanced = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
@@ -152,15 +202,17 @@ class ProgressObjectiveRunner:
             # Emit an event for each env where a predicate was advanced.
             pred_name = _predicate_repr(predicate)
             for env_idx in torch.nonzero(advance_mask, as_tuple=False).flatten().tolist():
-                events.append({
-                    "env_idx": int(env_idx),
-                    "step": int(step_index[env_idx].item()) if step_index is not None else -1,
-                    "progress_objective": self.progress_objective.name,
-                    "group": group_name,
-                    "predicate_index": chain_idx,
-                    "predicate_name": pred_name,
-                    "score_delta": float(score_weight),
-                })
+                events.append(
+                    PredicateEvent(
+                        env_idx=int(env_idx),
+                        step=int(step_index[env_idx].item()) if step_index is not None else -1,
+                        progress_objective=self.progress_objective.name,
+                        group=group_name,
+                        predicate_index=chain_idx,
+                        predicate_name=pred_name,
+                        score_delta=float(score_weight),
+                    )
+                )
 
         # Update the group complete mask for the envs that have completed the group.
         self.group_complete[group_name] = self.current_predicate_index[group_name] >= chain_length
@@ -175,25 +227,32 @@ class ProgressObjectiveRunner:
             self.group_score[group_name][env_ids] = 0.0
             self.group_complete[group_name][env_ids] = False
 
+    def _num_required_groups(self) -> int:
+        """Number of groups that must complete for the objective to be complete."""
+
+        objective = self.progress_objective
+        if objective.logical == ProgressObjectiveCompletionMode.ALL:
+            return len(objective.group_names)
+        if objective.logical == ProgressObjectiveCompletionMode.ANY:
+            return 1
+        assert objective.K is not None, "K is required (and validated) when logical='choose'"
+        return int(objective.K)
+
     def is_complete(self) -> torch.Tensor:
-        """Check if the ProgressObjective is complete for all envs."""
+        """Per-env mask: True once at least the required number of groups are complete."""
 
         groups = self.progress_objective.group_names
         stacked = torch.stack([self.group_complete[g] for g in groups], dim=1)
-        if self.progress_objective.logical == LogicalMode.ALL:
-            return stacked.all(dim=1)
-        if self.progress_objective.logical == LogicalMode.ANY:
-            return stacked.any(dim=1)
-        return stacked.sum(dim=1) >= int(self.progress_objective.K or 1)
+        return stacked.sum(dim=1) >= self._num_required_groups()
 
     def overall_score_per_env(self) -> torch.Tensor:
-        """Compute mean group score within this ProgressObjective (in [0, 1])."""
+        """Per-env score in [0, 1] that reaches 1.0 exactly when the objective completes."""
 
         groups = self.progress_objective.group_names
         stacked = torch.stack([self.group_score[g] for g in groups], dim=1)
-        return stacked.mean(dim=1)
+        return torch.topk(stacked, self._num_required_groups(), dim=1).values.mean(dim=1)
 
-    def get_state_for_env(self, env_idx: int, is_complete, score) -> dict:
+    def get_state_for_env(self, env_idx: int, is_complete, score) -> ProgressObjectiveState:
         """Per-env view of this objective's progress.
 
         is_complete and score are passed in (rather than recomputed here) so the full
@@ -215,13 +274,13 @@ class ProgressObjectiveRunner:
             else:
                 active_predicates[group_name] = _predicate_repr(predicate_chain[cur_predicate_index][0])
 
-        return {
-            "completed_groups": completed_groups,
-            "total_groups": len(objective.group_names),
-            "score": float(score),
-            "is_complete": bool(is_complete),
-            "active_predicates": active_predicates,
-        }
+        return ProgressObjectiveState(
+            completed_groups=completed_groups,
+            total_groups=len(objective.group_names),
+            score=float(score),
+            is_complete=bool(is_complete),
+            active_predicates=active_predicates,
+        )
 
 
 class ProgressTracker:
@@ -240,15 +299,14 @@ class ProgressTracker:
         self.num_envs = num_envs
         self.device = device
         self.runners = [ProgressObjectiveRunner(s, num_envs, device) for s in progress_objectives]
-        self._events: list[list[dict]] = [[] for _ in range(num_envs)]
+        self._events: list[list[PredicateEvent]] = [[] for _ in range(num_envs)]
 
     def step(self, env, step_index: torch.Tensor | None) -> None:
         """Step each runner for a single env.step."""
 
         for runner in self.runners:
             for event in runner.step(env, step_index):
-                env_idx = event.pop("env_idx")
-                self._events[env_idx].append(event)
+                self._events[event.env_idx].append(event)
 
     def reset(self, env_ids) -> None:
         """Reset the runners for the provided envs."""
@@ -258,35 +316,36 @@ class ProgressTracker:
         for env_idx in env_ids:
             self._events[env_idx] = []
 
-    def get_state(self) -> list[dict]:
-        """Get the state of each ProgressObjective for all envs."""
+    def get_state(self) -> list[ProgressState]:
+        """Get the progress state of all ProgressObjectives for each env."""
 
         # Compute the per-runner (num_envs,) tensors once
         completeness = [runner.is_complete() for runner in self.runners]
         scores = [runner.overall_score_per_env() for runner in self.runners]
 
-        output: list[dict] = []
+        output: list[ProgressState] = []
         for env_idx in range(self.num_envs):
-            # Build a per-env dict from each runner's state.
-            progress_objective_states: dict[str, dict] = {}
+            # Build a per-env state from each runner's state.
+            progress_objective_states: dict[str, ProgressObjectiveState] = {}
             overall_score = 0.0
             all_complete = True
             for i, runner in enumerate(self.runners):
                 objective = runner.progress_objective
                 state = runner.get_state_for_env(env_idx, completeness[i][env_idx], scores[i][env_idx])
                 progress_objective_states[objective.name] = state
-                overall_score += objective.score * state["score"]
-                all_complete = all_complete and state["is_complete"]
+                overall_score += objective.score * state.score
+                all_complete = all_complete and state.is_complete
 
-            # Add the per-env state dict to the output.
-            output.append({
-                "progress_objectives": progress_objective_states,
-                "overall_score": overall_score,
-                "all_complete": all_complete,
-            })
+            output.append(
+                ProgressState(
+                    progress_objectives=progress_objective_states,
+                    overall_score=overall_score,
+                    all_complete=all_complete,
+                )
+            )
         return output
 
-    def get_events(self) -> list[list[dict]]:
+    def get_events(self) -> list[list[PredicateEvent]]:
         """Get all events for all envs."""
 
         return [list(e) for e in self._events]
@@ -315,27 +374,22 @@ class ProgressTrackingRecorder(RecorderTerm):
     env.extras["progress_tracking"] format:
 
         {
-            "states": [                                    # one entry per env
-                {
-                    "progress_objectives": {
-                        "<name>": {
-                            "completed_groups": int,
-                            "total_groups": int,
-                            "score": float,                # 0..1, normalized within objective
-                            "is_complete": bool,
-                            "active_predicates": {group: str | None},
-                        },
+            "states": [                                    # one ProgressState per env
+                ProgressState(
+                    progress_objectives={
+                        "<name>": ProgressObjectiveState(
+                            completed_groups, total_groups, score, is_complete, active_predicates
+                        ),
                         ...
                     },
-                    "overall_score": float,                # weighted by ProgressObjective.score
-                    "all_complete": bool,
-                },
+                    overall_score=float,                   # weighted by ProgressObjective.score
+                    all_complete=bool,
+                ),
                 ...
             ],
-            "events": [                                    # one list per env
-                [{"step": int, "progress_objective": str, "group": str,
-                  "predicate_index": int, "predicate_name": str,
-                  "score_delta": float}, ...],
+            "events": [                                    # one list of PredicateEvent per env
+                [PredicateEvent(env_idx, step, progress_objective, group,
+                                predicate_index, predicate_name, score_delta), ...],
                 ...
             ],
         }
