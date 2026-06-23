@@ -341,7 +341,7 @@ def main():
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()
 
-        # Write HTML report
+        # Write HTML report.
         report_path = build_report(run_video_dir)
         if args_cli.serve_evaluation_report:
             serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)

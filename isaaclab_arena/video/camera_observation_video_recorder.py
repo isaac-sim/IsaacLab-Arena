@@ -28,11 +28,50 @@ from __future__ import annotations
 import gymnasium as gym
 import numpy as np
 import os
+import re
 import torch
+from dataclasses import dataclass
 
 from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 
 CAMERA_OBS_GROUP_KEY = "camera_obs"
+
+# Regular expression to parse the filename of an episode video.
+_EPISODE_VIDEO_FILENAME_PATTERN = re.compile(
+    r"^(?P<prefix>.+?)(?:-rebuild(?P<rebuild>\d+))?-env(?P<env>\d+)-(?P<camera>.+)-episode-(?P<episode>\d+)\.mp4$"
+)
+
+
+@dataclass
+class ParsedEpisodeVideoName:
+    """The fields recovered from a recorder mp4 filename by ``parse_episode_video_filename``."""
+
+    prefix: str
+    env_index: int
+    camera_name: str
+    episode_index: int
+    rebuild_index: int | None
+    """The rebuild this video belongs to, or ``None`` when the prefix carried no ``-rebuild`` segment."""
+
+
+def format_episode_video_filename(name_prefix: str, env_index: int, camera_name: str, episode_index: int) -> str:
+    """Build the mp4 filename for one (env, camera, episode). Inverse of ``parse_episode_video_filename``."""
+    return f"{name_prefix}-env{env_index}-{_sanitize_cam_key(camera_name)}-episode-{episode_index}.mp4"
+
+
+def parse_episode_video_filename(filename: str) -> ParsedEpisodeVideoName | None:
+    """Parse a recorder mp4 filename, or return ``None`` if it does not match the recorder's format."""
+    match = _EPISODE_VIDEO_FILENAME_PATTERN.match(filename)
+    if match is None:
+        return None
+    rebuild = match.group("rebuild")
+    return ParsedEpisodeVideoName(
+        prefix=match.group("prefix"),
+        env_index=int(match.group("env")),
+        camera_name=match.group("camera"),
+        episode_index=int(match.group("episode")),
+        rebuild_index=int(rebuild) if rebuild is not None else None,
+    )
 
 
 def _to_uint8(frame: torch.Tensor | np.ndarray) -> np.ndarray:
@@ -122,7 +161,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
                     continue
                 path = os.path.join(
                     self.video_folder,
-                    f"{self.name_prefix}-env{env_idx}-{_sanitize_cam_key(camera_name)}-episode-{episode_num}.mp4",
+                    format_episode_video_filename(self.name_prefix, env_idx, camera_name, episode_num),
                 )
                 clip = ImageSequenceClip(list(frames), fps=self.fps)
                 clip.write_videofile(path, logger=None, audio=False)
