@@ -91,8 +91,8 @@ def rollout_policy(
                 actions = policy.get_action(env, obs)
                 obs, _, terminated, truncated, _ = env.step(actions)
 
-                print("fine-grained progress:")
-                print(env.unwrapped.extras["fine_grained_progress"])
+                print("progress tracking:")
+                print(env.unwrapped.extras["progress_tracking"])
                 print("\n\n\n")
 
                 if terminated.any() or truncated.any():

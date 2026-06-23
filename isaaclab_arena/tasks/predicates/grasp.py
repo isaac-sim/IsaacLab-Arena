@@ -97,7 +97,7 @@ def object_dropped(
 
     Note: this is the instantaneous negation. To track "was grasped then dropped"
     you can chain ``object_grabbed`` then ``object_dropped`` as conditions in a
-    ``FineGrainedProgressObjective`` — the state machine handles the sequencing.
+    ``ProgressObjective`` — the state machine handles the sequencing.
     """
     grabbed = object_grabbed(
         env,

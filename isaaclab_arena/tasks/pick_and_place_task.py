@@ -22,8 +22,8 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
-from isaaclab_arena.progress_tracking.fine_grained_progress_objective import FineGrainedProgressObjective
 from isaaclab_arena.tasks.predicates import object_lifted
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
@@ -136,9 +136,9 @@ class PickAndPlaceTask(TaskBase):
     def get_metrics(self) -> list[MetricBase]:
         return [SuccessRateMetric(), ObjectMovedRateMetric(self.pick_up_object)]
 
-    def get_fine_grained_progress_objectives(self) -> list[FineGrainedProgressObjective]:
+    def get_progress_objectives(self) -> list[ProgressObjective]:
         return [
-            FineGrainedProgressObjective(
+            ProgressObjective(
                 name="pick_and_place",
                 predicate_groups=[
                     partial(
@@ -147,7 +147,7 @@ class PickAndPlaceTask(TaskBase):
                         surface_height=self.surface_height,
                         distance=self.lift_distance,
                     ),
-                    # Reuse the task's own success-termination function as a fine-grained
+                    # Reuse the task's own success-termination function as a progress-tracking
                     # predicate: object_on_destination has the same (env, **params) -> (num_envs,)
                     # bool contract the state machine expects, so partial-applying its
                     # SceneEntityCfg params is all that's needed.
