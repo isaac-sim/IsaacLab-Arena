@@ -285,10 +285,11 @@ def _build_dataset_from_episode_rows(
     dropped: list[str] = []
     for name in continuous_names:
         values = factor_values[name]
-        if min(values) == max(values):
+        lo, hi = min(values), max(values)
+        if lo == hi:
             dropped.append(name)
             continue
-        factors.append(FactorSpec(name=name, type=FactorType.CONTINUOUS, range=[(min(values), max(values))]))
+        factors.append(FactorSpec(name=name, type=FactorType.CONTINUOUS, range=[(lo, hi)]))
         columns.append(torch.tensor(values, dtype=torch.float32).unsqueeze(1))
     for name in categorical_names:
         choices = sorted(set(factor_values[name]))
