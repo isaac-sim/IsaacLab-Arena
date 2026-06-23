@@ -89,6 +89,7 @@ class SensitivityDataset:
         cls,
         jsonl_path: str | Path,
         outcome_names: list[str] | tuple[str, ...] = ("success",),
+        factor_names: list[str] | tuple[str, ...] | None = None,
     ) -> SensitivityDataset:
         """Build a dataset from an episode_results.jsonl, discovering the factor schema from the data.
 
@@ -106,6 +107,9 @@ class SensitivityDataset:
         Args:
             jsonl_path: Path to the episode_results.jsonl (one JSON object per line).
             outcome_names: Which top-level field(s) per line to use as outcomes.
+            factor_names: Which recorded variations to analyze (keys in each row's ``variations``
+                block; a vector variation is selected by its base name and keeps all components).
+                None — the default — analyzes every recorded variation.
 
         Returns:
             A SensitivityDataset with theta / x in the continuous-first layout the analyzers expect.
@@ -114,7 +118,7 @@ class SensitivityDataset:
         rows = [json.loads(line) for line in jsonl_text.splitlines() if line.strip()]
         assert len(rows) > 0, f"Empty episode_results.jsonl at {jsonl_path}"
 
-        factors, theta, x = _build_dataset_from_episode_rows(rows, outcome_names, jsonl_path)
+        factors, theta, x = _build_dataset_from_episode_rows(rows, outcome_names, jsonl_path, factor_names)
         return cls(factors, theta, x, outcome_names)
 
     @property
@@ -214,7 +218,10 @@ def _flatten_variation_value(
 
 
 def _build_dataset_from_episode_rows(
-    rows: list[dict], outcome_names: list[str] | tuple[str, ...], jsonl_path: str | Path
+    rows: list[dict],
+    outcome_names: list[str] | tuple[str, ...],
+    jsonl_path: str | Path,
+    factor_names: list[str] | tuple[str, ...] | None = None,
 ) -> tuple[list[FactorSpec], torch.Tensor, torch.Tensor]:
     """Discover the factors and assemble theta / x directly from episode_results rows.
 
@@ -229,10 +236,21 @@ def _build_dataset_from_episode_rows(
         rows: Parsed episode_results records, one per episode.
         outcome_names: Top-level field name(s) to read as outcomes.
         jsonl_path: Source path, for error messages.
+        factor_names: Which ``variations`` keys to keep (a vector keeps all its components);
+            None keeps every recorded variation.
 
     Returns:
         The discovered factors (continuous-first) and the theta / x tensors.
     """
+    selected = set(factor_names) if factor_names is not None else None
+    if selected is not None:
+        available = set(rows[0].get("variations", {}))
+        missing = selected - available
+        assert not missing, (
+            f"Requested factor(s) {sorted(missing)} not found in {jsonl_path}; "
+            f"available variations: {sorted(available)}."
+        )
+
     factor_kinds: dict[str, str] = {}  # factor name → "continuous" | "categorical"
     factor_values: dict[str, list[float | str]] = {}  # factor name → per-row value, in row order
     factor_order: list[str] = []  # factor names in first-seen order, for a stable schema
@@ -244,6 +262,8 @@ def _build_dataset_from_episode_rows(
         )
         seen_in_row: set[str] = set()
         for key, value in row["variations"].items():
+            if selected is not None and key not in selected:
+                continue
             for factor_name, scalar in _flatten_variation_value(key, value, row_index, jsonl_path):
                 kind = "categorical" if isinstance(scalar, str) else "continuous"
                 if factor_name not in factor_kinds:

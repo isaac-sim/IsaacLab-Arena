@@ -119,7 +119,9 @@ file extension (``.png``, ``.pdf``, …); reports are written under ``eval/`` by
 ``--outcome`` selects which per-episode outcome(s) to condition on (top-level field(s) in
 each row); it defaults to ``success``. Pass ``--observation`` to set the value per outcome —
 since outcomes are binary, use ``1`` for success or ``0`` for failure; it defaults to ``1``
-(success).
+(success). ``--factors`` restricts the analysis to a subset of the recorded variations (by
+their ``variations``-block names; a vector variation keeps all its components); by default
+every recorded variation is analyzed.
 
 Trying it on synthetic data
 ---------------------------

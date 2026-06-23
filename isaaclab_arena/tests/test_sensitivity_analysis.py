@@ -227,3 +227,37 @@ def test_from_episode_results_rejects_non_numeric_vector_component(tmp_path):
 
     with pytest.raises(AssertionError, match="non-numeric"):
         SensitivityDataset.from_episode_results(jsonl, outcome_names=["success"])
+
+
+def test_from_episode_results_selects_factor_subset(tmp_path):
+    """factor_names restricts the analysis to the named variations; a vector keeps all components."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(
+        jsonl,
+        [
+            {"success": True, "variations": {"light_intensity": 250.0, "hdr": "studio", "wrist": [0.1, 0.2]}},
+            {"success": False, "variations": {"light_intensity": 750.0, "hdr": "sunset", "wrist": [0.3, 0.4]}},
+        ],
+    )
+
+    dataset = SensitivityDataset.from_episode_results(
+        jsonl, outcome_names=["success"], factor_names=["light_intensity", "wrist"]
+    )
+
+    # hdr is excluded; the selected vector is still split into one factor per component.
+    assert [factor.name for factor in dataset.factors] == ["light_intensity", "wrist[0]", "wrist[1]"]
+
+
+def test_from_episode_results_rejects_unknown_factor_name(tmp_path):
+    """Requesting a factor that wasn't recorded raises with the available names listed."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(
+        jsonl,
+        [
+            {"success": True, "variations": {"light_intensity": 250.0}},
+            {"success": False, "variations": {"light_intensity": 750.0}},
+        ],
+    )
+
+    with pytest.raises(AssertionError, match="not found"):
+        SensitivityDataset.from_episode_results(jsonl, outcome_names=["success"], factor_names=["nonexistent"])

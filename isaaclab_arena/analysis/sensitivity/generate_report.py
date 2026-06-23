@@ -19,6 +19,7 @@ def generate_report(
     episode_results_path: str | Path,
     output_path: str | Path,
     outcome_names: list[str] | tuple[str, ...] = ("success",),
+    factor_names: list[str] | tuple[str, ...] | None = None,
     observation: list[float] | None = None,
     seed: int | None = 0,
 ) -> Path:
@@ -31,6 +32,7 @@ def generate_report(
         episode_results_path: episode_results.jsonl produced by the per-episode recorder.
         output_path: Destination figure file (parent dirs created if absent).
         outcome_names: Which per-episode outcome(s) to condition on.
+        factor_names: Which recorded variations to analyze; None (default) analyzes all of them.
         observation: Outcome values to condition on, one per outcome name. Defaults to
             conditioning on success (1) for every (binary) outcome.
         seed: Seed for torch's global RNG, set once before fitting so the estimator training
@@ -44,7 +46,7 @@ def generate_report(
     if seed is not None:
         torch.manual_seed(seed)
 
-    dataset = SensitivityDataset.from_episode_results(Path(episode_results_path), outcome_names)
+    dataset = SensitivityDataset.from_episode_results(Path(episode_results_path), outcome_names, factor_names)
     analyzer = SensitivityAnalyzer(dataset)
     analyzer.fit()
 
@@ -86,6 +88,16 @@ def main():
         help="Which per-episode outcome(s) to condition on (top-level field(s) in each row). Default: success.",
     )
     parser.add_argument(
+        "--factors",
+        type=str,
+        nargs="+",
+        default=None,
+        help=(
+            "Which recorded variations to analyze (keys in each row's variations block; a vector "
+            "variation keeps all its components). Default: all recorded variations."
+        ),
+    )
+    parser.add_argument(
         "--observation",
         type=float,
         nargs="+",
@@ -107,6 +119,7 @@ def main():
         args.episode_results,
         args.output,
         outcome_names=args.outcome,
+        factor_names=args.factors,
         observation=args.observation,
         seed=args.seed,
     )
