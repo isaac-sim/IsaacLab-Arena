@@ -98,7 +98,7 @@ class SensitivityAnalyzer:
         """Sample the joint posterior over all factors at observation.
 
         Defaults to the dataset's default observation (condition on success). Returns a
-        (num_samples, total_factor_dim) tensor laid out like theta — continuous columns first
+        (num_samples, num_factors) tensor laid out like theta — continuous columns first
         (in original, denormalized units), then integer-coded categorical columns.
         """
         assert self.posterior is not None, "Call fit() before sampling the posterior"

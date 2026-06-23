@@ -22,16 +22,15 @@ class FactorType(str, Enum):
 
 @dataclass
 class FactorSpec:
-    """One factor's schema.
+    """One factor's schema. It occupies exactly one column of theta.
 
-    Continuous factors carry a range (one [low, high] pair per dim); categorical
+    Continuous factors carry a range (a single [low, high] pair); categorical
     factors carry choices (a list of string labels, integer-encoded by index in theta).
     """
 
     name: str
     type: FactorType
-    dim: int = 1
-    range: list[tuple[float, float]] | None = None  # one (low, high) pair per dim, continuous only
+    range: list[tuple[float, float]] | None = None  # a single (low, high) pair, continuous only
     choices: list[str] | None = None  # categorical only
 
     def __post_init__(self) -> None:
@@ -65,19 +64,18 @@ class SensitivityDataset:
         """Wrap an in-memory factor list plus its theta / x tensors, validating shapes.
 
         Args:
-            factors: The varied factors. Continuous factors must carry a range;
-                categorical factors must carry choices.
-            theta: (num_episodes, total_factor_dim) factor matrix, continuous-first.
+            factors: The varied factors, one per theta column. Continuous factors must carry
+                a range; categorical factors must carry choices.
+            theta: (num_episodes, num_factors) factor matrix, continuous-first.
             x: (num_episodes, num_outcomes) outcome matrix.
             outcome_names: Name of each outcome column in x, in order (used for plot labels).
         """
-        total_factor_dim = sum(factor.dim if factor.type == "continuous" else 1 for factor in factors)
         assert theta.ndim == 2 and x.ndim == 2, f"theta and x must be 2D; got {theta.shape} and {x.shape}"
         assert theta.shape[0] == x.shape[0], f"theta/x row counts disagree: {theta.shape[0]} vs {x.shape[0]}"
         assert theta.shape[0] > 0, "Dataset is empty (no episodes)"
-        assert (
-            theta.shape[1] == total_factor_dim
-        ), f"theta has {theta.shape[1]} columns but the {len(factors)} factor(s) span {total_factor_dim} dims"
+        assert theta.shape[1] == len(
+            factors
+        ), f"theta has {theta.shape[1]} columns but there are {len(factors)} factor(s) (one column each)"
         assert x.shape[1] == len(
             outcome_names
         ), f"x has {x.shape[1]} columns but {len(outcome_names)} outcome name(s) were given"
@@ -121,7 +119,7 @@ class SensitivityDataset:
 
     @property
     def theta(self) -> torch.Tensor:
-        """(num_episodes, total_factor_dim) matrix of factor values, one row per episode.
+        """(num_episodes, num_factors) matrix of factor values, one row per episode.
 
         This is the "input" sbi infers a posterior over. Column layout is given by
         factor_columns — continuous factors first, then categoricals (integer-coded).
@@ -144,21 +142,14 @@ class SensitivityDataset:
 
     @property
     def factor_columns(self) -> dict[str, slice]:
-        """Map factor name → its column slice in theta.
+        """Map factor name → its single-column slice in theta.
 
-        Continuous factors occupy the leading columns (dim each), then each categorical
-        factor occupies one trailing column — the continuous-first layout sbi's mixed
-        density estimator expects.
+        Continuous factors take the leading columns, then categoricals — the continuous-first
+        layout sbi's mixed density estimator expects. Each factor occupies exactly one column.
         """
         continuous = [factor for factor in self.factors if factor.type == "continuous"]
         categorical = [factor for factor in self.factors if factor.type == "categorical"]
-        slices: dict[str, slice] = {}
-        start = 0
-        for factor in continuous + categorical:
-            width = factor.dim if factor.type == "continuous" else 1
-            slices[factor.name] = slice(start, start + width)
-            start += width
-        return slices
+        return {factor.name: slice(index, index + 1) for index, factor in enumerate(continuous + categorical)}
 
     def default_observation(self) -> torch.Tensor:
         """The default outcome vector to condition a query on: success (1) for every outcome.

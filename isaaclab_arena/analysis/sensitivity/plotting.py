@@ -35,7 +35,7 @@ def plot_marginals(
     for categorical ones, wrapped into a grid.
 
     Args:
-        samples: ``(num_samples, total_factor_dim)`` posterior draws in the dataset's factor
+        samples: ``(num_samples, num_factors)`` posterior draws in the dataset's factor
             layout (continuous-first, original units), e.g. from ``SensitivityAnalyzer.sample_posterior``.
         dataset: The dataset, for the factor schema and column layout.
         observation: The outcome vector the samples were conditioned on (shown in the title).
