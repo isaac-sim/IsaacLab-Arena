@@ -1845,6 +1845,7 @@ class ContainerF24VompRobolab(LibraryObject):
     name = "container_f24_vomp_robolab"
     tags = ["object", "container", "graspable", "robolab"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_f24/container_f24.usd"
+    scale = (0.25, 0.25, 0.25)
 
 
 @register_asset
