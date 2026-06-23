@@ -1785,13 +1785,6 @@ class WoodBlockYcbRobolab(LibraryObject):
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/wood_block.usd"
 
 
-@register_asset
-class TableMapleRobolab(LibraryObject):
-    name = "table_maple_robolab"
-    tags = ["background", "fixture", "robolab"]
-    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/table_maple.usd"
-
-
 # ---------------------------------------------------------------------------
 # Procedural assets (Newton-safe, single-geometry cuboids)
 # ---------------------------------------------------------------------------
