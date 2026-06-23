@@ -103,10 +103,23 @@ class SimAppClient:
 
         return results, aabb_dimensions_m
 
-    def run_sim_preview(self, yaml_text: str) -> dict[str, Any]:
+    def run_sim_preview(
+        self,
+        yaml_text: str,
+        *,
+        num_envs: int,
+        num_steps: int,
+        env_spacing: float,
+    ) -> dict[str, Any]:
         """Run a multi-env relation-solver rollout preview in the SimApp server."""
         with self._lock:
-            response = self._request({"cmd": "run_sim_preview", "yaml_text": yaml_text})
+            response = self._request({
+                "cmd": "run_sim_preview",
+                "yaml_text": yaml_text,
+                "num_envs": num_envs,
+                "num_steps": num_steps,
+                "env_spacing": env_spacing,
+            })
 
         if not response.get("ok"):
             raise SimAppError(

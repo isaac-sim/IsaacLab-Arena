@@ -22,6 +22,11 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.generatio
     get_catalogue_bundle,
     render_generation_panel,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.sim_preview import (
+    ENV_SPACING_M,
+    NUM_ENVS,
+    NUM_STEPS,
+)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.visualization_panel import (
     render_visualization_panel,
 )
@@ -54,6 +59,9 @@ def initialize_state(yaml_path: Path | None, out_dir: Path) -> None:
     st.session_state["_yaml_path"] = session_key
     st.session_state.setdefault("generation_prompt", DEFAULT_GENERATION_PROMPT)
     st.session_state.setdefault("editor_version", 0)
+    st.session_state.setdefault("sim_preview_num_envs", NUM_ENVS)
+    st.session_state.setdefault("sim_preview_num_steps", NUM_STEPS)
+    st.session_state.setdefault("sim_preview_env_spacing", ENV_SPACING_M)
     st.session_state["out_dir"] = str(out_dir.resolve())
     st.session_state.pop("_validation_text", None)
     st.session_state.pop("_validation_result", None)

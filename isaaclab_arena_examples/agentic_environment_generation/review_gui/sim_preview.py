@@ -35,10 +35,10 @@ def _preview_log(started_at: float, message: str) -> None:
     print(f"[sim_preview] +{elapsed:.1f}s {message}", file=sys.stderr, flush=True)
 
 
-def _preview_args() -> argparse.Namespace:
+def _preview_args(*, num_envs: int = NUM_ENVS, env_spacing: float = ENV_SPACING_M) -> argparse.Namespace:
     return argparse.Namespace(
-        num_envs=NUM_ENVS,
-        env_spacing=ENV_SPACING_M,
+        num_envs=num_envs,
+        env_spacing=env_spacing,
         device="cuda:0",
         disable_fabric=False,
         seed=42,
@@ -101,7 +101,14 @@ def _capture_viewport(app, cache_path: Path) -> bytes | None:
     return None
 
 
-def run_sim_preview(app, yaml_text: str) -> dict[str, Any]:
+def run_sim_preview(
+    app,
+    yaml_text: str,
+    *,
+    num_envs: int = NUM_ENVS,
+    num_steps: int = NUM_STEPS,
+    env_spacing: float = ENV_SPACING_M,
+) -> dict[str, Any]:
     """Link spec → arena env → relation solver → zero-action steps; capture viewport frames."""
     import gymnasium as gym
     import yaml
@@ -127,7 +134,7 @@ def run_sim_preview(app, yaml_text: str) -> dict[str, Any]:
     arena_env.name = preview_name
     _preview_log(started_at, f"linked spec → arena env ({preview_name})")
 
-    args = _preview_args()
+    args = _preview_args(num_envs=num_envs, env_spacing=env_spacing)
     builder = ArenaEnvBuilder(arena_env, args)
     policy = ZeroActionPolicy(ZeroActionPolicyArgs())
 
@@ -160,7 +167,7 @@ def run_sim_preview(app, yaml_text: str) -> dict[str, Any]:
         if _capture_viewport(app, first_path) is None:
             raise RuntimeError("failed to capture first-frame viewport screenshot")
 
-        for _ in range(NUM_STEPS):
+        for _ in range(num_steps):
             action = policy.get_action(env, obs)
             obs, _, _, _, _ = env.step(action)
 
@@ -170,7 +177,7 @@ def run_sim_preview(app, yaml_text: str) -> dict[str, Any]:
             raise RuntimeError("failed to capture last-frame viewport screenshot")
 
         print(
-            f"[sim_preview] captured {NUM_ENVS} envs @ {ENV_SPACING_M}m spacing, {NUM_STEPS} zero-action steps "
+            f"[sim_preview] captured {num_envs} envs @ {env_spacing}m spacing, {num_steps} zero-action steps "
             f"(total {time.monotonic() - started_at:.1f}s)",
             file=sys.stderr,
             flush=True,
@@ -180,9 +187,9 @@ def run_sim_preview(app, yaml_text: str) -> dict[str, Any]:
             "first_frame": str(first_path),
             "last_frame": str(last_path),
             "env_name": preview_name,
-            "num_envs": args.num_envs,
-            "env_spacing": args.env_spacing,
-            "num_steps": NUM_STEPS,
+            "num_envs": num_envs,
+            "env_spacing": env_spacing,
+            "num_steps": num_steps,
         }
     finally:
         close_env_and_reset_sim(env, app=app)
