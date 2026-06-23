@@ -285,6 +285,10 @@ class RelationSolver:
         # Setup optimizer (only for optimizable positions)
         optimizer = torch.optim.Adam([state.optimizable_positions], lr=self.params.lr)
 
+        if self.params.profile and torch.cuda.is_available():
+            torch.cuda.synchronize()
+        solve_start = time.perf_counter()
+
         # Compute initial loss so _last_loss_per_env is always populated
         # (needed even when max_iters=0, e.g. tests that only check init positions).
         with torch.no_grad():
@@ -293,10 +297,6 @@ class RelationSolver:
         # Optimization loop
         loss_history = []
         position_history = []  # Track positions for visualization
-
-        if self.params.profile and torch.cuda.is_available():
-            torch.cuda.synchronize()
-        solve_start = time.perf_counter()
 
         for iter in range(self.params.max_iters):
             optimizer.zero_grad()
@@ -332,12 +332,12 @@ class RelationSolver:
             print(f"\nFinal loss: {loss_history[-1]:.6f}")
             print(f"Total iterations: {len(loss_history)}")
 
-        if self.params.profile:
+        if self.params.profile and loss_history:
             iters_run = len(loss_history)
             num_optimizable = len(state.optimizable_objects)
             num_anchors = len(state.anchor_objects)
             num_pairs = self._last_no_overlap_pair_count
-            ms_per_iter = solve_elapsed_ms / iters_run if iters_run else 0.0
+            ms_per_iter = solve_elapsed_ms / iters_run
             print(
                 f"[RelationSolver] solve: {solve_elapsed_ms:.1f} ms"
                 f" | batch={state.batch_size}"
