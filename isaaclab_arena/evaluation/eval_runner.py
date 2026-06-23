@@ -255,6 +255,8 @@ def main():
 
         # One reverse-dated run directory shared by all jobs; each job gets a subdirectory within it.
         # Always dated so every run produces its own report dir, recording or not.
+        # TODO(alexmillane): Currently each chunk produces its own output directory.
+        # We should use the same output directory for all chunks in the future.
         run_video_dir = timestamped_run_dir(args_cli.video_base_dir)
 
         if args_cli.record_viewport_video:
