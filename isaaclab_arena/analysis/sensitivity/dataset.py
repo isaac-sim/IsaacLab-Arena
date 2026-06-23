@@ -198,6 +198,10 @@ def _flatten_variation_value(
     if isinstance(value, str):
         return [(key, value)]
     # list / tuple → one continuous scalar factor per component.
+    # TODO(cvolk): components are named with an opaque positional suffix (key[0], key[1], ...),
+    # so plots can't tell e.g. a camera's lateral axis from its depth axis. Follow-up PR: have
+    # the recorder emit semantic component names (e.g. camera ROS frame x_right/y_down/z_forward)
+    # rather than a bare vector, so the labels flow through this generic reader unchanged.
     assert len(value) > 0, f"Variation {key!r} in row {row_index} of {jsonl_path} is an empty list."
     pairs: list[tuple[str, float | str]] = []
     for component_index, component in enumerate(value):
