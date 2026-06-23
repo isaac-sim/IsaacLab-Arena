@@ -104,45 +104,60 @@ def get_asset_usd_path_from_prim_path(prim_path: str, stage: Usd.Stage) -> str |
     return None
 
 
+def _read_default_prim_scale(prim: Usd.Prim) -> tuple[float, float, float]:
+    """Return the default prim's root ``xformOp:scale``, or identity if absent."""
+    if not prim.IsA(UsdGeom.Xformable):
+        return (1.0, 1.0, 1.0)
+    for op in UsdGeom.Xformable(prim).GetOrderedXformOps():
+        if op.GetOpType() == UsdGeom.XformOp.TypeScale:
+            value = op.Get()
+            if value is not None:
+                return (float(value[0]), float(value[1]), float(value[2]))
+    return (1.0, 1.0, 1.0)
+
+
 def compute_local_bounding_box_from_usd(
     usd_path: str,
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
 ) -> AxisAlignedBoundingBox:
-    """Compute the local bounding box of a USD asset (relative to USD origin).
+    """Compute the local bounding box matching Isaac Lab ``UsdFileCfg`` spawn size.
+
+    Opening a USD directly includes the default prim's root ``xformOp:scale`` in
+    ``ComputeWorldBound``, but Isaac Lab's ``create_prim(..., usd_path=..., scale=...)``
+    does **not** compose that authored root scale when the file is referenced at
+    spawn time — only ``Object.scale`` on the spawn wrapper applies. Assets such as
+    ``grey_bin.usd`` rely on ``Object.scale`` for correct sim size even when the file
+    also carries a root scale used by offline authoring tools.
+
+    This helper therefore unbakes the default prim's root scale from the on-disk
+    bounds, then applies ``Object.scale`` once so relation-solver bboxes match what
+    is actually spawned.
 
     Args:
         usd_path: Path to the USD file.
-        scale: Scale to apply to the asset (x, y, z).
+        scale: Spawn-time scale passed to ``UsdFileCfg`` / ``Object.scale``.
 
     Returns:
-        AxisAlignedBoundingBox containing the min and max points relative to USD origin.
+        AxisAlignedBoundingBox containing local min and max points.
     """
     stage = Usd.Stage.Open(usd_path)
     if not stage:
         raise ValueError(f"Failed to open USD file: {usd_path}")
 
-    # Get the default prim (or pseudo root if no default prim)
     default_prim = stage.GetDefaultPrim()
     if not default_prim:
         default_prim = stage.GetPseudoRoot()
 
-    # Compute the bounding box using USD's built-in functionality
-    bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), includedPurposes=[UsdGeom.Tokens.default_])
-    bbox = bbox_cache.ComputeWorldBound(default_prim)
+    bbox = compute_local_bounding_box_from_prim(stage, default_prim.GetPath().pathString)
 
-    # Get the range (bounding box)
-    bbox_range = bbox.ComputeAlignedBox()
-    min_point = bbox_range.GetMin()
-    max_point = bbox_range.GetMax()
+    file_scale = _read_default_prim_scale(default_prim)
+    if file_scale != (1.0, 1.0, 1.0):
+        inv_scale = (1.0 / file_scale[0], 1.0 / file_scale[1], 1.0 / file_scale[2])
+        bbox = bbox.scaled(inv_scale)
 
-    # Apply scale
-    min_point = Gf.Vec3d(min_point[0] * scale[0], min_point[1] * scale[1], min_point[2] * scale[2])
-    max_point = Gf.Vec3d(max_point[0] * scale[0], max_point[1] * scale[1], max_point[2] * scale[2])
-
-    return AxisAlignedBoundingBox(
-        min_point=(min_point[0], min_point[1], min_point[2]),
-        max_point=(max_point[0], max_point[1], max_point[2]),
-    )
+    if scale != (1.0, 1.0, 1.0):
+        bbox = bbox.scaled(scale)
+    return bbox
 
 
 def compute_local_bounding_box_from_prim(
