@@ -2008,6 +2008,7 @@ class GreyBinRobolab(LibraryObject):
     name = "grey_bin_robolab"
     tags = ["object", "container", "robolab"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/grey_bin.usd"
+    scale = (0.007, 0.007, 0.007)
 
 
 # ---------------------------------------------------------------------------
