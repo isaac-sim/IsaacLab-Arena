@@ -150,17 +150,18 @@ class ArenaEnvBuilder:
         )
         return recorder_cfg
 
-    @staticmethod
-    def _metrics_to_metrics_cfg(metrics: list[MetricBase] | None) -> object | None:
+    def _compose_metrics_cfg(self, metrics: list[MetricBase] | None) -> object | None:
         """Build a configclass container with one ``MetricTermCfg`` field per metric."""
         if not metrics:
             return None
         fields = [(m.name, MetricTermCfg, m.get_metric_term_cfg()) for m in metrics]
         return make_configclass("MetricsCfg", fields)()
 
-    @staticmethod
-    def _episode_recorders_cfg(extra_terms: dict[str, EpisodeRecorderTermCfg] | None = None) -> object:
-        """Build a configclass container with the built-in recorder terms plus any user-added terms."""
+    def _compose_episode_recorders_cfg(extra_terms: dict[str, EpisodeRecorderTermCfg] | None = None) -> object:
+        """Build a configclass container with one EpisodeRecorderTermCfg field per episode recorder term.
+
+        Note that this function automatically adds the core and variations terms.
+        """
         fields = [
             ("core", EpisodeRecorderTermCfg, CoreEpisodeRecorderTermCfg()),
             ("variations", EpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg()),
@@ -248,7 +249,7 @@ class ArenaEnvBuilder:
             elif isinstance(device_cfg, DeviceCfg):
                 teleop_devices_cfg = DevicesCfg(devices={self.arena_env.teleop_device.name: device_cfg})
         metrics = task.get_metrics()
-        metrics_cfg = self._metrics_to_metrics_cfg(metrics)
+        metrics_cfg = self._compose_metrics_cfg(metrics)
         metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
 
         # Base has to be specified explicitly to avoid type errors and not lose inheritance.
@@ -282,6 +283,8 @@ class ArenaEnvBuilder:
             task.get_commands_cfg(),
         )
 
+        episode_recorders_cfg = self._compose_episode_recorders_cfg(self.arena_env.episode_recorder_terms)
+
         viewer_cfg = task.get_viewer_cfg()
 
         episode_length_s = task.get_episode_length_s()
@@ -304,7 +307,7 @@ class ArenaEnvBuilder:
                 teleop_devices=teleop_devices_cfg,
                 recorders=recorder_manager_cfg,
                 metrics=metrics_cfg,
-                episode_recorders=self._episode_recorders_cfg(self.arena_env.episode_recorder_terms),
+                episode_recorders=episode_recorders_cfg,
                 task_description=task_description,
                 viewer=viewer_cfg,
             )

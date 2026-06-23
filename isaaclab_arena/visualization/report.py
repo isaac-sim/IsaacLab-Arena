@@ -201,10 +201,26 @@ def _render_row_label(episode: EpisodeVideos) -> str:
     )
 
 
+def _render_metadata_entry(key: str, value: object) -> str:
+    """Render one metadata field as a labelled block.
+
+    Dict values (e.g. the per-episode ``variations``) are split one indented sub-line per item so
+    they don't render as a single long line.
+    """
+    if isinstance(value, dict):
+        sub_rows = "".join(
+            f'<div class="subitem"><span class="k">{html.escape(str(sub_key))}</span>'
+            f" {html.escape(str(sub_value))}</div>"
+            for sub_key, sub_value in value.items()
+        )
+        return f'<div><span class="k">{html.escape(key)}</span>{sub_rows}</div>'
+    return f'<div><span class="k">{html.escape(key)}</span> {html.escape(str(value))}</div>'
+
+
 def _render_metadata_cell(record: dict) -> str:
     """Render the trailing cell holding the remaining per-episode metadata as a key/value list."""
     rows = [
-        f'<div><span class="k">{html.escape(key)}</span> {html.escape(str(value))}</div>'
+        _render_metadata_entry(key, value)
         for key, value in record.items()
         if key not in _METADATA_EXCLUDED_FIELDS and value is not None
     ]

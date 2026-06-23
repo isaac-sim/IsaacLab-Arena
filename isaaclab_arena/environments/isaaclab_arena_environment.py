@@ -40,9 +40,6 @@ class IsaacLabArenaEnvironment:
             task: The task to use in the environment.
             teleop_device: The teleop device to use in the environment.
             env_cfg_callback: A callback function that modifies the environment configuration.
-            episode_recorder_terms: Custom per-episode recorder terms to record alongside the
-                built-in ones, keyed by name. Each name becomes a term in the env's
-                ``EpisodeRecorderManagerCfg`` and must not collide with a built-in term name.
             rl_framework_entry_point: Gym kwargs key under which the RL policy config is
                 registered. This is an IsaacLab convention: each supported RL framework has a
                 fixed key that its training scripts look up via ``load_cfg_from_registry``.
@@ -51,6 +48,8 @@ class IsaacLabArenaEnvironment:
                 ``rl_policy_cfg`` is set.
             rl_policy_cfg: Import path to the RL policy config class, e.g.
                 ``"my_module:RLPolicyCfg"``.
+            episode_recorder_terms: Additional per-episode recorder terms to record alongside the
+                built-in ones, keyed by name.
         """
         self.name = name
         self.scene = scene
