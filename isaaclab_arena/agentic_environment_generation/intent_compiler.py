@@ -76,13 +76,20 @@ class IntentCompiler:
         nodes: list[ArenaEnvGraphNodeSpec] = []
 
         background_node = self._resolve_asset_node(
-            spec.background, "background", ArenaEnvGraphNodeType.BACKGROUND, ["background"]
+            query=spec.background,
+            trace_prefix="background",
+            node_type=ArenaEnvGraphNodeType.BACKGROUND,
+            required_tags=["background"],
         )
         if background_node is not None:
             nodes.append(background_node)
 
         embodiment_node = self._resolve_asset_node(
-            spec.embodiment, "embodiment", ArenaEnvGraphNodeType.EMBODIMENT, ["embodiment"], ["ik"]
+            query=spec.embodiment,
+            trace_prefix="embodiment",
+            node_type=ArenaEnvGraphNodeType.EMBODIMENT,
+            required_tags=["embodiment"],
+            preferred_tags=["ik"],
         )
         if embodiment_node is not None:
             nodes.append(embodiment_node)
@@ -93,11 +100,11 @@ class IntentCompiler:
         query_to_instances: dict[str, list[str]] = {}
         for item in spec.items:
             item_node = self._resolve_asset_node(
-                item.query,
-                "item",
-                ArenaEnvGraphNodeType.OBJECT,
-                ["object"],
-                item.category_tags,
+                query=item.query,
+                trace_prefix="item",
+                node_type=ArenaEnvGraphNodeType.OBJECT,
+                required_tags=["object"],
+                preferred_tags=item.category_tags,
                 instance_name=item.instance_name,
             )
             if item_node is not None:
@@ -151,7 +158,6 @@ class IntentCompiler:
         node_type: ArenaEnvGraphNodeType,
         required_tags: list[str],
         preferred_tags: list[str] | None = None,
-        *,
         instance_name: str | None = None,
     ) -> ArenaEnvGraphNodeSpec | None:
         """Match ``query`` to a registered asset and build the corresponding graph node, or None.
@@ -226,7 +232,6 @@ class IntentCompiler:
         ref: str,
         known_ids: set[str],
         query_to_instances: dict[str, list[str]],
-        *,
         resolved_stage: str,
         unknown_stage: str,
         note: str,
