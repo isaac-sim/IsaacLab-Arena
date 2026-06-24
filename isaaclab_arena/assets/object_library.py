@@ -1845,6 +1845,7 @@ class ContainerF24VompRobolab(LibraryObject):
     name = "container_f24_vomp_robolab"
     tags = ["object", "container", "graspable", "robolab"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_f24/container_f24.usd"
+    # USD scale >1m and too large for the maple table.
     scale = (0.25, 0.25, 0.25)
 
 
@@ -2009,6 +2010,7 @@ class GreyBinRobolab(LibraryObject):
     name = "grey_bin_robolab"
     tags = ["object", "container", "robolab"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/grey_bin.usd"
+    # USD has 0.07 scale which is ignored by spawner. Setting it back again.
     scale = (0.007, 0.007, 0.007)
 
 
