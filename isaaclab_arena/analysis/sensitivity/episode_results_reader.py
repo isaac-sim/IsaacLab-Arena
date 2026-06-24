@@ -126,13 +126,10 @@ def _discover_factor_values(
         first_variations = rows[0].get("variations")
         assert isinstance(first_variations, dict), (
             f"Row 0 of {jsonl_path} has no 'variations' block (or it is not a JSON object)."
-        )
-        available = set(first_variations)
+    if selected is not None:
+        first_variations = rows[0].get("variations")
+        available = set(first_variations) if isinstance(first_variations, dict) else set()
         missing = selected - available
-        assert not missing, (
-            f"Requested factor(s) {sorted(missing)} not found in {jsonl_path}; "
-            f"available variations: {sorted(available)}."
-        )
 
     factor_kinds: dict[str, str] = {}  # factor name → "continuous" | "categorical"
     factor_values: dict[str, list[float | str]] = {}  # factor name → per-row value, in row order
