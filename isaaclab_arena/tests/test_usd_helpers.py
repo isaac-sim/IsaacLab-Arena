@@ -24,7 +24,7 @@ def _write_cube_asset_usd(
     stage.SetDefaultPrim(cube.GetPrim())
     if root_scale != (1.0, 1.0, 1.0):
         xformable = UsdGeom.Xformable(cube.GetPrim())
-        scale_op = xformable.AddScaleOp(UsdGeom.XformOp.PrecisionDouble, "xformOp:scale")
+        scale_op = xformable.AddScaleOp(UsdGeom.XformOp.PrecisionDouble)
         scale_op.Set(Gf.Vec3d(*root_scale))
     stage.GetRootLayer().Save()
 

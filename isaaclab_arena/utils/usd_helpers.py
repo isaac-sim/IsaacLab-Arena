@@ -122,16 +122,12 @@ def compute_local_bounding_box_from_usd(
 ) -> AxisAlignedBoundingBox:
     """Compute the local bounding box matching Isaac Lab ``UsdFileCfg`` spawn size.
 
-    Opening a USD directly includes the default prim's root ``xformOp:scale`` in
-    ``ComputeWorldBound``, but Isaac Lab's ``create_prim(..., usd_path=..., scale=...)``
-    does **not** compose that authored root scale when the file is referenced at
-    spawn time — only ``Object.scale`` on the spawn wrapper applies. Assets such as
-    ``grey_bin.usd`` rely on ``Object.scale`` for correct sim size even when the file
-    also carries a root scale used by offline authoring tools.
-
-    This helper therefore unbakes the default prim's root scale from the on-disk
-    bounds, then applies ``Object.scale`` once so relation-solver bboxes match what
-    is actually spawned.
+    Opening a USD directly includes the default prim's root ``xformOp:scale``
+    in ``ComputeWorldBound``, but Isaac Lab's spawner ignores it and only
+    Object.scale on the spawn wrapper applies.
+    This helper unbakes the default prim's root scale from the USD, then
+    applies ``Object.scale`` once so relation-solver bboxes match what is
+    actually spawned.
 
     Args:
         usd_path: Path to the USD file.
@@ -150,13 +146,12 @@ def compute_local_bounding_box_from_usd(
 
     bbox = compute_local_bounding_box_from_prim(stage, default_prim.GetPath().pathString)
 
-    file_scale = _read_default_prim_scale(default_prim)
-    if file_scale != (1.0, 1.0, 1.0):
-        inv_scale = (1.0 / file_scale[0], 1.0 / file_scale[1], 1.0 / file_scale[2])
-        bbox = bbox.scaled(inv_scale)
-
-    if scale != (1.0, 1.0, 1.0):
-        bbox = bbox.scaled(scale)
+    usd_scale = _read_default_prim_scale(default_prim)
+    assert not any(
+        s == 0.0 for s in usd_scale
+    ), f"Default prim {default_prim.GetPath().pathString} has scale {usd_scale}"
+    composed_scale = (scale[0] / usd_scale[0], scale[1] / usd_scale[1], scale[2] / usd_scale[2])
+    bbox = bbox.scaled(composed_scale)
     return bbox
 
 
