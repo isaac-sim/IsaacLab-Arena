@@ -85,9 +85,7 @@ class _MeshSDFFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output: torch.Tensor):
-        """Backprop through SDF: dL/dpoints = dL/dsdf * dsdf/dpoints."""
         (grad_sdf,) = ctx.saved_tensors
-        # grad_output: (N,), grad_sdf: (N, 3) -- analytical SDF gradient
         grad_points = grad_output.unsqueeze(-1) * grad_sdf
         return grad_points, None
 
@@ -113,6 +111,11 @@ _SDF_SENTINEL = 1.0e5
 def has_sdf_sentinel(sdf_values: torch.Tensor) -> bool:
     """True when any query hit the no-face sentinel, so the collision result is unreliable."""
     return bool((sdf_values >= _SDF_SENTINEL).any())
+
+
+def sdf_sentinel_count(sdf_values: torch.Tensor) -> int:
+    """Number of queries that hit the no-face sentinel."""
+    return int((sdf_values >= _SDF_SENTINEL).sum().item())
 
 
 def clamp_sdf_sentinel(sdf_values: torch.Tensor) -> torch.Tensor:
@@ -206,7 +209,6 @@ class _MultiMeshSDFFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output: torch.Tensor):
-        """Backprop through multi-mesh SDF: dL/dpoints = dL/dsdf * dsdf/dpoints."""
         (grad_sdf,) = ctx.saved_tensors
         grad_points = grad_output.unsqueeze(-1) * grad_sdf
         return grad_points, None, None

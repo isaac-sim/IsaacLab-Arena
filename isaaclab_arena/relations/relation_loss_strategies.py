@@ -21,6 +21,9 @@ from isaaclab_arena.relations.loss_primitives import (
     single_boundary_linear_loss,
     single_point_linear_loss,
 )
+from isaaclab_arena.relations.relations import Side
+from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+from isaaclab_arena.relations.warp_sdf_kernels import clamp_sdf_sentinel, mesh_sdf
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, yaw_from_quat_xyzw
 
@@ -29,9 +32,6 @@ if TYPE_CHECKING:
 
     from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.relations import AtPosition, NextTo, NotNextTo, On, PositionLimits, Relation
-    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
-
-from isaaclab_arena.relations.relations import Side
 
 
 class Axis(IntEnum):
@@ -458,14 +458,6 @@ class NoCollisionLossStrategy:
         self._warned_no_mesh: set[str] = set()
         self._mesh_managers: dict[str, WarpMeshAndSphereCache] = {}
 
-        if self._mode == CollisionMode.MESH:
-            try:
-                import warp  # noqa: F401
-            except ImportError as e:
-                raise ImportError(
-                    "CollisionMode.MESH requires the 'warp' package. Install it with: pip install warp-lang"
-                ) from e
-
     def compute_loss(
         self,
         clearance_m: float,
@@ -559,8 +551,6 @@ class NoCollisionLossStrategy:
     def _get_mesh_manager(self, device: str = "cuda:0") -> WarpMeshAndSphereCache:
         """Return a cached WarpMeshAndSphereCache for the given device."""
         if device not in self._mesh_managers:
-            from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
-
             self._mesh_managers[device] = WarpMeshAndSphereCache(num_spheres=self._num_spheres, device=device)
         return self._mesh_managers[device]
 
@@ -577,8 +567,6 @@ class NoCollisionLossStrategy:
         parent_yaw: float = 0.0,
     ) -> torch.Tensor:
         """Per-pair sphere-to-SDF penetration loss."""
-        from isaaclab_arena.relations.warp_sdf_kernels import clamp_sdf_sentinel, mesh_sdf
-
         single_input = child_pos.dim() == 1
         if single_input:
             child_pos = child_pos.unsqueeze(0)
@@ -676,17 +664,14 @@ class AtPositionLossStrategy(UnaryRelationLossStrategy):
 
         total_loss = torch.zeros(child_pos.shape[0], dtype=child_pos.dtype, device=child_pos.device)
 
-        # X position constraint
         if relation.x is not None:
             x_loss = single_point_linear_loss(child_pos[:, 0], relation.x, slope=self.slope)
             total_loss = total_loss + x_loss
 
-        # Y position constraint
         if relation.y is not None:
             y_loss = single_point_linear_loss(child_pos[:, 1], relation.y, slope=self.slope)
             total_loss = total_loss + y_loss
 
-        # Z position constraint
         if relation.z is not None:
             z_loss = single_point_linear_loss(child_pos[:, 2], relation.z, slope=self.slope)
             total_loss = total_loss + z_loss
@@ -732,7 +717,6 @@ class PositionLimitsLossStrategy(UnaryRelationLossStrategy):
 
         total_loss = torch.zeros(child_pos.shape[0], dtype=child_pos.dtype, device=child_pos.device)
 
-        # Iterate over X (0), Y (1), Z (2) with their optional bounds
         axis_bounds = [
             (relation.x_min, relation.x_max),
             (relation.y_min, relation.y_max),

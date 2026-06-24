@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import copy
+import math
 import numpy as np
 import torch
 import trimesh
@@ -316,7 +318,6 @@ def test_anchor_with_rotate_around_solution_rejected():
 @requires_warp
 def test_centers_in_target_frame_applies_both_yaws():
     """Net yaw = source - target; equal yaws cancel out."""
-    import math
 
     from isaaclab_arena.relations.object_placer import ObjectPlacer
 
@@ -497,8 +498,6 @@ def test_validate_no_overlap_mesh_sentinel_fails(monkeypatch):
 @requires_warp
 def test_validate_no_overlap_mesh_respects_anchor_yaw():
     """Validator must use anchor's initial_pose yaw (not identity) when checking overlap."""
-    import math
-
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 
@@ -745,8 +744,6 @@ def test_multi_mesh_sdf_backward():
 @requires_warp
 def test_solver_target_only_yaw():
     """Target-only yaw must affect collision detection (catches missing parent rotation)."""
-    import math
-
     table = _make_table()
     # Long thin box: if rotated 90° around Z, its collision footprint changes axis
     target = _make_box_obj("target", sx=0.2, sy=0.02, sz=0.05)
@@ -784,8 +781,6 @@ def test_solver_target_only_yaw():
 @requires_warp
 def test_anchor_initial_pose_yaw_affects_collision():
     """Anchor Z-yaw baked in initial_pose (no orientations dict) must affect SDF queries."""
-    import math
-
     table = _make_table()
     # Long thin anchor: 0.2 x 0.02 — rotation changes which axis is long
     target_mesh = trimesh.creation.box(extents=(0.2, 0.02, 0.05))
@@ -874,8 +869,6 @@ def test_aabb_gate_does_not_reject_diagonal_cylinders():
 @requires_warp
 def test_deepcopy_safety_after_mesh_solve():
     """Deepcopy of a MESH-mode solver after solve() must succeed and the copy must still solve."""
-    import copy
-
     table = _make_table()
     a = _make_cylinder("a", radius=0.033)
     b = _make_cylinder("b", radius=0.033)

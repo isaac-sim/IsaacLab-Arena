@@ -5,12 +5,16 @@
 
 from __future__ import annotations
 
+import copy
+import numpy as np
 import torch
 from typing import TYPE_CHECKING, cast
 
+import warp as wp
 from isaaclab.utils.math import quat_apply, quat_apply_inverse
 
 from isaaclab_arena.relations.collision_mode import CollisionMode
+from isaaclab_arena.relations.mesh_pair_cache import MeshPairCache
 from isaaclab_arena.relations.relation_loss_strategies import (
     NoCollisionLossStrategy,
     RelationLossStrategy,
@@ -19,16 +23,17 @@ from isaaclab_arena.relations.relation_loss_strategies import (
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import On, Relation, RelationBase, UnaryRelation
+from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+from isaaclab_arena.relations.warp_sdf_kernels import clamp_sdf_sentinel, multi_mesh_sdf
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.pose import Pose, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
-    from isaaclab_arena.relations.mesh_pair_cache import MeshPairCache
-    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
 
 class RelationSolver:
-    """Differentiable solver for 3D spatial relations of IsaacLab Arena Objects
+    """Differentiable solver for 3D spatial relations of IsaacLab Arena Objects.
 
     Uses the Strategy pattern for loss computation: each Relation type has a
     corresponding RelationLossStrategy that handles the actual loss calculation.
@@ -41,7 +46,8 @@ class RelationSolver:
         self,
         params: RelationSolverParams | None = None,
     ):
-        """
+        """Initialize the solver with the given parameters.
+
         Args:
             params: Solver configuration parameters. If None, uses defaults.
         """
@@ -62,8 +68,7 @@ class RelationSolver:
         self._mesh_cache_rev: MeshPairCache | None = None
 
     def __deepcopy__(self, memo):
-        """Deep-copy resets ephemeral Warp caches (rebuilt on next solve)."""
-        import copy
+        """Reset Warp GPU caches on copy; wp.Mesh handles are not copy-safe."""
 
         cls = self.__class__
         result = cls.__new__(cls)
@@ -76,16 +81,10 @@ class RelationSolver:
         return result
 
     def _get_strategy(self, relation: RelationBase) -> RelationLossStrategy | UnaryRelationLossStrategy:
-        """Look up the appropriate strategy for a relation type.
+        """Look up the loss strategy for a relation type; raises ValueError if none registered.
 
         Args:
             relation: The relation to find a strategy for.
-
-        Returns:
-            The RelationLossStrategy or UnaryRelationLossStrategy for this relation type.
-
-        Raises:
-            ValueError: If no strategy is registered for this relation type.
         """
         strategy = self.params.strategies.get(type(relation))
         if strategy is None:
@@ -114,14 +113,12 @@ class RelationSolver:
         device = state.device
         total_loss = torch.zeros(batch_size, device=device, dtype=torch.float32)
 
-        # Compute loss from all spatial relations using strategies
         for obj in state.optimizable_objects:
             for relation in obj.get_spatial_relations():
                 child_pos = state.get_position(obj)
                 strategy = self._get_strategy(relation)
                 child_bbox = state.get_bbox(obj)
 
-                # Handle unary relations (no parent)
                 if isinstance(relation, UnaryRelation):
                     unary_strategy = cast(UnaryRelationLossStrategy, strategy)
                     loss = unary_strategy.compute_loss(
@@ -131,7 +128,7 @@ class RelationSolver:
                     )
                     if debug:
                         _print_unary_relation_debug(obj, relation, child_pos[0], loss.mean())
-                # Handle binary relations (with parent) like On, NextTo
+                # Binary relation (On, NextTo, etc.)
                 elif isinstance(relation, Relation):
                     relation_strategy = cast(RelationLossStrategy, strategy)
                     parent = relation.parent
@@ -166,24 +163,7 @@ class RelationSolver:
         state: RelationSolverState,
         debug: bool = False,
     ) -> torch.Tensor:
-        """Compute pairwise no-overlap loss, skipping On-linked pairs.
-
-        Each unique non-On pair is evaluated twice (once per direction):
-        - Non-anchor vs anchor: gradient flows to the non-anchor only.
-        - Non-anchor vs non-anchor: both objects receive gradient by computing
-          the loss in both directions with the other's position detached.
-
-        In MESH mode, a precomputed cache feeds a single multi-mesh SDF kernel
-        per batch element per direction (fwd/rev).
-
-        Args:
-            state: Current optimization state with object positions and
-                optional per-env bounding boxes.
-            debug: If True, print detailed loss breakdown.
-
-        Returns:
-            Per-environment loss tensor of shape (batch_size,).
-        """
+        """Compute pairwise no-overlap loss, skipping On-linked pairs."""
         if self.params.collision_mode == CollisionMode.MESH:
             mesh_loss = self._compute_no_overlap_loss_mesh(state, debug)
             aabb_loss = self._compute_no_overlap_loss_aabb(state, debug, skip_mesh_pairs=True)
@@ -292,8 +272,6 @@ class RelationSolver:
         on_pairs: set[tuple[int, int]],
     ) -> None:
         """Precompute static per-pair mesh collision data (called once per solve)."""
-        from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
-
         device = state.device
         device_str = str(device)
         if self._mesh_manager is None or self._mesh_manager.device != device_str:
@@ -317,12 +295,6 @@ class RelationSolver:
 
         Returns None if no valid pairs exist for this direction.
         """
-        import numpy as np
-
-        import warp as wp
-
-        from isaaclab_arena.utils.pose import Pose, yaw_from_quat_xyzw
-
         centers_list: list[torch.Tensor] = []
         radii_list: list[torch.Tensor] = []
         pair_child_objs: list = []
@@ -346,7 +318,7 @@ class RelationSolver:
             if child_mesh is None:
                 if child.name not in self._warned_no_mesh:
                     self._warned_no_mesh.add(child.name)
-                    print(f"[NoCollision] MESH mode: '{child.name}' has no collision mesh, skipping.")
+                    print(f"[NoCollision] '{child.name}' has no collision mesh; pair will use AABB fallback.")
                 continue
             child_spheres = manager.get_query_spheres(child_mesh, obj=child).to(device)
             child_centers_local = child_spheres[:, :3]
@@ -363,7 +335,7 @@ class RelationSolver:
                     if parent_mesh is None:
                         if anchor.name not in self._warned_no_mesh:
                             self._warned_no_mesh.add(anchor.name)
-                            print(f"[NoCollision] MESH mode: '{anchor.name}' has no collision mesh, skipping.")
+                            print(f"[NoCollision] '{anchor.name}' has no collision mesh; pair will use AABB fallback.")
                         continue
                     warp_mesh = manager.get_warp_mesh(parent_mesh, obj=anchor)
                     parent_bbox = state.get_bbox(anchor)
@@ -412,7 +384,7 @@ class RelationSolver:
                     if other_mesh is None:
                         if other.name not in self._warned_no_mesh:
                             self._warned_no_mesh.add(other.name)
-                            print(f"[NoCollision] MESH mode: '{other.name}' has no collision mesh, skipping.")
+                            print(f"[NoCollision] '{other.name}' has no collision mesh; pair will use AABB fallback.")
                         continue
                     warp_mesh = manager.get_warp_mesh(other_mesh, obj=other)
                     other_bbox = state.get_bbox(other)
@@ -451,7 +423,7 @@ class RelationSolver:
                     if other_mesh is None:
                         if other.name not in self._warned_no_mesh:
                             self._warned_no_mesh.add(other.name)
-                            print(f"[NoCollision] MESH mode: '{other.name}' has no collision mesh, skipping.")
+                            print(f"[NoCollision] '{other.name}' has no collision mesh; pair will use AABB fallback.")
                         continue
                     other_spheres = manager.get_query_spheres(other_mesh, obj=other).to(device)
                     other_centers_local = other_spheres[:, :3]
@@ -486,8 +458,6 @@ class RelationSolver:
 
         if not centers_list:
             return None
-
-        from isaaclab_arena.relations.mesh_pair_cache import MeshPairCache
 
         wp_device = str(device)
         pair_sphere_count = torch.tensor([e - s for s, e in pair_slices], dtype=torch.float32, device=device)
@@ -526,10 +496,6 @@ class RelationSolver:
         Uses precomputed pair cache (centers, radii, mesh indices) to batch all
         sphere queries into a single Warp kernel call per iteration.
         """
-        import warp as wp
-
-        from isaaclab_arena.relations.warp_sdf_kernels import clamp_sdf_sentinel, multi_mesh_sdf
-
         device = state.device
         total_loss = torch.zeros(state.batch_size, device=device, dtype=torch.float32)
         clearance_m = self.params.clearance_m
@@ -714,7 +680,7 @@ class RelationSolver:
         if self.params.collision_mode == CollisionMode.MESH:
             self._mesh_manager.reset_sentinel_warning()
 
-        # Setup optimizer (only for optimizable positions)
+        # Only optimizable_positions participates in Adam — anchors are fixed.
         optimizer = torch.optim.Adam([state.optimizable_positions], lr=self.params.lr)
 
         # Compute initial loss so _last_loss_per_env is always populated
@@ -732,12 +698,10 @@ class RelationSolver:
             if self.params.save_position_history and iter % self.POSITION_HISTORY_SAVE_INTERVAL == 0:
                 position_history.append(state.get_all_positions_snapshot())
 
-            # Compute total loss
             loss = self._compute_total_loss(state)
             loss_history.append(loss.item())
 
-            # Backprop and update (only optimizable positions will update).
-            # Constant-zero loss (all pairs broadphase-culled, no relations) has no grad_fn; nothing to step.
+            # Constant-zero loss has no grad_fn — skip backward when broadphase culls all pairs.
             if loss.grad_fn is not None:
                 loss.backward()
                 optimizer.step()
@@ -758,7 +722,6 @@ class RelationSolver:
             print(f"\nFinal loss: {loss_history[-1]:.6f}")
             print(f"Total iterations: {len(loss_history)}")
 
-        # Store metadata for optional access
         self._last_loss_history = loss_history
         self._last_position_history = position_history
 
@@ -796,7 +759,6 @@ class RelationSolver:
             print("No position history available. Run solve() first.")
             return
 
-        # Build positions dict from final position history
         final_positions = {obj: (pos[0], pos[1], pos[2]) for obj, pos in zip(objects, final_positions_list)}
 
         state = RelationSolverState(objects, [final_positions])

@@ -25,9 +25,7 @@ from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
 
 
 class Object(ObjectBase):
-    """
-    Encapsulates the pick-up object config for a pick-and-place environment.
-    """
+    """Pick-up object config for a pick-and-place environment."""
 
     def __init__(
         self,

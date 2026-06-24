@@ -9,15 +9,17 @@ from __future__ import annotations
 
 import numpy as np
 import torch
+import trimesh
 from collections import defaultdict
 from heapq import heappop, heappush
 from typing import TYPE_CHECKING
 
 import warp as wp
 
-if TYPE_CHECKING:
-    import trimesh
+from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, sdf_sentinel_count
+from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd
 
+if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
 
 
@@ -36,10 +38,6 @@ def greedy_sphere_decomposition(
 ) -> np.ndarray:
     """Decompose a mesh into bounding spheres via greedy set-cover.
 
-    Based on the greedy_sample_mesh algorithm by Caelan Garrett (NVIDIA).
-    Uses trimesh.proximity.max_tangent_sphere for candidate generation,
-    then greedy selection maximising surface coverage.
-
     Args:
         mesh: Input trimesh (must be watertight or convex-hull-repairable).
         num_spheres: Maximum number of output spheres.
@@ -51,8 +49,6 @@ def greedy_sphere_decomposition(
     Returns:
         (K, 4) array of [cx, cy, cz, radius] in mesh-local frame. K <= num_spheres.
     """
-    import trimesh
-
     n_candidates = max(num_spheres, n_candidates)
     n_surface = max(n_candidates, n_surface)
 
@@ -140,13 +136,11 @@ class WarpMeshAndSphereCache:
 
     def warn_sdf_sentinel(self, sdf_values: torch.Tensor) -> None:
         """Warn (once per pass) if any query hit the no-face sentinel."""
-        from isaaclab_arena.relations.warp_sdf_kernels import _SDF_SENTINEL
-
         if self._sentinel_warned:
             return
-        if bool((sdf_values >= _SDF_SENTINEL).any()):
+        if has_sdf_sentinel(sdf_values):
             self._sentinel_warned = True
-            n_bad = int((sdf_values >= _SDF_SENTINEL).sum().item())
+            n_bad = sdf_sentinel_count(sdf_values)
             print(
                 f"  [MeshSDF] WARNING: {n_bad}/{len(sdf_values)} sphere queries returned sentinel SDF "
                 "(no mesh face found). Collision detection may be incomplete for these points."
@@ -160,8 +154,6 @@ class WarpMeshAndSphereCache:
         scale = tuple(getattr(obj, "scale", (1.0, 1.0, 1.0)))
         key = (usd_path, scale)
         if key not in self._trimesh_cache:
-            from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd
-
             try:
                 self._trimesh_cache[key] = extract_trimesh_from_usd(usd_path, scale)
             except ValueError as e:
@@ -190,13 +182,13 @@ class WarpMeshAndSphereCache:
     def get_warp_mesh(self, mesh: trimesh.Trimesh, obj: ObjectBase | None = None) -> wp.Mesh:
         """Get or create a Warp BVH mesh for SDF queries.
 
-        Non-watertight meshes are replaced by their convex hull so that
-        mesh_query_point_sign_normal produces correct inside/outside signs.
+        Non-watertight meshes are replaced by their convex hull to ensure
+        correct inside/outside signs.
         """
         key = self._cache_key(mesh, obj)
         if key not in self._warp_mesh_cache:
             if not mesh.is_watertight:
-                name = obj.name
+                name = obj.name if obj is not None else repr(mesh)
                 print(
                     f"  [WarpMeshAndSphereCache] '{name}' mesh is not watertight — using convex hull (concavities will"
                     " be filled)"

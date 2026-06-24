@@ -21,9 +21,9 @@ if TYPE_CHECKING:
 class MeshPairCache:
     """Precomputed per-pair collision data for the vectorized multi-mesh kernel.
 
-    Built once per solve by _build_vectorized_cache; consumed each iteration by
-    _compute_no_overlap_loss_mesh. Contains a wp.array handle (mesh_id_array) that
-    is not deepcopy-safe — RelationSolver.__deepcopy__ nulls this cache to avoid
+    Built once per solve, consumed each iteration until the solver is
+    re-initialized. Contains a wp.array handle (mesh_id_array) that is not
+    deepcopy-safe — RelationSolver.__deepcopy__ nulls this cache to avoid
     copying it.
     """
 
