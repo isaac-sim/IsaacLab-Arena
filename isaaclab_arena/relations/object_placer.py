@@ -13,9 +13,12 @@ from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_en
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
+from isaaclab_arena.relations.relation_loss_strategies import SIDE_CONFIGS
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import (
     IsAnchor,
+    NextTo,
+    NotNextTo,
     On,
     RandomAroundSolution,
     RotateAroundSolution,
@@ -639,29 +642,148 @@ class ObjectPlacer:
                     return False
         return True
 
+    def _validate_next_to_relations(
+        self,
+        positions: dict[ObjectBase, tuple[float, float, float]],
+        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+    ) -> bool:
+        """Validate each NextTo relation: child on the requested side, facing edge within
+        next_to_tolerance_m of distance_m from the parent edge. Mirrors NextToLossStrategy's
+        side/distance geometry; cross_position_ratio is a soft preference and is not gated.
+
+        Args:
+            positions: Solved positions for each object.
+            env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
+        """
+        tol = self.params.next_to_tolerance_m
+        for obj in positions:
+            for rel in obj.get_relations():
+                if not isinstance(rel, NextTo):
+                    continue
+                parent = rel.parent
+                if parent not in positions:
+                    continue
+                cfg = SIDE_CONFIGS[rel.side]
+                primary, direction = int(cfg.primary_axis), int(cfg.direction)
+                child_local = env_bboxes[obj]
+                parent_world = env_bboxes[parent].translated(positions[parent])
+                child_primary = positions[obj][primary]
+
+                if direction > 0:
+                    parent_edge = parent_world.max_point[0, primary].item()
+                    child_offset = child_local.min_point[0, primary].item()
+                    half_plane_violation = max(0.0, parent_edge - child_primary)
+                else:
+                    parent_edge = parent_world.min_point[0, primary].item()
+                    child_offset = child_local.max_point[0, primary].item()
+                    half_plane_violation = max(0.0, child_primary - parent_edge)
+
+                target_primary = parent_edge + direction * rel.distance_m - child_offset
+                distance_violation = abs(child_primary - target_primary)
+
+                if half_plane_violation > tol or distance_violation > tol:
+                    if self.params.verbose:
+                        print(
+                            f"NextTo: '{obj.name}' next_to({parent.name}) violated"
+                            f" (side={half_plane_violation:.4f}, distance={distance_violation:.4f} m; tol={tol})"
+                        )
+                    return False
+        return True
+
+    def _validate_not_next_to_relations(
+        self,
+        positions: dict[ObjectBase, tuple[float, float, float]],
+        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+    ) -> bool:
+        """Validate each NotNextTo relation: child has cleared the keep-out zone beside the parent
+        (within next_to_tolerance_m) via either route — back over the edge or past the footprint end.
+        Mirrors NotNextToLossStrategy, using its margin_m.
+
+        Args:
+            positions: Solved positions for each object.
+            env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
+        """
+        tol = self.params.next_to_tolerance_m
+        for obj in positions:
+            for rel in obj.get_relations():
+                if not isinstance(rel, NotNextTo):
+                    continue
+                parent = rel.parent
+                if parent not in positions:
+                    continue
+                margin_m = self._not_next_to_margin(rel)
+                cfg = SIDE_CONFIGS[rel.side]
+                primary, band, direction = int(cfg.primary_axis), int(cfg.band_axis), int(cfg.direction)
+                child_local = env_bboxes[obj]
+                parent_world = env_bboxes[parent].translated(positions[parent])
+                child_primary = positions[obj][primary]
+                child_cross = positions[obj][band]
+
+                if direction > 0:
+                    parent_edge = parent_world.max_point[0, primary].item()
+                    safe_edge = parent_edge - margin_m
+                    remaining_side = max(0.0, child_primary - safe_edge)
+                else:
+                    parent_edge = parent_world.min_point[0, primary].item()
+                    safe_edge = parent_edge + margin_m
+                    remaining_side = max(0.0, safe_edge - child_primary)
+
+                valid_band_min = parent_world.min_point[0, band].item() - child_local.min_point[0, band].item()
+                valid_band_max = parent_world.max_point[0, band].item() - child_local.max_point[0, band].item()
+                safe_band_min = valid_band_min - margin_m
+                safe_band_max = valid_band_max + margin_m
+                remaining_cross = min(max(0.0, child_cross - safe_band_min), max(0.0, safe_band_max - child_cross))
+
+                if min(remaining_side, remaining_cross) > tol:
+                    if self.params.verbose:
+                        print(
+                            f"NotNextTo: '{obj.name}' not_next_to({parent.name}) violated"
+                            f" (remaining_side={remaining_side:.4f}, remaining_cross={remaining_cross:.4f} m;"
+                            f" margin={margin_m}, tol={tol})"
+                        )
+                    return False
+        return True
+
+    def _not_next_to_margin(self, relation: NotNextTo) -> float:
+        """Keep-out margin_m from the registered NotNextTo loss strategy (stays in sync with the solver)."""
+        strategy = self._solver.params.strategies.get(type(relation))
+        assert strategy is not None and hasattr(
+            strategy, "margin_m"
+        ), f"NotNextTo validation needs a registered loss strategy with margin_m; got {strategy!r}"
+        return strategy.margin_m
+
     def _validate_placement(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
     ) -> PlacementValidationResults:
-        """Validate that no two objects overlap in 3D and On relations are satisfied.
+        """Validate that no two objects overlap in 3D and On / NextTo / NotNextTo relations are satisfied.
 
         Args:
             positions: Dictionary mapping objects to their solved (x, y, z) positions.
             env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
 
         Returns:
-            PlacementValidationResults with the overlap and on-relation checks.
+            PlacementValidationResults with the overlap and relation checks.
         """
         no_overlap = self._validate_no_overlap(positions, env_bboxes)
         on_relation = self._validate_on_relations(positions, env_bboxes)
+        next_to = self._validate_next_to_relations(positions, env_bboxes)
+        not_next_to = self._validate_not_next_to_relations(positions, env_bboxes)
 
         return PlacementValidationResults(
             validation_results={
                 PlacementCheck.NO_OVERLAP: no_overlap,
                 PlacementCheck.ON_RELATION: on_relation,
+                PlacementCheck.NEXT_TO: next_to,
+                PlacementCheck.NOT_NEXT_TO: not_next_to,
             },
-            required_checks={PlacementCheck.NO_OVERLAP, PlacementCheck.ON_RELATION},
+            required_checks={
+                PlacementCheck.NO_OVERLAP,
+                PlacementCheck.ON_RELATION,
+                PlacementCheck.NEXT_TO,
+                PlacementCheck.NOT_NEXT_TO,
+            },
         )
 
     def _apply_poses(

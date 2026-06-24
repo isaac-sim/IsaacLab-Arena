@@ -36,6 +36,10 @@ class ObjectPlacerParams:
     """Tolerance (meters) for On-relation Z validation. Valid Z band is extended to
     (parent_top - tolerance, parent_top + clearance_m + tolerance]. Default 5e-3 accommodates solver residual."""
 
+    next_to_tolerance_m: float = 1e-2
+    """Tolerance (meters) absorbing solver residual in NextTo / NotNextTo validation: slack on the
+    side/offset checks (NextTo) and on clearing the keep-out zone (NotNextTo)."""
+
     resolve_on_reset: bool = True
     """If True, draw fresh layouts from the placement pool on each environment reset.
     If False, solve initial positions once and reuse them across all resets."""

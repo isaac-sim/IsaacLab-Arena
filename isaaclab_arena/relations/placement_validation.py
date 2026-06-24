@@ -19,6 +19,14 @@ class PlacementCheck(StrEnum):
     """Build-time check: every ``On`` relation holds — the child rests on its parent within the
     configured Z tolerance."""
 
+    NEXT_TO = "next_to"
+    """Build-time check: every ``NextTo`` relation holds — child on the requested side at the target
+    offset, within ``next_to_tolerance_m``."""
+
+    NOT_NEXT_TO = "not_next_to"
+    """Build-time check: every ``NotNextTo`` relation holds — child has cleared the keep-out zone
+    beside the parent, within ``next_to_tolerance_m``."""
+
     PHYSICS_SETTLED = "physics_settled"
     """Run-time check: after stepping physics the movable objects' velocities fall
     below threshold, i.e. the layout is stable and does not drift or topple."""
