@@ -141,3 +141,23 @@ def test_item_required_tag_pool_empty():
     chosen = match_asset(make_registry(assets), "bowl", "item", trace, ["object"], ["bowl"])
     assert chosen is None
     assert any(e.stage == "item.required_tags.empty_pool" for e in trace)
+
+
+def test_procedural_assets_excluded_from_matching():
+    assets = [
+        FakeAsset(name="maple_table", tags=["background"]),
+        FakeAsset(name="procedural_table", tags=["background", "procedural"]),
+        FakeAsset(name="procedural_cube", tags=["object", "procedural"]),
+        FakeAsset(name="cracker_box", tags=["object", "graspable"]),
+    ]
+    trace: list[IntentResolutionTraceEvent] = []
+    chosen = match_asset(make_registry(assets), "table", "background", trace, ["background"])
+    assert chosen == "maple_table"
+
+    trace = []
+    chosen = match_asset(make_registry(assets), "procedural_table", "background", trace, ["background"])
+    assert chosen != "procedural_table"
+
+    trace = []
+    chosen = match_asset(make_registry(assets), "cube", "item", trace, ["object"])
+    assert chosen is None
