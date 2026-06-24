@@ -366,24 +366,6 @@ def test_output_parent_directory_created(tmp_path):
     assert nested_out.exists()
 
 
-def test_demo_without_step_info_warns(tmp_path, capsys):
-    """A demo with no num_samples attr and no actions dataset should produce a warning."""
-    a = tmp_path / "a.hdf5"
-    _make_dataset(str(a), num_demos=2)
-    # Strip num_samples and remove the actions dataset from demo_1 to simulate a broken demo
-    with h5py.File(a, "r+") as f:
-        demo = f["data/demo_1"]
-        del demo.attrs["num_samples"]
-        del demo["actions"]
-
-    out = tmp_path / "merged.hdf5"
-    assert _run_merge([str(a), "-o", str(out)]) == 0
-    captured = capsys.readouterr()
-    combined = captured.out + captured.err
-    assert "demo_1" in combined
-    assert "num_samples" in combined or "actions" in combined
-
-
 def test_non_hdf5_input_produces_clean_error(tmp_path, capsys):
     """A plain-text file with .hdf5 extension should produce a clean ERROR, not a traceback."""
     bogus = tmp_path / "not_actually_hdf5.hdf5"
@@ -405,7 +387,7 @@ def test_merge_failure_cleans_up_partial_output(tmp_path, monkeypatch, capsys):
     out = tmp_path / "merged.hdf5"
     _make_dataset(str(a))
 
-    def _failing_merge(infos, output_path):
+    def _failing_merge(infos, output_path, **kwargs):
         with open(output_path, "wb") as f:
             f.write(b"partial garbage")
         raise OSError("simulated disk full")
@@ -429,7 +411,7 @@ def test_overwrite_failure_preserves_existing_output(tmp_path, monkeypatch):
     # Sentinel episode length proves the original file is untouched after the failure.
     _make_dataset(str(out), num_demos=1, base_episode_len=4242)
 
-    def _failing_merge(infos, output_path):
+    def _failing_merge(infos, output_path, **kwargs):
         with open(output_path, "wb") as f:
             f.write(b"partial garbage")
         raise OSError("simulated mid-merge failure")
@@ -440,6 +422,124 @@ def test_overwrite_failure_preserves_existing_output(tmp_path, monkeypatch):
     with h5py.File(out, "r") as f:
         assert int(f["data/demo_0"].attrs["num_samples"]) == 4242
     assert not (tmp_path / "merged.hdf5.tmp").exists()
+
+
+def _truncate_demo_actions(path, demo_name, action_dim=8):
+    """Replace a demo's actions with a (0, action_dim) zero-length dataset in-place."""
+    with h5py.File(path, "r+") as f:
+        demo = f["data"][demo_name]
+        del demo["actions"]
+        demo.create_dataset(
+            "actions",
+            data=np.empty((0, action_dim), dtype=np.float32),
+            compression="gzip",
+        )
+        demo.attrs["num_samples"] = 0
+
+
+def test_empty_demo_dropped_by_default(tmp_path, capsys):
+    """Default behavior: zero-length actions demos are dropped and survivors renumber."""
+    a = tmp_path / "a.hdf5"
+    b = tmp_path / "b.hdf5"
+    out = tmp_path / "merged.hdf5"
+    _make_dataset(str(a), num_demos=3, base_episode_len=100)
+    _make_dataset(str(b), num_demos=2, base_episode_len=200)
+    _truncate_demo_actions(str(a), "demo_1")
+    _truncate_demo_actions(str(b), "demo_0")
+
+    assert _run_merge([str(a), str(b), "-o", str(out)]) == 0
+
+    with h5py.File(out, "r") as f:
+        names = _h5_demo_names(out)
+        # 5 inputs - 2 empty = 3 survivors, renumbered demo_0..demo_2
+        assert names == ["demo_0", "demo_1", "demo_2"]
+        for n in names:
+            assert f[f"data/{n}/actions"].shape[0] > 0
+        # data.attrs["total"] excludes the dropped demos' contribution
+        # a: 100 + 102 = 202 (demo_1 dropped); b: 201 (demo_0 dropped)
+        assert int(f["data"].attrs["total"]) == 202 + 201
+
+    combined = capsys.readouterr().out
+    assert "Dropped 2 empty demo(s)" in combined
+    assert "demo_1" in combined
+    assert "demo_0" in combined
+
+
+def test_single_input_with_empty_demo_drops_and_succeeds(tmp_path):
+    """A single-file merge must still drop empty demos and produce a valid output."""
+    a = tmp_path / "a.hdf5"
+    out = tmp_path / "merged.hdf5"
+    _make_dataset(str(a), num_demos=4, base_episode_len=50)
+    _truncate_demo_actions(str(a), "demo_2")
+
+    assert _run_merge([str(a), "-o", str(out)]) == 0
+    with h5py.File(out, "r") as f:
+        names = _h5_demo_names(out)
+        assert names == ["demo_0", "demo_1", "demo_2"]
+        for n in names:
+            assert f[f"data/{n}/actions"].shape[0] > 0
+        # 50 + 51 + 53 = 154 (original demo_2 with num_samples=52 was dropped)
+        assert int(f["data"].attrs["total"]) == 50 + 51 + 53
+
+
+def test_all_empty_input_rejected(tmp_path, capsys):
+    """If every input demo is empty, the script must abort instead of writing a useless file."""
+    a = tmp_path / "a.hdf5"
+    out = tmp_path / "merged.hdf5"
+    _make_dataset(str(a), num_demos=2)
+    _truncate_demo_actions(str(a), "demo_0")
+    _truncate_demo_actions(str(a), "demo_1")
+
+    assert _run_merge([str(a), "-o", str(out)]) != 0
+    assert not out.exists()
+    # Single readouterr() call so both stdout and stderr are captured. The error message is
+    # written to stderr (and the summary table to stdout).
+    captured = capsys.readouterr()
+    combined = captured.out + captured.err
+    assert "every input demo is empty" in combined
+
+
+def test_intra_file_schema_mismatch_detected(tmp_path, capsys):
+    """If a single demo within a file lacks an obs key the others have, the merge must error."""
+    a = tmp_path / "a.hdf5"
+    out = tmp_path / "merged.hdf5"
+    _make_dataset(
+        str(a),
+        num_demos=3,
+        camera_shapes={"robot_head_cam_rgb": (12, 16)},
+        base_episode_len=4,
+    )
+    # demo_2 loses its camera observation entirely — the kind of half-recorded session that
+    # silently breaks LeRobot conversion downstream.
+    with h5py.File(a, "r+") as f:
+        del f["data/demo_2/camera_obs/robot_head_cam_rgb"]
+
+    assert _run_merge([str(a), "-o", str(out)]) != 0
+    assert not out.exists()
+    captured = capsys.readouterr()
+    combined = captured.out + captured.err
+    assert "demo_2" in combined
+    # The intra-file mismatch must be surfaced (either as an explicit message or via the
+    # validation status row), not silently swallowed.
+    assert "differs" in combined or "MISMATCH" in combined
+
+
+def test_intra_file_mismatch_dropped_when_empty(tmp_path):
+    """A demo that diverges from the file schema solely because it is empty is auto-dropped."""
+    a = tmp_path / "a.hdf5"
+    out = tmp_path / "merged.hdf5"
+    _make_dataset(str(a), num_demos=3)
+    # demo_1 becomes empty by losing actions; stripping its obs/ further makes its key set
+    # diverge from demo_0's, exercising the "empty AND intra-file mismatch" code path.
+    with h5py.File(a, "r+") as f:
+        demo = f["data/demo_1"]
+        del demo.attrs["num_samples"]
+        del demo["actions"]
+        del demo["obs"]
+
+    # The empty demo is dropped before its schema divergence can poison validation.
+    assert _run_merge([str(a), "-o", str(out)]) == 0
+    assert _h5_demo_names(out) == ["demo_0", "demo_1"]
 
 
 def test_merged_file_loads_via_isaaclab_handler(tmp_path):
