@@ -30,7 +30,6 @@ def _make_compiler(assets: list[FakeAsset] | None = None) -> IntentCompiler:
 
 
 def _make_scene(
-    *,
     background: str = "maple_table",
     embodiment: str = "franka_ik",
     items: list[Item] | None = None,
@@ -321,6 +320,41 @@ def test_multiple_tasks_preserved_in_order():
     assert [t.description for t in spec.tasks] == ["d1", "d2", "d3"]
 
 
+def test_bare_query_resolved_to_one_instance():
+    items = [Item(query="bowl", category_tags=["bowl"], instance_name=f"bowl_{i}") for i in range(1, 4)]
+    instance_ids = {"bowl_1", "bowl_2", "bowl_3"}
+    initial = [
+        SpatialRelationSpec(kind="is_anchor", subject="maple_table"),
+        SpatialRelationSpec(kind="on", subject="bowl", reference="maple_table"),
+    ]
+    tasks = [
+        TaskSpec(
+            kind="PickAndPlaceTask",
+            params={
+                "pick_up_object": "bowl",
+                "destination_location": "bowl",
+                "background_scene": "maple_table",
+            },
+            description="d",
+        )
+    ]
+    compiler = _make_compiler()
+    spec = compiler.compile(_make_scene(items=items, initial_state_graph=initial, tasks=tasks))
+
+    assert compiler.has_resolution_errors is False
+
+    on_bowl = spec.initial_state_spec.spatial_constraints[1]
+    assert on_bowl.subject in instance_ids
+
+    task = spec.tasks[0]
+    assert task.params["pick_up_object"] in instance_ids
+    assert task.params["destination_location"] in instance_ids
+    assert task.params["background_scene"] == "maple_table"
+
+    assert any(e.stage == "task.resolved_param" for e in compiler.trace)
+    assert any(e.stage == "relation.initial.resolved_subject" for e in compiler.trace)
+
+
 def test_task_unknown_param_emits_error_trace():
     items = [Item(query="bowl", category_tags=["bowl"])]
     tasks = [
@@ -338,3 +372,50 @@ def test_task_unknown_param_emits_error_trace():
     compiler.compile(_make_scene(items=items, tasks=tasks))
     assert compiler.has_resolution_errors is True
     assert "task.unknown_param" in [e.stage for e in compiler.resolution_errors]
+
+
+def test_task_param_already_node_id_preserved_without_resolve_trace():
+    # A param that already names a resolved node passes through unchanged and emits neither a
+    # ``task.resolved_param`` nor a ``task.unknown_param`` trace (only a known id, nothing to sample).
+    items = [Item(query="bowl", category_tags=["bowl"])]
+    tasks = [
+        TaskSpec(
+            kind="PickAndPlaceTask",
+            params={
+                "pick_up_object": "bowl",
+                "destination_location": "bowl",
+                "background_scene": "maple_table",
+            },
+            description="d",
+        )
+    ]
+    compiler = _make_compiler()
+    spec = compiler.compile(_make_scene(items=items, tasks=tasks))
+    assert spec.tasks[0].params == {
+        "pick_up_object": "bowl",
+        "destination_location": "bowl",
+        "background_scene": "maple_table",
+    }
+    stages = [e.stage for e in compiler.trace]
+    assert "task.resolved_param" not in stages
+    assert "task.unknown_param" not in stages
+    assert compiler.has_resolution_errors is False
+
+
+def test_non_string_task_param_passed_through_untouched():
+    # Only string params are candidates for node-id resolution; scalars are left as-is.
+    items = [Item(query="bowl", category_tags=["bowl"])]
+    tasks = [
+        TaskSpec(
+            kind="PickAndPlaceTask",
+            params={
+                "pick_up_object": "bowl",
+                "destination_location": "bowl",
+                "background_scene": "maple_table",
+                "episode_length_s": 20.0,
+            },
+            description="d",
+        )
+    ]
+    spec = _make_compiler().compile(_make_scene(items=items, tasks=tasks))
+    assert spec.tasks[0].params["episode_length_s"] == 20.0
