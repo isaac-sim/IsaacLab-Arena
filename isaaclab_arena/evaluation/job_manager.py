@@ -158,7 +158,7 @@ class Job:
     def convert_args_dict_to_cli_args_list(cls, args_dict: dict) -> list[str]:
         """Convert a dictionary of arguments to a list of arguments that can be passed to the CLI parser.
 
-        Enforces ordering: num_envs, enable_cameras, environment, then object/embodiment/etc.
+        Enforces ordering: num_envs, enable_cameras, the env source, then object/embodiment/etc.
 
         Args:
             args_dict: Dictionary of arguments
@@ -186,8 +186,13 @@ class Job:
                 elif not isinstance(value, bool) and value is not None:
                     args_list += [f"--{key}", str(value)]
 
-        # Environment argument comes second (without -- prefix) - already validated above
-        args_list += [str(args_dict["environment"])]
+        # The env source comes next.
+        # It could be either an example-environment name or a graph spec yaml detected via extension.
+        environment = str(args_dict["environment"])
+        if environment.endswith((".yaml", ".yml")):
+            args_list += ["--env_graph_spec_yaml", environment]
+        else:
+            args_list += [environment]
 
         # Process all other arguments (object, embodiment, etc.)
         for key, value in args_dict.items():

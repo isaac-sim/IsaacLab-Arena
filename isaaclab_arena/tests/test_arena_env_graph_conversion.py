@@ -62,7 +62,7 @@ def _test_get_arena_builder_from_cli_builds_env_from_graph_yaml(simulation_app):
     # optional) and the runner builds the env from the graph spec instead of the registry.
     sys.argv = ["policy_runner.py", "--env_graph_spec_yaml", yaml_path]
     args = get_isaaclab_arena_environments_cli_parser().parse_args()
-    assert args.example_environment is None
+
     builder = get_arena_builder_from_cli(args)
     assert builder.arena_env.name == "pick_and_place_maple_table_default"
 

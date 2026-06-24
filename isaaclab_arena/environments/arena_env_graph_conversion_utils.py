@@ -30,10 +30,12 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 
 
-def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec) -> Any:
+def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False) -> Any:
     """Build an IsaacLabArenaEnvironment from a validated ``ArenaEnvGraphSpec``.
 
-    Precondition: ``graph_spec`` is already validated (node refs exist, ids unique, etc.).
+    Args:
+        graph_spec: A validated graph spec (node refs exist, ids unique, etc.).
+        enable_cameras: Forwarded to the embodiment node so its cameras are added.
     """
     # TODO(xinjieyao, 2026-05-26): aggregate every state_spec into a single combined initial state instead of
     # picking one. For now we just take the first state_spec, which is the initial state
@@ -42,7 +44,7 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec) -> Any:
 
     # 1. Materialize every graph node into a live asset, keyed by node id so spatial
     #    constraints and task args can reference each node by its graph-local id.
-    assets_by_node_id = _instantiate_assets_from_nodes(graph_spec.nodes, AssetRegistry())
+    assets_by_node_id = _instantiate_assets_from_nodes(graph_spec.nodes, AssetRegistry(), enable_cameras=enable_cameras)
 
     # 2. Guarantee the scene has a light. A graph (or its background USD) with no light renders
     #    black, which today only surfaces once the policy runner launches the generated env. When
@@ -131,13 +133,11 @@ def _scene_already_has_light(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: d
     return False
 
 
-def _instantiate_assets_from_nodes(node_specs: list[ArenaEnvGraphNodeSpec], asset_registry: Any) -> dict[str, Any]:
-    """Return ``{node.id: live_asset}`` after a single pass over ``node_specs``.
-
-    Each ``node_spec.params`` is forwarded verbatim to the asset constructor. Assumes parent
-    nodes precede their OBJECT_REFERENCE children — guaranteed by graph-spec reference validation.
-    """
-    assets_by_node_id: dict[str, Any] = {}
+def _instantiate_assets_from_nodes(
+    node_specs: list[ArenaEnvGraphNodeSpec], asset_registry: Any, enable_cameras: bool = False
+) -> dict[str, type[Asset]]:
+    """Return ``{node.id: live_asset}`` after a single pass over ``node_specs``."""
+    assets_by_node_id: dict[str, type[Asset]] = {}
     for node_spec in node_specs:
         # OBJECT_REFERENCE wraps a USD prim inside an already-instantiated parent asset
         # (e.g. a table inside a kitchen background). Validation guarantees the parent
@@ -155,12 +155,16 @@ def _instantiate_assets_from_nodes(node_specs: list[ArenaEnvGraphNodeSpec], asse
             # Standard nodes (object / background / embodiment): look up the registered class
             # by name and instantiate with the spec's verbatim kwargs.
             asset_class = asset_registry.get_asset_by_name(node_spec.name)
-            assets_by_node_id[node_spec.id] = asset_class(**node_spec.params)
+            params = dict(node_spec.params)
+            # Embodiment cameras are enabled thru the flag passed to the env builder.
+            if node_spec.type == ArenaEnvGraphNodeType.EMBODIMENT and enable_cameras:
+                params.setdefault("enable_cameras", True)
+            assets_by_node_id[node_spec.id] = asset_class(**params)
     return assets_by_node_id
 
 
 def _attach_spatial_constraints_to_assets(
-    state_spec: ArenaEnvGraphStateSpec, assets_by_node_id: dict[str, Any]
+    state_spec: ArenaEnvGraphStateSpec, assets_by_node_id: dict[str, type[Asset]]
 ) -> None:
     """Attach one Relation per spatial constraint to the asset(s) it targets, in place."""
     for spatial_constraint in state_spec.spatial_constraints:
