@@ -349,3 +349,16 @@ def test_validate_placement_rejects_not_next_to_violation():
     results = placer._validate_placement(positions, _env_bboxes(positions))
     assert results.do_all_required_validation_checks_pass() is False
     assert PlacementCheck.NOT_NEXT_TO in results.get_failed_validation_check_names
+
+
+def test_validate_placement_rejects_next_to_violation():
+    """NEXT_TO gates overall validation: a wrong-offset NextTo placement fails."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    parent = _make_box("parent", size=0.4)
+    child = _make_box("child", size=0.2)
+    child.add_relation(NextTo(parent, distance_m=0.05, side=Side.POSITIVE_X, cross_position_ratio=0.0))
+    # Offset wrong by 0.10, but lifted in Z so NO_OVERLAP and ON_RELATION still pass.
+    positions = {parent: (0.0, 0.0, 0.0), child: (0.45, 0.0, 5.0)}
+    results = placer._validate_placement(positions, _env_bboxes(positions))
+    assert results.do_all_required_validation_checks_pass() is False
+    assert PlacementCheck.NEXT_TO in results.get_failed_validation_check_names
