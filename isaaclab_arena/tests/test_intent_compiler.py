@@ -30,7 +30,6 @@ def _make_compiler(assets: list[FakeAsset] | None = None) -> IntentCompiler:
 
 
 def _make_scene(
-    *,
     background: str = "maple_table",
     embodiment: str = "franka_ik",
     items: list[Item] | None = None,
