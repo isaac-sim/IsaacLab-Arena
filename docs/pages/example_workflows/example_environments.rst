@@ -29,13 +29,13 @@ Agentically Generated Graph Specs
 
 The Robolab examples below are linked environment graph YAMLs generated from
 natural-language prompts and checked in under
-``isaaclab_arena_environments/agent_generated/robolab/``. They are consumed with
+``isaaclab_arena_environments/robolab/``. They are consumed with
 ``--env_graph_spec_yaml`` instead of the positional ``example_environment`` name.
 
 bagel_plate_banana_bowl
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-**Environment YAML:** ``isaaclab_arena_environments/agent_generated/robolab/bagel_plate_banana_bowl_linked.yaml``
+**Environment YAML:** ``isaaclab_arena_environments/robolab/bagel_plate_banana_bowl_linked.yaml``
 
 **Task Description:** Pick up the banana and place it on the plate.
 
@@ -64,13 +64,13 @@ bagel_plate_banana_bowl
    * - **Object Placement**
      - Initial relations: all objects ``On(maple_table_robolab)``; success: ``banana On(plate)``
    * - **CLI Args**
-     - ``--env_graph_spec_yaml isaaclab_arena_environments/agent_generated/robolab/bagel_plate_banana_bowl_linked.yaml``
+     - ``--env_graph_spec_yaml isaaclab_arena_environments/robolab/bagel_plate_banana_bowl_linked.yaml``
 
 
 bin_mug_mustard_marker_bowl
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**Environment YAML:** ``isaaclab_arena_environments/agent_generated/robolab/bin_mug_marker_bowl_linked.yaml``
+**Environment YAML:** ``isaaclab_arena_environments/robolab/bin_mug_marker_bowl_linked.yaml``
 
 **Task Description:** Pick up the bowl and place it in the grey bin, with a
 mustard bottle, dry-erase marker, and mug as additional tabletop objects.
@@ -100,13 +100,13 @@ mustard bottle, dry-erase marker, and mug as additional tabletop objects.
    * - **Object Placement**
      - Initial relations: all objects ``On(maple_table_robolab)``; success: ``bowl On(grey_bin)``
    * - **CLI Args**
-     - ``--env_graph_spec_yaml isaaclab_arena_environments/agent_generated/robolab/bin_mug_marker_bowl_linked.yaml``
+     - ``--env_graph_spec_yaml isaaclab_arena_environments/robolab/bin_mug_marker_bowl_linked.yaml``
 
 
 butter_raisin_box_grey_bin
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**Environment YAML:** ``isaaclab_arena_environments/agent_generated/robolab/butter_raisin_box_grey_bin_linked.yaml``
+**Environment YAML:** ``isaaclab_arena_environments/robolab/butter_raisin_box_grey_bin_linked.yaml``
 
 **Task Description:** Pick up the red raisin box and place it into the grey bin.
 
@@ -135,13 +135,13 @@ butter_raisin_box_grey_bin
    * - **Object Placement**
      - Initial relations: objects ``On(maple_table_robolab)``; rotation markers on ``raisin_box`` and ``butter``; success: ``raisin_box On(grey_bin)``
    * - **CLI Args**
-     - ``--env_graph_spec_yaml isaaclab_arena_environments/agent_generated/robolab/butter_raisin_box_grey_bin_linked.yaml``
+     - ``--env_graph_spec_yaml isaaclab_arena_environments/robolab/butter_raisin_box_grey_bin_linked.yaml``
 
 
 mustard_raisin_box
 ^^^^^^^^^^^^^^^^^^
 
-**Environment YAML:** ``isaaclab_arena_environments/agent_generated/robolab/mustard_raisin_box_linked.yaml``
+**Environment YAML:** ``isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml``
 
 **Task Description:** Pick up the mustard bottle and place it on the raisin box.
 
@@ -170,7 +170,7 @@ mustard_raisin_box
    * - **Object Placement**
      - Initial relations: objects ``On(maple_table_robolab)``; rotation marker on ``raisin_box``; success: ``mustard_bottle On(raisin_box)``
    * - **CLI Args**
-     - ``--env_graph_spec_yaml isaaclab_arena_environments/agent_generated/robolab/mustard_raisin_box_linked.yaml``
+     - ``--env_graph_spec_yaml isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml``
 
 
 Pick & Place

@@ -14,8 +14,8 @@ For more, see the :doc:`../concepts/concept_overview`.
 .. todo:: add concept overview page
 
 
-Prompt to YAML
---------------
+Prompt to Environment Graph Spec
+--------------------------------
 
 Use the agentic generation runner to resolve a prompt into environment graph
 specs:
@@ -34,16 +34,27 @@ default:
 
 Pass the linked YAML to policy and evaluation commands.
 
+Prompt to Simulation Environment
+--------------------------------
+
+  Use the agentic generation runner to build a simulation environment from prompt-specified environment:
+
+.. code-block:: bash
+
+   /isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+      --mode full \
+      --prompt "Droid picks up the mustard bottle from the maple table and places it in the grey bin."
 
 Available Generated Specs
 -------------------------
 
-The ``robolab`` subfolder contains example linked graph specs that can be used
+The ``robolab`` subfolder contains example environment graph specs that can be used
 directly with policy and evaluation commands:
 
-* ``isaaclab_arena_environments/agent_generated/robolab/bin_mug_marker_bowl_linked.yaml``
-* ``isaaclab_arena_environments/agent_generated/robolab/butter_raisin_box_grey_bin_linked.yaml``
-* ``isaaclab_arena_environments/agent_generated/robolab/mustard_raisin_box_linked.yaml``
+* ``isaaclab_arena_environments/robolab/bin_mug_marker_bowl_linked.yaml``
+* ``isaaclab_arena_environments/robolab/butter_raisin_box_grey_bin_linked.yaml``
+* ``isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml``
+* ``isaaclab_arena_environments/robolab/bagel_plate_banana_bowl_linked.yaml``
 
 
 Run a Generated Environment
@@ -58,7 +69,7 @@ Generated environments are consumed through ``--env_graph_spec_yaml``:
       --policy_type zero_action \
       --enable_cameras \
       --num_steps 100 \
-      --env_graph_spec_yaml isaaclab_arena_environments/agent_generated/robolab/mustard_raisin_box_linked.yaml
+      --env_graph_spec_yaml isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml
 
 The same YAML can also be built directly by the generation runner:
 
@@ -66,7 +77,7 @@ The same YAML can also be built directly by the generation runner:
 
    /isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
       --mode build \
-      --linked_env_graph_spec_yaml isaaclab_arena_environments/agent_generated/robolab/mustard_raisin_box_linked.yaml \
+      --linked_env_graph_spec_yaml isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml \
       --headless
 
 
@@ -84,7 +95,7 @@ with variations through the policy runner:
       --viz kit \
       --policy_type zero_action \
       --enable_cameras \
-      isaaclab_arena_environments/agent_generated/robolab/mustard_raisin_box_linked.yaml \
+      isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml \
       light.hdr_image.enabled=true \
       droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true
 
@@ -99,7 +110,7 @@ with variations, instead of a registered example-environment name:
    {
        "name": "agentic_env_eval",
        "arena_env_args": {
-           "environment": "isaaclab_arena_environments/agent_generated/robolab/mustard_raisin_box_linked.yaml",
+           "environment": "isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml",
            "enable_cameras": true
        },
        "num_steps": 100,
