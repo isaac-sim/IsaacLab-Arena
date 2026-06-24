@@ -8,6 +8,7 @@ from __future__ import annotations
 import math
 import matplotlib.pyplot as plt
 import numpy as np
+import re
 from pathlib import Path
 from scipy.stats import gaussian_kde
 from typing import TYPE_CHECKING
@@ -32,7 +33,8 @@ def plot_marginals(
 
     A pure renderer: it draws already-sampled posterior draws and does not run inference.
     One panel per factor — a density curve for continuous factors, a probability bar chart
-    for categorical ones, wrapped into a grid.
+    for categorical ones, wrapped into a grid. Panels for components of the same vector
+    variation share a y-axis, so their densities compare directly.
 
     Args:
         samples: ``(num_samples, num_factors)`` posterior draws in the dataset's factor
@@ -52,16 +54,29 @@ def plot_marginals(
     num_rows = math.ceil(len(factors) / num_columns)
     figure, axes = plt.subplots(num_rows, num_columns, figsize=(6.0 * num_columns, 4.5 * num_rows), squeeze=False)
     flat_axes = axes.flatten()
+    continuous_axes_by_variation: dict[str, list] = {}
     for axis_index, factor in enumerate(factors):
         ax = flat_axes[axis_index]
         factor_samples = samples[:, dataset.factor_columns[factor.name]].squeeze(-1)
         if factor.type == "continuous":
             _draw_continuous_marginal(ax, factor, factor_samples)
+            # Components of one vector variation (name[0], name[1], ...) share a scale.
+            variation_name = re.sub(r"\[\d+\]$", "", factor.name)
+            continuous_axes_by_variation.setdefault(variation_name, []).append(ax)
         else:
             _draw_categorical_marginal(ax, factor, factor_samples)
         ax.set_title(factor.name, fontsize=11)
     for unused_index in range(len(factors), len(flat_axes)):
         flat_axes[unused_index].axis("off")
+
+    # Give the components of a vector variation a common y-axis so their densities compare directly.
+    # A standalone scalar factor keeps its own scale, since unrelated factors can differ in magnitude.
+    for grouped_axes in continuous_axes_by_variation.values():
+        if len(grouped_axes) < 2:
+            continue
+        shared_top = max(grouped_ax.get_ylim()[1] for grouped_ax in grouped_axes)
+        for grouped_ax in grouped_axes:
+            grouped_ax.set_ylim(0, shared_top)
 
     observation_label = ", ".join(
         f"{name}={value:g}" for name, value in zip(dataset.outcome_names, observation.tolist())
