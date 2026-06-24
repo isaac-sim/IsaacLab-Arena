@@ -412,6 +412,13 @@ def _test_state_machine_reset_clears_state(simulation_app) -> bool:
         assert sm.get_events()[0] == []
         # env 1 untouched.
         assert len(sm.get_events()[1]) >= 1
+
+        # reset() must also accept a torch.Tensor of env ids (not just a list)
+        import torch
+
+        sm.reset(torch.tensor([1]))
+        assert sm.get_events()[1] == []
+        assert sm.get_state()[1].progress_objectives["t"].score == 0.0
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()

@@ -311,6 +311,8 @@ class ProgressTracker:
     def reset(self, env_ids) -> None:
         """Reset the runners for the provided envs."""
 
+        if torch.is_tensor(env_ids):
+            env_ids = env_ids.tolist()
         for runner in self.runners:
             runner.reset(env_ids)
         for env_idx in env_ids:
