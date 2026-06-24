@@ -621,6 +621,24 @@ droid_pnp_srl_gr00t_blue_block:
 <p>Clearly, the low success rates in this table indicate that zero-shot deployment of robotic foundation
 models is still a challenging problem. Recent results <a class="reference external" href="https://gitlab-master.nvidia.com/xuningy/robolab/-/blob/main/docs/analysis.md">[robolab]</a>
 show that bleeding-edge Vision Language Action (VLA) models are starting to achieve more reasonable results.</p>
+<section id="viewing-rollouts-as-an-html-report">
+<h2>Viewing rollouts as an HTML report<a class="headerlink" href="#viewing-rollouts-as-an-html-report" title="Link to this heading">#</a></h2>
+<p>Both <code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code> and <code class="docutils literal notranslate"><span class="pre">eval_runner.py</span></code> can collect the rollouts into a browsable
+HTML evaluation report. For visualization add <code class="docutils literal notranslate"><span class="pre">--record_camera_video</span></code> to record one mp4 per camera, per
+episode; the runner writes an <code class="docutils literal notranslate"><span class="pre">index.html</span></code> which is then served over HTTP.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--eval_jobs_config<span class="w"> </span>isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_gr00t_jobs_config.json<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--video_base_dir<span class="w"> </span>./output<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--record_camera_video<span class="w"> </span>--serve_evaluation_report
+</pre></div>
+</div>
+<p>You can also (re)build and serve a report later by pointing the standalone tool at the output
+root — it picks the most recent run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/visualization/report.py<span class="w"> </span>--video_dir<span class="w"> </span>./output
+</pre></div>
+</div>
+</section>
 <section id="next-steps">
 <span id="id3"></span><h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h2>
 <p>To go beyond the pre-trained GR00T N1.6 foundation model — for example, fine-tuning on your own
@@ -678,6 +696,7 @@ end-to-end imitation learning workflows.</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#viewing-rollouts-as-an-html-report">Viewing rollouts as an HTML report</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next Steps</a></li>
 </ul>
   </nav></div>

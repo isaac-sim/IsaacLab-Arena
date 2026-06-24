@@ -623,6 +623,24 @@ not yet fully robust under zero-shot distribution shift. See
 <a class="reference external" href="https://gitlab-master.nvidia.com/xuningy/robolab/-/blob/main/docs/analysis.md">[robolab]</a>
 for a cross-model comparison.</p>
 </section>
+<section id="viewing-rollouts-as-an-html-report">
+<h2>Viewing rollouts as an HTML report<a class="headerlink" href="#viewing-rollouts-as-an-html-report" title="Link to this heading">#</a></h2>
+<p>Both <code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code> and <code class="docutils literal notranslate"><span class="pre">eval_runner.py</span></code> can collect the rollouts into a browsable
+HTML evaluation report. For visualization add <code class="docutils literal notranslate"><span class="pre">--record_camera_video</span></code> to record one mp4 per camera, per
+episode; the runner writes an <code class="docutils literal notranslate"><span class="pre">index.html</span></code> which is then served over HTTP.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--eval_jobs_config<span class="w"> </span>isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_openpi_jobs_config.json<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--video_base_dir<span class="w"> </span>./output<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--record_camera_video<span class="w"> </span>--serve_evaluation_report
+</pre></div>
+</div>
+<p>You can also (re)build and serve a report later by pointing the standalone tool at the output
+root — it picks the most recent run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/visualization/report.py<span class="w"> </span>--video_dir<span class="w"> </span>./output
+</pre></div>
+</div>
+</section>
 <section id="supported-variants">
 <h2>Supported variants<a class="headerlink" href="#supported-variants" title="Link to this heading">#</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">Pi0DroidAdapter</span></code> (selected via <code class="docutils literal notranslate"><span class="pre">--openpi_embodiment_adapter</span> <span class="pre">droid</span></code>) supports
@@ -710,6 +728,7 @@ three openpi checkpoint variants on DROID:</p>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#terminal-1-openpi-server">Terminal 1 — openpi server</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#terminal-2-arena-policy-runner">Terminal 2 — arena policy runner</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#viewing-rollouts-as-an-html-report">Viewing rollouts as an HTML report</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#supported-variants">Supported variants</a></li>
 </ul>
   </nav></div>
