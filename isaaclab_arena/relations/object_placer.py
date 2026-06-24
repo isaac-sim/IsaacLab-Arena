@@ -655,7 +655,7 @@ class ObjectPlacer:
             positions: Solved positions for each object.
             env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
         """
-        tol = self.params.next_to_tolerance_m
+        tolerance_m = self.params.next_to_tolerance_m
         for obj in positions:
             for rel in obj.get_relations():
                 if not isinstance(rel, NextTo):
@@ -681,11 +681,12 @@ class ObjectPlacer:
                 target_primary = parent_edge + direction * rel.distance_m - child_offset
                 distance_violation = abs(child_primary - target_primary)
 
-                if half_plane_violation > tol or distance_violation > tol:
+                if half_plane_violation > tolerance_m or distance_violation > tolerance_m:
                     if self.params.verbose:
                         print(
                             f"NextTo: '{obj.name}' next_to({parent.name}) violated"
-                            f" (side={half_plane_violation:.4f}, distance={distance_violation:.4f} m; tol={tol})"
+                            f" (side={half_plane_violation:.4f}, distance={distance_violation:.4f} m;"
+                            f" tolerance_m={tolerance_m})"
                         )
                     return False
         return True
@@ -703,7 +704,7 @@ class ObjectPlacer:
             positions: Solved positions for each object.
             env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
         """
-        tol = self.params.next_to_tolerance_m
+        tolerance_m = self.params.next_to_tolerance_m
         for obj in positions:
             for rel in obj.get_relations():
                 if not isinstance(rel, NotNextTo):
@@ -734,22 +735,19 @@ class ObjectPlacer:
                 safe_band_max = valid_band_max + margin_m
                 remaining_cross = min(max(0.0, child_cross - safe_band_min), max(0.0, safe_band_max - child_cross))
 
-                if min(remaining_side, remaining_cross) > tol:
+                if min(remaining_side, remaining_cross) > tolerance_m:
                     if self.params.verbose:
                         print(
                             f"NotNextTo: '{obj.name}' not_next_to({parent.name}) violated"
                             f" (remaining_side={remaining_side:.4f}, remaining_cross={remaining_cross:.4f} m;"
-                            f" margin={margin_m}, tol={tol})"
+                            f" margin_m={margin_m}, tolerance_m={tolerance_m})"
                         )
                     return False
         return True
 
     def _not_next_to_margin(self, relation: NotNextTo) -> float:
         """Keep-out margin_m from the registered NotNextTo loss strategy (stays in sync with the solver)."""
-        strategy = self._solver.params.strategies.get(type(relation))
-        assert strategy is not None and hasattr(
-            strategy, "margin_m"
-        ), f"NotNextTo validation needs a registered loss strategy with margin_m; got {strategy!r}"
+        strategy = self._solver.params.strategies[type(relation)]
         return strategy.margin_m
 
     def _validate_placement(
