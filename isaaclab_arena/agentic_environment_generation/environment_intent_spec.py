@@ -40,7 +40,13 @@ class Item(BaseModel):
     )
     instance_name: str | None = Field(
         default=None,
-        description="Optional explicit instance label for the item; leave null if the prompt does not name one.",
+        description=(
+            "Explicit, unique instance label for this item. REQUIRED whenever the "
+            "scene has more than one item sharing the same query (e.g. 5 bananas → "
+            "'banana_1' … 'banana_5'); leave null only for a singleton item. When "
+            "set, this label — NOT the query — is the node id that every relation "
+            "subject/reference and task param must use to refer to this item."
+        ),
     )
 
 
