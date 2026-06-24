@@ -45,7 +45,7 @@ class RelationSolverParams:
     """Print optimization progress."""
 
     profile: bool = False
-    """Print solve wall-time, scene size, pair count, and ms/iter for diagnosing slow solves."""
+    """Print a timing summary after solve() (wall-time, batch size, pair count, ms/iter). No effect when max_iters=0."""
 
     save_position_history: bool = True
     """Save position snapshots during optimization for visualization/debugging. Disable to reduce memory."""

@@ -470,6 +470,7 @@ class NoCollisionLossStrategy:
         self.slope = slope
         self.debug = debug
 
+    # Production scores pairs through compute_loss_batched; this single-pair form is the test reference.
     def compute_loss(
         self,
         clearance_m: float,
@@ -488,6 +489,7 @@ class NoCollisionLossStrategy:
         Returns:
             Loss tensor of shape (N,).
         """
+        assert clearance_m >= 0, f"clearance_m must be non-negative, got {clearance_m}"
         single_input = child_pos.dim() == 1
         if single_input:
             child_pos = child_pos.unsqueeze(0)
@@ -537,37 +539,36 @@ class NoCollisionLossStrategy:
     def compute_loss_batched(
         self,
         clearance_m: float,
-        moving_min: torch.Tensor,
-        moving_max: torch.Tensor,
-        fixed_min: torch.Tensor,
-        fixed_max: torch.Tensor,
+        subject_min: torch.Tensor,
+        subject_max: torch.Tensor,
+        obstacle_min: torch.Tensor,
+        obstacle_max: torch.Tensor,
     ) -> torch.Tensor:
         """Overlap-volume no-overlap loss for boxes already reduced to world-space extents.
 
-        Batched sibling of compute_loss: the moving box carries gradient, the fixed box is
-        the obstacle (expanded by clearance). Extents share a trailing axis of size 3 and any
-        leading shape (e.g. (N, 3) or (num_pairs, N, 3)).
+        The subject box carries gradient; it is pushed off the obstacle box (expanded by clearance).
 
         Args:
             clearance_m: Minimum clearance between boxes in meters.
-            moving_min: World-space min extent of the moving box (..., 3).
-            moving_max: World-space max extent of the moving box (..., 3).
-            fixed_min: World-space min extent of the fixed box (..., 3).
-            fixed_max: World-space max extent of the fixed box (..., 3).
+            subject_min: World-space min extent of the subject box (..., 3).
+            subject_max: World-space max extent of the subject box (..., 3).
+            obstacle_min: World-space min extent of the obstacle box (..., 3).
+            obstacle_max: World-space max extent of the obstacle box (..., 3).
 
         Returns:
-            Loss tensor matching the input leading shape (the trailing axis of 3 is dropped).
+            Loss tensor of shape matching the leading dimensions of the inputs.
         """
-        fixed_min = fixed_min - clearance_m
-        fixed_max = fixed_max + clearance_m
+        assert clearance_m >= 0, f"clearance_m must be non-negative, got {clearance_m}"
+        obstacle_min = obstacle_min - clearance_m
+        obstacle_max = obstacle_max + clearance_m
         overlap_x = interval_overlap_axis_loss(
-            moving_min[..., 0], moving_max[..., 0], fixed_min[..., 0], fixed_max[..., 0]
+            subject_min[..., 0], subject_max[..., 0], obstacle_min[..., 0], obstacle_max[..., 0]
         )
         overlap_y = interval_overlap_axis_loss(
-            moving_min[..., 1], moving_max[..., 1], fixed_min[..., 1], fixed_max[..., 1]
+            subject_min[..., 1], subject_max[..., 1], obstacle_min[..., 1], obstacle_max[..., 1]
         )
         overlap_z = interval_overlap_axis_loss(
-            moving_min[..., 2], moving_max[..., 2], fixed_min[..., 2], fixed_max[..., 2]
+            subject_min[..., 2], subject_max[..., 2], obstacle_min[..., 2], obstacle_max[..., 2]
         )
         return self.slope * (overlap_x * overlap_y * overlap_z)
 

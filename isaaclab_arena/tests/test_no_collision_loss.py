@@ -372,12 +372,7 @@ def test_no_collision_loss_multi_env_shape_and_values():
 
 
 def _reference_pairwise_no_overlap_loss(solver: RelationSolver, state: RelationSolverState) -> torch.Tensor:
-    """Per-pair no-overlap loss via NoCollisionLossStrategy.compute_loss, summed in Python.
-
-    Independent oracle for the solver's vectorized path: it scores one pair at a time
-    with the same per-direction detach routing, so it pins both the loss value and the
-    gradient flow the fast path must reproduce.
-    """
+    """Per-pair reference implementation; the correctness oracle for the vectorized path."""
     device = state.device
     total = torch.zeros(state.batch_size, device=device, dtype=torch.float32)
     non_anchors = state.optimizable_objects
@@ -398,6 +393,8 @@ def _reference_pairwise_no_overlap_loss(solver: RelationSolver, state: RelationS
         for anchor in anchors:
             if (id(child), id(anchor)) in on_pairs:
                 continue
+            # Re-reads anchor.get_world_bounding_box() per pair; agrees with production's
+            # once-per-solve cache because DummyObject bounding boxes are immutable.
             total = total + strategy.compute_loss(
                 clearance_m=clearance,
                 child_pos=child_pos,
@@ -425,7 +422,9 @@ def _reference_pairwise_no_overlap_loss(solver: RelationSolver, state: RelationS
     return total
 
 
-def _assert_vectorized_matches_reference(objects, initial_positions, expect_positive: bool) -> None:
+def _assert_vectorized_matches_reference(
+    objects, initial_positions, expect_positive: bool, expected_pair_count: int | None = None
+) -> None:
     """Vectorized no-overlap loss and its gradient must match the per-pair oracle (CPU)."""
     solver = RelationSolver(params=RelationSolverParams(verbose=False))
 
@@ -443,6 +442,9 @@ def _assert_vectorized_matches_reference(objects, initial_positions, expect_posi
     assert torch.allclose(grad_new, grad_ref, atol=1e-6), f"gradient mismatch:\n{grad_new}\nvs\n{grad_ref}"
     if expect_positive:
         assert (loss_new > 0).any(), "scene should produce a positive loss to exercise the overlap branch"
+    if expected_pair_count is not None:
+        pair_count = solver._last_no_overlap_pair_count  # pyright: ignore[reportPrivateUsage]
+        assert pair_count == expected_pair_count, f"expected {expected_pair_count} pairs, got {pair_count}"
 
 
 def test_vectorized_no_overlap_matches_reference_non_anchor_pairs():
@@ -453,7 +455,8 @@ def test_vectorized_no_overlap_matches_reference_non_anchor_pairs():
         {table: (0.0, 0.0, 0.0), box_a: (0.30, 0.30, 0.11), box_b: (0.35, 0.35, 0.11)},
         {table: (0.0, 0.0, 0.0), box_a: (0.50, 0.50, 0.11), box_b: (0.90, 0.90, 0.11)},
     ]
-    _assert_vectorized_matches_reference(objects, initial_positions, expect_positive=True)
+    # Both boxes On(table) -> anchor pairs skipped; only the box_a/box_b pair, both directions.
+    _assert_vectorized_matches_reference(objects, initial_positions, expect_positive=True, expected_pair_count=2)
 
 
 def test_vectorized_no_overlap_matches_reference_anchor_pairs():
@@ -469,7 +472,41 @@ def test_vectorized_no_overlap_matches_reference_anchor_pairs():
         {table: (0.0, 0.0, 0.0), box_a: (0.20, 0.20, 0.05), box_b: (0.25, 0.25, 0.05)},
         {table: (0.0, 0.0, 0.0), box_a: (0.40, 0.40, 0.05), box_b: (0.42, 0.42, 0.05)},
     ]
-    _assert_vectorized_matches_reference(objects, initial_positions, expect_positive=True)
+    # 2 boxes x 1 anchor = 2 anchor pairs + box_a/box_b pair both directions = 4 pairs.
+    _assert_vectorized_matches_reference(objects, initial_positions, expect_positive=True, expected_pair_count=4)
+
+
+def test_vectorized_no_overlap_matches_reference_single_non_anchor():
+    """One free box vs one anchor exercises the anchor-pair path with no non-anchor pair loop."""
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    box = _create_box("box")  # free (non-On): the single child-vs-anchor pair is active
+    objects = [table, box]
+    # Box overlaps the table slab (z in [0, 0.1]).
+    initial_positions = [{table: (0.0, 0.0, 0.0), box: (0.20, 0.20, 0.05)}]
+    # 1 box x 1 anchor = 1 anchor pair; no second non-anchor, so no non-anchor pairs.
+    _assert_vectorized_matches_reference(objects, initial_positions, expect_positive=True, expected_pair_count=1)
+
+
+def test_vectorized_no_overlap_matches_reference_multiple_anchors():
+    """Two anchors double the anchor-pair loop; vectorized loss/gradient/count match the oracle."""
+    table_a = _create_table()
+    table_a.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table_a.add_relation(IsAnchor())
+    table_b = _create_table()
+    table_b.set_initial_pose(Pose(position_xyz=(3.0, 3.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table_b.add_relation(IsAnchor())
+    box_a = _create_box("box_a")
+    box_b = _create_box("box_b")  # free (non-On): every child-vs-anchor pair is active
+    objects = [table_a, table_b, box_a, box_b]
+    # Boxes overlap table_a (slab z in [0, 0.1]) and each other; table_b is far away (zero pair).
+    initial_positions = [
+        {table_a: (0.0, 0.0, 0.0), table_b: (3.0, 3.0, 0.0), box_a: (0.20, 0.20, 0.05), box_b: (0.25, 0.25, 0.05)},
+        {table_a: (0.0, 0.0, 0.0), table_b: (3.0, 3.0, 0.0), box_a: (0.40, 0.40, 0.05), box_b: (0.42, 0.42, 0.05)},
+    ]
+    # 2 boxes x 2 anchors = 4 anchor pairs + box_a/box_b pair both directions = 6 pairs.
+    _assert_vectorized_matches_reference(objects, initial_positions, expect_positive=True, expected_pair_count=6)
 
 
 def test_vectorized_no_overlap_empty_pairs_returns_zero():
@@ -491,8 +528,8 @@ def test_vectorized_no_overlap_empty_pairs_returns_zero():
     assert torch.allclose(loss, torch.zeros_like(loss))
 
 
-def test_vectorized_no_overlap_is_per_env_independent(capsys):
-    """Per-env losses stay independent (no batch-axis collapse) and the debug breakdown prints."""
+def test_vectorized_no_overlap_is_per_env_independent():
+    """Per-env losses stay independent: one env overlaps, the other is clear (no batch-axis collapse)."""
     table = _create_table()
     table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     table.add_relation(IsAnchor())
@@ -506,10 +543,22 @@ def test_vectorized_no_overlap_is_per_env_independent(capsys):
 
     solver = RelationSolver(params=RelationSolverParams(verbose=False))
     state = RelationSolverState(objects, initial_positions, device=torch.device("cpu"))
-    loss = solver._compute_no_overlap_loss(state, debug=True)  # pyright: ignore[reportPrivateUsage]
+    loss = solver._compute_no_overlap_loss(state)  # pyright: ignore[reportPrivateUsage]
 
     assert loss[0] > 0
     assert torch.allclose(loss[1], torch.zeros_like(loss[1]))
+
+
+def test_vectorized_no_overlap_debug_prints_breakdown(capsys):
+    """debug=True prints a per-pair [NoOverlap] breakdown."""
+    table, box_a, box_b = _create_no_collision_scene()
+    objects = [table, box_a, box_b]
+    initial_positions = [{table: (0.0, 0.0, 0.0), box_a: (0.20, 0.20, 0.11), box_b: (0.22, 0.22, 0.11)}]
+
+    solver = RelationSolver(params=RelationSolverParams(verbose=False))
+    state = RelationSolverState(objects, initial_positions, device=torch.device("cpu"))
+    solver._compute_no_overlap_loss(state, debug=True)  # pyright: ignore[reportPrivateUsage]
+
     assert "[NoOverlap]" in capsys.readouterr().out
 
 
@@ -525,6 +574,8 @@ def test_solver_profile_prints_timing(capsys):
     out = capsys.readouterr().out
     assert "[RelationSolver] solve:" in out
     assert "ms/iter" in out
+    assert "batch=" in out
+    assert "no-overlap pairs=" in out
 
 
 def test_relation_solver_multi_env_returns_list_of_dicts():
