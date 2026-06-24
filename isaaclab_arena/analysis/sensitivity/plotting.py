@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 _CONTINUOUS_COLOR = "steelblue"
 _CATEGORICAL_COLOR = "steelblue"
-_MEAN_COLOR = "firebrick"
+_PRIOR_COLOR = "grey"
 
 
 def plot_marginals(
@@ -80,21 +80,31 @@ def plot_marginals(
 
 
 def _draw_continuous_marginal(ax, factor: FactorSpec, factor_samples: np.ndarray) -> None:
-    """Smooth posterior density (filled KDE curve) of a continuous factor, with a mean line.
+    """Posterior density of a continuous factor over its swept range.
 
-    A KDE line over the posterior samples reads the shape of a continuous posterior better
-    than a binned histogram. Falls back to a single line at the mean when the samples have
-    no spread (KDE bandwidth is then undefined).
+    Draws the KDE of the posterior samples, the uniform prior as a flat reference, and shades
+    the central 5-95% of the posterior. Reading the posterior against the prior shows whether
+    conditioning on the outcome concentrated the factor, which a mean alone would miss for a
+    factor swept symmetrically around its nominal value.
     """
     range_low, range_high = factor.range
-    sample_mean = float(np.mean(factor_samples))
+    span = range_high - range_low
+
     if float(np.std(factor_samples)) >= 1e-9:
         grid = np.linspace(range_low, range_high, 200)
         density = gaussian_kde(factor_samples)(grid)
-        ax.plot(grid, density, color=_CONTINUOUS_COLOR, linewidth=2)
+        ax.plot(grid, density, color=_CONTINUOUS_COLOR, linewidth=2, label="posterior")
         ax.fill_between(grid, 0, density, color=_CONTINUOUS_COLOR, alpha=0.2)
         ax.set_ylim(bottom=0)
-    ax.axvline(sample_mean, color=_MEAN_COLOR, linestyle="--", linewidth=2, label=f"mean = {sample_mean:.3g}")
+        low_percentile, high_percentile = np.percentile(factor_samples, [5, 95])
+        ax.axvspan(low_percentile, high_percentile, color=_CONTINUOUS_COLOR, alpha=0.15, label="5-95%")
+    else:
+        ax.axvline(float(np.mean(factor_samples)), color=_CONTINUOUS_COLOR, linewidth=2, label="constant")
+
+    if span > 0:
+        # The uniform prior is the "no effect" reference the posterior is read against.
+        ax.axhline(1.0 / span, color=_PRIOR_COLOR, linestyle="--", linewidth=1.5, label="prior (uniform)")
+
     ax.set_xlim(range_low, range_high)
     ax.set_xlabel(factor.name)
     ax.set_ylabel("posterior density")
