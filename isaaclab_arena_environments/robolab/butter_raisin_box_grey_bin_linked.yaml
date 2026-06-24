@@ -3,17 +3,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# All rights reserved.
-#
-# SPDX-License-Identifier: Apache-2.0
-
 env_name: butter_raisin_box_grey_bin
 nodes:
 - id: maple_table_robolab
   name: maple_table_robolab
   type: background
   params: {}
-- id: droid_abs_joint_pos
+- id: droid
   name: droid_abs_joint_pos
   type: embodiment
   params: {}

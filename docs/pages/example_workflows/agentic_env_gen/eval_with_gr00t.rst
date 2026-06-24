@@ -43,7 +43,7 @@ In a second terminal, run the policy runner with the generated environment graph
       --remote_port 5555 \
       --enable_cameras \
       --num_steps 1000 \
-      --env_graph_spec_yaml isaaclab_arena_environments/agent_generated/robolab/mustard_raisin_box_linked.yaml
+      --env_graph_spec_yaml isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml
 
 The important pieces are:
 
@@ -68,7 +68,7 @@ Add a language instruction when you want to make the GR00T task explicit:
       --enable_cameras \
       --num_steps 1000 \
       --language_instruction "Pick up the mustard bottle and place it in the raisin box." \
-      --env_graph_spec_yaml isaaclab_arena_environments/agent_generated/robolab/mustard_raisin_box_linked.yaml
+      --env_graph_spec_yaml isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml
 
 To use with variations, append the variation overrides after the environment source, e.g. to enable camera extrinsics variations:
 
@@ -83,5 +83,11 @@ To use with variations, append the variation overrides after the environment sou
       --language_instruction "Pick up the mustard bottle and place it in the raisin box." \
       --enable_cameras \
       --num_steps 1000 \
-      --env_graph_spec_yaml isaaclab_arena_environments/agent_generated/robolab/mustard_raisin_box_linked.yaml \
+      --env_graph_spec_yaml isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml \
       droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true
+
+.. note::
+
+    Variation overrides, such as ``light.hdr_image.enabled=true`` and
+    ``droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true``, can be appended
+    after the environment source.

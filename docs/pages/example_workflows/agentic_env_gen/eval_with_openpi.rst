@@ -40,17 +40,15 @@ In a second terminal, run the policy runner with the generated environment graph
       --num_steps 1000 \
       --env_spacing 1.5 \
       --enable_cameras \
-      --env_graph_spec_yaml isaaclab_arena_environments/agent_generated/robolab/butter_raisin_box_grey_bin_linked.yaml
+      --env_graph_spec_yaml isaaclab_arena_environments/robolab/butter_raisin_box_grey_bin_linked.yaml
 
-The important pieces are:
+Important flags:
 
 * ``--policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy``
   selects the OpenPI remote policy client.
 * ``--enable_cameras`` is required because OpenPI consumes visual observations.
 * ``--env_graph_spec_yaml`` points the runner at the agentically generated
   linked environment graph.
-* Variation overrides, such as ``light.hdr_image.enabled=true`` and ``droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true``, can be appended
-  after the environment source.
 
 Add a language instruction when you want to make the OpenPI task explicit:
 
@@ -64,7 +62,7 @@ Add a language instruction when you want to make the OpenPI task explicit:
       --env_spacing 1.5 \
       --enable_cameras \
       --language_instruction "Pick up the red raisin box and place it in the grey bin." \
-      --env_graph_spec_yaml isaaclab_arena_environments/agent_generated/robolab/butter_raisin_box_grey_bin_linked.yaml
+      --env_graph_spec_yaml isaaclab_arena_environments/robolab/butter_raisin_box_grey_bin_linked.yaml
 
 To use with variations, append the variation overrides after the environment source, e.g. to enable camera extrinsics variations:
 
@@ -77,9 +75,13 @@ To use with variations, append the variation overrides after the environment sou
       --num_steps 1000 \
       --env_spacing 1.5 \
       --enable_cameras \
-      --env_graph_spec_yaml isaaclab_arena_environments/agent_generated/robolab/butter_raisin_box_grey_bin_linked.yaml \
+      --env_graph_spec_yaml isaaclab_arena_environments/robolab/butter_raisin_box_grey_bin_linked.yaml \
       droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true
 
+.. note::
+    Variation overrides, such as ``light.hdr_image.enabled=true`` and
+    ``droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true``, can be appended
+    after the environment source.
 
 Run with Eval Runner
 --------------------
@@ -96,7 +98,7 @@ OpenPI connection options go in ``policy_config_dict``:
                "name": "agentic_openpi_butter_raisin_box_grey_bin",
                "arena_env_args": {
                    "enable_cameras": true,
-                   "environment": "isaaclab_arena_environments/agent_generated/robolab/butter_raisin_box_grey_bin_linked.yaml"
+                   "environment": "isaaclab_arena_environments/robolab/butter_raisin_box_grey_bin_linked.yaml"
                },
                "num_steps": 100,
                "language_instruction": "Pick up the red raisin box and place it in the grey bin.",
