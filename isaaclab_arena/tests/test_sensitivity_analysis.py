@@ -277,3 +277,27 @@ def test_from_episode_results_rejects_unknown_factor_name(tmp_path):
 
     with pytest.raises(AssertionError, match="not found"):
         dataset_from_episode_results(jsonl, outcome_names=["success"], factor_names=["nonexistent"])
+
+
+def test_from_episode_results_rejects_non_dict_variations(tmp_path):
+    """A null / non-object variations block fails clearly rather than as an AttributeError."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(jsonl, [{"success": True, "variations": None}])
+
+    with pytest.raises(AssertionError, match="not a JSON object"):
+        dataset_from_episode_results(jsonl, outcome_names=["success"])
+
+
+def test_from_episode_results_rejects_non_numeric_outcome(tmp_path):
+    """A non-numeric outcome value fails with row context, not a bare cast error."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(
+        jsonl,
+        [
+            {"success": "yes", "variations": {"light_intensity": 250.0}},
+            {"success": "no", "variations": {"light_intensity": 750.0}},
+        ],
+    )
+
+    with pytest.raises(AssertionError, match="must be numeric or boolean"):
+        dataset_from_episode_results(jsonl, outcome_names=["success"])

@@ -18,6 +18,9 @@ from typing import Any
 
 from isaaclab_arena.analysis.sensitivity.dataset import FactorSpec, FactorType, SensitivityDataset
 
+_IMBALANCE_WARN_RATIO = 1.5
+"""Warn when a categorical's most-sampled choice exceeds its least-sampled one by at least this factor."""
+
 
 def dataset_from_episode_results(
     jsonl_path: str | Path,
@@ -48,7 +51,7 @@ def dataset_from_episode_results(
     rows = _read_rows(jsonl_path)
     factor_kinds, factor_values, factor_order = _discover_factor_values(rows, outcome_names, jsonl_path, factor_names)
     factors, theta = _build_factor_columns(factor_kinds, factor_values, factor_order, jsonl_path)
-    x = _build_outcome_columns(rows, outcome_names)
+    x = _build_outcome_columns(rows, outcome_names, jsonl_path)
     return SensitivityDataset(factors, theta, x, outcome_names)
 
 
@@ -131,9 +134,9 @@ def _discover_factor_values(
     factor_order: list[str] = []  # factor names in first-seen order, for a stable schema
 
     for row_index, row in enumerate(rows):
-        assert "variations" in row, (
-            f"Row {row_index} of {jsonl_path} has no 'variations' block; episode_results rows must "
-            "carry recorded variation draws."
+        assert "variations" in row and isinstance(row["variations"], dict), (
+            f"Row {row_index} of {jsonl_path} has no 'variations' block (or it is not a JSON object); "
+            "episode_results rows must carry recorded variation draws."
         )
         seen_in_row: set[str] = set()
         for key, value in row["variations"].items():
@@ -224,13 +227,13 @@ def _warn_if_unevenly_sampled(name: str, values: list[float | str], choices: lis
     """Warn when a categorical's choices were sampled unevenly, since that biases its posterior.
 
     The analysis assumes factors were drawn from the uniform prior. Uneven draw counts per choice
-    leak into the posterior (a no-effect factor then tracks its sampling frequency), so warn when
-    the most-sampled choice exceeds the least by 1.5x or more.
+    leak into the posterior (a no-effect factor then tracks its sampling frequency), so warn once
+    the imbalance reaches _IMBALANCE_WARN_RATIO.
     """
     counts: dict[str, int] = {}
     for value in values:
         counts[value] = counts.get(value, 0) + 1
-    if max(counts.values()) >= 1.5 * min(counts.values()):
+    if max(counts.values()) >= _IMBALANCE_WARN_RATIO * min(counts.values()):
         ordered_counts = {choice: counts[choice] for choice in choices}
         print(
             f"[WARNING] Categorical factor {name!r} was sampled unevenly across its choices "
@@ -239,9 +242,23 @@ def _warn_if_unevenly_sampled(name: str, values: list[float | str], choices: lis
         )
 
 
-def _build_outcome_columns(rows: list[dict], outcome_names: list[str] | tuple[str, ...]) -> torch.Tensor:
-    """Stack the requested top-level outcome fields into the x matrix, one column per outcome."""
-    return torch.cat(
-        [torch.tensor([float(row[name]) for row in rows], dtype=torch.float32).unsqueeze(1) for name in outcome_names],
-        dim=1,
-    )
+def _build_outcome_columns(
+    rows: list[dict], outcome_names: list[str] | tuple[str, ...], jsonl_path: str | Path
+) -> torch.Tensor:
+    """Stack the requested top-level outcome fields into the x matrix, one column per outcome.
+
+    Asserts each outcome value is numeric or boolean, so a stray non-numeric outcome fails with
+    the same row-and-path context as a bad variation rather than a bare cast error.
+    """
+    columns: list[torch.Tensor] = []
+    for name in outcome_names:
+        values: list[float] = []
+        for row_index, row in enumerate(rows):
+            value = row[name]
+            assert isinstance(value, (bool, int, float)), (
+                f"Outcome {name!r} in row {row_index} of {jsonl_path} is {type(value).__name__} {value!r}; "
+                "outcomes must be numeric or boolean."
+            )
+            values.append(float(value))
+        columns.append(torch.tensor(values, dtype=torch.float32).unsqueeze(1))
+    return torch.cat(columns, dim=1)
