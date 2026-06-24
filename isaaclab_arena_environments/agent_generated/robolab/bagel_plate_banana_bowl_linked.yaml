@@ -3,40 +3,43 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# All rights reserved.
-#
-# SPDX-License-Identifier: Apache-2.0
-
-env_name: butter_raisin_box_grey_bin
+env_name: bagel_plate_banana_bowl
 nodes:
 - id: maple_table_robolab
   name: maple_table_robolab
   type: background
   params: {}
-- id: droid_abs_joint_pos
+- id: droid
   name: droid_abs_joint_pos
   type: embodiment
   params: {}
-- id: raisin_box
-  name: raisin_box_hope_robolab
+- id: banana
+  name: banana_ycb_robolab
   type: object
   params: {}
-- id: grey_bin
-  name: grey_bin_robolab
+- id: plate
+  name: plate_large_vomp_robolab
   type: object
   params: {}
-- id: butter
-  name: butter_hope_robolab
+- id: bagel_1
+  name: bagel_00_objaverse_robolab
+  type: object
+  params: {}
+- id: bagel_2
+  name: bagel_00_objaverse_robolab
+  type: object
+  params: {}
+- id: bowl
+  name: bowl_ycb_robolab
   type: object
   params: {}
 tasks:
 - kind: PickAndPlaceTask
   params:
-    pick_up_object: raisin_box
-    destination_location: grey_bin
+    pick_up_object: banana
+    destination_location: plate
     background_scene: maple_table_robolab
-  description: Pick up the red raisin box and place it into the grey bin on the maple
-    table.
+  description: Pick up the banana and place it on the plate.
   id: task_0_PickAndPlaceTask
   initial_state_spec_id: state_initial
   success_state_spec_id: state_spec_1
@@ -49,40 +52,38 @@ state_specs:
     params: {}
     id: state_initial_0_is_anchor_maple_table_robolab
   - kind: 'on'
-    subject: grey_bin
+    subject: banana
     reference: maple_table_robolab
     params: {}
-    id: state_initial_1_on_maple_table_robolab_grey_bin
+    id: state_initial_1_on_maple_table_robolab_banana
   - kind: 'on'
-    subject: raisin_box
+    subject: plate
     reference: maple_table_robolab
     params: {}
-    id: state_initial_2_on_maple_table_robolab_raisin_box
+    id: state_initial_2_on_maple_table_robolab_plate
   - kind: 'on'
-    subject: butter
+    subject: bagel_1
     reference: maple_table_robolab
     params: {}
-    id: state_initial_3_on_maple_table_robolab_butter
-  - kind: 'rotate_around_solution'
-    subject: raisin_box
-    params: {
-      pitch_rad: 90.0
-    }
-    id: state_initial_4_rotate_around_solution_raisin_box
-  - kind: 'rotate_around_solution'
-    subject: butter
-    params: {
-      pitch_rad: 90.0
-    }
-    id: state_initial_5_rotate_around_solution_butter
+    id: state_initial_3_on_maple_table_robolab_bagel_1
+  - kind: 'on'
+    subject: bagel_2
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_4_on_maple_table_robolab_bagel_2
+  - kind: 'on'
+    subject: bowl
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_5_on_maple_table_robolab_bowl
   task_constraints: []
 - id: state_spec_1
   is_delta: true
   spatial_constraints:
   - kind: 'on'
-    subject: raisin_box
-    reference: grey_bin
+    subject: banana
+    reference: plate
     params: {}
-    id: state_spec_1_raisin_box_on_grey_bin
+    id: state_spec_1_banana_on_plate
   task_constraints: []
 cli_override_specs: []

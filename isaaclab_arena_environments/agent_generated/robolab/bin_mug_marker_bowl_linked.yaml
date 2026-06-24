@@ -9,15 +9,15 @@ nodes:
   name: maple_table_robolab
   type: background
   params: {}
-- id: droid_differential_ik
-  name: droid_differential_ik
+- id: droid
+  name: droid_abs_joint_pos
   type: embodiment
   params: {}
 - id: bowl
   name: bowl_ycb_robolab
   type: object
   params: {}
-- id: grey bin
+- id: grey_bin
   name: grey_bin_robolab
   type: object
   params: {}
@@ -25,7 +25,7 @@ nodes:
   name: mustard_bottle_hope_robolab
   type: object
   params: {}
-- id: dry erase marker
+- id: dry_erase_marker
   name: dry_erase_marker_ycb_robolab
   type: object
   params: {}
@@ -37,7 +37,7 @@ tasks:
 - kind: PickAndPlaceTask
   params:
     pick_up_object: bowl
-    destination_location: grey bin
+    destination_location: grey_bin
     background_scene: maple_table_robolab
   description: Pick up the bowl and place it in the grey bin.
   id: task_0_PickAndPlaceTask
@@ -57,20 +57,20 @@ state_specs:
     params: {}
     id: state_initial_1_on_maple_table_robolab_bowl
   - kind: 'on'
-    subject: grey bin
+    subject: grey_bin
     reference: maple_table_robolab
     params: {}
-    id: state_initial_2_on_maple_table_robolab_grey bin
+    id: state_initial_2_on_maple_table_robolab_grey_bin
   - kind: 'on'
     subject: mustard
     reference: maple_table_robolab
     params: {}
     id: state_initial_3_on_maple_table_robolab_mustard
   - kind: 'on'
-    subject: dry erase marker
+    subject: dry_erase_marker
     reference: maple_table_robolab
     params: {}
-    id: state_initial_4_on_maple_table_robolab_dry erase marker
+    id: state_initial_4_on_maple_table_robolab_dry_erase_marker
   - kind: 'on'
     subject: mug
     reference: maple_table_robolab
@@ -82,8 +82,8 @@ state_specs:
   spatial_constraints:
   - kind: 'on'
     subject: bowl
-    reference: grey bin
+    reference: grey_bin
     params: {}
-    id: state_spec_1_bowl_on_grey bin
+    id: state_spec_1_bowl_on_grey_bin
   task_constraints: []
 cli_override_specs: []

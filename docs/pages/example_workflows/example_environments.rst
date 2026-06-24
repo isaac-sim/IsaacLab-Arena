@@ -1,17 +1,19 @@
 Example Environments
 ====================
 
-Isaac Lab Arena ships a catalog of ready-to-run example environments under
-``isaaclab_arena_environments/``. Each environment is a small composition of
-the building blocks introduced in :doc:`../concepts/concept_overview` —
-**Scene**, **Embodiment**, and **Task** — wrapped in an ``ExampleEnvironmentBase``
-subclass and registered with the global ``EnvironmentRegistry``.
+Isaac Lab Arena ships a catalog of ready-to-run environments under
+``isaaclab_arena_environments/``. Environments can be provided in two ways:
 
-The registered ``Task ID`` listed below is the value passed as the positional
-``example_environment`` argument to scripts such as
-``isaaclab_arena/evaluation/policy_runner.py``,
-``isaaclab_arena/scripts/imitation_learning/record_demos.py``, and
-``isaaclab_arena/scripts/imitation_learning/replay_demos.py``.
+* **Python registered environments**: small compositions of the building blocks
+  introduced in :doc:`../concepts/concept_overview` — **Scene**,
+  **Embodiment**, and **Task** — wrapped in an ``ExampleEnvironmentBase``
+  subclass and registered with the global ``EnvironmentRegistry``. The
+  registered ``Task ID`` is passed as the positional ``example_environment``
+  argument to scripts such as ``isaaclab_arena/evaluation/policy_runner.py``.
+* **Environment graph YAML specs**: linked graph specs that describe the same
+  scene, embodiment, task, objects, and relations declaratively. These are
+  passed with ``--env_graph_spec_yaml`` and can be generated from prompts by the
+  :doc:`agentic_env_gen/index` workflow.
 
 The metadata below follows the same structure as the **Key Specifications**
 tables in the :doc:`imitation_learning/index` and
@@ -20,6 +22,155 @@ tables in the :doc:`imitation_learning/index` and
 .. contents::
    :local:
    :depth: 1
+
+
+Agentically Generated Graph Specs
+---------------------------------
+
+The Robolab examples below are linked environment graph YAMLs generated from
+natural-language prompts and checked in under
+``isaaclab_arena_environments/agent_generated/robolab/``. They are consumed with
+``--env_graph_spec_yaml`` instead of the positional ``example_environment`` name.
+
+bagel_plate_banana_bowl
+^^^^^^^^^^^^^^^^^^^^^^^
+
+**Environment YAML:** ``isaaclab_arena_environments/agent_generated/robolab/bagel_plate_banana_bowl_linked.yaml``
+
+**Task Description:** Pick up the banana and place it on the plate.
+
+.. list-table::
+   :widths: 30 70
+   :header-rows: 1
+
+   * - Property
+     - Value
+   * - **Source Type**
+     - Environment graph YAML
+   * - **Generation Prompt**
+     - ``Droid picks up the banana from the maple table and places it on the plate. Include two bagels and a bowl on the table.``
+   * - **Tags**
+     - Agentic generation, Robolab, table-top manipulation
+   * - **Skills**
+     - Reach, Grasp, Pick & place
+   * - **Embodiment**
+     - ``droid_abs_joint_pos`` (node id: ``droid``)
+   * - **Scene**
+     - ``maple_table_robolab`` background
+   * - **Objects**
+     - Pick: ``banana``; Destination: ``plate``; Distractors: ``bagel_1``, ``bagel_2``, ``bowl``
+   * - **Task Class**
+     - ``PickAndPlaceTask``
+   * - **Object Placement**
+     - Initial relations: all objects ``On(maple_table_robolab)``; success: ``banana On(plate)``
+   * - **CLI Args**
+     - ``--env_graph_spec_yaml isaaclab_arena_environments/agent_generated/robolab/bagel_plate_banana_bowl_linked.yaml``
+
+
+bin_mug_mustard_marker_bowl
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Environment YAML:** ``isaaclab_arena_environments/agent_generated/robolab/bin_mug_marker_bowl_linked.yaml``
+
+**Task Description:** Pick up the bowl and place it in the grey bin, with a
+mustard bottle, dry-erase marker, and mug as additional tabletop objects.
+
+.. list-table::
+   :widths: 30 70
+   :header-rows: 1
+
+   * - Property
+     - Value
+   * - **Source Type**
+     - Environment graph YAML
+   * - **Generation Prompt**
+     - ``Droid picks up the bowl from the maple table and places it in the grey bin. Using maple table background. Other objects on the table as distractors: mustard, dry erase marker, mug.``
+   * - **Tags**
+     - Agentic generation, Robolab, table-top manipulation
+   * - **Skills**
+     - Reach, Grasp, Pick & place
+   * - **Embodiment**
+     - ``droid_abs_joint_pos`` (node id: ``droid``)
+   * - **Scene**
+     - ``maple_table_robolab`` background
+   * - **Objects**
+     - Pick: ``bowl``; Destination: ``grey_bin``; Distractors: ``mustard``, ``dry_erase_marker``, ``mug``
+   * - **Task Class**
+     - ``PickAndPlaceTask``
+   * - **Object Placement**
+     - Initial relations: all objects ``On(maple_table_robolab)``; success: ``bowl On(grey_bin)``
+   * - **CLI Args**
+     - ``--env_graph_spec_yaml isaaclab_arena_environments/agent_generated/robolab/bin_mug_marker_bowl_linked.yaml``
+
+
+butter_raisin_box_grey_bin
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Environment YAML:** ``isaaclab_arena_environments/agent_generated/robolab/butter_raisin_box_grey_bin_linked.yaml``
+
+**Task Description:** Pick up the red raisin box and place it into the grey bin.
+
+.. list-table::
+   :widths: 30 70
+   :header-rows: 1
+
+   * - Property
+     - Value
+   * - **Source Type**
+     - Environment graph YAML
+   * - **Generation Prompt**
+     - ``Droid picks up the red raisin box from the maple table and places it into the grey bin. Using maple table background. Other objects on the table as distractors: butter.``
+   * - **Tags**
+     - Agentic generation, Robolab, table-top manipulation
+   * - **Skills**
+     - Reach, Grasp, Pick & place
+   * - **Embodiment**
+     - ``droid_abs_joint_pos``
+   * - **Scene**
+     - ``maple_table_robolab`` background
+   * - **Objects**
+     - Pick: ``raisin_box``; Destination: ``grey_bin``; Distractor: ``butter``
+   * - **Task Class**
+     - ``PickAndPlaceTask``
+   * - **Object Placement**
+     - Initial relations: objects ``On(maple_table_robolab)``; rotation markers on ``raisin_box`` and ``butter``; success: ``raisin_box On(grey_bin)``
+   * - **CLI Args**
+     - ``--env_graph_spec_yaml isaaclab_arena_environments/agent_generated/robolab/butter_raisin_box_grey_bin_linked.yaml``
+
+
+mustard_raisin_box
+^^^^^^^^^^^^^^^^^^
+
+**Environment YAML:** ``isaaclab_arena_environments/agent_generated/robolab/mustard_raisin_box_linked.yaml``
+
+**Task Description:** Pick up the mustard bottle and place it on the raisin box.
+
+.. list-table::
+   :widths: 30 70
+   :header-rows: 1
+
+   * - Property
+     - Value
+   * - **Source Type**
+     - Environment graph YAML
+   * - **Generation Prompt**
+     - ``Droid picks up the mustard bottle from the maple table and places it on the raisin box.``
+   * - **Tags**
+     - Agentic generation, Robolab, table-top manipulation
+   * - **Skills**
+     - Reach, Grasp, Pick & place
+   * - **Embodiment**
+     - ``droid_abs_joint_pos`` (node id: ``droid``)
+   * - **Scene**
+     - ``maple_table_robolab`` background
+   * - **Objects**
+     - Pick: ``mustard_bottle``; Destination: ``raisin_box``
+   * - **Task Class**
+     - ``PickAndPlaceTask``
+   * - **Object Placement**
+     - Initial relations: objects ``On(maple_table_robolab)``; rotation marker on ``raisin_box``; success: ``mustard_bottle On(raisin_box)``
+   * - **CLI Args**
+     - ``--env_graph_spec_yaml isaaclab_arena_environments/agent_generated/robolab/mustard_raisin_box_linked.yaml``
 
 
 Pick & Place
