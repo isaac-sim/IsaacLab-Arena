@@ -9,7 +9,6 @@ variation system, and policy-specific evaluation flows such as GR00T and PI.
 
 Behind the scenes, this workflow introduces the intent spec, environment graph
 spec, and environment graph linking.
-For more, see the :doc:`../concepts/concept_overview`.
 
 .. todo:: add concept overview page
 
@@ -84,7 +83,7 @@ The same YAML can also be built directly by the generation runner:
 Policy Runner with Variations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-See :doc:`../concepts/variations/variations` for more details on variations.
+See for more details on variations.
 
 An Arena environment represented by an environment graph spec YAML can be run
 with variations through the policy runner:
