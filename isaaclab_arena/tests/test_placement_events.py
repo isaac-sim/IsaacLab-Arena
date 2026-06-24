@@ -409,7 +409,7 @@ def test_solve_and_place_objects_asserts_env_indexed_pool_size_matches_scene():
     class MismatchedEnvIndexedPool:
         num_envs = 1
 
-    with pytest.raises(ValueError, match="scene has 2 env origins"):
+    with pytest.raises(AssertionError, match="scene has 2 env origins"):
         solve_and_place_objects(env, torch.tensor([0]), objects, MismatchedEnvIndexedPool())
 
 

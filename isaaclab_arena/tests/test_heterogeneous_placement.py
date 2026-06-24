@@ -582,7 +582,9 @@ def test_pooled_placer_env_specific_fallbacks_are_reported(capsys):
         for cur_env in range(2)
     ]
 
-    pool._store_env_matched_results(fallback_results, layouts_per_env=1, target_per_env=1, allow_fallback=True)
+    pool._store_env_matched_results(
+        fallback_results, layouts_per_env=1, target_num_layouts_per_env=1, allow_fallback=True
+    )
     captured = capsys.readouterr()
 
     assert pool.had_fallbacks
@@ -611,7 +613,7 @@ def test_pooled_placer_env_specific_fallbacks_wait_for_final_retry(capsys):
         for cur_env in range(2)
     ]
 
-    pool._store_env_matched_results(fallback_results, layouts_per_env=1, target_per_env=1)
+    pool._store_env_matched_results(fallback_results, layouts_per_env=1, target_num_layouts_per_env=1)
     captured = capsys.readouterr()
 
     assert not pool.had_fallbacks
@@ -652,7 +654,7 @@ def test_pooled_placer_env_specific_fallback_only_fills_short_env(capsys):
         fallback_results,
         layouts_per_env=1,
         allow_fallback=True,
-        target_per_env=1,
+        target_num_layouts_per_env=1,
     )
     captured = capsys.readouterr()
 
@@ -692,7 +694,7 @@ def test_pooled_placer_env_specific_valid_results_only_fill_short_envs():
         for cur_env in range(2)
     ]
 
-    pool._store_env_matched_results(ranked_results, layouts_per_env=2, target_per_env=1)
+    pool._store_env_matched_results(ranked_results, layouts_per_env=2, target_num_layouts_per_env=1)
 
     assert [env_pool.available for env_pool in pool._env_pools] == [1, 1]
     assert pool._env_pools[0].layouts == [existing_layout]
@@ -723,7 +725,7 @@ def test_pooled_placer_env_specific_partial_valid_results_kept_for_available_env
 
     # No fallback: env 1 has no valid candidate this batch, so it stays empty
     # while env 0's valid layout is still kept (partial fill is preserved).
-    pool._store_env_matched_results(ranked_results, layouts_per_env=1, target_per_env=1)
+    pool._store_env_matched_results(ranked_results, layouts_per_env=1, target_num_layouts_per_env=1)
 
     assert [env_pool.available for env_pool in pool._env_pools] == [1, 0]
     assert pool._env_pools[0].layouts == [valid_for_env0]

@@ -62,10 +62,7 @@ class PooledObjectPlacer:
         objects: All objects (including anchors) participating in relation solving.
         placer_params: Parameters forwarded to ObjectPlacer for the batched solve.
         pool_size: Number of layouts to solve per batch.
-        num_envs: Total number of simulation environments. Defaults to 1; set it to the
-            scene's env count for multi-env placement (otherwise solve_and_place_objects
-            rejects the env-count mismatch). Required for heterogeneous scenes, where it
-            also fixes each env's variant geometry.
+        num_envs: Number of simulation environments.
     """
 
     def __init__(
@@ -128,16 +125,16 @@ class PooledObjectPlacer:
         self._next_seed_offset += num_candidates
 
     def _solve_and_store(self, num_layouts: int) -> None:
-        """Solve and store layouts until every env has target_per_env unread layouts.
+        """Solve and store layouts until every env has target_num_layouts_per_env unread layouts.
 
         Bounded by max_placement_attempts; raises if the target cannot be met.
         """
         self._discard_consumed_layouts()
-        target_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
+        target_num_layouts_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
         max_solve_batches = max(1, self._placer.params.max_placement_attempts)
 
         for batch_idx in range(max_solve_batches):
-            max_missing = target_per_env - min(self._available_per_env())
+            max_missing = target_num_layouts_per_env - min(self._available_per_env())
             if max_missing <= 0:
                 return
 
@@ -148,14 +145,14 @@ class PooledObjectPlacer:
                 ranked_results_per_env,
                 layouts_per_env,
                 allow_fallback=allow_fallback,
-                target_per_env=target_per_env,
+                target_num_layouts_per_env=target_num_layouts_per_env,
             )
 
-            if min(self._available_per_env()) >= target_per_env:
+            if min(self._available_per_env()) >= target_num_layouts_per_env:
                 return
 
         raise RuntimeError(
-            f"Placement pool could not fill {target_per_env} layouts per env after "
+            f"Placement pool could not fill {target_num_layouts_per_env} layouts per env after "
             f"{max_solve_batches} solve batches. Available per env: {self._available_per_env()}."
         )
 
@@ -185,20 +182,22 @@ class PooledObjectPlacer:
         self,
         ranked_results_per_env: list[list[PlacementResult]],
         layouts_per_env: int,
-        target_per_env: int,
+        target_num_layouts_per_env: int,
         allow_fallback: bool = False,
     ) -> None:
-        """Store each env's results into its pool, up to target_per_env unread layouts.
+        """Store each env's results into its pool, up to target_num_layouts_per_env unread layouts.
 
         Valid layouts are preferred; when allow_fallback is set, an env with no
         valid layout keeps its best-loss results instead of staying empty.
+        An env that has at least one valid layout never falls back to best-loss,
+        even if it has fewer valid layouts than target_num_layouts_per_env.
         """
         total_valid = 0
         fallback_envs = []
         for cur_env in range(self._num_envs):
             env_results = ranked_results_per_env[cur_env][:layouts_per_env]
             valid_results = [r for r in env_results if r.success]
-            missing = target_per_env - self._env_pools[cur_env].available
+            missing = target_num_layouts_per_env - self._env_pools[cur_env].available
             if valid_results:
                 if missing > 0:
                     enqueued = valid_results[:missing]

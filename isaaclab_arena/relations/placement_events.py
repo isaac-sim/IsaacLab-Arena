@@ -116,10 +116,9 @@ def solve_and_place_objects(
 
     reset_env_ids = env_ids.tolist()
     num_scene_envs = env.scene.env_origins.shape[0]
-    if placement_pool.num_envs != num_scene_envs:
-        raise ValueError(
-            f"Placement pool has {placement_pool.num_envs} envs, but scene has {num_scene_envs} env origins."
-        )
+    assert (
+        placement_pool.num_envs == num_scene_envs
+    ), f"Placement pool has {placement_pool.num_envs} envs, but scene has {num_scene_envs} env origins."
     results_by_env = placement_pool.sample_for_envs(reset_env_ids)
 
     anchor_objects_set = set(get_anchor_objects(objects))
