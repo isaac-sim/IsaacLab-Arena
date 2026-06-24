@@ -30,8 +30,8 @@ class VariationRecord:
         self.cfg = cfg
         # Run-time draw, one per (env id, episode index).
         self._samples_by_env_episode: dict[EnvEpisodeKey, Any] = {}
-        # Build-time (all-envs) draws; these apply to every episode of every env.
-        self._build_time_samples: list[Any] = []
+        # Build-time (all-envs) draw; applies to every episode of every env.
+        self._build_time_sample: Any = None
 
     def record_runtime_sample(self, sample: Any, env_ids: Sequence[int], episode_indices: Sequence[int]) -> None:
         """Record each row of ``sample`` against the (env id, episode index) it was drawn for.
@@ -51,18 +51,22 @@ class VariationRecord:
             self._samples_by_env_episode[key] = sample[row]
 
     def record_buildtime_sample(self, sample: Any) -> None:
-        """Record an all-envs (build-time) ``sample`` whose rows apply to every episode of every env."""
-        self._build_time_samples.extend(sample[row] for row in range(len(sample)))
+        """Record the all-envs (build-time) ``sample``; it applies to every episode of every env."""
+        assert (
+            len(sample) == 1
+        ), f"Variation '{self.name}' build-time draw expected a single sample for all envs; got {len(sample)}."
+        self._build_time_sample = sample[0]
 
-    def samples_for_episode(self, env_id: int, episode_idx: int) -> list[Any]:
-        """Return every value attributed to ``env_id``'s ``episode_idx`` (empty if none).
+    def sample_for_episode(self, env_id: int, episode_idx: int) -> Any:
+        """Return the value drawn for ``env_id``'s ``episode_idx``, or ``None`` if none was drawn.
 
-        Build-time (all-envs) draws come first, since they apply to every episode, followed by the
-        run-time draw made during that episode (if any).
+        A build-time (all-envs) draw applies to every episode; otherwise the run-time draw made
+        during that episode is returned.
         """
-        runtime_sample = self._samples_by_env_episode.get(EnvEpisodeKey(env_id, episode_idx))
-        runtime_samples = [] if runtime_sample is None else [runtime_sample]
-        return self._build_time_samples + runtime_samples
+        key = EnvEpisodeKey(env_id, episode_idx)
+        if key in self._samples_by_env_episode:
+            return self._samples_by_env_episode[key]
+        return self._build_time_sample
 
 
 class VariationRecorder:
