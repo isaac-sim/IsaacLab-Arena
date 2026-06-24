@@ -50,7 +50,7 @@ class _ContinuousFactor:
         return self.weight * normalized
 
     def spec(self) -> FactorSpec:
-        return FactorSpec(name=self.name, type="continuous", range=[list(self.value_range)])
+        return FactorSpec(name=self.name, type="continuous", range=self.value_range)
 
     def column(self, values: torch.Tensor) -> torch.Tensor:
         return values

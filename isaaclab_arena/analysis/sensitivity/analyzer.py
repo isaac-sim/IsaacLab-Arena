@@ -46,8 +46,8 @@ class SensitivityAnalyzer:
                 " the FactorSpec, or build the dataset via from_episode_results() so the range is"
                 " inferred from the data before constructing the analyzer."
             )
-        self._continuous_low = torch.tensor([factor.range[0][0] for factor in continuous_factors])
-        self._continuous_high = torch.tensor([factor.range[0][1] for factor in continuous_factors])
+        self._continuous_low = torch.tensor([factor.range[0] for factor in continuous_factors])
+        self._continuous_high = torch.tensor([factor.range[1] for factor in continuous_factors])
 
     def _select_inference_class(self):
         """Choose the sbi inference class for this schema.

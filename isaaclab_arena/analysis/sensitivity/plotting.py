@@ -86,7 +86,7 @@ def _draw_continuous_marginal(ax, factor: FactorSpec, factor_samples: np.ndarray
     than a binned histogram. Falls back to a single line at the mean when the samples have
     no spread (KDE bandwidth is then undefined).
     """
-    range_low, range_high = factor.range[0]
+    range_low, range_high = factor.range
     sample_mean = float(np.mean(factor_samples))
     if float(np.std(factor_samples)) >= 1e-9:
         grid = np.linspace(range_low, range_high, 200)

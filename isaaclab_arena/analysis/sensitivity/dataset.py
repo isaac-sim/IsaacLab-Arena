@@ -22,32 +22,34 @@ class FactorType(str, Enum):
 
 @dataclass
 class FactorSpec:
-    """One factor's schema, occupying a single column of theta.
+    """One varied input — a lighting level, a camera-offset axis, a background choice, and so on.
 
-    A continuous factor carries a range, one [low, high] pair. A categorical factor carries
-    choices, a list of string labels that are integer-encoded by their index in theta.
+    Each factor occupies one column of the dataset's factor matrix theta (see SensitivityDataset).
+    A continuous factor carries a range, the (low, high) it was swept over. A categorical factor
+    carries choices, the string labels it took, integer-encoded by their index in that column.
     """
 
     name: str
     type: FactorType
-    range: list[tuple[float, float]] | None = None  # a single (low, high) pair, continuous only
+    range: tuple[float, float] | None = None  # (low, high), continuous only
     choices: list[str] | None = None  # categorical only
 
     def __post_init__(self) -> None:
         # Accept the raw string form (from YAML / callers) and normalize to the enum.
         self.type = FactorType(self.type)
-        # Normalize each (low, high) pair to a tuple (YAML/JSON deliver them as lists).
+        # JSON/YAML deliver the range as a list; normalize it to a tuple.
         if self.range is not None:
-            self.range = [tuple(pair) for pair in self.range]
+            self.range = tuple(self.range)
 
 
 class SensitivityDataset:
-    """The varied factors paired with their per-episode theta (factor values) and x (outcomes).
+    """The varied factors paired with their per-episode values (theta) and outcomes (x).
 
-    A pure container holding the factor list, the two tensors, and the column layout an analyzer
-    reads. Build it from an episode_results.jsonl with from_episode_results, or pass tensors
-    straight to the constructor. Either way theta is continuous columns first, then one
-    integer-coded column per categorical factor.
+    theta is the factor matrix: one row per episode, one column per factor — continuous factors
+    in the leading columns, then one integer-coded column per categorical factor. x is the
+    matching outcome matrix, one row per episode and one column per outcome. The object is a pure
+    in-memory container (the factor list plus the two tensors) and exposes the column layout an
+    analyzer reads.
     """
 
     def __init__(
@@ -298,7 +300,7 @@ def _build_dataset_from_episode_rows(
         if lo == hi:
             dropped.append(name)
             continue
-        factors.append(FactorSpec(name=name, type=FactorType.CONTINUOUS, range=[(lo, hi)]))
+        factors.append(FactorSpec(name=name, type=FactorType.CONTINUOUS, range=(lo, hi)))
         columns.append(torch.tensor(values, dtype=torch.float32).unsqueeze(1))
     for name in categorical_names:
         choices = sorted(set(factor_values[name]))

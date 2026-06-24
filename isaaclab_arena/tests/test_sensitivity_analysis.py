@@ -139,7 +139,7 @@ def test_from_episode_results_discovers_mixed_continuous_and_categorical(tmp_pat
     assert factors_by_name["dome.hdr_image"].type == "categorical"
     assert factors_by_name["dome.hdr_image"].choices == ["studio", "sunset"]  # sorted observed labels
     # A continuous factor's range is inferred as [min, max] of the observed values.
-    assert factors_by_name["dome.light_intensity"].range == [(250.0, 750.0)]
+    assert factors_by_name["dome.light_intensity"].range == (250.0, 750.0)
 
     # Continuous-first layout; categorical integer-coded by its index into the discovered choices.
     assert dataset.factor_columns == {"dome.light_intensity": slice(0, 1), "dome.hdr_image": slice(1, 2)}
