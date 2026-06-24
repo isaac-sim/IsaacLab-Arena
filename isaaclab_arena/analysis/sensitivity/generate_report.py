@@ -11,7 +11,7 @@ import torch
 from pathlib import Path
 
 from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
-from isaaclab_arena.analysis.sensitivity.dataset import SensitivityDataset
+from isaaclab_arena.analysis.sensitivity.episode_results_reader import dataset_from_episode_results
 from isaaclab_arena.analysis.sensitivity.plotting import plot_marginals
 
 
@@ -46,7 +46,7 @@ def generate_report(
     if seed is not None:
         torch.manual_seed(seed)
 
-    dataset = SensitivityDataset.from_episode_results(Path(episode_results_path), outcome_names, factor_names)
+    dataset = dataset_from_episode_results(episode_results_path, outcome_names, factor_names)
     analyzer = SensitivityAnalyzer(dataset)
     analyzer.fit()
 

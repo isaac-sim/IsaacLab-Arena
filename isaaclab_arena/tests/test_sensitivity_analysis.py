@@ -21,7 +21,7 @@ import torch
 import pytest
 
 from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
-from isaaclab_arena.analysis.sensitivity.dataset import SensitivityDataset
+from isaaclab_arena.analysis.sensitivity.episode_results_reader import dataset_from_episode_results
 from isaaclab_arena.tests.sensitivity_synthetic import (
     CAMERA_DISTANCE,
     GRASP_OFFSET,
@@ -106,7 +106,7 @@ def test_from_episode_results_splits_vector_variation_into_scalar_factors(tmp_pa
         ],
     )
 
-    dataset = SensitivityDataset.from_episode_results(jsonl, outcome_names=["success"])
+    dataset = dataset_from_episode_results(jsonl, outcome_names=["success"])
 
     # A 3-vector draw becomes three continuous factors, named with a per-component suffix.
     factors_by_name = {factor.name: factor for factor in dataset.factors}
@@ -132,7 +132,7 @@ def test_from_episode_results_discovers_mixed_continuous_and_categorical(tmp_pat
         ],
     )
 
-    dataset = SensitivityDataset.from_episode_results(jsonl, outcome_names=["success"])
+    dataset = dataset_from_episode_results(jsonl, outcome_names=["success"])
 
     factors_by_name = {factor.name: factor for factor in dataset.factors}
     assert factors_by_name["dome.light_intensity"].type == "continuous"
@@ -161,7 +161,7 @@ def test_from_episode_results_drops_constant_factors(tmp_path):
         ],
     )
 
-    dataset = SensitivityDataset.from_episode_results(jsonl, outcome_names=["success"])
+    dataset = dataset_from_episode_results(jsonl, outcome_names=["success"])
 
     # The constant continuous (always_5) and constant categorical (hdr) are dropped; only the varying one remains.
     assert [factor.name for factor in dataset.factors] == ["light_intensity"]
@@ -181,7 +181,7 @@ def test_from_episode_results_warns_on_imbalanced_categorical(tmp_path, capsys):
         ],
     )
 
-    SensitivityDataset.from_episode_results(jsonl, outcome_names=["success"])
+    dataset_from_episode_results(jsonl, outcome_names=["success"])
 
     assert "sampled unevenly" in capsys.readouterr().out
 
@@ -198,7 +198,7 @@ def test_from_episode_results_raises_when_all_factors_constant(tmp_path):
     )
 
     with pytest.raises(AssertionError, match="constant"):
-        SensitivityDataset.from_episode_results(jsonl, outcome_names=["success"])
+        dataset_from_episode_results(jsonl, outcome_names=["success"])
 
 
 def test_from_episode_results_treats_bool_variation_as_categorical(tmp_path):
@@ -212,7 +212,7 @@ def test_from_episode_results_treats_bool_variation_as_categorical(tmp_path):
         ],
     )
 
-    dataset = SensitivityDataset.from_episode_results(jsonl, outcome_names=["success"])
+    dataset = dataset_from_episode_results(jsonl, outcome_names=["success"])
 
     factor = dataset.factors[0]
     assert factor.type == "categorical"
@@ -232,7 +232,7 @@ def test_from_episode_results_rejects_inconsistent_factor_set(tmp_path):
     )
 
     with pytest.raises(AssertionError, match="same variations"):
-        SensitivityDataset.from_episode_results(jsonl, outcome_names=["success"])
+        dataset_from_episode_results(jsonl, outcome_names=["success"])
 
 
 def test_from_episode_results_rejects_non_numeric_vector_component(tmp_path):
@@ -244,7 +244,7 @@ def test_from_episode_results_rejects_non_numeric_vector_component(tmp_path):
     )
 
     with pytest.raises(AssertionError, match="non-numeric"):
-        SensitivityDataset.from_episode_results(jsonl, outcome_names=["success"])
+        dataset_from_episode_results(jsonl, outcome_names=["success"])
 
 
 def test_from_episode_results_selects_factor_subset(tmp_path):
@@ -258,9 +258,7 @@ def test_from_episode_results_selects_factor_subset(tmp_path):
         ],
     )
 
-    dataset = SensitivityDataset.from_episode_results(
-        jsonl, outcome_names=["success"], factor_names=["light_intensity", "wrist"]
-    )
+    dataset = dataset_from_episode_results(jsonl, outcome_names=["success"], factor_names=["light_intensity", "wrist"])
 
     # hdr is excluded; the selected vector is still split into one factor per component.
     assert [factor.name for factor in dataset.factors] == ["light_intensity", "wrist[0]", "wrist[1]"]
@@ -278,4 +276,4 @@ def test_from_episode_results_rejects_unknown_factor_name(tmp_path):
     )
 
     with pytest.raises(AssertionError, match="not found"):
-        SensitivityDataset.from_episode_results(jsonl, outcome_names=["success"], factor_names=["nonexistent"])
+        dataset_from_episode_results(jsonl, outcome_names=["success"], factor_names=["nonexistent"])

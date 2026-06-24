@@ -43,7 +43,7 @@ class SensitivityAnalyzer:
         for factor in continuous_factors:
             assert factor.range is not None, (
                 f"Continuous factor {factor.name!r} has no range to normalize against. Set a range on"
-                " the FactorSpec, or build the dataset via from_episode_results() so the range is"
+                " the FactorSpec, or build the dataset via dataset_from_episode_results() so the range is"
                 " inferred from the data before constructing the analyzer."
             )
         self._continuous_low = torch.tensor([factor.range[0] for factor in continuous_factors])
