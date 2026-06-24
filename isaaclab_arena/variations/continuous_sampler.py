@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import torch
 from abc import abstractmethod
-from typing import Any
 
 from isaaclab.utils import configclass
 
@@ -33,7 +32,7 @@ class ContinuousSampler(SamplerBase):
     ``(num_samples, *shape_per_sample)``.
     """
 
-    def sample(self, num_samples: int, env_ids: Any = None) -> torch.Tensor:
+    def sample(self, num_samples: int, env_ids: torch.Tensor | None = None) -> torch.Tensor:
         """Draw ``num_samples`` values from this distribution.
 
         Args:

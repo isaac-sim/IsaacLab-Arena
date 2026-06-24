@@ -245,8 +245,7 @@ def main():
         if policy.is_remote:
             policy.shutdown_remote(kill_server=args_cli.remote_kill_on_exit)
 
-        # Request the per-episode results write into the same run directory the video
-        # recorders use, passing in the path.
+        # Write the per-episode results to output directory.
         results_path = os.path.join(video_cfg.video_base_dir, f"episode_results_rank{local_rank}.jsonl")
         env.unwrapped.episode_recorder.write(results_path)
 

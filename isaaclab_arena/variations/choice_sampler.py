@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import torch
 from collections.abc import Sequence
-from typing import Any, Generic, TypeVar
+from typing import Generic, TypeVar
 
 from isaaclab.utils import configclass
 
@@ -27,7 +27,7 @@ class ChoiceSamplerCfg(SamplerBaseCfg):
 class ChoiceSampler(SamplerBase, Generic[T]):
     """Uniform sampler returning items drawn from a per-call ``choices`` sequence."""
 
-    def sample(self, num_samples: int, choices: Sequence[T], env_ids: Any = None) -> list[T]:
+    def sample(self, num_samples: int, choices: Sequence[T], env_ids: torch.Tensor | None = None) -> list[T]:
         """Draw ``num_samples`` items from ``choices``.
 
         Args:

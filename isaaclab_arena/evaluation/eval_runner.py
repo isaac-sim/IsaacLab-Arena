@@ -277,11 +277,13 @@ def main():
             # aggregate the metrics across rebuilds into a single result.
             for rebuild_idx in range(job.num_rebuilds):
                 try:
+                    job_output_dir = os.path.join(run_output_dir, job.name)
+
                     # Per-job video output directory; cameras are tagged with the rebuild index.
                     video_cfg = VideoRecordingCfg(
                         record_viewport_video=args_cli.record_viewport_video,
                         record_camera_video=args_cli.record_camera_video,
-                        video_base_dir=os.path.join(run_output_dir, job.name),
+                        video_base_dir=job_output_dir,
                         camera_name_prefix=f"robot-cam-rebuild{rebuild_idx}",
                     )
                     env = load_env(
@@ -320,7 +322,9 @@ def main():
                     )
 
                     # Write per-episode results to job's output subdir, one file per rebuild.
-                    results_path = os.path.join(video_cfg.video_base_dir, f"episode_results_rebuild{rebuild_idx}.jsonl")
+                    # TODO: Aggregate the per-episode records across rebuilds into a single file,
+                    # as is done for the metrics above.
+                    results_path = os.path.join(job_output_dir, f"episode_results_rebuild{rebuild_idx}.jsonl")
                     env.unwrapped.episode_recorder.write(results_path)
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)

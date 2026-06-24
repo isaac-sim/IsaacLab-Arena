@@ -3,8 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Concrete episode recorder term callables and their term configs."""
-
 from __future__ import annotations
 
 import datetime
@@ -25,7 +23,7 @@ def record_core_episode_results(env, env_id: int) -> dict[str, Any]:
     return {
         "env_id": env_id,
         "episode_in_env": env.get_episode_index(env_id),
-        "seed": getattr(env.cfg, "seed", None),
+        "seed": env.cfg.seed,
         "success": success,
         "episode_length": int(env.episode_length_buf[env_id].item()),
         "timestamp": datetime.datetime.now().isoformat(),

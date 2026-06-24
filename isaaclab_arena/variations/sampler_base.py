@@ -7,9 +7,12 @@ from __future__ import annotations
 
 from abc import ABC
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.utils import configclass
+
+if TYPE_CHECKING:
+    import torch
 
 
 @configclass
@@ -31,13 +34,13 @@ class SamplerBase(ABC):
     """Base class shared by every sampler family."""
 
     def __init__(self) -> None:
-        self._listeners: list[Callable[[Any, Any], None]] = []
+        self._listeners: list[Callable[[Any, torch.Tensor | None], None]] = []
 
-    def add_listener(self, listener: Callable[[Any, Any], None]) -> None:
+    def add_listener(self, listener: Callable[[Any, torch.Tensor | None], None]) -> None:
         """Register ``listener``, called as ``listener(sample, env_ids)`` for every sample drawn."""
         self._listeners.append(listener)
 
-    def _notify(self, sample: Any, env_ids: Any = None) -> None:
+    def _notify(self, sample: Any, env_ids: torch.Tensor | None = None) -> None:
         """Forward ``sample`` (and the ``env_ids`` it was drawn for) to every registered listener.
 
         ``env_ids`` is the per-env id tensor/sequence the sample's rows correspond to, or ``None``

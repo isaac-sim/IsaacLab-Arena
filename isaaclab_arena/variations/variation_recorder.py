@@ -28,13 +28,15 @@ class VariationRecord:
     def __init__(self, name: str, cfg: VariationBaseCfg) -> None:
         self.name = name
         self.cfg = cfg
-        # Run-time draws, per (env id, episode index), in draw order.
-        self._samples_by_env_episode: dict[EnvEpisodeKey, list[Any]] = {}
+        # Run-time draw, one per (env id, episode index).
+        self._samples_by_env_episode: dict[EnvEpisodeKey, Any] = {}
         # Build-time (all-envs) draws; these apply to every episode of every env.
         self._build_time_samples: list[Any] = []
 
     def record_runtime_sample(self, sample: Any, env_ids: Sequence[int], episode_indices: Sequence[int]) -> None:
-        """Append each row of ``sample`` to the per-env, per-episode list it was drawn for.
+        """Record each row of ``sample`` against the (env id, episode index) it was drawn for.
+
+        Each (env id, episode index) is expected to be drawn for at most once.
 
         Args:
             sample: The drawn sample; row ``i`` is the value for the ``i``-th env in ``env_ids``.
@@ -43,9 +45,10 @@ class VariationRecord:
         """
         for row, (env_id, episode_idx) in enumerate(zip(env_ids, episode_indices)):
             key = EnvEpisodeKey(env_id, episode_idx)
-            if key not in self._samples_by_env_episode:
-                self._samples_by_env_episode[key] = []
-            self._samples_by_env_episode[key].append(sample[row])
+            assert (
+                key not in self._samples_by_env_episode
+            ), f"Variation '{self.name}' already recorded a sample for env {env_id}, episode {episode_idx}."
+            self._samples_by_env_episode[key] = sample[row]
 
     def record_buildtime_sample(self, sample: Any) -> None:
         """Record an all-envs (build-time) ``sample`` whose rows apply to every episode of every env."""
@@ -55,9 +58,11 @@ class VariationRecord:
         """Return every value attributed to ``env_id``'s ``episode_idx`` (empty if none).
 
         Build-time (all-envs) draws come first, since they apply to every episode, followed by the
-        run-time draws made during that episode.
+        run-time draw made during that episode (if any).
         """
-        return self._build_time_samples + self._samples_by_env_episode.get(EnvEpisodeKey(env_id, episode_idx), [])
+        runtime_sample = self._samples_by_env_episode.get(EnvEpisodeKey(env_id, episode_idx))
+        runtime_samples = [] if runtime_sample is None else [runtime_sample]
+        return self._build_time_samples + runtime_samples
 
 
 class VariationRecorder:
@@ -105,10 +110,7 @@ class VariationRecorder:
                         # Build-time / all-envs draw: applies to every episode of every env.
                         record.record_buildtime_sample(sample)
                     else:
-                        assert self._env is not None, (
-                            "VariationRecorder observed a per-env draw before an env was bound; "
-                            "call bind_env() so samples can be attributed to their episode."
-                        )
+                        assert self._env is not None, "VariationRecorder needs bind_env() before per-env draws."
                         env_id_list = env_ids.tolist()
                         episode_indices = [self._env.get_episode_index(env_id) for env_id in env_id_list]
                         record.record_runtime_sample(sample, env_id_list, episode_indices)

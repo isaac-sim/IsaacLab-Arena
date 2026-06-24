@@ -44,13 +44,13 @@ class EpisodeRecorderTermCfg(ManagerTermBaseCfg):
 
 
 class EpisodeRecorderManager(ManagerBase):
-    """Buffers one merged per-episode record from its terms; written out as JSONL on request."""
+    """Records per-episode data, described by terms. Written out as JSONL on request."""
 
     def __init__(self, cfg: object, env) -> None:
         """Initialize the manager and its episode-recording state.
 
         Args:
-            cfg: The episode recorder manager cfg (or dict of ``EpisodeRecorderTermCfg``).
+            cfg: The episode recorder manager cfg.
             env: The environment instance.
         """
         self._term_names: list[str] = []
@@ -85,7 +85,9 @@ class EpisodeRecorderManager(ManagerBase):
         self._metadata = metadata
 
     def record_pre_reset(self, env_ids: Sequence[int] | torch.Tensor | None) -> None:
-        """Buffer one record per finished episode in ``env_ids`` by merging all terms' fields.
+        """Record one record per finished episode.
+
+        This function fires each recording terms' function and merges the results into a single record.
 
         Args:
             env_ids: The env ids being reset (tensor, sequence, or ``None`` for all envs).
@@ -96,6 +98,7 @@ class EpisodeRecorderManager(ManagerBase):
                 "job_name": self._metadata.job_name,
                 "language_instruction": self._metadata.language_instruction,
             }
+            # Fire each recording term's function.
             for term_name, term_cfg in zip(self._term_names, self._term_cfgs):
                 fields = term_cfg.func(self._env, env_id, **term_cfg.params)
                 collisions = record.keys() & fields.keys()
@@ -104,6 +107,7 @@ class EpisodeRecorderManager(ManagerBase):
                     " by the manager or an earlier term."
                 )
                 record.update(fields)
+            # Append the record to the list of records.
             self._records.append(record)
 
     def write(self, output_path: str | Path) -> None:
@@ -127,9 +131,7 @@ class EpisodeRecorderManager(ManagerBase):
         for term_name, term_cfg in self.cfg.__dict__.items():
             if term_cfg is None:
                 continue
-            # Validate the term's func/params and, for callable-class terms, instantiate it once the
-            # sim starts (the shared ``ManagerBase`` helper every Isaac Lab manager uses in
-            # ``_prepare_terms``, e.g. ``EventManager``). ``min_argc=2`` for the leading env, env_id.
+            # Validate the term's func/params.
             self._resolve_common_term_cfg(term_name, term_cfg, min_argc=2)
             self._term_names.append(term_name)
             self._term_cfgs.append(term_cfg)
