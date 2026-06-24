@@ -9,7 +9,7 @@ nodes:
   name: maple_table_robolab
   type: background
   params: {}
-- id: droid_abs_joint_pos
+- id: droid
   name: droid_abs_joint_pos
   type: embodiment
   params: {}
