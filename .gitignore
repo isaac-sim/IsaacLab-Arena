@@ -74,6 +74,8 @@ TAGS
 
 # Agent generated environments
 *isaaclab_arena_environments/agent_generated/
+!*isaaclab_arena_environments/agent_generated/robolab/
+!*isaaclab_arena_environments/agent_generated/robolab/**
 
 # Datasets
 *datasets/
