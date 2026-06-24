@@ -1,0 +1,69 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: mustard_raisin_box
+nodes:
+- id: maple_table_robolab
+  name: maple_table_robolab
+  type: background
+  params: {}
+- id: droid_abs_joint_pos
+  name: droid_abs_joint_pos
+  type: embodiment
+  params: {}
+- id: mustard_bottle
+  name: mustard_bottle_hope_robolab
+  type: object
+  params: {}
+- id: raisin_box
+  name: raisin_box_hope_robolab
+  type: object
+  params: {}
+tasks:
+- kind: PickAndPlaceTask
+  params:
+    pick_up_object: mustard_bottle
+    destination_location: raisin_box
+    background_scene: maple_table_robolab
+  description: Pick up the mustard bottle and place it on the raisin box.
+  id: task_0_PickAndPlaceTask
+  initial_state_spec_id: state_initial
+  success_state_spec_id: state_spec_1
+state_specs:
+- id: state_initial
+  is_delta: false
+  spatial_constraints:
+  - kind: is_anchor
+    subject: maple_table_robolab
+    params: {}
+    id: state_initial_0_is_anchor_maple_table_robolab
+  - kind: 'on'
+    subject: mustard_bottle
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_1_on_maple_table_robolab_mustard_bottle
+  - kind: 'on'
+    subject: raisin_box
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_2_on_maple_table_robolab_raisin_box
+  # TODO: support rotate around solution from the agent intent spec
+  - kind: 'rotate_around_solution'
+    subject: raisin_box
+    params: {
+      pitch_rad: 90.0
+    }
+    id: state_initial_3_rotate_around_solution_raisin_box
+  task_constraints: []
+- id: state_spec_1
+  is_delta: true
+  spatial_constraints:
+  - kind: 'on'
+    subject: mustard_bottle
+    reference: raisin_box
+    params: {}
+    id: state_spec_1_mustard_bottle_on_raisin_box
+  task_constraints: []
+cli_override_specs: []
