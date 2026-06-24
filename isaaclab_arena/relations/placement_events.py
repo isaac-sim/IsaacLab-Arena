@@ -101,10 +101,9 @@ def solve_and_place_objects(
 ) -> None:
     """Coordinated reset event that draws layouts from the pool and writes poses.
 
-    Registered as a single EventTermCfg(mode="reset"). Env-indexed pools
-    consume one layout for each requested absolute env id. Reusable pools
-    consume only the number of resetting envs because those layouts are
-    interchangeable.
+    Registered as a single EventTermCfg(mode="reset"). Layouts are env-indexed:
+    one layout is consumed for each requested absolute env id, so partial resets
+    only advance the pools of the resetting envs.
 
     Args:
         env: The Isaac Lab environment.
@@ -116,16 +115,11 @@ def solve_and_place_objects(
         return
 
     reset_env_ids = env_ids.tolist()
-    if placement_pool.requires_env_indexed_layouts:
-        num_scene_envs = env.scene.env_origins.shape[0]
-        if placement_pool.num_envs != num_scene_envs:
-            raise ValueError(
-                f"Placement pool has {placement_pool.num_envs} envs, but scene has {num_scene_envs} env origins."
-            )
-        results_by_env = placement_pool.sample_for_envs(reset_env_ids)
-    else:
-        reset_results = placement_pool.sample_without_replacement(len(reset_env_ids))
-        results_by_env = dict(zip(reset_env_ids, reset_results))
+    num_scene_envs = env.scene.env_origins.shape[0]
+    assert (
+        placement_pool.num_envs == num_scene_envs
+    ), f"Placement pool has {placement_pool.num_envs} envs, but scene has {num_scene_envs} env origins."
+    results_by_env = placement_pool.sample_for_envs(reset_env_ids)
 
     anchor_objects_set = set(get_anchor_objects(objects))
     base_rotations = get_base_rotation_per_object(objects)
