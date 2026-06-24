@@ -1786,33 +1786,6 @@ class WoodBlockYcbRobolab(LibraryObject):
 
 
 @register_asset
-class GreenServingSpoonHandalRobolab(LibraryObject):
-    name = "green_serving_spoon_handal_robolab"
-    tags = ["object", "graspable", "tool", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/green_serving_spoon.usd"
-    )
-
-
-@register_asset
-class PinkSpaghettiSpoonHandalRobolab(LibraryObject):
-    name = "pink_spaghetti_spoon_handal_robolab"
-    tags = ["object", "graspable", "tool", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/pink_spaghetti_spoon.usd"
-    )
-
-
-@register_asset
-class RedServingSpoonHandalRobolab(LibraryObject):
-    name = "red_serving_spoon_handal_robolab"
-    tags = ["object", "graspable", "tool", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/handal/red_serving_spoon.usd"
-    )
-
-
-@register_asset
 class AnzaMediumVompRobolab(LibraryObject):
     name = "anza_medium_vomp_robolab"
     tags = ["object", "graspable", "robolab"]
