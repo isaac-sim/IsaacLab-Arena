@@ -36,6 +36,7 @@ from isaaclab_arena.progress_tracking.progress_tracker import (
 )
 from isaaclab_arena.recording.common_terms import CoreEpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
+from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
@@ -296,7 +297,12 @@ class ArenaEnvBuilder:
             task.get_commands_cfg(),
         )
 
-        episode_recorders_cfg = self._compose_episode_recorders_cfg(self.arena_env.episode_recorder_terms)
+        # Auto-record per-episode progress state whenever the task defines progress objectives,
+        # mirroring how the progress-tracking recorder/events are wired above.
+        episode_recorder_terms = dict(self.arena_env.episode_recorder_terms or {})
+        if progress_objectives:
+            episode_recorder_terms.setdefault("progress", ProgressEpisodeRecorderTermCfg())
+        episode_recorders_cfg = self._compose_episode_recorders_cfg(episode_recorder_terms)
 
         viewer_cfg = task.get_viewer_cfg()
 
