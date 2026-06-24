@@ -157,7 +157,7 @@ class ArenaEnvBuilder:
         fields = [(m.name, MetricTermCfg, m.get_metric_term_cfg()) for m in metrics]
         return make_configclass("MetricsCfg", fields)()
 
-    def _compose_episode_recorders_cfg(extra_terms: dict[str, EpisodeRecorderTermCfg] | None = None) -> object:
+    def _compose_episode_recorders_cfg(self, extra_terms: dict[str, EpisodeRecorderTermCfg] | None = None) -> object:
         """Build a configclass container with one EpisodeRecorderTermCfg field per episode recorder term.
 
         Note that this function automatically adds the core and variations terms.
