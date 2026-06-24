@@ -122,7 +122,12 @@ def _discover_factor_values(
     """
     selected = set(factor_names) if factor_names is not None else None
     if selected is not None:
-        available = set(rows[0].get("variations", {}))
+    if selected is not None:
+        first_variations = rows[0].get("variations")
+        assert isinstance(first_variations, dict), (
+            f"Row 0 of {jsonl_path} has no 'variations' block (or it is not a JSON object)."
+        )
+        available = set(first_variations)
         missing = selected - available
         assert not missing, (
             f"Requested factor(s) {sorted(missing)} not found in {jsonl_path}; "
