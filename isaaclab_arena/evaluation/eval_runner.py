@@ -23,6 +23,7 @@ from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeResultsMetadata
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir, wrap_env_for_video
 from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
@@ -262,11 +263,11 @@ def main():
         # Always dated so every run produces its own report dir, recording or not.
         # TODO(alexmillane): Currently each chunk produces its own output directory.
         # We should use the same output directory for all chunks in the future.
-        run_video_dir = timestamped_run_dir(args_cli.video_base_dir)
+        run_output_dir = timestamped_run_dir(args_cli.output_base_dir)
 
         if args_cli.record_viewport_video:
-            os.makedirs(run_video_dir, exist_ok=True)
-            print(f"[INFO] Video recording enabled. Videos will be saved to: {run_video_dir}")
+            os.makedirs(run_output_dir, exist_ok=True)
+            print(f"[INFO] Video recording enabled. Videos will be saved to: {run_output_dir}")
 
         for job in job_manager:
             if job is None:
@@ -283,15 +284,25 @@ def main():
             # aggregate the metrics across rebuilds into a single result.
             for rebuild_idx in range(job.num_rebuilds):
                 try:
+                    job_output_dir = os.path.join(run_output_dir, job.name)
+
                     # Per-job video output directory; cameras are tagged with the rebuild index.
                     video_cfg = VideoRecordingCfg(
                         record_viewport_video=args_cli.record_viewport_video,
                         record_camera_video=args_cli.record_camera_video,
-                        video_base_dir=os.path.join(run_video_dir, job.name),
+                        video_base_dir=job_output_dir,
                         camera_name_prefix=f"robot-cam-rebuild{rebuild_idx}",
                     )
                     env = load_env(
                         job.arena_env_args, job.name, variations=job.variations, render_mode=video_cfg.render_mode
+                    )
+
+                    # Stamp the run-level metadata the env cannot infer on its own.
+                    env.unwrapped.episode_recorder.set_metadata(
+                        EpisodeResultsMetadata(
+                            job_name=job.name,
+                            language_instruction=job.language_instruction,
+                        )
                     )
 
                     policy = get_policy_from_job(job)
@@ -316,6 +327,12 @@ def main():
                         num_episodes=num_episodes_this_rebuild,
                         language_instruction=job.language_instruction,
                     )
+
+                    # Write per-episode results to job's output subdir, one file per rebuild.
+                    # TODO: Aggregate the per-episode records across rebuilds into a single file,
+                    # as is done for the metrics above.
+                    results_path = os.path.join(job_output_dir, f"episode_results_rebuild{rebuild_idx}.jsonl")
+                    env.unwrapped.episode_recorder.write(results_path)
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
 
@@ -347,7 +364,7 @@ def main():
         metrics_logger.print_metrics()
 
         # Write HTML report.
-        report_path = build_report(run_video_dir)
+        report_path = build_report(run_output_dir)
         if args_cli.serve_evaluation_report:
             serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
 

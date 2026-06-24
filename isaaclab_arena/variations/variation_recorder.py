@@ -6,60 +6,67 @@
 from __future__ import annotations
 
 import torch
-from collections.abc import Callable
+from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
-
-from omegaconf import OmegaConf
 
 if TYPE_CHECKING:
     from isaaclab_arena.variations.variation_base import VariationBase, VariationBaseCfg
 
 
+@dataclass(frozen=True)
+class EnvEpisodeKey:
+    """Hashable key identifying one env's draws during one episode."""
+
+    env_id: int
+    episode_idx: int
+
+
 class VariationRecord:
-    """Per-variation record configuration and samples."""
+    """Per-variation record of the values drawn for it."""
 
     def __init__(self, name: str, cfg: VariationBaseCfg) -> None:
         self.name = name
         self.cfg = cfg
-        self.samples: list[Any] = []
+        # Run-time draw, one per (env id, episode index).
+        self._samples_by_env_episode: dict[EnvEpisodeKey, Any] = {}
+        # Build-time (all-envs) draw; applies to every episode of every env.
+        self._build_time_sample: Any = None
 
-    def _header_lines(self) -> list[str]:
-        """Return the shared preamble (identity, cfg, sample-call count) for renderers."""
-        # Add the title for this variation
-        lines = [f"--- {self.name} ---", "cfg:"]
-        # Print the Cfg
-        lines.append(OmegaConf.to_yaml(OmegaConf.structured(self.cfg)).rstrip())
-        # Print basic information about the samples
-        lines.append(f"sample calls: {len(self.samples)}")
-        if self.samples and isinstance(self.samples[0], torch.Tensor):
-            stacked_shape = (len(self.samples), *tuple(self.samples[0].shape))
-            lines.append(f"stacked shape: {stacked_shape}")
-        return lines
+    def record_runtime_sample(self, sample: Any, env_ids: Sequence[int], episode_indices: Sequence[int]) -> None:
+        """Record each row of ``sample`` against the (env id, episode index) it was drawn for.
 
-    @staticmethod
-    def _format_sample(sample: Any) -> str:
-        """Render a single sample value (tensors as nested lists, others via ``repr``)."""
-        return f"{sample.tolist()}" if isinstance(sample, torch.Tensor) else f"{sample!r}"
+        Each (env id, episode index) is expected to be drawn for at most once.
 
-    def summary(self) -> str:
-        """Return a multi-line human-readable summary of this record (first/last sample only)."""
-        lines = self._header_lines()
-        if self.samples:
-            # Print the first and last sample
-            lines.append(f"first call:   {self._format_sample(self.samples[0])}")
-            lines.append(f"last call:    {self._format_sample(self.samples[-1])}")
-        return "\n".join(lines)
+        Args:
+            sample: The drawn sample; row ``i`` is the value for the ``i``-th env in ``env_ids``.
+            env_ids: The env ids the sample's rows correspond to.
+            episode_indices: The episode index each row was drawn during, aligned with ``env_ids``.
+        """
+        for row, (env_id, episode_idx) in enumerate(zip(env_ids, episode_indices)):
+            key = EnvEpisodeKey(env_id, episode_idx)
+            assert (
+                key not in self._samples_by_env_episode
+            ), f"Variation '{self.name}' already recorded a sample for env {env_id}, episode {episode_idx}."
+            self._samples_by_env_episode[key] = sample[row]
 
-    def details(self) -> str:
-        """Return a multi-line human-readable view of this record, listing every sample."""
-        lines = self._header_lines()
-        # Print every sample
-        for i, sample in enumerate(self.samples):
-            lines.append(f"call {i}: {self._format_sample(sample)}")
-        return "\n".join(lines)
+    def record_buildtime_sample(self, sample: Any) -> None:
+        """Record the all-envs (build-time) ``sample``; it applies to every episode of every env."""
+        assert (
+            len(sample) == 1
+        ), f"Variation '{self.name}' build-time draw expected a single sample for all envs; got {len(sample)}."
+        self._build_time_sample = sample[0]
 
-    def __str__(self) -> str:
-        return self.summary()
+    def sample_for_episode(self, env_id: int, episode_idx: int) -> Any:
+        """Return the value drawn for ``env_id``'s ``episode_idx``, or ``None`` if none was drawn.
+
+        A build-time (all-envs) draw applies to every episode; otherwise the run-time draw made
+        during that episode is returned.
+        """
+        key = EnvEpisodeKey(env_id, episode_idx)
+        if key in self._samples_by_env_episode:
+            return self._samples_by_env_episode[key]
+        return self._build_time_sample
 
 
 class VariationRecorder:
@@ -68,6 +75,12 @@ class VariationRecorder:
     def __init__(self) -> None:
         # Records are keyed by: "{asset_name}.{variation_name}"
         self.records: dict[str, VariationRecord] = {}
+        # Bound after env construction; supplies the episode index for per-env run-time draws.
+        self._env: Any = None
+
+    def bind_env(self, env: Any) -> None:
+        """Bind the env so run-time draws can be attributed to its current episode index."""
+        self._env = env
 
     def __getitem__(self, key: str) -> VariationRecord:
         """Return the record stored under "{asset_name}.{variation_name}"."""
@@ -92,26 +105,18 @@ class VariationRecorder:
                 record = VariationRecord(name=variation_key, cfg=variation.cfg)
                 self.records[variation_key] = record
 
-                def on_sample(sample: Any, record: VariationRecord = record) -> None:
+                def on_sample(
+                    sample: Any, env_ids: torch.Tensor | None = None, record: VariationRecord = record
+                ) -> None:
                     if isinstance(sample, torch.Tensor):
-                        record.samples.append(sample.detach().cpu())
+                        sample = sample.detach().cpu()
+                    if env_ids is None:
+                        # Build-time / all-envs draw: applies to every episode of every env.
+                        record.record_buildtime_sample(sample)
                     else:
-                        record.samples.append(sample)
+                        assert self._env is not None, "VariationRecorder needs bind_env() before per-env draws."
+                        env_id_list = env_ids.tolist()
+                        episode_indices = [self._env.get_episode_index(env_id) for env_id in env_id_list]
+                        record.record_runtime_sample(sample, env_id_list, episode_indices)
 
                 variation.add_sample_listener(on_sample)
-
-    def _render(self, render_record: Callable[[VariationRecord], str]) -> str:
-        """Join ``render_record`` applied to every attached record under a shared header."""
-        parts = [f"VariationRecorder: {len(self.records)} record(s)"]
-        for record in self.records.values():
-            parts.append("")
-            parts.append(render_record(record))
-        return "\n".join(parts)
-
-    def summary(self) -> str:
-        """Return a multi-line human-readable summary of every attached record (first/last sample)."""
-        return self._render(VariationRecord.summary)
-
-    def details(self) -> str:
-        """Return a multi-line human-readable view of every attached record, listing all samples."""
-        return self._render(VariationRecord.details)

@@ -115,9 +115,6 @@ class CameraObsVideoRecorder(gym.Wrapper):
 
         # camera_name -> list of per-env frame lists: buffers[camera_name][env_idx] = [frame, ...]
         self.buffers: dict[str, list[list[np.ndarray]]] = {}
-        # How many episodes have been flushed for each env.
-        self.episode_counts: list[int] = []
-        self._n_envs: int | None = None
 
     def step(self, action):
         result = self.env.step(action)
@@ -126,10 +123,6 @@ class CameraObsVideoRecorder(gym.Wrapper):
 
         if cam_obs:
             n_envs = next(iter(cam_obs.values())).shape[0]
-
-            if self._n_envs is None:
-                self._n_envs = n_envs
-                self.episode_counts = [0] * n_envs
 
             # Determine done envs before appending frames. Isaac Lab auto-resets on
             # termination, so the obs returned for a done env is the post-reset first
@@ -153,8 +146,11 @@ class CameraObsVideoRecorder(gym.Wrapper):
 
     def _flush_envs(self, env_ids: list[int]) -> None:
         for env_idx in env_ids:
-            episode_num = self.episode_counts[env_idx]
-            wrote_any = False
+            # The Arena env has already advanced its per-env episode counter for this reset (within
+            # env.step, before it returned), so the just-finished episode's index is one behind the
+            # current count. Sharing the env's index keeps the filename's episode number in lockstep
+            # with the per-episode results record's ``episode_in_env``.
+            episode_num = self.unwrapped.get_episode_index(env_idx) - 1
             for camera_name, env_frame_lists in self.buffers.items():
                 frames = env_frame_lists[env_idx]
                 if not frames:
@@ -167,9 +163,6 @@ class CameraObsVideoRecorder(gym.Wrapper):
                 clip.write_videofile(path, logger=None, audio=False)
                 del clip
                 env_frame_lists[env_idx] = []
-                wrote_any = True
-            if wrote_any:
-                self.episode_counts[env_idx] += 1
 
     def close(self) -> None:
         # Partial episodes (cut off by num_steps rather than a real reset) are discarded.

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
+    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.task_base import TaskBase
 
@@ -29,6 +30,7 @@ class IsaacLabArenaEnvironment:
         env_cfg_callback: Callable[IsaacLabArenaManagerBasedRLEnvCfg] | None = None,
         rl_framework_entry_point: str | None = None,
         rl_policy_cfg: str | None = None,
+        episode_recorder_terms: dict[str, EpisodeRecorderTermCfg] | None = None,
     ):
         """
         Args:
@@ -46,6 +48,8 @@ class IsaacLabArenaEnvironment:
                 ``rl_policy_cfg`` is set.
             rl_policy_cfg: Import path to the RL policy config class, e.g.
                 ``"my_module:RLPolicyCfg"``.
+            episode_recorder_terms: Additional per-episode recorder terms to record alongside the
+                built-in ones, keyed by name.
         """
         self.name = name
         self.scene = scene
@@ -57,3 +61,4 @@ class IsaacLabArenaEnvironment:
             raise ValueError("rl_framework_entry_point and rl_policy_cfg must both be set or both be None.")
         self.rl_framework_entry_point = rl_framework_entry_point
         self.rl_policy_cfg = rl_policy_cfg
+        self.episode_recorder_terms = episode_recorder_terms or {}

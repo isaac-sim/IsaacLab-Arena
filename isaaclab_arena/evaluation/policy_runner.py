@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import torch
 import tqdm
 from importlib import import_module
@@ -14,6 +15,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeResultsMetadata
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
@@ -195,9 +197,17 @@ def main():
         video_cfg = VideoRecordingCfg(
             record_viewport_video=args_cli.record_viewport_video,
             record_camera_video=args_cli.record_camera_video,
-            video_base_dir=timestamped_run_dir(args_cli.video_base_dir),
+            video_base_dir=timestamped_run_dir(args_cli.output_base_dir),
         )
         env, cfg = arena_builder.make_registered_and_return_cfg(render_mode=video_cfg.render_mode)
+
+        # Stamp the run-level metadata the env cannot infer on its own.
+        env.unwrapped.episode_recorder.set_metadata(
+            EpisodeResultsMetadata(
+                job_name="policy_runner",
+                language_instruction=args_cli.language_instruction,
+            )
+        )
 
         # Create the policy from the arguments
         policy = policy_cls.from_args(args_cli)
@@ -234,6 +244,10 @@ def main():
         # is not guaranteed, which makes resource cleanup unreliable.
         if policy.is_remote:
             policy.shutdown_remote(kill_server=args_cli.remote_kill_on_exit)
+
+        # Write the per-episode results to output directory.
+        results_path = os.path.join(video_cfg.video_base_dir, f"episode_results_rank{local_rank}.jsonl")
+        env.unwrapped.episode_recorder.write(results_path)
 
         # Close the environment.
         env.close()

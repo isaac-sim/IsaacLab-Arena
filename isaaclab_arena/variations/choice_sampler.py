@@ -27,19 +27,21 @@ class ChoiceSamplerCfg(SamplerBaseCfg):
 class ChoiceSampler(SamplerBase, Generic[T]):
     """Uniform sampler returning items drawn from a per-call ``choices`` sequence."""
 
-    def sample(self, num_samples: int, choices: Sequence[T]) -> list[T]:
+    def sample(self, num_samples: int, choices: Sequence[T], env_ids: torch.Tensor | None = None) -> list[T]:
         """Draw ``num_samples`` items from ``choices``.
 
         Args:
             num_samples: Number of independent samples to draw, typically the
                 number of environments we're drawing a sample for.
             choices: Pool of items to draw from. Must be non-empty.
+            env_ids: The env ids the drawn items correspond to, forwarded to sample listeners so
+                they can attribute values per env. ``None`` when the draw applies to all envs.
 
         Returns:
             A ``list`` of length ``num_samples`` of items drawn from ``choices``.
         """
         result = self._sample(num_samples, choices)
-        self._notify(result)
+        self._notify(result, env_ids)
         return result
 
     def _sample(self, num_samples: int, choices: Sequence[T]) -> list[T]:

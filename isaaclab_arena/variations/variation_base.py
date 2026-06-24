@@ -21,12 +21,15 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.managers import EventTermCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
+
+if TYPE_CHECKING:
+    import torch
 
 
 @configclass
@@ -57,7 +60,7 @@ class VariationBase(ABC):
     def __init__(self, cfg: VariationBaseCfg, name: str):
         self.name = name
         self._sampler: SamplerBase | None = None
-        self._sample_listeners: list[Callable[[Any], None]] = []
+        self._sample_listeners: list[Callable[[Any, Any], None]] = []
         self.apply_cfg(cfg)
 
     @property
@@ -78,8 +81,8 @@ class VariationBase(ABC):
         """The sampler driving this variation, or ``None`` if not yet set."""
         return self._sampler
 
-    def add_sample_listener(self, listener: Callable[[Any], None]) -> None:
-        """Subscribe ``listener`` to every sample drawn by this variation's sampler.
+    def add_sample_listener(self, listener: Callable[[Any, torch.Tensor | None], None]) -> None:
+        """Subscribe ``listener`` (called as ``listener(sample, env_ids)``) to this variation's samples.
 
         Listeners are stored on the variation, so ``apply_cfg`` re-binds them onto the
         rebuilt sampler and they survive cfg/sampler swaps.

@@ -148,8 +148,9 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
         assert self._t_parent_C_in_parent is not None
         assert self._q_parent_C_xyzw is not None
 
-        # Sample a decalibration vector in the camera's ROS-style optical frame.
-        sample = sampler.sample(num_samples=len(env_ids))
+        # Sample a decalibration vector in the camera's ROS-style optical frame. Pass env_ids so
+        # sample listeners (e.g. the variation recorder) can attribute each row to its env.
+        sample = sampler.sample(num_samples=len(env_ids), env_ids=env_ids)
         t_C_Cnew_in_Cros = sample.to(device=self._t_parent_C_in_parent.device, dtype=self._t_parent_C_in_parent.dtype)
 
         # Isaac Lab tensors use xyzw. 180 deg about +X maps ROS optical axes to OpenGL camera axes.

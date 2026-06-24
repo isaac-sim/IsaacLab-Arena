@@ -11,13 +11,23 @@ import argparse
 import functools
 import html
 import http.server
+import json
 import pathlib
 import re
 import socketserver
 import string
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from isaaclab_arena.video.camera_observation_video_recorder import parse_episode_video_filename
+
+# Matches the per-episode results filename written by EpisodeRecorderManager.write. The eval runner
+# writes one file per rebuild (``episode_results_rebuild<R>.jsonl``); the policy runner writes one
+# per rank (``episode_results_rank<N>.jsonl``, which carries no rebuild and so maps to rebuild 0).
+_RESULTS_FILENAME_PATTERN = re.compile(r"^episode_results(?:_rebuild(?P<rebuild>\d+))?(?:_rank\d+)?\.jsonl$")
+
+# Record fields rendered explicitly elsewhere (status badge / row label), so excluded from the
+# trailing metadata column to avoid duplication.
+_METADATA_EXCLUDED_FIELDS = frozenset({"env_id", "episode_in_env", "success", "job_name"})
 
 # Reverse-dated run directory written by ``timestamped_run_dir`` (e.g. ``2026-06-17_14-42-54``).
 _RUN_DIR_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$")
@@ -40,6 +50,9 @@ class EpisodeVideos:
 
     video_by_camera: dict[str, str]
     """Camera name -> mp4 path, relative to the scanned root (and so to the report's index.html)."""
+
+    record: dict = field(default_factory=dict)
+    """The matching per-episode results record (success, seed, timing, ...); empty when unavailable."""
 
 
 @dataclass
@@ -64,6 +77,33 @@ class EvaluationReport:
     jobs: list[JobReport]
 
 
+def _scan_results(root: pathlib.Path) -> dict[str, dict[tuple[int, int, int], dict]]:
+    """Scan ``root`` for the recorder's JSONL files, indexed per job by ``(env, rebuild, episode)``.
+
+    The key matches how ``_scan_jobs`` identifies a video: ``episode_in_env`` lines up with the video
+    filename's ``-episode-<E>`` number, and the rebuild comes from the results filename.
+
+    Args:
+        root: Directory of evaluation results to scan.
+    """
+    results: dict[str, dict[tuple[int, int, int], dict]] = {}
+    for path in sorted(root.rglob("*.jsonl")):
+        match = _RESULTS_FILENAME_PATTERN.match(path.name)
+        if match is None:
+            continue
+        relative = path.relative_to(root)
+        job = "" if relative.parent == pathlib.Path(".") else str(relative.parent)
+        rebuild = int(match.group("rebuild")) if match.group("rebuild") is not None else 0
+        job_results = results.setdefault(job, {})
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            record = json.loads(line)
+            job_results[(int(record["env_id"]), rebuild, int(record["episode_in_env"]))] = record
+    return results
+
+
 def _scan_jobs(root: pathlib.Path) -> list[JobReport]:
     """Recursively scan ``root`` for recorder mp4s and group them into per-job reports.
 
@@ -79,6 +119,7 @@ def _scan_jobs(root: pathlib.Path) -> list[JobReport]:
     # job -> env -> {(rebuild, recorder_episode): {camera: relative_path}}
     raw: dict[str, dict[int, dict[tuple[int, int], dict[str, str]]]] = {}
     cameras_by_job: dict[str, list[str]] = {}
+    results = _scan_results(root)
 
     for path in sorted(root.rglob("*.mp4")):
         parsed = parse_episode_video_filename(path.name)
@@ -105,11 +146,14 @@ def _scan_jobs(root: pathlib.Path) -> list[JobReport]:
         for env_index in sorted(raw[job]):
             # Renumber (rebuild, recorder_episode) pairs into a contiguous, rebuild-agnostic index.
             for episode_index, recording_key in enumerate(sorted(raw[job][env_index])):
+                rebuild, recorder_episode = recording_key
+                record = results.get(job, {}).get((env_index, rebuild, recorder_episode), {})
                 episodes.append(
                     EpisodeVideos(
                         env_index=env_index,
                         episode_index=episode_index,
                         video_by_camera=raw[job][env_index][recording_key],
+                        record=record,
                     )
                 )
         jobs.append(JobReport(name=job, cameras=sorted(cameras_by_job[job]), episodes=episodes))
@@ -127,12 +171,59 @@ def _render_video_cell(src: str) -> str:
     )
 
 
+def _render_row_label(episode: EpisodeVideos) -> str:
+    """Render the sticky first cell: env/episode label plus a success/failure status badge.
+
+    The cell is tinted green for success and red for failure (neutral when the task records no
+    ``success`` term or no record was found).
+    """
+    success = episode.record.get("success")
+    if success is True:
+        status_class, status_text = " success", "success"
+    elif success is False:
+        status_class, status_text = " failure", "failure"
+    else:
+        status_class, status_text = "", "n/a"
+    return (
+        f'<th class="rowlabel{status_class}">'
+        f"env {episode.env_index}<br>episode {episode.episode_index}"
+        f'<br><span class="status">{status_text}</span></th>'
+    )
+
+
+def _render_metadata_entry(key: str, value: object) -> str:
+    """Render one metadata field as a labelled block.
+
+    Dict values (e.g. the per-episode ``variations``) are split one indented sub-line per item so
+    they don't render as a single long line.
+    """
+    if isinstance(value, dict):
+        sub_rows = "".join(
+            f'<div class="subitem"><span class="k">{html.escape(str(sub_key))}</span>'
+            f" {html.escape(str(sub_value))}</div>"
+            for sub_key, sub_value in value.items()
+        )
+        return f'<div><span class="k">{html.escape(key)}</span>{sub_rows}</div>'
+    return f'<div><span class="k">{html.escape(key)}</span> {html.escape(str(value))}</div>'
+
+
+def _render_metadata_cell(record: dict) -> str:
+    """Render the trailing cell holding the remaining per-episode metadata as a key/value list."""
+    rows = [
+        _render_metadata_entry(key, value)
+        for key, value in record.items()
+        if key not in _METADATA_EXCLUDED_FIELDS and value is not None
+    ]
+    return '<td class="meta missing">&mdash;</td>' if not rows else f'<td class="meta">{"".join(rows)}</td>'
+
+
 def _render_row(episode: EpisodeVideos, cameras: list[str]) -> str:
-    """Render one table row: the env/episode label followed by one cell per camera column."""
-    cells = [f'<th class="rowlabel">env {episode.env_index}<br>episode {episode.episode_index}</th>']
+    """Render one table row: status label, one cell per camera column, then a metadata cell."""
+    cells = [_render_row_label(episode)]
     for camera in cameras:
         src = episode.video_by_camera.get(camera)
         cells.append('<td class="missing">&mdash;</td>' if src is None else _render_video_cell(src))
+    cells.append(_render_metadata_cell(episode.record))
     return "<tr>" + "".join(cells) + "</tr>"
 
 
@@ -143,7 +234,7 @@ def _render_job_section(job: JobReport) -> str:
     body_rows = "\n".join(_render_row(episode, job.cameras) for episode in job.episodes)
     return (
         f"<section>{heading}<table>"
-        f'<thead><tr><th class="rowlabel">env / episode</th>{header_cells}</tr></thead>'
+        f'<thead><tr><th class="rowlabel">env / episode</th>{header_cells}<th>details</th></tr></thead>'
         f"<tbody>\n{body_rows}\n</tbody></table></section>"
     )
 
@@ -191,7 +282,7 @@ def serve_until_ctrl_c(directory: pathlib.Path, port: int, filename: str) -> Non
     """
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(directory))
     url = f"http://localhost:{port}/{filename}"
-    # Avoid "Address already in use".
+    # Avoid "Address already in use" when a previous server's socket is still in TIME_WAIT.
     socketserver.TCPServer.allow_reuse_address = True
     try:
         server = socketserver.TCPServer(("0.0.0.0", port), handler)

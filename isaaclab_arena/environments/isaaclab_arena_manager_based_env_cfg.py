@@ -64,6 +64,8 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
 
     metrics: object | None = None
 
+    episode_recorders: object | None = None
+
     # Task language description
     task_description: str | None = None
 

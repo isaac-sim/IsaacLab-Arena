@@ -162,7 +162,7 @@ episode; the runner writes an ``index.html`` which is then served over HTTP.
    python isaaclab_arena/evaluation/eval_runner.py \
      --viz kit \
      --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_openpi_jobs_config.json \
-     --video_base_dir ./output \
+     --output_base_dir ./output \
      --record_camera_video --serve_evaluation_report
 
 You can also (re)build and serve a report later by pointing the standalone tool at the output

@@ -34,6 +34,8 @@ from isaaclab_arena.progress_tracking.progress_tracker import (
     make_progress_tracking_events_cfg,
     make_progress_tracking_recorder_cfg,
 )
+from isaaclab_arena.recording.common_terms import CoreEpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
@@ -152,13 +154,29 @@ class ArenaEnvBuilder:
         )
         return recorder_cfg
 
-    @staticmethod
-    def _metrics_to_metrics_cfg(metrics: list[MetricBase] | None) -> object | None:
+    def _compose_metrics_cfg(self, metrics: list[MetricBase] | None) -> object | None:
         """Build a configclass container with one ``MetricTermCfg`` field per metric."""
         if not metrics:
             return None
         fields = [(m.name, MetricTermCfg, m.get_metric_term_cfg()) for m in metrics]
         return make_configclass("MetricsCfg", fields)()
+
+    def _compose_episode_recorders_cfg(self, extra_terms: dict[str, EpisodeRecorderTermCfg] | None = None) -> object:
+        """Build a configclass container with one EpisodeRecorderTermCfg field per episode recorder term.
+
+        Note that this function automatically adds the core and variations terms.
+        """
+        fields = [
+            ("core", EpisodeRecorderTermCfg, CoreEpisodeRecorderTermCfg()),
+            ("variations", EpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg()),
+        ]
+        for name, term_cfg in (extra_terms or {}).items():
+            assert name not in (
+                "core",
+                "variations",
+            ), f"Episode recorder term name '{name}' collides with a built-in term."
+            fields.append((name, EpisodeRecorderTermCfg, term_cfg))
+        return make_configclass("EpisodeRecorderManagerCfg", fields)()
 
     def compose_manager_cfg(self) -> tuple[IsaacLabArenaManagerBasedRLEnvCfg, dict[str, Any]]:
         """Return the base ManagerBased cfg and the env kwargs (no registration).
@@ -240,7 +258,7 @@ class ArenaEnvBuilder:
             elif isinstance(device_cfg, DeviceCfg):
                 teleop_devices_cfg = DevicesCfg(devices={self.arena_env.teleop_device.name: device_cfg})
         metrics = task.get_metrics()
-        metrics_cfg = self._metrics_to_metrics_cfg(metrics)
+        metrics_cfg = self._compose_metrics_cfg(metrics)
         metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
         progress_tracking_recorder_cfg: Any = (
             make_progress_tracking_recorder_cfg(progress_objectives) if progress_objectives else None
@@ -278,6 +296,8 @@ class ArenaEnvBuilder:
             task.get_commands_cfg(),
         )
 
+        episode_recorders_cfg = self._compose_episode_recorders_cfg(self.arena_env.episode_recorder_terms)
+
         viewer_cfg = task.get_viewer_cfg()
 
         episode_length_s = task.get_episode_length_s()
@@ -300,6 +320,7 @@ class ArenaEnvBuilder:
                 teleop_devices=teleop_devices_cfg,
                 recorders=recorder_manager_cfg,
                 metrics=metrics_cfg,
+                episode_recorders=episode_recorders_cfg,
                 task_description=task_description,
                 viewer=viewer_cfg,
             )

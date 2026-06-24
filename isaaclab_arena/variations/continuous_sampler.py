@@ -32,18 +32,20 @@ class ContinuousSampler(SamplerBase):
     ``(num_samples, *shape_per_sample)``.
     """
 
-    def sample(self, num_samples: int) -> torch.Tensor:
+    def sample(self, num_samples: int, env_ids: torch.Tensor | None = None) -> torch.Tensor:
         """Draw ``num_samples`` values from this distribution.
 
         Args:
             num_samples: Number of independent samples to draw, typically the
                 number of environments we're drawing a sample for.
+            env_ids: The env ids the drawn rows correspond to, forwarded to sample listeners so
+                they can attribute values per env. ``None`` when the draw applies to all envs.
 
         Returns:
             A tensor of shape ``(num_samples, *shape_per_sample)``.
         """
         result = self._sample(num_samples)
-        self._notify(result)
+        self._notify(result, env_ids)
         return result
 
     @abstractmethod

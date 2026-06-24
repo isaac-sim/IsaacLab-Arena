@@ -39,12 +39,12 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
         help="Record an mp4 video of the rollout viewport (uses gymnasium.wrappers.RecordVideo).",
     )
     parser.add_argument(
-        "--video_base_dir",
+        "--output_base_dir",
         type=str,
-        default="/eval/videos",
+        default="/eval/output",
         help=(
-            "Base directory for recorded videos; a reverse-dated run subdirectory is added per run."
-            " Used with --record_viewport_video and/or --record_camera_video."
+            "Base directory for evaluation outputs (videos, per-episode results, report); a"
+            " reverse-dated run subdirectory is added per run."
         ),
     )
     parser.add_argument(
