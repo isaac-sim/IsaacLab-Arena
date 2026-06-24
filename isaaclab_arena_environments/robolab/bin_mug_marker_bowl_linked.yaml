@@ -39,6 +39,7 @@ tasks:
     pick_up_object: bowl
     destination_location: grey_bin
     background_scene: maple_table_robolab
+    episode_length_s: 20.0
   description: Pick up the bowl and place it in the grey bin.
   id: task_0_PickAndPlaceTask
   initial_state_spec_id: state_initial

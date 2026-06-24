@@ -39,6 +39,7 @@ tasks:
     pick_up_object: banana
     destination_location: plate
     background_scene: maple_table_robolab
+    episode_length_s: 20.0
   description: Pick up the banana and place it on the plate.
   id: task_0_PickAndPlaceTask
   initial_state_spec_id: state_initial
