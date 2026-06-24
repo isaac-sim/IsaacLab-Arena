@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
+import dataclasses
 import numpy as np
 import torch
 import warnings
@@ -19,6 +20,7 @@ from isaaclab.utils import configclass
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
+from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.configclass import (
@@ -359,6 +361,23 @@ class CompositeTaskBase(TaskBase):
         subtask_metrics.append(SubtaskSuccessRateMetric())
 
         return subtask_metrics
+
+    def get_progress_objectives(self) -> list[ProgressObjective]:
+        """Concatenate child subtasks's ProgressObjectives with namespace prefixes.
+
+        Each child's progress objectives gets a new name (subtask_{i}/{original_name}) and a parent_subtask_idx = i tag.
+        """
+        progress_objectives_list: list[ProgressObjective] = []
+        for i, child in enumerate(self.subtasks):
+            for progress_objective in child.get_progress_objectives():
+                progress_objectives_list.append(
+                    dataclasses.replace(
+                        progress_objective,
+                        name=f"subtask_{i}/{progress_objective.name}",
+                        parent_subtask_idx=i,
+                    )
+                )
+        return progress_objectives_list
 
     def _validate_consistent_mimic_eef_names(self, arm_mode: ArmMode) -> set[str]:
         "Check that all subtasks have the same Mimic eef_names."

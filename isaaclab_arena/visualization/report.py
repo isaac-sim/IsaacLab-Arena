@@ -18,12 +18,7 @@ import socketserver
 import string
 from dataclasses import dataclass, field
 
-# Matches the recorder output filename: <prefix>[-rebuild<R>]-env<N>-<camera>-episode-<E>.mp4
-# See CameraObsVideoRecorder._flush_envs in camera_observation_video_recorder.py. The optional
-# "-rebuild<R>" segment is added by the eval runner's per-rebuild prefix; the policy runner omits it.
-_VIDEO_FILENAME_PATTERN = re.compile(
-    r"^(?P<prefix>.+?)(?:-rebuild(?P<rebuild>\d+))?-env(?P<env>\d+)-(?P<camera>.+)-episode-(?P<episode>\d+)\.mp4$"
-)
+from isaaclab_arena.video.camera_observation_video_recorder import parse_episode_video_filename
 
 # Matches the per-episode results filename written by EpisodeRecorderManager.write. The eval runner
 # writes one file per rebuild (``episode_results_rebuild<R>.jsonl``); the policy runner writes one
@@ -81,11 +76,6 @@ class EvaluationReport:
     title: str
     jobs: list[JobReport]
 
-    @property
-    def is_empty(self) -> bool:
-        """Whether any job recorded any episode videos."""
-        return not any(job.episodes for job in self.jobs)
-
 
 def _scan_results(root: pathlib.Path) -> dict[str, dict[tuple[int, int, int], dict]]:
     """Scan ``root`` for the recorder's JSONL files, indexed per job by ``(env, rebuild, episode)``.
@@ -132,15 +122,15 @@ def _scan_jobs(root: pathlib.Path) -> list[JobReport]:
     results = _scan_results(root)
 
     for path in sorted(root.rglob("*.mp4")):
-        match = _VIDEO_FILENAME_PATTERN.match(path.name)
-        if match is None:
+        parsed = parse_episode_video_filename(path.name)
+        if parsed is None:
             continue
         relative = path.relative_to(root)
         job = "" if relative.parent == pathlib.Path(".") else str(relative.parent)
-        rebuild = int(match.group("rebuild")) if match.group("rebuild") is not None else 0
-        env_index = int(match.group("env"))
-        recorder_episode = int(match.group("episode"))
-        camera = match.group("camera")
+        rebuild = parsed.rebuild_index if parsed.rebuild_index is not None else 0
+        env_index = parsed.env_index
+        recorder_episode = parsed.episode_index
+        camera = parsed.camera_name
 
         envs = raw.setdefault(job, {})
         recordings = envs.setdefault(env_index, {})
@@ -294,7 +284,17 @@ def serve_until_ctrl_c(directory: pathlib.Path, port: int, filename: str) -> Non
     url = f"http://localhost:{port}/{filename}"
     # Avoid "Address already in use" when a previous server's socket is still in TIME_WAIT.
     socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("0.0.0.0", port), handler) as httpd:
+    try:
+        server = socketserver.TCPServer(("0.0.0.0", port), handler)
+    except OSError as e:
+        # The port is held by another process. The report is already written to disk, so fail
+        # gracefully rather than crashing after a long run.
+        print(
+            f"Could not serve the evaluation report on port {port} ({e}). The report is written to"
+            f" {directory / filename}; open it directly, or re-run with a different port."
+        )
+        return
+    with server as httpd:
         print(f"Serving evaluation report at {url} (Ctrl+C to stop).")
         try:
             httpd.serve_forever()

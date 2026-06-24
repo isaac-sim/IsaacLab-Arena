@@ -29,6 +29,8 @@ DEV_DEPS = [
     "jupyter",
     "debugpy",
     "tenacity",
+    "streamlit>=1.30",
+    "streamlit-ace>=0.1.1",
 ]
 
 setup(

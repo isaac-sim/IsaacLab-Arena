@@ -45,6 +45,12 @@ def run_policy_runner(
         args.append("--headless")
     if enable_cameras:
         args.append("--enable_cameras")
+    # automatically detect if the env source is a graph spec yaml or an example-environment name
+    # and pass the appropriate argument.
+    # NOTE: --env_graph_spec_yaml takes the next arg as its value, so example_environment must be
+    # appended directly after it. Do not insert any other arg between these two lines.
+    if example_environment.endswith((".yaml", ".yml")):
+        args.append("--env_graph_spec_yaml")
     args.append(example_environment)
     if embodiment is not None:
         args.append("--embodiment")

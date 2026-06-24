@@ -11,6 +11,7 @@ from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
+from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.task_transition import TaskTransition
 
 
@@ -63,6 +64,9 @@ class TaskBase(ABC):
 
     def get_task_description(self) -> str | None:
         return self.task_description
+
+    def get_progress_objectives(self) -> list[ProgressObjective]:
+        return []
 
     @classmethod
     def success_state_transition(cls, **_) -> TaskTransition:
