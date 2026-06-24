@@ -68,10 +68,29 @@ case "$VARIANT" in
         ;;
 esac
 
+# Persist the ~11GB checkpoint that openpi pulls from gs:// across runs. Without
+# this, --rm discards the in-container cache every time.
+OPENPI_CACHE_DIR="${OPENPI_CACHE_DIR:-$HOME/.cache/openpi}"
+
+# Single EXIT handler: remove the build tempdir (if any) and, once the server has
+# run, reset cache ownership back to us. The server runs as root in the container,
+# so files it writes to the mount are root-owned on the host; we chown them back
+# via a throwaway root container, which avoids needing host sudo.
+TMPDIR=""
+SERVER_RAN=false
+cleanup() {
+    [ -n "$TMPDIR" ] && rm -rf "$TMPDIR"
+    if [ "$SERVER_RAN" = true ]; then
+        docker run --rm -v "${OPENPI_CACHE_DIR}:/cache/openpi" \
+            "${IMAGE_NAME}:${IMAGE_TAG}" \
+            chown -R "$(id -u):$(id -g)" /cache/openpi || true
+    fi
+}
+trap cleanup EXIT
+
 if [ "$FORCE_REBUILD" = true ] || \
    [ -z "$(docker images -q "${IMAGE_NAME}:${IMAGE_TAG}" 2>/dev/null)" ]; then
     TMPDIR=$(mktemp -d)
-    trap 'rm -rf "$TMPDIR"' EXIT
 
     if [ -n "$SRC_DIR" ]; then
         OPENPI_DIR="$SRC_DIR"
@@ -103,8 +122,13 @@ fi
 
 echo "Running ${IMAGE_NAME}:${IMAGE_TAG} (variant: ${VARIANT})"
 
+mkdir -p "$OPENPI_CACHE_DIR"
+SERVER_RAN=true
+
 docker run --rm -it --gpus all --network=host \
+    -e OPENPI_DATA_HOME=/cache/openpi \
     -e XLA_PYTHON_CLIENT_MEM_FRACTION=0.5 \
+    -v "${OPENPI_CACHE_DIR}:/cache/openpi" \
     "${IMAGE_NAME}:${IMAGE_TAG}" \
     uv run scripts/serve_policy.py policy:checkpoint \
         --policy.config="${POLICY_CONFIG}" \
