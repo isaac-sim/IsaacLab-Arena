@@ -168,6 +168,24 @@ def test_from_episode_results_drops_constant_factors(tmp_path):
     assert dataset.theta.shape == (2, 1)
 
 
+def test_from_episode_results_warns_on_imbalanced_categorical(tmp_path, capsys):
+    """An unevenly sampled categorical warns, since its posterior would track the sampling frequency."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(
+        jsonl,
+        [
+            {"success": True, "variations": {"hdr": "a"}},
+            {"success": False, "variations": {"hdr": "a"}},
+            {"success": True, "variations": {"hdr": "a"}},
+            {"success": False, "variations": {"hdr": "b"}},  # a:b sampled 3:1
+        ],
+    )
+
+    SensitivityDataset.from_episode_results(jsonl, outcome_names=["success"])
+
+    assert "sampled unevenly" in capsys.readouterr().out
+
+
 def test_from_episode_results_raises_when_all_factors_constant(tmp_path):
     """If every factor took a single value there is nothing to analyze, so building raises."""
     jsonl = tmp_path / "episode_results.jsonl"

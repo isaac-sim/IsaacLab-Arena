@@ -160,6 +160,12 @@ Current scope
 - A **vector** variation draw (e.g. a camera pose offset) is split into one scalar factor per
   component (``key[0]``, ``key[1]``, …), each analysed independently. Components are named by
   position; semantic names (e.g. a camera's lateral vs. depth axis) are a future extension.
+- **Factors should be drawn from the prior** the analyzer assumes — uniform over each
+  continuous range, and an equal number of episodes per categorical choice. The posterior is
+  taken relative to how the sweep drew the factors, so uneven sampling leaks in: a factor with
+  no real effect comes out flat only if it was sampled flat, otherwise its posterior tracks the
+  sampling frequency. The analyzer warns when a categorical is sampled unevenly, but the clean
+  fix is to balance the draws in the sweep.
 - The estimators run on CPU and do not require Isaac Sim, so a report can be generated
   anywhere the evaluation JSONL is available.
 - The analysis assumes the ``episode_results.jsonl`` is a single coherent slice — one

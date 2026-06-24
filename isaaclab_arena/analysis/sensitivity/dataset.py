@@ -305,6 +305,19 @@ def _build_dataset_from_episode_rows(
         if len(choices) == 1:
             dropped.append(name)
             continue
+        # The analysis assumes factors were drawn from the uniform prior. Uneven draw counts per
+        # choice leak into the posterior (a no-effect factor then tracks its sampling frequency),
+        # so warn when the most-sampled choice exceeds the least by 1.5x or more.
+        counts: dict[str, int] = {}
+        for value in factor_values[name]:
+            counts[value] = counts.get(value, 0) + 1
+        if max(counts.values()) >= 1.5 * min(counts.values()):
+            ordered_counts = {choice: counts[choice] for choice in choices}
+            print(
+                f"[WARNING] Categorical factor {name!r} was sampled unevenly across its choices "
+                f"({ordered_counts}). Its posterior reflects this sampling frequency, not only its effect "
+                "on the outcome. Balance the draws per choice for an unbiased result."
+            )
         code_of = {choice: code for code, choice in enumerate(choices)}
         factors.append(FactorSpec(name=name, type=FactorType.CATEGORICAL, choices=choices))
         columns.append(
