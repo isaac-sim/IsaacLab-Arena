@@ -18,8 +18,8 @@ from workflows.utils.workflow_types import WorkflowType
 
 # GR00T server image (droid manipulation variant).
 DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/gr00t_1_6_droid"
-# Base model baked into the GR00T CI image.
-DEFAULT_MODEL_PATH = "/workspace/pretrained_ckpts/GR00T-N1.6-3B"
+# Droid checkpoint baked into the gr00t_1_6_droid image.
+DEFAULT_MODEL_PATH = "/workspace/pretrained_ckpts/GR00T-N1.6-DROID"
 # Embodiment tag for the droid manipulation config (see droid_manip_gr00t_closedloop_config.yaml).
 DEFAULT_EMBODIMENT_TAG = "OXE_DROID"
 DEFAULT_SERVER_PORT = 5555
