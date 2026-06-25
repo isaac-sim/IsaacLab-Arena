@@ -147,6 +147,8 @@ def _wait_for_capture(app, capture_obj, cache_path: Path, max_updates: int = 600
     if capture_obj is None:
         for _ in range(max_updates):
             app.update()
+            if cache_path.exists() and cache_path.stat().st_size > 0:
+                return
         return
 
     future = (
