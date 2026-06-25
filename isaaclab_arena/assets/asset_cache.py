@@ -13,11 +13,3 @@ def get_arena_asset_cache_dir() -> pathlib.Path:
     if not asset_cache_dir.exists():
         asset_cache_dir.mkdir(parents=True, exist_ok=True)
     return asset_cache_dir
-
-
-def get_review_gui_thumbnail_cache_dir() -> pathlib.Path:
-    """Return the user-level cache dir for review GUI Kit viewport PNG thumbnails."""
-    cache_dir = get_arena_asset_cache_dir().parent / "review_gui_thumbnails"
-    if not cache_dir.exists():
-        cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir

@@ -14,7 +14,7 @@ import omni.usd
 from omni.kit.viewport.utility import capture_viewport_to_file, frame_viewport_prims, get_active_viewport
 from pxr import Gf, Sdf, UsdGeom, UsdLux
 
-from isaaclab_arena.assets.asset_cache import get_review_gui_thumbnail_cache_dir
+from isaaclab_arena.assets.asset_cache import get_arena_asset_cache_dir
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
     AabbDimensionsM,
@@ -25,7 +25,9 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.as
 
 
 def _thumbnail_cache_dir() -> Path:
-    return get_review_gui_thumbnail_cache_dir()
+    cache_dir = get_arena_asset_cache_dir().parent / "review_gui_thumbnails"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir
 
 
 def render_thumbnails_with_app(
