@@ -73,12 +73,26 @@ def extract_usd_path(cls) -> str | None:
     return getattr(spawn, "usd_path", None) if spawn is not None else None
 
 
-def aabb_dimensions_from_usd(usd_path: str) -> AabbDimensionsM | None:
+def scale_for_asset_node(node, asset_cls) -> tuple[float, float, float]:
+    """Return spawn scale for a graph node, preferring spec params over library defaults."""
+    param_scale = node.params.get("scale")
+    if param_scale is not None:
+        return (float(param_scale[0]), float(param_scale[1]), float(param_scale[2]))
+    class_scale = getattr(asset_cls, "scale", None)
+    if class_scale is not None:
+        return (float(class_scale[0]), float(class_scale[1]), float(class_scale[2]))
+    return (1.0, 1.0, 1.0)
+
+
+def aabb_dimensions_from_usd(
+    usd_path: str,
+    scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+) -> AabbDimensionsM | None:
     """Return local axis-aligned bounding box size (x, y, z) in meters for a USD asset."""
     try:
         from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd  # noqa: PLC0415
 
-        bbox = compute_local_bounding_box_from_usd(usd_path)
+        bbox = compute_local_bounding_box_from_usd(usd_path, scale)
         size = bbox.size[0]
         return (float(size[0]), float(size[1]), float(size[2]))
     except Exception as exc:
@@ -88,10 +102,27 @@ def aabb_dimensions_from_usd(usd_path: str) -> AabbDimensionsM | None:
 
 def resolve_node_aabb_dimensions_m(spec: ArenaEnvInitialGraphSpec) -> dict[str, AabbDimensionsM]:
     """Return axis-aligned bounding box sizes in meters for each node with a resolvable USD."""
-    asset_paths = resolve_node_usd_paths(spec)
+    try:
+        from isaaclab_arena.assets.registries import AssetRegistry  # noqa: PLC0415
+    except Exception as exc:
+        print(f"[asset_usd] AssetRegistry import failed: {exc}", file=sys.stderr)
+        return {}
+
+    registry = AssetRegistry()
     dimensions: dict[str, AabbDimensionsM] = {}
-    for node_id, usd_path in asset_paths.items():
-        dims = aabb_dimensions_from_usd(usd_path)
-        if dims is not None:
-            dimensions[node_id] = dims
+    for node in spec.nodes:
+        if node.type not in RENDERABLE_NODE_TYPES:
+            continue
+        try:
+            if not registry.is_registered(node.name):
+                continue
+            asset_cls = registry.get_asset_by_name(node.name)
+            usd_path = extract_usd_path(asset_cls)
+            if not usd_path:
+                continue
+            dims = aabb_dimensions_from_usd(usd_path, scale_for_asset_node(node, asset_cls))
+            if dims is not None:
+                dimensions[node.id] = dims
+        except Exception as exc:
+            print(f"[asset_usd]   {node.id}: bbox lookup failed for '{node.name}': {exc}", file=sys.stderr)
     return dimensions
