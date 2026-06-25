@@ -92,6 +92,13 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         default=False,
         help="Print Hydra-configurable variations for the selected environment and exit.",
     )
+    arena_group.add_argument(
+        "--collision_mode",
+        type=str,
+        choices=["bbox", "mesh"],
+        default="bbox",
+        help="Collision detection mode: 'bbox' (AABB, default) or 'mesh' (sphere-to-SDF, requires Warp).",
+    )
 
 
 def add_env_graph_spec_cli_args(parser: argparse.ArgumentParser) -> None:

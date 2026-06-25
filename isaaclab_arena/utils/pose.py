@@ -58,6 +58,17 @@ def wrap_angle_to_pi(angle_rad: float) -> float:
     return (angle_rad + math.pi) % (2.0 * math.pi) - math.pi
 
 
+def yaw_from_quat_xyzw(quat_xyzw: tuple[float, float, float, float]) -> float:
+    """Extract Z-axis yaw (radians) from an (x, y, z, w) quaternion.
+
+    Returns 0.0 if the quaternion has non-trivial roll or pitch (|qx| or |qy| > 1e-6).
+    """
+    qx, qy, qz, qw = quat_xyzw
+    if abs(qx) > 1e-6 or abs(qy) > 1e-6:
+        return 0.0
+    return 2.0 * math.atan2(qz, qw)
+
+
 def rotate_quat_by_yaw(
     base_xyzw: tuple[float, float, float, float], yaw_rad: float
 ) -> tuple[float, float, float, float]:
