@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
-from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
+from isaaclab_arena.evaluation.policy_runner import get_policy_cls, prepare_env_cfg_for_datagen, rollout_policy
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
 from isaaclab_arena.utils.reload_modules import reload_arena_modules
@@ -26,7 +26,9 @@ if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase
 
 
-def load_env(arena_env_args: list[str], job_name: str, render_mode: str | None = None):
+def load_env(
+    arena_env_args: list[str], job_name: str, render_mode: str | None = None, disable_auto_reset: bool = False
+):
 
     reload_arena_modules()
 
@@ -41,9 +43,13 @@ def load_env(arena_env_args: list[str], job_name: str, render_mode: str | None =
     if hasattr(env_cfg, "recorders") and env_cfg.recorders is not None:
         env_cfg.recorders.dataset_filename = f"dataset_{job_name}"
 
+    # Datagen: disable the env's in-step() auto-reset (and metric recorders) so the rollout
+    # loop can drive episode boundaries and resets explicitly (see prepare_env_cfg_for_datagen).
+    reset_terms = prepare_env_cfg_for_datagen(env_cfg) if disable_auto_reset else None
+
     env = arena_builder.make_registered(env_cfg, render_mode=render_mode)
     # Don't reset here - rollout_policy() will reset the env. Every reset triggers a new episode, initializing recorder & creating a new hdf5 entry.
-    return env
+    return env, reset_terms
 
 
 def enable_cameras_if_required(eval_jobs_config: dict, args_cli: argparse.Namespace) -> None:
@@ -208,7 +214,13 @@ def main():
                 collector = None
                 try:
                     render_mode = "rgb_array" if args_cli.video else None
-                    env = load_env(job.arena_env_args, job.name, render_mode=render_mode)
+                    # Datagen is active for this job when an output_dir resolves (top-level
+                    # defaults overridden by the job's own datagen block) - mirror build_datagen_collector.
+                    job_datagen = {**(datagen_defaults or {}), **(job.datagen or {})}
+                    is_datagen = bool(job_datagen.get("output_dir"))
+                    env, datagen_reset_terms = load_env(
+                        job.arena_env_args, job.name, render_mode=render_mode, disable_auto_reset=is_datagen
+                    )
 
                     policy = get_policy_from_job(job)
 
@@ -243,6 +255,8 @@ def main():
                         num_episodes=job.num_episodes,
                         language_instruction=job.language_instruction,
                         collector=collector,
+                        datagen_reset_terms=datagen_reset_terms,
+                        max_episode_length=int(env.unwrapped.max_episode_length) if is_datagen else None,
                     )
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
