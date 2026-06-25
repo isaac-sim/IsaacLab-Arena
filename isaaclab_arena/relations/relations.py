@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 DEFAULT_ON_EDGE_MARGIN_M = 0.05
 
 
-class Side(Enum):
+class Side(str, Enum):
     """Axis direction for spatial relationships."""
 
     POSITIVE_X = "positive_x"  # +X
@@ -90,7 +90,7 @@ class NextTo(Relation):
         parent: ObjectBase,
         relation_loss_weight: float = 1.0,
         distance_m: float = 0.05,
-        side: Side = Side.POSITIVE_X,
+        side: Side | str = Side.POSITIVE_X,
         cross_position_ratio: float = 0.0,
     ):
         """
@@ -111,7 +111,7 @@ class NextTo(Relation):
             -1.0 <= cross_position_ratio <= 1.0
         ), f"cross_position_ratio must be in [-1, 1], got {cross_position_ratio}"
         self.distance_m = distance_m
-        self.side = side
+        self.side = Side(side)
         self.cross_position_ratio = cross_position_ratio
 
 
@@ -172,7 +172,7 @@ class NotNextTo(Relation):
         self,
         parent: ObjectBase,
         relation_loss_weight: float = 1.0,
-        side: Side = Side.POSITIVE_X,
+        side: Side | str = Side.POSITIVE_X,
     ):
         """
         Args:
@@ -181,7 +181,7 @@ class NotNextTo(Relation):
             side: Which side of the parent is blocked (default: Side.POSITIVE_X).
         """
         super().__init__(parent, relation_loss_weight)
-        self.side = side
+        self.side = Side(side)
 
 
 @register_object_relation
