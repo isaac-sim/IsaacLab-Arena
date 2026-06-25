@@ -33,7 +33,8 @@ DEFAULT_ENV_OVERRIDES = (
     "light.hdr_image.enabled=true "
     "droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true "
     "droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high=[0.05,0.05,0.05] "
-    "droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low=[-0.05,-0.05,-0.05]"
+    "droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low=[-0.05,-0.05,-0.05] "
+    "light.hdr_image.hdr_names=[home_office_robolab]"
 )
 DEFAULT_POLICY_RUNNER_ARGS = "--num_episodes 2 --headless --enable_cameras --num_envs 2 --record_camera_video"
 
