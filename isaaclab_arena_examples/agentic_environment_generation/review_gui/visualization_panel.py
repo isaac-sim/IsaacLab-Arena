@@ -8,7 +8,7 @@ from __future__ import annotations
 import streamlit as st
 
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import validate_yaml_text
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.visualization_service import (
     render_dashboard_with_thumbnails,
 )
 
