@@ -18,8 +18,10 @@ import json
 import numpy as np
 import torch
 
+import pytest
+
 from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
-from isaaclab_arena.analysis.sensitivity.dataset import SensitivityDataset
+from isaaclab_arena.analysis.sensitivity.episode_results_reader import dataset_from_episode_results
 from isaaclab_arena.tests.sensitivity_synthetic import (
     CAMERA_DISTANCE,
     GRASP_OFFSET,
@@ -89,64 +91,213 @@ def test_npe_recovers_two_continuous_effects():
 
 
 def _write_jsonl(path, rows: list[dict]) -> None:
-    """Write one JSON object per line to ``path``."""
+    """Write one JSON object per line to path."""
     path.write_text("\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8")
 
 
-def test_from_files_parses_mixed_schema_and_builds_tensors(tmp_path):
-    """from_files parses a factors.yaml + episode_summary.jsonl into the expected theta / x layout."""
-    factors_yaml = tmp_path / "factors.yaml"
-    factors_yaml.write_text(
-        "factors:\n"
-        "  light_intensity:\n"
-        "    type: continuous\n"
-        "    range: [[0.0, 1000.0]]\n"
-        "  pick_up_object:\n"
-        "    type: categorical\n"
-        "    choices: [cube, can]\n",
-        encoding="utf-8",
-    )
-    jsonl = tmp_path / "episode_summary.jsonl"
+def test_from_episode_results_splits_vector_variation_into_scalar_factors(tmp_path):
+    """from_episode_results discovers a continuous factor per component of a vector variation draw."""
+    jsonl = tmp_path / "episode_results.jsonl"
     _write_jsonl(
         jsonl,
         [
-            {"arena_env_args": {"light_intensity": 250.0, "pick_up_object": "cube"}, "outcomes": {"success": 1}},
-            {"arena_env_args": {"light_intensity": 750.0, "pick_up_object": "can"}, "outcomes": {"success": 0}},
-            {"arena_env_args": {"light_intensity": 500.0, "pick_up_object": "cube"}, "outcomes": {"success": 1}},
+            {"success": True, "variations": {"droid.camera_extrinsics_wrist_camera": [0.001, -0.004, 0.002]}},
+            {"success": False, "variations": {"droid.camera_extrinsics_wrist_camera": [0.003, 0.001, -0.005]}},
         ],
     )
 
-    dataset = SensitivityDataset.from_files(factors_yaml, jsonl, outcome_names=["success"])
+    dataset = dataset_from_episode_results(jsonl, outcome_names=["success"])
 
-    # Schema parsed with the declared structure.
-    factors_by_name = {factor.name: factor for factor in dataset.schema.factors}
-    assert factors_by_name["light_intensity"].type == "continuous"
-    assert factors_by_name["light_intensity"].range == [(0.0, 1000.0)]
-    assert factors_by_name["pick_up_object"].type == "categorical"
-    assert factors_by_name["pick_up_object"].choices == ["cube", "can"]
+    # A 3-vector draw becomes three continuous factors, named with a per-component suffix.
+    factors_by_name = {factor.name: factor for factor in dataset.factors}
+    expected_names = [f"droid.camera_extrinsics_wrist_camera[{i}]" for i in range(3)]
+    assert [factor.name for factor in dataset.factors] == expected_names
+    assert all(factors_by_name[name].type == "continuous" for name in expected_names)
 
-    # Continuous-first theta layout; categorical integer-coded by its index into choices.
-    assert dataset.theta.shape == (3, 2)
-    assert dataset.x.shape == (3, 1)
-    assert dataset.factor_columns == {"light_intensity": slice(0, 1), "pick_up_object": slice(1, 2)}
-    assert dataset.theta[:, 0].tolist() == [250.0, 750.0, 500.0]
-    assert dataset.theta[:, 1].tolist() == [0.0, 1.0, 0.0]  # cube -> 0, can -> 1
-    assert dataset.x[:, 0].tolist() == [1.0, 0.0, 1.0]
+    assert dataset.theta.shape == (2, 3)
+    assert dataset.x.shape == (2, 1)
+    assert dataset.theta[:, 0].tolist() == pytest.approx([0.001, 0.003])  # first component, both episodes (float32)
+    assert dataset.x[:, 0].tolist() == [1.0, 0.0]  # success bool → 1.0 / 0.0
 
 
-def test_from_files_infers_missing_continuous_range(tmp_path):
-    """A continuous factor with no declared range gets [min, max] inferred from the observed values."""
-    factors_yaml = tmp_path / "factors.yaml"
-    factors_yaml.write_text("factors:\n  light_intensity:\n    type: continuous\n", encoding="utf-8")
-    jsonl = tmp_path / "episode_summary.jsonl"
+def test_from_episode_results_discovers_mixed_continuous_and_categorical(tmp_path):
+    """A numeric and a string variation become a continuous and a categorical factor (choices observed)."""
+    jsonl = tmp_path / "episode_results.jsonl"
     _write_jsonl(
         jsonl,
         [
-            {"arena_env_args": {"light_intensity": 30.0}, "outcomes": {"success": 0}},
-            {"arena_env_args": {"light_intensity": 90.0}, "outcomes": {"success": 1}},
+            {"success": True, "variations": {"dome.light_intensity": 250.0, "dome.hdr_image": "studio"}},
+            {"success": False, "variations": {"dome.light_intensity": 750.0, "dome.hdr_image": "sunset"}},
+            {"success": True, "variations": {"dome.light_intensity": 500.0, "dome.hdr_image": "studio"}},
         ],
     )
 
-    dataset = SensitivityDataset.from_files(factors_yaml, jsonl, outcome_names=["success"])
+    dataset = dataset_from_episode_results(jsonl, outcome_names=["success"])
 
-    assert dataset.schema.factors[0].range == [(30.0, 90.0)]
+    factors_by_name = {factor.name: factor for factor in dataset.factors}
+    assert factors_by_name["dome.light_intensity"].type == "continuous"
+    assert factors_by_name["dome.hdr_image"].type == "categorical"
+    assert factors_by_name["dome.hdr_image"].choices == ["studio", "sunset"]  # sorted observed labels
+    # A continuous factor's range is inferred as [min, max] of the observed values.
+    assert factors_by_name["dome.light_intensity"].range == (250.0, 750.0)
+
+    # Continuous-first layout; categorical integer-coded by its index into the discovered choices.
+    assert dataset.factor_columns == {"dome.light_intensity": slice(0, 1), "dome.hdr_image": slice(1, 2)}
+    assert dataset.theta[:, 0].tolist() == [250.0, 750.0, 500.0]  # continuous column, in row order
+    assert dataset.theta[:, 1].tolist() == [0.0, 1.0, 0.0]  # studio -> 0, sunset -> 1
+    assert dataset.x[:, 0].tolist() == [1.0, 0.0, 1.0]  # success bool → 1.0 / 0.0
+    # A categorical factor selects MNPE; a continuous-only schema would select NPE.
+    assert SensitivityAnalyzer(dataset)._select_inference_class().__name__ == "MNPE"
+
+
+def test_from_episode_results_drops_constant_factors(tmp_path):
+    """A factor that took a single value across all episodes is dropped, varying factors survive."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(
+        jsonl,
+        [
+            {"success": True, "variations": {"light_intensity": 250.0, "always_5": 5.0, "hdr": "only_one"}},
+            {"success": False, "variations": {"light_intensity": 750.0, "always_5": 5.0, "hdr": "only_one"}},
+        ],
+    )
+
+    dataset = dataset_from_episode_results(jsonl, outcome_names=["success"])
+
+    # The constant continuous (always_5) and constant categorical (hdr) are dropped; only the varying one remains.
+    assert [factor.name for factor in dataset.factors] == ["light_intensity"]
+    assert dataset.theta.shape == (2, 1)
+
+
+def test_from_episode_results_warns_on_imbalanced_categorical(tmp_path, capsys):
+    """An unevenly sampled categorical warns, since its posterior would track the sampling frequency."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(
+        jsonl,
+        [
+            {"success": True, "variations": {"hdr": "a"}},
+            {"success": False, "variations": {"hdr": "a"}},
+            {"success": True, "variations": {"hdr": "a"}},
+            {"success": False, "variations": {"hdr": "b"}},  # a:b sampled 3:1
+        ],
+    )
+
+    dataset_from_episode_results(jsonl, outcome_names=["success"])
+
+    assert "sampled unevenly" in capsys.readouterr().out
+
+
+def test_from_episode_results_raises_when_all_factors_constant(tmp_path):
+    """If every factor took a single value there is nothing to analyze, so building raises."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(
+        jsonl,
+        [
+            {"success": True, "variations": {"hdr": "only_one"}},
+            {"success": False, "variations": {"hdr": "only_one"}},
+        ],
+    )
+
+    with pytest.raises(AssertionError, match="constant"):
+        dataset_from_episode_results(jsonl, outcome_names=["success"])
+
+
+def test_from_episode_results_treats_bool_variation_as_categorical(tmp_path):
+    """A boolean variation draw becomes a categorical factor labelled by str(value)."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(
+        jsonl,
+        [
+            {"success": True, "variations": {"distractor_present": True}},
+            {"success": False, "variations": {"distractor_present": False}},
+        ],
+    )
+
+    dataset = dataset_from_episode_results(jsonl, outcome_names=["success"])
+
+    factor = dataset.factors[0]
+    assert factor.type == "categorical"
+    assert factor.choices == ["False", "True"]  # sorted str labels
+    assert dataset.theta[:, 0].tolist() == [1.0, 0.0]  # "True" -> 1, "False" -> 0 (index in sorted choices)
+
+
+def test_from_episode_results_rejects_inconsistent_factor_set(tmp_path):
+    """Every episode must record the same variations, so a row with a different factor set raises."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(
+        jsonl,
+        [
+            {"success": True, "variations": {"light_intensity": 250.0}},
+            {"success": False, "variations": {"light_intensity": 750.0, "extra": 1.0}},  # new factor mid-stream
+        ],
+    )
+
+    with pytest.raises(AssertionError, match="same variations"):
+        dataset_from_episode_results(jsonl, outcome_names=["success"])
+
+
+def test_from_episode_results_rejects_non_numeric_vector_component(tmp_path):
+    """A vector variation with a non-numeric component is rejected."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(
+        jsonl,
+        [{"success": True, "variations": {"pose": [0.1, "oops", 0.2]}}],
+    )
+
+    with pytest.raises(AssertionError, match="non-numeric"):
+        dataset_from_episode_results(jsonl, outcome_names=["success"])
+
+
+def test_from_episode_results_selects_factor_subset(tmp_path):
+    """factor_names restricts the analysis to the named variations, a vector keeps all components."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(
+        jsonl,
+        [
+            {"success": True, "variations": {"light_intensity": 250.0, "hdr": "studio", "wrist": [0.1, 0.2]}},
+            {"success": False, "variations": {"light_intensity": 750.0, "hdr": "sunset", "wrist": [0.3, 0.4]}},
+        ],
+    )
+
+    dataset = dataset_from_episode_results(jsonl, outcome_names=["success"], factor_names=["light_intensity", "wrist"])
+
+    # hdr is excluded; the selected vector is still split into one factor per component.
+    assert [factor.name for factor in dataset.factors] == ["light_intensity", "wrist[0]", "wrist[1]"]
+
+
+def test_from_episode_results_rejects_unknown_factor_name(tmp_path):
+    """Requesting a factor that wasn't recorded raises with the available names listed."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(
+        jsonl,
+        [
+            {"success": True, "variations": {"light_intensity": 250.0}},
+            {"success": False, "variations": {"light_intensity": 750.0}},
+        ],
+    )
+
+    with pytest.raises(AssertionError, match="not found"):
+        dataset_from_episode_results(jsonl, outcome_names=["success"], factor_names=["nonexistent"])
+
+
+def test_from_episode_results_rejects_non_dict_variations(tmp_path):
+    """A null / non-object variations block fails clearly rather than as an AttributeError."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(jsonl, [{"success": True, "variations": None}])
+
+    with pytest.raises(AssertionError, match="not a JSON object"):
+        dataset_from_episode_results(jsonl, outcome_names=["success"])
+
+
+def test_from_episode_results_rejects_non_numeric_outcome(tmp_path):
+    """A non-numeric outcome value fails with row context, not a bare cast error."""
+    jsonl = tmp_path / "episode_results.jsonl"
+    _write_jsonl(
+        jsonl,
+        [
+            {"success": "yes", "variations": {"light_intensity": 250.0}},
+            {"success": "no", "variations": {"light_intensity": 750.0}},
+        ],
+    )
+
+    with pytest.raises(AssertionError, match="must be numeric or boolean"):
+        dataset_from_episode_results(jsonl, outcome_names=["success"])

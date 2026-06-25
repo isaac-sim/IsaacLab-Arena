@@ -50,32 +50,19 @@ class EnvLayoutPool:
 class PooledObjectPlacer:
     """Object placer that maintains solved placement layouts.
 
-    Storage is organized as one queue per environment. Env-specific layouts
-    are solved for fixed env geometry. sample_without_replacement consumes
-    complete env rounds; sample_for_envs consumes only the requested absolute
-    env ids. Reusable layouts are interchangeable and can be consumed one at a
-    time from the pooled queues.
+    Storage is organized as one queue per environment: every layout is solved
+    against its env's geometry and bound to that absolute env id.
 
     Strictly valid layouts are preferred. On the final retry batch, best-loss
     solver results may be kept as a fallback.
 
     The pool is refilled automatically when an env's queue runs out.
 
-    * sample_without_replacement(count) consumes count layouts. For
-      env-specific layouts, count must be a multiple of num_envs and
-      may cover multiple complete env rounds.
-    * sample_for_envs(env_ids) consumes one layout for each requested
-      absolute env id (used for partial resets).
-    * sample_with_replacement(count) is non-consuming. Env-specific layouts
-      are sampled from matching env slots; reusable layouts stay marginally
-      uniform over all stored layouts.
-
     Args:
         objects: All objects (including anchors) participating in relation solving.
         placer_params: Parameters forwarded to ObjectPlacer for the batched solve.
         pool_size: Number of layouts to solve per batch.
-        num_envs: Total number of simulation environments.  Required when
-            layouts use env-specific object variants and defaults to 1 otherwise.
+        num_envs: Number of simulation environments.
     """
 
     def __init__(
@@ -86,10 +73,9 @@ class PooledObjectPlacer:
         num_envs: int | None = None,
     ) -> None:
         assert pool_size >= 1, f"pool_size must be >= 1, got {pool_size}"
-        self._uses_env_specific_bboxes = has_heterogeneous_objects(objects)
         assert not (
-            self._uses_env_specific_bboxes and num_envs is None
-        ), "num_envs is required when layouts use env-specific object variants."
+            has_heterogeneous_objects(objects) and num_envs is None
+        ), "num_envs is required for heterogeneous scenes."
         self._num_envs = num_envs if num_envs is not None else 1
         assert self._num_envs >= 1, f"num_envs must be >= 1, got {self._num_envs}"
 
@@ -139,88 +125,36 @@ class PooledObjectPlacer:
         self._next_seed_offset += num_candidates
 
     def _solve_and_store(self, num_layouts: int) -> None:
-        """Solve layouts in batches until every env has target_per_env unread layouts.
+        """Solve and store layouts until every env has target_num_layouts_per_env unread layouts.
 
-        Each batch contributes one or more layout rounds per env. The outer
-        loop is bounded by max_placement_attempts to avoid an
-        unbounded refill in pathological configurations.
+        Bounded by max_placement_attempts; raises if the target cannot be met.
         """
         self._discard_consumed_layouts()
-        target_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
+        target_num_layouts_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
         max_solve_batches = max(1, self._placer.params.max_placement_attempts)
 
         for batch_idx in range(max_solve_batches):
-            max_missing = target_per_env - min(self._available_per_env())
+            max_missing = target_num_layouts_per_env - min(self._available_per_env())
             if max_missing <= 0:
                 return
 
             batch_size = max_missing * self._num_envs
             allow_fallback = batch_idx == max_solve_batches - 1
-            if self._uses_env_specific_bboxes:
-                ranked_results_per_env, layouts_per_env = self._solve_env_ranked_layouts(batch_size)
-                self._store_env_matched_results(
-                    ranked_results_per_env,
-                    layouts_per_env,
-                    allow_fallback=allow_fallback,
-                    target_per_env=target_per_env,
-                )
-            else:
-                layouts = self._solve_reusable_layouts(batch_size, allow_fallback=allow_fallback)
-                self._store_reusable_results(layouts)
+            ranked_results_per_env, layouts_per_env = self._solve_env_ranked_layouts(batch_size)
+            self._store_env_matched_results(
+                ranked_results_per_env,
+                layouts_per_env,
+                allow_fallback=allow_fallback,
+                target_num_layouts_per_env=target_num_layouts_per_env,
+            )
 
-            if min(self._available_per_env()) >= target_per_env:
+            if min(self._available_per_env()) >= target_num_layouts_per_env:
                 return
 
         raise RuntimeError(
-            f"Placement pool could not fill {target_per_env} layouts per env after "
+            f"Placement pool could not fill {target_num_layouts_per_env} layouts per env after "
             f"{max_solve_batches} solve batches. Available per env: {self._available_per_env()}."
         )
-
-    def _solve_reusable_layouts(self, num_layouts: int, allow_fallback: bool = False) -> list[PlacementResult]:
-        """Solve layouts that can be used by any env pool.
-
-        Invalid candidates are discarded when at least one valid layout exists.
-        If no candidate passes strict validation on the final retry batch, fall
-        back to best-loss results so environments with imperfect validation can
-        still run.
-        """
-        self._prepare_seeded_solve(num_layouts * self._placer.params.max_placement_attempts)
-        with torch.inference_mode(False):
-            all_layouts = self._placer.place(self._objects, num_envs=num_layouts)
-        valid_layouts = [layout for layout in all_layouts if layout.success]
-
-        if len(valid_layouts) < num_layouts:
-            print(
-                f"Pooled object placer: solved {num_layouts} layouts,"
-                f" {len(valid_layouts)} valid, {num_layouts - len(valid_layouts)} failed validation"
-            )
-
-        if valid_layouts:
-            return valid_layouts
-
-        if not allow_fallback:
-            return []
-
-        self._had_fallbacks = True
-        print("Warning: No candidates passed strict validation. Accepting best-loss layouts as fallback.")
-        return all_layouts
-
-    def _store_reusable_results(self, layouts: list[PlacementResult]) -> None:
-        """Distribute reusable layouts across env pools using greedy shortest-first.
-
-        Layouts produced by _solve_reusable_layouts are interchangeable
-        across envs, so we place each one into whichever pool currently has
-        the fewest unread layouts. This keeps reusable capacity balanced
-        across env pools.
-        """
-        if not layouts:
-            return
-
-        available = self._available_per_env()
-        for layout in layouts:
-            cur_env = min(range(self._num_envs), key=available.__getitem__)
-            self._env_pools[cur_env].append(layout)
-            available[cur_env] += 1
 
     def _solve_env_ranked_layouts(self, num_layouts: int) -> tuple[list[list[PlacementResult]], int]:
         """Solve ranked layouts tied to each env's actual object geometry.
@@ -248,23 +182,22 @@ class PooledObjectPlacer:
         self,
         ranked_results_per_env: list[list[PlacementResult]],
         layouts_per_env: int,
-        target_per_env: int,
+        target_num_layouts_per_env: int,
         allow_fallback: bool = False,
     ) -> None:
-        """Store env-matched results into their corresponding pools.
+        """Store each env's results into its pool, up to target_num_layouts_per_env unread layouts.
 
-        Each env is filled only up to target_per_env unread layouts, so envs
-        that already met the target are not overfilled. Successful layouts are
-        preferred; if allow_fallback is set and an env has no valid layouts,
-        fall back to its best-loss results so environments with imperfect
-        validation can still run.
+        Valid layouts are preferred; when allow_fallback is set, an env with no
+        valid layout keeps its best-loss results instead of staying empty.
+        An env that has at least one valid layout never falls back to best-loss,
+        even if it has fewer valid layouts than target_num_layouts_per_env.
         """
         total_valid = 0
         fallback_envs = []
         for cur_env in range(self._num_envs):
             env_results = ranked_results_per_env[cur_env][:layouts_per_env]
             valid_results = [r for r in env_results if r.success]
-            missing = target_per_env - self._env_pools[cur_env].available
+            missing = target_num_layouts_per_env - self._env_pools[cur_env].available
             if valid_results:
                 if missing > 0:
                     enqueued = valid_results[:missing]
@@ -273,14 +206,16 @@ class PooledObjectPlacer:
                 else:
                     total_valid += len(valid_results)
             elif allow_fallback and missing > 0:
-                self._env_pools[cur_env].extend(env_results[:missing])
-                fallback_envs.append(cur_env)
-                self._had_fallbacks = True
+                fallback = env_results[:missing]
+                if fallback:
+                    self._env_pools[cur_env].extend(fallback)
+                    fallback_envs.append(cur_env)
+                    self._had_fallbacks = True
 
         total_solved = sum(min(len(env_results), layouts_per_env) for env_results in ranked_results_per_env)
-        if total_valid < total_solved:
+        if total_valid < total_solved or fallback_envs:
             msg = (
-                f"Placement pool (env-specific bbox layouts) solved {total_solved} candidates,"
+                f"Placement pool solved {total_solved} candidates,"
                 f" {total_valid} valid, {total_solved - total_valid} failed validation"
             )
             if fallback_envs:
@@ -292,26 +227,15 @@ class PooledObjectPlacer:
     # ------------------------------------------------------------------
 
     def sample_without_replacement(self, count: int) -> list[PlacementResult]:
-        """Return the next count layouts.
+        """Return the next count layouts as complete env rounds.
 
-        Env-specific layouts are returned as complete rounds of
-        [env_0, env_1, ..., env_{num_envs-1}] so each result still maps
-        to the absolute environment it was solved for. Reusable layouts consume
-        exactly count interchangeable entries.
+        Layouts are returned as complete rounds of
+        [env_0, env_1, ..., env_{num_envs-1}] so each result maps to the
+        absolute environment it was solved for.
 
         Args:
-            count: Number of layouts to return.
-
-        Raises:
-            ValueError: If env-specific layouts are requested without a complete env round.
-            RuntimeError: If the pool cannot provide count layouts after refilling.
+            count: Number of layouts to return. Must be a multiple of num_envs.
         """
-        if self._uses_env_specific_bboxes:
-            return self._sample_env_indexed_without_replacement(count)
-        return self._sample_reusable_without_replacement(count)
-
-    def _sample_env_indexed_without_replacement(self, count: int) -> list[PlacementResult]:
-        """Consume complete env rounds for layouts tied to absolute env ids."""
         if count % self._num_envs != 0:
             raise ValueError(f"count must be a multiple of num_envs ({self._num_envs}), got {count}")
 
@@ -333,10 +257,6 @@ class PooledObjectPlacer:
 
     def sample_for_envs(self, env_ids: list[int]) -> dict[int, PlacementResult]:
         """Consume one layout for each requested absolute env id."""
-        if not self._uses_env_specific_bboxes:
-            layouts = self._sample_reusable_without_replacement(len(env_ids))
-            return dict(zip(env_ids, layouts))
-
         if any(env_id < 0 or env_id >= self._num_envs for env_id in env_ids):
             raise ValueError(f"env_ids must be in [0, {self._num_envs}); got {env_ids}")
 
@@ -354,36 +274,6 @@ class PooledObjectPlacer:
             results[env_id] = pool.next()
         return results
 
-    def _sample_reusable_without_replacement(self, count: int) -> list[PlacementResult]:
-        """Consume exactly count interchangeable layouts."""
-        if self._total_available() < count:
-            self._solve_and_store(max(self._pool_size, count))
-
-        available = self._available_per_env()
-        if sum(available) < count:
-            raise RuntimeError(
-                f"Placement pool has {sum(available)} reusable layouts but {count} were requested. "
-                "The solver is not producing enough valid placements."
-            )
-
-        results: list[PlacementResult] = []
-        for _ in range(count):
-            cur_env = max(range(self._num_envs), key=available.__getitem__)
-            pool = self._env_pools[cur_env]
-            if pool.available <= 0:
-                raise RuntimeError(
-                    f"Placement pool: env {cur_env} has no more valid layouts. "
-                    "The solver is not producing enough valid placements."
-                )
-            results.append(pool.next())
-            available[cur_env] -= 1
-        return results
-
-    @property
-    def requires_env_indexed_layouts(self) -> bool:
-        """Whether sampled layouts must be matched back to absolute env ids."""
-        return self._uses_env_specific_bboxes
-
     @property
     def num_envs(self) -> int:
         """Number of environment pools managed by this placer."""
@@ -397,42 +287,21 @@ class PooledObjectPlacer:
     def sample_with_replacement(self, count: int) -> list[PlacementResult]:
         """Pick count layouts at random with replacement (non-consuming).
 
-        For env-specific layouts, slot i picks from env i % num_envs's pool
-        so each result matches its absolute env. For reusable layouts, each
-        slot stays marginally uniform over the full pool; the per-env RNGs only
-        fix which stream a slot draws from, for parity with the env-specific branch.
+        Slot i picks from env i % num_envs's pool so each result matches its
+        absolute env, using that env's RNG for a reproducible draw.
         """
-        # Non-consuming: reads pool.layouts directly, ignoring the consumption cursor.
-        if self._uses_env_specific_bboxes:
-            results: list[PlacementResult] = []
-            for i in range(count):
-                cur_env = i % self._num_envs
-                pool = self._env_pools[cur_env].layouts
-                assert pool, f"Env {cur_env} has no valid layouts to sample from."
-                results.append(self._env_rngs[cur_env].choice(pool))
-            return results
-        # Serialize all layouts into one flat pool.
-        all_layouts: list[PlacementResult] = []
-        for pool in self._env_pools:
-            for layout in pool.layouts:
-                all_layouts.append(layout)
-        assert all_layouts, "No valid layouts to sample from across any env pool."
-
-        # Draw each slot from its env's RNG over the serialized pool.
+        # Reads pool.layouts directly, ignoring the consumption cursor.
         results: list[PlacementResult] = []
-        for layout_idx in range(count):
-            rng = self._env_rngs[layout_idx % self._num_envs]
-            results.append(rng.choice(all_layouts))
+        for i in range(count):
+            cur_env = i % self._num_envs
+            pool = self._env_pools[cur_env].layouts
+            assert pool, f"Env {cur_env} has no valid layouts to sample from."
+            results.append(self._env_rngs[cur_env].choice(pool))
         return results
 
     @property
     def remaining(self) -> int:
-        """Number of complete env rounds available to :meth:`sample_without_replacement`.
-
-        Returns the minimum unread count across env pools. A single round
-        consumes one layout from every env, so the minimum is what limits
-        without-replacement capacity.
-        """
+        """Number of complete env rounds available, i.e. the minimum unread count across env pools."""
         return min(self._available_per_env())
 
     @property
