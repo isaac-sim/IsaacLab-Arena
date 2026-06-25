@@ -14,9 +14,6 @@ import streamlit as st
 
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import render_dashboard_html
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
-    resolve_node_aabb_dimensions_m,
-)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppError,
     simapp_socket_from_env,
@@ -75,11 +72,10 @@ def render_dashboard_with_thumbnails(spec: ArenaEnvInitialGraphSpec) -> str:
 
     simapp_expected = simapp_socket_from_env() is not None
     client = ensure_simapp() if simapp_expected else None
-    aabb_dimensions_m = resolve_node_aabb_dimensions_m(spec)
     if client is None:
         if simapp_expected:
             _warn_simapp_unavailable_once()
-        html = render_dashboard_html(spec, aabb_dimensions_m=aabb_dimensions_m or None)
+        html = render_dashboard_html(spec)
         _store_dashboard_html(spec_key, html)
         return html
 
@@ -88,7 +84,9 @@ def render_dashboard_with_thumbnails(spec: ArenaEnvInitialGraphSpec) -> str:
     except SimAppError as exc:
         _show_simapp_render_error_once(exc)
         get_simapp_client.clear()
-        return render_dashboard_html(spec, aabb_dimensions_m=aabb_dimensions_m or None)
+        html = render_dashboard_html(spec)
+        _store_dashboard_html(spec_key, html)
+        return html
 
     html = render_dashboard_html(
         spec,
