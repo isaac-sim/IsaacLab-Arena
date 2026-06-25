@@ -13,7 +13,7 @@ GR00T server task that shares its OSMO group. Mirrors the eval side of the
 from typing import Any
 
 from tasks.base_task import BaseTask
-from tasks.gr00t_server_task import DEFAULT_SERVER_PORT
+from tasks.gr00t_server_task import DEFAULT_SERVER_PORT, Gr00tServerTask
 from workflows.utils.workflow_types import WorkflowType
 from workflows.workflow_constants import EVAL_OUTPUT_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 
@@ -65,8 +65,9 @@ class Gr00tPolicyRunnerTask(BaseTask):
         if policy_runner_args is None:
             policy_runner_args = DEFAULT_POLICY_RUNNER_ARGS
         self.policy_runner_args = _normalize_args(policy_runner_args)
-        # The GR00T server shares this task's OSMO group network, so it is reachable over localhost.
-        self.remote_host = getattr(task_args, "remote_host", None) or "localhost"
+        # OSMO group tasks run as separate containers, so the GR00T server is reached by its task
+        # name (as in the CI gr00t sidecar), not over localhost.
+        self.remote_host = getattr(task_args, "remote_host", None) or Gr00tServerTask.get_task_name()
         self.remote_port = getattr(task_args, "server_port", None) or DEFAULT_SERVER_PORT
 
     @staticmethod
