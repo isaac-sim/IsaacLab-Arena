@@ -5,9 +5,10 @@
 
 """Unitree H2 embodiment bringup.
 
-This module is intentionally small for the first H2 integration slice: it only
-registers a spawn-only ``h2_debug`` embodiment so we can validate that the H2 USD
-loads in Arena before adding robot metadata, IK, WBC, teleop, or policy code.
+This module is intentionally small for the first H2 integration slices: it
+registers a spawn-only ``h2_debug`` embodiment with H2 joint metadata so we can
+validate that the H2 USD loads in Arena before adding IK, WBC, teleop, or policy
+code.
 """
 
 from __future__ import annotations
@@ -34,6 +35,59 @@ from isaaclab_arena.utils.pose import Pose
 
 ROBOT_MENAGERIE_ROOT_ENV_VAR = "ROBOT_MENAGERIE_ROOT"
 """Optional root of a robot_menagerie checkout/cache containing ``unitree/h2``."""
+
+H2_LEG_JOINT_NAMES = (
+    "left_hip_pitch_joint",
+    "left_hip_roll_joint",
+    "left_hip_yaw_joint",
+    "left_knee_joint",
+    "left_ankle_roll_joint",
+    "left_ankle_pitch_joint",
+    "right_hip_pitch_joint",
+    "right_hip_roll_joint",
+    "right_hip_yaw_joint",
+    "right_knee_joint",
+    "right_ankle_roll_joint",
+    "right_ankle_pitch_joint",
+)
+"""H2 leg joint names from robot_menagerie/unitree/h2/urdf/H2_simple_colliders.urdf."""
+
+H2_WAIST_JOINT_NAMES = (
+    "waist_yaw_joint",
+    "waist_roll_joint",
+    "waist_pitch_joint",
+)
+"""H2 waist joint names."""
+
+H2_HEAD_JOINT_NAMES = (
+    "head_pitch_joint",
+    "head_yaw_joint",
+)
+"""H2 head joint names."""
+
+H2_ARM_JOINT_NAMES = (
+    "left_shoulder_pitch_joint",
+    "left_shoulder_roll_joint",
+    "left_shoulder_yaw_joint",
+    "left_elbow_joint",
+    "left_wrist_roll_joint",
+    "left_wrist_pitch_joint",
+    "left_wrist_yaw_joint",
+    "right_shoulder_pitch_joint",
+    "right_shoulder_roll_joint",
+    "right_shoulder_yaw_joint",
+    "right_elbow_joint",
+    "right_wrist_roll_joint",
+    "right_wrist_pitch_joint",
+    "right_wrist_yaw_joint",
+)
+"""H2 arm joint names."""
+
+H2_JOINT_NAMES = H2_LEG_JOINT_NAMES + H2_WAIST_JOINT_NAMES + H2_HEAD_JOINT_NAMES + H2_ARM_JOINT_NAMES
+"""All actuated H2 joint names expected by the debug embodiment."""
+
+H2_DEFAULT_JOINT_POS = {joint_name: 0.0 for joint_name in H2_JOINT_NAMES}
+"""Neutral H2 joint pose used for spawn/debug rollouts."""
 
 
 # TODO(pulkitg): Move the H2 USD asset to Omniverse Nucleus once the asset is
@@ -80,7 +134,7 @@ def h2_debug_usd_exists() -> bool:
     return Path(resolve_h2_usd_path()).is_file()
 
 
-H2_DEBUG_CFG = ArticulationCfg(
+H2_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
         usd_path=resolve_h2_usd_path(),
         activate_contact_sensors=True,
@@ -105,20 +159,92 @@ H2_DEBUG_CFG = ArticulationCfg(
     init_state=ArticulationCfg.InitialStateCfg(
         pos=(0.0, 0.0, 1.05),
         rot=(0.0, 0.0, 0.0, 1.0),
-        joint_pos={".*": 0.0},
+        joint_pos=H2_DEFAULT_JOINT_POS,
         joint_vel={".*": 0.0},
     ),
     actuators={
-        "all_joints": IdealPDActuatorCfg(
-            joint_names_expr=[".*"],
-            effort_limit=300.0,
-            velocity_limit=100.0,
-            stiffness=40.0,
-            damping=2.0,
+        "legs": IdealPDActuatorCfg(
+            joint_names_expr=[".*_hip_.*_joint", ".*_knee_joint"],
+            effort_limit=360.0,
+            velocity_limit=20.0,
+            stiffness=100.0,
+            damping=1.0,
+            armature=0.03,
+        ),
+        "feet": IdealPDActuatorCfg(
+            joint_names_expr=[".*_ankle_roll_joint", ".*_ankle_pitch_joint"],
+            effort_limit={
+                ".*_ankle_roll_joint": 19.0,
+                ".*_ankle_pitch_joint": 66.88,
+            },
+            velocity_limit={
+                ".*_ankle_roll_joint": 100.7,
+                ".*_ankle_pitch_joint": 28.61,
+            },
+            stiffness=100.0,
+            damping=1.0,
+            armature=0.03,
+        ),
+        "waist": IdealPDActuatorCfg(
+            joint_names_expr=["waist_.*_joint"],
+            effort_limit={
+                "waist_yaw_joint": 120.0,
+                "waist_roll_joint": 180.0,
+                "waist_pitch_joint": 180.0,
+            },
+            velocity_limit=28.375,
+            stiffness=100.0,
+            damping=1.0,
+            armature=0.03,
+        ),
+        "head": IdealPDActuatorCfg(
+            joint_names_expr=["head_.*_joint"],
+            effort_limit=50.0,
+            velocity_limit=10.0,
+            stiffness=100.0,
+            damping=1.0,
+            armature=0.03,
+        ),
+        "arms": IdealPDActuatorCfg(
+            joint_names_expr=[
+                ".*_shoulder_pitch_joint",
+                ".*_shoulder_roll_joint",
+                ".*_shoulder_yaw_joint",
+                ".*_elbow_joint",
+                ".*_wrist_roll_joint",
+                ".*_wrist_pitch_joint",
+                ".*_wrist_yaw_joint",
+            ],
+            effort_limit={
+                ".*_shoulder_pitch_joint": 130.0,
+                ".*_shoulder_roll_joint": 60.0,
+                ".*_shoulder_yaw_joint": 60.0,
+                ".*_elbow_joint": 60.0,
+                ".*_wrist_roll_joint": 60.0,
+                ".*_wrist_pitch_joint": 10.0,
+                ".*_wrist_yaw_joint": 10.0,
+            },
+            velocity_limit={
+                ".*_shoulder_pitch_joint": 21.9,
+                ".*_shoulder_roll_joint": 18.7,
+                ".*_shoulder_yaw_joint": 18.7,
+                ".*_elbow_joint": 18.7,
+                ".*_wrist_roll_joint": 18.7,
+                ".*_wrist_pitch_joint": 37.7,
+                ".*_wrist_yaw_joint": 37.7,
+            },
+            stiffness=100.0,
+            damping=1.0,
             armature=0.03,
         ),
     },
 )
+"""Free-root H2 articulation config used as the base for H2 embodiments."""
+
+H2_DEBUG_CFG = H2_CFG.copy()
+# ``h2_debug`` has no balance controller yet; pin the root so asset inspection
+# in the UI does not free-fall/collapse into the ground.
+H2_DEBUG_CFG.spawn.articulation_props.fix_root_link = True
 
 
 @register_asset
