@@ -54,18 +54,12 @@ def check_success(
         A boolean tensor of shape (num_envs,) indicating success.
     """
 
-    assert predicates, "check_success requires at least one predicate."
+    if not predicates:
+        raise ValueError("check_success requires at least one predicate.")
     valid_modes = [m.value for m in SuccessMode]
-    assert (
-        isinstance(mode, str) and mode.upper() in valid_modes
-    ), f"Unknown mode '{mode}'. Expected one of {valid_modes}."
+    if not (isinstance(mode, str) and mode.upper() in valid_modes):
+        raise ValueError(f"Unknown mode '{mode}'. Expected one of {valid_modes}.")
     mode = SuccessMode(mode.upper())
-
-    if mode is SuccessMode.CHOOSE:
-        assert k is not None, "mode SuccessMode.CHOOSE requires 'k' to be provided."
-        assert (
-            1 <= k <= len(predicates)
-        ), f"'k' must be in [1, {len(predicates)}] for {len(predicates)} predicates, got {k}."
 
     results = torch.stack([predicate.func(env, **predicate.params) for predicate in predicates], dim=0)
 
@@ -73,6 +67,11 @@ def check_success(
         return results.all(dim=0)
     if mode is SuccessMode.ANY:
         return results.any(dim=0)
+
+    if k is None:
+        raise ValueError("mode SuccessMode.CHOOSE requires 'k' to be provided.")
+    if not (1 <= k <= len(predicates)):
+        raise ValueError(f"'k' must be in [1, {len(predicates)}] for {len(predicates)} predicates, got {k}.")
     return results.sum(dim=0) >= k
 
 
