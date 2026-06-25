@@ -18,6 +18,12 @@ import yaml
 from pathlib import Path
 from typing import Any, TextIO
 
+from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.boot import launch_simulation_app
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.thumbnail_capture import (
+    render_thumbnails_with_app,
+)
+
 
 def _install_signal_handlers() -> None:
     def _exit(signum, _frame):
@@ -71,14 +77,6 @@ def _serve_connection(
 
 def _serve_socket(socket_path: str) -> int:
     """Boot SimApp, bind ``socket_path``, and service requests sequentially."""
-    from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec  # noqa: PLC0415
-    from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.boot import (  # noqa: PLC0415
-        launch_simulation_app,
-    )
-    from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.thumbnail_capture import (  # noqa: PLC0415
-        render_thumbnails_with_app,
-    )
-
     _install_signal_handlers()
 
     app = launch_simulation_app()

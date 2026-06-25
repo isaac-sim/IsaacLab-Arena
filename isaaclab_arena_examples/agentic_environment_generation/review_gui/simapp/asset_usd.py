@@ -10,8 +10,10 @@ from __future__ import annotations
 import hashlib
 import sys
 
+from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeType
+from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
 
 # Registry-backed nodes with a root USD. ``object_reference`` nodes point at a prim
 # inside a parent background and need parent-stage framing — not supported yet.
@@ -31,12 +33,6 @@ def usd_cache_key(usd_path: str) -> str:
 
 def resolve_node_usd_paths(spec: ArenaEnvInitialGraphSpec) -> dict[str, str]:
     """Map ``node.id → usd_path`` via :class:`AssetRegistry`."""
-    try:
-        from isaaclab_arena.assets.registries import AssetRegistry  # noqa: PLC0415
-    except Exception as exc:
-        print(f"[asset_usd] AssetRegistry import failed: {exc}", file=sys.stderr)
-        return {}
-
     registry = AssetRegistry()
     paths: dict[str, str] = {}
     for node in spec.nodes:
@@ -90,8 +86,6 @@ def aabb_dimensions_from_usd(
 ) -> AabbDimensionsM | None:
     """Return local axis-aligned bounding box size (x, y, z) in meters for a USD asset."""
     try:
-        from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd  # noqa: PLC0415
-
         bbox = compute_local_bounding_box_from_usd(usd_path, scale)
         size = bbox.size[0]
         return (float(size[0]), float(size[1]), float(size[2]))
@@ -102,12 +96,6 @@ def aabb_dimensions_from_usd(
 
 def resolve_node_aabb_dimensions_m(spec: ArenaEnvInitialGraphSpec) -> dict[str, AabbDimensionsM]:
     """Return axis-aligned bounding box sizes in meters for each node with a resolvable USD."""
-    try:
-        from isaaclab_arena.assets.registries import AssetRegistry  # noqa: PLC0415
-    except Exception as exc:
-        print(f"[asset_usd] AssetRegistry import failed: {exc}", file=sys.stderr)
-        return {}
-
     registry = AssetRegistry()
     dimensions: dict[str, AabbDimensionsM] = {}
     for node in spec.nodes:

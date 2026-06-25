@@ -10,6 +10,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import omni.usd
+from omni.kit.viewport.utility import capture_viewport_to_file, frame_viewport_prims, get_active_viewport
+from pxr import Gf, Sdf, UsdGeom, UsdLux
+
 from isaaclab_arena.assets.asset_cache import get_review_gui_thumbnail_cache_dir
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
@@ -86,14 +90,6 @@ def _capture_usd_thumbnails(app, to_render: dict[str, tuple[str, Path]]) -> dict
 
 def _render_one_usd(app, usd_path: str, cache_path: Path) -> bytes | None:
     """Open ``usd_path`` as the stage root, frame the default prim, capture PNG."""
-    import omni.usd  # noqa: PLC0415
-    from omni.kit.viewport.utility import (  # noqa: PLC0415
-        capture_viewport_to_file,
-        frame_viewport_prims,
-        get_active_viewport,
-    )
-    from pxr import Sdf  # noqa: PLC0415
-
     ctx = omni.usd.get_context()
     if not ctx.open_stage(usd_path):
         print(f"[thumbnail_capture]   open_stage failed: {usd_path}", file=sys.stderr)
@@ -169,8 +165,6 @@ def _wait_for_capture(app, capture_obj, cache_path: Path, max_updates: int = 600
 
 def _ensure_default_lighting(stage) -> None:
     """Add dome + key lights when the stage has none (standalone object USDs)."""
-    from pxr import Gf, Sdf, UsdGeom, UsdLux  # noqa: PLC0415
-
     for prim in stage.Traverse():
         if (
             prim.HasAPI(UsdLux.LightAPI)

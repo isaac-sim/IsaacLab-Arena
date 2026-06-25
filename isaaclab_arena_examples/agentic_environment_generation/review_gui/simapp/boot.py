@@ -10,6 +10,8 @@ from __future__ import annotations
 import argparse
 import sys
 
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher
+
 
 def launch_args() -> argparse.Namespace:
     """AppLauncher args for the review GUI SimApp (Kit UI + viewport capture)."""
@@ -19,8 +21,6 @@ def launch_args() -> argparse.Namespace:
 def launch_simulation_app():
     """Boot Isaac Sim's ``SimulationApp`` with the Kit visualizer, or ``None`` on failure."""
     try:
-        from isaaclab_arena.utils.isaaclab_utils.simulation_app import get_app_launcher  # noqa: PLC0415
-
         return get_app_launcher(launch_args()).app
     except Exception as exc:
         print(f"[simapp] SimulationApp launch failed: {exc}", file=sys.stderr)
