@@ -10,6 +10,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from isaaclab_arena.assets.asset_cache import get_review_gui_thumbnail_cache_dir
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
     AabbDimensionsM,
@@ -18,7 +19,9 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.as
     usd_cache_key,
 )
 
-THUMBNAIL_CACHE_DIR = Path(__file__).resolve().parents[4] / ".cache" / "llm_env_gen_thumbnails"
+
+def _thumbnail_cache_dir() -> Path:
+    return get_review_gui_thumbnail_cache_dir()
 
 
 def render_thumbnails_with_app(
@@ -30,12 +33,12 @@ def render_thumbnails_with_app(
         print("[thumbnail_capture] no asset USD paths resolved; skipping thumbnail rendering.", file=sys.stderr)
         return {}, {}
 
-    THUMBNAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    thumbnail_cache_dir = _thumbnail_cache_dir()
 
     resolved: dict[str, Path] = {}
     to_render: dict[str, tuple[str, Path]] = {}
     for node_id, usd_path in asset_paths.items():
-        cache_path = THUMBNAIL_CACHE_DIR / f"{usd_cache_key(usd_path)}.png"
+        cache_path = thumbnail_cache_dir / f"{usd_cache_key(usd_path)}.png"
         if cache_path.exists() and cache_path.stat().st_size > 0:
             resolved[node_id] = cache_path
         else:
@@ -44,7 +47,7 @@ def render_thumbnails_with_app(
     if to_render:
         print(
             f"[thumbnail_capture] rendering {len(to_render)} new thumbnail(s) "
-            f"(reusing {len(resolved)} from cache at {THUMBNAIL_CACHE_DIR})...",
+            f"(reusing {len(resolved)} from cache at {thumbnail_cache_dir})...",
             file=sys.stderr,
         )
         captured = _capture_usd_thumbnails(app, to_render)
