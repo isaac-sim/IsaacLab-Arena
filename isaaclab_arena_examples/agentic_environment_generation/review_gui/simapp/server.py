@@ -75,8 +75,8 @@ def _serve_socket(socket_path: str) -> int:
     from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.boot import (  # noqa: PLC0415
         launch_simulation_app,
     )
-    from isaaclab_arena_examples.agentic_environment_generation.review_gui.thumbnail_render import (  # noqa: PLC0415
-        _render_thumbnails_with_app,
+    from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.thumbnail_capture import (  # noqa: PLC0415
+        render_thumbnails_with_app,
     )
 
     _install_signal_handlers()
@@ -107,7 +107,7 @@ def _serve_socket(socket_path: str) -> int:
                         reader,
                         writer,
                         app=app,
-                        render_fn=_render_thumbnails_with_app,
+                        render_fn=render_thumbnails_with_app,
                         spec_cls=ArenaEnvInitialGraphSpec,
                     )
                 finally:

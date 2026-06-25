@@ -14,6 +14,9 @@ import streamlit as st
 
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import render_dashboard_html
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
+    resolve_node_aabb_dimensions_m,
+)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppError,
     simapp_socket_from_env,
@@ -21,9 +24,6 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.cl
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
     ensure_simapp,
     get_simapp_client,
-)
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.thumbnail_render import (
-    resolve_node_aabb_dimensions_m,
 )
 
 

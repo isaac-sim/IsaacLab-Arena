@@ -3,49 +3,31 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""USD viewport thumbnail rendering for the review GUI SimApp server."""
+"""Kit viewport PNG capture for review GUI node thumbnails (SimApp subprocess only)."""
 
 from __future__ import annotations
 
-import hashlib
 import sys
 from pathlib import Path
 
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
-from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeType
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
+    AabbDimensionsM,
+    resolve_node_aabb_dimensions_m,
+    resolve_node_usd_paths,
+    usd_cache_key,
+)
 
-THUMBNAIL_CACHE_DIR = Path(__file__).resolve().parents[3] / ".cache" / "llm_env_gen_thumbnails"
-
-# Registry-backed nodes with a root USD. ``object_reference`` nodes point at a prim
-# inside a parent background and need parent-stage framing — not supported yet.
-_RENDERABLE_NODE_TYPES = frozenset({
-    ArenaEnvGraphNodeType.EMBODIMENT,
-    ArenaEnvGraphNodeType.BACKGROUND,
-    ArenaEnvGraphNodeType.OBJECT,
-})
+THUMBNAIL_CACHE_DIR = Path(__file__).resolve().parents[4] / ".cache" / "llm_env_gen_thumbnails"
 
 
-AabbDimensionsM = tuple[float, float, float]
-
-
-def resolve_node_aabb_dimensions_m(spec: ArenaEnvInitialGraphSpec) -> dict[str, AabbDimensionsM]:
-    """Return axis-aligned bounding box sizes in meters for each node with a resolvable USD."""
-    asset_paths = _resolve_node_usd_paths(spec)
-    dimensions: dict[str, AabbDimensionsM] = {}
-    for node_id, usd_path in asset_paths.items():
-        dims = _aabb_dimensions_from_usd(usd_path)
-        if dims is not None:
-            dimensions[node_id] = dims
-    return dimensions
-
-
-def _render_thumbnails_with_app(
+def render_thumbnails_with_app(
     app, spec: ArenaEnvInitialGraphSpec
 ) -> tuple[dict[str, Path], dict[str, AabbDimensionsM]]:
     """Render cache-missed node thumbnails and return png paths plus AABB sizes in meters."""
-    asset_paths = _resolve_node_usd_paths(spec)
+    asset_paths = resolve_node_usd_paths(spec)
     if not asset_paths:
-        print("[thumbnail_render] no asset USD paths resolved; skipping thumbnail rendering.", file=sys.stderr)
+        print("[thumbnail_capture] no asset USD paths resolved; skipping thumbnail rendering.", file=sys.stderr)
         return {}, {}
 
     THUMBNAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -53,7 +35,7 @@ def _render_thumbnails_with_app(
     resolved: dict[str, Path] = {}
     to_render: dict[str, tuple[str, Path]] = {}
     for node_id, usd_path in asset_paths.items():
-        cache_path = THUMBNAIL_CACHE_DIR / f"{_usd_cache_key(usd_path)}.png"
+        cache_path = THUMBNAIL_CACHE_DIR / f"{usd_cache_key(usd_path)}.png"
         if cache_path.exists() and cache_path.stat().st_size > 0:
             resolved[node_id] = cache_path
         else:
@@ -61,7 +43,7 @@ def _render_thumbnails_with_app(
 
     if to_render:
         print(
-            f"[thumbnail_render] rendering {len(to_render)} new thumbnail(s) "
+            f"[thumbnail_capture] rendering {len(to_render)} new thumbnail(s) "
             f"(reusing {len(resolved)} from cache at {THUMBNAIL_CACHE_DIR})...",
             file=sys.stderr,
         )
@@ -70,70 +52,9 @@ def _render_thumbnails_with_app(
             if node_id in captured and cache_path.exists() and cache_path.stat().st_size > 0:
                 resolved[node_id] = cache_path
     else:
-        print(f"[thumbnail_render] all {len(resolved)} thumbnail(s) served from cache.", file=sys.stderr)
+        print(f"[thumbnail_capture] all {len(resolved)} thumbnail(s) served from cache.", file=sys.stderr)
 
     return resolved, resolve_node_aabb_dimensions_m(spec)
-
-
-def _resolve_node_usd_paths(spec: ArenaEnvInitialGraphSpec) -> dict[str, str]:
-    """Map ``node.id → usd_path`` via :class:`AssetRegistry`."""
-    try:
-        from isaaclab_arena.assets.registries import AssetRegistry  # noqa: PLC0415
-    except Exception as exc:
-        print(f"[thumbnail_render] AssetRegistry import failed: {exc}", file=sys.stderr)
-        return {}
-
-    registry = AssetRegistry()
-    paths: dict[str, str] = {}
-    for node in spec.nodes:
-        if node.type not in _RENDERABLE_NODE_TYPES:
-            continue
-        try:
-            if not registry.is_registered(node.name):
-                print(f"[thumbnail_render]   {node.id}: asset '{node.name}' not registered, skipping.", file=sys.stderr)
-                continue
-            cls = registry.get_asset_by_name(node.name)
-            usd_path = _extract_usd_path(cls)
-            if not usd_path:
-                print(f"[thumbnail_render]   {node.id}: '{node.name}' has no usd_path, skipping.", file=sys.stderr)
-                continue
-            paths[node.id] = usd_path
-        except Exception as exc:
-            print(f"[thumbnail_render]   {node.id}: lookup failed for '{node.name}': {exc}", file=sys.stderr)
-    return paths
-
-
-def _extract_usd_path(cls) -> str | None:
-    """Return the asset's root USD path, or ``None`` if not extractable."""
-    usd_path = getattr(cls, "usd_path", None)
-    if usd_path:
-        return usd_path
-
-    try:
-        instance = cls()
-    except Exception:
-        return None
-    scene_config = getattr(instance, "scene_config", None)
-    robot = getattr(scene_config, "robot", None) if scene_config is not None else None
-    spawn = getattr(robot, "spawn", None) if robot is not None else None
-    return getattr(spawn, "usd_path", None) if spawn is not None else None
-
-
-def _usd_cache_key(usd_path: str) -> str:
-    return hashlib.sha1(usd_path.encode("utf-8")).hexdigest()[:16]
-
-
-def _aabb_dimensions_from_usd(usd_path: str) -> AabbDimensionsM | None:
-    """Return local axis-aligned bounding box size (x, y, z) in meters for a USD asset."""
-    try:
-        from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd  # noqa: PLC0415
-
-        bbox = compute_local_bounding_box_from_usd(usd_path)
-        size = bbox.size[0]
-        return (float(size[0]), float(size[1]), float(size[2]))
-    except Exception as exc:
-        print(f"[thumbnail_render]   bbox failed for {usd_path}: {exc}", file=sys.stderr)
-        return None
 
 
 def _capture_usd_thumbnails(app, to_render: dict[str, tuple[str, Path]]) -> dict[str, bytes]:
@@ -151,7 +72,7 @@ def _capture_usd_thumbnails(app, to_render: dict[str, tuple[str, Path]]) -> dict
         try:
             png_bytes = _render_one_usd(app, usd_path, cache_path)
         except Exception as exc:
-            print(f"[thumbnail_render]   render failed for {usd_path}: {exc}", file=sys.stderr)
+            print(f"[thumbnail_capture]   render failed for {usd_path}: {exc}", file=sys.stderr)
             continue
         if png_bytes:
             for node_id in node_ids:
@@ -172,7 +93,7 @@ def _render_one_usd(app, usd_path: str, cache_path: Path) -> bytes | None:
 
     ctx = omni.usd.get_context()
     if not ctx.open_stage(usd_path):
-        print(f"[thumbnail_render]   open_stage failed: {usd_path}", file=sys.stderr)
+        print(f"[thumbnail_capture]   open_stage failed: {usd_path}", file=sys.stderr)
         return None
     stage = ctx.get_stage()
 
@@ -186,7 +107,7 @@ def _render_one_usd(app, usd_path: str, cache_path: Path) -> bytes | None:
     viewport = get_active_viewport()
     framed = frame_viewport_prims(viewport, prims=[str(target_prim.GetPath())])
     if not framed:
-        print(f"[thumbnail_render]   warning: frame_viewport_prims failed for {usd_path}", file=sys.stderr)
+        print(f"[thumbnail_capture]   warning: frame_viewport_prims failed for {usd_path}", file=sys.stderr)
 
     for _ in range(30):
         app.update()
@@ -197,7 +118,7 @@ def _render_one_usd(app, usd_path: str, cache_path: Path) -> bytes | None:
 
     if cache_path.exists() and cache_path.stat().st_size > 0:
         return cache_path.read_bytes()
-    print(f"[thumbnail_render]   capture produced no file: {cache_path}", file=sys.stderr)
+    print(f"[thumbnail_capture]   capture produced no file: {cache_path}", file=sys.stderr)
     return None
 
 
