@@ -15,6 +15,10 @@ MODELS_HOST_MOUNT_DIRECTORY="$HOME/models"
 EVAL_HOST_MOUNT_DIRECTORY="$HOME/eval"
 # Default GR00T installation settings (false means no GR00T installation)
 INSTALL_GROOT="false"
+# Optional robot_menagerie checkout used by robot bringup assets such as Unitree H2.
+# TODO(pulkitg): Remove this temporary mount once the H2 asset is published to
+# Omniverse Nucleus and isaaclab_arena/embodiments/h2/h2.py links to it directly.
+ROBOT_MENAGERIE_HOST_MOUNT_DIRECTORY="$HOME/workspace/robot_menagerie"
 # Whether to forcefully rebuild the docker image
 # (it takes a while to re-build, but for testing is not really necessary)
 FORCE_REBUILD=false
@@ -70,6 +74,7 @@ while getopts ":d:m:e:hn:rn:Rn:vn:gn:s:" OPTION; do
             echo "  -d <datasets directory> (Path to datasets on the host. Default is \"$DATASETS_HOST_MOUNT_DIRECTORY\".)"
             echo "  -m <models directory> (Path to models on the host. Default is \"$MODELS_HOST_MOUNT_DIRECTORY\".)"
             echo "  -e <evaluation directory> (Path to evaluation data on the host. Default is \"$EVAL_HOST_MOUNT_DIRECTORY\".)"
+            echo "  Mounts \"$ROBOT_MENAGERIE_HOST_MOUNT_DIRECTORY\" to /workspaces/robot_menagerie if it exists."
             echo "  -n <docker name> (Name of the docker image that will be built or used. Default is \"$DOCKER_IMAGE_NAME\".)"
             echo "  -r (Force rebuilding of the docker image.)"
             echo "  -R (Force rebuilding of the docker image, without cache.)"
@@ -158,6 +163,7 @@ else
                     $(add_volume_if_it_exists $DATASETS_HOST_MOUNT_DIRECTORY /datasets)
                     $(add_volume_if_it_exists $MODELS_HOST_MOUNT_DIRECTORY /models)
                     $(add_volume_if_it_exists $EVAL_HOST_MOUNT_DIRECTORY /eval)
+                    $(add_volume_if_it_exists $ROBOT_MENAGERIE_HOST_MOUNT_DIRECTORY /workspaces/robot_menagerie)
                     "-v" "$HOME/.bash_history:/home/$(id -un)/.bash_history"
                     "-v" "$HOME/.config/osmo:/home/$(id -un)/.config/osmo"
                     "-v" "$HOME/.config/gh:/home/$(id -un)/.config/gh"
@@ -186,6 +192,7 @@ else
                     # remove it, if indeed it's not needed.
                     # "--env" "OMNI_KIT_ALLOW_ROOT=1"
                     "--env" "ISAACLAB_PATH=${WORKDIR}/submodules/IsaacLab"
+                    "--env" "ROBOT_MENAGERIE_ROOT=/workspaces/robot_menagerie"
                     # Tell requests/urllib3 to use the system cert bundle
                     "--env" "REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
                     )
