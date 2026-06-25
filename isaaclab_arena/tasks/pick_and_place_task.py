@@ -57,9 +57,9 @@ class PickAndPlaceTask(TaskBase):
         task_description: str | None = None,
         force_threshold: float = 0.1,
         velocity_threshold: float = 0.1,
-        max_x_separation: float = 0.15,
-        max_y_separation: float = 0.15,
-        max_z_separation: float = 0.15,
+        max_x_separation: float = 0.5,
+        max_y_separation: float = 0.5,
+        max_z_separation: float = 0.5,
         mimic_env_cfg_factory: Callable[[ArmMode], MimicEnvCfg] | None = None,
     ):
         super().__init__(episode_length_s=episode_length_s)
@@ -107,6 +107,8 @@ class PickAndPlaceTask(TaskBase):
                             "velocity_threshold": self.velocity_threshold,
                         },
                     ),
+                    # TODO(qianl): replace objects_in_proximity with object_centroid_in_container
+                    # for tighter container placement checks.
                     TerminationTermCfg(
                         func=objects_in_proximity,
                         params={
