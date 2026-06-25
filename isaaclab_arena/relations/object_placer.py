@@ -18,7 +18,6 @@ from isaaclab_arena.relations.placement_validation import PlacementCheck, Placem
 from isaaclab_arena.relations.relation_loss_strategies import SIDE_CONFIGS, next_to_violations, not_next_to_violations
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import (
-    IsAnchor,
     NextTo,
     NotNextTo,
     On,
@@ -742,7 +741,7 @@ class ObjectPlacer:
         return strategy.margin_m
 
     def _get_cpu_mesh_manager(self):
-        """Lazy-init CPU WarpMeshAndSphereCache."""
+        """Return the CPU-device mesh manager, creating it on first call."""
         if self._cpu_mesh_manager is None:
             self._cpu_mesh_manager = WarpMeshAndSphereCache(
                 num_spheres=self.params.solver_params.num_spheres,
@@ -803,7 +802,7 @@ class ObjectPlacer:
         tolerance,
         orientations,
     ) -> bool:
-        """True if source's spheres penetrate target's mesh."""
+        """True if source's spheres penetrate target's mesh or if BVH returns no-face sentinel."""
         spheres = mesh_manager.get_query_spheres(source_mesh, obj=source)
         warp_mesh = mesh_manager.get_warp_mesh(target_mesh, obj=target)
         centers = self._centers_in_target_frame(spheres[:, :3], source, target, source_pos, target_pos, orientations)

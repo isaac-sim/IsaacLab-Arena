@@ -295,10 +295,7 @@ class RelationSolver:
     def _build_vectorized_cache(
         self, state, manager, non_anchor_objects, anchor_objects, on_pairs, device, direction: str
     ) -> MeshPairCache | None:
-        """Build vectorized pair cache for one direction.
-
-        Returns None if no valid pairs exist for this direction.
-        """
+        """Build the MeshPairCache for forward or reverse assignment; None when no pairs qualify."""
         centers_list: list[torch.Tensor] = []
         radii_list: list[torch.Tensor] = []
         pair_child_objs: list = []
@@ -495,11 +492,7 @@ class RelationSolver:
         state: RelationSolverState,
         debug: bool,
     ) -> torch.Tensor:
-        """Sphere-to-SDF penetration loss using the vectorized multi-mesh kernel.
-
-        Uses precomputed pair cache (centers, radii, mesh indices) to batch all
-        sphere queries into a single Warp kernel call per iteration.
-        """
+        """Sphere-to-SDF penetration loss via the vectorized multi-mesh kernel."""
         device = state.device
         total_loss = torch.zeros(state.batch_size, device=device, dtype=torch.float32)
         clearance_m = self.params.clearance_m
