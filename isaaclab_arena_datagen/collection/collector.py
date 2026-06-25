@@ -96,8 +96,9 @@ class DatagenCollector:
 
     Build via :meth:`from_env` after the environment is created. Pass the
     instance to ``rollout_policy(..., collector=collector)``; the loop calls
-    :meth:`on_step` after every ``env.step`` (with the episode-``done`` flag) and
-    :meth:`finalize`/:meth:`close` at the end.
+    :meth:`on_step` after every ``env.step``, :meth:`end_episode` at each episode
+    boundary (before its explicit reset), and :meth:`finalize`/:meth:`close` at
+    the end.
     """
 
     def __init__(
@@ -197,30 +198,27 @@ class DatagenCollector:
     # Hooks called by rollout_policy
     # ------------------------------------------------------------------
 
-    def on_step(self, env: Any, obs: Any, actions: Any, step_idx: int, done: bool = False) -> None:
-        """Record one frame; split into a new episode file at episode boundaries.
+    def on_step(self, env: Any, obs: Any, actions: Any, step_idx: int) -> None:
+        """Record one frame of the current episode.
+
+        The rollout loop drives episode boundaries explicitly: for datagen it
+        disables the env's in-``step()`` auto-reset and calls :meth:`end_episode`
+        immediately before each explicit ``env.reset()``. As a result this method
+        only ever sees frames from a single, fully-settled episode, so the
+        previous episode's final render can no longer leak into a new episode's
+        first frame.
 
         Args:
             env: IsaacLab environment instance.
             obs: Observation dict from ``env.step`` (unused; cameras are dedicated).
             actions: Action tensor (unused; recorded scene state is read from sim).
             step_idx: Rollout step counter (informational only).
-            done: Whether this step terminated/truncated an episode. Because Isaac
-                Lab resets within ``step()``, a ``done`` step's frame belongs to the
-                *next* episode, so the accumulated episode is flushed before this
-                frame is recorded into a freshly opened file.
         """
         self._last_env = env
         if self._closed:
             return
 
         if not self._episode_open:
-            self._start_episode()
-
-        # The reset for a done step has already happened, so the current frame is
-        # the first frame of a new episode: flush what we have, then open a new file.
-        if done and self._local > 0:
-            self._end_episode(env)
             self._start_episode()
 
         if self._local < self._capacity:
@@ -236,6 +234,16 @@ class DatagenCollector:
                 )
             self._tracker.record_step_poses(env, self._local)
             self._local += 1
+
+    def end_episode(self, env: Any) -> None:
+        """Flush the in-progress episode file (idempotent).
+
+        The rollout loop calls this at an episode boundary, right before its
+        explicit ``env.reset()``, so each episode is closed from a settled scene.
+        """
+        if self._closed or not self._episode_open:
+            return
+        self._end_episode(env)
 
     def finalize(self, env: Any | None = None) -> None:
         """Flush the in-progress episode and stop recording. Idempotent."""
