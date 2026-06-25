@@ -25,14 +25,18 @@ class BaseTask(ABC):
         workflow_type: WorkflowType,
         workflow_args: argparse.Namespace,
         task_args: argparse.Namespace,
+        lead: bool | None = None,
     ) -> None:
         self.workflow_type = workflow_type
         self.workflow_args = workflow_args
         self.task_args = task_args
+        self.lead = lead
+        """Whether this task is the group lead. ``None`` means unspecified and is resolved by the workflow."""
 
     def create_task_dict(self) -> dict[str, Any]:
         """Assemble the task dict consumed by OSMO."""
         return {
+            "name": self.get_task_name(),
             "args": ["/tmp/entry.sh"],
             "command": ["bash"],
             "credentials": self._get_credentials(),
@@ -42,8 +46,7 @@ class BaseTask(ABC):
             "image": self._get_image(),
             "inputs": self._get_inputs(),
             "outputs": self._get_outputs(),
-            "lead": True,
-            "name": self.get_task_name(),
+            "lead": bool(self.lead),
         }
 
     def _get_environment(self) -> dict[str, str]:

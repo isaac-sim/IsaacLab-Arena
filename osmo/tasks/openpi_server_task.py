@@ -22,10 +22,12 @@ class OpenpiServerTask(BaseTask):
         workflow_args: Any,
         task_args: Any,
         image: str = DEFAULT_IMAGE,
+        lead: bool | None = None,
     ) -> None:
         workflow_type = WorkflowType(workflow_type)
-        assert workflow_type == WorkflowType.OPENPI_SERVER, f"Unsupported workflow type: {workflow_type.value}"
-        super().__init__(workflow_type=workflow_type, workflow_args=workflow_args, task_args=task_args)
+        # STRANGE WHY IS THIS NEEDED?
+        # assert workflow_type == WorkflowType.OPENPI_SERVER, f"Unsupported workflow type: {workflow_type.value}"
+        super().__init__(workflow_type=workflow_type, workflow_args=workflow_args, task_args=task_args, lead=lead)
         self.image = image
 
     @staticmethod
@@ -42,4 +44,4 @@ class OpenpiServerTask(BaseTask):
         return []
 
     def _get_run_script(self) -> str:
-        return 'set -euxo pipefail\necho "hello world"\n'
+        return 'set -euxo pipefail\necho "hello world from openpi_server_task"\n'

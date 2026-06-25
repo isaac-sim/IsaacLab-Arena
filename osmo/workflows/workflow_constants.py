@@ -10,10 +10,12 @@ OSMO_TASK_OUTPUT_DIR = "{{output}}"
 # Swift / PDX prefixes
 HTTPS_URL_PREFIX = "https://pdx.s8k.io/v1"
 SWIFT_URL_PREFIX = "swift://pdx.s8k.io"
-S3_URL_PREFIX = "s3://pdx.s8k.io"
 
 # Dataset path and URLs
-DATASETS_PATH = "AUTH_team-isaac/isaaclab_arena/"
+DATASETS_PATH = "AUTH_team-isaac/isaaclab_arena/workflows"
 DATASETS_HTTPS_URL = f"{HTTPS_URL_PREFIX}/{DATASETS_PATH}"
 DATASETS_SWIFT_URL = f"{SWIFT_URL_PREFIX}/{DATASETS_PATH}"
-DATASETS_S3_URL = f"{S3_URL_PREFIX}/{DATASETS_PATH}"
+
+# The path for a single run.
+DATASET_HTTPS_URL = f"{HTTPS_URL_PREFIX}/{DATASETS_PATH}/{{{{workflow_id}}}}"
+DATASET_SWIFT_URL = f"{SWIFT_URL_PREFIX}/{DATASETS_PATH}/{{{{workflow_id}}}}"
