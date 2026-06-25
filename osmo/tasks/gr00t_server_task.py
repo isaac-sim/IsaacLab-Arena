@@ -16,9 +16,8 @@ from typing import Any
 from tasks.base_task import BaseTask
 from workflows.utils.workflow_types import WorkflowType
 
-# GR00T server image, already built and used in CI (see isaaclab_arena_gr00t/docker/push_to_ngc.sh
-# and the gr00t sidecar service in .github/workflows/ci.yml).
-DEFAULT_IMAGE = "nvcr.io/nvidian/gr00t1_6_arena_ci:latest"
+# GR00T server image (droid manipulation variant).
+DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/gr00t_1_6_droid"
 # Base model baked into the GR00T CI image.
 DEFAULT_MODEL_PATH = "/workspace/pretrained_ckpts/GR00T-N1.6-3B"
 # Embodiment tag for the droid manipulation config (see droid_manip_gr00t_closedloop_config.yaml).
