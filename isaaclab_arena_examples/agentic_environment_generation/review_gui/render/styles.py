@@ -76,6 +76,10 @@ table.tasks pre { padding: 6px 8px; font-size: 11px; }
 .thumb-name { font-size: 10px; margin-top: 6px; padding: 0 8px; text-align: center; word-break: break-word; }
 .thumb-dims { font-size: 10px; color: var(--fg-muted); text-align: center; word-break: break-word;
               font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
+.thumb-unsupported { border: 1px dashed var(--border); }
+.thumb-unsupported .thumb-initial { font-size: 22px; opacity: 0.45; }
+.thumb-note { position: absolute; bottom: 28px; left: 0; right: 0; padding: 0 8px;
+              font-size: 9px; text-align: center; color: var(--fg-muted); line-height: 1.3; }
 .node-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .node-id { font-family: ui-monospace, monospace; font-size: 13px; font-weight: 600; word-break: break-all; }
 .node-yaml { font-size: 11px; }

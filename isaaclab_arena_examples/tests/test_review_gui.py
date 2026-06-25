@@ -18,6 +18,7 @@ from isaaclab_arena.agentic_environment_generation.spec_io import (
     linked_spec_path,
     save_initial_graph_spec,
 )
+from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeSpec, ArenaEnvGraphNodeType
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
@@ -69,6 +70,20 @@ class TestNodeThumbnailAabb:
         assert "thumb-dims" in html
         assert "0.050 × 0.050 × 0.120 m" in html
         assert html.index("thumb-wrap") < html.index("thumb-dims")
+
+    def test_render_object_reference_shows_unsupported_note(self):
+        from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphObjectReferenceNodeSpec
+
+        node = ArenaEnvGraphObjectReferenceNodeSpec(
+            id="table_top",
+            name="table_top",
+            parent="kitchen",
+            prim_path="/World/kitchen/table",
+            object_type=ObjectType.RIGID,
+        )
+        html = render_node_thumbnail(node)
+        assert "thumb-unsupported" in html
+        assert "Prim reference — snapshot not supported" in html
 
 
 class TestValidateYamlText:
