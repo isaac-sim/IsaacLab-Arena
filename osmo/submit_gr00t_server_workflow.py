@@ -14,7 +14,7 @@ Usage examples:
     python osmo/submit_gr00t_server_workflow.py --dry-run
 
     # Submit to a pool
-    python osmo/submit_gr00t_server_workflow.py --pool isaac-dev-l40-03
+    python osmo/submit_gr00t_server_workflow.py --pool isaac-dev-l40s-04 --platform ovx-l40s
 """
 
 from __future__ import annotations

@@ -15,13 +15,14 @@ Usage examples:
     python osmo/submit_gr00t_policy_runner_workflow.py --dry-run
 
     # Submit to a pool
-    python osmo/submit_gr00t_policy_runner_workflow.py --pool isaac-dev-l40-03
+    python osmo/submit_gr00t_policy_runner_workflow.py --pool isaac-dev-l40s-04 --platform ovx-l40s
 
     # Evaluate a different environment / config
     python osmo/submit_gr00t_policy_runner_workflow.py \
         --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml \
         --env_graph_spec_yaml isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml \
-        --pool isaac-dev-l40-03
+        --pool isaac-dev-l40s-04
+        --platform ovx-l40s
 """
 
 from __future__ import annotations
