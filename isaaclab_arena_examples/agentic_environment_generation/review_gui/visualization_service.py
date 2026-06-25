@@ -19,8 +19,8 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.cl
     simapp_socket_from_env,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
+    clear_simapp_client,
     ensure_simapp,
-    get_simapp_client,
 )
 
 
@@ -83,7 +83,7 @@ def render_dashboard_with_thumbnails(spec: ArenaEnvInitialGraphSpec) -> str:
         thumbnails, aabb_dimensions_m = client.render_spec(spec)
     except SimAppError as exc:
         _show_simapp_render_error_once(exc)
-        get_simapp_client.clear()
+        clear_simapp_client()
         html = render_dashboard_html(spec)
         _store_dashboard_html(spec_key, html)
         return html
