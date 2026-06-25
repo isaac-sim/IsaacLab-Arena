@@ -58,6 +58,11 @@ class Gr00tServerTask(BaseTask):
         return []
 
     def _get_run_script(self) -> str:
+        # The standalone GR00T_SERVER workflow is a hello-world prover: it only checks the CI
+        # image is pullable and runnable on OSMO. The combined GR00T_POLICY_RUNNER workflow runs
+        # the real server so the policy-runner task can connect to it.
+        if self.workflow_type == WorkflowType.GR00T_SERVER:
+            return 'set -euxo pipefail\necho "hello world from gr00t_server_task"\n'
         return (
             "set -euxo pipefail\n"
             "nvidia-smi\n"
