@@ -44,7 +44,7 @@ tasks:
     destination_location: bin_b04
     background_scene: maple_table_robolab
     episode_length_s: 20.0
-  description: pick up the spring clamp and place it in the right bin (bin_b04)
+  description: pick up the spring clamp and place it in the right bin
   id: task_0_PickAndPlaceTask
   initial_state_spec_id: state_initial
   success_state_spec_id: state_spec_1
