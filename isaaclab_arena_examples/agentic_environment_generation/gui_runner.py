@@ -5,9 +5,6 @@
 
 """CLI launcher for the ArenaEnvInitialGraphSpec live editor.
 
-Boots a SimApp subprocess (Isaac Sim + Kit viewport) for live USD node thumbnails,
-then spawns Streamlit. Launch Streamlit directly only when placeholders are enough.
-
 Usage:
     # Default — start with a prompt:
     /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner
