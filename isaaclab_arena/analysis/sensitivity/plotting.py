@@ -115,6 +115,7 @@ def _draw_continuous_marginal(ax, factor: FactorSpec, factor_samples: np.ndarray
         ax.axvspan(low_percentile, high_percentile, color=_CONTINUOUS_COLOR, alpha=0.15, label="5-95%")
     else:
         ax.axvline(float(np.mean(factor_samples)), color=_CONTINUOUS_COLOR, linewidth=2, label="constant")
+        ax.set_ylim(bottom=0)
 
     if span > 0:
         # The uniform prior is the "no effect" reference the posterior is read against.
