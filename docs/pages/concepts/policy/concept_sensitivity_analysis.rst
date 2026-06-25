@@ -10,7 +10,7 @@ rate) and renders one figure summarising which factor values are associated with
 Two distinct ideas are at work. *Joint* means all factors are modelled together rather than
 one at a time, which is what captures interactions and confounds (see the next section).
 *Posterior* means the result is conditioned on the outcome: starting from the prior — the
-factor values the sweep actually drew, uniform over the declared ranges — it reweights them
+factor values the sweep actually drew, uniform over their observed ranges — it reweights them
 by how often each led to the chosen outcome. So the figure answers *given success, which
 factor values were in play?*, not merely *how were the factors distributed in the sweep?*
 
@@ -39,54 +39,49 @@ How it works
 The toolbox is a thin analysis layer over `sbi <https://sbi.readthedocs.io>`_'s
 neural posterior estimators. The flow is:
 
-1. **Per-episode input.** The analysis reads an ``episode_summary.jsonl`` — one row per
-   episode, holding that episode's factor values and outcomes.
-2. **Schema.** A ``factors.yaml`` declares the *factors* — which ``arena_env_args`` columns
-   were varied and whether each is continuous or categorical, plus the continuous ranges
-   that were swept (so the analyzer's prior matches the simulation). It does **not** list
-   outcomes — *which* outcome to condition on is chosen at analysis time, not saved here.
-3. **Inference.** ``SensitivityAnalyzer`` loads the pair, trains an estimator on the full
-   ``(theta, x)`` jointly — sbi's terms for the factor values (``theta``) and the per-episode
-   outcomes (``x``) — and samples the joint posterior conditioned on a chosen observation
-   (by default, success).
+1. **Per-episode input.** The analysis reads a single ``episode_results.jsonl`` — one row per
+   episode, holding that episode's recorded variation draws and outcomes.
+2. **Schema discovery.** The factors are discovered from the data: each entry in a row's
+   ``variations`` block becomes a factor — a number is continuous, a numeric vector splits into
+   one continuous factor per component, and a string is categorical (its choices are the labels
+   observed across the sweep). Continuous ranges are taken from the data's min/max. There is no
+   schema file to author; *which* outcome to condition on is chosen at analysis time.
+3. **Inference.** ``SensitivityAnalyzer`` trains an estimator on the full ``(theta, x)`` jointly
+   — sbi's terms for the factor values (``theta``) and the per-episode outcomes (``x``) — and
+   samples the joint posterior conditioned on a chosen observation (by default, success).
 4. **Report.** A probability density curve for each continuous factor and a probability bar
    chart for each categorical factor.
 
 .. todo::
 
-   The eval-runner writer (``episode_writer``) that emits ``episode_summary.jsonl`` during
-   evaluation is not part of this version — it lands in a follow-up. For now, run the analysis
-   on synthetic data (see below) or on a JSONL produced externally.
+   The per-episode recorder that emits ``episode_results.jsonl`` during evaluation lands in a
+   follow-up. For now, run the analysis on synthetic data (see below) or on a JSONL produced
+   externally.
 
-Inputs
-------
+Input
+-----
 
-**factors.yaml** declares only the factors that were varied (and the continuous ranges that
-were swept). Outcomes are not declared here — they're selected at analysis time (see below):
-
-.. code-block:: yaml
-
-   factors:
-     light_intensity:
-       type: continuous
-       range: [[0.0, 5000.0]]   # the swept range; inferred from the data's min/max if omitted
-     table_material:
-       type: categorical
-       choices: [oak, walnut, bamboo]
-
-**episode_summary.jsonl** holds one JSON object per episode. It carries every measured
-outcome; the analysis picks which one(s) to condition on:
+The analysis reads a single ``episode_results.jsonl`` written by the per-episode recorder —
+one JSON object per episode. Each row's ``variations`` block holds the sampled factor draws,
+and the top-level fields named by ``--outcome`` hold the outcomes (any other top-level fields
+are ignored):
 
 .. code-block:: json
 
-   {"job_name": "pi0_sweep", "episode_idx": 0,
-    "arena_env_args": {"light_intensity": 3200.0, "table_material": "oak"},
-    "outcomes": {"success": 1}}
+   {"job_name": "pi0_sweep", "episode_in_env": 0, "success": true,
+    "variations": {"light_intensity": 3200.0, "table_material": "oak",
+                   "wrist_camera": [0.01, -0.02, 0.0]}}
+
+The factor schema is discovered from these values, so there is no separate schema file: a
+number becomes a continuous factor, a numeric vector splits into one continuous factor per
+component (named ``key[0]``, ``key[1]``, …), and a string becomes a categorical factor whose
+choices are the labels observed across the sweep. A factor that took a single value across
+all episodes carries no information and is dropped.
 
 Choice of estimator
 -------------------
 
-``SensitivityAnalyzer`` picks the estimator from the schema automatically:
+``SensitivityAnalyzer`` picks the estimator from the discovered factors automatically:
 
 .. list-table::
    :header-rows: 1
@@ -111,22 +106,22 @@ conditions on success (1).
 Running a report
 ----------------
 
-Point the report generator at a ``(factors.yaml, episode_summary.jsonl)`` pair. The output
-format follows the file extension (``.png``, ``.pdf``, …); reports are written under
-``eval/`` by default.
+Point the report generator at an ``episode_results.jsonl``. The output format follows the
+file extension (``.png``, ``.pdf``, …); reports are written under ``eval/`` by default.
 
 .. code-block:: bash
 
    python -m isaaclab_arena.analysis.sensitivity.generate_report \
-     --factors_yaml factors.yaml \
-     --episode_summary episode_summary.jsonl \
+     --episode_results episode_results.jsonl \
      --outcome success \
      --output eval/sensitivity_report.png
 
-``--outcome`` selects which per-episode outcome(s) to condition on (keys in the rows'
-``outcomes`` block); it defaults to ``success``. Pass ``--observation`` to set the value
-per outcome — since outcomes are binary, use ``1`` for success or ``0`` for failure; it
-defaults to ``1`` (success).
+``--outcome`` selects which per-episode outcome(s) to condition on (top-level field(s) in
+each row); it defaults to ``success``. Pass ``--observation`` to set the value per outcome —
+since outcomes are binary, use ``1`` for success or ``0`` for failure; it defaults to ``1``
+(success). ``--factors`` restricts the analysis to a subset of the recorded variations (by
+their ``variations``-block names; a vector variation keeps all its components); by default
+every recorded variation is analyzed.
 
 Trying it on synthetic data
 ---------------------------
@@ -162,12 +157,18 @@ Current scope
 
 - Outcomes are treated as **binary** (0/1). Conditioning defaults to success; a continuous
   outcome is rejected with a clear error rather than silently averaged.
-- Continuous **vector** factors (``dim > 1``) are reserved for a future extension. The likely
-  approach is to record scalar reductions (e.g. a norm or distance-to-reference) alongside the
-  raw vector, so a pose or RGB factor becomes one or more analysable scalar columns.
+- A **vector** variation draw (e.g. a camera pose offset) is split into one scalar factor per
+  component (``key[0]``, ``key[1]``, …), each analysed independently. Components are named by
+  position; semantic names (e.g. a camera's lateral vs. depth axis) are a future extension.
+- **Factors should be drawn from the prior** the analyzer assumes — uniform over each
+  continuous range, and an equal number of episodes per categorical choice. The posterior is
+  taken relative to how the sweep drew the factors, so uneven sampling leaks in: a factor with
+  no real effect comes out flat only if it was sampled flat, otherwise its posterior tracks the
+  sampling frequency. The analyzer warns when a categorical is sampled unevenly, but the clean
+  fix is to balance the draws in the sweep.
 - The estimators run on CPU and do not require Isaac Sim, so a report can be generated
   anywhere the evaluation JSONL is available.
-- The analysis assumes the ``episode_summary.jsonl`` is a single coherent slice — one
+- The analysis assumes the ``episode_results.jsonl`` is a single coherent slice — one
   policy, task, and embodiment. **TODO:** add a filter (in the spirit of robolab's
   ``--filter-policy`` / ``--filter-task``) to select that slice from a larger JSONL,
   rather than relying on the caller to pre-filter it.

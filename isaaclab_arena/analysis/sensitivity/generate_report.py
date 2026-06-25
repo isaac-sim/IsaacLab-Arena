@@ -11,32 +11,32 @@ import torch
 from pathlib import Path
 
 from isaaclab_arena.analysis.sensitivity.analyzer import SensitivityAnalyzer
-from isaaclab_arena.analysis.sensitivity.dataset import SensitivityDataset
+from isaaclab_arena.analysis.sensitivity.episode_results_reader import dataset_from_episode_results
 from isaaclab_arena.analysis.sensitivity.plotting import plot_marginals
 
 
 def generate_report(
-    factors_yaml_path: str | Path,
-    jsonl_path: str | Path,
+    episode_results_path: str | Path,
     output_path: str | Path,
     outcome_names: list[str] | tuple[str, ...] = ("success",),
+    factor_names: list[str] | tuple[str, ...] | None = None,
     observation: list[float] | None = None,
     seed: int | None = 0,
 ) -> Path:
-    """Build a sensitivity report from a factors.yaml / episode_summary.jsonl pair.
+    """Build a sensitivity report from an episode_results.jsonl, fit, and save a figure.
 
-    Loads the data, fits a SensitivityAnalyzer, and saves a single posterior-marginals
-    figure. The output format follows the output_path extension (.png, .pdf, …).
+    The factor schema is discovered from the recorder's per-episode variation draws. The output
+    format follows the output_path extension (.png, .pdf, …).
 
     Args:
-        factors_yaml_path: Schema file declaring the factors.
-        jsonl_path: episode_summary.jsonl produced by eval_runner.
+        episode_results_path: episode_results.jsonl produced by the per-episode recorder.
         output_path: Destination figure file (parent dirs created if absent).
         outcome_names: Which per-episode outcome(s) to condition on.
-        observation: Outcome values to condition on, one per outcome name. Defaults to
-            conditioning on success (1) for every (binary) outcome.
-        seed: Seed for torch's global RNG, set once before fitting so the estimator training
-            and posterior sampling are reproducible. Pass ``None`` to leave the RNG untouched.
+        factor_names: Which recorded variations to analyze. None analyzes all of them.
+        observation: Outcome values to condition on, one per outcome name. None conditions on
+            success (1) for every binary outcome.
+        seed: Seed for torch's global RNG so a report is reproducible. Pass None to leave the
+            RNG untouched.
 
     Returns:
         The resolved output path.
@@ -46,7 +46,7 @@ def generate_report(
     if seed is not None:
         torch.manual_seed(seed)
 
-    dataset = SensitivityDataset.from_files(Path(factors_yaml_path), Path(jsonl_path), outcome_names)
+    dataset = dataset_from_episode_results(episode_results_path, outcome_names, factor_names)
     analyzer = SensitivityAnalyzer(dataset)
     analyzer.fit()
 
@@ -64,26 +64,38 @@ def generate_report(
 def main():
     parser = argparse.ArgumentParser(
         description=(
-            "Build a sensitivity report (one posterior-marginal panel per factor) from a "
-            "(factors.yaml, episode_summary.jsonl) pair. Output format follows the --output extension."
+            "Build a sensitivity report (one posterior-marginal panel per factor) from an "
+            "episode_results.jsonl. Output format follows the --output extension."
         )
     )
-    parser.add_argument("--factors_yaml", type=str, required=True, help="Path to factors.yaml.")
     parser.add_argument(
-        "--episode_summary", type=str, required=True, help="Path to episode_summary.jsonl produced by eval_runner."
+        "--episode_results",
+        type=str,
+        required=True,
+        help="Path to episode_results.jsonl produced by the per-episode recorder.",
     )
     parser.add_argument(
         "--output",
         type=str,
         default="eval/sensitivity_report.png",
-        help="Output figure file; format follows the extension (.png, .pdf, …). Default: eval/sensitivity_report.png.",
+        help="Output figure file. Format follows the extension (.png, .pdf, …). Default: eval/sensitivity_report.png.",
     )
     parser.add_argument(
         "--outcome",
         type=str,
         nargs="+",
         default=["success"],
-        help="Which per-episode outcome(s) to condition on (keys in the rows' outcomes block). Default: success.",
+        help="Which per-episode outcome(s) to condition on (top-level field(s) in each row). Default: success.",
+    )
+    parser.add_argument(
+        "--factors",
+        type=str,
+        nargs="+",
+        default=None,
+        help=(
+            "Which recorded variations to analyze (keys in each row's variations block, a vector "
+            "variation keeps all its components). Default: all recorded variations."
+        ),
     )
     parser.add_argument(
         "--observation",
@@ -99,15 +111,15 @@ def main():
         "--seed",
         type=int,
         default=0,
-        help="Seed for torch's global RNG, so estimator training + sampling are reproducible. Default: 0.",
+        help="Seed for torch's global RNG so a report is reproducible. Default: 0.",
     )
     args = parser.parse_args()
 
     generate_report(
-        args.factors_yaml,
-        args.episode_summary,
+        args.episode_results,
         args.output,
         outcome_names=args.outcome,
+        factor_names=args.factors,
         observation=args.observation,
         seed=args.seed,
     )

@@ -293,8 +293,8 @@ def test_solve_and_place_objects_handles_multiple_env_ids():
         )
 
 
-def test_solve_and_place_objects_partial_reset_reusable_pool_consumes_only_reset_envs():
-    """Reusable layouts should not consume a full env round for a partial reset."""
+def test_solve_and_place_objects_partial_reset_homogeneous_pool_consumes_only_reset_envs():
+    """A partial reset should consume only the resetting env pools, not a full env round."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.placement_events import solve_and_place_objects
@@ -329,18 +329,18 @@ def test_solve_and_place_objects_writes_invalid_fallback_layout(capsys):
     env = _make_mock_env(num_envs=1)
 
     class InvalidPool:
-        requires_env_indexed_layouts = False
+        num_envs = 1
 
-        def sample_without_replacement(self, count: int) -> list[PlacementResult]:
-            assert count == 1
-            return [
-                PlacementResult(
+        def sample_for_envs(self, env_ids: list[int]) -> dict[int, PlacementResult]:
+            assert env_ids == [0]
+            return {
+                0: PlacementResult(
                     validation_results=_checklist(False),
                     positions={box1: (0.0, 0.0, 0.0), box2: (0.0, 0.0, 0.0)},
                     final_loss=float("nan"),
                     attempts=1,
                 )
-            ]
+            }
 
     solve_and_place_objects(env, torch.tensor([0]), objects, InvalidPool())
     captured = capsys.readouterr()
@@ -362,7 +362,6 @@ def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_res
     env = _make_mock_env(num_envs=4)
 
     class EnvIndexedPool:
-        requires_env_indexed_layouts = True
         num_envs = 4
         requested_env_ids = None
 
@@ -408,10 +407,9 @@ def test_solve_and_place_objects_asserts_env_indexed_pool_size_matches_scene():
     env = _make_mock_env(num_envs=2)
 
     class MismatchedEnvIndexedPool:
-        requires_env_indexed_layouts = True
         num_envs = 1
 
-    with pytest.raises(ValueError, match="scene has 2 env origins"):
+    with pytest.raises(AssertionError, match="scene has 2 env origins"):
         solve_and_place_objects(env, torch.tensor([0]), objects, MismatchedEnvIndexedPool())
 
 
@@ -533,7 +531,6 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
             raise AssertionError("resolve_on_reset init seeding must not register per-object reset events")
 
     class EnvIndexedPool:
-        requires_env_indexed_layouts = True
         num_envs = 3
         sample_count = None
 
@@ -591,7 +588,6 @@ def test_env_indexed_static_poses_apply_per_env_positions():
     num_envs = 3
 
     class PerEnvPool:
-        requires_env_indexed_layouts = True
         num_envs = 3
 
         def sample_with_replacement(self, count: int):
@@ -657,5 +653,5 @@ def test_pooled_placer_falls_back_when_no_valid_layouts(capsys):
 
     assert pool.remaining == 5
     assert pool.had_fallbacks
-    assert "Accepting best-loss layouts as fallback" in captured.out
+    assert "Falling back to best-loss layouts" in captured.out
     assert not pool.sample_without_replacement(1)[0].success

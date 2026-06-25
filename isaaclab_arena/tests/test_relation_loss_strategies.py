@@ -280,6 +280,19 @@ def test_next_to_loss_strategy_respects_relation_weight():
     assert torch.isclose(loss_double, 2.0 * loss_normal, rtol=1e-5)
 
 
+def test_next_to_accepts_string_side_from_yaml_params():
+    """YAML graph specs pass side as a string; NextTo must parse it to Side."""
+    parent_obj = _create_table()
+    child_obj = _create_box()
+    relation = NextTo(parent_obj, side="negative_x", distance_m=0.05)
+    strategy = NextToLossStrategy(slope=10.0)
+
+    assert relation.side == Side.NEGATIVE_X
+    child_pos = torch.tensor([-0.25, 0.4, 0.0])
+    loss = strategy.compute_loss(relation, child_pos, child_obj.bounding_box, parent_obj.bounding_box)
+    assert torch.isclose(loss, torch.tensor(0.0), atol=1e-4)
+
+
 def test_next_to_zero_distance_raises():
     """Test that NextTo raises assertion for zero distance (touching not allowed)."""
 
@@ -327,6 +340,20 @@ def test_next_to_loss_strategy_multi_env_shape_and_values():
 # =============================================================================
 # NotNextToLossStrategy tests
 # =============================================================================
+
+
+def test_not_next_to_accepts_string_side_from_yaml_params():
+    """YAML graph specs pass side as a string; NotNextTo must parse it to Side."""
+    parent_obj = _create_table()
+    child_obj = _create_box()
+    relation = NotNextTo(parent_obj, side="negative_x")
+    strategy = NotNextToLossStrategy(slope=10.0, margin_m=0.05)
+
+    assert relation.side == Side.NEGATIVE_X
+    # Cleared to the opposite (+X) side of the blocked -X edge.
+    child_pos = torch.tensor([0.3, 0.4, 0.5])
+    loss = strategy.compute_loss(relation, child_pos, child_obj.bounding_box, parent_obj.bounding_box)
+    assert torch.isclose(loss, torch.tensor(0.0), atol=1e-6)
 
 
 def test_not_next_to_loss_strategy_positive_at_forbidden_spot():
