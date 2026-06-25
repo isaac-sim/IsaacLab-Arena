@@ -57,9 +57,9 @@ class PickAndPlaceTask(TaskBase):
         task_description: str | None = None,
         force_threshold: float = 0.1,
         velocity_threshold: float = 0.1,
-        max_x_separation: float = 0.5,
-        max_y_separation: float = 0.5,
-        max_z_separation: float = 0.5,
+        max_x_separation: float = float("inf"),
+        max_y_separation: float = float("inf"),
+        max_z_separation: float = float("inf"),
         mimic_env_cfg_factory: Callable[[ArmMode], MimicEnvCfg] | None = None,
     ):
         super().__init__(episode_length_s=episode_length_s)
