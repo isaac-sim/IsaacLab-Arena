@@ -13,4 +13,5 @@ class PolicyType(str, Enum):
 
     ZERO_ACTION = "zero_action"
     REPLAY = "replay"
+    PI0_REMOTE = "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy"
     # TODO: Add more registered policy types here as their OSMO inputs are modeled.

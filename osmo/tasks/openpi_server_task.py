@@ -12,6 +12,13 @@ from workflows.utils.workflow_types import WorkflowType
 # isaaclab_arena_openpi/docker/build_server_image.sh.
 DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:openpi_server"
 
+# Mirrors isaaclab_arena_openpi/docker/run_openpi_server.sh: the build appends `COPY . /app` to
+# upstream's serve_policy.Dockerfile, so openpi source lives at /app.
+OPENPI_APP_DIR = "/app"
+XLA_PYTHON_CLIENT_MEM_FRACTION = "0.5"
+POLICY_CONFIG = "pi05_droid_jointpos_polaris"
+POLICY_DIR = "gs://openpi-assets-simeval/pi05_droid_jointpos"
+
 
 class OpenpiServerTask(BaseTask):
     """OSMO task that runs a dummy command inside the openpi server image."""
@@ -32,7 +39,8 @@ class OpenpiServerTask(BaseTask):
 
     @staticmethod
     def get_task_name() -> str:
-        return WorkflowType.OPENPI_SERVER.value
+        # return WorkflowType.OPENPI_SERVER.value
+        return "policy_server"
 
     def _get_image(self) -> str:
         return self.image
@@ -44,4 +52,11 @@ class OpenpiServerTask(BaseTask):
         return []
 
     def _get_run_script(self) -> str:
-        return 'set -euxo pipefail\necho "hello world from openpi_server_task"\n'
+        return (
+            "set -euxo pipefail\n"
+            f"export XLA_PYTHON_CLIENT_MEM_FRACTION={XLA_PYTHON_CLIENT_MEM_FRACTION}\n"
+            f"cd {OPENPI_APP_DIR}\n"
+            "uv run scripts/serve_policy.py policy:checkpoint \\\n"
+            f"  --policy.config={POLICY_CONFIG} \\\n"
+            f"  --policy.dir={POLICY_DIR}\n"
+        )
