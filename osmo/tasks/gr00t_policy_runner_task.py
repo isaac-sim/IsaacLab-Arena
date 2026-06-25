@@ -17,8 +17,9 @@ from tasks.gr00t_server_task import DEFAULT_SERVER_PORT
 from workflows.utils.workflow_types import WorkflowType
 from workflows.workflow_constants import EVAL_OUTPUT_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 
-# Arena eval image (carries the in-container GR00T client used by the remote policy).
-DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
+# Arena eval image (carries the in-container GR00T client used by the remote policy, plus the
+# variation-recording code and robolab environments needed by the default eval).
+DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:variation_record_6robolab_envs"
 POLICY_RUNNER_COMMAND = "/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py"
 WAIT_FOR_SERVER_COMMAND = "/isaac-sim/python.sh -u -m isaaclab_arena_gr00t.utils.wait_for_gr00t_server"
 
