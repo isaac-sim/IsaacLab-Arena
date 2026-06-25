@@ -68,18 +68,14 @@ case "$VARIANT" in
         ;;
 esac
 
-# Persist the ~11GB checkpoint that openpi pulls from gs:// across runs. Without
-# this, --rm discards the in-container cache every time.
+# Cache the ~11GB checkpoint that openpi pulls from gs:// across runs.
 OPENPI_CACHE_DIR="${OPENPI_CACHE_DIR:-$HOME/.cache/openpi}"
 
-# Single EXIT handler: remove the build tempdir (if any) and, once the server has
-# run, reset cache ownership back to us. The server runs as root in the container,
-# so files it writes to the mount are root-owned on the host; we chown them back
-# via a throwaway root container, which avoids needing host sudo.
-TMPDIR=""
+# Single EXIT handler: remove the build tempdir and reset cache ownership back to us.
+BUILD_TMPDIR=""
 SERVER_RAN=false
 cleanup() {
-    [ -n "$TMPDIR" ] && rm -rf "$TMPDIR"
+    [ -n "$BUILD_TMPDIR" ] && rm -rf "$BUILD_TMPDIR"
     if [ "$SERVER_RAN" = true ]; then
         docker run --rm -v "${OPENPI_CACHE_DIR}:/cache/openpi" \
             "${IMAGE_NAME}:${IMAGE_TAG}" \
@@ -90,14 +86,14 @@ trap cleanup EXIT
 
 if [ "$FORCE_REBUILD" = true ] || \
    [ -z "$(docker images -q "${IMAGE_NAME}:${IMAGE_TAG}" 2>/dev/null)" ]; then
-    TMPDIR=$(mktemp -d)
+    BUILD_TMPDIR=$(mktemp -d)
 
     if [ -n "$SRC_DIR" ]; then
         OPENPI_DIR="$SRC_DIR"
         echo "Using local openpi checkout at ${OPENPI_DIR}"
     else
         PINNED_COMMIT="$(tr -d '[:space:]' < "${SCRIPT_DIR}/OPENPI_COMMIT")"
-        OPENPI_DIR="$TMPDIR/openpi"
+        OPENPI_DIR="$BUILD_TMPDIR/openpi"
         echo "Cloning openpi at ${PINNED_COMMIT} ..."
         # Partial clone: skip blob objects, git fetches them on demand at checkout.
         # Cuts the one-time clone size on a ~GB-scale repo without changing what we end up with.
@@ -107,13 +103,13 @@ if [ "$FORCE_REBUILD" = true ] || \
 
     # Upstream's Dockerfile installs deps but expects source to be volume-mounted.
     # Append a COPY step so the image is self-contained.
-    cat "$OPENPI_DIR/scripts/docker/serve_policy.Dockerfile" > "$TMPDIR/Dockerfile"
-    echo "COPY . /app" >> "$TMPDIR/Dockerfile"
+    cat "$OPENPI_DIR/scripts/docker/serve_policy.Dockerfile" > "$BUILD_TMPDIR/Dockerfile"
+    echo "COPY . /app" >> "$BUILD_TMPDIR/Dockerfile"
 
     echo "Building ${IMAGE_NAME}:${IMAGE_TAG}"
     docker build \
         --network=host \
-        -f "$TMPDIR/Dockerfile" \
+        -f "$BUILD_TMPDIR/Dockerfile" \
         -t "${IMAGE_NAME}:${IMAGE_TAG}" \
         "$OPENPI_DIR"
 else
