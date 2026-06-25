@@ -169,6 +169,99 @@ def _draw_categorical_marginal(ax, factor: FactorSpec, factor_samples: np.ndarra
     ax.set_ylabel("posterior probability")
 
 
+def plot_marginal(
+    samples: torch.Tensor,
+    dataset: SensitivityDataset,
+    factor_name: str,
+    observation: torch.Tensor,
+    output_path: str | None = None,
+):
+    """Posterior marginal of a single named factor, on its own figure.
+
+    The one-panel counterpart to plot_marginals, for drawing one factor from an arbitrary set of
+    draws — e.g. a conditioned subset, where samples is already sliced to a pinned region.
+
+    Args:
+        samples: ``(num_samples, num_factors)`` posterior draws in the dataset's factor layout
+            (may be a conditioned subset).
+        dataset: The dataset, for the factor schema and column layout.
+        factor_name: Name of the factor to draw.
+        observation: The outcome vector the samples were conditioned on (shown in the title).
+        output_path: If given, save the figure here; the format follows the path's extension.
+
+    Returns:
+        The matplotlib Figure.
+    """
+    sample_array = samples.cpu().numpy()
+    factor = {factor.name: factor for factor in dataset.factors}[factor_name]
+    factor_samples = sample_array[:, dataset.factor_columns[factor_name]].squeeze(-1)
+
+    figure, ax = plt.subplots(figsize=(5.0, 3.5))
+    if factor.type == "continuous":
+        _draw_continuous_marginal(ax, factor, factor_samples)
+    else:
+        _draw_categorical_marginal(ax, factor, factor_samples)
+
+    observation_label = ", ".join(
+        f"{name}={value:g}" for name, value in zip(dataset.outcome_names, observation.tolist())
+    )
+    ax.set_title(f"{factor_name}  (observed: {observation_label}; n={len(factor_samples)})", fontsize=11)
+    figure.tight_layout()
+
+    if output_path is not None:
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        figure.savefig(output_path, dpi=150, bbox_inches="tight")
+    return figure
+
+
+def plot_joint(
+    samples: torch.Tensor,
+    dataset: SensitivityDataset,
+    factor_x_name: str,
+    factor_y_name: str,
+    observation: torch.Tensor,
+    output_path: str | None = None,
+):
+    """Single-pair joint posterior of two named factors, on its own figure.
+
+    The one-cell counterpart to plot_corner, for picking an interaction to look at (e.g. the
+    interactive app's factor-pair selector) without rendering the whole grid.
+
+    Args:
+        samples: ``(num_samples, num_factors)`` posterior draws in the dataset's factor layout.
+        dataset: The dataset, for the factor schema and column layout.
+        factor_x_name: Name of the factor on the horizontal axis.
+        factor_y_name: Name of the factor on the vertical axis.
+        observation: The outcome vector the samples were conditioned on (shown in the title).
+        output_path: If given, save the figure here; the format follows the path's extension.
+
+    Returns:
+        The matplotlib Figure.
+    """
+    sample_array = samples.cpu().numpy()
+    factors_by_name = {factor.name: factor for factor in dataset.factors}
+    factor_x, factor_y = factors_by_name[factor_x_name], factors_by_name[factor_y_name]
+    columns = dataset.factor_columns
+    samples_x = sample_array[:, columns[factor_x_name]].squeeze(-1)
+    samples_y = sample_array[:, columns[factor_y_name]].squeeze(-1)
+
+    figure, ax = plt.subplots(figsize=(6.0, 5.0))
+    _draw_joint(ax, factor_x, factor_y, samples_x, samples_y)
+    ax.set_xlabel(factor_x_name)
+    ax.set_ylabel(factor_y_name)
+
+    observation_label = ", ".join(
+        f"{name}={value:g}" for name, value in zip(dataset.outcome_names, observation.tolist())
+    )
+    ax.set_title(f"Joint posterior  (observed: {observation_label})", fontsize=12, fontweight="bold")
+    figure.tight_layout()
+
+    if output_path is not None:
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        figure.savefig(output_path, dpi=150, bbox_inches="tight")
+    return figure
+
+
 def plot_corner(
     samples: torch.Tensor,
     dataset: SensitivityDataset,
