@@ -20,9 +20,6 @@ from typing import Any, TextIO
 
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.boot import launch_simulation_app
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.thumbnail_capture import (
-    render_thumbnails_with_app,
-)
 
 
 def _install_signal_handlers() -> None:
@@ -83,6 +80,11 @@ def _serve_socket(socket_path: str) -> int:
     if app is None:
         print("[simapp] SimulationApp launch returned None", file=sys.stderr)
         return 1
+
+    # Kit/Omniverse and pxr (via asset_usd) must load only after SimulationApp starts.
+    from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.thumbnail_capture import (  # noqa: PLC0415
+        render_thumbnails_with_app,
+    )
 
     path = Path(socket_path)
     path.parent.mkdir(parents=True, exist_ok=True)
