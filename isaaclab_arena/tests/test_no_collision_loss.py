@@ -9,6 +9,7 @@ import math
 import torch
 
 from isaaclab_arena.assets.dummy_object import DummyObject
+from isaaclab_arena.relations.loss_primitives import interval_overlap_axis_loss
 from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -85,8 +86,43 @@ def test_solver_uses_rotated_bbox_for_collision():
     assert loss_rotated > 0.0
 
 
+def _single_pair_no_overlap_loss(
+    slope: float,
+    clearance_m: float,
+    child_pos: torch.Tensor,
+    child_bbox: AxisAlignedBoundingBox,
+    parent_world_bbox: AxisAlignedBoundingBox,
+) -> torch.Tensor:
+    """Single-pair no-overlap loss, the reference the vectorized solver path must reproduce.
+
+    Production scores pairs through NoCollisionLossStrategy.compute_loss_batched; this scalar
+    per-pair form lives here so it does not bloat the user-facing strategy file.
+    """
+    single_input = child_pos.dim() == 1
+    if single_input:
+        child_pos = child_pos.unsqueeze(0)
+
+    c = clearance_m
+    parent_x_min = parent_world_bbox.min_point[:, 0] - c
+    parent_x_max = parent_world_bbox.max_point[:, 0] + c
+    parent_y_min = parent_world_bbox.min_point[:, 1] - c
+    parent_y_max = parent_world_bbox.max_point[:, 1] + c
+    parent_z_min = parent_world_bbox.min_point[:, 2] - c
+    parent_z_max = parent_world_bbox.max_point[:, 2] + c
+
+    child_world_min = child_pos + child_bbox.min_point
+    child_world_max = child_pos + child_bbox.max_point
+
+    overlap_x = interval_overlap_axis_loss(child_world_min[:, 0], child_world_max[:, 0], parent_x_min, parent_x_max)
+    overlap_y = interval_overlap_axis_loss(child_world_min[:, 1], child_world_max[:, 1], parent_y_min, parent_y_max)
+    overlap_z = interval_overlap_axis_loss(child_world_min[:, 2], child_world_max[:, 2], parent_z_min, parent_z_max)
+
+    total_loss = slope * (overlap_x * overlap_y * overlap_z)
+    return total_loss.squeeze(0) if single_input else total_loss
+
+
 # =============================================================================
-# NoCollisionLossStrategy tests
+# Single-pair no-overlap reference tests (moved from NoCollisionLossStrategy.compute_loss)
 # =============================================================================
 
 
@@ -94,14 +130,13 @@ def test_no_collision_zero_loss_when_fully_separated():
     """Test that NoCollision loss is zero when AABBs do not overlap on any axis."""
     box_a = _create_box("box_a")
     box_b = _create_box("box_b")
-    strategy = NoCollisionLossStrategy(slope=10.0)
 
     # Child at origin -> world X [0, 0.2]. Parent at x=1 -> world X [1, 1.2]. No X overlap => volume 0.
     child_pos = torch.tensor([0.0, 0.0, 0.0])
     parent_world_bbox = box_b.get_bounding_box().translated((1.0, 0.0, 0.0))
 
-    loss = strategy.compute_loss(
-        clearance_m=0.01, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
+    loss = _single_pair_no_overlap_loss(
+        10.0, clearance_m=0.01, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
     )
     assert torch.isclose(loss, torch.tensor(0.0), atol=1e-5)
 
@@ -110,14 +145,13 @@ def test_no_collision_zero_loss_when_separated_on_one_axis_only():
     """Test that NoCollision loss is zero when separated on one axis (overlap_x=0 => volume=0)."""
     box_a = _create_box("box_a")
     box_b = _create_box("box_b")
-    strategy = NoCollisionLossStrategy(slope=10.0)
 
     # Child X [0, 0.2], parent X [0.5, 0.7] -> no X overlap. Y and Z overlapping.
     child_pos = torch.tensor([0.0, 0.0, 0.0])
     parent_world_bbox = box_b.get_bounding_box().translated((0.5, 0.0, 0.0))
 
-    loss = strategy.compute_loss(
-        clearance_m=0.01, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
+    loss = _single_pair_no_overlap_loss(
+        10.0, clearance_m=0.01, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
     )
     assert torch.isclose(loss, torch.tensor(0.0), atol=1e-5)
 
@@ -126,14 +160,13 @@ def test_no_collision_zero_loss_when_just_touching():
     """Test that NoCollision loss is zero when intervals just touch (clearance_m=0)."""
     box_a = _create_box("box_a")
     box_b = _create_box("box_b")
-    strategy = NoCollisionLossStrategy(slope=10.0)
 
     # Child X [0, 0.2], parent X [0.2, 0.4]. Just touching.
     child_pos = torch.tensor([0.0, 0.0, 0.0])
     parent_world_bbox = box_b.get_bounding_box().translated((0.2, 0.0, 0.0))
 
-    loss = strategy.compute_loss(
-        clearance_m=0.0, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
+    loss = _single_pair_no_overlap_loss(
+        10.0, clearance_m=0.0, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
     )
     assert torch.isclose(loss, torch.tensor(0.0), atol=1e-5)
 
@@ -142,14 +175,13 @@ def test_no_collision_positive_loss_when_just_touching():
     """Test that NoCollision loss is positive when just touching with default clearance."""
     box_a = _create_box("box_a")
     box_b = _create_box("box_b")
-    strategy = NoCollisionLossStrategy(slope=10.0)
 
     # Child X [0, 0.2], parent X [0.2, 0.4]. Just touching; default clearance expands parent so overlap > 0.
     child_pos = torch.tensor([0.0, 0.0, 0.0])
     parent_world_bbox = box_b.get_bounding_box().translated((0.2, 0.0, 0.0))
 
-    loss = strategy.compute_loss(
-        clearance_m=0.01, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
+    loss = _single_pair_no_overlap_loss(
+        10.0, clearance_m=0.01, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
     )
     assert loss > 0.0
 
@@ -158,14 +190,13 @@ def test_no_collision_positive_loss_when_3d_overlap():
     """Test that NoCollision loss is positive when AABBs overlap in all three axes."""
     box_a = _create_box("box_a")
     box_b = _create_box("box_b")
-    strategy = NoCollisionLossStrategy(slope=10.0)
 
     # Child at (0.1, 0.1, 0), parent at (0.05, 0.05, 0) -> overlap in X, Y, Z.
     child_pos = torch.tensor([0.1, 0.1, 0.0])
     parent_world_bbox = box_b.get_bounding_box().translated((0.05, 0.05, 0.0))
 
-    loss = strategy.compute_loss(
-        clearance_m=0.01, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
+    loss = _single_pair_no_overlap_loss(
+        10.0, clearance_m=0.01, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
     )
     assert loss > 0.0
 
@@ -174,17 +205,15 @@ def test_no_collision_loss_scales_with_slope():
     """Test that NoCollision loss scales with slope (loss = slope * overlap_volume)."""
     box_a = _create_box("box_a")
     box_b = _create_box("box_b")
-    strategy_slope_10 = NoCollisionLossStrategy(slope=10.0)
-    strategy_slope_20 = NoCollisionLossStrategy(slope=20.0)
 
     child_pos = torch.tensor([0.1, 0.1, 0.0])
     parent_world_bbox = box_b.get_bounding_box().translated((0.05, 0.05, 0.0))
 
-    loss_10 = strategy_slope_10.compute_loss(
-        clearance_m=0.01, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
+    loss_10 = _single_pair_no_overlap_loss(
+        10.0, clearance_m=0.01, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
     )
-    loss_20 = strategy_slope_20.compute_loss(
-        clearance_m=0.01, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
+    loss_20 = _single_pair_no_overlap_loss(
+        20.0, clearance_m=0.01, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
     )
     assert torch.isclose(loss_20, 2.0 * loss_10, rtol=1e-5)
 
@@ -193,15 +222,14 @@ def test_no_collision_loss_volume_formula():
     """Test that NoCollision loss equals slope * overlap volume for known overlap (clearance_m=0)."""
     box_a = _create_box("box_a", size=0.2)
     box_b = _create_box("box_b", size=0.2)
-    strategy = NoCollisionLossStrategy(slope=10.0)
 
     child_pos = torch.tensor([0.1, 0.1, 0.1])
     parent_world_bbox = box_b.get_bounding_box().translated((0.15, 0.15, 0.15))
     # Overlap [0.15, 0.3]^3, volume 0.15^3. Expected loss = 10 * 0.15^3.
     expected_loss = 10.0 * (0.15**3)
 
-    loss = strategy.compute_loss(
-        clearance_m=0.0, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
+    loss = _single_pair_no_overlap_loss(
+        10.0, clearance_m=0.0, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
     )
     assert torch.isclose(loss, torch.tensor(expected_loss), rtol=1e-4)
 
@@ -355,7 +383,6 @@ def test_relation_solver_no_collision_same_inputs_reproducible():
 def test_no_collision_loss_multi_env_shape_and_values():
     """Test that NoCollision with batched (N,3) input returns (N,) loss with correct per-env values."""
     box_a = _create_box("box_a")
-    strategy = NoCollisionLossStrategy(slope=10.0)
 
     child_pos = torch.tensor([[0.0, 0.0, 0.0], [0.1, 0.1, 0.0]])
     parent_world_bbox = AxisAlignedBoundingBox(
@@ -363,8 +390,8 @@ def test_no_collision_loss_multi_env_shape_and_values():
         max_point=torch.tensor([[1.2, 0.2, 0.2], [0.25, 0.25, 0.2]]),
     )
 
-    loss = strategy.compute_loss(
-        clearance_m=0.0, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
+    loss = _single_pair_no_overlap_loss(
+        10.0, clearance_m=0.0, child_pos=child_pos, child_bbox=box_a.bounding_box, parent_world_bbox=parent_world_bbox
     )
     assert loss.shape == (2,)
     assert torch.isclose(loss[0], torch.tensor(0.0), atol=1e-5)
@@ -378,7 +405,7 @@ def _reference_pairwise_no_overlap_loss(solver: RelationSolver, state: RelationS
     non_anchors = state.optimizable_objects
     anchors = list(state.anchor_objects)
     clearance = solver.params.clearance_m
-    strategy = solver._no_collision_strategy  # pyright: ignore[reportPrivateUsage]
+    slope = solver._no_collision_strategy.slope  # pyright: ignore[reportPrivateUsage]
 
     on_pairs: set[tuple[int, int]] = set()
     for obj in [*non_anchors, *anchors]:
@@ -395,7 +422,8 @@ def _reference_pairwise_no_overlap_loss(solver: RelationSolver, state: RelationS
                 continue
             # Re-reads anchor.get_world_bounding_box() per pair; agrees with production's
             # once-per-solve cache because DummyObject bounding boxes are immutable.
-            total = total + strategy.compute_loss(
+            total = total + _single_pair_no_overlap_loss(
+                slope,
                 clearance_m=clearance,
                 child_pos=child_pos,
                 child_bbox=child_bbox,
@@ -407,13 +435,15 @@ def _reference_pairwise_no_overlap_loss(solver: RelationSolver, state: RelationS
                 continue
             other_pos = state.get_position(other)
             other_bbox = state.get_bbox(other)
-            total = total + strategy.compute_loss(
+            total = total + _single_pair_no_overlap_loss(
+                slope,
                 clearance_m=clearance,
                 child_pos=child_pos,
                 child_bbox=child_bbox,
                 parent_world_bbox=other_bbox.translated(other_pos.detach()),
             )
-            total = total + strategy.compute_loss(
+            total = total + _single_pair_no_overlap_loss(
+                slope,
                 clearance_m=clearance,
                 child_pos=other_pos,
                 child_bbox=other_bbox,
@@ -576,6 +606,32 @@ def test_solver_profile_prints_timing(capsys):
     assert "ms/iter" in out
     assert "batch=" in out
     assert "no-overlap pairs=" in out
+
+
+def test_solver_profile_zero_iters_does_not_raise():
+    """profile=True with max_iters=0 must skip the ms/iter division (empty loss_history guard)."""
+    table, box_a, box_b = _create_no_collision_scene()
+    objects = [table, box_a, box_b]
+    initial_positions = [{table: (0.0, 0.0, 0.0), box_a: (0.2, 0.2, 0.11), box_b: (0.25, 0.25, 0.11)}]
+
+    solver = RelationSolver(params=RelationSolverParams(max_iters=0, verbose=False, profile=True))
+    solver.solve(objects=objects, initial_positions=initial_positions)  # must not raise ZeroDivisionError
+
+
+def test_compute_loss_batched_direct():
+    """compute_loss_batched returns (num_pairs, batch_size) loss for known world-space extents."""
+    strategy = NoCollisionLossStrategy(slope=10.0)
+    # Two pairs, batch_size=1. Pair 0 overlaps by 0.1 on each axis; pair 1 is fully separated.
+    subject_min = torch.tensor([[[0.0, 0.0, 0.0]], [[0.0, 0.0, 0.0]]])
+    subject_max = torch.tensor([[[0.2, 0.2, 0.2]], [[0.2, 0.2, 0.2]]])
+    obstacle_min = torch.tensor([[[0.1, 0.1, 0.1]], [[1.0, 1.0, 1.0]]])
+    obstacle_max = torch.tensor([[[0.3, 0.3, 0.3]], [[1.2, 1.2, 1.2]]])
+
+    loss = strategy.compute_loss_batched(0.0, subject_min, subject_max, obstacle_min, obstacle_max)
+
+    assert loss.shape == (2, 1)
+    assert torch.isclose(loss[0, 0], torch.tensor(10.0 * 0.1**3), rtol=1e-4)  # slope * overlap volume
+    assert torch.isclose(loss[1, 0], torch.tensor(0.0), atol=1e-6)
 
 
 def test_relation_solver_multi_env_returns_list_of_dicts():

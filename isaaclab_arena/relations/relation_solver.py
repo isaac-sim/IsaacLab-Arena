@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import time
 import torch
-from typing import TYPE_CHECKING, NamedTuple, cast
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, cast
 
 from isaaclab_arena.relations.relation_loss_strategies import (
     NoCollisionLossStrategy,
@@ -23,8 +24,12 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
 
 
-class _NoOverlapPair(NamedTuple):
-    """One directed overlap penalty: the subject box is pushed off the (detached) obstacle box."""
+@dataclass(frozen=True)
+class NoOverlapPair:
+    """One directed overlap penalty: the subject box is pushed off the (detached) obstacle box.
+
+    Each extent tensor is shaped (batch_size, 3).
+    """
 
     subject_min: torch.Tensor
     subject_max: torch.Tensor
@@ -193,18 +198,22 @@ class RelationSolver:
                 anchor_world_bbox.max_point.expand(batch_size, 3),
             )
 
-        pairs: list[_NoOverlapPair] = []
+        pairs: list[NoOverlapPair] = []
         pair_names: list[tuple[str, str]] = []  # for the debug=True print
+
+        # Each non-anchor vs every anchor: one directed pair (the anchor never moves, so it is
+        # always the obstacle and needs no detach).
         for child in non_anchor_objects:
             child_min, child_max = extents[child]
             for anchor in anchor_objects:
                 if (id(child), id(anchor)) in on_pairs:
                     continue
                 anchor_min, anchor_max = extents[anchor]
-                # Anchor extents are already constant, so no detach is needed.
-                pairs.append(_NoOverlapPair(child_min, child_max, anchor_min, anchor_max))
+                pairs.append(NoOverlapPair(child_min, child_max, anchor_min, anchor_max))
                 pair_names.append((child.name, anchor.name))
 
+        # Each unordered non-anchor pair, scored both ways so both objects get gradient: detaching
+        # the obstacle side keeps gradient on the subject for that direction.
         for i, child in enumerate(non_anchor_objects):
             child_min, child_max = extents[child]
             for j in range(i + 1, len(non_anchor_objects)):
@@ -212,16 +221,17 @@ class RelationSolver:
                 if (id(child), id(other)) in on_pairs:
                     continue
                 other_min, other_max = extents[other]
-                # Score each non-anchor pair both ways; detaching the obstacle keeps gradient on the subject.
-                pairs.append(_NoOverlapPair(child_min, child_max, other_min.detach(), other_max.detach()))
+                pairs.append(NoOverlapPair(child_min, child_max, other_min.detach(), other_max.detach()))
                 pair_names.append((child.name, other.name))
-                pairs.append(_NoOverlapPair(other_min, other_max, child_min.detach(), child_max.detach()))
+                pairs.append(NoOverlapPair(other_min, other_max, child_min.detach(), child_max.detach()))
                 pair_names.append((other.name, child.name))
 
         self._last_no_overlap_pair_count = len(pairs)
         if not pairs:
             return zero_loss
 
+        # Stack the per-pair extents into batched (num_pairs, batch_size, 3) tensors and score
+        # every pair in a single op.
         subject_min = torch.stack([p.subject_min for p in pairs], dim=0)
         subject_max = torch.stack([p.subject_max for p in pairs], dim=0)
         obstacle_min = torch.stack([p.obstacle_min for p in pairs], dim=0)
