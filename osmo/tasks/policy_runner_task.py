@@ -13,6 +13,7 @@ from typing import Any
 from tasks.base_task import BaseTask
 from workflows.utils.policy_types import PolicyType
 from workflows.utils.workflow_types import WorkflowType
+from workflows.workflow_constants import OSMO_TASK_OUTPUT_DIR, DATASETS_S3_URL 
 
 DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
 POLICY_RUNNER_COMMAND = "/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py"
@@ -65,6 +66,9 @@ class PolicyRunnerTask(BaseTask):
         # LFS-tracked test data uploaded from the local machine.
         return [{"dataset": {"name": "arena-lfs-data"}}]
 
+    def _get_outputs(self) -> list[dict[str, Any]]:
+        return [{"url": DATASETS_S3_URL}]
+
     def _get_run_script(self) -> str:
         return (
             "set -euxo pipefail\n"
@@ -97,6 +101,8 @@ class PolicyRunnerTask(BaseTask):
         return (
             f"{POLICY_RUNNER_COMMAND} "
             f"--policy_type {self.policy_type.value} "
+            # TODO(alexmillane): Update this flag before merging.
+            f"--video_base_dir {OSMO_TASK_OUTPUT_DIR} "
             f"{self.policy_runner_args} "
             f"{self.arena_env_args}"
         )

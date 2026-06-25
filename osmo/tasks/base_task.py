@@ -41,6 +41,7 @@ class BaseTask(ABC):
             "files": [{"path": "/tmp/entry.sh", "contents": block_literal_str(self._get_run_script())}],
             "image": self._get_image(),
             "inputs": self._get_inputs(),
+            "outputs": self._get_outputs(),
             "lead": True,
             "name": self.get_task_name(),
         }
@@ -76,6 +77,10 @@ class BaseTask(ABC):
     @abstractmethod
     def _get_inputs(self) -> list[dict[str, Any]]:
         """Return input dataset declarations for the task."""
+
+    @abstractmethod
+    def _get_outputs(self) -> list[dict[str, Any]]:
+        """Return output dataset declarations for the task."""
 
     @abstractmethod
     def _get_run_script(self) -> str:

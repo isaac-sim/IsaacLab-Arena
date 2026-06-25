@@ -12,3 +12,4 @@ class WorkflowType(str, Enum):
     """Workflow types supported by the Arena OSMO workflow generation."""
 
     POLICY_RUNNER = "policy_runner"
+    OPENPI_SERVER = "openpi_server"
