@@ -64,7 +64,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--env_graph_spec_yaml", default=DEFAULT_ENV_GRAPH_SPEC_YAML, help="Arena environment spec YAML"
     )
     runner.add_argument("--env_overrides", default=None, help="Trailing Hydra-style environment overrides")
-    runner.add_argument("--remote_host", default=None, help="GR00T server host (defaults to localhost in-group)")
+    runner.add_argument(
+        "--remote_host",
+        default=None,
+        help="GR00T server host (defaults to the {{host:gr00t_server}} OSMO token for the sibling task)",
+    )
     runner.add_argument(
         "--policy_runner_args",
         default=DEFAULT_POLICY_RUNNER_ARGS,

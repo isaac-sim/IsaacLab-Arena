@@ -37,6 +37,11 @@ DEFAULT_ENV_OVERRIDES = (
 )
 DEFAULT_POLICY_RUNNER_ARGS = "--num_episodes 2 --headless --enable_cameras --num_envs 2 --record_camera_video"
 
+# OSMO substitutes the ``{{host:<task-name>}}`` token with the sibling task's runtime IP. Tasks in a
+# group each get their own IP and do NOT share a loopback, so the server is reached by this token,
+# not by localhost/0.0.0.0. Mirrors the GR00T sidecar service name (``gr00t``) used by CI.
+GR00T_SERVER_HOST_TOKEN = "{{host:" + WorkflowType.GR00T_SERVER.value + "}}"
+
 
 def _normalize_args(args: str) -> str:
     return " ".join(args.replace("\\\n", " ").split())
@@ -65,10 +70,9 @@ class Gr00tPolicyRunnerTask(BaseTask):
         if policy_runner_args is None:
             policy_runner_args = DEFAULT_POLICY_RUNNER_ARGS
         self.policy_runner_args = _normalize_args(policy_runner_args)
-        # The GR00T server shares this task's OSMO group network, but "localhost" resolves to IPv6
-        # (::1) first, where the server (bound to IPv4 0.0.0.0) does not listen. Connect over
-        # 0.0.0.0 to force IPv4.
-        self.remote_host = getattr(task_args, "remote_host", None) or "0.0.0.0"
+        # Tasks in an OSMO group each get their own IP (no shared loopback), so the server is reached
+        # via the {{host:<task-name>}} token, which OSMO resolves to the server task's IP at runtime.
+        self.remote_host = getattr(task_args, "remote_host", None) or GR00T_SERVER_HOST_TOKEN
         self.remote_port = getattr(task_args, "server_port", None) or DEFAULT_SERVER_PORT
 
     @staticmethod
