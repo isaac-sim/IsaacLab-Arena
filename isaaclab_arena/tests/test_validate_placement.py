@@ -11,7 +11,8 @@ import torch
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.relations import On, RotateAroundSolution
+from isaaclab_arena.relations.placement_validation import PlacementCheck
+from isaaclab_arena.relations.relations import NextTo, NotNextTo, On, RotateAroundSolution, Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
@@ -268,3 +269,117 @@ def test_on_relation_edge_margin_inside_rim_but_in_margin_gap_fails():
 def test_on_relation_edge_margin_too_large_for_surface_rejected():
     # Desk free span 0.8 caps the margin at 0.4; 0.5 inverts the inset band so containment fails.
     assert _validate_box_on_desk(edge_margin_m=0.5, box_x=0.0) is False
+
+
+# --- NextTo validation (parent box XY in [-0.2, 0.2], child box half-extent 0.1) ---
+# Side + offset only (cross position is a soft preference, not gated).
+# Zero-loss +X placement: child x = parent_max(0.2) + distance(0.05) - child_min(-0.1) = 0.35.
+
+
+def test_next_to_satisfied_passes():
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    parent = _make_box("parent", size=0.4)
+    child = _make_box("child", size=0.2)
+    child.add_relation(NextTo(parent, distance_m=0.05, side=Side.POSITIVE_X, cross_position_ratio=0.0))
+    positions = {parent: (0.0, 0.0, 0.0), child: (0.35, 0.0, 0.0)}
+    assert placer._validate_next_to_relations(positions, _env_bboxes(positions)) is True
+
+
+def test_next_to_wrong_offset_fails():
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    parent = _make_box("parent", size=0.4)
+    child = _make_box("child", size=0.2)
+    child.add_relation(NextTo(parent, distance_m=0.05, side=Side.POSITIVE_X, cross_position_ratio=0.0))
+    # x=0.45 → distance off by 0.10, well past the default 0.01 tolerance.
+    positions = {parent: (0.0, 0.0, 0.0), child: (0.45, 0.0, 0.0)}
+    assert placer._validate_next_to_relations(positions, _env_bboxes(positions)) is False
+
+
+def test_next_to_tolerance_is_per_relation():
+    # Same wrong offset as above, but a looser per-relation tolerance_m accepts it: callers that care
+    # about the side, not the exact distance, can relax the gate without touching the placer params.
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    parent = _make_box("parent", size=0.4)
+    child = _make_box("child", size=0.2)
+    child.add_relation(NextTo(parent, distance_m=0.05, side=Side.POSITIVE_X, tolerance_m=0.2))
+    positions = {parent: (0.0, 0.0, 0.0), child: (0.45, 0.0, 0.0)}
+    assert placer._validate_next_to_relations(positions, _env_bboxes(positions)) is True
+
+
+def test_next_to_cross_position_not_gated_passes():
+    # Correct side and distance but off-center along the edge: cross position is not a validity gate.
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    parent = _make_box("parent", size=0.4)
+    child = _make_box("child", size=0.2)
+    child.add_relation(NextTo(parent, distance_m=0.05, side=Side.POSITIVE_X, cross_position_ratio=0.0))
+    positions = {parent: (0.0, 0.0, 0.0), child: (0.35, 0.2, 0.0)}
+    assert placer._validate_next_to_relations(positions, _env_bboxes(positions)) is True
+
+
+# --- NotNextTo validation (parent box XY in [-0.2, 0.2]; default keep-out margin_m = 0.1) ---
+
+
+def test_not_next_to_inside_zone_fails():
+    """Child parked just past the +X edge, still within the footprint — the 'few cm further right' case."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    parent = _make_box("parent", size=0.4)
+    child = _make_box("child", size=0.2)
+    child.add_relation(NotNextTo(parent, side=Side.POSITIVE_X))
+    positions = {parent: (0.0, 0.0, 0.0), child: (0.25, 0.0, 0.0)}
+    assert placer._validate_not_next_to_relations(positions, _env_bboxes(positions)) is False
+
+
+def test_not_next_to_crossed_back_over_edge_passes():
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    parent = _make_box("parent", size=0.4)
+    child = _make_box("child", size=0.2)
+    child.add_relation(NotNextTo(parent, side=Side.POSITIVE_X))
+    # Far on the -X side: cleared the keep-out via the edge route.
+    positions = {parent: (0.0, 0.0, 0.0), child: (-0.5, 0.0, 0.0)}
+    assert placer._validate_not_next_to_relations(positions, _env_bboxes(positions)) is True
+
+
+def test_not_next_to_slid_off_footprint_passes():
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    parent = _make_box("parent", size=0.4)
+    child = _make_box("child", size=0.2)
+    child.add_relation(NotNextTo(parent, side=Side.POSITIVE_X))
+    # Past the +X edge but slid well past the +Y footprint end: cleared via the cross route.
+    positions = {parent: (0.0, 0.0, 0.0), child: (0.25, 0.5, 0.0)}
+    assert placer._validate_not_next_to_relations(positions, _env_bboxes(positions)) is True
+
+
+def test_not_next_to_tolerance_is_per_relation():
+    # Same in-zone placement as the failing case, but a looser per-relation tolerance_m accepts it.
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    parent = _make_box("parent", size=0.4)
+    child = _make_box("child", size=0.2)
+    child.add_relation(NotNextTo(parent, side=Side.POSITIVE_X, tolerance_m=0.2))
+    positions = {parent: (0.0, 0.0, 0.0), child: (0.25, 0.0, 0.0)}
+    assert placer._validate_not_next_to_relations(positions, _env_bboxes(positions)) is True
+
+
+def test_validate_placement_rejects_not_next_to_violation():
+    """NOT_NEXT_TO gates overall validation: an in-zone NotNextTo placement fails."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    parent = _make_box("parent", size=0.4)
+    child = _make_box("child", size=0.2)
+    child.add_relation(NotNextTo(parent, side=Side.POSITIVE_X))
+    # In the keep-out zone in XY, but lifted in Z so NO_OVERLAP and ON_RELATION still pass.
+    positions = {parent: (0.0, 0.0, 0.0), child: (0.25, 0.0, 5.0)}
+    results = placer._validate_placement(positions, _env_bboxes(positions))
+    assert results.do_all_required_validation_checks_pass() is False
+    assert PlacementCheck.NOT_NEXT_TO in results.get_failed_validation_check_names
+
+
+def test_validate_placement_rejects_next_to_violation():
+    """NEXT_TO gates overall validation: a wrong-offset NextTo placement fails."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    parent = _make_box("parent", size=0.4)
+    child = _make_box("child", size=0.2)
+    child.add_relation(NextTo(parent, distance_m=0.05, side=Side.POSITIVE_X, cross_position_ratio=0.0))
+    # Offset wrong by 0.10, but lifted in Z so NO_OVERLAP and ON_RELATION still pass.
+    positions = {parent: (0.0, 0.0, 0.0), child: (0.45, 0.0, 5.0)}
+    results = placer._validate_placement(positions, _env_bboxes(positions))
+    assert results.do_all_required_validation_checks_pass() is False
+    assert PlacementCheck.NEXT_TO in results.get_failed_validation_check_names

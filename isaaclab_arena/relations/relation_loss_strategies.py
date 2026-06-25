@@ -65,6 +65,93 @@ SIDE_CONFIGS: dict[Side, SideConfig] = {
 }
 
 
+def next_to_violations(
+    cfg: SideConfig,
+    child_pos: torch.Tensor,
+    child_bbox: AxisAlignedBoundingBox,
+    parent_world_bbox: AxisAlignedBoundingBox,
+    distance_m: float,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Side and distance violation magnitudes (meters, >= 0) for a NextTo relation.
+
+    Shared by NextToLossStrategy (scaled by slope into the loss) and the placement validator
+    (thresholded against tolerance), so loss and validation can't disagree on the geometry.
+
+    Args:
+        cfg: Side configuration (primary/band axis and direction) for the relation's side.
+        child_pos: Child position, shape (N, 3), in world coords.
+        child_bbox: Child local bounding box (N=1).
+        parent_world_bbox: Parent bounding box in world coords.
+        distance_m: Target distance from the parent edge.
+
+    Returns:
+        (half_plane, distance) tensors of shape (N,), each >= 0 and zero when satisfied.
+    """
+    if cfg.direction == Direction.POSITIVE:
+        parent_edge = parent_world_bbox.max_point[:, cfg.primary_axis]
+        child_offset = child_bbox.min_point[:, cfg.primary_axis]
+        penalty_side = "less"
+    else:
+        parent_edge = parent_world_bbox.min_point[:, cfg.primary_axis]
+        child_offset = child_bbox.max_point[:, cfg.primary_axis]
+        penalty_side = "greater"
+
+    primary = child_pos[:, cfg.primary_axis]
+    half_plane = single_boundary_linear_loss(primary, parent_edge, slope=1.0, penalty_side=penalty_side)
+    target_pos = parent_edge + cfg.direction * distance_m - child_offset
+    distance = single_point_linear_loss(primary, target_pos, slope=1.0)
+    return half_plane, distance
+
+
+def not_next_to_violations(
+    cfg: SideConfig,
+    child_pos: torch.Tensor,
+    child_bbox: AxisAlignedBoundingBox,
+    parent_world_bbox: AxisAlignedBoundingBox,
+    margin_m: float,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Per-route escape distances (meters, >= 0) for a NotNextTo relation.
+
+    Shared by NotNextToLossStrategy and the placement validator. The child clears the keep-out zone
+    once either route reaches zero: ``remaining_side`` (cross back over the edge) or
+    ``remaining_cross`` (slide past either footprint end), both by ``margin_m``.
+
+    Args:
+        cfg: Side configuration for the relation's side.
+        child_pos: Child position, shape (N, 3), in world coords.
+        child_bbox: Child local bounding box (N=1).
+        parent_world_bbox: Parent bounding box in world coords.
+        margin_m: Distance past the edge/footprint required to clear the zone.
+
+    Returns:
+        (remaining_side, remaining_cross) tensors of shape (N,), each >= 0.
+    """
+    if cfg.direction == Direction.POSITIVE:
+        parent_edge = parent_world_bbox.max_point[:, cfg.primary_axis]
+        blocked_side_penalty = "greater"
+    else:
+        parent_edge = parent_world_bbox.min_point[:, cfg.primary_axis]
+        blocked_side_penalty = "less"
+
+    parent_band_min = parent_world_bbox.min_point[:, cfg.band_axis]
+    parent_band_max = parent_world_bbox.max_point[:, cfg.band_axis]
+    valid_band_min = parent_band_min - child_bbox.min_point[:, cfg.band_axis]
+    valid_band_max = parent_band_max - child_bbox.max_point[:, cfg.band_axis]
+
+    primary = child_pos[:, cfg.primary_axis]
+    cross = child_pos[:, cfg.band_axis]
+
+    safe_edge = parent_edge - cfg.direction * margin_m
+    remaining_side = single_boundary_linear_loss(primary, safe_edge, slope=1.0, penalty_side=blocked_side_penalty)
+    safe_band_min = valid_band_min - margin_m
+    safe_band_max = valid_band_max + margin_m
+    remaining_cross = torch.minimum(
+        single_boundary_linear_loss(cross, safe_band_min, slope=1.0, penalty_side="greater"),
+        single_boundary_linear_loss(cross, safe_band_max, slope=1.0, penalty_side="less"),
+    )
+    return remaining_side, remaining_cross
+
+
 class UnaryRelationLossStrategy(ABC):
     """Abstract base class for unary relations (no parent object)."""
 
@@ -162,23 +249,10 @@ class NextToLossStrategy(RelationLossStrategy):
         distance = relation.distance_m
         assert distance >= 0.0, f"NextTo distance must be non-negative, got {distance}"
 
-        # Parent world extents from the world bounding box
-        if cfg.direction == Direction.POSITIVE:
-            parent_edge = parent_world_bbox.max_point[:, cfg.primary_axis]
-            child_offset = child_bbox.min_point[:, cfg.primary_axis]
-            penalty_side = "less"
-        else:
-            parent_edge = parent_world_bbox.min_point[:, cfg.primary_axis]
-            child_offset = child_bbox.max_point[:, cfg.primary_axis]
-            penalty_side = "greater"
-
-        # 1. Half-plane loss: child must be on correct side of parent edge
-        half_plane_loss = single_boundary_linear_loss(
-            child_pos[:, cfg.primary_axis],
-            parent_edge,
-            slope=self.slope,
-            penalty_side=penalty_side,
-        )
+        # 1. & 3. Side (half-plane) and distance share their geometry with the placement validator.
+        half_plane_raw, distance_raw = next_to_violations(cfg, child_pos, child_bbox, parent_world_bbox, distance)
+        half_plane_loss = self.slope * half_plane_raw
+        distance_loss = self.slope * distance_raw
 
         # 2. Band position loss: child placed at target position within parent's perpendicular extent
         parent_band_min = parent_world_bbox.min_point[:, cfg.band_axis]
@@ -188,25 +262,13 @@ class NextToLossStrategy(RelationLossStrategy):
         # Convert cross_position_ratio [-1, 1] to interpolation factor [0, 1]: -1 = min, 0 = center, 1 = max
         t = (relation.cross_position_ratio + 1.0) / 2.0
         target_band_pos = valid_band_min + t * (valid_band_max - valid_band_min)
-        band_loss = single_point_linear_loss(
-            child_pos[:, cfg.band_axis],
-            target_band_pos,
-            slope=self.slope,
-        )
-
-        # 3. Distance loss: child edge at target distance from parent edge
-        # For direction +1: target = parent_max + distance - child_min
-        # For direction -1: target = parent_min - distance - child_max
-        target_pos = parent_edge + cfg.direction * distance - child_offset
-        distance_loss = single_point_linear_loss(child_pos[:, cfg.primary_axis], target_pos, slope=self.slope)
+        band_loss = single_point_linear_loss(child_pos[:, cfg.band_axis], target_band_pos, slope=self.slope)
 
         if self.debug and child_pos.shape[0] == 1:
-            axis_name = cfg.primary_axis.name
             band_axis_name = cfg.band_axis.name
             print(
-                f"    [NextTo] {relation.side.value}: child_{axis_name.lower()}="
-                f"{child_pos[0, cfg.primary_axis].item():.4f}, parent_edge={parent_edge[0].item():.4f},"
-                f" loss={half_plane_loss[0].item():.6f}"
+                f"    [NextTo] {relation.side.value}: half_plane={half_plane_raw[0].item():.6f},"
+                f" distance={distance_raw[0].item():.6f} (m)"
             )
             print(
                 f"    [NextTo] {band_axis_name} band: child_{band_axis_name.lower()}="
@@ -214,11 +276,6 @@ class NextToLossStrategy(RelationLossStrategy):
                 f" (cross_position_ratio={relation.cross_position_ratio:.2f},"
                 f" range=[{valid_band_min[0].item():.4f}, {valid_band_max[0].item():.4f}]),"
                 f" loss={band_loss[0].item():.6f}"
-            )
-            print(
-                f"    [NextTo] Distance: child_{axis_name.lower()}="
-                f"{child_pos[0, cfg.primary_axis].item():.4f}, target={target_pos[0].item():.4f},"
-                f" loss={distance_loss[0].item():.6f}"
             )
 
         total_loss = half_plane_loss + band_loss + distance_loss
@@ -368,35 +425,11 @@ class NotNextToLossStrategy(RelationLossStrategy):
 
         cfg = SIDE_CONFIGS[relation.side]
 
-        # Blocked edge and the side the child must leave (> edge for POSITIVE, < for NEGATIVE).
-        if cfg.direction == Direction.POSITIVE:
-            parent_edge = parent_world_bbox.max_point[:, cfg.primary_axis]
-            blocked_side_penalty = "greater"
-        else:
-            parent_edge = parent_world_bbox.min_point[:, cfg.primary_axis]
-            blocked_side_penalty = "less"
-
-        # Footprint band, shrunk by the child's extent so its whole bbox must clear it.
-        parent_band_min = parent_world_bbox.min_point[:, cfg.band_axis]
-        parent_band_max = parent_world_bbox.max_point[:, cfg.band_axis]
-        valid_band_min = parent_band_min - child_bbox.min_point[:, cfg.band_axis]
-        valid_band_max = parent_band_max - child_bbox.max_point[:, cfg.band_axis]
-
-        primary = child_pos[:, cfg.primary_axis]
-        cross = child_pos[:, cfg.band_axis]
-
-        # Each route's `remaining` = distance still to travel to clear it by margin_m (0 once cleared).
-        # Route 1, cross back over the edge: distance onto the blocked side past the one safe line.
-        safe_edge = parent_edge - cfg.direction * self.margin_m
-        remaining_side = single_boundary_linear_loss(primary, safe_edge, slope=1.0, penalty_side=blocked_side_penalty)
-        # Route 2, slide off the footprint: there are two safe lines (one margin_m past each end);
-        # take the distance to the nearer one. min over the two ends -> a tent peaking at the centre,
-        # which caps the loss and keeps the blocked axis flat.
-        safe_band_min = valid_band_min - self.margin_m
-        safe_band_max = valid_band_max + self.margin_m
-        remaining_cross = torch.minimum(
-            single_boundary_linear_loss(cross, safe_band_min, slope=1.0, penalty_side="greater"),
-            single_boundary_linear_loss(cross, safe_band_max, slope=1.0, penalty_side="less"),
+        # Per-route escape distances share their geometry with the placement validator.
+        # Route 1 crosses back over the edge; route 2 slides past either footprint end. Each
+        # `remaining` is the distance still to travel to clear that route by margin_m (0 once cleared).
+        remaining_side, remaining_cross = not_next_to_violations(
+            cfg, child_pos, child_bbox, parent_world_bbox, self.margin_m
         )
 
         # Clearing either route is enough.

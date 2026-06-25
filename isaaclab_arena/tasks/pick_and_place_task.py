@@ -27,7 +27,7 @@ from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFI
 from isaaclab_arena.tasks.predicates.spatial import object_lifted
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
-from isaaclab_arena.tasks.terminations import object_on_destination
+from isaaclab_arena.tasks.terminations import SuccessMode, check_success, object_on_destination
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
@@ -95,12 +95,20 @@ class PickAndPlaceTask(TaskBase):
 
     def make_termination_cfg(self):
         success = TerminationTermCfg(
-            func=object_on_destination,
+            func=check_success,
             params={
-                "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
-                "force_threshold": self.force_threshold,
-                "velocity_threshold": self.velocity_threshold,
+                "mode": SuccessMode.ALL,
+                "predicates": [
+                    TerminationTermCfg(
+                        func=object_on_destination,
+                        params={
+                            "object_cfg": SceneEntityCfg(self.pick_up_object.name),
+                            "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
+                            "force_threshold": self.force_threshold,
+                            "velocity_threshold": self.velocity_threshold,
+                        },
+                    ),
+                ],
             },
         )
         object_dropped = TerminationTermCfg(
