@@ -1,0 +1,106 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: tools_container
+nodes:
+- id: maple_table_robolab
+  name: maple_table_robolab
+  type: background
+  params: {}
+- id: droid
+  name: droid_abs_joint_pos
+  type: embodiment
+  params: {}
+- id: container_f24
+  name: container_f24_vomp_robolab
+  type: object
+  params: {}
+- id: bin_b04
+  name: bin_b04_vomp_robolab
+  type: object
+  params: {}
+- id: spring_clamp
+  name: spring_clamp_ycb_robolab
+  type: object
+  params: {}
+- id: hammer_1
+  name: hammer_handal_robolab
+  type: object
+  params: {}
+- id: hammer_2
+  name: hammer_handal_robolab
+  type: object
+  params: {}
+- id: cordless_drill
+  name: cordless_drill_ycb_robolab
+  type: object
+  params: {}
+tasks:
+- kind: PickAndPlaceTask
+  params:
+    pick_up_object: spring_clamp
+    destination_location: bin_b04
+    background_scene: maple_table_robolab
+    episode_length_s: 20.0
+  description: pick up the spring clamp and place it in the right bin (bin_b04)
+  id: task_0_PickAndPlaceTask
+  initial_state_spec_id: state_initial
+  success_state_spec_id: state_spec_1
+state_specs:
+- id: state_initial
+  is_delta: false
+  spatial_constraints:
+  - kind: is_anchor
+    subject: maple_table_robolab
+    params: {}
+    id: state_initial_0_is_anchor_maple_table_robolab
+  - kind: 'on'
+    subject: container_f24
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_1_on_maple_table_robolab_container_f24
+  - kind: 'on'
+    subject: bin_b04
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_2_on_maple_table_robolab_bin_b04
+  - kind: 'on'
+    subject: spring_clamp
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_3_on_maple_table_robolab_spring_clamp
+  - kind: 'on'
+    subject: hammer_1
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_4_on_maple_table_robolab_hammer_1
+  - kind: 'on'
+    subject: hammer_2
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_5_on_maple_table_robolab_hammer_2
+  - kind: 'on'
+    subject: cordless_drill
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_6_on_maple_table_robolab_cordless_drill
+  - kind: next_to
+    subject: container_f24
+    reference: bin_b04
+    params:
+      side: positive_y
+      distance_m: 0.3
+    id: state_initial_7_next_to_bin_b04_container_f24
+  task_constraints: []
+- id: state_spec_1
+  is_delta: true
+  spatial_constraints:
+  - kind: 'on'
+    subject: spring_clamp
+    reference: bin_b04
+    params: {}
+    id: state_spec_1_spring_clamp_on_bin_b04
+  task_constraints: []
+cli_override_specs: []
