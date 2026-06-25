@@ -295,6 +295,17 @@ def test_next_to_wrong_offset_fails():
     assert placer._validate_next_to_relations(positions, _env_bboxes(positions)) is False
 
 
+def test_next_to_tolerance_is_per_relation():
+    # Same wrong offset as above, but a looser per-relation tolerance_m accepts it: callers that care
+    # about the side, not the exact distance, can relax the gate without touching the placer params.
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    parent = _make_box("parent", size=0.4)
+    child = _make_box("child", size=0.2)
+    child.add_relation(NextTo(parent, distance_m=0.05, side=Side.POSITIVE_X, tolerance_m=0.2))
+    positions = {parent: (0.0, 0.0, 0.0), child: (0.45, 0.0, 0.0)}
+    assert placer._validate_next_to_relations(positions, _env_bboxes(positions)) is True
+
+
 def test_next_to_cross_position_not_gated_passes():
     # Correct side and distance but off-center along the edge: cross position is not a validity gate.
     placer = ObjectPlacer(params=ObjectPlacerParams())
@@ -335,6 +346,16 @@ def test_not_next_to_slid_off_footprint_passes():
     child.add_relation(NotNextTo(parent, side=Side.POSITIVE_X))
     # Past the +X edge but slid well past the +Y footprint end: cleared via the cross route.
     positions = {parent: (0.0, 0.0, 0.0), child: (0.25, 0.5, 0.0)}
+    assert placer._validate_not_next_to_relations(positions, _env_bboxes(positions)) is True
+
+
+def test_not_next_to_tolerance_is_per_relation():
+    # Same in-zone placement as the failing case, but a looser per-relation tolerance_m accepts it.
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    parent = _make_box("parent", size=0.4)
+    child = _make_box("child", size=0.2)
+    child.add_relation(NotNextTo(parent, side=Side.POSITIVE_X, tolerance_m=0.2))
+    positions = {parent: (0.0, 0.0, 0.0), child: (0.25, 0.0, 0.0)}
     assert placer._validate_not_next_to_relations(positions, _env_bboxes(positions)) is True
 
 

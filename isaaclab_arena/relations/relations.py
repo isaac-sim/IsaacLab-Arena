@@ -92,6 +92,7 @@ class NextTo(Relation):
         distance_m: float = 0.05,
         side: Side | str = Side.POSITIVE_X,
         cross_position_ratio: float = 0.0,
+        tolerance_m: float = 1e-2,
     ):
         """
         Args:
@@ -104,15 +105,20 @@ class NextTo(Relation):
                 The cross axis depends on the side: for POSITIVE_X / NEGATIVE_X
                 the cross axis is Y; for POSITIVE_Y / NEGATIVE_Y it is X.
                 Default: 0.0 (centered).
+            tolerance_m: Slack (meters) for placement validation: the child passes when its side and
+                distance violations are each within this value. Raise it to accept the side but care
+                less about the exact distance. cross_position_ratio is a soft preference, not gated.
         """
         super().__init__(parent, relation_loss_weight)
         assert distance_m > 0.0, f"Distance must be positive, got {distance_m}"
         assert (
             -1.0 <= cross_position_ratio <= 1.0
         ), f"cross_position_ratio must be in [-1, 1], got {cross_position_ratio}"
+        assert tolerance_m >= 0.0, f"tolerance_m must be non-negative, got {tolerance_m}"
         self.distance_m = distance_m
         self.side = Side(side)
         self.cross_position_ratio = cross_position_ratio
+        self.tolerance_m = tolerance_m
 
 
 @register_object_relation
@@ -173,15 +179,20 @@ class NotNextTo(Relation):
         parent: ObjectBase,
         relation_loss_weight: float = 1.0,
         side: Side | str = Side.POSITIVE_X,
+        tolerance_m: float = 1e-2,
     ):
         """
         Args:
             parent: The parent asset whose adjacent half-plane is forbidden.
             relation_loss_weight: Weight for the relationship loss function.
             side: Which side of the parent is blocked (default: Side.POSITIVE_X).
+            tolerance_m: Slack (meters) for placement validation: the child passes when it has cleared
+                the keep-out zone to within this value.
         """
         super().__init__(parent, relation_loss_weight)
+        assert tolerance_m >= 0.0, f"tolerance_m must be non-negative, got {tolerance_m}"
         self.side = Side(side)
+        self.tolerance_m = tolerance_m
 
 
 @register_object_relation

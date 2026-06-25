@@ -21,11 +21,11 @@ class PlacementCheck(StrEnum):
 
     NEXT_TO = "next_to"
     """Build-time check: every ``NextTo`` relation holds — child on the requested side at the target
-    offset, within ``next_to_tolerance_m``."""
+    offset, within the relation's ``tolerance_m``."""
 
     NOT_NEXT_TO = "not_next_to"
     """Build-time check: every ``NotNextTo`` relation holds — child has cleared the keep-out zone
-    beside the parent, within ``next_to_tolerance_m``."""
+    beside the parent, within the relation's ``tolerance_m``."""
 
     PHYSICS_SETTLED = "physics_settled"
     """Run-time check: after stepping physics the movable objects' velocities fall

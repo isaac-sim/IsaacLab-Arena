@@ -13,7 +13,7 @@ from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_en
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
-from isaaclab_arena.relations.relation_loss_strategies import SIDE_CONFIGS
+from isaaclab_arena.relations.relation_loss_strategies import SIDE_CONFIGS, next_to_violations, not_next_to_violations
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import (
     IsAnchor,
@@ -647,15 +647,14 @@ class ObjectPlacer:
         positions: dict[ObjectBase, tuple[float, float, float]],
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
     ) -> bool:
-        """Validate each NextTo relation: child on the requested side, facing edge within
-        next_to_tolerance_m of distance_m from the parent edge. Mirrors NextToLossStrategy's
-        side/distance geometry; cross_position_ratio is a soft preference and is not gated.
+        """Validate each NextTo relation: child on the requested side, facing edge within the
+        relation's tolerance_m of distance_m from the parent edge. Shares next_to_violations with
+        NextToLossStrategy; cross_position_ratio is a soft preference and is not gated.
 
         Args:
             positions: Solved positions for each object.
             env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
         """
-        tolerance_m = self.params.next_to_tolerance_m
         for obj in positions:
             for rel in obj.get_relations():
                 if not isinstance(rel, NextTo):
@@ -664,29 +663,17 @@ class ObjectPlacer:
                 if parent not in positions:
                     continue
                 cfg = SIDE_CONFIGS[rel.side]
-                primary, direction = int(cfg.primary_axis), int(cfg.direction)
-                child_local = env_bboxes[obj]
+                child_bbox = env_bboxes[obj]
+                child_pos = child_bbox.min_point.new_tensor([positions[obj]])
                 parent_world = env_bboxes[parent].translated(positions[parent])
-                child_primary = positions[obj][primary]
+                half_plane, distance = next_to_violations(cfg, child_pos, child_bbox, parent_world, rel.distance_m)
 
-                if direction > 0:
-                    parent_edge = parent_world.max_point[0, primary].item()
-                    child_offset = child_local.min_point[0, primary].item()
-                    half_plane_violation = max(0.0, parent_edge - child_primary)
-                else:
-                    parent_edge = parent_world.min_point[0, primary].item()
-                    child_offset = child_local.max_point[0, primary].item()
-                    half_plane_violation = max(0.0, child_primary - parent_edge)
-
-                target_primary = parent_edge + direction * rel.distance_m - child_offset
-                distance_violation = abs(child_primary - target_primary)
-
-                if half_plane_violation > tolerance_m or distance_violation > tolerance_m:
+                if half_plane.item() > rel.tolerance_m or distance.item() > rel.tolerance_m:
                     if self.params.verbose:
                         print(
                             f"NextTo: '{obj.name}' next_to({parent.name}) violated"
-                            f" (side={half_plane_violation:.4f}, distance={distance_violation:.4f} m;"
-                            f" tolerance_m={tolerance_m})"
+                            f" (side={half_plane.item():.4f}, distance={distance.item():.4f} m;"
+                            f" tolerance_m={rel.tolerance_m})"
                         )
                     return False
         return True
@@ -697,14 +684,13 @@ class ObjectPlacer:
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
     ) -> bool:
         """Validate each NotNextTo relation: child has cleared the keep-out zone beside the parent
-        (within next_to_tolerance_m) via either route — back over the edge or past the footprint end.
-        Mirrors NotNextToLossStrategy, using its margin_m.
+        (within the relation's tolerance_m) via either route — back over the edge or past the
+        footprint end. Shares not_next_to_violations with NotNextToLossStrategy, using its margin_m.
 
         Args:
             positions: Solved positions for each object.
             env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
         """
-        tolerance_m = self.params.next_to_tolerance_m
         for obj in positions:
             for rel in obj.get_relations():
                 if not isinstance(rel, NotNextTo):
@@ -712,35 +698,22 @@ class ObjectPlacer:
                 parent = rel.parent
                 if parent not in positions:
                     continue
-                margin_m = self._not_next_to_margin(rel)
                 cfg = SIDE_CONFIGS[rel.side]
-                primary, band, direction = int(cfg.primary_axis), int(cfg.band_axis), int(cfg.direction)
-                child_local = env_bboxes[obj]
+                margin_m = self._not_next_to_margin(rel)
+                child_bbox = env_bboxes[obj]
+                child_pos = child_bbox.min_point.new_tensor([positions[obj]])
                 parent_world = env_bboxes[parent].translated(positions[parent])
-                child_primary = positions[obj][primary]
-                child_cross = positions[obj][band]
+                remaining_side, remaining_cross = not_next_to_violations(
+                    cfg, child_pos, child_bbox, parent_world, margin_m
+                )
 
-                if direction > 0:
-                    parent_edge = parent_world.max_point[0, primary].item()
-                    safe_edge = parent_edge - margin_m
-                    remaining_side = max(0.0, child_primary - safe_edge)
-                else:
-                    parent_edge = parent_world.min_point[0, primary].item()
-                    safe_edge = parent_edge + margin_m
-                    remaining_side = max(0.0, safe_edge - child_primary)
-
-                valid_band_min = parent_world.min_point[0, band].item() - child_local.min_point[0, band].item()
-                valid_band_max = parent_world.max_point[0, band].item() - child_local.max_point[0, band].item()
-                safe_band_min = valid_band_min - margin_m
-                safe_band_max = valid_band_max + margin_m
-                remaining_cross = min(max(0.0, child_cross - safe_band_min), max(0.0, safe_band_max - child_cross))
-
-                if min(remaining_side, remaining_cross) > tolerance_m:
+                if min(remaining_side.item(), remaining_cross.item()) > rel.tolerance_m:
                     if self.params.verbose:
                         print(
                             f"NotNextTo: '{obj.name}' not_next_to({parent.name}) violated"
-                            f" (remaining_side={remaining_side:.4f}, remaining_cross={remaining_cross:.4f} m;"
-                            f" margin_m={margin_m}, tolerance_m={tolerance_m})"
+                            f" (remaining_side={remaining_side.item():.4f},"
+                            f" remaining_cross={remaining_cross.item():.4f} m;"
+                            f" margin_m={margin_m}, tolerance_m={rel.tolerance_m})"
                         )
                     return False
         return True
