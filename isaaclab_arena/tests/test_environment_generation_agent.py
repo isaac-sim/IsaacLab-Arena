@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -251,6 +252,8 @@ class TestGenerateSpec:
 # ---------------------------------------------------------------------------
 
 
+# Requires a live OpenAI-compatible endpoint and credentials; skip when not configured.
+@pytest.mark.skipif(not os.environ.get("NV_API_KEY"), reason="live endpoint test requires NV_API_KEY")
 # Marked flaky to absorb intermittent wire-level hiccups on the inference endpoint.
 # TODO(qianl): drop the flaky marker once production-side retry is implemented.
 @pytest.mark.flaky(max_runs=3, min_passes=1)
