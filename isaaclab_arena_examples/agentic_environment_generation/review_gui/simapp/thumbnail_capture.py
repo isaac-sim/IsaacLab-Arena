@@ -151,11 +151,9 @@ def _wait_for_capture(app, capture_obj, cache_path: Path, max_updates: int = 600
                 return
         return
 
-    future = (
-        getattr(capture_obj, "_Capture__future", None)
-        or getattr(capture_obj, "_RenderCapture__future", None)
-        or getattr(capture_obj, "future", None)
-    )
+    # Kit has no stable capture-completion API; ``future`` is best-effort. File existence is
+    # the reliable exit condition (see the loop below).
+    future = getattr(capture_obj, "future", None)
 
     for _ in range(max_updates):
         app.update()
