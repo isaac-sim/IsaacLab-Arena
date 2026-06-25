@@ -20,6 +20,6 @@ DATASETS_SWIFT_URL = f"{SWIFT_URL_PREFIX}/{DATASETS_PATH}"
 DATASET_HTTPS_URL = f"{HTTPS_URL_PREFIX}/{DATASETS_PATH}/{{{{workflow_id}}}}"
 DATASET_SWIFT_URL = f"{SWIFT_URL_PREFIX}/{DATASETS_PATH}/{{{{workflow_id}}}}"
 
-# Evaluation output dataset, written per run under the arena datasets namespace.
-EVAL_OUTPUT_PATH = "AUTH_team-isaac/arena/datasets"
+# Evaluation output dataset, written per run under the existing isaaclab_arena container.
+EVAL_OUTPUT_PATH = "AUTH_team-isaac/isaaclab_arena/datasets"
 EVAL_OUTPUT_SWIFT_URL = f"{SWIFT_URL_PREFIX}/{EVAL_OUTPUT_PATH}/{{{{workflow_id}}}}"
