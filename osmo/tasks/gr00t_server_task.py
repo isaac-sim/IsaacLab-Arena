@@ -3,19 +3,31 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""GR00T inference-server task for the Isaac Lab Arena OSMO workflow.
+
+Runs the GR00T policy server (``gr00t/eval/run_gr00t_server.py``) inside the CI
+GR00T image as a sidecar. The policy-runner task in the same OSMO group connects
+to it over the shared group network. Mirrors the GR00T sidecar service used by
+the ``test_gr00t_closedloop_e2e`` CI job in ``.github/workflows/ci.yml``.
+"""
+
 from typing import Any
 
 from tasks.base_task import BaseTask
 from workflows.utils.workflow_types import WorkflowType
 
-# GR00T server image, published as the gr00t variant tag of the isaaclab_arena
-# image by docker/push_to_ngc.sh -g (mirrors the openpi_server tag built by
-# isaaclab_arena_openpi/docker/build_server_image.sh).
-DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:cuda_gr00t_gn16"
+# GR00T server image, already built and used in CI (see isaaclab_arena_gr00t/docker/push_to_ngc.sh
+# and the gr00t sidecar service in .github/workflows/ci.yml).
+DEFAULT_IMAGE = "nvcr.io/nvidian/gr00t1_6_arena_ci:latest"
+# Base model baked into the GR00T CI image.
+DEFAULT_MODEL_PATH = "/workspace/pretrained_ckpts/GR00T-N1.6-3B"
+# Embodiment tag for the droid manipulation config (see droid_manip_gr00t_closedloop_config.yaml).
+DEFAULT_EMBODIMENT_TAG = "OXE_DROID"
+DEFAULT_SERVER_PORT = 5555
 
 
 class Gr00tServerTask(BaseTask):
-    """OSMO task that runs a dummy command inside the GR00T server image."""
+    """OSMO task that serves a GR00T policy for the policy-runner task to connect to."""
 
     def __init__(
         self,
@@ -27,7 +39,10 @@ class Gr00tServerTask(BaseTask):
     ) -> None:
         workflow_type = WorkflowType(workflow_type)
         super().__init__(workflow_type=workflow_type, workflow_args=workflow_args, task_args=task_args, lead=lead)
-        self.image = image
+        self.image = getattr(task_args, "gr00t_server_image", None) or image
+        self.model_path = getattr(task_args, "gr00t_model_path", None) or DEFAULT_MODEL_PATH
+        self.embodiment_tag = getattr(task_args, "gr00t_embodiment_tag", None) or DEFAULT_EMBODIMENT_TAG
+        self.server_port = getattr(task_args, "server_port", None) or DEFAULT_SERVER_PORT
 
     @staticmethod
     def get_task_name() -> str:
@@ -43,4 +58,13 @@ class Gr00tServerTask(BaseTask):
         return []
 
     def _get_run_script(self) -> str:
-        return 'set -euxo pipefail\necho "hello world from gr00t_server_task"\n'
+        return (
+            "set -euxo pipefail\n"
+            "nvidia-smi\n"
+            "cd /workspace\n"
+            "exec uv run python gr00t/eval/run_gr00t_server.py \\\n"
+            f"  --model_path={self.model_path} \\\n"
+            f"  --embodiment_tag={self.embodiment_tag} \\\n"
+            "  --host=0.0.0.0 \\\n"
+            f"  --port={self.server_port}\n"
+        )

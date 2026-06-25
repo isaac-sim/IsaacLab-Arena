@@ -14,3 +14,4 @@ class WorkflowType(str, Enum):
     POLICY_RUNNER = "policy_runner"
     OPENPI_SERVER = "openpi_server"
     GR00T_SERVER = "gr00t_server"
+    GR00T_POLICY_RUNNER = "gr00t_policy_runner"
