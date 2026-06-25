@@ -201,8 +201,7 @@ class RelationSolver:
         pairs: list[NoOverlapPair] = []
         pair_names: list[tuple[str, str]] = []  # for the debug=True print
 
-        # Each non-anchor vs every anchor: one directed pair (the anchor never moves, so it is
-        # always the obstacle and needs no detach).
+        # Non-anchor vs each anchor: one pass (anchor is constant, so no detach).
         for child in non_anchor_objects:
             child_min, child_max = extents[child]
             for anchor in anchor_objects:
@@ -212,8 +211,7 @@ class RelationSolver:
                 pairs.append(NoOverlapPair(child_min, child_max, anchor_min, anchor_max))
                 pair_names.append((child.name, anchor.name))
 
-        # Each unordered non-anchor pair, scored both ways so both objects get gradient: detaching
-        # the obstacle side keeps gradient on the subject for that direction.
+        # Non-anchor vs non-anchor: score both directions (detach the obstacle) so each gets gradient.
         for i, child in enumerate(non_anchor_objects):
             child_min, child_max = extents[child]
             for j in range(i + 1, len(non_anchor_objects)):
@@ -230,8 +228,7 @@ class RelationSolver:
         if not pairs:
             return zero_loss
 
-        # Stack the per-pair extents into batched (num_pairs, batch_size, 3) tensors and score
-        # every pair in a single op.
+        # Stack to (num_pairs, batch_size, 3) and score every pair in one op.
         subject_min = torch.stack([p.subject_min for p in pairs], dim=0)
         subject_max = torch.stack([p.subject_max for p in pairs], dim=0)
         obstacle_min = torch.stack([p.obstacle_min for p in pairs], dim=0)

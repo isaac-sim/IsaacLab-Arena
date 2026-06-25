@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for NoCollisionLossStrategy and RelationSolver built-in no-overlap behavior."""
+"""Tests for the RelationSolver built-in no-overlap loss."""
 
 import math
 import torch
@@ -93,11 +93,7 @@ def _single_pair_no_overlap_loss(
     child_bbox: AxisAlignedBoundingBox,
     parent_world_bbox: AxisAlignedBoundingBox,
 ) -> torch.Tensor:
-    """Single-pair no-overlap loss, the reference the vectorized solver path must reproduce.
-
-    Production scores pairs through NoCollisionLossStrategy.compute_loss_batched; this scalar
-    per-pair form lives here so it does not bloat the user-facing strategy file.
-    """
+    """Single-pair no-overlap loss; the reference the vectorized solver path must reproduce."""
     single_input = child_pos.dim() == 1
     if single_input:
         child_pos = child_pos.unsqueeze(0)
@@ -122,7 +118,7 @@ def _single_pair_no_overlap_loss(
 
 
 # =============================================================================
-# Single-pair no-overlap reference tests (moved from NoCollisionLossStrategy.compute_loss)
+# Single-pair no-overlap reference tests
 # =============================================================================
 
 

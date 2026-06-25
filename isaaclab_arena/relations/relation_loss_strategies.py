@@ -479,7 +479,6 @@ class NoCollisionLossStrategy:
         """Overlap-volume no-overlap loss for boxes already reduced to world-space extents.
 
         The subject box carries gradient; it is pushed off the obstacle box (expanded by clearance).
-        The solver passes one entry per directed pair, but any matching leading shape works.
 
         Args:
             clearance_m: Minimum clearance between boxes in meters.
