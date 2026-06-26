@@ -11,12 +11,11 @@ import types
 import uuid
 
 import msgpack
-import msgpack_numpy
 import pytest
 import websockets.exceptions
 
 from isaaclab_arena_dreamzero.policy.dreamzero_remote_config import DreamZeroRemotePolicyConfig
-from isaaclab_arena_dreamzero.policy.dreamzero_remote_policy import DreamZeroRemotePolicy
+from isaaclab_arena_dreamzero.policy.dreamzero_remote_policy import DreamZeroRemotePolicy, _msgpack_encode
 from isaaclab_arena_dreamzero.policy.image_utils import TARGET_H, TARGET_W, resize_with_pad
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -55,21 +54,32 @@ _ACTION_DIM = 8
 
 
 def _packed_response(chunk: np.ndarray) -> bytes:
-    return msgpack.packb({"actions": chunk}, default=msgpack_numpy.encode)
+    return msgpack.packb({"actions": chunk}, default=_msgpack_encode)
+
+
+_FAKE_GREETING = msgpack.packb({"server": "fake"}, default=_msgpack_encode)
 
 
 class _FakeWs:
-    """Minimal WebSocket stand-in for use in monkeypatching."""
+    """Minimal WebSocket stand-in for use in monkeypatching.
+
+    The first recv() returns a fake server greeting (consumed by _connect()).
+    Subsequent recv() calls return action chunk responses.
+    """
 
     def __init__(self, response_fn=None):
         self._response_fn = response_fn or (lambda req: _packed_response(_synthetic_chunk()))
         self._sent = []
         self.closed = False
+        self._greeting_sent = False
 
     def send(self, data: bytes) -> None:
         self._sent.append(data)
 
     def recv(self, timeout=None) -> bytes:
+        if not self._greeting_sent:
+            self._greeting_sent = True
+            return _FAKE_GREETING
         last = self._sent[-1] if self._sent else b""
         return self._response_fn(last)
 

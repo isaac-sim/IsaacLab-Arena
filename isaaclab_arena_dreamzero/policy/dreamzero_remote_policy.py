@@ -14,7 +14,6 @@ import uuid
 from typing import Any
 
 import msgpack
-import msgpack_numpy
 import websockets.exceptions
 import websockets.sync.client as ws_sync
 
@@ -29,6 +28,39 @@ from isaaclab_arena_dreamzero.policy.image_utils import TARGET_H, TARGET_W, resi
 
 # DreamZero server action layout: 7 arm joints + 1 gripper.
 _ACTION_DIM = 8
+
+
+def _msgpack_encode(obj):
+    """Encode numpy arrays to the DreamZero server wire format."""
+    if isinstance(obj, np.ndarray):
+        if obj.dtype.kind in ("V", "O", "c"):
+            raise ValueError(f"Unsupported dtype: {obj.dtype}")
+        return {
+            b"__ndarray__": True,
+            b"data": obj.tobytes(),
+            b"dtype": obj.dtype.str,
+            b"shape": obj.shape,
+        }
+    if isinstance(obj, np.generic):
+        return {b"__npgeneric__": True, b"data": obj.item(), b"dtype": obj.dtype.str}
+    return obj
+
+
+def _msgpack_decode(obj):
+    """Decode DreamZero server wire format back to numpy arrays."""
+    if b"__ndarray__" in obj:
+        return np.ndarray(buffer=obj[b"data"], dtype=np.dtype(obj[b"dtype"]), shape=obj[b"shape"])
+    if b"__npgeneric__" in obj:
+        return np.dtype(obj[b"dtype"]).type(obj[b"data"])
+    return obj
+
+
+def _pack(data: dict) -> bytes:
+    return msgpack.packb(data, default=_msgpack_encode)
+
+
+def _unpack(raw: bytes) -> Any:
+    return msgpack.unpackb(raw, object_hook=_msgpack_decode, strict_map_key=False)
 
 
 @register_policy
@@ -304,7 +336,7 @@ class DreamZeroRemotePolicy(PolicyBase):
         Returns:
             float32 ndarray of shape (open_loop_horizon, _ACTION_DIM).
         """
-        raw = response["actions"] if isinstance(response, dict) else response
+        raw = response.get("actions", response) if isinstance(response, dict) else response
         chunk = np.asarray(raw, dtype=np.float32)
         assert chunk.ndim == 2, f"Expected 2-D action chunk from server, got shape {chunk.shape}"
         assert chunk.shape[1] in (7, 8), f"Expected 7 or 8 action dims, got {chunk.shape[1]}"
@@ -336,10 +368,20 @@ class DreamZeroRemotePolicy(PolicyBase):
             try:
                 if self._ws is None:
                     raise OSError("WebSocket not connected")
-                payload = msgpack.packb(request, default=msgpack_numpy.encode)
+                payload = _pack(request)
                 self._ws.send(payload)
                 raw = self._ws.recv()
-                return msgpack.unpackb(raw, raw=False, object_hook=msgpack_numpy.decode)
+                # Drain any stale reset acknowledgement strings (e.g. "reset successful")
+                # that arrived late after a prior _send_reset timed out on recv.
+                _MAX_DRAIN = 3
+                for _ in range(_MAX_DRAIN):
+                    if not isinstance(raw, str):
+                        break
+                    print(f"[DreamZeroRemotePolicy] Draining stale server message: {raw!r}")
+                    raw = self._ws.recv()
+                if isinstance(raw, str):
+                    raise RuntimeError(f"DreamZero server returned error: {raw}")
+                return _unpack(raw)
             except (websockets.exceptions.ConnectionClosed, OSError) as exc:
                 is_last_attempt = (attempt_index + 1) >= MAX_RECONNECT_ATTEMPTS
                 if is_last_attempt:
@@ -380,16 +422,17 @@ class DreamZeroRemotePolicy(PolicyBase):
         if self._ws is None:
             return
         with contextlib.suppress(websockets.exceptions.ConnectionClosed, OSError, TimeoutError):
-            payload = msgpack.packb(
-                {"endpoint": "reset", "session_ids": session_uuids},
-                default=msgpack_numpy.encode,
-            )
+            payload = _pack({"endpoint": "reset", "session_ids": session_uuids})
             self._ws.send(payload)
-            self._ws.recv(timeout=5.0)
+            self._ws.recv(timeout=60.0)
 
     @staticmethod
     def _connect(uri: str) -> ws_sync.ClientConnection:
         """Open a synchronous WebSocket connection.
+
+        The DreamZero server sends a metadata greeting immediately after the
+        handshake. Consume it here so the first recv() in _call_server_with_retry
+        returns an inference response, not the greeting.
 
         Args:
             uri: WebSocket URI, e.g. ws://localhost:5000.
@@ -397,7 +440,14 @@ class DreamZeroRemotePolicy(PolicyBase):
         Returns:
             An open ClientConnection.
         """
-        return ws_sync.connect(uri, open_timeout=60, ping_interval=60, ping_timeout=300)
+        ws = ws_sync.connect(uri, open_timeout=60, ping_interval=60, ping_timeout=300)
+        try:
+            greeting_raw = ws.recv(timeout=30.0)
+            greeting = _unpack(greeting_raw)
+            print(f"[DreamZeroRemotePolicy] Server greeting: {greeting}")
+        except Exception as exc:
+            print(f"[DreamZeroRemotePolicy] No server greeting or failed to decode: {exc}")
+        return ws
 
 
 def _close_ws_best_effort(ws: ws_sync.ClientConnection | None) -> None:
