@@ -13,6 +13,7 @@ from typing import Any
 from tasks.base_task import BaseTask
 from workflows.utils.policy_types import PolicyType
 from workflows.utils.workflow_types import WorkflowType
+from workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 
 DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
 POLICY_RUNNER_COMMAND = "/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py"
@@ -41,10 +42,11 @@ class PolicyRunnerTask(BaseTask):
         workflow_args: Any,
         task_args: Any,
         image: str = DEFAULT_IMAGE,
+        lead: bool | None = None,
     ) -> None:
         workflow_type = WorkflowType(workflow_type)
         assert workflow_type == WorkflowType.POLICY_RUNNER, f"Unsupported workflow type: {workflow_type.value}"
-        super().__init__(workflow_type=workflow_type, workflow_args=workflow_args, task_args=task_args)
+        super().__init__(workflow_type=workflow_type, workflow_args=workflow_args, task_args=task_args, lead=lead)
 
         self.policy_type = PolicyType(self.task_args.policy_type)
         policy_runner_args = self.task_args.policy_runner_args
@@ -65,38 +67,45 @@ class PolicyRunnerTask(BaseTask):
         # LFS-tracked test data uploaded from the local machine.
         return [{"dataset": {"name": "arena-lfs-data"}}]
 
+    def _get_outputs(self) -> list[dict[str, Any]]:
+        return [{"url": DATASET_SWIFT_URL}]
+        # return []
+
     def _get_run_script(self) -> str:
-        return (
-            "set -euxo pipefail\n"
-            "\n"
-            "# Run ldconfig to ensure shared libraries are found (mirrors entrypoint.sh)\n"
-            "ldconfig\n"
-            "\n"
-            "# Ensure required directories exist\n"
-            "mkdir -p /datasets /models /eval\n"
-            "\n"
-            "# Ensure the Isaac Sim symlink exists\n"
-            "[ -e /workspaces/isaaclab_arena/submodules/IsaacLab/_isaac_sim ] || \\\n"
-            "  ln -s /isaac-sim/ /workspaces/isaaclab_arena/submodules/IsaacLab/_isaac_sim\n"
-            "\n"
-            "# Display system info\n"
-            "nvidia-smi\n"
-            "cd /workspaces/isaaclab_arena\n"
-            "\n"
-            "# Overwrite LFS pointer stubs with real data uploaded from local machine.\n"
-            "# OSMO nests under: {{input:0}}/arena-lfs-data/test_data/\n"
-            'if [ -d "{{input:0}}/arena-lfs-data/test_data" ]; then\n'
-            '  cp -r "{{input:0}}/arena-lfs-data/test_data/"* \\\n'
-            "    /workspaces/isaaclab_arena/isaaclab_arena/tests/test_data/\n"
-            "fi\n"
-            "\n"
-            f"{self._get_policy_runner_command()}\n"
-        )
+        return 'set -euxo pipefail\necho "hello world from policy_runner_task"\n'
+        # return (
+        #     "set -euxo pipefail\n"
+        #     "\n"
+        #     "# Run ldconfig to ensure shared libraries are found (mirrors entrypoint.sh)\n"
+        #     "ldconfig\n"
+        #     "\n"
+        #     "# Ensure required directories exist\n"
+        #     "mkdir -p /datasets /models /eval\n"
+        #     "\n"
+        #     "# Ensure the Isaac Sim symlink exists\n"
+        #     "[ -e /workspaces/isaaclab_arena/submodules/IsaacLab/_isaac_sim ] || \\\n"
+        #     "  ln -s /isaac-sim/ /workspaces/isaaclab_arena/submodules/IsaacLab/_isaac_sim\n"
+        #     "\n"
+        #     "# Display system info\n"
+        #     "nvidia-smi\n"
+        #     "cd /workspaces/isaaclab_arena\n"
+        #     "\n"
+        #     "# Overwrite LFS pointer stubs with real data uploaded from local machine.\n"
+        #     "# OSMO nests under: {{input:0}}/arena-lfs-data/test_data/\n"
+        #     'if [ -d "{{input:0}}/arena-lfs-data/test_data" ]; then\n'
+        #     '  cp -r "{{input:0}}/arena-lfs-data/test_data/"* \\\n'
+        #     "    /workspaces/isaaclab_arena/isaaclab_arena/tests/test_data/\n"
+        #     "fi\n"
+        #     "\n"
+        #     f"{self._get_policy_runner_command()}\n"
+        # )
 
     def _get_policy_runner_command(self) -> str:
         return (
             f"{POLICY_RUNNER_COMMAND} "
             f"--policy_type {self.policy_type.value} "
+            # TODO(alexmillane): Update this flag before merging.
+            f"--video_base_dir {OSMO_TASK_OUTPUT_DIR} "
             f"{self.policy_runner_args} "
             f"{self.arena_env_args}"
         )

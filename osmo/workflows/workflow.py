@@ -33,15 +33,40 @@ class Workflow:
         workflow_args: argparse.Namespace,
         task_cls_list: list[type[BaseTask]],
         task_args_list: list[argparse.Namespace],
+        lead_list: list[bool | None] | None = None,
         group_name: str = "arena",
     ) -> None:
         assert len(task_cls_list) > 0, "Workflow requires at least one task"
         assert len(task_cls_list) == len(task_args_list), "Each task requires one task args object"
+        if lead_list is None:
+            lead_list = [None] * len(task_cls_list)
+        assert len(lead_list) == len(task_cls_list), "Each task requires one lead flag"
         self.workflow_type = workflow_type
         self.workflow_args = workflow_args
         self.task_cls_list = task_cls_list
         self.task_args_list = task_args_list
+        self.lead_list = self._resolve_lead_flags(lead_list)
         self.group_name = group_name
+
+    @staticmethod
+    def _resolve_lead_flags(lead_list: list[bool | None]) -> list[bool]:
+        """Resolve per-task lead flags.
+
+        Single-task workflows default the unspecified task to lead. Multi-task workflows require the
+        user to designate at least one task as lead and treat unspecified tasks as non-lead.
+
+        Args:
+            lead_list: Per-task lead flags, where ``None`` means the task did not specify one.
+
+        Returns:
+            The resolved lead flag for each task.
+        """
+        if len(lead_list) == 1:
+            return [True if lead_list[0] is None else bool(lead_list[0])]
+        assert any(
+            bool(lead) for lead in lead_list
+        ), "Multi-task workflows must designate at least one task as lead (pass lead=True)"
+        return [bool(lead) for lead in lead_list]
 
     def generate_workflow(self) -> dict[str, Any]:
         """Create and return the workflow dictionary."""
@@ -92,9 +117,9 @@ class Workflow:
     def _get_tasks(self) -> list[BaseTask]:
         """Instantiate task objects for this workflow."""
         tasks = []
-        for task_cls, task_args in zip(self.task_cls_list, self.task_args_list):
+        for task_cls, task_args, lead in zip(self.task_cls_list, self.task_args_list, self.lead_list):
             assert issubclass(task_cls, BaseTask)
-            tasks.append(task_cls(self.workflow_type, self.workflow_args, task_args))
+            tasks.append(task_cls(self.workflow_type, self.workflow_args, task_args, lead=lead))
         return tasks
 
     def _submit_rendered_workflow(

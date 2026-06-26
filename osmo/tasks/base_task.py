@@ -25,14 +25,18 @@ class BaseTask(ABC):
         workflow_type: WorkflowType,
         workflow_args: argparse.Namespace,
         task_args: argparse.Namespace,
+        lead: bool | None = None,
     ) -> None:
         self.workflow_type = workflow_type
         self.workflow_args = workflow_args
         self.task_args = task_args
+        self.lead = lead
+        """Whether this task is the group lead. ``None`` means unspecified and is resolved by the workflow."""
 
     def create_task_dict(self) -> dict[str, Any]:
         """Assemble the task dict consumed by OSMO."""
         return {
+            "name": self.get_task_name(),
             "args": ["/tmp/entry.sh"],
             "command": ["bash"],
             "credentials": self._get_credentials(),
@@ -41,8 +45,8 @@ class BaseTask(ABC):
             "files": [{"path": "/tmp/entry.sh", "contents": block_literal_str(self._get_run_script())}],
             "image": self._get_image(),
             "inputs": self._get_inputs(),
-            "lead": True,
-            "name": self.get_task_name(),
+            "outputs": self._get_outputs(),
+            "lead": bool(self.lead),
         }
 
     def _get_environment(self) -> dict[str, str]:
@@ -76,6 +80,10 @@ class BaseTask(ABC):
     @abstractmethod
     def _get_inputs(self) -> list[dict[str, Any]]:
         """Return input dataset declarations for the task."""
+
+    @abstractmethod
+    def _get_outputs(self) -> list[dict[str, Any]]:
+        """Return output dataset declarations for the task."""
 
     @abstractmethod
     def _get_run_script(self) -> str:
