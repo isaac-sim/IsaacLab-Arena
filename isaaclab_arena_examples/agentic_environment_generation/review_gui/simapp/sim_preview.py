@@ -13,7 +13,6 @@ import sys
 import time
 import uuid
 from contextlib import nullcontext, suppress
-from pathlib import Path
 from typing import Any
 
 from isaaclab.envs.common import ViewerCfg
@@ -23,15 +22,21 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import (
     collect_garbage_and_clear_cuda_cache,
     teardown_simulation_app,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import (
+    CAPTURE_DONE_TAIL_UPDATES,
+    CAPTURE_WAIT_MAX_UPDATES,
+    PRE_CAPTURE_UPDATES,
+    capture_viewport_png,
+    pump_app,
+    sim_preview_cache_dir,
+)
 
-PREVIEW_CACHE_DIR = Path(__file__).resolve().parents[4] / ".cache" / "llm_env_gen_sim_preview"
-
-NUM_ENVS = 16
+NUM_ENVS = 9
 ENV_SPACING_M = 1.5
 NUM_STEPS = 10
 
 # Placement pool size when preview uses resolve_on_reset=False (see ObjectPlacerParams).
-_PREVIEW_LAYOUTS_PER_ENV = 5
+_PREVIEW_LAYOUTS_PER_ENV = 2
 
 
 def parse_sim_preview_params(req: dict[str, Any]) -> tuple[int, int, float]:
@@ -94,26 +99,7 @@ def _apply_overview_camera(env, app, num_envs: int, env_spacing: float) -> None:
         vcc.update_view_location(eye=list(eye), lookat=list(target))
     else:
         unwrapped.sim.set_camera_view(eye, target)
-    for _ in range(20):
-        app.update()
-
-
-def _capture_viewport(app, cache_path: Path) -> bytes | None:
-    from omni.kit.viewport.utility import capture_viewport_to_file, get_active_viewport  # noqa: PLC0415
-
-    from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.thumbnail_capture import (  # noqa: PLC0415
-        _wait_for_capture,
-    )
-
-    viewport = get_active_viewport()
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-    capture_obj = capture_viewport_to_file(viewport, str(cache_path))
-    for _ in range(10):
-        app.update()
-    _wait_for_capture(app, capture_obj, cache_path, max_updates=300)
-    if cache_path.exists() and cache_path.stat().st_size > 0:
-        return cache_path.read_bytes()
-    return None
+    pump_app(app, count=PRE_CAPTURE_UPDATES)
 
 
 def _close_env_and_reset_sim(
@@ -134,8 +120,7 @@ def _close_env_and_reset_sim(
 
     if app is not None:
         with error_manager:
-            for _ in range(20):
-                app.update()
+            pump_app(app, count=CAPTURE_DONE_TAIL_UPDATES)
 
     collect_garbage_and_clear_cuda_cache()
 
@@ -176,10 +161,10 @@ def run_sim_preview(
     builder = ArenaEnvBuilder(arena_env, args)
     policy = ZeroActionPolicy(ZeroActionPolicyArgs())
 
-    PREVIEW_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    cache_dir = sim_preview_cache_dir()
     stamp = int(time.time() * 1000)
-    first_path = PREVIEW_CACHE_DIR / f"{preview_name}_{stamp}_first.png"
-    last_path = PREVIEW_CACHE_DIR / f"{preview_name}_{stamp}_last.png"
+    first_path = cache_dir / f"{preview_name}_{stamp}_first.png"
+    last_path = cache_dir / f"{preview_name}_{stamp}_last.png"
 
     pool_layouts = args.num_envs * _PREVIEW_LAYOUTS_PER_ENV
     env = None
@@ -202,7 +187,7 @@ def run_sim_preview(
         obs, _ = env.reset()
         _apply_overview_camera(env, app, args.num_envs, args.env_spacing)
 
-        if _capture_viewport(app, first_path) is None:
+        if capture_viewport_png(app, first_path, max_updates=CAPTURE_WAIT_MAX_UPDATES) is None:
             raise RuntimeError("failed to capture first-frame viewport screenshot")
 
         for _ in range(num_steps):
@@ -211,7 +196,7 @@ def run_sim_preview(
 
         _apply_overview_camera(env, app, args.num_envs, args.env_spacing)
 
-        if _capture_viewport(app, last_path) is None:
+        if capture_viewport_png(app, last_path, max_updates=CAPTURE_WAIT_MAX_UPDATES) is None:
             raise RuntimeError("failed to capture last-frame viewport screenshot")
 
         print(
