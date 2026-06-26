@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.camera_video import CameraObsVideoRecorder
+from isaaclab_arena.evaluation.episode_outcome import classify_outcome
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
@@ -75,8 +76,9 @@ def prepare_env_cfg_for_datagen(env_cfg) -> list:
        termination is active, so it must not run.
 
     Returns:
-        The stashed non-timeout terms (e.g. success, object_dropped) for manual evaluation.
-        Timeout terms are replaced by the env's ``max_episode_length`` cap in the loop.
+        The stashed non-timeout terms as ``(name, term)`` pairs (e.g. success, object_dropped)
+        for manual evaluation. Timeout terms are replaced by the env's ``max_episode_length``
+        cap in the loop.
     """
     # Datagen has its own writer; drop the env's metrics + recorder terms (the success
     # recorder also depends on the success termination removed below). recorders=None makes
@@ -98,18 +100,18 @@ def prepare_env_cfg_for_datagen(env_cfg) -> list:
         setattr(terminations, field.name, None)
         is_timeout = field.name == "time_out" or getattr(term, "time_out", False)
         if not is_timeout:
-            stashed.append(term)
+            stashed.append((field.name, term))
     return stashed
 
 
-def _manual_episode_done(env, reset_terms: list) -> bool:
-    """Evaluate the stashed termination terms against the live env (datagen path)."""
+def _manual_episode_done(env, reset_terms: list) -> str | None:
+    """Return the name of the first stashed termination term that fires, else ``None``."""
     base_env = env.unwrapped
-    for term in reset_terms:
+    for name, term in reset_terms:
         result = term.func(base_env, **(term.params or {}))
         if bool(torch.as_tensor(result).any()):
-            return True
-    return False
+            return name
+    return None
 
 
 def _run_datagen_rollout(
@@ -138,9 +140,10 @@ def _run_datagen_rollout(
             if num_steps_completed >= num_steps:
                 break
 
-        episode_done = steps_in_episode >= max_episode_length or _manual_episode_done(env, reset_terms)
-        if episode_done:
-            collector.end_episode(env)
+        ended_by = _manual_episode_done(env, reset_terms)
+        hit_cap = steps_in_episode >= max_episode_length
+        if ended_by is not None or hit_cap:
+            collector.end_episode(env, outcome=classify_outcome(ended_by))
             num_episodes_completed += 1
             if num_episodes is not None:
                 pbar.update(1)
