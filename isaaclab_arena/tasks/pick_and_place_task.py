@@ -32,8 +32,9 @@ from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 @register_task
 class PickAndPlaceTask(TaskBase):
     """Pick-and-place task. Success fires when the pick-up object contacts the destination
-    with low velocity and is within axis-aligned proximity of the destination. Failure
-    (object_dropped) fires when the object falls below the background's ``object_min_z``.
+    with low velocity and, when ``max_separation`` is set, is within axis-aligned proximity
+    of the destination. Failure (object_dropped) fires when the object falls below the
+    background's ``object_min_z``.
 
     The default Mimic cfg is ``PickPlaceMimicEnvCfg``. When a task needs a different cfg
     shape (different arm subtask sequences, different per-subtask numerical knobs,
@@ -57,9 +58,7 @@ class PickAndPlaceTask(TaskBase):
         task_description: str | None = None,
         force_threshold: float = 0.1,
         velocity_threshold: float = 0.1,
-        max_x_separation: float = float("inf"),
-        max_y_separation: float = float("inf"),
-        max_z_separation: float = float("inf"),
+        max_separation: tuple[float, float, float] | None = None,
         mimic_env_cfg_factory: Callable[[ArmMode], MimicEnvCfg] | None = None,
     ):
         super().__init__(episode_length_s=episode_length_s)
@@ -74,9 +73,9 @@ class PickAndPlaceTask(TaskBase):
         )
         self.force_threshold = force_threshold
         self.velocity_threshold = velocity_threshold
-        self.max_x_separation = max_x_separation
-        self.max_y_separation = max_y_separation
-        self.max_z_separation = max_z_separation
+        if max_separation is not None:
+            assert len(max_separation) == 3, f"max_separation must be (x, y, z), got {max_separation!r}"
+        self.max_separation = max_separation
         self.mimic_env_cfg_factory = mimic_env_cfg_factory
         self.events_cfg = None
         self.termination_cfg = self.make_termination_cfg()
@@ -93,33 +92,39 @@ class PickAndPlaceTask(TaskBase):
         return self.termination_cfg
 
     def make_termination_cfg(self):
+        predicates = [
+            TerminationTermCfg(
+                func=object_on_destination,
+                params={
+                    "object_cfg": SceneEntityCfg(self.pick_up_object.name),
+                    "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
+                    "force_threshold": self.force_threshold,
+                    "velocity_threshold": self.velocity_threshold,
+                },
+            ),
+        ]
+        if self.max_separation is not None:
+            # TODO(qianl): replace objects_in_proximity with object_centroid_in_container
+            # for tighter container placement checks.
+            # TODO (qianl): current implementation doesn't support ObjectReference as target_object_cfg.
+            max_x_separation, max_y_separation, max_z_separation = self.max_separation
+            predicates.append(
+                TerminationTermCfg(
+                    func=objects_in_proximity,
+                    params={
+                        "object_cfg": SceneEntityCfg(self.pick_up_object.name),
+                        "target_object_cfg": SceneEntityCfg(self.destination_location.name),
+                        "max_x_separation": max_x_separation,
+                        "max_y_separation": max_y_separation,
+                        "max_z_separation": max_z_separation,
+                    },
+                )
+            )
         success = TerminationTermCfg(
             func=check_success,
             params={
                 "mode": SuccessMode.ALL,
-                "predicates": [
-                    TerminationTermCfg(
-                        func=object_on_destination,
-                        params={
-                            "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                            "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
-                            "force_threshold": self.force_threshold,
-                            "velocity_threshold": self.velocity_threshold,
-                        },
-                    ),
-                    # TODO(qianl): replace objects_in_proximity with object_centroid_in_container
-                    # for tighter container placement checks.
-                    TerminationTermCfg(
-                        func=objects_in_proximity,
-                        params={
-                            "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                            "target_object_cfg": SceneEntityCfg(self.destination_location.name),
-                            "max_x_separation": self.max_x_separation,
-                            "max_y_separation": self.max_y_separation,
-                            "max_z_separation": self.max_z_separation,
-                        },
-                    ),
-                ],
+                "predicates": predicates,
             },
         )
         object_dropped = TerminationTermCfg(
