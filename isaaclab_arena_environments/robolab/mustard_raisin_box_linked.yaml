@@ -27,6 +27,7 @@ tasks:
     pick_up_object: mustard_bottle
     destination_location: raisin_box
     background_scene: maple_table_robolab
+    episode_length_s: 20.0
   description: Pick up the mustard bottle and place it on the raisin box.
   id: task_0_PickAndPlaceTask
   initial_state_spec_id: state_initial
