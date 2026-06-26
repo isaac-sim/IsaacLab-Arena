@@ -23,6 +23,11 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.as
     usd_cache_key,
 )
 
+_SETTLE_TAIL_UPDATES = 3
+_PRE_CAPTURE_UPDATES = 5
+_CAPTURE_DONE_TAIL_UPDATES = 3
+_CAPTURE_WAIT_MAX_UPDATES = 120
+
 
 def _thumbnail_cache_dir() -> Path:
     cache_dir = get_arena_asset_cache_dir().parent / "review_gui_thumbnails"
@@ -110,12 +115,11 @@ def _render_one_usd(app, usd_path: str, cache_path: Path) -> bytes | None:
     if not framed:
         print(f"[thumbnail_capture]   warning: frame_viewport_prims failed for {usd_path}", file=sys.stderr)
 
-    for _ in range(30):
-        app.update()
+    _pump_app(app, count=_PRE_CAPTURE_UPDATES)
 
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     capture_obj = capture_viewport_to_file(viewport, str(cache_path))
-    _wait_for_capture(app, capture_obj, cache_path, max_updates=600)
+    _wait_for_capture(app, capture_obj, cache_path, max_updates=_CAPTURE_WAIT_MAX_UPDATES)
 
     if cache_path.exists() and cache_path.stat().st_size > 0:
         return cache_path.read_bytes()
@@ -123,28 +127,43 @@ def _render_one_usd(app, usd_path: str, cache_path: Path) -> bytes | None:
     return None
 
 
+def _pump_app(app, *, count: int = 1) -> None:
+    """Pump Kit render/UI updates without advancing physics simulation."""
+    import carb.settings
+
+    settings = carb.settings.get_settings()
+    prev_play = settings.get("/app/player/playSimulations")
+    settings.set_bool("/app/player/playSimulations", False)
+    for _ in range(count):
+        app.update()
+    if prev_play is not None:
+        settings.set_bool("/app/player/playSimulations", bool(prev_play))
+    else:
+        settings.set_bool("/app/player/playSimulations", True)
+
+
 def _wait_for_stage_load(app, usd_context, max_updates: int = 600) -> None:
     """Pump frames until stage loading settles (plus a short post-settle tail)."""
     settled = 0
     for _ in range(max_updates):
-        app.update()
+        _pump_app(app)
         try:
             _msg, loading_count, loaded_count = usd_context.get_stage_loading_status()
         except Exception:
             return
         if loading_count == 0 and loaded_count == 0:
             settled += 1
-            if settled > 15:
+            if settled >= _SETTLE_TAIL_UPDATES:
                 return
         else:
             settled = 0
 
 
-def _wait_for_capture(app, capture_obj, cache_path: Path, max_updates: int = 600) -> None:
-    """Pump ``app.update()`` until the capture PNG exists or the budget expires."""
+def _wait_for_capture(app, capture_obj, cache_path: Path, max_updates: int = _CAPTURE_WAIT_MAX_UPDATES) -> None:
+    """Pump render updates until the capture PNG exists or the budget expires."""
     if capture_obj is None:
         for _ in range(max_updates):
-            app.update()
+            _pump_app(app)
             if cache_path.exists() and cache_path.stat().st_size > 0:
                 return
         return
@@ -154,12 +173,12 @@ def _wait_for_capture(app, capture_obj, cache_path: Path, max_updates: int = 600
     future = getattr(capture_obj, "future", None)
 
     for _ in range(max_updates):
-        app.update()
+        _pump_app(app)
         if cache_path.exists() and cache_path.stat().st_size > 0:
             return
         if future is not None and future.done():
-            for _ in range(15):
-                app.update()
+            for _ in range(_CAPTURE_DONE_TAIL_UPDATES):
+                _pump_app(app)
                 if cache_path.exists() and cache_path.stat().st_size > 0:
                     return
             return
