@@ -144,15 +144,3 @@ class PoseRange:
             position_xyz=tuple(position_xyz.tolist()),
             rotation_xyzw=tuple(quat.tolist()),
         )
-
-
-def as_single_pose(pose: Pose | PoseRange | PosePerEnv) -> Pose:
-    """Return one representative ``Pose`` for viewer and bbox code that needs a single point.
-
-    ``PosePerEnv`` uses env 0; ``PoseRange`` uses its midpoint.
-    """
-    if isinstance(pose, PosePerEnv):
-        return pose.poses[0]
-    if isinstance(pose, PoseRange):
-        return pose.get_midpoint()
-    return pose

@@ -71,7 +71,7 @@ def _overview_camera(
     rows = int(math.ceil(num_envs / cols))
     max_x = max((cols - 1) * env_spacing, 0.0)
     max_y = max((rows - 1) * env_spacing, 0.0)
-    span = max(max_x, max_y, env_spacing)
+    span = max(max_x, max_y) + env_spacing
     target = (0.0, 0.0, 0.0)
     height = span * 0.8 + target[2]
     back = span * 1.1

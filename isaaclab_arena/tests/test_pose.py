@@ -5,7 +5,7 @@
 
 import math
 
-from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange, as_single_pose, rotate_quat_by_yaw, wrap_angle_to_pi
+from isaaclab_arena.utils.pose import Pose, PosePerEnv, rotate_quat_by_yaw, wrap_angle_to_pi
 
 
 def _yaw_of(quat_xyzw: tuple[float, float, float, float]) -> float:
@@ -38,25 +38,6 @@ def test_pose_composition():
 
     assert T_C_A.position_xyz == (3.0, 0.0, 0.0)
     assert T_C_A.rotation_xyzw == (0.0, 0.0, 0.0, 1.0)
-
-
-def test_as_single_pose():
-    pose = Pose(position_xyz=(1.0, 2.0, 3.0))
-    assert as_single_pose(pose) is pose
-
-    pose_range = PoseRange(
-        position_xyz_min=(0.0, 0.0, 0.0),
-        position_xyz_max=(2.0, 4.0, 6.0),
-    )
-    assert as_single_pose(pose_range).position_xyz == (1.0, 2.0, 3.0)
-
-    pose_per_env = PosePerEnv(
-        poses=[
-            Pose(position_xyz=(1.0, 2.0, 3.0)),
-            Pose(position_xyz=(4.0, 5.0, 6.0)),
-        ]
-    )
-    assert as_single_pose(pose_per_env).position_xyz == (1.0, 2.0, 3.0)
 
 
 def test_pose_per_env_stores_poses():
