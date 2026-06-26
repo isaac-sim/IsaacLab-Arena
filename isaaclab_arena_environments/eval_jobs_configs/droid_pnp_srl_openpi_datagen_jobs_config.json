@@ -1,5 +1,6 @@
 {
     "datagen": {
+        "description": "Example: regenerated dynamic-scene dataset for pi0 eval.",
         "output_dir": "/datasets/dynamic_scenes/openpi_alternate_camera",
         "camera_position": [
             1.36,

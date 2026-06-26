@@ -113,6 +113,7 @@ def build_datagen_collector(job: Job, datagen_defaults: dict | None, env):
 
     from isaaclab_arena_datagen.camera_trajectory import CameraViewTrajectory
     from isaaclab_arena_datagen.collection.collector import DatagenCollector, DatagenCollectorConfig
+    from isaaclab_arena_datagen.utils.constants import DEFAULT_ROTATION_EPS_RAD, DEFAULT_TRANSLATION_EPS_M
 
     cameras = None
     if merged.get("camera_position") is not None:
@@ -131,9 +132,27 @@ def build_datagen_collector(job: Job, datagen_defaults: dict | None, env):
         width=merged.get("width", 640),
         height=merged.get("height", 480),
         mesh_sample_spacing=merged.get("mesh_sample_spacing", 0.01),
+        dynamic_translation_eps=merged.get("dynamic_translation_eps", DEFAULT_TRANSLATION_EPS_M),
+        dynamic_rotation_eps=merged.get("dynamic_rotation_eps", DEFAULT_ROTATION_EPS_RAD),
     )
     print(f"[INFO] Datagen collection enabled for job '{job.name}' -> {cfg.output_dir}/episode_NNNN/dataset.h5")
     return DatagenCollector.from_env(env, cfg, env_name=None)
+
+
+def _capture_sim_info(env):
+    """Snapshot per-job sim/render settings from a live env into a manifest.SimInfo."""
+    from isaaclab_arena_datagen.manifest import SimInfo
+
+    cfg = env.unwrapped.cfg
+    sim = getattr(cfg, "sim", None)
+    render = getattr(sim, "render", None) if sim is not None else None
+    return SimInfo(
+        dt=getattr(sim, "dt", None),
+        render_interval=getattr(sim, "render_interval", None),
+        decimation=getattr(cfg, "decimation", None),
+        episode_length_s=getattr(cfg, "episode_length_s", None),
+        render_carb_settings=dict(getattr(render, "carb_settings", {}) or {}),
+    )
 
 
 def _collect_garbage_and_clear_cuda_cache() -> None:
@@ -191,6 +210,15 @@ def main():
     # each rollout, writing one HDF5 file per episode.
     datagen_defaults = eval_jobs_config.get("datagen")
 
+    manifest_root = (datagen_defaults or {}).get("output_dir")
+    manifest_jobs = []  # list[manifest.JobRecord], populated as jobs finish
+    manifest_description = args_cli.datagen_description or (datagen_defaults or {}).get("description")
+    if manifest_root:
+        from isaaclab_arena_datagen import manifest as _manifest
+
+        manifest_git = _manifest.capture_git_info()
+        manifest_system = _manifest.capture_system_info(args_cli.device)
+
     # Check if any job requires cameras and enable them if needed before starting simulation
     enable_cameras_if_required(eval_jobs_config, args_cli)
     # Datagen collection renders dedicated cameras, which requires camera support.
@@ -212,6 +240,7 @@ def main():
                 env = None
                 policy = None
                 collector = None
+                job_sim_info = None
                 try:
                     render_mode = "rgb_array" if args_cli.video else None
                     # Datagen is active for this job when an output_dir resolves (top-level
@@ -247,6 +276,7 @@ def main():
                         env = RecordVideo(env, **video_kwargs)
 
                     collector = build_datagen_collector(job, datagen_defaults, env)
+                    job_sim_info = _capture_sim_info(env) if collector is not None else None
 
                     metrics = rollout_policy(
                         env,
@@ -278,6 +308,25 @@ def main():
                         # their replicator annotators do not leak into the next job.
                         if collector is not None:
                             collector.close(env)
+                            try:
+                                manifest_jobs.append(
+                                    _manifest.build_job_record(
+                                        name=job.name,
+                                        status=job.status.value,
+                                        policy_type=job.policy_type,
+                                        policy_config=job.policy_config_dict,
+                                        language_instruction=job.language_instruction,
+                                        arena_env_args=job.arena_env_args,
+                                        datagen_settings=_manifest.clean_datagen_settings(
+                                            dataclasses.asdict(collector.config)
+                                        ),
+                                        sim=job_sim_info or _manifest.SimInfo(),
+                                        sequence_dicts=list(collector.sequences),
+                                        root=manifest_root,
+                                    )
+                                )
+                            except Exception as exc:  # never let manifest bookkeeping fail a run
+                                print(f"[datagen] Warning: failed to record job '{job.name}' in manifest: {exc}")
                     finally:
                         try:
                             _close_job_resources(policy, env)
@@ -286,6 +335,23 @@ def main():
                             env = None
                             collector = None
                             _collect_garbage_and_clear_cuda_cache()
+
+        if manifest_root and manifest_jobs:
+            import datetime
+
+            created_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            manifest = _manifest.build_manifest(
+                created_at=created_at,
+                description=manifest_description,
+                generator_tool="isaaclab_arena.evaluation.eval_runner",
+                git=manifest_git,
+                system=manifest_system,
+                input_config=eval_jobs_config,
+                jobs=manifest_jobs,
+            )
+            out_path = os.path.join(manifest_root, "manifest.json")
+            if _manifest.write_manifest(out_path, manifest):
+                print(f"[datagen] Wrote dataset manifest -> {out_path}")
 
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()

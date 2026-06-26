@@ -27,3 +27,12 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         default=False,
         help="Continue evaluation with remaining jobs when a job fails instead of stopping immediately.",
     )
+    parser.add_argument(
+        "--datagen-description",
+        type=str,
+        default=None,
+        help=(
+            "Free-text reason this datagen dataset was generated; recorded in manifest.json "
+            "(overrides the eval config's datagen.description)."
+        ),
+    )
