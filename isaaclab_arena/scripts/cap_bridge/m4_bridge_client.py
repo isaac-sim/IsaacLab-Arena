@@ -149,10 +149,18 @@ def main() -> None:
 
         # Ground-truth object centers in the BASE frame (the frame GaP's OBB will be in) for gate scoring.
         identity = torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=device)
+
+        def base_pose(asset_name: str) -> np.ndarray:
+            wp = unwrapped.scene[asset_name].data.root_pos_w[0:1]
+            return subtract_frame_transforms(base_pos, base_quat, wp, identity)[0][0].cpu().numpy()
+
         for obj in args_cli.objects:
-            op = unwrapped.scene[obj].data.root_pos_w[0:1]
-            p_base = subtract_frame_transforms(base_pos, base_quat, op, identity)[0][0].cpu().numpy()
-            print(f"[m4] GT_BASE {obj} = [{p_base[0]:.4f}, {p_base[1]:.4f}, {p_base[2]:.4f}]")
+            p = base_pose(obj)
+            print(f"[m4] GT_BASE {obj} = [{p[0]:.4f}, {p[1]:.4f}, {p[2]:.4f}]")
+        # Basket pose + the M5a target object: logged each tick so the place can be verified by GT pose.
+        basket_base = base_pose(args_cli.basket)
+        print(f"[m4] BASKET_BASE {args_cli.basket} = [{basket_base[0]:.4f}, {basket_base[1]:.4f}, {basket_base[2]:.4f}]")
+        m5a_target = "alphabet_soup_can_hope_robolab"
 
         def camera_frame() -> dict:
             rgb = np.ascontiguousarray(cam.data.output["rgb"][0, ..., :3].cpu().numpy().astype(np.uint8))
@@ -198,7 +206,8 @@ def main() -> None:
                 env.step(action)
                 tick += 1
                 if tick % 50 == 0:
-                    print(f"[m4] tick={tick} streaming rgb+depth+pose_mat under '{args_cli.bridge_camera_name}'")
+                    t = base_pose(m5a_target)
+                    print(f"[m4] tick={tick} {m5a_target}_base=[{t[0]:.4f}, {t[1]:.4f}, {t[2]:.4f}]")
 
         env.close()
 
