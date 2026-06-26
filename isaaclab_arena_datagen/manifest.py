@@ -299,6 +299,6 @@ def write_manifest(path: str, manifest: Manifest) -> bool:
             json.dump(data, f, indent=2, default=str)
         os.replace(tmp, path)
         return True
-    except Exception as exc:  # pragma: no cover - exercised via bad-path test
+    except Exception as exc:
         print(f"[datagen] Warning: failed to write manifest to {path}: {exc}")
         return False
