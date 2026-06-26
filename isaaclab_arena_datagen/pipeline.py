@@ -30,7 +30,7 @@ from typing import Any
 
 from isaaclab_arena_datagen.camera_handler import IsaacLabArenaCameraHandler, create_static_camera
 from isaaclab_arena_datagen.camera_trajectory import CameraViewTrajectory
-from isaaclab_arena_datagen.dynamic_object_tracker import DynamicObjectTracker
+from isaaclab_arena_datagen.dynamic_object_tracker import DynamicObjectResult, DynamicObjectTracker
 from isaaclab_arena_datagen.io.hdf5_writer import DatagenHDF5Writer, camera_id_from_index
 from isaaclab_arena_datagen.object_registry import ObjectInstanceRegistry
 from isaaclab_arena_datagen.utils.camera_utils import DEFAULT_CAMERA, resolve_coord, validate_camera_configs
@@ -335,7 +335,7 @@ def save_dynamic_objects(
     translation_eps_m: float,
     rotation_eps_rad: float,
     mesh_spacing_m: float,
-) -> None:
+) -> DynamicObjectResult:
     """Extract and persist dynamic-object poses and mesh samples.
 
     Identifies objects whose per-step translation exceeds *translation_eps_m* or
@@ -349,6 +349,10 @@ def save_dynamic_objects(
         translation_eps_m: Per-step translation threshold (metres).
         rotation_eps_rad: Per-step rotation threshold (radians).
         mesh_spacing_m: Mesh surface sample spacing in metres.
+
+    Returns:
+        The :class:`DynamicObjectResult` describing the moving objects that were
+        persisted (its ``objects_metadata`` is keyed by object display name).
     """
     result = dynamic_tracker.filter_and_collect_moving_object_poses(
         translation_eps_m=translation_eps_m,
@@ -363,3 +367,4 @@ def save_dynamic_objects(
         rotation_eps_rad=rotation_eps_rad,
     )
     writer.write_mesh_samples(mesh_samples)
+    return result

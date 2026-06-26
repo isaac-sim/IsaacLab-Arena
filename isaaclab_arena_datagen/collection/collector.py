@@ -34,6 +34,7 @@ Requirements / limitations:
 from __future__ import annotations
 
 import dataclasses
+import os
 from typing import Any
 
 from isaaclab_arena_datagen.camera_trajectory import CameraViewTrajectory
@@ -120,6 +121,13 @@ class DatagenCollector:
         self._writer: DatagenHDF5Writer | None = None
         self._tracker: DynamicObjectTracker | None = None
         self._last_env: Any = None
+        self.sequences: list[dict] = []
+        """Plain-dict summary of each closed episode (consumed by the manifest writer)."""
+
+    @property
+    def config(self) -> DatagenCollectorConfig:
+        """The configuration this collector was built with."""
+        return self._cfg
 
     @classmethod
     def from_env(
@@ -173,16 +181,17 @@ class DatagenCollector:
         self._local = 0
         self._episode_open = True
 
-    def _end_episode(self, env: Any) -> None:
-        """Trim, write dynamic objects, and close the current episode file."""
+    def _end_episode(self, env: Any, outcome: str) -> None:
+        """Trim, write dynamic objects, append a sequence record, and close the file."""
         assert self._writer is not None and self._tracker is not None
+        episode_dir = episode_output_dir(self._cfg.output_dir, self._episode_idx)
         if self._local == 0:
             # Nothing recorded (e.g. rollout ended immediately); drop the empty file.
             self._writer.close()
         else:
             self._writer.trim(self._local)
             self._tracker.trim(self._local)
-            save_dynamic_objects(
+            result = save_dynamic_objects(
                 env,
                 self._writer,
                 self._tracker,
@@ -191,6 +200,14 @@ class DatagenCollector:
                 self._cfg.mesh_sample_spacing,
             )
             self._writer.close()
+            self.sequences.append({
+                "episode_index": self._episode_idx,
+                "path": os.path.join(episode_dir, "dataset.h5"),
+                "num_frames": self._local,
+                "camera_ids": [cam.camera_id for cam in self._camera_setups],
+                "dynamic_object_names": sorted(result.objects_metadata.keys()),
+                "outcome": outcome,
+            })
         self._episode_open = False
         self._episode_idx += 1
 
@@ -235,15 +252,18 @@ class DatagenCollector:
             self._tracker.record_step_poses(env, self._local)
             self._local += 1
 
-    def end_episode(self, env: Any) -> None:
+    def end_episode(self, env: Any, outcome: str = "timeout") -> None:
         """Flush the in-progress episode file (idempotent).
 
-        The rollout loop calls this at an episode boundary, right before its
-        explicit ``env.reset()``, so each episode is closed from a settled scene.
+        Args:
+            outcome: Outcome label for the episode, one of ``"success"`` |
+                ``"failure"`` | ``"timeout"``. The rollout loop passes the
+                classified outcome; the default suits a partial episode flushed
+                by :meth:`finalize`.
         """
         if self._closed or not self._episode_open:
             return
-        self._end_episode(env)
+        self._end_episode(env, outcome)
 
     def finalize(self, env: Any | None = None) -> None:
         """Flush the in-progress episode and stop recording. Idempotent."""
@@ -251,7 +271,7 @@ class DatagenCollector:
             return
         self._closed = True
         if self._episode_open:
-            self._end_episode(env if env is not None else self._last_env)
+            self._end_episode(env if env is not None else self._last_env, "timeout")
 
     def close(self, env: Any | None = None) -> None:
         """Finalize, then detach and remove the dedicated datagen cameras.
