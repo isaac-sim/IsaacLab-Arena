@@ -52,11 +52,37 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
         light.set_intensity(1500.0)
         ground = self.asset_registry.get_asset_by_name("ground_plane")()
 
-        # Ground-mounted Franka at the origin with the LIBERO home pose.
-        embodiment = self.asset_registry.get_asset_by_name("franka_ik")(enable_cameras=args_cli.enable_cameras)
+        # Ground-mounted Franka at the origin with the LIBERO home pose. The control mode picks the arm
+        # action term: relative differential IK (default; a zero action holds pose, which the viewer and
+        # smoke tests rely on) or absolute joint position (for the GaP bridge, where the action IS the
+        # target q). A zero action under joint-position control drives every joint to 0, so this is not a
+        # safe default.
+        embodiment_name = "franka_joint_pos" if args_cli.control == "joint_pos" else "franka_ik"
+        embodiment = self.asset_registry.get_asset_by_name(embodiment_name)(enable_cameras=args_cli.enable_cameras)
         embodiment.set_initial_pose(Pose(position_xyz=(-0.20, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
         embodiment.set_initial_joint_pose(initial_joint_pose=_HOME_Q)
         embodiment.scene_config.robot.spawn.usd_path = _PLAIN_PANDA
+        if args_cli.control == "joint_pos":
+            from isaaclab.envs.mdp.actions.actions_cfg import JointPositionActionCfg
+            from isaaclab_assets.robots.franka import FRANKA_PANDA_HIGH_PD_CFG
+
+            # High-PD gains so the arm actually tracks the commanded absolute q. The stock joint-pos cfg
+            # (FRANKA_PANDA_CFG, stiffness=80) is tuned for RL compliance and sags ~0.25 rad at the
+            # gravity-loaded joints 2/4; HIGH_PD (the gains the IK embodiment uses) holds the target. The
+            # plain ground-mounted panda USD is kept.
+            high_pd_robot = FRANKA_PANDA_HIGH_PD_CFG.copy()
+            high_pd_robot.spawn.usd_path = _PLAIN_PANDA
+            embodiment.scene_config.robot = high_pd_robot.replace(prim_path="{ENV_REGEX_NS}/Robot")
+
+            # Absolute joint targets: action[i] is the commanded q_i directly. The stock franka_joint_pos
+            # term ships scale=0.5/use_default_offset=True, which would land a target q at 0.5*q+default;
+            # scale=1.0/use_default_offset=False makes the action the absolute target the bridge expects.
+            embodiment.action_config.arm_action = JointPositionActionCfg(
+                asset_name="robot",
+                joint_names=["panda_joint.*"],
+                scale=1.0,
+                use_default_offset=False,
+            )
 
         teleop_device = (
             self.device_registry.get_device_by_name(args_cli.teleop_device)() if args_cli.teleop_device else None
@@ -111,4 +137,12 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
             help="grocery assets to pack (relation-solved placement)",
         )
         parser.add_argument("--basket", type=str, default="grey_bin_robolab", help="container asset")
+        parser.add_argument(
+            "--control",
+            type=str,
+            default="ik",
+            choices=["ik", "joint_pos"],
+            help="Arm action term: 'ik' (relative differential IK, default) or 'joint_pos' "
+            "(absolute joint-position targets, for the GaP bridge).",
+        )
         parser.add_argument("--teleop_device", type=str, default=None)
