@@ -74,7 +74,6 @@ def _make_table() -> DummyObject:
 
 
 def test_sphere_decomposition_covers_surface():
-    """Sphere decomposition should cover >80% of surface sample points."""
     mesh = trimesh.creation.cylinder(radius=0.05, height=0.1, sections=32)
     spheres = greedy_sphere_decomposition(mesh, num_spheres=20, n_surface=500)
     assert spheres.shape[1] == 4
@@ -95,7 +94,6 @@ def test_sphere_decomposition_covers_surface():
 
 @requires_warp
 def test_warp_mesh_caching():
-    """Same mesh object should return identical Warp mesh from cache."""
     mesh = trimesh.creation.box(extents=(0.1, 0.1, 0.1))
     manager = WarpMeshAndSphereCache(num_spheres=10)
     m1 = manager.get_warp_mesh(mesh)
@@ -103,14 +101,24 @@ def test_warp_mesh_caching():
     assert m1 is m2
 
 
+def _batched_aabb_loss(strategy, clearance_m, child_pos, child_bbox, parent_world_bbox):
+    """Helper: compute single-pair AABB loss via compute_loss_batched."""
+    subject_min = (child_pos + child_bbox.min_point).unsqueeze(0).unsqueeze(0)
+    subject_max = (child_pos + child_bbox.max_point).unsqueeze(0).unsqueeze(0)
+    obstacle_min = parent_world_bbox.min_point.unsqueeze(0)
+    obstacle_max = parent_world_bbox.max_point.unsqueeze(0)
+    loss = strategy.compute_loss_batched(clearance_m, subject_min, subject_max, obstacle_min, obstacle_max)
+    return loss.squeeze()
+
+
 def test_aabb_zero_loss_well_separated():
-    """AABB loss is zero when objects are well separated."""
     strategy = NoCollisionLossStrategy(slope=10.0)
 
     obj_a = _make_cylinder("a")
     obj_b = _make_cylinder("b")
 
-    loss = strategy.compute_loss(
+    loss = _batched_aabb_loss(
+        strategy,
         clearance_m=0.0,
         child_pos=torch.tensor([0.0, 0.0, 0.0]),
         child_bbox=obj_a.get_bounding_box(),
@@ -120,12 +128,12 @@ def test_aabb_zero_loss_well_separated():
 
 
 def test_aabb_positive_loss_fully_overlapping():
-    """AABB loss is positive when two objects fully overlap."""
     strategy = NoCollisionLossStrategy(slope=10000.0)
     a = _make_cylinder("a")
     b = _make_cylinder("b")
 
-    loss = strategy.compute_loss(
+    loss = _batched_aabb_loss(
+        strategy,
         clearance_m=0.0,
         child_pos=torch.tensor([0.0, 0.0, 0.0]),
         child_bbox=a.get_bounding_box(),
@@ -135,22 +143,21 @@ def test_aabb_positive_loss_fully_overlapping():
 
 
 def test_aabb_clearance_m_increases_loss():
-    """Near-miss cylinders should have positive AABB loss when clearance_m > 0."""
     strategy = NoCollisionLossStrategy(slope=10000.0)
     a = _make_cylinder("a", radius=0.03)
     b = _make_cylinder("b", radius=0.03)
     child_pos = torch.tensor([0.0, 0.0, 0.0])
     parent_world_bbox = b.get_bounding_box().translated((0.07, 0.0, 0.0))
 
-    # Separated (0.07 > 0.03+0.03): zero AABB loss without clearance
-    loss_no_clearance = strategy.compute_loss(
+    loss_no_clearance = _batched_aabb_loss(
+        strategy,
         clearance_m=0.0,
         child_pos=child_pos,
         child_bbox=a.get_bounding_box(),
         parent_world_bbox=parent_world_bbox,
     )
-    # With clearance: boxes expand, loss should be positive
-    loss_with_clearance = strategy.compute_loss(
+    loss_with_clearance = _batched_aabb_loss(
+        strategy,
         clearance_m=0.05,
         child_pos=child_pos,
         child_bbox=a.get_bounding_box(),
@@ -164,7 +171,6 @@ def test_aabb_clearance_m_increases_loss():
 
 @requires_warp
 def test_solver_separates_overlapping_cylinders_mesh_mode():
-    """RelationSolver with MESH mode should push overlapping cylinders apart."""
     table = _make_table()
     a = _make_cylinder("cyl_a")
     b = _make_cylinder("cyl_b")
@@ -190,7 +196,6 @@ def test_solver_separates_overlapping_cylinders_mesh_mode():
 
 @requires_warp
 def test_on_pairs_skipped_in_mesh_mode():
-    """On-linked pairs should not be penalized in mesh mode (same as AABB)."""
     table = _make_table()
     obj = _make_cylinder("can")
     obj.add_relation(On(table))
@@ -321,7 +326,6 @@ def test_object_placer_mesh_mode_end_to_end():
 
 @requires_warp
 def test_validate_no_overlap_mesh_catches_overlap():
-    """Direct test of _validate_no_overlap_mesh: overlapping cylinders should fail validation."""
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 
@@ -416,7 +420,7 @@ def test_validate_no_overlap_mesh_respects_anchor_yaw():
 
 @requires_warp
 def test_mesh_sdf_backward_gradient():
-    """mesh_sdf backward should produce non-zero gradients pointing outward for interior points."""
+    """mesh_sdf backward gradient points toward the nearest face for an interior point."""
     from isaaclab_arena.relations.warp_sdf_kernels import mesh_sdf
 
     mesh = trimesh.creation.box(extents=(0.2, 0.2, 0.2))
@@ -474,7 +478,7 @@ def test_solver_mesh_batch_size_two():
 
 @requires_warp
 def test_broadphase_skips_separated_pairs():
-    """Well-separated objects produce zero mesh loss from the solver path."""
+    """Separated objects have lower mesh loss than overlapping ones (broadphase filters pairs)."""
     table = _make_table()
     a = _make_cylinder("a", radius=0.03)
     b = _make_cylinder("b", radius=0.03)
@@ -486,9 +490,6 @@ def test_broadphase_skips_separated_pairs():
 
     solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False))
     solver.solve([table, a, b], initial)
-    # With max_iters=0, loss is from initial positions.
-    # Objects are well separated, so collision loss should be minimal
-    # (only On-relation losses contribute).
     loss = solver.last_loss_per_env[0].item()
 
     # Compare with an overlapping case to confirm broadphase actually filters
@@ -502,7 +503,6 @@ def test_broadphase_skips_separated_pairs():
 
 @requires_warp
 def test_broadphase_does_not_skip_overlapping_pairs():
-    """Overlapping objects must produce nonzero mesh loss from the solver path."""
     table = _make_table()
     a = _make_cylinder("a", radius=0.03)
     b = _make_cylinder("b", radius=0.03)
@@ -520,7 +520,7 @@ def test_broadphase_does_not_skip_overlapping_pairs():
 
 @requires_warp
 def test_multi_mesh_sdf_distinct_meshes():
-    """Verify mesh_indices routes queries to different meshes (not stuck at index 0)."""
+    """Regression: mesh_indices routing could silently query only mesh 0."""
     from isaaclab_arena.relations.warp_sdf_kernels import multi_mesh_sdf
 
     # Tall cylinder vs flat box — maximally different SDF at the query point.
@@ -550,7 +550,6 @@ def test_multi_mesh_sdf_distinct_meshes():
 
 @requires_warp
 def test_multi_mesh_sdf_backward():
-    """Backward through multi_mesh_sdf produces correct gradient direction."""
     from isaaclab_arena.relations.warp_sdf_kernels import multi_mesh_sdf
 
     mesh = trimesh.creation.cylinder(radius=0.05, height=0.1, sections=32)

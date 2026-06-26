@@ -9,7 +9,7 @@ import numpy as np
 import time
 import torch
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, NamedTuple, cast
 
 import warp as wp
 from isaaclab.utils.math import quat_apply, quat_apply_inverse
@@ -46,6 +46,23 @@ class NoOverlapPair:
     obstacle_max: torch.Tensor
 
 
+class MeshPairEntry(NamedTuple):
+    """One directed sphere-to-mesh pair collected during cache construction."""
+
+    subject: ObjectBase
+    obstacle: ObjectBase
+    is_anchor: bool
+    anchor_pos: torch.Tensor | None  # (3,) world position, or None for non-anchors
+    anchor_yaw: float
+    centers_local: torch.Tensor  # (S, 3) sphere centers in subject-local frame
+    radii: torch.Tensor  # (S,) sphere radii
+    subject_bbox_min: torch.Tensor  # (B, 3) subject bbox min corners, B = batch_size
+    subject_bbox_max: torch.Tensor  # (B, 3)
+    obstacle_bbox_min: torch.Tensor  # (B, 3) obstacle bbox min corners
+    obstacle_bbox_max: torch.Tensor  # (B, 3)
+    warp_mesh: object  # wp.Mesh (untyped to avoid import at runtime)
+
+
 class RelationSolver:
     """Differentiable solver for 3D spatial relations of IsaacLab Arena Objects.
 
@@ -74,8 +91,8 @@ class RelationSolver:
         self._mesh_orientations: list[dict[ObjectBase, float]] | None = None
         self._warned_no_mesh: set[str] = set()
         self._mesh_manager: WarpMeshAndSphereCache | None = None
-        self._mesh_cache_fwd: MeshPairCache | None = None
-        self._mesh_cache_rev: MeshPairCache | None = None
+        self._mesh_cache_forward: MeshPairCache | None = None
+        self._mesh_cache_reverse: MeshPairCache | None = None
 
     def _get_strategy(self, relation: RelationBase) -> RelationLossStrategy | UnaryRelationLossStrategy:
         """Look up the loss strategy for a relation type; raises ValueError if none registered.
@@ -189,6 +206,7 @@ class RelationSolver:
         non_anchor_objects = state.optimizable_objects
         anchor_objects = list(state.anchor_objects)
 
+        # Collect On-relation pairs to skip (stacked objects shouldn't repel each other).
         on_pairs: set[tuple[int, int]] = set()
         for obj in [*non_anchor_objects, *anchor_objects]:
             for rel in obj.get_relations():
@@ -285,34 +303,24 @@ class RelationSolver:
         non_anchor_objects = state.optimizable_objects
         anchor_objects = list(state.anchor_objects)
 
-        self._mesh_cache_fwd = self._build_vectorized_cache(
-            state, manager, non_anchor_objects, anchor_objects, on_pairs, device, direction="fwd"
+        forward_pairs, reverse_pairs = self._collect_mesh_pairs(
+            state, manager, non_anchor_objects, anchor_objects, on_pairs, device
         )
-        self._mesh_cache_rev = self._build_vectorized_cache(
-            state, manager, non_anchor_objects, anchor_objects, on_pairs, device, direction="rev"
-        )
+        self._mesh_cache_forward = self._finalize_mesh_cache(forward_pairs, device)
+        self._mesh_cache_reverse = self._finalize_mesh_cache(reverse_pairs, device)
 
-    def _build_vectorized_cache(
-        self, state, manager, non_anchor_objects, anchor_objects, on_pairs, device, direction: str
-    ) -> MeshPairCache | None:
-        """Build the MeshPairCache for forward or reverse assignment; None when no pairs qualify."""
-        centers_list: list[torch.Tensor] = []
-        radii_list: list[torch.Tensor] = []
-        pair_child_objs: list = []
-        pair_parent_objs: list = []
-        pair_is_anchor: list[bool] = []
-        pair_anchor_pos: list[torch.Tensor | None] = []
-        pair_anchor_yaw: list[float] = []
-        pair_c_bbox_min: list[torch.Tensor] = []
-        pair_c_bbox_max: list[torch.Tensor] = []
-        pair_p_bbox_min: list[torch.Tensor] = []
-        pair_p_bbox_max: list[torch.Tensor] = []
-        pair_max_r: list[float] = []
-        mesh_id_map: dict[int, int] = {}
-        mesh_id_values: list[int] = []
-        mesh_idx_per_sphere: list[int] = []
-        pair_slices: list[tuple[int, int]] = []
-        offset = 0
+    def _collect_mesh_pairs(
+        self,
+        state: RelationSolverState,
+        manager: WarpMeshAndSphereCache,
+        non_anchor_objects: list,
+        anchor_objects: list,
+        on_pairs: set[tuple[int, int]],
+        device: torch.device,
+    ) -> tuple[list[MeshPairEntry], list[MeshPairEntry]]:
+        """Collect forward and reverse mesh pairs in a single pass."""
+        forward_pairs: list[MeshPairEntry] = []
+        reverse_pairs: list[MeshPairEntry] = []
 
         for i, child in enumerate(non_anchor_objects):
             child_mesh = manager.get_collision_mesh(child)
@@ -325,165 +333,145 @@ class RelationSolver:
             child_centers_local = child_spheres[:, :3]
             child_radii = child_spheres[:, 3]
             child_bbox = state.get_bbox(child)
-            c_bbox_min = child_bbox.min_point.to(device)
-            c_bbox_max = child_bbox.max_point.to(device)
+            c_bbox_min = child_bbox.min_point.to(device).expand(state.batch_size, 3)
+            c_bbox_max = child_bbox.max_point.to(device).expand(state.batch_size, 3)
 
-            if direction == "fwd":
-                for anchor in anchor_objects:
-                    if (id(child), id(anchor)) in on_pairs:
-                        continue
-                    parent_mesh = manager.get_collision_mesh(anchor)
-                    if parent_mesh is None:
-                        if anchor.name not in self._warned_no_mesh:
-                            self._warned_no_mesh.add(anchor.name)
-                            print(f"[NoCollision] '{anchor.name}' has no collision mesh; pair will use AABB fallback.")
-                        continue
-                    warp_mesh = manager.get_warp_mesh(parent_mesh, obj=anchor)
-                    parent_bbox = state.get_bbox(anchor)
-                    p_bbox_min = parent_bbox.min_point.to(device)
-                    p_bbox_max = parent_bbox.max_point.to(device)
-                    pose = anchor.get_initial_pose()
-                    assert pose is not None and isinstance(
-                        pose, Pose
-                    ), f"MESH collision requires anchor '{anchor.name}' to have a fixed Pose initial_pose"
-                    assert abs(pose.rotation_xyzw[0]) < 1e-6 and abs(pose.rotation_xyzw[1]) < 1e-6, (
-                        f"MESH collision requires anchor '{anchor.name}' to have identity or "
-                        f"pure-Z rotation, got rotation_xyzw={pose.rotation_xyzw}. "
-                        "Roll/pitch anchors are not supported in MESH mode."
+            # Forward: child's spheres → anchor's mesh
+            for anchor in anchor_objects:
+                if (id(child), id(anchor)) in on_pairs:
+                    continue
+                anchor_mesh = manager.get_collision_mesh(anchor)
+                if anchor_mesh is None:
+                    if anchor.name not in self._warned_no_mesh:
+                        self._warned_no_mesh.add(anchor.name)
+                        print(f"[NoCollision] '{anchor.name}' has no collision mesh; pair will use AABB fallback.")
+                    continue
+                pose = anchor.get_initial_pose()
+                assert pose is not None and isinstance(
+                    pose, Pose
+                ), f"MESH collision requires anchor '{anchor.name}' to have a fixed Pose initial_pose"
+                assert abs(pose.rotation_xyzw[0]) < 1e-6 and abs(pose.rotation_xyzw[1]) < 1e-6, (
+                    f"MESH collision requires anchor '{anchor.name}' to have identity or "
+                    f"pure-Z rotation, got rotation_xyzw={pose.rotation_xyzw}. "
+                    "Roll/pitch anchors are not supported in MESH mode."
+                )
+                anchor_bbox = state.get_bbox(anchor)
+                forward_pairs.append(
+                    MeshPairEntry(
+                        subject=child,
+                        obstacle=anchor,
+                        is_anchor=True,
+                        anchor_pos=torch.tensor(pose.position_xyz, dtype=torch.float32, device=device),
+                        anchor_yaw=yaw_from_quat_xyzw(pose.rotation_xyzw),
+                        centers_local=child_centers_local,
+                        radii=child_radii,
+                        subject_bbox_min=c_bbox_min,
+                        subject_bbox_max=c_bbox_max,
+                        obstacle_bbox_min=anchor_bbox.min_point.to(device).expand(state.batch_size, 3),
+                        obstacle_bbox_max=anchor_bbox.max_point.to(device).expand(state.batch_size, 3),
+                        warp_mesh=manager.get_warp_mesh(anchor_mesh, obj=anchor),
                     )
-                    anchor_pos = torch.tensor(pose.position_xyz, dtype=torch.float32, device=device)
-                    anchor_yaw = yaw_from_quat_xyzw(pose.rotation_xyzw)
+                )
 
-                    n_spheres = child_centers_local.shape[0]
-                    mesh_key = id(warp_mesh)
-                    if mesh_key not in mesh_id_map:
-                        mesh_id_map[mesh_key] = len(mesh_id_values)
-                        mesh_id_values.append(warp_mesh.id)
-                    mesh_idx = mesh_id_map[mesh_key]
+            # Forward + Reverse: non-anchor pairs (bidirectional gradient)
+            for j in range(i + 1, len(non_anchor_objects)):
+                other = non_anchor_objects[j]
+                if (id(child), id(other)) in on_pairs:
+                    continue
+                other_mesh = manager.get_collision_mesh(other)
+                if other_mesh is None:
+                    if other.name not in self._warned_no_mesh:
+                        self._warned_no_mesh.add(other.name)
+                        print(f"[NoCollision] '{other.name}' has no collision mesh; pair will use AABB fallback.")
+                    continue
+                other_bbox = state.get_bbox(other)
+                o_bbox_min = other_bbox.min_point.to(device).expand(state.batch_size, 3)
+                o_bbox_max = other_bbox.max_point.to(device).expand(state.batch_size, 3)
 
-                    centers_list.append(child_centers_local)
-                    radii_list.append(child_radii)
-                    pair_child_objs.append(child)
-                    pair_parent_objs.append(anchor)
-                    pair_is_anchor.append(True)
-                    pair_anchor_pos.append(anchor_pos)
-                    pair_anchor_yaw.append(anchor_yaw)
-                    pair_c_bbox_min.append(c_bbox_min)
-                    pair_c_bbox_max.append(c_bbox_max)
-                    pair_p_bbox_min.append(p_bbox_min)
-                    pair_p_bbox_max.append(p_bbox_max)
-                    pair_max_r.append(child_radii.max().item())
-                    mesh_idx_per_sphere.extend([mesh_idx] * n_spheres)
-                    pair_slices.append((offset, offset + n_spheres))
-                    offset += n_spheres
+                # forward: child's spheres → other's mesh
+                forward_pairs.append(
+                    MeshPairEntry(
+                        subject=child,
+                        obstacle=other,
+                        is_anchor=False,
+                        anchor_pos=None,
+                        anchor_yaw=0.0,
+                        centers_local=child_centers_local,
+                        radii=child_radii,
+                        subject_bbox_min=c_bbox_min,
+                        subject_bbox_max=c_bbox_max,
+                        obstacle_bbox_min=o_bbox_min,
+                        obstacle_bbox_max=o_bbox_max,
+                        warp_mesh=manager.get_warp_mesh(other_mesh, obj=other),
+                    )
+                )
 
-                for j in range(i + 1, len(non_anchor_objects)):
-                    other = non_anchor_objects[j]
-                    if (id(child), id(other)) in on_pairs:
-                        continue
-                    other_mesh = manager.get_collision_mesh(other)
-                    if other_mesh is None:
-                        if other.name not in self._warned_no_mesh:
-                            self._warned_no_mesh.add(other.name)
-                            print(f"[NoCollision] '{other.name}' has no collision mesh; pair will use AABB fallback.")
-                        continue
-                    warp_mesh = manager.get_warp_mesh(other_mesh, obj=other)
-                    other_bbox = state.get_bbox(other)
-                    p_bbox_min = other_bbox.min_point.to(device)
-                    p_bbox_max = other_bbox.max_point.to(device)
+                # reverse: other's spheres → child's mesh
+                other_spheres = manager.get_query_spheres(other_mesh, obj=other).to(device)
+                reverse_pairs.append(
+                    MeshPairEntry(
+                        subject=other,
+                        obstacle=child,
+                        is_anchor=False,
+                        anchor_pos=None,
+                        anchor_yaw=0.0,
+                        centers_local=other_spheres[:, :3],
+                        radii=other_spheres[:, 3],
+                        subject_bbox_min=o_bbox_min,
+                        subject_bbox_max=o_bbox_max,
+                        obstacle_bbox_min=c_bbox_min,
+                        obstacle_bbox_max=c_bbox_max,
+                        warp_mesh=manager.get_warp_mesh(child_mesh, obj=child),
+                    )
+                )
 
-                    n_spheres = child_centers_local.shape[0]
-                    mesh_key = id(warp_mesh)
-                    if mesh_key not in mesh_id_map:
-                        mesh_id_map[mesh_key] = len(mesh_id_values)
-                        mesh_id_values.append(warp_mesh.id)
-                    mesh_idx = mesh_id_map[mesh_key]
+        return forward_pairs, reverse_pairs
 
-                    centers_list.append(child_centers_local)
-                    radii_list.append(child_radii)
-                    pair_child_objs.append(child)
-                    pair_parent_objs.append(other)
-                    pair_is_anchor.append(False)
-                    pair_anchor_pos.append(None)
-                    pair_anchor_yaw.append(0.0)
-                    pair_c_bbox_min.append(c_bbox_min)
-                    pair_c_bbox_max.append(c_bbox_max)
-                    pair_p_bbox_min.append(p_bbox_min)
-                    pair_p_bbox_max.append(p_bbox_max)
-                    pair_max_r.append(child_radii.max().item())
-                    mesh_idx_per_sphere.extend([mesh_idx] * n_spheres)
-                    pair_slices.append((offset, offset + n_spheres))
-                    offset += n_spheres
-
-            else:  # direction == "rev"
-                for j in range(i + 1, len(non_anchor_objects)):
-                    other = non_anchor_objects[j]
-                    if (id(child), id(other)) in on_pairs:
-                        continue
-                    other_mesh = manager.get_collision_mesh(other)
-                    if other_mesh is None:
-                        if other.name not in self._warned_no_mesh:
-                            self._warned_no_mesh.add(other.name)
-                            print(f"[NoCollision] '{other.name}' has no collision mesh; pair will use AABB fallback.")
-                        continue
-                    other_spheres = manager.get_query_spheres(other_mesh, obj=other).to(device)
-                    other_centers_local = other_spheres[:, :3]
-                    other_radii = other_spheres[:, 3]
-                    warp_mesh = manager.get_warp_mesh(child_mesh, obj=child)
-                    other_bbox = state.get_bbox(other)
-                    o_bbox_min = other_bbox.min_point.to(device)
-                    o_bbox_max = other_bbox.max_point.to(device)
-
-                    n_spheres = other_centers_local.shape[0]
-                    mesh_key = id(warp_mesh)
-                    if mesh_key not in mesh_id_map:
-                        mesh_id_map[mesh_key] = len(mesh_id_values)
-                        mesh_id_values.append(warp_mesh.id)
-                    mesh_idx = mesh_id_map[mesh_key]
-
-                    centers_list.append(other_centers_local)
-                    radii_list.append(other_radii)
-                    pair_child_objs.append(other)
-                    pair_parent_objs.append(child)
-                    pair_is_anchor.append(False)
-                    pair_anchor_pos.append(None)
-                    pair_anchor_yaw.append(0.0)
-                    pair_c_bbox_min.append(o_bbox_min)
-                    pair_c_bbox_max.append(o_bbox_max)
-                    pair_p_bbox_min.append(c_bbox_min)
-                    pair_p_bbox_max.append(c_bbox_max)
-                    pair_max_r.append(other_radii.max().item())
-                    mesh_idx_per_sphere.extend([mesh_idx] * n_spheres)
-                    pair_slices.append((offset, offset + n_spheres))
-                    offset += n_spheres
-
-        if not centers_list:
+    @staticmethod
+    def _finalize_mesh_cache(entries: list[MeshPairEntry], device: torch.device) -> MeshPairCache | None:
+        """Stack collected pair entries into a MeshPairCache; None when no pairs qualify."""
+        if not entries:
             return None
 
-        wp_device = str(device)
+        mesh_id_map: dict[int, int] = {}
+        mesh_id_values: list[int] = []
+        mesh_idx_per_sphere: list[int] = []
+        pair_slices: list[tuple[int, int]] = []
+        offset = 0
+
+        for entry in entries:
+            n_spheres = entry.centers_local.shape[0]
+            mesh_key = id(entry.warp_mesh)
+            if mesh_key not in mesh_id_map:
+                mesh_id_map[mesh_key] = len(mesh_id_values)
+                mesh_id_values.append(entry.warp_mesh.id)
+            mesh_idx_per_sphere.extend([mesh_id_map[mesh_key]] * n_spheres)
+            pair_slices.append((offset, offset + n_spheres))
+            offset += n_spheres
+
         pair_sphere_count = torch.tensor([e - s for s, e in pair_slices], dtype=torch.float32, device=device)
         sphere_pair_id = torch.repeat_interleave(
             torch.arange(len(pair_slices), device=device), pair_sphere_count.long()
         )
 
         return MeshPairCache(
-            all_centers_local=torch.cat(centers_list, dim=0),
-            all_radii=torch.cat(radii_list, dim=0),
-            pair_child_objs=pair_child_objs,
-            pair_parent_objs=pair_parent_objs,
-            pair_is_anchor=pair_is_anchor,
-            pair_anchor_pos=pair_anchor_pos,
-            pair_anchor_yaw=pair_anchor_yaw,
-            pair_c_bbox_min=torch.stack(pair_c_bbox_min),
-            pair_c_bbox_max=torch.stack(pair_c_bbox_max),
-            pair_p_bbox_min=torch.stack(pair_p_bbox_min),
-            pair_p_bbox_max=torch.stack(pair_p_bbox_max),
-            pair_max_r=torch.tensor(pair_max_r, device=device),
+            all_centers_local=torch.cat([e.centers_local for e in entries], dim=0),
+            all_radii=torch.cat([e.radii for e in entries], dim=0),
+            pair_subject_objs=[e.subject for e in entries],
+            pair_obstacle_objs=[e.obstacle for e in entries],
+            pair_is_anchor=[e.is_anchor for e in entries],
+            pair_anchor_pos=[e.anchor_pos for e in entries],
+            pair_anchor_yaw=[e.anchor_yaw for e in entries],
+            pair_subject_bbox_min=torch.stack([e.subject_bbox_min for e in entries]),
+            pair_subject_bbox_max=torch.stack([e.subject_bbox_max for e in entries]),
+            pair_obstacle_bbox_min=torch.stack([e.obstacle_bbox_min for e in entries]),
+            pair_obstacle_bbox_max=torch.stack([e.obstacle_bbox_max for e in entries]),
+            pair_max_radius=torch.tensor([e.radii.max().item() for e in entries], device=device),
             sphere_pair_id=sphere_pair_id,
             sphere_mesh_idx=torch.tensor(mesh_idx_per_sphere, dtype=torch.int32, device=device),
             pair_sphere_count=pair_sphere_count,
-            mesh_id_array=wp.array(np.array(mesh_id_values, dtype=np.uint64), dtype=wp.uint64, device=wp_device),
-            num_pairs=len(pair_slices),
+            mesh_id_array=wp.array(np.array(mesh_id_values, dtype=np.uint64), dtype=wp.uint64, device=str(device)),
+            num_pairs=len(entries),
             total_spheres=offset,
         )
 
@@ -492,27 +480,29 @@ class RelationSolver:
         state: RelationSolverState,
         debug: bool,
     ) -> torch.Tensor:
-        """Sphere-to-SDF penetration loss via the vectorized multi-mesh kernel."""
+        """Per-env sphere-to-SDF penetration loss; iterates envs, calls the multi-mesh kernel per batch."""
         device = state.device
         total_loss = torch.zeros(state.batch_size, device=device, dtype=torch.float32)
         clearance_m = self.params.clearance_m
         slope = self._no_collision_strategy.slope
 
+        # Per-env loop (not batched like AABB): per-env yaw and active-pair masking each produce a
+        # different sphere subset before the kernel launch, so envs cannot be collapsed into one call.
         for b in range(state.batch_size):
-            for cache in (self._mesh_cache_fwd, self._mesh_cache_rev):
+            for cache in (self._mesh_cache_forward, self._mesh_cache_reverse):
                 if cache is None:
                     continue
 
                 num_pairs = cache.num_pairs
 
-                child_positions = torch.stack(
-                    [state.get_position(cache.pair_child_objs[p])[b] for p in range(num_pairs)]
+                subject_positions = torch.stack(
+                    [state.get_position(cache.pair_subject_objs[p])[b] for p in range(num_pairs)]
                 )
-                parent_positions = torch.stack([
+                obstacle_positions = torch.stack([
                     (
                         cache.pair_anchor_pos[p]
                         if cache.pair_is_anchor[p]
-                        else state.get_position(cache.pair_parent_objs[p])[b].detach()
+                        else state.get_position(cache.pair_obstacle_objs[p])[b].detach()
                     )
                     for p in range(num_pairs)
                 ])
@@ -521,52 +511,51 @@ class RelationSolver:
                 has_any_yaw = self._mesh_orientations is not None or any(y != 0.0 for y in anchor_yaws)
                 if has_any_yaw:
                     ori_b = self._mesh_orientations[b] if self._mesh_orientations is not None else {}
-                    child_yaws = torch.tensor(
-                        [ori_b.get(cache.pair_child_objs[p], 0.0) for p in range(num_pairs)],
+                    subject_yaws = torch.tensor(
+                        [ori_b.get(cache.pair_subject_objs[p], 0.0) for p in range(num_pairs)],
                         dtype=torch.float32,
                         device=device,
                     )
-                    parent_yaws = torch.tensor(
-                        [ori_b.get(cache.pair_parent_objs[p], anchor_yaws[p]) for p in range(num_pairs)],
+                    obstacle_yaws = torch.tensor(
+                        [ori_b.get(cache.pair_obstacle_objs[p], anchor_yaws[p]) for p in range(num_pairs)],
                         dtype=torch.float32,
                         device=device,
                     )
 
                 # AABB broadphase (yaw-aware): skip separated pairs.
-                margins = cache.pair_max_r + clearance_m
-                batch_idx = min(b, cache.pair_c_bbox_min.shape[1] - 1)
-                c_bbox_min = cache.pair_c_bbox_min[:, batch_idx, :]
-                c_bbox_max = cache.pair_c_bbox_max[:, batch_idx, :]
-                p_bbox_min = cache.pair_p_bbox_min[:, batch_idx, :]
-                p_bbox_max = cache.pair_p_bbox_max[:, batch_idx, :]
+                margins = cache.pair_max_radius + clearance_m
+                s_bbox_min = cache.pair_subject_bbox_min[:, b, :]
+                s_bbox_max = cache.pair_subject_bbox_max[:, b, :]
+                o_bbox_min = cache.pair_obstacle_bbox_min[:, b, :]
+                o_bbox_max = cache.pair_obstacle_bbox_max[:, b, :]
 
                 if has_any_yaw:
-                    c_bbox_min, c_bbox_max = self._rotate_bbox_extents(c_bbox_min, c_bbox_max, child_yaws)
-                    p_bbox_min, p_bbox_max = self._rotate_bbox_extents(p_bbox_min, p_bbox_max, parent_yaws)
+                    s_bbox_min, s_bbox_max = self._rotate_bbox_extents(s_bbox_min, s_bbox_max, subject_yaws)
+                    o_bbox_min, o_bbox_max = self._rotate_bbox_extents(o_bbox_min, o_bbox_max, obstacle_yaws)
 
-                child_min = child_positions + c_bbox_min
-                child_max = child_positions + c_bbox_max
-                parent_min = parent_positions + p_bbox_min
-                parent_max = parent_positions + p_bbox_max
+                subject_min = subject_positions + s_bbox_min
+                subject_max = subject_positions + s_bbox_max
+                obstacle_min = obstacle_positions + o_bbox_min
+                obstacle_max = obstacle_positions + o_bbox_max
 
-                sep_child = (child_min - margins.unsqueeze(1)) > parent_max
-                sep_parent = (parent_min - margins.unsqueeze(1)) > child_max
-                separated = sep_child.any(dim=1) | sep_parent.any(dim=1)
+                sep_subject = (subject_min - margins.unsqueeze(1)) > obstacle_max
+                sep_obstacle = (obstacle_min - margins.unsqueeze(1)) > subject_max
+                separated = sep_subject.any(dim=1) | sep_obstacle.any(dim=1)
                 active_pair = ~separated
 
                 if not active_pair.any():
                     continue
 
-                offsets = child_positions - parent_positions
+                offsets = subject_positions - obstacle_positions
                 sphere_active_mask = active_pair[cache.sphere_pair_id]
                 active_idx = sphere_active_mask.nonzero(as_tuple=True)[0]
 
                 active_sphere_pair_id = cache.sphere_pair_id[active_idx]
                 local_centers = cache.all_centers_local[active_idx]
 
-                # R(child_yaw - parent_yaw) · local + R(-parent_yaw) · offset
+                # R(subject_yaw - obstacle_yaw) · local + R(-obstacle_yaw) · offset
                 if has_any_yaw:
-                    net_yaws = (child_yaws - parent_yaws)[active_sphere_pair_id]
+                    net_yaws = (subject_yaws - obstacle_yaws)[active_sphere_pair_id]
                     half_net = net_yaws / 2.0
                     q_net_z = torch.zeros(len(half_net), 4, device=device, dtype=local_centers.dtype)
                     q_net_z[:, 2] = torch.sin(half_net)
@@ -574,12 +563,12 @@ class RelationSolver:
                     local_centers = quat_apply(q_net_z, local_centers)
 
                     pair_offsets = offsets[active_sphere_pair_id]
-                    p_yaws = parent_yaws[active_sphere_pair_id]
-                    half_p = p_yaws / 2.0
-                    q_parent_z = torch.zeros(len(half_p), 4, device=device, dtype=local_centers.dtype)
-                    q_parent_z[:, 2] = torch.sin(half_p)
-                    q_parent_z[:, 3] = torch.cos(half_p)
-                    rotated_offsets = quat_apply_inverse(q_parent_z, pair_offsets)
+                    obs_yaws = obstacle_yaws[active_sphere_pair_id]
+                    half_o = obs_yaws / 2.0
+                    q_obstacle_z = torch.zeros(len(half_o), 4, device=device, dtype=local_centers.dtype)
+                    q_obstacle_z[:, 2] = torch.sin(half_o)
+                    q_obstacle_z[:, 3] = torch.cos(half_o)
+                    rotated_offsets = quat_apply_inverse(q_obstacle_z, pair_offsets)
                     active_centers = local_centers + rotated_offsets
                 else:
                     active_centers = local_centers + offsets[active_sphere_pair_id]
@@ -735,7 +724,6 @@ class RelationSolver:
                 f" | iters={iters_run} ({solve_elapsed_ms / iters_run:.2f} ms/iter)"
             )
 
-        # Store metadata for optional access
         self._last_loss_history = loss_history
         self._last_position_history = position_history
 

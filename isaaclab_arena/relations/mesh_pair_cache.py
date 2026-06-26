@@ -22,39 +22,39 @@ class MeshPairCache:
     """Precomputed per-pair collision data for the vectorized multi-mesh kernel."""
 
     all_centers_local: torch.Tensor
-    """(S, 3) sphere centers in each child's local frame, concatenated across pairs."""
+    """(S, 3) sphere centers in each subject's local frame, concatenated across pairs."""
 
     all_radii: torch.Tensor
     """(S,) sphere radii, concatenated across pairs."""
 
-    pair_child_objs: list[ObjectBase]
-    """Per-pair child object reference."""
+    pair_subject_objs: list[ObjectBase]
+    """Per-pair subject (sphere source) object reference."""
 
-    pair_parent_objs: list[ObjectBase]
-    """Per-pair parent/target object reference."""
+    pair_obstacle_objs: list[ObjectBase]
+    """Per-pair obstacle (mesh target) object reference."""
 
     pair_is_anchor: list[bool]
-    """Per-pair flag: True if parent is a static anchor."""
+    """Per-pair flag: True if the obstacle is a static anchor."""
 
     pair_anchor_pos: list[torch.Tensor | None]
-    """Per-pair world position of anchors (None for non-anchor parents)."""
+    """Per-pair world position for anchor obstacles (None for non-anchor obstacles)."""
 
     pair_anchor_yaw: list[float]
-    """Per-pair anchor yaw in radians (0.0 for non-anchor parents)."""
+    """Per-pair anchor yaw in radians (0.0 for non-anchor obstacles)."""
 
-    pair_c_bbox_min: torch.Tensor
-    """(P, B, 3) child bbox min corners for broadphase."""
+    pair_subject_bbox_min: torch.Tensor
+    """(P, B, 3) subject bbox min corners for broadphase."""
 
-    pair_c_bbox_max: torch.Tensor
-    """(P, B, 3) child bbox max corners for broadphase."""
+    pair_subject_bbox_max: torch.Tensor
+    """(P, B, 3) subject bbox max corners for broadphase."""
 
-    pair_p_bbox_min: torch.Tensor
-    """(P, B, 3) parent bbox min corners for broadphase."""
+    pair_obstacle_bbox_min: torch.Tensor
+    """(P, B, 3) obstacle bbox min corners for broadphase."""
 
-    pair_p_bbox_max: torch.Tensor
-    """(P, B, 3) parent bbox max corners for broadphase."""
+    pair_obstacle_bbox_max: torch.Tensor
+    """(P, B, 3) obstacle bbox max corners for broadphase."""
 
-    pair_max_r: torch.Tensor
+    pair_max_radius: torch.Tensor
     """(P,) max sphere radius per pair (broadphase margin)."""
 
     sphere_pair_id: torch.Tensor
@@ -76,8 +76,8 @@ class MeshPairCache:
     """Total number of sphere queries across all pairs."""
 
     def __post_init__(self) -> None:
-        assert len(self.pair_child_objs) == self.num_pairs, "pair_child_objs length mismatch"
-        assert len(self.pair_parent_objs) == self.num_pairs, "pair_parent_objs length mismatch"
+        assert len(self.pair_subject_objs) == self.num_pairs, "pair_subject_objs length mismatch"
+        assert len(self.pair_obstacle_objs) == self.num_pairs, "pair_obstacle_objs length mismatch"
         assert len(self.pair_is_anchor) == self.num_pairs, "pair_is_anchor length mismatch"
         assert self.all_centers_local.shape[0] == self.total_spheres, "all_centers_local size mismatch"
         assert self.all_radii.shape[0] == self.total_spheres, "all_radii size mismatch"
