@@ -21,7 +21,7 @@ Usage examples:
     python osmo/submit_gr00t_policy_runner_workflow.py \
         --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml \
         --env_graph_spec_yaml isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml \
-        --pool isaac-dev-l40s-04
+        --pool isaac-dev-l40s-04 \
         --platform ovx-l40s
 """
 

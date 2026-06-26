@@ -14,13 +14,13 @@ from typing import Any
 
 from tasks.base_task import BaseTask
 from tasks.gr00t_server_task import DEFAULT_SERVER_PORT
+from tasks.policy_runner_task import POLICY_RUNNER_COMMAND, PolicyRunnerTask, _normalize_args
 from workflows.utils.workflow_types import WorkflowType
 from workflows.workflow_constants import EVAL_OUTPUT_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 
 # Arena eval image (carries the in-container GR00T client used by the remote policy, plus the
 # variation-recording code and robolab environments needed by the default eval).
 DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:variation_record_6robolab_envs"
-POLICY_RUNNER_COMMAND = "/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py"
 WAIT_FOR_SERVER_COMMAND = "/isaac-sim/python.sh -u -m isaaclab_arena_gr00t.utils.wait_for_gr00t_server"
 
 # GR00T remote closed-loop policy and the droid-manipulation closed-loop config.
@@ -44,11 +44,7 @@ DEFAULT_POLICY_RUNNER_ARGS = "--num_episodes 2 --headless --enable_cameras --num
 GR00T_SERVER_HOST_TOKEN = "{{host:" + WorkflowType.GR00T_SERVER.value + "}}"
 
 
-def _normalize_args(args: str) -> str:
-    return " ".join(args.replace("\\\n", " ").split())
-
-
-class Gr00tPolicyRunnerTask(BaseTask):
+class Gr00tPolicyRunnerTask(PolicyRunnerTask):
     """OSMO task that evaluates the GR00T remote policy against the GR00T server task."""
 
     def __init__(
@@ -59,8 +55,16 @@ class Gr00tPolicyRunnerTask(BaseTask):
         image: str = DEFAULT_IMAGE,
         lead: bool | None = None,
     ) -> None:
-        workflow_type = WorkflowType(workflow_type)
-        super().__init__(workflow_type=workflow_type, workflow_args=workflow_args, task_args=task_args, lead=lead)
+        # Bypass PolicyRunnerTask.__init__: it is specific to the zero-action POLICY_RUNNER workflow
+        # (asserts the workflow type, expects a PolicyType enum and arena_env_args). Initialize the
+        # shared BaseTask state directly, then set the GR00T-specific fields.
+        BaseTask.__init__(
+            self,
+            workflow_type=WorkflowType(workflow_type),
+            workflow_args=workflow_args,
+            task_args=task_args,
+            lead=lead,
+        )
         self.image = getattr(task_args, "policy_runner_image", None) or image
         self.policy_type = getattr(task_args, "policy_type", None) or DEFAULT_POLICY_TYPE
         self.policy_config_yaml_path = getattr(task_args, "policy_config_yaml_path", None) or DEFAULT_POLICY_CONFIG
@@ -79,9 +83,6 @@ class Gr00tPolicyRunnerTask(BaseTask):
     @staticmethod
     def get_task_name() -> str:
         return WorkflowType.GR00T_POLICY_RUNNER.value
-
-    def _get_image(self) -> str:
-        return self.image
 
     def _get_inputs(self) -> list[dict[str, Any]]:
         return []
