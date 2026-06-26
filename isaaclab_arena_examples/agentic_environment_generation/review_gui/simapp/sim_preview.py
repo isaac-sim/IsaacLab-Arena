@@ -12,13 +12,14 @@ import math
 import sys
 import time
 import uuid
-from contextlib import suppress
+from contextlib import nullcontext, suppress
 from pathlib import Path
 from typing import Any
 
 from isaaclab.envs.common import ViewerCfg
 
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import collect_garbage_and_clear_cuda_cache
 
 PREVIEW_CACHE_DIR = Path(__file__).resolve().parents[4] / ".cache" / "llm_env_gen_sim_preview"
 
@@ -112,6 +113,48 @@ def _capture_viewport(app, cache_path: Path) -> bytes | None:
     return None
 
 
+def _close_env_and_reset_sim(
+    env=None,
+    *,
+    suppress_exceptions: bool = False,
+    make_new_stage: bool = True,
+    app=None,
+) -> None:
+    """Tear down sim state and close a gym env so another can be built in the same SimApp."""
+    error_manager = suppress(Exception) if suppress_exceptions else nullcontext()
+
+    with error_manager:
+        if env is not None and not getattr(env.unwrapped, "_is_closed", True):
+            env.close()
+
+    with error_manager:
+        from isaaclab.sim import SimulationContext
+
+        sim = SimulationContext.instance()
+        if sim is not None:
+            sim._disable_app_control_on_stop_handle = True  # noqa: SLF001
+            sim.stop()
+            sim.clear_instance()
+
+    with error_manager:
+        import omni.timeline
+
+        omni.timeline.get_timeline_interface().stop()
+
+    if make_new_stage:
+        with error_manager:
+            import omni.usd
+
+            omni.usd.get_context().new_stage()
+
+    if app is not None:
+        with error_manager:
+            for _ in range(20):
+                app.update()
+
+    collect_garbage_and_clear_cuda_cache()
+
+
 def run_sim_preview(
     app,
     yaml_text: str,
@@ -126,12 +169,11 @@ def run_sim_preview(
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyArgs
-    from isaaclab_arena.utils.isaaclab_utils.simulation_app import close_env_and_reset_sim
 
     started_at = time.monotonic()
     _preview_log(started_at, "run_sim_preview started")
 
-    close_env_and_reset_sim(suppress_exceptions=True, app=app)
+    _close_env_and_reset_sim(suppress_exceptions=True, app=app)
     _preview_log(started_at, "cleared stale sim state")
 
     raw = yaml.safe_load(yaml_text)
@@ -203,7 +245,7 @@ def run_sim_preview(
             "num_steps": num_steps,
         }
     finally:
-        close_env_and_reset_sim(env, app=app)
+        _close_env_and_reset_sim(env, app=app)
         with suppress(Exception):
             if preview_name in gym.registry:
                 del gym.registry[preview_name]

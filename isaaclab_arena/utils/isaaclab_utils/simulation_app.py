@@ -4,8 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import gc
 import os
 import sys
+import torch
 import traceback
 from contextlib import nullcontext, suppress
 
@@ -84,54 +86,9 @@ def teardown_simulation_app(suppress_exceptions: bool = False, make_new_stage: b
 
 def collect_garbage_and_clear_cuda_cache() -> None:
     """Run GC and release cached CUDA allocations after a sim env is torn down."""
-    import gc
-    import torch
-
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-
-
-def close_env_and_reset_sim(
-    env=None,
-    *,
-    suppress_exceptions: bool = False,
-    make_new_stage: bool = True,
-    app=None,
-) -> None:
-    """Tear down sim state and close a gym env so another can be built in the same SimApp."""
-    error_manager = suppress(Exception) if suppress_exceptions else nullcontext()
-
-    with error_manager:
-        if env is not None and not getattr(env.unwrapped, "_is_closed", True):
-            env.close()
-
-    with error_manager:
-        from isaaclab.sim import SimulationContext
-
-        sim = SimulationContext.instance()
-        if sim is not None:
-            sim._disable_app_control_on_stop_handle = True  # noqa: SLF001
-            sim.stop()
-            sim.clear_instance()
-
-    with error_manager:
-        import omni.timeline
-
-        omni.timeline.get_timeline_interface().stop()
-
-    if make_new_stage:
-        with error_manager:
-            import omni.usd
-
-            omni.usd.get_context().new_stage()
-
-    if app is not None:
-        with error_manager:
-            for _ in range(20):
-                app.update()
-
-    collect_garbage_and_clear_cuda_cache()
 
 
 def reapply_viewer_cfg(env) -> None:
