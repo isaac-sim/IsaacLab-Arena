@@ -107,18 +107,24 @@ class SimAppClient:
         self,
         yaml_text: str,
         *,
-        num_envs: int,
-        num_steps: int,
-        env_spacing: float,
+        num_envs: int | None = None,
+        num_steps: int | None = None,
+        env_spacing: float | None = None,
     ) -> dict[str, Any]:
         """Run a multi-env relation-solver rollout preview in the SimApp server."""
+        from isaaclab_arena_examples.agentic_environment_generation.review_gui.sim_preview import (  # noqa: PLC0415
+            ENV_SPACING_M,
+            NUM_ENVS,
+            NUM_STEPS,
+        )
+
         with self._lock:
             response = self._request({
                 "cmd": "run_sim_preview",
                 "yaml_text": yaml_text,
-                "num_envs": num_envs,
-                "num_steps": num_steps,
-                "env_spacing": env_spacing,
+                "num_envs": NUM_ENVS if num_envs is None else num_envs,
+                "num_steps": NUM_STEPS if num_steps is None else num_steps,
+                "env_spacing": ENV_SPACING_M if env_spacing is None else env_spacing,
             })
 
         if not response.get("ok"):

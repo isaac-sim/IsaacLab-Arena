@@ -86,7 +86,7 @@ def _apply_overview_camera(env, app, num_envs: int, env_spacing: float) -> None:
 def _capture_viewport(app, cache_path: Path) -> bytes | None:
     from omni.kit.viewport.utility import capture_viewport_to_file, get_active_viewport  # noqa: PLC0415
 
-    from isaaclab_arena_examples.agentic_environment_generation.review_gui.thumbnail_render import (  # noqa: PLC0415
+    from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.thumbnail_capture import (  # noqa: PLC0415
         _wait_for_capture,
     )
 

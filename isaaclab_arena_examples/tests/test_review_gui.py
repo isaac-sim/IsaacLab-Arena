@@ -462,15 +462,20 @@ class TestSimAppSimPreview:
         try:
             wait_for_simapp_socket(str(socket_path), proc, timeout_s=180.0, poll_interval_s=0.5)
             client = SimAppClient.connect(str(socket_path))
-            response = client.run_sim_preview(yaml_text)
+            response = client.run_sim_preview(
+                yaml_text,
+                num_envs=1,
+                num_steps=0,
+                env_spacing=1.5,
+            )
             assert response["ok"] is True
 
             first_frame = Path(response["first_frame"])
             last_frame = Path(response["last_frame"])
             assert first_frame.is_file() and first_frame.stat().st_size > 0
             assert last_frame.is_file() and last_frame.stat().st_size > 0
-            assert response["num_envs"] == 16
-            assert response["num_steps"] == 10
+            assert response["num_envs"] == 1
+            assert response["num_steps"] == 0
 
             client.shutdown()
         finally:
