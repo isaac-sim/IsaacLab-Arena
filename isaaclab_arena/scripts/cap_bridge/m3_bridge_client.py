@@ -82,6 +82,24 @@ def _recv(sock: socket.socket) -> dict:
     return msgpack.unpackb(_recvn(sock, n), raw=False)
 
 
+def _connect_with_retry(host: str, port: int, timeout_s: float = 300.0, interval_s: float = 1.0) -> socket.socket:
+    """Connect to the GaP server, retrying while it is not yet listening.
+
+    The env takes minutes to boot, but GaP reset() only waits ~60s for the first RGB frame. Booting the
+    env first and retrying the connect lets the operator start GaP after the env is ready, so GaP's clock
+    starts when we are about to stream -- not during our boot.
+    """
+    print(f"[m3] env ready; connecting to GaP server {host}:{port} (retrying up to {timeout_s:.0f}s)")
+    deadline = time.monotonic() + timeout_s
+    while True:
+        try:
+            return socket.create_connection((host, port))
+        except OSError:
+            if time.monotonic() > deadline:
+                raise
+            time.sleep(interval_s)
+
+
 def _blank_camera(height: int = 64, width: int = 64) -> dict:
     """Blank RGB-D + plausible intrinsics/identity pose: enough to unblock GaP reset(), not perception."""
     intrinsics = np.array([[width, 0, width / 2], [0, width, height / 2], [0, 0, 1]], dtype=np.float32)
@@ -124,7 +142,7 @@ def main() -> None:
 
         target_q = None
         tick = 0
-        with socket.create_connection((args_cli.bridge_host, args_cli.bridge_port)) as sock:
+        with _connect_with_retry(args_cli.bridge_host, args_cli.bridge_port) as sock:
             print(f"[m3] connected to GaP server {args_cli.bridge_host}:{args_cli.bridge_port}")
             while True:
                 q = robot.data.joint_pos[0, :7].cpu().numpy()
