@@ -19,7 +19,10 @@ from typing import Any
 from isaaclab.envs.common import ViewerCfg
 
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
-from isaaclab_arena.utils.isaaclab_utils.simulation_app import collect_garbage_and_clear_cuda_cache
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import (
+    collect_garbage_and_clear_cuda_cache,
+    teardown_simulation_app,
+)
 
 PREVIEW_CACHE_DIR = Path(__file__).resolve().parents[4] / ".cache" / "llm_env_gen_sim_preview"
 
@@ -127,25 +130,7 @@ def _close_env_and_reset_sim(
         if env is not None and not getattr(env.unwrapped, "_is_closed", True):
             env.close()
 
-    with error_manager:
-        from isaaclab.sim import SimulationContext
-
-        sim = SimulationContext.instance()
-        if sim is not None:
-            sim._disable_app_control_on_stop_handle = True  # noqa: SLF001
-            sim.stop()
-            sim.clear_instance()
-
-    with error_manager:
-        import omni.timeline
-
-        omni.timeline.get_timeline_interface().stop()
-
-    if make_new_stage:
-        with error_manager:
-            import omni.usd
-
-            omni.usd.get_context().new_stage()
+    teardown_simulation_app(suppress_exceptions=suppress_exceptions, make_new_stage=make_new_stage)
 
     if app is not None:
         with error_manager:
