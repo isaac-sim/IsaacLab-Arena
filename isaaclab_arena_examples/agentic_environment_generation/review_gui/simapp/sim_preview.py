@@ -12,7 +12,7 @@ import math
 import sys
 import time
 import uuid
-from contextlib import nullcontext, suppress
+from contextlib import contextmanager, nullcontext, suppress
 from typing import Any
 
 from isaaclab.envs.common import ViewerCfg
@@ -53,6 +53,21 @@ def parse_sim_preview_params(req: dict[str, Any]) -> tuple[int, int, float]:
 def _preview_log(started_at: float, message: str) -> None:
     elapsed = time.monotonic() - started_at
     print(f"[sim_preview] +{elapsed:.1f}s {message}", file=sys.stderr, flush=True)
+
+
+@contextmanager
+def _skip_task_viewer_cfg(arena_env):
+    """Stub task viewer cfg during compose; preview replaces it with the overview camera."""
+    task = arena_env.task
+    if task is None:
+        yield
+        return
+    original_get_viewer_cfg = task.get_viewer_cfg
+    task.get_viewer_cfg = lambda: ViewerCfg()
+    try:
+        yield
+    finally:
+        task.get_viewer_cfg = original_get_viewer_cfg
 
 
 def _preview_args(*, num_envs: int = NUM_ENVS, env_spacing: float = ENV_SPACING_M) -> argparse.Namespace:
@@ -175,7 +190,8 @@ def run_sim_preview(
             f"solving spatial relations ({args.num_envs} envs, {pool_layouts} layout pool)…",
         )
         t_relations = time.monotonic()
-        env_cfg, env_kwargs = builder.compose_manager_cfg()
+        with _skip_task_viewer_cfg(arena_env):
+            env_cfg, env_kwargs = builder.compose_manager_cfg()
         _preview_log(started_at, f"relation solver finished ({time.monotonic() - t_relations:.1f}s)")
 
         env_cfg.viewer = ViewerCfg(eye=eye, lookat=target, origin_type="world")
