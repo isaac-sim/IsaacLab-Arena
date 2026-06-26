@@ -112,7 +112,7 @@ class SimAppClient:
         env_spacing: float | None = None,
     ) -> dict[str, Any]:
         """Run a multi-env relation-solver rollout preview in the SimApp server."""
-        from isaaclab_arena_examples.agentic_environment_generation.review_gui.sim_preview import (  # noqa: PLC0415
+        from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (  # noqa: PLC0415
             ENV_SPACING_M,
             NUM_ENVS,
             NUM_STEPS,

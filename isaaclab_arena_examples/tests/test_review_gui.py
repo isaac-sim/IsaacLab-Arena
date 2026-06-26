@@ -36,13 +36,13 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.th
     format_aabb_dimensions_m,
     render_node_thumbnail,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.sim_preview import (
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (
     ENV_SPACING_M,
     NUM_ENVS,
     NUM_STEPS,
     _preview_args,
+    parse_sim_preview_params,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.server import _parse_sim_preview_params
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.streamlit_ui import initialize_state, parse_args
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -74,14 +74,14 @@ class TestSimPreviewParams:
         assert args.env_spacing == 2.5
 
     def test_parse_sim_preview_params_defaults(self):
-        assert _parse_sim_preview_params({}) == (NUM_ENVS, NUM_STEPS, ENV_SPACING_M)
+        assert parse_sim_preview_params({}) == (NUM_ENVS, NUM_STEPS, ENV_SPACING_M)
 
     def test_parse_sim_preview_params_custom(self):
-        assert _parse_sim_preview_params({"num_envs": 8, "num_steps": 3, "env_spacing": 2.0}) == (8, 3, 2.0)
+        assert parse_sim_preview_params({"num_envs": 8, "num_steps": 3, "env_spacing": 2.0}) == (8, 3, 2.0)
 
     def test_parse_sim_preview_params_rejects_invalid(self):
         with pytest.raises(AssertionError):
-            _parse_sim_preview_params({"num_envs": 0})
+            parse_sim_preview_params({"num_envs": 0})
 
 
 class TestNodeThumbnailAabb:

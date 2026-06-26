@@ -11,15 +11,15 @@ from pathlib import Path
 
 import streamlit as st
 
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.sim_preview import (
-    ENV_SPACING_M,
-    NUM_ENVS,
-    NUM_STEPS,
-)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppClient,
     SimAppError,
     simapp_socket_from_env,
+)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (
+    ENV_SPACING_M,
+    NUM_ENVS,
+    NUM_STEPS,
 )
 
 _SIMAPP_CLIENT_SESSION_KEY = "_simapp_client"

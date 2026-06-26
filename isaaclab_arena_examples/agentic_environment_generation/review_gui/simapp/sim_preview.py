@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""16-env relation-solver rollout preview for the review GUI SimApp server."""
+"""Relation-solver rollout preview for the review GUI SimApp server."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from isaaclab.envs.common import ViewerCfg
 
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 
-PREVIEW_CACHE_DIR = Path(__file__).resolve().parents[3] / ".cache" / "llm_env_gen_sim_preview"
+PREVIEW_CACHE_DIR = Path(__file__).resolve().parents[4] / ".cache" / "llm_env_gen_sim_preview"
 
 NUM_ENVS = 16
 ENV_SPACING_M = 1.5
@@ -28,6 +28,17 @@ NUM_STEPS = 10
 
 # Placement pool size when preview uses resolve_on_reset=False (see ObjectPlacerParams).
 _PREVIEW_LAYOUTS_PER_ENV = 5
+
+
+def parse_sim_preview_params(req: dict[str, Any]) -> tuple[int, int, float]:
+    """Read sim-preview rollout settings from a JSON-RPC request."""
+    num_envs = int(req.get("num_envs", NUM_ENVS))
+    num_steps = int(req.get("num_steps", NUM_STEPS))
+    env_spacing = float(req.get("env_spacing", ENV_SPACING_M))
+    assert num_envs >= 1, f"num_envs must be >= 1, got {num_envs}"
+    assert num_steps >= 0, f"num_steps must be >= 0, got {num_steps}"
+    assert env_spacing > 0, f"env_spacing must be > 0, got {env_spacing}"
+    return num_envs, num_steps, env_spacing
 
 
 def _preview_log(started_at: float, message: str) -> None:

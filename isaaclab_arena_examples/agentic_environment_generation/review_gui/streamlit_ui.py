@@ -22,7 +22,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.generatio
     get_catalogue_bundle,
     render_generation_panel,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.sim_preview import (
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (
     ENV_SPACING_M,
     NUM_ENVS,
     NUM_STEPS,
