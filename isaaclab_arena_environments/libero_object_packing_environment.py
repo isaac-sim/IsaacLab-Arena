@@ -84,6 +84,14 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
                 use_default_offset=False,
             )
 
+        # Perception cameras (M4 bridge): add a fixed exterior rgb+depth camera viewing the table and
+        # depth to the wrist camera. Imported lazily so the Isaac Lab configclasses are not pulled in at
+        # environment-registration time.
+        if args_cli.enable_cameras:
+            from isaaclab_arena_environments.libero_cameras import LiberoPerceptionCameraCfg
+
+            embodiment.camera_config = LiberoPerceptionCameraCfg()
+
         teleop_device = (
             self.device_registry.get_device_by_name(args_cli.teleop_device)() if args_cli.teleop_device else None
         )
