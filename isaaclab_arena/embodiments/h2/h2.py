@@ -20,6 +20,7 @@ import isaaclab.envs.mdp as mdp
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import IdealPDActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
+from isaaclab.envs.mdp.actions import JointPositionActionCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
@@ -275,11 +276,42 @@ class H2DebugEmbodiment(EmbodimentBase):
         return "/World/envs/env_0/Robot/pelvis"
 
 
+@register_asset
+class H2DebugJointPositionEmbodiment(H2DebugEmbodiment):
+    """Fixed-root H2 debug embodiment with direct joint-position actions."""
+
+    name = "h2_debug_joint_pos"
+
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        concatenate_observation_terms: bool = False,
+        arm_mode: ArmMode | None = None,
+        **kwargs,
+    ):
+        super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode, **kwargs)
+        self.action_config = H2DebugJointPositionActionsCfg()
+
+
 @configclass
 class H2DebugSceneCfg:
     """Scene additions for the H2 debug embodiment."""
 
     robot: ArticulationCfg = H2_DEBUG_CFG.copy()
+
+
+@configclass
+class H2DebugJointPositionActionsCfg:
+    """Direct joint-position action for fixed-root H2 debug rollouts."""
+
+    joint_pos = JointPositionActionCfg(
+        asset_name="robot",
+        joint_names=list(H2_JOINT_NAMES),
+        scale=1.0,
+        preserve_order=True,
+        use_default_offset=True,
+    )
 
 
 @configclass
