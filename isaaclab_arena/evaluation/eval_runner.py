@@ -143,16 +143,20 @@ def _capture_sim_info(env):
     """Snapshot per-job sim/render settings from a live env into a manifest.SimInfo."""
     from isaaclab_arena_datagen.manifest import SimInfo
 
-    cfg = env.unwrapped.cfg
-    sim = getattr(cfg, "sim", None)
-    render = getattr(sim, "render", None) if sim is not None else None
-    return SimInfo(
-        dt=getattr(sim, "dt", None),
-        render_interval=getattr(sim, "render_interval", None),
-        decimation=getattr(cfg, "decimation", None),
-        episode_length_s=getattr(cfg, "episode_length_s", None),
-        render_carb_settings=dict(getattr(render, "carb_settings", {}) or {}),
-    )
+    try:
+        cfg = env.unwrapped.cfg
+        sim = getattr(cfg, "sim", None)
+        render = getattr(sim, "render", None) if sim is not None else None
+        return SimInfo(
+            dt=getattr(sim, "dt", None),
+            render_interval=getattr(sim, "render_interval", None),
+            decimation=getattr(cfg, "decimation", None),
+            episode_length_s=getattr(cfg, "episode_length_s", None),
+            render_carb_settings=dict(getattr(render, "carb_settings", {}) or {}),
+        )
+    except Exception as exc:  # best-effort: a provenance hiccup must not fail the job
+        print(f"[datagen] Warning: failed to capture sim info: {exc}")
+        return SimInfo()
 
 
 def _collect_garbage_and_clear_cuda_cache() -> None:

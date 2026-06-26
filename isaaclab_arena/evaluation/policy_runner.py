@@ -59,7 +59,7 @@ def is_distributed(args_cli: argparse.Namespace) -> bool:
     )
 
 
-def prepare_env_cfg_for_datagen(env_cfg) -> list:
+def prepare_env_cfg_for_datagen(env_cfg) -> list[tuple[str, Any]]:
     """Prepare *env_cfg* for datagen collection. Call on the cfg *before* the env is built.
 
     Two changes, both so the dedicated datagen cameras capture clean frames:
