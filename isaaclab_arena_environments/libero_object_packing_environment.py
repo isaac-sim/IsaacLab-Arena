@@ -68,9 +68,14 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
         surface.bounding_box = AxisAlignedBoundingBox(min_point=(-0.4, -0.75, -0.02), max_point=(0.4, 0.75, 0.02))
         surface.add_relation(IsAnchor())
 
-        # Basket: static asset (kept out of the 2D solve so it keeps its opening-up orientation).
+        # Basket: a fixed anchor. IsAnchor keeps its pose un-optimized while still entering the
+        # solver's no-overlap loss and validation as an obstacle, so groceries are placed clear of
+        # it rather than spawning inter-penetrating and getting ejected by physics. The LIBERO quat
+        # is a clean 90 deg yaw (opening up); the source data's ~0.0017 x/y noise is dropped so the
+        # anchor bbox path (yaw-only, 1e-3 tolerance) accepts it.
         basket = self.asset_registry.get_asset_by_name(args_cli.basket)()
-        basket.set_initial_pose(Pose(position_xyz=(0.28, 0.42, 0.0), rotation_xyzw=q(0.7071, -0.0017, 0.0017, 0.7071)))
+        basket.set_initial_pose(Pose(position_xyz=(0.28, 0.42, 0.0), rotation_xyzw=q(0.70710678, 0.0, 0.0, 0.70710678)))
+        basket.add_relation(IsAnchor())
 
         # Groceries: relation-solved placement (On surface, within reach, jittered per reset).
         objects = []
