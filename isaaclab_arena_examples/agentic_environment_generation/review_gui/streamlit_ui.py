@@ -22,6 +22,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.generatio
     get_catalogue_bundle,
     render_generation_panel,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.sim_preview_panel import render_sim_preview_panel
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (
     ENV_SPACING_M,
     NUM_ENVS,
@@ -116,6 +117,8 @@ def main() -> None:
         validation = render_editor_panel(yaml_path)
     with right:
         render_visualization_panel(validation)
+        st.divider()
+        render_sim_preview_panel(validation)
 
     # After generation, paint YAML first, then rerun to start SimApp snapshot rendering.
     if st.session_state.pop("_defer_viz_render", False):
