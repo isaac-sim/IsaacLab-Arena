@@ -52,11 +52,10 @@ def main() -> None:
         unwrapped = env.unwrapped
         device = unwrapped.device
         action = torch.zeros(env.action_space.shape, device=device)
-        for _ in range(_SETTLE_STEPS):
-            env.step(action)
-
         cam = unwrapped.scene[_CAM]
         robot = unwrapped.scene["robot"]
+        for _ in range(_SETTLE_STEPS):
+            env.step(action)
 
         cam_pos = cam.data.pos_w[0:1]  # (1,3) world
         cam_quat = cam.data.quat_w_ros[0:1]  # (1,4) wxyz, OpenCV optical
