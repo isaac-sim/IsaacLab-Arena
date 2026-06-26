@@ -123,3 +123,39 @@ def factor_importances(samples: torch.Tensor, dataset: SensitivityDataset) -> li
         for factor in dataset.factors
     ]
     return sorted(scored, key=lambda name_score: name_score[1], reverse=True)
+
+
+def condition_mask(
+    samples: torch.Tensor,
+    dataset: SensitivityDataset,
+    continuous_windows: dict[str, tuple[float, float]],
+    categorical_choices: dict[str, int],
+) -> np.ndarray:
+    """Boolean mask over posterior draws that fall inside every pinned factor's constraint.
+
+    Conditioning by slicing: keep the draws whose pinned continuous factors lie in their window and
+    whose pinned categorical factors equal their chosen code. With a uniform sampling prior the
+    surviving draws approximate the conditional posterior p(unpinned | outcome, pinned), which is
+    proportional to the conditional success surface. Factors named in neither dict are left free
+    (averaged over). Accuracy here is bounded by the number of draws *and* by how much real data
+    backs the slice — a thin slice over sparse data is unreliable however many draws land in it.
+
+    Args:
+        samples: ``(num_samples, num_factors)`` posterior draws in the dataset's factor layout.
+        dataset: The dataset, for the column layout and factor types.
+        continuous_windows: factor name → (low, high) band to keep, for continuous factors.
+        categorical_choices: factor name → integer choice code to keep, for categorical factors.
+
+    Returns:
+        A length-``num_samples`` boolean array, True where a draw satisfies all constraints.
+    """
+    sample_array = samples.cpu().numpy()
+    columns = dataset.factor_columns
+    mask = np.ones(sample_array.shape[0], dtype=bool)
+    for name, (low, high) in continuous_windows.items():
+        values = sample_array[:, columns[name]].squeeze(-1)
+        mask &= (values >= low) & (values <= high)
+    for name, code in categorical_choices.items():
+        codes = np.round(sample_array[:, columns[name]].squeeze(-1)).astype(int)
+        mask &= codes == code
+    return mask
