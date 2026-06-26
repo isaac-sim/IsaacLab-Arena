@@ -83,10 +83,12 @@ def render_dashboard_with_thumbnails(spec: ArenaEnvInitialGraphSpec) -> str:
         thumbnails, aabb_dimensions_m = client.render_spec(spec)
     except SimAppError as exc:
         _show_simapp_render_error_once(exc)
-        clear_simapp_client()
         html = render_dashboard_html(spec)
         _store_dashboard_html(spec_key, html)
         return html
+    finally:
+        # Release the socket so the sequential SimApp server can accept other tabs.
+        clear_simapp_client()
 
     html = render_dashboard_html(
         spec,
