@@ -104,7 +104,7 @@ class PickAndPlaceTask(TaskBase):
             ),
         ]
         if self.max_separation is not None:
-            # TODO(qianl): replace objects_in_proximity with object_centroid_in_container
+            # TODO(qianl): replace objects_in_proximity with object_centroid_in_proximity
             # for tighter container placement checks.
             # TODO (qianl): current implementation doesn't support ObjectReference as target_object_cfg.
             max_x_separation, max_y_separation, max_z_separation = self.max_separation
