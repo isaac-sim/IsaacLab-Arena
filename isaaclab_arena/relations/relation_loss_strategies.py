@@ -454,15 +454,12 @@ class NoCollisionLossStrategy:
     def __init__(
         self,
         slope: float = 10.0,
-        debug: bool = False,
     ):
         """
         Args:
             slope: Gradient magnitude for overlap loss.
-            debug: If True, print detailed AABB loss component breakdown.
         """
         self.slope = slope
-        self.debug = debug
 
     def compute_loss_batched(
         self,
