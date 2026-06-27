@@ -52,6 +52,14 @@ def add_bridge_args(parser: argparse.ArgumentParser) -> None:
     group.add_argument("--bridge_host", type=str, default="127.0.0.1")
     group.add_argument("--bridge_port", type=int, default=9000)
     group.add_argument("--bridge_camera_name", type=str, default="robot0_robotview")
+    group.add_argument(
+        "--record_video",
+        type=str,
+        default="",
+        help="If set, stream the exterior camera RGB to this mp4 path over the whole episode.",
+    )
+    group.add_argument("--video_fps", type=int, default=30, help="Playback fps for the recorded mp4.")
+    group.add_argument("--video_every", type=int, default=2, help="Record every Nth tick (keeps the mp4 small).")
 
 
 def _send(sock: socket.socket, obj: dict) -> None:
@@ -162,52 +170,76 @@ def main() -> None:
         print(f"[m4] BASKET_BASE {args_cli.basket} = [{basket_base[0]:.4f}, {basket_base[1]:.4f}, {basket_base[2]:.4f}]")
         m5a_target = "alphabet_soup_can_hope_robolab"
 
-        def camera_frame() -> dict:
+        def camera_frame() -> tuple[dict, np.ndarray]:
             rgb = np.ascontiguousarray(cam.data.output["rgb"][0, ..., :3].cpu().numpy().astype(np.uint8))
             depth = cam.data.output[_DEPTH_DT][0].squeeze(-1).cpu().numpy().astype(np.float32)
             depth = np.ascontiguousarray(np.nan_to_num(depth, nan=0.0, posinf=0.0, neginf=0.0))
             # Depth goes under the TOP-LEVEL "depth_data" key: that is what GaP's _convert_observation
             # actually reads (franka_real_env.py:387), despite the contract doc showing images.depth.
-            return {
+            frame = {
                 "images": {"rgb": rgb},
                 "depth_data": depth,
                 "intrinsics": {"left": {"intrinsics_matrix": K_np}},
                 "pose_mat": pose_mat_np,
             }
+            return frame, rgb
+
+        writer = None
+        if args_cli.record_video:
+            import imageio  # lazy: keep it off the import path before the SimulationApp boots
+
+            writer = imageio.get_writer(args_cli.record_video, fps=args_cli.video_fps, macro_block_size=None)
+            print(f"[m4] recording exterior-cam video -> {args_cli.record_video}")
 
         tick = 0
-        with _connect_with_retry(args_cli.bridge_host, args_cli.bridge_port) as sock:
-            print(f"[m4] connected to GaP server {args_cli.bridge_host}:{args_cli.bridge_port}")
-            while True:
-                q = robot.data.joint_pos[0, :7].cpu().numpy()
-                finger = float(robot.data.joint_pos[0, 7].cpu()) if has_fingers else 0.0
-                gripper_frac = float(np.clip(finger / _GRIPPER_OPEN_M, 0.0, 1.0))
-                obs = {
-                    "timestamp": time.time(),
-                    "left": {"joint_pos": [float(v) for v in q] + [gripper_frac]},
-                    args_cli.bridge_camera_name: camera_frame(),
-                }
-                _send(sock, obs)
+        try:
+            with _connect_with_retry(args_cli.bridge_host, args_cli.bridge_port) as sock:
+                print(f"[m4] connected to GaP server {args_cli.bridge_host}:{args_cli.bridge_port}")
+                while True:
+                    q = robot.data.joint_pos[0, :7].cpu().numpy()
+                    finger = float(robot.data.joint_pos[0, 7].cpu()) if has_fingers else 0.0
+                    gripper_frac = float(np.clip(finger / _GRIPPER_OPEN_M, 0.0, 1.0))
+                    frame, rgb = camera_frame()
+                    if writer is not None and tick % args_cli.video_every == 0:
+                        writer.append_data(rgb)
+                    obs = {
+                        "timestamp": time.time(),
+                        "left": {"joint_pos": [float(v) for v in q] + [gripper_frac]},
+                        args_cli.bridge_camera_name: frame,
+                    }
+                    _send(sock, obs)
 
-                try:
-                    incoming = _recv(sock)
-                except ConnectionError:
-                    print(f"[m4] server closed the connection after {tick} ticks; exiting")
-                    break
+                    try:
+                        incoming = _recv(sock)
+                    except ConnectionError:
+                        print(f"[m4] server closed the connection after {tick} ticks; exiting")
+                        break
 
-                left = incoming.get("left") or {}
-                cmd = left.get("joint_pos")
-                if cmd is not None:
-                    action[..., :7] = torch.tensor(np.asarray(cmd, dtype=np.float32).reshape(-1)[:7], device=device)
-                gripper = left.get("gripper")
-                if gripper is not None and action.shape[-1] > 7:
-                    action[..., 7] = 1.0 if float(gripper) >= _GRIPPER_THRESH else -1.0
+                    left = incoming.get("left") or {}
+                    cmd = left.get("joint_pos")
+                    if cmd is not None:
+                        action[..., :7] = torch.tensor(
+                            np.asarray(cmd, dtype=np.float32).reshape(-1)[:7], device=device
+                        )
+                    gripper = left.get("gripper")
+                    if gripper is not None and action.shape[-1] > 7:
+                        action[..., 7] = 1.0 if float(gripper) >= _GRIPPER_THRESH else -1.0
 
-                env.step(action)
-                tick += 1
-                if tick % 50 == 0:
-                    t = base_pose(m5a_target)
-                    print(f"[m4] tick={tick} {m5a_target}_base=[{t[0]:.4f}, {t[1]:.4f}, {t[2]:.4f}]")
+                    env.step(action)
+                    tick += 1
+                    if tick % 50 == 0:
+                        # GT packing check: object centers within xy_tol of the basket and in its z band.
+                        packed = []
+                        for o in args_cli.objects:
+                            p = base_pose(o)
+                            xy = float(np.hypot(p[0] - basket_base[0], p[1] - basket_base[1]))
+                            if xy < 0.10 and -0.05 <= p[2] <= 0.25:
+                                packed.append(o.split("_")[0])
+                        print(f"[m4] tick={tick} PACKED={len(packed)} {packed}")
+        finally:
+            if writer is not None:
+                writer.close()
+                print(f"[m4] video saved: {args_cli.record_video}")
 
         env.close()
 
