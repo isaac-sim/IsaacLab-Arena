@@ -60,6 +60,15 @@ def add_bridge_args(parser: argparse.ArgumentParser) -> None:
     )
     group.add_argument("--video_fps", type=int, default=30, help="Playback fps for the recorded mp4.")
     group.add_argument("--video_every", type=int, default=2, help="Record every Nth tick (keeps the mp4 small).")
+    group.add_argument(
+        "--camera_every",
+        type=int,
+        default=1,
+        help=(
+            "Render + refresh the exterior camera every Nth tick, reusing the cached frame between "
+            "(the main per-step speed lever; GaP only reads the camera at perceive nodes). 1 = every tick."
+        ),
+    )
 
 
 def _send(sock: socket.socket, obj: dict) -> None:
@@ -192,6 +201,7 @@ def main() -> None:
             print(f"[m4] recording exterior-cam video -> {args_cli.record_video}")
 
         tick = 0
+        cached_frame, cached_rgb = None, None
         try:
             with _connect_with_retry(args_cli.bridge_host, args_cli.bridge_port) as sock:
                 print(f"[m4] connected to GaP server {args_cli.bridge_host}:{args_cli.bridge_port}")
@@ -199,7 +209,13 @@ def main() -> None:
                     q = robot.data.joint_pos[0, :7].cpu().numpy()
                     finger = float(robot.data.joint_pos[0, 7].cpu()) if has_fingers else 0.0
                     gripper_frac = float(np.clip(finger / _GRIPPER_OPEN_M, 0.0, 1.0))
-                    frame, rgb = camera_frame()
+                    # Render the exterior camera only every Nth tick; reuse the cached frame between (the
+                    # camera updates lazily on access, so skipping the read skips the render). pose_mat +
+                    # intrinsics are constant, so a cached frame is a valid obs; the scene is static except
+                    # the in-flight object, and GaP only reads the camera at its (stationary) perceive nodes.
+                    if cached_frame is None or tick % args_cli.camera_every == 0:
+                        cached_frame, cached_rgb = camera_frame()
+                    frame, rgb = cached_frame, cached_rgb
                     if writer is not None and tick % args_cli.video_every == 0:
                         writer.append_data(rgb)
                     obs = {
