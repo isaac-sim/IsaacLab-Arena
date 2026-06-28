@@ -14,6 +14,7 @@ be imported at environment-registration time.
 
 from __future__ import annotations
 
+import os
 from dataclasses import MISSING
 
 import isaaclab.sim as sim_utils
@@ -21,6 +22,11 @@ from isaaclab.sensors import CameraCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.embodiments.franka.franka import FrankaCameraCfg
+
+# Camera sensor update_period (seconds). 0.0 = render every step. Set ILA_CAM_UPDATE_PERIOD to render the
+# perception cameras less often (e.g. 0.08 = every ~4 steps at 50 Hz) — the per-step render is ~18ms of a
+# ~33ms step, and GaP only reads the camera at (static) perceive nodes, so a render cadence is safe.
+_CAM_UPDATE_PERIOD = float(os.environ.get("ILA_CAM_UPDATE_PERIOD", "0.0"))
 
 # Fixed top-down exterior camera over the table center. Top-down + cfg pose (no runtime aiming) keeps the
 # render, data.pos_w, and pose_mat mutually consistent (verified by the frame-check at 0.000 cm over all
@@ -41,10 +47,11 @@ class LiberoPerceptionCameraCfg(FrankaCameraCfg):
         # Explicit parent call: @configclass replaces the class object, so zero-arg super() breaks.
         FrankaCameraCfg.__post_init__(self)  # builds wrist_cam with the embodiment's default offset
         self.wrist_cam.data_types = ["rgb", _DEPTH_DT]
+        self.wrist_cam.update_period = _CAM_UPDATE_PERIOD
 
         self.exterior_cam = CameraCfg(
             prim_path="{ENV_REGEX_NS}/exterior_cam",
-            update_period=0.0,
+            update_period=_CAM_UPDATE_PERIOD,
             height=_EXTERIOR_HW[0],
             width=_EXTERIOR_HW[1],
             data_types=["rgb", _DEPTH_DT],
