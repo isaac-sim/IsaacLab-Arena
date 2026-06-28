@@ -240,7 +240,11 @@ def main() -> None:
                         "left": {"joint_pos": [float(v) for v in q] + [gripper_frac]},
                         args_cli.bridge_camera_name: frame,
                     }
-                    _send(sock, obs)
+                    try:
+                        _send(sock, obs)
+                    except OSError as e:
+                        print(f"[m4] send ended ({type(e).__name__}) after {tick} ticks; GaP closed; exiting")
+                        break
                     s1 = time.perf_counter()
                     t_obs += s1 - s0
 
