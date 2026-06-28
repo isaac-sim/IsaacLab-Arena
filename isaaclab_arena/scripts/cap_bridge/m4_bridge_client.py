@@ -42,6 +42,11 @@ _DEPTH_DT = "distance_to_image_plane"
 _GRIPPER_OPEN_M = 0.04
 _GRIPPER_THRESH = 0.5
 _SETTLE_STEPS = 25
+# Idle-step-skip: stop advancing physics while the commanded action is unchanged AND the arm is settled.
+_SETTLE_VEL = 0.05  # rad/s: arm considered settled below this max joint speed
+_IDLE_WINDOW = 120  # steps of unchanged+settled before skipping; >= a placement-release hold so short
+#                     settles (object dropping into the basket) complete; only long host-compute idles
+#                     (perception/planning, where the scene is static) get skipped.
 # Agentview-style external view: from +X, elevated, looking back/down at the table center.
 _CAM_EYE = (1.3, 0.0, 0.65)
 _CAM_TARGET = (0.32, 0.0, 0.08)
@@ -60,6 +65,13 @@ def add_bridge_args(parser: argparse.ArgumentParser) -> None:
     )
     group.add_argument("--video_fps", type=int, default=30, help="Playback fps for the recorded mp4.")
     group.add_argument("--video_every", type=int, default=2, help="Record every Nth tick (keeps the mp4 small).")
+    group.add_argument(
+        "--idle_skip",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Skip env.step while the action is unchanged and the arm is settled (deterministic wall win "
+        "during GaP host-compute idles). --no-idle_skip to disable.",
+    )
     group.add_argument(
         "--camera_every",
         type=int,
@@ -211,6 +223,7 @@ def main() -> None:
                 # Per-step timing split: obs (render+pack+send) | host_wait (recv = GaP perception/planning)
                 # | env.step (sim/physics). Reveals whether the wall is host-compute- or sim-step-bound.
                 t_obs = t_host = t_step = 0.0
+                prev_q, prev_grip, idle, stepped, skipped = None, None, 0, 0, 0
                 loop_start = time.perf_counter()
                 while True:
                     s0 = time.perf_counter()
@@ -241,16 +254,33 @@ def main() -> None:
 
                     left = incoming.get("left") or {}
                     cmd = left.get("joint_pos")
+                    changed = False
                     if cmd is not None:
-                        action[..., :7] = torch.tensor(
-                            np.asarray(cmd, dtype=np.float32).reshape(-1)[:7], device=device
-                        )
+                        qt = np.asarray(cmd, dtype=np.float32).reshape(-1)[:7]
+                        action[..., :7] = torch.tensor(qt, device=device)
+                        if prev_q is None or float(np.abs(qt - prev_q).max()) > 1e-3:
+                            changed = True
+                        prev_q = qt
                     gripper = left.get("gripper")
                     if gripper is not None and action.shape[-1] > 7:
-                        action[..., 7] = 1.0 if float(gripper) >= _GRIPPER_THRESH else -1.0
+                        gb = 1.0 if float(gripper) >= _GRIPPER_THRESH else -1.0
+                        if gb != prev_grip:
+                            changed = True
+                        action[..., 7] = gb
+                        prev_grip = gb
 
-                    env.step(action)
-                    t_step += time.perf_counter() - s2
+                    # Idle-step-skip: advance physics only when the command changed or the arm is still
+                    # moving; after _IDLE_WINDOW unchanged+settled steps (scene quiescent), stop stepping
+                    # and just keep streaming obs so GaP's perception runs without burning idle env.steps.
+                    vel = float(robot.data.joint_vel[0, :7].abs().max())
+                    idle = 0 if (changed or vel >= _SETTLE_VEL) else idle + 1
+                    if args_cli.idle_skip and idle > _IDLE_WINDOW:
+                        skipped += 1
+                        time.sleep(0.004)  # pace the idle poll so we don't busy-spin the request/reply
+                    else:
+                        env.step(action)
+                        t_step += time.perf_counter() - s2
+                        stepped += 1
                     tick += 1
                     if tick % 50 == 0:
                         # GT packing check: object centers within xy_tol of the basket and in its z band.
@@ -264,15 +294,14 @@ def main() -> None:
                     if tick % 1000 == 0:
                         el = time.perf_counter() - loop_start
                         print(
-                            f"[m4] TIMING@{tick} wall={el:.0f}s hz={tick / el:.1f} "
+                            f"[m4] TIMING@{tick} wall={el:.0f}s env_steps={stepped} skipped={skipped} "
                             f"obs={t_obs:.0f}s host_wait={t_host:.0f}s env_step={t_step:.0f}s"
                         )
 
             total_wall = time.perf_counter() - loop_start
-            hz = tick / total_wall if total_wall > 0 else 0.0
             print(
-                f"[m4] TIMING total_wall={total_wall:.1f}s n_steps={tick} eff_hz={hz:.1f} | "
-                f"obs_render_send={t_obs:.1f}s host_wait={t_host:.1f}s env_step={t_step:.1f}s"
+                f"[m4] TIMING total_wall={total_wall:.1f}s loop_iters={tick} env_steps={stepped} "
+                f"skipped={skipped} | obs={t_obs:.1f}s host_wait={t_host:.1f}s env_step={t_step:.1f}s"
             )
         finally:
             if writer is not None:
