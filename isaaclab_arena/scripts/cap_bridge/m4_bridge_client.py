@@ -205,14 +205,18 @@ def main() -> None:
         try:
             with _connect_with_retry(args_cli.bridge_host, args_cli.bridge_port) as sock:
                 print(f"[m4] connected to GaP server {args_cli.bridge_host}:{args_cli.bridge_port}")
+                # GaP republishes actions continuously during a run; if it stops for 60s the graph has
+                # finished (GaP keeps the socket open after 'done'), so time out and exit cleanly.
+                sock.settimeout(60.0)
+                # Per-step timing split: obs (render+pack+send) | host_wait (recv = GaP perception/planning)
+                # | env.step (sim/physics). Reveals whether the wall is host-compute- or sim-step-bound.
+                t_obs = t_host = t_step = 0.0
+                loop_start = time.perf_counter()
                 while True:
+                    s0 = time.perf_counter()
                     q = robot.data.joint_pos[0, :7].cpu().numpy()
                     finger = float(robot.data.joint_pos[0, 7].cpu()) if has_fingers else 0.0
                     gripper_frac = float(np.clip(finger / _GRIPPER_OPEN_M, 0.0, 1.0))
-                    # Render the exterior camera only every Nth tick; reuse the cached frame between (the
-                    # camera updates lazily on access, so skipping the read skips the render). pose_mat +
-                    # intrinsics are constant, so a cached frame is a valid obs; the scene is static except
-                    # the in-flight object, and GaP only reads the camera at its (stationary) perceive nodes.
                     if cached_frame is None or tick % args_cli.camera_every == 0:
                         cached_frame, cached_rgb = camera_frame()
                     frame, rgb = cached_frame, cached_rgb
@@ -224,12 +228,16 @@ def main() -> None:
                         args_cli.bridge_camera_name: frame,
                     }
                     _send(sock, obs)
+                    s1 = time.perf_counter()
+                    t_obs += s1 - s0
 
                     try:
                         incoming = _recv(sock)
-                    except ConnectionError:
-                        print(f"[m4] server closed the connection after {tick} ticks; exiting")
+                    except (ConnectionError, TimeoutError, OSError) as e:
+                        print(f"[m4] recv ended ({type(e).__name__}) after {tick} ticks; GaP done/closed; exiting")
                         break
+                    s2 = time.perf_counter()
+                    t_host += s2 - s1
 
                     left = incoming.get("left") or {}
                     cmd = left.get("joint_pos")
@@ -242,6 +250,7 @@ def main() -> None:
                         action[..., 7] = 1.0 if float(gripper) >= _GRIPPER_THRESH else -1.0
 
                     env.step(action)
+                    t_step += time.perf_counter() - s2
                     tick += 1
                     if tick % 50 == 0:
                         # GT packing check: object centers within xy_tol of the basket and in its z band.
@@ -252,6 +261,19 @@ def main() -> None:
                             if xy < 0.10 and -0.05 <= p[2] <= 0.25:
                                 packed.append(o.split("_")[0])
                         print(f"[m4] tick={tick} PACKED={len(packed)} {packed}")
+                    if tick % 1000 == 0:
+                        el = time.perf_counter() - loop_start
+                        print(
+                            f"[m4] TIMING@{tick} wall={el:.0f}s hz={tick / el:.1f} "
+                            f"obs={t_obs:.0f}s host_wait={t_host:.0f}s env_step={t_step:.0f}s"
+                        )
+
+            total_wall = time.perf_counter() - loop_start
+            hz = tick / total_wall if total_wall > 0 else 0.0
+            print(
+                f"[m4] TIMING total_wall={total_wall:.1f}s n_steps={tick} eff_hz={hz:.1f} | "
+                f"obs_render_send={t_obs:.1f}s host_wait={t_host:.1f}s env_step={t_step:.1f}s"
+            )
         finally:
             if writer is not None:
                 writer.close()
