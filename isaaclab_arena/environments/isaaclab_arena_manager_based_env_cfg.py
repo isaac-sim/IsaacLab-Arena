@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import os
+
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
 from isaaclab.sim import RenderCfg, SimulationCfg
@@ -80,7 +82,9 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     # color [0.1, 0.1, 0.1]) so that USD light prims fully control scene illumination.
     sim: SimulationCfg = SimulationCfg(
         dt=1 / 200,
-        render_interval=2,
+        # Default 2; ILA_RENDER_INTERVAL raises it to render less often (perf lever for the bridge, where
+        # GaP only reads cameras at static perceive nodes). Opt-in -- default behaviour is unchanged.
+        render_interval=int(os.environ.get("ILA_RENDER_INTERVAL", "2")),
         render=RenderCfg(
             carb_settings={
                 "/rtx/sceneDb/ambientLightIntensity": 0.0,
