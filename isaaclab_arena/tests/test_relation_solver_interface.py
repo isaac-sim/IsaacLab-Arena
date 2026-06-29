@@ -32,8 +32,6 @@ def _make_box(name: str = "box"):
 
 
 class _FakePlacementPool:
-    requires_env_indexed_layouts = False
-
     def __init__(self, layouts) -> None:
         self._layouts = layouts
 

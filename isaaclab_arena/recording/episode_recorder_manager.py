@@ -1,33 +1,20 @@
-# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
-
-"""Extensible per-episode results recording via a dedicated manager."""
 
 from __future__ import annotations
 
 import json
 import torch
 from collections.abc import Callable, Sequence
-from dataclasses import MISSING, dataclass
+from dataclasses import MISSING
 from pathlib import Path
 from prettytable import PrettyTable
 from typing import Any
 
 from isaaclab.managers import ManagerBase, ManagerTermBaseCfg
 from isaaclab.utils import configclass
-
-
-@dataclass
-class EpisodeResultsMetadata:
-    """Run-level metadata that cannot be inferred from the env, stamped onto every episode record."""
-
-    job_name: str = "default"
-    """Name of the eval job (or run); identifies which job produced the records."""
-
-    language_instruction: str | None = None
-    """Job/CLI-level language-instruction override, if any."""
 
 
 @configclass
@@ -55,9 +42,8 @@ class EpisodeRecorderManager(ManagerBase):
         """
         self._term_names: list[str] = []
         self._term_cfgs: list[EpisodeRecorderTermCfg] = []
-        self._metadata = EpisodeResultsMetadata()
-        # One dict per finished episode, in capture order; each merged from all terms' fields.
-        self._records: list[dict] = []
+        self._job_name: str = "default"
+        self._output_path: Path | None = None
         super().__init__(cfg, env)
 
     def __str__(self) -> str:
@@ -75,14 +61,21 @@ class EpisodeRecorderManager(ManagerBase):
         """Name of active episode recorder terms."""
         return self._term_names
 
-    @property
-    def records(self) -> list[dict]:
-        """The per-episode records buffered so far, in capture order."""
-        return self._records
+    def set_job_name(self, job_name: str) -> None:
+        """Set the job name stamped onto subsequently recorded episodes."""
+        self._job_name = job_name
 
-    def set_metadata(self, metadata: EpisodeResultsMetadata) -> None:
-        """Set the run-level metadata stamped onto subsequently recorded episodes."""
-        self._metadata = metadata
+    def set_output_path(self, output_path: str | Path) -> None:
+        """Set the path of the JSONL file that records are appended to as episodes finish.
+
+        Must be called before recording to persist results; without it, finished episodes are not
+        written anywhere.
+        """
+        path = Path(output_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        # Delete the contents of the file if it already exists by writing an empty string.
+        path.write_text("", encoding="utf-8")
+        self._output_path = path
 
     def record_pre_reset(self, env_ids: Sequence[int] | torch.Tensor | None) -> None:
         """Record one record per finished episode.
@@ -93,10 +86,9 @@ class EpisodeRecorderManager(ManagerBase):
             env_ids: The env ids being reset (tensor, sequence, or ``None`` for all envs).
         """
         for env_id in self._normalize_env_ids(env_ids):
-            # The manager stamps the run-level metadata; terms add the per-episode fields.
+            # The manager stamps the job name; terms add the per-episode fields.
             record: dict[str, Any] = {
-                "job_name": self._metadata.job_name,
-                "language_instruction": self._metadata.language_instruction,
+                "job_name": self._job_name,
             }
             # Fire each recording term's function.
             for term_name, term_cfg in zip(self._term_names, self._term_cfgs):
@@ -106,17 +98,16 @@ class EpisodeRecorderManager(ManagerBase):
                     f"Episode recorder term '{term_name}' redefines fields {collisions} already set"
                     " by the manager or an earlier term."
                 )
+                self._assert_json_serializable(term_name, fields)
                 record.update(fields)
-            # Append the record to the list of records.
-            self._records.append(record)
+            self._append_record(record)
 
-    def write(self, output_path: str | Path) -> None:
-        """Write all buffered per-episode records to ``output_path`` as JSONL (one object per line)."""
-        path = Path(output_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            for record in self._records:
-                f.write(json.dumps(record) + "\n")
+    def _append_record(self, record: dict[str, Any]) -> None:
+        """Append one record to the output JSONL (one object per line); no-op if no path was set."""
+        if self._output_path is None:
+            return
+        with open(self._output_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record) + "\n")
 
     def _normalize_env_ids(self, env_ids: Sequence[int] | torch.Tensor | None) -> list[int]:
         """Normalize ``env_ids`` (tensor, sequence, or ``None`` for all envs) to a list of ints."""
@@ -135,3 +126,17 @@ class EpisodeRecorderManager(ManagerBase):
             self._resolve_common_term_cfg(term_name, term_cfg, min_argc=2)
             self._term_names.append(term_name)
             self._term_cfgs.append(term_cfg)
+
+    @staticmethod
+    def _assert_json_serializable(term_name: str, fields: dict[str, Any]) -> None:
+        """Check ``term_name``'s recorded ``fields`` are JSON-serializable, failing fast if not.
+
+        This points at the offending term rather than surfacing a cryptic error later at write() time when
+        the whole record is serialized.
+        """
+        try:
+            json.dumps(fields)
+        except TypeError as e:
+            raise TypeError(
+                f"Episode recorder term '{term_name}' returned non-JSON-serializable fields ({fields!r}): {e}"
+            ) from e
