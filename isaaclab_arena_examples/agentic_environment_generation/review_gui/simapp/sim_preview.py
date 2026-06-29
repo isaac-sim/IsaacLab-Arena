@@ -88,7 +88,7 @@ def _preview_args(*, num_envs: int, env_spacing: float) -> argparse.Namespace:
 def _overview_camera(
     num_envs: int, env_spacing: float
 ) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
-    """Return (eye, lookat) in world frame for a high oblique view of the full env grid."""
+    """World-frame overview camera for the env grid."""
     cols = int(math.ceil(math.sqrt(num_envs)))
     rows = int(math.ceil(num_envs / cols))
     max_x = max((cols - 1) * env_spacing, 0.0)
@@ -121,7 +121,7 @@ def _close_env_and_reset_sim(
     suppress_exceptions: bool = False,
     app=None,
 ) -> None:
-    """Tear down sim state and close a gym env so another can be built in the same SimApp."""
+    """Close env and reset sim for the next preview."""
     error_manager = suppress(Exception) if suppress_exceptions else nullcontext()
 
     with error_manager:
@@ -145,7 +145,7 @@ def run_sim_preview(
     num_steps: int,
     env_spacing: float,
 ) -> dict[str, Any]:
-    """Link spec → arena env → relation solver → zero-action steps; capture viewport frames."""
+    """Run relation-solver preview and capture viewport frames."""
     import gymnasium as gym
     import yaml
 

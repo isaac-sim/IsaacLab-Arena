@@ -76,8 +76,7 @@ def wait_for_capture(app, capture_obj, cache_path: Path, max_updates: int = CAPT
                 return
         return
 
-    # Kit has no stable capture-completion API; ``future`` is best-effort. File existence is
-    # the reliable exit condition (see the loop below).
+    # File existence is the reliable capture-completion signal.
     future = getattr(capture_obj, "future", None)
 
     for _ in range(max_updates):

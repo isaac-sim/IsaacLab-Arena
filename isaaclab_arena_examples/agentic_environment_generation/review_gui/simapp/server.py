@@ -157,7 +157,7 @@ def _handle_render_spec(
 
 
 def _handle_run_sim_preview(app, req: dict[str, Any]) -> dict[str, Any]:
-    """Build linked env, solve relations, roll out zero actions, capture overview frames."""
+    """Handle run_sim_preview JSON-RPC."""
     from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (  # noqa: PLC0415
         parse_sim_preview_params,
         run_sim_preview,

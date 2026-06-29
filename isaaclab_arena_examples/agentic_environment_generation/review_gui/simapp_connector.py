@@ -74,7 +74,7 @@ def run_sim_preview_pipeline(
     num_steps: int = NUM_STEPS,
     env_spacing: float = ENV_SPACING_M,
 ) -> tuple[bool, str]:
-    """Link, build, solve relations, and capture overview frames via SimApp."""
+    """Run sim preview via SimApp and store frames in session."""
     if validation is None or not validation.is_valid:
         validation = validate_yaml_text(yaml_text)
         if not validation.is_valid:
