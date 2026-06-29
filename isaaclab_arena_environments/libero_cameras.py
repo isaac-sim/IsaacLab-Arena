@@ -31,7 +31,7 @@ _CAM_UPDATE_PERIOD = float(os.environ.get("ILA_CAM_UPDATE_PERIOD", "0.0"))
 # Fixed top-down exterior camera over the table center. Top-down + cfg pose (no runtime aiming) keeps the
 # render, data.pos_w, and pose_mat mutually consistent (verified by the frame-check at 0.000 cm over all
 # 6 objects). ROS/OpenCV rot (w,x,y,z)=(0,1,0,0) = Rx(180deg): +Z points down, +X = +X world.
-_EXTERIOR_POS = (0.32, 0.0, 1.2)
+_EXTERIOR_POS = (0.32, 0.0, 1.6)  # top-down over the table top (z=0.40); ~1.2m above the surface
 _EXTERIOR_ROT_WXYZ = (0.0, 1.0, 0.0, 0.0)
 _EXTERIOR_HW = (512, 800)  # (H, W)
 _DEPTH_DT = "distance_to_image_plane"  # perpendicular z-depth, the type GaP back-projection expects
