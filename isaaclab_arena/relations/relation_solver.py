@@ -162,16 +162,15 @@ class RelationSolver:
             )
             self._last_no_overlap_pair_count = n
             return mesh_loss + aabb_loss
-        else:
-            loss, n = compute_no_overlap_loss_aabb(
-                state,
-                self._no_collision_strategy,
-                self.params.clearance_m,
-                self._mesh_manager,
-                debug=debug,
-            )
-            self._last_no_overlap_pair_count = n
-            return loss
+        loss, n = compute_no_overlap_loss_aabb(
+            state,
+            self._no_collision_strategy,
+            self.params.clearance_m,
+            self._mesh_manager,
+            debug=debug,
+        )
+        self._last_no_overlap_pair_count = n
+        return loss
 
     def solve(
         self,
@@ -179,6 +178,7 @@ class RelationSolver:
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]],
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
         orientations: list[dict[ObjectBase, float]] | None = None,
+        collision_objects: list[ObjectBase] | None = None,
     ) -> list[dict[ObjectBase, tuple[float, float, float]]]:
         """Solve for optimal positions of all objects.
 
@@ -193,12 +193,17 @@ class RelationSolver:
                 may omit them to use each object's default get_bounding_box().
             orientations: Optional per-env yaw angles (radians about Z) per object.
                 Used in MESH mode to rotate sphere centers before collision queries.
+            collision_objects: Optional fixed background obstacles included in the
+                no-overlap collision term only. They are not optimized and carry no
+                relation constraints.
 
         Returns:
             List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
         """
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        state = RelationSolverState(objects, initial_positions, device=device, env_bboxes=env_bboxes)
+        state = RelationSolverState(
+            objects, initial_positions, device=device, env_bboxes=env_bboxes, collision_objects=collision_objects
+        )
 
         if self.params.verbose:
             anchor_names = [obj.name for obj in state.anchor_objects]
@@ -206,6 +211,8 @@ class RelationSolver:
             print("=== RelationSolver ===")
             print(f"Anchors (fixed): {anchor_names}")
             print(f"Optimizable: {optimizable_names}")
+            if state.collision_objects:
+                print(f"Background collision obstacles: {[obj.name for obj in state.collision_objects]}")
 
         # Early return if nothing to optimize (all objects are anchors)
         if len(state.optimizable_objects) == 0:

@@ -63,6 +63,8 @@ class PooledObjectPlacer:
         placer_params: Parameters forwarded to ObjectPlacer for the batched solve.
         pool_size: Number of layouts to solve per batch.
         num_envs: Number of simulation environments.
+        collision_objects: Fixed background obstacles avoided during placement but never
+            optimized or relation-constrained.
     """
 
     def __init__(
@@ -71,6 +73,7 @@ class PooledObjectPlacer:
         placer_params: ObjectPlacerParams,
         pool_size: int = 100,
         num_envs: int | None = None,
+        collision_objects: list[ObjectBase] | None = None,
     ) -> None:
         assert pool_size >= 1, f"pool_size must be >= 1, got {pool_size}"
         assert not (
@@ -80,6 +83,7 @@ class PooledObjectPlacer:
         assert self._num_envs >= 1, f"num_envs must be >= 1, got {self._num_envs}"
 
         self._objects = list(objects)
+        self._collision_objects = list(collision_objects) if collision_objects else []
         # Pool construction ranks several candidate layouts per env and applies
         # poses only when a sampled layout is used.
         self._placer = ObjectPlacer(params=replace(placer_params, apply_positions_to_objects=False))
@@ -174,6 +178,7 @@ class PooledObjectPlacer:
                 self._objects,
                 num_envs=self._num_envs,
                 results_per_env=layouts_per_env,
+                collision_objects=self._collision_objects,
             )
 
         return ranked_results_per_env, layouts_per_env

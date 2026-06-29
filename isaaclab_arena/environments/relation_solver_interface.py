@@ -25,8 +25,22 @@ def solve_and_apply_relation_placement(
     objects: list[ObjectBase],
     num_envs: int,
     placer_params: ObjectPlacerParams | None = None,
+    collision_objects: list[ObjectBase] | None = None,
 ) -> EventTermCfg | None:
-    """Solve relation placement and return a reset EventTermCfg (or None if no objects)."""
+    """Solve relation placement and apply the result to object reset/static state.
+
+    Args:
+        objects: Objects with spatial predicates that should be relation-solved.
+        num_envs: Number of environments to prepare placements for.
+        placer_params: Optional placement parameters. A shallow copy is used so
+            this function can force pooled placement without mutating the caller's instance.
+        collision_objects: Fixed background obstacles avoided during placement but never
+            optimized or relation-constrained (e.g. furniture that nobody is placed on).
+
+    Returns:
+        Reset event config to attach to the environment when placement should be
+        resolved on reset. Returns ``None`` when no reset event is needed.
+    """
     objects = list(objects)
     if not objects:
         print("No objects with relations found in scene. Skipping relation solving.")
@@ -45,6 +59,7 @@ def solve_and_apply_relation_placement(
         placer_params=placer_params,
         pool_size=num_envs * placer_params.min_unique_layouts_per_env,
         num_envs=num_envs,
+        collision_objects=collision_objects,
     )
 
     if placement_pool.had_fallbacks:

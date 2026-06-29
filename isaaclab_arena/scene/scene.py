@@ -16,8 +16,10 @@ from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.object_set import RigidObjectSet
+from isaaclab_arena.relations.background_collision_object import make_background_collision_object
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
+from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.variations.variation_base import VariationBase
 
 AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg]
@@ -118,6 +120,54 @@ class Scene:
             if asset.get_relations():
                 objects_with_relations.append(asset)
         return objects_with_relations
+
+    def get_collision_objects(self, combine_background_mesh: bool = False) -> list[Any]:
+        """Return fixed background geometry to treat as passive collision obstacles.
+
+        These are Object / ObjectReference assets that carry no relations (so they are
+        absent from the relation graph returned by get_objects_with_relations) yet have a
+        USD path and a fixed initial Pose. The relation solver should still avoid them,
+        otherwise scene furniture that nobody is placed on would be invisible to placement.
+
+        Args:
+            combine_background_mesh: If True and mesh extraction succeeds, return one
+                collision-only object with all background meshes baked into world coordinates.
+
+        Returns:
+            Background objects with collision geometry, in scene-insertion order.
+        """
+        collision_objects: list[Object | ObjectReference] = []
+        for asset in self.assets.values():
+            if not isinstance(asset, (Object, ObjectReference)):
+                continue
+            # Relation objects are already passed to the solver directly; the aggregate
+            # background mesh is only the passive scene geometry outside that graph.
+            if asset.get_relations():
+                continue
+            # Without a USD path no bounding box can be computed for collision.
+            if isinstance(asset, Object) and asset.usd_path is None:
+                continue
+            if isinstance(asset, ObjectReference) and asset.parent_asset.usd_path is None:
+                continue
+            initial_pose = asset.get_initial_pose()
+            # A non-fixed pose on static furniture is almost certainly an authoring mistake.
+            if isinstance(initial_pose, (PoseRange, PosePerEnv)):
+                print(
+                    f"Warning: background object '{asset.name}' has a non-fixed pose "
+                    f"({type(initial_pose).__name__}); excluding it from collision obstacles."
+                )
+                continue
+            # A fixed Pose is required so get_world_bounding_box() places the obstacle correctly.
+            if not isinstance(initial_pose, Pose):
+                continue
+            collision_objects.append(asset)
+        if not collision_objects:
+            return []
+        if combine_background_mesh:
+            background_collision_object = make_background_collision_object(collision_objects)
+            if background_collision_object is not None:
+                return [background_collision_object]
+        return collision_objects
 
     def export_to_usd(self, output_path: pathlib.Path, root_prim_path: str = "/World") -> None:
         """Exports the scene to a USD file.

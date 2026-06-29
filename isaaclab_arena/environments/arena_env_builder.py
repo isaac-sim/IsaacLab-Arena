@@ -37,6 +37,7 @@ from isaaclab_arena.progress_tracking.progress_tracker import (
 from isaaclab_arena.recording.common_terms import CoreEpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
+from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -95,10 +96,16 @@ class ArenaEnvBuilder:
             )
             if self.cfg.resolve_on_reset is not None:
                 placer_params.resolve_on_reset = self.cfg.resolve_on_reset
+        # Background geometry without relations is invisible to the relation graph,
+        # but placed objects still need to avoid it during collision solving.
+        collision_objects = self.arena_env.scene.get_collision_objects(
+            combine_background_mesh=placer_params.solver_params.collision_mode == CollisionMode.MESH
+        )
         self._placement_event_cfg = solve_and_apply_relation_placement(
             objects_with_relations,
             num_envs=self.cfg.num_envs,
             placer_params=placer_params,
+            collision_objects=collision_objects,
         )
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:

@@ -66,8 +66,8 @@ def compute_no_overlap_loss_mesh(
             for p in range(num_pairs)
         ])
 
-        anchor_yaws = mesh_cache.pair_anchor_yaw
-        has_any_yaw = orientations is not None or any(y != 0.0 for y in anchor_yaws)
+        fixed_obstacle_yaws = mesh_cache.pair_anchor_yaw
+        has_any_yaw = orientations is not None or any(y != 0.0 for y in fixed_obstacle_yaws)
         if has_any_yaw:
             ori_b = orientations[b] if orientations is not None else {}
             subject_yaws = torch.tensor(
@@ -76,7 +76,7 @@ def compute_no_overlap_loss_mesh(
                 device=device,
             )
             obstacle_yaws = torch.tensor(
-                [ori_b.get(mesh_cache.pair_obstacle_objs[p], anchor_yaws[p]) for p in range(num_pairs)],
+                [ori_b.get(mesh_cache.pair_obstacle_objs[p], fixed_obstacle_yaws[p]) for p in range(num_pairs)],
                 dtype=torch.float32,
                 device=device,
             )
@@ -164,9 +164,10 @@ def prepare_mesh_collision_cache(
     device = state.device
     non_anchor_objects = state.optimizable_objects
     anchor_objects = list(state.anchor_objects)
+    fixed_obstacles = anchor_objects + list(state.collision_objects)
 
     all_pairs = _collect_mesh_pairs(
-        state, mesh_manager, non_anchor_objects, anchor_objects, on_pairs, device, warned_no_mesh
+        state, mesh_manager, non_anchor_objects, fixed_obstacles, on_pairs, device, warned_no_mesh
     )
     return _finalize_mesh_cache(all_pairs, device)
 
@@ -175,7 +176,7 @@ def _collect_mesh_pairs(
     state: RelationSolverState,
     manager: WarpMeshAndSphereCache,
     non_anchor_objects: list,
-    anchor_objects: list,
+    fixed_obstacles: list,
     on_pairs: set[tuple[int, int]],
     device: torch.device,
     warned_no_mesh: set[str],
@@ -198,30 +199,30 @@ def _collect_mesh_pairs(
         c_bbox_min = child_bbox.min_point.expand(state.batch_size, 3)
         c_bbox_max = child_bbox.max_point.expand(state.batch_size, 3)
 
-        # child's spheres → anchor's mesh
-        for anchor in anchor_objects:
-            if (id(child), id(anchor)) in on_pairs:
+        # child's spheres → fixed obstacle mesh (anchors plus passive background)
+        for obstacle in fixed_obstacles:
+            if (id(child), id(obstacle)) in on_pairs:
                 continue
-            anchor_mesh = manager.get_collision_mesh(anchor)
-            if anchor_mesh is None:
-                if anchor.name not in warned_no_mesh:
-                    warned_no_mesh.add(anchor.name)
-                    print(f"[NoCollision] '{anchor.name}' has no collision mesh; pair will use AABB fallback.")
+            obstacle_mesh = manager.get_collision_mesh(obstacle)
+            if obstacle_mesh is None:
+                if obstacle.name not in warned_no_mesh:
+                    warned_no_mesh.add(obstacle.name)
+                    print(f"[NoCollision] '{obstacle.name}' has no collision mesh; pair will use AABB fallback.")
                 continue
-            pose = anchor.get_initial_pose()
+            pose = obstacle.get_initial_pose()
             assert pose is not None and isinstance(
                 pose, Pose
-            ), f"MESH collision requires anchor '{anchor.name}' to have a fixed Pose initial_pose"
+            ), f"MESH collision requires fixed obstacle '{obstacle.name}' to have a fixed Pose initial_pose"
             assert abs(pose.rotation_xyzw[0]) < 1e-6 and abs(pose.rotation_xyzw[1]) < 1e-6, (
-                f"MESH collision requires anchor '{anchor.name}' to have identity or "
+                f"MESH collision requires fixed obstacle '{obstacle.name}' to have identity or "
                 f"pure-Z rotation, got rotation_xyzw={pose.rotation_xyzw}. "
-                "Roll/pitch anchors are not supported in MESH mode."
+                "Roll/pitch fixed obstacles are not supported in MESH mode."
             )
-            anchor_bbox = state.get_bbox(anchor)
+            obstacle_bbox = obstacle.get_bounding_box().to(device)
             pairs.append(
                 MeshPairEntry(
                     subject=child,
-                    obstacle=anchor,
+                    obstacle=obstacle,
                     is_anchor=True,
                     anchor_pos=torch.tensor(pose.position_xyz, dtype=torch.float32, device=device),
                     anchor_yaw=yaw_from_quat_xyzw(pose.rotation_xyzw),
@@ -229,9 +230,9 @@ def _collect_mesh_pairs(
                     radii=child_radii,
                     subject_bbox_min=c_bbox_min,
                     subject_bbox_max=c_bbox_max,
-                    obstacle_bbox_min=anchor_bbox.min_point.to(device).expand(state.batch_size, 3),
-                    obstacle_bbox_max=anchor_bbox.max_point.to(device).expand(state.batch_size, 3),
-                    warp_mesh=manager.get_warp_mesh(anchor_mesh, obj=anchor),
+                    obstacle_bbox_min=obstacle_bbox.min_point.expand(state.batch_size, 3),
+                    obstacle_bbox_max=obstacle_bbox.max_point.expand(state.batch_size, 3),
+                    warp_mesh=manager.get_warp_mesh(obstacle_mesh, obj=obstacle),
                 )
             )
 

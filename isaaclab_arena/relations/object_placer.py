@@ -8,14 +8,19 @@ from __future__ import annotations
 import torch
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, TypeVar, cast
 
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
-from isaaclab_arena.relations.relation_loss_strategies import SIDE_CONFIGS, next_to_violations, not_next_to_violations
+from isaaclab_arena.relations.relation_loss_strategies import (
+    SIDE_CONFIGS,
+    NotNextToLossStrategy,
+    next_to_violations,
+    not_next_to_violations,
+)
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import (
     FaceTo,
@@ -99,6 +104,7 @@ class ObjectPlacer:
         self,
         objects: list[ObjectBase],
         num_envs: int = 1,
+        collision_objects: list[ObjectBase] | None = None,
     ) -> list[PlacementResult]:
         """Place objects according to their spatial relations.
 
@@ -112,6 +118,8 @@ class ObjectPlacer:
                 marked with IsAnchor() which serves as a fixed reference.
             num_envs: Number of environments. 1 for single-env; > 1 for batched
                 placement (one layout per env).
+            collision_objects: Optional fixed background obstacles avoided during
+                placement but never optimized or relation-constrained.
 
         Returns:
             One PlacementResult per environment.
@@ -125,6 +133,7 @@ class ObjectPlacer:
             candidates_per_env=max_attempts,
             attempts_per_result=max_attempts,
             generator=generator,
+            collision_objects=collision_objects,
         )
         results_per_env = [env_results[0] for env_results in ranked_results_per_env]
 
@@ -148,6 +157,7 @@ class ObjectPlacer:
         objects: list[ObjectBase],
         num_envs: int,
         results_per_env: int,
+        collision_objects: list[ObjectBase] | None = None,
     ) -> list[list[PlacementResult]]:
         """Return ranked placement candidates per env.
 
@@ -156,6 +166,10 @@ class ObjectPlacer:
         The return value has shape (num_envs, results_per_env): each
         outer list entry corresponds to a real env, and each inner list is
         sorted with valid lower-loss layouts first.
+
+        Args:
+            collision_objects: Optional fixed background obstacles avoided during
+                placement but never optimized or relation-constrained.
         """
         assert results_per_env > 0, f"results_per_env must be positive, got {results_per_env}"
         anchor_objects_set, generator = self._prepare_placement(objects)
@@ -167,6 +181,7 @@ class ObjectPlacer:
             candidates_per_env=max_attempts * results_per_env,
             attempts_per_result=max_attempts,
             generator=generator,
+            collision_objects=collision_objects,
         )
 
         return [ranked_results[:results_per_env] for ranked_results in ranked_results_per_env]
@@ -213,6 +228,7 @@ class ObjectPlacer:
         candidates_per_env: int,
         attempts_per_result: int,
         generator: torch.Generator | None,
+        collision_objects: list[ObjectBase] | None = None,
     ) -> list[list[PlacementResult]]:
         """Solve and rank placement candidates per environment.
 
@@ -220,6 +236,7 @@ class ObjectPlacer:
         candidates are ranked independently (valid first, then by loss), so a
         candidate is never compared against another env's geometry.
         """
+        collision_objects = collision_objects or []
         # Variant assignment fixes the env-to-USD mapping before bbox expansion.
         assign_variants_for_envs(objects, num_envs, placement_seed=self.params.placement_seed)
         num_candidates = num_envs * candidates_per_env
@@ -247,7 +264,11 @@ class ObjectPlacer:
         )
 
         all_positions = self._solver.solve(
-            objects, initial_positions, env_bboxes=candidate_bboxes, orientations=orientations_per_candidate
+            objects,
+            initial_positions,
+            env_bboxes=candidate_bboxes,
+            orientations=orientations_per_candidate,
+            collision_objects=collision_objects,
         )
         self._apply_face_to_orientations(all_positions, orientations_per_candidate)
         # FaceTo yaw is only known after solving, so rebuild from unrotated boxes before validation.
@@ -261,6 +282,7 @@ class ObjectPlacer:
                 positions,
                 self._get_bounding_boxes_for_candidate_index(candidate_bboxes, candidate_idx),
                 orientations_per_candidate[candidate_idx],
+                collision_objects,
             )
             for candidate_idx, positions in enumerate(all_positions)
         ]
@@ -690,17 +712,40 @@ class ObjectPlacer:
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        collision_objects: list[ObjectBase] | None = None,
         skip_mesh_pairs: bool = False,
     ) -> bool:
         """AABB overlap check on pre-rotated env_bboxes. Skips On-pairs and anchor-anchor pairs."""
         clearance_m = self.params.solver_params.clearance_m
         margin = max(0.0, clearance_m - 1e-6)
+        collision_objects = collision_objects or []
+        _, anchor_ids = self._collect_skip_pairs(positions)
 
         for a, b in self._non_skip_pairs(positions, skip_mesh_pairs=skip_mesh_pairs):
             if self._pair_aabb_overlaps(env_bboxes[a], env_bboxes[b], positions[a], positions[b], 0.0, 0.0, margin):
                 if self.params.verbose:
                     print(f"  Overlap between '{a.name}' and '{b.name}'")
                 return False
+
+        # Placed (non-anchor) objects must also clear the fixed background obstacles.
+        # Anchors are fixed scene geometry too, so anchor-vs-background overlap is not gated.
+        background_worlds = [(bg, bg.get_world_bounding_box()) for bg in collision_objects]
+        mesh_manager = self._get_cpu_mesh_manager() if skip_mesh_pairs else None
+        for obj in positions:
+            if id(obj) in anchor_ids:
+                continue
+            obj_world = env_bboxes[obj].translated(positions[obj])
+            for background, background_world in background_worlds:
+                if (
+                    mesh_manager is not None
+                    and mesh_manager.get_collision_mesh(obj) is not None
+                    and mesh_manager.get_collision_mesh(background) is not None
+                ):
+                    continue
+                if obj_world.overlaps(background_world, margin=margin).item():
+                    if self.params.verbose:
+                        print(f"  Overlap between '{obj.name}' and background '{background.name}'")
+                    return False
         return True
 
     def _validate_next_to_relations(
@@ -781,7 +826,7 @@ class ObjectPlacer:
 
     def _not_next_to_margin(self, relation: NotNextTo) -> float:
         """Keep-out margin_m from the registered NotNextTo loss strategy (stays in sync with the solver)."""
-        strategy = self._solver.params.strategies[type(relation)]
+        strategy = cast(NotNextToLossStrategy, self._solver.params.strategies[type(relation)])
         return strategy.margin_m
 
     def _get_cpu_mesh_manager(self) -> WarpMeshAndSphereCache:
@@ -797,6 +842,7 @@ class ObjectPlacer:
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
         orientations: dict[ObjectBase, float] | None = None,
+        collision_objects: list[ObjectBase] | None = None,
     ) -> bool:
         """Sphere-to-SDF overlap check. Mesh-less pairs fall back to AABB."""
         clearance_m = self.params.solver_params.clearance_m
@@ -804,6 +850,7 @@ class ObjectPlacer:
         mesh_manager = self._get_cpu_mesh_manager()
         mesh_manager.reset_sentinel_warning()
         warned_no_mesh: set[str] = set()
+        collision_objects = collision_objects or []
 
         for a, b in self._non_skip_pairs(positions):
             a_mesh = mesh_manager.get_collision_mesh(a)
@@ -825,6 +872,35 @@ class ObjectPlacer:
                 return False
             if self._spheres_penetrate_mesh(b, b_mesh, b_pos, a, a_mesh, a_pos, mesh_manager, tolerance, orientations):
                 return False
+
+        for source in positions:
+            if source.is_anchor:
+                continue
+            source_mesh = mesh_manager.get_collision_mesh(source)
+            if source_mesh is None:
+                continue
+            source_pos = torch.tensor(positions[source], dtype=torch.float32)
+            for background in collision_objects:
+                target_mesh = mesh_manager.get_collision_mesh(background)
+                if target_mesh is None:
+                    continue
+                target_pose = background.get_initial_pose()
+                assert isinstance(target_pose, Pose), (
+                    f"Background collision object '{background.name}' must have a fixed Pose in MESH mode."
+                )
+                target_pos = torch.tensor(target_pose.position_xyz, dtype=torch.float32)
+                if self._spheres_penetrate_mesh(
+                    source,
+                    source_mesh,
+                    source_pos,
+                    background,
+                    target_mesh,
+                    target_pos,
+                    mesh_manager,
+                    tolerance,
+                    orientations,
+                ):
+                    return False
 
         return True
 
@@ -904,6 +980,7 @@ class ObjectPlacer:
         positions: dict[ObjectBase, tuple[float, float, float]],
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
         orientations: dict[ObjectBase, float] | None = None,
+        collision_objects: list[ObjectBase] | None = None,
     ) -> PlacementValidationResults:
         """Validate overlap and all supported placement relations.
 
@@ -911,34 +988,48 @@ class ObjectPlacer:
             positions: Dictionary mapping objects to their solved (x, y, z) positions.
             env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
             orientations: Optional per-object yaw (radians about Z).
+            collision_objects: Fixed background obstacles to test placed objects against.
 
         Returns:
             PlacementValidationResults with the overlap and relation checks.
         """
         use_mesh = self.params.solver_params.collision_mode == CollisionMode.MESH
-        no_overlap = self._validate_no_overlap(positions, env_bboxes, skip_mesh_pairs=use_mesh)
+        no_overlap = self._validate_no_overlap(
+            positions,
+            env_bboxes,
+            collision_objects=collision_objects,
+            skip_mesh_pairs=use_mesh,
+        )
         if no_overlap and use_mesh:
-            no_overlap = self._validate_no_overlap_mesh(positions, orientations)
+            no_overlap = self._validate_no_overlap_mesh(positions, orientations, collision_objects)
         on_relation = self._validate_on_relations(positions, env_bboxes)
         next_to = self._validate_next_to_relations(positions, env_bboxes)
         not_next_to = self._validate_not_next_to_relations(positions, env_bboxes)
         face_to = self._validate_face_to_relations(positions, orientations)
 
-        return PlacementValidationResults(
-            validation_results={
+        validation_results = cast(
+            dict[PlacementCheck, bool],
+            {
                 PlacementCheck.NO_OVERLAP: no_overlap,
                 PlacementCheck.ON_RELATION: on_relation,
                 PlacementCheck.NEXT_TO: next_to,
                 PlacementCheck.NOT_NEXT_TO: not_next_to,
                 PlacementCheck.FACE_TO: face_to,
             },
-            required_checks={
+        )
+        required_checks = cast(
+            set[PlacementCheck],
+            {
                 PlacementCheck.NO_OVERLAP,
                 PlacementCheck.ON_RELATION,
                 PlacementCheck.NEXT_TO,
                 PlacementCheck.NOT_NEXT_TO,
                 PlacementCheck.FACE_TO,
             },
+        )
+        return PlacementValidationResults(
+            validation_results=validation_results,
+            required_checks=required_checks,
         )
 
     def _validate_face_to_relations(

@@ -50,7 +50,7 @@ def compute_no_overlap_loss_aabb(
 ) -> tuple[torch.Tensor, int]:
     """AABB collision loss summed over all directed pairs, returned per environment.
 
-    - Non-anchor vs anchor: gradient flows to the non-anchor only.
+    - Non-anchor vs fixed obstacle (anchor or collision object): gradient flows to the non-anchor only.
     - Non-anchor vs non-anchor: both objects accumulate gradient (two directed passes).
 
     When skip_mesh_pairs=True, only processes pairs where at least one object lacks a collision mesh.
@@ -72,6 +72,7 @@ def compute_no_overlap_loss_aabb(
 
     non_anchor_objects = state.optimizable_objects
     anchor_objects = list(state.anchor_objects)
+    fixed_obstacles = anchor_objects + list(state.collision_objects)
 
     on_pairs: set[tuple[int, int]] = set()
     for obj in [*non_anchor_objects, *anchor_objects]:
@@ -85,11 +86,11 @@ def compute_no_overlap_loss_aabb(
         pos = state.get_position(obj)
         bbox = state.get_bbox(obj)
         extents[obj] = (pos + bbox.min_point, pos + bbox.max_point)
-    for anchor in anchor_objects:
-        anchor_world_bbox = anchor.get_world_bounding_box().to(device)
-        extents[anchor] = (
-            anchor_world_bbox.min_point.expand(batch_size, 3),
-            anchor_world_bbox.max_point.expand(batch_size, 3),
+    for obstacle in fixed_obstacles:
+        obstacle_world_bbox = obstacle.get_world_bounding_box().to(device)
+        extents[obstacle] = (
+            obstacle_world_bbox.min_point.expand(batch_size, 3),
+            obstacle_world_bbox.max_point.expand(batch_size, 3),
         )
 
     pairs: list[NoOverlapPair] = []
@@ -97,19 +98,19 @@ def compute_no_overlap_loss_aabb(
 
     for child in non_anchor_objects:
         child_min, child_max = extents[child]
-        for anchor in anchor_objects:
-            if (id(child), id(anchor)) in on_pairs:
+        for obstacle in fixed_obstacles:
+            if (id(child), id(obstacle)) in on_pairs:
                 continue
             if (
                 skip_mesh_pairs
                 and mesh_manager is not None
                 and mesh_manager.get_collision_mesh(child) is not None
-                and mesh_manager.get_collision_mesh(anchor) is not None
+                and mesh_manager.get_collision_mesh(obstacle) is not None
             ):
                 continue
-            anchor_min, anchor_max = extents[anchor]
-            pairs.append(NoOverlapPair(child_min, child_max, anchor_min, anchor_max))
-            pair_names.append((child.name, anchor.name))
+            obstacle_min, obstacle_max = extents[obstacle]
+            pairs.append(NoOverlapPair(child_min, child_max, obstacle_min, obstacle_max))
+            pair_names.append((child.name, obstacle.name))
 
     for i, child in enumerate(non_anchor_objects):
         child_min, child_max = extents[child]
