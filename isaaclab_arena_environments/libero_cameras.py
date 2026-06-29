@@ -60,3 +60,32 @@ class LiberoPerceptionCameraCfg(FrankaCameraCfg):
             ),
             offset=CameraCfg.OffsetCfg(pos=_EXTERIOR_POS, rot=_EXTERIOR_ROT_WXYZ, convention="ros"),
         )
+
+
+from isaaclab_arena.embodiments.droid.droid import DroidCameraCfg
+
+
+@configclass
+class LiberoDroidPerceptionCameraCfg(DroidCameraCfg):
+    """Droid (Robotiq) cameras plus the fixed exterior rgb+depth camera the GaP bridge reads.
+
+    Subclasses DroidCameraCfg (whose wrist/external cams mount on links that exist on the Robotiq
+    USD) and adds the same position-based exterior_cam as LiberoPerceptionCameraCfg, so the bridge's
+    pose_mat (base = panda_link0, identical for droid) and the agentview render are unchanged.
+    """
+
+    exterior_cam: CameraCfg = MISSING
+
+    def __post_init__(self):
+        DroidCameraCfg.__post_init__(self)
+        self.exterior_cam = CameraCfg(
+            prim_path="{ENV_REGEX_NS}/exterior_cam",
+            update_period=_CAM_UPDATE_PERIOD,
+            height=_EXTERIOR_HW[0],
+            width=_EXTERIOR_HW[1],
+            data_types=["rgb", _DEPTH_DT],
+            spawn=sim_utils.PinholeCameraCfg(
+                focal_length=2.8, focus_distance=28.0, horizontal_aperture=5.376, vertical_aperture=3.024
+            ),
+            offset=CameraCfg.OffsetCfg(pos=_EXTERIOR_POS, rot=_EXTERIOR_ROT_WXYZ, convention="ros"),
+        )
