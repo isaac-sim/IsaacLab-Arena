@@ -31,6 +31,10 @@ class PlacementCheck(StrEnum):
     """Run-time check: after stepping physics the movable objects' velocities fall
     below threshold, i.e. the layout is stable and does not drift or topple."""
 
+    IK_REACHABLE = "ik_reachable"
+    """Run-time check: the robot can reach a top-down grasp at every movable object's
+    resting pose, per cuRobo's collision-aware IK solver."""
+
 
 @dataclass
 class PlacementValidationResults:
