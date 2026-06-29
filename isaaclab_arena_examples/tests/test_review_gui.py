@@ -36,6 +36,12 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.th
     format_aabb_dimensions_m,
     render_node_thumbnail,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
+    SimAppClient,
+    spawn_simapp_process,
+    stop_simapp_process,
+    wait_for_simapp_socket,
+)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (
     _preview_args,
     parse_sim_preview_params,
@@ -393,11 +399,6 @@ class TestSimAppClient:
         import socket
         import threading
 
-        from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
-            SimAppClient,
-            wait_for_simapp_socket,
-        )
-
         socket_path = tmp_path / "probe.sock"
         shutdowns = 0
         pings = 0
@@ -452,13 +453,6 @@ class TestSimAppClient:
 class TestSimAppSimPreview:
     @pytest.mark.with_subprocess
     def test_run_sim_preview_via_simapp_subprocess(self, tmp_path: Path) -> None:
-        from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
-            SimAppClient,
-            spawn_simapp_process,
-            stop_simapp_process,
-            wait_for_simapp_socket,
-        )
-
         yaml_text = _VALID_SPEC_YAML_PATH.read_text(encoding="utf-8")
         socket_path = tmp_path / "sim_preview.sock"
         proc = spawn_simapp_process(str(socket_path))

@@ -11,6 +11,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import validate_yaml_text
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppClient,
     SimAppError,
@@ -74,10 +75,6 @@ def run_sim_preview_pipeline(
     env_spacing: float = ENV_SPACING_M,
 ) -> tuple[bool, str]:
     """Link, build, solve relations, and capture overview frames via SimApp."""
-    from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (  # noqa: PLC0415
-        validate_yaml_text,
-    )
-
     if validation is None or not validation.is_valid:
         validation = validate_yaml_text(yaml_text)
         if not validation.is_valid:
