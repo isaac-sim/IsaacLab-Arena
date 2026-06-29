@@ -58,3 +58,16 @@ def test_existing_file_is_left_alone() -> None:
 
 def test_file_without_arena_header_is_ignored() -> None:
     assert hook.fix_header_year("x = 1\n", CURRENT_YEAR, is_new=True) is None
+
+
+def test_yaml_header_is_also_rewritten() -> None:
+    # The header format and git detection are language-agnostic: YAML files carry the same
+    # "# Copyright (c) ..." header, so widening the hook to YAML needs no logic change.
+    yaml = (
+        f"# Copyright (c) 2020-{CURRENT_YEAR}, The Isaac Lab Arena Project Developers "
+        "(https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).\n"
+        "# All rights reserved.\n#\n# SPDX-License-Identifier: Apache-2.0\n\nkey: value\n"
+    )
+    fixed = hook.fix_header_year(yaml, CURRENT_YEAR, is_new=True)
+    assert fixed is not None
+    assert fixed.startswith(f"# Copyright (c) {CURRENT_YEAR},")

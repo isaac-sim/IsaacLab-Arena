@@ -79,5 +79,5 @@ repos:
         name: Rewrite new files to use the current copyright year
         entry: python3 tools/fix_new_file_copyright_year.py
         language: system
-        types: [python]
+        types_or: [python, yaml]  # match insert-license's .(py|ya?ml)$ scope
         exclude: "submodules/"

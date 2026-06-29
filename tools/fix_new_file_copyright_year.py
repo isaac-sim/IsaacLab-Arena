@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Auto-fix the start year of the Arena copyright header on newly added Python files.
+"""Auto-fix the start year of the Arena copyright header on newly added Python and YAML files.
 
 A file added in the current commit must carry the current year alone (e.g. ``2026``);
 a pasted range such as ``2025-2026`` is rewritten to ``2026``. Existing files and the
