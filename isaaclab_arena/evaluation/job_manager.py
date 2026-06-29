@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 import time
 from enum import Enum
 from prettytable import PrettyTable
@@ -25,10 +26,12 @@ class Job:
         policy_type: str,
         num_steps: int = None,
         num_episodes: int = None,
+        num_rebuilds: int = 1,
         policy_config_dict: dict = None,
         status: Status = None,
         language_instruction: str = None,
         datagen: dict = None,
+        variations: list[str] = None,
     ):
         """Initialize a Job instance.
 
@@ -38,21 +41,28 @@ class Job:
             num_envs: Number of environments to simulate
             num_steps: Number of steps to run the policy for (mutually exclusive with num_episodes)
             num_episodes: Number of episodes to run the policy for (mutually exclusive with num_steps)
+            num_rebuilds: Number of times to rebuild the environment and re-run the rollout for this
+                job. Metrics from each rebuild are aggregated into a single result. Defaults to 1.
             policy_type: Type of policy to use
             policy_config_dict: Dictionary configuration for the policy.
             status: Job status (defaults to PENDING)
             language_instruction: Optional language instruction override for the policy. When set,
                 takes precedence over the task's own description.
+            variations: Hydra variation override strings (e.g. ``"cracker_box.color.enabled=true"``)
+                applied when composing the environment cfg. Defaults to no overrides.
         """
         self.name = name
         self.arena_env_args = arena_env_args
+        self.variations = variations if variations is not None else []
         assert num_envs > 0, "num_envs must be greater than 0"
         assert not (
             num_steps is not None and num_episodes is not None
         ), f"Job '{name}': num_steps and num_episodes are mutually exclusive, got both"
+        assert num_rebuilds > 0, f"Job '{name}': num_rebuilds must be greater than 0, got {num_rebuilds}"
         self.num_envs = num_envs
         self.num_steps = num_steps
         self.num_episodes = num_episodes
+        self.num_rebuilds = num_rebuilds
         self.policy_type = policy_type
         self.policy_config_dict = policy_config_dict if policy_config_dict is not None else {}
         self.language_instruction = language_instruction
@@ -76,6 +86,7 @@ class Job:
                   - policy_type: Type of policy to use
                   - policy_config_dict: Dictionary of configuration for the policy.
                   - status: Status string (optional, defaults to PENDING)
+                  - variations: Nested dict of variation overrides (optional)
 
         Returns:
             New Job instance
@@ -97,6 +108,7 @@ class Job:
             num_episodes = data["num_episodes"]
         else:
             num_episodes = None
+        num_rebuilds = data.get("num_rebuilds", 1)
         if "status" in data and data["status"] is not None:
             status = Status(data["status"])
         else:
@@ -110,17 +122,48 @@ class Job:
             num_envs=num_envs,
             num_steps=num_steps,
             num_episodes=num_episodes,
+            num_rebuilds=num_rebuilds,
             policy_config_dict=data["policy_config_dict"],
             status=status,
             language_instruction=data.get("language_instruction"),
             datagen=data.get("datagen"),
+            variations=cls.convert_variations_dict_to_hydra_overrides(data.get("variations", {})),
         )
+
+    @classmethod
+    def convert_variations_dict_to_hydra_overrides(cls, variations: dict) -> list[str]:
+        """Flatten a nested variations dict into Hydra override strings (``a.b.c=value``).
+
+        Walks ``variations``. every non-dict leaf becomes a "<dotted.path>=<value>" token
+
+        Args:
+            variations: Nested dict mirroring the dotted Hydra variation paths.
+
+        Returns:
+            List of Hydra override strings (empty when ``variations`` is empty).
+        """
+        overrides: list[str] = []
+        # Iterative depth-first walk over (dotted-path-prefix, node) pairs.
+        stack: list[tuple[str, object]] = [("", variations)]
+        while stack:
+            prefix, node = stack.pop()
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    assert key != "", "Variation override keys must be non-empty"
+                    child_prefix = f"{prefix}.{key}" if prefix else str(key)
+                    stack.append((child_prefix, value))
+                continue
+            assert prefix != "", "Variation override path must be non-empty"
+            # json.dumps with compact separators yields Hydra-parseable values
+            # (true/false, null, [a,b,c]) without spaces.
+            overrides.append(f"{prefix}={json.dumps(node, separators=(',', ':'))}")
+        return overrides
 
     @classmethod
     def convert_args_dict_to_cli_args_list(cls, args_dict: dict) -> list[str]:
         """Convert a dictionary of arguments to a list of arguments that can be passed to the CLI parser.
 
-        Enforces ordering: num_envs, enable_cameras, environment, then object/embodiment/etc.
+        Enforces ordering: num_envs, enable_cameras, the env source, then object/embodiment/etc.
 
         Args:
             args_dict: Dictionary of arguments
@@ -148,8 +191,13 @@ class Job:
                 elif not isinstance(value, bool) and value is not None:
                     args_list += [f"--{key}", str(value)]
 
-        # Environment argument comes second (without -- prefix) - already validated above
-        args_list += [str(args_dict["environment"])]
+        # The env source comes next.
+        # It could be either an example-environment name or a graph spec yaml detected via extension.
+        environment = str(args_dict["environment"])
+        if environment.endswith((".yaml", ".yml")):
+            args_list += ["--env_graph_spec_yaml", environment]
+        else:
+            args_list += [environment]
 
         # Process all other arguments (object, embodiment, etc.)
         for key, value in args_dict.items():
@@ -243,7 +291,25 @@ class JobManager:
         """Print information about the jobs."""
 
         # print using pretty table as data fields may have various lengths
-        table = PrettyTable(field_names=["Job Name", "Status", "Policy Type", "Num Envs", "Num Steps", "Num Episodes"])
+        table = PrettyTable(
+            field_names=[
+                "Job Name",
+                "Status",
+                "Policy Type",
+                "Num Envs",
+                "Num Steps",
+                "Num Episodes",
+                "Num Rebuilds",
+            ]
+        )
         for job in self.all_jobs:
-            table.add_row([job.name, job.status.value, job.policy_type, job.num_envs, job.num_steps, job.num_episodes])
+            table.add_row([
+                job.name,
+                job.status.value,
+                job.policy_type,
+                job.num_envs,
+                job.num_steps,
+                job.num_episodes,
+                job.num_rebuilds,
+            ])
         print(table)

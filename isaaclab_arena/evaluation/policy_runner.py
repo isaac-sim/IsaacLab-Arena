@@ -3,30 +3,33 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import argparse
 import dataclasses
 import os
 import torch
 import tqdm
-from gymnasium.wrappers import RecordVideo
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.evaluation.camera_video import CameraObsVideoRecorder
 from isaaclab_arena.evaluation.episode_outcome import classify_outcome
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
+from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
-from isaaclab_arena.utils.random import set_seed
+from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir, wrap_env_for_video
+from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
+    from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase
 
 
-def get_policy_cls(policy_type: str) -> type["PolicyBase"]:
+def get_policy_cls(policy_type: str) -> type[PolicyBase]:
     """Get the policy class for the given policy type name.
 
     Note that this function:
@@ -156,14 +159,14 @@ def _run_datagen_rollout(
 
 def rollout_policy(
     env,
-    policy: "PolicyBase",
+    policy: PolicyBase,
     num_steps: int | None,
     num_episodes: int | None,
     language_instruction: str | None = None,
     collector: Any = None,
     datagen_reset_terms: list | None = None,
     max_episode_length: int | None = None,
-) -> dict[str, Any]:
+) -> MetricsDataCollection | None:
     """Roll out *policy* in *env*.
 
     Args:
@@ -193,7 +196,7 @@ def rollout_policy(
         policy.reset()
         # Determine language instruction: CLI/job-level override takes precedence over the task's own
         # description. Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing).
-        task_description = language_instruction or env.unwrapped.cfg.isaaclab_arena_env.task.get_task_description()
+        task_description = language_instruction or env.unwrapped.cfg.task_description
         policy.set_task_description(task_description)
 
         # Setup progress bar based on num_steps or num_episodes
@@ -280,6 +283,10 @@ def main():
         args_cli.device = f"cuda:{local_rank}"
         print(f"[Rank {local_rank}/{world_size}] One Isaac Lab instance per process on cuda:{local_rank}")
 
+    # --record_camera_video requires cameras to be enabled at sim startup, before SimulationAppContext.
+    if "--record_camera_video" in unknown:
+        args_cli.enable_cameras = True
+
     with SimulationAppContext(args_cli):
 
         # Get the policy-type flag before proceeding to other arguments
@@ -296,28 +303,38 @@ def main():
         # Add the example environment arguments + policy-related arguments to the parser
         args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
         args_parser = policy_cls.add_args_to_parser(args_parser)
-        args_cli = args_parser.parse_args()
+        args_cli, hydra_overrides = args_parser.parse_known_args()
+        assert_hydra_overrides(hydra_overrides, args_parser)
         # Re-apply per-rank device after parse preventing device got overwritten by the default value
         if is_distributed(args_cli):
             args_cli.distributed = True
             args_cli.device = f"cuda:{local_rank}"
+            # Per-rank seed when distributed so each process has a different seed
+            if args_cli.seed is not None:
+                args_cli.seed += local_rank
 
-        # Build scene. Use rgb_array render mode when recording so RecordVideo can grab frames.
-        arena_builder = get_arena_builder_from_cli(args_cli)
-        render_mode = "rgb_array" if args_cli.video else None
-        collect_datagen = getattr(args_cli, "collect_datagen", False)
+        # Re-apply enable_cameras: the full parse resets it to default False.
+        if args_cli.record_camera_video:
+            args_cli.enable_cameras = True
+
+        # Build scene. Use rgb_array render mode when recording so the recorders can grab frames.
+        arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
+
+        if args_cli.list_variations:
+            print(arena_builder.get_variations_catalogue_as_string())
+            return
+
+        video_cfg = VideoRecordingCfg(
+            record_viewport_video=args_cli.record_viewport_video,
+            record_camera_video=args_cli.record_camera_video,
+            video_base_dir=timestamped_run_dir(args_cli.video_base_dir),
+        )
         # For datagen, disable the env's auto-reset before building so we drive episode
         # boundaries and resets explicitly (avoids capturing a frame mid-reset).
-        name, cfg = arena_builder.build_registered()
+        collect_datagen = getattr(args_cli, "collect_datagen", False)
+        name, cfg, env_kwargs = arena_builder.build_registered()
         datagen_reset_terms = prepare_env_cfg_for_datagen(cfg) if collect_datagen else None
-        env = arena_builder.make_registered(cfg, render_mode=render_mode)
-
-        # Per-rank seed when distributed so each process has a different seed
-        seed = args_cli.seed
-        if seed is not None and is_distributed(args_cli):
-            seed = seed + local_rank
-        if seed is not None:
-            set_seed(seed, env)
+        env = arena_builder.make_registered(cfg, env_kwargs, render_mode=video_cfg.render_mode)
 
         # Create the policy from the arguments
         policy = policy_cls.from_args(args_cli)
@@ -338,44 +355,8 @@ def main():
             else:
                 raise ValueError(f"[Rank {local_rank}/{world_size}] Either num_steps or num_episodes must be provided")
 
-        # Optionally wrap with RecordVideo and/or CameraObsVideoRecorder. The two flags
-        # are independent: --video records the kit viewport (via env.render()),
-        # --camera_video records the embodiment-mounted cameras (from obs["camera_obs"]).
-        if args_cli.video or args_cli.camera_video:
-            os.makedirs(args_cli.video_dir, exist_ok=True)
-            if num_steps is not None:
-                video_length = num_steps
-            else:
-                # When num_episodes is set, capture exactly one episode's worth of frames.
-                # max_episode_length is in environment steps, which matches our rollout cadence.
-                video_length = num_episodes * env.unwrapped.max_episode_length
-
-        if args_cli.video:
-            env = RecordVideo(
-                env,
-                video_folder=args_cli.video_dir,
-                step_trigger=lambda step: step == 0,
-                video_length=video_length,
-                disable_logger=True,
-            )
-            print(
-                f"[Rank {local_rank}/{world_size}] Recording {video_length}-step viewport video to:"
-                f" {args_cli.video_dir}"
-            )
-
-        if args_cli.camera_video:
-            # Record one mp4 per camera in obs["camera_obs"] (what the policy sees),
-            # using the same encoder as RecordVideo.
-            env = CameraObsVideoRecorder(
-                env,
-                video_folder=args_cli.video_dir,
-                step_trigger=lambda step: step == 0,
-                video_length=video_length,
-            )
-            print(
-                f"[Rank {local_rank}/{world_size}] Recording {video_length}-step per-camera videos to:"
-                f" {args_cli.video_dir}"
-            )
+        # Optionally wrap with the viewport/camera video recorders (both independent).
+        env = wrap_env_for_video(env, video_cfg, num_steps, num_episodes)
 
         # Optionally set up datagen data collection (opt-in via --collect-datagen).
         # Lazy import keeps core decoupled from the isaaclab_arena_datagen package
@@ -445,6 +426,13 @@ def main():
 
         # Close the environment.
         env.close()
+
+        # Write and serve the evaluation report.
+        # Only the local rank 0 writes/serves it, to avoid races on a shared output dir.
+        if get_local_rank() == 0:
+            report_path = build_report(video_cfg.video_base_dir)
+            if args_cli.serve_evaluation_report:
+                serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
 
 
 if __name__ == "__main__":

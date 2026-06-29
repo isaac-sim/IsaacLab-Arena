@@ -12,7 +12,7 @@ from isaaclab_arena.relations.placement_events import get_rotation_xyzw, solve_a
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import get_anchor_objects
-from isaaclab_arena.utils.pose import Pose, PosePerEnv
+from isaaclab_arena.utils.pose import Pose, PosePerEnv, rotate_quat_by_yaw
 
 if TYPE_CHECKING:
     from isaaclab.managers import EventTermCfg
@@ -25,6 +25,7 @@ def solve_and_apply_relation_placement(
     num_envs: int,
     placement_seed: int | None = None,
     resolve_on_reset: bool | None = None,
+    random_yaw_init: bool = False,
 ) -> EventTermCfg | None:
     """Solve relation placement and apply the result to object reset/static state.
 
@@ -35,6 +36,8 @@ def solve_and_apply_relation_placement(
         resolve_on_reset: Optional override for whether to draw fresh layouts from
             the placement pool on reset. When ``False``, fixed per-environment
             initial poses are applied immediately.
+        random_yaw_init: If True, randomly rotates non-anchor objects around the vertical (Z)
+            axis at startup to add visual variety to the scene.
 
     Returns:
         Reset event config to attach to the environment when placement should be
@@ -49,6 +52,7 @@ def solve_and_apply_relation_placement(
         placement_seed=placement_seed,
         apply_positions_to_objects=False,
         solver_params=RelationSolverParams(save_position_history=False, verbose=False),
+        random_yaw_init=random_yaw_init,
     )
     if resolve_on_reset is not None:
         placer_params.resolve_on_reset = resolve_on_reset
@@ -123,10 +127,12 @@ def _apply_dynamic_spawn_pose(
         pos = layout.positions.get(obj)
         if pos is None:
             continue
+        yaw = layout.orientations.get(obj, 0.0)
+        rot = rotate_quat_by_yaw(get_rotation_xyzw(obj), yaw)
         object_cfg = getattr(obj, "object_cfg", None)
         assert object_cfg is not None, f"Object '{obj.name}' must have object_cfg initialized before placement."
         object_cfg.init_state.pos = pos
-        object_cfg.init_state.rot = get_rotation_xyzw(obj)
+        object_cfg.init_state.rot = rot
 
     return EventTermCfg(
         func=solve_and_place_objects,
@@ -149,7 +155,7 @@ def _apply_static_initial_poses(
     for obj in objects:
         if obj in anchor_objects_set:
             continue
-        rotation_xyzw = get_rotation_xyzw(obj)
+        base_rotation_xyzw = get_rotation_xyzw(obj)
         poses = []
         missing_envs: list[int] = []
         for env_idx in range(num_envs):
@@ -157,6 +163,8 @@ def _apply_static_initial_poses(
             if pos is None:
                 missing_envs.append(env_idx)
             else:
+                yaw = layouts[env_idx].orientations.get(obj, 0.0)
+                rotation_xyzw = rotate_quat_by_yaw(base_rotation_xyzw, yaw)
                 poses.append(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
         if missing_envs:
             print(

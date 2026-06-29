@@ -471,7 +471,10 @@ class DomeLight(LibraryObject):
     # Setting a global prim path for the dome light. Will not get repeated for each environment.
     default_prim_path = "/World/Light"
     object_type = ObjectType.BASE
-    default_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=3000.0)
+    default_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=500.0)
+
+    spawner_cfg: sim_utils.DomeLightCfg
+    """Narrows the base-class spawner cfg type to ``DomeLightCfg`` for this asset."""
 
     def __init__(
         self,
@@ -481,11 +484,16 @@ class DomeLight(LibraryObject):
         spawner_cfg: sim_utils.DomeLightCfg = default_spawner_cfg,
         hdr: "HDRImage | None" = None,  # noqa: F821
     ):
+        from isaaclab_arena.variations.hdr_image_variation import HDRImageVariation
+        from isaaclab_arena.variations.light_intensity_variation import LightIntensityVariation
+
         super().__init__(
             instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, spawner_cfg=spawner_cfg
         )
         if hdr is not None:
             self.add_hdr(hdr)
+        self.add_variation(HDRImageVariation(self))
+        self.add_variation(LightIntensityVariation(self))
 
     def add_hdr(self, hdr: "HDRImage") -> None:  # noqa: F821
         """Attach an HDR environment map texture to this dome light.
@@ -496,15 +504,21 @@ class DomeLight(LibraryObject):
         from isaaclab_arena.assets.hdr_image import HDRImage
 
         assert isinstance(hdr, HDRImage), f"Expected an HDRImage instance, got {type(hdr)}"
-        # Rebuild the spawner cfg with the HDR texture while preserving
-        # user-specified intensity and other settings.
-        self.spawner_cfg = sim_utils.DomeLightCfg(
-            texture_file=hdr.texture_file,
-            texture_format=hdr.texture_format,  # type: ignore[arg-type]
-            intensity=self.spawner_cfg.intensity,
-            color=self.spawner_cfg.color,
-            visible_in_primary_ray=True,
-        )
+        # Apply the HDR texture in place, preserving user-specified intensity, color, etc.
+        self.spawner_cfg.texture_file = hdr.texture_file
+        self.spawner_cfg.texture_format = hdr.texture_format  # type: ignore[assignment]
+        self.spawner_cfg.visible_in_primary_ray = True
+        # Re-initialize the object cfg so the scene picks up the change.
+        self.object_cfg = self._init_object_cfg()
+
+    def set_intensity(self, intensity: float) -> None:
+        """Set the dome light's intensity and refresh the object cfg.
+
+        Args:
+            intensity: The new dome light intensity. Must be non-negative.
+        """
+        assert intensity >= 0.0, f"Dome light intensity must be non-negative, got {intensity}."
+        self.spawner_cfg.intensity = intensity
         # Re-initialize the object cfg so the scene picks up the change.
         self.object_cfg = self._init_object_cfg()
 
@@ -1772,10 +1786,205 @@ class WoodBlockYcbRobolab(LibraryObject):
 
 
 @register_asset
-class TableMapleRobolab(LibraryObject):
-    name = "table_maple_robolab"
-    tags = ["background", "fixture", "robolab"]
-    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/table_maple.usd"
+class AnzaMediumVompRobolab(LibraryObject):
+    name = "anza_medium_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/anza_medium/anza_medium.usd"
+
+
+@register_asset
+class BinA06VompRobolab(LibraryObject):
+    name = "bin_a06_vomp_robolab"
+    tags = ["object", "container", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/bin_a06/bin_a06.usd"
+
+
+@register_asset
+class BinB03VompRobolab(LibraryObject):
+    name = "bin_b03_vomp_robolab"
+    tags = ["object", "container", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/bin_b03/bin_b03.usd"
+
+
+@register_asset
+class BinB04VompRobolab(LibraryObject):
+    name = "bin_b04_vomp_robolab"
+    tags = ["object", "container", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/bin_b04/bin_b04.usd"
+
+
+@register_asset
+class ContainerF24VompRobolab(LibraryObject):
+    name = "container_f24_vomp_robolab"
+    tags = ["object", "container", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/container_f24/container_f24.usd"
+    # USD scale >1m and too large for the maple table.
+    scale = (0.25, 0.25, 0.25)
+
+
+@register_asset
+class CrabbypenholderVompRobolab(LibraryObject):
+    name = "crabbypenholder_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/crabbypenholder/crabbypenholder.usd"
+
+
+@register_asset
+class ForkBigVompRobolab(LibraryObject):
+    name = "fork_big_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/fork_big/fork_big.usd"
+    )
+
+
+@register_asset
+class ForkSmallVompRobolab(LibraryObject):
+    name = "fork_small_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/fork_small/fork_small.usd"
+    )
+
+
+@register_asset
+class MilkjugA01VompRobolab(LibraryObject):
+    name = "milkjug_a01_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/milkjug_a01/milkjug_a01.usd"
+
+
+@register_asset
+class PlasticpailA02VompRobolab(LibraryObject):
+    name = "plasticpail_a02_vomp_robolab"
+    tags = ["object", "container", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/plasticpail_a02/plasticpail_a02.usd"
+
+
+@register_asset
+class PlateLargeVompRobolab(LibraryObject):
+    name = "plate_large_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/plate_large/plate_large.usd"
+
+
+@register_asset
+class PlateSmallVompRobolab(LibraryObject):
+    name = "plate_small_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/plate_small/plate_small.usd"
+
+
+@register_asset
+class PumpkinlargeVompRobolab(LibraryObject):
+    name = "pumpkinlarge_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/pumpkinlarge/pumpkinlarge.usd"
+
+
+@register_asset
+class PumpkinsmallVompRobolab(LibraryObject):
+    name = "pumpkinsmall_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/pumpkinsmall/pumpkinsmall.usd"
+
+
+@register_asset
+class RackL04VompRobolab(LibraryObject):
+    name = "rack_l04_vomp_robolab"
+    tags = ["object", "container", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/rack_l04/rack_l04.usd"
+    )
+
+
+@register_asset
+class ServingBowlVompRobolab(LibraryObject):
+    name = "serving_bowl_vomp_robolab"
+    tags = ["object", "container", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/serving_bowl/serving_bowl.usd"
+
+
+@register_asset
+class Spatula01VompRobolab(LibraryObject):
+    name = "spatula_01_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/spatula_01/spatula_01.usd"
+    )
+
+
+@register_asset
+class Spatula13VompRobolab(LibraryObject):
+    name = "spatula_13_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/spatula_13/spatula_13.usd"
+    )
+
+
+@register_asset
+class Spatula14VompRobolab(LibraryObject):
+    name = "spatula_14_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/spatula_14/spatula_14.usd"
+    )
+
+
+@register_asset
+class Spatula15VompRobolab(LibraryObject):
+    name = "spatula_15_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/spatula_15/spatula_15.usd"
+    )
+
+
+@register_asset
+class SpoonBigVompRobolab(LibraryObject):
+    name = "spoon_big_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = (
+        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/spoon_big/spoon_big.usd"
+    )
+
+
+@register_asset
+class UtilityjugA01VompRobolab(LibraryObject):
+    name = "utilityjug_a01_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/utilityjug_a01/utilityjug_a01.usd"
+
+
+@register_asset
+class UtilityjugA03VompRobolab(LibraryObject):
+    name = "utilityjug_a03_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/utilityjug_a03/utilityjug_a03.usd"
+
+
+@register_asset
+class WhitepackerbottleA01VompRobolab(LibraryObject):
+    name = "whitepackerbottle_a01_vomp_robolab"
+    tags = ["object", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/whitepackerbottle_a01/whitepackerbottle_a01.usd"
+
+
+@register_asset
+class WireshelvingA01VompRobolab(LibraryObject):
+    name = "wireshelving_a01_vomp_robolab"
+    tags = ["object", "container", "graspable", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/vomp/wireshelving_a01/wireshelving_a01.usd"
+
+
+@register_asset
+class GreyBinRobolab(LibraryObject):
+    name = "grey_bin_robolab"
+    tags = ["object", "container", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/grey_bin.usd"
+    # USD has 0.07 scale which is ignored by spawner. Setting it back again.
+    scale = (0.007, 0.007, 0.007)
 
 
 # ---------------------------------------------------------------------------

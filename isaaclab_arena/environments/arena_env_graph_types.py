@@ -3,23 +3,28 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Lightweight schema for the env-graph spec.
+"""Pydantic schema for the env-graph spec.
 
-Pure data: enums and dataclasses with no parsing or conversion behavior. Behavior (YAML
-loading, validation, conversion entry point) lives in ``arena_env_graph_spec``.
-
-Lives in its own module so that conversion-utilities can import these names at module
-level without creating a circular import back into ``arena_env_graph_spec`` (which itself
-depends on the conversion module).
+Graph-level validation (unique ids, cross-references, relation arity) runs on
+:class:`~isaaclab_arena.environments.arena_env_graph_spec.ArenaEnvGraphSpec` via
+``model_validator``. Lives in its own module so conversion utilities can import
+these names without a circular import through ``arena_env_graph_spec``.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from pydantic import BaseModel, Field, field_validator, model_validator
+
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, TaskRegistry
+from isaaclab_arena.environments.graph_spec_utils import coerce_number_sequence
+
+# =============================================================================
+# Nodes
+# =============================================================================
 
 
 class ArenaEnvGraphNodeType(Enum):
@@ -30,108 +35,217 @@ class ArenaEnvGraphNodeType(Enum):
     LIGHTING = "lighting"
 
 
-class ArenaEnvGraphSpatialConstraintType(Enum):
-    IS_ANCHOR = "is_anchor"
-    NEXT_TO = "next_to"
-    ON = "on"
-    AT_POSE = "at_pose"  # through set_initial_pose()
-    AT_POSITION = "at_position"  # through object relation solver: AtPosition
-    POSITION_LIMITS = "position_limits"
-    RANDOM_AROUND_SOLUTION = "random_around_solution"
-    ROTATE_AROUND_SOLUTION = "rotate_around_solution"
-    # TODO(xinjieyao, 2026-05-21): Support "in" in solver
-    IN = "in"
+# ``parse_graph_node`` runs before per-field coercion, so ``type`` may still be the
+# YAML string ``"object_reference"`` or already an ``ArenaEnvGraphNodeType`` member.
+_OBJECT_REFERENCE_VALUES = frozenset({
+    ArenaEnvGraphNodeType.OBJECT_REFERENCE,
+    ArenaEnvGraphNodeType.OBJECT_REFERENCE.value,
+})
 
 
+def _is_object_reference_type(node_type: Any) -> bool:
+    return node_type in _OBJECT_REFERENCE_VALUES
+
+
+def parse_graph_node(data: Any) -> Any:
+    """Select the node spec class for ``data`` and validate ``object_reference`` nodes."""
+    if isinstance(data, ArenaEnvGraphNodeSpec):
+        return data
+    if isinstance(data, dict) and _is_object_reference_type(data.get("type")):
+        return ArenaEnvGraphObjectReferenceNodeSpec.model_validate(data)
+    return data
+
+
+class ArenaEnvGraphNodeSpec(BaseModel):
+    """Node in an environment graph (all types except ``object_reference``)."""
+
+    id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    type: ArenaEnvGraphNodeType
+    params: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _reject_object_reference_without_extra_fields(self) -> ArenaEnvGraphNodeSpec:
+        assert not (
+            type(self) is ArenaEnvGraphNodeSpec and self.type == ArenaEnvGraphNodeType.OBJECT_REFERENCE
+        ), "object_reference nodes require parent, prim_path, and object_type fields"
+        return self
+
+
+class ArenaEnvGraphObjectReferenceNodeSpec(ArenaEnvGraphNodeSpec):
+    """Object-reference node: a USD prim inside a parent background asset."""
+
+    type: ArenaEnvGraphNodeType = ArenaEnvGraphNodeType.OBJECT_REFERENCE
+    parent: str = Field(min_length=1)
+    prim_path: str = Field(min_length=1)
+    object_type: ObjectType
+
+    @model_validator(mode="after")
+    def _must_be_object_reference(self) -> ArenaEnvGraphObjectReferenceNodeSpec:
+        assert self.type == ArenaEnvGraphNodeType.OBJECT_REFERENCE, "internal invariant"
+        return self
+
+
+# =============================================================================
+# Tasks
+# =============================================================================
+
+
+class TaskSpec(BaseModel):
+    """Task shared by agent intent specs and env-graph task entries."""
+
+    kind: str = Field(
+        min_length=1,
+        description=(
+            "Registered task class name from the TASKS block in the user message "
+            "(e.g. 'PickAndPlaceTask', 'OpenDoorTask'). Must match TaskRegistry exactly."
+        ),
+    )
+    params: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Constructor kwargs for the task (listed in TASKS). Each object param must "
+            "name exactly one node: its instance_name if set, else its query. If several "
+            "match (e.g. 5 bananas), pick one (e.g. 'banana_1'). Scene params use the "
+            "background name."
+        ),
+    )
+    description: str | None = Field(
+        default=None,
+        description="Natural-language summary of the task (e.g. 'pick up the avocado and place it in the bowl'). ",
+    )
+
+    @field_validator("kind")
+    @classmethod
+    def _validate_registered_task_type(cls, value: str) -> str:
+        registry = TaskRegistry()
+        assert registry.is_registered(value), f"Unknown task kind '{value}'"
+        return value
+
+
+class ArenaEnvGraphTaskSpec(TaskSpec):
+    """Task entry in an environment graph (task payload plus state-spec wiring)."""
+
+    id: str = Field(min_length=1)
+    initial_state_spec_id: str = Field(min_length=1)
+    success_state_spec_id: str = Field(min_length=1)
+
+
+# =============================================================================
+# Constraints and state specs
+# =============================================================================
+
+
+class SpatialRelationSpec(BaseModel):
+    """Spatial relation shared by agent intent specs and env-graph spatial constraints."""
+
+    kind: str = Field(
+        min_length=1,
+        description=(
+            "Relation name from the RELATIONS block in the user message "
+            "(e.g. 'on', 'next_to', 'is_anchor'). Must match a registered relation exactly."
+        ),
+    )
+    subject: str = Field(
+        min_length=1,
+        description=(
+            "Node id this relation applies to — its instance_name if set, else its query. "
+            "For binary relations (e.g. 'on'), it's the object placed relative to "
+            "``reference``. For unary relations (e.g. 'is_anchor', 'position_limits'), "
+            "it's the anchored or constrained object."
+        ),
+    )
+    reference: str | None = Field(
+        default=None,
+        description=(
+            "Reference node id (an item's instance_name/query or the background name) "
+            "for binary relations only — e.g. for 'on', the surface the subject rests "
+            "on. Must be null for unary relations."
+        ),
+    )
+    # TODO(qianl): free-form ``dict`` emits ``additionalProperties: true``,
+    # which strict-mode structured-outputs endpoints reject with a 400.
+    params: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional kind-specific parameters; leave empty by default.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_kind_and_arity(self) -> SpatialRelationSpec:
+        registry = ObjectRelationLibraryRegistry()
+        assert registry.is_registered(self.kind), f"Unknown relation kind '{self.kind}'"
+        relation_cls = registry.get_object_relation_by_name(self.kind)
+        if relation_cls.is_unary():
+            assert self.reference is None, f"Relation kind '{self.kind}' must not define relation.reference"
+        else:
+            assert self.reference is not None, f"Relation kind '{self.kind}' requires relation.reference"
+        return self
+
+
+def _normalize_relation_params(params: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(params)
+    if "position_xyz" in normalized:
+        normalized["position_xyz"] = coerce_number_sequence(normalized["position_xyz"], 3, "position_xyz")
+    if "rotation_xyzw" in normalized:
+        normalized["rotation_xyzw"] = coerce_number_sequence(normalized["rotation_xyzw"], 4, "rotation_xyzw")
+    return normalized
+
+
+class ArenaEnvGraphSpatialRelationSpec(SpatialRelationSpec):
+    """Spatial constraint edge in an environment graph state spec (relation plus constraint id)."""
+
+    id: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _normalize_relation_params(self) -> ArenaEnvGraphSpatialRelationSpec:
+        self.params = _normalize_relation_params(self.params)
+        return self
+
+
+# TODO(qianl): remove this enum and check against relation registry for task constraints
 class ArenaEnvGraphTaskConstraintType(Enum):
     REACH = "reach"
 
 
-@dataclass
-class ArenaEnvGraphNodeSpec:
-    """Node in an environment graph.
-
-    Could be an object, an embodiment, a background, etc. Object references — USD prims
-    inside a parent background asset — are represented by the
-    :class:`ArenaEnvGraphObjectReferenceNodeSpec` subclass, which adds the extra fields
-    needed to locate and type the referenced prim.
-    """
-
-    id: str
-    name: str  # Name registered in the asset registry
-    type: ArenaEnvGraphNodeType
-    # Asset-type specific optional kwargs (e.g. scale, spawn_cfg_addon) — distinct from
-    # the typed graph metadata above. The Arena environment builder forwards these when
-    # instantiating the asset class.
-    params: dict[str, Any] = field(default_factory=dict)
-
-
-# kw_only=True forces the three new fields to be keyword-only in __init__. Required because
-# the base class ends with a defaulted field (`params`) and Python forbids non-default args
-# from following default ones — placing the new required fields after `*` sidesteps that rule
-# and lets us declare them as required (no default) instead of Optional with runtime checks.
-@dataclass(kw_only=True)
-class ArenaEnvGraphObjectReferenceNodeSpec(ArenaEnvGraphNodeSpec):
-    """Object-reference node: a USD prim inside a parent background asset.
-
-    All three extra fields are required for this node type — without them the
-    builder cannot bind to the referenced prim or know how to wrap it.
-    """
-
-    parent: str  # id of the parent (typically background) node that owns the prim
-    prim_path: str  # USD prim path of the referenced prim (may contain {ENV_REGEX_NS})
-    object_type: ObjectType  # how to wrap the prim (rigid, articulation, etc.)
-
-
-@dataclass
-class ArenaEnvGraphSpatialConstraintSpec:
-    """Spatial constraint edge in an environment graph state spec.
-
-    It defines a relation between two nodes.
-    """
-
-    id: str
-    type: ArenaEnvGraphSpatialConstraintType
-    parent: str
-    child: str | None = None  # Optional, e.g. is_anchor constraint does not have a child
-    # Type-specific optional kwargs for the underlying RelationBase subclass selected by `type`
-    # (e.g. {x_min, x_max, y_min, y_max} for position_limits; {side, distance} for next_to etc.).
-    # The Arena environment builder forwards these when constructing the Relation instance.
-    params: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class ArenaEnvGraphTaskConstraintSpec:
+class ArenaEnvGraphTaskConstraintSpec(BaseModel):
     """Task-dependent constraint edge in an environment graph state spec."""
 
-    id: str
+    id: str = Field(min_length=1)
     type: ArenaEnvGraphTaskConstraintType
-    parent: str
-    child: str | None = None  # Optional, could be a robot keeps gripper open or closed, or a single object
-    # Type-specific optional kwargs for the underlying TaskConstraintBase subclass selected by `type`
-    # (e.g. grasp pose offset the reach constraint.).
-    # The Arena environment builder forwards these when constructing the TaskConstraint instance.
-    params: dict[str, Any] = field(default_factory=dict)
+    parent: str = Field(min_length=1)
+    child: str | None = None
+    params: dict[str, Any] = Field(default_factory=dict)
 
 
-@dataclass
-class ArenaEnvGraphStateSpec:
+class ArenaEnvGraphStateSpec(BaseModel):
     """Snapshot of the environment state in the graph.
 
-    Could be an initial, intermediate, or final state.
+    When ``is_delta`` is True the constraints are a delta of the preceding state -- this
+    is how every derived state (``state_spec_i`` for ``i > 0``) is expressed. When ``is_delta`` is False the constraints
+    are a full snapshot of the scene -- this is how the initial state (``state_spec_0``) is expressed.
     """
 
-    id: str
-    spatial_constraints: list[ArenaEnvGraphSpatialConstraintSpec] = field(default_factory=list)
-    task_constraints: list[ArenaEnvGraphTaskConstraintSpec] = field(default_factory=list)
+    id: str = Field(min_length=1)
+    is_delta: bool = True
+    spatial_constraints: list[ArenaEnvGraphSpatialRelationSpec] = Field(default_factory=list)
+    task_constraints: list[ArenaEnvGraphTaskConstraintSpec] = Field(default_factory=list)
 
 
-@dataclass
-class ArenaEnvGraphTaskSpec:
-    """Task entry in an environment graph."""
+# =============================================================================
+# CLI overrides
+# =============================================================================
 
-    id: str
-    type: str  # Task class name, could be a custom task class or a built-in task class
-    initial_state_spec_id: str
-    success_state_spec_id: str
-    task_args: dict[str, Any] = field(default_factory=dict)
+
+class ArenaEnvGraphCliOverrideSpec(BaseModel):
+    """One CLI flag that swaps a graph node's asset, declared in the graph YAML.
+
+    Lets one graph YAML serve many variants without editing it.
+    """
+
+    arg: str = Field(min_length=1)  # flag name without leading dashes; "object" -> --object
+    target_node_id: str = Field(min_length=1)  # whose `name` the flag overrides
+
+    @property
+    def dest(self) -> str:
+        """The argparse attribute name for this flag (dashes become underscores)."""
+        return self.arg.replace("-", "_")

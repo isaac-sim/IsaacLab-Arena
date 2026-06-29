@@ -5,14 +5,74 @@
 
 import math
 import torch
+from enum import Enum
 
 import warp as wp
 from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.envs.mdp.terminations import root_height_below_minimum
-from isaaclab.managers import SceneEntityCfg
+from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 from isaaclab.utils.math import combine_frame_transforms
+
+
+class SuccessMode(str, Enum):
+    """How `check_success` combines its results."""
+
+    ALL = "ALL"
+    """Success needs every predicate to be True."""
+
+    ANY = "ANY"
+    """Success needs at least one predicate to be True."""
+
+    CHOOSE = "CHOOSE"
+    """Success needs at least k predicates to be True."""
+
+
+def check_success(
+    env: ManagerBasedRLEnv,
+    predicates: list[TerminationTermCfg],
+    mode: SuccessMode | str = SuccessMode.ALL,
+    k: int | None = None,
+) -> torch.Tensor:
+    """Compose multiple termination predicates into a single success signal.
+
+    Each predicate is wrapped in a termination term and its `func` is evaluated with its
+    `params` to produce a boolean tensor of shape (num_envs,). The results are then combined according to `mode`.
+
+    - ALL: True where every predicate is True (logical AND).
+    - ANY: True where at least one predicate is True (logical OR).
+    - CHOOSE: True where at least k predicates are True.
+
+    Args:
+        env: The RL environment instance.
+        predicates: Termination term configs to evaluate and combine.
+        mode: How to combine the predicate results (SuccessMode or string).
+        k: Number of predicates that must be True when `mode` is SuccessMode.CHOOSE.
+
+    Returns:
+        A boolean tensor of shape (num_envs,) indicating success.
+    """
+
+    if not predicates:
+        raise ValueError("check_success requires at least one predicate.")
+    valid_modes = [m.value for m in SuccessMode]
+    if not (isinstance(mode, str) and mode.upper() in valid_modes):
+        raise ValueError(f"Unknown mode '{mode}'. Expected one of {valid_modes}.")
+    mode = SuccessMode(mode.upper())
+
+    results = torch.stack([predicate.func(env, **predicate.params) for predicate in predicates], dim=0)
+
+    if mode is SuccessMode.ALL:
+        return results.all(dim=0)
+    if mode is SuccessMode.ANY:
+        return results.any(dim=0)
+
+    if k is None:
+        raise ValueError("mode SuccessMode.CHOOSE requires 'k' to be provided.")
+    if not (1 <= k <= len(predicates)):
+        raise ValueError(f"'k' must be in [1, {len(predicates)}] for {len(predicates)} predicates, got {k}.")
+    return results.sum(dim=0) >= k
 
 
 # NOTE(alexmillane, 2025.09.15): The velocity threshold is set high because some stationary

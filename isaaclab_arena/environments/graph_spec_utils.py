@@ -3,91 +3,43 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 from collections.abc import Callable, Iterator
-from enum import Enum
 from numbers import Real
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 
 if TYPE_CHECKING:
-    from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpatialConstraintType
+    import argparse
+
+    from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphCliOverrideSpec, ArenaEnvGraphNodeSpec
     from isaaclab_arena.relations.relations import RelationBase
 
 
-def as_dict(data: Any, spec_name: str) -> dict[str, Any]:
-    """Require a YAML section to be a mapping before parsing it."""
-    assert isinstance(data, dict), f"{spec_name} must be a dict, got {type(data).__name__}"
-    return data
-
-
-def parse_list(data: dict[str, Any], key: str, parser: Callable[[Any], Any]) -> list[Any]:
-    """Parse a list field, treating a missing field as an empty list."""
-    values = data.get(key, [])
-    assert isinstance(values, list), f"Field '{key}' must be a list"
-    return [parser(value) for value in values]
-
-
-def required_str(data: dict[str, Any], key: str) -> str:
-    """Read a required non-empty string field."""
-    value = data.get(key)
-    assert isinstance(value, str) and value, f"Missing required string field '{key}'"
-    return value
-
-
-def optional_str(data: dict[str, Any], key: str) -> str | None:
-    """Read an optional string field without inventing a default value."""
-    value = data.get(key)
-    assert value is None or isinstance(value, str), f"Optional field '{key}' must be a string when set"
-    return value
-
-
-def optional_dict(data: dict[str, Any], key: str) -> dict[str, Any]:
-    """Read an optional mapping field and return a mutable copy."""
-    value = data.get(key, {})
-    assert value is None or isinstance(value, dict), f"Optional field '{key}' must be a dict when set"
-    return dict(value or {})
-
-
-def required_number_sequence(data: dict[str, Any], key: str, length: int) -> tuple[float, ...]:
-    """Read a fixed-length numeric list such as a position or quaternion."""
-    value = data.get(key)
-    assert isinstance(value, (list, tuple)), f"Missing required numeric sequence field '{key}'"
-    assert len(value) == length, f"Field '{key}' must contain {length} numbers"
+def coerce_number_sequence(value: Any, length: int, field_name: str) -> tuple[float, ...]:
+    """Coerce a fixed-length numeric list or tuple (e.g. position or quaternion)."""
+    assert isinstance(value, (list, tuple)), f"Field '{field_name}' must be a list or tuple of {length} numbers"
+    assert len(value) == length, f"Field '{field_name}' must contain exactly {length} numbers, got {len(value)}"
     assert all(
         isinstance(item, Real) and not isinstance(item, bool) for item in value
-    ), f"Field '{key}' must contain only numbers"
+    ), f"Field '{field_name}' must contain only numbers"
     return tuple(float(item) for item in value)
 
 
-def required_enum(data: dict[str, Any], key: str, enum_type: type[Enum]) -> Enum:
-    """Read a required enum field from its YAML string value."""
-    value = data.get(key)
-    assert value is not None, f"Missing required field '{key}'"
-    parsed = parse_enum(value, key, enum_type)
-    assert parsed is not None
-    return parsed
-
-
-def optional_enum(data: dict[str, Any], key: str, enum_type: type[Enum]) -> Enum | None:
-    """Read an optional enum field from its YAML string value."""
-    return parse_enum(data.get(key), key, enum_type)
-
-
-def parse_enum(value: Any, key: str, enum_type: type[Enum]) -> Enum | None:
-    """Convert a YAML string to an enum value and show valid options on failure."""
-    if value is None or isinstance(value, enum_type):
-        return value
-    assert isinstance(value, str), f"Field '{key}' must be a string when set"
-    try:
-        return enum_type(value)
-    except ValueError:
-        valid_values = [enum_value.value for enum_value in enum_type]
-        raise AssertionError(f"Unknown {key} '{value}'. Expected one of {valid_values}") from None
+def unique_node_id(existing_ids: set[str], base: str) -> str:
+    """Return the first non-colliding id from ``base``, ``base_1``, ``base_2``, ... given ``existing_ids``."""
+    if base not in existing_ids:
+        return base
+    suffix = 1
+    while f"{base}_{suffix}" in existing_ids:
+        suffix += 1
+    return f"{base}_{suffix}"
 
 
 def assert_unique_ids(nodes: list[Any], tasks: list[Any], state_specs: list[Any]) -> None:
-    """Ensure every graph id is unique, including constraint ids inside states."""
+    """Ensure every graph id is unique, including spatial constraint ids inside states."""
     id_locations: dict[str, list[str]] = {}
     for node in nodes:
         _add_id_location(id_locations, node.id, f"node '{node.id}'")
@@ -97,17 +49,14 @@ def assert_unique_ids(nodes: list[Any], tasks: list[Any], state_specs: list[Any]
         _add_id_location(id_locations, state_spec.id, f"state spec '{state_spec.id}'")
         for constraint in state_spec.spatial_constraints:
             _add_id_location(id_locations, constraint.id, f"spatial constraint '{constraint.id}'")
-        for constraint in state_spec.task_constraints:
-            _add_id_location(id_locations, constraint.id, f"task constraint '{constraint.id}'")
 
     duplicates = {spec_id: locations for spec_id, locations in id_locations.items() if len(locations) > 1}
     assert not duplicates, f"Duplicate env graph ids found: {duplicates}"
 
 
-def assert_references_exist(nodes: list[Any], tasks: list[Any], state_specs: list[Any]) -> None:
-    """Ensure every graph reference points to a node or state spec that exists."""
+def assert_constraint_references(nodes: list[Any], state_specs: list[Any]) -> None:
+    """Ensure every node parent and constraint reference points to a node that exists."""
     node_ids = {node.id for node in nodes}
-    state_spec_ids = {state_spec.id for state_spec in state_specs}
 
     # Track ids seen so far so a node's parent must be defined *earlier* in the list. The
     # conversion process (_instantiate_assets_from_nodes) materializes nodes in order and looks
@@ -124,6 +73,29 @@ def assert_references_exist(nodes: list[Any], tasks: list[Any], state_specs: lis
             )
         seen_node_ids.add(node.id)
 
+    for state_spec in state_specs:
+        for constraint in state_spec.spatial_constraints:
+            assert (
+                constraint.subject in node_ids
+            ), f"Constraint '{constraint.id}' references unknown subject node '{constraint.subject}'"
+            if constraint.reference is not None:
+                assert (
+                    constraint.reference in node_ids
+                ), f"Constraint '{constraint.id}' references unknown reference node '{constraint.reference}'"
+
+        for task_constraint in state_spec.task_constraints:
+            assert (
+                task_constraint.parent in node_ids
+            ), f"Task constraint '{task_constraint.id}' references unknown parent node '{task_constraint.parent}'"
+            if task_constraint.child is not None:
+                assert (
+                    task_constraint.child in node_ids
+                ), f"Task constraint '{task_constraint.id}' references unknown child node '{task_constraint.child}'"
+
+
+def assert_task_wiring(tasks: list[Any], state_specs: list[Any]) -> None:
+    """Ensure each task's ``initial_state_spec_id`` / ``success_state_spec_id`` references a state."""
+    state_spec_ids = {state_spec.id for state_spec in state_specs}
     for task in tasks:
         for label, state_spec_id in (
             ("initial_state_spec_id", task.initial_state_spec_id),
@@ -133,80 +105,70 @@ def assert_references_exist(nodes: list[Any], tasks: list[Any], state_specs: lis
                 state_spec_id in state_spec_ids
             ), f"Task '{task.id}' references unknown state spec '{state_spec_id}' for '{label}'"
 
-    for state_spec in state_specs:
-        for constraint in state_spec.spatial_constraints:
-            assert (
-                constraint.parent in node_ids
-            ), f"Constraint '{constraint.id}' references unknown parent node '{constraint.parent}'"
-            if constraint.child is not None:
-                assert (
-                    constraint.child in node_ids
-                ), f"Constraint '{constraint.id}' references unknown child node '{constraint.child}'"
-
-        for constraint in state_spec.task_constraints:
-            if constraint.parent is not None:
-                assert (
-                    constraint.parent in node_ids
-                ), f"Constraint '{constraint.id}' references unknown parent node '{constraint.parent}'"
-            if constraint.child is not None:
-                assert (
-                    constraint.child in node_ids
-                ), f"Constraint '{constraint.id}' references unknown child node '{constraint.child}'"
-
 
 def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
-    """Check each spatial constraint has the parent/child shape its relation expects."""
+    """Check each spatial constraint has the subject/reference shape its relation expects."""
     for state_spec in state_specs:
         for constraint in state_spec.spatial_constraints:
-            constraint_type = _enum_value(constraint.type)
-            if constraint_type == "at_pose":
-                # Special: no relation class; pose is supplied directly via params.
-                assert (
-                    "position_xyz" in constraint.params
-                ), f"Spatial constraint '{constraint.id}' of type 'at_pose' requires params.position_xyz"
-                is_unary = True
-            elif constraint_type == "in":
-                # Special: no relation class; semantically a binary parent/child constraint.
-                # TODO(xinjieyao, 2026-05-27): add an `In` relation class so this can resolve through the registry.
-                is_unary = False
-            else:
-                relation_cls = relation_class_for_spatial_constraint_type(constraint.type)
-                assert (
-                    relation_cls is not None
-                ), f"Spatial constraint type '{constraint_type}' is not mapped to a relation class"
-                is_unary = relation_cls.is_unary()
+            relation_cls = relation_class_for_spatial_constraint_type(constraint.kind)
+            is_unary = relation_cls.is_unary()
+            constraint_kind = constraint.kind
 
             if is_unary:
-                assert (
-                    constraint.child is None
-                ), f"Spatial constraint '{constraint.id}' of type '{constraint_type}' must not define a child node"
+                assert constraint.reference is None, (
+                    f"Spatial constraint '{constraint.id}' of kind '{constraint_kind}' must not define"
+                    " relation.reference"
+                )
             else:
                 assert (
-                    constraint.child is not None
-                ), f"Spatial constraint '{constraint.id}' of type '{constraint_type}' requires a child node"
+                    constraint.reference is not None
+                ), f"Spatial constraint '{constraint.id}' of kind '{constraint_kind}' requires relation.reference"
+
+
+def assert_cli_override_specs_reference_nodes(
+    nodes: list[ArenaEnvGraphNodeSpec], cli_override_specs: list[ArenaEnvGraphCliOverrideSpec]
+) -> None:
+    """Check each CLI override uses a unique flag and points to a real node."""
+    node_ids = {node.id for node in nodes}
+    seen_args: set[str] = set()
+    for override in cli_override_specs:
+        assert override.arg not in seen_args, f"Duplicate cli_override arg '--{override.arg}'"
+        seen_args.add(override.arg)
+        assert (
+            override.target_node_id in node_ids
+        ), f"CLI override '--{override.arg}' targets unknown node '{override.target_node_id}'"
+
+
+def add_cli_override_args(parser: argparse.ArgumentParser, override_specs: list[ArenaEnvGraphCliOverrideSpec]) -> None:
+    """Add each declared override to the CLI ``parser`` as a ``--flag``.
+
+    Each flag defaults to `None`, so an omitted flag falls back to the node's YAML-specified asset.
+
+    A declared flag that collides with one already on the parser (a built-in like ``--num_envs``
+    or ``--seed``, or any flag added by ``AppLauncher.add_app_launcher_args``) is rejected.
+    """
+    for override in override_specs:
+        flag = f"--{override.arg}"
+        # _option_string_actions maps every registered option string ('--num_envs') to its action
+        assert flag not in parser._option_string_actions, (  # noqa: SLF001 (introspect registered flags)
+            f"CLI override flag '{flag}' (node '{override.target_node_id}') is already a parser flag "
+            "(e.g. --num_envs/--seed or an AppLauncher flag); rename its 'arg' in the YAML."
+        )
+        parser.add_argument(
+            flag,
+            type=str,
+            default=None,
+            help=f"Override the asset behind graph node '{override.target_node_id}'.",
+        )
 
 
 def _add_id_location(id_locations: dict[str, list[str]], spec_id: str, location: str) -> None:
     id_locations.setdefault(spec_id, []).append(location)
 
 
-def _enum_value(value: Any) -> Any:
-    return getattr(value, "value", value)
-
-
-def relation_class_for_spatial_constraint_type(
-    constraint_type: "ArenaEnvGraphSpatialConstraintType",
-) -> "type[RelationBase] | None":
-    """Resolve a spatial-constraint enum member to its RelationBase subclass.
-
-    Returns None for enum members that have no registered class yet (e.g. AT_POSE,
-    handled via set_initial_pose; IN, not yet supported by the solver).
-    # TODO(xinjieyao, 2026-05-28): add support for AT_POSE and IN.
-    """
-    registry = ObjectRelationLibraryRegistry()
-    if registry.is_registered(constraint_type.value):
-        return registry.get_object_relation_by_name(constraint_type.value)
-    return None
+def relation_class_for_spatial_constraint_type(constraint_type: str) -> type[RelationBase]:
+    """Look up the ``RelationBase`` class registered for a constraint-type name; raises if unknown."""
+    return ObjectRelationLibraryRegistry().get_object_relation_by_name(constraint_type)
 
 
 def iter_nested_leaf_values(value: Any, key_path: str = "") -> Iterator[tuple[str, Any]]:

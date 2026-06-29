@@ -80,7 +80,7 @@ def run_dummy_object_placer_demo():
 
     # Place objects using ObjectPlacer (anchor is auto-detected via IsAnchor relation)
     placer = ObjectPlacer(params=ObjectPlacerParams())
-    result = placer.place(objects=all_objects)
+    (result,) = placer.place(objects=all_objects)
 
     # Visualization
     visualizer = RelationSolverVisualizer(
@@ -142,7 +142,7 @@ def run_dummy_multi_anchor_demo():
 
     # Place objects (verbose=True shows anchors and optimizable objects)
     placer = ObjectPlacer(params=ObjectPlacerParams(verbose=True))
-    result = placer.place(objects=all_objects)
+    (result,) = placer.place(objects=all_objects)
 
     print("\nFinal positions:")
     for obj, pos in result.positions.items():

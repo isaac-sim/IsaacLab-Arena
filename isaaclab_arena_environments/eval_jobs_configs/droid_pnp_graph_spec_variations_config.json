@@ -1,0 +1,24 @@
+{
+    "jobs": [
+        {
+            "name": "variations_demo_env_graph_spec",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml"
+            },
+            "num_steps": 10,
+            "num_rebuilds": 5,
+            "policy_type": "zero_action",
+            "policy_config_dict": {},
+            "variations": {
+                "light": {
+                    "hdr_image": { "enabled": true },
+                    "intensity": { "enabled": true }
+                },
+                "droid_abs_joint_pos": {
+                    "camera_extrinsics_wrist_camera": { "enabled": true }
+                }
+            }
+        }
+    ]
+}

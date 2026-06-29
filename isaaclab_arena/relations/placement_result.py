@@ -5,19 +5,20 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 
 
 @dataclass
 class PlacementResult:
-    """Result of an ObjectPlacer.place() call."""
+    """Solved object layout for one environment."""
 
-    success: bool
-    """Whether placement passed validation checks."""
+    validation_results: PlacementValidationResults
+    """Validation checklist for the placement."""
 
     positions: dict[ObjectBase, tuple[float, float, float]]
     """Final positions for each object."""
@@ -28,20 +29,14 @@ class PlacementResult:
     attempts: int
     """Number of attempts made."""
 
-
-@dataclass
-class MultiEnvPlacementResult:
-    """Result of an ObjectPlacer.place() call for multiple environments."""
-
-    results: list[PlacementResult]
-    """One PlacementResult per environment (same length as num_envs)."""
+    orientations: dict[ObjectBase, float] = field(default_factory=dict)
+    """Per-object yaw (radians) about the world up (Z) axis, composed on top of each object's
+    base rotation. Keyed by object, like positions. Empty when unrotated."""
 
     @property
     def success(self) -> bool:
-        """True if every environment's placement succeeded."""
-        return all(r.success for r in self.results)
+        """True when all required validation checks pass.
 
-    @property
-    def attempts(self) -> int:
-        """Number of attempts (same for all envs in the batched run)."""
-        return self.results[0].attempts if self.results else 0
+        place() returns a best-loss fallback even on failure; check this to tell validated from fallback.
+        """
+        return self.validation_results.do_all_required_validation_checks_pass()

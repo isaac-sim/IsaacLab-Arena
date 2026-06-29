@@ -68,17 +68,32 @@ case "$VARIANT" in
         ;;
 esac
 
+# Cache the ~11GB checkpoint that openpi pulls from gs:// across runs.
+OPENPI_CACHE_DIR="${OPENPI_CACHE_DIR:-$HOME/.cache/openpi}"
+
+# Single EXIT handler: remove the build tempdir and reset cache ownership back to us.
+BUILD_TMPDIR=""
+SERVER_RAN=false
+cleanup() {
+    [ -n "$BUILD_TMPDIR" ] && rm -rf "$BUILD_TMPDIR"
+    if [ "$SERVER_RAN" = true ]; then
+        docker run --rm -v "${OPENPI_CACHE_DIR}:/cache/openpi" \
+            "${IMAGE_NAME}:${IMAGE_TAG}" \
+            chown -R "$(id -u):$(id -g)" /cache/openpi || true
+    fi
+}
+trap cleanup EXIT
+
 if [ "$FORCE_REBUILD" = true ] || \
    [ -z "$(docker images -q "${IMAGE_NAME}:${IMAGE_TAG}" 2>/dev/null)" ]; then
-    TMPDIR=$(mktemp -d)
-    trap 'rm -rf "$TMPDIR"' EXIT
+    BUILD_TMPDIR=$(mktemp -d)
 
     if [ -n "$SRC_DIR" ]; then
         OPENPI_DIR="$SRC_DIR"
         echo "Using local openpi checkout at ${OPENPI_DIR}"
     else
         PINNED_COMMIT="$(tr -d '[:space:]' < "${SCRIPT_DIR}/OPENPI_COMMIT")"
-        OPENPI_DIR="$TMPDIR/openpi"
+        OPENPI_DIR="$BUILD_TMPDIR/openpi"
         echo "Cloning openpi at ${PINNED_COMMIT} ..."
         # Partial clone: skip blob objects, git fetches them on demand at checkout.
         # Cuts the one-time clone size on a ~GB-scale repo without changing what we end up with.
@@ -88,13 +103,13 @@ if [ "$FORCE_REBUILD" = true ] || \
 
     # Upstream's Dockerfile installs deps but expects source to be volume-mounted.
     # Append a COPY step so the image is self-contained.
-    cat "$OPENPI_DIR/scripts/docker/serve_policy.Dockerfile" > "$TMPDIR/Dockerfile"
-    echo "COPY . /app" >> "$TMPDIR/Dockerfile"
+    cat "$OPENPI_DIR/scripts/docker/serve_policy.Dockerfile" > "$BUILD_TMPDIR/Dockerfile"
+    echo "COPY . /app" >> "$BUILD_TMPDIR/Dockerfile"
 
     echo "Building ${IMAGE_NAME}:${IMAGE_TAG}"
     docker build \
         --network=host \
-        -f "$TMPDIR/Dockerfile" \
+        -f "$BUILD_TMPDIR/Dockerfile" \
         -t "${IMAGE_NAME}:${IMAGE_TAG}" \
         "$OPENPI_DIR"
 else
@@ -103,8 +118,13 @@ fi
 
 echo "Running ${IMAGE_NAME}:${IMAGE_TAG} (variant: ${VARIANT})"
 
+mkdir -p "$OPENPI_CACHE_DIR"
+SERVER_RAN=true
+
 docker run --rm -it --gpus all --network=host \
+    -e OPENPI_DATA_HOME=/cache/openpi \
     -e XLA_PYTHON_CLIENT_MEM_FRACTION=0.5 \
+    -v "${OPENPI_CACHE_DIR}:/cache/openpi" \
     "${IMAGE_NAME}:${IMAGE_TAG}" \
     uv run scripts/serve_policy.py policy:checkpoint \
         --policy.config="${POLICY_CONFIG}" \
