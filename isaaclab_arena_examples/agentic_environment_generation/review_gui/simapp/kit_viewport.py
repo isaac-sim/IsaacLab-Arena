@@ -13,9 +13,9 @@ from isaaclab_arena.assets.asset_cache import get_arena_asset_cache_dir
 
 PRE_CAPTURE_UPDATES = 5
 CAPTURE_DONE_TAIL_UPDATES = 3
-CAPTURE_WAIT_MAX_UPDATES = 120
-THUMBNAIL_CACHE_SUBDIR = "review_gui_thumbnails"
-SIM_PREVIEW_CACHE_SUBDIR = "llm_env_gen_sim_preview"
+CAPTURE_WAIT_MAX_UPDATES = 10
+THUMBNAIL_CACHE_SUBDIR = "agentic_env_gen_thumbnails"
+SIM_PREVIEW_CACHE_SUBDIR = "agentic_env_gen_sim_preview"
 
 
 def review_gui_cache_dir(subdir: str) -> Path:

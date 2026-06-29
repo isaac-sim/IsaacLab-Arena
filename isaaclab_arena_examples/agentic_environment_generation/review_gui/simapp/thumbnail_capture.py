@@ -22,7 +22,6 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.as
     usd_cache_key,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import (
-    CAPTURE_WAIT_MAX_UPDATES,
     capture_viewport_png,
     thumbnail_cache_dir,
     wait_for_stage_load,
@@ -109,7 +108,7 @@ def _render_one_usd(app, usd_path: str, cache_path: Path) -> bytes | None:
     if not framed:
         print(f"[thumbnail_capture]   warning: frame_viewport_prims failed for {usd_path}", file=sys.stderr)
 
-    png_bytes = capture_viewport_png(app, cache_path, max_updates=CAPTURE_WAIT_MAX_UPDATES)
+    png_bytes = capture_viewport_png(app, cache_path)
     if png_bytes is not None:
         return png_bytes
     print(f"[thumbnail_capture]   capture produced no file: {cache_path}", file=sys.stderr)

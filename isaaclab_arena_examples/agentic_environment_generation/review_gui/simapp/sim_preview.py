@@ -24,7 +24,6 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import (
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import (
     CAPTURE_DONE_TAIL_UPDATES,
-    CAPTURE_WAIT_MAX_UPDATES,
     PRE_CAPTURE_UPDATES,
     capture_viewport_png,
     pump_app,
@@ -121,7 +120,6 @@ def _close_env_and_reset_sim(
     env=None,
     *,
     suppress_exceptions: bool = False,
-    make_new_stage: bool = True,
     app=None,
 ) -> None:
     """Tear down sim state and close a gym env so another can be built in the same SimApp."""
@@ -131,7 +129,7 @@ def _close_env_and_reset_sim(
         if env is not None and not getattr(env.unwrapped, "_is_closed", True):
             env.close()
 
-    teardown_simulation_app(suppress_exceptions=suppress_exceptions, make_new_stage=make_new_stage)
+    teardown_simulation_app(suppress_exceptions=suppress_exceptions, make_new_stage=True)
 
     if app is not None:
         with error_manager:
@@ -203,7 +201,7 @@ def run_sim_preview(
         obs, _ = env.reset()
         _apply_overview_camera(env, app, args.num_envs, args.env_spacing)
 
-        if capture_viewport_png(app, first_path, max_updates=CAPTURE_WAIT_MAX_UPDATES) is None:
+        if capture_viewport_png(app, first_path) is None:
             raise RuntimeError("failed to capture first-frame viewport screenshot")
 
         for _ in range(num_steps):
@@ -212,7 +210,7 @@ def run_sim_preview(
 
         _apply_overview_camera(env, app, args.num_envs, args.env_spacing)
 
-        if capture_viewport_png(app, last_path, max_updates=CAPTURE_WAIT_MAX_UPDATES) is None:
+        if capture_viewport_png(app, last_path) is None:
             raise RuntimeError("failed to capture last-frame viewport screenshot")
 
         print(
