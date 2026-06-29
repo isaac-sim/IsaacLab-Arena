@@ -17,12 +17,23 @@ RUNTIME_DEPS = [
     # isaaclab_arena_datagen: SyntheticScene HDF5 writer (Zstd-compressed).
     "h5py",
     "hdf5plugin",
+    "pydantic>=2.0",
+    "openai>=2.0",
+    # Sensitivity analysis (isaaclab_arena.analysis.sensitivity), imported at module level.
+    "sbi",
+    "scipy",
+    "matplotlib",
+    # HDF5 -> LeRobot conversion (isaaclab_arena_gr00t.lerobot.convert_hdf5_to_lerobot), imported at module level.
+    # Pinned to 2.2.3 to match the version used in GR00T.
+    "pandas==2.2.3",
 ]
 
 DEV_DEPS = [
     "jupyter",
     "debugpy",
     "tenacity",
+    "streamlit>=1.30",
+    "streamlit-ace>=0.1.1",
 ]
 
 # isaaclab_arena_datagen: optional dependencies for per-scene visualizations

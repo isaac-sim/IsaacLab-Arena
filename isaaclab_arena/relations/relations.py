@@ -17,8 +17,12 @@ from isaaclab_arena.utils.pose import PoseRange  # runtime: constructed in to_po
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
 
+# Default inward inset (meters) from each X/Y edge of an ``On`` support surface, keeping
+# the placed object's footprint off the rim.
+DEFAULT_ON_EDGE_MARGIN_M = 0.05
 
-class Side(Enum):
+
+class Side(str, Enum):
     """Axis direction for spatial relationships."""
 
     POSITIVE_X = "positive_x"  # +X
@@ -86,8 +90,9 @@ class NextTo(Relation):
         parent: ObjectBase,
         relation_loss_weight: float = 1.0,
         distance_m: float = 0.05,
-        side: Side = Side.POSITIVE_X,
+        side: Side | str = Side.POSITIVE_X,
         cross_position_ratio: float = 0.0,
+        tolerance_m: float = 1e-2,
     ):
         """
         Args:
@@ -100,15 +105,20 @@ class NextTo(Relation):
                 The cross axis depends on the side: for POSITIVE_X / NEGATIVE_X
                 the cross axis is Y; for POSITIVE_Y / NEGATIVE_Y it is X.
                 Default: 0.0 (centered).
+            tolerance_m: Slack (meters) for placement validation: the child passes when its side and
+                distance violations are each within this value. Raise it to accept the side but care
+                less about the exact distance. cross_position_ratio is a soft preference, not gated.
         """
         super().__init__(parent, relation_loss_weight)
         assert distance_m > 0.0, f"Distance must be positive, got {distance_m}"
         assert (
             -1.0 <= cross_position_ratio <= 1.0
         ), f"cross_position_ratio must be in [-1, 1], got {cross_position_ratio}"
+        assert tolerance_m >= 0.0, f"tolerance_m must be non-negative, got {tolerance_m}"
         self.distance_m = distance_m
-        self.side = side
+        self.side = Side(side)
         self.cross_position_ratio = cross_position_ratio
+        self.tolerance_m = tolerance_m
 
 
 @register_object_relation
@@ -116,8 +126,9 @@ class On(Relation):
     """Represents an 'on top of' relationship between objects.
 
     This relation specifies that a child object should be placed on top of
-    the parent object, with X/Y bounded within the parent's extent and Z
-    positioned on the parent's top surface.
+    the parent object, with X/Y bounded within the parent's extent (optionally
+    inset by ``edge_margin_m`` so the child stays off the rim) and Z positioned
+    on the parent's top surface.
 
     Note: Loss computation is handled by OnLossStrategy in relation_loss_strategies.py.
     """
@@ -129,16 +140,59 @@ class On(Relation):
         parent: ObjectBase,
         relation_loss_weight: float = 1.0,
         clearance_m: float = 0.01,
+        edge_margin_m: float = DEFAULT_ON_EDGE_MARGIN_M,
     ):
         """
         Args:
             parent: The parent asset that this object should be placed on top of.
             relation_loss_weight: Weight for the relationship loss function.
             clearance_m: Safety clearance above parent's surface in meters (default: 1cm).
+            edge_margin_m: Inward inset from each X/Y edge of the parent's surface in
+                meters (default: 5cm). The child's whole footprint is kept at least this
+                far from the rim. The solver rejects a margin too large for the surface
+                to honor (``2 * edge_margin_m`` wider than ``parent_extent - child_extent``
+                on either axis).
         """
         super().__init__(parent, relation_loss_weight)
         assert clearance_m >= 0.0, f"Clearance must be non-negative, got {clearance_m}"
+        assert edge_margin_m >= 0.0, f"edge_margin_m must be non-negative, got {edge_margin_m}"
         self.clearance_m = clearance_m
+        self.edge_margin_m = edge_margin_m
+
+
+@register_object_relation
+class NotNextTo(Relation):
+    """Forbids placing the child next to the parent on the given side.
+
+    The inverse of ``NextTo``. Blocks the whole half-plane past the parent's edge
+    on that side, within the parent's perpendicular footprint (for ``side=+Y``:
+    all of ``+Y`` past the ``+Y`` edge, clipped to the parent's ``X`` extent).
+    Anywhere off to either side of that footprint stays free, at any distance.
+
+    Note: Loss computation is handled by NotNextToLossStrategy in relation_loss_strategies.py.
+    """
+
+    name = "not_next_to"
+
+    def __init__(
+        self,
+        parent: ObjectBase,
+        relation_loss_weight: float = 1.0,
+        side: Side | str = Side.POSITIVE_X,
+        tolerance_m: float = 1e-2,
+    ):
+        """
+        Args:
+            parent: The parent asset whose adjacent half-plane is forbidden.
+            relation_loss_weight: Weight for the relationship loss function.
+            side: Which side of the parent is blocked (default: Side.POSITIVE_X).
+            tolerance_m: Slack (meters) for placement validation: the child passes when it has cleared
+                the keep-out zone to within this value.
+        """
+        super().__init__(parent, relation_loss_weight)
+        assert tolerance_m >= 0.0, f"tolerance_m must be non-negative, got {tolerance_m}"
+        self.side = Side(side)
+        self.tolerance_m = tolerance_m
 
 
 @register_object_relation

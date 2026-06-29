@@ -222,7 +222,8 @@ def test_on_init_reproducible_with_placement_seed():
             bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
         )
         box.add_relation(On(desk, clearance_m=0.01))
-        return ObjectPlacer(params=params).place([desk, box])
+        (result,) = ObjectPlacer(params=params).place([desk, box])
+        return result
 
     result1 = _run()
     result2 = _run()

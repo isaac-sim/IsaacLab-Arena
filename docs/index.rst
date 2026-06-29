@@ -217,6 +217,7 @@ TABLE OF CONTENTS
    pages/example_workflows/example_environments
    pages/example_workflows/imitation_learning/index
    pages/example_workflows/reinforcement_learning_workflows/index
+   pages/example_workflows/agentic_env_gen/index
 
 .. toctree::
    :maxdepth: 1
@@ -229,6 +230,7 @@ TABLE OF CONTENTS
    pages/concepts/embodiment/index
    pages/concepts/concept_object_placement
    pages/concepts/policy/index
+   pages/concepts/variations/index
 
 .. toctree::
    :maxdepth: 1

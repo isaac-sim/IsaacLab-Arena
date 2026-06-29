@@ -13,8 +13,6 @@ from isaaclab_newton.physics.newton_manager_cfg import MJWarpSolverCfg, NewtonCf
 from isaaclab_physx.physics import PhysxCfg
 from isaaclab_tasks.utils import PresetCfg
 
-from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-
 
 @configclass
 class ArenaPhysicsCfg(PresetCfg):
@@ -66,8 +64,8 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
 
     metrics: object | None = None
 
-    # Isaaclab Arena Env. Held as a member to allow use of internal functions
-    isaaclab_arena_env: IsaacLabArenaEnvironment | None = None
+    # Task language description
+    task_description: str | None = None
 
     # Override the RTX renderer's built-in scene ambient (carb /rtx/sceneDb/ambientLightIntensity, default 1.0 with
     # color [0.1, 0.1, 0.1]) so that USD light prims fully control scene illumination.

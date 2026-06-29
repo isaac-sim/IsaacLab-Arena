@@ -8,12 +8,13 @@ from dataclasses import dataclass, field
 from isaaclab_arena.relations.relation_loss_strategies import (
     AtPositionLossStrategy,
     NextToLossStrategy,
+    NotNextToLossStrategy,
     OnLossStrategy,
     PositionLimitsLossStrategy,
     RelationLossStrategy,
     UnaryRelationLossStrategy,
 )
-from isaaclab_arena.relations.relations import AtPosition, NextTo, On, PositionLimits, RelationBase
+from isaaclab_arena.relations.relations import AtPosition, NextTo, NotNextTo, On, PositionLimits, RelationBase
 
 
 def _default_strategies() -> dict[type[RelationBase], RelationLossStrategy | UnaryRelationLossStrategy]:
@@ -21,6 +22,7 @@ def _default_strategies() -> dict[type[RelationBase], RelationLossStrategy | Una
     return {
         NextTo: NextToLossStrategy(slope=10.0),
         On: OnLossStrategy(slope=100.0),
+        NotNextTo: NotNextToLossStrategy(slope=10.0, margin_m=0.1),
         AtPosition: AtPositionLossStrategy(slope=100.0),
         PositionLimits: PositionLimitsLossStrategy(slope=100.0),
     }
@@ -41,6 +43,9 @@ class RelationSolverParams:
 
     verbose: bool = True
     """Print optimization progress."""
+
+    profile: bool = False
+    """Print a timing summary after solve() (wall-time, batch size, pair count, ms/iter). No effect when max_iters=0."""
 
     save_position_history: bool = True
     """Save position snapshots during optimization for visualization/debugging. Disable to reduce memory."""

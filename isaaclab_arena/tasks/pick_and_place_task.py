@@ -15,21 +15,25 @@ from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.utils import configclass
 
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.assets.register import register_task
+from isaaclab_arena.assets.register import agent_ready, register_task
+from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.task_base import TaskBase
-from isaaclab_arena.tasks.terminations import object_on_destination
+from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
+from isaaclab_arena.tasks.terminations import SuccessMode, check_success, object_on_destination, objects_in_proximity
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
+@agent_ready
 @register_task
 class PickAndPlaceTask(TaskBase):
     """Pick-and-place task. Success fires when the pick-up object contacts the destination
-    with low velocity. Failure (object_dropped) fires when the object falls below the
+    with low velocity and, when ``max_separation`` is set, is within axis-aligned proximity
+    of the destination. Failure (object_dropped) fires when the object falls below the
     background's ``object_min_z``.
 
     The default Mimic cfg is ``PickPlaceMimicEnvCfg``. When a task needs a different cfg
@@ -54,6 +58,7 @@ class PickAndPlaceTask(TaskBase):
         task_description: str | None = None,
         force_threshold: float = 0.1,
         velocity_threshold: float = 0.1,
+        max_separation: tuple[float, float, float] | None = None,
         mimic_env_cfg_factory: Callable[[ArmMode], MimicEnvCfg] | None = None,
     ):
         super().__init__(episode_length_s=episode_length_s)
@@ -68,6 +73,9 @@ class PickAndPlaceTask(TaskBase):
         )
         self.force_threshold = force_threshold
         self.velocity_threshold = velocity_threshold
+        if max_separation is not None:
+            assert len(max_separation) == 3, f"max_separation must be (x, y, z), got {max_separation!r}"
+        self.max_separation = max_separation
         self.mimic_env_cfg_factory = mimic_env_cfg_factory
         self.events_cfg = None
         self.termination_cfg = self.make_termination_cfg()
@@ -84,13 +92,39 @@ class PickAndPlaceTask(TaskBase):
         return self.termination_cfg
 
     def make_termination_cfg(self):
+        predicates = [
+            TerminationTermCfg(
+                func=object_on_destination,
+                params={
+                    "object_cfg": SceneEntityCfg(self.pick_up_object.name),
+                    "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
+                    "force_threshold": self.force_threshold,
+                    "velocity_threshold": self.velocity_threshold,
+                },
+            ),
+        ]
+        if self.max_separation is not None:
+            # TODO(qianl): replace objects_in_proximity with object_centroid_in_proximity
+            # for tighter container placement checks.
+            # TODO (qianl): current implementation doesn't support ObjectReference as target_object_cfg.
+            max_x_separation, max_y_separation, max_z_separation = self.max_separation
+            predicates.append(
+                TerminationTermCfg(
+                    func=objects_in_proximity,
+                    params={
+                        "object_cfg": SceneEntityCfg(self.pick_up_object.name),
+                        "target_object_cfg": SceneEntityCfg(self.destination_location.name),
+                        "max_x_separation": max_x_separation,
+                        "max_y_separation": max_y_separation,
+                        "max_z_separation": max_z_separation,
+                    },
+                )
+            )
         success = TerminationTermCfg(
-            func=object_on_destination,
+            func=check_success,
             params={
-                "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                "contact_sensor_cfg": SceneEntityCfg("pick_up_object_contact_sensor"),
-                "force_threshold": self.force_threshold,
-                "velocity_threshold": self.velocity_threshold,
+                "mode": SuccessMode.ALL,
+                "predicates": predicates,
             },
         )
         object_dropped = TerminationTermCfg(
@@ -130,6 +164,18 @@ class PickAndPlaceTask(TaskBase):
         return get_viewer_cfg_look_at_object(
             lookat_object=self.pick_up_object,
             offset=np.array([-1.5, -1.5, 1.5]),
+        )
+
+    @classmethod
+    def success_state_transition(cls, pick_up_object: str, destination_location: str, **_) -> TaskTransition:
+        """Success (``object_on_destination``): the picked object ends up a relation with the destination."""
+        # Note: with the current AABB-based object solver, placing an object ``on`` an open container
+        # and letting it fall is equivalent to it being ``in`` the container, so a single ``on``
+        # relation covers both surfaces and containers.
+        relation = ObjectRelationLibraryRegistry().get_object_relation_by_name("on")
+        return TaskTransition(
+            subject=pick_up_object,
+            effects=(Relocate(subject=pick_up_object, relation=relation.name, target=destination_location),),
         )
 
 

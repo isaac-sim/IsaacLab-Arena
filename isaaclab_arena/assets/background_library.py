@@ -197,10 +197,16 @@ class MapleTableRobolab(LibraryBackground):
 
     name = "maple_table_robolab"
     tags = ["background", "robolab"]
-    usd_path = (
-        f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/scenes/maple_table_background.usda"
-    )
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/scenes/maple_table.usda"
     object_min_z = -0.05
 
     def __init__(self):
         super().__init__()
+
+
+@register_asset
+class TableOakRobolab(LibraryBackground):
+    name = "table_oak_robolab"
+    tags = ["background", "robolab"]
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/table_oak.usd"
+    object_min_z = -0.05

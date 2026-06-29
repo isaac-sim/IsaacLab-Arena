@@ -32,13 +32,24 @@ def _make_box(name: str = "box"):
 
 
 class _FakePlacementPool:
-    requires_env_indexed_layouts = False
-
     def __init__(self, layouts) -> None:
         self._layouts = layouts
 
     def sample_with_replacement(self, count: int):
         return self._layouts[:count]
+
+
+def _fallback_layout(positions):
+    """A failed (best-loss fallback) PlacementResult: a failing required check makes success False."""
+    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
+
+    return PlacementResult(
+        validation_results=PlacementValidationResults(validation_results={PlacementCheck.NO_OVERLAP: False}),
+        positions=positions,
+        final_loss=1.0,
+        attempts=1,
+    )
 
 
 def test_solve_and_apply_relation_placement_with_no_objects_returns_empty_result():
@@ -87,11 +98,10 @@ def test_static_solve_and_apply_relation_placement_reuses_object_only_placement(
 
 def test_dynamic_spawn_pose_skips_objects_missing_from_fallback_layout():
     from isaaclab_arena.environments.relation_solver_interface import _apply_dynamic_spawn_pose
-    from isaaclab_arena.relations.placement_result import PlacementResult
 
     desk = _make_desk()
     box = _make_box()
-    placement_pool = _FakePlacementPool([PlacementResult(success=False, positions={}, final_loss=1.0, attempts=1)])
+    placement_pool = _FakePlacementPool([_fallback_layout(positions={})])
 
     _apply_dynamic_spawn_pose(
         objects=[desk, box],
@@ -104,25 +114,14 @@ def test_dynamic_spawn_pose_skips_objects_missing_from_fallback_layout():
 
 def test_static_initial_poses_skip_object_when_any_layout_is_missing_position(capsys):
     from isaaclab_arena.environments.relation_solver_interface import _apply_static_initial_poses
-    from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.utils.pose import PosePerEnv
 
     desk = _make_desk()
     missing_box = _make_box("missing_box")
     placed_box = _make_box("placed_box")
     placement_pool = _FakePlacementPool([
-        PlacementResult(
-            success=False,
-            positions={placed_box: (0.1, 0.0, 0.2)},
-            final_loss=1.0,
-            attempts=1,
-        ),
-        PlacementResult(
-            success=False,
-            positions={placed_box: (0.2, 0.0, 0.2)},
-            final_loss=1.0,
-            attempts=1,
-        ),
+        _fallback_layout(positions={placed_box: (0.1, 0.0, 0.2)}),
+        _fallback_layout(positions={placed_box: (0.2, 0.0, 0.2)}),
     ])
 
     _apply_static_initial_poses(

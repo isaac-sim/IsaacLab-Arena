@@ -72,13 +72,13 @@ def get_peg_insert_test_environment(num_envs: int, remove_events: bool = False):
     )
 
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
-    name, cfg = env_builder.build_registered()
+    name, cfg, env_kwargs = env_builder.build_registered()
 
     if remove_events:
         cfg.events.reset_all = None
         cfg.events.randomize_asset_positions = None
 
-    env = gym.make(name, cfg=cfg).unwrapped
+    env = gym.make(name, cfg=cfg, **env_kwargs).unwrapped
     env.reset()
 
     return env, peg, hole
@@ -149,13 +149,13 @@ def get_gear_mesh_test_environment(num_envs: int, remove_events: bool = False):
     )
 
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
-    name, cfg = env_builder.build_registered()
+    name, cfg, env_kwargs = env_builder.build_registered()
 
     if remove_events:
         cfg.events.reset_all = None
         cfg.events.randomize_asset_positions = None
 
-    env = gym.make(name, cfg=cfg).unwrapped
+    env = gym.make(name, cfg=cfg, **env_kwargs).unwrapped
     env.reset()
 
     return env, gear_base, medium_gear, small_gear, large_gear

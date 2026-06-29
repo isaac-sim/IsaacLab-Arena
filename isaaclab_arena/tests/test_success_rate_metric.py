@@ -38,6 +38,7 @@ def _test_success_rate_metric(simulation_app):
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.terms.events import set_object_pose_per_env
@@ -68,7 +69,7 @@ def _test_success_rate_metric(simulation_app):
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     args_cli.num_envs = NUM_ENVS
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
-    env_cfg = env_builder.compose_manager_cfg()
+    env_cfg, env_kwargs = env_builder.compose_manager_cfg()
 
     # Replace the pose reset term:
     # - from: constant per env,
@@ -88,7 +89,7 @@ def _test_success_rate_metric(simulation_app):
         },
     )
 
-    env = env_builder.make_registered(env_cfg)
+    env = env_builder.make_registered(env_cfg, env_kwargs)
     env.reset()
 
     try:
@@ -99,12 +100,12 @@ def _test_success_rate_metric(simulation_app):
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 env.step(actions)
 
-        metrics = env.unwrapped.compute_metrics()
+        metrics: MetricsDataCollection = env.unwrapped.compute_metrics()
         print(f"Metrics: {metrics}")
-        assert "success_rate" in metrics
-        assert "object_moved_rate" in metrics
-        success_rate = metrics["success_rate"]
-        object_moved_rate = metrics["object_moved_rate"]
+        assert "success_rate" in metrics.metric_data_entries
+        assert "object_moved_rate" in metrics.metric_data_entries
+        success_rate = metrics.metric_data_entries["success_rate"].metric_value
+        object_moved_rate = metrics.metric_data_entries["object_moved_rate"].metric_value
         print(f"Success rate: {success_rate}")
         print(f"Object moved rate: {object_moved_rate}")
         assert abs(success_rate - EXPECTED_SUCCESS_RATE) < ALLOWABLE_SUCCESS_RATE_ERROR

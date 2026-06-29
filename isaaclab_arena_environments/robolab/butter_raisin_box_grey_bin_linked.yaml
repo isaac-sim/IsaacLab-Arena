@@ -1,0 +1,86 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: butter_raisin_box_grey_bin
+nodes:
+- id: maple_table_robolab
+  name: maple_table_robolab
+  type: background
+  params: {}
+- id: droid
+  name: droid_abs_joint_pos
+  type: embodiment
+  params: {}
+- id: raisin_box
+  name: raisin_box_hope_robolab
+  type: object
+  params: {}
+- id: grey_bin
+  name: grey_bin_robolab
+  type: object
+  params: {}
+- id: butter
+  name: butter_hope_robolab
+  type: object
+  params: {}
+tasks:
+- kind: PickAndPlaceTask
+  params:
+    pick_up_object: raisin_box
+    destination_location: grey_bin
+    background_scene: maple_table_robolab
+    episode_length_s: 20.0
+    max_separation: [0.1, 0.1, 0.1]
+  description: Pick up the red raisin box and place it into the grey bin on the maple
+    table.
+  id: task_0_PickAndPlaceTask
+  initial_state_spec_id: state_initial
+  success_state_spec_id: state_spec_1
+state_specs:
+- id: state_initial
+  is_delta: false
+  spatial_constraints:
+  - kind: is_anchor
+    subject: maple_table_robolab
+    params: {}
+    id: state_initial_0_is_anchor_maple_table_robolab
+  - kind: 'on'
+    subject: grey_bin
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_1_on_maple_table_robolab_grey_bin
+  - kind: 'on'
+    subject: raisin_box
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_2_on_maple_table_robolab_raisin_box
+  - kind: 'on'
+    subject: butter
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_3_on_maple_table_robolab_butter
+  - kind: 'rotate_around_solution'
+    subject: raisin_box
+    params: {
+      pitch_rad: 90.0
+    }
+    id: state_initial_4_rotate_around_solution_raisin_box
+  - kind: 'rotate_around_solution'
+    subject: butter
+    params: {
+      pitch_rad: 90.0
+    }
+    id: state_initial_5_rotate_around_solution_butter
+  task_constraints: []
+- id: state_spec_1
+  is_delta: true
+  spatial_constraints:
+  - kind: 'on'
+    subject: raisin_box
+    reference: grey_bin
+    params: {}
+    id: state_spec_1_raisin_box_on_grey_bin
+  task_constraints: []
+cli_override_specs: []

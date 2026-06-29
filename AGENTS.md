@@ -20,11 +20,18 @@ pre-commit install    # on the host — registers git pre-commit hooks
 
 ## Docker environment
 
-Commands that touch Isaac Sim or Arena's package code (tests, training, evaluation, runtime scripts) run inside the `isaaclab_arena-latest` Docker container. The repo root is mounted at `/workspaces/isaaclab_arena`. Inside the container, `python` is aliased to `/isaac-sim/python.sh` — prefer the explicit path in `docker exec` invocations from outside the container, where the alias is not active.
+Commands that touch Isaac Sim or Arena's package code (tests, training, evaluation, runtime scripts) run inside the local repo clone's Docker container. The repo root is mounted at `/workspaces/isaaclab_arena`. Inside the container, `python` is aliased to `/isaac-sim/python.sh` — prefer the explicit path in `docker exec` invocations from outside the container, where the alias is not active.
+
+Each clone gets its own container (shared image, per-clone name), so clones run in parallel. **Don't hardcode the container name** — use the `dev-container` skill to build, start, attach to, discover, or exec into the local clone's container.
+
+Run as the host user, not root.
+
+```bash
+docker exec "$ARENA_CONTAINER" su $(id -un) -c \
+  "cd /workspaces/isaaclab_arena && <command>"
+```
 
 Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, isort, pyupgrade, codespell) runs **on the host**.
-
-Use the `dev-container` skill for build, start, attach, and exec inside the container.
 
 ## Repository layout
 
@@ -39,6 +46,16 @@ Use the `dev-container` skill for build, start, attach, and exec inside the cont
 
 - Prefer `assert condition, "message"` over `if not condition: raise ValueError("message")` for internal invariant checks. (Formatting, imports, and typing are enforced by `pre-commit` — see `.pre-commit-config.yaml`.)
 - PR bodies follow `.github/pull_request_template.md` — a one-line Summary plus 2–5 detail bullets. Resist the agent default of long, multi-section descriptions.
+- Attribute docstrings should be included below the attribute, rather than in the class-level docstring.
+
+## Docstrings style
+
+- Prefer one line; a 2–3 line paragraph may follow if needed.
+- The docstring should describe the function’s calling syntax and its semantics, but generally not its
+    implementation details, unless those details are relevant to how the function is to be used.
+- Document `Args` and `Returns`, but **not** `Raises`. Omit `Returns` when it only returns None
+    or the summary already covers it.
+- Don't use Sphinx-style cross-references.
 
 ## Conventions
 

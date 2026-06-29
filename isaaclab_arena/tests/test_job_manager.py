@@ -46,6 +46,66 @@ def test_job_convert_args_dict_to_cli_args_list():
     assert "--enable_cameras" not in args_list  # False booleans are skipped
 
 
+def test_job_convert_args_dict_with_graph_spec_environment():
+    """A .yaml environment is emitted as --env_graph_spec_yaml; a plain name stays positional."""
+    graph_args = Job.convert_args_dict_to_cli_args_list({"environment": "/path/to/graph.yaml"})
+    assert graph_args[graph_args.index("--env_graph_spec_yaml") + 1] == "/path/to/graph.yaml"
+
+    name_args = Job.convert_args_dict_to_cli_args_list({"environment": "kitchen_pick_and_place"})
+    assert "kitchen_pick_and_place" in name_args
+    assert "--env_graph_spec_yaml" not in name_args
+
+
+def test_job_convert_variations_dict_to_hydra_overrides():
+    """Test flattening a nested variations dict into Hydra override strings."""
+    variations = {
+        "cracker_box": {
+            "color": {
+                "enabled": True,
+                "sampler": {"low": [0.2, 0.2, 0.0], "high": [1.0, 1.0, 0.0]},
+            }
+        },
+        "light": {"hdr_image": {"enabled": False}},
+    }
+
+    overrides = Job.convert_variations_dict_to_hydra_overrides(variations)
+
+    assert "cracker_box.color.enabled=true" in overrides
+    assert "cracker_box.color.sampler.low=[0.2,0.2,0.0]" in overrides
+    assert "cracker_box.color.sampler.high=[1.0,1.0,0.0]" in overrides
+    assert "light.hdr_image.enabled=false" in overrides
+    # No spaces in any token (Hydra overrides must be single clean tokens).
+    assert all(" " not in override for override in overrides)
+
+    # An empty/missing variations dict yields no overrides.
+    assert Job.convert_variations_dict_to_hydra_overrides({}) == []
+
+
+def test_job_from_dict_with_variations():
+    """Job.from_dict populates job.variations from a nested variations block."""
+    job_dict = {
+        "name": "job_with_variations",
+        "arena_env_args": {"environment": "env1"},
+        "policy_type": "zero_action",
+        "policy_config_dict": {},
+        "variations": {"light": {"hdr_image": {"enabled": True}}},
+    }
+
+    job = Job.from_dict(job_dict)
+
+    assert job.variations == ["light.hdr_image.enabled=true"]
+
+    # A job without a variations field defaults to no overrides.
+    job_dict_without_variations = {
+        "name": "job_without_variations",
+        "arena_env_args": {"environment": "env1"},
+        "policy_type": "zero_action",
+        "policy_config_dict": {},
+    }
+
+    assert Job.from_dict(job_dict_without_variations).variations == []
+
+
 def test_job_manager_update_job_status():
     """Test updating a job status."""
 

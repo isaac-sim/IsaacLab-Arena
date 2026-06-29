@@ -18,6 +18,7 @@ from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
+from isaaclab_arena.variations.variation_base import VariationBase
 
 AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg]
 
@@ -100,6 +101,13 @@ class Scene:
 
     def get_commands_cfg(self) -> Any:
         return self.commands_cfg
+
+    def get_asset_variations(self) -> dict[str, list[VariationBase]]:
+        """Return a dict mapping each asset name to a list of its variations."""
+        asset_name_to_variations: dict[str, list[VariationBase]] = {}
+        for asset in self.assets.values():
+            asset_name_to_variations[asset.name] = asset.get_variations()
+        return asset_name_to_variations
 
     def get_objects_with_relations(self) -> list[Object | ObjectReference]:
         """Return all objects in the scene that have at least one relation."""

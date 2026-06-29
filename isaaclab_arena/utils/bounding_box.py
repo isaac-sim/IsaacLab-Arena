@@ -38,6 +38,13 @@ class AxisAlignedBoundingBox:
     def __repr__(self) -> str:
         return f"AxisAlignedBoundingBox(min_point={self._min_point}, max_point={self._max_point})"
 
+    def __getitem__(self, idx: int) -> "AxisAlignedBoundingBox":
+        """Select row idx (one env/candidate), returning a single-box (N=1) bbox."""
+        assert 0 <= idx < self.num_envs, f"index {idx} out of range for bbox with num_envs={self.num_envs}."
+        return AxisAlignedBoundingBox(
+            min_point=self._min_point[idx : idx + 1], max_point=self._max_point[idx : idx + 1]
+        )
+
     @staticmethod
     def _to_batched_tensor(value: tuple[float, float, float] | torch.Tensor) -> torch.Tensor:
         """Convert tuple, 1-D tensor, or (N, 3) tensor to (N, 3) float32 tensor."""
@@ -203,6 +210,57 @@ class AxisAlignedBoundingBox:
                 min_point=torch.stack([min_y, -max_x, min_z], dim=1),
                 max_point=torch.stack([max_y, -min_x, max_z], dim=1),
             )
+
+    def rotated_around_z(self, angle_rad: float | torch.Tensor) -> "AxisAlignedBoundingBox":
+        """Refit to the axis-aligned box enclosing this box rotated by angle_rad around Z.
+
+        Conservative (larger than the true rotated box) except at 90° multiples; Z extents unchanged.
+
+        Args:
+            angle_rad: Yaw in radians. A scalar rotates every box equally; a 1-D tensor gives
+                per-box angles (or, for a single box, one box per angle).
+
+        Returns:
+            New AxisAlignedBoundingBox enclosing the rotated box.
+        """
+        device = self._min_point.device
+        angles = torch.as_tensor(angle_rad, dtype=torch.float32, device=device).reshape(-1)  # (M,)
+
+        num_boxes, num_angles = self._min_point.shape[0], angles.shape[0]
+        assert num_boxes == 1 or num_angles == 1 or num_boxes == num_angles, (
+            "rotated_around_z requires one box, one angle, or equal counts; "
+            f"got {num_boxes} boxes and {num_angles} angles."
+        )
+
+        cos = torch.cos(angles).unsqueeze(1)  # (M, 1)
+        sin = torch.sin(angles).unsqueeze(1)  # (M, 1)
+
+        # XY footprint corners relative to the object origin: (N, 4).
+        min_x, min_y = self._min_point[:, 0], self._min_point[:, 1]
+        max_x, max_y = self._max_point[:, 0], self._max_point[:, 1]
+        corners_x = torch.stack([min_x, max_x, max_x, min_x], dim=1)  # (N, 4)
+        corners_y = torch.stack([min_y, min_y, max_y, max_y], dim=1)  # (N, 4)
+
+        # Rotate corners (broadcasts (N, 4) with (M, 1)).
+        rot_x = corners_x * cos - corners_y * sin
+        rot_y = corners_x * sin + corners_y * cos
+
+        new_min_x = rot_x.min(dim=1).values  # (L,)
+        new_max_x = rot_x.max(dim=1).values
+        new_min_y = rot_y.min(dim=1).values
+        new_max_y = rot_y.max(dim=1).values
+
+        # Z extents are invariant under Z rotation; broadcast to the output leading dim.
+        out_len = new_min_x.shape[0]
+        min_z, max_z = self._min_point[:, 2], self._max_point[:, 2]
+        if min_z.shape[0] == 1 and out_len > 1:
+            min_z = min_z.expand(out_len)
+            max_z = max_z.expand(out_len)
+
+        return AxisAlignedBoundingBox(
+            min_point=torch.stack([new_min_x, new_min_y, min_z], dim=1),
+            max_point=torch.stack([new_max_x, new_max_y, max_z], dim=1),
+        )
 
 
 def quaternion_to_90_deg_z_quarters(rotation_xyzw: tuple[float, float, float, float], tol_deg: float = 1.0) -> int:

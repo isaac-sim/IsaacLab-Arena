@@ -32,7 +32,7 @@ jobs:
 
   pre_commit:
     name: Pre-commit
-    runs-on: [self-hosted, gpu-arena]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 30
 
     container:
@@ -97,9 +97,12 @@ jobs:
 
   test:
     name: Run tests
-    runs-on: [self-hosted, gpu-arena]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 80
     needs: [pre_commit]
+    env:
+      # NV_API_KEY is consumed by the live-endpoint tests for agentic env gen.
+      NV_API_KEY: ${{ secrets.ARENA_NV_API_KEY }}
 
     container:
       image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
@@ -167,7 +170,7 @@ jobs:
 
   tests_with_subprocess:
     name: Run tests with subprocess
-    runs-on: [self-hosted, gpu-arena]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 60
     needs: [pre_commit]
 
@@ -202,7 +205,7 @@ jobs:
 
   test_gr00t_closedloop_e2e:
     name: GR00T closed-loop E2E
-    runs-on: [self-hosted, gpu-arena]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 60
     needs: [pre_commit]
     env:
@@ -267,7 +270,7 @@ jobs:
 
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
-    runs-on: [self-hosted, gpu-arena]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 30
     needs: [pre_commit]
 
@@ -293,7 +296,7 @@ jobs:
 
   build_and_push_image_post_merge:
     name: Build & push NGC image (post-merge)
-    runs-on: [self-hosted, gpu-arena]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 60
     needs: [test]       # only push if tests passed
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

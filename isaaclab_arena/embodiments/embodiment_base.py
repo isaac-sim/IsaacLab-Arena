@@ -29,6 +29,10 @@ class EmbodimentBase(Asset):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
     ):
+        assert self.name is not None, "Embodiment name is required"
+        super().__init__(name=self.name, tags=self.tags)
+        if "embodiment" not in self.tags:
+            self.tags.append("embodiment")
         self.enable_cameras = enable_cameras
         self.initial_pose = initial_pose
         self.concatenate_observation_terms = concatenate_observation_terms
