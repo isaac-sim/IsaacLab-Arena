@@ -30,6 +30,7 @@ class Job:
         policy_config_dict: dict = None,
         status: Status = None,
         language_instruction: str = None,
+        datagen: dict = None,
         variations: list[str] = None,
     ):
         """Initialize a Job instance.
@@ -65,6 +66,9 @@ class Job:
         self.policy_type = policy_type
         self.policy_config_dict = policy_config_dict if policy_config_dict is not None else {}
         self.language_instruction = language_instruction
+        # Optional per-job datagen collection settings (camera pose, output dir, ...).
+        # When None, datagen collection is disabled for this job.
+        self.datagen = datagen
         self.status = status if status is not None else Status.PENDING
         self.start_time = None
         self.end_time = None
@@ -122,6 +126,7 @@ class Job:
             policy_config_dict=data["policy_config_dict"],
             status=status,
             language_instruction=data.get("language_instruction"),
+            datagen=data.get("datagen"),
             variations=cls.convert_variations_dict_to_hydra_overrides(data.get("variations", {})),
         )
 

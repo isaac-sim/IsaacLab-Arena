@@ -81,6 +81,11 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     decimation: int = 4
     episode_length_s: float = 50.0
     wait_for_textures: bool = False
+    # Force at least one RTX sensor refresh after reset. The IsaacLab default (0)
+    # leaves camera buffers stale on the first frame of every episode after the
+    # first, so the previous episode's final rendered frame leaks in (corrupting
+    # RGB/depth/flow during datagen). See IsaacLab-Arena #339.
+    num_rerenders_on_reset: int = 5
 
 
 @configclass

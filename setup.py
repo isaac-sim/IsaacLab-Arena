@@ -14,6 +14,9 @@ RUNTIME_DEPS = [
     "vuer[all]",
     "lightwheel-sdk",
     "pytest",
+    # isaaclab_arena_datagen: SyntheticScene HDF5 writer (Zstd-compressed).
+    "h5py",
+    "hdf5plugin",
     "pydantic>=2.0",
     "openai>=2.0",
     # Sensitivity analysis (isaaclab_arena.analysis.sensitivity), imported at module level.
@@ -33,6 +36,16 @@ DEV_DEPS = [
     "streamlit-ace>=0.1.1",
 ]
 
+# isaaclab_arena_datagen: optional dependencies for per-scene visualizations
+# (PNG/MP4/HTML) and mesh-surface sampling. Imported lazily so the core data
+# pipeline runs without them.
+DATAGEN_VIZ_DEPS = [
+    "plotly",
+    "scipy",
+    "imageio",
+    "trimesh",
+]
+
 setup(
     name="isaaclab_arena",
     version=ISAACLAB_ARENA_VERSION_NUMBER,
@@ -45,12 +58,14 @@ setup(
             "isaaclab_arena_g1*",
             "isaaclab_arena_gr00t*",
             "isaaclab_arena_openpi*",
+            "isaaclab_arena_datagen*",
         ]
     ),
     python_requires=">=3.10",
     install_requires=RUNTIME_DEPS,
     extras_require={
         "dev": DEV_DEPS,
+        "datagen-viz": DATAGEN_VIZ_DEPS,
     },
     zip_safe=False,
 )
