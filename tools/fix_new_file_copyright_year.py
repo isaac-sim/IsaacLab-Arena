@@ -39,13 +39,23 @@ def fix_header_year(text: str, current_year: str, is_new: bool) -> str | None:
     return ARENA_RE.sub(rf"\g<1>{current_year}\g<3>", text, count=1)
 
 
-def is_new_file(path: str) -> bool:
-    """Return True if path is absent from HEAD, i.e. added in the current commit."""
-    return subprocess.run(["git", "cat-file", "-e", f"HEAD:{path}"], capture_output=True).returncode != 0
+def added_paths() -> set[str]:
+    """Return repo-relative paths added from scratch in the index.
+
+    Rename detection is forced on, so a moved file is reported as R rather than A and is treated
+    as existing — keeping its original start year instead of having it reset to the current year.
+    """
+    result = subprocess.run(
+        ["git", "diff", "--cached", "-z", "--find-renames", "--diff-filter=A", "--name-only"],
+        capture_output=True,
+        text=True,
+    )
+    return {path for path in result.stdout.split("\0") if path}
 
 
 def main(argv: list[str]) -> int:
     current = str(date.today().year)
+    new_files = added_paths()
     exit_code = 0
     for path in argv:
         file = Path(path)
@@ -53,7 +63,7 @@ def main(argv: list[str]) -> int:
             text = file.read_text(encoding="utf-8")
         except OSError:
             continue
-        new_text = fix_header_year(text, current, is_new_file(path))
+        new_text = fix_header_year(text, current, is_new=path in new_files)
         if new_text is None:
             continue
         file.write_text(new_text, encoding="utf-8")
