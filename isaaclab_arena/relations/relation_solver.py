@@ -156,7 +156,7 @@ class RelationSolver:
     ) -> torch.Tensor:
         """Compute pairwise no-overlap loss, skipping On-linked pairs.
 
-        - Non-anchor vs anchor: gradient flows to the non-anchor only.
+        - Non-anchor vs fixed obstacle (anchor or background): gradient flows to the non-anchor only.
         - Non-anchor vs non-anchor: both objects accumulate gradient (two directed passes).
 
         Args:
@@ -173,6 +173,10 @@ class RelationSolver:
 
         non_anchor_objects = state.optimizable_objects
         anchor_objects = list(state.anchor_objects)
+        # Passive background geometry: fixed obstacles that participate in collision only,
+        # never in relation constraints. Treated like anchors for no-overlap, but they are
+        # absent from state.optimizable_objects so the relation-strategy loops never see them.
+        fixed_obstacles = anchor_objects + list(state.collision_objects)
 
         # Skip no-overlap for On pairs: the On loss already pushes the child
         # onto the parent surface, so penalizing bbox overlap between them
@@ -185,31 +189,31 @@ class RelationSolver:
                     on_pairs.add((id(rel.parent), id(obj)))
 
         # World-space (min, max) extents once per object, shape (batch, 3). Non-anchor
-        # extents carry gradient through the object's position; anchor extents are constant.
+        # extents carry gradient through the object's position; fixed-obstacle extents are constant.
         extents: dict[ObjectBase, tuple[torch.Tensor, torch.Tensor]] = {}
         for obj in non_anchor_objects:
             pos = state.get_position(obj)
             bbox = state.get_bbox(obj)
             extents[obj] = (pos + bbox.min_point, pos + bbox.max_point)
-        for anchor in anchor_objects:
-            anchor_world_bbox = anchor.get_world_bounding_box().to(device)
-            extents[anchor] = (
-                anchor_world_bbox.min_point.expand(batch_size, 3),
-                anchor_world_bbox.max_point.expand(batch_size, 3),
+        for obstacle in fixed_obstacles:
+            obstacle_world_bbox = obstacle.get_world_bounding_box().to(device)
+            extents[obstacle] = (
+                obstacle_world_bbox.min_point.expand(batch_size, 3),
+                obstacle_world_bbox.max_point.expand(batch_size, 3),
             )
 
         pairs: list[NoOverlapPair] = []
         pair_names: list[tuple[str, str]] = []  # for the debug=True print
 
-        # Non-anchor vs each anchor: one pass (anchor is constant, so no detach).
+        # Non-anchor vs each fixed obstacle: one pass (obstacle is constant, so no detach).
         for child in non_anchor_objects:
             child_min, child_max = extents[child]
-            for anchor in anchor_objects:
-                if (id(child), id(anchor)) in on_pairs:
+            for obstacle in fixed_obstacles:
+                if (id(child), id(obstacle)) in on_pairs:
                     continue
-                anchor_min, anchor_max = extents[anchor]
-                pairs.append(NoOverlapPair(child_min, child_max, anchor_min, anchor_max))
-                pair_names.append((child.name, anchor.name))
+                obstacle_min, obstacle_max = extents[obstacle]
+                pairs.append(NoOverlapPair(child_min, child_max, obstacle_min, obstacle_max))
+                pair_names.append((child.name, obstacle.name))
 
         # Non-anchor vs non-anchor: score both directions (detach the obstacle) so each gets gradient.
         for i, child in enumerate(non_anchor_objects):
@@ -249,6 +253,7 @@ class RelationSolver:
         objects: list[ObjectBase],
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]],
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
+        collision_objects: list[ObjectBase] | None = None,
     ) -> list[dict[ObjectBase, tuple[float, float, float]]]:
         """Solve for optimal positions of all objects.
 
@@ -261,12 +266,17 @@ class RelationSolver:
                 ObjectPlacer always supplies these, with each
                 AxisAlignedBoundingBox shaped (batch, 3). Direct solver calls
                 may omit them to use each object's default get_bounding_box().
+            collision_objects: Optional fixed background obstacles included in the
+                no-overlap collision term only. They are not optimized and carry no
+                relation constraints.
 
         Returns:
             List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
         """
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        state = RelationSolverState(objects, initial_positions, device=device, env_bboxes=env_bboxes)
+        state = RelationSolverState(
+            objects, initial_positions, device=device, env_bboxes=env_bboxes, collision_objects=collision_objects
+        )
 
         if self.params.verbose:
             anchor_names = [obj.name for obj in state.anchor_objects]
@@ -274,6 +284,8 @@ class RelationSolver:
             print("=== RelationSolver ===")
             print(f"Anchors (fixed): {anchor_names}")
             print(f"Optimizable: {optimizable_names}")
+            if state.collision_objects:
+                print(f"Background collision obstacles: {[obj.name for obj in state.collision_objects]}")
 
         # Early return if nothing to optimize (all objects are anchors)
         if len(state.optimizable_objects) == 0:

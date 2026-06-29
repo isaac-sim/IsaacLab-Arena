@@ -31,6 +31,7 @@ class RelationSolverState:
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]],
         device: torch.device | None = None,
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
+        collision_objects: list[ObjectBase] | None = None,
     ):
         """Initialize optimization state.
 
@@ -44,6 +45,9 @@ class RelationSolverState:
                 ObjectPlacer always supplies these for placement solves. Direct
                 solver/debug calls may omit them to use each object's default
                 get_bounding_box().
+            collision_objects: Optional fixed background obstacles that participate in
+                no-overlap collision only (never in relation constraints). They keep a
+                constant world bounding box and are not optimized.
         """
         assert len(initial_positions) >= 1, "initial_positions must contain at least one dict."
         anchor_objects = get_anchor_objects(objects)
@@ -52,6 +56,7 @@ class RelationSolverState:
         self._all_objects = objects
         self._anchor_objects: set[ObjectBase] = set(anchor_objects)
         self._optimizable_objects = [obj for obj in objects if obj not in self._anchor_objects]
+        self._collision_objects: list[ObjectBase] = list(collision_objects) if collision_objects else []
 
         # Build object-to-index mapping
         self._obj_to_idx: dict[ObjectBase, int] = {obj: i for i, obj in enumerate(objects)}
@@ -128,6 +133,11 @@ class RelationSolverState:
     def anchor_objects(self) -> set[ObjectBase]:
         """Set of anchor objects (fixed during optimization)."""
         return self._anchor_objects
+
+    @property
+    def collision_objects(self) -> list[ObjectBase]:
+        """Fixed background obstacles included in no-overlap collision only."""
+        return self._collision_objects
 
     def get_position(self, obj: ObjectBase) -> torch.Tensor:
         """Get current position for an object.

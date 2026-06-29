@@ -82,12 +82,16 @@ class ArenaEnvBuilder:
           events restore the same layout every time.
         """
         objects_with_relations = self.arena_env.scene.get_objects_with_relations()
+        # Background geometry that carries no relations is invisible to the relation graph,
+        # but the solver should still keep placed objects from colliding with it.
+        collision_objects = self.arena_env.scene.get_collision_objects()
         self._placement_event_cfg = solve_and_apply_relation_placement(
             objects_with_relations,
             num_envs=self.args.num_envs,
             placement_seed=self.args.placement_seed,
             resolve_on_reset=self.args.resolve_on_reset,
             random_yaw_init=self.args.random_yaw_init,
+            collision_objects=collision_objects,
         )
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:
