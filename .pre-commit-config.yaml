@@ -75,9 +75,9 @@ repos:
         language: system
         pass_filenames: false
         types: [python]
-      - id: check-copyright-year
+      - id: fix-new-file-copyright-year
         name: Rewrite new files to use the current copyright year
-        entry: python3 tools/check_copyright_year.py
+        entry: python3 tools/fix_new_file_copyright_year.py
         language: system
         types: [python]
         exclude: "submodules/"

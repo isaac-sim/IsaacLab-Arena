@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for the tools/check_copyright_year.py pre-commit hook."""
+"""Tests for the tools/fix_new_file_copyright_year.py pre-commit hook."""
 
 from __future__ import annotations
 
@@ -12,12 +12,12 @@ from datetime import date
 from pathlib import Path
 
 CURRENT_YEAR = str(date.today().year)
-_SCRIPT = Path(__file__).resolve().parents[2] / "tools" / "check_copyright_year.py"
+_SCRIPT = Path(__file__).resolve().parents[2] / "tools" / "fix_new_file_copyright_year.py"
 
 
 def _load_hook():
-    """Import tools/check_copyright_year.py (a standalone script, not an installed module)."""
-    spec = importlib.util.spec_from_file_location("check_copyright_year", _SCRIPT)
+    """Import tools/fix_new_file_copyright_year.py (a standalone script, not an installed module)."""
+    spec = importlib.util.spec_from_file_location("fix_new_file_copyright_year", _SCRIPT)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
