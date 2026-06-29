@@ -9,8 +9,12 @@ Background obstacles carry no relations (so they are absent from the relation gr
 but should still be avoided by placed objects.
 """
 
+from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
-def _anchor_desk():
+HEADLESS = True
+
+
+def _make_desk():
     """Anchor desk, 2m x 1m wide so a box has room to relocate along X away from the obstacle."""
     from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.relations.relations import IsAnchor
@@ -26,7 +30,7 @@ def _anchor_desk():
     return desk
 
 
-def _box(name: str = "box"):
+def _make_box(name: str = "box"):
     """A 0.3m cube to place On the desk (smaller than each desk half so a valid spot exists)."""
     from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -37,7 +41,7 @@ def _box(name: str = "box"):
     )
 
 
-def _background():
+def _make_background():
     """Tall obstacle on the desk's left strip (x in [0, 0.5]).
 
     Narrower than the desk so a straddling box has a non-zero escape gradient: the
@@ -62,10 +66,10 @@ def test_collision_objects_add_no_overlap_loss():
     from isaaclab_arena.relations.relation_solver_state import RelationSolverState
     from isaaclab_arena.relations.relations import On
 
-    desk = _anchor_desk()
-    box = _box()
+    desk = _make_desk()
+    box = _make_box()
     box.add_relation(On(desk))
-    background = _background()
+    background = _make_background()
 
     # Box on the desk top, inside the background footprint.
     initial_positions = [{desk: (0.0, 0.0, 0.0), box: (0.3, 0.3, 0.1)}]
@@ -88,10 +92,10 @@ def test_solver_pushes_object_off_background_obstacle():
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import On
 
-    desk = _anchor_desk()
-    box = _box()
+    desk = _make_desk()
+    box = _make_box()
     box.add_relation(On(desk))
-    background = _background()
+    background = _make_background()
 
     initial_positions = [{desk: (0.0, 0.0, 0.0), box: (0.3, 0.3, 0.1)}]
     solver = RelationSolver(RelationSolverParams(verbose=False, save_position_history=False))
@@ -108,8 +112,8 @@ def test_solve_without_collision_objects_is_a_noop():
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import On
 
-    desk = _anchor_desk()
-    box = _box()
+    desk = _make_desk()
+    box = _make_box()
     box.add_relation(On(desk))
 
     initial_positions = [{desk: (0.0, 0.0, 0.0), box: (0.3, 0.3, 0.1)}]
@@ -125,10 +129,10 @@ def test_validate_no_overlap_rejects_background_overlap():
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.relations import On
 
-    desk = _anchor_desk()
-    box = _box()
+    desk = _make_desk()
+    box = _make_box()
     box.add_relation(On(desk))
-    background = _background()
+    background = _make_background()
 
     placer = ObjectPlacer()
     env_bboxes = {desk: desk.get_bounding_box(), box: box.get_bounding_box()}
@@ -140,6 +144,47 @@ def test_validate_no_overlap_rejects_background_overlap():
     assert placer._validate_no_overlap(clear, env_bboxes, [background])
 
 
+def _test_scene_get_collision_objects_filters(simulation_app) -> bool:
+    """Only relation-free objects with a USD path and a fixed Pose are returned."""
+    from unittest.mock import MagicMock
+
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.relations.relations import IsAnchor
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.utils.pose import Pose, PoseRange
+
+    def fake_object(name, relations, usd_path, pose):
+        obj = MagicMock(spec=Object)
+        obj.name = name
+        obj.get_relations.return_value = relations
+        obj.usd_path = usd_path
+        obj.get_initial_pose.return_value = pose
+        return obj
+
+    fixed_pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+    pose_range = PoseRange(
+        position_xyz_min=(0.0, 0.0, 0.0),
+        position_xyz_max=(1.0, 1.0, 1.0),
+        rpy_min=(0.0, 0.0, 0.0),
+        rpy_max=(0.0, 0.0, 0.0),
+    )
+    background = fake_object("background", [], "bg.usd", fixed_pose)
+    anchored = fake_object("anchored", [IsAnchor()], "a.usd", fixed_pose)
+    no_usd = fake_object("no_usd", [], None, fixed_pose)
+    no_pose = fake_object("no_pose", [], "n.usd", None)
+    ranged = fake_object("ranged", [], "r.usd", pose_range)
+
+    scene = Scene()
+    scene.assets = {o.name: o for o in [background, anchored, no_usd, no_pose, ranged]}
+
+    return scene.get_collision_objects() == [background]
+
+
+def test_scene_get_collision_objects_filters():
+    result = run_simulation_app_function(_test_scene_get_collision_objects_filters, headless=HEADLESS)
+    assert result, "Scene.get_collision_objects() returned the wrong subset"
+
+
 def test_object_placer_place_forwards_collision_objects():
     """ObjectPlacer.place threads collision_objects into the solve and validation, yielding a clear layout."""
     from isaaclab_arena.relations.object_placer import ObjectPlacer
@@ -147,10 +192,10 @@ def test_object_placer_place_forwards_collision_objects():
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import On
 
-    desk = _anchor_desk()
-    box = _box()
+    desk = _make_desk()
+    box = _make_box()
     box.add_relation(On(desk))
-    background = _background()
+    background = _make_background()
 
     params = ObjectPlacerParams(
         placement_seed=0,
@@ -170,10 +215,10 @@ def test_pooled_object_placer_forwards_collision_objects():
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import On
 
-    desk = _anchor_desk()
-    box = _box()
+    desk = _make_desk()
+    box = _make_box()
     box.add_relation(On(desk))
-    background = _background()
+    background = _make_background()
 
     params = ObjectPlacerParams(
         placement_seed=0,

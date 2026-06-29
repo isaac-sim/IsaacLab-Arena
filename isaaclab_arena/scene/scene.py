@@ -18,7 +18,7 @@ from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
-from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
+from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.variation_base import VariationBase
 
 AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg]
@@ -143,16 +143,16 @@ class Scene:
                 continue
             if isinstance(asset, ObjectReference) and asset.parent_asset.usd_path is None:
                 continue
+            # A single fixed Pose is required so get_world_bounding_box() places the obstacle
+            # correctly. PoseRange/PosePerEnv move per env/reset and None is unplaced; warn so the
+            # exclusion is never silent (a non-fixed pose on static furniture is likely a mistake).
             initial_pose = asset.get_initial_pose()
-            # A non-fixed pose on static furniture is almost certainly an authoring mistake.
-            if isinstance(initial_pose, (PoseRange, PosePerEnv)):
-                print(
-                    f"Warning: background object '{asset.name}' has a non-fixed pose "
-                    f"({type(initial_pose).__name__}); excluding it from collision obstacles."
-                )
-                continue
-            # A fixed Pose is required so get_world_bounding_box() places the obstacle correctly.
             if not isinstance(initial_pose, Pose):
+                pose_kind = "None" if initial_pose is None else type(initial_pose).__name__
+                print(
+                    f"Warning: background object '{asset.name}' has no fixed pose ({pose_kind}); "
+                    "excluding it from collision obstacles."
+                )
                 continue
             collision_objects.append(asset)
         return collision_objects

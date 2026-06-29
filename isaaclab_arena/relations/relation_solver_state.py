@@ -106,6 +106,13 @@ class RelationSolverState:
 
         self._env_bboxes = env_bboxes
 
+        # Anchors and background collision objects are fixed, so their world bounding boxes are
+        # constant during the solve. Cache them once instead of recomputing every gradient step.
+        self._fixed_obstacle_world_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] = {
+            obj: obj.get_world_bounding_box().to(self._device)
+            for obj in (*self._anchor_objects, *self._collision_objects)
+        }
+
     @property
     def device(self) -> torch.device:
         """Torch device for all position tensors."""
@@ -159,6 +166,10 @@ class RelationSolverState:
             raise RuntimeError(f"No optimizable positions available for object '{obj.name}'")
         opt_idx = self._global_to_opt_idx[idx]
         return self._optimizable_positions[:, opt_idx, :]
+
+    def get_fixed_obstacle_world_bbox(self, obj: ObjectBase) -> AxisAlignedBoundingBox:
+        """Return the cached constant world bounding box for an anchor or collision object."""
+        return self._fixed_obstacle_world_bboxes[obj]
 
     def get_bbox(self, obj: ObjectBase) -> AxisAlignedBoundingBox:
         """Return the local bounding box for obj, moved to the state's device."""

@@ -124,7 +124,7 @@ class RelationSolver:
                     relation_strategy = cast(RelationLossStrategy, strategy)
                     parent = relation.parent
                     if parent in state.anchor_objects:
-                        parent_world_bbox = parent.get_world_bounding_box().to(device)
+                        parent_world_bbox = state.get_fixed_obstacle_world_bbox(parent)
                     else:
                         parent_pos = state.get_position(parent)
                         parent_bbox = state.get_bbox(parent)
@@ -196,7 +196,7 @@ class RelationSolver:
             bbox = state.get_bbox(obj)
             extents[obj] = (pos + bbox.min_point, pos + bbox.max_point)
         for obstacle in fixed_obstacles:
-            obstacle_world_bbox = obstacle.get_world_bounding_box().to(device)
+            obstacle_world_bbox = state.get_fixed_obstacle_world_bbox(obstacle)
             extents[obstacle] = (
                 obstacle_world_bbox.min_point.expand(batch_size, 3),
                 obstacle_world_bbox.max_point.expand(batch_size, 3),
