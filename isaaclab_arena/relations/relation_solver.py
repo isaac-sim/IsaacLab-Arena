@@ -111,7 +111,7 @@ class RelationSolver:
                     relation_strategy = cast(RelationLossStrategy, strategy)
                     parent = relation.parent
                     if parent in state.anchor_objects:
-                        parent_world_bbox = parent.get_world_bounding_box().to(device)
+                        parent_world_bbox = state.get_fixed_obstacle_world_bbox(parent)
                     else:
                         parent_pos = state.get_position(parent)
                         parent_bbox = state.get_bbox(parent)
@@ -141,7 +141,11 @@ class RelationSolver:
         state: RelationSolverState,
         debug: bool = False,
     ) -> torch.Tensor:
-        """Compute pairwise no-overlap loss, skipping On-linked pairs."""
+        """Compute pairwise no-overlap loss, skipping On-linked pairs.
+
+        - Non-anchor vs fixed obstacle (anchor or background): gradient flows to the non-anchor only.
+        - Non-anchor vs non-anchor: both objects accumulate gradient.
+        """
         if self.params.collision_mode == CollisionMode.MESH:
             mesh_loss = compute_no_overlap_loss_mesh(
                 state,

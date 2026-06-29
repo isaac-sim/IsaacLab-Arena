@@ -87,7 +87,7 @@ def compute_no_overlap_loss_aabb(
         bbox = state.get_bbox(obj)
         extents[obj] = (pos + bbox.min_point, pos + bbox.max_point)
     for obstacle in fixed_obstacles:
-        obstacle_world_bbox = obstacle.get_world_bounding_box().to(device)
+        obstacle_world_bbox = state.get_fixed_obstacle_world_bbox(obstacle)
         extents[obstacle] = (
             obstacle_world_bbox.min_point.expand(batch_size, 3),
             obstacle_world_bbox.max_point.expand(batch_size, 3),
