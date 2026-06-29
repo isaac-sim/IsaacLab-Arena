@@ -62,8 +62,6 @@ def build_parser() -> argparse.ArgumentParser:
     runner.add_argument(
         "--policy_config_yaml_path", default=DEFAULT_POLICY_CONFIG, help="GR00T closed-loop config YAML"
     )
-    # Eval target: a graph-spec YAML (when the first token ends in .yaml/.yml) or a registered
-    # example-environment name, either followed by its args. Defaults to the robolab graph spec.
     runner.add_argument(
         "--env",
         default=DEFAULT_ENV_GRAPH_SPEC_YAML,

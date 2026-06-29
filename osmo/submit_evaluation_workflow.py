@@ -25,7 +25,7 @@ Usage examples:
         --workflow_type policy_runner \
         --policy_type zero_action \
         --policy_runner_args '--num_steps 500 --headless' \
-        --arena_env_args 'kitchen_pick_and_place --object cracker_box --embodiment franka_ik'
+        --env 'kitchen_pick_and_place --object cracker_box --embodiment franka_ik'
 
     # Dry run (print rendered YAML without submitting)
     python osmo/submit_evaluation_workflow.py --pool isaac-dev-l40-03 --dry-run
@@ -65,12 +65,17 @@ def build_parser() -> argparse.ArgumentParser:
     task.add_argument(
         "--policy_runner_args",
         default=None,
-        help="Additional policy-runner arguments before the Arena environment args",
+        help="Policy-runner arguments before the env spec",
     )
     task.add_argument(
-        "--arena_env_args",
+        "--env",
         default=DEFAULT_ARENA_ENV_ARGS,
-        help="Arena environment name and env-related arguments",
+        help="Graph-spec YAML path or example-env name, plus args, e.g. 'kitchen_pick_and_place --object cracker_box'",
+    )
+    task.add_argument(
+        "--env_variations",
+        default=None,
+        help="Hydra-style variation overrides for the env",
     )
 
     resources = parser.add_argument_group("resources")

@@ -13,12 +13,7 @@ GR00T server sidecar that shares its OSMO group. Mirrors the eval side of the
 from typing import Any
 
 from tasks.gr00t_server_task import DEFAULT_SERVER_PORT, GR00T_SERVER_HOST_TOKEN, get_wait_for_server_script
-from tasks.policy_runner_task import (
-    POLICY_RUNNER_COMMAND,
-    PolicyRunnerTask,
-    resolve_env_args_to_name,
-    resolve_env_variations,
-)
+from tasks.policy_runner_task import POLICY_RUNNER_COMMAND, PolicyRunnerTask
 from workflows.utils.workflow_types import WorkflowType
 from workflows.workflow_constants import EVAL_OUTPUT_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 
@@ -70,15 +65,6 @@ class Gr00tPolicyRunnerTask(PolicyRunnerTask):
 
     def _resolve_policy_runner_args(self) -> str:
         return getattr(self.task_args, "policy_runner_args", DEFAULT_POLICY_RUNNER_ARGS)
-
-    def _resolve_env_args_to_name(self) -> tuple[str | None, str | None]:
-        # a graph-spec YAML (when it ends in .yaml/.yml) or a registered example-environment name and its args.
-        env = getattr(self.task_args, "env", DEFAULT_ENV_GRAPH_SPEC_YAML)
-        return resolve_env_args_to_name(env)
-
-    def _resolve_env_variations(self) -> str | None:
-        # Trailing Hydra variation overrides apply to either env source.
-        return resolve_env_variations(getattr(self.task_args, "env_variations", DEFAULT_ENV_VARIATIONS))
 
     @staticmethod
     def get_task_name() -> str:

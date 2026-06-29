@@ -92,7 +92,7 @@ class PolicyRunnerTask(BaseTask):
 
     def _resolve_env_args_to_name(self) -> tuple[str | None, str | None]:
         """Return ``(env_graph_spec_yaml, arena_env_args)`` for the eval target."""
-        return resolve_env_args_to_name(self.task_args.arena_env_args)
+        return resolve_env_args_to_name(self.task_args.env)
 
     def _resolve_env_variations(self) -> str | None:
         """Return normalized Hydra variation overrides for the env, or None."""
