@@ -1,4 +1,4 @@
-# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -101,7 +101,6 @@ def create_recorder_env(
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.recording.episode_recorder_manager import EpisodeResultsMetadata
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.terms.events import set_object_pose_per_env
@@ -134,6 +133,9 @@ def create_recorder_env(
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     args_cli.num_envs = NUM_ENVS
+    # The builder applies the language-instruction override onto the env cfg's task_description, which the
+    # core recorder then records.
+    args_cli.language_instruction = LANGUAGE_INSTRUCTION
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
     env_cfg, env_kwargs = env_builder.compose_manager_cfg()
 
@@ -154,21 +156,19 @@ def create_recorder_env(
     output_path = Path(output_dir) / "episode_results.jsonl"
 
     env = env_builder.make_registered(env_cfg, env_kwargs)
-    env.unwrapped.episode_recorder.set_metadata(
-        EpisodeResultsMetadata(job_name=JOB_NAME, language_instruction=LANGUAGE_INSTRUCTION)
-    )
+    env.unwrapped.episode_recorder.set_job_name(JOB_NAME)
+    env.unwrapped.episode_recorder.set_output_path(output_path)
     env.reset()
     return env, output_path
 
 
 def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
-    """Step the env for ``NUM_STEPS``, write the buffered records, and return them parsed."""
+    """Step the env for ``NUM_STEPS`` (records stream to disk as episodes finish), then parse them."""
     for _ in tqdm.tqdm(range(NUM_STEPS)):
         with torch.inference_mode():
             actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
             env.step(actions)
 
-    env.unwrapped.episode_recorder.write(output_path)
     assert output_path.exists(), f"Expected JSONL at {output_path}"
     with open(output_path, encoding="utf-8") as f:
         records = [json.loads(line) for line in f if line.strip()]

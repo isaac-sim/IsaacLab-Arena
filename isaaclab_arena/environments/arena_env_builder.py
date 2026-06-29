@@ -302,7 +302,9 @@ class ArenaEnvBuilder:
 
         episode_length_s = task.get_episode_length_s()
 
-        task_description = task.get_task_description()
+        # Language instruction is optionally overridden on the CLI.
+        language_instruction = getattr(self.args, "language_instruction", None)
+        task_description = language_instruction or task.get_task_description()
 
         # Build the environment configuration
         if not self.args.mimic:

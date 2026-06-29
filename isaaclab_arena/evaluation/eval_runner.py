@@ -23,7 +23,6 @@ from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
-from isaaclab_arena.recording.episode_recorder_manager import EpisodeResultsMetadata
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext, teardown_simulation_app
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir, wrap_env_for_video
 from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
@@ -39,17 +38,20 @@ def load_env(
     job_name: str,
     variations: list[str] | None = None,
     render_mode: str | None = None,
+    language_instruction: str | None = None,
 ):
 
     args_parser = get_isaaclab_arena_environments_cli_parser()
 
     arena_env_args_cli = args_parser.parse_args(arena_env_args)
+    # Optionally override the language instruction.
+    arena_env_args_cli.language_instruction = language_instruction
     arena_builder = get_arena_builder_from_cli(arena_env_args_cli, hydra_overrides=variations)
 
-    env_name, env_cfg, env_kwargs = arena_builder.build_registered()
+    _, env_cfg, env_kwargs = arena_builder.build_registered()
 
     # Set unique dataset filename for this job to avoid file locking conflicts
-    if hasattr(env_cfg, "recorders") and env_cfg.recorders is not None:
+    if env_cfg.recorders is not None:
         env_cfg.recorders.dataset_filename = f"dataset_{job_name}"
 
     env = arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
@@ -294,16 +296,19 @@ def main():
                         camera_name_prefix=f"robot-cam-rebuild{rebuild_idx}",
                     )
                     env = load_env(
-                        job.arena_env_args, job.name, variations=job.variations, render_mode=video_cfg.render_mode
+                        job.arena_env_args,
+                        job.name,
+                        variations=job.variations,
+                        render_mode=video_cfg.render_mode,
+                        language_instruction=job.language_instruction,
                     )
 
-                    # Stamp the run-level metadata the env cannot infer on its own.
-                    env.unwrapped.episode_recorder.set_metadata(
-                        EpisodeResultsMetadata(
-                            job_name=job.name,
-                            language_instruction=job.language_instruction,
-                        )
-                    )
+                    # Write per-episode results to disk.
+                    # TODO: Aggregate the per-episode records across rebuilds into a single file,
+                    # as is done for the metrics below.
+                    results_path = os.path.join(job_output_dir, f"episode_results_rebuild{rebuild_idx}.jsonl")
+                    env.unwrapped.episode_recorder.set_job_name(job.name)
+                    env.unwrapped.episode_recorder.set_output_path(results_path)
 
                     policy = get_policy_from_job(job)
 
@@ -325,14 +330,7 @@ def main():
                         policy,
                         num_steps=job.num_steps,
                         num_episodes=num_episodes_this_rebuild,
-                        language_instruction=job.language_instruction,
                     )
-
-                    # Write per-episode results to job's output subdir, one file per rebuild.
-                    # TODO: Aggregate the per-episode records across rebuilds into a single file,
-                    # as is done for the metrics above.
-                    results_path = os.path.join(job_output_dir, f"episode_results_rebuild{rebuild_idx}.jsonl")
-                    env.unwrapped.episode_recorder.write(results_path)
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
 
