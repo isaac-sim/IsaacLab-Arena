@@ -12,7 +12,9 @@ from datetime import date
 from pathlib import Path
 
 CURRENT_YEAR = str(date.today().year)
-_SCRIPT = Path(__file__).resolve().parents[2] / "tools" / "fix_new_file_copyright_year.py"
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_SCRIPT = _REPO_ROOT / "tools" / "fix_new_file_copyright_year.py"
+_LICENSE_TEMPLATE = _REPO_ROOT / ".github" / "LICENSE_HEADER.txt"
 
 
 def _load_hook():
@@ -39,6 +41,12 @@ def test_header_years_parses_single_and_range() -> None:
     assert hook.header_years(_header(CURRENT_YEAR)) == CURRENT_YEAR
     assert hook.header_years(_header("2020-2025")) == "2020-2025"
     assert hook.header_years("x = 1\n") is None
+
+
+def test_regex_matches_the_real_license_template() -> None:
+    # The other tests build the header by hand; this guards against ARENA_RE drifting away from the
+    # canonical .github/LICENSE_HEADER.txt that insert-license actually writes (e.g. an org rename).
+    assert hook.header_years(_LICENSE_TEMPLATE.read_text(encoding="utf-8")) is not None
 
 
 def test_new_file_with_pasted_range_is_rewritten() -> None:
