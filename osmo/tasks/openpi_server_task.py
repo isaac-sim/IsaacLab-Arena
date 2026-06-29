@@ -52,6 +52,7 @@ class OpenpiServerTask(BaseTask):
         return []
 
     def _get_run_script(self) -> str:
+        # return "sleep infinity"
         return (
             "set -euxo pipefail\n"
             f"export XLA_PYTHON_CLIENT_MEM_FRACTION={XLA_PYTHON_CLIENT_MEM_FRACTION}\n"

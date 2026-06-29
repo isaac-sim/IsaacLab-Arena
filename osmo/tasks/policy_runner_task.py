@@ -83,6 +83,7 @@ class PolicyRunnerTask(BaseTask):
 
     def _get_run_script(self) -> str:
         # return 'set -euxo pipefail\necho "hello world from policy_runner_task"\n'
+        # return "sleep infinity"
         return (
             "set -euxo pipefail\n"
             "getent hosts localhost\n"
