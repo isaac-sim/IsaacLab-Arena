@@ -22,6 +22,8 @@ _PLAIN_PANDA = (
 )
 # LIBERO Franka home configuration: q1..q7 + the two finger joints (open).
 _HOME_Q = [0.0, -0.16104, 0.0, -2.4446, 0.0, 2.22675, 0.7854, 0.04, 0.04]
+# DROID (Franka+Robotiq) home: 7 arm joints (LIBERO posture) + finger_joint + 5 Robotiq linkage joints = 13 DOF.
+_DROID_HOME_Q = [0.0, -0.16104, 0.0, -2.4446, 0.0, 2.22675, 0.7854, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 # Comfortable reach box in front of the base for the groceries (x,y; On() supplies z at the table top).
 _REACH_BOX = dict(x_min=0.12, x_max=0.52, y_min=-0.30, y_max=0.26)
 # Tabletop height. Robot base + basket + groceries all sit on the table at this z; raising everything by
@@ -55,45 +57,66 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
         light.set_intensity(1500.0)
         ground = self.asset_registry.get_asset_by_name("ground_plane")()
 
-        # Ground-mounted Franka at the origin with the LIBERO home pose. The control mode picks the arm
-        # action term: relative differential IK (default; a zero action holds pose, which the viewer and
-        # smoke tests rely on) or absolute joint position (for the GaP bridge, where the action IS the
-        # target q). A zero action under joint-position control drives every joint to 0, so this is not a
-        # safe default.
-        embodiment_name = "franka_joint_pos" if args_cli.control == "joint_pos" else "franka_ik"
-        embodiment = self.asset_registry.get_asset_by_name(embodiment_name)(enable_cameras=args_cli.enable_cameras)
-        embodiment.set_initial_pose(Pose(position_xyz=(-0.20, 0.0, _TABLE_TOP_Z), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
-        embodiment.set_initial_joint_pose(initial_joint_pose=_HOME_Q)
-        embodiment.scene_config.robot.spawn.usd_path = _PLAIN_PANDA
-        if args_cli.control == "joint_pos":
-            from isaaclab.envs.mdp.actions.actions_cfg import JointPositionActionCfg
-            from isaaclab_assets.robots.franka import FRANKA_PANDA_HIGH_PD_CFG
+        # Ground-mounted robot at the origin with the LIBERO home pose. The control mode picks the
+        # embodiment and arm action term: relative differential IK (default; a zero action holds pose,
+        # which the viewer and smoke tests rely on), absolute joint position for the GaP bridge
+        # (where the action IS the target q), or droid_joint_pos for the DROID Franka+Robotiq variant.
+        # A zero action under joint-position control drives every joint to 0, so this is not a safe default.
+        if args_cli.control == "droid_joint_pos":
+            # DROID Franka+Robotiq: use the embodiment's own absolute-joint-pos action, USD, PD gains,
+            # and stand. Do NOT apply the Panda-specific overrides (plain panda USD, HIGH_PD, panda_joint.*
+            # action term, 9-dof _HOME_Q) — they would drop the Robotiq gripper and mismatch the 13-DOF dof.
+            from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
 
-            # High-PD gains so the arm actually tracks the commanded absolute q. The stock joint-pos cfg
-            # (FRANKA_PANDA_CFG, stiffness=80) is tuned for RL compliance and sags ~0.25 rad at the
-            # gravity-loaded joints 2/4; HIGH_PD (the gains the IK embodiment uses) holds the target. The
-            # plain ground-mounted panda USD is kept.
-            high_pd_robot = FRANKA_PANDA_HIGH_PD_CFG.copy()
-            high_pd_robot.spawn.usd_path = _PLAIN_PANDA
-            embodiment.scene_config.robot = high_pd_robot.replace(prim_path="{ENV_REGEX_NS}/Robot")
+            embodiment = DroidAbsoluteJointPositionEmbodiment(enable_cameras=args_cli.enable_cameras)
+            # The DROID stand USD (Arena/srl_robolab_assets) is not hosted on the public S3 Nucleus and
+            # is redundant with the libero table anyway; swap its spawn for a tiny invisible cuboid. The
+            # stand AssetBaseCfg object is kept (the embodiment's _update_scene_cfg_with_robot_initial_pose
+            # writes stand.init_state), but nothing is fetched and no prop overlaps the table.
+            import isaaclab.sim as sim_utils
 
-            # Absolute joint targets: action[i] is the commanded q_i directly. The stock franka_joint_pos
-            # term ships scale=0.5/use_default_offset=True, which would land a target q at 0.5*q+default;
-            # scale=1.0/use_default_offset=False makes the action the absolute target the bridge expects.
-            embodiment.action_config.arm_action = JointPositionActionCfg(
-                asset_name="robot",
-                joint_names=["panda_joint.*"],
-                scale=1.0,
-                use_default_offset=False,
+            embodiment.scene_config.stand.spawn = sim_utils.CuboidCfg(size=(0.01, 0.01, 0.01), visible=False)
+            embodiment.set_initial_pose(
+                Pose(position_xyz=(-0.20, 0.0, _TABLE_TOP_Z), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
             )
+            embodiment.set_initial_joint_pose(initial_joint_pose=_DROID_HOME_Q)
+            if args_cli.enable_cameras:
+                from isaaclab_arena_environments.libero_cameras import LiberoDroidPerceptionCameraCfg
 
-        # Perception cameras (M4 bridge): add a fixed exterior rgb+depth camera viewing the table and
-        # depth to the wrist camera. Imported lazily so the Isaac Lab configclasses are not pulled in at
-        # environment-registration time.
-        if args_cli.enable_cameras:
-            from isaaclab_arena_environments.libero_cameras import LiberoPerceptionCameraCfg
+                embodiment.camera_config = LiberoDroidPerceptionCameraCfg()
+        else:
+            embodiment_name = "franka_joint_pos" if args_cli.control == "joint_pos" else "franka_ik"
+            embodiment = self.asset_registry.get_asset_by_name(embodiment_name)(enable_cameras=args_cli.enable_cameras)
+            embodiment.set_initial_pose(
+                Pose(position_xyz=(-0.20, 0.0, _TABLE_TOP_Z), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+            )
+            embodiment.set_initial_joint_pose(initial_joint_pose=_HOME_Q)
+            embodiment.scene_config.robot.spawn.usd_path = _PLAIN_PANDA
+            if args_cli.control == "joint_pos":
+                from isaaclab.envs.mdp.actions.actions_cfg import JointPositionActionCfg
+                from isaaclab_assets.robots.franka import FRANKA_PANDA_HIGH_PD_CFG
 
-            embodiment.camera_config = LiberoPerceptionCameraCfg()
+                # High-PD gains so the arm actually tracks the commanded absolute q. The stock joint-pos cfg
+                # (FRANKA_PANDA_CFG, stiffness=80) is tuned for RL compliance and sags ~0.25 rad at the
+                # gravity-loaded joints 2/4; HIGH_PD (the gains the IK embodiment uses) holds the target. The
+                # plain ground-mounted panda USD is kept.
+                high_pd_robot = FRANKA_PANDA_HIGH_PD_CFG.copy()
+                high_pd_robot.spawn.usd_path = _PLAIN_PANDA
+                embodiment.scene_config.robot = high_pd_robot.replace(prim_path="{ENV_REGEX_NS}/Robot")
+
+                # Absolute joint targets: action[i] is the commanded q_i directly. The stock franka_joint_pos
+                # term ships scale=0.5/use_default_offset=True, which would land a target q at 0.5*q+default;
+                # scale=1.0/use_default_offset=False makes the action the absolute target the bridge expects.
+                embodiment.action_config.arm_action = JointPositionActionCfg(
+                    asset_name="robot",
+                    joint_names=["panda_joint.*"],
+                    scale=1.0,
+                    use_default_offset=False,
+                )
+            if args_cli.enable_cameras:
+                from isaaclab_arena_environments.libero_cameras import LiberoPerceptionCameraCfg
+
+                embodiment.camera_config = LiberoPerceptionCameraCfg()
 
         teleop_device = (
             self.device_registry.get_device_by_name(args_cli.teleop_device)() if args_cli.teleop_device else None
@@ -178,9 +201,10 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
             "--control",
             type=str,
             default="ik",
-            choices=["ik", "joint_pos"],
-            help="Arm action term: 'ik' (relative differential IK, default) or 'joint_pos' "
-            "(absolute joint-position targets, for the GaP bridge).",
+            choices=["ik", "joint_pos", "droid_joint_pos"],
+            help="Arm action term: 'ik' (relative differential IK, default), 'joint_pos' "
+            "(absolute joint-position targets, for the GaP bridge), or 'droid_joint_pos' "
+            "(DROID Franka+Robotiq absolute joint targets, Robotiq binary gripper).",
         )
         parser.add_argument("--teleop_device", type=str, default=None)
         parser.add_argument(
