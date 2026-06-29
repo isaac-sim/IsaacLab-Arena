@@ -14,6 +14,7 @@ import re
 import subprocess
 import sys
 from datetime import date
+from pathlib import Path
 
 # Captures the year string of the Arena copyright line, splitting off the literal
 # prefix/suffix so a rewrite only touches the year(s).
@@ -45,22 +46,20 @@ def is_new_file(path: str) -> bool:
 
 def main(argv: list[str]) -> int:
     current = str(date.today().year)
-    fixed = []
+    exit_code = 0
     for path in argv:
+        file = Path(path)
         try:
-            with open(path, encoding="utf-8") as fh:
-                text = fh.read()
+            text = file.read_text(encoding="utf-8")
         except OSError:
             continue
         new_text = fix_header_year(text, current, is_new_file(path))
         if new_text is None:
             continue
-        with open(path, "w", encoding="utf-8") as fh:
-            fh.write(new_text)
-        fixed.append((path, header_years(text)))
-    for path, old in fixed:
-        print(f"{path}: new file copyright year '{old}' rewritten to '{current}'")
-    return 1 if fixed else 0
+        file.write_text(new_text, encoding="utf-8")
+        print(f"{path}: new file copyright year '{header_years(text)}' rewritten to '{current}'")
+        exit_code = 1
+    return exit_code
 
 
 if __name__ == "__main__":
