@@ -48,8 +48,8 @@ _IDLE_WINDOW = 120  # steps of unchanged+settled before skipping; >= a placement
 #                     settles (object dropping into the basket) complete; only long host-compute idles
 #                     (perception/planning, where the scene is static) get skipped.
 # Agentview-style external view: from +X, elevated, looking back/down at the table center.
-_CAM_EYE = (1.3, 0.0, 0.65)
-_CAM_TARGET = (0.32, 0.0, 0.08)
+_CAM_EYE = (1.3, 0.0, 1.05)
+_CAM_TARGET = (0.32, 0.0, 0.48)
 
 
 def add_bridge_args(parser: argparse.ArgumentParser) -> None:
