@@ -23,6 +23,19 @@ All global and policy-specific flags must appear **before** the environment name
     --embodiment droid_abs_joint_pos
 ```
 
+With the Kit viewport open, omit `--headless` and add `--viz kit`:
+
+```bash
+/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+    --policy_type isaaclab_arena_dreamzero.policy.dreamzero_remote_policy.DreamZeroRemotePolicy \
+    --enable_cameras \
+    --num_episodes 5 \
+    --viz kit \
+    --language_instruction "Pick up the cube and place it in the bowl." \
+    pick_and_place_maple_table \
+    --embodiment droid_abs_joint_pos
+```
+
 Run inside the container:
 
 ```bash
@@ -40,11 +53,11 @@ All options have defaults matching the DreamZero wire protocol. Only override wh
 | `--dreamzero_port` | `5000` | Port the server listens on |
 | `--dreamzero_open_loop_horizon` | `24` | Action steps replayed per server inference call |
 | `--dreamzero_num_arm_joints` | `7` | Arm DOF count; remainder of `robot_joint_pos` is treated as gripper |
-| `--dreamzero_cam_exterior_left` | `over_shoulder_left_camera` | Arena camera key → `observation/exterior_image_0_left` |
+| `--dreamzero_cam_exterior_left` | `external_camera_rgb` | Arena camera key → `observation/exterior_image_0_left` |
 | `--dreamzero_cam2_source` | `black` | Source for `observation/exterior_image_1_left`: `black`, `duplicate`, `right`, or `head` |
-| `--dreamzero_cam_exterior_right` | `over_shoulder_right_camera` | Camera used when `cam2_source=right` |
+| `--dreamzero_cam_exterior_right` | `external_camera_2_rgb` | Camera used when `cam2_source=right` |
 | `--dreamzero_cam_head` | `head_camera` | Camera used when `cam2_source=head` |
-| `--dreamzero_cam_wrist` | `wrist_cam` | Arena camera key → `observation/wrist_image_left` |
+| `--dreamzero_cam_wrist` | `wrist_camera_rgb` | Arena camera key → `observation/wrist_image_left` |
 | `--policy_device` | `cuda` | Torch device for the returned action tensor |
 
 ## Batch evaluation (eval_runner)

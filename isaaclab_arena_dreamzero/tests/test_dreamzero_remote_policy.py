@@ -31,8 +31,8 @@ def _fake_env(num_envs: int = NUM_ENVS):
 def _fake_observation(num_envs: int = NUM_ENVS) -> dict:
     return {
         "camera_obs": {
-            "over_shoulder_left_camera": torch.zeros((num_envs, 480, 640, 3), dtype=torch.uint8),
-            "wrist_cam": torch.zeros((num_envs, 480, 640, 3), dtype=torch.uint8),
+            "external_camera_rgb": torch.zeros((num_envs, 480, 640, 3), dtype=torch.uint8),
+            "wrist_camera_rgb": torch.zeros((num_envs, 480, 640, 3), dtype=torch.uint8),
         },
         "policy": {
             "robot_joint_pos": torch.arange(num_envs * NUM_JOINTS, dtype=torch.float32).reshape(num_envs, NUM_JOINTS),
@@ -260,7 +260,7 @@ def test_cam2_source_duplicate_copies_cam0(make_policy):
     policy._maybe_init_per_env_state(NUM_ENVS)
     obs = _fake_observation()
     # Give cam0 a non-zero value.
-    obs["camera_obs"]["over_shoulder_left_camera"][:] = 42
+    obs["camera_obs"]["external_camera_rgb"][:] = 42
     req = policy._build_request(obs, env_id=0)
     np.testing.assert_array_equal(
         req["observation/exterior_image_0_left"],
@@ -273,7 +273,7 @@ def test_cam2_source_right_missing_raises(make_policy):
     policy = make_policy(cam2_source="right")
     policy._maybe_init_per_env_state(NUM_ENVS)
     obs = _fake_observation()  # no 'over_shoulder_right_camera' key
-    with pytest.raises(AssertionError, match="over_shoulder_right_camera"):
+    with pytest.raises(AssertionError, match="external_camera_2_rgb"):
         policy._build_request(obs, env_id=0)
 
 

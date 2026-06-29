@@ -29,19 +29,19 @@ class DreamZeroRemotePolicyConfig:
     num_arm_joints: int = 7
     """Number of arm DOF; used to split robot_joint_pos into arm joints and gripper."""
 
-    cam_exterior_left: str = "over_shoulder_left_camera"
+    cam_exterior_left: str = "external_camera_rgb"
     """Arena camera key that maps to observation/exterior_image_0_left."""
 
     cam2_source: str = "black"
     """Source for the second exterior camera slot. One of: black, right, head, duplicate."""
 
-    cam_exterior_right: str = "over_shoulder_right_camera"
+    cam_exterior_right: str = "external_camera_2_rgb"
     """Arena camera key used when cam2_source='right'."""
 
     cam_head: str = "head_camera"
     """Arena camera key used when cam2_source='head'."""
 
-    cam_wrist: str = "wrist_cam"
+    cam_wrist: str = "wrist_camera_rgb"
     """Arena camera key that maps to observation/wrist_image_left."""
 
     policy_device: str = "cuda"

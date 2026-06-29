@@ -119,7 +119,7 @@ class DreamZeroRemotePolicy(PolicyBase):
         group.add_argument(
             "--dreamzero_cam_exterior_left",
             type=str,
-            default="over_shoulder_left_camera",
+            default="external_camera_rgb",
             help="Arena camera key for the primary exterior (left shoulder) camera.",
         )
         group.add_argument(
@@ -132,7 +132,7 @@ class DreamZeroRemotePolicy(PolicyBase):
         group.add_argument(
             "--dreamzero_cam_exterior_right",
             type=str,
-            default="over_shoulder_right_camera",
+            default="external_camera_2_rgb",
             help="Arena camera key for the right shoulder camera (used when cam2_source='right').",
         )
         group.add_argument(
@@ -144,7 +144,7 @@ class DreamZeroRemotePolicy(PolicyBase):
         group.add_argument(
             "--dreamzero_cam_wrist",
             type=str,
-            default="wrist_cam",
+            default="wrist_camera_rgb",
             help="Arena camera key for the wrist camera.",
         )
         group.add_argument(
