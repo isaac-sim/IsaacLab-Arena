@@ -1,0 +1,60 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""Tests for the tools/check_copyright_year.py pre-commit hook."""
+
+from __future__ import annotations
+
+import importlib.util
+from datetime import date
+from pathlib import Path
+
+CURRENT_YEAR = str(date.today().year)
+_SCRIPT = Path(__file__).resolve().parents[2] / "tools" / "check_copyright_year.py"
+
+
+def _load_hook():
+    """Import tools/check_copyright_year.py (a standalone script, not an installed module)."""
+    spec = importlib.util.spec_from_file_location("check_copyright_year", _SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+hook = _load_hook()
+
+
+def _header(years: str) -> str:
+    """Return a minimal Python source string with an Arena copyright header for the given year(s)."""
+    return (
+        f"# Copyright (c) {years}, The Isaac Lab Arena Project Developers "
+        "(https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).\n"
+        "# All rights reserved.\n#\n# SPDX-License-Identifier: Apache-2.0\n\nx = 1\n"
+    )
+
+
+def test_header_years_parses_single_and_range() -> None:
+    assert hook.header_years(_header(CURRENT_YEAR)) == CURRENT_YEAR
+    assert hook.header_years(_header("2020-2025")) == "2020-2025"
+    assert hook.header_years("x = 1\n") is None
+
+
+def test_new_file_with_pasted_range_is_rewritten() -> None:
+    fixed = hook.fix_header_year(_header(f"2020-{CURRENT_YEAR}"), CURRENT_YEAR, is_new=True)
+    assert fixed == _header(CURRENT_YEAR)
+
+
+def test_new_file_with_current_year_needs_no_change() -> None:
+    assert hook.fix_header_year(_header(CURRENT_YEAR), CURRENT_YEAR, is_new=True) is None
+
+
+def test_existing_file_is_left_alone() -> None:
+    # A file already in HEAD keeps its start year even when it differs from the current year;
+    # the end year is the insert-license hook's responsibility, not this one's.
+    assert hook.fix_header_year(_header(f"2020-{CURRENT_YEAR}"), CURRENT_YEAR, is_new=False) is None
+
+
+def test_file_without_arena_header_is_ignored() -> None:
+    assert hook.fix_header_year("x = 1\n", CURRENT_YEAR, is_new=True) is None
