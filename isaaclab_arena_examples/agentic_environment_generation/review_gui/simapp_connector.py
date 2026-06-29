@@ -11,7 +11,10 @@ from pathlib import Path
 
 import streamlit as st
 
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import validate_yaml_text
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
+    SpecParseResult,
+    validate_yaml_text,
+)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppClient,
     SimAppError,
@@ -69,7 +72,7 @@ def ensure_simapp() -> SimAppClient | None:
 def run_sim_preview_pipeline(
     yaml_text: str,
     *,
-    validation=None,
+    validation: SpecParseResult | None = None,
     num_envs: int = NUM_ENVS,
     num_steps: int = NUM_STEPS,
     env_spacing: float = ENV_SPACING_M,
