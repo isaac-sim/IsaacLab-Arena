@@ -141,11 +141,20 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
             objects.append(obj)
 
         scene = Scene(assets=[ground, light, surface, basket, *objects])
+
+        if args_cli.eval_task == "pick_place_in_basket":
+            task = _make_libero_packing_task(
+                can_asset_name=objects[0].name,  # alphabet_soup_can_hope_robolab
+                basket_asset_name=basket.name,   # grey_bin_robolab
+            )
+        else:
+            task = NoTask()
+
         return IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
             scene=scene,
-            task=NoTask(),
+            task=task,
             teleop_device=teleop_device,
         )
 
@@ -174,3 +183,108 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
             "(absolute joint-position targets, for the GaP bridge).",
         )
         parser.add_argument("--teleop_device", type=str, default=None)
+        parser.add_argument(
+            "--eval_task",
+            type=str,
+            choices=["none", "pick_place_in_basket"],
+            default="none",
+            help=(
+                "Scoring task to attach for eval_runner. "
+                "'none' = NoTask (viewer/bridge runs unaffected); "
+                "'pick_place_in_basket' = proximity success for alphabet_soup_can into basket."
+            ),
+        )
+
+
+def _make_libero_packing_task(
+    can_asset_name: str,
+    basket_asset_name: str,
+    max_x_separation: float = 0.12,
+    max_y_separation: float = 0.12,
+    max_z_separation: float = 0.20,
+    episode_length_s: float = 180.0,
+):
+    """Factory that builds a ``LiberoPackingTask`` with all Isaac Lab imports deferred.
+
+    All imports of Isaac Lab configclasses happen inside this function so that
+    the environment module can be imported and registered without booting Isaac Sim.
+    """
+    from dataclasses import MISSING
+
+    import isaaclab.envs.mdp as mdp_isaac_lab
+    from isaaclab.envs.common import ViewerCfg
+    from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
+    from isaaclab.utils import configclass
+
+    from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+    from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+    from isaaclab_arena.tasks.task_base import TaskBase
+    from isaaclab_arena.tasks.terminations import SuccessMode, check_success, objects_in_proximity
+
+    @configclass
+    class _LiberoPackingTerminationsCfg:
+        time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
+        success: TerminationTermCfg = MISSING
+
+    class LiberoPackingTask(TaskBase):
+        """Proximity-only success task for the LIBERO object-packing eval.
+
+        Fires 'success' when the alphabet_soup_can is within (max_x, max_y, max_z)
+        of the basket centroid.  No contact sensor, no object_min_z, no mimic cfg.
+        """
+
+        def __init__(
+            self,
+            can_asset_name: str,
+            basket_asset_name: str,
+            max_x_separation: float,
+            max_y_separation: float,
+            max_z_separation: float,
+            episode_length_s: float,
+        ):
+            super().__init__(
+                episode_length_s=episode_length_s,
+                task_description=f"Pick up the {can_asset_name} and place it in the basket.",
+            )
+            predicate = TerminationTermCfg(
+                func=objects_in_proximity,
+                params={
+                    "object_cfg": SceneEntityCfg(can_asset_name),
+                    "target_object_cfg": SceneEntityCfg(basket_asset_name),
+                    "max_x_separation": max_x_separation,
+                    "max_y_separation": max_y_separation,
+                    "max_z_separation": max_z_separation,
+                },
+            )
+            success_term = TerminationTermCfg(
+                func=check_success,
+                params={"mode": SuccessMode.ALL, "predicates": [predicate]},
+            )
+            self._termination_cfg = _LiberoPackingTerminationsCfg(success=success_term)
+
+        def get_scene_cfg(self):
+            return None
+
+        def get_termination_cfg(self):
+            return self._termination_cfg
+
+        def get_events_cfg(self):
+            return None
+
+        def get_mimic_env_cfg(self, arm_mode: ArmMode):
+            return None
+
+        def get_metrics(self):
+            return [SuccessRateMetric()]
+
+        def get_viewer_cfg(self) -> ViewerCfg:
+            return ViewerCfg(eye=(-1.5, -1.5, 1.5), lookat=(0.0, 0.0, 0.5))
+
+    return LiberoPackingTask(
+        can_asset_name=can_asset_name,
+        basket_asset_name=basket_asset_name,
+        max_x_separation=max_x_separation,
+        max_y_separation=max_y_separation,
+        max_z_separation=max_z_separation,
+        episode_length_s=episode_length_s,
+    )
