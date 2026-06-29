@@ -39,23 +39,29 @@ def fix_header_year(text: str, current_year: str, is_new: bool) -> str | None:
     return ARENA_RE.sub(rf"\g<1>{current_year}\g<3>", text, count=1)
 
 
-def added_paths() -> set[str]:
-    """Return repo-relative paths added from scratch in the index.
+def added_paths(status_output: str) -> set[str]:
+    """Return the paths added from scratch, parsed from ``git diff --cached --name-status`` output.
 
-    Rename detection is forced on, so a moved file is reported as R rather than A and is treated
-    as existing — keeping its original start year instead of having it reset to the current year.
+    Each line is ``<status>\\t<path>`` (``R<score>\\t<old>\\t<new>`` for a rename). Only status ``A``
+    counts as new; a rename is reported as ``R`` and excluded, so a moved file keeps its original
+    start year instead of having it reset to the current year.
     """
+    return {line.split("\t")[1] for line in status_output.splitlines() if line.startswith("A\t")}
+
+
+def staged_status() -> str:
+    """Return ``git diff --cached --name-status`` for the staged changes, with renames detected."""
     result = subprocess.run(
-        ["git", "diff", "--cached", "-z", "--find-renames", "--diff-filter=A", "--name-only"],
+        ["git", "diff", "--cached", "--find-renames", "--name-status"],
         capture_output=True,
         text=True,
     )
-    return {path for path in result.stdout.split("\0") if path}
+    return result.stdout
 
 
 def main(argv: list[str]) -> int:
     current = str(date.today().year)
-    new_files = added_paths()
+    new_files = added_paths(staged_status())
     exit_code = 0
     for path in argv:
         file = Path(path)

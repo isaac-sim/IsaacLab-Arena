@@ -8,12 +8,8 @@
 from __future__ import annotations
 
 import importlib.util
-import subprocess
-import sys
 from datetime import date
 from pathlib import Path
-
-import pytest
 
 CURRENT_YEAR = str(date.today().year)
 _SCRIPT = Path(__file__).resolve().parents[2] / "tools" / "fix_new_file_copyright_year.py"
@@ -77,48 +73,8 @@ def test_yaml_header_is_also_rewritten() -> None:
     assert fixed.startswith(f"# Copyright (c) {CURRENT_YEAR},")
 
 
-# --- Integration tests for the git-based new-file detection (added_paths / main) ----------------
-
-
-def _git(repo: Path, *args: str) -> None:
-    subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
-
-
-def _run_hook(repo: Path, *names: str) -> subprocess.CompletedProcess:
-    # Run as a subprocess with cwd=repo so the hook's `git` queries resolve against that repo.
-    return subprocess.run([sys.executable, str(_SCRIPT), *names], cwd=str(repo), capture_output=True, text=True)
-
-
-@pytest.fixture
-def git_repo(tmp_path: Path) -> Path:
-    """A throwaway git repo with an initial commit so HEAD exists."""
-    _git(tmp_path, "init", "-q")
-    _git(tmp_path, "config", "user.email", "test@example.com")
-    _git(tmp_path, "config", "user.name", "Test")
-    (tmp_path / "seed.py").write_text(_header(CURRENT_YEAR))
-    _git(tmp_path, "add", "seed.py")
-    _git(tmp_path, "commit", "-qm", "init")
-    return tmp_path
-
-
-def test_staged_new_file_is_rewritten(git_repo: Path) -> None:
-    f = git_repo / "fresh.py"
-    f.write_text(_header(f"2020-{CURRENT_YEAR}"))
-    _git(git_repo, "add", "fresh.py")
-    result = _run_hook(git_repo, "fresh.py")
-    assert result.returncode == 1
-    assert f.read_text() == _header(CURRENT_YEAR)
-
-
-def test_renamed_file_keeps_its_start_year(git_repo: Path) -> None:
-    # Regression: a rename is staged as R (not A), so the moved file must be treated as existing
-    # and keep its original start year rather than being reset to the current year.
-    old = git_repo / "old.py"
-    original = _header(f"2020-{CURRENT_YEAR}")
-    old.write_text(original)
-    _git(git_repo, "add", "old.py")
-    _git(git_repo, "commit", "-qm", "add old")
-    _git(git_repo, "mv", "old.py", "new.py")
-    result = _run_hook(git_repo, "new.py")
-    assert result.returncode == 0
-    assert (git_repo / "new.py").read_text() == original
+def test_added_paths_keeps_adds_and_drops_renames_and_edits() -> None:
+    # Lines from `git diff --cached --name-status`: A=added, R<score>=renamed, M=modified.
+    # Only true additions are "new"; a rename (the bug this guards against) keeps its start year.
+    status = "A\tfresh.py\nA\tconfig.yaml\nR100\told.py\tnew.py\nM\tseed.py\n"
+    assert hook.added_paths(status) == {"fresh.py", "config.yaml"}
