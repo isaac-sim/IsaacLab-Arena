@@ -20,7 +20,7 @@ Usage examples:
     # Evaluate a different environment / config
     python osmo/submit_gr00t_policy_runner_workflow.py \
         --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml \
-        --env_graph_spec_yaml isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml \
+        --env isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml \
         --pool isaac-dev-l40s-04 \
         --platform ovx-l40s
 """
@@ -30,13 +30,12 @@ from __future__ import annotations
 import argparse
 import sys
 
-from tasks.gr00t_policy_runner_task import (
-    DEFAULT_ENV_GRAPH_SPEC_YAML,
-    DEFAULT_POLICY_CONFIG,
-    DEFAULT_POLICY_RUNNER_ARGS,
-    DEFAULT_POLICY_TYPE,
-)
-from tasks.gr00t_server_task import DEFAULT_EMBODIMENT_TAG, DEFAULT_MODEL_PATH, DEFAULT_SERVER_PORT
+from tasks.gr00t_policy_runner_task import DEFAULT_ENV_GRAPH_SPEC_YAML, DEFAULT_ENV_VARIATIONS
+from tasks.gr00t_policy_runner_task import DEFAULT_IMAGE as DEFAULT_ARENA_IMAGE
+from tasks.gr00t_policy_runner_task import DEFAULT_POLICY_CONFIG, DEFAULT_POLICY_RUNNER_ARGS
+from tasks.gr00t_server_task import DEFAULT_EMBODIMENT_TAG
+from tasks.gr00t_server_task import DEFAULT_IMAGE as DEFAULT_SERVER_IMAGE
+from tasks.gr00t_server_task import DEFAULT_MODEL_PATH, DEFAULT_SERVER_PORT, GR00T_SERVER_HOST_TOKEN
 from workflows.gr00t_policy_runner_workflow import Gr00tPolicyRunnerWorkflow
 from workflows.utils.workflow_types import WorkflowType
 
@@ -49,30 +48,44 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     server = parser.add_argument_group("gr00t server")
-    server.add_argument("--gr00t_server_image", default=None, help="Override the GR00T server image")
-    server.add_argument("--gr00t_model_path", default=DEFAULT_MODEL_PATH, help="Model path served by the GR00T server")
-    server.add_argument("--gr00t_embodiment_tag", default=DEFAULT_EMBODIMENT_TAG, help="GR00T server embodiment tag")
+    server.add_argument("--gr00t_server_image", default=DEFAULT_SERVER_IMAGE, help="Override the GR00T server image")
+    server.add_argument(
+        "--gr00t_model_path", default=DEFAULT_MODEL_PATH, help="Model path for the GR00T policy in server"
+    )
+    server.add_argument(
+        "--gr00t_embodiment_tag", default=DEFAULT_EMBODIMENT_TAG, help="Embodiment tag for the GR00T policy"
+    )
     server.add_argument("--server_port", type=int, default=DEFAULT_SERVER_PORT, help="GR00T server port")
 
     runner = parser.add_argument_group("policy runner")
-    runner.add_argument("--policy_runner_image", default=None, help="Override the Arena policy-runner image")
-    runner.add_argument("--policy_type", default=DEFAULT_POLICY_TYPE, help="Policy class import path")
+    runner.add_argument("--arena_image", default=DEFAULT_ARENA_IMAGE, help="Override the Arena dev image")
     runner.add_argument(
         "--policy_config_yaml_path", default=DEFAULT_POLICY_CONFIG, help="GR00T closed-loop config YAML"
     )
+    # Eval target: a graph-spec YAML (when the first token ends in .yaml/.yml) or a registered
+    # example-environment name, either followed by its args. Defaults to the robolab graph spec.
     runner.add_argument(
-        "--env_graph_spec_yaml", default=DEFAULT_ENV_GRAPH_SPEC_YAML, help="Arena environment spec YAML"
+        "--env",
+        default=DEFAULT_ENV_GRAPH_SPEC_YAML,
+        help="Graph-spec YAML path or example-env name, plus args, e.g. 'kitchen_pick_and_place --object cracker_box'",
     )
-    runner.add_argument("--env_overrides", default=None, help="Trailing Hydra-style environment overrides")
+    runner.add_argument(
+        "--env_variations",
+        default=DEFAULT_ENV_VARIATIONS,
+        help="Hydra-style variation overrides for the env",
+    )
     runner.add_argument(
         "--remote_host",
-        default=None,
-        help="GR00T server host (defaults to the {{host:gr00t_server}} OSMO token for the sibling task)",
+        default=GR00T_SERVER_HOST_TOKEN,
+        help="GR00T server host (defaults to the {{host:gr00t_server}}) name",
     )
     runner.add_argument(
         "--policy_runner_args",
         default=DEFAULT_POLICY_RUNNER_ARGS,
-        help="Policy-runner arguments before the environment spec",
+        help=(
+            "Policy-runner related arguments, e.g. '--num_episodes, --headless, --enable_cameras, --num_envs,"
+            " --record_camera_video'"
+        ),
     )
 
     resources = parser.add_argument_group("resources")
