@@ -460,79 +460,49 @@ class NoCollisionLossStrategy:
     is a built-in solver behavior, not a user-specified relation.
     """
 
-    def __init__(self, slope: float = 10.0, debug: bool = False):
+    def __init__(self, slope: float = 10.0):
         """
         Args:
             slope: Gradient magnitude for overlap volume loss (default: 10.0).
                    Loss scales with slope times overlap volume.
-            debug: If True, print detailed loss component breakdown.
         """
         self.slope = slope
-        self.debug = debug
 
-    def compute_loss(
+    def compute_loss_batched(
         self,
         clearance_m: float,
-        child_pos: torch.Tensor,
-        child_bbox: AxisAlignedBoundingBox,
-        parent_world_bbox: AxisAlignedBoundingBox,
+        subject_min: torch.Tensor,
+        subject_max: torch.Tensor,
+        obstacle_min: torch.Tensor,
+        obstacle_max: torch.Tensor,
     ) -> torch.Tensor:
-        """Compute loss for no-overlap constraint.
+        """Overlap-volume no-overlap loss for boxes already reduced to world-space extents.
+
+        The subject box carries gradient; it is pushed off the obstacle box (expanded by clearance).
 
         Args:
-            clearance_m: Minimum clearance between bounding boxes in meters.
-            child_pos: Child object position (N, 3) in world coords.
-            child_bbox: Child object local bounding box (N=1).
-            parent_world_bbox: Parent bounding box in world coordinates.
+            clearance_m: Minimum clearance between boxes in meters.
+            subject_min: World-space min extent of the subject box, shape (num_pairs, batch_size, 3).
+            subject_max: World-space max extent of the subject box, shape (num_pairs, batch_size, 3).
+            obstacle_min: World-space min extent of the obstacle box, shape (num_pairs, batch_size, 3).
+            obstacle_max: World-space max extent of the obstacle box, shape (num_pairs, batch_size, 3).
 
         Returns:
-            Loss tensor of shape (N,).
+            Per-pair, per-env loss of shape (num_pairs, batch_size).
         """
-        single_input = child_pos.dim() == 1
-        if single_input:
-            child_pos = child_pos.unsqueeze(0)
-
-        # Parent world extents from the world bounding box, expanded by clearance_m
-        c = clearance_m
-        parent_x_min = parent_world_bbox.min_point[:, 0] - c
-        parent_x_max = parent_world_bbox.max_point[:, 0] + c
-        parent_y_min = parent_world_bbox.min_point[:, 1] - c
-        parent_y_max = parent_world_bbox.max_point[:, 1] + c
-        parent_z_min = parent_world_bbox.min_point[:, 2] - c
-        parent_z_max = parent_world_bbox.max_point[:, 2] + c
-
-        # Child world extents
-        child_world_min = child_pos + child_bbox.min_point
-        child_world_max = child_pos + child_bbox.max_point
-
-        # 1. Per-axis overlap: zero when separated; else overlap length (default slope 1.0 gives length in m)
-        overlap_x = interval_overlap_axis_loss(child_world_min[:, 0], child_world_max[:, 0], parent_x_min, parent_x_max)
-        overlap_y = interval_overlap_axis_loss(child_world_min[:, 1], child_world_max[:, 1], parent_y_min, parent_y_max)
-        overlap_z = interval_overlap_axis_loss(child_world_min[:, 2], child_world_max[:, 2], parent_z_min, parent_z_max)
-
-        # 2. Volume loss: slope * product of per-axis overlap lengths (overlap volume when slope 1.0)
-        overlap_volume = overlap_x * overlap_y * overlap_z
-        total_loss = self.slope * overlap_volume
-
-        if self.debug and child_pos.shape[0] == 1:
-            print(
-                f"    [NoCollision] X: overlap={overlap_x[0].item():.6f} (child_x=[{child_world_min[0, 0].item():.4f},"
-                f" {child_world_max[0, 0].item():.4f}], parent_x=[{parent_x_min[0].item():.4f},"
-                f" {parent_x_max[0].item():.4f}])"
-            )
-            print(
-                f"    [NoCollision] Y: overlap={overlap_y[0].item():.6f} (child_y=[{child_world_min[0, 1].item():.4f},"
-                f" {child_world_max[0, 1].item():.4f}], parent_y=[{parent_y_min[0].item():.4f},"
-                f" {parent_y_max[0].item():.4f}])"
-            )
-            print(
-                f"    [NoCollision] Z: overlap={overlap_z[0].item():.6f} (child_z=[{child_world_min[0, 2].item():.4f},"
-                f" {child_world_max[0, 2].item():.4f}], parent_z=[{parent_z_min[0].item():.4f},"
-                f" {parent_z_max[0].item():.4f}])"
-            )
-            print(f"    [NoCollision] volume={overlap_volume[0].item():.6f}, loss={total_loss[0].item():.6f}")
-
-        return total_loss.squeeze(0) if single_input else total_loss
+        assert clearance_m >= 0, f"clearance_m must be non-negative, got {clearance_m}"
+        obstacle_min = obstacle_min - clearance_m
+        obstacle_max = obstacle_max + clearance_m
+        overlap_x = interval_overlap_axis_loss(
+            subject_min[..., 0], subject_max[..., 0], obstacle_min[..., 0], obstacle_max[..., 0]
+        )
+        overlap_y = interval_overlap_axis_loss(
+            subject_min[..., 1], subject_max[..., 1], obstacle_min[..., 1], obstacle_max[..., 1]
+        )
+        overlap_z = interval_overlap_axis_loss(
+            subject_min[..., 2], subject_max[..., 2], obstacle_min[..., 2], obstacle_max[..., 2]
+        )
+        return self.slope * (overlap_x * overlap_y * overlap_z)
 
 
 class AtPositionLossStrategy(UnaryRelationLossStrategy):
