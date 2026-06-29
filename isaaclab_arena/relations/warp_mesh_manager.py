@@ -144,6 +144,7 @@ class WarpMeshAndSphereCache:
 
     def get_collision_mesh(self, obj: ObjectBase) -> trimesh.Trimesh | None:
         """Return the cached collision mesh, extracting from USD on first access."""
+        # ObjectBase doesn't guarantee usd_path; only Object subclasses set it.
         usd_path = getattr(obj, "usd_path", None)
         if usd_path is None:
             return obj.get_collision_mesh()

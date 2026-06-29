@@ -304,7 +304,6 @@ def test_centers_in_target_frame_applies_both_yaws():
 
 @requires_warp
 def test_object_placer_mesh_mode_end_to_end():
-    """ObjectPlacer.place() with CollisionMode.MESH returns a valid result."""
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 
@@ -442,7 +441,6 @@ def test_mesh_sdf_backward_gradient():
 
 @requires_warp
 def test_solver_mesh_batch_size_two():
-    """Solver MESH mode handles batch_size > 1 (both envs solved independently)."""
     table = _make_table()
     a = _make_cylinder("cyl_a")
     b = _make_cylinder("cyl_b")
@@ -478,7 +476,6 @@ def test_solver_mesh_batch_size_two():
 
 @requires_warp
 def test_broadphase_skips_separated_pairs():
-    """Separated objects have lower mesh loss than overlapping ones (broadphase filters pairs)."""
     table = _make_table()
     a = _make_cylinder("a", radius=0.03)
     b = _make_cylinder("b", radius=0.03)
