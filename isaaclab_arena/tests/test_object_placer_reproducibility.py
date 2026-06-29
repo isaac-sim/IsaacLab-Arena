@@ -306,7 +306,6 @@ def test_random_yaw_init_applied_yaw_matches_selected_candidate():
 
 
 def test_random_yaw_init_composes_marker_yaw():
-    """orientations dict carries total yaw (marker + sampled); applied pose matches it."""
     marker_yaw = math.pi / 6
     solver_params = RelationSolverParams(max_iters=10, verbose=False)
     desk, box1, box2 = _create_test_objects()

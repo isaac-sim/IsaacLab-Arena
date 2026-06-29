@@ -99,12 +99,7 @@ def _test_extract_trimesh_translated_child_nonuniform_scale(simulation_app):
 
 
 def _test_bbox_translated_child_nonuniform_scale(simulation_app):
-    """BBox uses ComputeLocalBound * scale (post-transform scale on root-local extents).
-
-    For a child translated +1 with verts ±0.5: root-local bound X=[0.5, 1.5], * scale_x=2 → [1.0, 3.0].
-    Note: mesh path scales per-prim verts first → X=[0.0, 2.0]. These differ for translated children
-    under non-uniform scale. AABB is conservative (larger), which is safe for collision checks.
-    """
+    """AABB is conservative vs mesh path for translated children under non-uniform scale."""
     import tempfile
 
     from pxr import Gf, Usd, UsdGeom
@@ -181,7 +176,6 @@ def _test_bbox_translated_child_nonuniform_scale(simulation_app):
 
 
 def _test_both_paths_agree_origin_prim(simulation_app):
-    """For an origin-centered single prim, mesh and bbox agree exactly."""
     import tempfile
 
     from pxr import Gf, Usd, UsdGeom

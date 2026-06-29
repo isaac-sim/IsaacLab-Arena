@@ -55,8 +55,8 @@ class MeshPairEntry(NamedTuple):
     anchor_pos: torch.Tensor | None  # (3,) world position, or None for non-anchors
     anchor_yaw: float
     centers_local: torch.Tensor  # (S, 3) sphere centers in subject-local frame
-    radii: torch.Tensor  # (S,) sphere radii
-    subject_bbox_min: torch.Tensor  # (B, 3) subject bbox min corners, B = batch_size
+    radii: torch.Tensor  # (S,)
+    subject_bbox_min: torch.Tensor  # (B, 3) subject bbox min corners
     subject_bbox_max: torch.Tensor  # (B, 3)
     obstacle_bbox_min: torch.Tensor  # (B, 3) obstacle bbox min corners
     obstacle_bbox_max: torch.Tensor  # (B, 3)
@@ -480,14 +480,13 @@ class RelationSolver:
         state: RelationSolverState,
         debug: bool,
     ) -> torch.Tensor:
-        """Per-env sphere-to-SDF penetration loss; iterates envs, calls the multi-mesh kernel per batch."""
+        """Per-env sphere-to-SDF penetration loss."""
         device = state.device
         total_loss = torch.zeros(state.batch_size, device=device, dtype=torch.float32)
         clearance_m = self.params.clearance_m
         slope = self._no_collision_strategy.slope
 
-        # Per-env loop (not batched like AABB): per-env yaw and active-pair masking each produce a
-        # different sphere subset before the kernel launch, so envs cannot be collapsed into one call.
+        # Per-env loop (not batched like AABB): per-env yaw and active-pair masking produce a different sphere subset per env.
         for b in range(state.batch_size):
             for cache in (self._mesh_cache_forward, self._mesh_cache_reverse):
                 if cache is None:
