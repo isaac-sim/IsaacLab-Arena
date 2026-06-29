@@ -99,6 +99,9 @@ def run_sim_preview_pipeline(
             env_spacing=env_spacing,
         )
     except SimAppError as exc:
+        st.session_state.pop("sim_preview_first", None)
+        st.session_state.pop("sim_preview_last", None)
+        st.session_state.pop("sim_preview_run_params", None)
         return False, str(exc)
     finally:
         clear_simapp_client()
