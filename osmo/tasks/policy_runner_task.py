@@ -13,7 +13,7 @@ from typing import Any
 from tasks.base_task import BaseTask
 from workflows.utils.policy_types import PolicyType
 from workflows.utils.workflow_types import WorkflowType
-from workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
+from workflows.workflow_constants import DATASET_SWIFT_URL
 
 DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
 POLICY_RUNNER_COMMAND = "/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py"
@@ -34,21 +34,21 @@ def _normalize_args(args: str) -> str:
     return " ".join(args.replace("\\\n", " ").split())
 
 
-def resolve_env_args_to_name(env: str | None) -> tuple[str | None, str | None]:
-    """Resolve an ``--env`` value into the policy-runner env source.
+def resolve_env_args_to_name(arena_env_args: str | None) -> tuple[str | None, str | None]:
+    """Resolve an ``--arena_env_args`` value into the policy-runner env source.
 
     Returns ``(env_graph_spec_yaml, arena_env_args)``. When the first
     token ends in ``.yaml``/``.yml`` it is a graph-spec YAML path and the rest are its args;
     otherwise the whole value is a registered example-environment name and its args.
     """
-    assert env is not None, "env is required"
-    env = _normalize_args(env)
+    assert arena_env_args is not None, "arena_env_args is required"
+    arena_env_args = _normalize_args(arena_env_args)
     # for env spec yaml and args
-    name, _, args = env.partition(" ")
+    name, _, args = arena_env_args.partition(" ")
     if name.endswith((".yaml", ".yml")):
         return name, (args or None)
     # for env name and args
-    return None, env
+    return None, arena_env_args
 
 
 def resolve_env_variations(variations: str | None) -> str | None:
@@ -92,7 +92,7 @@ class PolicyRunnerTask(BaseTask):
 
     def _resolve_env_args_to_name(self) -> tuple[str | None, str | None]:
         """Return ``(env_graph_spec_yaml, arena_env_args)`` for the eval target."""
-        return resolve_env_args_to_name(self.task_args.env)
+        return resolve_env_args_to_name(self.task_args.arena_env_args)
 
     def _resolve_env_variations(self) -> str | None:
         """Return normalized Hydra variation overrides for the env, or None."""
@@ -156,8 +156,6 @@ class PolicyRunnerTask(BaseTask):
         return (
             f"{POLICY_RUNNER_COMMAND} "
             f"--policy_type {self.policy_type} "
-            # TODO(alexmillane): Update this flag before merging.
-            f"--video_base_dir {OSMO_TASK_OUTPUT_DIR} "
             f"{self.policy_runner_args} "
             f"{self._get_env_spec_args()}"
         )

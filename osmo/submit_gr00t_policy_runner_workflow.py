@@ -6,7 +6,7 @@
 """Configure and submit a GR00T policy-runner evaluation OSMO workflow.
 
 Renders a single OSMO group with two tasks that talk over the shared group
-network: a GR00T inference server (sidecar) and the Arena policy runner (lead)
+network: a GR00T inference server and the Arena policy runner (lead)
 that connects to it and uploads its evaluation outputs.
 
 Usage examples:
@@ -20,7 +20,7 @@ Usage examples:
     # Evaluate a different environment / config
     python osmo/submit_gr00t_policy_runner_workflow.py \
         --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml \
-        --env isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml \
+        --arena_env_args isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml \
         --pool isaac-dev-l40s-04 \
         --platform ovx-l40s
 """
@@ -63,7 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--policy_config_yaml_path", default=DEFAULT_POLICY_CONFIG, help="GR00T closed-loop config YAML"
     )
     runner.add_argument(
-        "--env",
+        "--arena_env_args",
         default=DEFAULT_ENV_GRAPH_SPEC_YAML,
         help="Graph-spec YAML path or example-env name, plus args, e.g. 'kitchen_pick_and_place --object cracker_box'",
     )

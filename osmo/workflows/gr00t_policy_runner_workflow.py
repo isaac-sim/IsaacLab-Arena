@@ -6,7 +6,7 @@
 """GR00T policy-runner workflow definitions for Isaac Lab Arena OSMO.
 
 A single OSMO group with two tasks that talk over the shared group network:
-a GR00T inference server (sidecar) and the Arena policy runner (lead) that
+a GR00T inference server and the Arena policy runner (lead) that
 connects to it and writes evaluation outputs.
 """
 
@@ -21,7 +21,7 @@ from workflows.workflow import Workflow
 
 
 class Gr00tPolicyRunnerWorkflow(Workflow):
-    """Two-task workflow: a GR00T server sidecar plus the lead policy-runner eval task."""
+    """Two-task workflow: a GR00T server plus the lead policy-runner eval task."""
 
     def __init__(
         self,
@@ -35,7 +35,7 @@ class Gr00tPolicyRunnerWorkflow(Workflow):
             workflow_args=workflow_args,
             task_cls_list=[Gr00tServerTask, Gr00tPolicyRunnerTask],
             task_args_list=[task_args, task_args],
-            # The policy runner is the lead: it drives completion and the server is a sidecar
-            # that runs until the lead finishes.
+            # The policy runner is the lead: it drives completion and the server
+            # runs until the lead finishes.
             lead_list=[False, True],
         )

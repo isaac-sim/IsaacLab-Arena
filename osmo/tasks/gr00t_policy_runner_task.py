@@ -6,7 +6,7 @@
 """GR00T policy-runner task for the Isaac Lab Arena OSMO workflow.
 
 Runs ``policy_runner.py`` with the GR00T remote closed-loop policy against the
-GR00T server sidecar that shares its OSMO group. Mirrors the eval side of the
+GR00T server that shares its OSMO group. Mirrors the eval side of the
 ``test_gr00t_closedloop_e2e`` CI job in ``.github/workflows/ci.yml``.
 """
 

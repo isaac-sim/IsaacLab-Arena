@@ -23,7 +23,7 @@ class VideoRecordingCfg:
     record_camera_video: bool = False
     """Record the embodiment-mounted cameras from ``obs['camera_obs']``."""
 
-    video_base_dir: str = "videos"
+    output_base_dir: str = "videos"
     """Base directory the mp4s are written to (a reverse-dated run subdirectory is added per run)."""
 
     camera_name_prefix: str = "robot-cam"
@@ -81,28 +81,28 @@ def wrap_env_for_video(
     if not video_cfg.enabled:
         return env
 
-    os.makedirs(video_cfg.video_base_dir, exist_ok=True)
+    os.makedirs(video_cfg.output_base_dir, exist_ok=True)
 
     # Record the kit viewport (via env.render()).
     if video_cfg.record_viewport_video:
         video_length = _resolve_video_length(env, num_steps, num_episodes)
         env = RecordVideo(
             env,
-            video_folder=video_cfg.video_base_dir,
+            video_folder=video_cfg.output_base_dir,
             step_trigger=lambda step: step == 0,
             video_length=video_length,
             disable_logger=True,
         )
-        print(f"Recording {video_length}-step viewport video to: {video_cfg.video_base_dir}")
+        print(f"Recording {video_length}-step viewport video to: {video_cfg.output_base_dir}")
 
     # Record the embodiment-mounted cameras (from obs["camera_obs"]),
     # flushed at each episode reset rather than after a fixed number of steps.
     if video_cfg.record_camera_video:
         env = CameraObsVideoRecorder(
             env,
-            video_folder=video_cfg.video_base_dir,
+            video_folder=video_cfg.output_base_dir,
             name_prefix=video_cfg.camera_name_prefix,
         )
-        print(f"Recording per-episode per-camera videos to: {video_cfg.video_base_dir}")
+        print(f"Recording per-episode per-camera videos to: {video_cfg.output_base_dir}")
 
     return env
