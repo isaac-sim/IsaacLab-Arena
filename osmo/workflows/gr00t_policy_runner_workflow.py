@@ -25,13 +25,11 @@ class Gr00tPolicyRunnerWorkflow(Workflow):
 
     def __init__(
         self,
-        workflow_type: WorkflowType,
         workflow_args: argparse.Namespace,
         task_args: argparse.Namespace,
     ) -> None:
-        assert workflow_type == WorkflowType.GR00T_POLICY_RUNNER, f"Unsupported workflow type: {workflow_type.value}"
         super().__init__(
-            workflow_type=workflow_type,
+            workflow_type=WorkflowType.GR00T_POLICY_RUNNER,
             workflow_args=workflow_args,
             task_cls_list=[Gr00tServerTask, Gr00tPolicyRunnerTask],
             task_args_list=[task_args, task_args],

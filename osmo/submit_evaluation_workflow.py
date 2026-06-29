@@ -45,8 +45,6 @@ from workflows.utils.workflow_types import WorkflowType
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Configure and submit an Isaac Lab Arena evaluation OSMO workflow.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__,
     )
 
     task = parser.add_argument_group("task")
@@ -65,7 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
     task.add_argument(
         "--policy_runner_args",
         default=None,
-        help="Policy-runner arguments before the env spec",
+        help="Additional policy-runner arguments before the Arena environment args",
     )
     task.add_argument(
         "--arena_env_args",

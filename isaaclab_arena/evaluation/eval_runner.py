@@ -292,7 +292,7 @@ def main():
                     video_cfg = VideoRecordingCfg(
                         record_viewport_video=args_cli.record_viewport_video,
                         record_camera_video=args_cli.record_camera_video,
-                        output_base_dir=job_output_dir,
+                        video_base_dir=job_output_dir,
                         camera_name_prefix=f"robot-cam-rebuild{rebuild_idx}",
                     )
                     env = load_env(

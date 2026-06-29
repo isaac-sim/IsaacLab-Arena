@@ -37,14 +37,11 @@ from tasks.gr00t_server_task import DEFAULT_EMBODIMENT_TAG
 from tasks.gr00t_server_task import DEFAULT_IMAGE as DEFAULT_SERVER_IMAGE
 from tasks.gr00t_server_task import DEFAULT_MODEL_PATH, DEFAULT_SERVER_PORT, GR00T_SERVER_HOST_TOKEN
 from workflows.gr00t_policy_runner_workflow import Gr00tPolicyRunnerWorkflow
-from workflows.utils.workflow_types import WorkflowType
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Configure and submit a GR00T policy-runner evaluation OSMO workflow.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__,
     )
 
     server = parser.add_argument_group("gr00t server")
@@ -111,7 +108,6 @@ def main(cli_args: list[str] | None = None) -> int:
     args = build_parser().parse_args(cli_args)
 
     workflow = Gr00tPolicyRunnerWorkflow(
-        workflow_type=WorkflowType.GR00T_POLICY_RUNNER,
         workflow_args=args,
         task_args=args,
     )
