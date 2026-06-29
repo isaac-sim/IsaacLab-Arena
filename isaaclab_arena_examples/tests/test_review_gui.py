@@ -37,11 +37,13 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.th
     render_node_thumbnail,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (
+    _preview_args,
+    parse_sim_preview_params,
+)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
     ENV_SPACING_M,
     NUM_ENVS,
     NUM_STEPS,
-    _preview_args,
-    parse_sim_preview_params,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.streamlit_ui import initialize_state, parse_args
 
@@ -73,15 +75,16 @@ class TestSimPreviewParams:
         assert args.num_envs == 4
         assert args.env_spacing == 2.5
 
-    def test_parse_sim_preview_params_defaults(self):
-        assert parse_sim_preview_params({}) == (NUM_ENVS, NUM_STEPS, ENV_SPACING_M)
+    def test_parse_sim_preview_params_requires_all_keys(self):
+        with pytest.raises(ValueError, match="missing required sim preview params"):
+            parse_sim_preview_params({})
 
     def test_parse_sim_preview_params_custom(self):
         assert parse_sim_preview_params({"num_envs": 8, "num_steps": 3, "env_spacing": 2.0}) == (8, 3, 2.0)
 
     def test_parse_sim_preview_params_rejects_invalid(self):
         with pytest.raises(AssertionError):
-            parse_sim_preview_params({"num_envs": 0})
+            parse_sim_preview_params({"num_envs": 0, "num_steps": 10, "env_spacing": 1.5})
 
 
 class TestNodeThumbnailAabb:

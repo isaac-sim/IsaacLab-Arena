@@ -23,7 +23,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.generatio
     render_generation_panel,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.sim_preview_panel import render_sim_preview_panel
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
     ENV_SPACING_M,
     NUM_ENVS,
     NUM_STEPS,

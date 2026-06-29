@@ -16,11 +16,10 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.cl
     SimAppError,
     simapp_socket_from_env,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (
-    ENV_SPACING_M,
-    NUM_ENVS,
-    NUM_STEPS,
-)
+
+NUM_ENVS = 9
+ENV_SPACING_M = 1.5
+NUM_STEPS = 10
 
 _SIMAPP_CLIENT_SESSION_KEY = "_simapp_client"
 

@@ -30,19 +30,18 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.ki
     sim_preview_cache_dir,
 )
 
-NUM_ENVS = 9
-ENV_SPACING_M = 1.5
-NUM_STEPS = 10
-
 # Placement pool size when preview uses resolve_on_reset=False (see ObjectPlacerParams).
 _PREVIEW_LAYOUTS_PER_ENV = 2
 
 
 def parse_sim_preview_params(req: dict[str, Any]) -> tuple[int, int, float]:
-    """Read sim-preview rollout settings from a JSON-RPC request."""
-    num_envs = int(req.get("num_envs", NUM_ENVS))
-    num_steps = int(req.get("num_steps", NUM_STEPS))
-    env_spacing = float(req.get("env_spacing", ENV_SPACING_M))
+    """Read required sim-preview rollout settings from a JSON-RPC request."""
+    missing = [key for key in ("num_envs", "num_steps", "env_spacing") if key not in req]
+    if missing:
+        raise ValueError(f"missing required sim preview params: {', '.join(missing)}")
+    num_envs = int(req["num_envs"])
+    num_steps = int(req["num_steps"])
+    env_spacing = float(req["env_spacing"])
     assert num_envs >= 1, f"num_envs must be >= 1, got {num_envs}"
     assert num_steps >= 0, f"num_steps must be >= 0, got {num_steps}"
     assert env_spacing > 0, f"env_spacing must be > 0, got {env_spacing}"
@@ -69,7 +68,7 @@ def _skip_task_viewer_cfg(arena_env):
         task.get_viewer_cfg = original_get_viewer_cfg
 
 
-def _preview_args(*, num_envs: int = NUM_ENVS, env_spacing: float = ENV_SPACING_M) -> argparse.Namespace:
+def _preview_args(*, num_envs: int, env_spacing: float) -> argparse.Namespace:
     return argparse.Namespace(
         num_envs=num_envs,
         env_spacing=env_spacing,
@@ -142,9 +141,9 @@ def run_sim_preview(
     app,
     yaml_text: str,
     *,
-    num_envs: int = NUM_ENVS,
-    num_steps: int = NUM_STEPS,
-    env_spacing: float = ENV_SPACING_M,
+    num_envs: int,
+    num_steps: int,
+    env_spacing: float,
 ) -> dict[str, Any]:
     """Link spec → arena env → relation solver → zero-action steps; capture viewport frames."""
     import gymnasium as gym
