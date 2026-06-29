@@ -3,3 +3,5 @@
 /.git
 /.agents
 /.claude
+# Isaac Sim crash core dumps — ~3GB each; otherwise pulled into the image by `COPY *.*`
+core.*
