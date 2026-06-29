@@ -231,7 +231,7 @@ def run_sim_preview(
             "num_steps": num_steps,
         }
     finally:
-        _close_env_and_reset_sim(env, app=app)
+        _close_env_and_reset_sim(env, app=app, suppress_exceptions=True)
         with suppress(Exception):
             if preview_name in gym.registry:
                 del gym.registry[preview_name]
