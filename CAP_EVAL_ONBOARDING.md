@@ -1,148 +1,94 @@
-# GaP↔Arena eval — Arena-side onboarding & handoff status (authoritative)
+# GaP to Arena: Arena-Side Handoff
 
-## Reproducible refs (pin these)
-- **Arena worktree:** `/home/rafael/Projects/IsaacLab-Arena-cap` (local working branch `rcathomen/cap`).
-- **Arena teammate/handoff branch:** `rcathomen/feature/cap-gap-eval`
-  (origin `git@github.com:isaac-sim/IsaacLab-Arena.git`; pushed, fast-forward only, no force.)
-- **Current pushed tip:** the handoff branch points at **HEAD** (this onboarding-doc commit). The **Step-3 code
-  tip** is `896f5c31b` (see the Step-3 section below), with this doc committed on top.
-- **Step-3 commits (in order):** `236017d48` (opt-in `--gap_profile` Maple scene + camera-variation fix),
-  `20705b60d` (G/H provenance + initial/final pose recorder metadata), `896f5c31b` (opt-in 2-3 object
-  `SortMultiObjectTask` profile — the Step-3 code tip). All scene-smoke-only — **no GaP E2E claimed.**
-- **GaP side (CAP baseline):** `/home/rafael/Projects/Isaac-cap` @ `ec6ba5d97c89f672cb3825bee4d1e21b8fcf2b04`,
-  plus `gap/graph-as-policy`. The graph under test is the **unchanged, generic** `examples/grocery_packing`:
-  its tree is byte-identical to `1249fb6` (tree `de7f9696…`) — **no task loader, no structured payload**. There
-  is no Arena→graph task-input work outstanding (it is a non-goal for this baseline).
-- **DROID tool adaptation (the only DROID-specific change):** open-robot-skills fork
-  `https://github.com/rafaelcathomen/open-robot-skills` branch `rcathomen/cap-droid-tcp` @
-  `4ce0af76d9cb4dbf92ebacf92de7af28ef1ff1fa`. It is purely tool-level (TCP); CAP injects the TCP env only for
-  droid/robotiq, leaving the generic graph and Panda path untouched.
+Current as of 2026-06-30. Start from the `Isaac-cap` repository for the complete setup and runbook;
+this file records the Arena-owned part of the integration.
 
-## Python env — generic Arena prerequisite (owned elsewhere; NOT a CAP branch)
-The Arena runtime is a generic native uv install on `rcathomen/feature/uv-native-install`
-(**Isaac Sim 6.0.0.1 / Isaac Lab 3.0.0b2**, `isaaclab_arena 1.0.0`). CAP treats it purely as a prerequisite —
-CAP does NOT fork it or combine with it.
+## Reproducible Revisions
 
-⚠️ **UNVERIFIED PIN (blocks full reproducibility):** the working venv used **uncommitted** `pyproject.toml` +
-`uv.lock` fixes on top of branch tip `4082afd7e`. So `git checkout rcathomen/feature/uv-native-install && uv sync`
-does **NOT** reproduce the exact env until those lock fixes are pushed by the native-install owner. **Get the pushed
-install SHA from that owner before relying on the native path** — until then this handoff is NOT end-to-end reproducible.
+| Component | Branch | Required commit |
+|---|---|---|
+| Arena CAP source (this worktree) | `rcathomen/feature/cap-gap-eval` | `444307d3cf7b77d2c93c8a1303979accdc238217` |
+| Arena native `uv` environment | `rcathomen/feature/uv-native-install` | `ce1b93de6ad5ca188a75f6ff36a387fceb860191` |
+| Isaac-cap | `rcathomen/gap-ila-eval` | `f0487f2cc216adc4c10e7cc2ef2840eb7fcf4ca0` |
+| `graph-as-policy` | `main` | `c24fafb126dcb27b2c9f13fbdd143d436851e5a9` |
+| DROID TCP skill fork | `rcathomen/cap-droid-tcp` | `4ce0af76d9cb4dbf92ebacf92de7af28ef1ff1fa` |
 
-Teammate env — pick one:
-1. **Native (once the install SHA is pushed):** checkout that pushed `uv-native-install` commit + `uv sync`.
-2. **Docker (supported, reproducible now):** `dev-container` skill / `./docker/run_docker.sh` (Isaac Sim 6.0 + Isaac
-   Lab 3.0); repo mounts at `/workspaces/isaaclab_arena`, `python` = `/isaac-sim/python.sh`.
+Use the full revisions from `Isaac-cap/external/PINNED_VERSIONS.md`; short revisions above are only
+for orientation. The local branch is named `rcathomen/cap`, but it tracks the canonical remote
+`origin/rcathomen/feature/cap-gap-eval`.
 
-Then run CAP against that env via `PYTHONPATH` (two-step; no combined branch) — see the eval command below.
+## Current Result
 
-## Canonical eval — unchanged generic grocery_packing graph as the policy under test
-**Baseline:** the **unchanged, generic** GaP `grocery_packing` graph is the policy under test (no per-episode
-structured target payload, no graph inputs from Arena). **Arena owns** the DROID embodiment, the Maple scene +
-its variation, the episode lifecycle, and scoring (stock `SortMultiObjectTask` over the 2-3 `pick_targets`).
-The canonical policy is **managed-spawn** (`auto_spawn=true`): the policy launches/owns one GaP process per
-episode, so there is **no** separate manual `gap run` terminal.
+The Maple/DROID five-object job completed with Arena `success=true`:
 
-**Canonical job (tracked):** `isaaclab_arena_environments/eval_jobs_configs/maple_gap_droid_eval_jobs_config.json`
-— DROID `droid_abs_joint_pos`, `gap_profile`, explicit `use_staging_assets`, **exactly two graspable
-`pick_targets`** (`alphabet_soup_can_hope_robolab`, `tomato_sauce_can_hope_robolab`) → `grey_bin_robolab`,
-`policy_config_dict.auto_spawn=true` + `gap_graph=grocery_packing`, `num_episodes=1`, `placement_seed=1`,
-realistic `episode_length_s=450`. Variation/seeds come from **Arena's normal mechanism** (the `variations` block —
-`camera_extrinsics_exterior_cam` enabled — plus `seed` / `placement_seed`), NOT graph inputs.
+- task: five HOPE groceries into `grey_bin_robolab`;
+- episode: 14,745 simulation steps;
+- policy: GaP `grocery_packing`, managed by `GapRemotePolicy`;
+- scene: DROID (Panda arm + Robotiq 2F-85), Maple table, relation-solved placement;
+- evidence on the development machine:
+  `Isaac-cap/outputs/videos/gap_front_view/gap_droid_five_object_success_result.jsonl`.
 
-Run it (single command; the policy manages GaP itself via `auto_spawn`):
-```
-env OMNI_KIT_ACCEPT_EULA=YES PYTHONUNBUFFERED=1 \
-  PYTHONPATH=/home/rafael/Projects/IsaacLab-Arena-cap:/home/rafael/Projects/Isaac-cap/src \
-  /home/rafael/Projects/IsaacLab-Arena/.venv/bin/python -m isaaclab_arena.evaluation.eval_runner \
-  --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/maple_gap_droid_eval_jobs_config.json \
-  --record_camera_video --output_base_dir /tmp/maple_gap_eval_out
-```
-Prereqs: the CAP baseline (`Isaac-cap` @ `ec6ba5d9…`) and the open-robot-skills DROID-TCP fork
-(`rcathomen/cap-droid-tcp` @ `4ce0af76…`) above. No GaP E2E has been run yet here — **no pass/fail is claimed**;
-this run is set up but not executed in this checkpoint.
+This supersedes the older notes in which Maple GaP end-to-end was still pending.
 
-**Variation sweep (tracked, NOT run):** `maple_gap_droid_sweep_jobs_config.json` — same baseline, `num_episodes=3`
-so each episode re-draws a fresh layout via the normal relation-solver reset semantics (`resolve_on_reset`),
-with the `camera_extrinsics_exterior_cam` variation sampled per reset. Pure Arena reset/rebuild variation — no
-graph inputs.
+## Arena-Owned Changes
 
-**Quick scene-only validation (no GaP, zero-action, fast):** the tracked smokes
-`maple_gap_scene_smoke_jobs_config.json` (single) and `maple_gap_sort_smoke_jobs_config.json` (2-3 sort) build
-the scene + `exterior_cam` RGB-D + variation + provenance without a GaP server — use these to check
-construction/cameras/provenance quickly.
+- `pick_and_place_maple_table` gained an opt-in `gap_profile`; stock behavior stays unchanged when
+  the flag is absent.
+- The profile uses the DROID embodiment, absolute joint-position commands, and an exterior RGB-D
+  camera whose live pose and intrinsics are sent to GaP.
+- Camera variation is synchronized into Fabric on Isaac Lab 3.0.0b2 so rendered pixels and
+  `Camera.data.pos_w` agree on the first GaP observation.
+- `pick_targets` supports two through five unique grocery assets and selects Arena's stock
+  `SortMultiObjectTask`; one target continues to use `PickAndPlaceTask`.
+- Grocery objects and the bin are placed through Arena relations and reset-time variation. The GaP
+  profile adds a reachable XY region because unrestricted table placement produced approach-IK
+  failures.
+- Arena owns episode termination, contact-based scoring, video, provenance, and initial/final
+  object-pose recording. GaP graph completion is not used as the benchmark score.
+- Two scene-only job files exercise short reset/layout variation without running GaP.
 
-## Still uncommitted (must commit for a clean teammate setup)
-- **uv-native-install:** `pyproject.toml` + `uv.lock` (the install) — env owner's; commit to make the venv reproducible.
-- Local-only, do NOT commit: `dev_run.sh` (absolute paths). (This doc, `CAP_EVAL_ONBOARDING.md`, IS tracked and committed.)
+## Canonical Jobs
 
-## PANDA / DROID libero runs — HISTORICAL (pre-Step-3; does NOT override Step-3 status)
-> The section below records earlier libero-scene grocery-packing runs and is kept for context only. It predates
-> the Step-3 Maple work and its `success=true`/`success=false` notes do **not** describe the Maple profile. For
-> the Maple GaP path, the authoritative status is the Step-3 section + the canonical job above (no GaP E2E run
-> in this checkpoint; no pass/fail claimed).
-**PANDA — `control=joint_pos`, `gap_adapter=franka`, no `GAP_HAND_TO_FINGERTIP_Z` (0.1029):**
-- Single-object: scored `success=true` (proven end-to-end).
-- Multi-object (grocery_packing, 3 items): perception fix VERIFIED — VLM selects groceries (not the robot mask),
-  oversized table-box dropped before NMS; all 3 GRASPED + transported; no early-fire (gripper_open guard works).
-- `success=false` here is an **HONEST scorer result, NOT a threshold bug**: GaP's 4th cycle re-detected a grocery
-  that had BOUNCED/FALLEN OUT of the bin (near floor z~0.09, x~0.58 vs basket center ~0.28) — genuinely not all-in-bin.
-  **Do NOT widen `resting_in_bin`** (keep the scorer honest).
-- OPEN (GaP-side): tighten the transport/drop target to the bin INTERIOR + improve release/settle so objects don't
-  bounce out; extend the episode timeout (`150*N+150`=600s is short once a bounce-out forces a re-pack 4th cycle).
-  Re-verify after those fixes.
+The current CAP jobs live in `Isaac-cap/configs/arena/`:
 
-**DROID — `control=droid_joint_pos`, `gap_adapter=droid`:**
-- HISTORICAL/SUPERSEDED: earlier libero runs hit a Robotiq grasp-orientation problem (π/4 mount rotation not
-  applied to the grasp pose). For the current baseline this is handled purely at the tool level by the
-  open-robot-skills DROID-TCP fork (`rcathomen/cap-droid-tcp` @ `4ce0af76…`, see the refs at top); CAP injects
-  the TCP env only for droid/robotiq, and the generic graph is otherwise unchanged. No Arena-side grasp work.
+- `droid_single_alphabet_seed71.json`: quick known-good single-object smoke;
+- `droid_five_object_stress_seed1.json`: verified five-object task;
+- `droid_five_object_layout_variations.json`: ten short zero-action scene resets;
+- `droid_single_mustard_seed72.json` and `droid_single_milk_seed73.json`: additional object/layout
+  demonstrations.
 
-## Step 3 — Maple-table GaP scene profile (pushed; scene-smoke-only)
-Arena-owned work to bring the stock `pick_and_place_maple_table` DROID path onto the GaP eval flow. **Opt-in:**
-stock single-object defaults and all existing VLA jobs are **unchanged** (verified). Commits on
-`rcathomen/feature/cap-gap-eval`: `236017d48`, `20705b60d`, `896f5c31b` (tip).
+`auto_spawn=true` means the Arena policy starts and reaps one GaP subprocess per episode. There is
+no second terminal in the canonical flow. From `Isaac-cap`:
 
-**What it adds (only under the opt-in flags):**
-- `--gap_profile` (off by default; fails early unless `--enable_cameras` + a DROID embodiment): attaches a fixed
-  exterior RGB-D agentview camera named `exterior_cam` (`rgb` + `distance_to_image_plane`, 512×800) with a STATIC
-  pose, registers its `camera_extrinsics_exterior_cam` variation, and constrains object placement to the arm reach box.
-- Camera contract is **live-pose**: Arena owns the pose; the adapter must read live `cam.data.pos_w` /
-  `quat_w_ros` / `intrinsic_matrices` (no re-aim, no cached pose_mat). This Isaac Lab is **xyzw** (quat_from_matrix /
-  OffsetCfg.rot / root_quat_w all `(x,y,z,w)`).
-- `--episode_length_s` configurable (stock default 20 s; raise it for GaP rollouts — see "pending" below).
-- `--pick_targets` (nargs='+', default None) → opt-in stock `SortMultiObjectTask` over 2-3 ordered, unique targets
-  into `--destination_location`. Fail-closed: a present flag must carry 2-3 unique names, non-overlapping the
-  destination/distractors. Unset keeps the stock single-object `PickAndPlaceTask`.
-
-**Tracked scene-smoke configs** (`isaaclab_arena_environments/eval_jobs_configs/`), both `zero_action`, no GaP server:
-- `maple_gap_scene_smoke_jobs_config.json` — single pick-place, `gap_profile` + staging + `exterior_cam` variation.
-- `maple_gap_sort_smoke_jobs_config.json` — 3 groceries (alphabet_soup, tomato_sauce, butter) → `grey_bin`, sort profile.
-
-Run either (Arena venv + worktree + Isaac-cap on PYTHONPATH; no GaP needed):
-```
-env OMNI_KIT_ACCEPT_EULA=YES PYTHONUNBUFFERED=1 \
-  PYTHONPATH=/home/rafael/Projects/IsaacLab-Arena-cap:/home/rafael/Projects/Isaac-cap/src \
-  /home/rafael/Projects/IsaacLab-Arena/.venv/bin/python -m isaaclab_arena.evaluation.eval_runner \
-  --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/maple_gap_sort_smoke_jobs_config.json \
-  --record_camera_video --output_base_dir /tmp/maple_sort_out
+```bash
+CAP_WORKSPACE="$HOME/Projects/cap-eval" \
+ARENA_JOB_CONFIG="$PWD/configs/arena/droid_single_alphabet_seed71.json" \
+./scripts/run_arena_eval.sh
 ```
 
-**⚠️ Staging-only asset caveat:** the Maple table (`maple_table.usda`) and DROID stand (`franka_stand_grey.usda`)
-are PR #786 assets that 404 on the production Nucleus but resolve on the Isaac staging bucket (CI used staging) —
-this fails on Docker/official beta too; it is a documented external promotion blocker, not a regression. The smoke
-configs opt into `--use_staging_assets` (targeted, fail-closed production→staging host swap for ONLY those two
-files; instance-local, no leak into other jobs). Production stays the default until PR #786 is promoted.
+The exact clone/install/preflight sequence is in `Isaac-cap/docs/TEAMMATE_SETUP.md`.
 
-**Provenance recorded per episode** (opt-in, under `gap_provenance` in the per-episode JSONL; self-contained
-Arena schema): `profile`, `asset_channel` (`production|staging`), resolved `table_usd` +
-`droid_stand_usd`, `task` (`PickAndPlaceTask|SortMultiObjectTask`), ordered `pick_targets` (exact CLI order),
-`destination`, `distractors`, `placement_seed`, `seed`. Plus `initial_object_poses` and `final_object_poses`
-(separate; world-frame `pos_w` + `quat_w_xyzw`, keyed by stable asset name; initial = post-reset snapshot, final =
-episode end).
+## Asset Caveat
 
-**STATUS:** No Arena→graph task-input or payload work is outstanding — the baseline runs the **unchanged
-generic** `grocery_packing` graph (tree-identical to `1249fb6`), and the only DROID-specific change is the
-tool-level TCP fork pinned above. The canonical `GapRemotePolicy` Maple/DROID job (`auto_spawn`, generic graph,
-450 s, two graspable targets) is fully wired and ready to run against those pins. **GaP end-to-end has not been
-run in this checkpoint, so no pass/fail is claimed.** The remaining external caveat is asset promotion: the Maple
-table + DROID stand stay staging-only (opt-in `--use_staging_assets`) until PR #786 is promoted.
+The Maple table and DROID stand are not yet promoted on the production asset host. The profile uses
+the explicit, fail-closed `use_staging_assets` option to rewrite only those two URLs to the staging
+host. This is not a silent fallback, and the resolved URLs are stored in episode provenance.
+
+## Known Limits
+
+- GaP is synchronous and supports one Arena environment per process; sweeps run sequentially.
+- The success metric is Arena's stock direct-contact relation. A visually contained object stacked
+  entirely on another object can therefore remain unsuccessful, although the verified five-object
+  run satisfied the metric.
+- The graph has no persistent object identity or explicit post-close grasp verification. A missed
+  object can be perceived and attempted again.
+- Runtime is slow because VLM inference and conservative cuRobo trajectories dominate.
+- Native `uv` supports this evaluation path, but an upstream `numba`/`coverage` incompatibility
+  remains for unrelated Isaac Lab features that import `numba`; use Docker for those features.
+
+## Verification
+
+The patch at `444307d3c` passed nine focused tests covering camera variation/Fabric coherence,
+staging isolation, and two-to-five-target parsing. Both scene-variation job files pass JSON and
+`JobManager` validation. `dev_run.sh` is a local absolute-path helper and is intentionally not
+committed.
