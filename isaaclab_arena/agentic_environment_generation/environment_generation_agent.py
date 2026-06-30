@@ -7,18 +7,18 @@
 
 from __future__ import annotations
 
-import json
 import os
 from dataclasses import dataclass, field
 from typing import Any
 
 from openai import OpenAI
 
-from isaaclab_arena.agentic_environment_generation.agent_utils import build_strict_schema, extract_response_text, ping
+from isaaclab_arena.agentic_environment_generation.agent_utils import ping
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import (
     EnvironmentIntentSpec,
     required_task_init_param_names,
 )
+from isaaclab_arena.agentic_environment_generation.multi_agent_orchestrator import MultiAgentOrchestrator
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.relations.relations import RelationBase
 
@@ -215,7 +215,8 @@ class EnvironmentGenerationAgent:
         self.client = OpenAI(api_key=self.api_key, base_url=base_url)
         # Validate basic connection and key authentication.
         ping(self.client, self.model)
-        self._spec_schema = build_strict_schema(EnvironmentIntentSpec)
+        self.orchestrator = MultiAgentOrchestrator(self.client, self.model)
+        self._spec_schema = self.orchestrator.spec_schema
 
     def generate_spec(
         self,
@@ -253,84 +254,12 @@ class EnvironmentGenerationAgent:
         asset_catalog = asset_catalog or build_asset_catalogue()
         relation_catalog = relation_catalog or build_relation_catalogue()
         task_catalog = task_catalog or build_task_catalogue()
-        vocabulary = (
-            f"{asset_catalog.to_catalog_string()}\n\n"
-            f"{relation_catalog.to_catalog_string()}\n\n"
-            f"{task_catalog.to_catalog_string()}"
+        return self.orchestrator.generate_spec(
+            prompt=prompt,
+            asset_catalog=asset_catalog,
+            relation_catalog=relation_catalog,
+            task_catalog=task_catalog,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            max_retries=max_retries,
         )
-        system = self._system_prompt()
-        user = f"{vocabulary}\n\nUSER PROMPT:\n{prompt}"
-        messages = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ]
-
-        last_exc: Exception | None = None
-        for attempt in range(1 + max_retries):
-            if attempt > 0:
-                print(f"[generate_spec] retry {attempt}/{max_retries} after: {last_exc}", flush=True)
-
-            try:
-                resp = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    response_format={
-                        "type": "json_schema",
-                        "json_schema": {
-                            "name": "EnvironmentIntentSpec",
-                            "strict": True,
-                            "schema": self._spec_schema,
-                        },
-                    },
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                )
-                choices = getattr(resp, "choices", None) or []
-                assert choices, (
-                    f"Model {self.model!r} returned HTTP 200 with no choices "
-                    "(content filter / guardrail / rate-limit response with empty body)."
-                )
-                text, route = extract_response_text(choices[0].message)
-                assert route != "empty", (
-                    f"Model {self.model!r} returned an empty structured-outputs envelope. "
-                    "Verify the endpoint/model supports response_format=json_schema."
-                )
-                # ``strict=False`` lets json.loads accept unescaped control characters
-                # (e.g. literal tabs) inside JSON strings — DeepSeek-v4-flash is known
-                # to emit these.
-                data = json.loads(text, strict=False)
-                spec = EnvironmentIntentSpec.model_validate(data)
-                return spec, text
-            except Exception as exc:
-                last_exc = exc
-
-        raise RuntimeError(
-            f"Model {self.model!r} failed after {1 + max_retries} attempts. Last error: {last_exc}"
-        ) from last_exc
-
-    def _system_prompt(self) -> str:
-        return """\
-You are an env-generation parser for robot manipulation tasks.
-Convert a natural-language prompt into an EnvironmentIntentSpec.
-
-GUIDANCE:
-- Follow the per-field ``description`` strings in the schema for what each field expects.
-- Use only asset names from EMBODIMENTS / BACKGROUNDS / OBJECTS, relation kinds from \
-RELATIONS, and task kinds from TASKS in the user message.
-- If the prompt does not specify a value for an optional field, output null.
-  Do NOT hallucinate values — the resolver tolerates nulls; it cannot fix invented data.
-- For binary relations (e.g. on), subject is the placed object and reference is \
-the surface it is relative to (typically the background name).
-- REQUIRED: include an is_anchor (unary) relation for the surface other objects rest on.
-- Articulated objects (microwave, fridge, cabinet) still need an 'on' relation in \
-initial_state_graph (subject=object, reference=background) to anchor them.
-- Distractor items around the appliance need the same 'on' pattern in initial_state_graph.
-- Do not invent relation or task kinds absent from RELATIONS / TASKS.
-- Each task entry needs kind, params (all required keys from TASKS), and description.
-- params values are node ids or the background name, not registry asset names.
-- NODE IDS: an item's id is its instance_name if set, else its query. For multiple
-  items of the same kind, give each a unique instance_name and use those exact ids everywhere.
-- Every relation subject/reference and object task param must name one node id — never
-  a bare query that maps to several instances. Each must name exactly one;
-  if the prompt doesn't say which, pick any.
-"""

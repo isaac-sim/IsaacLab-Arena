@@ -16,6 +16,7 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     RelationCatalogue,
     TaskCatalogue,
 )
+from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -156,6 +157,35 @@ class TestGenerateSpec:
         mock_build_assets.assert_called_once_with()
         mock_build_relations.assert_called_once_with()
         mock_build_tasks.assert_called_once_with()
+
+    def test_generate_spec_delegates_to_orchestrator(self, agent):
+        expected = EnvironmentIntentSpec.model_validate(_MINIMAL_SPEC)
+        agent.orchestrator.generate_spec = MagicMock(return_value=(expected, "raw"))  # type: ignore[method-assign]
+
+        asset_catalog = _catalog("catalog")
+        relation_catalog = _relation_catalog("RELATIONS")
+        task_catalog = _task_catalog("TASKS")
+        spec, raw = agent.generate_spec(
+            "p",
+            asset_catalog=asset_catalog,
+            relation_catalog=relation_catalog,
+            task_catalog=task_catalog,
+            temperature=0.1,
+            max_tokens=123,
+            max_retries=2,
+        )
+
+        assert spec is expected
+        assert raw == "raw"
+        agent.orchestrator.generate_spec.assert_called_once_with(
+            prompt="p",
+            asset_catalog=asset_catalog,
+            relation_catalog=relation_catalog,
+            task_catalog=task_catalog,
+            temperature=0.1,
+            max_tokens=123,
+            max_retries=2,
+        )
 
     def test_request_sets_response_format_to_json_schema(self, agent):
         agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
