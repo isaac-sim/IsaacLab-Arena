@@ -13,6 +13,26 @@ from isaaclab_arena_environments.pick_and_place_maple_table_environment import (
 )
 
 
+def test_pick_targets_cli_is_fail_closed():
+    """--pick_targets uses nargs='+' / default None: absent -> single-object; a present flag must carry names."""
+    import argparse
+
+    import pytest
+
+    from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironment
+
+    parser = argparse.ArgumentParser()
+    PickAndPlaceMapleTableEnvironment.add_cli_args(parser)
+
+    # Absent -> None (stock single-object path, unchanged).
+    assert parser.parse_args([]).pick_targets is None
+    # Present with names -> ordered list.
+    assert parser.parse_args(["--pick_targets", "a", "b", "c"]).pick_targets == ["a", "b", "c"]
+    # Present but empty is rejected (nargs='+'), so it cannot silently fall back to single-object.
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--pick_targets"])
+
+
 def test_droid_stand_staging_override_is_instance_local():
     """Overriding one DROID embodiment's stand to staging must NOT leak into a fresh (stock) embodiment.
 
