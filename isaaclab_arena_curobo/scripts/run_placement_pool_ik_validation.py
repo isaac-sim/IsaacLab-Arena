@@ -32,15 +32,6 @@ def add_ik_validation_arguments(parser: argparse.ArgumentParser) -> None:
     """Add IK-reachability tuning flags. Registered before the env subparser so they stay top-level."""
     group = parser.add_argument_group("IK Validation Arguments")
     group.add_argument(
-        "--settle_steps",
-        type=int,
-        default=5,
-        help=(
-            "Environment steps to advance after writing each layout so the sim and planner world "
-            "reflect it. Converted to physics substeps internally (x the env's decimation)."
-        ),
-    )
-    group.add_argument(
         "--grasp_z_offset",
         type=float,
         default=0.02,
@@ -58,14 +49,6 @@ def add_ik_validation_arguments(parser: argparse.ArgumentParser) -> None:
         default=0.1,
         help="Max IK rotation error (rad) for a grasp to count as reachable.",
     )
-    group.add_argument(
-        "--render",
-        action="store_true",
-        help=(
-            "Render each settle step so the sweep is visible in the GUI (pair with --viz kit). "
-            "Off by default; has no visible effect under --headless."
-        ),
-    )
 
 
 def main() -> None:
@@ -76,11 +59,8 @@ def main() -> None:
     args_cli, _ = args_parser.parse_known_args()
 
     with SimulationAppContext(args_cli):
-        from isaaclab_arena_curobo.curobo_planner_utils import make_curobo_planner
-        from isaaclab_arena_curobo.placement_pool_ik_validation import (
-            print_ik_validation_results,
-            validate_pool_ik,
-        )
+        from isaaclab_arena_curobo.curobo_planner_utils import make_curobo_planner_for_droid
+        from isaaclab_arena_curobo.placement_pool_ik_validation import print_ik_validation_results, validate_pool_ik
         from isaaclab_arena_environments.cli import (
             get_arena_builder_from_cli,
             get_isaaclab_arena_environments_cli_parser,
@@ -95,16 +75,15 @@ def main() -> None:
         # validator overwrites poses per candidate, so that initial layout does not bias the results.
         env.reset()
 
-        planner = make_curobo_planner(env.unwrapped, env_id=0)
+        # CuroboPlanner is single-env: one collision world bound to one env, so we serialize every candidate through env 0.
+        planner = make_curobo_planner_for_droid(env.unwrapped, env_id=0)
 
         validation_results = validate_pool_ik(
             env,
             planner,
-            settle_steps=args_cli.settle_steps,
             grasp_z_offset=args_cli.grasp_z_offset,
             ik_pos_threshold=args_cli.ik_pos_threshold,
             ik_rot_threshold=args_cli.ik_rot_threshold,
-            render=args_cli.render,
         )
         assert validation_results is not None, (
             "The selected environment has no pooled placement, so there are no candidates to validate. "

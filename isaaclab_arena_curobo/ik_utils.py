@@ -11,9 +11,16 @@ to IsaacLab-Arena without forking the upstream planner.
 
 from __future__ import annotations
 
+import os
 import torch
 
 import isaaclab.utils.math as PoseUtils
+
+# cuRobo captures a CUDA graph on the IK solver's first solve and, by default, errors when a later
+# solve changes the "goal type". In this use case, the planner warms up with a single-goal
+# solve, then we issue a batched ``solve_batch``. On CUDA >= 12 cuRobo can reset the graph instead of
+# erroring, but only when this env var opts in. ``setdefault`` keeps any explicit user override.
+os.environ.setdefault("CUROBO_TORCH_CUDA_GRAPH_RESET", "1")
 
 
 def get_current_joint_config(planner) -> torch.Tensor:
@@ -28,7 +35,7 @@ def get_current_joint_config(planner) -> torch.Tensor:
     return planner._get_current_joint_state_for_curobo().position.detach().clone()
 
 
-def check_ik_feasibility(
+def check_ik_feasibility_per_goal_pose(
     planner,
     target_pose: torch.Tensor,
     seed_config: torch.Tensor | None = None,
@@ -37,23 +44,12 @@ def check_ik_feasibility(
 ) -> tuple[bool, float, float, torch.Tensor | None]:
     """Check if a target end-effector pose is reachable via inverse kinematics.
 
-    Uses cuRobo's IK solver for fast, collision-aware feasibility checking
-    without full trajectory optimization.  The caller controls the success
-    criteria via *position_threshold* and *rotation_threshold* so that
-    false negatives from cuRobo's internal thresholds do not pollute the
-    planning heuristic.
-
     Args:
-        planner: ``CuroboPlanner`` instance (provides IK solver, device
-            conversion, and pose helpers).
+        planner: ``CuroboPlanner`` instance.
         target_pose: 4x4 homogeneous transform in robot base frame.
-        seed_config: Optional joint config tensor to seed the solver
-            (shape ``(dof,)``, ``(1, dof)``, or ``(1, 1, dof)``).
-            Pass the solution from a previous call to evaluate
-            sequential reachability.
+        seed_config: Optional joint config tensor to seed the solver.
         position_threshold: Maximum position error (m) to consider feasible.
-        rotation_threshold: Maximum rotation error (rad, geodesic) to
-            consider feasible.
+        rotation_threshold: Maximum rotation error (rad) to consider feasible.
 
     Returns:
         ``(is_feasible, position_error, rotation_error, joint_solution)``
@@ -74,7 +70,8 @@ def check_ik_feasibility(
             ik_seed = ik_seed.unsqueeze(0)
 
     ik_result = planner.motion_gen.ik_solver.solve_single(
-        goal_pose, seed_config=ik_seed,
+        goal_pose,
+        seed_config=ik_seed,
     )
 
     pos_err = ik_result.position_error.view(-1)
@@ -92,7 +89,54 @@ def check_ik_feasibility(
         joint_solution = ik_result.solution.view(-1, dof)[best_idx].detach().clone()
 
     planner.logger.debug(
-        f'IK feasibility: feasible={feasible}, '
-        f'pos_err={best_pos_err:.4f}m, rot_err={best_rot_err:.4f}rad'
+        f"IK feasibility: feasible={feasible}, pos_err={best_pos_err:.4f}m, rot_err={best_rot_err:.4f}rad"
     )
     return feasible, best_pos_err, best_rot_err, joint_solution
+
+
+def check_ik_feasibility_batch_goal_poses(
+    planner,
+    target_poses: torch.Tensor,
+    seed_config: torch.Tensor | None = None,
+    position_threshold: float = 0.01,
+    rotation_threshold: float = 0.1,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Solves all *target_poses* IK reaching in a single cuRobo ``solve_batch`` call for one layout.
+
+    Args:
+        planner: ``CuroboPlanner`` instance.
+        target_poses: Target end-effector poses as a ``(b, 4, 4)`` batch of homogeneous
+            transforms in the robot base frame.
+        seed_config: Optional joint config tensor to seed the solver.
+        position_threshold: Maximum position error (m) to consider feasible.
+        rotation_threshold: Maximum rotation error (rad) to consider feasible.
+
+    Returns:
+        ``(feasible, position_error, rotation_error)``, each a length-``b`` tensor aligned with
+        *target_poses*; *feasible* is boolean, the errors are the best-seed errors per pose.
+    """
+    target_poses = planner._to_curobo_device(target_poses)
+    positions, rotations = PoseUtils.unmake_pose(target_poses)
+    goal_pose = planner._make_pose(
+        position=positions,
+        quaternion=PoseUtils.quat_from_matrix(rotations),
+    )
+
+    ik_seed = None
+    if seed_config is not None:
+        ik_seed = planner._to_curobo_device(seed_config)
+        while ik_seed.dim() < 3:
+            ik_seed = ik_seed.unsqueeze(0)
+
+    ik_result = planner.motion_gen.ik_solver.solve_batch(goal_pose, seed_config=ik_seed)
+
+    num_poses = positions.shape[0]
+    pos_err = ik_result.position_error.view(num_poses, -1)
+    rot_err = ik_result.rotation_error.view(num_poses, -1)
+    best_idx = pos_err.argmin(dim=1, keepdim=True)
+    best_pos_err = pos_err.gather(1, best_idx).squeeze(1)
+    best_rot_err = rot_err.gather(1, best_idx).squeeze(1)
+    feasible = (best_pos_err < position_threshold) & (best_rot_err < rotation_threshold)
+
+    planner.logger.debug(f"Batch IK feasibility: {int(feasible.sum().item())}/{num_poses} feasible")
+    return feasible, best_pos_err, best_rot_err

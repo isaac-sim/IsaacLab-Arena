@@ -3,24 +3,21 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Construct a CuroboPlanner for the Franka/Robotiq embodiment and build grasp poses for IK checks.
-
-These helpers back the offline IK-reachability validation. They are deliberately
-narrow: a single embodiment, a top-down grasp, and a robot-base-frame pose, which is all
-the reachability oracle in ``ik_utils`` needs. Imports of ``isaaclab_mimic`` are deferred to
-call time so this module can be imported before the SimulationApp starts.
-"""
 
 from __future__ import annotations
 
 import tempfile
+import torch
+import types
+import yaml
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import torch
-import yaml
-
 import isaaclab.utils.math as math_utils
+import warp as wp
+from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR, retrieve_file_path
+from isaaclab_mimic.motion_planners.curobo.curobo_planner import CuroboPlanner
+from isaaclab_mimic.motion_planners.curobo.curobo_planner_cfg import CuroboPlannerCfg
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -28,10 +25,9 @@ if TYPE_CHECKING:
 # Top-down grasp orientation (gripper pointing -Z) expressed in the robot base frame, (w, x, y, z).
 DOWN_FACING_QUAT_WXYZ = torch.tensor([0.0, 1.0, 0.0, 0.0], dtype=torch.float32)
 
-# Repo root: this file is isaaclab_arena_curobo/curobo_planner_utils.py
-_REPO_ROOT = Path(__file__).resolve().parents[1]
-_ROBOT_CFG_TEMPLATE = _REPO_ROOT / "assets_local" / "droid_fixed_mimic_joint" / "franka_robotiq_2f_85_zero_curobo.yml"
-_ROBOT_URDF = _REPO_ROOT / "assets_local" / "droid_fixed_mimic_joint" / "urdf" / "franka_robotiq_2f_85_zero.urdf"
+_ROBOT_ASSET_DIR = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/robot_library/droid/droid_fixed_mimic_joint"
+_ROBOT_CFG_TEMPLATE = f"{_ROBOT_ASSET_DIR}/franka_robotiq_2f_85_zero_curobo.yml"
+_ROBOT_URDF = f"{_ROBOT_ASSET_DIR}/urdf/franka_robotiq_2f_85_zero.urdf"
 
 
 def pose_from_pos_quat(pos_xyz: torch.Tensor, quat_wxyz: torch.Tensor) -> torch.Tensor:
@@ -40,13 +36,13 @@ def pose_from_pos_quat(pos_xyz: torch.Tensor, quat_wxyz: torch.Tensor) -> torch.
     return math_utils.make_pose(pos_xyz, rot)
 
 
-def make_planner_cfg(
+def make_planner_cfg_for_droid(
     approach_distance: float = 0.04,
     retreat_distance: float = 0.06,
     time_dilation_factor: float = 0.6,
     debug_planner: bool = False,
 ):
-    """Build a CuroboPlannerCfg for the Franka/Robotiq 2F-85 embodiment.
+    """Build a CuroboPlannerCfg for the DROID embodiment.
 
     Patches the bundled robot config with the local URDF path and the gripper open/closed
     joint targets, then returns a config ready to hand to ``CuroboPlanner``. The defaults
@@ -58,17 +54,16 @@ def make_planner_cfg(
         time_dilation_factor: cuRobo time dilation factor.
         debug_planner: Enable cuRobo planner debug output.
     """
-    from isaaclab_mimic.motion_planners.curobo.curobo_planner_cfg import CuroboPlannerCfg
+    # cuRobo reads real on-disk files, so pull the robot config + URDF from the Nucleus/S3 asset server.
+    robot_cfg_path = retrieve_file_path(_ROBOT_CFG_TEMPLATE)
+    robot_urdf_path = retrieve_file_path(_ROBOT_URDF)
 
-    assert _ROBOT_CFG_TEMPLATE.exists(), f"CuRobo robot config not found: {_ROBOT_CFG_TEMPLATE}"
-    assert _ROBOT_URDF.exists(), f"CuRobo URDF not found: {_ROBOT_URDF}"
-
-    with _ROBOT_CFG_TEMPLATE.open("r") as f:
+    with open(robot_cfg_path) as f:
         robot_yaml = yaml.safe_load(f)
-    robot_yaml["robot_cfg"]["kinematics"]["urdf_path"] = str(_ROBOT_URDF)
+    robot_yaml["robot_cfg"]["kinematics"]["urdf_path"] = robot_urdf_path
 
     tmp_dir = Path(tempfile.mkdtemp(prefix="curobo_robot_cfg_"))
-    robot_cfg_file = tmp_dir / "franka_curobo_runtime.yml"
+    robot_cfg_file = tmp_dir / "droid_curobo_runtime.yml"
     with robot_cfg_file.open("w") as f:
         yaml.safe_dump(robot_yaml, f, sort_keys=False)
 
@@ -117,27 +112,33 @@ def fix_planner_object_sync_frame(planner) -> None:
     in the robot base frame, so the collision world must match. Re-bind the sync method to
     transform every rigid object into the robot frame before updating the planner's world model.
     """
-    import types
 
     def _sync_robot_base_frame(self):
+        # USD prim path per scene object, used as the key into cuRobo's collision world model.
         object_mappings = self._get_object_mappings()
         world_model = self.motion_gen.world_coll_checker.world_model
         rigid_objects = self.env.scene.rigid_objects
-        robot_pos_w = self.robot.data.root_pos_w[self.env_id, :3]
-        robot_quat_w = self.robot.data.root_quat_w[self.env_id, :4]
+        # Robot base pose in world frame (warp arrays -> torch before indexing in this Newton build).
+        robot_pos_w = wp.to_torch(self.robot.data.root_pos_w)[self.env_id, :3]
+        robot_quat_w = wp.to_torch(self.robot.data.root_quat_w)[self.env_id, :4]
+        # World->robot rotation: transpose of the base rotation matrix; quat inverse for orientations.
         r_w2r = math_utils.matrix_from_quat(robot_quat_w.unsqueeze(0))[0].T
         robot_quat_inv = math_utils.quat_inv(robot_quat_w.unsqueeze(0))[0]
         updated_count = 0
         for object_name, object_path in object_mappings.items():
+            # Skip objects flagged static in the planner config (e.g. the table) — they aren't re-synced.
             static_objects = getattr(self.config, "static_objects", [])
             if object_name in rigid_objects and not any(s in object_name.lower() for s in static_objects):
                 obj = rigid_objects[object_name]
-                obj_pos_w = obj.data.root_pos_w[self.env_id, :3]
-                obj_quat_w = obj.data.root_quat_w[self.env_id, :4]
+                # Object pose in world frame (warp -> torch).
+                obj_pos_w = wp.to_torch(obj.data.root_pos_w)[self.env_id, :3]
+                obj_quat_w = wp.to_torch(obj.data.root_quat_w)[self.env_id, :4]
+                # Re-express the object pose in the robot base frame so it matches the IK goal frame.
                 pos_robot = (r_w2r @ (obj_pos_w - robot_pos_w).unsqueeze(-1)).squeeze(-1)
                 quat_robot = math_utils.quat_mul(robot_quat_inv.unsqueeze(0), obj_quat_w.unsqueeze(0))[0]
                 pos_c = self._to_curobo_device(pos_robot)
                 quat_c = self._to_curobo_device(quat_robot)
+                # cuRobo's world-model writer wants a flat [x, y, z, qw, qx, qy, qz] list.
                 pose_list = [
                     float(pos_c[0]),
                     float(pos_c[1]),
@@ -147,6 +148,7 @@ def fix_planner_object_sync_frame(planner) -> None:
                     float(quat_c[2]),
                     float(quat_c[3]),
                 ]
+                # Update the CPU-side world model first; only push to the GPU collision checker if it took.
                 if self._update_object_in_world_model(world_model, object_name, object_path, pose_list):
                     curobo_pose = self._make_pose(position=pos_c, quaternion=quat_c)
                     self.motion_gen.world_coll_checker.update_obstacle_pose(
@@ -154,39 +156,41 @@ def fix_planner_object_sync_frame(planner) -> None:
                     )
                     updated_count += 1
         self.logger.debug(f"SYNC (robot-base frame): Updated {updated_count} object poses")
+        # Block until the pose writes land so the next IK solve sees the synced world.
         if torch.cuda.is_available():
             torch.cuda.synchronize()
 
     planner._sync_object_poses_with_isaaclab = types.MethodType(_sync_robot_base_frame, planner)
 
 
-def make_curobo_planner(
+def make_curobo_planner_for_droid(
     env: ManagerBasedEnv,
     env_id: int = 0,
+    robot_scene_name: str = "robot",
     approach_distance: float = 0.04,
     retreat_distance: float = 0.06,
     time_dilation_factor: float = 0.6,
     debug_planner: bool = False,
 ):
-    """Construct a CuroboPlanner bound to the env's ``robot`` and patched to the robot base frame.
+    """Construct a DROID CuroboPlanner bound to the env's robot and patched to the robot base frame.
 
     Args:
-        env: The (unwrapped) Isaac Lab env; must expose a ``robot`` articulation in its scene.
+        env: The (unwrapped) Isaac Lab env; must expose the robot articulation in its scene.
         env_id: Index of the parallel env the planner reads object/robot poses from.
+        robot_scene_name: Scene key of the robot articulation (Arena's convention is ``"robot"``).
         approach_distance: cuRobo approach distance (m).
         retreat_distance: cuRobo retreat distance (m).
         time_dilation_factor: cuRobo time dilation factor.
         debug_planner: Enable cuRobo planner debug output.
     """
-    from isaaclab_mimic.motion_planners.curobo.curobo_planner import CuroboPlanner
-
-    planner_cfg = make_planner_cfg(
+    planner_cfg = make_planner_cfg_for_droid(
         approach_distance=approach_distance,
         retreat_distance=retreat_distance,
         time_dilation_factor=time_dilation_factor,
         debug_planner=debug_planner,
     )
-    planner = CuroboPlanner(env=env, robot=env.scene["robot"], config=planner_cfg, env_id=env_id)
+    # cuRobo-Lab's MotionGen/collision world is single-env only for now.
+    planner = CuroboPlanner(env=env, robot=env.scene[robot_scene_name], config=planner_cfg, env_id=env_id)
     fix_planner_object_sync_frame(planner)
     return planner
 
@@ -196,27 +200,26 @@ def top_down_grasp_pose_in_robot_frame(
     object_name: str,
     grasp_z_offset: float = 0.02,
     env_id: int = 0,
+    robot_scene_name: str = "robot",
 ) -> torch.Tensor:
     """Top-down grasp pose at an object's center, expressed in the robot base frame.
 
-    Reads the object's world pose, transforms its position into the robot base frame, lifts it
-    by ``grasp_z_offset``, and pairs it with a fixed downward-facing orientation.
-
     Args:
-        env: The (unwrapped) Isaac Lab env holding both ``robot`` and the target object.
+        env: The (unwrapped) Isaac Lab env holding both the robot and the target object.
         object_name: Scene key of the object to grasp.
         grasp_z_offset: Height (m) added above the object center for the grasp.
         env_id: Index of the parallel env to read poses from.
+        robot_scene_name: Scene key of the robot articulation.
 
     Returns:
         A 4x4 homogeneous transform (robot base frame) on the env's device.
     """
-    robot = env.scene["robot"]
-    robot_pos_w = robot.data.root_pos_w[env_id, :3]
-    robot_quat_w = robot.data.root_quat_w[env_id, :4]
+    robot = env.scene[robot_scene_name]
+    robot_pos_w = wp.to_torch(robot.data.root_pos_w)[env_id, :3]
+    robot_quat_w = wp.to_torch(robot.data.root_quat_w)[env_id, :4]
     r_w2r = math_utils.matrix_from_quat(robot_quat_w.unsqueeze(0))[0].T
 
-    obj_pos_w = env.scene[object_name].data.root_pos_w[env_id, :3]
+    obj_pos_w = wp.to_torch(env.scene[object_name].data.root_pos_w)[env_id, :3]
     pos_robot = (r_w2r @ (obj_pos_w - robot_pos_w).unsqueeze(-1)).squeeze(-1).clone()
     pos_robot[2] += grasp_z_offset
 
