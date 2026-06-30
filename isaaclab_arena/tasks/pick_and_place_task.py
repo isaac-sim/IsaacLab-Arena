@@ -6,7 +6,6 @@
 import numpy as np
 from collections.abc import Callable
 from dataclasses import MISSING
-from functools import partial
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
@@ -22,9 +21,7 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
-from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
-from isaaclab_arena.tasks.predicates.spatial import object_lifted
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
 from isaaclab_arena.tasks.terminations import SuccessMode, check_success, object_on_destination, objects_in_proximity
@@ -61,8 +58,6 @@ class PickAndPlaceTask(TaskBase):
         task_description: str | None = None,
         force_threshold: float = 0.1,
         velocity_threshold: float = 0.1,
-        surface_height: float = 0.0,
-        lift_distance: float = 0.025,
         max_separation: tuple[float, float, float] | None = None,
         mimic_env_cfg_factory: Callable[[ArmMode], MimicEnvCfg] | None = None,
     ):
@@ -78,8 +73,6 @@ class PickAndPlaceTask(TaskBase):
         )
         self.force_threshold = force_threshold
         self.velocity_threshold = velocity_threshold
-        self.surface_height = surface_height
-        self.lift_distance = lift_distance
         if max_separation is not None:
             assert len(max_separation) == 3, f"max_separation must be (x, y, z), got {max_separation!r}"
         self.max_separation = max_separation
@@ -166,28 +159,6 @@ class PickAndPlaceTask(TaskBase):
 
     def get_metrics(self) -> list[MetricBase]:
         return [SuccessRateMetric(), ObjectMovedRateMetric(self.pick_up_object)]
-
-    def get_progress_objectives(self) -> list[ProgressObjective]:
-        return [
-            ProgressObjective(
-                name="pick_and_place",
-                predicate_groups=[
-                    partial(
-                        object_lifted,
-                        object_name=self.pick_up_object.name,
-                        surface_height=self.surface_height,
-                        distance=self.lift_distance,
-                    ),
-                    partial(
-                        object_on_destination,
-                        object_cfg=SceneEntityCfg(self.pick_up_object.name),
-                        contact_sensor_cfg=SceneEntityCfg("pick_up_object_contact_sensor"),
-                        force_threshold=self.force_threshold,
-                        velocity_threshold=self.velocity_threshold,
-                    ),
-                ],
-            )
-        ]
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(
