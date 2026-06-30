@@ -26,6 +26,7 @@ def record_core_episode_results(env, env_id: int) -> dict[str, Any]:
         "seed": env.cfg.seed,
         "success": success,
         "episode_length": int(env.episode_length_buf[env_id].item()),
+        "language_instruction": env.get_language_instruction(),
         "timestamp": datetime.datetime.now().isoformat(),
     }
 

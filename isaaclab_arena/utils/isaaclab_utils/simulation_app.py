@@ -4,8 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import gc
 import os
 import sys
+import torch
 import traceback
 from contextlib import nullcontext, suppress
 
@@ -80,6 +82,13 @@ def teardown_simulation_app(suppress_exceptions: bool = False, make_new_stage: b
             import omni.usd
 
             omni.usd.get_context().new_stage()
+
+
+def collect_garbage_and_clear_cuda_cache() -> None:
+    """Run GC and release cached CUDA allocations after a sim env is torn down."""
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 
 def reapply_viewer_cfg(env) -> None:

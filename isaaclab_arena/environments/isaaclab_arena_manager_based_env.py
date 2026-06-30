@@ -50,13 +50,17 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
 
     @property
     def episode_recorder(self) -> EpisodeRecorderManager:
-        """The per-episode recorder; set its metadata via ``set_metadata`` and persist via ``write``."""
+        """The per-episode recorder."""
         return self.episode_recorder_manager
 
     def load_managers(self) -> None:
         super().load_managers()
         self.metrics_manager = MetricsManager(self.cfg.metrics, self)
         self.episode_recorder_manager = EpisodeRecorderManager(self.cfg.episode_recorders, self)
+
+    def get_language_instruction(self) -> str | None:
+        """Return the language instruction that is passed to the policy."""
+        return self.cfg.task_description
 
     def get_episode_index(self, env_id: int) -> int:
         """Return the index of the current episode in ``env_id``."""
