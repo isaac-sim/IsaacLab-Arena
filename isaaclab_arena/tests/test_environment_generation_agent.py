@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from isaaclab_arena.agentic_environment_generation.background_physics_catalog import PhysicsPrimEntry
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
     AssetCatalogue,
     EnvironmentGenerationAgent,
@@ -17,6 +18,7 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     TaskCatalogue,
 )
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
+from isaaclab_arena.tests._asset_matcher_test_helpers import FakeAsset, make_registry
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -86,6 +88,48 @@ _MINIMAL_SPEC: dict = {
 }
 
 
+_NORMALIZED_PROMPT: dict = {
+    "robot_prompt": "franka",
+    "background_prompt": "kitchen table",
+    "items_prompt": "avocado and bowl",
+    "fixtures_prompt": "",
+    "tasks": [{
+        "kind": "PickAndPlaceTask",
+        "bindings": [
+            {"param_name": "pick_up_object", "semantic_target": "avocado", "target_kind": "item"},
+            {"param_name": "destination_location", "semantic_target": "bowl", "target_kind": "item"},
+            {"param_name": "background_scene", "semantic_target": "kitchen", "target_kind": "background"},
+        ],
+        "description": "pick up the avocado and place it in the bowl",
+    }],
+}
+
+_REFERENCE_INFERENCE: dict = {
+    "reasoning": "bowl is a built-in rigid fixture",
+    "object_references": [{
+        "id": "bowl_surface",
+        "name": "bowl_surface",
+        "usd_prim_path": "/world/bowl_surface",
+        "object_type": "rigid",
+        "scope": "background",
+        "parent_id": None,
+        "openable_joint_name": None,
+    }],
+    "task_param_bindings": [
+        {"task_index": 0, "param_name": "destination_location", "reference_id": "bowl_surface"},
+        {"task_index": 0, "param_name": "destination_object", "reference_id": "bowl_surface"},
+    ],
+    "remove_item_ids": ["bowl"],
+}
+
+
+def _successful_staged_responses(spec: dict | None = None):
+    return [
+        _chat_response(content=json.dumps(_NORMALIZED_PROMPT)),
+        _chat_response(content=json.dumps(spec or _MINIMAL_SPEC)),
+    ]
+
+
 # ---------------------------------------------------------------------------
 # __init__
 # ---------------------------------------------------------------------------
@@ -138,7 +182,7 @@ def _task_catalog(text: str) -> TaskCatalogue:
 
 class TestGenerateSpec:
     def test_builds_catalogues_from_singleton_registries_when_none(self, agent):
-        agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
+        agent.client.chat.completions.create.side_effect = _successful_staged_responses()
         with (
             patch(
                 "isaaclab_arena.agentic_environment_generation.environment_generation_agent.build_asset_catalogue",
@@ -188,14 +232,14 @@ class TestGenerateSpec:
         )
 
     def test_request_sets_response_format_to_json_schema(self, agent):
-        agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
+        agent.client.chat.completions.create.side_effect = _successful_staged_responses()
         agent.generate_spec(
             "p",
             asset_catalog=_catalog("catalog"),
             relation_catalog=_relation_catalog("RELATIONS"),
             task_catalog=_task_catalog("TASKS"),
         )
-        kwargs = agent.client.chat.completions.create.call_args.kwargs
+        kwargs = agent.client.chat.completions.create.call_args_list[-1].kwargs
         assert kwargs["response_format"]["type"] == "json_schema"
         assert kwargs["response_format"]["json_schema"]["name"] == "EnvironmentIntentSpec"
         assert kwargs["response_format"]["json_schema"]["strict"] is True
@@ -209,7 +253,10 @@ class TestGenerateSpec:
         payload["reasoning"] = "pick up\tthe\tavocado"
         raw = json.dumps(payload).replace("\\t", "\t")
         assert "\t" in raw  # raw payload now has literal tab chars in a string
-        agent.client.chat.completions.create.return_value = _chat_response(content=raw)
+        agent.client.chat.completions.create.side_effect = [
+            _chat_response(content=json.dumps(_NORMALIZED_PROMPT)),
+            _chat_response(content=raw),
+        ]
         spec, _ = agent.generate_spec(
             "p",
             asset_catalog=_catalog("catalog"),
@@ -219,20 +266,66 @@ class TestGenerateSpec:
         assert "\t" in spec.reasoning
 
     def test_user_message_contains_catalog_and_prompt(self, agent):
-        agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
+        agent.client.chat.completions.create.side_effect = _successful_staged_responses()
         agent.generate_spec(
             "user wants avocado on kitchen",
             asset_catalog=_catalog("<<CATALOG-MARKER>>"),
             relation_catalog=_relation_catalog("<<RELATIONS-MARKER>>"),
             task_catalog=_task_catalog("<<TASKS-MARKER>>"),
         )
-        msgs = agent.client.chat.completions.create.call_args.kwargs["messages"]
+        msgs = agent.client.chat.completions.create.call_args_list[-1].kwargs["messages"]
         assert [m["role"] for m in msgs] == ["system", "user"]
         user_msg = msgs[1]["content"]
         assert "<<CATALOG-MARKER>>" in user_msg
         assert "<<RELATIONS-MARKER>>" in user_msg
         assert "<<TASKS-MARKER>>" in user_msg
         assert "user wants avocado on kitchen" in user_msg
+
+    def test_generate_spec_infers_background_references_from_fixtures_prompt(self, agent, monkeypatch):
+        normalized = {**_NORMALIZED_PROMPT, "fixtures_prompt": "built-in bowl surface"}
+        agent.client.chat.completions.create.side_effect = [
+            _chat_response(content=json.dumps(normalized)),
+            _chat_response(content=json.dumps(_MINIMAL_SPEC)),
+            _chat_response(content=json.dumps(_REFERENCE_INFERENCE)),
+        ]
+
+        fake_registry = make_registry([FakeAsset(name="kitchen", tags=["background"])])
+        monkeypatch.setattr(
+            "isaaclab_arena.agentic_environment_generation.multi_agent_orchestrator.AssetRegistry",
+            lambda: fake_registry,
+        )
+        monkeypatch.setattr(
+            "isaaclab_arena.agentic_environment_generation.multi_agent_orchestrator.resolve_background_usd_path",
+            lambda *_: "/tmp/kitchen.usd",
+        )
+        fake_entries = [PhysicsPrimEntry(usd_prim_path="/world/bowl_surface", physics_kinds=frozenset({"rigid_body"}))]
+
+        class FakePrimIndex:
+            def __init__(self, usd_path):
+                self.usd_path = usd_path
+
+            def get_usd_path(self):
+                return self.usd_path
+
+            def list_entries(self):
+                return fake_entries
+
+        monkeypatch.setattr(
+            "isaaclab_arena.agentic_environment_generation.multi_agent_orchestrator.UsdPrimIndex",
+            FakePrimIndex,
+        )
+
+        spec, _raw = agent.generate_spec(
+            "p",
+            asset_catalog=_catalog("catalog"),
+            relation_catalog=_relation_catalog("RELATIONS"),
+            task_catalog=_task_catalog("TASKS"),
+        )
+
+        assert [item.query for item in spec.items] == ["avocado"]
+        assert spec.object_references[0].id == "bowl_surface"
+        assert spec.tasks[0].params["destination_location"] == "bowl_surface"
+        assert spec.tasks[0].params["destination_object"] == "bowl_surface"
 
     def test_raises_when_response_has_no_choices(self, agent):
         resp = MagicMock()
@@ -251,6 +344,7 @@ class TestGenerateSpec:
     def test_retries_after_api_error_then_succeeds(self, agent):
         agent.client.chat.completions.create.side_effect = [
             ConnectionError("timeout"),
+            _chat_response(content=json.dumps(_NORMALIZED_PROMPT)),
             _chat_response(content=json.dumps(_MINIMAL_SPEC)),
         ]
         spec, _ = agent.generate_spec(
@@ -261,7 +355,7 @@ class TestGenerateSpec:
             max_retries=3,
         )
         assert spec.background == "kitchen"
-        assert agent.client.chat.completions.create.call_count == 2
+        assert agent.client.chat.completions.create.call_count == 3
 
     def test_raises_after_api_errors_exhaust_retries(self, agent):
         agent.client.chat.completions.create.side_effect = ConnectionError("timeout")

@@ -57,7 +57,7 @@ class ObjectReferenceItem(BaseModel):
     id: str = Field(min_length=1)
     name: str = Field(min_length=1)
     usd_prim_path: str = Field(min_length=1)
-    object_type: Literal["rigid", "articulation"]
+    object_type: Literal["base", "rigid", "articulation"]
     scope: Literal["background", "item"] = "background"
     parent_id: str | None = Field(
         default=None,

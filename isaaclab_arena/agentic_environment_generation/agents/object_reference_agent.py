@@ -74,6 +74,7 @@ Infer object_reference nodes for subprims inside a parent asset USD.
 Use only prim paths copied from PHYSICS PRIM CATALOG.
 Every object_reference must set scope to PARENT SCOPE.
 For item-scoped refs, every object_reference must set parent_id to PARENT NODE ID.
+Placement anchor surfaces such as tables and counters should be base refs when they are static geometry, or rigid refs when they are rigid bodies.
 OpenDoorTask.openable_object and CloseDoorTask.openable_object require articulation refs with a revolute joint name.
 PickAndPlaceTask.destination_object and destination_location for physical destination surfaces require rigid refs.
 For background fixtures, return remove_item_ids for catalogue items that duplicate built-in fixtures.

@@ -80,7 +80,12 @@ def build_object_reference_nodes_for_parent(
     """Materialize object-reference graph nodes parented to ``parent_node_id``."""
     nodes: list[ArenaEnvGraphNodeSpec] = []
     for ref in references:
-        object_type = ObjectType.RIGID if ref.object_type == "rigid" else ObjectType.ARTICULATION
+        object_type_by_name = {
+            "base": ObjectType.BASE,
+            "rigid": ObjectType.RIGID,
+            "articulation": ObjectType.ARTICULATION,
+        }
+        object_type = object_type_by_name[ref.object_type]
         params: dict[str, object] = {}
         if ref.openable_joint_name:
             params["openable_joint_name"] = ref.openable_joint_name

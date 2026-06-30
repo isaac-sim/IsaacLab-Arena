@@ -61,13 +61,15 @@ def validate_background_object_reference_inference(
         if ref.object_type == "rigid":
             assert "rigid_body" in entry.physics_kinds, f"{ref.id!r} must reference a rigid_body prim"
             assert ref.openable_joint_name is None, f"{ref.id!r} rigid references must not set openable_joint_name"
-        else:
+        elif ref.object_type == "articulation":
             assert "articulation" in entry.physics_kinds, f"{ref.id!r} must reference an articulation prim"
             if ref.openable_joint_name is not None:
                 assert ref.openable_joint_name in entry.revolute_joint_names, (
                     f"{ref.id!r} openable_joint_name {ref.openable_joint_name!r} is not in "
                     f"{sorted(entry.revolute_joint_names)}"
                 )
+        else:
+            assert "base" in entry.physics_kinds, f"{ref.id!r} must reference a base/static prim"
 
     task_registry = TaskRegistry()
     for binding in inference.task_param_bindings:
