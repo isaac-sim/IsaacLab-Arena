@@ -199,6 +199,43 @@ def test_validate_rejects_task_param_targeting_unknown_node():
         ArenaEnvGraphSpec.from_dict(data)
 
 
+def test_validate_rejects_openable_task_param_targeting_rigid_reference():
+    data = _minimal_env_graph_data()
+    data["tasks"][0].update({
+        "kind": "OpenDoorTask",
+        "params": {"openable_object": "table"},
+    })
+
+    with pytest.raises(ValidationError, match="openable_object.*articulation object_reference"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
+def test_validate_rejects_openable_reference_without_joint_name():
+    data = _minimal_env_graph_data()
+    data["nodes"][2]["object_type"] = "articulation"
+    data["tasks"][0].update({
+        "kind": "OpenDoorTask",
+        "params": {"openable_object": "table"},
+    })
+
+    with pytest.raises(ValidationError, match="openable_object.*openable_joint_name"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
+def test_validate_rejects_pick_destination_targeting_articulation_reference():
+    data = _minimal_env_graph_data()
+    data["nodes"][2]["object_type"] = "articulation"
+    data["nodes"][2]["params"] = {"openable_joint_name": "door_joint"}
+    data["tasks"][0]["params"] = {
+        "pick_up_object": "cube",
+        "destination_location": "table",
+        "background_scene": "background",
+    }
+
+    with pytest.raises(ValidationError, match="destination_location.*rigid object_reference"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
 def test_validate_rejects_duplicate_cli_override_args():
     data = _minimal_env_graph_data()
     data["cli_override_specs"] = [
