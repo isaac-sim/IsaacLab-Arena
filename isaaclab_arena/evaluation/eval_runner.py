@@ -219,9 +219,14 @@ def build_datagen_collector(job: Job, datagen_defaults: dict | None, env):
         return None
 
     from isaaclab_arena_datagen.collection.collector import DatagenCollector, DatagenCollectorConfig
+    from isaaclab_arena_datagen.io.hdf5_writer import StoredFloatType
     from isaaclab_arena_datagen.utils.constants import DEFAULT_ROTATION_EPS_RAD, DEFAULT_TRANSLATION_EPS_M
 
     cameras = parse_datagen_cameras(merged)
+
+    def resolution(key: str) -> tuple[int, int] | None:
+        value = merged.get(key)
+        return tuple(value) if value is not None else None
 
     cfg = DatagenCollectorConfig(
         output_dir=os.path.join(merged["output_dir"], job.name),
@@ -232,6 +237,14 @@ def build_datagen_collector(job: Job, datagen_defaults: dict | None, env):
         dynamic_translation_eps=merged.get("dynamic_translation_eps", DEFAULT_TRANSLATION_EPS_M),
         dynamic_rotation_eps=merged.get("dynamic_rotation_eps", DEFAULT_ROTATION_EPS_RAD),
         camera_sampler=build_datagen_camera_sampler(merged),
+        store_normals=merged.get("store_normals", False),
+        store_flow3d=merged.get("store_flow3d", False),
+        store_float_type=StoredFloatType(merged.get("store_float_type", "float32")),
+        frame_stride=merged.get("frame_stride", 1),
+        color_resolution=resolution("color_resolution"),
+        depth_resolution=resolution("depth_resolution"),
+        flow2d_resolution=resolution("flow2d_resolution"),
+        semantic_resolution=resolution("semantic_resolution"),
     )
     print(f"[INFO] Datagen collection enabled for job '{job.name}' -> {cfg.output_dir}/episode_NNNN/dataset.h5")
     return DatagenCollector.from_env(env, cfg, env_name=None)

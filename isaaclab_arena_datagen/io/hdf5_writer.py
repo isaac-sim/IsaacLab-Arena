@@ -18,20 +18,24 @@ and ``SyntheticSceneRGBDDataset``. Crucially, this writer depends only on
 ``h5py`` + ``hdf5plugin`` (plus numpy/torch) -- no ``nvblox_next`` and no
 ``pytorch3d``.
 
+Per-frame ``H``/``W`` are the stored resolution, which may be below the render resolution
+(``intrinsic`` and ``flow2d`` are scaled to match). ``depth``/``flow2d`` are float16 or float32
+depending on the configured precision. ``normal`` and the ``flow3d`` datasets are optional.
+
 HDF5 layout (one sequence per file)::
 
     sequence_000000/                     (group; attrs: sequence_id, num_frames, camera_ids, ...)
       cam0/                              (group; attrs: height, width)
         color            (N, H, W, 3)  uint8
-        depth            (N, H, W)      float32
+        depth            (N, H, W)      float16 | float32
         intrinsic        (N, 3, 3)      float32
         extrinsic        (N, 3, 4)      float64
-        normal           (N, H, W, 3)  float32
+        normal           (N, H, W, 3)  float32           (optional)
         semantic         (N, H, W)      int32
         semantic_json    (N,)           str
-        flow2d           (N-1, H, W, 2) float32
-        flow3d           (N-1, H, W, 3) float32
-        flow3d_track_type(N-1, H, W)    uint8
+        flow2d           (N-1, H, W, 2) float16 | float32
+        flow3d           (N-1, H, W, 3) float32           (optional)
+        flow3d_track_type(N-1, H, W)    uint8             (optional)
       dynamic_objects/                   (group; attrs: metadata_json, object_ids)
         poses/<name>     (N, 3, 4)       float32
         mesh_samples/<name> (P, 3, 4)    float32
@@ -39,6 +43,7 @@ HDF5 layout (one sequence per file)::
 
 from __future__ import annotations
 
+import enum
 import h5py
 import json
 import numpy as np
@@ -49,6 +54,7 @@ from typing import TYPE_CHECKING, Any
 import hdf5plugin
 
 from isaaclab_arena_datagen.io import hdf5_keys as Keys
+from isaaclab_arena_datagen.utils import image_ops
 
 if TYPE_CHECKING:
     from isaaclab_arena_datagen.dynamic_object_tracker import DynamicObjectResult, MeshSamplesResult
@@ -57,6 +63,32 @@ if TYPE_CHECKING:
 # Zstandard level 3 -- good speed/ratio balance for image and float data.
 _ZSTD: dict[str, Any] = hdf5plugin.Zstd(clevel=3)
 _STR_DTYPE = h5py.string_dtype()
+
+
+class StoredFloatType(enum.Enum):
+    """Storage precision for the bulky per-pixel float modalities (depth, flow2d)."""
+
+    FLOAT16 = "float16"
+    FLOAT32 = "float32"
+
+    @property
+    def numpy_dtype(self) -> type[np.floating]:
+        """The numpy dtype this precision maps to."""
+        return np.float16 if self is StoredFloatType.FLOAT16 else np.float32
+
+
+def stored_float_type(dataset: h5py.Dataset) -> StoredFloatType:
+    """Return the float precision a dataset was written with."""
+    return StoredFloatType.FLOAT16 if np.dtype(dataset.dtype) == np.float16 else StoredFloatType.FLOAT32
+
+
+def read_float32(dataset: h5py.Dataset, index: Any = None) -> np.ndarray:
+    """Read a float dataset as float32 regardless of its stored precision.
+
+    Lets readers consume float16 and legacy float32 files identically with no flag.
+    """
+    arr = dataset[...] if index is None else dataset[index]
+    return np.asarray(arr, dtype=np.float32)
 
 
 def camera_id_from_index(index: int) -> str:
@@ -115,6 +147,14 @@ class DatagenHDF5Writer:
         num_frames: Total number of simulation frames to pre-allocate (> 1).
         anchor_frame_indices: Optional anchor (source) frames for long-range
             flow tracking. Empty by default (adjacent-frame flow only).
+        store_normals: Write the ``normal`` dataset.
+        store_flow3d: Write the ``flow3d`` and ``flow3d_track_type`` datasets.
+        store_float_type: Storage precision for ``depth`` and ``flow2d``.
+        color_resolution: Stored ``(width, height)`` for ``color``; ``None`` keeps
+            the render resolution. ``depth_resolution`` / ``flow2d_resolution`` /
+            ``semantic_resolution`` behave the same for their datasets. Each must be
+            ``<=`` the render resolution; ``color`` and ``depth`` must match so the
+            scaled intrinsics stay valid for both.
     """
 
     def __init__(
@@ -125,6 +165,13 @@ class DatagenHDF5Writer:
         num_frames: int,
         anchor_frame_indices: list[int] | None = None,
         filename: str = "dataset.h5",
+        store_normals: bool = True,
+        store_flow3d: bool = True,
+        store_float_type: StoredFloatType = StoredFloatType.FLOAT32,
+        color_resolution: tuple[int, int] | None = None,
+        depth_resolution: tuple[int, int] | None = None,
+        flow2d_resolution: tuple[int, int] | None = None,
+        semantic_resolution: tuple[int, int] | None = None,
     ) -> None:
         """Open the HDF5 file and pre-allocate all datasets.
 
@@ -139,6 +186,19 @@ class DatagenHDF5Writer:
             raise ValueError(
                 f"All cameras must share the same spatial dimensions. Got heights={heights}, widths={widths}."
             )
+
+        self._store_normals = store_normals
+        self._store_flow3d = store_flow3d
+        self._float_dtype = store_float_type.numpy_dtype
+        self._render_wh = (next(iter(widths)), next(iter(heights)))
+        self._color_wh = self._resolve_resolution(color_resolution, "color")
+        self._depth_wh = self._resolve_resolution(depth_resolution, "depth")
+        self._flow2d_wh = self._resolve_resolution(flow2d_resolution, "flow2d")
+        self._semantic_wh = self._resolve_resolution(semantic_resolution, "semantic")
+        assert self._color_wh == self._depth_wh, (
+            f"color {self._color_wh} and depth {self._depth_wh} resolutions must match "
+            "so the scaled intrinsics apply to both"
+        )
 
         os.makedirs(output_dir, exist_ok=True)
         self._output_dir = output_dir
@@ -155,39 +215,56 @@ class DatagenHDF5Writer:
         self._seq_group.attrs[Keys.ATTR_CAMERA_IDS] = json.dumps([cid for cid, _, _ in cameras])
 
         self._cam_groups: dict[str, h5py.Group] = {}
-        for cam_id, height, width in cameras:
+        color_w, color_h = self._color_wh
+        for cam_id, _, _ in cameras:
             cam_group = self._seq_group.require_group(cam_id)
-            cam_group.attrs[Keys.ATTR_HEIGHT] = height
-            cam_group.attrs[Keys.ATTR_WIDTH] = width
+            cam_group.attrs[Keys.ATTR_HEIGHT] = color_h
+            cam_group.attrs[Keys.ATTR_WIDTH] = color_w
             self._cam_groups[cam_id] = cam_group
-            self._preallocate_camera(cam_id, height, width, num_frames)
+            self._preallocate_camera(cam_id, num_frames)
+
+    def _resolve_resolution(self, resolution: tuple[int, int] | None, name: str) -> tuple[int, int]:
+        """Return the stored ``(width, height)``, defaulting to and bounded by the render size."""
+        if resolution is None:
+            return self._render_wh
+        image_ops.assert_within_render(resolution, self._render_wh, name)
+        return tuple(resolution)
 
     # ------------------------------------------------------------------
     # Pre-allocation
     # ------------------------------------------------------------------
 
-    def _preallocate_camera(self, camera_id: str, H: int, W: int, n: int) -> None:
-        """Pre-allocate all per-frame datasets for one camera.
+    def _preallocate_camera(self, camera_id: str, n: int) -> None:
+        """Pre-allocate the per-frame datasets one camera stores.
 
         Datasets are resizable along the frame axis (``maxshape`` set) so
-        :meth:`trim` can shrink them to the actual frame count at close.
+        :meth:`trim` can shrink them to the actual frame count at close. Each
+        modality is sized to its stored resolution and ``normal`` / ``flow3d`` are
+        only created when configured to be stored.
         """
         g = self._cam_groups[camera_id]
+        render_w, render_h = self._render_wh
+        color_w, color_h = self._color_wh
+        depth_w, depth_h = self._depth_wh
+        flow2d_w, flow2d_h = self._flow2d_wh
+        semantic_w, semantic_h = self._semantic_wh
 
         def make(name: str, shape: tuple[int, ...], dtype: Any) -> None:
             g.create_dataset(name, shape=shape, dtype=dtype, chunks=(1,) + shape[1:], maxshape=shape, **_ZSTD)
 
-        make(Keys.COLOR, (n, H, W, 3), np.uint8)
-        make(Keys.DEPTH, (n, H, W), np.float32)
+        make(Keys.COLOR, (n, color_h, color_w, 3), np.uint8)
+        make(Keys.DEPTH, (n, depth_h, depth_w), self._float_dtype)
         make(Keys.INTRINSIC, (n, 3, 3), np.float32)
         make(Keys.EXTRINSIC, (n, 3, 4), np.float64)
-        make(Keys.NORMAL, (n, H, W, 3), np.float32)
-        make(Keys.SEMANTIC, (n, H, W), np.int32)
+        make(Keys.SEMANTIC, (n, semantic_h, semantic_w), np.int32)
         g.create_dataset(Keys.SEMANTIC_JSON, shape=(n,), dtype=_STR_DTYPE, maxshape=(n,), **_ZSTD)
+        make(Keys.FLOW2D, (n - 1, flow2d_h, flow2d_w, 2), self._float_dtype)
 
-        make(Keys.FLOW2D, (n - 1, H, W, 2), np.float32)
-        make(Keys.FLOW3D, (n - 1, H, W, 3), np.float32)
-        make(Keys.FLOW3D_TRACK_TYPE, (n - 1, H, W), np.uint8)
+        if self._store_normals:
+            make(Keys.NORMAL, (n, render_h, render_w, 3), np.float32)
+        if self._store_flow3d:
+            make(Keys.FLOW3D, (n - 1, render_h, render_w, 3), np.float32)
+            make(Keys.FLOW3D_TRACK_TYPE, (n - 1, render_h, render_w), np.uint8)
 
         for anchor_idx in self._anchors:
             rows = n - anchor_idx
@@ -195,10 +272,10 @@ class DatagenHDF5Writer:
                 continue
             anchor_key = str(anchor_idx)
             for group_name, suffix, dtype in [
-                (Keys.FLOW3D_FROM_FRAME, (H, W, 3), np.float32),
-                (Keys.TRACKABLE_MASK_FRAME, (H, W), np.uint8),
-                (Keys.IN_FRAME_MASK_FRAME, (H, W), np.uint8),
-                (Keys.VISIBLE_NOW_MASK_FRAME, (H, W), np.uint8),
+                (Keys.FLOW3D_FROM_FRAME, (render_h, render_w, 3), np.float32),
+                (Keys.TRACKABLE_MASK_FRAME, (render_h, render_w), np.uint8),
+                (Keys.IN_FRAME_MASK_FRAME, (render_h, render_w), np.uint8),
+                (Keys.VISIBLE_NOW_MASK_FRAME, (render_h, render_w), np.uint8),
             ]:
                 sub = g.require_group(group_name)
                 sub.create_dataset(
@@ -221,8 +298,12 @@ class DatagenHDF5Writer:
         assert (
             0 < num_valid_frames <= self._num_frames
         ), f"num_valid_frames={num_valid_frames} out of range (1, {self._num_frames}]"
-        per_frame = (Keys.COLOR, Keys.DEPTH, Keys.INTRINSIC, Keys.EXTRINSIC, Keys.NORMAL, Keys.SEMANTIC)
-        flow = (Keys.FLOW2D, Keys.FLOW3D, Keys.FLOW3D_TRACK_TYPE)
+        per_frame = [Keys.COLOR, Keys.DEPTH, Keys.INTRINSIC, Keys.EXTRINSIC, Keys.SEMANTIC]
+        flow = [Keys.FLOW2D]
+        if self._store_normals:
+            per_frame.append(Keys.NORMAL)
+        if self._store_flow3d:
+            flow += [Keys.FLOW3D, Keys.FLOW3D_TRACK_TYPE]
         for g in self._cam_groups.values():
             for key in per_frame:
                 g[key].resize(num_valid_frames, axis=0)
@@ -237,15 +318,18 @@ class DatagenHDF5Writer:
     # ------------------------------------------------------------------
 
     def write_rgb(self, rgb_hw3: torch.Tensor, camera_id: str, frame_index: int) -> None:
-        """Save an ``(H, W, 3)`` uint8 RGB image."""
+        """Save an RGB image, downscaled to the stored color resolution."""
+        rgb_hw3 = image_ops.resize_color(rgb_hw3, self._color_wh)
         self._cam_groups[camera_id][Keys.COLOR][frame_index] = rgb_hw3.cpu().numpy()
 
     def write_depth(self, depth_hw: torch.Tensor, camera_id: str, frame_index: int) -> None:
-        """Save an ``(H, W)`` float32 depth map (metres)."""
-        self._cam_groups[camera_id][Keys.DEPTH][frame_index] = depth_hw.cpu().numpy().astype(np.float32)
+        """Save a depth map (metres), downscaled to the stored depth resolution."""
+        depth_hw = image_ops.resize_depth(depth_hw, self._depth_wh)
+        self._cam_groups[camera_id][Keys.DEPTH][frame_index] = depth_hw.cpu().numpy().astype(self._float_dtype)
 
     def write_intrinsics(self, intrinsics_33: torch.Tensor, camera_id: str, frame_index: int) -> None:
-        """Save the ``(3, 3)`` float32 intrinsic matrix."""
+        """Save the intrinsic matrix, scaled to the stored image resolution."""
+        intrinsics_33 = image_ops.scale_intrinsics(intrinsics_33, self._render_wh, self._color_wh)
         self._cam_groups[camera_id][Keys.INTRINSIC][frame_index] = intrinsics_33.cpu().numpy().astype(np.float32)
 
     def write_extrinsics(self, T_W_from_C: TransformSE3, camera_id: str, frame_index: int) -> None:
@@ -256,19 +340,26 @@ class DatagenHDF5Writer:
         self._cam_groups[camera_id][Keys.EXTRINSIC][frame_index] = extrinsic_34
 
     def write_normals(self, normals_hw3: torch.Tensor, camera_id: str, frame_index: int) -> None:
-        """Save an ``(H, W, 3)`` float32 world-space surface-normal map."""
+        """Save a world-space surface-normal map. No-op unless normals are stored."""
+        if not self._store_normals:
+            return
         self._cam_groups[camera_id][Keys.NORMAL][frame_index] = normals_hw3.cpu().numpy().astype(np.float32)
 
     def write_optical_flow(self, flow_hw2: torch.Tensor, camera_id: str, frame_index: int) -> None:
-        """Save an ``(H, W, 2)`` float32 optical-flow map (dx, dy in pixels)."""
-        self._cam_groups[camera_id][Keys.FLOW2D][frame_index] = flow_hw2.cpu().numpy().astype(np.float32)
+        """Save an optical-flow map (dx, dy in pixels), downscaled and vector-rescaled."""
+        flow_hw2 = image_ops.resize_flow2d(flow_hw2, self._flow2d_wh)
+        self._cam_groups[camera_id][Keys.FLOW2D][frame_index] = flow_hw2.cpu().numpy().astype(self._float_dtype)
 
     def write_scene_flow_3d(self, flow3d_hw3: torch.Tensor, camera_id: str, frame_index: int) -> None:
-        """Save an ``(H, W, 3)`` float32 3-D scene-flow map (metres)."""
+        """Save a 3-D scene-flow map (metres). No-op unless flow3d is stored."""
+        if not self._store_flow3d:
+            return
         self._cam_groups[camera_id][Keys.FLOW3D][frame_index] = flow3d_hw3.cpu().numpy().astype(np.float32)
 
     def write_scene_flow_track_type(self, track_type_hw: torch.Tensor, camera_id: str, frame_index: int) -> None:
-        """Save an ``(H, W)`` uint8 per-pixel tracking-type map."""
+        """Save a per-pixel tracking-type map. No-op unless flow3d is stored."""
+        if not self._store_flow3d:
+            return
         self._cam_groups[camera_id][Keys.FLOW3D_TRACK_TYPE][frame_index] = track_type_hw.cpu().numpy()
 
     def write_semantic_segmentation(
@@ -281,9 +372,11 @@ class DatagenHDF5Writer:
         """Save semantic segmentation: an int32 ID map plus a per-frame JSON blob.
 
         The RGBA segmentation image is converted to an int32 ID map (1-based,
-        0 = background) and the per-object metadata is stored as a JSON string.
+        0 = background), downscaled to the stored semantic resolution, and the
+        per-object metadata is stored as a JSON string.
         """
         semantic_ids = _rgba_to_semantic_ids(seg_rgba_hw4.cpu().numpy(), semantic_info)
+        semantic_ids = image_ops.resize_label_map(torch.from_numpy(semantic_ids), self._semantic_wh).numpy()
         self._cam_groups[camera_id][Keys.SEMANTIC][frame_index] = semantic_ids
         self._cam_groups[camera_id][Keys.SEMANTIC_JSON][frame_index] = json.dumps({"objects": semantic_info})
 

@@ -28,7 +28,7 @@ from typing import Any
 
 from isaaclab_arena_datagen.camera_trajectory import CameraViewTrajectory
 from isaaclab_arena_datagen.dynamic_object_tracker import DynamicObjectTracker
-from isaaclab_arena_datagen.io.hdf5_writer import DatagenHDF5Writer, episode_output_dir
+from isaaclab_arena_datagen.io.hdf5_writer import DatagenHDF5Writer, StoredFloatType, episode_output_dir
 from isaaclab_arena_datagen.object_registry import ObjectInstanceRegistry
 from isaaclab_arena_datagen.pipeline import (
     CameraSetup,
@@ -63,6 +63,13 @@ class DatagenCollectorConfig:
             :class:`CameraViewTrajectory` list. When set, the cameras are re-aimed
             in place (``set_world_pose``) to a new layout every episode rather than
             staying fixed for the whole job.
+        store_normals: Write the normals dataset. Off by default to shrink datasets.
+        store_flow3d: Write the 3D scene-flow datasets. Off by default to shrink datasets.
+        store_float_type: Storage precision for depth and 2D flow.
+        frame_stride: Record every n-th simulated frame (1 keeps every frame). The
+            skipped frames still advance physics, so flow spans the full gap.
+        color_resolution: Stored (width, height) for color; None keeps the render
+            size. depth/flow2d/semantic resolution behave the same for their datasets.
     """
 
     output_dir: str
@@ -73,6 +80,14 @@ class DatagenCollectorConfig:
     dynamic_rotation_eps: float = DEFAULT_ROTATION_EPS_RAD
     mesh_sample_spacing: float = 0.01
     camera_sampler: Callable[[], list[CameraViewTrajectory]] | None = None
+    store_normals: bool = False
+    store_flow3d: bool = False
+    store_float_type: StoredFloatType = StoredFloatType.FLOAT32
+    frame_stride: int = 1
+    color_resolution: tuple[int, int] | None = None
+    depth_resolution: tuple[int, int] | None = None
+    flow2d_resolution: tuple[int, int] | None = None
+    semantic_resolution: tuple[int, int] | None = None
 
 
 def _resolve_env_class(env_name: str | None) -> Any | None:
@@ -104,6 +119,7 @@ class DatagenCollector:
         cfg: DatagenCollectorConfig,
         capacity: int,
     ) -> None:
+        assert cfg.frame_stride >= 1, f"frame_stride must be >= 1, got {cfg.frame_stride}"
         self._camera_setups = camera_setups
         self._registry = registry
         self._cfg = cfg
@@ -111,6 +127,7 @@ class DatagenCollector:
 
         self._episode_idx = 0
         self._local = 0  # frames recorded in the current episode
+        self._substep = 0  # simulated steps seen in the current episode (for frame_stride)
         self._episode_open = False
         self._closed = False
         self._writer: DatagenHDF5Writer | None = None
@@ -175,6 +192,13 @@ class DatagenCollector:
             sequence_index=0,
             cameras=[(cam.camera_id, self._cfg.height, self._cfg.width) for cam in self._camera_setups],
             num_frames=self._capacity,
+            store_normals=self._cfg.store_normals,
+            store_flow3d=self._cfg.store_flow3d,
+            store_float_type=self._cfg.store_float_type,
+            color_resolution=self._cfg.color_resolution,
+            depth_resolution=self._cfg.depth_resolution,
+            flow2d_resolution=self._cfg.flow2d_resolution,
+            semantic_resolution=self._cfg.semantic_resolution,
         )
         self._tracker = DynamicObjectTracker(self._registry, num_steps=self._capacity)
         for cam in self._camera_setups:
@@ -221,6 +245,7 @@ class DatagenCollector:
             })
         self._episode_open = False
         self._episode_idx += 1
+        self._substep = 0
 
     # ------------------------------------------------------------------
     # Hooks called by rollout_policy
@@ -237,6 +262,13 @@ class DatagenCollector:
         """
         self._last_env = env
         if self._closed:
+            return
+
+        # Only every frame_stride-th simulated step is recorded; the rest still
+        # stepped physics, so the next recorded frame's flow spans the whole gap.
+        record_this_step = self._substep % self._cfg.frame_stride == 0
+        self._substep += 1
+        if not record_this_step:
             return
 
         if not self._episode_open:
