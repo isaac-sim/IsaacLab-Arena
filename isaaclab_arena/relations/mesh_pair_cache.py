@@ -9,17 +9,20 @@ from __future__ import annotations
 
 import torch
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import warp as wp
+import warp as wp
 
-    from isaaclab_arena.assets.object_base import ObjectBase
+from isaaclab_arena.assets.object_base import ObjectBase
 
 
 @dataclass(slots=True)
 class MeshPairCache:
-    """Precomputed per-pair collision data for the vectorized multi-mesh kernel."""
+    """Precomputed per-pair collision data for the vectorized multi-mesh kernel.
+
+    Dimensions: P = num_pairs (ordered subject/obstacle pairs), B = batch_size (num envs),
+    S = total_spheres (sum of sphere counts across all P pairs; each subject object is decomposed
+    into multiple covering spheres via greedy_sphere_decomposition).
+    """
 
     all_centers_local: torch.Tensor
     """(S, 3) sphere centers in each subject's local frame, concatenated across pairs."""
@@ -28,34 +31,34 @@ class MeshPairCache:
     """(S,) sphere radii, concatenated across pairs."""
 
     pair_subject_objs: list[ObjectBase]
-    """Per-pair subject (sphere source) object reference."""
+    """(P,) subject (sphere source) object reference per pair."""
 
     pair_obstacle_objs: list[ObjectBase]
-    """Per-pair obstacle (mesh target) object reference."""
+    """(P,) obstacle (mesh target) object reference per pair."""
 
     pair_is_anchor: list[bool]
-    """Per-pair flag: True if the obstacle is a static anchor."""
+    """(P,) True if the obstacle is a static anchor."""
 
     pair_anchor_pos: list[torch.Tensor | None]
-    """Per-pair world position for anchor obstacles (None for non-anchor obstacles)."""
+    """(P,) world position for anchor obstacles (None for non-anchors)."""
 
     pair_anchor_yaw: list[float]
-    """Per-pair anchor yaw in radians (0.0 for non-anchor obstacles)."""
+    """(P,) anchor yaw in radians (0.0 for non-anchors)."""
 
     pair_subject_bbox_min: torch.Tensor
-    """(P, B, 3) subject bbox min corners for broadphase."""
+    """(P, B, 3) subject bbox min corners for overlap filtering."""
 
     pair_subject_bbox_max: torch.Tensor
-    """(P, B, 3) subject bbox max corners for broadphase."""
+    """(P, B, 3) subject bbox max corners for overlap filtering."""
 
     pair_obstacle_bbox_min: torch.Tensor
-    """(P, B, 3) obstacle bbox min corners for broadphase."""
+    """(P, B, 3) obstacle bbox min corners for overlap filtering."""
 
     pair_obstacle_bbox_max: torch.Tensor
-    """(P, B, 3) obstacle bbox max corners for broadphase."""
+    """(P, B, 3) obstacle bbox max corners for overlap filtering."""
 
     pair_max_radius: torch.Tensor
-    """(P,) max sphere radius per pair (broadphase margin)."""
+    """(P,) max sphere radius per pair (overlap filter margin)."""
 
     sphere_pair_id: torch.Tensor
     """(S,) maps each sphere to its pair index for segment reduction."""
@@ -67,7 +70,7 @@ class MeshPairCache:
     """(P,) number of spheres per pair (for mean reduction)."""
 
     mesh_id_array: wp.array
-    """Warp uint64 array of mesh IDs for the multi-mesh kernel."""
+    """(num_unique_meshes,) Warp uint64 array of mesh IDs for the multi-mesh kernel."""
 
     num_pairs: int
     """Total number of active object pairs."""

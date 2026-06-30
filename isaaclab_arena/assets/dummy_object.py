@@ -5,14 +5,11 @@
 from __future__ import annotations
 
 import torch
-from typing import TYPE_CHECKING
+import trimesh
 
 from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, UnaryRelation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
-
-if TYPE_CHECKING:
-    import trimesh
 
 
 class DummyObject:

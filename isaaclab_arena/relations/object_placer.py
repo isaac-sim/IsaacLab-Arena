@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class PlacementCandidate:
-    """A scored solver result used for ranking inside ObjectPlacer."""
+    """A candidate object layout with its solver loss and validation outcome."""
 
     loss: float
     """Loss value returned by the solver."""
@@ -226,7 +226,7 @@ class ObjectPlacer:
                 self._generate_initial_orientations(objects, anchor_objects_set, generator)
             )
 
-        # Bake each candidate's total yaw into a conservative enclosing bbox (AABB broadphase).
+        # Bake each candidate's total yaw into a conservative enclosing bbox for overlap checks.
         candidate_bboxes = self._rotate_candidate_bboxes(objects, candidate_bboxes, orientations_per_candidate)
 
         all_positions = self._solver.solve(
