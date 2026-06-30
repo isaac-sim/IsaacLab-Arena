@@ -450,6 +450,21 @@ class DynamicObjectTracker:
         return np.array([[m[r][c] for c in range(4)] for r in range(4)], dtype=np.float64).T
 
     @staticmethod
+    def _rigid_part(matrix: np.ndarray) -> np.ndarray:
+        """Return *matrix* with per-axis scale removed, keeping rotation and translation.
+
+        The body pose used to reconstruct world points is a scale-free rigid transform, so
+        a prim's scale must stay baked into the sampled vertices rather than be divided out.
+        Assumes axis-aligned scale (no shear), which holds for USD xform scale ops.
+        """
+        rigid = matrix.copy()
+        linear = rigid[:3, :3]
+        scale = np.linalg.norm(linear, axis=0)
+        scale[scale == 0] = 1.0
+        rigid[:3, :3] = linear / scale
+        return rigid
+
+    @staticmethod
     def _collect_mesh_from_prim(
         prim_path: str,
         exclude_subtrees: list[str] | None = None,
@@ -457,10 +472,12 @@ class DynamicObjectTracker:
         """Walk *prim_path* and combine all child meshes / primitives into one trimesh.
 
         Vertices are returned in the **body-local frame** relative to
-        *prim_path*.  Physics-driven transforms (applied by PhysX at
-        runtime) are NOT baked in, because ``UsdGeom.XformCache`` does not
-        see them.  Only the static USD xform hierarchy *below* the root
-        prim is applied so that sub-mesh parts are correctly assembled.
+        *prim_path*, with the root prim's scale retained (only its rotation
+        and translation are removed).  The runtime body pose applied during
+        reconstruction is scale-free, so keeping the root scale baked in is
+        what makes points reconstruct at metric world scale.  Physics-driven
+        transforms (applied by PhysX at runtime) are NOT baked in, because
+        ``UsdGeom.XformCache`` does not see them.
 
         Args:
             prim_path: USD prim path to collect meshes from.
@@ -497,7 +514,10 @@ class DynamicObjectTracker:
         T_W_from_root_trimesh = DynamicObjectTracker._usd_to_trimesh_matrix(
             xform_cache.GetLocalToWorldTransform(root_prim)
         )
-        T_root_from_W_trimesh = np.linalg.inv(T_W_from_root_trimesh)
+        # Strip only the root's rotation/translation, not its scale: the runtime body pose
+        # applied during reconstruction is scale-free, so the root's scale (e.g. a cm->m unit
+        # factor) must remain baked into the vertices or the points reconstruct 1/scale too big.
+        T_root_from_W_trimesh = np.linalg.inv(DynamicObjectTracker._rigid_part(T_W_from_root_trimesh))
 
         meshes: list = []
 
