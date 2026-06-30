@@ -8,11 +8,11 @@ import pkgutil
 
 import isaaclab_arena_environments
 
-# libero_cameras is a perception-camera config helper (not a registered environment); it has
-# top-level Isaac Lab configclass imports and is imported lazily by libero_object_packing's get_env
-# (after the SimulationApp boots). Keep it out of the eager package-import sweep so importing this
+# libero_cameras / maple_cameras are perception-camera config helpers (not registered environments); they
+# have top-level Isaac Lab configclass imports and are imported lazily by their environments' get_env
+# (after the SimulationApp boots). Keep them out of the eager package-import sweep so importing this
 # package pre-boot (e.g. eval_runner's module-top import) does not pull in the franka configclass chain.
-_NON_ENVIRONMENT_MODULES = {"cli", "example_environment_base", "libero_cameras"}
+_NON_ENVIRONMENT_MODULES = {"cli", "example_environment_base", "libero_cameras", "maple_cameras"}
 
 for _importer, _modname, _ispkg in pkgutil.iter_modules(isaaclab_arena_environments.__path__):
     if not _ispkg and _modname not in _NON_ENVIRONMENT_MODULES:
