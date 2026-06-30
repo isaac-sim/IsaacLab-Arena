@@ -1,0 +1,31 @@
+{
+    "jobs": [
+        {
+            "name": "maple_gap_sort_smoke",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_abs_joint_pos",
+                "gap_profile": true,
+                "use_staging_assets": true,
+                "episode_length_s": 12.0,
+                "placement_seed": 1,
+                "seed": 42,
+                "pick_targets": [
+                    "alphabet_soup_can_hope_robolab",
+                    "tomato_sauce_can_hope_robolab",
+                    "butter_hope_robolab"
+                ],
+                "destination_location": "grey_bin_robolab",
+                "light_intensity": 500.0
+            },
+            "num_episodes": 1,
+            "num_rebuilds": 1,
+            "policy_type": "zero_action",
+            "policy_config_dict": {},
+            "variations": {
+                "droid_abs_joint_pos": { "camera_extrinsics_exterior_cam": { "enabled": true } }
+            }
+        }
+    ]
+}

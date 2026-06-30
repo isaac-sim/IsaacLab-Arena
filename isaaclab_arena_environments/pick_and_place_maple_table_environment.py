@@ -81,6 +81,7 @@ class PickAndPlaceMapleTableEnvironmentCfg(ArenaEnvironmentCfg):
     pick_up_object: str = "rubiks_cube_hot3d_robolab"
     destination_location: str = "bowl_ycb_robolab"
     additional_table_objects: list[str] = field(default_factory=list)
+    pick_targets: list[str] | None = None
     gap_profile: bool = False
     episode_length_s: float = 20.0
     use_staging_assets: bool = False
@@ -134,7 +135,32 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
                 flush=True,
             )
         background = background_cls()
-        pick_up_object = self.asset_registry.get_asset_by_name(cfg.pick_up_object)()
+
+        # Pick targets. Opt-in 2-3-object sort profile: --pick_targets lists the ordered pick objects and the
+        # task becomes the stock SortMultiObjectTask (all targets -> the destination). Unset (default) keeps the
+        # stock single-object PickAndPlaceTask on --pick_up_object — single-object behavior is unchanged.
+        # Fail closed and validate before any registry/Scene construction: an absent value selects the
+        # single-object task; a supplied list must contain 2-3 unique, non-reserved names.
+        raw_pick_targets = cfg.pick_targets
+        is_multi_object = raw_pick_targets is not None
+        if is_multi_object:
+            pick_target_names = list(raw_pick_targets)
+            assert 2 <= len(pick_target_names) <= 3, (
+                f"the Maple multi-object profile supports exactly 2-3 --pick_targets; got {len(pick_target_names)}: "
+                f"{pick_target_names}"
+            )
+            assert len(set(pick_target_names)) == len(
+                pick_target_names
+            ), f"--pick_targets must be unique; got {pick_target_names}"
+            reserved = {cfg.destination_location} | set(cfg.additional_table_objects)
+            overlap = reserved.intersection(pick_target_names)
+            assert not overlap, (
+                "--pick_targets must not overlap --destination_location/--additional_table_objects; "
+                f"overlap: {sorted(overlap)}"
+            )
+        else:
+            pick_target_names = [cfg.pick_up_object]
+        pick_objects = [self.asset_registry.get_asset_by_name(name)() for name in pick_target_names]
         destination_location = self.asset_registry.get_asset_by_name(cfg.destination_location)()
 
         # Step 2: Describe spatial relationships
@@ -146,7 +172,8 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
         )
         table_reference.add_relation(IsAnchor())
 
-        pick_up_object.add_relation(On(table_reference))
+        for obj in pick_objects:
+            obj.add_relation(On(table_reference))
         destination_location.add_relation(On(table_reference))
 
         additional_table_objects = [
@@ -157,7 +184,7 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
 
         # Reachability constraints are part of the GaP profile only (stock On() placement is unchanged otherwise).
         if gap_profile:
-            for obj in [pick_up_object, destination_location, *additional_table_objects]:
+            for obj in [*pick_objects, destination_location, *additional_table_objects]:
                 obj.add_relation(PositionLimits(**_REACH_BOX))
 
         # Step 3: Configure lighting
@@ -200,7 +227,7 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
                 background,
                 light,
                 directional_light,
-                pick_up_object,
+                *pick_objects,
                 destination_location,
                 table_reference,
                 *additional_table_objects,
@@ -208,12 +235,28 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
         )
 
         # Step 6: Define the task (episode length configurable for the longer GaP rollouts; stock default 20 s).
-        task = PickAndPlaceTask(
-            pick_up_object=pick_up_object,
-            destination_location=destination_location,
-            background_scene=background,
-            episode_length_s=cfg.episode_length_s,
-        )
+        episode_length_s = cfg.episode_length_s
+        if is_multi_object:
+            from isaaclab_arena.tasks.sorting_task import SortMultiObjectTask
+
+            task = SortMultiObjectTask(
+                pick_up_object_list=pick_objects,
+                destination_location_list=[destination_location] * len(pick_objects),
+                background_scene=background,
+                episode_length_s=episode_length_s,
+            )
+            # SortMultiObjectTask takes no task_description; set it so get_language_instruction() is populated.
+            task.task_description = (
+                f"Pick up the {' and the '.join(o.name for o in pick_objects)}, "
+                f"and place all into the {destination_location.name}"
+            )
+        else:
+            task = PickAndPlaceTask(
+                pick_up_object=pick_objects[0],
+                destination_location=destination_location,
+                background_scene=background,
+                episode_length_s=episode_length_s,
+            )
 
         # Set viewport camera to match the robolab droid view
         def _set_viewer_cfg(env_cfg):
@@ -238,7 +281,8 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
                 "asset_channel": "staging" if use_staging else "production",
                 "table_usd": background.usd_path,
                 "droid_stand_usd": getattr(embodiment.scene_config.stand.spawn, "usd_path", None),
-                "pick_targets": [pick_up_object.name],  # ordered pick-target identities
+                "task": "SortMultiObjectTask" if is_multi_object else "PickAndPlaceTask",
+                "pick_targets": [obj.name for obj in pick_objects],  # ordered pick-target identities
                 "destination": destination_location.name,
                 "distractors": distractor_names,
             }
@@ -246,7 +290,11 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
                 "gap_provenance": GapProvenanceEpisodeRecorderTermCfg(params={"provenance": provenance}),
                 "object_poses": ObjectPosesEpisodeRecorderTermCfg(),
             }
-            pose_snapshot_asset_names = [pick_up_object.name, destination_location.name, *distractor_names]
+            pose_snapshot_asset_names = [
+                *[obj.name for obj in pick_objects],
+                destination_location.name,
+                *distractor_names,
+            ]
 
         # Step 7: Assemble the environment
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
