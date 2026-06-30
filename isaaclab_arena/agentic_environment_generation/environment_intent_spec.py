@@ -58,12 +58,19 @@ class ObjectReferenceItem(BaseModel):
     name: str = Field(min_length=1)
     usd_prim_path: str = Field(min_length=1)
     object_type: Literal["rigid", "articulation"]
+    scope: Literal["background", "item"] = "background"
+    parent_id: str | None = Field(
+        default=None,
+        description="Parent object node id for item-scoped refs. Background refs use EnvironmentIntentSpec.background.",
+    )
     openable_joint_name: str | None = None
 
     @model_validator(mode="after")
     def _validate_openable_shape(self) -> ObjectReferenceItem:
         if self.openable_joint_name is not None:
             assert self.object_type == "articulation", "openable_joint_name requires object_type='articulation'"
+        if self.scope == "item":
+            assert self.parent_id, "item-scoped object references require parent_id"
         return self
 
 

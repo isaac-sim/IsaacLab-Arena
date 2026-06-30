@@ -68,6 +68,16 @@ def build_object_reference_nodes(
     usd_path: str,
 ) -> list[ArenaEnvGraphNodeSpec]:
     """Materialize background object-reference graph nodes."""
+    return build_object_reference_nodes_for_parent(references, parent_node_id=background_node_id, usd_path=usd_path)
+
+
+def build_object_reference_nodes_for_parent(
+    references: list[ObjectReferenceItem],
+    *,
+    parent_node_id: str,
+    usd_path: str,
+) -> list[ArenaEnvGraphNodeSpec]:
+    """Materialize object-reference graph nodes parented to ``parent_node_id``."""
     nodes: list[ArenaEnvGraphNodeSpec] = []
     for ref in references:
         object_type = ObjectType.RIGID if ref.object_type == "rigid" else ObjectType.ARTICULATION
@@ -79,9 +89,9 @@ def build_object_reference_nodes(
                 id=ref.id,
                 name=ref.name,
                 type=ArenaEnvGraphNodeType.OBJECT_REFERENCE,
-                parent=background_node_id,
+                parent=parent_node_id,
                 prim_path=isaaclab_prim_path_for_background_reference(
-                    background_node_id,
+                    parent_node_id,
                     ref.usd_prim_path,
                     usd_path,
                 ),

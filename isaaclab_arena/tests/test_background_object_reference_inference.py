@@ -10,7 +10,6 @@ import pytest
 from isaaclab_arena.agentic_environment_generation import intent_compiler as compiler_module
 from isaaclab_arena.agentic_environment_generation.background_object_reference_spec import (
     BackgroundObjectReferenceInferenceSpec,
-    BackgroundObjectReferenceItem,
     TaskParamBinding,
     validate_background_object_reference_inference,
 )
@@ -18,8 +17,13 @@ from isaaclab_arena.agentic_environment_generation.background_object_reference_u
     apply_background_object_reference_inference,
 )
 from isaaclab_arena.agentic_environment_generation.background_physics_catalog import PhysicsPrimEntry
-from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec, Item
+from isaaclab_arena.agentic_environment_generation.environment_intent_spec import (
+    EnvironmentIntentSpec,
+    Item,
+    ObjectReferenceItem,
+)
 from isaaclab_arena.agentic_environment_generation.intent_compiler import IntentCompiler
+from isaaclab_arena.agentic_environment_generation.usd_prim_index import UsdPrimIndex
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeType, SpatialRelationSpec, TaskSpec
@@ -75,14 +79,14 @@ def _valid_inference() -> BackgroundObjectReferenceInferenceSpec:
     return BackgroundObjectReferenceInferenceSpec(
         reasoning="microwave is built into kitchen",
         object_references=[
-            BackgroundObjectReferenceItem(
+            ObjectReferenceItem(
                 id="microwave_door",
                 name="microwave_door",
                 usd_prim_path="{ENV_REGEX_NS}/kitchen/microwave_door",
                 object_type="articulation",
                 openable_joint_name="door_joint",
             ),
-            BackgroundObjectReferenceItem(
+            ObjectReferenceItem(
                 id="microwave_plate",
                 name="microwave_plate",
                 usd_prim_path="{ENV_REGEX_NS}/kitchen/microwave_plate",
@@ -177,6 +181,69 @@ def test_compiler_uses_object_references_from_intent_field(monkeypatch):
     assert "microwave_door" in graph.nodes_by_id
     assert "microwave_plate" in graph.nodes_by_id
     assert graph.tasks[0].params["openable_object"] == "microwave_door"
+
+
+def test_compiler_emits_item_scoped_reference_after_parent_item(monkeypatch):
+    monkeypatch.setattr(compiler_module, "resolve_background_usd_path", lambda *_: "/tmp/unused.usd")
+    registry = make_registry([
+        FakeAsset(name="maple_table", tags=["background"]),
+        FakeAsset(name="franka_ik", tags=["embodiment", "ik"]),
+        FakeAsset(name="microwave_asset", tags=["object", "appliance"]),
+        FakeAsset(name="avocado01_fruits_robolab", tags=["object", "fruit"]),
+    ])
+    intent = EnvironmentIntentSpec(
+        reasoning="standalone microwave on maple table",
+        background="maple_table",
+        embodiment="franka_ik",
+        items=[
+            Item(query="microwave", category_tags=["appliance"]),
+            Item(query="avocado", category_tags=["fruit"]),
+        ],
+        object_references=[
+            ObjectReferenceItem(
+                id="microwave_disc",
+                name="microwave_disc",
+                usd_prim_path="{ENV_REGEX_NS}/microwave/Microwave039_Disc001",
+                object_type="rigid",
+                scope="item",
+                parent_id="microwave",
+            )
+        ],
+        initial_state_graph=[
+            SpatialRelationSpec(kind="is_anchor", subject="maple_table"),
+            SpatialRelationSpec(kind="on", subject="microwave", reference="maple_table"),
+            SpatialRelationSpec(kind="on", subject="avocado", reference="maple_table"),
+        ],
+        tasks=[
+            TaskSpec(kind="OpenDoorTask", params={"openable_object": "microwave"}, description="open microwave"),
+            TaskSpec(
+                kind="PickAndPlaceTask",
+                params={
+                    "pick_up_object": "avocado",
+                    "destination_location": "microwave_disc",
+                    "destination_object": "microwave_disc",
+                    "background_scene": "maple_table",
+                },
+                description="place avocado inside microwave",
+            ),
+            TaskSpec(kind="CloseDoorTask", params={"openable_object": "microwave"}, description="close microwave"),
+        ],
+    )
+
+    graph = IntentCompiler(registry=registry).compile(intent)
+    node_ids = [node.id for node in graph.nodes]
+
+    assert node_ids.index("microwave") < node_ids.index("microwave_disc")
+    assert graph.nodes_by_id["microwave_disc"].parent == "microwave"
+    assert graph.tasks[1].params["destination_object"] == "microwave_disc"
+
+
+def test_usd_prim_index_uses_injected_entries_without_pxr():
+    entries = [PhysicsPrimEntry(usd_prim_path="/world/item/disc", physics_kinds=frozenset({"rigid_body"}))]
+    index = UsdPrimIndex(usd_path="/tmp/microwave.usd", entries=entries)
+
+    assert index.get_usd_path() == "/tmp/microwave.usd"
+    assert index.list_entries() is entries
 
 
 def test_pick_and_place_mimic_cfg_falls_back_to_destination_location():

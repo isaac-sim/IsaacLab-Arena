@@ -18,8 +18,6 @@ from isaaclab_arena.agentic_environment_generation.environment_intent_spec impor
 )
 from isaaclab_arena.assets.registries import TaskRegistry
 
-BackgroundObjectReferenceItem = ObjectReferenceItem
-
 
 class TaskParamBinding(BaseModel):
     """Bind one task constructor param to a background object-reference node id."""
@@ -33,7 +31,7 @@ class BackgroundObjectReferenceInferenceSpec(BaseModel):
     """Background subprims and task-param rewrites inferred for an intent spec."""
 
     reasoning: str = Field(description="Explanation of the chosen references and bindings.")
-    object_references: list[BackgroundObjectReferenceItem] = Field(default_factory=list)
+    object_references: list[ObjectReferenceItem] = Field(default_factory=list)
     task_param_bindings: list[TaskParamBinding] = Field(default_factory=list)
     remove_item_ids: list[str] = Field(default_factory=list)
 
@@ -88,7 +86,7 @@ def _task_accepts_param(task_cls: type, param_name: str) -> bool:
     return param_name in sig.parameters
 
 
-def _validate_binding_role(task_kind: str, param_name: str, ref: BackgroundObjectReferenceItem) -> None:
+def _validate_binding_role(task_kind: str, param_name: str, ref: ObjectReferenceItem) -> None:
     if task_kind in {"OpenDoorTask", "CloseDoorTask"} and param_name == "openable_object":
         assert ref.object_type == "articulation", f"{task_kind}.openable_object must bind to an articulation"
         assert ref.openable_joint_name, f"{task_kind}.openable_object requires openable_joint_name"

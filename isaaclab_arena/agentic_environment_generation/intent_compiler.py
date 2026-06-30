@@ -12,7 +12,9 @@ from isaaclab_arena.agentic_environment_generation.asset_matcher import (
     IntentResolutionTraceEvent,
     match_asset,
 )
-from isaaclab_arena.agentic_environment_generation.background_object_reference_utils import build_object_reference_nodes
+from isaaclab_arena.agentic_environment_generation.background_object_reference_utils import (
+    build_object_reference_nodes_for_parent,
+)
 from isaaclab_arena.agentic_environment_generation.background_physics_catalog import resolve_background_usd_path
 from isaaclab_arena.agentic_environment_generation.default_params import INITIAL_STATE_SPEC_ID
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
@@ -76,6 +78,11 @@ class IntentCompiler:
         self.trace = []
 
         nodes: list[ArenaEnvGraphNodeSpec] = []
+        refs_by_parent: dict[str, list] = {}
+        for ref in spec.object_references:
+            parent_id = spec.background if ref.scope == "background" else ref.parent_id
+            assert parent_id, f"{ref.scope}-scoped reference {ref.id!r} requires a parent id"
+            refs_by_parent.setdefault(parent_id, []).append(ref)
 
         background_node = self._resolve_asset_node(
             query=spec.background,
@@ -85,15 +92,7 @@ class IntentCompiler:
         )
         if background_node is not None:
             nodes.append(background_node)
-            if spec.object_references:
-                usd_path = resolve_background_usd_path(self.registry, background_node.name)
-                nodes.extend(
-                    build_object_reference_nodes(
-                        spec.object_references,
-                        background_node_id=background_node.id,
-                        usd_path=usd_path,
-                    )
-                )
+            self._append_object_reference_nodes(nodes, background_node, refs_by_parent)
 
         embodiment_node = self._resolve_asset_node(
             query=spec.embodiment,
@@ -121,6 +120,7 @@ class IntentCompiler:
             if item_node is not None:
                 nodes.append(item_node)
                 query_to_instances.setdefault(item.query, []).append(item_node.id)
+                self._append_object_reference_nodes(nodes, item_node, refs_by_parent)
 
         known_ids = {node.id for node in nodes}
 
@@ -132,6 +132,25 @@ class IntentCompiler:
             nodes=nodes,
             tasks=resolved_tasks,
             initial_state_spec=initial_state_spec,
+        )
+
+    def _append_object_reference_nodes(
+        self,
+        nodes: list[ArenaEnvGraphNodeSpec],
+        parent_node: ArenaEnvGraphNodeSpec,
+        refs_by_parent: dict[str, list],
+    ) -> None:
+        """Append object-reference nodes parented to ``parent_node``."""
+        refs = refs_by_parent.get(parent_node.id)
+        if not refs:
+            return
+        usd_path = resolve_background_usd_path(self.registry, parent_node.name)
+        nodes.extend(
+            build_object_reference_nodes_for_parent(
+                refs,
+                parent_node_id=parent_node.id,
+                usd_path=usd_path,
+            )
         )
 
     @staticmethod
