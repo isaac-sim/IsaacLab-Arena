@@ -9,9 +9,11 @@
 - **Step-3 commits (in order):** `236017d48` (opt-in `--gap_profile` Maple scene + camera-variation fix),
   `20705b60d` (G/H provenance + initial/final pose recorder metadata), `896f5c31b` (opt-in 2-3 object
   `SortMultiObjectTask` profile — the Step-3 code tip). All scene-smoke-only — **no GaP E2E claimed.**
-- **GaP side:** `/home/rafael/Projects/Isaac-cap` branch `origin/rcathomen/gap-ila-eval`, current pushed safety
-  checkpoint `4f3bdd4`, plus `gap/graph-as-policy`. NOTE: CAP work **2c-ii** (per-episode task-input payload +
-  graph loader) is actively advancing past that checkpoint — **repin to the new SHA after 2c-ii completes.**
+- **GaP side:** `/home/rafael/Projects/Isaac-cap` branch `origin/rcathomen/gap-ila-eval`, current pushed tip
+  `2b7a9f0` (after the earlier safety checkpoint `4f3bdd4`), plus `gap/graph-as-policy`. **2c-ii** at `2b7a9f0`
+  adds the fail-closed single-use per-episode task payload and the first task-config graph-loader node
+  (plumbing), but **those outputs are not yet consumed**; **#20** (explicit cursor / perception / confirmation)
+  is active. **GaP E2E remains pending** — repin after #20 lands.
 
 ## Python env — generic Arena prerequisite (owned elsewhere; NOT a CAP branch)
 The Arena runtime is a generic native uv install on `rcathomen/feature/uv-native-install`
