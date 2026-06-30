@@ -18,15 +18,15 @@ if TYPE_CHECKING:
 # World-coordinate reach box for the table objects, in front of the droid base (near the origin). On()
 # supplies the surface z; this only bounds x/y so the relation solver keeps every object within the arm's
 # top-down reach (the stock On() alone can land an object anywhere on the table, including out of reach).
-# Placement is validated in the built scene (objects land in a reachable row, well framed); the arm-IK
-# reachability of the bounds is NOT yet confirmed (pending a GaP run). Only applied under --gap_profile.
+# Seed 1 is validated by a successful five-object GaP rollout; full-box IK coverage has not been swept.
+# Only applied under --gap_profile.
 _REACH_BOX = dict(x_min=0.05, x_max=0.45, y_min=-0.25, y_max=0.25)
 
 # Opt-in dev override for the two unpromoted srl_robolab assets from PR #786 (the Maple table and the DROID
 # stand): both 404 on the production Nucleus but 200 on the Isaac staging bucket (CI used staging). The
 # override is a targeted production->staging HOST swap for ONLY those two files; everything else (robolab
 # objects, etc.) stays on production. Off by default (production, documented promotion blocker); never a
-# silent fallback. Enable with --use_staging_assets for development smoke only.
+# silent fallback. Enable with --use_staging_assets for development/evaluation until the assets are promoted.
 _PROD_NUCLEUS_HOST = "omniverse-content-production.s3-us-west-2.amazonaws.com"
 _STAGING_NUCLEUS_HOST = "omniverse-content-staging.s3.us-west-2.amazonaws.com"
 
