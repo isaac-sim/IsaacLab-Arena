@@ -161,7 +161,61 @@ def objects_in_proximity(
     done = torch.logical_and(done, y_separation < max_y_separation)
     done = torch.logical_and(done, z_separation < max_z_separation)
 
+    import os as _os
+
+    if _os.environ.get("ILA_DEBUG_PROXIMITY"):
+        _n = getattr(objects_in_proximity, "_dbg_n", 0)
+        if _n % 200 == 0:
+            print(
+                f"[proximity] {object_cfg.name}<->{target_object_cfg.name} "
+                f"obj={object_pos[0].tolist()} tgt={target_object_pos[0].tolist()} "
+                f"sep=({float(x_separation[0]):.4f},{float(y_separation[0]):.4f},{float(z_separation[0]):.4f}) "
+                f"tol=({max_x_separation},{max_y_separation},{max_z_separation}) fire={bool(done[0])}",
+                flush=True,
+            )
+        objects_in_proximity._dbg_n = _n + 1
+
     return done
+
+
+def gripper_open(
+    env: ManagerBasedRLEnv,
+    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    open_threshold: float = 0.035,
+) -> torch.Tensor:
+    """True when the Panda gripper is OPEN (not currently grasping). Release-guard for packing success."""
+    robot = env.scene[robot_cfg.name]
+    joint_pos = wp.to_torch(robot.data.joint_pos)
+    f1 = joint_pos[:, -1]
+    f2 = joint_pos[:, -2]
+    return (f1 >= open_threshold) & (f2 >= open_threshold)
+
+
+def resting_in_bin(
+    env: ManagerBasedRLEnv,
+    object_cfg: SceneEntityCfg,
+    target_object_cfg: SceneEntityCfg,
+    max_x_separation: float,
+    max_y_separation: float,
+    max_z_separation: float,
+    lin_vel_threshold: float = 0.05,
+    ang_vel_threshold: float = 0.5,
+) -> torch.Tensor:
+    """True when the object is RESTING IN the bin: inside the bin footprint (x/y), below the rim (z is the
+    abs separation from the bin root; the bin root is at the floor so an in-bin object — even stacked — has
+    z_sep < rim_height), AND settled (low linear+angular velocity). GT-pose based; no contact sensor."""
+    obj = env.scene[object_cfg.name]
+    target = env.scene[target_object_cfg.name]
+    obj_pos = wp.to_torch(obj.data.root_pos_w) - env.scene.env_origins
+    tgt_pos = wp.to_torch(target.data.root_pos_w) - env.scene.env_origins
+    x_sep = torch.abs(obj_pos[:, 0] - tgt_pos[:, 0])
+    y_sep = torch.abs(obj_pos[:, 1] - tgt_pos[:, 1])
+    z_sep = torch.abs(obj_pos[:, 2] - tgt_pos[:, 2])
+    inside = (x_sep < max_x_separation) & (y_sep < max_y_separation) & (z_sep < max_z_separation)
+    lin = wp.to_torch(obj.data.root_lin_vel_w).norm(dim=-1)
+    ang = wp.to_torch(obj.data.root_ang_vel_w).norm(dim=-1)
+    settled = (lin < lin_vel_threshold) & (ang < ang_vel_threshold)
+    return inside & settled
 
 
 def lift_object_il_success(

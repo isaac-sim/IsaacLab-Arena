@@ -25,7 +25,11 @@ _HOME_Q = [0.0, -0.16104, 0.0, -2.4446, 0.0, 2.22675, 0.7854, 0.04, 0.04]
 # DROID (Franka+Robotiq) home: 7 arm joints (LIBERO posture) + finger_joint + 5 Robotiq linkage joints = 13 DOF.
 _DROID_HOME_Q = [0.0, -0.16104, 0.0, -2.4446, 0.0, 2.22675, 0.7854, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 # Comfortable reach box in front of the base for the groceries (x,y; On() supplies z at the table top).
-_REACH_BOX = dict(x_min=0.12, x_max=0.52, y_min=-0.30, y_max=0.26)
+# Tightened so EVERY pooled placement is within the Panda's orientation-constrained top-down reach: the base
+# is on the table at world x=-0.20, so x_max=0.42 / |y|<=0.22 keeps the approach pose ~<=0.76 m from the base
+# (safely under the ~0.85 m practical reach). The far corner of the old box (0.52, 0.26) put approaches
+# ~0.84-0.92 m out -> approach IK failed -> grocery_packing ended the episode with ~0 packed.
+_REACH_BOX = dict(x_min=0.15, x_max=0.42, y_min=-0.22, y_max=0.22)
 # Tabletop height. Robot base + basket + groceries all sit on the table at this z; raising everything by
 # the same amount preserves the base->object geometry, so reachability/grasps are unchanged vs the floor.
 _TABLE_TOP_Z = 0.40
@@ -44,7 +48,9 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
 
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.relations.relations import IsAnchor, On, PositionLimits, RandomAroundSolution
+        from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+        from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+        from isaaclab_arena.relations.relations import IsAnchor, On, PositionLimits
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.no_task import NoTask
         from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -160,18 +166,29 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
             obj = self.asset_registry.get_asset_by_name(obj_name)()
             obj.add_relation(On(surface, edge_margin_m=0.03))
             obj.add_relation(PositionLimits(**_REACH_BOX))
-            obj.add_relation(RandomAroundSolution(x_half_m=0.04, y_half_m=0.04, yaw_half_rad=0.4))
             objects.append(obj)
 
         scene = Scene(assets=[ground, light, surface, basket, *objects])
 
         if args_cli.eval_task == "pick_place_in_basket":
             task = _make_libero_packing_task(
-                can_asset_name=objects[0].name,  # alphabet_soup_can_hope_robolab
-                basket_asset_name=basket.name,   # grey_bin_robolab
+                object_asset_names=[obj.name for obj in objects],
+                basket_asset_name=basket.name,
+                episode_length_s=150.0 * len(objects) + 150.0,
             )
         else:
             task = NoTask()
+
+        placer_params = ObjectPlacerParams(
+            placement_seed=args_cli.placement_seed,
+            solver_params=RelationSolverParams(
+                clearance_m=0.06,
+                verbose=False,
+                save_position_history=False,
+            ),
+        )
+        if args_cli.resolve_on_reset is not None:
+            placer_params.resolve_on_reset = args_cli.resolve_on_reset
 
         return IsaacLabArenaEnvironment(
             name=self.name,
@@ -179,6 +196,7 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
             scene=scene,
             task=task,
             teleop_device=teleop_device,
+            placer_params=placer_params,
         )
 
     @staticmethod
@@ -190,9 +208,6 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
                 "alphabet_soup_can_hope_robolab",
                 "tomato_sauce_can_hope_robolab",
                 "milk_carton_hope_robolab",
-                "salad_dressing_bottle_hot3d_robolab",
-                "cream_cheese_hope_robolab",
-                "butter_hope_robolab",
             ],
             help="grocery assets to pack (relation-solved placement)",
         )
@@ -221,18 +236,18 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
 
 
 def _make_libero_packing_task(
-    can_asset_name: str,
+    object_asset_names: list[str],
     basket_asset_name: str,
-    max_x_separation: float = 0.12,
-    max_y_separation: float = 0.12,
-    max_z_separation: float = 0.20,
-    episode_length_s: float = 180.0,
+    max_x_separation: float = 0.15,
+    max_y_separation: float = 0.10,
+    max_z_separation: float = 0.11,
+    lin_vel_threshold: float = 0.05,
+    ang_vel_threshold: float = 0.5,
+    gripper_open_threshold: float = 0.035,
+    episode_length_s: float = 390.0,
 ):
-    """Factory that builds a ``LiberoPackingTask`` with all Isaac Lab imports deferred.
-
-    All imports of Isaac Lab configclasses happen inside this function so that
-    the environment module can be imported and registered without booting Isaac Sim.
-    """
+    """Pack-all-N task: success = ALL N objects resting in the bin (footprint + below-rim + settled) AND the
+    gripper is open (released). Thresholds calibrated to the grey_bin (footprint half (0.21,0.14), rim 0.105)."""
     from dataclasses import MISSING
 
     import isaaclab.envs.mdp as mdp_isaac_lab
@@ -243,48 +258,44 @@ def _make_libero_packing_task(
     from isaaclab_arena.embodiments.common.arm_mode import ArmMode
     from isaaclab_arena.metrics.success_rate import SuccessRateMetric
     from isaaclab_arena.tasks.task_base import TaskBase
-    from isaaclab_arena.tasks.terminations import SuccessMode, check_success, objects_in_proximity
+    from isaaclab_arena.tasks.terminations import SuccessMode, check_success, gripper_open, resting_in_bin
 
     @configclass
-    class _LiberoPackingTerminationsCfg:
+    class _TermsCfg:
         time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
         success: TerminationTermCfg = MISSING
 
-    class LiberoPackingTask(TaskBase):
-        """Proximity-only success task for the LIBERO object-packing eval.
-
-        Fires 'success' when the alphabet_soup_can is within (max_x, max_y, max_z)
-        of the basket centroid.  No contact sensor, no object_min_z, no mimic cfg.
-        """
-
-        def __init__(
-            self,
-            can_asset_name: str,
-            basket_asset_name: str,
-            max_x_separation: float,
-            max_y_separation: float,
-            max_z_separation: float,
-            episode_length_s: float,
-        ):
+    class LiberoMultiPackingTask(TaskBase):
+        def __init__(self):
             super().__init__(
                 episode_length_s=episode_length_s,
-                task_description=f"Pick up the {can_asset_name} and place it in the basket.",
+                task_description=f"Pack all of {object_asset_names} into the basket.",
             )
-            predicate = TerminationTermCfg(
-                func=objects_in_proximity,
-                params={
-                    "object_cfg": SceneEntityCfg(can_asset_name),
-                    "target_object_cfg": SceneEntityCfg(basket_asset_name),
-                    "max_x_separation": max_x_separation,
-                    "max_y_separation": max_y_separation,
-                    "max_z_separation": max_z_separation,
-                },
+            predicates = [
+                TerminationTermCfg(
+                    func=resting_in_bin,
+                    params={
+                        "object_cfg": SceneEntityCfg(name),
+                        "target_object_cfg": SceneEntityCfg(basket_asset_name),
+                        "max_x_separation": max_x_separation,
+                        "max_y_separation": max_y_separation,
+                        "max_z_separation": max_z_separation,
+                        "lin_vel_threshold": lin_vel_threshold,
+                        "ang_vel_threshold": ang_vel_threshold,
+                    },
+                )
+                for name in object_asset_names
+            ] + [
+                TerminationTermCfg(
+                    func=gripper_open,
+                    params={"robot_cfg": SceneEntityCfg("robot"), "open_threshold": gripper_open_threshold},
+                )
+            ]
+            self._termination_cfg = _TermsCfg(
+                success=TerminationTermCfg(
+                    func=check_success, params={"mode": SuccessMode.ALL, "predicates": predicates}
+                )
             )
-            success_term = TerminationTermCfg(
-                func=check_success,
-                params={"mode": SuccessMode.ALL, "predicates": [predicate]},
-            )
-            self._termination_cfg = _LiberoPackingTerminationsCfg(success=success_term)
 
         def get_scene_cfg(self):
             return None
@@ -304,11 +315,4 @@ def _make_libero_packing_task(
         def get_viewer_cfg(self) -> ViewerCfg:
             return ViewerCfg(eye=(-1.5, -1.5, 1.5), lookat=(0.0, 0.0, 0.5))
 
-    return LiberoPackingTask(
-        can_asset_name=can_asset_name,
-        basket_asset_name=basket_asset_name,
-        max_x_separation=max_x_separation,
-        max_y_separation=max_y_separation,
-        max_z_separation=max_z_separation,
-        episode_length_s=episode_length_s,
-    )
+    return LiberoMultiPackingTask()
