@@ -43,6 +43,18 @@ def _warp_indices(env_ids: torch.Tensor) -> wp.array:
     return wp.from_torch(env_ids.to(dtype=torch.int32))
 
 
+def _sync_local_pose_to_fabric(view) -> None:
+    """Resync a Fabric frame view after its USD-only local-pose setter.
+
+    Isaac Lab 3.0.0b2's ``FabricFrameView.set_local_poses`` delegates to the USD
+    view without invalidating Fabric. Newer/non-Fabric backends do not expose
+    this cache flag and need no compatibility action.
+    """
+    if hasattr(view, "_fabric_usd_sync_done"):
+        view._fabric_usd_sync_done = False
+        view.get_world_poses()
+
+
 @configclass
 class CameraExtrinsicsVariationCfg(VariationBaseCfg):
     """Configuration for CameraExtrinsicsVariation.
@@ -179,3 +191,6 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
         # Apply to the sim. set_local_poses' view backend resolves indices via .numpy(), so it needs a warp
         # index array — not env_ids.tolist() (a Python list) and not a raw CUDA torch tensor.
         view.set_local_poses(translations=t_parent_Cnew_in_parent, orientations=None, indices=_warp_indices(env_ids))
+
+        # Keep pixels and world-pose data coherent on the beta2 Fabric backend.
+        _sync_local_pose_to_fabric(view)

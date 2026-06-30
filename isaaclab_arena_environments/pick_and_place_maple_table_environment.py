@@ -116,18 +116,18 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
             )
         background = background_cls()
 
-        # Pick targets. Opt-in 2-3-object sort profile: --pick_targets lists the ordered pick objects and the
+        # Pick targets. Opt-in 2-5-object sort profile: --pick_targets lists the ordered pick objects and the
         # task becomes the stock SortMultiObjectTask (all targets -> the destination). Unset (default) keeps the
         # stock single-object PickAndPlaceTask on --pick_up_object — single-object behavior is unchanged.
         # Fail closed and validate BEFORE any registry/Scene construction: --pick_targets uses nargs='+' with a
-        # None default (a present flag must carry names; absent -> single-object), the count must be exactly 2-3,
+        # None default (a present flag must carry names; absent -> single-object), the count must be exactly 2-5,
         # the names must be unique, and they must not overlap the destination or the distractor objects.
         raw_pick_targets = getattr(args_cli, "pick_targets", None)
         is_multi_object = raw_pick_targets is not None
         if is_multi_object:
             pick_target_names = list(raw_pick_targets)
-            assert 2 <= len(pick_target_names) <= 3, (
-                f"the Maple multi-object profile supports exactly 2-3 --pick_targets; got {len(pick_target_names)}: "
+            assert 2 <= len(pick_target_names) <= 5, (
+                f"the Maple multi-object profile supports exactly 2-5 --pick_targets; got {len(pick_target_names)}: "
                 f"{pick_target_names}"
             )
             assert len(set(pick_target_names)) == len(
@@ -310,10 +310,10 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
             type=str,
             default=None,
             help=(
-                "Opt-in 2-3 object sort profile: ordered, unique pick-target assets, all placed into "
+                "Opt-in 2-5 object sort profile: ordered, unique pick-target assets, all placed into "
                 "--destination_location via the stock SortMultiObjectTask. Unset (default) keeps the stock "
                 "single-object PickAndPlaceTask on --pick_up_object (single-object behavior unchanged). When "
-                "present it must carry 2-3 names not overlapping the destination/distractors. Pair with a long "
+                "present it must carry 2-5 names not overlapping the destination/distractors. Pair with a long "
                 "--episode_length_s for multi-object rollouts."
             ),
         )

@@ -77,7 +77,7 @@ def _test_enabled_camera_extrinsics_variation_in_events_cfg(simulation_app):
 
 
 def _test_camera_extrinsics_variation_realized_at_runtime(simulation_app):
-    from isaaclab.utils.math import quat_apply
+    from isaaclab.utils.math import quat_apply, quat_apply_inverse
 
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -104,7 +104,7 @@ def _test_camera_extrinsics_variation_realized_at_runtime(simulation_app):
     delta_parent_as_opengl = t_parent_Cnew_in_parent[0] - t_parent_C_in_parent
 
     # Convert the delta to the camera's frame.
-    delta_C_as_opengl = quat_apply(q_parent_Cnew_xyzw[0], delta_parent_as_opengl)
+    delta_C_as_opengl = quat_apply_inverse(q_parent_Cnew_xyzw[0], delta_parent_as_opengl)
 
     # Convert the delta to the ROS frame.
     q_opengl_to_ros_xyzw = torch.tensor((-1.0, 0.0, 0.0, 0.0), device=env.unwrapped.device)
@@ -119,6 +119,13 @@ def _test_camera_extrinsics_variation_realized_at_runtime(simulation_app):
     print(f"Expected decalibration: {expected_decalibration}")
     print(f"Measured decalibration: {measured_decalibration}")
     torch.testing.assert_close(measured_decalibration, expected_decalibration, atol=1e-5, rtol=1e-5)
+
+    # FabricFrameView's local setter is USD-only in Isaac Lab 3.0.0b2. The variation must explicitly
+    # synchronize the Fabric world pose that rendering and Camera.data.pos_w consume.
+    if hasattr(view, "_usd_view"):
+        world_position, _ = view.get_world_poses()
+        usd_world_position, _ = view._usd_view.get_world_poses()
+        torch.testing.assert_close(world_position[0], usd_world_position[0], atol=1e-5, rtol=1e-5)
 
     env.close()
     return True
@@ -169,3 +176,24 @@ def test_warp_indices_returns_int32_warp_array():
     # int64 env ids (the common case) must be coerced without error.
     idx64 = _warp_indices(torch.arange(4, dtype=torch.int64))
     assert idx64.dtype == wp.int32 and tuple(idx64.shape) == (4,)
+
+
+def test_fabric_pose_cache_is_invalidated_after_local_write():
+    from isaaclab_arena.variations.camera_extrinsics_variation import _sync_local_pose_to_fabric
+
+    class FakeFabricView:
+        _fabric_usd_sync_done = True
+        sync_calls = 0
+
+        def get_world_poses(self):
+            assert self._fabric_usd_sync_done is False
+            self.sync_calls += 1
+
+    view = FakeFabricView()
+    _sync_local_pose_to_fabric(view)
+    assert view.sync_calls == 1
+
+    class FakeUsdView:
+        pass
+
+    _sync_local_pose_to_fabric(FakeUsdView())

@@ -1,0 +1,205 @@
+{
+    "jobs": [
+        {
+            "name": "maple_matrix_01_tomato",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_rel_joint_pos",
+                "gap_profile": true,
+                "use_staging_assets": true,
+                "episode_length_s": 0.75,
+                "placement_seed": 101,
+                "seed": 42,
+                "pick_up_object": "tomato_sauce_can_hope_robolab",
+                "destination_location": "grey_bin_robolab",
+                "light_intensity": 500.0
+            },
+            "num_episodes": 10,
+            "num_rebuilds": 1,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        },
+        {
+            "name": "maple_matrix_02_mustard",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_rel_joint_pos",
+                "gap_profile": true,
+                "use_staging_assets": true,
+                "episode_length_s": 0.75,
+                "placement_seed": 102,
+                "seed": 42,
+                "pick_up_object": "mustard_bottle_hope_robolab",
+                "destination_location": "grey_bin_robolab",
+                "light_intensity": 500.0
+            },
+            "num_episodes": 10,
+            "num_rebuilds": 1,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        },
+        {
+            "name": "maple_matrix_03_milk",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_rel_joint_pos",
+                "gap_profile": true,
+                "use_staging_assets": true,
+                "episode_length_s": 0.75,
+                "placement_seed": 103,
+                "seed": 42,
+                "pick_up_object": "milk_carton_hope_robolab",
+                "destination_location": "grey_bin_robolab",
+                "light_intensity": 500.0
+            },
+            "num_episodes": 10,
+            "num_rebuilds": 1,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        },
+        {
+            "name": "maple_matrix_04_soup_parmesan",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_rel_joint_pos",
+                "gap_profile": true,
+                "use_staging_assets": true,
+                "episode_length_s": 0.75,
+                "placement_seed": 104,
+                "seed": 42,
+                "pick_targets": [
+                    "alphabet_soup_can_hope_robolab",
+                    "parmesan_cheese_canister_hope_robolab"
+                ],
+                "destination_location": "grey_bin_robolab",
+                "light_intensity": 500.0
+            },
+            "num_episodes": 10,
+            "num_rebuilds": 1,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        },
+        {
+            "name": "maple_matrix_05_ketchup_macaroni",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_rel_joint_pos",
+                "gap_profile": true,
+                "use_staging_assets": true,
+                "episode_length_s": 0.75,
+                "placement_seed": 105,
+                "seed": 42,
+                "pick_targets": [
+                    "ketchup_bottle_hope_robolab",
+                    "macaroni_and_cheese_hope_robolab"
+                ],
+                "destination_location": "grey_bin_robolab",
+                "light_intensity": 500.0
+            },
+            "num_episodes": 10,
+            "num_rebuilds": 1,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        },
+        {
+            "name": "maple_matrix_06_juice_popcorn",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_rel_joint_pos",
+                "gap_profile": true,
+                "use_staging_assets": true,
+                "episode_length_s": 0.75,
+                "placement_seed": 106,
+                "seed": 42,
+                "pick_targets": [
+                    "orange_juice_carton_hope_robolab",
+                    "popcorn_box_hope_robolab"
+                ],
+                "destination_location": "grey_bin_robolab",
+                "light_intensity": 500.0
+            },
+            "num_episodes": 10,
+            "num_rebuilds": 1,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        },
+        {
+            "name": "maple_matrix_07_milk_raisin_mustard",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_rel_joint_pos",
+                "gap_profile": true,
+                "use_staging_assets": true,
+                "episode_length_s": 0.75,
+                "placement_seed": 107,
+                "seed": 42,
+                "pick_targets": [
+                    "milk_carton_hope_robolab",
+                    "raisin_box_hope_robolab",
+                    "mustard_bottle_hope_robolab"
+                ],
+                "destination_location": "grey_bin_robolab",
+                "light_intensity": 500.0
+            },
+            "num_episodes": 10,
+            "num_rebuilds": 1,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        },
+        {
+            "name": "maple_matrix_08_soup_tomato_butter",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_rel_joint_pos",
+                "gap_profile": true,
+                "use_staging_assets": true,
+                "episode_length_s": 0.75,
+                "placement_seed": 108,
+                "seed": 42,
+                "pick_targets": [
+                    "alphabet_soup_can_hope_robolab",
+                    "tomato_sauce_can_hope_robolab",
+                    "butter_hope_robolab"
+                ],
+                "destination_location": "grey_bin_robolab",
+                "light_intensity": 500.0
+            },
+            "num_episodes": 10,
+            "num_rebuilds": 1,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        },
+        {
+            "name": "maple_matrix_09_corn_granola_mayo",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_rel_joint_pos",
+                "gap_profile": true,
+                "use_staging_assets": true,
+                "episode_length_s": 0.75,
+                "placement_seed": 109,
+                "seed": 42,
+                "pick_targets": [
+                    "corn_can_hope_robolab",
+                    "granola_bars_hope_robolab",
+                    "mayonnaise_bottle_hope_robolab"
+                ],
+                "destination_location": "grey_bin_robolab",
+                "light_intensity": 500.0
+            },
+            "num_episodes": 10,
+            "num_rebuilds": 1,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        }
+    ]
+}
