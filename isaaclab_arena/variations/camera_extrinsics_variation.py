@@ -20,6 +20,7 @@ import torch
 from dataclasses import field
 from typing import TYPE_CHECKING
 
+import warp as wp
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.sensors import Camera, TiledCamera
 from isaaclab.utils.configclass import configclass
@@ -31,6 +32,15 @@ from isaaclab_arena.variations.variation_base import RunTimeVariationBase, Varia
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
+
+
+def _warp_indices(env_ids: torch.Tensor) -> wp.array:
+    """Convert env id tensor to the warp int32 index array ``UsdFrameView.set_local_poses`` expects.
+
+    The view backend resolves ``indices`` via ``indices.numpy()``, so a Python list (``env_ids.tolist()``)
+    or a raw CUDA torch tensor both fail; a warp array (built from an int32 CPU/GPU tensor) is required.
+    """
+    return wp.from_torch(env_ids.to(dtype=torch.int32))
 
 
 @configclass
@@ -166,6 +176,6 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
         t_C_Cnew_in_parent = quat_apply(self._q_parent_C_xyzw[env_ids], t_C_Cnew_in_C)
         t_parent_Cnew_in_parent = self._t_parent_C_in_parent[env_ids] + t_C_Cnew_in_parent
 
-        # Apply the the sim.
-        view_indices = env_ids.detach().to(device="cpu", dtype=torch.int32).contiguous()
-        view.set_local_poses(translations=t_parent_Cnew_in_parent, orientations=None, indices=view_indices)
+        # Apply to the sim. set_local_poses' view backend resolves indices via .numpy(), so it needs a warp
+        # index array — not env_ids.tolist() (a Python list) and not a raw CUDA torch tensor.
+        view.set_local_poses(translations=t_parent_Cnew_in_parent, orientations=None, indices=_warp_indices(env_ids))

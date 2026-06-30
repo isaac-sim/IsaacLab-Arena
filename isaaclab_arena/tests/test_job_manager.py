@@ -67,6 +67,19 @@ def test_job_convert_args_dict_expands_list_values():
     assert "--objects" not in Job.convert_args_dict_to_cli_args_list({"environment": "e", "objects": []})
 
 
+def test_job_convert_args_dict_seed_precedes_environment_subcommand():
+    """The global --seed arg must render before the environment subcommand (else argparse rejects it)."""
+    args = Job.convert_args_dict_to_cli_args_list(
+        {"environment": "pick_and_place_maple_table", "seed": 42, "pick_up_object": "rubiks_cube_hot3d_robolab"}
+    )
+    seed_idx = args.index("--seed")
+    env_idx = args.index("pick_and_place_maple_table")
+    assert args[seed_idx + 1] == "42"
+    assert seed_idx < env_idx, f"--seed must precede the env subcommand; got {args}"
+    # A non-priority arg (the object) still renders after the subcommand.
+    assert args.index("--pick_up_object") > env_idx
+
+
 def test_job_convert_args_dict_with_graph_spec_environment():
     """A .yaml environment is emitted as --env_graph_spec_yaml; a plain name stays positional."""
     graph_args = Job.convert_args_dict_to_cli_args_list({"environment": "/path/to/graph.yaml"})

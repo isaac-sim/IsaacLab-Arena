@@ -174,8 +174,10 @@ class Job:
 
         args_list = []
 
-        # Priority arguments that should come first (global args that must precede the subcommand)
-        priority_keys = ["num_envs", "env_spacing", "enable_cameras", "placement_seed"]
+        # Priority arguments that should come first (global args that must precede the subcommand).
+        # "seed" is a global Isaac Lab/AppLauncher arg (seeds runtime RNG, e.g. reset-time variation draws);
+        # it must precede the environment subcommand or argparse rejects it.
+        priority_keys = ["num_envs", "env_spacing", "enable_cameras", "placement_seed", "seed"]
 
         # Process priority arguments first (--num_envs, --enable_cameras)
         for key in priority_keys:

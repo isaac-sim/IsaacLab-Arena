@@ -149,3 +149,23 @@ def test_camera_extrinsics_variation_realized_at_runtime():
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,
     )
+
+
+def test_warp_indices_returns_int32_warp_array():
+    """Regression: the env-id indices for set_local_poses must be a warp int32 array, not a Python list.
+
+    A list (the previous env_ids.tolist()) made the view backend's indices.numpy() raise
+    "'list' object has no attribute 'numpy'", crashing every camera extrinsics variation at reset.
+    """
+    import warp as wp
+
+    from isaaclab_arena.variations.camera_extrinsics_variation import _warp_indices
+
+    idx = _warp_indices(torch.tensor([0, 2, 5]))
+    assert isinstance(idx, wp.array), f"expected a warp array (not list/tensor), got {type(idx).__name__}"
+    assert idx.dtype == wp.int32
+    assert tuple(idx.shape) == (3,)
+
+    # int64 env ids (the common case) must be coerced without error.
+    idx64 = _warp_indices(torch.arange(4, dtype=torch.int64))
+    assert idx64.dtype == wp.int32 and tuple(idx64.shape) == (4,)
