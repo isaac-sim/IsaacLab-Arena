@@ -1,0 +1,71 @@
+{
+    "jobs": [
+        {
+            "name": "maple_showcase_1_item",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_rel_joint_pos",
+                "gap_profile": true,
+                "use_staging_assets": true,
+                "episode_length_s": 1.5,
+                "placement_seed": 71,
+                "seed": 42,
+                "pick_up_object": "tomato_sauce_can_hope_robolab",
+                "destination_location": "grey_bin_robolab",
+                "light_intensity": 500.0
+            },
+            "num_episodes": 3,
+            "num_rebuilds": 1,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        },
+        {
+            "name": "maple_showcase_2_items",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_rel_joint_pos",
+                "gap_profile": true,
+                "use_staging_assets": true,
+                "episode_length_s": 1.5,
+                "placement_seed": 72,
+                "seed": 42,
+                "pick_targets": [
+                    "alphabet_soup_can_hope_robolab",
+                    "parmesan_cheese_canister_hope_robolab"
+                ],
+                "destination_location": "grey_bin_robolab",
+                "light_intensity": 500.0
+            },
+            "num_episodes": 3,
+            "num_rebuilds": 1,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        },
+        {
+            "name": "maple_showcase_3_items",
+            "arena_env_args": {
+                "enable_cameras": true,
+                "environment": "pick_and_place_maple_table",
+                "embodiment": "droid_rel_joint_pos",
+                "gap_profile": true,
+                "use_staging_assets": true,
+                "episode_length_s": 1.5,
+                "placement_seed": 73,
+                "seed": 42,
+                "pick_targets": [
+                    "milk_carton_hope_robolab",
+                    "raisin_box_hope_robolab",
+                    "mustard_bottle_hope_robolab"
+                ],
+                "destination_location": "grey_bin_robolab",
+                "light_intensity": 500.0
+            },
+            "num_episodes": 3,
+            "num_rebuilds": 1,
+            "policy_type": "zero_action",
+            "policy_config_dict": {}
+        }
+    ]
+}

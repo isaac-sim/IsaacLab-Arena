@@ -40,13 +40,13 @@ from isaaclab_arena.embodiments.droid.droid import DroidCameraCfg
 # perception camera less often; GaP only reads it at (static) perceive nodes, so a render cadence is safe.
 _CAM_UPDATE_PERIOD = float(os.environ.get("ILA_CAM_UPDATE_PERIOD", "0.0"))
 
-# Agentview over the Maple workspace center. The droid base is near the world origin and the pick/place
-# workspace is ~0.2 m in +x (matches the stock viewer lookat). An oblique agentview from the front (+x,
-# above) frames the table and objects for open-vocab perception (a top-down view does not). Validated against
-# the rendered exterior_cam framing of the built scene (staging asset override): table + pick/destination/
-# distractor objects are well framed and separated; may still be fine-tuned (e.g. to center the objects).
-_CAM_EYE = (1.15, 0.0, 0.65)  # in front of and above the workspace
-_CAM_TARGET = (0.2, 0.0, 0.05)  # approx workspace center (table-surface height)
+# Tight oblique view over the relation-solved workspace. Keeping the Maple table's outer silhouette outside
+# the frame matters for the unchanged generic GaP graph: its containment NMS otherwise treats the full table
+# as a parent detection and removes the smaller grocery boxes. This remains oblique enough to preserve the
+# product labels/shapes used by open-vocabulary perception; it is not a top-down view.
+_CAM_EYE = (0.95, 0.0, 0.90)
+_CAM_TARGET = (0.42, 0.03, 0.05)
+_CAM_FOCAL_LENGTH = 7.0
 _EXTERIOR_HW = (512, 800)  # (H, W)
 _DEPTH_DT = "distance_to_image_plane"  # perpendicular z-depth, the type GaP back-projection expects
 
@@ -87,11 +87,15 @@ class MapleDroidPerceptionCameraCfg(DroidCameraCfg):
         self.exterior_cam = CameraCfg(
             prim_path="{ENV_REGEX_NS}/exterior_cam",
             update_period=_CAM_UPDATE_PERIOD,
+            update_latest_camera_pose=True,
             height=_EXTERIOR_HW[0],
             width=_EXTERIOR_HW[1],
             data_types=["rgb", _DEPTH_DT],
             spawn=sim_utils.PinholeCameraCfg(
-                focal_length=2.8, focus_distance=28.0, horizontal_aperture=5.376, vertical_aperture=3.024
+                focal_length=_CAM_FOCAL_LENGTH,
+                focus_distance=28.0,
+                horizontal_aperture=5.376,
+                vertical_aperture=3.024,
             ),
             offset=CameraCfg.OffsetCfg(
                 pos=_CAM_EYE, rot=_agentview_ros_quat_xyzw(_CAM_EYE, _CAM_TARGET), convention="ros"
