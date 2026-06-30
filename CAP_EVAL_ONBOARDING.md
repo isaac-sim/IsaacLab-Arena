@@ -14,8 +14,8 @@ this file records the Arena-owned part of the integration.
 | DROID TCP skill fork | `rcathomen/cap-droid-tcp` | `4ce0af76d9cb4dbf92ebacf92de7af28ef1ff1fa` |
 
 Use the full revisions from `Isaac-cap/external/PINNED_VERSIONS.md`; short revisions above are only
-for orientation. The local branch is named `rcathomen/cap`, but it tracks the canonical remote
-`origin/rcathomen/feature/cap-gap-eval`.
+for orientation. The local and canonical remote branch are both
+`rcathomen/feature/cap-gap-eval`.
 
 ## Current Result
 
