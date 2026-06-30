@@ -1,0 +1,49 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+workflow:
+  name: dreamzero-inference-server
+  pool: isaac-dev-h100-01
+
+  resources:
+    default:
+      cpu: 16
+      gpu: 2
+      memory: 256Gi
+      storage: 250Gi
+
+  tasks:
+  - name: serve
+    image: nvcr.io/nvidian/dreamzero_inference_server:latest
+    credentials:
+      nvcr-nvidian: {}
+    command: ["bash", "-c"]
+    args:
+    - |
+      set -e
+
+      echo "=== Download checkpoint ==="
+      cd /workspace/dreamzero
+      hf download GEAR-Dreams/DreamZero-DROID \
+        --repo-type model \
+        --local-dir ./checkpoints/DreamZero-DROID
+
+      echo "=== Launch inference server ==="
+      CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.run \
+        --standalone \
+        --nproc_per_node=2 \
+        socket_test_optimized_AR.py \
+        --port {{ port }} \
+        --enable-dit-cache \
+        --model-path ./checkpoints/DreamZero-DROID
+
+    environment:
+      HF_TOKEN: "{{ hf_token }}"
+      NCCL_DEBUG: INFO
+      NO_ALBUMENTATIONS_UPDATE: "1"
+
+default-values:
+  port: "5000"
+  hf_token: ""

@@ -89,6 +89,58 @@ Pass this file to:
     --eval_jobs_config <path/to/config.json>
 ```
 
+## Running the inference server on OSMO
+
+The `docker/` directory contains everything needed to build the DreamZero inference server image and launch it as an OSMO job.
+
+### 1. Build and push the Docker image
+
+Log in to the NGC registry once:
+
+```bash
+docker login nvcr.io -u '$oauthtoken' -p <YOUR_NGC_API_KEY>
+```
+
+Then build and push:
+
+```bash
+./isaaclab_arena_dreamzero/docker/push_to_ngc.sh
+# Optional overrides:
+#   -t <tag>         Image tag (default: latest)
+#   -n <image-name>  Override image name (default: dreamzero_inference_server)
+```
+
+This produces `nvcr.io/nvidian/dreamzero_inference_server:<tag>`.
+
+### 2. Submit the OSMO job
+
+```bash
+osmo workflow submit isaaclab_arena_dreamzero/docker/dreamzero_inference_server.yaml \
+    --set hf_token=<YOUR_HF_TOKEN> \
+    --set port=5000
+```
+
+The job downloads the `GEAR-Dreams/DreamZero-DROID` checkpoint from HuggingFace and starts the WebSocket inference server on the requested port using 2 H100 GPUs.
+
+> **No pre-built image?** If you haven't pushed an image yet, use `dreamzero/dreamzero_inference_server.yaml` from the upstream dreamzero repo instead — it installs all dependencies at runtime from the base `nvcr.io/nvidia/pytorch:25.04-py3` image (slower startup, ~5–10 min).
+
+### 3. Connect the Arena policy
+
+Once the server is running, find its IP from the OSMO job logs and pass it to the policy:
+
+```bash
+/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+    --policy_type isaaclab_arena_dreamzero.policy.dreamzero_remote_policy.DreamZeroRemotePolicy \
+    --dreamzero_host <OSMO_JOB_IP> \
+    --dreamzero_port 5000 \
+    --enable_cameras \
+    --num_episodes 5 \
+    --headless \
+    --language_instruction "Pick up the cube and place it in the bowl." \
+    pick_and_place_maple_table \
+    --embodiment droid_abs_joint_pos
+```
+
 ## Observation requirements
 
 The environment must expose these keys in its observation dict:
