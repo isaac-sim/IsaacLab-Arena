@@ -110,7 +110,7 @@ def greedy_sphere_decomposition(
 
 
 class WarpMeshAndSphereCache:
-    """Cache for Warp BVH meshes and sphere decompositions used in mesh-based collision queries."""
+    """Cache for Warp BVH meshes and sphere decompositions."""
 
     def __init__(
         self,

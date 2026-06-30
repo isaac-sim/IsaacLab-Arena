@@ -47,7 +47,7 @@ class NoOverlapPair:
 
 
 class MeshPairEntry(NamedTuple):
-    """One directed sphere-to-mesh pair collected during cache construction."""
+    """One directed sphere-to-mesh collision pair (subject spheres vs obstacle mesh)."""
 
     subject: ObjectBase
     obstacle: ObjectBase

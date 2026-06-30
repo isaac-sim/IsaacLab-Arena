@@ -52,8 +52,8 @@ class IsaacLabArenaEnvironment:
                 ``"my_module:RLPolicyCfg"``.
             episode_recorder_terms: Additional per-episode recorder terms to record alongside the
                 built-in ones, keyed by name.
-            placer_params: Object placement configuration. When set, used as-is
-                (CLI flags are ignored). When None, params are built from CLI flags.
+            placer_params: Object placement configuration. When None, default
+                ObjectPlacerParams are used.
         """
         self.name = name
         self.scene = scene
