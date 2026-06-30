@@ -12,18 +12,17 @@ from typing import Any
 
 from isaaclab.utils import configclass
 
-from isaaclab_arena.progress_tracking.progress_tracker import get_progress_tracker
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 
 
 def record_progress_results(env, env_id: int) -> dict[str, Any]:
     """Record the progress-tracking state for ``env_id``."""
-    tracker = get_progress_tracker(env)
-    if tracker is None:
+    progress = env.extras.get("progress_tracking")
+    if not progress:
         return {}
 
-    state = tracker.get_state()[env_id]
-    events = tracker.get_events()[env_id]
+    state = progress["states"][env_id]
+    events = progress["events"][env_id]
     return {
         "progress": {
             "overall_score": state.overall_score,
@@ -34,6 +33,7 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
                     "is_complete": obj.is_complete,
                     "completed_groups": obj.completed_groups,
                     "total_groups": obj.total_groups,
+                    "active_predicates": obj.active_predicates,
                 }
                 for name, obj in state.progress_objectives.items()
             },
