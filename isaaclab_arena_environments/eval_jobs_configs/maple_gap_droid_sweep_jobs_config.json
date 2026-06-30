@@ -1,7 +1,7 @@
 {
     "jobs": [
         {
-            "name": "maple_gap_droid_eval",
+            "name": "maple_gap_droid_sweep",
             "arena_env_args": {
                 "enable_cameras": true,
                 "environment": "pick_and_place_maple_table",
@@ -18,7 +18,7 @@
                 "destination_location": "grey_bin_robolab",
                 "light_intensity": 500.0
             },
-            "num_episodes": 1,
+            "num_episodes": 3,
             "num_rebuilds": 1,
             "policy_type": "isaac_cap.gap_remote_policy.GapRemotePolicy",
             "policy_config_dict": {
