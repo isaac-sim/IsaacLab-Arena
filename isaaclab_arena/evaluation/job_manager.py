@@ -180,11 +180,7 @@ class Job:
         # Process priority arguments first (--num_envs, --enable_cameras)
         for key in priority_keys:
             if key in args_dict:
-                value = args_dict[key]
-                if isinstance(value, bool) and value:
-                    args_list += [f"--{key}"]
-                elif not isinstance(value, bool) and value is not None:
-                    args_list += [f"--{key}", str(value)]
+                args_list += cls._render_cli_arg(key, args_dict[key])
 
         # The env source comes next.
         # It could be either an example-environment name or a graph spec yaml detected via extension.
@@ -198,13 +194,32 @@ class Job:
         for key, value in args_dict.items():
             if key in priority_keys or key == "environment":
                 continue
-
-            if isinstance(value, bool) and value:
-                args_list += [f"--{key}"]
-            elif not isinstance(value, bool) and value is not None:
-                args_list += [f"--{key}", str(value)]
+            args_list += cls._render_cli_arg(key, value)
 
         return args_list
+
+    @staticmethod
+    def _render_cli_arg(key: str, value) -> list[str]:
+        """Render one (key, value) pair as CLI tokens for the argparse parser.
+
+        List/tuple values are expanded into multiple post-flag tokens (argparse
+        ``nargs`` style: ``--objects a b``), not stringified — so a JSON config can
+        pass multi-valued args (e.g. objects, additional_table_objects) natively.
+
+        Args:
+            key: The argument name (without the leading ``--``).
+            value: The argument value; bool flags, None, scalars, or list/tuple.
+
+        Returns:
+            The CLI tokens for this argument (empty when the flag should be omitted).
+        """
+        if isinstance(value, bool):
+            return [f"--{key}"] if value else []
+        if value is None:
+            return []
+        if isinstance(value, (list, tuple)):
+            return [f"--{key}", *(str(v) for v in value)] if len(value) else []
+        return [f"--{key}", str(value)]
 
 
 class JobManager:

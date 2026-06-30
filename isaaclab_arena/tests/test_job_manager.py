@@ -46,6 +46,27 @@ def test_job_convert_args_dict_to_cli_args_list():
     assert "--enable_cameras" not in args_list  # False booleans are skipped
 
 
+def test_job_convert_args_dict_expands_list_values():
+    """List/tuple-valued args expand into post-flag tokens (nargs style), not str([...])."""
+    args_dict = {
+        "environment": "libero_object_packing",
+        "objects": ["alphabet_soup_can_hope_robolab", "tomato_sauce_can_hope_robolab"],
+    }
+    args_list = Job.convert_args_dict_to_cli_args_list(args_dict)
+
+    # The flag is followed by each element as its own token — never the stringified list.
+    idx = args_list.index("--objects")
+    assert args_list[idx + 1] == "alphabet_soup_can_hope_robolab"
+    assert args_list[idx + 2] == "tomato_sauce_can_hope_robolab"
+    assert "['alphabet_soup_can_hope_robolab', 'tomato_sauce_can_hope_robolab']" not in args_list
+
+    # A tuple expands the same way; an empty list omits the flag entirely.
+    tuple_args = Job.convert_args_dict_to_cli_args_list({"environment": "e", "objects": ("a", "b")})
+    t_idx = tuple_args.index("--objects")
+    assert tuple_args[t_idx + 1 : t_idx + 3] == ["a", "b"]
+    assert "--objects" not in Job.convert_args_dict_to_cli_args_list({"environment": "e", "objects": []})
+
+
 def test_job_convert_args_dict_with_graph_spec_environment():
     """A .yaml environment is emitted as --env_graph_spec_yaml; a plain name stays positional."""
     graph_args = Job.convert_args_dict_to_cli_args_list({"environment": "/path/to/graph.yaml"})
