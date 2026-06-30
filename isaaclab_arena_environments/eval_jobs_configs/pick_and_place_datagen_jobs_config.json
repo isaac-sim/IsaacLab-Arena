@@ -9,6 +9,7 @@
         "store_flow3d": false,
         "store_float_type": "float16",
         "frame_stride": 2,
+        "max_recorded_frames": 200,
         "color_resolution": [512, 384],
         "depth_resolution": [512, 384],
         "flow2d_resolution": [512, 384],

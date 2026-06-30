@@ -500,6 +500,16 @@ def main():
                     collector = build_datagen_collector(job, datagen_defaults, env)
                     job_sim_info = _capture_sim_info(env) if collector is not None else None
 
+                    # Per-episode step cap for datagen. Honour an optional max_recorded_frames
+                    # (frame_stride sim steps per recorded frame), bounded by the env's own cap.
+                    max_episode_length = None
+                    if is_datagen:
+                        max_episode_length = int(env.unwrapped.max_episode_length)
+                        max_recorded_frames = job_datagen.get("max_recorded_frames")
+                        if max_recorded_frames is not None:
+                            stride = int(job_datagen.get("frame_stride", 1))
+                            max_episode_length = min(max_episode_length, int(max_recorded_frames) * stride)
+
                     metrics = rollout_policy(
                         env,
                         policy,
@@ -508,7 +518,7 @@ def main():
                         language_instruction=job.language_instruction,
                         collector=collector,
                         datagen_reset_terms=datagen_reset_terms,
-                        max_episode_length=int(env.unwrapped.max_episode_length) if is_datagen else None,
+                        max_episode_length=max_episode_length,
                     )
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
