@@ -9,11 +9,14 @@
 - **Step-3 commits (in order):** `236017d48` (opt-in `--gap_profile` Maple scene + camera-variation fix),
   `20705b60d` (G/H provenance + initial/final pose recorder metadata), `896f5c31b` (opt-in 2-3 object
   `SortMultiObjectTask` profile — the Step-3 code tip). All scene-smoke-only — **no GaP E2E claimed.**
-- **GaP side:** `/home/rafael/Projects/Isaac-cap` branch `origin/rcathomen/gap-ila-eval`, current pushed tip
-  `2b7a9f0` (after the earlier safety checkpoint `4f3bdd4`), plus `gap/graph-as-policy`. **2c-ii** at `2b7a9f0`
-  adds the fail-closed single-use per-episode task payload and the first task-config graph-loader node
-  (plumbing), but **those outputs are not yet consumed**; **#20** (explicit cursor / perception / confirmation)
-  is active. **GaP E2E remains pending** — repin after #20 lands.
+- **GaP side (CAP baseline):** `/home/rafael/Projects/Isaac-cap` @ `ec6ba5d97c89f672cb3825bee4d1e21b8fcf2b04`,
+  plus `gap/graph-as-policy`. The graph under test is the **unchanged, generic** `examples/grocery_packing`:
+  its tree is byte-identical to `1249fb6` (tree `de7f9696…`) — **no task loader, no structured payload**. There
+  is no Arena→graph task-input work outstanding (it is a non-goal for this baseline).
+- **DROID tool adaptation (the only DROID-specific change):** open-robot-skills fork
+  `https://github.com/rafaelcathomen/open-robot-skills` branch `rcathomen/cap-droid-tcp` @
+  `4ce0af76d9cb4dbf92ebacf92de7af28ef1ff1fa`. It is purely tool-level (TCP); CAP injects the TCP env only for
+  droid/robotiq, leaving the generic graph and Panda path untouched.
 
 ## Python env — generic Arena prerequisite (owned elsewhere; NOT a CAP branch)
 The Arena runtime is a generic native uv install on `rcathomen/feature/uv-native-install`
@@ -40,12 +43,13 @@ The canonical policy is **managed-spawn** (`auto_spawn=true`): the policy launch
 episode, so there is **no** separate manual `gap run` terminal.
 
 **Canonical job (tracked):** `isaaclab_arena_environments/eval_jobs_configs/maple_gap_droid_eval_jobs_config.json`
-— DROID `droid_abs_joint_pos`, `gap_profile`, explicit `use_staging_assets`, `pick_targets` (2-3 scene objects)
-→ `grey_bin_robolab`, `policy_config_dict.auto_spawn=true` + `gap_graph=grocery_packing`, `num_episodes=1`,
+— DROID `droid_abs_joint_pos`, `gap_profile`, explicit `use_staging_assets`, **exactly two graspable
+`pick_targets`** (`alphabet_soup_can_hope_robolab`, `tomato_sauce_can_hope_robolab`) → `grey_bin_robolab`,
+`policy_config_dict.auto_spawn=true` + `gap_graph=grocery_packing`, `num_episodes=1`, `placement_seed=1`,
 realistic `episode_length_s=450`. Variation/seeds come from **Arena's normal mechanism** (the `variations` block —
-`camera_extrinsics_exterior_cam` — plus `seed` / `placement_seed`), NOT graph inputs.
+`camera_extrinsics_exterior_cam` enabled — plus `seed` / `placement_seed`), NOT graph inputs.
 
-Run it (single command; the policy manages GaP itself):
+Run it (single command; the policy manages GaP itself via `auto_spawn`):
 ```
 env OMNI_KIT_ACCEPT_EULA=YES PYTHONUNBUFFERED=1 \
   PYTHONPATH=/home/rafael/Projects/IsaacLab-Arena-cap:/home/rafael/Projects/Isaac-cap/src \
@@ -53,8 +57,14 @@ env OMNI_KIT_ACCEPT_EULA=YES PYTHONUNBUFFERED=1 \
   --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/maple_gap_droid_eval_jobs_config.json \
   --record_camera_video --output_base_dir /tmp/maple_gap_eval_out
 ```
-⚠️ **Do not run the long E2E until the CAP cleanup/pin is confirmed** (see "PENDING" in the Step-3 section).
-The auto_spawn launcher / generic-graph wiring lives on the GaP side (`Isaac-cap`), repinned after CAP confirms.
+Prereqs: the CAP baseline (`Isaac-cap` @ `ec6ba5d9…`) and the open-robot-skills DROID-TCP fork
+(`rcathomen/cap-droid-tcp` @ `4ce0af76…`) above. No GaP E2E has been run yet here — **no pass/fail is claimed**;
+this run is set up but not executed in this checkpoint.
+
+**Variation sweep (tracked, NOT run):** `maple_gap_droid_sweep_jobs_config.json` — same baseline, `num_episodes=3`
+so each episode re-draws a fresh layout via the normal relation-solver reset semantics (`resolve_on_reset`),
+with the `camera_extrinsics_exterior_cam` variation sampled per reset. Pure Arena reset/rebuild variation — no
+graph inputs.
 
 **Quick scene-only validation (no GaP, zero-action, fast):** the tracked smokes
 `maple_gap_scene_smoke_jobs_config.json` (single) and `maple_gap_sort_smoke_jobs_config.json` (2-3 sort) build
@@ -68,7 +78,8 @@ construction/cameras/provenance quickly.
 ## PANDA / DROID libero runs — HISTORICAL (pre-Step-3; does NOT override Step-3 status)
 > The section below records earlier libero-scene grocery-packing runs and is kept for context only. It predates
 > the Step-3 Maple work and its `success=true`/`success=false` notes do **not** describe the Maple profile. For
-> the Maple GaP path, the authoritative status is the Step-3 section (scene-smoke-only; GaP E2E pending CAP).
+> the Maple GaP path, the authoritative status is the Step-3 section + the canonical job above (no GaP E2E run
+> in this checkpoint; no pass/fail claimed).
 **PANDA — `control=joint_pos`, `gap_adapter=franka`, no `GAP_HAND_TO_FINGERTIP_Z` (0.1029):**
 - Single-object: scored `success=true` (proven end-to-end).
 - Multi-object (grocery_packing, 3 items): perception fix VERIFIED — VLM selects groceries (not the robot mask),
@@ -80,10 +91,11 @@ construction/cameras/provenance quickly.
   bounce out; extend the episode timeout (`150*N+150`=600s is short once a bounce-out forces a re-pack 4th cycle).
   Re-verify after those fixes.
 
-**DROID — `control=droid_joint_pos`, `gap_adapter=droid`, `GAP_HAND_TO_FINGERTIP_Z=0.157`:**
-- Interface proven end-to-end; grasp closes on air — the Robotiq π/4 mount rotation is applied only to the position
-  TCP in the connector IK, NOT to the grasp-pose orientation in `plan_grasp.py` → fingers 45° off. Fix = pre-rotate
-  grasp candidates by the mount rotation. Plus TCP-by-embodiment cleanup (GaP `--real franka` sets Robotiq 0.157 even for Panda).
+**DROID — `control=droid_joint_pos`, `gap_adapter=droid`:**
+- HISTORICAL/SUPERSEDED: earlier libero runs hit a Robotiq grasp-orientation problem (π/4 mount rotation not
+  applied to the grasp pose). For the current baseline this is handled purely at the tool level by the
+  open-robot-skills DROID-TCP fork (`rcathomen/cap-droid-tcp` @ `4ce0af76…`, see the refs at top); CAP injects
+  the TCP env only for droid/robotiq, and the generic graph is otherwise unchanged. No Arena-side grasp work.
 
 ## Step 3 — Maple-table GaP scene profile (pushed; scene-smoke-only)
 Arena-owned work to bring the stock `pick_and_place_maple_table` DROID path onto the GaP eval flow. **Opt-in:**
@@ -121,14 +133,16 @@ this fails on Docker/official beta too; it is a documented external promotion bl
 configs opt into `--use_staging_assets` (targeted, fail-closed production→staging host swap for ONLY those two
 files; instance-local, no leak into other jobs). Production stays the default until PR #786 is promoted.
 
-**Provenance recorded per episode** (opt-in, under `gap_provenance` in the per-episode JSONL; schema is independent
-of CAP's scalar `target_specs`): `profile`, `asset_channel` (`production|staging`), resolved `table_usd` +
+**Provenance recorded per episode** (opt-in, under `gap_provenance` in the per-episode JSONL; self-contained
+Arena schema): `profile`, `asset_channel` (`production|staging`), resolved `table_usd` +
 `droid_stand_usd`, `task` (`PickAndPlaceTask|SortMultiObjectTask`), ordered `pick_targets` (exact CLI order),
 `destination`, `distractors`, `placement_seed`, `seed`. Plus `initial_object_poses` and `final_object_poses`
 (separate; world-frame `pos_w` + `quat_w_xyzw`, keyed by stable asset name; initial = post-reset snapshot, final =
 episode end).
 
-**PENDING (CAP-owned; NOT done here):** GaP end-to-end on Maple and the canonical `GapRemotePolicy` eval job (with
-the intended 450–600 s timeout) remain blocked on CAP's active task-input / graph work — the adapter must consume
-the live `exterior_cam` pose and the provenance/target payload, and the graph must drive the Maple targets. **No
-passing GaP Maple job is claimed or provided yet.**
+**STATUS:** No Arena→graph task-input or payload work is outstanding — the baseline runs the **unchanged
+generic** `grocery_packing` graph (tree-identical to `1249fb6`), and the only DROID-specific change is the
+tool-level TCP fork pinned above. The canonical `GapRemotePolicy` Maple/DROID job (`auto_spawn`, generic graph,
+450 s, two graspable targets) is fully wired and ready to run against those pins. **GaP end-to-end has not been
+run in this checkpoint, so no pass/fail is claimed.** The remaining external caveat is asset promotion: the Maple
+table + DROID stand stay staging-only (opt-in `--use_staging_assets`) until PR #786 is promoted.
