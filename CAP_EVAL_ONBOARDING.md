@@ -1,12 +1,14 @@
 # GaP↔Arena eval — Arena-side onboarding & handoff status (authoritative)
 
 ## Reproducible refs (pin these)
-- **Arena teammate branch:** `rcathomen/feature/cap-gap-eval`
-- **Full pushed SHA:** `370b9e157dc0914cababba9e4e74a3fee6769041`
-  (origin `git@github.com:isaac-sim/IsaacLab-Arena.git`; pushed, fresh branch, no force.)
-- All placement + scoring changes ARE committed & pushed in that SHA (resting_in_bin/gripper_open,
-  multi-object task, pooled-placement clearance thread, reach box). The local working branch is `rcathomen/cap`;
-  the handoff branch points at the same commit.
+- **Arena worktree:** `/home/rafael/Projects/IsaacLab-Arena-cap` (local working branch `rcathomen/cap`).
+- **Arena teammate/handoff branch:** `rcathomen/feature/cap-gap-eval`
+  (origin `git@github.com:isaac-sim/IsaacLab-Arena.git`; pushed, fast-forward only, no force.)
+- **Current pushed tip:** `896f5c31b` — Step-3 Maple GaP scene profile (see the Step-3 section below). It builds
+  on the earlier libero/scoring work; the local working branch `rcathomen/cap` points at the same commit.
+- **Step-3 commits (in order):** `236017d48` (opt-in `--gap_profile` Maple scene + camera-variation fix),
+  `20705b60d` (G/H provenance + initial/final pose recorder metadata), `896f5c31b` (opt-in 2-3 object
+  `SortMultiObjectTask` profile). All scene-smoke-only — **no GaP E2E claimed.**
 - **GaP side:** `Isaac-cap` `main` @ `1249fb6` (+ uncommitted perception fix, see below) + `gap/graph-as-policy`.
 
 ## Python env — generic Arena prerequisite (owned elsewhere; NOT a CAP branch)
@@ -73,3 +75,51 @@ NOTE: the job JSON + the overnight bash driver were in `/tmp` and were lost in a
 - Interface proven end-to-end; grasp closes on air — the Robotiq π/4 mount rotation is applied only to the position
   TCP in the connector IK, NOT to the grasp-pose orientation in `plan_grasp.py` → fingers 45° off. Fix = pre-rotate
   grasp candidates by the mount rotation. Plus TCP-by-embodiment cleanup (GaP `--real franka` sets Robotiq 0.157 even for Panda).
+
+## Step 3 — Maple-table GaP scene profile (pushed; scene-smoke-only)
+Arena-owned work to bring the stock `pick_and_place_maple_table` DROID path onto the GaP eval flow. **Opt-in:**
+stock single-object defaults and all existing VLA jobs are **unchanged** (verified). Commits on
+`rcathomen/feature/cap-gap-eval`: `236017d48`, `20705b60d`, `896f5c31b` (tip).
+
+**What it adds (only under the opt-in flags):**
+- `--gap_profile` (off by default; fails early unless `--enable_cameras` + a DROID embodiment): attaches a fixed
+  exterior RGB-D agentview camera named `exterior_cam` (`rgb` + `distance_to_image_plane`, 512×800) with a STATIC
+  pose, registers its `camera_extrinsics_exterior_cam` variation, and constrains object placement to the arm reach box.
+- Camera contract is **live-pose**: Arena owns the pose; the adapter must read live `cam.data.pos_w` /
+  `quat_w_ros` / `intrinsic_matrices` (no re-aim, no cached pose_mat). This Isaac Lab is **xyzw** (quat_from_matrix /
+  OffsetCfg.rot / root_quat_w all `(x,y,z,w)`).
+- `--episode_length_s` configurable (stock default 20 s; raise it for GaP rollouts — see "pending" below).
+- `--pick_targets` (nargs='+', default None) → opt-in stock `SortMultiObjectTask` over 2-3 ordered, unique targets
+  into `--destination_location`. Fail-closed: a present flag must carry 2-3 unique names, non-overlapping the
+  destination/distractors. Unset keeps the stock single-object `PickAndPlaceTask`.
+
+**Tracked scene-smoke configs** (`isaaclab_arena_environments/eval_jobs_configs/`), both `zero_action`, no GaP server:
+- `maple_gap_scene_smoke_jobs_config.json` — single pick-place, `gap_profile` + staging + `exterior_cam` variation.
+- `maple_gap_sort_smoke_jobs_config.json` — 3 groceries (alphabet_soup, tomato_sauce, butter) → `grey_bin`, sort profile.
+
+Run either (Arena venv + worktree + Isaac-cap on PYTHONPATH; no GaP needed):
+```
+env OMNI_KIT_ACCEPT_EULA=YES PYTHONUNBUFFERED=1 \
+  PYTHONPATH=/home/rafael/Projects/IsaacLab-Arena-cap:/home/rafael/Projects/Isaac-cap/src \
+  /home/rafael/Projects/IsaacLab-Arena/.venv/bin/python -m isaaclab_arena.evaluation.eval_runner \
+  --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/maple_gap_sort_smoke_jobs_config.json \
+  --record_camera_video --output_base_dir /tmp/maple_sort_out
+```
+
+**⚠️ Staging-only asset caveat:** the Maple table (`maple_table.usda`) and DROID stand (`franka_stand_grey.usda`)
+are PR #786 assets that 404 on the production Nucleus but resolve on the Isaac staging bucket (CI used staging) —
+this fails on Docker/official beta too; it is a documented external promotion blocker, not a regression. The smoke
+configs opt into `--use_staging_assets` (targeted, fail-closed production→staging host swap for ONLY those two
+files; instance-local, no leak into other jobs). Production stays the default until PR #786 is promoted.
+
+**Provenance recorded per episode** (opt-in, under `gap_provenance` in the per-episode JSONL; schema is independent
+of CAP's scalar `target_specs`): `profile`, `asset_channel` (`production|staging`), resolved `table_usd` +
+`droid_stand_usd`, `task` (`PickAndPlaceTask|SortMultiObjectTask`), ordered `pick_targets` (exact CLI order),
+`destination`, `distractors`, `placement_seed`, `seed`. Plus `initial_object_poses` and `final_object_poses`
+(separate; world-frame `pos_w` + `quat_w_xyzw`, keyed by stable asset name; initial = post-reset snapshot, final =
+episode end).
+
+**PENDING (CAP-owned; NOT done here):** GaP end-to-end on Maple and the canonical `GapRemotePolicy` eval job (with
+the intended 450–600 s timeout) remain blocked on CAP's active task-input / graph work — the adapter must consume
+the live `exterior_cam` pose and the provenance/target payload, and the graph must drive the Maple targets. **No
+passing GaP Maple job is claimed or provided yet.**
