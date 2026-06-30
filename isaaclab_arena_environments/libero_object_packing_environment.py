@@ -161,6 +161,8 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
         basket.add_relation(IsAnchor())
 
         # Groceries: relation-solved placement (On surface, within reach, jittered per reset).
+        # The object set is data-driven via --objects (job_manager expands a JSON list into --objects a b ...),
+        # so 2-3 object variations are configured from the job config, not hardcoded here.
         objects = []
         for obj_name in args_cli.objects:
             obj = self.asset_registry.get_asset_by_name(obj_name)()
@@ -175,6 +177,40 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
                 object_asset_names=[obj.name for obj in objects],
                 basket_asset_name=basket.name,
                 episode_length_s=150.0 * len(objects) + 150.0,
+            )
+        elif args_cli.eval_task == "stock_pick_place":
+            # Hybrid metric-pivot (STEP 2a): reuse the libero scene's proven exterior_cam + pose_mat, but score
+            # with the STOCK PickAndPlaceTask / object_on_destination (contact-on-destination + low velocity)
+            # instead of our custom resting_in_bin. Single object (objects[0]) -> basket. Fires success the moment
+            # the object rests on the destination; no gripper_open coincidence, no multi-object perceive loop
+            # (so no phantom-4th re-detection). Intended for GaP's single-cycle examples/pick_place graph.
+            from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+
+            task = PickAndPlaceTask(
+                pick_up_object=objects[0],
+                destination_location=basket,
+                background_scene=surface,
+                episode_length_s=180.0,
+            )
+        elif args_cli.eval_task == "stock_sort":
+            # Multi-object (N) pure-stock pick-place: the STOCK SortMultiObjectTask scores per-object
+            # object_on_destination composed under SuccessMode.ALL (all objects into the grey_bin), building one
+            # destination-filtered contact sensor per object. Authoritative metric kept identical to the single-object
+            # stock_pick_place for VLA comparability. Data-driven N via --objects.
+            from isaaclab_arena.tasks.sorting_task import SortMultiObjectTask
+
+            task = SortMultiObjectTask(
+                pick_up_object_list=objects,
+                destination_location_list=[basket] * len(objects),
+                background_scene=surface,
+                episode_length_s=150.0 * len(objects),
+            )
+            # SortMultiObjectTask takes no task_description, so get_language_instruction() would be None.
+            # GapRemotePolicy reads env.get_language_instruction(), so set it explicitly from the object set + basket.
+            # NOTE: the stock task scores object_on_destination at force_threshold=1.0 (intentional — the stock value;
+            # the retired custom factory used 0.1). Velocity threshold 0.1 m/s is unchanged.
+            task.task_description = (
+                f"Pick up the {' and the '.join(obj.name for obj in objects)}, and place all into the {basket.name}"
             )
         else:
             task = NoTask()
@@ -217,20 +253,25 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
             type=str,
             default="ik",
             choices=["ik", "joint_pos", "droid_joint_pos"],
-            help="Arm action term: 'ik' (relative differential IK, default), 'joint_pos' "
-            "(absolute joint-position targets, for the GaP bridge), or 'droid_joint_pos' "
-            "(DROID Franka+Robotiq absolute joint targets, Robotiq binary gripper).",
+            help=(
+                "Arm action term: 'ik' (relative differential IK, default), 'joint_pos' "
+                "(absolute joint-position targets, for the GaP bridge), or 'droid_joint_pos' "
+                "(DROID Franka+Robotiq absolute joint targets, Robotiq binary gripper)."
+            ),
         )
         parser.add_argument("--teleop_device", type=str, default=None)
         parser.add_argument(
             "--eval_task",
             type=str,
-            choices=["none", "pick_place_in_basket"],
+            choices=["none", "pick_place_in_basket", "stock_pick_place", "stock_sort"],
             default="none",
             help=(
                 "Scoring task to attach for eval_runner. "
                 "'none' = NoTask (viewer/bridge runs unaffected); "
-                "'pick_place_in_basket' = proximity success for alphabet_soup_can into basket."
+                "'pick_place_in_basket' = custom multi-object resting_in_bin success; "
+                "'stock_pick_place' = STOCK PickAndPlaceTask/object_on_destination (single object -> basket); "
+                "'stock_sort' = STOCK SortMultiObjectTask: N objects (from --objects) scored per-object "
+                "object_on_destination under SuccessMode.ALL into the basket."
             ),
         )
 
