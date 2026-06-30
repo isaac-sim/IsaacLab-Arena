@@ -5,21 +5,15 @@ ISAACLAB_ARENA_IMAGE_NAME='isaaclab_arena'
 TAG_NAME=latest
 CONTAINER_ID=""
 PUSH_TO_NGC=false
-INSTALL_GROOT="false"
 WORKDIR="/workspaces/isaaclab_arena"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-while getopts ":t:gn:vn:pn:Rn:hn:" OPTION; do
+while getopts ":t:n:vn:pn:Rn:hn:" OPTION; do
     case $OPTION in
         t)
             TAG_NAME=$OPTARG
             echo "Tag name is ${TAG_NAME}."
-            ;;
-        g)
-            INSTALL_GROOT="true"
-            TAG_NAME='cuda_gr00t_gn16'
-            echo "INSTALL_GROOT is ${INSTALL_GROOT}."
             ;;
         v)
             set -x
@@ -41,15 +35,12 @@ while getopts ":t:gn:vn:pn:Rn:hn:" OPTION; do
             echo "Examples:"
             echo "- Build without cache and push to NGC:"
             echo "    ${script_name} -R -p -t <tag_name>"
-            echo "- Build without cache and push to NGC with GR00T dependencies:"
-            echo "    ${script_name} -R -p -t <tag_name> -g"
             echo "- See help message:"
             echo "    ${script_name} -h"
             echo ""
             echo "Options:"
             echo "  -p - Push the image to NGC."
             echo "  -t - Tag name of the image."
-            echo "  -g - Install GR00T with base dependencies."
             echo '  -R - Do not use cache when building the image.'
             echo "  -v - Verbose output."
             echo "  -h - Help (this output)"
@@ -66,7 +57,6 @@ NGC_PATH=nvcr.io/nvstaging/isaac-amr/${DOCKER_IMAGE_NAME}
 docker build --pull \
     $NO_CACHE \
     --build-arg WORKDIR="${WORKDIR}" \
-    --build-arg INSTALL_GROOT=$INSTALL_GROOT \
     -t ${DOCKER_IMAGE_NAME} \
     --file $SCRIPT_DIR/Dockerfile.isaaclab_arena \
     $SCRIPT_DIR/..

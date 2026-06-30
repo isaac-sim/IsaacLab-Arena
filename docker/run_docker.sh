@@ -13,8 +13,6 @@ DATASETS_HOST_MOUNT_DIRECTORY="$HOME/datasets"
 MODELS_HOST_MOUNT_DIRECTORY="$HOME/models"
 # Default mount directory on the host machine for the evaluation directory
 EVAL_HOST_MOUNT_DIRECTORY="$HOME/eval"
-# Default GR00T installation settings (false means no GR00T installation)
-INSTALL_GROOT="false"
 # Whether to forcefully rebuild the docker image
 # (it takes a while to re-build, but for testing is not really necessary)
 FORCE_REBUILD=false
@@ -24,7 +22,7 @@ FORCE_REBUILD=false
 CONTAINER_SUFFIX=""
 CONTAINER_SUFFIX_EXPLICIT=false
 
-while getopts ":d:m:e:hn:rn:Rn:vn:gn:s:" OPTION; do
+while getopts ":d:m:e:hn:rn:Rn:vn:s:" OPTION; do
     case $OPTION in
 
         d)
@@ -50,10 +48,6 @@ while getopts ":d:m:e:hn:rn:Rn:vn:gn:s:" OPTION; do
         v)
             set -x
             ;;
-        g)
-            INSTALL_GROOT="true"
-            DOCKER_VERSION_TAG='cuda_gr00t_gn16'
-            ;;
         s)
             CONTAINER_SUFFIX="-${OPTARG}"
             CONTAINER_SUFFIX_EXPLICIT=true
@@ -73,7 +67,6 @@ while getopts ":d:m:e:hn:rn:Rn:vn:gn:s:" OPTION; do
             echo "  -n <docker name> (Name of the docker image that will be built or used. Default is \"$DOCKER_IMAGE_NAME\".)"
             echo "  -r (Force rebuilding of the docker image.)"
             echo "  -R (Force rebuilding of the docker image, without cache.)"
-            echo "  -g (Install GR00T N1.6 dependencies.)"
             echo "  -s <suffix> (Suffix appended to the container name, allowing multiple containers to run simultaneously."
             echo "      Defaults to the repo directory name after 'IsaacLab-Arena', so each clone gets its own container.)"
             exit 0
@@ -105,9 +98,6 @@ fi
 # Display the values being used
 echo "Using Docker image: $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG"
 
-# Build the Docker image with the specified or default name
-echo "Building Docker image with GR00T installation: $INSTALL_GROOT"
-
 if [ "$(docker images -q $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG 2> /dev/null)" ] && \
     [ "$FORCE_REBUILD" = false ]; then
     echo "Docker image $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG already exists. Not rebuilding."
@@ -117,7 +107,6 @@ else
         $NO_CACHE \
         --progress=plain \
         --build-arg WORKDIR="${WORKDIR}" \
-        --build-arg INSTALL_GROOT=$INSTALL_GROOT \
         -t ${DOCKER_IMAGE_NAME}:${DOCKER_VERSION_TAG} \
         --file $SCRIPT_DIR/Dockerfile.isaaclab_arena \
         $SCRIPT_DIR/..
@@ -206,10 +195,6 @@ else
         DOCKER_RUN_ARGS+=("--env" "NV_API_KEY")
     fi
 
-    # if gr00t is installed, mount the gr00t directory in case anything needs to change there
-    if [ "$INSTALL_GROOT" = "true" ]; then
-        DOCKER_RUN_ARGS+=("-v" "./submodules/Isaac-GR00T:${WORKDIR}/submodules/Isaac-GR00T")
-    fi
     # Allow X11 connections
     xhost +local:docker > /dev/null
 
