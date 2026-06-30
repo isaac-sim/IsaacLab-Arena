@@ -521,7 +521,7 @@ class RelationSolver:
                         device=device,
                     )
 
-                # AABB broadphase (yaw-aware): skip separated pairs.
+                # AABB overlap filter (yaw-aware): skip separated pairs.
                 margins = cache.pair_max_radius + clearance_m
                 s_bbox_min = cache.pair_subject_bbox_min[:, b, :]
                 s_bbox_max = cache.pair_subject_bbox_max[:, b, :]
@@ -664,8 +664,6 @@ class RelationSolver:
                         on_pairs.add((id(rel.parent), id(obj)))
             self._mesh_orientations = orientations
             self._prepare_mesh_collision_cache(state, on_pairs)
-
-        if self.params.collision_mode == CollisionMode.MESH:
             self._mesh_manager.reset_sentinel_warning()
 
         # Setup optimizer (only for optimizable positions)
@@ -688,7 +686,7 @@ class RelationSolver:
             loss = self._compute_total_loss(state)
             loss_history.append(loss.item())
 
-            # Constant-zero loss has no grad_fn — skip backward when broadphase culls all pairs.
+            # Constant-zero loss has no grad_fn — skip backward when overlap filter culls all pairs.
             if loss.grad_fn is not None:
                 loss.backward()
                 optimizer.step()
