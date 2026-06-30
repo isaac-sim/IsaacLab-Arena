@@ -237,6 +237,9 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
         # Set viewport camera to match the robolab droid view
         def _set_viewer_cfg(env_cfg):
             env_cfg.viewer = ViewerCfg(eye=(1.5, 0.0, 1.0), lookat=(0.2, 0.0, 0.0))
+            if gap_profile:
+                # Reset-time placement and camera variations must be rendered before the first GaP observation.
+                env_cfg.num_rerenders_on_reset = max(env_cfg.num_rerenders_on_reset, 5)
             return env_cfg
 
         # GaP-profile provenance + pose recording (G/H). Records the asset channel + resolved URLs + ordered
