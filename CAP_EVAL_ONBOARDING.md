@@ -4,12 +4,14 @@
 - **Arena worktree:** `/home/rafael/Projects/IsaacLab-Arena-cap` (local working branch `rcathomen/cap`).
 - **Arena teammate/handoff branch:** `rcathomen/feature/cap-gap-eval`
   (origin `git@github.com:isaac-sim/IsaacLab-Arena.git`; pushed, fast-forward only, no force.)
-- **Current pushed tip:** `896f5c31b` — Step-3 Maple GaP scene profile (see the Step-3 section below). It builds
-  on the earlier libero/scoring work; the local working branch `rcathomen/cap` points at the same commit.
+- **Current pushed tip:** the handoff branch points at **HEAD** (this onboarding-doc commit). The **Step-3 code
+  tip** is `896f5c31b` (see the Step-3 section below), with this doc committed on top.
 - **Step-3 commits (in order):** `236017d48` (opt-in `--gap_profile` Maple scene + camera-variation fix),
   `20705b60d` (G/H provenance + initial/final pose recorder metadata), `896f5c31b` (opt-in 2-3 object
-  `SortMultiObjectTask` profile). All scene-smoke-only — **no GaP E2E claimed.**
-- **GaP side:** `Isaac-cap` `main` @ `1249fb6` (+ uncommitted perception fix, see below) + `gap/graph-as-policy`.
+  `SortMultiObjectTask` profile — the Step-3 code tip). All scene-smoke-only — **no GaP E2E claimed.**
+- **GaP side:** `/home/rafael/Projects/Isaac-cap` branch `origin/rcathomen/gap-ila-eval`, current pushed safety
+  checkpoint `4f3bdd4`, plus `gap/graph-as-policy`. NOTE: CAP work **2c-ii** (per-episode task-input payload +
+  graph loader) is actively advancing past that checkpoint — **repin to the new SHA after 2c-ii completes.**
 
 ## Python env — generic Arena prerequisite (owned elsewhere; NOT a CAP branch)
 The Arena runtime is a generic native uv install on `rcathomen/feature/uv-native-install`
@@ -55,11 +57,12 @@ NOTE: the job JSON + the overnight bash driver were in `/tmp` and were lost in a
 
 ## Still uncommitted (must commit for a clean teammate setup)
 - **uv-native-install:** `pyproject.toml` + `uv.lock` (the install) — env owner's; commit to make the venv reproducible.
-- **Isaac-cap `main`:** `examples/grocery_packing/scripts/perceive_dino_vlm.py` + `workflow.json` (perception fix —
-  oversized-box >35%-frame filter before containment-NMS + prompt exclusion; verified working).
-- Local-only, do NOT commit: `dev_run.sh` (absolute paths), `CAP_EVAL_ONBOARDING.md` is this doc.
+- Local-only, do NOT commit: `dev_run.sh` (absolute paths). (This doc, `CAP_EVAL_ONBOARDING.md`, IS tracked and committed.)
 
-## PANDA (verified) vs DROID (pending v2)
+## PANDA / DROID libero runs — HISTORICAL (pre-Step-3; does NOT override Step-3 status)
+> The section below records earlier libero-scene grocery-packing runs and is kept for context only. It predates
+> the Step-3 Maple work and its `success=true`/`success=false` notes do **not** describe the Maple profile. For
+> the Maple GaP path, the authoritative status is the Step-3 section (scene-smoke-only; GaP E2E pending CAP).
 **PANDA — `control=joint_pos`, `gap_adapter=franka`, no `GAP_HAND_TO_FINGERTIP_Z` (0.1029):**
 - Single-object: scored `success=true` (proven end-to-end).
 - Multi-object (grocery_packing, 3 items): perception fix VERIFIED — VLM selects groceries (not the robot mask),
