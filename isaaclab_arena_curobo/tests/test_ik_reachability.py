@@ -92,6 +92,7 @@ def _set_object_world_xyz(env, name, xyz) -> None:
 def _run_reachability_check(args_cli) -> bool:
     """Place one object in-reach and one out-of-reach; return True iff IK agrees with that split."""
     import torch
+
     import warp as wp
 
     from isaaclab_arena_curobo.curobo_planner_utils import (
@@ -117,12 +118,10 @@ def _run_reachability_check(args_cli) -> bool:
     # Mirror the validation pipeline: sync obstacles into the (robot-base-frame) collision world.
     planner._sync_object_poses_with_isaaclab()
 
-    grasp_poses = torch.stack(
-        [
-            top_down_grasp_pose_in_robot_frame(env, NEAR_OBJECT, GRASP_Z_OFFSET),
-            top_down_grasp_pose_in_robot_frame(env, FAR_OBJECT, GRASP_Z_OFFSET),
-        ]
-    )
+    grasp_poses = torch.stack([
+        top_down_grasp_pose_in_robot_frame(env, NEAR_OBJECT, GRASP_Z_OFFSET),
+        top_down_grasp_pose_in_robot_frame(env, FAR_OBJECT, GRASP_Z_OFFSET),
+    ])
     feasible, pos_err, rot_err = check_ik_feasibility_batch_goal_poses(planner, grasp_poses)
     print(f"near: feasible={bool(feasible[0])} pos_err={float(pos_err[0]):.4f}m rot_err={float(rot_err[0]):.4f}rad")
     print(f"far:  feasible={bool(feasible[1])} pos_err={float(pos_err[1]):.4f}m rot_err={float(rot_err[1]):.4f}rad")
