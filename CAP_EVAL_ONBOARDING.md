@@ -10,12 +10,14 @@ this file records the Arena-owned part of the integration.
 | Arena CAP source (this worktree) | `rcathomen/feature/cap-gap-eval` | `444307d3cf7b77d2c93c8a1303979accdc238217` |
 | Arena native `uv` environment | `rcathomen/feature/uv-native-install` | `ce1b93de6ad5ca188a75f6ff36a387fceb860191` |
 | Isaac-cap | `rcathomen/gap-ila-eval` | `f0487f2cc216adc4c10e7cc2ef2840eb7fcf4ca0` |
-| `graph-as-policy` | `main` | `c24fafb126dcb27b2c9f13fbdd143d436851e5a9` |
+| `graph-as-policy` private handoff mirror | `cap-eval-c24fafb` | `c24fafb126dcb27b2c9f13fbdd143d436851e5a9` |
 | DROID TCP skill fork | `rcathomen/cap-droid-tcp` | `4ce0af76d9cb4dbf92ebacf92de7af28ef1ff1fa` |
 
 Use the full revisions from `Isaac-cap/external/PINNED_VERSIONS.md`; short revisions above are only
 for orientation. The local and canonical remote branch are both
 `rcathomen/feature/cap-gap-eval`.
+The original GaP URL no longer resolves; the exact runtime is mirrored privately at
+`rafaelcathomen/graph-as-policy-cap` and requires access.
 
 ## Current Result
 
