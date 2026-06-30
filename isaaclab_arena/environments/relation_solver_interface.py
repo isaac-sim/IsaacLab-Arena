@@ -26,6 +26,7 @@ def solve_and_apply_relation_placement(
     placement_seed: int | None = None,
     resolve_on_reset: bool | None = None,
     random_yaw_init: bool = False,
+    clearance_m: float | None = None,
 ) -> EventTermCfg | None:
     """Solve relation placement and apply the result to object reset/static state.
 
@@ -38,6 +39,9 @@ def solve_and_apply_relation_placement(
             initial poses are applied immediately.
         random_yaw_init: If True, randomly rotates non-anchor objects around the vertical (Z)
             axis at startup to add visual variety to the scene.
+        clearance_m: Optional inter-object clearance (meters) to enforce between every pair of
+            non-anchor objects. When ``None`` (default), the :class:`RelationSolverParams`
+            default of 0.01 m is used unchanged.
 
     Returns:
         Reset event config to attach to the environment when placement should be
@@ -48,10 +52,13 @@ def solve_and_apply_relation_placement(
         print("No objects with relations found in scene. Skipping relation solving.")
         return None
 
+    solver_params = RelationSolverParams(save_position_history=False, verbose=False)
+    if clearance_m is not None:
+        solver_params.clearance_m = clearance_m
     placer_params = ObjectPlacerParams(
         placement_seed=placement_seed,
         apply_positions_to_objects=False,
-        solver_params=RelationSolverParams(save_position_history=False, verbose=False),
+        solver_params=solver_params,
         random_yaw_init=random_yaw_init,
     )
     if resolve_on_reset is not None:

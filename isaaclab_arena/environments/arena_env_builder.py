@@ -88,6 +88,7 @@ class ArenaEnvBuilder:
             placement_seed=self.args.placement_seed,
             resolve_on_reset=self.args.resolve_on_reset,
             random_yaw_init=self.args.random_yaw_init,
+            clearance_m=getattr(self.arena_env, "placement_clearance_m", None),
         )
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:
