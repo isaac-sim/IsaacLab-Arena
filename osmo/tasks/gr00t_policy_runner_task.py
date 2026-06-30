@@ -18,7 +18,7 @@ from workflows.utils.workflow_types import WorkflowType
 from workflows.workflow_constants import EVAL_OUTPUT_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 
 # Arena image name
-DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:variation_record_6robolab_envs"
+DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
 
 # GR00T remote closed-loop policy and the policy closed-loop config.
 GR00T_POLICY_TYPE = "isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy"
