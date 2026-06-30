@@ -325,6 +325,7 @@ class ArenaEnvBuilder:
                 metrics=metrics_cfg,
                 episode_recorders=episode_recorders_cfg,
                 task_description=task_description,
+                pose_snapshot_asset_names=list(getattr(self.arena_env, "pose_snapshot_asset_names", []) or []),
                 viewer=viewer_cfg,
             )
             if episode_length_s is not None:

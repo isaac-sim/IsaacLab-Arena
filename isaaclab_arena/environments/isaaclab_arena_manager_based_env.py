@@ -36,6 +36,9 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         self._episode_counts: dict[int, int] = {}
         # The initial reset touches every env before any episode has run; skip it.
         self._first_reset = True
+        # Opt-in start-of-episode pose snapshot per env: {env_id: {"episode_idx": int, "poses": {...}}}.
+        # Only populated when cfg.pose_snapshot_asset_names is set; the object-poses recorder term reads it.
+        self._initial_pose_snapshots: dict[int, dict] = {}
         super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
 
     @property
@@ -77,12 +80,37 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         if self._first_reset:
             self._first_reset = False
             super()._reset_idx(env_ids)
+            # Snapshot the start-of-episode poses for the first episode (index 0) once objects are placed.
+            self._snapshot_initial_object_poses(env_ids)
             return
         # Runs recorder before super() so the just-finished episode is still intact.
         self.episode_recorder_manager.record_pre_reset(env_ids)
         # Advance before super() so reset-mode variation draws are tagged with the episode they begin.
         self._advance_episode_indices(env_ids)
         super()._reset_idx(env_ids)
+        # Snapshot the start-of-episode poses for the episode that just began (post-placement).
+        self._snapshot_initial_object_poses(env_ids)
+
+    def _snapshot_initial_object_poses(self, env_ids: Sequence[int]) -> None:
+        """Capture configured assets' world poses at episode start; no-op unless opt-in names are set."""
+        names = list(getattr(self.cfg, "pose_snapshot_asset_names", None) or [])
+        if not names:
+            return
+        from isaaclab_arena.recording.common_terms import world_pose_xyz_quat_xyzw
+
+        for env_id in env_ids:
+            env_id = int(env_id)
+            self._initial_pose_snapshots[env_id] = {
+                "episode_idx": self.get_episode_index(env_id),
+                "poses": {name: world_pose_xyz_quat_xyzw(self, name, env_id) for name in names},
+            }
+
+    def get_initial_object_pose_snapshot(self, env_id: int) -> dict:
+        """Return the start-of-episode pose snapshot for ``env_id``'s current episode (``{}`` if none)."""
+        snap = self._initial_pose_snapshots.get(int(env_id))
+        if snap is None or snap.get("episode_idx") != self.get_episode_index(env_id):
+            return {}
+        return snap["poses"]
 
     def compute_metrics(self) -> MetricsDataCollection:
         """Compute all registered metrics.
