@@ -32,30 +32,34 @@ Teammate env — pick one:
 
 Then run CAP against that env via `PYTHONPATH` (two-step; no combined branch) — see the eval command below.
 
-## Canonical eval command / config
-GaP server (gap venv) — start AFTER eval logs `[GapRemotePolicy] connecting`:
-```
-cd /home/rafael/Projects/gap/graph-as-policy
-set -a; . ~/.config/gap/vlm.env; set +a
-MUJOCO_GL=egl GAP_PERCEPTION_CACHE=0 uv run gap run \
-  /home/rafael/Projects/Isaac-cap/examples/<pick_place|grocery_packing> --real franka --no-rr-autostart --no-video
-```
-eval_runner (Arena venv + worktree + Isaac-cap on PYTHONPATH):
+## Canonical eval — unchanged generic grocery_packing graph as the policy under test
+**Baseline:** the **unchanged, generic** GaP `grocery_packing` graph is the policy under test (no per-episode
+structured target payload, no graph inputs from Arena). **Arena owns** the DROID embodiment, the Maple scene +
+its variation, the episode lifecycle, and scoring (stock `SortMultiObjectTask` over the 2-3 `pick_targets`).
+The canonical policy is **managed-spawn** (`auto_spawn=true`): the policy launches/owns one GaP process per
+episode, so there is **no** separate manual `gap run` terminal.
+
+**Canonical job (tracked):** `isaaclab_arena_environments/eval_jobs_configs/maple_gap_droid_eval_jobs_config.json`
+— DROID `droid_abs_joint_pos`, `gap_profile`, explicit `use_staging_assets`, `pick_targets` (2-3 scene objects)
+→ `grey_bin_robolab`, `policy_config_dict.auto_spawn=true` + `gap_graph=grocery_packing`, `num_episodes=1`,
+realistic `episode_length_s=450`. Variation/seeds come from **Arena's normal mechanism** (the `variations` block —
+`camera_extrinsics_exterior_cam` — plus `seed` / `placement_seed`), NOT graph inputs.
+
+Run it (single command; the policy manages GaP itself):
 ```
 env OMNI_KIT_ACCEPT_EULA=YES PYTHONUNBUFFERED=1 \
   PYTHONPATH=/home/rafael/Projects/IsaacLab-Arena-cap:/home/rafael/Projects/Isaac-cap/src \
   /home/rafael/Projects/IsaacLab-Arena/.venv/bin/python -m isaaclab_arena.evaluation.eval_runner \
-  --eval_jobs_config <job.json> --headless --enable_cameras --record_camera_video --output_base_dir <out>
+  --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/maple_gap_droid_eval_jobs_config.json \
+  --record_camera_video --output_base_dir /tmp/maple_gap_eval_out
 ```
-Job JSON (multi-object Panda, single seed):
-```json
-{"jobs":[{"name":"moverify","arena_env_args":{"environment":"libero_object_packing","num_envs":1,
- "enable_cameras":true,"placement_seed":1,"control":"joint_pos","eval_task":"pick_place_in_basket"},
- "policy_type":"isaac_cap.gap_remote_policy.GapRemotePolicy",
- "policy_config_dict":{"gap_host":"127.0.0.1","gap_port":9000,"policy_device":"cuda","gap_adapter":"franka"},
- "num_episodes":1}]}
-```
-NOTE: the job JSON + the overnight bash driver were in `/tmp` and were lost in a crash — recreate from the above.
+⚠️ **Do not run the long E2E until the CAP cleanup/pin is confirmed** (see "PENDING" in the Step-3 section).
+The auto_spawn launcher / generic-graph wiring lives on the GaP side (`Isaac-cap`), repinned after CAP confirms.
+
+**Quick scene-only validation (no GaP, zero-action, fast):** the tracked smokes
+`maple_gap_scene_smoke_jobs_config.json` (single) and `maple_gap_sort_smoke_jobs_config.json` (2-3 sort) build
+the scene + `exterior_cam` RGB-D + variation + provenance without a GaP server — use these to check
+construction/cameras/provenance quickly.
 
 ## Still uncommitted (must commit for a clean teammate setup)
 - **uv-native-install:** `pyproject.toml` + `uv.lock` (the install) — env owner's; commit to make the venv reproducible.
