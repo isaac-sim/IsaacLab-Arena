@@ -81,7 +81,6 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
         ),
     )
     decimation: int = 4
-    episode_length_s: float = 50.0
     wait_for_textures: bool = False
 
 

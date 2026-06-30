@@ -326,8 +326,6 @@ class ArenaEnvBuilder:
                 task_description=task_description,
                 viewer=viewer_cfg,
             )
-            if episode_length_s is not None:
-                env_cfg.episode_length_s = episode_length_s
         else:
             assert not isinstance(embodiment, NoEmbodiment), "Mimic mode requires an embodiment to be specified"
             assert not isinstance(task, NoTask), "Mimic mode requires a task to be specified"
@@ -356,6 +354,9 @@ class ArenaEnvBuilder:
                 task_description=task_description,
                 viewer=viewer_cfg,
             )
+
+        # Tasks always resolve to a concrete episode length
+        env_cfg.episode_length_s = episode_length_s
 
         # Apply the environment configuration callback if it is set
         # This can be used to modify the simulation configuration, etc.
