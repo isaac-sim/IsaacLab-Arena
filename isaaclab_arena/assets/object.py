@@ -78,7 +78,7 @@ class Object(ObjectBase):
         return self.bounding_box
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
-        """Collision mesh is unavailable for USD-backed objects; subclasses with preloaded geometry may override."""
+        """Return None: USD-backed objects expose no preloaded collision mesh."""
 
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get bounding box in world coordinates (local bbox rotated and translated).

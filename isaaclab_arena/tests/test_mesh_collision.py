@@ -79,7 +79,6 @@ def test_sphere_decomposition_covers_surface():
     assert spheres.shape[1] == 4
     assert spheres.shape[0] <= 20
 
-    # Check coverage: what fraction of surface points are within radius of some sphere?
     surface_pts = trimesh.sample.sample_surface(mesh, 200)[0]
     centers = spheres[:, :3]
     radii = spheres[:, 3]
@@ -211,7 +210,6 @@ def test_on_pairs_skipped_in_mesh_mode():
     )
     result = solver.solve(objects, initial)[0]
 
-    # Should stay near table surface, not be pushed far away
     z = result[obj][2]
     assert 0.0 < z < 0.15, f"Object pushed too far: z={z}"
 
@@ -434,7 +432,6 @@ def test_mesh_sdf_backward_gradient():
     sdf.backward()
     assert points.grad is not None
     grad = points.grad[0]
-    # Gradient should point toward the nearest face (+X direction)
     assert grad[0].item() > 0.0, f"Gradient X should be positive (toward +X face), got {grad[0].item()}"
     assert abs(grad[0].item()) > abs(grad[1].item()), "X component should dominate (closest to +X face)"
 
@@ -461,13 +458,11 @@ def test_solver_mesh_batch_size_two():
     results = solver.solve([table, a, b], initial)
     assert len(results) == 2
 
-    # Env 0: should have moved objects apart
     pos_a_0 = np.array(results[0][a])
     pos_b_0 = np.array(results[0][b])
     dist_0 = np.linalg.norm(pos_a_0[:2] - pos_b_0[:2])
     assert dist_0 > 0.06, f"Env 0: objects not separated, dist={dist_0:.4f}"
 
-    # Env 1: already separated, should stay roughly in place
     pos_a_1 = np.array(results[1][a])
     pos_b_1 = np.array(results[1][b])
     dist_1 = np.linalg.norm(pos_a_1[:2] - pos_b_1[:2])
@@ -556,14 +551,13 @@ def test_multi_mesh_sdf_backward():
     mesh_id_array = wp.array([warp_mesh.id], dtype=wp.uint64, device="cpu")
     mesh_indices = wp.array([0], dtype=wp.int32, device="cpu")
 
-    # Point at (0.02, 0, 0) inside cylinder (r=0.05): SDF gradient should point outward (+x)
+    # Point at (0.02, 0, 0): inside cylinder (r=0.05), closest face in +X direction.
     points = torch.tensor([[0.02, 0.0, 0.0]], dtype=torch.float32, requires_grad=True)
     sdf = multi_mesh_sdf(points, mesh_id_array, mesh_indices)
     sdf.backward()
 
     assert points.grad is not None
     assert torch.isfinite(points.grad).all()
-    # SDF gradient at (0.02, 0, 0) should point radially outward: positive x, near-zero y/z
     assert points.grad[0, 0].item() > 0.1, f"Expected +x gradient, got {points.grad[0].tolist()}"
 
 
@@ -584,7 +578,6 @@ def test_solver_target_only_yaw():
     # With target rotated 90°, the 0.2/2=0.1 half-extent now spans Y → collision.
     initial = [{table: (0.0, 0.0, 0.0), target: (0.0, 0.0, 0.05), child: (0.0, 0.03, 0.05)}]
 
-    # No rotation: should be low/zero mesh collision
     solver_no_rot = RelationSolver(
         params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False)
     )

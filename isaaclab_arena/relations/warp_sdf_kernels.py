@@ -119,7 +119,7 @@ def sdf_sentinel_count(sdf_values: torch.Tensor) -> int:
 
 
 def clamp_sdf_sentinel(sdf_values: torch.Tensor) -> torch.Tensor:
-    """Replace sentinel SDF values with 0 (treat as "on surface") so they produce gradient."""
+    """Replace sentinel SDF values with 0 so no-face hits contribute zero loss rather than large positive."""
     return torch.where(sdf_values >= _SDF_SENTINEL, torch.zeros_like(sdf_values), sdf_values)
 
 

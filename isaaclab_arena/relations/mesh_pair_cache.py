@@ -23,7 +23,8 @@ class MeshPairCache:
 
     Dimensions: P = num_pairs (ordered subject/obstacle pairs), B = batch_size (num envs),
     S = total_spheres (sum of sphere counts across all P pairs; each subject object is decomposed
-    into multiple covering spheres via greedy_sphere_decomposition).
+    into multiple covering spheres via greedy_sphere_decomposition),
+    M = num_unique_meshes (distinct collision meshes referenced by the pairs).
     """
 
     all_centers_local: torch.Tensor
@@ -48,31 +49,31 @@ class MeshPairCache:
     """(P,) anchor yaw in radians (0.0 for non-anchors)."""
 
     pair_subject_bbox_min: torch.Tensor
-    """(P, B, 3) subject bbox min corners for overlap filtering."""
+    """(P, B, 3) subject bounding box min corners."""
 
     pair_subject_bbox_max: torch.Tensor
-    """(P, B, 3) subject bbox max corners for overlap filtering."""
+    """(P, B, 3) subject bounding box max corners."""
 
     pair_obstacle_bbox_min: torch.Tensor
-    """(P, B, 3) obstacle bbox min corners for overlap filtering."""
+    """(P, B, 3) obstacle bounding box min corners."""
 
     pair_obstacle_bbox_max: torch.Tensor
-    """(P, B, 3) obstacle bbox max corners for overlap filtering."""
+    """(P, B, 3) obstacle bounding box max corners."""
 
     pair_max_radius: torch.Tensor
-    """(P,) max sphere radius per pair (overlap filter margin)."""
+    """(P,) maximum sphere radius across all spheres in each pair."""
 
     sphere_pair_id: torch.Tensor
-    """(S,) maps each sphere to its pair index for segment reduction."""
+    """(S,) pair index for each sphere."""
 
     sphere_mesh_idx: torch.Tensor
     """(S,) per-sphere index into mesh_id_array."""
 
     pair_sphere_count: torch.Tensor
-    """(P,) number of spheres per pair (for mean reduction)."""
+    """(P,) number of spheres for each pair."""
 
     mesh_id_array: wp.array
-    """(num_unique_meshes,) Warp uint64 array of mesh IDs for the multi-mesh kernel."""
+    """(M,) Warp uint64 array of unique collision-mesh IDs."""
 
     num_pairs: int
     """Total number of active object pairs."""

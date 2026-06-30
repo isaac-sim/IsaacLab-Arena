@@ -36,11 +36,7 @@ from isaaclab_arena.progress_tracking.progress_tracker import (
 )
 from isaaclab_arena.recording.common_terms import CoreEpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
-<<<<<<< HEAD
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
-from isaaclab_arena.relations.collision_mode import CollisionMode
-=======
->>>>>>> a690c8f59 (address comments)
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.tasks.no_task import NoTask

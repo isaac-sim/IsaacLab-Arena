@@ -449,7 +449,7 @@ class NotNextToLossStrategy(RelationLossStrategy):
 
 
 class NoCollisionLossStrategy:
-    """AABB no-overlap loss between object pairs (built-in solver behavior, not a user relation)."""
+    """AABB no-overlap loss between object pairs."""
 
     def __init__(
         self,

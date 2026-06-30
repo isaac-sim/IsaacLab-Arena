@@ -47,12 +47,15 @@ class NoOverlapPair:
 
 
 class MeshPairEntry(NamedTuple):
-    """One directed sphere-to-mesh collision pair (subject spheres vs obstacle mesh)."""
+    """One directed sphere-to-mesh collision pair (subject spheres vs obstacle mesh).
+
+    Dimensions: S = sphere count for this pair's subject, B = batch_size.
+    """
 
     subject: ObjectBase
     obstacle: ObjectBase
     is_anchor: bool
-    anchor_pos: torch.Tensor | None  # (3,) world position, or None for non-anchors
+    anchor_pos: torch.Tensor | None  # (3,) world-frame position of the anchor obstacle
     anchor_yaw: float
     centers_local: torch.Tensor  # (S, 3) sphere centers in subject-local frame
     radii: torch.Tensor  # (S,)
@@ -95,7 +98,7 @@ class RelationSolver:
         self._mesh_cache_reverse: MeshPairCache | None = None
 
     def _get_strategy(self, relation: RelationBase) -> RelationLossStrategy | UnaryRelationLossStrategy:
-        """Look up the loss strategy for a relation type; raises ValueError if none registered.
+        """Look up the loss strategy for a relation type.
 
         Args:
             relation: The relation to find a strategy for.
@@ -196,8 +199,8 @@ class RelationSolver:
         - Non-anchor vs anchor: gradient flows to the non-anchor only.
         - Non-anchor vs non-anchor: both objects accumulate gradient (two directed passes).
 
-        When skip_mesh_pairs=True (used as AABB fallback in MESH mode), only
-        processes pairs where at least one object lacks a collision mesh.
+        When skip_mesh_pairs=True, only processes pairs where at least one object
+        lacks a collision mesh.
         """
         device = state.device
         batch_size = state.batch_size
@@ -293,7 +296,7 @@ class RelationSolver:
         state: RelationSolverState,
         on_pairs: set[tuple[int, int]],
     ) -> None:
-        """Precompute static per-pair mesh collision data (called once per solve)."""
+        """Precompute static per-pair mesh collision data."""
         device = state.device
         device_str = str(device)
         if self._mesh_manager is None or self._mesh_manager.device != device_str:
@@ -318,7 +321,7 @@ class RelationSolver:
         on_pairs: set[tuple[int, int]],
         device: torch.device,
     ) -> tuple[list[MeshPairEntry], list[MeshPairEntry]]:
-        """Collect forward and reverse mesh pairs in a single pass."""
+        """Collect forward and reverse mesh pairs."""
         forward_pairs: list[MeshPairEntry] = []
         reverse_pairs: list[MeshPairEntry] = []
 
@@ -521,7 +524,7 @@ class RelationSolver:
                         device=device,
                     )
 
-                # AABB broadphase (yaw-aware): skip separated pairs.
+                # AABB overlap filter (yaw-aware): skip separated pairs.
                 margins = cache.pair_max_radius + clearance_m
                 s_bbox_min = cache.pair_subject_bbox_min[:, b, :]
                 s_bbox_max = cache.pair_subject_bbox_max[:, b, :]
@@ -664,8 +667,6 @@ class RelationSolver:
                         on_pairs.add((id(rel.parent), id(obj)))
             self._mesh_orientations = orientations
             self._prepare_mesh_collision_cache(state, on_pairs)
-
-        if self.params.collision_mode == CollisionMode.MESH:
             self._mesh_manager.reset_sentinel_warning()
 
         # Setup optimizer (only for optimizable positions)
@@ -688,7 +689,7 @@ class RelationSolver:
             loss = self._compute_total_loss(state)
             loss_history.append(loss.item())
 
-            # Constant-zero loss has no grad_fn — skip backward when broadphase culls all pairs.
+            # Constant-zero loss has no grad_fn — skip backward when overlap filter culls all pairs.
             if loss.grad_fn is not None:
                 loss.backward()
                 optimizer.step()
