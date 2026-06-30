@@ -1,7 +1,7 @@
 {
     "datagen": {
         "description": "Hemisphere datagen for the pick-and-place (maple_table + droid) scenes.",
-        "output_dir": "/datasets/dynamic_scenes/pick_and_place",
+        "output_dir": "/datasets/nvblox_next/droid_data/arena/openpi/pick_and_place_v1",
         "width": 640,
         "height": 480,
         "mesh_sample_spacing": 0.01,
@@ -10,10 +10,10 @@
         "store_float_type": "float16",
         "frame_stride": 2,
         "max_recorded_frames": 200,
-        "color_resolution": [512, 384],
-        "depth_resolution": [512, 384],
-        "flow2d_resolution": [512, 384],
-        "semantic_resolution": [512, 384],
+        "color_resolution": [640, 480],
+        "depth_resolution": [640, 480],
+        "flow2d_resolution": [640, 480],
+        "semantic_resolution": [640, 480],
         "cameras_hemisphere": {
             "num_cameras": 10,
             "radius": 1.5,
