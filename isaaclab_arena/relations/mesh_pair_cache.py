@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import torch
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import warp as wp
 
-from isaaclab_arena.assets.object_base import ObjectBase
+if TYPE_CHECKING:
+    from isaaclab_arena.assets.object_base import ObjectBase
 
 
 @dataclass(slots=True)
