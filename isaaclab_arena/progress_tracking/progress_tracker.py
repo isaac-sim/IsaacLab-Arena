@@ -365,12 +365,6 @@ def _ensure_progress_tracker(env, progress_objectives: list[ProgressObjective]) 
     return progress_tracker
 
 
-def get_progress_tracker(env) -> ProgressTracker | None:
-    """Return the env's ProgressTracker, or None if progress tracking is not active on this env."""
-
-    return getattr(env, _PROGRESS_TRACKER_ATTR, None)
-
-
 class ProgressTrackingRecorder(RecorderTerm):
     """Per-step hook that ticks the ProgressTracker. Records nothing.
 
