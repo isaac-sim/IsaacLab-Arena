@@ -12,6 +12,7 @@ at every movable object. This is a post-hoc check only — it does not feed back
 
 from __future__ import annotations
 
+import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.placement_events import (
@@ -22,9 +23,8 @@ from isaaclab_arena.relations.placement_events import (
 )
 from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.relations import get_anchor_objects
-from isaaclab_arena.utils import physics_settle
 from isaaclab_arena_curobo.curobo_planner_utils import top_down_grasp_pose_in_robot_frame
-from isaaclab_arena_curobo.ik_utils import check_ik_feasibility
+from isaaclab_arena_curobo.ik_utils import check_ik_feasibility_batch_goal_poses
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -44,50 +44,45 @@ def _layout_is_ik_reachable(
 ) -> bool:
     """Whether the robot can reach a top-down grasp at every movable object in the current layout.
 
-    Assumes the layout is already written into ``env_id`` and the planner's collision world is synced.
-    Returns False as soon as one object is unreachable.
+    Builds every object's grasp pose and checks them in a single batched IK solve against the
+    planner's synced collision world. Assumes the layout is already written into ``env_id`` and the
+    planner's collision world is synced.
     """
-    reachable = True
-    for object_name in movable_object_names:
-        grasp_pose = top_down_grasp_pose_in_robot_frame(env, object_name, grasp_z_offset, env_id)
-        feasible, _, _, _ = check_ik_feasibility(
-            planner,
-            grasp_pose,
-            position_threshold=ik_pos_threshold,
-            rotation_threshold=ik_rot_threshold,
-        )
-        reachable = reachable and feasible
-    return reachable
+    # TODO(xinjieyao, 2026-06-29): Batch across layouts too (solve_batch_env with per-env collision
+    # worlds). SkillGen never tested it; needs extra tweaks in the cuRobo-Lab interface (the lab
+    # CuroboPlanner builds a single-env MotionGen/collision world, not a multi-env one).
+    if not movable_object_names:
+        return True
+    grasp_poses = torch.stack(
+        [top_down_grasp_pose_in_robot_frame(env, name, grasp_z_offset, env_id) for name in movable_object_names]
+    )
+    feasible, _, _ = check_ik_feasibility_batch_goal_poses(
+        planner,
+        grasp_poses,
+        position_threshold=ik_pos_threshold,
+        rotation_threshold=ik_rot_threshold,
+    )
+    return bool(feasible.all().item())
 
 
 def validate_pool_ik(
     env: ManagerBasedEnv,
     planner,
     placement_pool: PooledObjectPlacer | None = None,
-    settle_steps: int = 5,
     grasp_z_offset: float = 0.02,
     ik_pos_threshold: float = 0.01,
     ik_rot_threshold: float = 0.1,
-    render: bool = False,
 ) -> list[tuple[int, int, PlacementValidationResults]] | None:
     """IK-validate every layout in a placement pool, recording the result on its validation results.
 
-    Each layout is written into env 0 (the planner's env), briefly settled so the sim buffers and
-    the planner's collision world reflect the placed poses, then checked for top-down grasp
-    reachability at every movable object. The ``IK_REACHABLE`` outcome is stamped onto that layout's
-    ``PlacementValidationResults``.
-
     Args:
         env: The Isaac Lab env; must expose a ``robot`` articulation in its scene.
-        planner: A ``CuroboPlanner`` bound to env 0 (see ``make_curobo_planner``).
+        planner: A ``CuroboPlanner`` bound to env 0 (see ``make_curobo_planner_for_droid``).
         placement_pool: PooledObjectPlacer whose stored layouts are validated. When ``None`` it is
             derived from the env's registered pooled layouts.
-        settle_steps: Environment steps to advance after writing each layout so the sim and planner
-            world reflect it. Converted to physics substeps internally (x the env's decimation).
         grasp_z_offset: Height (m) above each object center for the grasp pose.
         ik_pos_threshold: Max IK position error (m) for a grasp to count as reachable.
         ik_rot_threshold: Max IK rotation error (rad) for a grasp to count as reachable.
-        render: When True, render each settle step so the sweep is visible in the GUI. Defaults to False.
 
     Returns:
         ``(env_id, episode_index, checklist)`` for every layout, in ``(env_id, episode_index)`` order,
@@ -101,18 +96,20 @@ def validate_pool_ik(
     objects = placement_pool.objects
     anchor_objects_set = set(get_anchor_objects(objects))
     base_rotations = get_base_rotation_per_object(objects)
+    # TODO(xinjieyao, 2026-06-29): Expose the objects-to-reach as an interface
+    # rather than checking every movable object. Default it to the task's pickup object(s)
+    # then validate only those grasps. For now we batch-check all
+    # movable objects.
     movable_object_names = get_movable_object_names(objects, anchor_objects_set)
 
     layouts_per_env = placement_pool.layouts_per_env()
     num_envs = min(len(layouts_per_env), env.unwrapped.num_envs)
-    num_physics_steps = settle_steps * env.unwrapped.cfg.decimation
 
     results: list[tuple[int, int, PlacementValidationResults]] = []
     # The planner is bound to env 0, so every candidate is written into env 0 and checked there.
     for src_env_id in range(num_envs):
         for episode_index, layout in enumerate(layouts_per_env[src_env_id]):
             write_layout_to_sim(env.unwrapped, 0, layout, anchor_objects_set, base_rotations)
-            physics_settle.step_physics(env, num_physics_steps, render=render)
             planner._sync_object_poses_with_isaaclab()
             reachable = _layout_is_ik_reachable(
                 env.unwrapped,
@@ -141,6 +138,8 @@ def print_ik_validation_results(results: list[tuple[int, int, PlacementValidatio
         print(f"env {env_id} episode {episode_index}: {validation_results.report()}")
 
     num_reachable = sum(
-        1 for _, _, validation_results in results if validation_results.validation_results.get(PlacementCheck.IK_REACHABLE)
+        1
+        for _, _, validation_results in results
+        if validation_results.validation_results.get(PlacementCheck.IK_REACHABLE)
     )
     print(f"Summary: {num_reachable}/{len(results)} layouts IK-reachable.")

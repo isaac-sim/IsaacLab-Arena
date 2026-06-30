@@ -88,4 +88,8 @@ reportPrivateUsage = "warning"
 skip = '*.usd,*.svg,*.png,_isaac_sim*,*.bib,*.css,*/_build'
 quiet-level = 0
 # the world list should always have words in lower case
+<<<<<<< HEAD
 ignore-words-list = "haa,slq,collapsable,buss,crate"
+=======
+ignore-words-list = "haa,slq,collapsable,buss,reacher"
+>>>>>>> 900261d27 (batch obj ik)
