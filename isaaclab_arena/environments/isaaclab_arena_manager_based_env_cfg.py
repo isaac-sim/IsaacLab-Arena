@@ -83,6 +83,13 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     # Task language description
     task_description: str | None = None
 
+    # Relation-placement seed used to compile this environment, retained for episode provenance.
+    placement_seed: int | None = None
+
+    # Opt-in: scene-entity names whose world poses are snapshotted at episode start (post-reset) for the
+    # object-poses recorder term. Empty (default) = no snapshot, zero behavior change for stock runs.
+    pose_snapshot_asset_names: list[str] = []
+
     # Override the RTX renderer's built-in scene ambient (carb /rtx/sceneDb/ambientLightIntensity, default 1.0 with
     # color [0.1, 0.1, 0.1]) so that USD light prims fully control scene illumination.
     sim: SimulationCfg = SimulationCfg(

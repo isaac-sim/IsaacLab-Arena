@@ -27,3 +27,14 @@ def test_agentview_quat_is_xyzw_and_looks_at_target():
     want = torch.tensor(_CAM_TARGET, dtype=torch.float32) - torch.tensor(_CAM_EYE, dtype=torch.float32)
     want = want / torch.linalg.norm(want)
     assert float(cam_forward @ want) > 0.999, f"camera forward {cam_forward.tolist()} does not look at target"
+
+    # Lock the xyzw schema on a NONTRIVIAL rotation: this agentview is far from identity, and round-tripping
+    # the quat through quat_from_matrix(matrix_from_quat(q)) in xyzw must reproduce it. A wxyz mislabel would
+    # both fail the look-at above and round-trip to a different quaternion.
+    from isaaclab.utils.math import quat_from_matrix
+
+    assert abs(q_xyzw[3]) < 0.999, f"expected a nontrivial rotation, got near-identity {q_xyzw}"
+    q_roundtrip = quat_from_matrix(rot.unsqueeze(0))[0]
+    # Quaternions are equal up to sign; compare with the sign aligned.
+    sign = 1.0 if float((torch.tensor(q_xyzw) * q_roundtrip).sum()) >= 0 else -1.0
+    assert torch.allclose(torch.tensor(q_xyzw, dtype=torch.float32), sign * q_roundtrip, atol=1e-5)

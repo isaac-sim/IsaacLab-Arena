@@ -13,6 +13,29 @@ from isaaclab_arena_environments.pick_and_place_maple_table_environment import (
 )
 
 
+def test_droid_stand_staging_override_is_instance_local():
+    """Overriding one DROID embodiment's stand to staging must NOT leak into a fresh (stock) embodiment.
+
+    The stand AssetBaseCfg is a class-level configclass default; the override must deep-copy it, not mutate
+    the shared object in place. (Deferred imports: instantiating the embodiment needs the booted app.)
+    """
+    from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
+    from isaaclab_arena_environments.pick_and_place_maple_table_environment import _apply_staging_stand_override
+
+    staged_emb = DroidAbsoluteJointPositionEmbodiment(enable_cameras=False)
+    prod_url = staged_emb.scene_config.stand.spawn.usd_path
+    assert _PROD_NUCLEUS_HOST in prod_url
+
+    staged_url = _apply_staging_stand_override(staged_emb)
+    assert _STAGING_NUCLEUS_HOST in staged_url
+    assert staged_emb.scene_config.stand.spawn.usd_path == staged_url
+
+    # A fresh stock embodiment built afterward must still point at production — no leak via the shared default.
+    stock_emb = DroidAbsoluteJointPositionEmbodiment(enable_cameras=False)
+    assert stock_emb.scene_config.stand.spawn.usd_path == prod_url, "staging override leaked into a stock embodiment"
+    assert _PROD_NUCLEUS_HOST in stock_emb.scene_config.stand.spawn.usd_path
+
+
 def test_to_staging_url_swaps_host_only():
     prod = f"https://{_PROD_NUCLEUS_HOST}/Assets/Isaac/6.0/Isaac/IsaacLab/Arena/x/maple_table.usda"
     staged = _to_staging_url(prod)

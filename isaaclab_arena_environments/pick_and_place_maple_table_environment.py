@@ -49,6 +49,27 @@ def _staging_subclass(asset_cls: type) -> tuple[type, str]:
     return type(f"{asset_cls.__name__}Staging", (asset_cls,), {"usd_path": staged}), staged
 
 
+def _apply_staging_stand_override(embodiment) -> str:
+    """Point a DROID embodiment's stand at the staging asset, INSTANCE-LOCALLY, and return the staged URL.
+
+    The stand AssetBaseCfg is a class-level configclass default shared across embodiment instances, so the
+    spawn cfg is deep-copied before its usd_path is rewritten and the copy is reassigned — editing in place
+    would leak the staging URL into other (stock) embodiments. Asserts the stand has a rewritable usd_path.
+    """
+    import copy
+
+    stand_usd = getattr(embodiment.scene_config.stand.spawn, "usd_path", None)
+    assert stand_usd, (
+        "--use_staging_assets set but the DROID stand has no spawn.usd_path to rewrite "
+        f"(stand spawn: {type(embodiment.scene_config.stand.spawn).__name__})."
+    )
+    staged = _to_staging_url(stand_usd)  # asserts the production host was actually rewritten
+    stand = copy.deepcopy(embodiment.scene_config.stand)
+    stand.spawn.usd_path = staged
+    embodiment.scene_config.stand = stand
+    return staged
+
+
 @dataclass
 class PickAndPlaceMapleTableEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the Maple-table pick-and-place environment."""
@@ -155,19 +176,8 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
         # Deep-copy the stand cfg before editing so the override is instance-local: the stand AssetBaseCfg is a
         # class-level configclass default, so editing its spawn.usd_path in place could leak across embodiments.
         # Fail (not silently skip) if the stand has no rewritable usd_path — staging was explicitly requested.
-        staged_stand_url = None
         if use_staging and is_droid:
-            import copy
-
-            stand_usd = getattr(embodiment.scene_config.stand.spawn, "usd_path", None)
-            assert stand_usd, (
-                "--use_staging_assets set but the DROID stand has no spawn.usd_path to rewrite "
-                f"(stand spawn: {type(embodiment.scene_config.stand.spawn).__name__})."
-            )
-            staged_stand_url = _to_staging_url(stand_usd)  # asserts the production host was actually rewritten
-            stand = copy.deepcopy(embodiment.scene_config.stand)
-            stand.spawn.usd_path = staged_stand_url
-            embodiment.scene_config.stand = stand
+            staged_stand_url = _apply_staging_stand_override(embodiment)
             print(
                 f"[pick_and_place_maple_table] STAGING ASSET OVERRIDE (opt-in): droid_stand -> {staged_stand_url}",
                 flush=True,
@@ -197,7 +207,7 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
             ]
         )
 
-        # Step 6: Define the task (episode length configurable for the longer GaP rollouts; stock default 20 s)
+        # Step 6: Define the task (episode length configurable for the longer GaP rollouts; stock default 20 s).
         task = PickAndPlaceTask(
             pick_up_object=pick_up_object,
             destination_location=destination_location,
@@ -210,6 +220,34 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
             env_cfg.viewer = ViewerCfg(eye=(1.5, 0.0, 1.0), lookat=(0.2, 0.0, 0.0))
             return env_cfg
 
+        # GaP-profile provenance + pose recording (G/H). Records the asset channel + resolved URLs + ordered
+        # identities + seeds so staging-dev artifacts cannot be mistaken for production, and snapshots the
+        # objects' initial (post-reset) world poses separately from their final poses. Recorder schema is
+        # independent of CAP's scalar target_specs. Off unless --gap_profile (zero stock change otherwise).
+        episode_recorder_terms = {}
+        pose_snapshot_asset_names = []
+        if gap_profile:
+            from isaaclab_arena.recording.common_terms import (
+                GapProvenanceEpisodeRecorderTermCfg,
+                ObjectPosesEpisodeRecorderTermCfg,
+            )
+
+            distractor_names = [obj.name for obj in additional_table_objects]
+            provenance = {
+                "profile": "gap_profile",
+                "asset_channel": "staging" if use_staging else "production",
+                "table_usd": background.usd_path,
+                "droid_stand_usd": getattr(embodiment.scene_config.stand.spawn, "usd_path", None),
+                "pick_targets": [pick_up_object.name],  # ordered pick-target identities
+                "destination": destination_location.name,
+                "distractors": distractor_names,
+            }
+            episode_recorder_terms = {
+                "gap_provenance": GapProvenanceEpisodeRecorderTermCfg(params={"provenance": provenance}),
+                "object_poses": ObjectPosesEpisodeRecorderTermCfg(),
+            }
+            pose_snapshot_asset_names = [pick_up_object.name, destination_location.name, *distractor_names]
+
         # Step 7: Assemble the environment
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
@@ -217,7 +255,9 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
             scene=scene,
             task=task,
             env_cfg_callback=_set_viewer_cfg,
+            episode_recorder_terms=episode_recorder_terms,
         )
+        isaaclab_arena_environment.pose_snapshot_asset_names = pose_snapshot_asset_names
         return isaaclab_arena_environment
 
     # TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this CLI-only option when teleoperation runners
