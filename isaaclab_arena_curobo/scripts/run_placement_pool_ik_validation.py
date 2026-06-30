@@ -59,7 +59,7 @@ def main() -> None:
     args_cli, _ = args_parser.parse_known_args()
 
     with SimulationAppContext(args_cli):
-        from isaaclab_arena_curobo.curobo_planner_utils import make_curobo_planner_for_droid
+        from isaaclab_arena_curobo.curobo_planner_utils import make_curobo_planner
         from isaaclab_arena_curobo.placement_pool_ik_validation import print_ik_validation_results, validate_pool_ik
         from isaaclab_arena_environments.cli import (
             get_arena_builder_from_cli,
@@ -75,8 +75,10 @@ def main() -> None:
         # validator overwrites poses per candidate, so that initial layout does not bias the results.
         env.reset()
 
+        embodiment = arena_builder.arena_env.embodiment
+        assert embodiment is not None, "IK validation requires an environment with a robot embodiment."
         # CuroboPlanner is single-env: one collision world bound to one env, so we serialize every candidate through env 0.
-        planner = make_curobo_planner_for_droid(env.unwrapped, env_id=0)
+        planner = make_curobo_planner(env.unwrapped, embodiment, env_id=0)
 
         validation_results = validate_pool_ik(
             env,

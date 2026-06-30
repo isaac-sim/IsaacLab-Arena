@@ -15,19 +15,17 @@ from typing import TYPE_CHECKING
 
 import isaaclab.utils.math as math_utils
 import warp as wp
-from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR, retrieve_file_path
+from isaaclab.utils.assets import retrieve_file_path
 from isaaclab_mimic.motion_planners.curobo.curobo_planner import CuroboPlanner
 from isaaclab_mimic.motion_planners.curobo.curobo_planner_cfg import CuroboPlannerCfg
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
+    from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+
 # Top-down grasp orientation (gripper pointing -Z) expressed in the robot base frame, (w, x, y, z).
 DOWN_FACING_QUAT_WXYZ = torch.tensor([0.0, 1.0, 0.0, 0.0], dtype=torch.float32)
-
-_ROBOT_ASSET_DIR = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/robot_library/droid/droid_fixed_mimic_joint"
-_ROBOT_CFG_TEMPLATE = f"{_ROBOT_ASSET_DIR}/franka_robotiq_2f_85_zero_curobo.yml"
-_ROBOT_URDF = f"{_ROBOT_ASSET_DIR}/urdf/franka_robotiq_2f_85_zero.urdf"
 
 
 def pose_from_pos_quat(pos_xyz: torch.Tensor, quat_wxyz: torch.Tensor) -> torch.Tensor:
@@ -36,72 +34,70 @@ def pose_from_pos_quat(pos_xyz: torch.Tensor, quat_wxyz: torch.Tensor) -> torch.
     return math_utils.make_pose(pos_xyz, rot)
 
 
-def make_planner_cfg_for_droid(
+def make_planner_cfg(
+    embodiment: EmbodimentBase,
     approach_distance: float = 0.04,
     retreat_distance: float = 0.06,
     time_dilation_factor: float = 0.6,
     debug_planner: bool = False,
 ):
-    """Build a CuroboPlannerCfg for the DROID embodiment.
+    """Build a CuroboPlannerCfg from an embodiment's cuRobo description.
 
-    Patches the bundled robot config with the local URDF path and the gripper open/closed
-    joint targets, then returns a config ready to hand to ``CuroboPlanner``. The defaults
-    match the dev/stark pick-and-place CLI.
+    Reads the robot identity (asset paths, link/joint names, gripper targets) off
+    ``embodiment.get_curobo_cfg()``, patches the bundled robot config with the downloaded URDF path
+    and the gripper open/closed joint targets, and returns a config ready for ``CuroboPlanner``.
+    The distance/time defaults match the dev/stark pick-and-place CLI.
 
     Args:
+        embodiment: Embodiment that must expose a CuroboEmbodimentCfg via ``get_curobo_cfg()``.
         approach_distance: cuRobo approach distance (m).
         retreat_distance: cuRobo retreat distance (m).
         time_dilation_factor: cuRobo time dilation factor.
         debug_planner: Enable cuRobo planner debug output.
     """
+    curobo_cfg = embodiment.get_curobo_cfg()
+    assert curobo_cfg is not None, (
+        f"Embodiment '{embodiment.name}' has no cuRobo config; set its `curobo_config` "
+        "(CuroboEmbodimentCfg) before building a cuRobo planner."
+    )
+
     # cuRobo reads real on-disk files, so pull the robot config + URDF from the Nucleus/S3 asset server.
-    robot_cfg_path = retrieve_file_path(_ROBOT_CFG_TEMPLATE)
-    robot_urdf_path = retrieve_file_path(_ROBOT_URDF)
+    robot_cfg_path = retrieve_file_path(curobo_cfg.robot_cfg_template)
+    robot_urdf_path = retrieve_file_path(curobo_cfg.robot_urdf)
 
     with open(robot_cfg_path) as f:
         robot_yaml = yaml.safe_load(f)
     robot_yaml["robot_cfg"]["kinematics"]["urdf_path"] = robot_urdf_path
 
     tmp_dir = Path(tempfile.mkdtemp(prefix="curobo_robot_cfg_"))
-    robot_cfg_file = tmp_dir / "droid_curobo_runtime.yml"
+    robot_cfg_file = tmp_dir / "curobo_runtime.yml"
     with robot_cfg_file.open("w") as f:
         yaml.safe_dump(robot_yaml, f, sort_keys=False)
 
+    # Start from the robot config's locked joints, then overlay the embodiment's gripper targets.
     lock_joints = dict(robot_yaml["robot_cfg"]["kinematics"]["lock_joints"])
-    gripper_open_positions = dict(lock_joints)
-    gripper_open_positions["finger_joint"] = 0.0
-    gripper_closed_positions = dict(lock_joints)
-    gripper_closed_positions["finger_joint"] = float(torch.pi / 4)
+    gripper_open_positions = {**lock_joints, **curobo_cfg.gripper_open_joint_pos}
+    gripper_closed_positions = {**lock_joints, **curobo_cfg.gripper_closed_joint_pos}
 
     return CuroboPlannerCfg(
         robot_config_file=str(robot_cfg_file),
-        robot_name="franka_robotiq",
-        ee_link_name="base_link",
-        gripper_joint_names=["finger_joint"],
+        robot_name=curobo_cfg.robot_name,
+        ee_link_name=curobo_cfg.ee_link_name,
+        gripper_joint_names=curobo_cfg.gripper_joint_names,
         gripper_open_positions=gripper_open_positions,
         gripper_closed_positions=gripper_closed_positions,
-        hand_link_names=[
-            "base_link",
-            "left_inner_finger",
-            "left_inner_knuckle",
-            "left_outer_finger",
-            "left_outer_knuckle",
-            "right_inner_finger",
-            "right_inner_knuckle",
-            "right_outer_finger",
-            "right_outer_knuckle",
-        ],
-        grasp_gripper_open_val=10.0,
+        hand_link_names=curobo_cfg.hand_link_names,
+        grasp_gripper_open_val=curobo_cfg.grasp_gripper_open_val,
         approach_distance=approach_distance,
         retreat_distance=retreat_distance,
         time_dilation_factor=time_dilation_factor,
-        collision_activation_distance=0.05,
+        collision_activation_distance=curobo_cfg.collision_activation_distance,
         motion_step_size=None,
-        trajopt_tsteps=42,
+        trajopt_tsteps=curobo_cfg.trajopt_tsteps,
         visualize_plan=False,
         visualize_spheres=False,
         debug_planner=debug_planner,
-        world_ignore_substrings=None,
+        world_ignore_substrings=curobo_cfg.world_ignore_substrings,
     )
 
 
@@ -163,27 +159,35 @@ def fix_planner_object_sync_frame(planner) -> None:
     planner._sync_object_poses_with_isaaclab = types.MethodType(_sync_robot_base_frame, planner)
 
 
-def make_curobo_planner_for_droid(
+def make_curobo_planner(
     env: ManagerBasedEnv,
+    embodiment: EmbodimentBase,
     env_id: int = 0,
-    robot_scene_name: str = "robot",
+    robot_scene_name: str | None = None,
     approach_distance: float = 0.04,
     retreat_distance: float = 0.06,
     time_dilation_factor: float = 0.6,
     debug_planner: bool = False,
 ):
-    """Construct a DROID CuroboPlanner bound to the env's robot and patched to the robot base frame.
+    """Construct a CuroboPlanner for an embodiment, bound to the env's robot and the robot base frame.
+
+    The robot identity comes entirely from ``embodiment.get_curobo_cfg()`` (it errors if the
+    embodiment has no cuRobo config), so this is robot-agnostic.
 
     Args:
         env: The (unwrapped) Isaac Lab env; must expose the robot articulation in its scene.
+        embodiment: Embodiment whose CuroboEmbodimentCfg describes the robot.
         env_id: Index of the parallel env the planner reads object/robot poses from.
-        robot_scene_name: Scene key of the robot articulation (Arena's convention is ``"robot"``).
+        robot_scene_name: Scene key of the robot articulation. Defaults to the embodiment's scene name.
         approach_distance: cuRobo approach distance (m).
         retreat_distance: cuRobo retreat distance (m).
         time_dilation_factor: cuRobo time dilation factor.
         debug_planner: Enable cuRobo planner debug output.
     """
-    planner_cfg = make_planner_cfg_for_droid(
+    if robot_scene_name is None:
+        robot_scene_name = embodiment.get_embodiment_name_in_scene()
+    planner_cfg = make_planner_cfg(
+        embodiment,
         approach_distance=approach_distance,
         retreat_distance=retreat_distance,
         time_dilation_factor=time_dilation_factor,

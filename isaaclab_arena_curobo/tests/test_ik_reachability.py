@@ -40,7 +40,10 @@ def test_curobo_ik_one_reachable_one_not():
 
 
 def _build_droid_two_object_env(args_cli):
-    """Build a single-env DROID scene holding the two graspable test objects, reset and ready."""
+    """Build a single-env DROID scene holding the two graspable test objects, reset and ready.
+
+    Returns the unwrapped env and the embodiment driving it.
+    """
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -74,7 +77,7 @@ def _build_droid_two_object_env(args_cli):
         .unwrapped
     )
     env.reset()
-    return env
+    return env, embodiment
 
 
 def _set_object_world_xyz(env, name, xyz) -> None:
@@ -95,14 +98,11 @@ def _run_reachability_check(args_cli) -> bool:
 
     import warp as wp
 
-    from isaaclab_arena_curobo.curobo_planner_utils import (
-        make_curobo_planner_for_droid,
-        top_down_grasp_pose_in_robot_frame,
-    )
+    from isaaclab_arena_curobo.curobo_planner_utils import make_curobo_planner, top_down_grasp_pose_in_robot_frame
     from isaaclab_arena_curobo.ik_utils import check_ik_feasibility_batch_goal_poses
 
-    env = _build_droid_two_object_env(args_cli)
-    planner = make_curobo_planner_for_droid(env, env_id=0)
+    env, embodiment = _build_droid_two_object_env(args_cli)
+    planner = make_curobo_planner(env, embodiment, env_id=0)
 
     # Anchor reachability to the arm's own workspace: the current end-effector position is reachable by
     # construction, so the near object goes there and the far object is shifted out of reach.
