@@ -12,6 +12,8 @@ from isaaclab_arena.agentic_environment_generation.asset_matcher import (
     IntentResolutionTraceEvent,
     match_asset,
 )
+from isaaclab_arena.agentic_environment_generation.background_object_reference_utils import build_object_reference_nodes
+from isaaclab_arena.agentic_environment_generation.background_physics_catalog import resolve_background_usd_path
 from isaaclab_arena.agentic_environment_generation.default_params import INITIAL_STATE_SPEC_ID
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
 from isaaclab_arena.assets.registries import AssetRegistry
@@ -83,6 +85,15 @@ class IntentCompiler:
         )
         if background_node is not None:
             nodes.append(background_node)
+            if spec.object_references:
+                usd_path = resolve_background_usd_path(self.registry, background_node.name)
+                nodes.extend(
+                    build_object_reference_nodes(
+                        spec.object_references,
+                        background_node_id=background_node.id,
+                        usd_path=usd_path,
+                    )
+                )
 
         embodiment_node = self._resolve_asset_node(
             query=spec.embodiment,

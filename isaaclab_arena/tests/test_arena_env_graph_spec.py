@@ -187,6 +187,18 @@ def test_validate_rejects_cli_override_targeting_unknown_node():
         ArenaEnvGraphSpec.from_dict(data)
 
 
+def test_validate_rejects_task_param_targeting_unknown_node():
+    data = _minimal_env_graph_data()
+    data["tasks"][0]["params"] = {
+        "pick_up_object": "cube",
+        "destination_location": "missing_bowl",
+        "background_scene": "background",
+    }
+
+    with pytest.raises(ValidationError, match="destination_location.*missing_bowl"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
 def test_validate_rejects_duplicate_cli_override_args():
     data = _minimal_env_graph_data()
     data["cli_override_specs"] = [

@@ -106,6 +106,29 @@ def assert_task_wiring(tasks: list[Any], state_specs: list[Any]) -> None:
             ), f"Task '{task.id}' references unknown state spec '{state_spec_id}' for '{label}'"
 
 
+def assert_task_param_references(nodes: list[Any], tasks: list[Any]) -> None:
+    """Ensure task constructor params typed as node refs point at known graph nodes."""
+    from isaaclab_arena.assets.registries import TaskRegistry
+    from isaaclab_arena.environments.arena_env_graph_task_conversion_utils import find_node_ref_params_in_signature
+
+    node_ids = {node.id for node in nodes}
+    task_registry = TaskRegistry()
+    for task_index, task in enumerate(tasks):
+        task_cls = task_registry.get_task_by_name(task.kind)
+        node_ref_params = find_node_ref_params_in_signature(task_cls)
+        task_label = getattr(task, "id", f"task[{task_index}]")
+        for param_name, is_collection in node_ref_params.items():
+            if param_name not in task.params:
+                continue
+            value = task.params[param_name]
+            values = value if is_collection else [value]
+            assert isinstance(values, list), f"Task '{task_label}' param '{param_name}' must be a list of node ids"
+            for item in values:
+                assert (
+                    isinstance(item, str) and item in node_ids
+                ), f"Task '{task_label}' param '{param_name}' references unknown node id {item!r}"
+
+
 def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
     """Check each spatial constraint has the subject/reference shape its relation expects."""
     for state_spec in state_specs:

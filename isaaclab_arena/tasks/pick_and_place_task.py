@@ -151,10 +151,11 @@ class PickAndPlaceTask(TaskBase):
         """
         if self.mimic_env_cfg_factory is not None:
             return self.mimic_env_cfg_factory(arm_mode)
+        destination = self.destination_object or self.destination_location
         return PickPlaceMimicEnvCfg(
             arm_mode=arm_mode,
             pick_up_object_name=self.pick_up_object.name,
-            destination_location_name=self.destination_object.name,
+            destination_location_name=destination.name,
         )
 
     def get_metrics(self) -> list[MetricBase]:

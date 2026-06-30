@@ -25,6 +25,7 @@ from isaaclab_arena.environments.graph_spec_utils import (
     assert_cli_override_specs_reference_nodes,
     assert_constraint_references,
     assert_spatial_constraint_shapes,
+    assert_task_param_references,
     assert_task_wiring,
     assert_unique_ids,
 )
@@ -101,6 +102,7 @@ class ArenaEnvGraphSpec(ArenaEnvGraphSpecBase):
         assert_unique_ids(self.nodes, self.tasks, self.state_specs)
         assert_constraint_references(self.nodes, self.state_specs)
         assert_task_wiring(self.tasks, self.state_specs)
+        assert_task_param_references(self.nodes, self.tasks)
         assert_spatial_constraint_shapes(self.state_specs)
         assert_cli_override_specs_reference_nodes(self.nodes, self.cli_override_specs)
         return self
