@@ -2,7 +2,6 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Shared helpers for predicates."""
 
 from __future__ import annotations
 

@@ -297,8 +297,6 @@ class ArenaEnvBuilder:
             task.get_commands_cfg(),
         )
 
-        # Auto-record per-episode progress state whenever the task defines progress objectives,
-        # mirroring how the progress-tracking recorder/events are wired above.
         episode_recorder_terms = dict(self.arena_env.episode_recorder_terms or {})
         if progress_objectives:
             episode_recorder_terms.setdefault("progress", ProgressEpisodeRecorderTermCfg())

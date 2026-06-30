@@ -61,7 +61,7 @@ class PickAndPlaceTask(TaskBase):
         task_description: str | None = None,
         force_threshold: float = 0.1,
         velocity_threshold: float = 0.1,
-        surface_height: float = 0.0823,
+        surface_height: float = 0.0,
         lift_distance: float = 0.025,
         max_separation: tuple[float, float, float] | None = None,
         mimic_env_cfg_factory: Callable[[ArmMode], MimicEnvCfg] | None = None,

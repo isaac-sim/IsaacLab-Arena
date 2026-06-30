@@ -2,13 +2,6 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Spatial predicates: position- and height-based scene queries.
-
-All predicates share the signature ``(env, ..., *, env_id=None) -> torch.Tensor``.
-- ``env_id=None`` returns a ``(num_envs,)`` bool tensor (vectorized).
-- ``env_id=<int>`` returns a 0-D bool tensor for that env (useful for debugging).
-Heights are read in world frame.
-"""
 
 from __future__ import annotations
 

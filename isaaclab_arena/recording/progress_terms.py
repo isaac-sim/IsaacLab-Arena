@@ -1,4 +1,4 @@
-# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -17,12 +17,7 @@ from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTer
 
 
 def record_progress_results(env, env_id: int) -> dict[str, Any]:
-    """Record the progress-tracking state for ``env_id``.
-
-    Fired at episode end (pre-reset), while the tracker still holds the finished episode's state.
-    Returns ``{}`` when progress tracking is not active on the env. All fields are nested under a
-    single ``progress`` key (JSON-serializable) so they cannot collide with other recorder terms.
-    """
+    """Record the progress-tracking state for ``env_id``."""
     tracker = get_progress_tracker(env)
     if tracker is None:
         return {}
@@ -60,6 +55,6 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
 
 @configclass
 class ProgressEpisodeRecorderTermCfg(EpisodeRecorderTermCfg):
-    """Term recording each finishing episode's final progress-tracking state and predicate events."""
+    """Term recording each episode's final progress-tracking state and predicate events."""
 
     func: Callable[..., dict[str, Any]] = record_progress_results
