@@ -2,39 +2,28 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Collect datagen-format data while a policy drives the environment.
+"""Collect SyntheticScene datagen data while a policy drives the environment.
 
-:class:`DatagenCollector` plugs into ``rollout_policy`` (used by both
-``policy_runner`` and ``eval_runner``) via an opt-in ``collector`` argument.
-After each environment step it records the same modalities the standalone
-generator produces (RGB, depth, normals, semantics, optical/scene flow,
-dynamic-object poses + mesh samples) into nested per-episode ``dataset.h5`` files
-in the SyntheticScene schema -- using **dedicated** static cameras that are
-independent of the policy's own observation cameras.
+:class:`DatagenCollector` plugs into ``rollout_policy`` (policy_runner /
+eval_runner) via the opt-in ``collector`` argument, recording the standalone
+generator's modalities (RGB, depth, normals, semantics, optical/scene flow,
+dynamic-object poses + mesh samples) from dedicated cameras -- independent of the
+policy's own observation cameras, and reusing
+:mod:`~isaaclab_arena_datagen.pipeline` so the data matches.
 
-**One HDF5 file per episode.** The collector splits the rollout at episode
-boundaries and writes ``episode_0000/dataset.h5``,
-``episode_0001/dataset.h5``, ... under ``cfg.output_dir``, each trimmed to that
-episode's exact frame count. Isaac Lab resets a done env *within* ``step()``
-(and re-renders), so the frame observed on a ``done`` step is already the *next*
-episode's first frame; the collector
-accounts for this so each file contains exactly one episode's frames, with scene
-flow reset at each boundary.
+One HDF5 file per episode (``episode_NNNN/dataset.h5`` under ``cfg.output_dir``,
+trimmed to its frame count). The rollout loop owns episode boundaries: it
+disables the env's in-``step()`` auto-reset and calls :meth:`end_episode` before
+each explicit reset, so every recorded frame belongs to one settled episode.
 
-It reuses :func:`isaaclab_arena_datagen.pipeline.record_camera_step` and
-:func:`~isaaclab_arena_datagen.pipeline.save_dynamic_objects`, so policy-driven
-and standalone collection capture identical data.
-
-Requirements / limitations:
-
-* The ``SimulationApp`` must be launched with cameras enabled (``--enable_cameras``).
-* Single environment only (``num_envs == 1``), matching the camera handler.
+Requirements: cameras enabled (``--enable_cameras``); single env (``num_envs == 1``).
 """
 
 from __future__ import annotations
 
 import dataclasses
 import os
+from collections.abc import Callable
 from typing import Any
 
 from isaaclab_arena_datagen.camera_trajectory import CameraViewTrajectory
@@ -48,6 +37,7 @@ from isaaclab_arena_datagen.pipeline import (
     resolve_cameras,
     save_dynamic_objects,
 )
+from isaaclab_arena_datagen.utils.camera_utils import resolve_coord
 from isaaclab_arena_datagen.utils.constants import DEFAULT_ROTATION_EPS_RAD, DEFAULT_TRANSLATION_EPS_M
 
 # Extra capacity over max_episode_length when pre-allocating an episode file,
@@ -69,6 +59,10 @@ class DatagenCollectorConfig:
         dynamic_translation_eps: Per-step translation threshold (metres).
         dynamic_rotation_eps: Per-step rotation threshold (radians).
         mesh_sample_spacing: Mesh surface sample spacing (metres).
+        camera_sampler: Optional callable returning a fresh fixed-length
+            :class:`CameraViewTrajectory` list. When set, the cameras are re-aimed
+            in place (``set_world_pose``) to a new layout every episode rather than
+            staying fixed for the whole job.
     """
 
     output_dir: str
@@ -78,6 +72,7 @@ class DatagenCollectorConfig:
     dynamic_translation_eps: float = DEFAULT_TRANSLATION_EPS_M
     dynamic_rotation_eps: float = DEFAULT_ROTATION_EPS_RAD
     mesh_sample_spacing: float = 0.01
+    camera_sampler: Callable[[], list[CameraViewTrajectory]] | None = None
 
 
 def _resolve_env_class(env_name: str | None) -> Any | None:
@@ -151,7 +146,11 @@ class DatagenCollector:
         # bound on episode frames) and trimmed to the actual length at close.
         capacity = int(env.unwrapped.max_episode_length) + _CAPACITY_MARGIN
 
-        if cfg.cameras is not None:
+        if cfg.camera_sampler is not None:
+            # Per-episode randomisation: the sampler defines the camera count/lens;
+            # this initial layout is re-sampled and re-posed at every episode start.
+            cameras = cfg.camera_sampler()
+        elif cfg.cameras is not None:
             from isaaclab_arena_datagen.utils.camera_utils import validate_camera_configs
 
             cameras = cfg.cameras
@@ -168,7 +167,9 @@ class DatagenCollector:
     # ------------------------------------------------------------------
 
     def _start_episode(self) -> None:
-        """Open a fresh writer + tracker for a new episode and reset flow caches."""
+        """Open a fresh writer + tracker, reset flow, and (if configured) re-aim cameras."""
+        if self._cfg.camera_sampler is not None:
+            self._reaim_cameras(self._cfg.camera_sampler())
         self._writer = DatagenHDF5Writer(
             output_dir=episode_output_dir(self._cfg.output_dir, self._episode_idx),
             sequence_index=0,
@@ -180,6 +181,16 @@ class DatagenCollector:
             cam.handler.reset_scene_flow()
         self._local = 0
         self._episode_open = True
+
+    def _reaim_cameras(self, trajectories: list[CameraViewTrajectory]) -> None:
+        """Re-pose the existing camera sensors to *trajectories* (look-at) in place."""
+        assert len(trajectories) == len(self._camera_setups), (
+            f"camera_sampler returned {len(trajectories)} cameras but "
+            f"{len(self._camera_setups)} were spawned; the count must stay fixed."
+        )
+        for cam, traj in zip(self._camera_setups, trajectories):
+            cam.handler.set_world_pose(resolve_coord(traj.position, 0), resolve_coord(traj.target, 0))
+            cam.trajectory = traj
 
     def _end_episode(self, env: Any, outcome: str) -> None:
         """Trim, write dynamic objects, append a sequence record, and close the file."""
@@ -216,19 +227,12 @@ class DatagenCollector:
     # ------------------------------------------------------------------
 
     def on_step(self, env: Any, obs: Any, actions: Any, step_idx: int) -> None:
-        """Record one frame of the current episode.
-
-        The rollout loop drives episode boundaries explicitly: for datagen it
-        disables the env's in-``step()`` auto-reset and calls :meth:`end_episode`
-        immediately before each explicit ``env.reset()``. As a result this method
-        only ever sees frames from a single, fully-settled episode, so the
-        previous episode's final render can no longer leak into a new episode's
-        first frame.
+        """Record one frame of the current episode (opening it on first use).
 
         Args:
             env: IsaacLab environment instance.
-            obs: Observation dict from ``env.step`` (unused; cameras are dedicated).
-            actions: Action tensor (unused; recorded scene state is read from sim).
+            obs: Observation dict (unused; cameras are dedicated).
+            actions: Action tensor (unused; scene state is read from sim).
             step_idx: Rollout step counter (informational only).
         """
         self._last_env = env

@@ -1,21 +1,27 @@
 {
     "datagen": {
-        "description": "Example: regenerated dynamic-scene dataset for pi0 eval.",
-        "output_dir": "/datasets/dynamic_scenes/openpi_alternate_camera",
-        "camera_position": [
-            1.36,
-            0.0,
-            1.0
-        ],
-        "camera_target": [
-            0.0,
-            0.0,
-            0.0
-        ],
-        "focal_length_mm": 14,
+        "description": "Hemisphere datagen for the pick-and-place (maple_table + droid) scenes.",
+        "output_dir": "/datasets/dynamic_scenes/pick_and_place",
         "width": 640,
         "height": 480,
-        "mesh_sample_spacing": 0.01
+        "mesh_sample_spacing": 0.01,
+        "cameras_hemisphere": {
+            "num_cameras": 10,
+            "radius": 1.5,
+            "center": [
+                0.0,
+                0.0,
+                0.3
+            ],
+            "front_dir": [
+                1.0,
+                0.0,
+                0.0
+            ],
+            "focal_length_mm": 14,
+            "min_height": 0.1,
+            "randomize_per_episode": true
+        }
     },
     "jobs": [
         {
@@ -35,8 +41,7 @@
                 "remote_host": "127.0.0.1",
                 "remote_port": 8000,
                 "openpi_embodiment_adapter": "droid"
-            },
-            "status": "completed"
+            }
         },
         {
             "name": "droid_pnp_srl_openpi_rubiks_cube_home_office",
@@ -57,8 +62,7 @@
                 "remote_host": "127.0.0.1",
                 "remote_port": 8000,
                 "openpi_embodiment_adapter": "droid"
-            },
-            "status": "completed"
+            }
         },
         {
             "name": "droid_pnp_srl_openpi_alphabet_soup_can",
@@ -79,8 +83,7 @@
                 "remote_host": "127.0.0.1",
                 "remote_port": 8000,
                 "openpi_embodiment_adapter": "droid"
-            },
-            "status": "completed"
+            }
         },
         {
             "name": "droid_pnp_srl_openpi_orange",
@@ -101,8 +104,7 @@
                 "remote_host": "127.0.0.1",
                 "remote_port": 8000,
                 "openpi_embodiment_adapter": "droid"
-            },
-            "status": "completed"
+            }
         },
         {
             "name": "droid_pnp_srl_openpi_lemon",

@@ -117,34 +117,111 @@ def get_policy_from_job(job: Job) -> "PolicyBase":
     return policy
 
 
+def parse_datagen_cameras(merged: dict):
+    """Build datagen cameras from a datagen config (``None`` -> env default view).
+
+    Accepts one of three shapes (see the package README for keys); all cameras
+    share ``width``/``height`` and become ``cam0``, ``cam1``, ... in one file:
+
+    * ``cameras_hemisphere`` -- N random cameras on a hemisphere (see
+      :func:`~isaaclab_arena_datagen.utils.camera_utils.sample_front_hemisphere_cameras`).
+    * ``cameras`` -- an explicit list of ``{position, target?, focal_length_mm?}``.
+    * ``camera_position`` (+ optional ``camera_target`` / ``focal_length_mm``) -- a single camera.
+    """
+    from isaaclab_arena_datagen.camera_trajectory import CameraViewTrajectory
+
+    default_focal = merged.get("focal_length_mm", 24.0)
+
+    hemisphere = merged.get("cameras_hemisphere")
+    if hemisphere is not None:
+        from isaaclab_arena_datagen.utils.camera_utils import sample_front_hemisphere_cameras
+
+        return sample_front_hemisphere_cameras(
+            num_cameras=hemisphere["num_cameras"],
+            radius=hemisphere["radius"],
+            center=tuple(hemisphere.get("center", (0.0, 0.0, 0.0))),
+            front_dir=tuple(hemisphere.get("front_dir", (1.0, 0.0, 0.0))),
+            focal_length_mm=hemisphere.get("focal_length_mm", default_focal),
+            min_height=hemisphere.get("min_height", 0.1),
+            seed=hemisphere.get("seed"),
+        )
+
+    camera_specs = merged.get("cameras")
+    if camera_specs is None and merged.get("camera_position") is not None:
+        camera_specs = [{
+            "position": merged["camera_position"],
+            "target": merged.get("camera_target"),
+            "focal_length_mm": merged.get("focal_length_mm"),
+        }]
+    if not camera_specs:
+        return None
+
+    cameras = []
+    for spec in camera_specs:
+        assert spec.get("position") is not None, "each datagen camera needs a 'position'"
+        target = tuple(spec["target"]) if spec.get("target") is not None else (0.0, 0.0, 0.0)
+        cameras.append(
+            CameraViewTrajectory(
+                position=tuple(spec["position"]),
+                target=target,
+                focal_length_mm=spec.get("focal_length_mm") or default_focal,
+            )
+        )
+    return cameras
+
+
+def build_datagen_camera_sampler(merged: dict):
+    """Return a per-episode camera sampler, or ``None`` for a fixed layout.
+
+    Only ``cameras_hemisphere`` with ``"randomize_per_episode": true`` enables
+    per-episode re-randomisation: the returned callable draws a fresh random
+    hemisphere layout (unseeded) on each call, which the collector uses to re-aim
+    the cameras at every episode reset. Otherwise the layout is fixed for the job.
+    """
+    hemi = merged.get("cameras_hemisphere")
+    if hemi is None or not hemi.get("randomize_per_episode", False):
+        return None
+
+    from isaaclab_arena_datagen.utils.camera_utils import sample_front_hemisphere_cameras
+
+    default_focal = merged.get("focal_length_mm", 24.0)
+
+    def sampler():
+        # seed=None on purpose: a new layout every episode.
+        return sample_front_hemisphere_cameras(
+            num_cameras=hemi["num_cameras"],
+            radius=hemi["radius"],
+            center=tuple(hemi.get("center", (0.0, 0.0, 0.0))),
+            front_dir=tuple(hemi.get("front_dir", (1.0, 0.0, 0.0))),
+            focal_length_mm=hemi.get("focal_length_mm", default_focal),
+            min_height=hemi.get("min_height", 0.1),
+            seed=None,
+        )
+
+    return sampler
+
+
 def build_datagen_collector(job: Job, datagen_defaults: dict | None, env):
     """Build a per-job datagen collector, or ``None`` if datagen is not configured.
 
     The effective config is the top-level ``datagen`` defaults overridden by the
     job's own ``datagen`` block. Per-episode HDF5 files are written under
-    ``{output_dir}/{job.name}/episode_NNNN/dataset.h5``. A camera is taken from
-    ``camera_position`` (+ optional ``camera_target``, default origin); otherwise
-    the env's default view is used. Lazily imports the datagen package so core
-    stays decoupled unless collection is requested.
+    ``{output_dir}/{job.name}/episode_NNNN/dataset.h5``. Cameras come from a
+    ``cameras`` list (multiple, recorded as ``cam0``/``cam1``/... in one file) or
+    the single ``camera_position`` (see :func:`parse_datagen_cameras`); otherwise
+    the env's default view is used. A ``cameras_hemisphere`` block with
+    ``randomize_per_episode: true`` re-randomises the layout each episode (see
+    :func:`build_datagen_camera_sampler`). Lazily imports the datagen package so
+    core stays decoupled unless collection is requested.
     """
     merged = {**(datagen_defaults or {}), **(job.datagen or {})}
     if not merged.get("output_dir"):
         return None
 
-    from isaaclab_arena_datagen.camera_trajectory import CameraViewTrajectory
     from isaaclab_arena_datagen.collection.collector import DatagenCollector, DatagenCollectorConfig
     from isaaclab_arena_datagen.utils.constants import DEFAULT_ROTATION_EPS_RAD, DEFAULT_TRANSLATION_EPS_M
 
-    cameras = None
-    if merged.get("camera_position") is not None:
-        target = tuple(merged["camera_target"]) if merged.get("camera_target") is not None else (0.0, 0.0, 0.0)
-        cameras = [
-            CameraViewTrajectory(
-                position=tuple(merged["camera_position"]),
-                target=target,
-                focal_length_mm=merged.get("focal_length_mm", 24.0),
-            )
-        ]
+    cameras = parse_datagen_cameras(merged)
 
     cfg = DatagenCollectorConfig(
         output_dir=os.path.join(merged["output_dir"], job.name),
@@ -154,6 +231,7 @@ def build_datagen_collector(job: Job, datagen_defaults: dict | None, env):
         mesh_sample_spacing=merged.get("mesh_sample_spacing", 0.01),
         dynamic_translation_eps=merged.get("dynamic_translation_eps", DEFAULT_TRANSLATION_EPS_M),
         dynamic_rotation_eps=merged.get("dynamic_rotation_eps", DEFAULT_ROTATION_EPS_RAD),
+        camera_sampler=build_datagen_camera_sampler(merged),
     )
     print(f"[INFO] Datagen collection enabled for job '{job.name}' -> {cfg.output_dir}/episode_NNNN/dataset.h5")
     return DatagenCollector.from_env(env, cfg, env_name=None)

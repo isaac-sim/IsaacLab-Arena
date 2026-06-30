@@ -144,7 +144,7 @@ Files are written to `{output_dir}/{job_name}/episode_NNNN/dataset.h5`.
 
 ```bash
 python isaaclab_arena/evaluation/eval_runner.py \
-    --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_openpi_datagen_jobs_config.json
+    --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/pick_and_place_datagen_jobs_config.json
 ```
 
 ```jsonc
@@ -163,6 +163,67 @@ python isaaclab_arena/evaluation/eval_runner.py \
 
 Cameras are auto-enabled when a `datagen` block is present. Omit the `datagen`
 block to disable collection (jobs run unchanged).
+
+#### Multiple cameras
+
+To capture several views of the same scene, use a `cameras` list instead of the
+single `camera_position`. Each entry needs a `position`; `target` (defaults to
+the origin) and `focal_length_mm` (defaults to the block-level `focal_length_mm`
+or 24 mm) are optional. All cameras share the block-level `width`/`height` and
+are written into the **same** `episode_NNNN/dataset.h5` as `cam0`, `cam1`, … :
+
+```jsonc
+"datagen": {
+  "output_dir": "/datasets/dynamic_scenes/openpi_multicam",
+  "width": 640, "height": 480,
+  "cameras": [
+    { "position": [1.36, 0.0, 1.0],  "target": [0.0, 0.0, 0.0], "focal_length_mm": 14 },
+    { "position": [0.05, 0.57, 0.66], "target": [0.0, 0.0, 0.0], "focal_length_mm": 14 }
+  ]
+}
+```
+
+All cameras must share `width`/`height` (the SyntheticScene format requires it);
+for views at different resolutions, run separate jobs/configs.
+
+#### Random hemisphere of cameras
+
+To surround the robot with `N` cameras at a fixed distance instead of listing
+each one, use a `cameras_hemisphere` block. It places `num_cameras` cameras
+**randomly** on the 180-degree hemisphere facing `front_dir` around `center`,
+all at the same `radius` and all looking at `center`. The layout is
+**re-randomised on every run** (so each invocation samples new positions) unless
+you pin it with `seed`:
+
+```jsonc
+"datagen": {
+  "output_dir": "/datasets/dynamic_scenes/openpi_hemisphere",
+  "width": 640, "height": 480,
+  "cameras_hemisphere": {
+    "num_cameras": 10,            // how many cameras (cam0 .. cam9 in one dataset.h5)
+    "radius": 1.5,                // equal distance from the robot (m)
+    "center": [0.0, 0.0, 0.3],    // look-at point = robot / workspace centre
+    "front_dir": [1.0, 0.0, 0.0], // hemisphere faces this way (cameras in front, looking back)
+    "focal_length_mm": 14,
+    "min_height": 0.1,            // reject samples below this world z (no under-floor cameras)
+    "randomize_per_episode": true // re-sample a new layout for EVERY episode (see below)
+    // "seed": 0                  // optional: pin for a reproducible layout (ignored per-episode)
+  }
+}
+```
+
+Notes:
+- **`randomize_per_episode`** (default `false`): when `true`, a fresh random
+  layout is drawn for *every episode* — the same N cameras are re-aimed in place
+  via `set_world_pose` at each episode reset (no sensors are re-spawned). With
+  `false`, the layout is sampled once per job and reused for all its episodes.
+- Without `randomize_per_episode`, each job in a run still gets its **own** fresh
+  layout; set `seed` to make every job share one fixed layout. (`seed` is ignored
+  when `randomize_per_episode` is on, since each episode must differ.)
+- `front_dir` is the direction the cameras sit on relative to `center` — set it
+  to whatever counts as "in front of" your robot (e.g. `[0,1,0]` if the front is
+  +y). With `min_height` the lower part of the hemisphere is trimmed so no camera
+  ends up under the ground plane.
 
 Datagen-collection CLI flags:
 
