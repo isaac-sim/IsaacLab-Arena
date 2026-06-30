@@ -28,6 +28,13 @@ def test_pick_targets_cli_is_fail_closed():
     assert parser.parse_args([]).pick_targets is None
     # Present with names -> ordered list.
     assert parser.parse_args(["--pick_targets", "a", "b", "c"]).pick_targets == ["a", "b", "c"]
+    assert parser.parse_args(["--pick_targets", "a", "b", "c", "d", "e"]).pick_targets == [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+    ]
     # Present but empty is rejected (nargs='+'), so it cannot silently fall back to single-object.
     with pytest.raises(SystemExit):
         parser.parse_args(["--pick_targets"])

@@ -136,17 +136,17 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
             )
         background = background_cls()
 
-        # Pick targets. Opt-in 2-3-object sort profile: --pick_targets lists the ordered pick objects and the
+        # Pick targets. Opt-in 2-5-object sort profile: --pick_targets lists the ordered pick objects and the
         # task becomes the stock SortMultiObjectTask (all targets -> the destination). Unset (default) keeps the
         # stock single-object PickAndPlaceTask on --pick_up_object — single-object behavior is unchanged.
         # Fail closed and validate before any registry/Scene construction: an absent value selects the
-        # single-object task; a supplied list must contain 2-3 unique, non-reserved names.
+        # single-object task; a supplied list must contain 2-5 unique, non-reserved names.
         raw_pick_targets = cfg.pick_targets
         is_multi_object = raw_pick_targets is not None
         if is_multi_object:
             pick_target_names = list(raw_pick_targets)
-            assert 2 <= len(pick_target_names) <= 3, (
-                f"the Maple multi-object profile supports exactly 2-3 --pick_targets; got {len(pick_target_names)}: "
+            assert 2 <= len(pick_target_names) <= 5, (
+                f"the Maple multi-object profile supports exactly 2-5 --pick_targets; got {len(pick_target_names)}: "
                 f"{pick_target_names}"
             )
             assert len(set(pick_target_names)) == len(
