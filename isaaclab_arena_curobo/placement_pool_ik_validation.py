@@ -77,7 +77,7 @@ def validate_pool_ik(
 
     Args:
         env: The Isaac Lab env; must expose a ``robot`` articulation in its scene.
-        planner: A ``CuroboPlanner`` bound to env 0 (see ``make_curobo_planner_for_droid``).
+        planner: A ``CuroboPlanner`` bound to env 0 (see ``make_curobo_planner``).
         placement_pool: PooledObjectPlacer whose stored layouts are validated. When ``None`` it is
             derived from the env's registered pooled layouts.
         grasp_z_offset: Height (m) above each object center for the grasp pose.
