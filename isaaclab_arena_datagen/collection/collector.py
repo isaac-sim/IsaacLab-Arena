@@ -184,9 +184,11 @@ class DatagenCollector:
     # ------------------------------------------------------------------
 
     def _start_episode(self) -> None:
-        """Open a fresh writer + tracker, reset flow, and (if configured) re-aim cameras."""
-        if self._cfg.camera_sampler is not None:
-            self._reaim_cameras(self._cfg.camera_sampler())
+        """Open a fresh writer + tracker and reset flow for a new episode.
+
+        Cameras are re-aimed by :meth:`resample_cameras` before the episode's reset, not
+        here, so the reset's RTX rerenders flush the new poses into the camera buffers.
+        """
         self._writer = DatagenHDF5Writer(
             output_dir=episode_output_dir(self._cfg.output_dir, self._episode_idx),
             sequence_index=0,
@@ -215,6 +217,17 @@ class DatagenCollector:
         for cam, traj in zip(self._camera_setups, trajectories):
             cam.handler.set_world_pose(resolve_coord(traj.position, 0), resolve_coord(traj.target, 0))
             cam.trajectory = traj
+
+    def resample_cameras(self) -> None:
+        """Re-aim the cameras to a fresh sampled layout for the next episode.
+
+        The rollout loop calls this right before the episode's ``env.reset()`` so the
+        reset's RTX rerenders flush the new poses; otherwise the first recorded frame is
+        rendered from the previous layout. No-op when no camera_sampler is configured
+        (fixed cameras need no re-aim).
+        """
+        if self._cfg.camera_sampler is not None:
+            self._reaim_cameras(self._cfg.camera_sampler())
 
     def _end_episode(self, env: Any, outcome: str) -> None:
         """Trim, write dynamic objects, append a sequence record, and close the file."""

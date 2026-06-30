@@ -152,6 +152,10 @@ def _run_datagen_rollout(
                 pbar.update(1)
                 if num_episodes_completed >= num_episodes:
                     break
+            # Re-aim the datagen cameras before the reset so the reset's RTX rerenders
+            # (num_rerenders_on_reset) flush the new poses; otherwise the next episode's
+            # first frame is rendered from the previous layout.
+            collector.resample_cameras()
             obs, _ = env.reset()
             policy.reset()
             steps_in_episode = 0
