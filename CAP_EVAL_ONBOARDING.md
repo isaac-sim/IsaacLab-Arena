@@ -9,21 +9,22 @@
   the handoff branch points at the same commit.
 - **GaP side:** `Isaac-cap` `main` @ `1249fb6` (+ uncommitted perception fix, see below) + `gap/graph-as-policy`.
 
-## Python env — CANNOT `uv sync` from one checkout yet
-The working venv came from a **separate** branch, `rcathomen/feature/uv-native-install` (commit `4082afd7e` +
-**uncommitted** `pyproject.toml`/`uv.lock` fixes), which is **NOT an ancestor** of the cap eval branch. So a single
-checkout of `rcathomen/feature/cap-gap-eval` + `uv sync` will NOT reproduce the env.
+## Python env — generic Arena prerequisite (owned elsewhere; NOT a CAP branch)
+The Arena runtime is a generic native uv install on `rcathomen/feature/uv-native-install`
+(**Isaac Sim 6.0.0.1 / Isaac Lab 3.0.0b2**, `isaaclab_arena 1.0.0`). CAP treats it purely as a prerequisite —
+CAP does NOT fork it or combine with it.
 
-Pick ONE to make it reproducible (Arena-team decision, env owner = uv-native-install):
-1. **Combined branch (cleanest):** commit `pyproject.toml`+`uv.lock` on `uv-native-install`, then rebase/merge the
-   cap eval commit onto it → one branch → `git checkout <combined>` + `uv sync` gives env + eval code.
-2. **Two-step (current reality):** teammate gets the env from `uv-native-install` (`uv sync` once its
-   `pyproject/uv.lock` are committed), and runs the cap eval code via `PYTHONPATH=<cap-worktree>` (the `dev_run.sh`
-   pattern). The cap branch carries the eval code only, not the install.
-3. **Docker (supported fallback):** the `dev-container` skill / `./docker/run_docker.sh` — Arena's standard
-   container (Isaac Sim 6.0 + Isaac Lab 3.0). Repo mounts at `/workspaces/isaaclab_arena`, `python` = `/isaac-sim/python.sh`.
+⚠️ **UNVERIFIED PIN (blocks full reproducibility):** the working venv used **uncommitted** `pyproject.toml` +
+`uv.lock` fixes on top of branch tip `4082afd7e`. So `git checkout rcathomen/feature/uv-native-install && uv sync`
+does **NOT** reproduce the exact env until those lock fixes are pushed by the native-install owner. **Get the pushed
+install SHA from that owner before relying on the native path** — until then this handoff is NOT end-to-end reproducible.
 
-Versions in the working env: **Isaac Sim 6.0.0.1, Isaac Lab 3.0.0b2**, `isaaclab_arena 1.0.0`.
+Teammate env — pick one:
+1. **Native (once the install SHA is pushed):** checkout that pushed `uv-native-install` commit + `uv sync`.
+2. **Docker (supported, reproducible now):** `dev-container` skill / `./docker/run_docker.sh` (Isaac Sim 6.0 + Isaac
+   Lab 3.0); repo mounts at `/workspaces/isaaclab_arena`, `python` = `/isaac-sim/python.sh`.
+
+Then run CAP against that env via `PYTHONPATH` (two-step; no combined branch) — see the eval command below.
 
 ## Canonical eval command / config
 GaP server (gap venv) — start AFTER eval logs `[GapRemotePolicy] connecting`:
