@@ -37,6 +37,7 @@ from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.droid.actions import BinaryJointPositionZeroToOneAction
+from isaaclab_arena.embodiments.droid.curobo_cfg import DROID_CUROBO_CFG
 from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos, ee_quat, gripper_pos
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
@@ -72,6 +73,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
             self.set_initial_joint_pose(initial_joint_pose)
         self.reward_config = None
         self.mimic_env = None
+        self.curobo_config = DROID_CUROBO_CFG
         self.add_variation(CameraExtrinsicsVariation(camera_name="wrist_camera"))
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:

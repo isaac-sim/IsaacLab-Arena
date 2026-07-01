@@ -49,6 +49,8 @@ class EmbodimentBase(Asset):
         self.mimic_env: Any | None = None
         self.xr: Any | None = None
         self.termination_cfg: Any | None = None
+        # Optional cuRobo description for motion planning.
+        self.curobo_config: Any | None = None
 
     def set_initial_pose(self, pose: Pose) -> None:
         self.initial_pose = pose
@@ -124,6 +126,9 @@ class EmbodimentBase(Asset):
 
     def get_embodiment_name_in_scene(self) -> str:
         return "robot"
+
+    def get_curobo_cfg(self) -> Any:
+        return self.curobo_config
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
         # In case of multiple ee frames one can use self.mimic_arm_mode to get the correct ee frame name
