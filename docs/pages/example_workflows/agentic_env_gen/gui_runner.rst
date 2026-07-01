@@ -9,13 +9,13 @@ Run the GUI from inside the Isaac Lab-Arena development container:
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner
+   /isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/gui_runner.py
 
 You can also open an existing initial graph spec:
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner \
+   /isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/gui_runner.py \
       --env_initial_graph_spec isaaclab_arena/tests/test_data/pick_and_place_maple_table_init_env_graph.yaml
 
 By default, generated YAML files are written under

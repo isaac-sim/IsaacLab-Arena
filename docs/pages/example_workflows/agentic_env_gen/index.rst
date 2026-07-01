@@ -53,7 +53,7 @@ generate, edit, and visualize the prompt-specified environment in a web browser:
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner
+   /isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/gui_runner.py
 
 .. note::
 
@@ -93,7 +93,7 @@ Generated environments are consumed through ``--env_graph_spec_yaml``:
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh -m isaaclab_arena_examples.policy_runner \
+   /isaac-sim/python.sh isaaclab_arena_examples/policy_runner.py \
       --viz kit \
       --policy_type zero_action \
       --enable_cameras \
