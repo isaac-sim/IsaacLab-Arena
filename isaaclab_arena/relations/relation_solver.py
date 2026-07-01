@@ -147,6 +147,7 @@ class RelationSolver:
         - Non-anchor vs non-anchor: both objects accumulate gradient.
         """
         if self.params.collision_mode == CollisionMode.MESH:
+            assert self._mesh_manager is not None, "MESH collision requires a mesh manager."
             mesh_loss = compute_no_overlap_loss_mesh(
                 state,
                 self._mesh_cache,

@@ -45,9 +45,9 @@ class RelationSolverState:
                 ObjectPlacer always supplies these for placement solves. Direct
                 solver/debug calls may omit them to use each object's default
                 get_bounding_box().
-            collision_objects: Optional fixed background obstacles that participate in
-                no-overlap collision only (never in relation constraints). They keep a
-                constant world bounding box and are not optimized.
+            collision_objects: Fixed background obstacles that participate in no-overlap
+                collision only (never in relation constraints). They keep a constant world
+                bounding box and are not optimized. Must be disjoint from objects.
         """
         assert len(initial_positions) >= 1, "initial_positions must contain at least one dict."
         anchor_objects = get_anchor_objects(objects)
@@ -57,6 +57,10 @@ class RelationSolverState:
         self._anchor_objects: set[ObjectBase] = set(anchor_objects)
         self._optimizable_objects = [obj for obj in objects if obj not in self._anchor_objects]
         self._collision_objects: list[ObjectBase] = list(collision_objects) if collision_objects else []
+        assert not (set(self._collision_objects) & set(objects)), (
+            "collision_objects must be disjoint from placed objects; an object cannot be "
+            "both optimized and a fixed collision obstacle."
+        )
 
         # Build object-to-index mapping
         self._obj_to_idx: dict[ObjectBase, int] = {obj: i for i, obj in enumerate(objects)}
@@ -169,6 +173,9 @@ class RelationSolverState:
 
     def get_fixed_obstacle_world_bbox(self, obj: ObjectBase) -> AxisAlignedBoundingBox:
         """Return the cached constant world bounding box for an anchor or collision object."""
+        assert (
+            obj in self._fixed_obstacle_world_bboxes
+        ), f"'{obj.name}' is not a fixed obstacle (anchor or collision object) tracked by this state."
         return self._fixed_obstacle_world_bboxes[obj]
 
     def get_bbox(self, obj: ObjectBase) -> AxisAlignedBoundingBox:
