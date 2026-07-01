@@ -47,6 +47,7 @@ Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, i
 - Prefer `assert condition, "message"` over `if not condition: raise ValueError("message")` for internal invariant checks. (Formatting, imports, and typing are enforced by `pre-commit` — see `.pre-commit-config.yaml`.)
 - PR bodies follow `.github/pull_request_template.md` — a one-line Summary plus 2–5 detail bullets. Resist the agent default of long, multi-section descriptions.
 - Attribute docstrings should be included below the attribute, rather than in the class-level docstring.
+- Copyright headers: a newly created file uses the current year alone (e.g. `2026`); a file created earlier and edited this year uses a range (e.g. `2025-2026`). Don't copy a neighbouring file's year — the pre-commit hooks (`insert-license`, `fix-new-file-copyright-year`) set and enforce this, so you generally don't hand-edit it.
 
 ## Docstrings style
 

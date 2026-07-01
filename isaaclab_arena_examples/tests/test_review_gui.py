@@ -18,7 +18,9 @@ from isaaclab_arena.agentic_environment_generation.spec_io import (
     linked_spec_path,
     save_initial_graph_spec,
 )
+from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
+from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeSpec, ArenaEnvGraphNodeType
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
     SpecParseResult,
     try_save_initial_graph_spec,
@@ -29,6 +31,25 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.generatio
     _apply_generated_yaml,
     _format_trace_lines,
     run_generation_pipeline,
+)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnails import (
+    format_aabb_dimensions_m,
+    render_node_thumbnail,
+)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
+    SimAppClient,
+    spawn_simapp_process,
+    stop_simapp_process,
+    wait_for_simapp_socket,
+)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (
+    _preview_args,
+    parse_sim_preview_params,
+)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
+    ENV_SPACING_M,
+    NUM_ENVS,
+    NUM_STEPS,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.streamlit_ui import initialize_state, parse_args
 
@@ -52,6 +73,50 @@ def session_state(monkeypatch):
     state: dict = {}
     monkeypatch.setattr("streamlit.session_state", state, raising=False)
     return state
+
+
+class TestSimPreviewParams:
+    def test_preview_args_honor_gui_overrides(self):
+        args = _preview_args(num_envs=4, env_spacing=2.5)
+        assert args.num_envs == 4
+        assert args.env_spacing == 2.5
+
+    def test_parse_sim_preview_params_requires_all_keys(self):
+        with pytest.raises(ValueError, match="missing required sim preview params"):
+            parse_sim_preview_params({})
+
+    def test_parse_sim_preview_params_custom(self):
+        assert parse_sim_preview_params({"num_envs": 8, "num_steps": 3, "env_spacing": 2.0}) == (8, 3, 2.0)
+
+    def test_parse_sim_preview_params_rejects_invalid(self):
+        with pytest.raises(AssertionError):
+            parse_sim_preview_params({"num_envs": 0, "num_steps": 10, "env_spacing": 1.5})
+
+
+class TestNodeThumbnailAabb:
+    def test_format_aabb_dimensions_m(self):
+        assert format_aabb_dimensions_m((0.1, 0.2, 0.3)) == "0.100 × 0.200 × 0.300 m"
+
+    def test_render_node_thumbnail_includes_aabb_under_snapshot(self):
+        node = ArenaEnvGraphNodeSpec(id="mug", name="mug_ycb_robolab", type=ArenaEnvGraphNodeType.OBJECT)
+        html = render_node_thumbnail(node, png_bytes=b"fake", aabb_dimensions_m=(0.05, 0.05, 0.12))
+        assert "thumb-dims" in html
+        assert "0.050 × 0.050 × 0.120 m" in html
+        assert html.index("thumb-wrap") < html.index("thumb-dims")
+
+    def test_render_object_reference_shows_unsupported_note(self):
+        from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphObjectReferenceNodeSpec
+
+        node = ArenaEnvGraphObjectReferenceNodeSpec(
+            id="table_top",
+            name="table_top",
+            parent="kitchen",
+            prim_path="/World/kitchen/table",
+            object_type=ObjectType.RIGID,
+        )
+        html = render_node_thumbnail(node)
+        assert "thumb-unsupported" in html
+        assert "Prim reference — snapshot not supported" in html
 
 
 class TestValidateYamlText:
@@ -125,6 +190,9 @@ class TestInitializeState:
         assert session_state["out_dir"] == str(out_dir.resolve())
         assert session_state["generation_prompt"] == DEFAULT_GENERATION_PROMPT
         assert session_state["editor_version"] == 0
+        assert session_state["sim_preview_num_envs"] == NUM_ENVS
+        assert session_state["sim_preview_num_steps"] == NUM_STEPS
+        assert session_state["sim_preview_env_spacing"] == ENV_SPACING_M
 
     def test_loads_yaml_from_disk(self, session_state, valid_spec_yaml: str, tmp_path: Path):
         spec_path = tmp_path / "opened.yaml"
@@ -186,16 +254,12 @@ class TestApplyGeneratedYaml:
     def test_with_spec_updates_editor_and_validation_cache(self, session_state, valid_spec: ArenaEnvInitialGraphSpec):
         session_state["editor_version"] = 2
         yaml_text = yaml.safe_dump(valid_spec.to_dict(), sort_keys=False)
-        with patch(
-            "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.render_dashboard_html",
-            return_value="<html>preview</html>",
-        ) as mock_render:
-            _apply_generated_yaml(yaml_text, spec=valid_spec)
-        mock_render.assert_called_once_with(valid_spec)
+        _apply_generated_yaml(yaml_text, spec=valid_spec)
         assert session_state["edited_text"] == yaml_text
         assert session_state["editor_version"] == 3
-        assert session_state["last_rendered_text"] == yaml_text
-        assert session_state["rendered_html"] == "<html>preview</html>"
+        assert session_state["last_rendered_text"] == ""
+        assert session_state["rendered_html"] == ""
+        assert session_state["_defer_viz_render"] is True
         assert session_state["_validation_text"] == yaml_text
         assert session_state["_validation_result"].spec is valid_spec
 
@@ -256,10 +320,6 @@ class TestRunGenerationPipeline:
                 "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.IntentCompiler",
                 return_value=mock_compiler,
             ),
-            patch(
-                "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.render_dashboard_html",
-                return_value="<html>generated</html>",
-            ),
         ):
             ok, message = run_generation_pipeline("pick up a cube")
 
@@ -298,10 +358,6 @@ class TestRunGenerationPipeline:
                 return_value=mock_compiler,
             ),
             patch(
-                "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.render_dashboard_html",
-                return_value="<html>generated</html>",
-            ),
-            patch(
                 "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.try_save_initial_graph_spec",
                 return_value=(None, "Save failed: disk full"),
             ),
@@ -334,3 +390,90 @@ class TestTrySaveInitialGraphSpec:
         assert paths is None
         assert "ValueError" in error
         assert "unknown node reference" in error
+
+
+class TestSimAppClient:
+    def test_disconnect_leaves_server_listening(self, tmp_path: Path) -> None:
+        """Boot probe must not send shutdown — Streamlit connects after wait_for_simapp_socket."""
+        import json
+        import socket
+        import threading
+
+        socket_path = tmp_path / "probe.sock"
+        shutdowns = 0
+        pings = 0
+
+        def _serve() -> None:
+            nonlocal shutdowns, pings
+            server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            server.bind(str(socket_path))
+            server.listen(5)
+            try:
+                while True:
+                    conn, _ = server.accept()
+                    with conn:
+                        reader = conn.makefile("r", encoding="utf-8", newline="\n")
+                        writer = conn.makefile("w", encoding="utf-8", newline="\n")
+                        for raw_line in reader:
+                            req = json.loads(raw_line)
+                            if req.get("cmd") == "shutdown":
+                                shutdowns += 1
+                                writer.write(json.dumps({"ok": True}) + "\n")
+                                writer.flush()
+                                return
+                            if req.get("cmd") == "ping":
+                                pings += 1
+                                writer.write(json.dumps({"ok": True}) + "\n")
+                                writer.flush()
+            finally:
+                server.close()
+
+        thread = threading.Thread(target=_serve, daemon=True)
+        thread.start()
+
+        class _Proc:
+            def poll(self) -> None:
+                return None
+
+        wait_for_simapp_socket(str(socket_path), _Proc(), timeout_s=5.0, poll_interval_s=0.05)
+        assert pings == 1
+        assert shutdowns == 0
+
+        client = SimAppClient.connect(str(socket_path))
+        assert client.ping()
+        client.disconnect()
+        assert shutdowns == 0
+
+        client = SimAppClient.connect(str(socket_path))
+        client.shutdown()
+        thread.join(timeout=2.0)
+        assert shutdowns == 1
+
+
+class TestSimAppSimPreview:
+    @pytest.mark.with_subprocess
+    def test_run_sim_preview_via_simapp_subprocess(self, tmp_path: Path) -> None:
+        yaml_text = _VALID_SPEC_YAML_PATH.read_text(encoding="utf-8")
+        socket_path = tmp_path / "sim_preview.sock"
+        proc = spawn_simapp_process(str(socket_path))
+        try:
+            wait_for_simapp_socket(str(socket_path), proc, timeout_s=180.0, poll_interval_s=0.5)
+            client = SimAppClient.connect(str(socket_path))
+            response = client.run_sim_preview(
+                yaml_text,
+                num_envs=1,
+                num_steps=0,
+                env_spacing=1.5,
+            )
+            assert response["ok"] is True
+
+            first_frame = Path(response["first_frame"])
+            last_frame = Path(response["last_frame"])
+            assert first_frame.is_file() and first_frame.stat().st_size > 0
+            assert last_frame.is_file() and last_frame.stat().st_size > 0
+            assert response["num_envs"] == 1
+            assert response["num_steps"] == 0
+
+            client.shutdown()
+        finally:
+            stop_simapp_process(proc, str(socket_path))

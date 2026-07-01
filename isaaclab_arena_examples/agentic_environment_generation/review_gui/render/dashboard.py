@@ -17,9 +17,15 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.pa
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.styles import DASHBOARD_CSS
 
 
-def render_dashboard_html(spec: ArenaEnvInitialGraphSpec) -> str:
+def render_dashboard_html(
+    spec: ArenaEnvInitialGraphSpec,
+    thumbnails: dict[str, bytes] | None = None,
+    aabb_dimensions_m: dict[str, tuple[float, float, float]] | None = None,
+) -> str:
     """Render the self-contained review dashboard HTML for ``spec``."""
     initial_state = spec.initial_state_spec
+    thumbnails = thumbnails or {}
+    aabb_dimensions_m = aabb_dimensions_m or {}
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -36,7 +42,7 @@ def render_dashboard_html(spec: ArenaEnvInitialGraphSpec) -> str:
 <main>
   <section class="panel nodes-panel">
     <h2>Nodes</h2>
-    <div class="node-grid">{render_node_cards(spec)}</div>
+    <div class="node-grid">{render_node_cards(spec, thumbnails, aabb_dimensions_m)}</div>
   </section>
   <section class="panel graph-panel">
     <h2>Spatial graph <span class="muted">(initial state: <code>{html_lib.escape(initial_state.id)}</code>)</span></h2>

@@ -13,15 +13,8 @@ from pathlib import Path
 import streamlit as st
 from streamlit_ace import st_ace
 
-from isaaclab_arena.agentic_environment_generation.spec_io import save_initial_graph_spec
+from isaaclab_arena.agentic_environment_generation.spec_io import initial_spec_path, save_initial_graph_spec
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import render_dashboard_html
-
-_BROKEN_PLACEHOLDER_HTML = """<!DOCTYPE html><html><body style="
-    font-family: ui-monospace, monospace;
-    background:#15181d; color:#e4e6eb; padding:24px; margin:0;">
-<p>No visualization yet — fix the YAML errors to auto-render.</p>
-</body></html>"""
 
 
 @dataclass
@@ -79,6 +72,14 @@ def render_validation_badge(validation: SpecParseResult) -> None:
         st.error(f"Invalid YAML\n\n```\n{validation.error}\n```", icon="🛑")
 
 
+def sync_save_path_from_spec(validation: SpecParseResult) -> None:
+    """Point ``save_path`` at the initial YAML path implied by the editor's ``env_name``."""
+    if not validation.is_valid:
+        return
+    out_dir = Path(st.session_state["out_dir"])
+    st.session_state["save_path"] = str(initial_spec_path(validation.spec.env_name, out_dir))
+
+
 def try_save_initial_graph_spec(
     spec: ArenaEnvInitialGraphSpec, out_dir: Path
 ) -> tuple[tuple[Path, Path] | None, str | None]:
@@ -128,10 +129,11 @@ def render_save_button(validation: SpecParseResult) -> None:
         )
         if new_out_dir and new_out_dir != out_dir_str:
             st.session_state["out_dir"] = new_out_dir
+            sync_save_path_from_spec(validation)
 
 
 def render_editor_panel(yaml_path: Path | None) -> SpecParseResult:
-    """Render the ACE YAML editor and refresh the dashboard when text changes."""
+    """Render the ACE YAML editor; dashboard preview refreshes in the visualization fragment."""
     st.subheader("YAML editor")
     if yaml_path is not None:
         st.caption(f"Source: `{yaml_path}`")
@@ -159,18 +161,7 @@ def render_editor_panel(yaml_path: Path | None) -> SpecParseResult:
 
     validation = validate_yaml_text(st.session_state["edited_text"])
     render_validation_badge(validation)
-
-    edited_since_render = st.session_state["edited_text"] != st.session_state["last_rendered_text"]
-    if edited_since_render:
-        # Editor text changed since last dashboard render — refresh preview iframe.
-        if validation.is_valid:
-            with st.spinner("Rendering visualization…"):
-                st.session_state["rendered_html"] = render_dashboard_html(validation.spec)
-        else:
-            st.session_state["rendered_html"] = _BROKEN_PLACEHOLDER_HTML
-        st.session_state["last_rendered_text"] = st.session_state["edited_text"]
-        if validation.is_valid:
-            st.toast("Visualization updated.", icon="🔄")
+    sync_save_path_from_spec(validation)
 
     render_save_button(validation)
     return validation
