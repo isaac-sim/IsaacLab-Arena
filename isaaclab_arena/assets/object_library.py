@@ -79,15 +79,6 @@ class CrackerBox(LibraryObject):
     tags = ["object"]
     usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/YCB/Axis_Aligned_Physics/003_cracker_box.usd"
 
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
-
 
 @register_asset
 class MustardBottle(LibraryObject):
@@ -98,15 +89,6 @@ class MustardBottle(LibraryObject):
     name = "mustard_bottle"
     tags = ["object"]
     usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/YCB/Axis_Aligned_Physics/006_mustard_bottle.usd"
-
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
 
 
 @register_asset
@@ -119,15 +101,6 @@ class SugarBox(LibraryObject):
     tags = ["object"]
     usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/YCB/Axis_Aligned_Physics/004_sugar_box.usd"
 
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
-
 
 @register_asset
 class TomatoSoupCan(LibraryObject):
@@ -139,15 +112,6 @@ class TomatoSoupCan(LibraryObject):
     tags = ["object"]
     usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/YCB/Axis_Aligned_Physics/005_tomato_soup_can.usd"
 
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
-
 
 @register_asset
 class PowerDrill(LibraryObject):
@@ -158,15 +122,6 @@ class PowerDrill(LibraryObject):
     name = "power_drill"
     tags = ["object"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/power_drill_physics/power_drill_physics.usd"
-
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
 
 
 @register_asset
@@ -266,15 +221,6 @@ class OfficeTable(LibraryObject):
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Mimic/nut_pour_task/nut_pour_assets/table.usd"
     scale = (1.0, 1.0, 0.7)
 
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
-
 
 @register_asset
 class BlueSortingBin(LibraryObject):
@@ -286,15 +232,6 @@ class BlueSortingBin(LibraryObject):
     tags = ["object"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Mimic/exhaust_pipe_task/exhaust_pipe_assets/blue_sorting_bin.usd"
     scale = (4.0, 2.0, 1.0)
-
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
 
 
 @register_asset
@@ -308,15 +245,6 @@ class BlueExhaustPipe(LibraryObject):
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Mimic/exhaust_pipe_task/exhaust_pipe_assets/blue_exhaust_pipe.usd"
     scale = (0.55, 0.55, 1.4)
 
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
-
 
 @register_asset
 class BrownBox(LibraryObject):
@@ -329,15 +257,6 @@ class BrownBox(LibraryObject):
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/brown_box/brown_box.usd"
     scale = (1.0, 1.0, 1.0)
 
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
-
 
 @register_asset
 class Mug(LibraryObject, Placeable):
@@ -348,7 +267,6 @@ class Mug(LibraryObject, Placeable):
     name = "mug"
     tags = ["object"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Objects/Mug/mug.usd"
-    object_type = ObjectType.RIGID
     scale = (1.0, 1.0, 1.0)
 
     # Placeable affordance parameters
@@ -415,7 +333,6 @@ class Sphere(LibraryObject):
 
     name = "sphere"
     tags = ["object"]
-    object_type = ObjectType.RIGID
     scale = (1.0, 1.0, 1.0)
     default_spawner_cfg = sim_utils.SphereCfg(
         radius=0.1,
@@ -533,16 +450,6 @@ class DexCube(LibraryObject):
     tags = ["object"]
     usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/DexCube/dex_cube_instanceable.usd"
     scale = (0.8, 0.8, 0.8)
-    object_type = ObjectType.RIGID
-
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
 
 
 @register_asset
@@ -680,16 +587,6 @@ class Broccoli(LibraryObject):
     name = "broccoli"
     tags = ["object", "vegetable", "graspable"]
     usd_path = LightwheelLazyPath(registry_type="objects", registry_name=["broccoli"], file_type="USD")
-    object_type = ObjectType.RIGID
-
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
 
 
 @register_asset
@@ -701,17 +598,7 @@ class SweetPotato(LibraryObject):
     name = "sweet_potato"
     tags = ["object", "vegetable", "graspable"]
     usd_path = LightwheelLazyPath(registry_type="objects", file_name="SweetPotato005", file_type="USD")
-    object_type = ObjectType.RIGID
     scale = (1.5, 1.5, 1.5)
-
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
 
 
 @register_asset
@@ -723,17 +610,7 @@ class Jug(LibraryObject):
     name = "jug"
     tags = ["object", "graspable"]
     usd_path = LightwheelLazyPath(registry_type="objects", file_name="Jug005", file_type="USD")
-    object_type = ObjectType.RIGID
     scale = (2.0, 2.0, 2.0)
-
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
 
 
 @register_asset
@@ -745,17 +622,7 @@ class BeerBottle(LibraryObject):
     name = "beer_bottle"
     tags = ["object", "graspable"]
     usd_path = LightwheelLazyPath(registry_type="objects", file_name="beer016", file_type="USD")
-    object_type = ObjectType.RIGID
     scale = (1.2, 1.2, 1.2)
-
-    def __init__(
-        self,
-        instance_name: str | None = None,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, scale=scale)
 
 
 @register_asset
@@ -769,17 +636,7 @@ class RedCube(LibraryObject):
 
     usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/red_block.usd"
 
-    object_type = ObjectType.RIGID
-    default_prim_path = "{ENV_REGEX_NS}/RedCube"
     scale = (0.02, 0.02, 0.02)
-
-    def __init__(
-        self,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(prim_path=prim_path, initial_pose=initial_pose, scale=scale)
 
 
 @register_asset
@@ -792,17 +649,7 @@ class GreenCube(LibraryObject):
     tags = ["object"]
 
     usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/green_block.usd"
-    object_type = ObjectType.RIGID
-    default_prim_path = "{ENV_REGEX_NS}/GreenCube"
     scale = (0.02, 0.02, 0.02)
-
-    def __init__(
-        self,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(prim_path=prim_path, initial_pose=initial_pose, scale=scale)
 
 
 @register_asset
@@ -814,17 +661,7 @@ class RedContainer(LibraryObject):
     name = "red_container"
     tags = ["object"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/isaac_container/container_h20_red.usd"
-    object_type = ObjectType.RIGID
-    default_prim_path = "{ENV_REGEX_NS}/red_container"
     scale = (0.5, 0.5, 0.5)
-
-    def __init__(
-        self,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(prim_path=prim_path, initial_pose=initial_pose, scale=scale)
 
 
 @register_asset
@@ -836,17 +673,7 @@ class GreenContainer(LibraryObject):
     name = "green_container"
     tags = ["object"]
     usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/isaac_container/container_h20_green.usd"
-    object_type = ObjectType.RIGID
-    default_prim_path = "{ENV_REGEX_NS}/green_container"
     scale = (0.5, 0.5, 0.5)
-
-    def __init__(
-        self,
-        prim_path: str | None = None,
-        initial_pose: Pose | None = None,
-        scale: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(prim_path=prim_path, initial_pose=initial_pose, scale=scale)
 
 
 @register_asset
