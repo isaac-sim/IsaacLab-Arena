@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import inspect
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -48,6 +49,29 @@ class Item(BaseModel):
             "subject/reference and task param must use to refer to this item."
         ),
     )
+
+
+class ObjectReferenceItem(BaseModel):
+    """One USD subprim inside a parent asset, exposed as an object-reference graph node."""
+
+    id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    usd_prim_path: str = Field(min_length=1)
+    object_type: Literal["base", "rigid", "articulation"]
+    scope: Literal["background", "item"] = "background"
+    parent_id: str | None = Field(
+        default=None,
+        description="Parent object node id for item-scoped refs. Background refs use EnvironmentIntentSpec.background.",
+    )
+    openable_joint_name: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_openable_shape(self) -> ObjectReferenceItem:
+        if self.openable_joint_name is not None:
+            assert self.object_type == "articulation", "openable_joint_name requires object_type='articulation'"
+        if self.scope == "item":
+            assert self.parent_id, "item-scoped object references require parent_id"
+        return self
 
 
 def required_task_init_param_names(task_cls: type) -> list[str]:
@@ -93,6 +117,13 @@ class EnvironmentIntentSpec(BaseModel):
         ),
     )
     items: list[Item] = Field(description="Objects to place in the env.")
+    object_references: list[ObjectReferenceItem] = Field(
+        default_factory=list,
+        description=(
+            "Background-scoped object_reference nodes to expose from the background USD. "
+            "Use these when a task target is a built-in fixture subprim rather than a foreground item."
+        ),
+    )
     initial_state_graph: list[SpatialRelationSpec] = Field(
         description=(
             "FULL snapshot of all spatial relations in the starting state. "

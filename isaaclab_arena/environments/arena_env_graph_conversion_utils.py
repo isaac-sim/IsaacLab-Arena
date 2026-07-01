@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.assets.object_reference import ObjectReference
+from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.environments.arena_env_graph_task_conversion_utils import build_task_from_specs
 from isaaclab_arena.environments.arena_env_graph_types import (
@@ -144,13 +144,16 @@ def _instantiate_assets_from_nodes(
         # precedes the reference, so it is already in assets_by_node_id here.
         if node_spec.type == ArenaEnvGraphNodeType.OBJECT_REFERENCE:
             assert isinstance(node_spec, ArenaEnvGraphObjectReferenceNodeSpec)
-            assets_by_node_id[node_spec.id] = ObjectReference(
-                name=node_spec.name,
-                prim_path=node_spec.prim_path,
-                parent_asset=assets_by_node_id[node_spec.parent],
-                object_type=node_spec.object_type,
+            reference_kwargs = {
+                "name": node_spec.name,
+                "prim_path": node_spec.prim_path,
+                "parent_asset": assets_by_node_id[node_spec.parent],
                 **node_spec.params,
-            )
+            }
+            if "openable_joint_name" in node_spec.params:
+                assets_by_node_id[node_spec.id] = OpenableObjectReference(**reference_kwargs)
+            else:
+                assets_by_node_id[node_spec.id] = ObjectReference(object_type=node_spec.object_type, **reference_kwargs)
         else:
             # Standard nodes (object / background / embodiment): look up the registered class
             # by name and instantiate with the spec's verbatim kwargs.

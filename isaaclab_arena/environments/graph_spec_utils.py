@@ -106,6 +106,46 @@ def assert_task_wiring(tasks: list[Any], state_specs: list[Any]) -> None:
             ), f"Task '{task.id}' references unknown state spec '{state_spec_id}' for '{label}'"
 
 
+def assert_task_param_references(nodes: list[Any], tasks: list[Any]) -> None:
+    """Ensure task constructor params typed as node refs point at known graph nodes."""
+    from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.assets.registries import TaskRegistry
+    from isaaclab_arena.environments.arena_env_graph_task_conversion_utils import find_node_ref_params_in_signature
+    from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeType
+
+    node_ids = {node.id for node in nodes}
+    nodes_by_id = {node.id: node for node in nodes}
+    task_registry = TaskRegistry()
+    for task_index, task in enumerate(tasks):
+        task_cls = task_registry.get_task_by_name(task.kind)
+        node_ref_params = find_node_ref_params_in_signature(task_cls)
+        task_label = getattr(task, "id", f"task[{task_index}]")
+        for param_name, is_collection in node_ref_params.items():
+            if param_name not in task.params:
+                continue
+            value = task.params[param_name]
+            values = value if is_collection else [value]
+            assert isinstance(values, list), f"Task '{task_label}' param '{param_name}' must be a list of node ids"
+            for item in values:
+                assert (
+                    isinstance(item, str) and item in node_ids
+                ), f"Task '{task_label}' param '{param_name}' references unknown node id {item!r}"
+                node = nodes_by_id[item]
+                if node.type != ArenaEnvGraphNodeType.OBJECT_REFERENCE:
+                    continue
+                if task.kind in {"OpenDoorTask", "CloseDoorTask"} and param_name == "openable_object":
+                    assert (
+                        node.object_type == ObjectType.ARTICULATION
+                    ), f"Task '{task_label}' param '{param_name}' must reference an articulation object_reference"
+                    assert node.params.get(
+                        "openable_joint_name"
+                    ), f"Task '{task_label}' param '{param_name}' requires object_reference params.openable_joint_name"
+                if task.kind == "PickAndPlaceTask" and param_name in {"destination_location", "destination_object"}:
+                    assert (
+                        node.object_type == ObjectType.RIGID
+                    ), f"Task '{task_label}' param '{param_name}' must reference a rigid object_reference"
+
+
 def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
     """Check each spatial constraint has the subject/reference shape its relation expects."""
     for state_spec in state_specs:
