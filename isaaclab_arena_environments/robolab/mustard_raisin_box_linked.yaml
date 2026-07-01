@@ -54,7 +54,7 @@ state_specs:
   - kind: 'rotate_around_solution'
     subject: raisin_box
     params: {
-      pitch_rad: 90.0
+      pitch_rad: 1.57
     }
     id: state_initial_3_rotate_around_solution_raisin_box
   task_constraints: []

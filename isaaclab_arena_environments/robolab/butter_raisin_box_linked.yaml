@@ -49,6 +49,13 @@ state_specs:
     reference: maple_table_robolab
     params: {}
     id: state_initial_2_on_maple_table_robolab_raisin_box_hope_robolab
+  # TODO: support rotate around solution from the agent intent spec
+  - kind: 'rotate_around_solution'
+    subject: raisin_box_hope_robolab
+    params: {
+      pitch_rad: 1.57
+    }
+    id: state_initial_3_rotate_around_solution_raisin_box
   task_constraints: []
 - id: state_spec_1
   is_delta: true

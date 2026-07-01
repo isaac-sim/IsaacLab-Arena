@@ -67,6 +67,13 @@ state_specs:
     reference: maple_table_robolab
     params: {}
     id: state_initial_4_on_maple_table_robolab_tomato_soup_can
+  # TODO: support rotate around solution from the agent intent spec
+  - kind: 'rotate_around_solution'
+    subject: tomato_soup_can
+    params: {
+      roll_rad: -1.57
+    }
+    id: state_initial_5_rotate_around_solution_tomato_soup_can
   task_constraints: []
 - id: state_spec_1
   is_delta: true
