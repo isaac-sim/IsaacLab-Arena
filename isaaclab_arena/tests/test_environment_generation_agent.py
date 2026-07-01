@@ -184,6 +184,7 @@ def test_generate_spec_atomic_pick_and_place_against_live_endpoint():
     _assert_atomic_pick_and_place_spec(spec)
 
 
+@pytest.mark.skipif(not os.environ.get("NV_API_KEY"), reason="live endpoint test requires NV_API_KEY")
 @pytest.mark.flaky(max_runs=3, min_passes=1)
 def test_generate_spec_five_bananas_parallel_pick_and_place_against_live_endpoint():
     """Live test: five bananas into one bin yields a parallel composite task."""
@@ -194,6 +195,7 @@ def test_generate_spec_five_bananas_parallel_pick_and_place_against_live_endpoin
     _assert_five_bananas_parallel_pick_and_place_spec(spec)
 
 
+@pytest.mark.skipif(not os.environ.get("NV_API_KEY"), reason="live endpoint test requires NV_API_KEY")
 @pytest.mark.flaky(max_runs=3, min_passes=1)
 def test_resolve_usd_prim_robocasa_kitchen_counter_and_fridge():
     """End-to-end pass-1 + pass-2 prim resolution for Robocasa kitchen counter and fridge."""
