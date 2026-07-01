@@ -36,6 +36,21 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.th
     format_aabb_dimensions_m,
     render_node_thumbnail,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
+    SimAppClient,
+    spawn_simapp_process,
+    stop_simapp_process,
+    wait_for_simapp_socket,
+)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (
+    _preview_args,
+    parse_sim_preview_params,
+)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
+    ENV_SPACING_M,
+    NUM_ENVS,
+    NUM_STEPS,
+)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.streamlit_ui import initialize_state, parse_args
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -58,6 +73,24 @@ def session_state(monkeypatch):
     state: dict = {}
     monkeypatch.setattr("streamlit.session_state", state, raising=False)
     return state
+
+
+class TestSimPreviewParams:
+    def test_preview_args_honor_gui_overrides(self):
+        args = _preview_args(num_envs=4, env_spacing=2.5)
+        assert args.num_envs == 4
+        assert args.env_spacing == 2.5
+
+    def test_parse_sim_preview_params_requires_all_keys(self):
+        with pytest.raises(ValueError, match="missing required sim preview params"):
+            parse_sim_preview_params({})
+
+    def test_parse_sim_preview_params_custom(self):
+        assert parse_sim_preview_params({"num_envs": 8, "num_steps": 3, "env_spacing": 2.0}) == (8, 3, 2.0)
+
+    def test_parse_sim_preview_params_rejects_invalid(self):
+        with pytest.raises(AssertionError):
+            parse_sim_preview_params({"num_envs": 0, "num_steps": 10, "env_spacing": 1.5})
 
 
 class TestNodeThumbnailAabb:
@@ -157,6 +190,9 @@ class TestInitializeState:
         assert session_state["out_dir"] == str(out_dir.resolve())
         assert session_state["generation_prompt"] == DEFAULT_GENERATION_PROMPT
         assert session_state["editor_version"] == 0
+        assert session_state["sim_preview_num_envs"] == NUM_ENVS
+        assert session_state["sim_preview_num_steps"] == NUM_STEPS
+        assert session_state["sim_preview_env_spacing"] == ENV_SPACING_M
 
     def test_loads_yaml_from_disk(self, session_state, valid_spec_yaml: str, tmp_path: Path):
         spec_path = tmp_path / "opened.yaml"
@@ -363,11 +399,6 @@ class TestSimAppClient:
         import socket
         import threading
 
-        from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
-            SimAppClient,
-            wait_for_simapp_socket,
-        )
-
         socket_path = tmp_path / "probe.sock"
         shutdowns = 0
         pings = 0
@@ -417,3 +448,32 @@ class TestSimAppClient:
         client.shutdown()
         thread.join(timeout=2.0)
         assert shutdowns == 1
+
+
+class TestSimAppSimPreview:
+    @pytest.mark.with_subprocess
+    def test_run_sim_preview_via_simapp_subprocess(self, tmp_path: Path) -> None:
+        yaml_text = _VALID_SPEC_YAML_PATH.read_text(encoding="utf-8")
+        socket_path = tmp_path / "sim_preview.sock"
+        proc = spawn_simapp_process(str(socket_path))
+        try:
+            wait_for_simapp_socket(str(socket_path), proc, timeout_s=180.0, poll_interval_s=0.5)
+            client = SimAppClient.connect(str(socket_path))
+            response = client.run_sim_preview(
+                yaml_text,
+                num_envs=1,
+                num_steps=0,
+                env_spacing=1.5,
+            )
+            assert response["ok"] is True
+
+            first_frame = Path(response["first_frame"])
+            last_frame = Path(response["last_frame"])
+            assert first_frame.is_file() and first_frame.stat().st_size > 0
+            assert last_frame.is_file() and last_frame.stat().st_size > 0
+            assert response["num_envs"] == 1
+            assert response["num_steps"] == 0
+
+            client.shutdown()
+        finally:
+            stop_simapp_process(proc, str(socket_path))

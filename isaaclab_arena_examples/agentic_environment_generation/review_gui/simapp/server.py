@@ -67,6 +67,10 @@ def _serve_connection(
             _write_response(writer, _handle_render_spec(app, req, render_fn, spec_cls))
             continue
 
+        if cmd == "run_sim_preview":
+            _write_response(writer, _handle_run_sim_preview(app, req))
+            continue
+
         _write_response(writer, {"ok": False, "error": f"unknown cmd: {cmd!r}"})
 
     return False
@@ -150,6 +154,34 @@ def _handle_render_spec(
         "paths": {node_id: str(p) for node_id, p in paths.items()},
         "aabb_dimensions_m": {node_id: list(dims) for node_id, dims in aabb_dimensions_m.items()},
     }
+
+
+def _handle_run_sim_preview(app, req: dict[str, Any]) -> dict[str, Any]:
+    """Handle run_sim_preview JSON-RPC."""
+    from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (  # noqa: PLC0415
+        parse_sim_preview_params,
+        run_sim_preview,
+    )
+
+    yaml_text = req.get("yaml_text")
+    if not isinstance(yaml_text, str):
+        return {"ok": False, "error": "run_sim_preview requires string 'yaml_text'"}
+
+    try:
+        num_envs, num_steps, env_spacing = parse_sim_preview_params(req)
+    except (TypeError, ValueError, AssertionError) as exc:
+        return {"ok": False, "error": f"invalid sim preview params: {exc}"}
+
+    try:
+        return run_sim_preview(
+            app,
+            yaml_text,
+            num_envs=num_envs,
+            num_steps=num_steps,
+            env_spacing=env_spacing,
+        )
+    except Exception as exc:
+        return {"ok": False, "error": f"sim preview failed: {exc}", "traceback": traceback.format_exc()}
 
 
 def _parse_args() -> argparse.Namespace:

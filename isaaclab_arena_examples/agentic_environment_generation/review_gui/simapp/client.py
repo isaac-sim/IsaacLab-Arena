@@ -103,6 +103,30 @@ class SimAppClient:
 
         return results, aabb_dimensions_m
 
+    def run_sim_preview(
+        self,
+        yaml_text: str,
+        *,
+        num_envs: int,
+        num_steps: int,
+        env_spacing: float,
+    ) -> dict[str, Any]:
+        """Run a multi-env relation-solver rollout preview in the SimApp server."""
+        with self._lock:
+            response = self._request({
+                "cmd": "run_sim_preview",
+                "yaml_text": yaml_text,
+                "num_envs": num_envs,
+                "num_steps": num_steps,
+                "env_spacing": env_spacing,
+            })
+
+        if not response.get("ok"):
+            raise SimAppError(
+                f"SimApp sim preview failed: {response.get('error', 'unknown')}\n{response.get('traceback', '')}"
+            )
+        return response
+
     def ping(self) -> bool:
         """Cheap liveness check round-trip — returns True on a healthy reply."""
         with self._lock:

@@ -7,17 +7,17 @@
 
 Usage:
     # Default — start with a prompt:
-    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner
+    python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py
 
     # Open an existing spec:
-    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner \\
+    python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py \\
         --env_initial_graph_spec isaaclab_arena/tests/test_data/pick_and_place_maple_table_init_env_graph.yaml
 
     # Custom port:
-    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner --port 8600
+    python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py --port 8600
 
     # Custom output directory for generated YAML:
-    /isaac-sim/python.sh -m isaaclab_arena_examples.agentic_environment_generation.gui_runner \\
+    python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py \\
         --out_dir isaaclab_arena_environments/agent_generated
 """
 

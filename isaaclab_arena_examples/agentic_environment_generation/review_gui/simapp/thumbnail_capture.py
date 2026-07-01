@@ -11,10 +11,9 @@ import sys
 from pathlib import Path
 
 import omni.usd
-from omni.kit.viewport.utility import capture_viewport_to_file, frame_viewport_prims, get_active_viewport
+from omni.kit.viewport.utility import frame_viewport_prims, get_active_viewport
 from pxr import Gf, Sdf, UsdGeom, UsdLux
 
-from isaaclab_arena.assets.asset_cache import get_arena_asset_cache_dir
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
     AabbDimensionsM,
@@ -22,17 +21,11 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.as
     resolve_node_usd_paths,
     usd_cache_key,
 )
-
-_SETTLE_TAIL_UPDATES = 3
-_PRE_CAPTURE_UPDATES = 5
-_CAPTURE_DONE_TAIL_UPDATES = 3
-_CAPTURE_WAIT_MAX_UPDATES = 120
-
-
-def _thumbnail_cache_dir() -> Path:
-    cache_dir = get_arena_asset_cache_dir().parent / "review_gui_thumbnails"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import (
+    capture_viewport_png,
+    thumbnail_cache_dir,
+    wait_for_stage_load,
+)
 
 
 def render_thumbnails_with_app(
@@ -44,12 +37,12 @@ def render_thumbnails_with_app(
         print("[thumbnail_capture] no asset USD paths resolved; skipping thumbnail rendering.", file=sys.stderr)
         return {}, {}
 
-    thumbnail_cache_dir = _thumbnail_cache_dir()
+    cache_dir = thumbnail_cache_dir()
 
     resolved: dict[str, Path] = {}
     to_render: dict[str, tuple[str, Path]] = {}
     for node_id, usd_path in asset_paths.items():
-        cache_path = thumbnail_cache_dir / f"{usd_cache_key(usd_path)}.png"
+        cache_path = cache_dir / f"{usd_cache_key(usd_path)}.png"
         if cache_path.exists() and cache_path.stat().st_size > 0:
             resolved[node_id] = cache_path
         else:
@@ -58,7 +51,7 @@ def render_thumbnails_with_app(
     if to_render:
         print(
             f"[thumbnail_capture] rendering {len(to_render)} new thumbnail(s) "
-            f"(reusing {len(resolved)} from cache at {thumbnail_cache_dir})...",
+            f"(reusing {len(resolved)} from cache at {cache_dir})...",
             file=sys.stderr,
         )
         captured = _capture_usd_thumbnails(app, to_render)
@@ -103,7 +96,7 @@ def _render_one_usd(app, usd_path: str, cache_path: Path) -> bytes | None:
         return None
     stage = ctx.get_stage()
 
-    _wait_for_stage_load(app, ctx)
+    wait_for_stage_load(app, ctx)
     _ensure_default_lighting(stage)
 
     target_prim = stage.GetDefaultPrim()
@@ -115,73 +108,11 @@ def _render_one_usd(app, usd_path: str, cache_path: Path) -> bytes | None:
     if not framed:
         print(f"[thumbnail_capture]   warning: frame_viewport_prims failed for {usd_path}", file=sys.stderr)
 
-    _pump_app(app, count=_PRE_CAPTURE_UPDATES)
-
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-    capture_obj = capture_viewport_to_file(viewport, str(cache_path))
-    _wait_for_capture(app, capture_obj, cache_path, max_updates=_CAPTURE_WAIT_MAX_UPDATES)
-
-    if cache_path.exists() and cache_path.stat().st_size > 0:
-        return cache_path.read_bytes()
+    png_bytes = capture_viewport_png(app, cache_path)
+    if png_bytes is not None:
+        return png_bytes
     print(f"[thumbnail_capture]   capture produced no file: {cache_path}", file=sys.stderr)
     return None
-
-
-def _pump_app(app, *, count: int = 1) -> None:
-    """Pump Kit render/UI updates without advancing physics simulation."""
-    import carb.settings
-
-    settings = carb.settings.get_settings()
-    prev_play = settings.get("/app/player/playSimulations")
-    settings.set_bool("/app/player/playSimulations", False)
-    for _ in range(count):
-        app.update()
-    if prev_play is not None:
-        settings.set_bool("/app/player/playSimulations", bool(prev_play))
-    else:
-        settings.set_bool("/app/player/playSimulations", True)
-
-
-def _wait_for_stage_load(app, usd_context, max_updates: int = 600) -> None:
-    """Pump frames until stage loading settles (plus a short post-settle tail)."""
-    settled = 0
-    for _ in range(max_updates):
-        _pump_app(app)
-        try:
-            _msg, loading_count, loaded_count = usd_context.get_stage_loading_status()
-        except Exception:
-            return
-        if loading_count == 0 and loaded_count == 0:
-            settled += 1
-            if settled >= _SETTLE_TAIL_UPDATES:
-                return
-        else:
-            settled = 0
-
-
-def _wait_for_capture(app, capture_obj, cache_path: Path, max_updates: int = _CAPTURE_WAIT_MAX_UPDATES) -> None:
-    """Pump render updates until the capture PNG exists or the budget expires."""
-    if capture_obj is None:
-        for _ in range(max_updates):
-            _pump_app(app)
-            if cache_path.exists() and cache_path.stat().st_size > 0:
-                return
-        return
-
-    # Kit has no stable capture-completion API; ``future`` is best-effort. File existence is
-    # the reliable exit condition (see the loop below).
-    future = getattr(capture_obj, "future", None)
-
-    for _ in range(max_updates):
-        _pump_app(app)
-        if cache_path.exists() and cache_path.stat().st_size > 0:
-            return
-        if future is not None and future.done():
-            for _ in range(_CAPTURE_DONE_TAIL_UPDATES):
-                _pump_app(app)
-                if cache_path.exists() and cache_path.stat().st_size > 0:
-                    return
-            return
 
 
 def _ensure_default_lighting(stage) -> None:
