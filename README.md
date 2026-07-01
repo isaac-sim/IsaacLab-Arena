@@ -66,12 +66,40 @@ Arena solves this by making environment variation a first-class concept. Swap an
 
 - Linux (Ubuntu 22.04+)
 - NVIDIA GPU (see [Isaac Sim hardware requirements](https://docs.isaacsim.omniverse.nvidia.com/6.0.0/installation/requirements.html))
-- Docker and NVIDIA Container Toolkit
+- [uv](https://docs.astral.sh/uv/) (for the native install), or Docker and the NVIDIA Container Toolkit (for the container install)
 - Git
 
 ### Installation
 
-Isaac Lab-Arena currently supports **installation from source inside a Docker container**.
+**Native developer setup with uv:**
+
+```bash
+git clone git@github.com:isaac-sim/IsaacLab-Arena.git
+cd IsaacLab-Arena
+uv sync
+```
+
+`uv sync` creates a Python 3.12 virtual environment in `.venv/`, installs Isaac Lab-Arena, and pulls `isaaclab[isaacsim,all]==3.0.0b2` with the matching Isaac Sim 6.0, PyTorch, and Newton wheels. No submodule init and no `ISAACLAB_PATH` are required. Accept the Isaac Sim EULA non-interactively and run the non-camera and camera smoke tests:
+
+```bash
+export OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y   # accept the Isaac Sim EULA non-interactively
+uv run pytest -q isaaclab_arena/tests/test_achieve_cube_goal_pose.py::test_achieve_cube_goal_pose_initial_state
+uv run pytest -q isaaclab_arena/tests/test_camera_observation.py::test_camera_observation
+```
+
+Launch a short native rollout with a writable output directory:
+
+```bash
+uv run python isaaclab_arena/evaluation/policy_runner.py \
+  --headless --policy_type zero_action --num_steps 20 \
+  --output_base_dir "$PWD/output" cube_goal_pose
+```
+
+> The policy and evaluation runners retain Docker's `/eval/output` default. Pass `--output_base_dir` when running them natively.
+>
+> The subprocess-based eval phase (`-m with_subprocess`) is currently Docker-only. See the installation guide for details.
+
+**Source install inside Docker:**
 
 ```bash
 # 1. Clone the repository
@@ -158,7 +186,7 @@ IsaacLab-Arena/
 ├── docs/                              # Sphinx documentation source
 ├── osmo/                              # Cloud deployment configs (OSMO)
 ├── submodules/                        # Git submodules (Isaac Lab, etc.)
-├── setup.py                           # Package installation
+├── pyproject.toml                     # Package metadata, dependencies, and uv config
 ├── CONTRIBUTING.md                    # Contribution guidelines
 └── LICENSE.md                         # Apache 2.0 license
 ```
@@ -182,8 +210,7 @@ Isaac Lab-Arena is in **alpha** (`v0.2.x`). This is important to understand:
 |-----------------|---------|
 | **Not EA / GA** | This is not an Early Access or General Availability release. It is a very early community code drop. |
 | **APIs will break** | Public interfaces are under active development and will change without deprecation warnings. |
-| **Features are incomplete** | Core capabilities like agentic task generation, non-sequential long horizon tasks, easy-to-configure sensitivity analysis, enhanced heterogeneity across parallel evaluations and pip install support are planned but not yet implemented. |
-| **Docker-only install** | Source installation in a Docker container is the only supported method. |
+| **Features are incomplete** | Core capabilities like agentic task generation, non-sequential long horizon tasks, easy-to-configure sensitivity analysis, and enhanced heterogeneity across parallel evaluations are planned but not yet implemented. |
 | **Limited testing** | The `main` branch contains the latest code but may not be fully tested. Use `release/0.2.0` for the most stable experience. |
 
 
