@@ -12,6 +12,7 @@ from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from pxr import Gf, Usd, UsdGeom
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_reference import ObjectReference
@@ -128,12 +129,19 @@ class Scene:
         has a single fixed initial Pose. Assets with a per-env / per-reset or unset pose are
         skipped, since no constant world bounding box can be computed for them.
 
+        A Background is never returned: its bounding box spans the whole USD scene (including the
+        very surfaces objects are placed on), so as a single obstacle it would reject every valid
+        layout. Per-fixture obstacles are opted in explicitly via relations.background_colliders.
+
         Returns:
             Qualifying collision objects, in scene-insertion order.
         """
         collision_objects: list[Object | ObjectReference] = []
         for asset in self.assets.values():
             if not isinstance(asset, (Object, ObjectReference)):
+                continue
+            # A whole-scene Background AABB would swallow the placement surface (see docstring).
+            if isinstance(asset, Background):
                 continue
             # Objects in the relation graph are already passed to the solver directly.
             if asset.get_relations():

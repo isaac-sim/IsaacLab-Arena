@@ -124,6 +124,20 @@ def test_solve_without_collision_objects_is_a_noop():
     assert abs(box_bottom_z - 0.1) < 0.05
 
 
+def test_relation_solver_state_rejects_object_as_collision_object():
+    """An object cannot be both optimized and a fixed obstacle; the state must reject the overlap."""
+    import pytest
+
+    from isaaclab_arena.relations.relation_solver_state import RelationSolverState
+
+    desk = _make_desk()
+    box = _make_box()
+    initial_positions = [{desk: (0.0, 0.0, 0.0), box: (0.3, 0.3, 0.1)}]
+
+    with pytest.raises(AssertionError, match="disjoint"):
+        RelationSolverState([desk, box], initial_positions, collision_objects=[box])
+
+
 def test_validate_no_overlap_rejects_background_overlap():
     """ObjectPlacer validation flags a placed object overlapping a fixed background obstacle."""
     from isaaclab_arena.relations.object_placer import ObjectPlacer
@@ -145,16 +159,17 @@ def test_validate_no_overlap_rejects_background_overlap():
 
 
 def _test_scene_get_collision_objects_filters(simulation_app) -> bool:
-    """Only relation-free objects with a USD path and a fixed Pose are returned."""
+    """Only relation-free objects with a USD path and a fixed Pose are returned; Background is excluded."""
     from unittest.mock import MagicMock
 
+    from isaaclab_arena.assets.background import Background
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.relations.relations import IsAnchor
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose, PoseRange
 
-    def fake_object(name, relations, usd_path, pose):
-        obj = MagicMock(spec=Object)
+    def fake_object(name, relations, usd_path, pose, spec=Object):
+        obj = MagicMock(spec=spec)
         obj.name = name
         obj.get_relations.return_value = relations
         obj.usd_path = usd_path
@@ -168,16 +183,19 @@ def _test_scene_get_collision_objects_filters(simulation_app) -> bool:
         rpy_min=(0.0, 0.0, 0.0),
         rpy_max=(0.0, 0.0, 0.0),
     )
-    background = fake_object("background", [], "bg.usd", fixed_pose)
+    furniture = fake_object("furniture", [], "bg.usd", fixed_pose)
+    # A Background qualifies on every other check but must still be excluded: its whole-scene
+    # AABB would swallow the placement surface. Verifies the production case, not just a mock Object.
+    kitchen = fake_object("kitchen", [], "kitchen.usd", fixed_pose, spec=Background)
     anchored = fake_object("anchored", [IsAnchor()], "a.usd", fixed_pose)
     no_usd = fake_object("no_usd", [], None, fixed_pose)
     no_pose = fake_object("no_pose", [], "n.usd", None)
     ranged = fake_object("ranged", [], "r.usd", pose_range)
 
     scene = Scene()
-    scene.assets = {o.name: o for o in [background, anchored, no_usd, no_pose, ranged]}
+    scene.assets = {o.name: o for o in [furniture, kitchen, anchored, no_usd, no_pose, ranged]}
 
-    return scene.get_collision_objects() == [background]
+    return scene.get_collision_objects() == [furniture]
 
 
 def test_scene_get_collision_objects_filters():
@@ -236,3 +254,37 @@ def test_pooled_object_placer_forwards_collision_objects():
 
     box_world = box.get_bounding_box().translated(layout.positions[box])
     assert not box_world.overlaps(background.get_world_bounding_box(), margin=0.0).item()
+
+
+def test_pooled_object_placer_multi_env_avoids_obstacle():
+    """With num_envs > 1, every per-env pooled layout still avoids the background obstacle."""
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.relations import On
+
+    desk = _make_desk()
+    box = _make_box()
+    box.add_relation(On(desk))
+    background = _make_background()
+
+    num_envs = 3
+    params = ObjectPlacerParams(
+        placement_seed=0,
+        apply_positions_to_objects=False,
+        solver_params=RelationSolverParams(verbose=False, save_position_history=False),
+    )
+    pool = PooledObjectPlacer(
+        objects=[desk, box],
+        placer_params=params,
+        pool_size=4,
+        num_envs=num_envs,
+        collision_objects=[background],
+    )
+    # sample_with_replacement maps slot i to env i % num_envs, so count == num_envs covers every env.
+    layouts = pool.sample_with_replacement(num_envs)
+
+    assert len(layouts) == num_envs
+    for layout in layouts:
+        box_world = box.get_bounding_box().translated(layout.positions[box])
+        assert not box_world.overlaps(background.get_world_bounding_box(), margin=0.0).item()

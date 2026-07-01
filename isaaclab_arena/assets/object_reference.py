@@ -73,14 +73,21 @@ class ObjectReference(ObjectBase):
         return self._bounding_box
 
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Get bounding box in world coordinates (local bbox rotated and translated).
+        """Get bounding box in world coordinates.
 
-        Only 90° rotations around Z axis are supported for AxisAlignedBoundingBox.
-        An assertion error is raised for any other rotation.
+        get_bounding_box() is already axis-aligned in the parent asset's frame (the referenced
+        prim's baked orientation is folded in by the USD bbox cache), so only the parent's
+        placement rotation is applied here, then the prim's world position. A reference is a
+        fixed anchor with no placement yaw of its own, so the parent rotation is normally
+        identity; only 90° Z multiples of it are supported.
         """
-        pose = self.get_initial_pose()
-        quarters = quaternion_to_90_deg_z_quarters(pose.rotation_xyzw)
-        return self.get_bounding_box().rotated_90_around_z(quarters).translated(pose.position_xyz)
+        box = self.get_bounding_box()
+        world_position = self.get_initial_pose().position_xyz
+        parent_pose = self.parent_asset.initial_pose
+        if parent_pose is None:
+            return box.translated(world_position)
+        quarters = quaternion_to_90_deg_z_quarters(parent_pose.rotation_xyzw)
+        return box.rotated_90_around_z(quarters).translated(world_position)
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         # NOTE(alexmillane): Right now this requires that the object
@@ -150,9 +157,8 @@ class ObjectReference(ObjectBase):
             )
             return Pose(position_xyz=scaled_pos, rotation_xyzw=prim_pose.rotation_xyzw)
 
-    def isaaclab_prim_path_to_original_prim_path(
-        self, isaaclab_prim_path: str, parent_asset: Asset, stage: Usd.Stage
-    ) -> str:
+    @staticmethod
+    def isaaclab_prim_path_to_original_prim_path(isaaclab_prim_path: str, parent_asset: Asset, stage: Usd.Stage) -> str:
         """Convert an IsaacLab prim path to the prim path in the original USD stage.
 
         Two steps to getting the original prim path from the IsaacLab prim path.
@@ -162,6 +168,8 @@ class ObjectReference(ObjectBase):
 
         Args:
             isaaclab_prim_path: The IsaacLab prim path.
+            parent_asset: The asset the prim belongs to; its name is stripped from the path.
+            stage: The parent asset's opened USD stage, used to resolve the default prim.
 
         Returns:
             The prim path in the original USD stage.
