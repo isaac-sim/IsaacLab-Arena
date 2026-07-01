@@ -45,9 +45,9 @@ class RelationSolverState:
                 ObjectPlacer always supplies these for placement solves. Direct
                 solver/debug calls may omit them to use each object's default
                 get_bounding_box().
-            collision_objects: Fixed background obstacles that participate in no-overlap
-                collision only (never in relation constraints). They keep a constant world
-                bounding box and are not optimized. Must be disjoint from objects.
+            collision_objects: Optional fixed background obstacles that participate in
+                no-overlap collision only (never in relation constraints). They keep a
+                constant world bounding box and are not optimized. Must be disjoint from objects.
         """
         assert len(initial_positions) >= 1, "initial_positions must contain at least one dict."
         anchor_objects = get_anchor_objects(objects)

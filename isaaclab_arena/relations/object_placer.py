@@ -118,8 +118,8 @@ class ObjectPlacer:
                 marked with IsAnchor() which serves as a fixed reference.
             num_envs: Number of environments. 1 for single-env; > 1 for batched
                 placement (one layout per env).
-            collision_objects: Fixed background obstacles avoided during placement but
-                never optimized or relation-constrained.
+            collision_objects: Optional fixed background obstacles avoided during
+                placement but never optimized or relation-constrained.
 
         Returns:
             One PlacementResult per environment.
@@ -169,8 +169,8 @@ class ObjectPlacer:
         sorted with valid lower-loss layouts first.
 
         Args:
-            collision_objects: Fixed background obstacles avoided during placement but
-                never optimized or relation-constrained.
+            collision_objects: Optional fixed background obstacles avoided during
+                placement but never optimized or relation-constrained.
         """
         collision_objects = collision_objects or []
         assert results_per_env > 0, f"results_per_env must be positive, got {results_per_env}"
