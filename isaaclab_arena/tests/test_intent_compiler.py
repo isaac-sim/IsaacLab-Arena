@@ -395,11 +395,28 @@ def test_task_param_already_node_id_preserved_without_resolve_trace():
         "pick_up_object": "bowl",
         "destination_location": "bowl",
         "background_scene": "maple_table",
+        # Compiler injects the default episode time limit when the agent omits it.
+        "episode_length_s": 20.0,
     }
     stages = [e.stage for e in compiler.trace]
     assert "task.resolved_param" not in stages
     assert "task.unknown_param" not in stages
     assert compiler.has_resolution_errors is False
+
+
+def test_episode_length_s_default_injected_when_omitted():
+    # When the agent does not provide episode_length_s, the compiler fills in the default so the
+    # generated task params carry it explicitly (matching the robolab env graphs).
+    items = [Item(query="bowl", category_tags=["bowl"])]
+    tasks = [
+        TaskSpec(
+            kind="PickAndPlaceTask",
+            params={"pick_up_object": "bowl", "destination_location": "bowl", "background_scene": "maple_table"},
+            description="d",
+        )
+    ]
+    spec = _make_compiler().compile(_make_scene(items=items, tasks=tasks))
+    assert spec.tasks[0].params["episode_length_s"] == 20.0
 
 
 def test_non_string_task_param_passed_through_untouched():
