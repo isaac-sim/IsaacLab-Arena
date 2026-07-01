@@ -11,7 +11,7 @@ from dataclasses import field
 from pathlib import Path
 
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg

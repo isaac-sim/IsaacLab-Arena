@@ -8,8 +8,20 @@ from __future__ import annotations
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
 from isaaclab.sim import RenderCfg, SimulationCfg
-from isaaclab.utils import configclass
-from isaaclab_newton.physics.newton_manager_cfg import MJWarpSolverCfg, NewtonCfg
+
+# Import the decorator directly. With the public Isaac Lab wheel,
+# `from isaaclab.utils import configclass` can bind the configclass *submodule*
+# (not the decorator) once isaaclab.envs.mimic_env_cfg or isaaclab_newton has
+# been imported first, making @configclass fail. The direct import is order-safe.
+from isaaclab.utils.configclass import configclass
+
+try:
+    # Isaac Lab 3.0 (public 3.0.0b2 wheel) houses the MuJoCo-Warp solver cfg here.
+    from isaaclab_newton.physics.mjwarp_manager_cfg import MJWarpSolverCfg
+except ImportError:
+    # Older Isaac Lab (the `arena` branch) keeps it in newton_manager_cfg.
+    from isaaclab_newton.physics.newton_manager_cfg import MJWarpSolverCfg
+from isaaclab_newton.physics.newton_manager_cfg import NewtonCfg
 from isaaclab_physx.physics import PhysxCfg
 from isaaclab_tasks.utils import PresetCfg
 
