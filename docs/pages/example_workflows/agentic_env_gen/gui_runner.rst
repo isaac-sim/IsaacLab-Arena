@@ -44,7 +44,7 @@ Generate from prompt
 YAML editor
    Edit the generated or loaded ``ArenaEnvInitialGraphSpec`` directly. The editor
    validates the YAML as you work and shows either a valid-spec summary or the
-   parse/validation error. The ``Save`` button writes both the initial YAML and
+   parse/validation error. The ``Save YAML`` button writes both the initial YAML and
    the linked graph YAML to the configured output directory.
 
 Visualization
@@ -70,8 +70,8 @@ The main update flow is:
    is compiled into an ``ArenaEnvInitialGraphSpec``. The generated YAML is loaded
    into the editor and saved as initial and linked specs.
 #. The user can manually edit the YAML in the editor. Once the edited YAML
-   passes validation, click ``Save`` to write it to the output directory.
-#. The spec is saved to ``<env_name>_initial.yaml`` and ``<env_name>_linked.yaml``
+   passes validation, click ``Save`` to write it to the output directory. The
+   spec is saved to ``<env_name>_initial.yaml`` and ``<env_name>_linked.yaml``
    under the selected output directory. Use ``Change output directory`` to choose
    a different output location. The filename is derived from ``env_name`` and can
    be changed by editing ``env_name`` in the YAML editor.
