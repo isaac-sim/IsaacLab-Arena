@@ -52,7 +52,8 @@ nodes:
 - id: wooden_bowl
   name: wooden_bowl_hot3d_robolab
   type: object
-  params: {}
+  params:
+    scale: [0.5, 0.5, 0.5]
 - id: yogurt_cup
   name: yogurt_cup_hope_robolab
   type: object

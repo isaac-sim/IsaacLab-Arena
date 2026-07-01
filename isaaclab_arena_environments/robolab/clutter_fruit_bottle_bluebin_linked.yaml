@@ -16,7 +16,8 @@ nodes:
 - id: pumpkin_large
   name: pumpkinlarge_vomp_robolab
   type: object
-  params: {}
+  params:
+    scale: [1.25, 1.25, 1.25]
 - id: pumpkin_small
   name: pumpkinsmall_vomp_robolab
   type: object
