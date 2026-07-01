@@ -26,7 +26,7 @@ def solve_and_apply_relation_placement(
     placement_seed: int | None = None,
     resolve_on_reset: bool | None = None,
     random_yaw_init: bool = False,
-    collision_objects: list[ObjectBase] | None = None,
+    collision_objects: list[ObjectBase] = [],
 ) -> EventTermCfg | None:
     """Solve relation placement and apply the result to object reset/static state.
 

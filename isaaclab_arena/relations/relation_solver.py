@@ -253,7 +253,7 @@ class RelationSolver:
         objects: list[ObjectBase],
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]],
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
-        collision_objects: list[ObjectBase] | None = None,
+        collision_objects: list[ObjectBase] = [],
     ) -> list[dict[ObjectBase, tuple[float, float, float]]]:
         """Solve for optimal positions of all objects.
 
@@ -266,9 +266,9 @@ class RelationSolver:
                 ObjectPlacer always supplies these, with each
                 AxisAlignedBoundingBox shaped (batch, 3). Direct solver calls
                 may omit them to use each object's default get_bounding_box().
-            collision_objects: Optional fixed background obstacles included in the
-                no-overlap collision term only. They are not optimized and carry no
-                relation constraints.
+            collision_objects: Fixed background obstacles included in the no-overlap
+                collision term only. They are not optimized and carry no relation
+                constraints.
 
         Returns:
             List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
