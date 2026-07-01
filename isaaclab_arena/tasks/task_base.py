@@ -17,9 +17,8 @@ from isaaclab_arena.tasks.task_transition import TaskTransition
 
 class TaskBase(ABC):
 
-    def __init__(self, episode_length_s: float | None = None, task_description: str | None = None):
-        # Default to 20s when unset.
-        self.episode_length_s = episode_length_s if episode_length_s is not None else 20.0
+    def __init__(self, episode_length_s: float = 20.0, task_description: str | None = None):
+        self.episode_length_s = episode_length_s
         self.task_description = task_description
 
     @abstractmethod
