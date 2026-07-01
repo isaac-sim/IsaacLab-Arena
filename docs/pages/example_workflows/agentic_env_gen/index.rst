@@ -10,6 +10,10 @@ variation system, and policy-specific evaluation flows such as GR00T and PI.
 Behind the scenes, this workflow introduces the intent spec, environment graph
 spec, and environment graph linking.
 
+**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
+
+:docker_run_default:
+
 .. todo:: add concept overview page
 
 
@@ -21,7 +25,7 @@ specs:
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+   python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
       --mode resolve \
       --prompt "Droid picks up the mustard bottle from the maple table and places it in the grey bin."
 
@@ -41,7 +45,7 @@ prompt-specified environment:
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+   python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
       --mode full \
       --prompt "Droid picks up the mustard bottle from the maple table and places it in the grey bin."
 
@@ -53,7 +57,7 @@ generate, edit, and visualize the prompt-specified environment in a web browser:
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/gui_runner.py
+   python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py
 
 .. note::
 
@@ -93,7 +97,7 @@ Generated environments are consumed through ``--env_graph_spec_yaml``:
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh isaaclab_arena_examples/policy_runner.py \
+   python isaaclab_arena_examples/policy_runner.py \
       --viz kit \
       --policy_type zero_action \
       --enable_cameras \
@@ -104,7 +108,7 @@ The same YAML can also be built directly by the generation runner:
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+   python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
       --mode build \
       --linked_env_graph_spec_yaml isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml \
       --headless
@@ -118,7 +122,7 @@ with variations through the policy runner:
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+   python isaaclab_arena/evaluation/policy_runner.py \
       --viz kit \
       --policy_type zero_action \
       --enable_cameras \
