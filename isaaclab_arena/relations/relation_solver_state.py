@@ -31,7 +31,7 @@ class RelationSolverState:
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]],
         device: torch.device | None = None,
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
-        collision_objects: list[ObjectBase] = [],
+        collision_objects: list[ObjectBase] | None = None,
     ):
         """Initialize optimization state.
 
@@ -45,9 +45,9 @@ class RelationSolverState:
                 ObjectPlacer always supplies these for placement solves. Direct
                 solver/debug calls may omit them to use each object's default
                 get_bounding_box().
-            collision_objects: Fixed background obstacles that participate in no-overlap
-                collision only (never in relation constraints). They keep a constant world
-                bounding box and are not optimized. Must be disjoint from objects.
+            collision_objects: Optional fixed background obstacles that participate in
+                no-overlap collision only (never in relation constraints). They keep a
+                constant world bounding box and are not optimized. Must be disjoint from objects.
         """
         assert len(initial_positions) >= 1, "initial_positions must contain at least one dict."
         anchor_objects = get_anchor_objects(objects)
@@ -56,7 +56,7 @@ class RelationSolverState:
         self._all_objects = objects
         self._anchor_objects: set[ObjectBase] = set(anchor_objects)
         self._optimizable_objects = [obj for obj in objects if obj not in self._anchor_objects]
-        self._collision_objects: list[ObjectBase] = list(collision_objects)
+        self._collision_objects: list[ObjectBase] = list(collision_objects) if collision_objects else []
         assert not (set(self._collision_objects) & set(objects)), (
             "collision_objects must be disjoint from placed objects; an object cannot be "
             "both optimized and a fixed collision obstacle."

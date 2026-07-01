@@ -81,7 +81,7 @@ class ObjectPlacer:
         self,
         objects: list[ObjectBase],
         num_envs: int = 1,
-        collision_objects: list[ObjectBase] = [],
+        collision_objects: list[ObjectBase] | None = None,
     ) -> list[PlacementResult]:
         """Place objects according to their spatial relations.
 
@@ -95,8 +95,8 @@ class ObjectPlacer:
                 marked with IsAnchor() which serves as a fixed reference.
             num_envs: Number of environments. 1 for single-env; > 1 for batched
                 placement (one layout per env).
-            collision_objects: Fixed background obstacles avoided during placement but
-                never optimized or relation-constrained.
+            collision_objects: Optional fixed background obstacles avoided during
+                placement but never optimized or relation-constrained.
 
         Returns:
             One PlacementResult per environment.
@@ -136,7 +136,7 @@ class ObjectPlacer:
         objects: list[ObjectBase],
         num_envs: int,
         results_per_env: int,
-        collision_objects: list[ObjectBase] = [],
+        collision_objects: list[ObjectBase] | None = None,
     ) -> list[list[PlacementResult]]:
         """Return ranked placement candidates per env.
 
@@ -147,8 +147,8 @@ class ObjectPlacer:
         sorted with valid lower-loss layouts first.
 
         Args:
-            collision_objects: Fixed background obstacles avoided during placement but
-                never optimized or relation-constrained.
+            collision_objects: Optional fixed background obstacles avoided during
+                placement but never optimized or relation-constrained.
         """
         assert results_per_env > 0, f"results_per_env must be positive, got {results_per_env}"
         anchor_objects_set, generator = self._prepare_placement(objects)
@@ -204,7 +204,7 @@ class ObjectPlacer:
         candidates_per_env: int,
         attempts_per_result: int,
         generator: torch.Generator | None,
-        collision_objects: list[ObjectBase] = [],
+        collision_objects: list[ObjectBase] | None = None,
     ) -> list[list[PlacementResult]]:
         """Solve and rank placement candidates per environment.
 
@@ -609,7 +609,7 @@ class ObjectPlacer:
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
-        collision_objects: list[ObjectBase] = [],
+        collision_objects: list[ObjectBase] | None = None,
     ) -> bool:
         """Validate that no two objects overlap in 3D (axis-aligned bbox with margin).
 
@@ -624,6 +624,7 @@ class ObjectPlacer:
             env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
             collision_objects: Fixed background obstacles to test placed objects against.
         """
+        collision_objects = collision_objects or []
         on_pairs: set[tuple] = set()
         anchor_ids: set[int] = set()
         for obj in positions:
@@ -758,7 +759,7 @@ class ObjectPlacer:
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
-        collision_objects: list[ObjectBase] = [],
+        collision_objects: list[ObjectBase] | None = None,
     ) -> PlacementValidationResults:
         """Validate that no two objects overlap in 3D and On / NextTo / NotNextTo relations are satisfied.
 
