@@ -54,7 +54,7 @@
     <link rel="icon" href="../../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="Evaluate with GR00T" href="eval_with_gr00t.html" />
+    <link rel="next" title="Agentic Environment Generation GUI" href="gui_runner.html" />
     <link rel="prev" title="Evaluation in Arena" href="../dexsuite_lift/step_3_evaluation.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -398,6 +398,7 @@
 </ul>
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">Agentic Environment Generation and Policy Evaluation</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="gui_runner.html">Agentic Environment Generation GUI</a></li>
 <li class="toctree-l2"><a class="reference internal" href="eval_with_gr00t.html">Evaluate with GR00T</a></li>
 <li class="toctree-l2"><a class="reference internal" href="eval_with_openpi.html">Evaluate with OpenPI</a></li>
 </ul>
@@ -503,6 +504,10 @@ used by the policy runner, the sequential batch evaluation runner with the
 variation system, and policy-specific evaluation flows such as GR00T and PI.</p>
 <p>Behind the scenes, this workflow introduces the intent spec, environment graph
 spec, and environment graph linking.</p>
+<p><strong>Docker Container</strong>: Base (see <a class="reference internal" href="../../quickstart/installation.html"><span class="doc">Installation</span></a> for more details)</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
+</pre></div>
+</div>
 <div class="admonition-todo admonition" id="id1">
 <p class="admonition-title">Todo</p>
 <p>add concept overview page</p>
@@ -511,7 +516,7 @@ spec, and environment graph linking.</p>
 <h2>Prompt to Environment Graph Spec<a class="headerlink" href="#prompt-to-environment-graph-spec" title="Link to this heading">#</a></h2>
 <p>Use the agentic generation runner to resolve a prompt into environment graph
 specs:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/isaac-sim/python.sh<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--mode<span class="w"> </span>resolve<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--prompt<span class="w"> </span><span class="s2">&quot;Droid picks up the mustard bottle from the maple table and places it in the grey bin.&quot;</span>
 </pre></div>
@@ -526,30 +531,55 @@ default:</p>
 </section>
 <section id="prompt-to-simulation-environment">
 <h2>Prompt to Simulation Environment<a class="headerlink" href="#prompt-to-simulation-environment" title="Link to this heading">#</a></h2>
-<blockquote>
-<div><p>Use the agentic generation runner to build a simulation environment from prompt-specified environment:</p>
-</div></blockquote>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/isaac-sim/python.sh<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py<span class="w"> </span><span class="se">\</span>
+<p>Use the agentic generation runner to build a simulation environment from a
+prompt-specified environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--mode<span class="w"> </span>full<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--prompt<span class="w"> </span><span class="s2">&quot;Droid picks up the mustard bottle from the maple table and places it in the grey bin.&quot;</span>
 </pre></div>
 </div>
 </section>
+<section id="interactive-gui-runner">
+<h2>Interactive GUI Runner<a class="headerlink" href="#interactive-gui-runner" title="Link to this heading">#</a></h2>
+<p>As an alternative to the CLI runner, use the GUI runner to interactively
+generate, edit, and visualize the prompt-specified environment in a web browser:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/gui_runner.py
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Agent-generated specs may have missing or incorrect fields. We recommend
+using the interactive GUI to manually fix and validate each spec before using
+it for full evaluation.</p>
+<p>For example:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml</span></code>
+manually adds a <code class="docutils literal notranslate"><span class="pre">rotate_around_solution</span></code> relation to set the raisin box
+in a standup position.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab/two_bin_linked.yaml</span></code> manually edits
+the <code class="docutils literal notranslate"><span class="pre">next_to</span></code> relation <code class="docutils literal notranslate"><span class="pre">side</span></code> param to set the correct left/right
+positioning in robot coordinates.</p></li>
+</ul>
+</div>
+<p>See <a class="reference internal" href="gui_runner.html"><span class="doc">Agentic Environment Generation GUI</span></a> for the full UI walkthrough.</p>
+</section>
 <section id="available-generated-specs">
 <h2>Available Generated Specs<a class="headerlink" href="#available-generated-specs" title="Link to this heading">#</a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">robolab</span></code> subfolder contains example environment graph specs that can be used
-directly with policy and evaluation commands:</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">robolab</span></code> subfolder contains example environment graph specs that can be
+used directly with policy and evaluation commands:</p>
 <ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab/bagel_plate_banana_bowl_linked.yaml</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab/bin_mug_marker_bowl_linked.yaml</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab/butter_raisin_box_grey_bin_linked.yaml</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab/bagel_plate_banana_bowl_linked.yaml</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab/tools_container_linked.yaml</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab/two_bin_linked.yaml</span></code></p></li>
 </ul>
 </section>
 <section id="run-a-generated-environment">
 <h2>Run a Generated Environment<a class="headerlink" href="#run-a-generated-environment" title="Link to this heading">#</a></h2>
 <p>Generated environments are consumed through <code class="docutils literal notranslate"><span class="pre">--env_graph_spec_yaml</span></code>:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/isaac-sim/python.sh<span class="w"> </span>-m<span class="w"> </span>isaaclab_arena_examples.policy_runner<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
@@ -558,7 +588,7 @@ directly with policy and evaluation commands:</p>
 </pre></div>
 </div>
 <p>The same YAML can also be built directly by the generation runner:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/isaac-sim/python.sh<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--mode<span class="w"> </span>build<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--linked_env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--headless
@@ -566,10 +596,9 @@ directly with policy and evaluation commands:</p>
 </div>
 <section id="policy-runner-with-variations">
 <h3>Policy Runner with Variations<a class="headerlink" href="#policy-runner-with-variations" title="Link to this heading">#</a></h3>
-<p>See for more details on variations.</p>
 <p>An Arena environment represented by an environment graph spec YAML can be run
 with variations through the policy runner:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/isaac-sim/python.sh<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
@@ -578,6 +607,14 @@ with variations through the policy runner:</p>
 <span class="w">   </span>droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled<span class="o">=</span><span class="nb">true</span>
 </pre></div>
 </div>
+<figure class="align-default" id="id2">
+<img alt="Agentic environment generation with PI policy and HDR variation sensitivity analysis" src="../../../_images/agentic_env_gen_policy.gif" />
+<figcaption>
+<p><span class="caption-text">Agentically generated environments can be evaluated with policy runners and
+variation sweeps, such as changing the background HDR image to probe policy
+sensitivity.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
 </section>
 <section id="sequential-batch-evaluation-runner-with-variations">
 <h3>Sequential Batch Evaluation Runner with Variations<a class="headerlink" href="#sequential-batch-evaluation-runner-with-variations" title="Link to this heading">#</a></h3>
@@ -610,14 +647,19 @@ with variations, instead of a registered example-environment name:</p>
 </section>
 <section id="warnings">
 <h2>Warnings<a class="headerlink" href="#warnings" title="Link to this heading">#</a></h2>
-<p>This is an active development area, and we are working on the following:</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Agentic environment generation is experimental and changing quickly. The
+current prompt formats, generated spec structure, GUI behavior, and policy
+evaluation integrations may change across releases.</p>
+<p>We are actively working on:</p>
 <ul class="simple">
 <li><p>Support for more complex scene layouts and object placements.</p></li>
 <li><p>Support for more complex task specifications.</p></li>
-<li><p>Support for interactive environment editing.</p></li>
 <li><p>Support in-sim validation for physics and reachability.</p></li>
 <li><p>…</p></li>
 </ul>
+</div>
 </section>
 </section>
 
@@ -641,11 +683,11 @@ with variations, instead of a registered example-environment name:</p>
       </div>
     </a>
     <a class="right-next"
-       href="eval_with_gr00t.html"
+       href="gui_runner.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Evaluate with GR00T</p>
+        <p class="prev-next-title">Agentic Environment Generation GUI</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -672,6 +714,7 @@ with variations, instead of a registered example-environment name:</p>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prompt-to-environment-graph-spec">Prompt to Environment Graph Spec</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prompt-to-simulation-environment">Prompt to Simulation Environment</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#interactive-gui-runner">Interactive GUI Runner</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#available-generated-specs">Available Generated Specs</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-a-generated-environment">Run a Generated Environment</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#policy-runner-with-variations">Policy Runner with Variations</a></li>
