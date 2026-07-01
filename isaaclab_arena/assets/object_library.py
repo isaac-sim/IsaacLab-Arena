@@ -677,6 +677,15 @@ class GreenContainer(LibraryObject):
 
 
 @register_asset
+class PurpleCrate(LibraryObject):
+    """A purple KLT container."""
+
+    name = "purple_crate"
+    tags = ["object", "container"]
+    usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/KLT_Bin/small_KLT.usd"
+
+
+@register_asset
 class BlueBlockBasicRobolab(LibraryObject):
     # TODO(cvolk): pick_and_place success termination does not consistently trigger
     # with this asset even when the block is placed in the destination.
