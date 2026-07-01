@@ -17,6 +17,7 @@ from openpi_client import websocket_client_policy
 
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_openpi.policy.pi0_remote_config import DEFAULT_VARIANT, MAX_RECONNECT_ATTEMPTS, Pi0RemotePolicyArgs
+from isaaclab_arena_openpi.policy.websocket_client import WebsocketClientPolicy
 
 
 class Pi0EmbodimentAdapter(ABC):
@@ -77,10 +78,17 @@ class Pi0RemotePolicy(PolicyBase):
 
         self._remote_host = config.remote_host
         self._remote_port = config.remote_port
+        self._ping_interval = config.ping_interval
+        self._ping_timeout = config.ping_timeout
 
         print(f"[Pi0RemotePolicy] Connecting to openpi server at {self._remote_host}:{self._remote_port} ...")
-        self._websocket_client = websocket_client_policy.WebsocketClientPolicy(
-            host=self._remote_host, port=self._remote_port
+        # Use our WebsocketClientPolicy override instead of openpi's, so we can set the keepalive
+        # ping interval/timeout (upstream's client does not expose them).
+        self._websocket_client = WebsocketClientPolicy(
+            host=self._remote_host,
+            port=self._remote_port,
+            ping_interval=self._ping_interval,
+            ping_timeout=self._ping_timeout,
         )
         print("[Pi0RemotePolicy] Connected.")
 
@@ -121,6 +129,18 @@ class Pi0RemotePolicy(PolicyBase):
         )
         group.add_argument("--remote_host", type=str, default="localhost", help="openpi server host.")
         group.add_argument("--remote_port", type=int, default=8000, help="openpi server port.")
+        group.add_argument(
+            "--ping_interval",
+            type=float,
+            default=20.0,
+            help="Seconds between websocket keepalive pings.",
+        )
+        group.add_argument(
+            "--ping_timeout",
+            type=float,
+            default=20.0,
+            help="Seconds to wait for a keepalive pong before dropping the connection.",
+        )
         return parser
 
     @staticmethod
@@ -132,6 +152,8 @@ class Pi0RemotePolicy(PolicyBase):
                 policy_device=args.policy_device,
                 remote_host=args.remote_host,
                 remote_port=args.remote_port,
+                ping_interval=args.ping_interval,
+                ping_timeout=args.ping_timeout,
             ),
             openpi_embodiment_adapter=openpi_embodiment_adapter,
         )
@@ -240,8 +262,11 @@ class Pi0RemotePolicy(PolicyBase):
                     f" (attempt {attempt_index + 1}/{MAX_RECONNECT_ATTEMPTS - 1}) ..."
                 )
                 _close_websocket_best_effort(self._websocket_client)
-                self._websocket_client = websocket_client_policy.WebsocketClientPolicy(
-                    host=self._remote_host, port=self._remote_port
+                self._websocket_client = WebsocketClientPolicy(
+                    host=self._remote_host,
+                    port=self._remote_port,
+                    ping_interval=self._ping_interval,
+                    ping_timeout=self._ping_timeout,
                 )
                 # Flush every env's cache: the reconnected server may have lost
                 # state, so we force a fresh observation on the next get_action

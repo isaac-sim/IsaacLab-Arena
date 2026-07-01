@@ -5,6 +5,7 @@
 
 """GR00T inference-server task for OSMO eval workflows, used by the GR00T policy-runner task."""
 
+import argparse
 from typing import Any
 
 from tasks.base_task import BaseTask
@@ -44,17 +45,26 @@ class Gr00tServerTask(BaseTask):
 
     def __init__(
         self,
-        workflow_type: Any,
         workflow_args: Any,
         task_args: Any,
         image: str = DEFAULT_IMAGE,
         lead: bool | None = None,
     ) -> None:
-        super().__init__(workflow_type=workflow_type, workflow_args=workflow_args, task_args=task_args, lead=lead)
+        super().__init__(workflow_args=workflow_args, task_args=task_args, lead=lead)
         self.docker_image = getattr(task_args, "gr00t_server_image", image)
-        self.model_path = getattr(task_args, "gr00t_model_path", DEFAULT_MODEL_PATH)
-        self.embodiment_tag = getattr(task_args, "gr00t_embodiment_tag", DEFAULT_EMBODIMENT_TAG)
-        self.server_port = getattr(task_args, "server_port", DEFAULT_SERVER_PORT)
+        self.model_path = task_args.gr00t_model_path
+        self.embodiment_tag = task_args.gr00t_embodiment_tag
+        self.server_port = task_args.server_port
+
+    @staticmethod
+    def add_task_arguments(parser: argparse.ArgumentParser) -> None:
+        group = parser.add_argument_group("gr00t server")
+        group.add_argument("--gr00t_server_image", default=DEFAULT_IMAGE, help="Override the GR00T server image")
+        group.add_argument("--gr00t_model_path", default=DEFAULT_MODEL_PATH, help="Model path for the GR00T policy")
+        group.add_argument(
+            "--gr00t_embodiment_tag", default=DEFAULT_EMBODIMENT_TAG, help="Embodiment tag for the GR00T policy"
+        )
+        group.add_argument("--server_port", type=int, default=DEFAULT_SERVER_PORT, help="GR00T server port")
 
     @staticmethod
     def get_task_name() -> str:

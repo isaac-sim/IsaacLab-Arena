@@ -22,3 +22,9 @@ class Pi0RemotePolicyArgs:
     policy_device: str = "cuda"
     remote_host: str = "localhost"
     remote_port: int = 8000
+
+    ping_interval: float | None = 20.0
+    """Seconds between websocket keepalive pings, or None to disable pings."""
+
+    ping_timeout: float | None = 20.0
+    """Seconds to wait for a keepalive pong before dropping, or None to wait indefinitely."""

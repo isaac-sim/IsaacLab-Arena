@@ -10,11 +10,11 @@ GR00T server that shares its OSMO group. Mirrors the eval side of the
 ``test_gr00t_closedloop_e2e`` CI job in ``.github/workflows/ci.yml``.
 """
 
+import argparse
 from typing import Any
 
-from tasks.gr00t_server_task import DEFAULT_SERVER_PORT, GR00T_SERVER_HOST_TOKEN, get_wait_for_server_script
-from tasks.policy_runner_task import POLICY_RUNNER_COMMAND, PolicyRunnerTask
-from workflows.utils.workflow_types import WorkflowType
+from tasks.gr00t_server_task import GR00T_SERVER_HOST_TOKEN, get_wait_for_server_script
+from tasks.policy_runner_task import POLICY_RUNNER_COMMAND, PolicyRunnerTask, _normalize_args
 from workflows.workflow_constants import EVAL_OUTPUT_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 
 # Arena image name
@@ -40,31 +40,56 @@ DEFAULT_ENV_VARIATIONS = (
 class Gr00tPolicyRunnerTask(PolicyRunnerTask):
     """OSMO task that evaluates the GR00T remote policy via a connection to the GR00T server."""
 
-    SUPPORTED_WORKFLOW_TYPE = WorkflowType.GR00T_POLICY_RUNNER
-
     def __init__(
         self,
-        workflow_type: Any,
         workflow_args: Any,
         task_args: Any,
         image: str = DEFAULT_IMAGE,
         lead: bool | None = None,
     ) -> None:
-
-        super().__init__(workflow_type, workflow_args, task_args, image=image, lead=lead)
-        self.policy_config_yaml_path = getattr(task_args, "policy_config_yaml_path", DEFAULT_POLICY_CONFIG)
+        super().__init__(workflow_args, task_args, image=image, lead=lead)
+        self.image = getattr(task_args, "arena_image", image)
+        self.policy_config_yaml_path = task_args.policy_config_yaml_path
+        self.env_variations = _normalize_args(task_args.env_variations) if task_args.env_variations else None
 
         # Tasks in an OSMO group each get their own IP (no shared loopback), so the server is reached
         # via the {{host:<task-name>}} token, which OSMO resolves to the server task's IP at runtime.
-        self.remote_host = getattr(task_args, "remote_host", GR00T_SERVER_HOST_TOKEN)
-        self.remote_port = getattr(task_args, "server_port", DEFAULT_SERVER_PORT)
+        self.remote_host = task_args.remote_host
+        self.remote_port = task_args.server_port
 
-    def _resolve_policy_type(self) -> str:
-        # Fixed to GR00T as it requires a remote server connection.
-        return GR00T_POLICY_TYPE
-
-    def _resolve_policy_runner_args(self) -> str:
-        return getattr(self.task_args, "policy_runner_args", DEFAULT_POLICY_RUNNER_ARGS)
+    @staticmethod
+    def add_task_arguments(parser: argparse.ArgumentParser) -> None:
+        group = parser.add_argument_group("gr00t policy runner")
+        group.add_argument("--arena_image", default=DEFAULT_IMAGE, help="Override the Arena dev image")
+        group.add_argument(
+            "--policy_config_yaml_path", default=DEFAULT_POLICY_CONFIG, help="GR00T closed-loop config YAML"
+        )
+        group.add_argument(
+            "--arena_env_args",
+            default=DEFAULT_ENV_GRAPH_SPEC_YAML,
+            help=(
+                "Graph-spec YAML path or example-env name, plus args, e.g. 'kitchen_pick_and_place --object"
+                " cracker_box'"
+            ),
+        )
+        group.add_argument(
+            "--env_variations",
+            default=DEFAULT_ENV_VARIATIONS,
+            help="Hydra-style variation overrides for the env",
+        )
+        group.add_argument(
+            "--remote_host",
+            default=GR00T_SERVER_HOST_TOKEN,
+            help="GR00T server host (defaults to the {{host:gr00t_server}}) name",
+        )
+        group.add_argument(
+            "--policy_runner_args",
+            default=DEFAULT_POLICY_RUNNER_ARGS,
+            help=(
+                "Policy-runner related arguments, e.g. '--num_episodes, --headless, --enable_cameras, --num_envs,"
+                " --record_camera_video'"
+            ),
+        )
 
     @staticmethod
     def get_task_name() -> str:
@@ -76,6 +101,18 @@ class Gr00tPolicyRunnerTask(PolicyRunnerTask):
     def _get_outputs(self) -> list[dict[str, Any]]:
         # Evaluation outputs (videos, per-episode results, report) are uploaded per run.
         return [{"url": EVAL_OUTPUT_SWIFT_URL}]
+
+    def _get_policy_args(self) -> list[str]:
+        return [
+            "--policy_type",
+            GR00T_POLICY_TYPE,
+            "--policy_config_yaml_path",
+            self.policy_config_yaml_path,
+            "--remote_host",
+            self.remote_host,
+            "--remote_port",
+            str(self.remote_port),
+        ]
 
     def _get_run_script(self) -> str:
         return (
@@ -91,14 +128,34 @@ class Gr00tPolicyRunnerTask(PolicyRunnerTask):
         )
 
     def _get_policy_runner_command(self) -> str:
+        policy_args_str = " ".join(self._get_policy_args())
         return (
-            f"{POLICY_RUNNER_COMMAND} \\\n"
-            f"  --policy_type {self.policy_type} \\\n"
-            f"  --policy_config_yaml_path {self.policy_config_yaml_path} \\\n"
-            f"  --remote_host {self.remote_host} \\\n"
-            f"  --remote_port {self.remote_port} \\\n"
-            f"  {self.policy_runner_args} \\\n"
+            f"{POLICY_RUNNER_COMMAND} "
+            f"{policy_args_str} "
             # Write evaluation outputs to the OSMO task output mount (uploaded to EVAL_OUTPUT_SWIFT_URL).
-            f"  --output_base_dir {OSMO_TASK_OUTPUT_DIR} \\\n"
-            f"  {self._get_env_spec_args()}"
+            f"--output_base_dir {OSMO_TASK_OUTPUT_DIR} "
+            f"{self.policy_runner_args} "
+            f"{self._get_env_spec_args()}"
         )
+
+    def _get_env_spec_args(self) -> str:
+        """Render the env source: a graph-spec YAML or example-env name, plus any args and variation overrides."""
+        env_graph_spec_yaml, arena_env_args = self._resolve_env_source()
+        if env_graph_spec_yaml is not None:
+            spec = f"--env_graph_spec_yaml {env_graph_spec_yaml}"
+            if arena_env_args:
+                spec = f"{spec} {arena_env_args}"
+        else:
+            spec = arena_env_args
+        return f"{spec} {self.env_variations}" if self.env_variations else spec
+
+    def _resolve_env_source(self) -> tuple[str | None, str | None]:
+        """Split ``arena_env_args`` into ``(env_graph_spec_yaml, args)``.
+
+        When the first token ends in ``.yaml``/``.yml`` it is a graph-spec YAML path and the rest are
+        its args; otherwise the whole value is a registered example-environment name and its args.
+        """
+        name, _, args = self.arena_env_args.partition(" ")
+        if name.endswith((".yaml", ".yml")):
+            return name, (args or None)
+        return None, self.arena_env_args

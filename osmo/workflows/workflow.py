@@ -20,53 +20,90 @@ from pathlib import Path
 from typing import Any
 
 from tasks.base_task import BaseTask
-from workflows.utils.workflow_types import WorkflowType
 from workflows.utils.yaml_utils import block_literal_str  # noqa: F401  (registers representer)
 
 
 class Workflow:
     """Builds, renders, and submits an Arena OSMO workflow."""
 
+    task_cls_list: list[type[BaseTask]] = []
+    """Task classes that make up this workflow, in group order. Subclasses must set this."""
+
+    lead_list: list[bool] | None = None
+    """Per-task lead flags; ``None`` lets a single-task workflow default its task to lead."""
+
     def __init__(
         self,
-        workflow_type: WorkflowType,
         workflow_args: argparse.Namespace,
-        task_cls_list: list[type[BaseTask]],
-        task_args_list: list[argparse.Namespace],
-        lead_list: list[bool | None] | None = None,
+        task_args: argparse.Namespace,
         group_name: str = "arena",
     ) -> None:
-        assert len(task_cls_list) > 0, "Workflow requires at least one task"
-        assert len(task_cls_list) == len(task_args_list), "Each task requires one task args object"
-        if lead_list is None:
-            lead_list = [None] * len(task_cls_list)
-        assert len(lead_list) == len(task_cls_list), "Each task requires one lead flag"
-        self.workflow_type = workflow_type
+        assert len(self.task_cls_list) > 0, "Workflow subclasses must set task_cls_list"
         self.workflow_args = workflow_args
-        self.task_cls_list = task_cls_list
-        self.task_args_list = task_args_list
-        self.lead_list = self._resolve_lead_flags(lead_list)
+        self.task_args = task_args
+        # Single-task workflows may leave lead_list unset; that task defaults to lead.
+        self.lead_flags = self.lead_list if self.lead_list is not None else [True]
+        self._assert_single_lead_task(self.lead_flags, len(self.task_cls_list))
         self.group_name = group_name
 
-    @staticmethod
-    def _resolve_lead_flags(lead_list: list[bool | None]) -> list[bool]:
-        """Resolve per-task lead flags.
+    @classmethod
+    def build_parser(cls, description: str, epilog: str | None = None) -> argparse.ArgumentParser:
+        """Build an argument parser populated with this workflow's task args and the common args.
 
-        Single-task workflows default the unspecified task to lead. Multi-task workflows require the
-        user to designate at least one task as lead and treat unspecified tasks as non-lead.
+        Each task class contributes the arguments it reads, deduplicated across the task list.
 
         Args:
-            lead_list: Per-task lead flags, where ``None`` means the task did not specify one.
+            description: Parser description shown in ``--help``.
+            epilog: Optional epilog text, e.g. the submit script's usage examples.
 
         Returns:
-            The resolved lead flag for each task.
+            The configured argument parser.
         """
-        if len(lead_list) == 1:
-            return [True if lead_list[0] is None else bool(lead_list[0])]
-        assert any(
-            bool(lead) for lead in lead_list
-        ), "Multi-task workflows must designate at least one task as lead (pass lead=True)"
-        return [bool(lead) for lead in lead_list]
+        parser = argparse.ArgumentParser(
+            description=description,
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog=epilog,
+        )
+        cls._deduplicate_args(parser)
+        cls.add_common_arguments(parser)
+        return parser
+
+    @classmethod
+    def _deduplicate_args(cls, parser: argparse.ArgumentParser) -> None:
+        """Add each task class's arguments to the parser once, deduplicated across the task list."""
+        added: set[type[BaseTask]] = set()
+        for task_cls in cls.task_cls_list:
+            if task_cls not in added:
+                task_cls.add_task_arguments(parser)
+                added.add(task_cls)
+
+    @staticmethod
+    def add_common_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+        """Add common flags for all workflows."""
+        resources = parser.add_argument_group("resources")
+        resources.add_argument("--cpus", type=int, default=15)
+        resources.add_argument("--gpus", type=int, default=1)
+        resources.add_argument("--memory", default="64Gi")
+        resources.add_argument("--storage", default="200Gi")
+        resources.add_argument("--platform", default="ovx-l40s")
+
+        timeouts = parser.add_argument_group("timeouts")
+        timeouts.add_argument("--exec_timeout", default="1d")
+        timeouts.add_argument("--queue_timeout", default="2d")
+
+        workflow = parser.add_argument_group("workflow")
+        workflow.add_argument("--workflow_name", default="arena-workflow", help="OSMO workflow name")
+        workflow.add_argument("--pool", default="isaac-dev-l40s-04", help="Target a specific OSMO compute pool")
+        workflow.add_argument("--priority", default="NORMAL", choices=["HIGH", "NORMAL", "LOW"])
+
+        parser.add_argument("--dry-run", action="store_true", help="Render without submitting")
+        return parser
+
+    @staticmethod
+    def _assert_single_lead_task(lead_flags: list[bool], num_tasks: int) -> None:
+        """Assert the lead flags cover every task with exactly one designated lead."""
+        assert len(lead_flags) == num_tasks, "Each task requires one lead flag"
+        assert sum(lead_flags) == 1, "Exactly one task must be designated as lead (lead=True)"
 
     def generate_workflow(self) -> dict[str, Any]:
         """Create and return the workflow dictionary."""
@@ -115,11 +152,11 @@ class Workflow:
         return self._submit_rendered_workflow(rendered=rendered, pool=pool, priority=priority)
 
     def _get_tasks(self) -> list[BaseTask]:
-        """Instantiate task objects for this workflow."""
+        """Instantiate task objects for this workflow, sharing one task-args object across all tasks."""
         tasks = []
-        for task_cls, task_args, lead in zip(self.task_cls_list, self.task_args_list, self.lead_list):
+        for task_cls, lead in zip(self.task_cls_list, self.lead_flags):
             assert issubclass(task_cls, BaseTask)
-            tasks.append(task_cls(self.workflow_type, self.workflow_args, task_args, lead=lead))
+            tasks.append(task_cls(self.workflow_args, self.task_args, lead=lead))
         return tasks
 
     def _submit_rendered_workflow(
