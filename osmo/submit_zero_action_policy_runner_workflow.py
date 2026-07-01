@@ -3,6 +3,32 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Configure and submit a zero-action policy-runner OSMO workflow.
+
+Usage examples:
+
+    # Default zero-action policy runner (zero_action on kitchen_pick_and_place)
+    python osmo/submit_zero_action_policy_runner_workflow.py --pool isaac-dev-l40s-04
+
+    # Custom policy_runner.py and Arena environment arguments
+    python osmo/submit_zero_action_policy_runner_workflow.py \
+        --gpus 1 \
+        --cpus 15 \
+        --memory 64Gi \
+        --storage 200Gi \
+        --platform ovx-l40s \
+        --exec_timeout 1d \
+        --queue_timeout 2d \
+        --workflow_name arena-zero-action \
+        --priority NORMAL \
+        --pool isaac-dev-l40s-04 \
+        --policy_runner_args '--num_steps 500 --headless' \
+        --arena_env_args 'kitchen_pick_and_place --object cracker_box --embodiment franka_ik'
+
+    # Dry run (print rendered YAML without submitting)
+    python osmo/submit_zero_action_policy_runner_workflow.py --pool isaac-dev-l40s-04 --dry-run
+"""
+
 from __future__ import annotations
 
 import sys
