@@ -43,14 +43,14 @@ class Workflow:
         self.task_args = task_args
         # Single-task workflows may leave lead_list unset; that task defaults to lead.
         self.lead_flags = self.lead_list if self.lead_list is not None else [True]
-        self._assert_single_lead_task(self.lead_flags, len(self.task_cls_list))
+        self._assert_single_lead_task(self.lead_flags)
         self.group_name = group_name
 
     @classmethod
     def build_parser(cls, description: str, epilog: str | None = None) -> argparse.ArgumentParser:
-        """Build an argument parser populated with this workflow's task args and the common args.
+        """Build an argument parser populated with this workflow's args.
 
-        Each task class contributes the arguments it reads, deduplicated across the task list.
+        Aggregates the workflow's tasks args, as well as the common args.
 
         Args:
             description: Parser description shown in ``--help``.
@@ -99,10 +99,9 @@ class Workflow:
         parser.add_argument("--dry-run", action="store_true", help="Render without submitting")
         return parser
 
-    @staticmethod
-    def _assert_single_lead_task(lead_flags: list[bool], num_tasks: int) -> None:
+    def _assert_single_lead_task(self, lead_flags: list[bool]) -> None:
         """Assert the lead flags cover every task with exactly one designated lead."""
-        assert len(lead_flags) == num_tasks, "Each task requires one lead flag"
+        assert len(lead_flags) == len(self.task_cls_list), "Each task requires one lead flag"
         assert sum(lead_flags) == 1, "Exactly one task must be designated as lead (lead=True)"
 
     def generate_workflow(self) -> dict[str, Any]:
@@ -152,7 +151,7 @@ class Workflow:
         return self._submit_rendered_workflow(rendered=rendered, pool=pool, priority=priority)
 
     def _get_tasks(self) -> list[BaseTask]:
-        """Instantiate task objects for this workflow, sharing one task-args object across all tasks."""
+        """Instantiate task objects for this workflow."""
         tasks = []
         for task_cls, lead in zip(self.task_cls_list, self.lead_flags):
             assert issubclass(task_cls, BaseTask)

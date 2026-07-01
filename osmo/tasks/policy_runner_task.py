@@ -15,9 +15,8 @@ from typing import Any
 from tasks.base_task import BaseTask
 from workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 
-DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:alex_testing"
+DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
 POLICY_RUNNER_COMMAND = "/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py"
-DEFAULT_ARENA_ENV_ARGS = "kitchen_pick_and_place --object cracker_box --embodiment franka_ik"
 
 
 def _normalize_args(args: str) -> str:
@@ -53,7 +52,7 @@ class PolicyRunnerTask(BaseTask):
         )
         group.add_argument(
             "--arena_env_args",
-            default=DEFAULT_ARENA_ENV_ARGS,
+            required=True,
             help="Arena environment name and env-related arguments",
         )
 
@@ -65,9 +64,6 @@ class PolicyRunnerTask(BaseTask):
         return self.image
 
     def _get_inputs(self) -> list[dict[str, Any]]:
-        # REMOVE!
-        # LFS-tracked test data uploaded from the local machine.
-        # return [{"dataset": {"name": "arena-lfs-data"}}]
         return []
 
     def _get_outputs(self) -> list[dict[str, Any]]:
@@ -82,40 +78,12 @@ class PolicyRunnerTask(BaseTask):
         """
 
     def _get_run_script(self) -> str:
-        # return (
-        #     "set -euxo pipefail\n"
-        #     "\n"
-        #     "# Run ldconfig to ensure shared libraries are found (mirrors entrypoint.sh)\n"
-        #     "ldconfig\n"
-        #     "\n"
-        #     "# Ensure required directories exist\n"
-        #     "mkdir -p /datasets /models /eval\n"
-        #     "\n"
-        #     "# Ensure the Isaac Sim symlink exists\n"
-        #     "[ -e /workspaces/isaaclab_arena/submodules/IsaacLab/_isaac_sim ] || \\\n"
-        #     "  ln -s /isaac-sim/ /workspaces/isaaclab_arena/submodules/IsaacLab/_isaac_sim\n"
-        #     "\n"
-        #     "# Display system info\n"
-        #     "nvidia-smi\n"
-        #     "cd /workspaces/isaaclab_arena\n"
-        #     "\n"
-        #     "# Overwrite LFS pointer stubs with real data uploaded from local machine.\n"
-        #     "# OSMO nests under: {{input:0}}/arena-lfs-data/test_data/\n"
-        #     'if [ -d "{{input:0}}/arena-lfs-data/test_data" ]; then\n'
-        #     '  cp -r "{{input:0}}/arena-lfs-data/test_data/"* \\\n'
-        #     "    /workspaces/isaaclab_arena/isaaclab_arena/tests/test_data/\n"
-        #     "fi\n"
-        #     "\n"
-        #     f"{self._get_policy_runner_command()}\n"
-        # )
-        return f"set -euxo pipefail\n{self._get_policy_runner_command()}\n"
-
-    def _get_policy_runner_command(self) -> str:
         policy_args_str = " ".join(self._get_policy_args())
         return (
+            "set -euxo pipefail\n"
             f"{POLICY_RUNNER_COMMAND} "
             f"{policy_args_str} "
             f"--output_base_dir {OSMO_TASK_OUTPUT_DIR} "
             f"{self.policy_runner_args} "
-            f"{self.arena_env_args}"
+            f"{self.arena_env_args}\n"
         )
