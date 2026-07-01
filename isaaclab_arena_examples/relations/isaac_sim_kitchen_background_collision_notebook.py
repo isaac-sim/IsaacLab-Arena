@@ -3,167 +3,125 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# %%
 from __future__ import annotations
 
 # pyright: reportArgumentType=false, reportCallIssue=false, reportAttributeAccessIssue=false
 
-"""Example notebook: placing objects on a kitchen counter while avoiding background fixtures.
+"""Example: place objects on the robocasa kitchen counter while avoiding background fixtures.
 
-The Lightwheel Robocasa kitchen is loaded as the background. Objects are placed On the main
-counter, and the collision obstacles are discovered automatically: a placement region is
-built from the counter anchor, then background fixtures (the sink protruding through the
-counter, ...) whose bounding box intersects that region are passed to the placer. A correct
-solve spreads the objects onto the flat counter areas flanking the sink.
+Background fixtures whose bounding box intrudes the region above the counter are discovered with
+build_placement_region + find_background_colliders (spatial culling, no name denylist) and added to
+the scene as relation-free ObjectReferences. ArenaEnvBuilder's automatic relation solving then picks
+them up as fixed obstacles (via Scene.get_collision_objects) and applies the solved layout -- both
+position and random yaw -- through reset event terms, so the placement persists in simulation.
+
+Run standalone from the repo root inside the container (pass --viz kit to open the Kit viewer;
+omitting it runs headless, so nothing shows):
+
+    /isaac-sim/python.sh \\
+        isaaclab_arena_examples/relations/isaac_sim_kitchen_background_collision_notebook.py \\
+        --viz kit --enable_cameras --view_steps 200
 """
 
-# NOTE: When running as a notebook, first run this cell to launch the simulation app:
-import pinocchio  # noqa: F401
-from isaaclab.app import AppLauncher
-
-print("Launching simulation app once in notebook")
-simulation_app = AppLauncher()
-
-# %%
-
 from typing import TYPE_CHECKING
+
+import pinocchio  # noqa: F401
+
+from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 
 if TYPE_CHECKING:
     from isaacsim import SimulationApp
 
-# The counter top is the placement surface; other fixtures (sink, ...) are discovered as obstacles.
 _KITCHEN = "lightwheel_robocasa_kitchen"
 _COUNTER_PRIM = "{ENV_REGEX_NS}/" + _KITCHEN + "/counter_main_main_group"
 
 
-def run_kitchen_background_collision_demo(
-    num_steps: int = 1000,
-    reset_every_n_steps: int = 100,
-    hold_overlapping_steps: int = 150,
-):
-    """Place objects on the kitchen counter while avoiding the sink and stove.
-
-    Objects start clustered (overlapping) on a clear stretch of the counter; after each reset
-    the relation solver runs with the discovered background fixtures as fixed collision
-    obstacles and spreads the objects onto the flat counter areas around the sink.
+def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, args_cli=None) -> list[str]:
+    """Solve the counter layout with discovered fixtures as obstacles, then idle a viewer.
 
     Args:
-        num_steps: Number of simulation steps to run.
-        reset_every_n_steps: Reset the environment every N steps (to re-solve and see new layouts).
-        hold_overlapping_steps: After each reset, render this many frames (no physics) showing the
-            overlapping start pose before the solver runs.
+        simulation_app: The already-launched Isaac Sim application; the viewer runs until it stops.
+        view_steps: Number of steps to run (0 = until the viewer window is closed).
+        args_cli: Parsed CLI namespace. When None, defaults are parsed (used by the smoke test).
+
+    Returns:
+        The names of the background fixtures discovered as collision obstacles.
     """
     import torch
-    import tqdm
 
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.relations.background_colliders import build_placement_region, find_background_colliders
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.relations import IsAnchor, On
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.utils.pose import Pose
 
-    asset_registry = AssetRegistry()
-    background = asset_registry.get_asset_by_name(_KITCHEN)()
-    light = asset_registry.get_asset_by_name("light")()
+    if args_cli is None:
+        args_cli = get_isaaclab_arena_cli_parser().parse_args([])
+    args_cli.solve_relations = True  # ArenaEnvBuilder solves + applies placement via reset events
+    args_cli.random_yaw_init = True  # rotate non-anchor objects about Z (persists via the reset event)
 
-    counter_reference = ObjectReference(name="counter", prim_path=_COUNTER_PRIM, parent_asset=background)
-    counter_reference.add_relation(IsAnchor())
+    registry = AssetRegistry()
+    background = registry.get_asset_by_name(_KITCHEN)()
+    light = registry.get_asset_by_name("light")()
+    light.set_intensity(3000.0)  # brighten the room (default DomeLight intensity is 500)
 
-    # Cluster the objects on a clear stretch of counter (left of the sink) so they start overlapping.
-    same_pose = Pose(position_xyz=(0.45, -0.3, 0.97), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
-    object_names = ["cracker_box", "sugar_box", "tomato_soup_can", "mustard_bottle", "mug"]
+    counter = ObjectReference(name="counter", prim_path=_COUNTER_PRIM, parent_asset=background)
+    counter.add_relation(IsAnchor())
+
+    # Placeable objects sit On the counter; the builder's relation solver spreads them. Do not set an
+    # initial pose here -- that would create a per-object reset event that conflicts with relation solving.
     objects = []
-    for name in object_names:
-        obj = asset_registry.get_asset_by_name(name)()
-        obj.add_relation(On(counter_reference, clearance_m=0.02))
-        obj.set_initial_pose(same_pose)
+    for name in ["cracker_box", "sugar_box", "tomato_soup_can", "mustard_bottle", "mug"]:
+        obj = registry.get_asset_by_name(name)()
+        obj.add_relation(On(counter, clearance_m=0.02))
         objects.append(obj)
 
-    # Step 1: region above the counter the objects can occupy. Step 2: background fixtures that
-    # reach into it. The solver treats these as fixed obstacles, never optimizing them.
-    region = build_placement_region([counter_reference], objects)
-    collision_objects = find_background_colliders(background, region, anchors=[counter_reference])
-    print(f"Discovered background collision obstacles: {[c.name for c in collision_objects]}")
+    # Fixtures intruding the region above the counter become fixed obstacles: the builder's
+    # automatic solve picks them up via Scene.get_collision_objects and applies the layout on reset.
+    region = build_placement_region([counter], objects)
+    collision_objects = find_background_colliders(background, region, anchors=[counter])
+    discovered_names = [c.name for c in collision_objects]
+    print(f"Discovered background obstacles: {discovered_names}", flush=True)
 
-    scene = Scene(assets=[background, counter_reference, *objects, light])
-    isaaclab_arena_environment = IsaacLabArenaEnvironment(
-        name="kitchen_background_collision_demo",
-        scene=scene,
-    )
+    scene = Scene(assets=[background, counter, *objects, *collision_objects, light])
+    env = ArenaEnvBuilder(
+        IsaacLabArenaEnvironment(name="kitchen_background_collision", scene=scene),
+        args_cli,
+    ).make_registered()
 
-    # Build without solving relations so objects start overlapping; we run the solver after reset.
-    args_cli = get_isaaclab_arena_cli_parser().parse_args(["--no-solve-relations"])
-    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
-    env = env_builder.make_registered()
-
-    objects_with_relations = [counter_reference, *objects]
-    num_envs = env.unwrapped.scene.num_envs
-    env_ids = torch.arange(num_envs, device=env.unwrapped.device)
-    qw, qx, qy, qz = (1.0, 0.0, 0.0, 0.0)
-
-    def apply_overlapping_pose_then_solve_and_display():
-        x, y, z = same_pose.position_xyz
-        root_pose = (
-            torch.tensor([x, y, z, qw, qx, qy, qz], device=env.unwrapped.device, dtype=torch.float32)
-            .unsqueeze(0)
-            .expand(num_envs, 7)
-            .clone()
-        )
-        root_pose[:, :3] += env.unwrapped.scene.env_origins[env_ids]
-        for obj in objects:
-            if obj.name in env.unwrapped.scene.rigid_objects:
-                env.unwrapped.scene.rigid_objects[obj.name].write_root_pose_to_sim(root_pose.clone(), env_ids=env_ids)
-            else:
-                print(f"\nObject {obj.name!r} is not in scene.rigid_objects, skipping overlapping pose.")
-        for _ in range(hold_overlapping_steps):
-            env.unwrapped.sim.render()
-
-        # Run the solver with the sink and stove as fixed background obstacles, then apply the poses.
-        placer = ObjectPlacer()
-        (result,) = placer.place(objects=objects_with_relations, collision_objects=collision_objects)
-        for obj in objects:
-            if obj.name not in env.unwrapped.scene.rigid_objects:
-                print(f"\nObject {obj.name!r} is not in scene.rigid_objects, skipping solved pose.")
-                continue
-            x, y, z = result.positions[obj]
-            root_pose = (
-                torch.tensor([x, y, z, qw, qx, qy, qz], device=env.unwrapped.device, dtype=torch.float32)
-                .unsqueeze(0)
-                .expand(num_envs, 7)
-                .clone()
-            )
-            root_pose[:, :3] += env.unwrapped.scene.env_origins[env_ids]
-            env.unwrapped.scene.rigid_objects[obj.name].write_root_pose_to_sim(root_pose, env_ids=env_ids)
-        env.unwrapped.scene.write_data_to_sim()
-        env.unwrapped.sim.step(render=True)
-        env.unwrapped.scene.update(dt=env.unwrapped.physics_dt)
-
+    # reset() applies the relation-solved layout (position + yaw) via the reset event terms.
     env.reset()
-    apply_overlapping_pose_then_solve_and_display()
 
-    for step in tqdm.tqdm(range(num_steps)):
+    # Idle with zero actions so the solved layout stays on screen.
+    action = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+    step = 0
+    while simulation_app.is_running():
+        if view_steps and step >= view_steps:
+            break
         with torch.inference_mode():
-            actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-            env.step(actions)
+            env.step(action)
+        step += 1
 
-        if reset_every_n_steps > 0 and (step + 1) % reset_every_n_steps == 0:
-            env.reset()
-            apply_overlapping_pose_then_solve_and_display()
+    return discovered_names
 
 
 def smoke_test_kitchen_background_collision(simulation_app: SimulationApp) -> bool:
-    """Smoke test: run the kitchen background-collision demo (minimal steps)."""
-    run_kitchen_background_collision_demo(num_steps=2)
+    """Run the demo and assert discovery works on the real asset: fixtures found, including the sink."""
+    discovered = run_kitchen_background_collision_demo(simulation_app, view_steps=2)
+    assert discovered, "Expected background fixtures to be discovered on the kitchen counter, got none."
+    assert "sink_main_group" in discovered, f"Expected the sink among discovered fixtures, got {discovered}."
     return True
 
 
-# %%
-# When running as a notebook (after launching simulation_app), uncomment and run:
-# run_kitchen_background_collision_demo()
+if __name__ == "__main__":
+    from isaaclab.app import AppLauncher
 
-# %%
+    # Parse CLI and launch the app before importing Isaac Sim modules.
+    _parser = get_isaaclab_arena_cli_parser()
+    _parser.add_argument("--view_steps", type=int, default=0, help="Steps to run (0 = until the viewer is closed).")
+    _args_cli = _parser.parse_args()
+    _simulation_app = AppLauncher(_args_cli).app
+    run_kitchen_background_collision_demo(_simulation_app, view_steps=_args_cli.view_steps, args_cli=_args_cli)
+    _simulation_app.close()

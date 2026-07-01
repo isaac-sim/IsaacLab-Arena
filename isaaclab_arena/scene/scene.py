@@ -12,6 +12,7 @@ from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from pxr import Gf, Usd, UsdGeom
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_reference import ObjectReference
@@ -132,6 +133,8 @@ class Scene:
         Args:
             combine_background_mesh: If True and mesh extraction succeeds, return one
                 collision-only object with all background meshes baked into world coordinates.
+                When False, whole-scene Background assets are skipped because their AABB spans the
+                placement surface and would reject valid layouts.
 
         Returns:
             Qualifying collision objects, in scene-insertion order.
@@ -142,6 +145,8 @@ class Scene:
                 continue
             # Relation objects are already passed to the solver directly; the aggregate
             # background mesh is only the passive scene geometry outside that graph.
+            if isinstance(asset, Background) and not combine_background_mesh:
+                continue
             if asset.get_relations():
                 continue
             # Without a USD path no bounding box can be computed for collision.
