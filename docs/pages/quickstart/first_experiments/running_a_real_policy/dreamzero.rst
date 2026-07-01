@@ -74,8 +74,8 @@ flags like ``--embodiment`` that are specific to the environment go after it.
        --hdr home_office_robolab
 
 Defaults: ``--dreamzero_host localhost``, ``--dreamzero_port 5000``,
-``--dreamzero_embodiment droid`` (the only embodiment the checkpoint currently
-supports). Run headless by swapping ``--viz kit`` for ``--headless``.
+``--dreamzero_embodiment_adapter droid`` (the only embodiment adapter the checkpoint
+currently supports). Run headless by swapping ``--viz kit`` for ``--headless``.
 
 Run inside the container:
 
@@ -143,8 +143,13 @@ root — it picks the most recent run:
 Configuration reference
 --------------------------
 
-All options have defaults matching the DreamZero wire protocol. Only override what
-differs from your setup.
+``DreamZeroRemotePolicy`` is embodiment agnostic: transport/runtime settings live on
+``DreamZeroRemotePolicyConfig``, while observation/action wire-format settings live on
+the embodiment adapter's own config (``DroidAdapterConfig`` for the DROID checkpoint
+used here). All options have defaults matching the DreamZero-DROID wire protocol;
+only override what differs from your setup.
+
+**Transport / runtime (DreamZeroRemotePolicyConfig)**
 
 .. list-table::
    :header-rows: 1
@@ -161,12 +166,24 @@ differs from your setup.
    * - ``--dreamzero_open_loop_horizon``
      - ``24``
      - Action steps replayed per server inference call
+   * - ``--dreamzero_embodiment_adapter``
+     - ``droid``
+     - Embodiment adapter for obs / action wire format; only ``droid`` is currently supported
+   * - ``--policy_device``
+     - ``cuda``
+     - Torch device for the returned action tensor
+
+**DROID adapter (DroidAdapterConfig)**
+
+.. list-table::
+   :header-rows: 1
+
+   * - Flag
+     - Default
+     - Description
    * - ``--dreamzero_num_arm_joints``
      - ``7``
      - Arm DOF count; remainder of ``robot_joint_pos`` is treated as gripper
-   * - ``--dreamzero_embodiment``
-     - ``droid``
-     - Embodiment the checkpoint was trained on; only ``droid`` is currently supported
    * - ``--dreamzero_cam_exterior_left``
      - ``external_camera_rgb``
      - Arena camera key → ``observation/exterior_image_0_left``
@@ -182,9 +199,17 @@ differs from your setup.
    * - ``--dreamzero_cam_wrist``
      - ``wrist_camera_rgb``
      - Arena camera key → ``observation/wrist_image_left``
-   * - ``--policy_device``
-     - ``cuda``
-     - Torch device for the returned action tensor
+   * - ``--dreamzero_target_image_height``
+     - ``180``
+     - Height images are letterbox-resized to before being sent to the checkpoint
+   * - ``--dreamzero_target_image_width``
+     - ``320``
+     - Width images are letterbox-resized to before being sent to the checkpoint
+
+To add a new embodiment, subclass ``DreamZeroEmbodimentAdapter`` (in
+``isaaclab_arena_dreamzero/policy/dreamzero_remote_policy.py``), then add a branch in
+``_resolve_dreamzero_embodiment_adapter`` and an entry to the
+``--dreamzero_embodiment_adapter`` argparse ``choices`` list.
 
 The environment must expose these keys in its observation dict:
 

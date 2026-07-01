@@ -16,12 +16,14 @@ import websockets.exceptions
 
 from isaaclab_arena_dreamzero.policy.dreamzero_remote_config import DreamZeroRemotePolicyConfig
 from isaaclab_arena_dreamzero.policy.dreamzero_remote_policy import DreamZeroRemotePolicy, _msgpack_encode
+from isaaclab_arena_dreamzero.policy.droid_adapter import DroidAdapter, DroidAdapterConfig
 from isaaclab_arena_dreamzero.policy.image_utils import TARGET_H, TARGET_W, resize_with_pad
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 NUM_ENVS = 2
 NUM_JOINTS = 8  # 7 arm + 1 gripper in robot_joint_pos
+ACTION_DIM = 8
 
 
 def _fake_env(num_envs: int = NUM_ENVS):
@@ -42,15 +44,12 @@ def _fake_observation(num_envs: int = NUM_ENVS) -> dict:
 
 def _synthetic_chunk(horizon: int = 24) -> np.ndarray:
     chunk = np.tile(
-        np.arange(_ACTION_DIM, dtype=np.float32) * 0.1,
+        np.arange(ACTION_DIM, dtype=np.float32) * 0.1,
         (horizon, 1),
     )
     chunk[0, -1] = 0.11
     chunk[1, -1] = 0.22
     return chunk
-
-
-_ACTION_DIM = 8
 
 
 def _packed_response(chunk: np.ndarray) -> bytes:
@@ -97,18 +96,23 @@ def _patch_ws(monkeypatch, fake_ws: _FakeWs | None = None) -> _FakeWs:
     return fake_ws
 
 
+def _make_dreamzero_remote_policy(
+    open_loop_horizon: int = 24, num_arm_joints: int = 7, cam2_source: str = "black"
+) -> DreamZeroRemotePolicy:
+    adapter = DroidAdapter(DroidAdapterConfig(num_arm_joints=num_arm_joints, cam2_source=cam2_source))
+    return DreamZeroRemotePolicy(
+        DreamZeroRemotePolicyConfig(open_loop_horizon=open_loop_horizon, policy_device="cpu"),
+        dreamzero_embodiment_adapter=adapter,
+    )
+
+
 @pytest.fixture
 def make_policy(monkeypatch):
     _patch_ws(monkeypatch)
 
     def _factory(num_arm_joints: int = 7, cam2_source: str = "black", open_loop_horizon: int = 24):
-        policy = DreamZeroRemotePolicy(
-            DreamZeroRemotePolicyConfig(
-                num_arm_joints=num_arm_joints,
-                cam2_source=cam2_source,
-                open_loop_horizon=open_loop_horizon,
-                policy_device="cpu",
-            )
+        policy = _make_dreamzero_remote_policy(
+            open_loop_horizon=open_loop_horizon, num_arm_joints=num_arm_joints, cam2_source=cam2_source
         )
         policy.set_task_description("pick up the object")
         return policy
@@ -124,14 +128,6 @@ def test_config_defaults():
     cfg = DreamZeroRemotePolicyConfig()
     assert cfg.remote_port == 5000
     assert cfg.open_loop_horizon == 24
-    assert cfg.num_arm_joints == 7
-    assert cfg.cam2_source == "black"
-
-
-def test_config_rejects_invalid_cam2_source():
-    """cam2_source rejects values outside the allowed set."""
-    with pytest.raises(AssertionError, match="cam2_source"):
-        DreamZeroRemotePolicyConfig(cam2_source="fisheye")
 
 
 def test_config_rejects_non_positive_horizon():
@@ -140,10 +136,78 @@ def test_config_rejects_non_positive_horizon():
         DreamZeroRemotePolicyConfig(open_loop_horizon=0)
 
 
-def test_config_rejects_unsupported_embodiment():
-    """embodiment values other than 'droid' are rejected; the checkpoint is DROID-only."""
-    with pytest.raises(AssertionError, match="embodiment"):
-        DreamZeroRemotePolicyConfig(embodiment="g1")
+def test_droid_adapter_config_defaults():
+    """Default DroidAdapterConfig values match the DreamZero-DROID wire spec."""
+    cfg = DroidAdapterConfig()
+    assert cfg.num_arm_joints == 7
+    assert cfg.cam2_source == "black"
+
+
+def test_droid_adapter_config_rejects_invalid_cam2_source():
+    """cam2_source rejects values outside the allowed set."""
+    with pytest.raises(AssertionError, match="cam2_source"):
+        DroidAdapterConfig(cam2_source="fisheye")
+
+
+def test_droid_adapter_config_rejects_non_positive_num_arm_joints():
+    """num_arm_joints of zero or less is rejected at construction time."""
+    with pytest.raises(AssertionError, match="num_arm_joints"):
+        DroidAdapterConfig(num_arm_joints=0)
+
+
+def test_droid_adapter_config_defaults_target_image_size_to_image_utils_constants():
+    """target_image_height/width default to image_utils' TARGET_H/TARGET_W."""
+    cfg = DroidAdapterConfig()
+    assert cfg.target_image_height == TARGET_H
+    assert cfg.target_image_width == TARGET_W
+
+
+def test_droid_adapter_config_rejects_non_positive_target_image_size():
+    """target_image_height/width of zero or less are rejected at construction time."""
+    with pytest.raises(AssertionError, match="target_image_height"):
+        DroidAdapterConfig(target_image_height=0)
+    with pytest.raises(AssertionError, match="target_image_width"):
+        DroidAdapterConfig(target_image_width=0)
+
+
+# ── from_dict ─────────────────────────────────────────────────────────────────
+
+
+def test_from_dict_routes_fields_to_policy_and_adapter_configs(monkeypatch):
+    """from_dict splits a flat dict between DreamZeroRemotePolicyConfig and DroidAdapterConfig by field name."""
+    _patch_ws(monkeypatch)
+    policy = DreamZeroRemotePolicy.from_dict({
+        "remote_host": "example.com",
+        "remote_port": 1234,
+        "policy_device": "cpu",
+        "num_arm_joints": 6,
+        "cam2_source": "duplicate",
+    })
+    assert policy.config.remote_host == "example.com"
+    assert policy.config.remote_port == 1234
+    adapter = policy._dreamzero_embodiment_adapter
+    assert isinstance(adapter, DroidAdapter)
+    assert adapter.config.num_arm_joints == 6
+    assert adapter.config.cam2_source == "duplicate"
+
+
+def test_from_dict_defaults_embodiment_adapter_to_droid(monkeypatch):
+    """Omitting dreamzero_embodiment_adapter from the dict defaults to the droid adapter."""
+    _patch_ws(monkeypatch)
+    policy = DreamZeroRemotePolicy.from_dict({"policy_device": "cpu"})
+    assert isinstance(policy._dreamzero_embodiment_adapter, DroidAdapter)
+
+
+def test_from_dict_rejects_unsupported_embodiment_adapter():
+    """An unrecognized dreamzero_embodiment_adapter key is rejected before any construction happens."""
+    with pytest.raises(AssertionError, match="dreamzero_embodiment_adapter"):
+        DreamZeroRemotePolicy.from_dict({"dreamzero_embodiment_adapter": "g1"})
+
+
+def test_from_dict_rejects_unknown_keys():
+    """A key that matches neither DreamZeroRemotePolicyConfig nor DroidAdapterConfig raises a clear error."""
+    with pytest.raises(AssertionError, match="Unknown DreamZeroRemotePolicy config keys"):
+        DreamZeroRemotePolicy.from_dict({"embodiment": "droid"})
 
 
 # ── image_utils ───────────────────────────────────────────────────────────────
@@ -210,6 +274,26 @@ def test_build_request_image_shapes(make_policy):
     ):
         assert req[key].shape == (TARGET_H, TARGET_W, 3), f"{key} has wrong shape"
         assert req[key].dtype == np.uint8
+
+
+def test_build_request_image_shapes_use_configured_target_size(monkeypatch):
+    """Overriding target_image_height/width on DroidAdapterConfig resizes request images accordingly."""
+    _patch_ws(monkeypatch)
+    adapter = DroidAdapter(DroidAdapterConfig(target_image_height=90, target_image_width=160))
+    policy = DreamZeroRemotePolicy(
+        DreamZeroRemotePolicyConfig(policy_device="cpu"), dreamzero_embodiment_adapter=adapter
+    )
+    policy.set_task_description("pick up the object")
+    policy._maybe_init_per_env_state(NUM_ENVS)
+    obs = _fake_observation()
+    req = policy._build_request(obs, env_id=0)
+
+    for key in (
+        "observation/exterior_image_0_left",
+        "observation/exterior_image_1_left",
+        "observation/wrist_image_left",
+    ):
+        assert req[key].shape == (90, 160, 3), f"{key} has wrong shape"
 
 
 def test_build_request_joint_split(make_policy):
@@ -329,12 +413,12 @@ def test_full_reset_clears_all(make_policy):
 
 
 def test_get_action_shape_and_dtype(make_policy):
-    """get_action returns a float32 tensor of shape (num_envs, _ACTION_DIM)."""
+    """get_action returns a float32 tensor of shape (num_envs, ACTION_DIM)."""
     policy = make_policy()
     env = _fake_env(num_envs=NUM_ENVS)
     obs = _fake_observation(num_envs=NUM_ENVS)
     action = policy.get_action(env, obs)
-    assert action.shape == (NUM_ENVS, _ACTION_DIM)
+    assert action.shape == (NUM_ENVS, ACTION_DIM)
     assert action.dtype == torch.float32
 
 
@@ -363,7 +447,7 @@ def test_get_action_refetches_when_chunk_exhausted(monkeypatch):
     fake_ws = _FakeWs(response_fn=counting_response)
     _patch_ws(monkeypatch, fake_ws)
 
-    policy = DreamZeroRemotePolicy(DreamZeroRemotePolicyConfig(open_loop_horizon=2, policy_device="cpu"))
+    policy = _make_dreamzero_remote_policy(open_loop_horizon=2)
     policy.set_task_description("test")
     env = _fake_env(num_envs=1)
     obs = _fake_observation(num_envs=1)
@@ -380,7 +464,7 @@ def test_get_action_refetches_when_chunk_exhausted(monkeypatch):
 
 
 def test_parse_action_chunk_pads_7d_to_8d(make_policy):
-    """7-D server responses are zero-padded to _ACTION_DIM in the last column."""
+    """7-D server responses are zero-padded to ACTION_DIM in the last column."""
     policy = make_policy(open_loop_horizon=4)
     raw = np.ones((4, 7), dtype=np.float32)
     chunk = policy._parse_action_chunk(raw)
@@ -446,7 +530,7 @@ def test_call_server_reconnects_on_connection_error(monkeypatch):
         fake_connect,
     )
 
-    policy = DreamZeroRemotePolicy(DreamZeroRemotePolicyConfig(policy_device="cpu", open_loop_horizon=24))
+    policy = _make_dreamzero_remote_policy(open_loop_horizon=24)
     policy.set_task_description("test")
     policy._maybe_init_per_env_state(1)
     policy._session_ids[0] = "old-uuid"
@@ -475,7 +559,7 @@ def test_call_server_gives_up_after_max_attempts(monkeypatch):
     fake_ws.send = always_fails
 
     _patch_ws(monkeypatch, fake_ws)
-    policy = DreamZeroRemotePolicy(DreamZeroRemotePolicyConfig(policy_device="cpu"))
+    policy = _make_dreamzero_remote_policy()
     policy.set_task_description("test")
     policy._maybe_init_per_env_state(1)
 
@@ -508,7 +592,7 @@ def test_close_does_not_raise_when_ws_already_dead(monkeypatch):
     fake_ws.send = boom
     _patch_ws(monkeypatch, fake_ws)
 
-    policy = DreamZeroRemotePolicy(DreamZeroRemotePolicyConfig(policy_device="cpu"))
+    policy = _make_dreamzero_remote_policy()
     policy.set_task_description("test")
     policy.close()  # must not propagate the ConnectionClosed from _send_reset
 

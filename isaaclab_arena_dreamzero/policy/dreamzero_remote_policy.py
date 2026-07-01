@@ -7,11 +7,13 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import dataclasses
 import gymnasium as gym
 import numpy as np
 import torch
 import uuid
-from typing import Any, get_args
+from abc import ABC, abstractmethod
+from typing import Any
 
 import msgpack
 import websockets.exceptions
@@ -19,15 +21,7 @@ import websockets.sync.client as ws_sync
 
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase
-from isaaclab_arena_dreamzero.policy.dreamzero_remote_config import (
-    MAX_RECONNECT_ATTEMPTS,
-    Cam2Source,
-    DreamZeroRemotePolicyConfig,
-)
-from isaaclab_arena_dreamzero.policy.image_utils import TARGET_H, TARGET_W, resize_with_pad
-
-# DreamZero server action layout: 7 arm joints + 1 gripper.
-_ACTION_DIM = 8
+from isaaclab_arena_dreamzero.policy.dreamzero_remote_config import MAX_RECONNECT_ATTEMPTS, DreamZeroRemotePolicyConfig
 
 
 def _msgpack_encode(obj):
@@ -63,6 +57,54 @@ def _unpack(raw: bytes) -> Any:
     return msgpack.unpackb(raw, object_hook=_msgpack_decode, strict_map_key=False)
 
 
+class DreamZeroEmbodimentAdapter(ABC):
+    """Translates between Arena's gym observation dict and DreamZero's wire
+    format for a specific physical embodiment (DROID, ...).
+
+    Subclasses declare the embodiment-specific action layout and observation keys.
+    Adding support for a new embodiment means writing a new adapter here, not
+    branching inside DreamZeroRemotePolicy — this keeps the client embodiment
+    agnostic and makes each embodiment's joint order / camera mapping explicit
+    in one place.
+    """
+
+    action_dim: int
+
+    @abstractmethod
+    def extract(self, observation: dict[str, Any], env_id: int) -> Any:
+        """Pull a single env's tensors out of the arena gym observation dict.
+
+        ``env_id`` selects which slice of each per-env tensor to read. DreamZero's
+        wire format takes one observation per request, so the policy loops over
+        envs and calls this once per env to assemble the per-env requests.
+
+        Concrete return type is adapter-defined (typically a frozen dataclass);
+        the policy treats it as an opaque value to round-trip through the
+        pack_request method.
+        """
+
+    @abstractmethod
+    def pack_request(self, extracted: Any) -> dict[str, Any]:
+        """Build the observation/* portion of the DreamZero wire-format request."""
+
+
+_SUPPORTED_EMBODIMENT_ADAPTERS = ("droid",)
+
+
+def _resolve_dreamzero_embodiment_adapter(key: str, args: argparse.Namespace) -> DreamZeroEmbodimentAdapter:
+    """Instantiate the adapter registered under ``key``.
+
+    Imports are deferred to call time so adapter modules can ``from
+    dreamzero_remote_policy import DreamZeroEmbodimentAdapter`` at module top
+    without creating a circular import.
+    """
+    if key == "droid":
+        from isaaclab_arena_dreamzero.policy.droid_adapter import DroidAdapter, DroidAdapterConfig
+
+        return DroidAdapter(DroidAdapterConfig.from_cli_args(args))
+    raise ValueError(f"Unknown dreamzero_embodiment_adapter {key!r}; expected one of {_SUPPORTED_EMBODIMENT_ADAPTERS}")
+
+
 @register_policy
 class DreamZeroRemotePolicy(PolicyBase):
     """Remote closed-loop policy that communicates with a DreamZero inference server.
@@ -79,8 +121,11 @@ class DreamZeroRemotePolicy(PolicyBase):
     name = "dreamzero_remote"
     config_class = DreamZeroRemotePolicyConfig
 
-    def __init__(self, config: DreamZeroRemotePolicyConfig) -> None:
+    def __init__(
+        self, config: DreamZeroRemotePolicyConfig, dreamzero_embodiment_adapter: DreamZeroEmbodimentAdapter
+    ) -> None:
         super().__init__(config)
+        self._dreamzero_embodiment_adapter = dreamzero_embodiment_adapter
         self.task_description: str | None = None
         self.device = config.policy_device
 
@@ -111,48 +156,11 @@ class DreamZeroRemotePolicy(PolicyBase):
             help="Action steps to replay per server inference call.",
         )
         group.add_argument(
-            "--dreamzero_num_arm_joints",
-            type=int,
-            default=7,
-            help="Number of arm DOF in robot_joint_pos (remainder is gripper).",
-        )
-        group.add_argument(
-            "--dreamzero_embodiment",
+            "--dreamzero_embodiment_adapter",
             type=str,
             default="droid",
-            choices=["droid"],
-            help="Embodiment the DreamZero checkpoint was trained on. Only 'droid' is currently supported.",
-        )
-        group.add_argument(
-            "--dreamzero_cam_exterior_left",
-            type=str,
-            default="external_camera_rgb",
-            help="Arena camera key for the primary exterior (left shoulder) camera.",
-        )
-        group.add_argument(
-            "--dreamzero_cam2_source",
-            type=str,
-            default="black",
-            choices=list(get_args(Cam2Source)),
-            help="Source for the second exterior camera slot.",
-        )
-        group.add_argument(
-            "--dreamzero_cam_exterior_right",
-            type=str,
-            default="external_camera_2_rgb",
-            help="Arena camera key for the right shoulder camera (used when cam2_source='right').",
-        )
-        group.add_argument(
-            "--dreamzero_cam_head",
-            type=str,
-            default="head_camera",
-            help="Arena camera key for the head camera (used when cam2_source='head').",
-        )
-        group.add_argument(
-            "--dreamzero_cam_wrist",
-            type=str,
-            default="wrist_camera_rgb",
-            help="Arena camera key for the wrist camera.",
+            choices=list(_SUPPORTED_EMBODIMENT_ADAPTERS),
+            help="DreamZero-side embodiment adapter for obs / action wire format (default: droid).",
         )
         group.add_argument(
             "--policy_device",
@@ -160,12 +168,52 @@ class DreamZeroRemotePolicy(PolicyBase):
             default="cuda",
             help="Torch device for action tensors.",
         )
+        from isaaclab_arena_dreamzero.policy.droid_adapter import DroidAdapterConfig
+
+        DroidAdapterConfig.add_args_to_parser(parser)
         return parser
 
     @staticmethod
     def from_args(args: argparse.Namespace) -> DreamZeroRemotePolicy:
         """Construct policy from parsed CLI arguments."""
-        return DreamZeroRemotePolicy(DreamZeroRemotePolicyConfig.from_cli_args(args))
+        adapter = _resolve_dreamzero_embodiment_adapter(args.dreamzero_embodiment_adapter, args)
+        return DreamZeroRemotePolicy(
+            DreamZeroRemotePolicyConfig.from_cli_args(args), dreamzero_embodiment_adapter=adapter
+        )
+
+    @classmethod
+    def from_dict(cls, config_dict: dict[str, Any]) -> DreamZeroRemotePolicy:
+        """JSON-jobs-config path used by ``eval_runner``.
+
+        Overrides ``PolicyBase.from_dict`` because our ``__init__`` takes an
+        adapter alongside the config dataclass. An optional
+        ``dreamzero_embodiment_adapter`` key selects the adapter (default
+        'droid'), mirroring ``--dreamzero_embodiment_adapter`` on the CLI path.
+        Remaining adapter-specific fields (e.g. ``num_arm_joints``,
+        ``cam2_source``) are recognized by name and routed to the adapter's
+        config; everything else goes to ``DreamZeroRemotePolicyConfig``. Any
+        key that matches neither raises a clear error instead of an opaque
+        ``TypeError`` from the dataclass constructor.
+        """
+        from isaaclab_arena_dreamzero.policy.droid_adapter import DroidAdapter, DroidAdapterConfig
+
+        config_dict = dict(config_dict)
+        adapter_key = config_dict.pop("dreamzero_embodiment_adapter", "droid")
+        assert (
+            adapter_key in _SUPPORTED_EMBODIMENT_ADAPTERS
+        ), f"Unknown dreamzero_embodiment_adapter {adapter_key!r}; expected one of {_SUPPORTED_EMBODIMENT_ADAPTERS}"
+
+        policy_field_names = {f.name for f in dataclasses.fields(DreamZeroRemotePolicyConfig)}
+        adapter_field_names = {f.name for f in dataclasses.fields(DroidAdapterConfig)}
+        unknown_keys = set(config_dict) - policy_field_names - adapter_field_names
+        assert not unknown_keys, (
+            f"Unknown DreamZeroRemotePolicy config keys: {sorted(unknown_keys)};"
+            f" expected one of {sorted(policy_field_names | adapter_field_names)}."
+        )
+
+        adapter_kwargs = {key: config_dict.pop(key) for key in list(config_dict) if key in adapter_field_names}
+        adapter = DroidAdapter(DroidAdapterConfig(**adapter_kwargs))
+        return cls(DreamZeroRemotePolicyConfig(**config_dict), dreamzero_embodiment_adapter=adapter)
 
     # TODO(tstuyck, 2026-07-01): add a RemotePolicy base class
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
@@ -179,7 +227,7 @@ class DreamZeroRemotePolicy(PolicyBase):
             observation: Arena observation dict with 'camera_obs' and 'policy' sub-dicts.
 
         Returns:
-            Float32 tensor of shape (num_envs, _ACTION_DIM) on self.device.
+            Float32 tensor of shape (num_envs, action_dim) on self.device.
         """
         assert (
             self.task_description
@@ -203,7 +251,7 @@ class DreamZeroRemotePolicy(PolicyBase):
             actions.append(self._cached_action_chunks[env_id][self._next_chunk_steps[env_id]])
             self._next_chunk_steps[env_id] += 1
 
-        batch = np.stack(actions)  # (num_envs, _ACTION_DIM)
+        batch = np.stack(actions)  # (num_envs, action_dim)
         return torch.from_numpy(batch).to(dtype=torch.float32, device=self.device)
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
@@ -254,7 +302,7 @@ class DreamZeroRemotePolicy(PolicyBase):
             env_id: Index into the batch dimension.
 
         Returns:
-            float32 ndarray of shape (open_loop_horizon, _ACTION_DIM).
+            float32 ndarray of shape (open_loop_horizon, action_dim).
         """
         request = self._build_request(observation, env_id)
         response = self._call_server_with_retry(request, env_id=env_id)
@@ -270,85 +318,33 @@ class DreamZeroRemotePolicy(PolicyBase):
         Returns:
             Dict with flat slash-delimited keys ready for MessagePack serialization.
         """
-        cam_obs = observation["camera_obs"]
-        joint_pos_full = observation["policy"]["robot_joint_pos"][env_id].detach().cpu().numpy().astype(np.float32)
-
-        img0 = self._extract_image(cam_obs, self.config.cam_exterior_left, env_id)
-        img1 = self._resolve_cam2(cam_obs, env_id, img0)
-        img_wrist = self._extract_image(cam_obs, self.config.cam_wrist, env_id)
-
-        n = self.config.num_arm_joints
-        return {
-            "observation/exterior_image_0_left": img0,
-            "observation/exterior_image_1_left": img1,
-            "observation/wrist_image_left": img_wrist,
-            "observation/joint_position": joint_pos_full[:n],
-            "observation/cartesian_position": np.zeros(6, dtype=np.float32),
-            "observation/gripper_position": joint_pos_full[n : n + 1],
-            "prompt": self.task_description,
-            "session_id": self._get_or_create_session_id(env_id),
-            "endpoint": "infer",
-        }
-
-    def _extract_image(self, cam_obs: dict[str, Any], cam_name: str, env_id: int) -> np.ndarray:
-        """Slice one camera frame, move to CPU, and resize to (TARGET_H, TARGET_W, 3).
-
-        Args:
-            cam_obs: Arena camera_obs sub-dict.
-            cam_name: Key into cam_obs.
-            env_id: Batch index.
-
-        Returns:
-            uint8 ndarray of shape (TARGET_H, TARGET_W, 3).
-        """
-        assert (
-            cam_name in cam_obs
-        ), f"Camera {cam_name!r} not found in observation. Available cameras: {sorted(cam_obs.keys())}"
-        tensor = cam_obs[cam_name][env_id].detach().cpu()
-        assert tensor.dtype == torch.uint8, (
-            f"Camera {cam_name!r} returned {tensor.dtype} tensor; expected uint8."
-            " If Isaac Sim is configured with float images, convert to uint8 in your scene config."
-        )
-        return resize_with_pad(tensor.numpy(), TARGET_H, TARGET_W)
-
-    def _resolve_cam2(self, cam_obs: dict[str, Any], env_id: int, img0: np.ndarray) -> np.ndarray:
-        """Return the image for the second exterior camera slot based on cam2_source.
-
-        Args:
-            cam_obs: Arena camera_obs sub-dict.
-            env_id: Batch index.
-            img0: Already-extracted exterior_left image (used for 'duplicate' mode).
-
-        Returns:
-            uint8 ndarray of shape (TARGET_H, TARGET_W, 3).
-        """
-        src = self.config.cam2_source
-        if src == "black":
-            return np.zeros((TARGET_H, TARGET_W, 3), dtype=np.uint8)
-        if src == "duplicate":
-            return img0.copy()
-        if src == "right":
-            return self._extract_image(cam_obs, self.config.cam_exterior_right, env_id)
-        if src == "head":
-            return self._extract_image(cam_obs, self.config.cam_head, env_id)
-        raise ValueError(f"Unreachable: unknown cam2_source {src!r}")
+        extracted = self._dreamzero_embodiment_adapter.extract(observation, env_id)
+        request = self._dreamzero_embodiment_adapter.pack_request(extracted)
+        request["prompt"] = self.task_description
+        request["session_id"] = self._get_or_create_session_id(env_id)
+        request["endpoint"] = "infer"
+        return request
 
     def _parse_action_chunk(self, response: dict[str, Any] | np.ndarray) -> np.ndarray:
-        """Normalize server response to a float32 (open_loop_horizon, _ACTION_DIM) array.
+        """Normalize server response to a float32 (open_loop_horizon, action_dim) array.
 
         Args:
             response: Decoded MessagePack payload — either a dict with an 'actions' key
-                or a bare ndarray. Server may return 7-D actions (no gripper); a zero
-                column is appended in that case.
+                or a bare ndarray. Server may return action_dim - 1 actions (no gripper);
+                a zero column is appended in that case.
 
         Returns:
-            float32 ndarray of shape (open_loop_horizon, _ACTION_DIM).
+            float32 ndarray of shape (open_loop_horizon, action_dim).
         """
+        action_dim = self._dreamzero_embodiment_adapter.action_dim
         raw = response.get("actions", response) if isinstance(response, dict) else response
         chunk = np.asarray(raw, dtype=np.float32)
         assert chunk.ndim == 2, f"Expected 2-D action chunk from server, got shape {chunk.shape}"
-        assert chunk.shape[1] in (7, 8), f"Expected 7 or 8 action dims, got {chunk.shape[1]}"
-        if chunk.shape[1] == 7:
+        assert chunk.shape[1] in (
+            action_dim - 1,
+            action_dim,
+        ), f"Expected {action_dim - 1} or {action_dim} action dims, got {chunk.shape[1]}"
+        if chunk.shape[1] == action_dim - 1:
             chunk = np.concatenate([chunk, np.zeros((len(chunk), 1), dtype=np.float32)], axis=1)
         assert (
             chunk.shape[0] >= self.config.open_loop_horizon
