@@ -17,6 +17,10 @@ from isaaclab_arena.tasks.task_transition import TaskTransition
 
 class TaskBase(ABC):
 
+    # Runtime fallback episode length (seconds) when a task is built without one. The env builder
+    # applies this to RL/eval envs; mimic/data-gen envs ignore it and keep their own 50s cfg default.
+    # NOTE: kept in sync by hand with the intent compiler's generation default
+    # (agentic_environment_generation/default_params.py::DEFAULT_EPISODE_LENGTH_S).
     DEFAULT_EPISODE_LENGTH_S: float = 20.0
 
     def __init__(self, episode_length_s: float | None = None, task_description: str | None = None):
