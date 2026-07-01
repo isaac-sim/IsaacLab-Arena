@@ -10,5 +10,8 @@
 # The ID of the initial state spec in the ArenaEnvInitialGraphSpec.
 INITIAL_STATE_SPEC_ID = "state_initial"
 
-# Episode time limit (seconds) injected into a generated task's params when the agent omits it.
+# Episode time limit (seconds) the compiler injects into a generated task's params when the agent
+# omits it. NOTE: kept in sync by hand with the runtime task default
+# (isaaclab_arena/tasks/task_base.py::TaskBase.DEFAULT_EPISODE_LENGTH_S); this module stays free of
+# Isaac Lab imports so the pre-sim generation layer can import it, hence the duplicated literal.
 DEFAULT_EPISODE_LENGTH_S = 20.0
