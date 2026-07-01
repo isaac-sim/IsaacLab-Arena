@@ -72,6 +72,7 @@ tasks:
     pick_up_object: computer_mouse
     destination_location: keyboard
     background_scene: maple_table_robolab
+    episode_length_s: 20.0
   description: place the computer mouse into the keyboard on the table
   id: task_0_PickAndPlaceTask
   initial_state_spec_id: state_initial

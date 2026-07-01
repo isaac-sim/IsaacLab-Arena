@@ -35,7 +35,8 @@ tasks:
     pick_up_object: cheez_it_box
     destination_location: bin_a06
     background_scene: maple_table_robolab
-  description: pick up the cheez it box and place it into the bin a06
+    episode_length_s: 20.0
+  description: pick up the cheez it box and place it into the bin
   id: task_0_PickAndPlaceTask
   initial_state_spec_id: state_initial
   success_state_spec_id: state_spec_1

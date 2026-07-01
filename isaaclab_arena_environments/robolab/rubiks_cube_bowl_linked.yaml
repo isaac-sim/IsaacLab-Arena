@@ -27,6 +27,7 @@ tasks:
     pick_up_object: rubiks_cube
     destination_location: bowl
     background_scene: maple_table_robolab
+    episode_length_s: 20.0
   description: put the rubiks cube in the bowl
   id: task_0_PickAndPlaceTask
   initial_state_spec_id: state_initial

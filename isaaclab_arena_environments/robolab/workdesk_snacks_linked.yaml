@@ -72,6 +72,7 @@ tasks:
     pick_up_object: apple
     destination_location: plasticpail
     background_scene: maple_table_robolab
+    episode_length_s: 20.0
   description: place the apple into the plasticpail on the table
   id: task_0_PickAndPlaceTask
   initial_state_spec_id: state_initial

@@ -27,6 +27,7 @@ tasks:
     pick_up_object: butter_hope_robolab
     destination_location: raisin_box_hope_robolab
     background_scene: maple_table_robolab
+    episode_length_s: 20.0
   description: pick up the butter box and place it on top of the raisin box
   id: task_0_PickAndPlaceTask
   initial_state_spec_id: state_initial

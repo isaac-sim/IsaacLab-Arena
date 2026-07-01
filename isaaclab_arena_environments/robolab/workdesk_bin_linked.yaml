@@ -68,6 +68,7 @@ tasks:
     pick_up_object: lizard_figurine
     destination_location: grey_bin
     background_scene: maple_table_robolab
+    episode_length_s: 20.0
   description: place the lizard figurine into the grey bin on the table
   id: task_0_PickAndPlaceTask
   initial_state_spec_id: state_initial

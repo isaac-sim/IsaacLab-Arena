@@ -35,6 +35,7 @@ tasks:
     pick_up_object: bbq_sauce_bottle
     destination_location: purple_crate
     background_scene: maple_table_robolab
+    episode_length_s: 20.0
   description: place the bbq sauce bottle into the purple crate on the table
   id: task_0_PickAndPlaceTask
   initial_state_spec_id: state_initial

@@ -27,6 +27,7 @@ tasks:
     pick_up_object: banana
     destination_location: bowl
     background_scene: maple_table_robolab
+    episode_length_s: 20.0
   description: pick up the banana and place it in the bowl
   id: task_0_PickAndPlaceTask
   initial_state_spec_id: state_initial
