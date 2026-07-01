@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 
 from tasks.openpi_server_task import OpenpiServerTask
-from workflows.utils.workflow_types import WorkflowType
 from workflows.workflow import Workflow
 
 
@@ -19,14 +18,11 @@ class OpenpiServerWorkflow(Workflow):
 
     def __init__(
         self,
-        workflow_type: WorkflowType,
         workflow_args: argparse.Namespace,
         task_args: argparse.Namespace,
     ) -> None:
-        assert workflow_type == WorkflowType.OPENPI_SERVER, f"Unsupported workflow type: {workflow_type.value}"
         super().__init__(
-            workflow_type=workflow_type,
             workflow_args=workflow_args,
             task_cls_list=[OpenpiServerTask],
-            task_args_list=[task_args],
+            task_args=task_args,
         )

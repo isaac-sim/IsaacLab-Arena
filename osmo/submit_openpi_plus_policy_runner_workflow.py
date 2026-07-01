@@ -27,7 +27,7 @@ from tasks.policy_runner_task import DEFAULT_ARENA_ENV_ARGS
 # from workflows.openpi_server_workflow import OpenpiServerWorkflow
 from workflows.openpi_plus_policy_runner_workflow import OpenpiPlusPolicyRunnerWorkflow
 from workflows.utils.policy_types import PolicyType
-from workflows.utils.workflow_types import WorkflowType
+from workflows.workflow import Workflow
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -38,12 +38,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     task = parser.add_argument_group("task")
-    task.add_argument(
-        "--workflow_type",
-        default=WorkflowType.POLICY_RUNNER.value,
-        choices=[workflow_type.value for workflow_type in WorkflowType],
-        help="Workflow command set to run",
-    )
     # TYPING THE POLICY TYPE HERE IS A HACK. SHOULD BE DONE IN THE WORKFLOW.
     task.add_argument(
         "--policy_type",
@@ -63,26 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Arena environment name and env-related arguments",
     )
 
-    resources = parser.add_argument_group("resources")
-    resources.add_argument("--cpus", type=int, default=15)
-    # resources.add_argument("--gpus", type=int, default=1)
-    resources.add_argument("--gpus", type=int, default=2)
-    # resources.add_argument("--memory", default="128Gi")
-    resources.add_argument("--memory", default="256Gi")
-    resources.add_argument("--storage", default="200Gi")
-    resources.add_argument("--platform", default="ovx-l40")
-
-    timeouts = parser.add_argument_group("timeouts")
-    timeouts.add_argument("--exec_timeout", default="1d")
-    timeouts.add_argument("--queue_timeout", default="2d")
-
-    workflow = parser.add_argument_group("workflow")
-    workflow.add_argument("--workflow_name", default="arena-evaluation", help="OSMO workflow name")
-    workflow.add_argument("--pool", default=None, help="Target a specific OSMO compute pool")
-    workflow.add_argument("--priority", default="NORMAL", choices=["HIGH", "NORMAL", "LOW"])
-
-    parser.add_argument("--dry-run", action="store_true", help="Render without submitting")
-
+    Workflow.add_common_arguments(parser)
     return parser
 
 
@@ -90,7 +65,6 @@ def main(cli_args: list[str] | None = None) -> int:
     args = build_parser().parse_args(cli_args)
 
     workflow = OpenpiPlusPolicyRunnerWorkflow(
-        workflow_type=WorkflowType.POLICY_RUNNER,
         workflow_args=args,
         task_args=args,
     )

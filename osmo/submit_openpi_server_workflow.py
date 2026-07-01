@@ -23,7 +23,7 @@ import argparse
 import sys
 
 from workflows.openpi_server_workflow import OpenpiServerWorkflow
-from workflows.utils.workflow_types import WorkflowType
+from workflows.workflow import Workflow
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -32,26 +32,7 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-
-    # THESE SHOULD BE SHARED AMONG THE WORKFLOWS.
-    resources = parser.add_argument_group("resources")
-    resources.add_argument("--cpus", type=int, default=15)
-    resources.add_argument("--gpus", type=int, default=1)
-    resources.add_argument("--memory", default="64Gi")
-    resources.add_argument("--storage", default="200Gi")
-    resources.add_argument("--platform", default="ovx-l40")
-
-    timeouts = parser.add_argument_group("timeouts")
-    timeouts.add_argument("--exec_timeout", default="1d")
-    timeouts.add_argument("--queue_timeout", default="2d")
-
-    workflow = parser.add_argument_group("workflow")
-    workflow.add_argument("--workflow_name", default="arena-openpi-server", help="OSMO workflow name")
-    workflow.add_argument("--pool", default=None, help="Target a specific OSMO compute pool")
-    workflow.add_argument("--priority", default="NORMAL", choices=["HIGH", "NORMAL", "LOW"])
-
-    parser.add_argument("--dry-run", action="store_true", help="Render without submitting")
-
+    Workflow.add_common_arguments(parser)
     return parser
 
 
@@ -59,7 +40,6 @@ def main(cli_args: list[str] | None = None) -> int:
     args = build_parser().parse_args(cli_args)
 
     workflow = OpenpiServerWorkflow(
-        workflow_type=WorkflowType.OPENPI_SERVER,
         workflow_args=args,
         task_args=args,
     )

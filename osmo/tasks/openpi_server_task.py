@@ -6,7 +6,6 @@
 from typing import Any
 
 from tasks.base_task import BaseTask
-from workflows.utils.workflow_types import WorkflowType
 
 # Openpi server image, published as a tag of the isaaclab_arena image by
 # isaaclab_arena_openpi/docker/build_server_image.sh.
@@ -25,21 +24,16 @@ class OpenpiServerTask(BaseTask):
 
     def __init__(
         self,
-        workflow_type: WorkflowType,
         workflow_args: Any,
         task_args: Any,
         image: str = DEFAULT_IMAGE,
         lead: bool | None = None,
     ) -> None:
-        workflow_type = WorkflowType(workflow_type)
-        # STRANGE WHY IS THIS NEEDED?
-        # assert workflow_type == WorkflowType.OPENPI_SERVER, f"Unsupported workflow type: {workflow_type.value}"
-        super().__init__(workflow_type=workflow_type, workflow_args=workflow_args, task_args=task_args, lead=lead)
+        super().__init__(workflow_args=workflow_args, task_args=task_args, lead=lead)
         self.image = image
 
     @staticmethod
     def get_task_name() -> str:
-        # return WorkflowType.OPENPI_SERVER.value
         return "policy_server"
 
     def _get_image(self) -> str:

@@ -18,6 +18,7 @@ from openpi_client import websocket_client_policy
 
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_openpi.policy.pi0_remote_config import DEFAULT_VARIANT, MAX_RECONNECT_ATTEMPTS, Pi0RemotePolicyArgs
+from isaaclab_arena_openpi.policy.websocket_client import WebsocketClientPolicy
 
 
 def _debug(msg: str) -> None:
@@ -98,6 +99,8 @@ class Pi0RemotePolicy(PolicyBase):
 
         self._remote_host = config.remote_host
         self._remote_port = config.remote_port
+        self._ping_interval = config.ping_interval
+        self._ping_timeout = config.ping_timeout
 
         # Debug counters so log lines can be correlated and progress tracked.
         self._get_action_call_count = 0
@@ -109,9 +112,7 @@ class Pi0RemotePolicy(PolicyBase):
         )
         print(f"[Pi0RemotePolicy] Connecting to openpi server at {self._remote_host}:{self._remote_port} ...")
         connect_start = time.monotonic()
-        self._websocket_client = websocket_client_policy.WebsocketClientPolicy(
-            host=self._remote_host, port=self._remote_port
-        )
+        self._websocket_client = self._connect_websocket_client()
         _debug(f"__init__: WebsocketClientPolicy constructed in {time.monotonic() - connect_start:.3f}s")
         # Construction blocks until the websocket handshake completes and the server's metadata
         # message is received, so reaching here means we got a real round-trip (not just a TCP open).
@@ -156,6 +157,21 @@ class Pi0RemotePolicy(PolicyBase):
         )
         group.add_argument("--remote_host", type=str, default="localhost", help="openpi server host.")
         group.add_argument("--remote_port", type=int, default=8000, help="openpi server port.")
+        group.add_argument(
+            "--ping_interval",
+            type=float,
+            default=20.0,
+            help="Seconds between websocket keepalive pings (default: 20).",
+        )
+        group.add_argument(
+            "--ping_timeout",
+            type=float,
+            default=20.0,
+            help=(
+                "Seconds to wait for a keepalive pong before dropping the connection (default: unset, so a"
+                " slow first inference while the server compiles kernels does not drop the connection)."
+            ),
+        )
         return parser
 
     @staticmethod
@@ -167,6 +183,8 @@ class Pi0RemotePolicy(PolicyBase):
                 policy_device=args.policy_device,
                 remote_host=args.remote_host,
                 remote_port=args.remote_port,
+                ping_interval=args.ping_interval,
+                ping_timeout=args.ping_timeout,
             ),
             openpi_embodiment_adapter=openpi_embodiment_adapter,
         )
@@ -245,6 +263,18 @@ class Pi0RemotePolicy(PolicyBase):
         _close_websocket_best_effort(self._websocket_client)
         self._websocket_client = None
 
+    def _connect_websocket_client(self) -> WebsocketClientPolicy:
+        """Open a websocket to the openpi server with the configured keepalive settings.
+
+        Blocks until the handshake completes and the server metadata message arrives.
+        """
+        return WebsocketClientPolicy(
+            host=self._remote_host,
+            port=self._remote_port,
+            ping_interval=self._ping_interval,
+            ping_timeout=self._ping_timeout,
+        )
+
     def _maybe_init_per_env_state(self, num_envs: int) -> None:
         if self._cached_action_chunks is None:
             self._cached_action_chunks = [None] * num_envs
@@ -312,9 +342,7 @@ class Pi0RemotePolicy(PolicyBase):
                 _close_websocket_best_effort(self._websocket_client)
                 reconnect_start = time.monotonic()
                 _debug(f"reconnect: constructing new WebsocketClientPolicy to {self._remote_host}:{self._remote_port}")
-                self._websocket_client = websocket_client_policy.WebsocketClientPolicy(
-                    host=self._remote_host, port=self._remote_port
-                )
+                self._websocket_client = self._connect_websocket_client()
                 _debug(
                     f"reconnect: done in {time.monotonic() - reconnect_start:.3f}s {_ws_state(self._websocket_client)}"
                 )

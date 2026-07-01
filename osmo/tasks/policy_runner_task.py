@@ -18,16 +18,8 @@ from workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 # DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
 DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:alex_testing"
 POLICY_RUNNER_COMMAND = "/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py"
-WORKFLOW_TYPE_TO_POLICY_RUNNER_ARGS = {
-    WorkflowType.POLICY_RUNNER: "--num_steps 100 --headless",
-}
+DEFAULT_POLICY_RUNNER_ARGS = "--num_steps 100 --headless"
 DEFAULT_ARENA_ENV_ARGS = "kitchen_pick_and_place --object cracker_box --embodiment franka_ik"
-DEFAULT_COMMAND = (
-    f"{POLICY_RUNNER_COMMAND} "
-    f"--policy_type {PolicyType.ZERO_ACTION.value} "
-    f"{WORKFLOW_TYPE_TO_POLICY_RUNNER_ARGS[WorkflowType.POLICY_RUNNER]} "
-    f"{DEFAULT_ARENA_ENV_ARGS}"
-)
 
 
 def _normalize_args(args: str) -> str:
@@ -39,20 +31,17 @@ class PolicyRunnerTask(BaseTask):
 
     def __init__(
         self,
-        workflow_type: WorkflowType,
         workflow_args: Any,
         task_args: Any,
         image: str = DEFAULT_IMAGE,
         lead: bool | None = None,
     ) -> None:
-        workflow_type = WorkflowType(workflow_type)
-        assert workflow_type == WorkflowType.POLICY_RUNNER, f"Unsupported workflow type: {workflow_type.value}"
-        super().__init__(workflow_type=workflow_type, workflow_args=workflow_args, task_args=task_args, lead=lead)
+        super().__init__(workflow_args=workflow_args, task_args=task_args, lead=lead)
 
         self.policy_type = PolicyType(self.task_args.policy_type)
         policy_runner_args = self.task_args.policy_runner_args
         if policy_runner_args is None:
-            policy_runner_args = WORKFLOW_TYPE_TO_POLICY_RUNNER_ARGS[self.workflow_type]
+            policy_runner_args = DEFAULT_POLICY_RUNNER_ARGS
         self.policy_runner_args = _normalize_args(policy_runner_args)
         self.arena_env_args = _normalize_args(self.task_args.arena_env_args)
         self.image = image
@@ -125,8 +114,7 @@ class PolicyRunnerTask(BaseTask):
         return (
             f"{POLICY_RUNNER_COMMAND} "
             f"--policy_type {self.policy_type.value} "
-            # TODO(alexmillane): Update this flag before merging.
-            f"--video_base_dir {OSMO_TASK_OUTPUT_DIR} "
+            f"--output_base_dir {OSMO_TASK_OUTPUT_DIR} "
             f"{default_policy_args_str} "
             f"{self.policy_runner_args} "
             f"{self.arena_env_args}"

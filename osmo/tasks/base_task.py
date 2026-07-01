@@ -13,7 +13,6 @@ import argparse
 from abc import ABC, abstractmethod
 from typing import Any
 
-from workflows.utils.workflow_types import WorkflowType
 from workflows.utils.yaml_utils import block_literal_str
 
 
@@ -22,12 +21,10 @@ class BaseTask(ABC):
 
     def __init__(
         self,
-        workflow_type: WorkflowType,
         workflow_args: argparse.Namespace,
         task_args: argparse.Namespace,
         lead: bool | None = None,
     ) -> None:
-        self.workflow_type = workflow_type
         self.workflow_args = workflow_args
         self.task_args = task_args
         self.lead = lead
