@@ -97,7 +97,7 @@ Generated environments are consumed through ``--env_graph_spec_yaml``:
 
 .. code-block:: bash
 
-   python isaaclab_arena_examples/policy_runner.py \
+   python isaaclab_arena/evaluation/policy_runner.py \
       --viz kit \
       --policy_type zero_action \
       --enable_cameras \
