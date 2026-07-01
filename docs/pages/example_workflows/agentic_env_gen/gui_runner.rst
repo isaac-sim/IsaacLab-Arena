@@ -70,7 +70,7 @@ The main update flow is:
    is compiled into an ``ArenaEnvInitialGraphSpec``. The generated YAML is loaded
    into the editor and saved as initial and linked specs.
 #. The user can manually edit the YAML in the editor. Once the edited YAML
-   passes validation, click ``Save`` to write it to the output directory. The
+   passes validation, click ``Save YAML`` to write it to the output directory. The
    spec is saved to ``<env_name>_initial.yaml`` and ``<env_name>_linked.yaml``
    under the selected output directory. Use ``Change output directory`` to choose
    a different output location. The filename is derived from ``env_name`` and can
