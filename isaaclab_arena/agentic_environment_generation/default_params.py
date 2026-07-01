@@ -9,7 +9,3 @@
 
 # The ID of the initial state spec in the ArenaEnvInitialGraphSpec.
 INITIAL_STATE_SPEC_ID = "state_initial"
-
-# Episode time limit (seconds) the compiler injects into a generated task's params when the agent
-# omits it.
-DEFAULT_EPISODE_LENGTH_S = 20.0
