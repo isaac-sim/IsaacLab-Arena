@@ -8,7 +8,6 @@ from __future__ import annotations
 import argparse
 import gymnasium as gym
 import numpy as np
-import time
 import torch
 from abc import ABC, abstractmethod
 from typing import Any
@@ -19,26 +18,6 @@ from openpi_client import websocket_client_policy
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_openpi.policy.pi0_remote_config import DEFAULT_VARIANT, MAX_RECONNECT_ATTEMPTS, Pi0RemotePolicyArgs
 from isaaclab_arena_openpi.policy.websocket_client import WebsocketClientPolicy
-
-
-def _debug(msg: str) -> None:
-    """Timestamped, flushed client-side debug print for tracing the openpi connection.
-
-    Wall-clock plus a monotonic clock so client events can be lined up against the server log and
-    against each other (e.g. how long an ``infer`` blocks before a keepalive timeout fires).
-    """
-    print(f"[Pi0RemotePolicy][debug {time.strftime('%H:%M:%S')} mono={time.monotonic():.3f}] {msg}", flush=True)
-
-
-def _ws_state(client: websocket_client_policy.WebsocketClientPolicy | None) -> str:
-    """Best-effort description of the underlying websocket connection state for debugging."""
-    if client is None:
-        return "client=None"
-    ws = getattr(client, "_ws", None)
-    if ws is None:
-        return "ws=None"
-    state = getattr(getattr(ws, "protocol", None), "state", None)
-    return f"ws_state={getattr(state, 'name', state)}"
 
 
 class Pi0EmbodimentAdapter(ABC):
@@ -102,23 +81,17 @@ class Pi0RemotePolicy(PolicyBase):
         self._ping_interval = config.ping_interval
         self._ping_timeout = config.ping_timeout
 
-        # Debug counters so log lines can be correlated and progress tracked.
-        self._get_action_call_count = 0
-        self._infer_call_count = 0
-
-        _debug(
-            f"__init__: variant={config.policy_variant} device={self.device}"
-            f" open_loop_horizon={self._open_loop_horizon} adapter={type(openpi_embodiment_adapter).__name__}"
-        )
         print(f"[Pi0RemotePolicy] Connecting to openpi server at {self._remote_host}:{self._remote_port} ...")
-        connect_start = time.monotonic()
-        self._websocket_client = self._connect_websocket_client()
-        _debug(f"__init__: WebsocketClientPolicy constructed in {time.monotonic() - connect_start:.3f}s")
+        self._websocket_client = WebsocketClientPolicy(
+            host=self._remote_host,
+            port=self._remote_port,
+            ping_interval=self._ping_interval,
+            ping_timeout=self._ping_timeout,
+        )
         # Construction blocks until the websocket handshake completes and the server's metadata
         # message is received, so reaching here means we got a real round-trip (not just a TCP open).
         server_metadata = self._websocket_client.get_server_metadata()
         print(f"[Pi0RemotePolicy] Connected. Server metadata: {server_metadata}")
-        _debug(f"__init__: connected, {_ws_state(self._websocket_client)}")
 
         # Per-env action cache. Lazy-allocated on the first get_action call when
         # num_envs is known. openpi's wire format is one obs per request, so we
@@ -161,16 +134,13 @@ class Pi0RemotePolicy(PolicyBase):
             "--ping_interval",
             type=float,
             default=20.0,
-            help="Seconds between websocket keepalive pings (default: 20).",
+            help="Seconds between websocket keepalive pings.",
         )
         group.add_argument(
             "--ping_timeout",
             type=float,
             default=20.0,
-            help=(
-                "Seconds to wait for a keepalive pong before dropping the connection (default: unset, so a"
-                " slow first inference while the server compiles kernels does not drop the connection)."
-            ),
+            help="Seconds to wait for a keepalive pong before dropping the connection.",
         )
         return parser
 
@@ -211,14 +181,6 @@ class Pi0RemotePolicy(PolicyBase):
         num_envs = env.unwrapped.num_envs
         self._maybe_init_per_env_state(num_envs)
 
-        self._get_action_call_count += 1
-        call_index = self._get_action_call_count
-        get_action_start = time.monotonic()
-        _debug(
-            f"get_action #{call_index}: num_envs={num_envs} {_ws_state(self._websocket_client)}"
-            f" next_chunk_steps={self._next_chunk_steps}"
-        )
-
         # TODO(cvolk): openpi server takes one obs per request, so we iterate
         # over envs and send one inference per env that needs a fresh chunk.
         # This is N-times slower than a single batched call but is correct
@@ -229,10 +191,6 @@ class Pi0RemotePolicy(PolicyBase):
             chunk_exhausted = (
                 self._cached_action_chunks[env_id] is None or self._next_chunk_steps[env_id] >= self._open_loop_horizon
             )
-            _debug(
-                f"get_action #{call_index}: env_id={env_id} chunk_exhausted={chunk_exhausted}"
-                f" step={self._next_chunk_steps[env_id]}/{self._open_loop_horizon}"
-            )
             if chunk_exhausted:
                 self._cached_action_chunks[env_id] = self._fetch_action_chunk(observation, env_id)
                 self._next_chunk_steps[env_id] = 0
@@ -240,13 +198,9 @@ class Pi0RemotePolicy(PolicyBase):
             self._next_chunk_steps[env_id] += 1
 
         batch = np.stack(actions)  # (num_envs, action_dim)
-        _debug(
-            f"get_action #{call_index}: done in {time.monotonic() - get_action_start:.3f}s batch_shape={batch.shape}"
-        )
         return torch.from_numpy(batch).to(dtype=torch.float32, device=self.device)
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
-        _debug(f"reset: env_ids={None if env_ids is None else env_ids.reshape(-1).tolist()}")
         if self._cached_action_chunks is None:
             return  # not yet initialized; nothing to clear
         ids = range(len(self._cached_action_chunks)) if env_ids is None else env_ids.reshape(-1).tolist()
@@ -259,21 +213,8 @@ class Pi0RemotePolicy(PolicyBase):
         Does NOT stop the openpi server process that runs in a separate
         container (or machine) and outlives this client.
         """
-        _debug(f"close: {_ws_state(self._websocket_client)}")
         _close_websocket_best_effort(self._websocket_client)
         self._websocket_client = None
-
-    def _connect_websocket_client(self) -> WebsocketClientPolicy:
-        """Open a websocket to the openpi server with the configured keepalive settings.
-
-        Blocks until the handshake completes and the server metadata message arrives.
-        """
-        return WebsocketClientPolicy(
-            host=self._remote_host,
-            port=self._remote_port,
-            ping_interval=self._ping_interval,
-            ping_timeout=self._ping_timeout,
-        )
 
     def _maybe_init_per_env_state(self, num_envs: int) -> None:
         if self._cached_action_chunks is None:
@@ -288,11 +229,7 @@ class Pi0RemotePolicy(PolicyBase):
     def _fetch_action_chunk(self, observation: dict[str, Any], env_id: int) -> np.ndarray:
         extracted = self._openpi_embodiment_adapter.extract(observation, env_id)
         request = self._openpi_embodiment_adapter.pack_request(extracted, self.task_description)
-        request_keys = list(request.keys()) if isinstance(request, dict) else type(request).__name__
-        _debug(f"_fetch_action_chunk: env_id={env_id} packed request keys={request_keys}")
         response = self._call_server_with_retry(request)
-        response_keys = list(response.keys()) if isinstance(response, dict) else type(response).__name__
-        _debug(f"_fetch_action_chunk: env_id={env_id} received response keys={response_keys}")
 
         chunk = np.asarray(response["actions"])
         assert (
@@ -311,40 +248,26 @@ class Pi0RemotePolicy(PolicyBase):
         replaying a potentially-stale chunk against the new server state.
         """
         for attempt_index in range(MAX_RECONNECT_ATTEMPTS):
-            self._infer_call_count += 1
-            infer_index = self._infer_call_count
-            _debug(
-                f"infer #{infer_index}: sending (attempt {attempt_index + 1}/{MAX_RECONNECT_ATTEMPTS})"
-                f" {_ws_state(self._websocket_client)}"
-            )
-            infer_start = time.monotonic()
             try:
-                response = self._websocket_client.infer(server_request)
-                _debug(f"infer #{infer_index}: response received in {time.monotonic() - infer_start:.3f}s")
-                return response
+                return self._websocket_client.infer(server_request)
             except (
                 websockets.exceptions.ConnectionClosedError,
                 websockets.exceptions.ConnectionClosedOK,
                 OSError,
             ) as exc:
-                _debug(
-                    f"infer #{infer_index}: FAILED after {time.monotonic() - infer_start:.3f}s"
-                    f" exc_type={type(exc).__name__} exc={exc} {_ws_state(self._websocket_client)}"
-                )
                 is_last_attempt = (attempt_index + 1) >= MAX_RECONNECT_ATTEMPTS
                 if is_last_attempt:
-                    _debug(f"infer #{infer_index}: no retries left ({MAX_RECONNECT_ATTEMPTS=}); re-raising")
                     raise
                 print(
                     f"[Pi0RemotePolicy] Connection lost ({exc}); reconnecting"
                     f" (attempt {attempt_index + 1}/{MAX_RECONNECT_ATTEMPTS - 1}) ..."
                 )
                 _close_websocket_best_effort(self._websocket_client)
-                reconnect_start = time.monotonic()
-                _debug(f"reconnect: constructing new WebsocketClientPolicy to {self._remote_host}:{self._remote_port}")
-                self._websocket_client = self._connect_websocket_client()
-                _debug(
-                    f"reconnect: done in {time.monotonic() - reconnect_start:.3f}s {_ws_state(self._websocket_client)}"
+                self._websocket_client = WebsocketClientPolicy(
+                    host=self._remote_host,
+                    port=self._remote_port,
+                    ping_interval=self._ping_interval,
+                    ping_timeout=self._ping_timeout,
                 )
                 # Flush every env's cache: the reconnected server may have lost
                 # state, so we force a fresh observation on the next get_action
@@ -367,11 +290,9 @@ def _close_websocket_best_effort(client: websocket_client_policy.WebsocketClient
     try:
         ws = getattr(client, "_ws", None)
         if ws is not None:
-            _debug(f"_close_websocket_best_effort: closing {_ws_state(client)}")
             ws.close()
-            _debug("_close_websocket_best_effort: closed")
-    except (websockets.exceptions.ConnectionClosed, OSError) as exc:
-        _debug(f"_close_websocket_best_effort: ignored {type(exc).__name__}: {exc}")
+    except (websockets.exceptions.ConnectionClosed, OSError):
+        pass
 
 
 def _resolve_openpi_embodiment_adapter(key: str) -> Pi0EmbodimentAdapter:

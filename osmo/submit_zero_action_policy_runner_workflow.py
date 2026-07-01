@@ -7,17 +7,17 @@ from __future__ import annotations
 
 import sys
 
-from workflows.openpi_plus_policy_runner_workflow import OpenpiPlusPolicyRunnerWorkflow
+from workflows.zero_action_policy_runner_workflow import ZeroActionPolicyRunnerWorkflow
 
 
 def main(cli_args: list[str] | None = None) -> int:
-    parser = OpenpiPlusPolicyRunnerWorkflow.build_parser(
-        description="Configure and submit the openpi policy-runner + server OSMO workflow.",
+    parser = ZeroActionPolicyRunnerWorkflow.build_parser(
+        description="Configure and submit a zero-action policy-runner OSMO workflow.",
         epilog=__doc__,
     )
     args = parser.parse_args(cli_args)
 
-    workflow = OpenpiPlusPolicyRunnerWorkflow(
+    workflow = ZeroActionPolicyRunnerWorkflow(
         workflow_args=args,
         task_args=args,
     )

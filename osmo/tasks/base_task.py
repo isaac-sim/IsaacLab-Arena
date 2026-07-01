@@ -28,7 +28,16 @@ class BaseTask(ABC):
         self.workflow_args = workflow_args
         self.task_args = task_args
         self.lead = lead
-        """Whether this task is the group lead. ``None`` means unspecified and is resolved by the workflow."""
+
+    @staticmethod
+    def add_task_arguments(parser: argparse.ArgumentParser) -> None:
+        """Register the CLI arguments this task needs.
+
+        Subclasses override this to declare their own arguments.
+
+        Args:
+            parser: The parser to add task-specific arguments to.
+        """
 
     def create_task_dict(self) -> dict[str, Any]:
         """Assemble the task dict consumed by OSMO."""
@@ -43,7 +52,7 @@ class BaseTask(ABC):
             "image": self._get_image(),
             "inputs": self._get_inputs(),
             "outputs": self._get_outputs(),
-            "lead": bool(self.lead),
+            "lead": self.lead,
         }
 
     def _get_environment(self) -> dict[str, str]:

@@ -8,11 +8,9 @@ from typing import Any
 from tasks.base_task import BaseTask
 
 # Openpi server image, published as a tag of the isaaclab_arena image by
-# isaaclab_arena_openpi/docker/build_server_image.sh.
+# isaaclab_arena_openpi/docker/build_server_image.sh -p.
 DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:openpi_server"
 
-# Mirrors isaaclab_arena_openpi/docker/run_openpi_server.sh: the build appends `COPY . /app` to
-# upstream's serve_policy.Dockerfile, so openpi source lives at /app.
 OPENPI_APP_DIR = "/app"
 XLA_PYTHON_CLIENT_MEM_FRACTION = "0.5"
 POLICY_CONFIG = "pi05_droid_jointpos_polaris"
@@ -20,7 +18,7 @@ POLICY_DIR = "gs://openpi-assets-simeval/pi05_droid_jointpos"
 
 
 class OpenpiServerTask(BaseTask):
-    """OSMO task that runs a dummy command inside the openpi server image."""
+    """OSMO task that serves an openpi policy from the openpi server image."""
 
     def __init__(
         self,
@@ -46,7 +44,6 @@ class OpenpiServerTask(BaseTask):
         return []
 
     def _get_run_script(self) -> str:
-        # return "sleep infinity"
         return (
             "set -euxo pipefail\n"
             f"export XLA_PYTHON_CLIENT_MEM_FRACTION={XLA_PYTHON_CLIENT_MEM_FRACTION}\n"
