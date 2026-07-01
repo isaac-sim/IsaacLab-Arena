@@ -18,7 +18,7 @@ from isaaclab.assets import ArticulationCfg
 from isaaclab.managers import EventTermCfg
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.sensors import ContactSensorCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 from isaaclab_assets.robots import KUKA_ALLEGRO_CFG
 from isaaclab_tasks.manager_based.manipulation.dexsuite import dexsuite_env_cfg as dexsuite
 from isaaclab_tasks.manager_based.manipulation.dexsuite import mdp as dexsuite_mdp

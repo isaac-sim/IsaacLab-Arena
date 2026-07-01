@@ -9,7 +9,7 @@ import torch
 from collections.abc import Sequence
 from typing import Generic, TypeVar
 
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
 

@@ -15,7 +15,7 @@ def _test_add_suffix_configclass_transform(simulation_app) -> bool:
 
     from functools import partial
 
-    from isaaclab.utils import configclass
+    from isaaclab.utils.configclass import configclass
 
     from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
     from isaaclab_arena.utils.configclass import transform_configclass_instance
@@ -78,7 +78,7 @@ def _test_remove_configclass_transform(simulation_app) -> bool:
 
     from functools import partial
 
-    from isaaclab.utils import configclass
+    from isaaclab.utils.configclass import configclass
 
     from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
     from isaaclab_arena.utils.configclass import transform_configclass_instance

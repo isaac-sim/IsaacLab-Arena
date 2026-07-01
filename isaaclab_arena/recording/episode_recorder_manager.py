@@ -14,7 +14,7 @@ from prettytable import PrettyTable
 from typing import Any
 
 from isaaclab.managers import ManagerBase, ManagerTermBaseCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 
 @configclass
