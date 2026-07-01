@@ -18,11 +18,7 @@ from isaaclab_arena.tasks.task_transition import TaskTransition
 class TaskBase(ABC):
 
     def __init__(self, episode_length_s: float | None = None, task_description: str | None = None):
-        # Default to 20s when unset (subclasses forward None, so this stays the single coalescing
-        # point rather than a per-signature default). The env builder applies this to RL/eval envs;
-        # mimic/data-gen envs ignore it and keep their own 50s cfg default. NOTE: this 20s literal is
-        # kept in sync by hand with the intent compiler's generation default
-        # (agentic_environment_generation/default_params.py::DEFAULT_EPISODE_LENGTH_S).
+        # Default to 20s when unset.
         self.episode_length_s = episode_length_s if episode_length_s is not None else 20.0
         self.task_description = task_description
 
