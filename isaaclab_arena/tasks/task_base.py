@@ -17,8 +17,11 @@ from isaaclab_arena.tasks.task_transition import TaskTransition
 
 class TaskBase(ABC):
 
-    def __init__(self, episode_length_s: float = 20.0, task_description: str | None = None):
-        self.episode_length_s = episode_length_s
+    def __init__(self, episode_length_s: float | None = None, task_description: str | None = None):
+        # Coalesce None -> 20s here (not via a param default): subclasses declare
+        # `episode_length_s: float | None = None` and forward it verbatim, so a bare param default
+        # would be bypassed and leave episode_length_s = None for tasks built without an explicit value.
+        self.episode_length_s = episode_length_s if episode_length_s is not None else 20.0
         self.task_description = task_description
 
     @abstractmethod
