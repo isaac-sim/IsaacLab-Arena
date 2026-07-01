@@ -407,8 +407,6 @@ def test_task_param_already_node_id_preserved_without_resolve_trace():
 
 
 def test_episode_length_s_default_injected_when_omitted():
-    # When the agent does not provide episode_length_s, the compiler fills in the default so the
-    # generated task params carry it explicitly (matching the robolab env graphs).
     items = [Item(query="bowl", category_tags=["bowl"])]
     tasks = [
         TaskSpec(

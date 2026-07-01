@@ -12,7 +12,7 @@ from isaaclab_arena.agentic_environment_generation.asset_matcher import (
     IntentResolutionTraceEvent,
     match_asset,
 )
-from isaaclab_arena.agentic_environment_generation.default_params import DEFAULT_EPISODE_LENGTH_S, INITIAL_STATE_SPEC_ID
+from isaaclab_arena.agentic_environment_generation.default_params import INITIAL_STATE_SPEC_ID
 from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
@@ -317,8 +317,5 @@ class IntentCompiler:
                     )
                     if chosen is not None:
                         resolved_params[param_name] = chosen
-            # Surface the episode time limit in the generated params so every task carries it
-            # explicitly (matching the robolab env graphs); an agent-provided value wins.
-            resolved_params.setdefault("episode_length_s", DEFAULT_EPISODE_LENGTH_S)
             resolved_tasks.append(task.model_copy(update={"params": resolved_params}))
         return resolved_tasks
