@@ -1,4 +1,4 @@
-# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -11,7 +11,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 import uuid
-from typing import Any
+from typing import Any, get_args
 
 import msgpack
 import websockets.exceptions
@@ -20,8 +20,8 @@ import websockets.sync.client as ws_sync
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_dreamzero.policy.dreamzero_remote_config import (
-    _VALID_CAM2_SOURCES,
     MAX_RECONNECT_ATTEMPTS,
+    Cam2Source,
     DreamZeroRemotePolicyConfig,
 )
 from isaaclab_arena_dreamzero.policy.image_utils import TARGET_H, TARGET_W, resize_with_pad
@@ -117,6 +117,13 @@ class DreamZeroRemotePolicy(PolicyBase):
             help="Number of arm DOF in robot_joint_pos (remainder is gripper).",
         )
         group.add_argument(
+            "--dreamzero_embodiment",
+            type=str,
+            default="droid",
+            choices=["droid"],
+            help="Embodiment the DreamZero checkpoint was trained on. Only 'droid' is currently supported.",
+        )
+        group.add_argument(
             "--dreamzero_cam_exterior_left",
             type=str,
             default="external_camera_rgb",
@@ -126,7 +133,7 @@ class DreamZeroRemotePolicy(PolicyBase):
             "--dreamzero_cam2_source",
             type=str,
             default="black",
-            choices=list(_VALID_CAM2_SOURCES),
+            choices=list(get_args(Cam2Source)),
             help="Source for the second exterior camera slot.",
         )
         group.add_argument(
@@ -160,6 +167,7 @@ class DreamZeroRemotePolicy(PolicyBase):
         """Construct policy from parsed CLI arguments."""
         return DreamZeroRemotePolicy(DreamZeroRemotePolicyConfig.from_cli_args(args))
 
+    # TODO(tstuyck, 2026-07-01): add a RemotePolicy base class
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
         """Return the next scheduled action for every parallel environment.
 

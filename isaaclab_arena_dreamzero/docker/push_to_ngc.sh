@@ -3,62 +3,87 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
-set -euo pipefail
+set -e
 
 IMAGE_NAME=dreamzero_inference_server
 TAG_NAME=latest
-NGC_ORG=nvidian
+PUSH_TO_NGC=false
+HF_TOKEN=
 
-usage() {
-    cat <<EOF
-Usage: $0 [OPTIONS]
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-Builds the DreamZero inference server image and pushes it to NGC.
-Requires docker login to nvcr.io first:
-  docker login nvcr.io -u '\$oauthtoken' -p <YOUR_NGC_API_KEY>
-
-Options:
-  -t, --tag TAG         Image tag. Default: latest.
-  -n, --image-name NAME Override image name. Default: dreamzero_inference_server.
-  -h, --help            Show this help message.
-EOF
-}
-
-while [ "$#" -gt 0 ]; do
-    case "$1" in
-        -t|--tag)
-            TAG_NAME="${2:?Missing value for $1}"
-            shift 2
+while getopts ":t:n:vn:pn:Rn:hn:" OPTION; do
+    case $OPTION in
+        t)
+            TAG_NAME=$OPTARG
+            echo "Tag name is ${TAG_NAME}."
             ;;
-        -n|--image-name)
-            IMAGE_NAME="${2:?Missing value for $1}"
-            shift 2
+        n)
+            IMAGE_NAME=$OPTARG
+            echo "Image name is ${IMAGE_NAME}."
             ;;
-        -h|--help)
-            usage
+        v)
+            set -x
+            ;;
+        p)
+            PUSH_TO_NGC="true"
+            echo "PUSH_TO_NGC (build and push to ngc)."
+            ;;
+        R)
+            NO_CACHE="--no-cache"
+            ;;
+        h | *)
+            script_name=$(basename "$0")
+            echo "Helper script for building and pushing the DreamZero inference server image to NGC."
+            echo ""
+            echo "Usage:"
+            echo "  ${script_name} <HF_TOKEN> [options]"
+            echo ""
+            echo "Examples:"
+            echo "- Build without cache and push to NGC:"
+            echo "    ${script_name} <HF_TOKEN> -R -p -t <tag_name>"
+            echo "- See help message:"
+            echo "    ${script_name} -h"
+            echo ""
+            echo "Options:"
+            echo "  -p - Push the image to NGC."
+            echo "  -t - Tag name of the image."
+            echo "  -n - Override the image name. Default: dreamzero_inference_server."
+            echo '  -R - Do not use cache when building the image.'
+            echo "  -v - Verbose output."
+            echo "  -h - Help (this output)"
             exit 0
-            ;;
-        *)
-            echo "Unexpected argument: $1" >&2
-            usage >&2
-            exit 1
             ;;
     esac
 done
 
-NGC_PATH=nvcr.io/${NGC_ORG}/${IMAGE_NAME}:${TAG_NAME}
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+shift $((OPTIND - 1))
+if [ -n "${1:-}" ]; then
+    HF_TOKEN="$1"
+fi
 
-echo "Building image: ${IMAGE_NAME}:${TAG_NAME}"
-docker build \
-    -t "${IMAGE_NAME}:${TAG_NAME}" \
-    -f "${SCRIPT_DIR}/Dockerfile" \
-    "${SCRIPT_DIR}"
+DOCKER_IMAGE_NAME=${IMAGE_NAME}:${TAG_NAME}
+NGC_PATH=nvcr.io/nvidian/${DOCKER_IMAGE_NAME}
 
-echo "Tagging as ${NGC_PATH}"
-docker tag "${IMAGE_NAME}:${TAG_NAME}" "${NGC_PATH}"
+# Build the image.
+docker build --pull \
+    $NO_CACHE \
+    --build-arg HF_TOKEN="${HF_TOKEN}" \
+    -t ${DOCKER_IMAGE_NAME} \
+    --file ${SCRIPT_DIR}/Dockerfile \
+    ${SCRIPT_DIR}
 
-echo "Pushing to ${NGC_PATH}"
-docker push "${NGC_PATH}"
+# Push if requested.
+if [ "$PUSH_TO_NGC" = true ]; then
 
-echo "Done. Update dreamzero_inference_server.yaml to use image: ${NGC_PATH}"
+    # Tag and push the image to NGC.
+    echo "Pushing container to ${NGC_PATH}."
+    docker tag ${DOCKER_IMAGE_NAME} ${NGC_PATH}
+    docker push ${NGC_PATH}
+    echo "Pushing complete."
+
+else
+
+    echo "Not pushing to NGC. Use -p to push to NGC."
+
+fi

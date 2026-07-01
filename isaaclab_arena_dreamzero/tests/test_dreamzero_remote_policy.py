@@ -1,4 +1,4 @@
-# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -138,6 +138,12 @@ def test_config_rejects_non_positive_horizon():
     """open_loop_horizon of zero or less is rejected at construction time."""
     with pytest.raises(AssertionError, match="open_loop_horizon"):
         DreamZeroRemotePolicyConfig(open_loop_horizon=0)
+
+
+def test_config_rejects_unsupported_embodiment():
+    """embodiment values other than 'droid' are rejected; the checkpoint is DROID-only."""
+    with pytest.raises(AssertionError, match="embodiment"):
+        DreamZeroRemotePolicyConfig(embodiment="g1")
 
 
 # ── image_utils ───────────────────────────────────────────────────────────────

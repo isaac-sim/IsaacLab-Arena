@@ -5,6 +5,10 @@
 
 workflow:
   name: dreamzero-inference-server
+  # H100 only: the 16B-parameter model runs in float32 (~65 GiB per GPU replica).
+  # Each rank holds a full model copy (data parallelism, not tensor parallelism),
+  # so per-GPU memory is the same regardless of how many GPUs are used.
+  # H100 (80 GiB) fits; L40 (48 GiB) OOMs even with 4+ GPUs.
   pool: isaac-dev-h100-01
 
   resources:
@@ -24,26 +28,18 @@ workflow:
     - |
       set -e
 
-      echo "=== Download checkpoint ==="
       cd /workspace/dreamzero
-      hf download GEAR-Dreams/DreamZero-DROID \
-        --repo-type model \
-        --local-dir ./checkpoints/DreamZero-DROID
-
-      echo "=== Launch inference server ==="
       CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.run \
         --standalone \
         --nproc_per_node=2 \
         socket_test_optimized_AR.py \
         --port {{ port }} \
         --enable-dit-cache \
-        --model-path ./checkpoints/DreamZero-DROID
+        --model-path "${MODELS_DIR}/DreamZero-DROID"
 
     environment:
-      HF_TOKEN: "{{ hf_token }}"
       NCCL_DEBUG: INFO
       NO_ALBUMENTATIONS_UPDATE: "1"
 
 default-values:
   port: "5000"
-  hf_token: ""

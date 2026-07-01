@@ -5,6 +5,11 @@
 
 FROM nvcr.io/nvidia/pytorch:25.04-py3
 
+ARG HF_TOKEN
+ARG MODELS_DIR=/workspace/dreamzero/checkpoints
+
+ENV MODELS_DIR=${MODELS_DIR}
+
 # Install system deps needed by av (PyAV) and other packages
 RUN apt-get update && apt-get install -y \
     ffmpeg libavcodec-dev libavformat-dev libavutil-dev \
@@ -12,8 +17,9 @@ RUN apt-get update && apt-get install -y \
     git curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Clone dreamzero repo
-RUN git clone https://github.com/dreamzero0/dreamzero.git /workspace/dreamzero
+# Clone dreamzero repo at a pinned commit
+RUN git clone https://github.com/dreamzero0/dreamzero.git /workspace/dreamzero && \
+    git -C /workspace/dreamzero checkout ab790c198fbce33503358efbbd4187ce9a89adf3
 
 WORKDIR /workspace/dreamzero
 
@@ -21,8 +27,7 @@ WORKDIR /workspace/dreamzero
 RUN pip install -e . --no-deps
 
 # Install all runtime deps
-RUN pip install -U huggingface_hub && \
-    pip install \
+RUN pip install \
         tyro \
         "tianshou==0.5.1" \
         "transformers==4.51.3" \
@@ -48,3 +53,14 @@ RUN pip install -U huggingface_hub && \
         av
 
 ENV NO_ALBUMENTATIONS_UPDATE=1
+
+# Bake the DreamZero-DROID checkpoint into the image so eval jobs have no
+# runtime dependency on HuggingFace.
+RUN python -c "\
+import os; \
+from huggingface_hub import snapshot_download; \
+snapshot_download( \
+    'GEAR-Dreams/DreamZero-DROID', \
+    repo_type='model', \
+    local_dir=os.environ['MODELS_DIR'] + '/DreamZero-DROID', \
+    token=os.environ.get('HF_TOKEN') or None)"
