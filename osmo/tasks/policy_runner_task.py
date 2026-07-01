@@ -13,12 +13,10 @@ from abc import abstractmethod
 from typing import Any
 
 from tasks.base_task import BaseTask
-from workflows.utils.workflow_types import WorkflowType
 from workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 
-DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
+DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:alex_testing"
 POLICY_RUNNER_COMMAND = "/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py"
-DEFAULT_POLICY_RUNNER_ARGS = "--num_steps 100 --headless"
 DEFAULT_ARENA_ENV_ARGS = "kitchen_pick_and_place --object cracker_box --embodiment franka_ik"
 
 
@@ -29,8 +27,7 @@ def _normalize_args(args: str) -> str:
 class PolicyRunnerTask(BaseTask):
     """Abstract OSMO task that runs an Isaac Lab Arena policy-runner evaluation.
 
-    Concrete subclasses implement ``_get_policy_args`` to select the policy to run and its built-in
-    arguments; workflows pick a policy by choosing the appropriate subclass.
+    Concrete subclasses add on which policy to run, by implementing ``_get_policy_args``.
     """
 
     def __init__(
@@ -42,10 +39,7 @@ class PolicyRunnerTask(BaseTask):
     ) -> None:
         super().__init__(workflow_args=workflow_args, task_args=task_args, lead=lead)
 
-        policy_runner_args = self.task_args.policy_runner_args
-        if policy_runner_args is None:
-            policy_runner_args = DEFAULT_POLICY_RUNNER_ARGS
-        self.policy_runner_args = _normalize_args(policy_runner_args)
+        self.policy_runner_args = _normalize_args(self.task_args.policy_runner_args)
         self.arena_env_args = _normalize_args(self.task_args.arena_env_args)
         self.image = image
 
@@ -54,7 +48,7 @@ class PolicyRunnerTask(BaseTask):
         group = parser.add_argument_group("policy-runner task")
         group.add_argument(
             "--policy_runner_args",
-            default=None,
+            default="",
             help="Additional policy-runner arguments before the Arena environment args",
         )
         group.add_argument(
@@ -65,7 +59,7 @@ class PolicyRunnerTask(BaseTask):
 
     @staticmethod
     def get_task_name() -> str:
-        return WorkflowType.POLICY_RUNNER.value
+        return "policy_runner"
 
     def _get_image(self) -> str:
         return self.image
@@ -114,10 +108,7 @@ class PolicyRunnerTask(BaseTask):
         #     "\n"
         #     f"{self._get_policy_runner_command()}\n"
         # )
-        return (
-            "set -euxo pipefail\n"
-            f"{self._get_policy_runner_command()}\n"
-        )
+        return f"set -euxo pipefail\n{self._get_policy_runner_command()}\n"
 
     def _get_policy_runner_command(self) -> str:
         policy_args_str = " ".join(self._get_policy_args())

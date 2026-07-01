@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# OSMO expands this in task entry.sh to the mounted task output directory.
+# tag denoting the output folder on OSMO
 OSMO_TASK_OUTPUT_DIR = "{{output}}"
 
 

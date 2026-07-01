@@ -82,16 +82,15 @@ class Pi0RemotePolicy(PolicyBase):
         self._ping_timeout = config.ping_timeout
 
         print(f"[Pi0RemotePolicy] Connecting to openpi server at {self._remote_host}:{self._remote_port} ...")
+        # Use our WebsocketClientPolicy override instead of openpi's, so we can set the keepalive
+        # ping interval/timeout (upstream's client does not expose them).
         self._websocket_client = WebsocketClientPolicy(
             host=self._remote_host,
             port=self._remote_port,
             ping_interval=self._ping_interval,
             ping_timeout=self._ping_timeout,
         )
-        # Construction blocks until the websocket handshake completes and the server's metadata
-        # message is received, so reaching here means we got a real round-trip (not just a TCP open).
-        server_metadata = self._websocket_client.get_server_metadata()
-        print(f"[Pi0RemotePolicy] Connected. Server metadata: {server_metadata}")
+        print("[Pi0RemotePolicy] Connected.")
 
         # Per-env action cache. Lazy-allocated on the first get_action call when
         # num_envs is known. openpi's wire format is one obs per request, so we

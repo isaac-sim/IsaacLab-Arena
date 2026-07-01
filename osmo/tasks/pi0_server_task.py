@@ -1,4 +1,4 @@
-# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -7,8 +7,6 @@ from typing import Any
 
 from tasks.base_task import BaseTask
 
-# Openpi server image, published as a tag of the isaaclab_arena image by
-# isaaclab_arena_openpi/docker/build_server_image.sh -p.
 DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:openpi_server"
 
 OPENPI_APP_DIR = "/app"
@@ -18,7 +16,7 @@ POLICY_DIR = "gs://openpi-assets-simeval/pi05_droid_jointpos"
 
 
 class OpenpiServerTask(BaseTask):
-    """OSMO task that serves an openpi policy from the openpi server image."""
+    """OSMO task that serves an openpi policy."""
 
     def __init__(
         self,

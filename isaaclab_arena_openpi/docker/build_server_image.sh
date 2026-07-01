@@ -1,11 +1,9 @@
+#!/usr/bin/env bash
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OPENPI_REPO="https://github.com/Physical-Intelligence/openpi"
 
-# Built as a tag of the isaaclab_arena image (mirrors the gr00t variant tag in
-# docker/push_to_ngc.sh). The image keeps the same name locally and on NGC; the
-# NGC path is just the local ref prefixed with the registry namespace.
 NGC_NAMESPACE="nvcr.io/nvstaging/isaac-amr"
 IMAGE_NAME="isaaclab_arena"
 IMAGE_TAG="openpi_server"

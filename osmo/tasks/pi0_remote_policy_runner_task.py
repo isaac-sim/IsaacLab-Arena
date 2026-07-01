@@ -1,4 +1,4 @@
-# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -19,6 +19,8 @@ class Pi0RemotePolicyRunnerTask(PolicyRunnerTask):
             "{{host:policy_server}}",
             "--remote_port",
             "8000",
+            # Raised from the default: on OSMO the first inference timed out while the
+            # server was still compiling kernels, which dropped the connection.
             "--ping_timeout",
             "300",
         ]

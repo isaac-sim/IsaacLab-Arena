@@ -41,7 +41,9 @@ class Workflow:
         assert len(self.task_cls_list) > 0, "Workflow subclasses must set task_cls_list"
         self.workflow_args = workflow_args
         self.task_args = task_args
-        self.lead_flags = self._resolve_lead_flags(self.lead_list, len(self.task_cls_list))
+        # Single-task workflows may leave lead_list unset; that task defaults to lead.
+        self.lead_flags = self.lead_list if self.lead_list is not None else [True]
+        self._assert_single_lead_task(self.lead_flags, len(self.task_cls_list))
         self.group_name = group_name
 
     @classmethod
@@ -62,24 +64,22 @@ class Workflow:
             formatter_class=argparse.RawDescriptionHelpFormatter,
             epilog=epilog,
         )
+        cls._deduplicate_args(parser)
+        cls.add_common_arguments(parser)
+        return parser
+
+    @classmethod
+    def _deduplicate_args(cls, parser: argparse.ArgumentParser) -> None:
+        """Add each task class's arguments to the parser once, deduplicated across the task list."""
         added: set[type[BaseTask]] = set()
         for task_cls in cls.task_cls_list:
             if task_cls not in added:
                 task_cls.add_task_arguments(parser)
                 added.add(task_cls)
-        cls.add_common_arguments(parser)
-        return parser
 
     @staticmethod
     def add_common_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-        """Register the resource, timeout, and workflow arguments shared by every submit script.
-
-        Args:
-            parser: The parser to add the shared argument groups to.
-
-        Returns:
-            The same parser, to allow chaining.
-        """
+        """Add common flags for all workflows."""
         resources = parser.add_argument_group("resources")
         resources.add_argument("--cpus", type=int, default=15)
         resources.add_argument("--gpus", type=int, default=1)
@@ -100,25 +100,10 @@ class Workflow:
         return parser
 
     @staticmethod
-    def _resolve_lead_flags(lead_list: list[bool] | None, num_tasks: int) -> list[bool]:
-        """Resolve per-task lead flags.
-
-        Single-task workflows may omit ``lead_list`` (``None``); the sole task becomes the lead.
-        Multi-task workflows must pass a list of flags with exactly one ``True``.
-
-        Args:
-            lead_list: Per-task lead flags, or ``None`` for a single-task workflow.
-            num_tasks: Number of tasks in the workflow.
-
-        Returns:
-            The resolved lead flag for each task.
-        """
-        if lead_list is None:
-            assert num_tasks == 1, "Multi-task workflows must pass a lead_list with exactly one lead task"
-            return [True]
-        assert len(lead_list) == num_tasks, "Each task requires one lead flag"
-        assert sum(lead_list) == 1, "Exactly one task must be designated as lead (lead=True)"
-        return lead_list
+    def _assert_single_lead_task(lead_flags: list[bool], num_tasks: int) -> None:
+        """Assert the lead flags cover every task with exactly one designated lead."""
+        assert len(lead_flags) == num_tasks, "Each task requires one lead flag"
+        assert sum(lead_flags) == 1, "Exactly one task must be designated as lead (lead=True)"
 
     def generate_workflow(self) -> dict[str, Any]:
         """Create and return the workflow dictionary."""
