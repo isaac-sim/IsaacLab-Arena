@@ -123,7 +123,7 @@ COPY isaaclab_arena_environments ${WORKDIR}/isaaclab_arena_environments
 COPY isaaclab_arena_examples ${WORKDIR}/isaaclab_arena_examples
 COPY docs ${WORKDIR}/docs
 
-# Install IsaacLab Arena (runtime + dev deps declared in setup.py)
+# Install IsaacLab Arena (runtime + dev deps declared in pyproject.toml)
 RUN /isaac-sim/python.sh -m pip install -e "${WORKDIR}/[dev]"
 
 ################################
@@ -150,7 +150,7 @@ RUN echo "alias python='/isaac-sim/python.sh'" >> /etc/bash.bashrc
 RUN echo "alias pip3='/isaac-sim/python.sh -m pip'" >> /etc/bash.bashrc
 RUN echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/bash.bashrc
 
-# Debugging with debugpy (installed via setup.py[dev])
+# Debugging with debugpy (installed via pyproject.toml's [dev] extra)
 # Usage:
 # 1) Set your breakpoints
 # 2) Start the script you want to debug with "debugpy" instead of "python".
