@@ -8,7 +8,6 @@ set -e
 IMAGE_NAME=dreamzero_inference_server
 TAG_NAME=latest
 PUSH_TO_NGC=false
-HF_TOKEN=
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
@@ -37,11 +36,11 @@ while getopts ":t:n:vn:pn:Rn:hn:" OPTION; do
             echo "Helper script for building and pushing the DreamZero inference server image to NGC."
             echo ""
             echo "Usage:"
-            echo "  ${script_name} <HF_TOKEN> [options]"
+            echo "  ${script_name} [options]"
             echo ""
             echo "Examples:"
             echo "- Build without cache and push to NGC:"
-            echo "    ${script_name} <HF_TOKEN> -R -p -t <tag_name>"
+            echo "    ${script_name} -R -p -t <tag_name>"
             echo "- See help message:"
             echo "    ${script_name} -h"
             echo ""
@@ -58,9 +57,6 @@ while getopts ":t:n:vn:pn:Rn:hn:" OPTION; do
 done
 
 shift $((OPTIND - 1))
-if [ -n "${1:-}" ]; then
-    HF_TOKEN="$1"
-fi
 
 DOCKER_IMAGE_NAME=${IMAGE_NAME}:${TAG_NAME}
 NGC_PATH=nvcr.io/nvidian/${DOCKER_IMAGE_NAME}
@@ -68,7 +64,6 @@ NGC_PATH=nvcr.io/nvidian/${DOCKER_IMAGE_NAME}
 # Build the image.
 docker build --pull \
     $NO_CACHE \
-    --build-arg HF_TOKEN="${HF_TOKEN}" \
     -t ${DOCKER_IMAGE_NAME} \
     --file ${SCRIPT_DIR}/Dockerfile \
     ${SCRIPT_DIR}

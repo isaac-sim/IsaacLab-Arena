@@ -22,11 +22,11 @@ it as an OSMO job. Log in to the NGC registry once:
 
    docker login nvcr.io -u '$oauthtoken' -p <YOUR_NGC_API_KEY>
 
-Then build and push (requires a HuggingFace token to bake the checkpoint into the image):
+Then build and push (bakes the public ``GEAR-Dreams/DreamZero-DROID`` checkpoint into the image; no HuggingFace token needed):
 
 .. code-block:: bash
 
-   ./isaaclab_arena_dreamzero/docker/push_to_ngc.sh <YOUR_HF_TOKEN> -p
+   ./isaaclab_arena_dreamzero/docker/push_to_ngc.sh -p
    # Optional overrides:
    #   -t <tag>  Image tag (default: latest)
    #   -n <name> Override image name (default: dreamzero_inference_server)

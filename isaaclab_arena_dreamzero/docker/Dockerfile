@@ -5,7 +5,6 @@
 
 FROM nvcr.io/nvidia/pytorch:25.04-py3
 
-ARG HF_TOKEN
 ARG MODELS_DIR=/workspace/dreamzero/checkpoints
 
 ENV MODELS_DIR=${MODELS_DIR}
@@ -55,12 +54,12 @@ RUN pip install \
 ENV NO_ALBUMENTATIONS_UPDATE=1
 
 # Bake the DreamZero-DROID checkpoint into the image so eval jobs have no
-# runtime dependency on HuggingFace.
+# runtime dependency on HuggingFace. GEAR-Dreams/DreamZero-DROID is a public
+# repo, so no HF token is needed to download it.
 RUN python -c "\
 import os; \
 from huggingface_hub import snapshot_download; \
 snapshot_download( \
     'GEAR-Dreams/DreamZero-DROID', \
     repo_type='model', \
-    local_dir=os.environ['MODELS_DIR'] + '/DreamZero-DROID', \
-    token=os.environ.get('HF_TOKEN') or None)"
+    local_dir=os.environ['MODELS_DIR'] + '/DreamZero-DROID')"
