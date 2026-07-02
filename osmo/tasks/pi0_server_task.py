@@ -15,8 +15,8 @@ POLICY_CONFIG = "pi05_droid_jointpos_polaris"
 POLICY_DIR = "gs://openpi-assets-simeval/pi05_droid_jointpos"
 
 
-class OpenpiServerTask(BaseTask):
-    """OSMO task that serves an openpi policy."""
+class Pi0ServerTask(BaseTask):
+    """OSMO task that serves a pi0 policy."""
 
     def __init__(
         self,
