@@ -12,12 +12,14 @@ from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from pxr import Gf, Usd, UsdGeom
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
+from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.variation_base import VariationBase
 
 AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg]
@@ -118,6 +120,50 @@ class Scene:
             if asset.get_relations():
                 objects_with_relations.append(asset)
         return objects_with_relations
+
+    def get_collision_objects(self) -> list[Object | ObjectReference]:
+        """Return relation-free assets that qualify as passive collision obstacles.
+
+        A qualifying asset is an Object / ObjectReference that carries no relations (so it is
+        absent from get_objects_with_relations), exposes a USD path for its bounding box, and
+        has a single fixed initial Pose. Assets with a per-env / per-reset or unset pose are
+        skipped, since no constant world bounding box can be computed for them.
+
+        A Background is never returned: its bounding box spans the whole USD scene (including the
+        very surfaces objects are placed on), so as a single obstacle it would reject every valid
+        layout. Per-fixture obstacles are opted in explicitly via relations.background_colliders.
+
+        Returns:
+            Qualifying collision objects, in scene-insertion order.
+        """
+        collision_objects: list[Object | ObjectReference] = []
+        for asset in self.assets.values():
+            if not isinstance(asset, (Object, ObjectReference)):
+                continue
+            # A whole-scene Background AABB would swallow the placement surface (see docstring).
+            if isinstance(asset, Background):
+                continue
+            # Objects in the relation graph are already passed to the solver directly.
+            if asset.get_relations():
+                continue
+            # Without a USD path no bounding box can be computed for collision.
+            if isinstance(asset, Object) and asset.usd_path is None:
+                continue
+            if isinstance(asset, ObjectReference) and asset.parent_asset.usd_path is None:
+                continue
+            # A single fixed Pose is required so get_world_bounding_box() places the obstacle
+            # correctly; PoseRange/PosePerEnv move per env/reset and None is unplaced, so such
+            # assets cannot contribute a constant obstacle bbox and are skipped.
+            initial_pose = asset.get_initial_pose()
+            if not isinstance(initial_pose, Pose):
+                pose_kind = "None" if initial_pose is None else type(initial_pose).__name__
+                print(
+                    f"Skipping background object '{asset.name}' as a collision obstacle: "
+                    f"needs a fixed pose but has {pose_kind}."
+                )
+                continue
+            collision_objects.append(asset)
+        return collision_objects
 
     def export_to_usd(self, output_path: pathlib.Path, root_prim_path: str = "/World") -> None:
         """Exports the scene to a USD file.

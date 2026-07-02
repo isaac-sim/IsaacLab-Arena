@@ -26,6 +26,7 @@ def solve_and_apply_relation_placement(
     placement_seed: int | None = None,
     resolve_on_reset: bool | None = None,
     random_yaw_init: bool = False,
+    collision_objects: list[ObjectBase] | None = None,
 ) -> EventTermCfg | None:
     """Solve relation placement and apply the result to object reset/static state.
 
@@ -38,6 +39,8 @@ def solve_and_apply_relation_placement(
             initial poses are applied immediately.
         random_yaw_init: If True, randomly rotates non-anchor objects around the vertical (Z)
             axis at startup to add visual variety to the scene.
+        collision_objects: Fixed background obstacles avoided during placement but never
+            optimized or relation-constrained (e.g. furniture that nobody is placed on).
 
     Returns:
         Reset event config to attach to the environment when placement should be
@@ -64,6 +67,7 @@ def solve_and_apply_relation_placement(
         placer_params=placer_params,
         pool_size=num_envs * placer_params.min_unique_layouts_per_env,
         num_envs=num_envs,
+        collision_objects=collision_objects,
     )
 
     if placement_pool.had_fallbacks:

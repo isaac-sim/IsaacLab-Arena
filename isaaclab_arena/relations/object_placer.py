@@ -81,6 +81,7 @@ class ObjectPlacer:
         self,
         objects: list[ObjectBase],
         num_envs: int = 1,
+        collision_objects: list[ObjectBase] | None = None,
     ) -> list[PlacementResult]:
         """Place objects according to their spatial relations.
 
@@ -94,6 +95,8 @@ class ObjectPlacer:
                 marked with IsAnchor() which serves as a fixed reference.
             num_envs: Number of environments. 1 for single-env; > 1 for batched
                 placement (one layout per env).
+            collision_objects: Optional fixed background obstacles avoided during
+                placement but never optimized or relation-constrained.
 
         Returns:
             One PlacementResult per environment.
@@ -107,6 +110,7 @@ class ObjectPlacer:
             candidates_per_env=max_attempts,
             attempts_per_result=max_attempts,
             generator=generator,
+            collision_objects=collision_objects,
         )
         results_per_env = [env_results[0] for env_results in ranked_results_per_env]
 
@@ -132,6 +136,7 @@ class ObjectPlacer:
         objects: list[ObjectBase],
         num_envs: int,
         results_per_env: int,
+        collision_objects: list[ObjectBase] | None = None,
     ) -> list[list[PlacementResult]]:
         """Return ranked placement candidates per env.
 
@@ -140,6 +145,10 @@ class ObjectPlacer:
         The return value has shape (num_envs, results_per_env): each
         outer list entry corresponds to a real env, and each inner list is
         sorted with valid lower-loss layouts first.
+
+        Args:
+            collision_objects: Optional fixed background obstacles avoided during
+                placement but never optimized or relation-constrained.
         """
         assert results_per_env > 0, f"results_per_env must be positive, got {results_per_env}"
         anchor_objects_set, generator = self._prepare_placement(objects)
@@ -151,6 +160,7 @@ class ObjectPlacer:
             candidates_per_env=max_attempts * results_per_env,
             attempts_per_result=max_attempts,
             generator=generator,
+            collision_objects=collision_objects,
         )
 
         return [ranked_results[:results_per_env] for ranked_results in ranked_results_per_env]
@@ -194,6 +204,7 @@ class ObjectPlacer:
         candidates_per_env: int,
         attempts_per_result: int,
         generator: torch.Generator | None,
+        collision_objects: list[ObjectBase] | None = None,
     ) -> list[list[PlacementResult]]:
         """Solve and rank placement candidates per environment.
 
@@ -226,12 +237,16 @@ class ObjectPlacer:
         # The solver and validation then treat the rotated object as an axis-aligned box.
         candidate_bboxes = self._rotate_candidate_bboxes(objects, candidate_bboxes, orientations_per_candidate)
 
-        all_positions = self._solver.solve(objects, initial_positions, env_bboxes=candidate_bboxes)
+        all_positions = self._solver.solve(
+            objects, initial_positions, env_bboxes=candidate_bboxes, collision_objects=collision_objects
+        )
         assert self._solver.last_loss_per_env is not None
         all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
         all_validations = [
             self._validate_placement(
-                positions, self._get_bounding_boxes_for_candidate_index(candidate_bboxes, candidate_idx)
+                positions,
+                self._get_bounding_boxes_for_candidate_index(candidate_bboxes, candidate_idx),
+                collision_objects,
             )
             for candidate_idx, positions in enumerate(all_positions)
         ]
@@ -594,18 +609,22 @@ class ObjectPlacer:
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        collision_objects: list[ObjectBase] | None = None,
     ) -> bool:
         """Validate that no two objects overlap in 3D (axis-aligned bbox with margin).
 
         Pairs linked by an On relation and anchor-anchor pairs are skipped.
-        The margin is derived from the solver's clearance_m parameter (with a
-        small float tolerance subtracted to avoid rejecting solutions that are
-        within solver residual).
+        Each placed (non-anchor) object is also checked against every fixed
+        background collision object. The margin is derived from the solver's
+        clearance_m parameter (with a small float tolerance subtracted to avoid
+        rejecting solutions that are within solver residual).
 
         Args:
             positions: Solved positions for each object.
             env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
+            collision_objects: Fixed background obstacles to test placed objects against.
         """
+        collision_objects = collision_objects or []
         on_pairs: set[tuple] = set()
         anchor_ids: set[int] = set()
         for obj in positions:
@@ -639,6 +658,19 @@ class ObjectPlacer:
                 if a_world.overlaps(b_world, margin=margin).item():
                     if self.params.verbose:
                         print(f"  Overlap between '{a.name}' and '{b.name}'")
+                    return False
+
+        # Placed (non-anchor) objects must also clear the fixed background obstacles.
+        # Anchors are fixed scene geometry too, so anchor-vs-background overlap is not gated.
+        background_worlds = [(bg, bg.get_world_bounding_box()) for bg in collision_objects]
+        for obj in objects:
+            if id(obj) in anchor_ids:
+                continue
+            obj_world = env_bboxes[obj].translated(positions[obj])
+            for background, background_world in background_worlds:
+                if obj_world.overlaps(background_world, margin=margin).item():
+                    if self.params.verbose:
+                        print(f"  Overlap between '{obj.name}' and background '{background.name}'")
                     return False
         return True
 
@@ -727,17 +759,19 @@ class ObjectPlacer:
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        collision_objects: list[ObjectBase] | None = None,
     ) -> PlacementValidationResults:
         """Validate that no two objects overlap in 3D and On / NextTo / NotNextTo relations are satisfied.
 
         Args:
             positions: Dictionary mapping objects to their solved (x, y, z) positions.
             env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
+            collision_objects: Fixed background obstacles to test placed objects against.
 
         Returns:
             PlacementValidationResults with the overlap and relation checks.
         """
-        no_overlap = self._validate_no_overlap(positions, env_bboxes)
+        no_overlap = self._validate_no_overlap(positions, env_bboxes, collision_objects)
         on_relation = self._validate_on_relations(positions, env_bboxes)
         next_to = self._validate_next_to_relations(positions, env_bboxes)
         not_next_to = self._validate_not_next_to_relations(positions, env_bboxes)
