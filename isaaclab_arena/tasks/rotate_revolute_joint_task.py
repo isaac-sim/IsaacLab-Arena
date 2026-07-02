@@ -8,7 +8,7 @@ from dataclasses import MISSING
 
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import EventTermCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.register import register_task

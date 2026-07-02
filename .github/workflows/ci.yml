@@ -95,6 +95,54 @@ jobs:
           # fresh directory owned by the current process instead.
           PRE_COMMIT_HOME: /tmp/pre-commit-cache
 
+      - name: Validate uv lock and editable package
+        run: |
+          python -m pip install --no-cache-dir uv==0.9.27
+          uv python install 3.12
+          uv lock --check --offline --no-python-downloads
+          uv venv --python 3.12 /tmp/arena-package-venv
+          uv pip install --python /tmp/arena-package-venv/bin/python --no-deps --editable .
+          cd /tmp
+          /tmp/arena-package-venv/bin/python - <<'PY'
+          import importlib.util
+          from importlib import metadata
+          from pathlib import Path
+
+          package_roots = (
+              "isaaclab_arena",
+              "isaaclab_arena_environments",
+              "isaaclab_arena_examples",
+              "isaaclab_arena_g1",
+              "isaaclab_arena_gr00t",
+              "isaaclab_arena_openpi",
+          )
+          for package_root in package_roots:
+              assert importlib.util.find_spec(package_root) is not None, package_root
+
+          arena_spec = importlib.util.find_spec("isaaclab_arena")
+          assert arena_spec is not None and arena_spec.origin is not None
+          repo_root = Path(arena_spec.origin).resolve().parent.parent
+
+          discoverable_modules = (
+              "isaaclab_arena.evaluation.policy_runner",
+              "isaaclab_arena.tasks.sequential_composite_tasks.franka_put_and_close_door_task",
+          )
+          for module in discoverable_modules:
+              assert importlib.util.find_spec(module) is not None, module
+
+          runtime_resources = (
+              "isaaclab_arena/visualization/report_template.html",
+              "isaaclab_arena_environments/eval_jobs_configs/zero_action_jobs_config.json",
+              "isaaclab_arena_g1/g1_env/config/loco_manip_g1_joints_order_43dof.yaml",
+              "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml",
+          )
+          for runtime_resource in runtime_resources:
+              assert (repo_root / runtime_resource).is_file(), runtime_resource
+
+          version = metadata.version("isaaclab_arena")
+          print(f"editable package check passed: {version}")
+          PY
+
   test:
     name: Run tests
     runs-on: [self-hosted, gpu-arena]

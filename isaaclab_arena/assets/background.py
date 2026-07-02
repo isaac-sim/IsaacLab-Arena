@@ -20,7 +20,7 @@ class Background(Object):
         object_min_z: float,
         prim_path: str | None = None,
         initial_pose: Pose | None = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             name=name,

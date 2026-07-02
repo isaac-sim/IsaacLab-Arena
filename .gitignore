@@ -93,3 +93,6 @@ core.*
 
 # Development and cache folders
 /__*
+
+# uv venv (Arena native install)
+.venv*/

@@ -1,15 +1,85 @@
 Installation
 ============
 
-This page describes how to install Isaac Lab Arena from source inside a Docker container.
+This page describes how to install Isaac Lab Arena, either natively with ``uv``
+or from source inside a Docker container.
 
 Supported Systems
 -----------------
 
 Isaac Lab Arena runs on Isaac Sim ``6.0.0`` and Isaac Lab ``3.0.0``.
-The dependencies are installed automatically during the Docker build process.
+The dependencies are installed automatically by either workflow below.
 Hardware requirements for Isaac Lab Arena are shared with Isaac Sim, and are detailed in
 `Isaac Sim Requirements <https://docs.isaacsim.omniverse.nvidia.com/6.0.0/installation/requirements.html>`_.
+
+
+Native uv developer setup
+-------------------------
+
+Isaac Lab Arena can be installed natively with `uv <https://docs.astral.sh/uv/>`_
+against the public Isaac Lab and Isaac Sim wheels -- no Docker, no submodule
+initialization, and no ``ISAACLAB_PATH`` required.
+
+.. code-block:: bash
+
+    git clone https://github.com/isaac-sim/IsaacLab-Arena.git
+    cd IsaacLab-Arena
+    uv sync
+
+``uv sync`` creates a Python 3.12 virtual environment in ``.venv/`` (pinned by
+``.python-version``), installs Isaac Lab Arena, and pulls
+``isaaclab[isaacsim,all]==3.0.0b2`` together with the matching Isaac Sim 6.0,
+PyTorch, and Newton wheels.
+
+Accept the Isaac Sim EULA so the first launch is non-interactive:
+
+.. code-block:: bash
+
+    export OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y
+
+Verify both in-process execution modes with one non-camera and one camera smoke
+test:
+
+.. code-block:: bash
+
+    uv run pytest -q isaaclab_arena/tests/test_achieve_cube_goal_pose.py::test_achieve_cube_goal_pose_initial_state
+    uv run pytest -q isaaclab_arena/tests/test_camera_observation.py::test_camera_observation
+
+Launch a short zero-action rollout:
+
+.. code-block:: bash
+
+    uv run python isaaclab_arena/evaluation/policy_runner.py \
+      --headless --policy_type zero_action --num_steps 20 \
+      --output_base_dir "$PWD/output" cube_goal_pose
+
+.. note::
+   The policy and evaluation runners retain the Docker-compatible
+   ``/eval/output`` default. Pass ``--output_base_dir`` with a writable path
+   when running them natively.
+
+.. note::
+   The third, subprocess-based phase (``-m with_subprocess``) runs the full
+   evaluation pipeline on the bundled example environments. Those tests expect
+   the Docker eval mounts (e.g. ``/eval``) and exercise contact-sensor success
+   detection that currently depends on the Docker Isaac Lab build, so run that
+   phase from the Docker workflow below.
+
+.. note::
+   Known upstream limitation: ``isaacsim-kernel`` 6.0.0 pins both
+   ``numpy==2.3.1`` and ``coverage==7.4.4``, but every ``numba`` that supports
+   numpy 2.3.1 needs a newer coverage API, so ``import numba`` fails in the
+   native ``uv`` environment. Isaac Lab Arena never imports ``numba`` itself;
+   the native smoke tests and in-process test coverage work without it.
+   ``numba``-backed *upstream* Isaac Lab functionality is outside the validated
+   native-``uv`` scope -- use the Docker workflow for that.
+
+With ``isaaclab_arena`` installed you're ready to build your first environment;
+see :doc:`first_arena_env`.
+
+.. note::
+   The ``uv`` path is the native developer setup. The Docker workflow below is
+   still supported and is what CI and large-scale evaluation use today.
 
 
 Installation via Docker
