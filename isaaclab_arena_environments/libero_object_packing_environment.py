@@ -294,7 +294,7 @@ def _make_libero_packing_task(
     import isaaclab.envs.mdp as mdp_isaac_lab
     from isaaclab.envs.common import ViewerCfg
     from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
-    from isaaclab.utils import configclass
+    from isaaclab.utils.configclass import configclass
 
     from isaaclab_arena.embodiments.common.arm_mode import ArmMode
     from isaaclab_arena.metrics.success_rate import SuccessRateMetric
