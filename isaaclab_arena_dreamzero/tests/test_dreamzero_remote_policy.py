@@ -22,8 +22,8 @@ from isaaclab_arena_dreamzero.policy.image_utils import TARGET_H, TARGET_W, resi
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 NUM_ENVS = 2
-NUM_JOINTS = 8  # 7 arm + 1 gripper in robot_joint_pos
-ACTION_DIM = 8
+NUM_JOINTS = DroidAdapterConfig().num_arm_joints + 1  # arm joints + 1 gripper in robot_joint_pos
+ACTION_DIM = DroidAdapter.action_dim
 
 
 def _fake_env(num_envs: int = NUM_ENVS):

@@ -88,24 +88,50 @@ Run inside the container:
 
 To measure success rates across several variations of the environment in a single command,
 use the dotted import path as ``policy_type`` and pass config fields directly in
-``policy_config_dict``:
+``policy_config_dict``. Jobs must be wrapped in a top-level ``"jobs"`` list, as
+``eval_runner`` expects:
 
 .. code-block:: json
 
    {
-     "name": "dreamzero_pick_and_place",
-     "arena_env_args": {
-       "enable_cameras": true,
-       "environment": "pick_and_place_maple_table",
-       "embodiment": "droid_abs_joint_pos"
-     },
-     "num_episodes": 5,
-     "language_instruction": "Pick up the cube and place it in the bowl.",
-     "policy_type": "isaaclab_arena_dreamzero.policy.dreamzero_remote_policy.DreamZeroRemotePolicy",
-     "policy_config_dict": {
-       "remote_host": "localhost",
-       "remote_port": 5000
-     }
+     "jobs": [
+       {
+         "name": "dreamzero_pnp_home_office",
+         "arena_env_args": {
+           "enable_cameras": true,
+           "environment": "pick_and_place_maple_table",
+           "embodiment": "droid_abs_joint_pos",
+           "pick_up_object": "rubiks_cube_hot3d_robolab",
+           "destination_location": "bowl_ycb_robolab",
+           "hdr": "home_office_robolab"
+         },
+         "num_episodes": 5,
+         "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+         "policy_type": "isaaclab_arena_dreamzero.policy.dreamzero_remote_policy.DreamZeroRemotePolicy",
+         "policy_config_dict": {
+           "remote_host": "localhost",
+           "remote_port": 5000
+         }
+       },
+       {
+         "name": "dreamzero_pnp_billiard_hall",
+         "arena_env_args": {
+           "enable_cameras": true,
+           "environment": "pick_and_place_maple_table",
+           "embodiment": "droid_abs_joint_pos",
+           "pick_up_object": "rubiks_cube_hot3d_robolab",
+           "destination_location": "bowl_ycb_robolab",
+           "hdr": "billiard_hall_robolab"
+         },
+         "num_episodes": 5,
+         "language_instruction": "Pick up the Rubik's cube and place it in the bowl.",
+         "policy_type": "isaaclab_arena_dreamzero.policy.dreamzero_remote_policy.DreamZeroRemotePolicy",
+         "policy_config_dict": {
+           "remote_host": "localhost",
+           "remote_port": 5000
+         }
+       }
+     ]
    }
 
 Pass this file to:
@@ -115,9 +141,10 @@ Pass this file to:
    /isaac-sim/python.sh isaaclab_arena/evaluation/eval_runner.py \
        --eval_jobs_config <path/to/config.json>
 
-This runs the configured jobs sequentially — each varying the object, background, and
-destination — and reports a per-job success rate. Each evaluation is run without
-restarting Isaac Sim to save on the startup time.
+This runs the configured jobs sequentially — the two example jobs above vary only the
+background HDR, but any ``arena_env_args`` field (object, destination, ...) can differ
+per job — and reports a per-job success rate. Each evaluation is run without restarting
+Isaac Sim to save on the startup time.
 
 Viewing rollouts as an HTML report
 ------------------------------------
@@ -216,5 +243,8 @@ The environment must expose these keys in its observation dict:
 - ``observation["camera_obs"][cam_exterior_left]`` — uint8 RGB tensor ``(num_envs, H, W, 3)``
 - ``observation["camera_obs"][cam_wrist]`` — uint8 RGB tensor ``(num_envs, H, W, 3)``
 - ``observation["policy"]["robot_joint_pos"]`` — float tensor ``(num_envs, num_arm_joints + 1)``
+
+``cam_exterior_right`` / ``cam_head`` are only required when ``cam2_source`` is set to
+``right`` / ``head`` respectively; the default ``cam2_source=black`` needs neither.
 
 Images are resized to ``180 x 320`` with letterbox padding before being sent to the server.

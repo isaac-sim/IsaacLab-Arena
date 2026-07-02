@@ -8,7 +8,7 @@ workflow:
   # H100 only: the 16B-parameter model runs in float32 (~65 GiB per GPU replica).
   # Each rank holds a full model copy (data parallelism, not tensor parallelism),
   # so per-GPU memory is the same regardless of how many GPUs are used.
-  # H100 (80 GiB) fits; L40 (48 GiB) OOMs even with 4+ GPUs.
+  # H100 (80 GiB) fits; L40 (48 GiB) is insufficient.
   pool: isaac-dev-h100-01
 
   resources:
