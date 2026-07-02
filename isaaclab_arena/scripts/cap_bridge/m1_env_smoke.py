@@ -32,6 +32,7 @@ def main() -> None:
 
     with SimulationAppContext(args_cli):
         import torch
+
         from isaaclab_arena_environments.cli import (
             get_arena_builder_from_cli,
             get_isaaclab_arena_environments_cli_parser,
@@ -63,7 +64,7 @@ def main() -> None:
         hz = _MEASURE_STEPS / elapsed
 
         q = robot.data.joint_pos[0, :7].cpu().numpy()
-        joints_ok = bool(q.shape == (7,))
+        joints_ok = q.shape == (7,)
         print(f"[m1] joint_pos[:7] = {q}")
 
         cam_ok = False

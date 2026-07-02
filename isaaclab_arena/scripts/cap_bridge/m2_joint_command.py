@@ -35,6 +35,7 @@ def main() -> None:
 
     with SimulationAppContext(args_cli):
         import torch
+
         from isaaclab_arena_environments.cli import (
             get_arena_builder_from_cli,
             get_isaaclab_arena_environments_cli_parser,
