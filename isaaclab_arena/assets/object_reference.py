@@ -73,13 +73,10 @@ class ObjectReference(ObjectBase):
         return self._bounding_box
 
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Get bounding box in world coordinates.
+        """Bounding box in world coordinates.
 
-        get_bounding_box() is already axis-aligned in the parent asset's frame (the referenced
-        prim's baked orientation is folded in by the USD bbox cache), so only the parent's
-        placement rotation is applied here, then the prim's world position. A reference is a
-        fixed anchor with no placement yaw of its own, so the parent rotation is normally
-        identity; only 90° Z multiples of it are supported.
+        get_bounding_box() is already axis-aligned in the parent's frame, so only the parent's
+        placement rotation (identity or a 90° Z multiple) and the prim's world position are applied.
         """
         box = self.get_bounding_box()
         world_position = self.get_initial_pose().position_xyz

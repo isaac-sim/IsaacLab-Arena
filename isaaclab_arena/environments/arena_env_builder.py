@@ -96,8 +96,8 @@ class ArenaEnvBuilder:
             )
             if self.cfg.resolve_on_reset is not None:
                 placer_params.resolve_on_reset = self.cfg.resolve_on_reset
-        # Background geometry without relations is invisible to the relation graph,
-        # but placed objects still need to avoid it during collision solving.
+        # Relation-free background geometry is invisible to the relation graph, but placed objects
+        # must still avoid it. In MESH mode, use one world-frame aggregate background mesh.
         collision_objects = self.arena_env.scene.get_collision_objects(
             combine_background_mesh=placer_params.solver_params.collision_mode == CollisionMode.MESH
         )
