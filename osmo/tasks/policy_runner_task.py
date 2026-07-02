@@ -40,6 +40,8 @@ class PolicyRunnerTask(BaseTask):
 
         self.policy_runner_args = _normalize_args(self.task_args.policy_runner_args)
         self.arena_env_args = _normalize_args(self.task_args.arena_env_args)
+        env_variations = self.task_args.env_variations
+        self.env_variations = _normalize_args(env_variations) if env_variations else ""
         self.image = image
 
     @staticmethod
@@ -53,7 +55,12 @@ class PolicyRunnerTask(BaseTask):
         group.add_argument(
             "--arena_env_args",
             required=True,
-            help="Arena environment name and env-related arguments",
+            help="Graph-spec YAML path or registered example-environment name, plus its env-related arguments",
+        )
+        group.add_argument(
+            "--env_variations",
+            default="",
+            help="Hydra-style variation overrides appended to the env, e.g. 'light.hdr_image.enabled=true'",
         )
 
     @staticmethod
@@ -85,5 +92,27 @@ class PolicyRunnerTask(BaseTask):
             f"{policy_args_str} "
             f"--output_base_dir {OSMO_TASK_OUTPUT_DIR} "
             f"{self.policy_runner_args} "
-            f"{self.arena_env_args}\n"
+            f"{self._get_env_spec_args()}\n"
         )
+
+    def _get_env_spec_args(self) -> str:
+        """Render the env source: a graph-spec YAML or example-env name, plus any args and variation overrides."""
+        env_graph_spec_yaml, arena_env_args = self._resolve_env_source()
+        if env_graph_spec_yaml is not None:
+            spec = f"--env_graph_spec_yaml {env_graph_spec_yaml}"
+            if arena_env_args:
+                spec = f"{spec} {arena_env_args}"
+        else:
+            spec = arena_env_args
+        return f"{spec} {self.env_variations}" if self.env_variations else spec
+
+    def _resolve_env_source(self) -> tuple[str | None, str | None]:
+        """Split ``arena_env_args`` into ``(env_graph_spec_yaml, args)``.
+
+        When the first token ends in ``.yaml``/``.yml`` it is a graph-spec YAML path and the rest are
+        its args; otherwise the whole value is a registered example-environment name and its args.
+        """
+        name, _, args = self.arena_env_args.partition(" ")
+        if name.endswith((".yaml", ".yml")):
+            return name, (args or None)
+        return None, self.arena_env_args
