@@ -6,6 +6,7 @@
 """Remote pi0 policy-runner task for the Isaac Lab Arena OSMO workflow."""
 
 from tasks.policy_runner_task import PolicyRunnerTask
+from workflows.workflow_constants import POLICY_SERVER_PORT
 
 
 class Pi0RemotePolicyRunnerTask(PolicyRunnerTask):
@@ -18,7 +19,7 @@ class Pi0RemotePolicyRunnerTask(PolicyRunnerTask):
             "--remote_host",
             "{{host:policy_server}}",
             "--remote_port",
-            "8000",
+            str(POLICY_SERVER_PORT),
             # Raised from the default: on OSMO the first inference timed out while the
             # server was still compiling kernels, which dropped the connection.
             "--ping_timeout",

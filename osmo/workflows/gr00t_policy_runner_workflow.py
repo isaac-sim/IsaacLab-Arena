@@ -20,6 +20,6 @@ from workflows.workflow import Workflow
 class Gr00tPolicyRunnerWorkflow(Workflow):
     """Two-task workflow: a GR00T server plus the lead policy-runner eval task."""
 
-    task_cls_list = [Gr00tServerTask, Gr00tPolicyRunnerTask]
     # The policy runner is the lead: it drives completion and the server runs until the lead finishes.
-    lead_list = [False, True]
+    task_cls_list = [Gr00tPolicyRunnerTask, Gr00tServerTask]
+    lead_list = [True, False]
