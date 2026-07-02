@@ -142,7 +142,7 @@ class G1WBCPinkEmbodiment(G1EmbodimentBase):
     """
 
     name = "g1_wbc_pink"
-    tags = ["embodiment", "ik"]
+    tags = ["embodiment", "default"]
 
     def __init__(
         self,

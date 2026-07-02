@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: mustard_raisin_box
+env_name: rubiks_cube_bowl
 nodes:
 - id: maple_table_robolab
   name: maple_table_robolab
@@ -13,22 +13,22 @@ nodes:
   name: droid_abs_joint_pos
   type: embodiment
   params: {}
-- id: mustard_bottle
-  name: mustard_bottle_hope_robolab
+- id: rubiks_cube
+  name: rubiks_cube_hot3d_robolab
   type: object
   params: {}
-- id: raisin_box
-  name: raisin_box_hope_robolab
+- id: bowl
+  name: bowl_ycb_robolab
   type: object
   params: {}
 tasks:
 - kind: PickAndPlaceTask
   params:
-    pick_up_object: mustard_bottle
-    destination_location: raisin_box
+    pick_up_object: rubiks_cube
+    destination_location: bowl
     background_scene: maple_table_robolab
     episode_length_s: 20.0
-  description: Pick up the mustard bottle and place it on the raisin box.
+  description: put the rubiks cube in the bowl
   id: task_0_PickAndPlaceTask
   initial_state_spec_id: state_initial
   success_state_spec_id: state_spec_1
@@ -41,30 +41,23 @@ state_specs:
     params: {}
     id: state_initial_0_is_anchor_maple_table_robolab
   - kind: 'on'
-    subject: mustard_bottle
+    subject: bowl
     reference: maple_table_robolab
     params: {}
-    id: state_initial_1_on_maple_table_robolab_mustard_bottle
+    id: state_initial_1_on_maple_table_robolab_bowl
   - kind: 'on'
-    subject: raisin_box
+    subject: rubiks_cube
     reference: maple_table_robolab
     params: {}
-    id: state_initial_2_on_maple_table_robolab_raisin_box
-  # TODO: support rotate around solution from the agent intent spec
-  - kind: 'rotate_around_solution'
-    subject: raisin_box
-    params: {
-      pitch_rad: 1.57
-    }
-    id: state_initial_3_rotate_around_solution_raisin_box
+    id: state_initial_2_on_maple_table_robolab_rubiks_cube
   task_constraints: []
 - id: state_spec_1
   is_delta: true
   spatial_constraints:
   - kind: 'on'
-    subject: mustard_bottle
-    reference: raisin_box
+    subject: rubiks_cube
+    reference: bowl
     params: {}
-    id: state_spec_1_mustard_bottle_on_raisin_box
+    id: state_spec_1_rubiks_cube_on_bowl
   task_constraints: []
 cli_override_specs: []

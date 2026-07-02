@@ -1,0 +1,154 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: bin_condiments
+nodes:
+- id: maple_table_robolab
+  name: maple_table_robolab
+  type: background
+  params: {}
+- id: droid
+  name: droid_abs_joint_pos
+  type: embodiment
+  params: {}
+- id: coffee_pot
+  name: coffee_pot_hot3d_robolab
+  type: object
+  params: {}
+- id: grey_bin
+  name: grey_bin_robolab
+  type: object
+  params: {}
+- id: mug
+  name: mug
+  type: object
+  params: {}
+- id: mustard
+  name: mustard_bottle_hope_robolab
+  type: object
+  params: {}
+- id: bowl
+  name: bowl_ycb_robolab
+  type: object
+  params: {}
+- id: ranch_dressing
+  name: ranch_dressing_hope_robolab
+  type: object
+  params: {}
+- id: bbq_sauce_bottle_1
+  name: bbq_sauce_bottle_hope_robolab
+  type: object
+  params: {}
+- id: bbq_sauce_bottle_2
+  name: bbq_sauce_bottle_hope_robolab
+  type: object
+  params: {}
+- id: oatmeal_raisin_cookies
+  name: oatmeal_raisin_cookies_hope_robolab
+  type: object
+  params: {}
+- id: canned_tuna
+  name: canned_tuna_hope_robolab
+  type: object
+  params: {}
+- id: soft_scrub
+  name: soft_scrub_ycb_robolab
+  type: object
+  params: {}
+- id: wood_block
+  name: wood_block_ycb_robolab
+  type: object
+  params: {}
+tasks:
+- kind: PickAndPlaceTask
+  params:
+    pick_up_object: coffee_pot
+    destination_location: grey_bin
+    background_scene: maple_table_robolab
+    episode_length_s: 20.0
+    max_separation: [0.1, 0.1, 0.1]
+  description: pick up the coffee pot and place it into the grey bin
+  id: task_0_PickAndPlaceTask
+  initial_state_spec_id: state_initial
+  success_state_spec_id: state_spec_1
+state_specs:
+- id: state_initial
+  is_delta: false
+  spatial_constraints:
+  - kind: is_anchor
+    subject: maple_table_robolab
+    params: {}
+    id: state_initial_0_is_anchor_maple_table_robolab
+  - kind: 'on'
+    subject: coffee_pot
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_1_on_maple_table_robolab_coffee_pot
+  - kind: 'on'
+    subject: grey_bin
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_2_on_maple_table_robolab_grey_bin
+  - kind: 'on'
+    subject: mug
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_3_on_maple_table_robolab_mug
+  - kind: 'on'
+    subject: mustard
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_4_on_maple_table_robolab_mustard
+  - kind: 'on'
+    subject: bowl
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_5_on_maple_table_robolab_bowl
+  - kind: 'on'
+    subject: ranch_dressing
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_6_on_maple_table_robolab_ranch_dressing
+  - kind: 'on'
+    subject: bbq_sauce_bottle_1
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_7_on_maple_table_robolab_bbq_sauce_bottle_1
+  - kind: 'on'
+    subject: bbq_sauce_bottle_2
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_8_on_maple_table_robolab_bbq_sauce_bottle_2
+  - kind: 'on'
+    subject: oatmeal_raisin_cookies
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_9_on_maple_table_robolab_oatmeal_raisin_cookies
+  - kind: 'on'
+    subject: canned_tuna
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_10_on_maple_table_robolab_canned_tuna
+  - kind: 'on'
+    subject: soft_scrub
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_11_on_maple_table_robolab_soft_scrub
+  - kind: 'on'
+    subject: wood_block
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_12_on_maple_table_robolab_wood_block
+  task_constraints: []
+- id: state_spec_1
+  is_delta: true
+  spatial_constraints:
+  - kind: 'on'
+    subject: coffee_pot
+    reference: grey_bin
+    params: {}
+    id: state_spec_1_coffee_pot_on_grey_bin
+  task_constraints: []
+cli_override_specs: []

@@ -89,7 +89,7 @@ class IntentCompiler:
             trace_prefix="embodiment",
             node_type=ArenaEnvGraphNodeType.EMBODIMENT,
             required_tags=["embodiment"],
-            preferred_tags=["ik"],
+            preferred_tags=["default"],
         )
         if embodiment_node is not None:
             nodes.append(embodiment_node)
