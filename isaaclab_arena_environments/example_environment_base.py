@@ -9,6 +9,8 @@ import argparse
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
+
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
@@ -16,6 +18,7 @@ if TYPE_CHECKING:
 class ExampleEnvironmentBase(ABC):
 
     name: str | None = None
+    cfg_type: type[ArenaEnvironmentCfg] | None = None
 
     def __init__(self):
         from isaaclab_arena.assets.registries import AssetRegistry, DeviceRegistry, HDRImageRegistry
@@ -27,6 +30,10 @@ class ExampleEnvironmentBase(ABC):
     @abstractmethod
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
         pass
+
+    def build(self, cfg: ArenaEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build an Arena environment from its typed configuration."""
+        raise NotImplementedError(f"{type(self).__name__} does not support typed environment configuration")
 
     @abstractmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:

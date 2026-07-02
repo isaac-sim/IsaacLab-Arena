@@ -12,12 +12,13 @@ from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 
 @pytest.mark.with_subprocess
-def test_hydra_configuration_example_runs():
+def test_hydra_configuration_example_runs_two_jobs():
     result = run_subprocess(
         [
             TestConstants.python_path,
             "-m",
             "isaaclab_arena_examples.hydra_configuration.run",
+            "isaaclab_arena_examples/hydra_configuration/hydra_example_suite.yaml",
             "--viz",
             "none",
             "rollout.num_steps=1",
@@ -26,4 +27,7 @@ def test_hydra_configuration_example_runs():
     )
 
     assert result is not None
-    assert "[hydra-example] completed 'maple_table_zero_action'" in result.stdout
+    assert result.stdout.index("Running job variations_demo") < result.stdout.index(
+        "Running job baseline_no_variations"
+    )
+    assert "[hydra-example] completed jobs=['variations_demo', 'baseline_no_variations']" in result.stdout

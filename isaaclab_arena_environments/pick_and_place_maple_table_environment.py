@@ -6,21 +6,58 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
+from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
-@register_environment
-class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
+@dataclass
+class PickAndPlaceMapleTableEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the Maple-table pick-and-place environment."""
 
     name: str = "pick_and_place_maple_table"
+    embodiment_asset_name: str = "droid_abs_joint_pos"
+    teleoperation_device_name: str | None = None
+    high_dynamic_range_image_name: str | None = None
+    light_intensity: float = 500.0
+    pick_up_object_asset_name: str = "rubiks_cube_hot3d_robolab"
+    destination_location_asset_name: str = "bowl_ycb_robolab"
+    additional_table_object_asset_names: list[str] = field(default_factory=list)
+
+
+@register_environment
+class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
+    """Registered provider for the Maple-table pick-and-place environment."""
+
+    name: str = "pick_and_place_maple_table"
+    cfg_type = PickAndPlaceMapleTableEnvironmentCfg
 
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+        """Build from the legacy CLI namespace through the typed configuration."""
+        return self.build(
+            PickAndPlaceMapleTableEnvironmentCfg(
+                enable_cameras=args_cli.enable_cameras,
+                embodiment_asset_name=args_cli.embodiment,
+                teleoperation_device_name=args_cli.teleop_device,
+                high_dynamic_range_image_name=args_cli.hdr,
+                light_intensity=args_cli.light_intensity,
+                pick_up_object_asset_name=args_cli.pick_up_object,
+                destination_location_asset_name=args_cli.destination_location,
+                additional_table_object_asset_names=args_cli.additional_table_objects,
+            )
+        )
+
+    def build(self, cfg: ArenaEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
+        assert isinstance(cfg, PickAndPlaceMapleTableEnvironmentCfg)
+        assert cfg.name == self.name, f"Expected environment configuration '{self.name}', got '{cfg.name}'"
+
         import isaaclab.sim as sim_utils
         from isaaclab.envs.common import ViewerCfg
 
@@ -33,8 +70,8 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
 
         # Step 1: Retrieve assets from the registry
         background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
-        pick_up_object = self.asset_registry.get_asset_by_name(args_cli.pick_up_object)()
-        destination_location = self.asset_registry.get_asset_by_name(args_cli.destination_location)()
+        pick_up_object = self.asset_registry.get_asset_by_name(cfg.pick_up_object_asset_name)()
+        destination_location = self.asset_registry.get_asset_by_name(cfg.destination_location_asset_name)()
 
         # Step 2: Describe spatial relationships
         table_reference = ObjectReference(
@@ -49,21 +86,21 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
         destination_location.add_relation(On(table_reference))
 
         additional_table_objects = [
-            self.asset_registry.get_asset_by_name(name)() for name in args_cli.additional_table_objects
+            self.asset_registry.get_asset_by_name(name)() for name in cfg.additional_table_object_asset_names
         ]
         for obj in additional_table_objects:
             obj.add_relation(On(table_reference))
 
         # Step 3: Configure lighting
         light = self.asset_registry.get_asset_by_name("light")(
-            spawner_cfg=sim_utils.DomeLightCfg(intensity=args_cli.light_intensity),
+            spawner_cfg=sim_utils.DomeLightCfg(intensity=cfg.light_intensity),
         )
-        if args_cli.hdr is not None:
-            light.add_hdr(self.hdr_registry.get_hdr_by_name(args_cli.hdr)())
+        if cfg.high_dynamic_range_image_name is not None:
+            light.add_hdr(self.hdr_registry.get_hdr_by_name(cfg.high_dynamic_range_image_name)())
 
         # Step 4: Select the embodiment
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
-            enable_cameras=args_cli.enable_cameras,
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment_asset_name)(
+            enable_cameras=cfg.enable_cameras,
         )
 
         # Step 5: Compose the scene
@@ -92,6 +129,10 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
             task=task,
             env_cfg_callback=_set_viewer_cfg,
         )
+        if cfg.teleoperation_device_name is not None:
+            isaaclab_arena_environment.teleop_device = self.device_registry.get_device_by_name(
+                cfg.teleoperation_device_name
+            )()
         return isaaclab_arena_environment
 
     @staticmethod

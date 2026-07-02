@@ -3,4 +3,4 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Minimal Hydra configuration example for an Isaac Lab Arena environment."""
+"""Arena policy-evaluation configuration and runners."""
