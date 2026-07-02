@@ -24,13 +24,13 @@ Run order:
 from __future__ import annotations
 
 import argparse
+import numpy as np
 import socket
 import struct
 import time
 
 import msgpack
 import msgpack_numpy
-import numpy as np
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
@@ -120,6 +120,7 @@ def main() -> None:
 
     with SimulationAppContext(args_cli):
         import torch
+
         from isaaclab_arena_environments.cli import (
             get_arena_builder_from_cli,
             get_isaaclab_arena_environments_cli_parser,

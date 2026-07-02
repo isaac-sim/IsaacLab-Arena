@@ -37,6 +37,7 @@ def main() -> None:
 
     with SimulationAppContext(args_cli):
         import torch
+
         from isaaclab.utils.math import matrix_from_quat, subtract_frame_transforms
 
         from isaaclab_arena_environments.cli import (
@@ -79,8 +80,10 @@ def main() -> None:
 
         print(f"[m4] base_pos_w={base_pos[0].cpu().numpy()}  cam_pos_w={cam_pos[0].cpu().numpy()}")
         print(f"[m4] intrinsics fx={fx:.1f} fy={fy:.1f} cx={cx:.1f} cy={cy:.1f}  img={W}x{H}")
-        print(f"[m4] rgb mean={rgb.mean().item():.1f} (non-blank if >0); depth valid frac="
-              f"{np.mean((depth > 0) & np.isfinite(depth)):.2f}")
+        print(
+            f"[m4] rgb mean={rgb.mean().item():.1f} (non-blank if >0); depth valid frac="
+            f"{np.mean((depth > 0) & np.isfinite(depth)):.2f}"
+        )
 
         objects = [n for n in args_cli.objects]
         worst_frame_err = 0.0

@@ -24,13 +24,13 @@ Run order:
 from __future__ import annotations
 
 import argparse
+import numpy as np
 import socket
 import struct
 import time
 
 import msgpack
 import msgpack_numpy
-import numpy as np
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
@@ -69,8 +69,10 @@ def add_bridge_args(parser: argparse.ArgumentParser) -> None:
         "--idle_skip",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Skip env.step while the action is unchanged and the arm is settled (deterministic wall win "
-        "during GaP host-compute idles). --no-idle_skip to disable.",
+        help=(
+            "Skip env.step while the action is unchanged and the arm is settled (deterministic wall win "
+            "during GaP host-compute idles). --no-idle_skip to disable."
+        ),
     )
     group.add_argument(
         "--camera_every",
@@ -122,11 +124,8 @@ def main() -> None:
 
     with SimulationAppContext(args_cli):
         import torch
-        from isaaclab.utils.math import (
-            create_rotation_matrix_from_view,
-            matrix_from_quat,
-            subtract_frame_transforms,
-        )
+
+        from isaaclab.utils.math import create_rotation_matrix_from_view, matrix_from_quat, subtract_frame_transforms
 
         from isaaclab_arena_environments.cli import (
             get_arena_builder_from_cli,
@@ -174,7 +173,7 @@ def main() -> None:
         pose_mat = torch.linalg.inv(T_wb) @ T_wc
         pose_mat_np = pose_mat.cpu().numpy().astype(np.float32)
         K_np = cam.data.intrinsic_matrices[0].cpu().numpy().astype(np.float32)
-        print(f"[m4] exterior cam aimed eye={_CAM_EYE} -> pose_mat t={pose_mat_np[:3,3]}")
+        print(f"[m4] exterior cam aimed eye={_CAM_EYE} -> pose_mat t={pose_mat_np[:3, 3]}")
 
         # Ground-truth object centers in the BASE frame (the frame GaP's OBB will be in) for gate scoring.
         identity = torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=device)
@@ -186,10 +185,11 @@ def main() -> None:
         for obj in args_cli.objects:
             p = base_pose(obj)
             print(f"[m4] GT_BASE {obj} = [{p[0]:.4f}, {p[1]:.4f}, {p[2]:.4f}]")
-        # Basket pose + the M5a target object: logged each tick so the place can be verified by GT pose.
+        # Basket pose: logged each tick so the place can be verified by GT pose.
         basket_base = base_pose(args_cli.basket)
-        print(f"[m4] BASKET_BASE {args_cli.basket} = [{basket_base[0]:.4f}, {basket_base[1]:.4f}, {basket_base[2]:.4f}]")
-        m5a_target = "alphabet_soup_can_hope_robolab"
+        print(
+            f"[m4] BASKET_BASE {args_cli.basket} = [{basket_base[0]:.4f}, {basket_base[1]:.4f}, {basket_base[2]:.4f}]"
+        )
 
         def camera_frame() -> tuple[dict, np.ndarray]:
             rgb = np.ascontiguousarray(cam.data.output["rgb"][0, ..., :3].cpu().numpy().astype(np.uint8))
