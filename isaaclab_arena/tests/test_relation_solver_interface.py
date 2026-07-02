@@ -62,12 +62,13 @@ def test_solve_and_apply_relation_placement_with_no_objects_returns_empty_result
 
 def test_solve_and_apply_relation_placement_with_only_anchors_returns_no_reset_event():
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 
+    params = ObjectPlacerParams(placement_seed=11, resolve_on_reset=False)
     placement_event_cfg = solve_and_apply_relation_placement(
         [_make_desk()],
         num_envs=3,
-        placement_seed=11,
-        resolve_on_reset=False,
+        placer_params=params,
     )
 
     assert placement_event_cfg is None
@@ -75,6 +76,7 @@ def test_solve_and_apply_relation_placement_with_only_anchors_returns_no_reset_e
 
 def test_static_solve_and_apply_relation_placement_reuses_object_only_placement():
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relations import On
     from isaaclab_arena.utils.pose import PosePerEnv
 
@@ -82,11 +84,11 @@ def test_static_solve_and_apply_relation_placement_reuses_object_only_placement(
     box = _make_box()
     box.add_relation(On(desk, clearance_m=0.01))
 
+    params = ObjectPlacerParams(placement_seed=7, resolve_on_reset=False)
     placement_event_cfg = solve_and_apply_relation_placement(
         [desk, box],
         num_envs=2,
-        placement_seed=7,
-        resolve_on_reset=False,
+        placer_params=params,
     )
 
     assert placement_event_cfg is None
