@@ -30,25 +30,31 @@ def build_placement_region(
 ) -> AxisAlignedBoundingBox:
     """Axis-aligned region above the anchor surfaces where placed objects can land.
 
-    Spans the anchors' combined XY footprint and rises from the lowest anchor point to the
-    highest anchor top plus the tallest object's height. Background geometry outside this
-    region cannot collide with anything placed on the anchors.
+    Spans the anchors' XY footprint (padded for object reach) and rises from the lowest anchor
+    point to the highest anchor top plus the tallest object's height. Background geometry outside
+    this region cannot collide with anything placed on the anchors.
 
     Args:
         anchors: Fixed surfaces objects are placed on (e.g. a counter).
-        objects: Objects being placed; their heights set how far up the region extends.
-        clearance_m: Extra margin added to the top of the region.
+        objects: Objects being placed; their sizes set how far the region extends.
+        clearance_m: Extra margin added to every padded face of the region.
     """
     assert anchors, "build_placement_region requires at least one anchor"
     anchor_boxes = [anchor.get_world_bounding_box() for anchor in anchors]
     # AxisAlignedBoundingBox tensors carry a leading batch dim; anchors are single-env, so
     # index [0] to reduce to a plain (3,) corner and size[0, 2] to read the Z extent.
-    min_point = torch.stack([box.min_point[0] for box in anchor_boxes]).min(dim=0).values
-    max_point = torch.stack([box.max_point[0] for box in anchor_boxes]).max(dim=0).values
+    min_point = torch.stack([box.min_point[0] for box in anchor_boxes]).min(dim=0).values.clone()
+    max_point = torch.stack([box.max_point[0] for box in anchor_boxes]).max(dim=0).values.clone()
 
-    max_object_height = max((obj.get_bounding_box().size[0, 2].item() for obj in objects), default=0.0)
-    max_point = max_point.clone()
-    max_point[2] = max_point[2] + max_object_height + clearance_m
+    object_bboxes = [obj.get_bounding_box() for obj in objects]
+    max_object_height = max((b.size[0, 2].item() for b in object_bboxes), default=0.0)
+    # An object placed on the anchor can straddle its edge and, under random yaw, reach out by
+    # half its XY diagonal, so pad the footprint to keep just-outside walls/backsplashes in scope.
+    max_xy_reach = max((torch.linalg.norm(b.size[0, :2]).item() for b in object_bboxes), default=0.0) / 2.0
+    xy_pad = max_xy_reach + clearance_m
+    min_point[:2] -= xy_pad
+    max_point[:2] += xy_pad
+    max_point[2] += max_object_height + clearance_m
     return AxisAlignedBoundingBox(min_point=min_point, max_point=max_point)
 
 
@@ -63,15 +69,15 @@ def find_background_colliders(
     Args:
         background: The background scene to pull collision fixtures from.
         region: Placement region (see build_placement_region); fixtures outside it are dropped.
-        anchors: Placement surfaces to exclude — an anchor is not an obstacle for the objects
+        anchors: Placement surfaces to exclude; an anchor is not an obstacle for the objects
             placed on it, and including it would make every placement register as overlapping.
-        object_prim_paths: Optional explicit fixture prim paths (e.g. from an upstream task).
-            When omitted, fixtures are discovered structurally from the background USD.
+        object_prim_paths: Explicit fixture prim paths to test. When omitted, every first-level
+            Xformable prim under the background is a candidate.
     """
     exclude_prim_paths = {anchor.prim_path for anchor in (anchors or []) if isinstance(anchor, ObjectReference)}
 
     # Culling happens against the background USD directly (one stage open) so that an
-    # ObjectReference — which reopens the USD — is only built for the few surviving fixtures.
+    # ObjectReference (which reopens the USD) is only built for the few surviving fixtures.
     survivor_prim_paths = _cull_prim_paths_to_region(background, region, object_prim_paths, exclude_prim_paths)
     return [
         ObjectReference(name=_leaf_name(prim_path), prim_path=prim_path, parent_asset=background)
@@ -91,7 +97,7 @@ def _cull_prim_paths_to_region(
     explicit object_prim_paths) are kept when their box overlaps the region, except a box
     that fully encloses the region: it would contain every candidate placement, so the
     solver gets no gradient to avoid it (e.g. a whole-room shell prim). Spatial culling,
-    not prim names, decides what counts — a nearby wall or backsplash is a real constraint.
+    not prim names, decides what counts; a nearby wall or backsplash is a real constraint.
     """
     assert background.usd_path is not None, "background must have a usd_path to discover colliders"
     position, quarters, scale = _background_world_transform(background)

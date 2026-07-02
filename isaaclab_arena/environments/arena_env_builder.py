@@ -82,10 +82,9 @@ class ArenaEnvBuilder:
           events restore the same layout every time.
         """
         objects_with_relations = self.arena_env.scene.get_objects_with_relations()
-        # Background geometry that carries no relations is invisible to the relation graph,
-        # but the solver should still keep placed objects from colliding with it. This automatic
-        # path uses coarse whole-asset obstacles; fine-grained per-fixture culling
-        # (relations.background_colliders) stays an explicit opt-in for large scenes like kitchens.
+        # Relation-free background geometry is invisible to the relation graph, but placed objects
+        # must still avoid it. This coarse path uses whole-asset obstacles; per-fixture culling
+        # (relations.background_colliders) is an explicit opt-in for large scenes like kitchens.
         collision_objects = self.arena_env.scene.get_collision_objects()
         self._placement_event_cfg = solve_and_apply_relation_placement(
             objects_with_relations,

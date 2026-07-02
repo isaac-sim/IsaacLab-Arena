@@ -39,7 +39,7 @@ def _make_synthetic_background(usd_path):
 
 
 def _test_build_placement_region(simulation_app) -> bool:
-    """Region spans the anchor footprint and rises by the tallest object's height + clearance."""
+    """Region pads the anchor footprint by the object's XY reach and rises by its height + clearance."""
     from unittest.mock import MagicMock
 
     from isaaclab_arena.relations.background_colliders import build_placement_region
@@ -51,10 +51,13 @@ def _test_build_placement_region(simulation_app) -> bool:
     obj.get_bounding_box.return_value = AxisAlignedBoundingBox((0.0, 0.0, 0.0), (0.1, 0.1, 0.3))
 
     region = build_placement_region([anchor], [obj], clearance_m=0.05)
+    # xy_pad = |(0.1, 0.1)| / 2 + 0.05 = 0.0707 + 0.05; top rises by object height (0.3) + clearance.
+    xy_pad = 0.12071
     return (
-        region.min_point.tolist() == [[0.0, 0.0, 0.0]]
-        and region.max_point[0, 0].item() == 2.0
-        and abs(region.max_point[0, 2].item() - (0.9 + 0.3 + 0.05)) < 1e-5
+        abs(region.min_point[0, 0].item() - -xy_pad) < 1e-4
+        and abs(region.min_point[0, 2].item()) < 1e-6
+        and abs(region.max_point[0, 0].item() - (2.0 + xy_pad)) < 1e-4
+        and abs(region.max_point[0, 2].item() - (0.9 + 0.3 + 0.05)) < 1e-4
     )
 
 
@@ -82,7 +85,7 @@ def _test_find_background_colliders(simulation_app) -> bool:
 
 
 def _test_find_background_colliders_explicit_prim_paths(simulation_app) -> bool:
-    """Explicit prim paths skip name-based discovery but are still culled to the region."""
+    """Explicit prim paths bypass auto-discovery but are still culled to the region."""
     import tempfile
     from pathlib import Path
 
@@ -193,7 +196,7 @@ def _close(actual, expected, tol=1e-4):
 
 def test_build_placement_region():
     result = run_simulation_app_function(_test_build_placement_region, headless=HEADLESS)
-    assert result, "build_placement_region produced the wrong region"
+    assert result, "build_placement_region produced the wrong padded region"
 
 
 def test_object_reference_world_bbox_no_parent_pose():
