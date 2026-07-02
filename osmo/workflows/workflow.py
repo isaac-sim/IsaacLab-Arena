@@ -83,7 +83,7 @@ class Workflow:
         resources = parser.add_argument_group("resources")
         resources.add_argument("--cpus", type=int, default=15)
         resources.add_argument("--gpus", type=int, default=1)
-        resources.add_argument("--memory", default="128Gi")
+        resources.add_argument("--memory", default="256Gi")
         resources.add_argument("--storage", default="200Gi")
         resources.add_argument("--platform", default="ovx-l40s")
 
