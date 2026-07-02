@@ -69,8 +69,10 @@ default-groups = ["isaacsim"]
 # transitive tinyobjloader release candidate. The exact constraint below makes
 # that RC explicit without allowing unrelated packages to float to prereleases.
 prerelease = "if-necessary-or-explicit"
-# Required to mix the NVIDIA, PyPI, and PyTorch indexes in one resolution.
-index-strategy = "unsafe-best-match"
+# Prefer the first index containing a compatible package. The explicit PyPI
+# route below handles the one known NVIDIA/PyPI name collision without merging
+# candidates from multiple indexes.
+index-strategy = "first-index"
 # Pin numpy to the exact version Isaac Sim requires: isaacsim-kernel needs
 # ==2.3.1 and numba needs <2.5. An override (not a plain dep) is needed to also
 # beat a transitive constraint that would otherwise pull numpy<2.
@@ -95,13 +97,25 @@ override-dependencies = ["numpy==2.3.1"]
 #     alone: stable 0.33 needs psutil>=7, which isaacsim 6.0 pins to 5.9.8.)
 #   * tinyobjloader: isaacsim-core requires this exact RC transitively; making it
 #     explicit lets the narrow prerelease policy admit it during a fresh lock.
-constraint-dependencies = ["pin-pink==3.1.0", "pyglet<3", "tinyobjloader==2.0.0rc13"]
+#   * mujoco-usd-converter: the NVIDIA index contains only incompatible 0.1.0
+#     prereleases, so this exact requirement is routed to PyPI below.
+constraint-dependencies = [
+    "pin-pink==3.1.0",
+    "pyglet<3",
+    "tinyobjloader==2.0.0rc13",
+    "mujoco-usd-converter==0.2.0",
+]
 # Use a uv-managed CPython 3.12 rather than whatever happens to be on PATH.
 python-preference = "only-managed"
 
 [[tool.uv.index]]
 url = "https://pypi.nvidia.com"
 explicit = false
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
 
 [[tool.uv.index]]
 name = "pytorch-cu128"
@@ -117,6 +131,7 @@ explicit = true
 # torch / torchvision / torchaudio are pulled transitively by the isaaclab
 # wheel; we only steer them to the right CUDA index per platform. x86_64/AMD64
 # Linux + win32 -> cu128; aarch64/arm64 Linux -> cu130.
+mujoco-usd-converter = { index = "pypi" }
 torch = [
     { index = "pytorch-cu128", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
     { index = "pytorch-cu128", marker = "sys_platform == 'linux' and platform_machine == 'AMD64'" },
@@ -138,10 +153,6 @@ torchaudio = [
     { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
     { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'arm64'" },
 ]
-
-[tool.uv.pip]
-prerelease = "if-necessary-or-explicit"
-index-strategy = "unsafe-best-match"
 
 [tool.setuptools.packages.find]
 where = ["."]
