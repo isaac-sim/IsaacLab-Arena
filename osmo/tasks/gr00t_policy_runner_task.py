@@ -20,11 +20,13 @@ class Gr00tPolicyRunnerTask(PolicyRunnerTask):
         self,
         workflow_args: argparse.Namespace,
         task_args: argparse.Namespace,
+        remote_host: str,
         lead: bool | None = None,
     ) -> None:
         super().__init__(workflow_args=workflow_args, task_args=task_args, lead=lead)
         self.policy_config_yaml_path = task_args.policy_config_yaml_path
-        self.remote_host = task_args.remote_host
+        # Host of the GR00T server this runner connects to; the workflow resolves it from the server task.
+        self.remote_host = remote_host
 
     @staticmethod
     def add_task_arguments(parser: argparse.ArgumentParser) -> None:
@@ -32,13 +34,6 @@ class Gr00tPolicyRunnerTask(PolicyRunnerTask):
         group = parser.add_argument_group("gr00t policy runner")
         group.add_argument(
             "--policy_config_yaml_path", default=DEFAULT_POLICY_CONFIG, help="GR00T closed-loop config YAML"
-        )
-        # Tasks in an OSMO group each get their own IP, so the server is reached via the
-        # {{host:<task-name>}} token, which OSMO resolves to the server task's IP at runtime.
-        group.add_argument(
-            "--remote_host",
-            default="{{host:gr00t_server}}",
-            help="GR00T server host (defaults to {{host:gr00t_server}})",
         )
 
     def _get_policy_args(self) -> list[str]:

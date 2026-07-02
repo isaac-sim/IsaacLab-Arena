@@ -3,29 +3,33 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Configure and submit a GR00T policy-runner evaluation OSMO workflow.
+"""Configure and submit the GR00T policy-runner + server OSMO workflow.
 
-Renders a single OSMO group with two tasks that talk over the shared group
-network: a GR00T inference server and the Arena policy runner (lead)
-that connects to it and uploads its evaluation outputs.
+Co-schedules an Isaac Lab Arena policy-runner task with the GR00T inference server it connects to.
 
 Usage examples:
 
-    # Dry run (print rendered YAML without submitting)
-    python osmo/submit_gr00t_policy_runner_workflow.py \
-        --arena_env_args "kitchen_pick_and_place --object cracker_box" --dry-run
+    # Default policy-runner + GR00T server
+    python osmo/submit_gr00t_policy_runner_workflow.py --pool isaac-dev-l40s-04
 
-    # Submit to a pool
+    # Custom policy config and Arena environment arguments
     python osmo/submit_gr00t_policy_runner_workflow.py \
-        --arena_env_args "kitchen_pick_and_place --object cracker_box" \
-        --pool isaac-dev-l40s-04 --platform ovx-l40s
-
-    # Evaluate a different environment / config
-    python osmo/submit_gr00t_policy_runner_workflow.py \
-        --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml \
-        --arena_env_args "kitchen_pick_and_place --object cracker_box" \
+        --gpus 1 \
+        --cpus 15 \
+        --memory 64Gi \
+        --storage 200Gi \
+        --platform ovx-l40s \
+        --exec_timeout 1d \
+        --queue_timeout 2d \
+        --workflow_name arena-gr00t \
+        --priority NORMAL \
         --pool isaac-dev-l40s-04 \
-        --platform ovx-l40s
+        --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml \
+        --policy_runner_args '--num_episodes 2 --headless --enable_cameras --num_envs 4 --record_camera_video' \
+        --arena_env_args 'kitchen_pick_and_place --object cracker_box'
+
+    # Dry run (print rendered YAML without submitting)
+    python osmo/submit_gr00t_policy_runner_workflow.py --pool isaac-dev-l40s-04 --dry-run
 """
 
 from __future__ import annotations
@@ -37,7 +41,7 @@ from workflows.gr00t_policy_runner_workflow import Gr00tPolicyRunnerWorkflow
 
 def main(cli_args: list[str] | None = None) -> int:
     parser = Gr00tPolicyRunnerWorkflow.build_parser(
-        description="Configure and submit a GR00T policy-runner evaluation OSMO workflow.",
+        description="Configure and submit the GR00T policy-runner + server OSMO workflow.",
         epilog=__doc__,
     )
     args = parser.parse_args(cli_args)
