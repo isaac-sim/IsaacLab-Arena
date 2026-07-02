@@ -1,23 +1,39 @@
 # GaP to Arena: Arena-Side Handoff
 
-Current as of 2026-06-30. Start from the `Isaac-cap` repository for the complete setup and runbook;
+Current as of 2026-07-02. Start from the `Isaac-cap` repository for the complete setup and runbook;
 this file records the Arena-owned part of the integration.
 
 ## Reproducible Revisions
 
-| Component | Branch | Required commit |
+| Component | Branch | Required revision |
 |---|---|---|
-| Arena CAP source (this worktree) | `rcathomen/feature/cap-gap-eval` | `444307d3cf7b77d2c93c8a1303979accdc238217` |
-| Arena native `uv` environment | `rcathomen/feature/uv-native-install` | `ce1b93de6ad5ca188a75f6ff36a387fceb860191` |
-| Isaac-cap | `rcathomen/gap-ila-eval` | `f0487f2cc216adc4c10e7cc2ef2840eb7fcf4ca0` |
+| Arena CAP source and native environment (this worktree) | `rcathomen/feature/cap-gap-eval` | Exact pin in `Isaac-cap/external/PINNED_VERSIONS.md` |
+| Arena native `uv` base | `rcathomen/feature/uv-native-install` | `60f6b0d9c3189564cd8c6af8d171091794210de4` |
+| Isaac-cap | `rcathomen/gap-ila-eval` | Exact pin in `Isaac-cap/external/PINNED_VERSIONS.md` |
 | `graph-as-policy` private handoff mirror | `cap-eval-c24fafb` | `c24fafb126dcb27b2c9f13fbdd143d436851e5a9` |
 | DROID TCP skill fork | `rcathomen/cap-droid-tcp` | `4ce0af76d9cb4dbf92ebacf92de7af28ef1ff1fa` |
 
-Use the full revisions from `Isaac-cap/external/PINNED_VERSIONS.md`; short revisions above are only
-for orientation. The local and canonical remote branch are both
-`rcathomen/feature/cap-gap-eval`.
+Use the full revisions from `Isaac-cap/external/PINNED_VERSIONS.md`. The CAP branch is based
+directly on the native-UV branch and therefore contains the same `pyproject.toml` and `uv.lock`; a
+separate Arena environment worktree is no longer required. The local and canonical remote branch
+are both `rcathomen/feature/cap-gap-eval`.
 The original GaP URL no longer resolves; the exact runtime is mirrored privately at
 `rafaelcathomen/graph-as-policy-cap` and requires access.
+
+## Native Installation
+
+Create the environment in this checkout, then install the Isaac-cap bridge into it:
+
+```bash
+export OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y
+uv sync --locked
+uv pip install --python .venv/bin/python --editable ../Isaac-cap
+uv pip check
+```
+
+Run the editable install after every exact `uv sync`, because syncing removes packages not declared
+by Arena. The complete sibling-repository layout and credential setup remain documented in
+`Isaac-cap/docs/TEAMMATE_SETUP.md`.
 
 ## Current Result
 
@@ -90,7 +106,8 @@ host. This is not a silent fallback, and the resolved URLs are stored in episode
 
 ## Verification
 
-The patch at `444307d3c` passed nine focused tests covering camera variation/Fabric coherence,
-staging isolation, and two-to-five-target parsing. Both scene-variation job files pass JSON and
-`JobManager` validation. `dev_run.sh` is a local absolute-path helper and is intentionally not
-committed.
+The rebase onto native-UV revision `60f6b0d9c` passes the locked dependency check, full Arena test
+collection (626 tests), the Isaac-cap Arena-side suite (52 passed, 6 skipped), and focused CAP tests
+covering camera/Fabric coherence, staging isolation, and multi-target parsing. A GPU camera-reset
+test confirmed the sampled camera transform and rendered Fabric pose agree. Both scene-variation
+job files pass JSON and `JobManager` validation.
