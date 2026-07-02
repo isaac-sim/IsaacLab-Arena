@@ -173,6 +173,80 @@ mustard_raisin_box
      - ``--env_graph_spec_yaml isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml``
 
 
+tools_container
+^^^^^^^^^^^^^^^
+
+**Environment YAML:** ``isaaclab_arena_environments/robolab/tools_container_linked.yaml``
+
+**Task Description:** Pick up the spring clamp and place it in the right bin,
+with tools and another container as tabletop objects.
+
+.. list-table::
+   :widths: 30 70
+   :header-rows: 1
+
+   * - Property
+     - Value
+   * - **Source Type**
+     - Environment graph YAML
+   * - **Generation Prompt**
+     - ``Two bins on maple table. Container_f24 bin is on the left of bin_b04 bin. Droid put the spring clamp in the right bin. Other objects on the table as distractors: two hammers, cordless drill.``
+   * - **Tags**
+     - Agentic generation, Robolab, table-top manipulation
+   * - **Skills**
+     - Reach, Grasp, Pick & place
+   * - **Embodiment**
+     - ``droid_abs_joint_pos`` (node id: ``droid``)
+   * - **Scene**
+     - ``maple_table_robolab`` background
+   * - **Objects**
+     - Pick: ``spring_clamp``; Destination: ``bin_b04``; Distractors:
+       ``container_f24``, ``hammer_1``, ``hammer_2``, ``cordless_drill``
+   * - **Task Class**
+     - ``PickAndPlaceTask``
+   * - **Object Placement**
+     - Initial relations: objects ``On(maple_table_robolab)``; ``container_f24``
+       ``next_to`` ``bin_b04``; success: ``spring_clamp On(bin_b04)``
+   * - **CLI Args**
+     - ``--env_graph_spec_yaml isaaclab_arena_environments/robolab/tools_container_linked.yaml``
+
+
+two_bin
+^^^^^^^
+
+**Environment YAML:** ``isaaclab_arena_environments/robolab/two_bin_linked.yaml``
+
+**Task Description:** Pick up the mustard bottle and place it in the left bin.
+
+.. list-table::
+   :widths: 30 70
+   :header-rows: 1
+
+   * - Property
+     - Value
+   * - **Source Type**
+     - Environment graph YAML
+   * - **Generation Prompt**
+     - ``Two grey bins on the maple table, one on the left of the other. Droid picks up the mustard bottle from the maple table and places it in the left bin.``
+   * - **Tags**
+     - Agentic generation, Robolab, table-top manipulation
+   * - **Skills**
+     - Reach, Grasp, Pick & place
+   * - **Embodiment**
+     - ``droid_abs_joint_pos`` (node id: ``droid``)
+   * - **Scene**
+     - ``maple_table_robolab`` background
+   * - **Objects**
+     - Pick: ``mustard``; Destination: ``grey_bin_left``; Additional object: ``grey_bin_right``
+   * - **Task Class**
+     - ``PickAndPlaceTask``
+   * - **Object Placement**
+     - Initial relations: objects ``On(maple_table_robolab)``; ``grey_bin_left``
+       ``next_to`` ``grey_bin_right``; success: ``mustard On(grey_bin_left)``
+   * - **CLI Args**
+     - ``--env_graph_spec_yaml isaaclab_arena_environments/robolab/two_bin_linked.yaml``
+
+
 Pick & Place
 ------------
 

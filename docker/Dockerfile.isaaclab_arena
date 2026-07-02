@@ -4,9 +4,6 @@ FROM ${BASE_IMAGE}
 
 USER root
 
-# GR00T Policy Build Arguments, these are only used if INSTALL_GROOT is true
-ARG INSTALL_GROOT=false
-
 ARG WORKDIR="/workspace"
 ENV WORKDIR=${WORKDIR}
 WORKDIR "${WORKDIR}"
@@ -97,25 +94,10 @@ RUN (type -p wget >/dev/null || (apt update && apt install wget -y)) \
     apt update && \
     apt install -y gh
 
-###############################
-# Install GR00T and CUDA 12.8 #
-###############################
-# Copy CUDA 12.8 installation script
-COPY docker/setup/install_cuda.sh /tmp/install_cuda.sh
-RUN chmod +x /tmp/install_cuda.sh
-# If GR00T deps to be installed, install cuda 12.8 (needed for flash-attn, and avoid 4G memory addon)
-RUN if [ "$INSTALL_GROOT" = "true" ]; then \
-    /tmp/install_cuda.sh; \
-  else \
-    echo "Skipping CUDA 12.8 installation"; \
-  fi && \
-  rm -f /tmp/install_cuda.sh
 # Copy GR00T
 COPY ./submodules/Isaac-GR00T ${WORKDIR}/submodules/Isaac-GR00T
-# Always make the `gr00t` package importable so the lightweight remote
+# Make the `gr00t` package importable so the lightweight remote
 # PolicyClient (gr00t.policy.server_client) works in the base container.
-# The full GR00T runtime (torch + flash-attn + transformers + ...) is still
-# gated behind INSTALL_GROOT=true below.
 RUN /isaac-sim/python.sh -m pip install msgpack==1.1.0 msgpack-numpy==0.4.8 pyzmq==27.0.1 && \
     /isaac-sim/python.sh -m pip install --no-deps --ignore-requires-python -e ${WORKDIR}/submodules/Isaac-GR00T/
 RUN /isaac-sim/python.sh -m pip install av
@@ -130,17 +112,6 @@ RUN OPENPI_COMMIT=$(tr -d '[:space:]' < /tmp/openpi_commit) && \
     /isaac-sim/python.sh -m pip install --no-cache-dir \
     "openpi-client @ git+https://github.com/Physical-Intelligence/openpi@${OPENPI_COMMIT}#subdirectory=packages/openpi-client" && \
     rm /tmp/openpi_commit
-
-# TODO(xinjieyao, 2026-04-27): remove this after remote policy done refactoring
-# Copy GR00T dependencies installation script
-COPY docker/setup/install_gr00t_deps.sh /tmp/install_gr00t_deps.sh
-RUN chmod +x /tmp/install_gr00t_deps.sh
-# Install GR00T deps to /opt/groot_deps when requested; entrypoint sources profile.d to set GROOT_DEPS_DIR
-RUN if [ "$INSTALL_GROOT" = "true" ]; then \
-    /tmp/install_gr00t_deps.sh && echo 'export GROOT_DEPS_DIR=/opt/groot_deps' > /etc/profile.d/groot_deps.sh; \
-  else \
-    echo "Skipping GR00T installation" && rm -f /etc/profile.d/groot_deps.sh; \
-  fi && rm -f /tmp/install_gr00t_deps.sh
 
 # Copy the rest of the files
 COPY *.* ${WORKDIR}/

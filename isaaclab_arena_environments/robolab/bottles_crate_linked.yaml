@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: mustard_raisin_box
+env_name: bottles_crate
 nodes:
 - id: maple_table_robolab
   name: maple_table_robolab
@@ -13,22 +13,31 @@ nodes:
   name: droid_abs_joint_pos
   type: embodiment
   params: {}
-- id: mustard_bottle
-  name: mustard_bottle_hope_robolab
+- id: bbq_sauce_bottle
+  name: bbq_sauce_bottle_hope_robolab
   type: object
   params: {}
-- id: raisin_box
-  name: raisin_box_hope_robolab
+- id: purple_crate
+  name: purple_crate
+  type: object
+  params: {}
+- id: ceramic_mug
+  name: ceramic_mug_hot3d_robolab
+  type: object
+  params: {}
+- id: salad_dressing_bottle
+  name: salad_dressing_bottle_hot3d_robolab
   type: object
   params: {}
 tasks:
 - kind: PickAndPlaceTask
   params:
-    pick_up_object: mustard_bottle
-    destination_location: raisin_box
+    pick_up_object: bbq_sauce_bottle
+    destination_location: purple_crate
     background_scene: maple_table_robolab
     episode_length_s: 20.0
-  description: Pick up the mustard bottle and place it on the raisin box.
+    max_separation: [0.1, 0.1, 0.1]
+  description: place the bbq sauce bottle into the purple crate on the table
   id: task_0_PickAndPlaceTask
   initial_state_spec_id: state_initial
   success_state_spec_id: state_spec_1
@@ -41,30 +50,33 @@ state_specs:
     params: {}
     id: state_initial_0_is_anchor_maple_table_robolab
   - kind: 'on'
-    subject: mustard_bottle
+    subject: bbq_sauce_bottle
     reference: maple_table_robolab
     params: {}
-    id: state_initial_1_on_maple_table_robolab_mustard_bottle
+    id: state_initial_1_on_maple_table_robolab_bbq_sauce_bottle
   - kind: 'on'
-    subject: raisin_box
+    subject: purple_crate
     reference: maple_table_robolab
     params: {}
-    id: state_initial_2_on_maple_table_robolab_raisin_box
-  # TODO: support rotate around solution from the agent intent spec
-  - kind: 'rotate_around_solution'
-    subject: raisin_box
-    params: {
-      pitch_rad: 1.57
-    }
-    id: state_initial_3_rotate_around_solution_raisin_box
+    id: state_initial_2_on_maple_table_robolab_purple_crate
+  - kind: 'on'
+    subject: ceramic_mug
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_3_on_maple_table_robolab_ceramic_mug
+  - kind: 'on'
+    subject: salad_dressing_bottle
+    reference: maple_table_robolab
+    params: {}
+    id: state_initial_4_on_maple_table_robolab_salad_dressing_bottle
   task_constraints: []
 - id: state_spec_1
   is_delta: true
   spatial_constraints:
   - kind: 'on'
-    subject: mustard_bottle
-    reference: raisin_box
+    subject: bbq_sauce_bottle
+    reference: purple_crate
     params: {}
-    id: state_spec_1_mustard_bottle_on_raisin_box
+    id: state_spec_1_bbq_sauce_bottle_on_purple_crate
   task_constraints: []
 cli_override_specs: []

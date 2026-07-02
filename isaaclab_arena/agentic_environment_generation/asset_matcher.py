@@ -66,7 +66,7 @@ def match_asset(
 
         required_tags: Tags every candidate must carry (e.g. ``["object"]``).
         preferred_tags: Additional tags that narrow the first-pass pool
-            (e.g. item ``category_tags`` or ``["ik"]`` for embodiments).
+            (e.g. item ``category_tags`` or ``["default"]`` for embodiments).
             When ``None`` or empty, stage 2 is skipped and matching falls
             through directly to the required-tag pool.
 

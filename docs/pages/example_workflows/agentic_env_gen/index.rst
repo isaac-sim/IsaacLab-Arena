@@ -10,6 +10,10 @@ variation system, and policy-specific evaluation flows such as GR00T and PI.
 Behind the scenes, this workflow introduces the intent spec, environment graph
 spec, and environment graph linking.
 
+**Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
+
+:docker_run_default:
+
 .. todo:: add concept overview page
 
 
@@ -21,7 +25,7 @@ specs:
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+   python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
       --mode resolve \
       --prompt "Droid picks up the mustard bottle from the maple table and places it in the grey bin."
 
@@ -36,24 +40,54 @@ Pass the linked YAML to policy and evaluation commands.
 Prompt to Simulation Environment
 --------------------------------
 
-  Use the agentic generation runner to build a simulation environment from prompt-specified environment:
+Use the agentic generation runner to build a simulation environment from a
+prompt-specified environment:
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+   python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
       --mode full \
       --prompt "Droid picks up the mustard bottle from the maple table and places it in the grey bin."
+
+Interactive GUI Runner
+----------------------
+
+As an alternative to the CLI runner, use the GUI runner to interactively
+generate, edit, and visualize the prompt-specified environment in a web browser:
+
+.. code-block:: bash
+
+   python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py
+
+.. note::
+
+   Agent-generated specs may have missing or incorrect fields. We recommend
+   using the interactive GUI to manually fix and validate each spec before using
+   it for full evaluation.
+
+   For example:
+
+   * ``isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml``
+     manually adds a ``rotate_around_solution`` relation to set the raisin box
+     in a standup position.
+   * ``isaaclab_arena_environments/robolab/two_bin_linked.yaml`` manually edits
+     the ``next_to`` relation ``side`` param to set the correct left/right
+     positioning in robot coordinates.
+
+See :doc:`gui_runner` for the full UI walkthrough.
 
 Available Generated Specs
 -------------------------
 
-The ``robolab`` subfolder contains example environment graph specs that can be used
-directly with policy and evaluation commands:
+The ``robolab`` subfolder contains example environment graph specs that can be
+used directly with policy and evaluation commands:
 
+* ``isaaclab_arena_environments/robolab/bagel_plate_banana_bowl_linked.yaml``
 * ``isaaclab_arena_environments/robolab/bin_mug_marker_bowl_linked.yaml``
 * ``isaaclab_arena_environments/robolab/butter_raisin_box_grey_bin_linked.yaml``
 * ``isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml``
-* ``isaaclab_arena_environments/robolab/bagel_plate_banana_bowl_linked.yaml``
+* ``isaaclab_arena_environments/robolab/tools_container_linked.yaml``
+* ``isaaclab_arena_environments/robolab/two_bin_linked.yaml``
 
 
 Run a Generated Environment
@@ -63,7 +97,7 @@ Generated environments are consumed through ``--env_graph_spec_yaml``:
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh -m isaaclab_arena_examples.policy_runner \
+   python isaaclab_arena/evaluation/policy_runner.py \
       --viz kit \
       --policy_type zero_action \
       --enable_cameras \
@@ -74,7 +108,7 @@ The same YAML can also be built directly by the generation runner:
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
+   python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
       --mode build \
       --linked_env_graph_spec_yaml isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml \
       --headless
@@ -83,20 +117,25 @@ The same YAML can also be built directly by the generation runner:
 Policy Runner with Variations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-See for more details on variations.
-
 An Arena environment represented by an environment graph spec YAML can be run
 with variations through the policy runner:
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+   python isaaclab_arena/evaluation/policy_runner.py \
       --viz kit \
       --policy_type zero_action \
       --enable_cameras \
       isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml \
       light.hdr_image.enabled=true \
       droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true
+
+.. figure:: ../../../images/agentic_env_gen_policy.gif
+   :alt: Agentic environment generation with PI policy and HDR variation sensitivity analysis
+
+   Agentically generated environments can be evaluated with policy runners and
+   variation sweeps, such as changing the background HDR image to probe policy
+   sensitivity.
 
 Sequential Batch Evaluation Runner with Variations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -131,16 +170,22 @@ Follow the steps below to complete the workflow:
    :maxdepth: 1
    :hidden:
 
+   gui_runner
    eval_with_gr00t
    eval_with_openpi
 
 Warnings
 --------
 
-This is an active development area, and we are working on the following:
+.. note::
 
-* Support for more complex scene layouts and object placements.
-* Support for more complex task specifications.
-* Support for interactive environment editing.
-* Support in-sim validation for physics and reachability.
-* ...
+   Agentic environment generation is experimental and changing quickly. The
+   current prompt formats, generated spec structure, GUI behavior, and policy
+   evaluation integrations may change across releases.
+
+   We are actively working on:
+
+   * Support for more complex scene layouts and object placements.
+   * Support for more complex task specifications.
+   * Support in-sim validation for physics and reachability.
+   * ...
