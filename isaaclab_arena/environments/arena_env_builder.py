@@ -165,16 +165,19 @@ class ArenaEnvBuilder:
     def _compose_episode_recorders_cfg(self, extra_terms: dict[str, EpisodeRecorderTermCfg] | None = None) -> object:
         """Build a configclass container with one EpisodeRecorderTermCfg field per episode recorder term.
 
-        Note that this function automatically adds the core and variations terms.
+        Note that this function automatically adds the core, variations, and progress terms. The
+        progress term records nothing for tasks that define no progress objectives.
         """
         fields = [
             ("core", EpisodeRecorderTermCfg, CoreEpisodeRecorderTermCfg()),
             ("variations", EpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg()),
+            ("progress", EpisodeRecorderTermCfg, ProgressEpisodeRecorderTermCfg()),
         ]
         for name, term_cfg in (extra_terms or {}).items():
             assert name not in (
                 "core",
                 "variations",
+                "progress",
             ), f"Episode recorder term name '{name}' collides with a built-in term."
             fields.append((name, EpisodeRecorderTermCfg, term_cfg))
         return make_configclass("EpisodeRecorderManagerCfg", fields)()
@@ -297,10 +300,7 @@ class ArenaEnvBuilder:
             task.get_commands_cfg(),
         )
 
-        episode_recorder_terms = dict(self.arena_env.episode_recorder_terms or {})
-        if progress_objectives:
-            episode_recorder_terms.setdefault("progress", ProgressEpisodeRecorderTermCfg())
-        episode_recorders_cfg = self._compose_episode_recorders_cfg(episode_recorder_terms)
+        episode_recorders_cfg = self._compose_episode_recorders_cfg(self.arena_env.episode_recorder_terms)
 
         viewer_cfg = task.get_viewer_cfg()
 
