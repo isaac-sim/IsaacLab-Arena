@@ -3,17 +3,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Configure and submit the openpi policy-runner + server OSMO workflow.
+"""Configure and submit the pi0 policy-runner + server OSMO workflow.
 
-Co-schedules an Isaac Lab Arena policy-runner task with the openpi inference server it connects to.
+Co-schedules an Isaac Lab Arena policy-runner task with the pi0 inference server it connects to.
 
 Usage examples:
 
     # Default policy-runner + pi0 server
-    python osmo/submit_openpi_plus_policy_runner_workflow.py --pool isaac-dev-l40s-04
+    python osmo/submit_pi0_plus_policy_runner_workflow.py --pool isaac-dev-l40s-04
 
     # Custom policy_runner.py and Arena environment arguments
-    python osmo/submit_openpi_plus_policy_runner_workflow.py \
+    python osmo/submit_pi0_plus_policy_runner_workflow.py \
         --gpus 2 \
         --cpus 15 \
         --memory 256Gi \
@@ -21,31 +21,31 @@ Usage examples:
         --platform ovx-l40s \
         --exec_timeout 1d \
         --queue_timeout 2d \
-        --workflow_name arena-openpi-plus \
+        --workflow_name arena-pi0-plus \
         --priority NORMAL \
         --pool isaac-dev-l40s-04 \
         --policy_runner_args '--num_steps 500 --headless' \
         --arena_env_args 'kitchen_pick_and_place --object cracker_box --embodiment franka_ik'
 
     # Dry run (print rendered YAML without submitting)
-    python osmo/submit_openpi_plus_policy_runner_workflow.py --pool isaac-dev-l40s-04 --dry-run
+    python osmo/submit_pi0_plus_policy_runner_workflow.py --pool isaac-dev-l40s-04 --dry-run
 """
 
 from __future__ import annotations
 
 import sys
 
-from workflows.openpi_plus_policy_runner_workflow import OpenpiPlusPolicyRunnerWorkflow
+from workflows.pi0_plus_policy_runner_workflow import Pi0PlusPolicyRunnerWorkflow
 
 
 def main(cli_args: list[str] | None = None) -> int:
-    parser = OpenpiPlusPolicyRunnerWorkflow.build_parser(
-        description="Configure and submit the openpi policy-runner + server OSMO workflow.",
+    parser = Pi0PlusPolicyRunnerWorkflow.build_parser(
+        description="Configure and submit the pi0 policy-runner + server OSMO workflow.",
         epilog=__doc__,
     )
     args = parser.parse_args(cli_args)
 
-    workflow = OpenpiPlusPolicyRunnerWorkflow(
+    workflow = Pi0PlusPolicyRunnerWorkflow(
         workflow_args=args,
         task_args=args,
     )
