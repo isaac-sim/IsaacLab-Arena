@@ -362,7 +362,7 @@ def test_cam2_source_right_missing_raises(make_policy):
     """Missing right-shoulder camera raises AssertionError when cam2_source='right'."""
     policy = make_policy(cam2_source="right")
     policy._maybe_init_per_env_state(NUM_ENVS)
-    obs = _fake_observation()  # no 'over_shoulder_right_camera' key
+    obs = _fake_observation()  # no 'external_camera_2_rgb' key
     with pytest.raises(AssertionError, match="external_camera_2_rgb"):
         policy._build_request(obs, env_id=0)
 
