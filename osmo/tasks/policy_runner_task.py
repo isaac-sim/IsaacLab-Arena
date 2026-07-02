@@ -39,7 +39,9 @@ class PolicyRunnerTask(BaseTask):
         super().__init__(workflow_args=workflow_args, task_args=task_args, lead=lead)
 
         self.policy_runner_args = _normalize_args(self.task_args.policy_runner_args)
+        self.arena_env = self.task_args.arena_env
         self.arena_env_args = _normalize_args(self.task_args.arena_env_args)
+        self.variations = _normalize_args(self.task_args.variations)
         self.image = image
 
     @staticmethod
@@ -51,9 +53,19 @@ class PolicyRunnerTask(BaseTask):
             help="Additional policy-runner arguments before the Arena environment args",
         )
         group.add_argument(
-            "--arena_env_args",
+            "--arena_env",
             required=True,
-            help="Arena environment name and env-related arguments",
+            help="Graph-spec YAML path or registered example-environment name",
+        )
+        group.add_argument(
+            "--arena_env_args",
+            default="",
+            help="Env-related arguments for the chosen Arena environment",
+        )
+        group.add_argument(
+            "--variations",
+            default="",
+            help="Hydra-style variation overrides appended to the env, e.g. 'light.hdr_image.enabled=true'",
         )
 
     @staticmethod
@@ -78,12 +90,30 @@ class PolicyRunnerTask(BaseTask):
         """
 
     def _get_run_script(self) -> str:
-        policy_args_str = " ".join(self._get_policy_args())
-        return (
-            "set -euxo pipefail\n"
-            f"{POLICY_RUNNER_COMMAND} "
-            f"{policy_args_str} "
-            f"--output_base_dir {OSMO_TASK_OUTPUT_DIR} "
-            f"{self.policy_runner_args} "
-            f"{self.arena_env_args}\n"
-        )
+        return f"set -euxo pipefail\n{self._get_policy_runner_command()}\n"
+
+    def _get_policy_runner_command(self) -> str:
+        """Assemble the policy_runner.py command."""
+        parts = [
+            POLICY_RUNNER_COMMAND,
+            *self._get_policy_args(),
+            "--output_base_dir",
+            OSMO_TASK_OUTPUT_DIR,
+            self.policy_runner_args,
+            self.get_arena_env_token(),
+            self.arena_env_args,
+            self.variations,
+        ]
+        return " ".join(part for part in parts if part)
+
+    def get_arena_env_token(self) -> str:
+        """Render the Arena env selector token as ``policy_runner.py`` expects it.
+
+        The ``--arena_env`` value chooses the environment source and is resolved as follows:
+
+        - Registered example-environment pass by name: kitchen_pick_and_place
+        - A graph-spec YAML path is preceded by the flag: --env_graph_spec_yaml robolab/mustard_raisin_box.yaml``.
+        """
+        if self.arena_env.endswith((".yaml", ".yml")):
+            return f"--env_graph_spec_yaml {self.arena_env}"
+        return self.arena_env

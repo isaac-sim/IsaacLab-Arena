@@ -10,7 +10,7 @@ Co-schedules an Isaac Lab Arena policy-runner task with the GR00T inference serv
 Usage examples:
 
     # Default policy-runner + GR00T server
-    python osmo/submit_gr00t_policy_runner_workflow.py --pool isaac-dev-l40s-04
+    python osmo/submit_gr00t_policy_runner_workflow.py --arena_env kitchen_pick_and_place --pool isaac-dev-l40s-04
 
     # Custom policy config and Arena environment arguments
     python osmo/submit_gr00t_policy_runner_workflow.py \
@@ -26,10 +26,11 @@ Usage examples:
         --pool isaac-dev-l40s-04 \
         --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml \
         --policy_runner_args '--num_episodes 2 --headless --enable_cameras --num_envs 4 --record_camera_video' \
-        --arena_env_args 'kitchen_pick_and_place --object cracker_box'
+        --arena_env kitchen_pick_and_place \
+        --arena_env_args '--object cracker_box'
 
     # Dry run (print rendered YAML without submitting)
-    python osmo/submit_gr00t_policy_runner_workflow.py --pool isaac-dev-l40s-04 --dry-run
+    python osmo/submit_gr00t_policy_runner_workflow.py --arena_env kitchen_pick_and_place --pool isaac-dev-l40s-04 --dry-run
 """
 
 from __future__ import annotations
