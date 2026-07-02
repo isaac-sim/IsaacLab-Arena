@@ -47,6 +47,16 @@ setup(
             "isaaclab_arena_openpi*",
         ]
     ),
+    install_requires=[
+        "pytest",
+        "jupyter",
+        "typing_extensions",
+        "onnxruntime",
+        "qpsolvers==4.8.1",
+        "vuer[all]",
+        "lightwheel-sdk",
+        "huggingface-hub[cli]",
+    ],
     python_requires=">=3.10",
     install_requires=RUNTIME_DEPS,
     extras_require={
