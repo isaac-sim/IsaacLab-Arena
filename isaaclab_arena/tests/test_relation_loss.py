@@ -84,6 +84,16 @@ def test_single_boundary_linear_loss_less_side_penalizes_correctly():
     assert loss_below > 0.0
 
 
+def test_single_boundary_linear_loss_preserves_boundary_gradient():
+    """The maximum tie at the boundary splits the gradient equally."""
+    value = torch.tensor(0.05, requires_grad=True)
+
+    loss = single_boundary_linear_loss(value, 0.05, slope=10.0, penalty_side="greater")
+    loss.backward()
+
+    assert torch.equal(value.grad, torch.tensor(5.0))
+
+
 def test_linear_band_loss_inside_band_returns_zero():
     """Test that loss is zero when value is within bounds."""
     lower_bound = 0.04

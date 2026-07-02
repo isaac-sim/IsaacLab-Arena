@@ -72,8 +72,12 @@ class RelationSolverState:
         self._anchor_indices: set[int] = {self._obj_to_idx[obj] for obj in self._anchor_objects}
         # Anchors must be identical across envs (they are fixed reference points).
         for idx in self._anchor_indices:
-            for env_idx in range(1, self._batch_size):
-                assert torch.allclose(all_positions[0, idx], all_positions[env_idx, idx]), (
+            anchor_positions = all_positions[:, idx]
+            reference_position = anchor_positions[0].expand_as(anchor_positions)
+            if not torch.allclose(reference_position, anchor_positions):
+                matching_rows = torch.isclose(reference_position, anchor_positions).all(dim=1)
+                env_idx = int(torch.nonzero(~matching_rows, as_tuple=False)[0].item())
+                assert False, (
                     f"Anchor '{objects[idx].name}' has different positions across envs "
                     f"(env 0: {all_positions[0, idx].tolist()}, env {env_idx}: {all_positions[env_idx, idx].tolist()})"
                 )
@@ -99,7 +103,19 @@ class RelationSolverState:
             self._opt_idx_tensor = None
             self._optimizable_positions = None
 
-        self._env_bboxes = env_bboxes
+        self._bboxes: dict[ObjectBase, AxisAlignedBoundingBox] = {}
+        for obj in objects:
+            bbox = env_bboxes[obj] if env_bboxes is not None and obj in env_bboxes else obj.get_bounding_box()
+            assert torch.all(bbox.min_point <= bbox.max_point), f"Object '{obj.name}' has invalid bounding-box extents."
+            self._bboxes[obj] = bbox.to(self._device)
+
+        self._anchor_world_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] = {}
+        for anchor in self._anchor_objects:
+            world_bbox = anchor.get_world_bounding_box()
+            assert torch.all(
+                world_bbox.min_point <= world_bbox.max_point
+            ), f"Anchor '{anchor.name}' has invalid world bounding-box extents."
+            self._anchor_world_bboxes[anchor] = world_bbox.to(self._device)
 
     @property
     def device(self) -> torch.device:
@@ -151,10 +167,12 @@ class RelationSolverState:
         return self._optimizable_positions[:, opt_idx, :]
 
     def get_bbox(self, obj: ObjectBase) -> AxisAlignedBoundingBox:
-        """Return the local bounding box for obj, moved to the state's device."""
-        if self._env_bboxes is not None and obj in self._env_bboxes:
-            return self._env_bboxes[obj].to(self._device)
-        return obj.get_bounding_box().to(self._device)
+        """Return the cached local bounding box for obj on the state's device."""
+        return self._bboxes[obj]
+
+    def get_anchor_world_bbox(self, obj: ObjectBase) -> AxisAlignedBoundingBox:
+        """Return the cached world bounding box for an anchor object."""
+        return self._anchor_world_bboxes[obj]
 
     def get_all_positions_snapshot(self) -> list[tuple[float, float, float]]:
         """Get detached copy of all positions for history tracking.
@@ -162,7 +180,8 @@ class RelationSolverState:
         Returns:
             List of (x, y, z) positions for each object (in original order). Uses env 0.
         """
-        return [tuple(self.get_position(obj)[0].detach().tolist()) for obj in self._all_objects]
+        positions = self._reconstruct_all_positions()[0].detach().cpu().tolist()
+        return [tuple(position) for position in positions]
 
     def get_final_positions(self) -> list[dict[ObjectBase, tuple[float, float, float]]]:
         """Get final positions as a list of dicts, one per env.
