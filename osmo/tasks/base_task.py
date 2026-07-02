@@ -79,6 +79,11 @@ class BaseTask(ABC):
     def get_task_name() -> str:
         """Return the task name."""
 
+    @classmethod
+    def host_token(cls) -> str:
+        """Return the OSMO ``{{host:<task>}}`` token that resolves to this task's runtime host/IP."""
+        return "{{host:" + cls.get_task_name() + "}}"
+
     @abstractmethod
     def _get_image(self) -> str:
         """Return the container image reference."""
