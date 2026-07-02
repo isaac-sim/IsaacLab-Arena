@@ -5,7 +5,7 @@ Isaac Lab-Arena defines composable robotics environments and evaluates policies 
 ## Language
 
 **Environment Configuration**:
-Declarative values that specialize one environment provider for a job.
+Declarative values that specialize one environment provider for an Arena Experiment.
 _Avoid_: Hydra environment, environment wrapper
 
 **Environment Provider**:
@@ -20,6 +20,11 @@ _Avoid_: Environment configuration, environment provider
 The instantiated simulation interface used for reset and step operations.
 _Avoid_: Arena environment configuration
 
+**Arena Experiment**:
+A portable, declarative evaluation condition pairing an environment configuration with a policy,
+rollout, variations, and repetition count. It contains no dispatch state or results.
+_Avoid_: Job, runtime execution, simulation application
+
 **Evaluation Job**:
-A portable specification of an environment, policy, and rollout that can be dispatched independently.
-_Avoid_: Suite, simulation application
+A runtime work item derived from an Arena Experiment and tracked through its execution lifecycle.
+_Avoid_: Experiment configuration, suite

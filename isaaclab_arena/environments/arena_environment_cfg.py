@@ -12,7 +12,7 @@ from omegaconf import MISSING
 
 @dataclass
 class ArenaEnvironmentCfg:
-    """Configure the environment provider selected for an Arena job."""
+    """Configure the environment provider selected for an Arena experiment."""
 
     name: str = MISSING
     """Name used to resolve the environment through ``EnvironmentRegistry``."""

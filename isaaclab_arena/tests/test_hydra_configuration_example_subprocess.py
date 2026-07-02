@@ -12,7 +12,7 @@ from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 
 @pytest.mark.with_subprocess
-def test_hydra_configuration_example_runs_two_jobs():
+def test_hydra_configuration_example_runs_two_experiments():
     result = run_subprocess(
         [
             TestConstants.python_path,

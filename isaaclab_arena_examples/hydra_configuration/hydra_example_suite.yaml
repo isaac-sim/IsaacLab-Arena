@@ -3,10 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# The first job ports droid_pnp_variations_config.json. The second is its control condition and also
-# demonstrates sequential jobs in one SimulationApp. environment.name selects a registered Cfg;
-# Hydra composition details stay in run.py. List order is dispatch order.
-jobs:
+# The first experiment ports droid_pnp_variations_config.json. The second is its control condition
+# and demonstrates sequential experiments in one SimulationApp. environment.name selects a
+# registered Cfg; Hydra composition details stay in run.py. List order is dispatch order.
+experiments:
   - name: variations_demo
     environment:
       name: pick_and_place_maple_table
@@ -22,14 +22,9 @@ jobs:
       num_steps: 10
     num_rebuilds: 1
     variations:
-      light:
-        hdr_image:
-          enabled: true
-        intensity:
-          enabled: true
-      droid_rel_joint_pos:
-        camera_extrinsics_wrist_camera:
-          enabled: true
+      light.hdr_image.enabled: true
+      light.intensity.enabled: true
+      droid_rel_joint_pos.camera_extrinsics_wrist_camera.enabled: true
 
   - name: baseline_no_variations
     environment:

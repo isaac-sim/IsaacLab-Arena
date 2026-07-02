@@ -3,7 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Compose portable jobs from a required YAML configuration and dispatch them sequentially."""
+"""Compose typed Hydra experiments and dispatch them through Arena's evaluation APIs.
+
+Hydra composes the core ``ArenaExperimentCfg`` type. Explicit compatibility
+adapters translate experiments to the ``Job`` and ``argparse.Namespace``
+objects still consumed by the current evaluation loop.
+"""
 
 from __future__ import annotations
 
@@ -18,12 +23,14 @@ from omegaconf import DictConfig, ListConfig, OmegaConf
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
 from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation.arena_job_cfg import ArenaJobCfg
+from isaaclab_arena.evaluation.arena_experiment_cfg import ArenaExperimentCfg
 from isaaclab_arena.evaluation.eval_runner import evaluate_jobs
 from isaaclab_arena.evaluation.job_manager import Job
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena_environments.cli import ensure_environments_registered
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+
+# Hydra composition
 
 
 def _typed_environment_providers() -> dict[str, type[ExampleEnvironmentBase]]:
@@ -41,89 +48,97 @@ def _typed_environment_providers() -> dict[str, type[ExampleEnvironmentBase]]:
     return providers
 
 
-def compose_hydra_example_jobs(
+def compose_hydra_example_experiments(
     config_path: str | Path,
     overrides: list[str] | None = None,
-) -> list[ArenaJobCfg]:
-    """Compose every YAML entry as an independent typed job.
+) -> list[ArenaExperimentCfg]:
+    """Compose every YAML entry as an independent typed experiment.
 
     Args:
-        config_path: Path to the YAML document containing the ordered job list.
-        overrides: Optional Hydra override tokens applied independently to every job.
+        config_path: Path to the YAML document containing the ordered experiment list.
+        overrides: Optional Hydra override tokens applied independently to every experiment.
 
     Returns:
-        The typed jobs in dispatch order.
+        The typed experiments in dispatch order.
     """
     path = Path(config_path).resolve()
     assert path.is_file(), f"Hydra example config does not exist: {path}"
     assert path.suffix == ".yaml", f"Hydra example config must be a .yaml file: {path}"
     config_name = path.stem.replace("-", "_")
-    job_schema_config_name = f"_{config_name}_job_schema"
-    runtime_config_name = f"_{config_name}_job"
+    experiment_schema_config_name = f"_{config_name}_experiment_schema"
+    hydra_config_name_prefix = f"_{config_name}_experiment"
 
     document = OmegaConf.load(path)
     assert isinstance(document, DictConfig), "Hydra example config must be a mapping"
-    assert set(document) == {"jobs"}, "Hydra example config must contain only a 'jobs' list"
-    job_nodes = document["jobs"]
-    assert isinstance(job_nodes, ListConfig), "jobs must be a list"
-    assert job_nodes, "jobs must not be empty"
+    assert set(document) == {"experiments"}, "Hydra example config must contain only an 'experiments' list"
+    experiment_nodes = document["experiments"]
+    assert isinstance(experiment_nodes, ListConfig), "experiments must be a list"
+    assert experiment_nodes, "experiments must not be empty"
 
     environment_providers = _typed_environment_providers()
     config_store = ConfigStore.instance()
-    config_store.store(name=job_schema_config_name, node=ArenaJobCfg)
+    config_store.store(name=experiment_schema_config_name, node=ArenaExperimentCfg)
     for environment_name, provider in environment_providers.items():
         cfg_type = provider.cfg_type
         assert cfg_type is not None
         config_store.store(group="environment", name=environment_name, node=cfg_type)
 
-    config_names = []
-    for index, job_node in enumerate(job_nodes):
-        assert isinstance(job_node, DictConfig), f"jobs[{index}] must be a mapping"
-        environment = job_node.get("environment")
-        assert isinstance(environment, DictConfig), f"jobs[{index}].environment must be a mapping"
+    hydra_experiment_config_names = []
+    for index, experiment_node in enumerate(experiment_nodes):
+        assert isinstance(experiment_node, DictConfig), f"experiments[{index}] must be a mapping"
+        environment = experiment_node.get("environment")
+        assert isinstance(environment, DictConfig), f"experiments[{index}].environment must be a mapping"
         environment_name = environment.get("name")
-        assert isinstance(environment_name, str), f"jobs[{index}].environment.name must be a string"
+        assert isinstance(environment_name, str), f"experiments[{index}].environment.name must be a string"
         assert (
             environment_name in environment_providers
-        ), f"jobs[{index}].environment.name '{environment_name}' does not provide typed configuration"
+        ), f"experiments[{index}].environment.name '{environment_name}' does not provide typed configuration"
 
-        job_data = OmegaConf.to_container(job_node, resolve=False)
-        assert isinstance(job_data, dict)
-        runtime_job = {
+        experiment_data = OmegaConf.to_container(experiment_node, resolve=False)
+        assert isinstance(experiment_data, dict)
+        hydra_experiment_node = {
             "defaults": [
-                job_schema_config_name,
+                experiment_schema_config_name,
                 {"environment": environment_name},
                 "_self_",
             ],
-            **job_data,
+            **experiment_data,
         }
-        runtime_job_config_name = f"{runtime_config_name}_{index}"
-        config_store.store(name=runtime_job_config_name, node=runtime_job)
-        config_names.append(runtime_job_config_name)
+        hydra_experiment_config_name = f"{hydra_config_name_prefix}_{index}"
+        config_store.store(name=hydra_experiment_config_name, node=hydra_experiment_node)
+        hydra_experiment_config_names.append(hydra_experiment_config_name)
 
-    jobs = []
+    experiments = []
     with initialize(version_base=None, config_path=None):
-        for config_name in config_names:
-            job = OmegaConf.to_object(compose(config_name=config_name, overrides=list(overrides or [])))
-            assert isinstance(job, ArenaJobCfg)
-            provider = environment_providers.get(job.environment.name)
-            assert provider is not None, f"Environment '{job.environment.name}' is not registered with a typed config"
+        for experiment_config_name in hydra_experiment_config_names:
+            experiment = OmegaConf.to_object(
+                compose(config_name=experiment_config_name, overrides=list(overrides or []))
+            )
+            assert isinstance(experiment, ArenaExperimentCfg)
+            provider = environment_providers.get(experiment.environment.name)
+            assert (
+                provider is not None
+            ), f"Environment '{experiment.environment.name}' is not registered with a typed config"
             assert provider.cfg_type is not None
-            assert isinstance(job.environment, provider.cfg_type)
-            jobs.append(job)
+            assert isinstance(experiment.environment, provider.cfg_type)
+            experiments.append(experiment)
 
-    job_names = [job.name for job in jobs]
-    assert len(job_names) == len(set(job_names)), "job names must be unique"
-    return jobs
+    experiment_names = [experiment.name for experiment in experiments]
+    assert len(experiment_names) == len(set(experiment_names)), "experiment names must be unique"
+    return experiments
 
 
-def _environment_builder_arguments(
-    job_configuration: ArenaJobCfg,
+# Existing evaluation API adapters
+# Keep these conversions at the edge so Hydra composition remains typed.
+
+
+def _arena_experiment_cfg_to_legacy_builder_namespace(
+    experiment_configuration: ArenaExperimentCfg,
     device: str,
     language_instruction: str | None = None,
 ) -> argparse.Namespace:
-    """Adapt the typed example configuration to the current Arena builder API."""
-    builder = job_configuration.environment_builder
+    """Translate a typed experiment to the Namespace still required by ArenaEnvBuilder."""
+    builder = experiment_configuration.environment_builder
     return argparse.Namespace(
         num_envs=builder.num_envs,
         env_spacing=builder.env_spacing,
@@ -140,15 +155,33 @@ def _environment_builder_arguments(
     )
 
 
-def _evaluation_runner_arguments(
-    job_configurations: list[ArenaJobCfg],
+def _arena_experiment_cfg_to_eval_job(experiment_configuration: ArenaExperimentCfg) -> Job:
+    """Translate a typed experiment to eval_runner's existing ``Job`` model."""
+    return Job(
+        name=experiment_configuration.name,
+        num_envs=experiment_configuration.environment_builder.num_envs,
+        arena_env_args=[],
+        policy_type=experiment_configuration.policy.type,
+        policy_config_dict=experiment_configuration.policy.parameters,
+        num_steps=experiment_configuration.rollout.num_steps,
+        num_rebuilds=experiment_configuration.num_rebuilds,
+        variations=Job.convert_variations_dict_to_hydra_overrides(experiment_configuration.variations),
+    )
+
+
+# Dispatcher integration
+# Process-wide settings and runtime construction are dispatcher responsibilities.
+
+
+def _resolve_legacy_eval_runner_namespace(
+    experiment_configurations: list[ArenaExperimentCfg],
     device: str,
     visualizer: str | None,
 ) -> argparse.Namespace:
-    """Resolve this dispatcher's process-wide settings from its jobs and CLI."""
+    """Resolve process-wide settings in the Namespace expected by eval_runner."""
     return argparse.Namespace(
         device=device,
-        enable_cameras=any(job.environment.enable_cameras for job in job_configurations),
+        enable_cameras=any(experiment.environment.enable_cameras for experiment in experiment_configurations),
         visualizer=visualizer,
         num_steps=None,
         output_base_dir="/eval/output",
@@ -160,41 +193,32 @@ def _evaluation_runner_arguments(
     )
 
 
-def _job_from_configuration(job_configuration: ArenaJobCfg) -> Job:
-    """Create one eval job without translating the environment config through CLI tokens."""
-    return Job(
-        name=job_configuration.name,
-        num_envs=job_configuration.environment_builder.num_envs,
-        arena_env_args=[],
-        policy_type=job_configuration.policy.type,
-        policy_config_dict=job_configuration.policy.parameters,
-        num_steps=job_configuration.rollout.num_steps,
-        num_rebuilds=job_configuration.num_rebuilds,
-        variations=Job.convert_variations_dict_to_hydra_overrides(job_configuration.variations),
-    )
-
-
-def _load_environment_from_configuration(
-    job_configurations_by_name: dict[str, ArenaJobCfg],
+def _load_environment_from_arena_experiment_cfg(
+    experiment_configurations_by_name: dict[str, ArenaExperimentCfg],
     device: str,
     job: Job,
     render_mode: str | None,
 ):
-    """Build one typed environment for the existing eval-runner loop."""
+    """Build one typed environment through the existing ArenaEnvBuilder API."""
     # Isaac Sim must be launched before importing modules that load USD/PhysX bindings.
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
-    job_configuration = job_configurations_by_name[job.name]
-    environment_configuration = job_configuration.environment
+    experiment_configuration = experiment_configurations_by_name[job.name]
+    environment_configuration = experiment_configuration.environment
     environment_providers = _typed_environment_providers()
     assert environment_configuration.name in environment_providers
     environment_provider = environment_providers[environment_configuration.name]()
     assert environment_provider.cfg_type is not None
     assert isinstance(environment_configuration, environment_provider.cfg_type)
     arena_environment = environment_provider.build(environment_configuration)
+    legacy_builder_namespace = _arena_experiment_cfg_to_legacy_builder_namespace(
+        experiment_configuration,
+        device,
+        job.language_instruction,
+    )
     arena_builder = ArenaEnvBuilder(
         arena_environment,
-        _environment_builder_arguments(job_configuration, device, job.language_instruction),
+        legacy_builder_namespace,
         hydra_overrides=job.variations,
     )
     _, env_cfg, env_kwargs = arena_builder.build_registered()
@@ -204,49 +228,60 @@ def _load_environment_from_configuration(
 
 
 def run(
-    job_configurations: list[ArenaJobCfg],
+    experiment_configurations: list[ArenaExperimentCfg],
     *,
     device: str = "cuda:0",
     visualizer: str | None = None,
 ) -> None:
-    """Dispatch the configured jobs sequentially through one simulation app."""
-    job_names = [job.name for job in job_configurations]
-    assert job_names, "jobs must not be empty"
-    assert len(job_names) == len(set(job_names)), "job names must be unique"
-    print(f"[hydra-example] jobs={job_names}", flush=True)
+    """Dispatch the configured experiments sequentially through one simulation app."""
+    experiment_names = [experiment.name for experiment in experiment_configurations]
+    assert experiment_names, "experiments must not be empty"
+    assert len(experiment_names) == len(set(experiment_names)), "experiment names must be unique"
+    print(f"[hydra-example] experiments={experiment_names}", flush=True)
 
-    args_cli = _evaluation_runner_arguments(job_configurations, device, visualizer)
-    jobs = [_job_from_configuration(job) for job in job_configurations]
-    job_configurations_by_name = {job.name: job for job in job_configurations}
-    with SimulationAppContext(args_cli):
+    eval_runner_namespace = _resolve_legacy_eval_runner_namespace(
+        experiment_configurations,
+        device,
+        visualizer,
+    )
+    eval_jobs = [_arena_experiment_cfg_to_eval_job(experiment) for experiment in experiment_configurations]
+    experiment_configurations_by_name = {experiment.name: experiment for experiment in experiment_configurations}
+    with SimulationAppContext(eval_runner_namespace):
         environment_loader = functools.partial(
-            _load_environment_from_configuration,
-            job_configurations_by_name,
-            args_cli.device,
+            _load_environment_from_arena_experiment_cfg,
+            experiment_configurations_by_name,
+            eval_runner_namespace.device,
         )
-        evaluate_jobs(args_cli, jobs, environment_loader=environment_loader)
-        print(f"[hydra-example] completed jobs={job_names}", flush=True)
+        evaluate_jobs(
+            eval_runner_namespace,
+            eval_jobs,
+            environment_loader=environment_loader,
+        )
+        completed_job_names = [job.name for job in eval_jobs]
+        print(f"[hydra-example] completed jobs={completed_job_names}", flush=True)
 
 
 def compose_from_command_line(
     arguments: list[str],
-) -> tuple[list[ArenaJobCfg], argparse.Namespace]:
-    """Parse dispatcher flags and compose every job from the remaining Hydra overrides."""
+) -> tuple[list[ArenaExperimentCfg], argparse.Namespace]:
+    """Parse dispatcher flags and compose every experiment from the remaining Hydra overrides."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("config_path", type=Path, help="YAML file containing the jobs to dispatch.")
+    parser.add_argument("config_path", type=Path, help="YAML file containing the experiments to dispatch.")
     parser.add_argument("--device", default="cuda:0", help="Isaac Sim device used by this dispatcher.")
     parser.add_argument("--visualizer", "--viz", help="Isaac Lab visualizer backend, for example 'kit'.")
-    launcher_arguments, hydra_overrides = parser.parse_known_args(arguments)
-    return compose_hydra_example_jobs(launcher_arguments.config_path, hydra_overrides), launcher_arguments
+    # argparse owns only this frontend's process flags. All remaining tokens are Hydra overrides.
+    dispatcher_arguments, hydra_overrides = parser.parse_known_args(arguments)
+    experiments = compose_hydra_example_experiments(dispatcher_arguments.config_path, hydra_overrides)
+    return experiments, dispatcher_arguments
 
 
 def main() -> None:
-    """Compose the portable jobs and dispatch them sequentially."""
-    job_configurations, launcher_arguments = compose_from_command_line(sys.argv[1:])
+    """Compose the portable experiments and dispatch them sequentially."""
+    experiment_configurations, dispatcher_arguments = compose_from_command_line(sys.argv[1:])
     run(
-        job_configurations,
-        device=launcher_arguments.device,
-        visualizer=launcher_arguments.visualizer,
+        experiment_configurations,
+        device=dispatcher_arguments.device,
+        visualizer=dispatcher_arguments.visualizer,
     )
 
 

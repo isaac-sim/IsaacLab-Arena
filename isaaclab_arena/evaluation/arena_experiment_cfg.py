@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Typed configuration for Arena evaluation jobs."""
+"""Typed configuration for Arena experiments."""
 
 from __future__ import annotations
 
@@ -56,8 +56,8 @@ class PolicyCfg:
 
 
 @dataclass
-class ArenaJobCfg:
-    """Configure one independently dispatchable Arena evaluation job."""
+class ArenaExperimentCfg:
+    """Configure one portable Arena evaluation experiment."""
 
     name: str = MISSING
     environment: ArenaEnvironmentCfg = MISSING
@@ -69,5 +69,5 @@ class ArenaJobCfg:
     variations: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        assert self.name, "job name must not be empty"
+        assert self.name, "experiment name must not be empty"
         assert self.num_rebuilds > 0, "num_rebuilds must be greater than zero"
