@@ -17,6 +17,11 @@ dependencies = [
     "pytest",
     "pydantic>=2.0",
     "openai>=2.0",
+    # The CAP policy is installed as a no-deps editable overlay after the
+    # exact Arena sync. Keep its wire-format dependencies in Arena's lock so
+    # a clean deployment never resolves packages outside this lockfile.
+    "msgpack",
+    "msgpack-numpy==0.4.8",
     # Sensitivity analysis (isaaclab_arena.analysis.sensitivity), imported at module level.
     "sbi",
     "scipy",
