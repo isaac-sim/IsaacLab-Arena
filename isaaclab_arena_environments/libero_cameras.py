@@ -46,6 +46,8 @@ class LiberoPerceptionCameraCfg(FrankaCameraCfg):
     def __post_init__(self):
         # Explicit parent call: @configclass replaces the class object, so zero-arg super() breaks.
         FrankaCameraCfg.__post_init__(self)  # builds wrist_cam with the embodiment's default offset
+        self.wrist_cam.height = _EXTERIOR_HW[0]
+        self.wrist_cam.width = _EXTERIOR_HW[1]
         self.wrist_cam.data_types = ["rgb", _DEPTH_DT]
         self.wrist_cam.update_period = _CAM_UPDATE_PERIOD
 
