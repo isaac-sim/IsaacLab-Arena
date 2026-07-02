@@ -311,7 +311,7 @@ class RelationSolver:
                     relation_strategy = cast(RelationLossStrategy, strategy)
                     parent = relation.parent
                     if parent in state.anchor_objects:
-                        parent_world_bbox = parent.get_world_bounding_box().to(device)
+                        parent_world_bbox = state.get_anchor_world_bbox(parent)
                     else:
                         parent_pos = state.get_position(parent)
                         parent_bbox = state.get_bbox(parent)
@@ -333,7 +333,7 @@ class RelationSolver:
         # Add built-in no-overlap loss between all object pairs
         total_loss = total_loss + self._compute_no_overlap_loss(state, debug)
 
-        self._last_loss_per_env = total_loss.detach().clone()
+        self._last_loss_per_env = total_loss.detach()
         return total_loss.mean()
 
     def _compute_no_overlap_loss(
@@ -406,7 +406,7 @@ class RelationSolver:
             world_min.append(pos + bbox.min_point)
             world_max.append(pos + bbox.max_point)
         for anchor in anchor_objects:
-            anchor_world_bbox = anchor.get_world_bounding_box().to(device)
+            anchor_world_bbox = state.get_anchor_world_bbox(anchor)
             world_min.append(anchor_world_bbox.min_point.expand(state.batch_size, 3))
             world_max.append(anchor_world_bbox.max_point.expand(state.batch_size, 3))
 
@@ -415,7 +415,9 @@ class RelationSolver:
         world_min_tensor = torch.stack(world_min, dim=1)
         world_max_tensor = torch.stack(world_max, dim=1)
         precomputed_extents = {obj: (world_min[index], world_max[index]) for index, obj in enumerate(collision_objects)}
-        assert torch.all(world_min_tensor <= world_max_tensor), "Object bounding boxes must have min <= max."
+        # No re-validation here: world_min/world_max are built by translating
+        # (pos + bbox.min/max) or expanding the extents RelationSolverState already
+        # validated once at construction, and both operations preserve min <= max.
         common_overlap = (
             world_min_tensor.max(dim=1).values <= world_max_tensor.min(dim=1).values + self.params.clearance_m
         ).all()
@@ -449,7 +451,12 @@ class RelationSolver:
         obstacle_min = world_min_tensor[env_indices, obstacle_indices].detach()
         obstacle_max = world_max_tensor[env_indices, obstacle_indices].detach()
         pair_loss = self._no_collision_strategy.compute_loss_batched(
-            self.params.clearance_m, subject_min, subject_max, obstacle_min, obstacle_max
+            self.params.clearance_m,
+            subject_min,
+            subject_max,
+            obstacle_min,
+            obstacle_max,
+            assume_valid_extents=True,
         )
 
         # Pair rows are sorted by environment and original pair order. A contiguous
@@ -464,7 +471,6 @@ class RelationSolver:
         extents: dict[ObjectBase, tuple[torch.Tensor, torch.Tensor]] | None = None,
     ) -> torch.Tensor:
         """Compute the original dense all-pairs no-overlap loss."""
-        device = state.device
         batch_size = state.batch_size
         optimizable_positions = state.optimizable_positions
         assert optimizable_positions is not None
@@ -487,7 +493,7 @@ class RelationSolver:
                 bbox = state.get_bbox(obj)
                 extents[obj] = (pos + bbox.min_point, pos + bbox.max_point)
             for anchor in anchor_objects:
-                anchor_world_bbox = anchor.get_world_bounding_box().to(device)
+                anchor_world_bbox = state.get_anchor_world_bbox(anchor)
                 extents[anchor] = (
                     anchor_world_bbox.min_point.expand(batch_size, 3),
                     anchor_world_bbox.max_point.expand(batch_size, 3),
@@ -531,7 +537,12 @@ class RelationSolver:
         obstacle_max = torch.stack([p.obstacle_max for p in pairs], dim=0)
 
         pair_loss = self._no_collision_strategy.compute_loss_batched(
-            self.params.clearance_m, subject_min, subject_max, obstacle_min, obstacle_max
+            self.params.clearance_m,
+            subject_min,
+            subject_max,
+            obstacle_min,
+            obstacle_max,
+            assume_valid_extents=True,
         )
 
         if debug:
@@ -587,9 +598,10 @@ class RelationSolver:
         # Setup optimizer (only for optimizable positions)
         optimizer = torch.optim.Adam([state.optimizable_positions], lr=self.params.lr)
 
-        # Compute initial loss so _last_loss_per_env is always populated, even when max_iters=0.
-        with torch.no_grad():
-            self._compute_total_loss(state)
+        # Populate loss metadata for the zero-iteration inspection mode.
+        if self.params.max_iters == 0:
+            with torch.no_grad():
+                self._compute_total_loss(state)
 
         # Optimization loop
         loss_history = []
@@ -603,17 +615,18 @@ class RelationSolver:
 
             # Compute total loss
             loss = self._compute_total_loss(state)
-            loss_history.append(loss.item())
+            loss_value = loss.item()
+            loss_history.append(loss_value)
 
             # Backprop and update (only optimizable positions will update)
             loss.backward()
             optimizer.step()
 
             if self.params.verbose and iter % 100 == 0:
-                print(f"Iter {iter}: loss = {loss.item():.6f}")
+                print(f"Iter {iter}: loss = {loss_value:.6f}")
 
             # Check convergence
-            if loss.item() < self.params.convergence_threshold:
+            if loss_value < self.params.convergence_threshold:
                 if self.params.verbose:
                     print(f"Converged at iteration {iter}")
                 break

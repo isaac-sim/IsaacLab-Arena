@@ -475,6 +475,8 @@ class NoCollisionLossStrategy:
         subject_max: torch.Tensor,
         obstacle_min: torch.Tensor,
         obstacle_max: torch.Tensor,
+        *,
+        assume_valid_extents: bool = False,
     ) -> torch.Tensor:
         """Overlap-volume no-overlap loss for boxes already reduced to world-space extents.
 
@@ -486,6 +488,8 @@ class NoCollisionLossStrategy:
             subject_max: World-space max extent of the subject box, shape (..., 3).
             obstacle_min: World-space min extent of the obstacle box, shape (..., 3).
             obstacle_max: World-space max extent of the obstacle box, shape (..., 3).
+            assume_valid_extents: Skip interval-order validation after a caller has
+                validated static bounding-box extents.
 
         Returns:
             Per-box-pair loss with the same leading dimensions as the inputs.
@@ -494,13 +498,25 @@ class NoCollisionLossStrategy:
         obstacle_min = obstacle_min - clearance_m
         obstacle_max = obstacle_max + clearance_m
         overlap_x = interval_overlap_axis_loss(
-            subject_min[..., 0], subject_max[..., 0], obstacle_min[..., 0], obstacle_max[..., 0]
+            subject_min[..., 0],
+            subject_max[..., 0],
+            obstacle_min[..., 0],
+            obstacle_max[..., 0],
+            assume_valid_extents=assume_valid_extents,
         )
         overlap_y = interval_overlap_axis_loss(
-            subject_min[..., 1], subject_max[..., 1], obstacle_min[..., 1], obstacle_max[..., 1]
+            subject_min[..., 1],
+            subject_max[..., 1],
+            obstacle_min[..., 1],
+            obstacle_max[..., 1],
+            assume_valid_extents=assume_valid_extents,
         )
         overlap_z = interval_overlap_axis_loss(
-            subject_min[..., 2], subject_max[..., 2], obstacle_min[..., 2], obstacle_max[..., 2]
+            subject_min[..., 2],
+            subject_max[..., 2],
+            obstacle_min[..., 2],
+            obstacle_max[..., 2],
+            assume_valid_extents=assume_valid_extents,
         )
         return self.slope * (overlap_x * overlap_y * overlap_z)
 

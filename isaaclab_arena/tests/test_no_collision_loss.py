@@ -802,6 +802,16 @@ def test_compute_loss_batched_direct():
     assert torch.isclose(loss[1, 0], torch.tensor(0.0), atol=1e-6)
 
 
+def test_compute_loss_batched_validates_extents_by_default():
+    """Direct collision-loss callers retain interval validation."""
+    strategy = NoCollisionLossStrategy()
+    invalid_min = torch.tensor([[1.0, 0.0, 0.0]])
+    invalid_max = torch.tensor([[0.0, 1.0, 1.0]])
+
+    with pytest.raises(AssertionError, match="child_min must be <= child_max"):
+        strategy.compute_loss_batched(0.0, invalid_min, invalid_max, invalid_min, invalid_max)
+
+
 def test_relation_solver_multi_env_returns_list_of_dicts():
     """Test that solver returns list[dict] when given list[dict] input."""
     table, box_a, box_b = _create_no_collision_scene()
