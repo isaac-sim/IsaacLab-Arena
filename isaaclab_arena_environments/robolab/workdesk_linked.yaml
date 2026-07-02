@@ -73,7 +73,7 @@ tasks:
     destination_location: keyboard
     background_scene: maple_table_robolab
     episode_length_s: 20.0
-  description: place the computer mouse into the keyboard on the table
+  description: place the computer mouse on the keyboard
   id: task_0_PickAndPlaceTask
   initial_state_spec_id: state_initial
   success_state_spec_id: state_spec_1
@@ -139,17 +139,17 @@ state_specs:
     subject: yogurt_cup
     reference: maple_table_robolab
     params: {}
-    id: state_initial_12_on_maple_table_robolab_yogurt_cup
+    id: state_initial_11_on_maple_table_robolab_yogurt_cup
   - kind: 'on'
     subject: oatmeal_raisin_cookies
     reference: maple_table_robolab
     params: {}
-    id: state_initial_13_on_maple_table_robolab_oatmeal_raisin_cookies
+    id: state_initial_12_on_maple_table_robolab_oatmeal_raisin_cookies
   - kind: 'on'
     subject: granola_bar
     reference: maple_table_robolab
     params: {}
-    id: state_initial_14_on_maple_table_robolab_granola_bar
+    id: state_initial_13_on_maple_table_robolab_granola_bar
   task_constraints: []
 - id: state_spec_1
   is_delta: true

@@ -85,6 +85,7 @@ tasks:
     destination_location: container_f24
     background_scene: maple_table_robolab
     episode_length_s: 20.0
+    max_separation: [0.1, 0.1, 0.1]
   description: pick up the large pumpkin and place it into the bin
   id: task_0_PickAndPlaceTask
   initial_state_spec_id: state_initial
