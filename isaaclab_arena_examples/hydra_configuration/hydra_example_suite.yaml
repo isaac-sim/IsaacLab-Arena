@@ -1,0 +1,39 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# The root schema and environment group are Python dataclasses registered in config.py.
+defaults:
+  - arena_run_schema
+  - environment: pick_and_place_maple_table
+  - _self_
+
+name: maple_table_zero_action
+
+simulation_app:
+  device: cuda:0
+  enable_cameras: false
+  visualizer: null
+
+environment_builder:
+  num_envs: 1
+  seed: 42
+
+# These keys configure the Hydra-native PickAndPlaceMapleTableEnvironmentConfiguration definition.
+# Its build() method currently delegates to the legacy environment factory as an MVP compatibility step.
+environment:
+  embodiment_asset_name: droid_abs_joint_pos
+  teleoperation_device_name: null
+  high_dynamic_range_image_name: null
+  light_intensity: 500.0
+  pick_up_object_asset_name: rubiks_cube_hot3d_robolab
+  destination_location_asset_name: bowl_ycb_robolab
+  additional_table_object_asset_names: []
+
+policy:
+  type: zero_action
+  parameters: {}
+
+rollout:
+  num_steps: 200
