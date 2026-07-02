@@ -32,7 +32,7 @@ class PickAndPlaceMapleTableEnvironmentCfg(ArenaEnvironmentCfg):
 
 
 @register_environment
-class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
+class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase[PickAndPlaceMapleTableEnvironmentCfg]):
     """Registered provider for the Maple-table pick-and-place environment."""
 
     name: str = "pick_and_place_maple_table"
@@ -53,9 +53,8 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
             )
         )
 
-    def build(self, cfg: ArenaEnvironmentCfg) -> IsaacLabArenaEnvironment:
+    def build(self, cfg: PickAndPlaceMapleTableEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
-        assert isinstance(cfg, PickAndPlaceMapleTableEnvironmentCfg)
         assert cfg.name == self.name, f"Expected environment configuration '{self.name}', got '{cfg.name}'"
 
         import isaaclab.sim as sim_utils
