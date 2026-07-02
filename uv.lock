@@ -14,6 +14,7 @@ resolution-markers = [
 
 [manifest]
 constraints = [
+    { name = "mujoco-usd-converter", specifier = "==0.2.0", index = "https://pypi.org/simple" },
     { name = "pin-pink", specifier = "==3.1.0" },
     { name = "pyglet", specifier = "<3" },
     { name = "tinyobjloader", specifier = "==2.0.0rc13" },
