@@ -42,7 +42,6 @@ def load_env(
     render_mode: str | None = None,
     language_instruction: str | None = None,
 ):
-
     args_parser = get_isaaclab_arena_environments_cli_parser()
 
     arena_env_args_cli = args_parser.parse_args(arena_env_args)
@@ -57,7 +56,8 @@ def load_env(
         env_cfg.recorders.dataset_filename = f"dataset_{job_name}"
 
     env = arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
-    # Don't reset here - rollout_policy() will reset the env. Every reset triggers a new episode, initializing recorder & creating a new hdf5 entry.
+    # Don't reset here - rollout_policy() will reset the env. Every reset triggers a new episode,
+    # initializing the recorder and creating a new hdf5 entry.
     return env
 
 
@@ -212,6 +212,133 @@ def _run_in_chunks(args_cli: argparse.Namespace, master_cfg: dict) -> None:
             sys.exit(returncode)
 
 
+def evaluate_jobs(
+    args_cli: argparse.Namespace,
+    jobs: list[Job | dict],
+    *,
+    environment_loader=None,
+) -> None:
+    """Evaluate jobs inside an active ``SimulationAppContext``.
+
+    Args:
+        args_cli: Evaluation-runner options shared by every job.
+        jobs: Resolved jobs or legacy job dictionaries.
+        environment_loader: Optional callable that builds one job's environment.
+    """
+    job_manager = JobManager(jobs)
+    metrics_logger = MetricsLogger()
+
+    job_manager.print_jobs_info()
+
+    # One reverse-dated run directory shared by all jobs; each job gets a subdirectory within it.
+    # Always dated so every run produces its own report dir, recording or not.
+    # TODO(alexmillane): Currently each chunk produces its own output directory.
+    # We should use the same output directory for all chunks in the future.
+    run_output_dir = timestamped_run_dir(args_cli.output_base_dir)
+
+    if args_cli.record_viewport_video:
+        os.makedirs(run_output_dir, exist_ok=True)
+        print(f"[INFO] Video recording enabled. Videos will be saved to: {run_output_dir}")
+
+    for job in job_manager:
+        if job is None:
+            continue
+        env = None
+        policy = None
+
+        metrics_per_run: list[MetricsDataCollection] = []
+
+        # num_episodes is the total across rebuilds, so split it over the rebuilds.
+        num_episodes_per_rebuild = _split_episodes_across_rebuilds(job.num_episodes, job.num_rebuilds, job.name)
+
+        # Rebuild the environment and re-run the rollout job.num_rebuilds times, then
+        # aggregate the metrics across rebuilds into a single result.
+        for rebuild_idx in range(job.num_rebuilds):
+            try:
+                job_output_dir = os.path.join(run_output_dir, job.name)
+
+                # Per-job video output directory; cameras are tagged with the rebuild index.
+                video_cfg = VideoRecordingCfg(
+                    record_viewport_video=args_cli.record_viewport_video,
+                    record_camera_video=args_cli.record_camera_video,
+                    video_base_dir=job_output_dir,
+                    camera_name_prefix=f"robot-cam-rebuild{rebuild_idx}",
+                )
+                if environment_loader is None:
+                    env = load_env(
+                        job.arena_env_args,
+                        job.name,
+                        variations=job.variations,
+                        render_mode=video_cfg.render_mode,
+                        language_instruction=job.language_instruction,
+                    )
+                else:
+                    env = environment_loader(job, video_cfg.render_mode)
+
+                # Write per-episode results to disk.
+                # TODO: Aggregate the per-episode records across rebuilds into a single file,
+                # as is done for the metrics below.
+                results_path = os.path.join(job_output_dir, f"episode_results_rebuild{rebuild_idx}.jsonl")
+                env.unwrapped.episode_recorder.set_job_name(job.name)
+                env.unwrapped.episode_recorder.set_output_path(results_path)
+
+                policy = get_policy_from_job(job)
+
+                # Episodes allotted to this rebuild (None when the job is length-driven by steps).
+                num_episodes_this_rebuild = num_episodes_per_rebuild[rebuild_idx]
+
+                # Resolve simulation length: num_steps and num_episodes are mutually exclusive.
+                # Priority: job config -> policy length -> CLI default
+                if job.num_steps is None and num_episodes_this_rebuild is None:
+                    if policy.has_length():
+                        job.num_steps = policy.length()
+                    else:
+                        job.num_steps = args_cli.num_steps
+
+                env = wrap_env_for_video(env, video_cfg, job.num_steps, num_episodes_this_rebuild)
+
+                metrics = rollout_policy(
+                    env,
+                    policy,
+                    num_steps=job.num_steps,
+                    num_episodes=num_episodes_this_rebuild,
+                )
+
+                job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
+
+                # users may not specify metrics for a task, although it's not recommended
+                if metrics is not None:
+                    metrics_per_run.append(metrics)
+
+            except Exception as e:
+                job_manager.complete_job(job, metrics={}, status=Status.FAILED)
+                print(f"Job {job.name} failed with error: {e}")
+                print(f"Traceback: {traceback.format_exc()}")
+                if not args_cli.continue_on_error:
+                    raise
+
+            finally:
+                try:
+                    _close_job_resources(policy, env)
+                finally:
+                    policy = None
+                    env = None
+                    collect_garbage_and_clear_cuda_cache()
+
+        # Aggregate the metrics from the different experiments into a single view.
+        if metrics_per_run:
+            aggregated_metrics = aggregate_metrics(metrics_per_run)
+            metrics_logger.append_job_metrics(job.name, aggregated_metrics)
+
+    job_manager.print_jobs_info()
+    metrics_logger.print_metrics()
+
+    # Write HTML report.
+    report_path = build_report(run_output_dir)
+    if args_cli.serve_evaluation_report:
+        serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
+
+
 def main():
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli, unknown = args_parser.parse_known_args()
@@ -252,115 +379,7 @@ def main():
     enable_cameras_if_required(eval_jobs_config, args_cli)
 
     with SimulationAppContext(args_cli):
-        job_manager = JobManager(eval_jobs_config["jobs"])
-        metrics_logger = MetricsLogger()
-
-        job_manager.print_jobs_info()
-
-        # One reverse-dated run directory shared by all jobs; each job gets a subdirectory within it.
-        # Always dated so every run produces its own report dir, recording or not.
-        # TODO(alexmillane): Currently each chunk produces its own output directory.
-        # We should use the same output directory for all chunks in the future.
-        run_output_dir = timestamped_run_dir(args_cli.output_base_dir)
-
-        if args_cli.record_viewport_video:
-            os.makedirs(run_output_dir, exist_ok=True)
-            print(f"[INFO] Video recording enabled. Videos will be saved to: {run_output_dir}")
-
-        for job in job_manager:
-            if job is None:
-                continue
-            env = None
-            policy = None
-
-            metrics_per_run: list[MetricsDataCollection] = []
-
-            # num_episodes is the total across rebuilds, so split it over the rebuilds.
-            num_episodes_per_rebuild = _split_episodes_across_rebuilds(job.num_episodes, job.num_rebuilds, job.name)
-
-            # Rebuild the environment and re-run the rollout job.num_rebuilds times, then
-            # aggregate the metrics across rebuilds into a single result.
-            for rebuild_idx in range(job.num_rebuilds):
-                try:
-                    job_output_dir = os.path.join(run_output_dir, job.name)
-
-                    # Per-job video output directory; cameras are tagged with the rebuild index.
-                    video_cfg = VideoRecordingCfg(
-                        record_viewport_video=args_cli.record_viewport_video,
-                        record_camera_video=args_cli.record_camera_video,
-                        video_base_dir=job_output_dir,
-                        camera_name_prefix=f"robot-cam-rebuild{rebuild_idx}",
-                    )
-                    env = load_env(
-                        job.arena_env_args,
-                        job.name,
-                        variations=job.variations,
-                        render_mode=video_cfg.render_mode,
-                        language_instruction=job.language_instruction,
-                    )
-
-                    # Write per-episode results to disk.
-                    # TODO: Aggregate the per-episode records across rebuilds into a single file,
-                    # as is done for the metrics below.
-                    results_path = os.path.join(job_output_dir, f"episode_results_rebuild{rebuild_idx}.jsonl")
-                    env.unwrapped.episode_recorder.set_job_name(job.name)
-                    env.unwrapped.episode_recorder.set_output_path(results_path)
-
-                    policy = get_policy_from_job(job)
-
-                    # Episodes allotted to this rebuild (None when the job is length-driven by steps).
-                    num_episodes_this_rebuild = num_episodes_per_rebuild[rebuild_idx]
-
-                    # Resolve simulation length: num_steps and num_episodes are mutually exclusive.
-                    # Priority: job config -> policy length -> CLI default
-                    if job.num_steps is None and num_episodes_this_rebuild is None:
-                        if policy.has_length():
-                            job.num_steps = policy.length()
-                        else:
-                            job.num_steps = args_cli.num_steps
-
-                    env = wrap_env_for_video(env, video_cfg, job.num_steps, num_episodes_this_rebuild)
-
-                    metrics = rollout_policy(
-                        env,
-                        policy,
-                        num_steps=job.num_steps,
-                        num_episodes=num_episodes_this_rebuild,
-                    )
-
-                    job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
-
-                    # users may not specify metrics for a task, although it's not recommended
-                    if metrics is not None:
-                        metrics_per_run.append(metrics)
-
-                except Exception as e:
-                    job_manager.complete_job(job, metrics={}, status=Status.FAILED)
-                    print(f"Job {job.name} failed with error: {e}")
-                    print(f"Traceback: {traceback.format_exc()}")
-                    if not args_cli.continue_on_error:
-                        raise
-
-                finally:
-                    try:
-                        _close_job_resources(policy, env)
-                    finally:
-                        policy = None
-                        env = None
-                        collect_garbage_and_clear_cuda_cache()
-
-            # Aggregate the metrics from the different experiments into a single view.
-            if metrics_per_run:
-                aggregated_metrics = aggregate_metrics(metrics_per_run)
-                metrics_logger.append_job_metrics(job.name, aggregated_metrics)
-
-        job_manager.print_jobs_info()
-        metrics_logger.print_metrics()
-
-        # Write HTML report.
-        report_path = build_report(run_output_dir)
-        if args_cli.serve_evaluation_report:
-            serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
+        evaluate_jobs(args_cli, eval_jobs_config["jobs"])
 
 
 if __name__ == "__main__":
