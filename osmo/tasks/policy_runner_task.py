@@ -39,9 +39,9 @@ class PolicyRunnerTask(BaseTask):
         super().__init__(workflow_args=workflow_args, task_args=task_args, lead=lead)
 
         self.policy_runner_args = _normalize_args(self.task_args.policy_runner_args)
+        self.arena_env = self.task_args.arena_env
         self.arena_env_args = _normalize_args(self.task_args.arena_env_args)
-        env_variations = self.task_args.env_variations
-        self.env_variations = _normalize_args(env_variations) if env_variations else ""
+        self.env_variations = _normalize_args(self.task_args.env_variations)
         self.image = image
 
     @staticmethod
@@ -53,9 +53,14 @@ class PolicyRunnerTask(BaseTask):
             help="Additional policy-runner arguments before the Arena environment args",
         )
         group.add_argument(
-            "--arena_env_args",
+            "--arena_env",
             required=True,
-            help="Graph-spec YAML path or registered example-environment name, plus its env-related arguments",
+            help="Graph-spec YAML path or registered example-environment name",
+        )
+        group.add_argument(
+            "--arena_env_args",
+            default="",
+            help="Env-related arguments for the chosen Arena environment",
         )
         group.add_argument(
             "--env_variations",
@@ -86,33 +91,19 @@ class PolicyRunnerTask(BaseTask):
 
     def _get_run_script(self) -> str:
         policy_args_str = " ".join(self._get_policy_args())
+        # Skip empty segments so the command has no stray double spaces.
+        env_spec = " ".join(part for part in (self._get_arena_env(), self.arena_env_args, self.env_variations) if part)
         return (
             "set -euxo pipefail\n"
             f"{POLICY_RUNNER_COMMAND} "
             f"{policy_args_str} "
             f"--output_base_dir {OSMO_TASK_OUTPUT_DIR} "
             f"{self.policy_runner_args} "
-            f"{self._get_env_spec_args()}\n"
+            f"{env_spec}\n"
         )
 
-    def _get_env_spec_args(self) -> str:
-        """Render the env source: a graph-spec YAML or example-env name, plus any args and variation overrides."""
-        env_graph_spec_yaml, arena_env_args = self._resolve_env_source()
-        if env_graph_spec_yaml is not None:
-            spec = f"--env_graph_spec_yaml {env_graph_spec_yaml}"
-            if arena_env_args:
-                spec = f"{spec} {arena_env_args}"
-        else:
-            spec = arena_env_args
-        return f"{spec} {self.env_variations}" if self.env_variations else spec
-
-    def _resolve_env_source(self) -> tuple[str | None, str | None]:
-        """Split ``arena_env_args`` into ``(env_graph_spec_yaml, args)``.
-
-        When the first token ends in ``.yaml``/``.yml`` it is a graph-spec YAML path and the rest are
-        its args; otherwise the whole value is a registered example-environment name and its args.
-        """
-        name, _, args = self.arena_env_args.partition(" ")
-        if name.endswith((".yaml", ".yml")):
-            return name, (args or None)
-        return None, self.arena_env_args
+    def _get_arena_env(self) -> str:
+        """Render the env source: a ``--env_graph_spec_yaml`` flag for a YAML path, else the example-env name."""
+        if self.arena_env.endswith((".yaml", ".yml")):
+            return f"--env_graph_spec_yaml {self.arena_env}"
+        return self.arena_env
