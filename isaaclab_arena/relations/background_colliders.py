@@ -37,7 +37,8 @@ def build_placement_region(
     Args:
         anchors: Fixed surfaces objects are placed on (e.g. a counter).
         objects: Objects being placed; their sizes set how far the region extends.
-        clearance_m: Extra margin added to every padded face of the region.
+        clearance_m: Extra margin added to the region's four sides and its top; the bottom rests
+            on the anchor surface and is not padded.
     """
     assert anchors, "build_placement_region requires at least one anchor"
     anchor_boxes = [anchor.get_world_bounding_box() for anchor in anchors]
@@ -71,8 +72,9 @@ def find_background_colliders(
         region: Placement region (see build_placement_region); fixtures outside it are dropped.
         anchors: Placement surfaces to exclude; an anchor is not an obstacle for the objects
             placed on it, and including it would make every placement register as overlapping.
-        object_prim_paths: Explicit fixture prim paths to test. When omitted, every first-level
-            Xformable prim under the background is a candidate.
+        object_prim_paths: Explicit fixture prim paths to test. When omitted, candidates are the
+            object-level models found by walking the background's USD model hierarchy, descending
+            through groups and stopping at each component.
     """
     exclude_prim_paths = {anchor.prim_path for anchor in (anchors or []) if isinstance(anchor, ObjectReference)}
 
@@ -93,7 +95,7 @@ def _cull_prim_paths_to_region(
 ) -> list[str]:
     """Return the fixture prim paths whose world bounding box intersects the region.
 
-    Opens the background USD once. Candidates (every first-level Xformable prim, or the
+    Opens the background USD once. Candidates (every object-level model, or the
     explicit object_prim_paths) are kept when their box overlaps the region, except a box
     that fully encloses the region: it would contain every candidate placement, so the
     solver gets no gradient to avoid it (e.g. a whole-room shell prim). Spatial culling,
@@ -130,7 +132,13 @@ def _cull_prim_paths_to_region(
 
 
 def _candidate_prims(background: Background, default_prim, object_prim_paths: list[str] | None):
-    """Yield (isaaclab prim path, prim) pairs to test against the placement region."""
+    """Yield (isaaclab prim path, prim) pairs to test against the placement region.
+
+    With explicit object_prim_paths, each is resolved directly. Otherwise the USD model
+    hierarchy is walked so every candidate is a single object-level unit: group and assembly
+    prims are containers and are recursed into, and each component (or a prim with no model
+    kind) is yielded whole rather than split into its geometry.
+    """
     if object_prim_paths is not None:
         stage = default_prim.GetStage()
         for prim_path in object_prim_paths:
@@ -140,11 +148,25 @@ def _candidate_prims(background: Background, default_prim, object_prim_paths: li
             assert prim, f"prim not found at '{usd_path}' for path '{prim_path}'"
             yield prim_path, prim
         return
-    for child in default_prim.GetChildren():
+    yield from _walk_object_level(default_prim, f"{{ENV_REGEX_NS}}/{background.name}")
+
+
+def _walk_object_level(prim, prefix: str):
+    """Yield (isaaclab prim path, prim) for the object-level prims under prim.
+
+    Descends through model groups (Usd.Prim.IsGroup, i.e. group/assembly kinds) and stops at each
+    component; a prim with no authored model kind is the object-level unit where it sits, which
+    keeps flat backgrounds behaving like a single pass over their top-level children.
+    """
+    for child in prim.GetChildren():
         # Non-Xformable prims (materials, scopes) carry no geometry to collide with.
         if not child.IsA(UsdGeom.Xformable):
             continue
-        yield f"{{ENV_REGEX_NS}}/{background.name}/{child.GetName()}", child
+        child_path = f"{prefix}/{child.GetName()}"
+        if child.IsGroup():
+            yield from _walk_object_level(child, child_path)
+        else:
+            yield child_path, child
 
 
 def _background_world_transform(

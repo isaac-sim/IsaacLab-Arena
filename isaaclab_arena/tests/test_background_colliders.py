@@ -84,6 +84,37 @@ def _test_find_background_colliders(simulation_app) -> bool:
     return sorted(c.name for c in colliders) == ["near"]
 
 
+def _test_find_background_colliders_recurses_to_components(simulation_app) -> bool:
+    """Auto-discovery descends group models to their component children, not the group as one box."""
+    import tempfile
+    from pathlib import Path
+
+    from pxr import Kind, Usd, UsdGeom
+
+    from isaaclab_arena.assets.background import Background
+    from isaaclab_arena.relations.background_colliders import find_background_colliders
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.pose import Pose
+
+    usd_path = str(Path(tempfile.mkdtemp()) / "kinded_kitchen.usd")
+    stage = Usd.Stage.CreateNew(usd_path)
+    world = UsdGeom.Xform.Define(stage, "/World")
+    stage.SetDefaultPrim(world.GetPrim())
+    # A valid model hierarchy requires every ancestor of a component to be a group.
+    Usd.ModelAPI(world.GetPrim()).SetKind(Kind.Tokens.assembly)
+    cabinets = UsdGeom.Xform.Define(stage, "/World/cabinets")
+    Usd.ModelAPI(cabinets.GetPrim()).SetKind(Kind.Tokens.group)
+    _make_box(stage, "cabinets/sink", center=(0.0, 0.0, 1.1), extents=(0.2, 0.2, 0.4))  # component, in region
+    Usd.ModelAPI(stage.GetPrimAtPath("/World/cabinets/sink")).SetKind(Kind.Tokens.component)
+    _make_box(stage, "loose", center=(0.3, 0.0, 1.1), extents=(0.2, 0.2, 0.4))  # un-kinded top-level, in region
+    stage.GetRootLayer().Save()
+
+    background = Background(name="kinded_kitchen", usd_path=usd_path, object_min_z=-0.2, initial_pose=Pose.identity())
+    region = AxisAlignedBoundingBox((-1.0, -0.5, 0.9), (1.0, 0.5, 1.4))
+    colliders = find_background_colliders(background, region)
+    return sorted(c.name for c in colliders) == ["loose", "sink"]
+
+
 def _test_find_background_colliders_explicit_prim_paths(simulation_app) -> bool:
     """Explicit prim paths bypass auto-discovery but are still culled to the region."""
     import tempfile
@@ -212,6 +243,11 @@ def test_object_reference_world_bbox_yaw_parent():
 def test_find_background_colliders():
     result = run_simulation_app_function(_test_find_background_colliders, headless=HEADLESS)
     assert result, "find_background_colliders returned the wrong fixtures"
+
+
+def test_find_background_colliders_recurses_to_components():
+    result = run_simulation_app_function(_test_find_background_colliders_recurses_to_components, headless=HEADLESS)
+    assert result, "auto-discovery did not recurse group models to component granularity"
 
 
 def test_find_background_colliders_explicit_prim_paths():
