@@ -93,7 +93,7 @@ class PolicyRunnerTask(BaseTask):
         return f"set -euxo pipefail\n{self._get_policy_runner_command()}\n"
 
     def _get_policy_runner_command(self) -> str:
-        """Assemble the policy_runner.py command, dropping empty segments so there are no double spaces."""
+        """Assemble the policy_runner.py command."""
         parts = [
             POLICY_RUNNER_COMMAND,
             *self._get_policy_args(),
@@ -111,11 +111,8 @@ class PolicyRunnerTask(BaseTask):
 
         The ``--arena_env`` value chooses the environment source and is resolved as follows:
 
-        - A registered example-environment name is passed through unchanged, e.g.
-          ``kitchen_pick_and_place`` -> ``kitchen_pick_and_place``.
-        - A graph-spec YAML path (ending in ``.yaml``/``.yml``) is wrapped in the
-          ``--env_graph_spec_yaml`` flag, e.g.
-          ``robolab/mustard_raisin_box.yaml`` -> ``--env_graph_spec_yaml robolab/mustard_raisin_box.yaml``.
+        - Registered example-environment pass by name: kitchen_pick_and_place
+        - A graph-spec YAML path is preceded by the flag: --env_graph_spec_yaml robolab/mustard_raisin_box.yaml``.
         """
         if self.arena_env.endswith((".yaml", ".yml")):
             return f"--env_graph_spec_yaml {self.arena_env}"
