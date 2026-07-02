@@ -123,12 +123,12 @@ jobs:
           assert arena_spec is not None and arena_spec.origin is not None
           repo_root = Path(arena_spec.origin).resolve().parent.parent
 
-          namespace_modules = (
+          discoverable_modules = (
               "isaaclab_arena.evaluation.policy_runner",
               "isaaclab_arena.tasks.sequential_composite_tasks.franka_put_and_close_door_task",
           )
-          for namespace_module in namespace_modules:
-              assert importlib.util.find_spec(namespace_module) is not None, namespace_module
+          for module in discoverable_modules:
+              assert importlib.util.find_spec(module) is not None, module
 
           runtime_resources = (
               "isaaclab_arena/visualization/report_template.html",

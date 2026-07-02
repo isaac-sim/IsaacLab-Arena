@@ -95,4 +95,4 @@ core.*
 /__*
 
 # uv venv (Arena native install)
-.venv/
+.venv*/
