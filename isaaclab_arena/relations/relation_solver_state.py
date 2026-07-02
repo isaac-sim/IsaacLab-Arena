@@ -148,7 +148,8 @@ class RelationSolverState:
     @property
     def collision_objects(self) -> list[ObjectBase]:
         """Fixed background obstacles included in no-overlap collision only."""
-        return self._collision_objects
+        # Copy so callers cannot mutate the state's internal obstacle list.
+        return list(self._collision_objects)
 
     def get_position(self, obj: ObjectBase) -> torch.Tensor:
         """Get current position for an object.
