@@ -11,11 +11,11 @@ import types
 
 import pytest
 import websockets.exceptions
-from openpi_client import websocket_client_policy
 
 from isaaclab_arena_openpi.policy.droid_adapter import Pi0DroidAdapter
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyArgs
 from isaaclab_arena_openpi.policy.pi0_remote_policy import Pi0RemotePolicy
+from isaaclab_arena_openpi.policy.websocket_client import WebsocketClientPolicy
 
 
 def _fake_env(num_envs: int = 1):
@@ -49,14 +49,14 @@ def _synthetic_chunk() -> np.ndarray:
 
 def _patch_websocket_client(monkeypatch, infer_impl=None) -> None:
     monkeypatch.setattr(
-        websocket_client_policy.WebsocketClientPolicy,
+        WebsocketClientPolicy,
         "_wait_for_server",
         lambda self: (None, {}),
     )
     if infer_impl is None:
         infer_impl = lambda self, request: {"actions": _synthetic_chunk()}  # noqa: E731
     monkeypatch.setattr(
-        websocket_client_policy.WebsocketClientPolicy,
+        WebsocketClientPolicy,
         "infer",
         infer_impl,
     )
