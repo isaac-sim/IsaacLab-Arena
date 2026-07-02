@@ -2,6 +2,7 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
+
 import torch
 
 from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
@@ -10,9 +11,7 @@ from isaaclab_arena.utils.pose import Pose
 
 
 class DummyObject:
-    """
-    Dummy object for testing purposes without Isaac Sim dependencies.
-    """
+    """Dummy object for testing without Isaac Sim dependencies."""
 
     def __init__(
         self,
@@ -20,6 +19,7 @@ class DummyObject:
         bounding_box: AxisAlignedBoundingBox,
         initial_pose: Pose | None = None,
         relations: list[RelationBase] = [],
+        collision_mesh: object | None = None,
         **kwargs,
     ):
         self.name = name
@@ -27,6 +27,7 @@ class DummyObject:
         self.bounding_box = bounding_box
         assert self.bounding_box is not None
         self.relations = list(relations)
+        self._collision_mesh = collision_mesh
 
     def add_relation(self, relation: RelationBase) -> None:
         self.relations.append(relation)
@@ -35,18 +36,15 @@ class DummyObject:
         return self.relations
 
     def get_spatial_relations(self) -> list[RelationBase]:
-        """Get only spatial relations (On, NextTo, AtPosition, etc.), excluding markers like IsAnchor."""
+        """Spatial relations (On, NextTo, …), excluding markers like IsAnchor."""
         return [r for r in self.relations if isinstance(r, (Relation, UnaryRelation))]
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Get local bounding box (relative to object origin)."""
+        """Local bounding box relative to the object origin."""
         return self.bounding_box
 
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Get bounding box in world coordinates (local bbox rotated and translated).
-
-        Only 90° rotations around Z axis are supported.
-        """
+        """World-frame bounding box (Z-only rotation supported)."""
         if self.initial_pose is None:
             return self.bounding_box
         quarters = quaternion_to_90_deg_z_quarters(self.initial_pose.rotation_xyzw)
@@ -63,3 +61,7 @@ class DummyObject:
 
     def is_initial_pose_set(self) -> bool:
         return self.initial_pose is not None
+
+    def get_collision_mesh(self) -> object | None:
+        """The object's collision mesh, or None if it has none."""
+        return self._collision_mesh
