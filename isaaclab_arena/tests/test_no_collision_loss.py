@@ -8,6 +8,8 @@
 import math
 import torch
 
+import pytest
+
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.relations.loss_primitives import interval_overlap_axis_loss
 from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
@@ -533,6 +535,176 @@ def test_vectorized_no_overlap_matches_reference_multiple_anchors():
     ]
     # 2 boxes x 2 anchors = 4 anchor pairs + box_a/box_b pair both directions = 6 pairs.
     _assert_vectorized_matches_reference(objects, initial_positions, expect_positive=True, expected_pair_count=6)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is required for BVH coverage.")
+def test_sparse_no_overlap_selection_matches_reference_and_prunes_pairs():
+    """Sparse broad-phase selection preserves loss/gradients while dropping distant pair instances."""
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    boxes = [_create_box(f"box_{index}") for index in range(4)]
+    for box in boxes:
+        box.add_relation(On(table, clearance_m=0.01))
+    objects = [table, *boxes]
+    initial_positions = [
+        {
+            table: (0.0, 0.0, 0.0),
+            boxes[0]: (0.0, 0.0, 0.11),
+            boxes[1]: (0.1, 0.0, 0.11),
+            boxes[2]: (2.0, 2.0, 0.11),
+            boxes[3]: (4.0, 4.0, 0.11),
+        },
+        {
+            table: (0.0, 0.0, 0.0),
+            boxes[0]: (0.0, 0.0, 0.11),
+            boxes[1]: (2.0, 2.0, 0.11),
+            boxes[2]: (4.0, 4.0, 0.11),
+            boxes[3]: (6.0, 6.0, 0.11),
+        },
+    ]
+    solver = RelationSolver(params=RelationSolverParams(verbose=False))
+    solver.MIN_BVH_OBJECTS = 0
+    solver.DENSE_NO_OVERLAP_PAIR_FRACTION = 10.0
+
+    state_new = RelationSolverState(objects, initial_positions, device=torch.device("cuda"))
+    loss_new = solver._compute_no_overlap_loss(state_new)  # pyright: ignore[reportPrivateUsage]
+    loss_new.sum().backward()
+    grad_new = state_new.optimizable_positions.grad.clone()
+
+    state_ref = RelationSolverState(objects, initial_positions, device=torch.device("cuda"))
+    loss_ref = _reference_pairwise_no_overlap_loss(solver, state_ref)
+    loss_ref.sum().backward()
+
+    assert solver._last_no_overlap_pair_count == 12  # pyright: ignore[reportPrivateUsage]
+    assert solver._last_selected_no_overlap_pair_count == 2  # pyright: ignore[reportPrivateUsage]
+    assert torch.allclose(loss_new, loss_ref, atol=1e-6)
+    assert torch.allclose(grad_new, state_ref.optimizable_positions.grad, atol=1e-6)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is required for BVH coverage.")
+def test_sparse_no_overlap_selection_keeps_touching_pair_gradient():
+    """A pair exactly at the clearance boundary remains selected for its boundary gradient."""
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    boxes = [_create_box(f"box_{index}") for index in range(4)]
+    for box in boxes:
+        box.add_relation(On(table, clearance_m=0.01))
+    objects = [table, *boxes]
+    initial_positions = [{
+        table: (0.0, 0.0, 0.0),
+        boxes[0]: (0.0, 0.0, 0.11),
+        boxes[1]: (0.2, 0.0, 0.11),
+        boxes[2]: (2.0, 2.0, 0.11),
+        boxes[3]: (4.0, 4.0, 0.11),
+    }]
+    solver = RelationSolver(params=RelationSolverParams(clearance_m=0.0, verbose=False))
+    solver.MIN_BVH_OBJECTS = 0
+    solver.DENSE_NO_OVERLAP_PAIR_FRACTION = 10.0
+    state = RelationSolverState(objects, initial_positions, device=torch.device("cuda"))
+
+    loss = solver._compute_no_overlap_loss(state)  # pyright: ignore[reportPrivateUsage]
+    loss.sum().backward()
+
+    assert torch.allclose(loss, torch.zeros_like(loss))
+    assert solver._last_selected_no_overlap_pair_count == 2  # pyright: ignore[reportPrivateUsage]
+    assert state.optimizable_positions.grad[0, :2, 0].abs().gt(0).all()
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is required for BVH coverage.")
+def test_sparse_no_overlap_empty_selection_retains_backward_graph():
+    """A collision-free sparse scene returns differentiable zeros for optimizer backward."""
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    boxes = [_create_box(f"box_{index}") for index in range(3)]
+    for box in boxes:
+        box.add_relation(On(table, clearance_m=0.01))
+    objects = [table, *boxes]
+    initial_positions = [{
+        table: (0.0, 0.0, 0.0),
+        boxes[0]: (0.0, 0.0, 0.11),
+        boxes[1]: (2.0, 2.0, 0.11),
+        boxes[2]: (4.0, 4.0, 0.11),
+    }]
+    solver = RelationSolver(params=RelationSolverParams(verbose=False))
+    solver.MIN_BVH_OBJECTS = 0
+    solver.DENSE_NO_OVERLAP_PAIR_FRACTION = 10.0
+    state = RelationSolverState(objects, initial_positions, device=torch.device("cuda"))
+
+    loss = solver._compute_no_overlap_loss(state)  # pyright: ignore[reportPrivateUsage]
+    loss.sum().backward()
+
+    assert torch.allclose(loss, torch.zeros_like(loss))
+    assert solver._last_no_overlap_pair_count == 6  # pyright: ignore[reportPrivateUsage]
+    assert solver._last_selected_no_overlap_pair_count == 0  # pyright: ignore[reportPrivateUsage]
+    assert torch.allclose(state.optimizable_positions.grad, torch.zeros_like(state.optimizable_positions))
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is required for repeatability coverage.")
+def test_sparse_no_overlap_cuda_reduction_is_repeatable():
+    """Sparse per-environment reduction produces bitwise-repeatable CUDA losses."""
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    boxes = [_create_box(f"box_{index}") for index in range(4)]
+    for box in boxes:
+        box.add_relation(On(table, clearance_m=0.01))
+    objects = [table, *boxes]
+    initial_positions = [
+        {
+            table: (0.0, 0.0, 0.0),
+            boxes[0]: (candidate * 1e-4, 0.0, 0.11),
+            boxes[1]: (0.05 + candidate * 1e-4, 0.0, 0.11),
+            boxes[2]: (0.12 + candidate * 1e-4, 0.0, 0.11),
+            boxes[3]: (4.0, 4.0, 0.11),
+        }
+        for candidate in range(50)
+    ]
+    solver = RelationSolver(params=RelationSolverParams(verbose=False))
+    solver.MIN_BVH_OBJECTS = 0
+    solver.DENSE_NO_OVERLAP_PAIR_FRACTION = 10.0
+    state = RelationSolverState(objects, initial_positions, device=torch.device("cuda"))
+
+    with torch.no_grad():
+        losses = [solver._compute_no_overlap_loss(state) for _ in range(5)]  # pyright: ignore[reportPrivateUsage]
+    torch.cuda.synchronize()
+
+    assert all(torch.equal(losses[0], loss) for loss in losses[1:])
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is required for BVH coverage.")
+def test_bvh_no_overlap_isolates_batched_environments_at_scale():
+    """Grouped BVH queries neither cross environments nor duplicate unordered hits."""
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    table.add_relation(IsAnchor())
+    boxes = [_create_box(f"box_{index}") for index in range(64)]
+    for box in boxes:
+        box.add_relation(On(table, clearance_m=0.01))
+    objects = [table, *boxes]
+    initial_positions = []
+    for env_index in range(2):
+        positions = {table: (0.0, 0.0, 0.0)}
+        positions.update({box: (10.0 * index, 0.0, 0.11) for index, box in enumerate(boxes)})
+        pair_start = 2 * env_index
+        positions[boxes[pair_start]] = (-20.0, 0.0, 0.11)
+        positions[boxes[pair_start + 1]] = (-19.9, 0.0, 0.11)
+        initial_positions.append(positions)
+
+    solver = RelationSolver(params=RelationSolverParams(verbose=False))
+    solver.DENSE_NO_OVERLAP_PAIR_FRACTION = 10.0
+    state = RelationSolverState(objects, initial_positions, device=torch.device("cuda"))
+
+    loss = solver._compute_no_overlap_loss(state)  # pyright: ignore[reportPrivateUsage]
+    loss.sum().backward()
+
+    assert solver._last_selected_no_overlap_pair_count == 4  # pyright: ignore[reportPrivateUsage]
+    assert loss.gt(0).all()
+    nonzero_gradient = state.optimizable_positions.grad.abs().sum(dim=2).gt(0)
+    assert nonzero_gradient[0].nonzero().flatten().tolist() == [0, 1]
+    assert nonzero_gradient[1].nonzero().flatten().tolist() == [2, 3]
 
 
 def test_vectorized_no_overlap_empty_pairs_returns_zero():

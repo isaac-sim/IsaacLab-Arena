@@ -482,13 +482,13 @@ class NoCollisionLossStrategy:
 
         Args:
             clearance_m: Minimum clearance between boxes in meters.
-            subject_min: World-space min extent of the subject box, shape (num_pairs, batch_size, 3).
-            subject_max: World-space max extent of the subject box, shape (num_pairs, batch_size, 3).
-            obstacle_min: World-space min extent of the obstacle box, shape (num_pairs, batch_size, 3).
-            obstacle_max: World-space max extent of the obstacle box, shape (num_pairs, batch_size, 3).
+            subject_min: World-space min extent of the subject box, shape (..., 3).
+            subject_max: World-space max extent of the subject box, shape (..., 3).
+            obstacle_min: World-space min extent of the obstacle box, shape (..., 3).
+            obstacle_max: World-space max extent of the obstacle box, shape (..., 3).
 
         Returns:
-            Per-pair, per-env loss of shape (num_pairs, batch_size).
+            Per-box-pair loss with the same leading dimensions as the inputs.
         """
         assert clearance_m >= 0, f"clearance_m must be non-negative, got {clearance_m}"
         obstacle_min = obstacle_min - clearance_m
