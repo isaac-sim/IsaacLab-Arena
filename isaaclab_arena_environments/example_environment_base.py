@@ -32,6 +32,8 @@ class ExampleEnvironmentBase(ABC, Generic[ArenaEnvironmentCfgT]):
 
     @abstractmethod
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+        # TODO(cvolk): Deprecate this legacy argparse entry point; build(cfg) will
+        # become the primary environment construction API.
         pass
 
     def build(self, cfg: ArenaEnvironmentCfgT) -> IsaacLabArenaEnvironment:
