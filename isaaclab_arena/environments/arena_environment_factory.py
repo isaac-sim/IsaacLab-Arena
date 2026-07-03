@@ -3,17 +3,22 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Base class for registered Arena environment factories."""
+"""Core contracts for registered Arena environment factories."""
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Generic, TypeVar
-
-from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+
+
+@dataclass
+class ArenaEnvironmentCfg:
+    """Mark a typed Arena environment configuration."""
+
 
 ArenaEnvironmentCfgT = TypeVar("ArenaEnvironmentCfgT", bound=ArenaEnvironmentCfg)
 

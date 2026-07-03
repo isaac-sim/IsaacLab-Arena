@@ -15,8 +15,7 @@ import argparse
 from dataclasses import fields, is_dataclass
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
-from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
-from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentFactoryBase
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactoryBase
 from isaaclab_arena_environments.cli import ensure_environments_registered
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironment
 
