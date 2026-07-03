@@ -9,6 +9,7 @@ Select the policy with ``--policy``:
 
   * ``zero_action`` -- a single policy-runner task running the built-in zero-action policy.
   * ``pi0``         -- a policy-runner task co-scheduled with the pi0 inference server it queries.
+  * ``gr00t``       -- a policy-runner task co-scheduled with the GR00T inference server it queries.
 
 Usage examples:
 
@@ -22,6 +23,11 @@ Usage examples:
         --policy pi0 \
         --arena_env_args 'kitchen_pick_and_place --object cracker_box --embodiment franka_ik'
 
+    # GR00T policy runner + server
+    python osmo/submit_evaluation_workflow.py \
+        --policy gr00t \
+        --arena_env_args 'kitchen_pick_and_place --object cracker_box'
+
     # Dry run (print rendered YAML without submitting)
     python osmo/submit_evaluation_workflow.py --policy zero_action --arena_env_args '...' --dry-run
 """
@@ -31,6 +37,7 @@ from __future__ import annotations
 import argparse
 import sys
 
+from workflows.gr00t_policy_runner_workflow import Gr00tPolicyRunnerWorkflow
 from workflows.pi0_plus_policy_runner_workflow import Pi0PlusPolicyRunnerWorkflow
 from workflows.workflow import Workflow
 from workflows.zero_action_policy_runner_workflow import ZeroActionPolicyRunnerWorkflow
@@ -38,6 +45,7 @@ from workflows.zero_action_policy_runner_workflow import ZeroActionPolicyRunnerW
 POLICIES: dict[str, type[Workflow]] = {
     "zero_action": ZeroActionPolicyRunnerWorkflow,
     "pi0": Pi0PlusPolicyRunnerWorkflow,
+    "gr00t": Gr00tPolicyRunnerWorkflow,
 }
 
 
