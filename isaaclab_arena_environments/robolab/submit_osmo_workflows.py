@@ -16,8 +16,8 @@ from pathlib import Path
 
 POLICIES = ("pi0", "gr00t")
 NUM_ENVS_BY_POLICY = {
-    "pi0": 20,
-    "gr00t": 12,
+    "pi0": 10,
+    "gr00t": 6,
 }
 PRIORITY = "NORMAL"
 POOL = "isaac-dev-l40s-04"
