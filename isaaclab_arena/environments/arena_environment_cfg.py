@@ -3,15 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Base configuration for registered Arena environment providers."""
-
-from dataclasses import dataclass
+"""Base type for Arena environment configurations."""
 
 
-@dataclass
 class ArenaEnvironmentCfg:
-    """Configure an Arena environment provider."""
-
-    name: str
-    """Name of the registered environment provider."""
-    enable_cameras: bool = False
+    """Mark a typed Arena environment configuration."""

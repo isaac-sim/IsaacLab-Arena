@@ -16,7 +16,6 @@ from isaaclab_arena_environments.pick_and_place_maple_table_environment import (
 def test_maple_table_environment_cfg_defaults():
     cfg = PickAndPlaceMapleTableEnvironmentCfg()
 
-    assert cfg.name == "pick_and_place_maple_table"
     assert not cfg.enable_cameras
     assert cfg.embodiment == "droid_abs_joint_pos"
     assert cfg.teleop_device is None

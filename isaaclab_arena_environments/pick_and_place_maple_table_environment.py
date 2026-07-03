@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 class PickAndPlaceMapleTableEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the Maple-table pick-and-place environment."""
 
-    name: str = "pick_and_place_maple_table"
+    enable_cameras: bool = False
     embodiment: str = "droid_abs_joint_pos"
     teleop_device: str | None = None
     hdr: str | None = None
@@ -54,8 +54,6 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase[PickAndPlaceMaple
 
     def build(self, cfg: PickAndPlaceMapleTableEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
-        assert cfg.name == self.name, f"Expected environment configuration '{self.name}', got '{cfg.name}'"
-
         import isaaclab.sim as sim_utils
         from isaaclab.envs.common import ViewerCfg
 
