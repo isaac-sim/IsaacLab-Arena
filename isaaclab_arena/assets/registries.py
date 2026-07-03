@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.assets.hdr_image import HDRImage
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
-    from isaaclab_arena.policy.policy_base import PolicyBase
+    from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
     from isaaclab_arena.relations.relations import RelationBase
     from isaaclab_arena.tasks.task_base import TaskBase
 
@@ -184,6 +184,20 @@ class RetargeterRegistry(Registry):
 class PolicyRegistry(Registry):
     def __init__(self):
         super().__init__()
+        self._cfg_types: dict[type["PolicyBase"], type["PolicyCfg"]] = {}
+
+    # TODO(cvolk, 2026-07-03): Require cfg_type after deprecated bare policy registration is removed.
+    def register_policy(self, policy_type: type["PolicyBase"], cfg_type: type["PolicyCfg"] | None) -> None:
+        """Register a policy and its config, accepting None only for deprecated callers."""
+        self.register(policy_type, policy_type.name)
+        if cfg_type is not None:
+            self._cfg_types[policy_type] = cfg_type
+
+    # TODO(cvolk, 2026-07-03): Remove when eval_runner receives PolicyCfg instead of Job.policy_config_dict.
+    def get_policy_cfg_type(self, policy_type: type["PolicyBase"]) -> type["PolicyCfg"] | None:
+        """Get the config type used to deserialize Job.policy_config_dict in eval_runner."""
+        ensure_assets_registered()
+        return self._cfg_types.get(policy_type)
 
     def get_policy(self, name: str) -> type["PolicyBase"]:
         """Gets a policy by name.

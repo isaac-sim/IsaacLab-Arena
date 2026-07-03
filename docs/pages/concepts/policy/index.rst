@@ -35,7 +35,7 @@ Writing a custom policy
 -----------------------
 
 Define a typed ``PolicyCfg``, subclass ``PolicyBase`` with that config, set a
-``name``, decorate with ``@register_policy``, and implement ``get_action``:
+``name``, register it with its config, and implement ``get_action``:
 
 .. code-block:: python
 
@@ -54,10 +54,9 @@ Define a typed ``PolicyCfg``, subclass ``PolicyBase`` with that config, set a
        device: str = "cuda"
 
 
-   @register_policy
+   @register_policy(cfg_type=MyPolicyCfg)
    class MyPolicy(PolicyBase[MyPolicyCfg]):
        name = "my_policy"
-       config_class = MyPolicyCfg
 
        def __init__(self, config: MyPolicyCfg):
            super().__init__(config)
@@ -67,14 +66,15 @@ Define a typed ``PolicyCfg``, subclass ``PolicyBase`` with that config, set a
            return torch.zeros(env.action_space.shape, device=torch.device(env.unwrapped.device))
 
 The policy contract itself does not depend on argparse. The current single-job
-CLI still expects concrete policies to provide temporary ``add_args_to_parser``
-and ``from_args`` compatibility adapters:
+CLI still expects concrete policies to provide the deprecated
+``add_args_to_parser`` and ``from_args`` compatibility adapters:
 
 .. code-block:: python
 
    class MyPolicy(PolicyBase[MyPolicyCfg]):
        ...
 
+       # Deprecated compatibility adapter for the current argparse frontend.
        @staticmethod
        def add_args_to_parser(parser):
            # Add any CLI arguments your policy needs, then return the parser
@@ -96,8 +96,9 @@ For policies not registered by name, pass a dotted Python path instead
 (e.g. ``--policy_type mypackage.mypolicy.MyPolicy``). The runner will
 import and instantiate the class directly.
 
-The batch eval runner uses ``config_class`` to instantiate the inherited
-``from_dict()`` path directly, without going through argparse. See
+The typed registration associates the policy with its configuration for legacy
+dictionary-based evaluation. Typed callers can construct ``MyPolicyCfg`` and
+pass it to ``MyPolicy`` directly, without going through argparse. See
 :doc:`concept_evaluation_types` for details.
 
 More details

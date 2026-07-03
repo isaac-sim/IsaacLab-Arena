@@ -24,10 +24,12 @@ from typing import Any
 
 import pytest
 
-pytestmark = pytest.mark.gr00t_policy
-
-
+from isaaclab_arena.assets.registries import PolicyRegistry
+from isaaclab_arena.policy import action_scheduling
+from isaaclab_arena_gr00t.policy import gr00t_remote_closedloop_policy as gr00t_policy
 from isaaclab_arena_gr00t.tests.utils.constants import TestConstants as Gr00tTestConstants
+
+pytestmark = pytest.mark.gr00t_policy
 
 NUM_ENVS = 2
 ORIGINAL_HEIGHT = 480
@@ -109,8 +111,6 @@ class _FakePolicyClient:
 def fake_client_factory(monkeypatch):
     """Patch ``Gr00tPolicyClient`` in the policy module's namespace and return
     a factory that gives access to the most recently constructed fake."""
-    from isaaclab_arena_gr00t.policy import gr00t_remote_closedloop_policy as mod
-
     created: list[_FakePolicyClient] = []
 
     def factory(ping_ok: bool = True):
@@ -119,19 +119,14 @@ def fake_client_factory(monkeypatch):
             created.append(client)
             return client
 
-        monkeypatch.setattr(mod, "Gr00tPolicyClient", _ctor)
+        monkeypatch.setattr(gr00t_policy, "Gr00tPolicyClient", _ctor)
         return created
 
     return factory
 
 
 def _build_policy(policy_config_yaml: str, scheduler: str = "chunk"):
-    from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import (
-        Gr00tRemoteClosedloopPolicy,
-        Gr00tRemoteClosedloopPolicyCfg,
-    )
-
-    cfg = Gr00tRemoteClosedloopPolicyCfg(
+    cfg = gr00t_policy.Gr00tRemoteClosedloopPolicyCfg(
         policy_config_yaml_path=policy_config_yaml,
         policy_device="cpu",  # keep the test portable; remote policy does no GPU compute
         num_envs=NUM_ENVS,
@@ -140,7 +135,7 @@ def _build_policy(policy_config_yaml: str, scheduler: str = "chunk"):
         remote_api_token=None,
         scheduler=scheduler,
     )
-    return Gr00tRemoteClosedloopPolicy(cfg)
+    return gr00t_policy.Gr00tRemoteClosedloopPolicy(cfg)
 
 
 # ------------------------------- tests ------------------------------- #
@@ -214,26 +209,26 @@ def test_construction_fails_when_server_unreachable(policy_config_yaml, fake_cli
         _build_policy(policy_config_yaml)
 
 
-def test_from_dict_builds_typed_config_and_scheduler(policy_config_yaml, fake_client_factory):
-    """The eval-runner dictionary path retains scheduler selection in the config."""
-    from isaaclab_arena.policy.action_scheduling import SyncedBatchActionScheduler
-    from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import (
-        Gr00tRemoteClosedloopPolicy,
-        Gr00tRemoteClosedloopPolicyCfg,
+def test_registration_builds_typed_config_and_scheduler(policy_config_yaml, fake_client_factory):
+    """The registered typed config retains scheduler selection."""
+    fake_client_factory(ping_ok=True)
+    assert (
+        PolicyRegistry().get_policy_cfg_type(gr00t_policy.Gr00tRemoteClosedloopPolicy)
+        is gr00t_policy.Gr00tRemoteClosedloopPolicyCfg
+    )
+    policy = gr00t_policy.Gr00tRemoteClosedloopPolicy(
+        gr00t_policy.Gr00tRemoteClosedloopPolicyCfg(
+            policy_config_yaml_path=policy_config_yaml,
+            policy_device="cpu",
+            num_envs=NUM_ENVS,
+            remote_host="unused",
+            remote_port=0,
+            scheduler="synced_batch",
+        )
     )
 
-    fake_client_factory(ping_ok=True)
-    policy = Gr00tRemoteClosedloopPolicy.from_dict({
-        "policy_config_yaml_path": policy_config_yaml,
-        "policy_device": "cpu",
-        "num_envs": NUM_ENVS,
-        "remote_host": "unused",
-        "remote_port": 0,
-        "scheduler": "synced_batch",
-    })
-
-    assert isinstance(policy.config, Gr00tRemoteClosedloopPolicyCfg)
-    assert isinstance(policy._chunking_state, SyncedBatchActionScheduler)
+    assert isinstance(policy.config, gr00t_policy.Gr00tRemoteClosedloopPolicyCfg)
+    assert isinstance(policy._chunking_state, action_scheduling.SyncedBatchActionScheduler)
 
 
 # ---------------- scheduler-switch tests ---------------- #
@@ -245,8 +240,6 @@ def test_get_action_returns_correct_shape_for_each_scheduler(
 ):
     """Both ActionChunkScheduler and SyncedBatchActionScheduler should drive the policy
     end-to-end and produce one (num_envs, action_dim) action per get_action call."""
-    from isaaclab_arena.policy import action_scheduling
-
     scheduler_cls = getattr(action_scheduling, scheduler_cls_name)
     scheduler = "synced_batch" if scheduler_cls_name == "SyncedBatchActionScheduler" else "chunk"
 

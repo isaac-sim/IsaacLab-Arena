@@ -3,6 +3,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import warnings
+from typing import TYPE_CHECKING
+
 from isaaclab_arena.assets.registries import (
     AssetRegistry,
     DeviceRegistry,
@@ -13,6 +16,9 @@ from isaaclab_arena.assets.registries import (
     RetargeterRegistry,
     TaskRegistry,
 )
+
+if TYPE_CHECKING:
+    from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
 
 # Decorator to register an asset with the AssetRegistry.
@@ -44,13 +50,34 @@ def register_retargeter(cls):
     return cls
 
 
-# Decorator to register a policy with the PolicyRegistry.
-def register_policy(cls):
+def _register_policy(cls: type["PolicyBase"], cfg_type: type["PolicyCfg"] | None):
     if PolicyRegistry().is_registered(cls.name, ensure_loaded=False):
         print(f"WARNING: Policy {cls.name} is already registered. Doing nothing.")
     else:
-        PolicyRegistry().register(cls, cls.name)
+        PolicyRegistry().register_policy(cls, cfg_type)
     return cls
+
+
+# Decorator to register a policy with the PolicyRegistry.
+def register_policy(policy_type: type["PolicyBase"] | None = None, *, cfg_type: type["PolicyCfg"] | None = None):
+    """Register a policy and its typed configuration."""
+    if cfg_type is None:
+        # TODO(cvolk, 2026-07-03): Remove bare registration with the deprecated policy-owned
+        # argparse paths in policy_runner and eval_runner.
+        assert policy_type is not None, "Typed policy registration requires cfg_type"
+        warnings.warn(
+            "Bare @register_policy is deprecated; use @register_policy(cfg_type=PolicyCfgType)",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return _register_policy(policy_type, None)
+
+    assert policy_type is None, "Pass the policy config with the cfg_type keyword"
+
+    def decorator(cls):
+        return _register_policy(cls, cfg_type)
+
+    return decorator
 
 
 # Decorator to register an HDRImage with the HDRImageRegistry.

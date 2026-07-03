@@ -12,6 +12,7 @@ import types
 import pytest
 import websockets.exceptions
 
+from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena_openpi.policy.droid_adapter import Pi0DroidAdapter
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 from isaaclab_arena_openpi.policy.pi0_remote_policy import Pi0RemotePolicy
@@ -96,16 +97,19 @@ def test_droid_adapter_uses_pi0_wire_keys():
     assert server_request["prompt"] == "pick up the block"
 
 
-def test_from_dict_resolves_adapter(monkeypatch):
-    """eval_runner path: JSON dict -> Pi0RemotePolicy with adapter resolved from the dict."""
+def test_registration_builds_typed_config_and_resolves_adapter(monkeypatch):
+    """The registered typed config retains embodiment-adapter selection."""
     _patch_websocket_client(monkeypatch)
-    policy = Pi0RemotePolicy.from_dict({
-        "policy_variant": "pi05",
-        "policy_device": "cpu",
-        "remote_host": "localhost",
-        "remote_port": 8000,
-        "openpi_embodiment_adapter": "droid",
-    })
+    assert PolicyRegistry().get_policy_cfg_type(Pi0RemotePolicy) is Pi0RemotePolicyCfg
+    policy = Pi0RemotePolicy(
+        Pi0RemotePolicyCfg(
+            policy_variant="pi05",
+            policy_device="cpu",
+            remote_host="localhost",
+            remote_port=8000,
+            openpi_embodiment_adapter="droid",
+        )
+    )
     assert isinstance(policy._openpi_embodiment_adapter, Pi0DroidAdapter)
     assert policy._open_loop_horizon == 15
 

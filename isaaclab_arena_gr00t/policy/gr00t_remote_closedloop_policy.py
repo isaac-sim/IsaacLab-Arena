@@ -19,6 +19,7 @@ from typing import Any, Literal
 
 from gr00t.policy.server_client import PolicyClient as Gr00tPolicyClient
 
+from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.action_scheduling import ActionChunkScheduler, ActionScheduler, SyncedBatchActionScheduler
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyCfg, TaskMode
@@ -58,7 +59,7 @@ class Gr00tRemoteClosedloopPolicyCfg(Gr00tBasePolicyCfg):
     """Action scheduler used to consume inference chunks."""
 
 
-# TODO(xinjieyao, 2026-04-27): add policy registry
+@register_policy(cfg_type=Gr00tRemoteClosedloopPolicyCfg)
 class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
     """GR00T closed-loop policy that delegates inference to a remote GR00T server.
 
@@ -67,7 +68,6 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
     """
 
     name = "gr00t_remote_closedloop"
-    config_class = Gr00tRemoteClosedloopPolicyCfg
 
     def __init__(self, config: Gr00tRemoteClosedloopPolicyCfg):
         super().__init__(config)
@@ -126,7 +126,7 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
 
         self.task_description: str | None = None
 
-    # TODO(cvolk, 2026-07-03): Move this legacy argparse adapter into the policy CLI frontend.
+    # TODO(cvolk, 2026-07-03): Remove this deprecated argparse adapter once the CLI builds typed configs directly.
 
     @staticmethod
     def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:

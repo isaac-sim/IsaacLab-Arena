@@ -12,6 +12,7 @@ import tqdm
 from importlib import import_module
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
@@ -36,8 +37,6 @@ def get_policy_cls(policy_type: str) -> type[PolicyBase]:
       the policy_type argument as a string representing the module path and class name.
 
     """
-    from isaaclab_arena.assets.registries import PolicyRegistry
-
     policy_registry = PolicyRegistry()
     if policy_registry.is_registered(policy_type):
         return policy_registry.get_policy(policy_type)
@@ -165,6 +164,8 @@ def main():
             f" {policy_cls}"
         )
 
+        # TODO(cvolk, 2026-07-03): Make policy_runner build PolicyCfg, then remove policy-owned
+        # add_args_to_parser and from_args adapters.
         # Add the example environment arguments + policy-related arguments to the parser
         args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
         args_parser = policy_cls.add_args_to_parser(args_parser)

@@ -15,6 +15,7 @@ from typing import Any
 import websockets.exceptions
 from openpi_client import websocket_client_policy
 
+from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_openpi.policy.pi0_remote_config import DEFAULT_VARIANT, MAX_RECONNECT_ATTEMPTS, Pi0RemotePolicyCfg
 from isaaclab_arena_openpi.policy.websocket_client import WebsocketClientPolicy
@@ -48,6 +49,7 @@ class Pi0EmbodimentAdapter(ABC):
         """Build the wire-format request payload openpi server expects."""
 
 
+@register_policy(cfg_type=Pi0RemotePolicyCfg)
 class Pi0RemotePolicy(PolicyBase[Pi0RemotePolicyCfg]):
     """openpi remote closed-loop policy, parameterized by an embodiment adapter.
 
@@ -63,7 +65,6 @@ class Pi0RemotePolicy(PolicyBase[Pi0RemotePolicyCfg]):
     # TODO(cvolk, 2026-05-18): Add a RemotePolicy base class.
 
     name = "pi0_remote"
-    config_class = Pi0RemotePolicyCfg
 
     def __init__(self, config: Pi0RemotePolicyCfg) -> None:
         super().__init__(config)
@@ -100,7 +101,7 @@ class Pi0RemotePolicy(PolicyBase[Pi0RemotePolicyCfg]):
         self._next_chunk_steps: list[int] | None = None
         self.task_description: str | None = None
 
-    # TODO(cvolk, 2026-07-03): Move this legacy argparse adapter into the policy CLI frontend.
+    # TODO(cvolk, 2026-07-03): Remove this deprecated argparse adapter once the CLI builds typed configs directly.
     @staticmethod
     def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         group = parser.add_argument_group(

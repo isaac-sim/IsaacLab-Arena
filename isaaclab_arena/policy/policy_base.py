@@ -10,7 +10,7 @@ import torch
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from gymnasium.spaces.dict import Dict as GymSpacesDict
-from typing import Any, Generic, Self, TypeVar
+from typing import Generic, TypeVar
 
 
 @dataclass
@@ -24,27 +24,8 @@ PolicyCfgT = TypeVar("PolicyCfgT", bound=PolicyCfg)
 class PolicyBase(ABC, Generic[PolicyCfgT]):
     """Define runtime behavior shared by Arena policies."""
 
-    config_class: type[PolicyCfg] | None = None
-    """Concrete config used by the legacy dictionary-based evaluation path."""
-
     def __init__(self, config: PolicyCfgT):
         self.config = config
-
-    @classmethod
-    def from_dict(cls, config_dict: dict[str, Any]) -> Self:
-        """Create a policy through the legacy dictionary configuration path.
-
-        Args:
-            config_dict: Values used to instantiate ``config_class``.
-
-        Returns:
-            A policy initialized with its typed config.
-        """
-        if cls.config_class is None:
-            raise NotImplementedError(f"{cls.__name__} must define 'config_class' to use from_dict()")
-
-        config = cls.config_class(**config_dict)  # type: ignore[misc]
-        return cls(config)  # type: ignore[call-arg]
 
     @abstractmethod
     def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:

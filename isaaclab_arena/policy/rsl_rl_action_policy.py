@@ -56,7 +56,7 @@ class RslRlActionPolicyCfg(PolicyCfg):
     """Device to run the policy on."""
 
 
-@register_policy
+@register_policy(cfg_type=RslRlActionPolicyCfg)
 class RslRlActionPolicy(PolicyBase[RslRlActionPolicyCfg]):
     """Policy that uses a trained RSL-RL model for inference.
 
@@ -83,7 +83,6 @@ class RslRlActionPolicy(PolicyBase[RslRlActionPolicyCfg]):
     """
 
     name = "rsl_rl"
-    config_class = RslRlActionPolicyCfg
 
     def __init__(self, config: RslRlActionPolicyCfg):
         super().__init__(config)
@@ -133,7 +132,7 @@ class RslRlActionPolicy(PolicyBase[RslRlActionPolicyCfg]):
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         pass
 
-    # TODO(cvolk, 2026-07-03): Move this legacy argparse adapter into the policy CLI frontend.
+    # TODO(cvolk, 2026-07-03): Remove this deprecated argparse adapter once the CLI builds typed configs directly.
     @staticmethod
     def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         """Add RSL-RL action policy specific arguments to the parser."""

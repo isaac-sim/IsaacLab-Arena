@@ -18,12 +18,10 @@ class ZeroActionPolicyCfg(PolicyCfg):
     """Configure a policy that always returns zero actions."""
 
 
-@register_policy
+@register_policy(cfg_type=ZeroActionPolicyCfg)
 class ZeroActionPolicy(PolicyBase[ZeroActionPolicyCfg]):
 
     name = "zero_action"
-    # enable from_dict() from policy_base.PolicyBase
-    config_class = ZeroActionPolicyCfg
 
     def __init__(self, config: ZeroActionPolicyCfg):
         """
@@ -40,7 +38,7 @@ class ZeroActionPolicy(PolicyBase[ZeroActionPolicyCfg]):
         """
         return torch.zeros(env.action_space.shape, device=torch.device(env.unwrapped.device))
 
-    # TODO(cvolk, 2026-07-03): Move this legacy argparse adapter into the policy CLI frontend.
+    # TODO(cvolk, 2026-07-03): Remove this deprecated argparse adapter once the CLI builds typed configs directly.
     @staticmethod
     def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         """

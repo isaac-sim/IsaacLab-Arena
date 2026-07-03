@@ -29,7 +29,7 @@ class ReplayActionPolicyCfg(PolicyCfg):
     """Episode to replay, or the first episode when omitted."""
 
 
-@register_policy
+@register_policy(cfg_type=ReplayActionPolicyCfg)
 class ReplayActionPolicy(PolicyBase[ReplayActionPolicyCfg]):
     """
     Replay the actions from an named episode stored in a HDF5 file.
@@ -37,8 +37,6 @@ class ReplayActionPolicy(PolicyBase[ReplayActionPolicyCfg]):
     """
 
     name = "replay"
-    # enable from_dict() from policy_base.PolicyBase
-    config_class = ReplayActionPolicyCfg
 
     def __init__(self, config: ReplayActionPolicyCfg):
         """
@@ -100,7 +98,7 @@ class ReplayActionPolicy(PolicyBase[ReplayActionPolicyCfg]):
         """Get the length of the policy (for dataset-driven policies)."""
         return len(self)
 
-    # TODO(cvolk, 2026-07-03): Move this legacy argparse adapter into the policy CLI frontend.
+    # TODO(cvolk, 2026-07-03): Remove this deprecated argparse adapter once the CLI builds typed configs directly.
     @staticmethod
     def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         """Add replay action policy specific arguments to the parser."""
