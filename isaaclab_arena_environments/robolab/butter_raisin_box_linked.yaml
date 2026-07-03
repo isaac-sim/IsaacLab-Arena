@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: mustard_raisin_box
+env_name: butter_raisin_box
 nodes:
 - id: maple_table_robolab
   name: maple_table_robolab
@@ -13,22 +13,22 @@ nodes:
   name: droid_abs_joint_pos
   type: embodiment
   params: {}
-- id: mustard_bottle
-  name: mustard_bottle_hope_robolab
+- id: butter_hope_robolab
+  name: butter_hope_robolab
   type: object
   params: {}
-- id: raisin_box
+- id: raisin_box_hope_robolab
   name: raisin_box_hope_robolab
   type: object
   params: {}
 tasks:
 - kind: PickAndPlaceTask
   params:
-    pick_up_object: mustard_bottle
-    destination_location: raisin_box
+    pick_up_object: butter_hope_robolab
+    destination_location: raisin_box_hope_robolab
     background_scene: maple_table_robolab
     episode_length_s: 20.0
-  description: Pick up the mustard bottle and place it on the raisin box.
+  description: pick up the butter box and place it on top of the raisin box
   id: task_0_PickAndPlaceTask
   initial_state_spec_id: state_initial
   success_state_spec_id: state_spec_1
@@ -41,18 +41,18 @@ state_specs:
     params: {}
     id: state_initial_0_is_anchor_maple_table_robolab
   - kind: 'on'
-    subject: mustard_bottle
+    subject: butter_hope_robolab
     reference: maple_table_robolab
     params: {}
-    id: state_initial_1_on_maple_table_robolab_mustard_bottle
+    id: state_initial_1_on_maple_table_robolab_butter_hope_robolab
   - kind: 'on'
-    subject: raisin_box
+    subject: raisin_box_hope_robolab
     reference: maple_table_robolab
     params: {}
-    id: state_initial_2_on_maple_table_robolab_raisin_box
+    id: state_initial_2_on_maple_table_robolab_raisin_box_hope_robolab
   # TODO: support rotate around solution from the agent intent spec
   - kind: 'rotate_around_solution'
-    subject: raisin_box
+    subject: raisin_box_hope_robolab
     params: {
       pitch_rad: 1.57
     }
@@ -62,9 +62,9 @@ state_specs:
   is_delta: true
   spatial_constraints:
   - kind: 'on'
-    subject: mustard_bottle
-    reference: raisin_box
+    subject: butter_hope_robolab
+    reference: raisin_box_hope_robolab
     params: {}
-    id: state_spec_1_mustard_bottle_on_raisin_box
+    id: state_spec_1_butter_hope_robolab_on_raisin_box_hope_robolab
   task_constraints: []
 cli_override_specs: []

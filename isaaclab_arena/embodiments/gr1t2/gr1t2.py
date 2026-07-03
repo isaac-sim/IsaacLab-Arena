@@ -158,7 +158,7 @@ class GR1T2PinkEmbodiment(GR1T2EmbodimentBase):
     """
 
     name = "gr1_pink"
-    tags = ["embodiment", "ik"]
+    tags = ["embodiment", "default"]
 
     def __init__(
         self,

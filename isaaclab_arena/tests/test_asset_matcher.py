@@ -13,7 +13,7 @@ Covers :func:`~asset_matcher.match_asset` resolution strategies:
   - Fuzzy (difflib) fallback
   - Required-tag pool fuzzy fallback when no preferred tags are supplied
   - Miss behaviour
-  - Embodiment bare-family expansion via the ``["embodiment", "ik"]`` tag pool
+  - Embodiment bare-family expansion via the ``["embodiment", "default"]`` tag pool
   - Empty required-tag pools
 """
 
@@ -77,35 +77,35 @@ def test_background_fuzzy_match_without_preferred_tags():
 
 def test_embodiment_exact_match():
     trace: list[IntentResolutionTraceEvent] = []
-    chosen = match_asset(make_registry(), "franka_ik", "embodiment", trace, ["embodiment"], ["ik"])
+    chosen = match_asset(make_registry(), "franka_ik", "embodiment", trace, ["embodiment"], ["default"])
     assert chosen == "franka_ik"
     assert any(e.stage == "embodiment.exact" for e in trace)
 
 
-def test_embodiment_joint_pos_not_fuzzy_matched_to_ik():
-    # Exact hit on the required-tag pool must run before the ik-narrowed
+def test_embodiment_joint_pos_not_fuzzy_matched_to_default():
+    # Exact hit on the required-tag pool must run before the default-narrowed
     # preferred pool, so joint-position control is not fuzzy-matched to franka_ik.
     trace: list[IntentResolutionTraceEvent] = []
-    chosen = match_asset(make_registry(), "franka_joint_pos", "embodiment", trace, ["embodiment"], ["ik"])
+    chosen = match_asset(make_registry(), "franka_joint_pos", "embodiment", trace, ["embodiment"], ["default"])
     assert chosen == "franka_joint_pos"
     trace_stages = [e.stage for e in trace]
     assert "embodiment.exact" in trace_stages
     assert "embodiment.preferred_tags.fuzzy" not in trace_stages
 
 
-def test_embodiment_ik_default_for_bare_family():
-    # Bare family names (e.g. "franka") are expanded to the IK variant by
-    # narrowing embodiment candidates by the "ik" tag and picking the shortest
+def test_embodiment_default_for_bare_family():
+    # Bare family names (e.g. "franka") are expanded to the default variant by
+    # narrowing embodiment candidates by the "default" tag and picking the shortest
     # match.
     trace: list[IntentResolutionTraceEvent] = []
-    chosen = match_asset(make_registry(), "franka", "embodiment", trace, ["embodiment"], ["ik"])
+    chosen = match_asset(make_registry(), "franka", "embodiment", trace, ["embodiment"], ["default"])
     assert chosen == "franka_ik"
     assert any(e.stage == "embodiment.preferred_tags.substring" for e in trace)
 
 
 def test_embodiment_unknown_records_miss():
     trace: list[IntentResolutionTraceEvent] = []
-    chosen = match_asset(make_registry(), "totally_unknown_robot", "embodiment", trace, ["embodiment"], ["ik"])
+    chosen = match_asset(make_registry(), "totally_unknown_robot", "embodiment", trace, ["embodiment"], ["default"])
     assert chosen is None
     assert any(e.stage == "embodiment.required_tags.miss" for e in trace)
 
@@ -127,7 +127,7 @@ def test_embodiment_required_tag_pool_empty():
         FakeAsset(name="cracker_box", tags=["object"]),
     ]
     trace: list[IntentResolutionTraceEvent] = []
-    chosen = match_asset(make_registry(assets), "franka_ik", "embodiment", trace, ["embodiment"], ["ik"])
+    chosen = match_asset(make_registry(assets), "franka_ik", "embodiment", trace, ["embodiment"], ["default"])
     assert chosen is None
     assert any(e.stage == "embodiment.required_tags.empty_pool" for e in trace)
 

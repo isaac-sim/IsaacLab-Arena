@@ -62,7 +62,7 @@ def default_assets() -> list[FakeAsset]:
     """
     return [
         FakeAsset(name="maple_table", tags=["background"]),
-        FakeAsset(name="franka_ik", tags=["embodiment", "ik"]),
+        FakeAsset(name="franka_ik", tags=["embodiment", "default"]),
         FakeAsset(name="franka_joint_pos", tags=["embodiment"]),
         FakeAsset(name="bowl_ycb_robolab", tags=["object", "bowl"]),
         FakeAsset(name="avocado01_fruits_robolab", tags=["object", "fruit"]),
