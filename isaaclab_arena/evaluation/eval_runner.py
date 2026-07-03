@@ -93,7 +93,6 @@ def main():
             overrides=experiment_overrides,
         )
         _assert_camera_support_enabled(experiment, args_cli.enable_cameras)
-        metrics_logger = MetricsLogger()
 
         print(build_runs_info_table(experiment, []))
 
@@ -102,6 +101,7 @@ def main():
         # TODO(alexmillane): Currently each chunk produces its own output directory.
         # We should use the same output directory for all chunks in the future.
         experiment_output_dir = Path(timestamped_run_dir(args_cli.output_base_dir))
+        metrics_logger = MetricsLogger(experiment_output_dir / "metrics.json")
 
         if args_cli.record_viewport_video:
             os.makedirs(experiment_output_dir, exist_ok=True)
@@ -119,6 +119,7 @@ def main():
                 metrics_logger.append_job_metrics(result.run_name, result.metrics)
 
         print(build_runs_info_table(experiment, results))
+        metrics_logger.save_metrics_to_file()
         metrics_logger.print_metrics()
 
         # Write HTML report.

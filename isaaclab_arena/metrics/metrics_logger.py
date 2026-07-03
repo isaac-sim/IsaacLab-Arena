@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import numpy as np
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -34,7 +35,7 @@ def metrics_to_plain_python_types(metrics_data: MetricsDataCollection) -> dict[s
 
 
 class MetricsLogger:
-    def __init__(self, metrics_file: str = "metrics.json"):
+    def __init__(self, metrics_file: str | Path = "metrics.json"):
         self.metrics_file = metrics_file
         self.metrics_data = {}
 
@@ -51,7 +52,9 @@ class MetricsLogger:
 
     def save_metrics_to_file(self):
         """Save all metrics to JSON file."""
-        with open(self.metrics_file, "w", encoding="utf-8") as f:
+        metrics_path = Path(self.metrics_file)
+        metrics_path.parent.mkdir(parents=True, exist_ok=True)
+        with metrics_path.open("w", encoding="utf-8") as f:
             json.dump(self.metrics_data, f, indent=2)
 
     def print_metrics(self):
