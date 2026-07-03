@@ -78,5 +78,26 @@ def test_camera_observation():
     assert result, "Test failed"
 
 
+def test_viewer_cfg_uses_first_per_env_pose():
+    import numpy as np
+    from types import SimpleNamespace
+
+    from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
+    from isaaclab_arena.utils.pose import Pose, PosePerEnv
+
+    pose = PosePerEnv(
+        poses=[
+            Pose(position_xyz=(1.0, 2.0, 3.0)),
+            Pose(position_xyz=(4.0, 5.0, 6.0)),
+        ]
+    )
+    asset = SimpleNamespace(name="target", get_initial_pose=lambda: pose)
+
+    cfg = get_viewer_cfg_look_at_object(asset, np.array([0.5, 1.0, 1.5]))
+
+    assert cfg.lookat == (1.0, 2.0, 3.0)
+    assert cfg.eye == (1.5, 3.0, 4.5)
+
+
 if __name__ == "__main__":
     test_camera_observation()
