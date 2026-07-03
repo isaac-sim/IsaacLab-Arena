@@ -21,7 +21,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
 
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -57,7 +57,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     )
 
     # Compile an IsaacLab compatible arena environment configuration
-    builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+    builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env = builder.make_registered()
     env.reset()
 

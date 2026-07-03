@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.agentic_environment_generation.spec_io import DEFAULT_AGENTIC_OUTPUT_DIR, write_env_graph_specs
-from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
 if TYPE_CHECKING:
@@ -177,7 +177,7 @@ def build_env_from_linked_env_graph_spec(
 
     loaded_env_graph_spec = ArenaEnvGraphSpec.from_yaml(linked_env_graph_spec_path)
     arena_env = loaded_env_graph_spec.to_arena_env()
-    builder = ArenaEnvBuilder(arena_env, args_cli)
+    builder = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli))
     env = builder.make_registered()
     print(
         f"[runner] built env {arena_env.name!r} from linked environment graph spec {linked_env_graph_spec_path}",

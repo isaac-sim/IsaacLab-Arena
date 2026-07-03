@@ -100,8 +100,7 @@ Compose a Franka arm in a kitchen scene with a couple of objects:
 
 ```python
 from isaaclab_arena.assets.asset_registry import AssetRegistry
-from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder, ArenaEnvBuilderCfg
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.scene.scene import Scene
 
@@ -121,8 +120,7 @@ env_cfg = IsaacLabArenaEnvironment(
     scene=scene,
 )
 
-args_cli = get_isaaclab_arena_cli_parser().parse_args([])
-env_builder = ArenaEnvBuilder(env_cfg, args_cli)
+env_builder = ArenaEnvBuilder(env_cfg, ArenaEnvBuilderCfg())
 env = env_builder.make_registered()
 env.reset()
 ```

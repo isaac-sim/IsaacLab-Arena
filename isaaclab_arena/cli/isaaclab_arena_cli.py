@@ -7,7 +7,38 @@ import argparse
 
 from isaaclab.app import AppLauncher
 
+from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 
+
+# TODO(cvolk, 2026-07-03): Remove this compatibility adapter when the argparse frontend
+# is retired and runner entry points receive ArenaEnvBuilderCfg directly.
+def arena_env_builder_cfg_from_argparse(args_cli: argparse.Namespace) -> ArenaEnvBuilderCfg:
+    """Translate parsed CLI arguments into the typed builder configuration.
+
+    Args:
+        args_cli: Parsed Arena and Isaac Lab command-line arguments.
+
+    Returns:
+        The configuration consumed by ``ArenaEnvBuilder``.
+    """
+    return ArenaEnvBuilderCfg(
+        num_envs=args_cli.num_envs,
+        env_spacing=args_cli.env_spacing,
+        seed=args_cli.seed,
+        solve_relations=args_cli.solve_relations,
+        placement_seed=args_cli.placement_seed,
+        resolve_on_reset=args_cli.resolve_on_reset,
+        random_yaw_init=args_cli.random_yaw_init,
+        disable_fabric=args_cli.disable_fabric,
+        mimic=args_cli.mimic,
+        presets=args_cli.presets,
+        device=args_cli.device,
+        language_instruction=getattr(args_cli, "language_instruction", None),
+    )
+
+
+# TODO(cvolk, 2026-07-03): Remove this parser pipeline and its add_* helpers when Arena
+# runner entry points accept typed configs instead of argparse namespaces.
 def get_isaaclab_arena_cli_parser() -> argparse.ArgumentParser:
     """Get a complete argument parser with both Isaac Lab and IsaacLab Arena arguments."""
     parser = argparse.ArgumentParser(description="IsaacLab Arena CLI parser.")

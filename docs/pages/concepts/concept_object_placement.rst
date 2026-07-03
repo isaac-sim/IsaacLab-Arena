@@ -299,7 +299,7 @@ and add them to the scene:
    from isaaclab_arena.relations.relations import IsAnchor, On, AtPosition
    from isaaclab_arena.scene.scene import Scene
    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-   from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+   from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder, ArenaEnvBuilderCfg
 
    # Define anchor
    table_reference = ObjectReference(
@@ -321,7 +321,7 @@ and add them to the scene:
    scene = Scene(assets=[table_background, table_reference, cracker_box, mug, light])
    env = IsaacLabArenaEnvironment(name="demo", scene=scene, ...)
 
-   env_builder = ArenaEnvBuilder(env, args_cli)
+   env_builder = ArenaEnvBuilder(env, ArenaEnvBuilderCfg())
    gym_env = env_builder.make_registered()
 
 The builder automatically:

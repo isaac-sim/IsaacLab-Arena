@@ -11,7 +11,7 @@ import tqdm
 import pinocchio  # noqa: F401
 from isaaclab.app import AppLauncher
 
-from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
 
 args_cli = get_isaaclab_arena_cli_parser().parse_args(["--viz", "kit", "--enable_cameras"])
 print("Launching simulation app once in notebook")
@@ -49,7 +49,7 @@ isaaclab_arena_environment = IsaacLabArenaEnvironment(
 dome_light.get_variation("hdr_image").enable()
 franka.get_variation("camera_extrinsics_wrist_cam").enable()
 
-env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
 print(env_builder.get_variations_catalogue_as_string())
 
 env = env_builder.make_registered()
