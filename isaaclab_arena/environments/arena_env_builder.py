@@ -13,7 +13,7 @@ from typing import Any
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
-from isaaclab.managers import EventTermCfg
+from isaaclab.managers import EventTermCfg, TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
@@ -22,6 +22,7 @@ from isaaclab_teleop import IsaacTeleopCfg
 from isaaclab_arena.assets.registries import DeviceRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+from isaaclab_arena.environments.isaaclab_arena_manager_based_env import external_policy_termination
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     IsaacArenaManagerBasedMimicEnvCfg,
     IsaacLabArenaManagerBasedRLEnvCfg,
@@ -241,11 +242,22 @@ class ArenaEnvBuilder:
             variations_event_cfg,
             progress_tracking_events_cfg,
         )
+        external_policy_termination_cfg = None
+        if not self.args.mimic:
+            external_policy_termination_cfg = make_configclass(
+                "ExternalPolicyTerminationCfg",
+                [(
+                    "external_policy_termination",
+                    TerminationTermCfg,
+                    TerminationTermCfg(func=external_policy_termination, time_out=False),
+                )],
+            )()
         termination_cfg = combine_configclass_instances(
             "TerminationCfg",
             task.get_termination_cfg(),
             self.arena_env.scene.get_termination_cfg(),
             embodiment.get_termination_cfg(),
+            external_policy_termination_cfg,
         )
         actions_cfg = embodiment.get_action_cfg()
         xr_cfg = embodiment.get_xr_cfg()

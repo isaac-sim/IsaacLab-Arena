@@ -60,6 +60,20 @@ def is_distributed(args_cli: argparse.Namespace) -> bool:
     )
 
 
+def _forward_policy_episode_terminations(env, policy: PolicyBase) -> None:
+    """Forward an optional policy termination mask to the Arena environment."""
+    termination_mask = policy.get_episode_termination_mask()
+    if termination_mask is None:
+        return
+
+    assert isinstance(termination_mask, torch.Tensor), "Policy termination mask must be a torch.Tensor or None"
+    assert termination_mask.dtype == torch.bool, "Policy termination mask must have dtype torch.bool"
+    assert (
+        termination_mask.ndim == 1 and termination_mask.shape[0] == env.unwrapped.num_envs
+    ), f"Policy termination mask must have shape ({env.unwrapped.num_envs},), got {tuple(termination_mask.shape)}"
+    env.unwrapped.request_external_policy_termination(termination_mask)
+
+
 def rollout_policy(
     env,
     policy: PolicyBase,
@@ -87,6 +101,7 @@ def rollout_policy(
         while True:
             with torch.inference_mode():
                 actions = policy.get_action(env, obs)
+                _forward_policy_episode_terminations(env, policy)
                 obs, _, terminated, truncated, _ = env.step(actions)
 
                 if terminated.any() or truncated.any():
