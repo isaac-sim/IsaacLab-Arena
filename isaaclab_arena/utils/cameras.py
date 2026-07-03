@@ -18,7 +18,7 @@ from isaaclab.sensors import CameraCfg  # noqa: F401
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.utils.configclass import make_configclass
-from isaaclab_arena.utils.pose import PoseRange
+from isaaclab_arena.utils.pose import PosePerEnv, PoseRange
 
 
 def make_camera_observation_cfg(
@@ -114,7 +114,10 @@ def get_viewer_cfg_look_at_object(lookat_object: Asset, offset: np.ndarray) -> V
         print(f"{lookat_object.name} has no initial pose set. Using default ViewerCfg.")
         return ViewerCfg()
 
-    if isinstance(initial_pose, PoseRange):
+    if isinstance(initial_pose, PosePerEnv):
+        assert initial_pose.poses, f"{lookat_object.name} has an empty PosePerEnv."
+        initial_pose = initial_pose.poses[0]
+    elif isinstance(initial_pose, PoseRange):
         initial_pose = initial_pose.get_midpoint()
 
     # TODO(cvolk): Add float coercion to Pose.__post_init__ so this conversion is unnecessary.
