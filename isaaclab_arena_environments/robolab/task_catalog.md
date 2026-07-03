@@ -2,7 +2,7 @@
 
 [120 Robolab tasks](https://github.com/NVlabs/RoboLab/blob/main/robolab/tasks/README.md) and their Arena counterpart if available.
 
-| arena environment spec | arena prompt | scene image | scene object count | task name | task description | subtask counts |
+| Arena environment spec | Arena prompt | RoboLab scene image | object count | RoboLab task name | RoboLab task description | subtask count |
 | --- | --- | --- | --- | --- | --- | --- |
 | [banana_bowl_linked.yaml](banana_bowl_linked.yaml) | droid Pick up the banana and place it in the bowl. Using maple table background. | <img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/banana_bowl.png" alt="banana_bowl.png" width="180" /><br>[banana_bowl.png](https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/banana_bowl.png) | 2 | BananaInBowlTask | Pick up the banana and place it in the bowl | 1 |
 |  |  | <img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/bowls_2_table.png" alt="bowls_2_table.png" width="180" /><br>[bowls_2_table.png](https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bowls_2_table.png) | 2 | BowlStackingLeftOnRightTask | Stack the left bowl on the right bowl | 1 |
