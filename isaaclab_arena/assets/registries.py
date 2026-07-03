@@ -186,7 +186,8 @@ class PolicyRegistry(Registry):
         super().__init__()
         self._cfg_types: dict[type["PolicyBase"], type["PolicyCfg"]] = {}
 
-    # TODO(cvolk, 2026-07-03): Require cfg_type after deprecated bare policy registration is removed.
+    # TODO(cvolk, 2026-07-03): After bare policy registration is removed, make cfg_type
+    # non-optional and remove the None branch.
     def register_policy(self, policy_type: type["PolicyBase"], cfg_type: type["PolicyCfg"] | None) -> None:
         """Register a policy and its config, accepting None only for deprecated callers."""
         self.register(policy_type, policy_type.name)
