@@ -1708,6 +1708,7 @@ name = "isaaclab-arena"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [
+    { name = "imageio-ffmpeg" },
     { name = "lightwheel-sdk" },
     { name = "matplotlib" },
     { name = "msgpack" },
@@ -1751,6 +1752,7 @@ isaacsim = [
 [package.metadata]
 requires-dist = [
     { name = "debugpy", marker = "extra == 'dev'" },
+    { name = "imageio-ffmpeg", specifier = ">=0.6,<0.7" },
     { name = "jupyter", marker = "extra == 'dev'" },
     { name = "lightwheel-sdk" },
     { name = "matplotlib" },
