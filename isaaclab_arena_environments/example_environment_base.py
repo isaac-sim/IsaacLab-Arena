@@ -7,13 +7,17 @@ from __future__ import annotations
 
 import argparse
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generic, TypeVar
+
+from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
+EnvironmentCfgT = TypeVar("EnvironmentCfgT", bound=ArenaEnvironmentCfg)
 
-class ExampleEnvironmentBase(ABC):
+
+class ExampleEnvironmentBase(ABC, Generic[EnvironmentCfgT]):
 
     name: str | None = None
 
@@ -27,6 +31,10 @@ class ExampleEnvironmentBase(ABC):
     @abstractmethod
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
         pass
+
+    def build(self, cfg: EnvironmentCfgT) -> IsaacLabArenaEnvironment:
+        """Build an Arena environment from its typed configuration."""
+        raise NotImplementedError(f"{type(self).__name__} does not support typed environment configuration")
 
     @abstractmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
