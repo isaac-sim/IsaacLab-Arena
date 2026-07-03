@@ -22,6 +22,7 @@ import io
 import json
 import re
 import sys
+import time
 import traceback
 import yaml
 from contextlib import redirect_stderr, redirect_stdout
@@ -64,6 +65,17 @@ class CatalogCase:
 
 
 @dataclass
+class StageTimings:
+    """Wall-clock seconds per pipeline stage for one case."""
+
+    generate_intent_s: float | None = None
+    link_to_arena_env_s: float | None = None
+    relation_solve_s: float | None = None
+    yaml_validation_s: float | None = None
+    total_s: float | None = None
+
+
+@dataclass
 class YamlValidationResult:
     """Checks comparing a generated linked YAML to ground truth."""
 
@@ -94,6 +106,18 @@ class BenchmarkCaseResult:
     logs: str = ""
     linked_yaml_path: str | None = None
     validation: YamlValidationResult | None = None
+    stage_timings_s: StageTimings = field(default_factory=StageTimings)
+
+
+@dataclass
+class StageTimingSummary:
+    """Aggregate wall-clock timing across all cases (seconds)."""
+
+    total_s: float = 0.0
+    mean_s: float = 0.0
+    min_s: float = 0.0
+    max_s: float = 0.0
+    count: int = 0
 
 
 @dataclass
@@ -108,6 +132,7 @@ class BenchmarkReport:
     total_cases: int
     succeeded: int
     failed: int
+    stage_timing_summary_s: dict[str, StageTimingSummary] = field(default_factory=dict)
     results: list[BenchmarkCaseResult] = field(default_factory=list)
 
 
@@ -215,8 +240,23 @@ def _capture_logs(fn, *args, **kwargs) -> tuple[Any, str]:
     return result, buffer.getvalue()
 
 
-def _object_node_ids(spec: dict[str, Any]) -> set[str]:
-    return {node["id"] for node in spec.get("nodes", []) if node.get("type") == "object"}
+def _node_id_to_registry_name(spec: dict[str, Any]) -> dict[str, str]:
+    """Map graph node ids to their registry asset names."""
+    return {node["id"]: node["name"] for node in spec.get("nodes", [])}
+
+
+def _object_registry_names(spec: dict[str, Any]) -> set[str]:
+    """Return registry names for object-type nodes."""
+    return {node["name"] for node in spec.get("nodes", []) if node.get("type") == "object"}
+
+
+def _resolve_node_ref_to_registry_name(ref: str, id_to_name: dict[str, str]) -> str:
+    """Resolve a task or constraint node reference to a registry asset name."""
+    return id_to_name.get(ref, ref)
+
+
+def _registry_names_for_node_ids(node_ids: set[str], id_to_name: dict[str, str]) -> set[str]:
+    return {_resolve_node_ref_to_registry_name(node_id, id_to_name) for node_id in node_ids}
 
 
 def _initial_state_spec(spec: dict[str, Any]) -> dict[str, Any] | None:
@@ -229,12 +269,14 @@ def _initial_state_spec(spec: dict[str, Any]) -> dict[str, Any] | None:
     return state_specs[0]
 
 
-def _objects_reachable_from_anchors(state_spec: dict[str, Any], object_ids: set[str]) -> tuple[bool, list[str]]:
+def _objects_reachable_from_anchors(
+    state_spec: dict[str, Any], object_ids: set[str], id_to_name: dict[str, str]
+) -> tuple[bool, list[str]]:
     """Return whether every object node is connected to an ``is_anchor`` node."""
     constraints = state_spec.get("spatial_constraints") or []
     anchor_ids = {c["subject"] for c in constraints if c.get("kind") == "is_anchor"}
     if not anchor_ids:
-        return False, sorted(object_ids)
+        return False, sorted(_registry_names_for_node_ids(object_ids, id_to_name))
 
     adjacency: dict[str, set[str]] = {}
     for constraint in constraints:
@@ -259,8 +301,9 @@ def _objects_reachable_from_anchors(state_spec: dict[str, Any], object_ids: set[
             if neighbor not in reachable:
                 stack.append(neighbor)
 
-    unanchored = sorted(object_id for object_id in object_ids if object_id not in reachable)
-    return not unanchored, unanchored
+    unanchored_ids = {object_id for object_id in object_ids if object_id not in reachable}
+    unanchored = sorted(_registry_names_for_node_ids(unanchored_ids, id_to_name))
+    return not unanchored_ids, unanchored
 
 
 def _task_object_refs(task: dict[str, Any], node_ids: set[str]) -> dict[str, Any]:
@@ -275,12 +318,28 @@ def _task_object_refs(task: dict[str, Any], node_ids: set[str]) -> dict[str, Any
     return refs
 
 
+def _task_object_refs_by_registry_name(
+    task: dict[str, Any], node_ids: set[str], id_to_name: dict[str, str]
+) -> dict[str, Any]:
+    """Return task params that reference graph nodes, keyed by param and valued by registry name."""
+    refs: dict[str, Any] = {}
+    for key, value in _task_object_refs(task, node_ids).items():
+        if isinstance(value, str):
+            refs[key] = _resolve_node_ref_to_registry_name(value, id_to_name)
+        else:
+            refs[key] = [_resolve_node_ref_to_registry_name(item, id_to_name) for item in value]
+    return refs
+
+
 def validate_linked_yaml(generated: dict[str, Any], ground_truth: dict[str, Any]) -> YamlValidationResult:
     """Compare a generated linked YAML dict against ground truth."""
     issues: list[str] = []
-    generated_objects = _object_node_ids(generated)
-    ground_truth_objects = _object_node_ids(ground_truth)
-    all_node_ids = {node["id"] for node in generated.get("nodes", [])}
+    generated_id_to_name = _node_id_to_registry_name(generated)
+    ground_truth_id_to_name = _node_id_to_registry_name(ground_truth)
+    generated_object_ids = {node["id"] for node in generated.get("nodes", []) if node.get("type") == "object"}
+    generated_objects = _object_registry_names(generated)
+    ground_truth_objects = _object_registry_names(ground_truth)
+    all_node_ids = set(generated_id_to_name)
 
     initial_state = _initial_state_spec(generated)
     if initial_state is None:
@@ -288,7 +347,9 @@ def validate_linked_yaml(generated: dict[str, Any], ground_truth: dict[str, Any]
         unanchored_objects = sorted(generated_objects)
         issues.append("generated spec has no initial state_spec")
     else:
-        every_object_anchored, unanchored_objects = _objects_reachable_from_anchors(initial_state, generated_objects)
+        every_object_anchored, unanchored_objects = _objects_reachable_from_anchors(
+            initial_state, generated_object_ids, generated_id_to_name
+        )
         if not every_object_anchored:
             issues.append(f"objects not reachable from anchors: {unanchored_objects}")
 
@@ -301,10 +362,13 @@ def validate_linked_yaml(generated: dict[str, Any], ground_truth: dict[str, Any]
     task_ref_mismatches: list[dict[str, Any]] = []
     generated_tasks = generated.get("tasks") or []
     ground_truth_tasks = ground_truth.get("tasks") or []
+    ground_truth_node_ids = set(ground_truth_id_to_name)
     task_refs_match = task_count_match
     for index, (generated_task, ground_truth_task) in enumerate(zip(generated_tasks, ground_truth_tasks)):
-        generated_refs = _task_object_refs(generated_task, all_node_ids)
-        ground_truth_refs = _task_object_refs(ground_truth_task, {node["id"] for node in ground_truth.get("nodes", [])})
+        generated_refs = _task_object_refs_by_registry_name(generated_task, all_node_ids, generated_id_to_name)
+        ground_truth_refs = _task_object_refs_by_registry_name(
+            ground_truth_task, ground_truth_node_ids, ground_truth_id_to_name
+        )
         if generated_task.get("kind") != ground_truth_task.get("kind"):
             task_refs_match = False
             task_ref_mismatches.append({
@@ -344,9 +408,9 @@ def validate_linked_yaml(generated: dict[str, Any], ground_truth: dict[str, Any]
     missing_objects = sorted(ground_truth_objects - generated_objects)
     extra_objects = sorted(generated_objects - ground_truth_objects)
     if missing_objects:
-        issues.append(f"missing objects vs ground truth: {missing_objects}")
+        issues.append(f"missing object registry names vs ground truth: {missing_objects}")
     if extra_objects:
-        issues.append(f"extra objects vs ground truth: {extra_objects}")
+        issues.append(f"extra object registry names vs ground truth: {extra_objects}")
 
     passed = every_object_anchored and task_count_match and task_refs_match and object_count_within_tolerance
     return YamlValidationResult(
@@ -399,20 +463,13 @@ def _generate_initial_graph_spec(args_cli: argparse.Namespace, prompt: str):
     return IntentCompiler().compile(intent_spec)
 
 
-@dataclass
-class IntentPhaseResult:
-    """Output of the LLM intent generation phase (no Isaac Sim)."""
-
-    initial_graph_spec: Any
-    logs: str
-
-
 def _fail_result(
     case: CatalogCase,
     stage: PipelineStage,
     exc: BaseException,
     log_parts: list[str],
     linked_yaml_path: Path | None,
+    stage_timings: StageTimings,
 ) -> BenchmarkCaseResult:
     log_parts.append(f"[{stage}] {type(exc).__name__}: {exc}")
     log_parts.append(traceback.format_exc())
@@ -422,26 +479,43 @@ def _fail_result(
         failed_stage=stage,
         logs="\n".join(log_parts),
         linked_yaml_path=str(linked_yaml_path) if linked_yaml_path else None,
+        stage_timings_s=stage_timings,
     )
 
 
-def run_intent_phase(
-    case: CatalogCase,
-    args_cli: argparse.Namespace,
-    robolab_dir: Path,
-) -> tuple[BenchmarkCaseResult | None, IntentPhaseResult | None]:
-    """Run intent generation. Returns a failure result or the compiled initial graph spec."""
-    log_parts: list[str] = []
-    ground_truth_path = robolab_dir / case.ground_truth_yaml
-    assert ground_truth_path.is_file(), f"Ground-truth YAML not found: {ground_truth_path}"
+def _summarize_stage_timings(results: list[BenchmarkCaseResult]) -> dict[str, StageTimingSummary]:
+    """Aggregate per-stage timings across completed cases."""
+    stage_values: dict[str, list[float]] = {
+        "generate_intent": [],
+        "link_to_arena_env": [],
+        "relation_solve": [],
+        "yaml_validation": [],
+        "total": [],
+    }
+    for result in results:
+        timings = result.stage_timings_s
+        for stage, values in (
+            ("generate_intent", timings.generate_intent_s),
+            ("link_to_arena_env", timings.link_to_arena_env_s),
+            ("relation_solve", timings.relation_solve_s),
+            ("yaml_validation", timings.yaml_validation_s),
+            ("total", timings.total_s),
+        ):
+            if values is not None:
+                stage_values[stage].append(values)
 
-    try:
-        initial_spec, stage_logs = _capture_logs(_generate_initial_graph_spec, args_cli, case.prompt)
-        log_parts.append(stage_logs)
-    except Exception as exc:
-        return _fail_result(case, "generate_intent", exc, log_parts, None), None
-
-    return None, IntentPhaseResult(initial_graph_spec=initial_spec, logs="\n".join(log_parts))
+    summary: dict[str, StageTimingSummary] = {}
+    for stage, values in stage_values.items():
+        if not values:
+            continue
+        summary[stage] = StageTimingSummary(
+            total_s=sum(values),
+            mean_s=sum(values) / len(values),
+            min_s=min(values),
+            max_s=max(values),
+            count=len(values),
+        )
+    return summary
 
 
 def _link_and_build_arena_env(initial_graph_spec, case_out_dir: Path):
@@ -452,32 +526,51 @@ def _link_and_build_arena_env(initial_graph_spec, case_out_dir: Path):
     return linked_spec, linked_yaml_path, arena_env
 
 
-def run_sim_phases(
+def run_benchmark_case(
     case: CatalogCase,
     args_cli: argparse.Namespace,
     robolab_dir: Path,
     out_dir: Path,
-    intent_result: IntentPhaseResult,
 ) -> BenchmarkCaseResult:
-    """Run link/to_arena_env, relation solve, and YAML validation for one case."""
+    """Run all pipeline stages for one catalog case."""
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
 
-    log_parts = [intent_result.logs]
+    print(f"\n[benchmark] case: {case.case_id}", flush=True)
+    print(f"[benchmark] prompt: {case.prompt!r}", flush=True)
+
+    log_parts: list[str] = []
+    stage_timings = StageTimings()
+    case_started = time.perf_counter()
     ground_truth_path = robolab_dir / case.ground_truth_yaml
+    assert ground_truth_path.is_file(), f"Ground-truth YAML not found: {ground_truth_path}"
+
     case_out_dir = out_dir / case.case_id
     case_out_dir.mkdir(parents=True, exist_ok=True)
     linked_yaml_path: Path | None = None
     relation_solve_had_fallbacks: bool | None = None
 
+    stage_started = time.perf_counter()
     try:
-        linked_spec, linked_yaml_path, arena_env = _link_and_build_arena_env(
-            intent_result.initial_graph_spec, case_out_dir
-        )
+        initial_spec, stage_logs = _capture_logs(_generate_initial_graph_spec, args_cli, case.prompt)
+        log_parts.append(stage_logs)
+    except Exception as exc:
+        stage_timings.generate_intent_s = time.perf_counter() - stage_started
+        stage_timings.total_s = time.perf_counter() - case_started
+        return _fail_result(case, "generate_intent", exc, log_parts, None, stage_timings)
+    stage_timings.generate_intent_s = time.perf_counter() - stage_started
+
+    stage_started = time.perf_counter()
+    try:
+        linked_spec, linked_yaml_path, arena_env = _link_and_build_arena_env(initial_spec, case_out_dir)
         log_parts.append(f"[link_to_arena_env] wrote linked YAML to {linked_yaml_path}")
     except Exception as exc:
-        return _fail_result(case, "link_to_arena_env", exc, log_parts, linked_yaml_path)
+        stage_timings.link_to_arena_env_s = time.perf_counter() - stage_started
+        stage_timings.total_s = time.perf_counter() - case_started
+        return _fail_result(case, "link_to_arena_env", exc, log_parts, linked_yaml_path, stage_timings)
+    stage_timings.link_to_arena_env_s = time.perf_counter() - stage_started
 
     if not args_cli.skip_relation_solve:
+        stage_started = time.perf_counter()
         try:
             objects_with_relations = arena_env.scene.get_objects_with_relations()
             _, stage_logs = _capture_logs(
@@ -491,8 +584,12 @@ def run_sim_phases(
             log_parts.append(stage_logs)
             relation_solve_had_fallbacks = "accepted best-loss fallback layouts" in stage_logs
         except Exception as exc:
-            return _fail_result(case, "relation_solve", exc, log_parts, linked_yaml_path)
+            stage_timings.relation_solve_s = time.perf_counter() - stage_started
+            stage_timings.total_s = time.perf_counter() - case_started
+            return _fail_result(case, "relation_solve", exc, log_parts, linked_yaml_path, stage_timings)
+        stage_timings.relation_solve_s = time.perf_counter() - stage_started
 
+    stage_started = time.perf_counter()
     try:
         generated_dict = linked_spec.to_dict()
         ground_truth_dict = _load_yaml_dict(ground_truth_path)
@@ -505,7 +602,11 @@ def run_sim_phases(
         for issue in validation.issues:
             log_parts.append(f"  - {issue}")
     except Exception as exc:
-        return _fail_result(case, "yaml_validation", exc, log_parts, linked_yaml_path)
+        stage_timings.yaml_validation_s = time.perf_counter() - stage_started
+        stage_timings.total_s = time.perf_counter() - case_started
+        return _fail_result(case, "yaml_validation", exc, log_parts, linked_yaml_path, stage_timings)
+    stage_timings.yaml_validation_s = time.perf_counter() - stage_started
+    stage_timings.total_s = time.perf_counter() - case_started
 
     status: Literal["success", "failed"] = "success" if validation.passed else "failed"
     return BenchmarkCaseResult(
@@ -515,6 +616,7 @@ def run_sim_phases(
         logs="\n".join(log_parts),
         linked_yaml_path=str(linked_yaml_path),
         validation=validation,
+        stage_timings_s=stage_timings,
     )
 
 
@@ -540,32 +642,37 @@ def write_report(report: BenchmarkReport, report_path: Path) -> None:
 def _print_summary(report: BenchmarkReport) -> None:
     print("\n=== RoboLab catalog benchmark summary ===", flush=True)
     print(f"Cases: {report.total_cases}  succeeded: {report.succeeded}  failed: {report.failed}", flush=True)
+    if report.stage_timing_summary_s:
+        print("Stage timings (s):", flush=True)
+        for stage, stats in report.stage_timing_summary_s.items():
+            print(
+                f"  {stage:20s} mean={stats.mean_s:7.2f}  total={stats.total_s:8.2f}"
+                f"  min={stats.min_s:7.2f}  max={stats.max_s:7.2f}  n={stats.count}",
+                flush=True,
+            )
     for result in report.results:
         case = result.case
+        timings = result.stage_timings_s
+        timing_bits = []
+        if timings.generate_intent_s is not None:
+            timing_bits.append(f"intent={timings.generate_intent_s:.1f}s")
+        if timings.link_to_arena_env_s is not None:
+            timing_bits.append(f"link={timings.link_to_arena_env_s:.1f}s")
+        if timings.relation_solve_s is not None:
+            timing_bits.append(f"relations={timings.relation_solve_s:.1f}s")
+        if timings.yaml_validation_s is not None:
+            timing_bits.append(f"validate={timings.yaml_validation_s:.1f}s")
+        if timings.total_s is not None:
+            timing_bits.append(f"total={timings.total_s:.1f}s")
+        timing_suffix = f"  ({', '.join(timing_bits)})" if timing_bits else ""
         if result.status == "success":
-            print(f"  OK   {case.case_id}", flush=True)
+            print(f"  OK   {case.case_id}{timing_suffix}", flush=True)
             continue
         stage = result.failed_stage or "unknown"
-        print(f"  FAIL {case.case_id}  stage={stage}", flush=True)
+        print(f"  FAIL {case.case_id}  stage={stage}{timing_suffix}", flush=True)
         if result.validation and result.validation.issues:
             for issue in result.validation.issues[:3]:
                 print(f"       - {issue}", flush=True)
-
-
-def run_benchmark_case(
-    case: CatalogCase,
-    args_cli: argparse.Namespace,
-    robolab_dir: Path,
-    out_dir: Path,
-) -> BenchmarkCaseResult:
-    """Run all pipeline stages for one catalog case."""
-    print(f"\n[benchmark] case: {case.case_id}", flush=True)
-    print(f"[benchmark] prompt: {case.prompt!r}", flush=True)
-    failure, intent_output = run_intent_phase(case, args_cli, robolab_dir)
-    if failure is not None:
-        return failure
-    assert intent_output is not None
-    return run_sim_phases(case, args_cli, robolab_dir, out_dir, intent_output)
 
 
 def run_benchmark(
@@ -593,6 +700,7 @@ def run_benchmark(
             total_cases=len(cases),
             succeeded=succeeded,
             failed=len(results) - succeeded,
+            stage_timing_summary_s=_summarize_stage_timings(results),
             results=results,
         )
         write_report(report, report_path)
