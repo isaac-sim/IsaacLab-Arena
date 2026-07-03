@@ -17,6 +17,8 @@ if TYPE_CHECKING:
 ArenaEnvironmentCfgT = TypeVar("ArenaEnvironmentCfgT", bound=ArenaEnvironmentCfg)
 
 
+# TODO(cvolk): Co-locate ArenaEnvironmentCfg and this base in the core
+# arena_environment_factory module as ArenaEnvironmentFactoryBase.
 class ExampleEnvironmentBase(ABC, Generic[ArenaEnvironmentCfgT]):
 
     name: str | None = None
