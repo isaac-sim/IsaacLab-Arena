@@ -23,7 +23,6 @@ class PickAndPlaceMapleTableEnvironmentCfg(ArenaEnvironmentCfg):
 
     enable_cameras: bool = False
     embodiment: str = "droid_abs_joint_pos"
-    teleop_device: str | None = None
     hdr: str | None = None
     light_intensity: float = 500.0
     pick_up_object: str = "rubiks_cube_hot3d_robolab"
@@ -43,7 +42,6 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase[PickAndPlaceMaple
             PickAndPlaceMapleTableEnvironmentCfg(
                 enable_cameras=args_cli.enable_cameras,
                 embodiment=args_cli.embodiment,
-                teleop_device=args_cli.teleop_device,
                 hdr=args_cli.hdr,
                 light_intensity=args_cli.light_intensity,
                 pick_up_object=args_cli.pick_up_object,
@@ -130,6 +128,7 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase[PickAndPlaceMaple
     @staticmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--embodiment", type=str, default="droid_abs_joint_pos")
+        # Consumed directly by teleop.py and record_demos.py, not by build(cfg).
         parser.add_argument("--teleop_device", type=str, default=None)
         parser.add_argument("--hdr", type=str, default=None)
         parser.add_argument("--light_intensity", type=float, default=500.0)

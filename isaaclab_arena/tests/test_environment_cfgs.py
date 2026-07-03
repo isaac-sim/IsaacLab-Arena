@@ -36,7 +36,6 @@ def test_all_registered_environments_translate_legacy_defaults_to_typed_cfg(monk
         parser = argparse.ArgumentParser(exit_on_error=False)
         environment_type.add_cli_args(parser)
         legacy_arguments = parser.parse_args([])
-        legacy_environment_fields = set(vars(legacy_arguments))
         legacy_arguments.enable_cameras = False
         legacy_arguments.mimic = False
         legacy_arguments.num_envs = 1
@@ -57,13 +56,9 @@ def test_all_registered_environments_translate_legacy_defaults_to_typed_cfg(monk
         assert environment is expected_environment
         assert type(cfg) is cfg_type
         assert isinstance(cfg, ArenaEnvironmentCfg)
-        cfg_fields = {cfg_field.name: cfg_field for cfg_field in fields(cfg)}
-        assert legacy_environment_fields <= cfg_fields.keys(), (
-            f"{environment_name}: CLI fields missing from {cfg_type.__name__}: "
-            f"{sorted(legacy_environment_fields - cfg_fields.keys())}"
-        )
-        for cfg_field in cfg_fields.values():
-            if hasattr(legacy_arguments, cfg_field.name):
-                assert getattr(cfg, cfg_field.name) == getattr(
-                    legacy_arguments, cfg_field.name
-                ), f"{environment_name}: {cfg_field.name} did not retain its legacy default"
+        expected_cfg = cfg_type(**{
+            cfg_field.name: getattr(legacy_arguments, cfg_field.name)
+            for cfg_field in fields(cfg)
+            if hasattr(legacy_arguments, cfg_field.name)
+        })
+        assert cfg == expected_cfg, f"{environment_name} did not retain its legacy defaults"

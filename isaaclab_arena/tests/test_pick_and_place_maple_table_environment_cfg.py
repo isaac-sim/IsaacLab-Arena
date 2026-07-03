@@ -18,7 +18,6 @@ def test_maple_table_environment_cfg_defaults():
 
     assert not cfg.enable_cameras
     assert cfg.embodiment == "droid_abs_joint_pos"
-    assert cfg.teleop_device is None
     assert cfg.hdr is None
     assert cfg.light_intensity == 500.0
     assert cfg.pick_up_object == "rubiks_cube_hot3d_robolab"
@@ -53,7 +52,6 @@ def test_maple_table_legacy_namespace_maps_to_typed_cfg(monkeypatch):
     assert captured["cfg"] == PickAndPlaceMapleTableEnvironmentCfg(
         enable_cameras=True,
         embodiment="droid_rel_joint_pos",
-        teleop_device="spacemouse",
         hdr="home_office_robolab",
         light_intensity=725.0,
         pick_up_object="mustard_bottle_ycb_robolab",
