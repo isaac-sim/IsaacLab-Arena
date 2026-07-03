@@ -177,7 +177,14 @@ class Job:
         # Priority arguments that should come first (global args that must precede the subcommand).
         # "seed" is a global Isaac Lab/AppLauncher arg (seeds runtime RNG, e.g. reset-time variation draws);
         # it must precede the environment subcommand or argparse rejects it.
-        priority_keys = ["num_envs", "env_spacing", "enable_cameras", "placement_seed", "seed"]
+        priority_keys = [
+            "num_envs",
+            "env_spacing",
+            "enable_cameras",
+            "placement_seed",
+            "resolve_on_reset",
+            "seed",
+        ]
 
         # Process priority arguments first (--num_envs, --enable_cameras)
         for key in priority_keys:
@@ -216,6 +223,9 @@ class Job:
             The CLI tokens for this argument (empty when the flag should be omitted).
         """
         if isinstance(value, bool):
+            # Unlike store_true flags, this global BooleanOptionalAction needs its explicit negative form.
+            if key == "resolve_on_reset":
+                return [f"--{key}" if value else f"--no-{key}"]
             return [f"--{key}"] if value else []
         if value is None:
             return []

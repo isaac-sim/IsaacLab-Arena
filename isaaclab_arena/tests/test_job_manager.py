@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import argparse
+
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 
 
@@ -78,6 +80,25 @@ def test_job_convert_args_dict_seed_precedes_environment_subcommand():
     assert seed_idx < env_idx, f"--seed must precede the env subcommand; got {args}"
     # A non-priority arg (the object) still renders after the subcommand.
     assert args.index("--pick_up_object") > env_idx
+
+
+def test_job_convert_args_dict_renders_boolean_optional_action():
+    """The global resolve-on-reset option preserves both explicit states before the subcommand."""
+    false_args = Job.convert_args_dict_to_cli_args_list(
+        {"environment": "pick_and_place_maple_table", "resolve_on_reset": False}
+    )
+    true_args = Job.convert_args_dict_to_cli_args_list(
+        {"environment": "pick_and_place_maple_table", "resolve_on_reset": True}
+    )
+
+    assert false_args == ["--no-resolve_on_reset", "pick_and_place_maple_table"]
+    assert true_args == ["--resolve_on_reset", "pick_and_place_maple_table"]
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--resolve_on_reset", action=argparse.BooleanOptionalAction, default=None)
+    parser.add_subparsers(dest="environment", required=True).add_parser("pick_and_place_maple_table")
+    assert parser.parse_args(false_args).resolve_on_reset is False
+    assert parser.parse_args(true_args).resolve_on_reset is True
 
 
 def test_job_convert_args_dict_with_graph_spec_environment():
