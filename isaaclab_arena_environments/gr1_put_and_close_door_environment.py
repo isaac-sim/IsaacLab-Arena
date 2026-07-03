@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
-from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactoryBase
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 
 if TYPE_CHECKING:
@@ -35,7 +35,7 @@ class GR1PutAndCloseDoorEnvironmentCfg(ArenaEnvironmentCfg):
 
 
 @register_environment
-class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactoryBase[GR1PutAndCloseDoorEnvironmentCfg]):
+class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEnvironmentCfg]):
     """
     A sequential task environment with two subtasks for GR1 humanoid robot:
     1. Pick and place object into the refrigerator shelf

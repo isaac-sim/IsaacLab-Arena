@@ -9,7 +9,7 @@ import argparse
 from abc import abstractmethod
 from typing import TYPE_CHECKING, TypeVar
 
-from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactoryBase
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -18,7 +18,7 @@ ArenaEnvironmentCfgT = TypeVar("ArenaEnvironmentCfgT", bound=ArenaEnvironmentCfg
 
 
 # TODO(cvolk, 2026-07-03): Remove after external factories migrate from argparse to build(cfg).
-class ExampleEnvironmentBase(ArenaEnvironmentFactoryBase[ArenaEnvironmentCfgT]):
+class ExampleEnvironmentBase(ArenaEnvironmentFactory[ArenaEnvironmentCfgT]):
     """Provide deprecated argparse compatibility for external environment factories."""
 
     @abstractmethod

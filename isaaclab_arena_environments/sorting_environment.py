@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
-from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactoryBase
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -28,7 +28,7 @@ class TableTopSortCubesEnvironmentCfg(ArenaEnvironmentCfg):
 
 
 @register_environment
-class TableTopSortCubesEnvironment(ArenaEnvironmentFactoryBase[TableTopSortCubesEnvironmentCfg]):
+class TableTopSortCubesEnvironment(ArenaEnvironmentFactory[TableTopSortCubesEnvironmentCfg]):
     """
     A pick and place environment for the Seattle Lab table.
     """

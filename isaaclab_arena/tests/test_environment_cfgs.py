@@ -15,13 +15,13 @@ import argparse
 from dataclasses import fields, is_dataclass
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
-from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactoryBase
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 from isaaclab_arena_environments.cli import ensure_environments_registered
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironment
 
 
 def _parse_legacy_arguments(
-    environment_type: type[ArenaEnvironmentFactoryBase],
+    environment_type: type[ArenaEnvironmentFactory],
     environment_args: list[str] | None = None,
 ) -> argparse.Namespace:
     """Parse one environment's legacy options with the shared CLI defaults it consumes."""
@@ -39,7 +39,7 @@ def _parse_legacy_arguments(
 
 def _capture_typed_cfg(
     monkeypatch,
-    environment_type: type[ArenaEnvironmentFactoryBase],
+    environment_type: type[ArenaEnvironmentFactory],
     legacy_arguments: argparse.Namespace,
 ) -> ArenaEnvironmentCfg:
     """Return the config passed from the legacy ``get_env()`` adapter to ``build()``."""
@@ -65,7 +65,7 @@ def test_every_registered_legacy_adapter_translates_cli_defaults_to_its_typed_cf
 
     for environment_name in sorted(EnvironmentRegistry().get_all_keys()):
         environment_type = EnvironmentRegistry().get_component_by_name(environment_name)
-        assert issubclass(environment_type, ArenaEnvironmentFactoryBase)
+        assert issubclass(environment_type, ArenaEnvironmentFactory)
 
         legacy_arguments = _parse_legacy_arguments(environment_type)
         cfg = _capture_typed_cfg(monkeypatch, environment_type, legacy_arguments)

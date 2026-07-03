@@ -23,7 +23,7 @@ class ArenaEnvironmentCfg:
 ArenaEnvironmentCfgT = TypeVar("ArenaEnvironmentCfgT", bound=ArenaEnvironmentCfg)
 
 
-class ArenaEnvironmentFactoryBase(ABC, Generic[ArenaEnvironmentCfgT]):
+class ArenaEnvironmentFactory(ABC, Generic[ArenaEnvironmentCfgT]):
     """Build a registered Arena environment from a typed configuration."""
 
     name: str | None = None

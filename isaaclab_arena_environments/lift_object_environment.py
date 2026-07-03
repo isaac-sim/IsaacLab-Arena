@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
-from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactoryBase
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -27,7 +27,7 @@ class LiftObjectEnvironmentCfg(ArenaEnvironmentCfg):
 
 
 @register_environment
-class LiftObjectEnvironment(ArenaEnvironmentFactoryBase[LiftObjectEnvironmentCfg]):
+class LiftObjectEnvironment(ArenaEnvironmentFactory[LiftObjectEnvironmentCfg]):
 
     name: str = "lift_object"
     _legacy_argparse_cfg_type = LiftObjectEnvironmentCfg

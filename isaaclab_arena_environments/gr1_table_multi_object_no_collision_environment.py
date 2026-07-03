@@ -34,7 +34,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
-from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactoryBase
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -103,9 +103,7 @@ class GR1TableMultiObjectNoCollisionEnvironmentCfg(ArenaEnvironmentCfg):
 
 
 @register_environment
-class GR1TableMultiObjectNoCollisionEnvironment(
-    ArenaEnvironmentFactoryBase[GR1TableMultiObjectNoCollisionEnvironmentCfg]
-):
+class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1TableMultiObjectNoCollisionEnvironmentCfg]):
     """
     Table-based scene with multiple objects (On(table) + built-in no-overlap) and a robot.
     Layout is solved by ArenaEnvBuilder default relation solving; reset uses asset events.
