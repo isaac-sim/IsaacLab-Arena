@@ -79,16 +79,9 @@ See :doc:`gui_runner` for the full UI walkthrough.
 Available Generated Specs
 -------------------------
 
-The ``robolab`` subfolder contains example environment graph specs that can be
-used directly with policy and evaluation commands:
-
-* ``isaaclab_arena_environments/robolab/bagel_plate_banana_bowl_linked.yaml``
-* ``isaaclab_arena_environments/robolab/bin_mug_marker_bowl_linked.yaml``
-* ``isaaclab_arena_environments/robolab/butter_raisin_box_grey_bin_linked.yaml``
-* ``isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml``
-* ``isaaclab_arena_environments/robolab/tools_container_linked.yaml``
-* ``isaaclab_arena_environments/robolab/two_bin_linked.yaml``
-
+The ``robolab`` subfolder contains linked environment graph specs generated from
+RoboLab tasks. See ``isaaclab_arena_environments/robolab/task_catalog.md`` for the
+list of RoboLab tasks currently supported in Arena.
 
 Run a Generated Environment
 ---------------------------
