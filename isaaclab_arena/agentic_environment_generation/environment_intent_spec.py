@@ -87,7 +87,7 @@ class EnvironmentIntentSpec(BaseModel):
         description=(
             "Robot embodiment to control. Use a bare family name ('franka', "
             "'droid', 'g1', 'gr1') when the prompt does not specify a "
-            "control mode — the resolver defaults each to its IK variant. "
+            "control mode — the resolver defaults each to its default-tagged variant. "
             "Use a full registered name (e.g. 'franka_joint_pos') only when "
             "the prompt explicitly requests joint control."
         ),

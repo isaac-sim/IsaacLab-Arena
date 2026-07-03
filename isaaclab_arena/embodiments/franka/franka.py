@@ -101,7 +101,7 @@ class FrankaIKEmbodiment(FrankaEmbodimentBase):
     """Franka with differential IK (relative) arm control and high-PD defaults."""
 
     name = "franka_ik"
-    tags = ["embodiment", "ik"]
+    tags = ["embodiment", "default"]
 
     def __init__(
         self,

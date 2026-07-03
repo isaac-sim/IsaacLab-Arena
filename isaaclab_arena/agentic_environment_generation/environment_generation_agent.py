@@ -330,6 +330,8 @@ initial_state_graph (subject=object, reference=background) to anchor them.
 - params values are node ids or the background name, not registry asset names.
 - NODE IDS: an item's id is its instance_name if set, else its query. For multiple
   items of the same kind, give each a unique instance_name and use those exact ids everywhere.
+- Use underscore_connected identifiers for every query and instance_name (e.g.
+  'bbq_sauce_bottle', not 'bbq sauce bottle') so node ids are valid Python identifiers.
 - Every relation subject/reference and object task param must name one node id — never
   a bare query that maps to several instances. Each must name exactly one;
   if the prompt doesn't say which, pick any.
