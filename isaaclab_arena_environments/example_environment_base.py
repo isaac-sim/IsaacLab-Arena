@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 ArenaEnvironmentCfgT = TypeVar("ArenaEnvironmentCfgT", bound=ArenaEnvironmentCfg)
 
 
-# TODO(cvolk): Co-locate ArenaEnvironmentCfg and this base in the core
+# TODO(cvolk, 2026-07-03): Co-locate ArenaEnvironmentCfg and this base in the core
 # arena_environment_factory module as ArenaEnvironmentFactoryBase.
 class ExampleEnvironmentBase(ABC, Generic[ArenaEnvironmentCfgT]):
 
@@ -32,7 +32,7 @@ class ExampleEnvironmentBase(ABC, Generic[ArenaEnvironmentCfgT]):
 
     @abstractmethod
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-        # TODO(cvolk): Deprecate this legacy argparse entry point; build(cfg) will
+        # TODO(cvolk, 2026-07-03): Deprecate this legacy argparse entry point; build(cfg) will
         # become the primary environment construction API.
         pass
 
