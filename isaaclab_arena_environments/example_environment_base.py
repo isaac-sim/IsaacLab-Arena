@@ -14,10 +14,10 @@ from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCf
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
-EnvironmentCfgT = TypeVar("EnvironmentCfgT", bound=ArenaEnvironmentCfg)
+ArenaEnvironmentCfgT = TypeVar("ArenaEnvironmentCfgT", bound=ArenaEnvironmentCfg)
 
 
-class ExampleEnvironmentBase(ABC, Generic[EnvironmentCfgT]):
+class ExampleEnvironmentBase(ABC, Generic[ArenaEnvironmentCfgT]):
 
     name: str | None = None
 
@@ -32,7 +32,7 @@ class ExampleEnvironmentBase(ABC, Generic[EnvironmentCfgT]):
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
         pass
 
-    def build(self, cfg: EnvironmentCfgT) -> IsaacLabArenaEnvironment:
+    def build(self, cfg: ArenaEnvironmentCfgT) -> IsaacLabArenaEnvironment:
         """Build an Arena environment from its typed configuration."""
         raise NotImplementedError(f"{type(self).__name__} does not support typed environment configuration")
 

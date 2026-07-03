@@ -22,13 +22,13 @@ class PickAndPlaceMapleTableEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the Maple-table pick-and-place environment."""
 
     name: str = "pick_and_place_maple_table"
-    embodiment_asset_name: str = "droid_abs_joint_pos"
-    teleoperation_device_name: str | None = None
-    high_dynamic_range_image_name: str | None = None
+    embodiment: str = "droid_abs_joint_pos"
+    teleop_device: str | None = None
+    hdr: str | None = None
     light_intensity: float = 500.0
-    pick_up_object_asset_name: str = "rubiks_cube_hot3d_robolab"
-    destination_location_asset_name: str = "bowl_ycb_robolab"
-    additional_table_object_asset_names: list[str] = field(default_factory=list)
+    pick_up_object: str = "rubiks_cube_hot3d_robolab"
+    destination_location: str = "bowl_ycb_robolab"
+    additional_table_objects: list[str] = field(default_factory=list)
 
 
 @register_environment
@@ -42,13 +42,13 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase[PickAndPlaceMaple
         return self.build(
             PickAndPlaceMapleTableEnvironmentCfg(
                 enable_cameras=args_cli.enable_cameras,
-                embodiment_asset_name=args_cli.embodiment,
-                teleoperation_device_name=args_cli.teleop_device,
-                high_dynamic_range_image_name=args_cli.hdr,
+                embodiment=args_cli.embodiment,
+                teleop_device=args_cli.teleop_device,
+                hdr=args_cli.hdr,
                 light_intensity=args_cli.light_intensity,
-                pick_up_object_asset_name=args_cli.pick_up_object,
-                destination_location_asset_name=args_cli.destination_location,
-                additional_table_object_asset_names=args_cli.additional_table_objects,
+                pick_up_object=args_cli.pick_up_object,
+                destination_location=args_cli.destination_location,
+                additional_table_objects=args_cli.additional_table_objects,
             )
         )
 
@@ -68,8 +68,8 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase[PickAndPlaceMaple
 
         # Step 1: Retrieve assets from the registry
         background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
-        pick_up_object = self.asset_registry.get_asset_by_name(cfg.pick_up_object_asset_name)()
-        destination_location = self.asset_registry.get_asset_by_name(cfg.destination_location_asset_name)()
+        pick_up_object = self.asset_registry.get_asset_by_name(cfg.pick_up_object)()
+        destination_location = self.asset_registry.get_asset_by_name(cfg.destination_location)()
 
         # Step 2: Describe spatial relationships
         table_reference = ObjectReference(
@@ -84,7 +84,7 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase[PickAndPlaceMaple
         destination_location.add_relation(On(table_reference))
 
         additional_table_objects = [
-            self.asset_registry.get_asset_by_name(name)() for name in cfg.additional_table_object_asset_names
+            self.asset_registry.get_asset_by_name(name)() for name in cfg.additional_table_objects
         ]
         for obj in additional_table_objects:
             obj.add_relation(On(table_reference))
@@ -93,11 +93,11 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase[PickAndPlaceMaple
         light = self.asset_registry.get_asset_by_name("light")(
             spawner_cfg=sim_utils.DomeLightCfg(intensity=cfg.light_intensity),
         )
-        if cfg.high_dynamic_range_image_name is not None:
-            light.add_hdr(self.hdr_registry.get_hdr_by_name(cfg.high_dynamic_range_image_name)())
+        if cfg.hdr is not None:
+            light.add_hdr(self.hdr_registry.get_hdr_by_name(cfg.hdr)())
 
         # Step 4: Select the embodiment
-        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment_asset_name)(
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(
             enable_cameras=cfg.enable_cameras,
         )
 
@@ -127,10 +127,6 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase[PickAndPlaceMaple
             task=task,
             env_cfg_callback=_set_viewer_cfg,
         )
-        if cfg.teleoperation_device_name is not None:
-            isaaclab_arena_environment.teleop_device = self.device_registry.get_device_by_name(
-                cfg.teleoperation_device_name
-            )()
         return isaaclab_arena_environment
 
     @staticmethod
