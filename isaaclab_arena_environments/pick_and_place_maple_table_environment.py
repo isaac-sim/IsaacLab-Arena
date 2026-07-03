@@ -113,8 +113,7 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
 
     # TODO(cvolk, 2026-07-03): Delete this CLI-only option when teleoperation runners
     # receive typed configuration instead of the environment subparser namespace.
-    @classmethod
-    def add_cli_args(cls, parser: argparse.ArgumentParser) -> None:
-        super().add_cli_args(parser)
+    @staticmethod
+    def _add_legacy_cli_only_args(parser: argparse.ArgumentParser) -> None:
         # Consumed directly by teleop.py and record_demos.py, not by build(cfg).
         parser.add_argument("--teleop_device", type=str, default=None)

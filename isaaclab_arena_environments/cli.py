@@ -7,11 +7,13 @@ from __future__ import annotations
 
 import argparse
 import importlib
-from typing import TYPE_CHECKING
+from dataclasses import MISSING, Field, fields
+from typing import TYPE_CHECKING, Any, get_args, get_origin, get_type_hints
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 from isaaclab_arena.environments.graph_spec_utils import add_cli_override_args
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
@@ -30,9 +32,122 @@ def ensure_environments_registered():
     import isaaclab_arena_environments  # noqa: F401
 
 
+# Legacy argparse compatibility
+#
+# First-party factories now expose only build(cfg). Until the argparse frontend is
+# retired, this section generates their environment-subcommand flags and reconstructs
+# the same typed config from the resulting Namespace. External factories that still
+# inherit ExampleEnvironmentBase continue using their own add_cli_args() and get_env().
+# TODO(cvolk, 2026-07-03): Delete this section and the factories'
+# _legacy_argparse_cfg_type declarations when runners receive typed configs directly.
+_FIELDS_PROVIDED_BY_SHARED_PARSERS = {"auto", "enable_cameras", "mimic", "num_envs"}
+
+
+def _unwrap_optional_type(field_type: Any) -> Any:
+    """Return ``T`` from ``T | None`` so argparse can use ``T`` as a converter."""
+    union_members = get_args(field_type)
+    non_none_members = tuple(member for member in union_members if member is not type(None))
+    if len(non_none_members) == 1 and len(non_none_members) != len(union_members):
+        return non_none_members[0]
+    return field_type
+
+
+def _get_argparse_options(config_field: Field[Any], field_type: Any) -> dict[str, Any]:
+    """Describe one generated argparse flag using its dataclass field."""
+    argument_options: dict[str, Any] = {}
+
+    if config_field.default is not MISSING:
+        argument_options["default"] = config_field.default
+    elif config_field.default_factory is not MISSING:
+        argument_options["default"] = config_field.default_factory()
+    else:
+        argument_options["required"] = True
+
+    cli_value_type = _unwrap_optional_type(field_type)
+    if get_origin(cli_value_type) is list:
+        (list_item_type,) = get_args(cli_value_type)
+        argument_options.update(type=list_item_type, nargs="*")
+    elif cli_value_type is bool:
+        if argument_options.get("default") is False:
+            argument_options["action"] = "store_true"
+        else:
+            argument_options["action"] = argparse.BooleanOptionalAction
+    else:
+        argument_options["type"] = cli_value_type
+    return argument_options
+
+
+def _get_legacy_argparse_cfg_type(
+    environment_factory_type: type[ArenaEnvironmentFactory],
+) -> type[ArenaEnvironmentCfg]:
+    """Return the config dataclass used by a first-party factory's legacy CLI adapter."""
+    environment_cfg_type = getattr(environment_factory_type, "_legacy_argparse_cfg_type", None)
+    assert (
+        environment_cfg_type is not None
+    ), f"{environment_factory_type.__name__} must define _legacy_argparse_cfg_type while argparse is supported"
+    return environment_cfg_type
+
+
+def _add_environment_config_arguments(
+    parser: argparse.ArgumentParser,
+    environment_cfg_type: type[ArenaEnvironmentCfg],
+) -> None:
+    """Generate one CLI flag for each environment-owned config field."""
+    resolved_field_types = get_type_hints(environment_cfg_type)
+    for config_field in fields(environment_cfg_type):
+        field_name = config_field.name
+        if field_name in _FIELDS_PROVIDED_BY_SHARED_PARSERS:
+            continue
+        argument_options = _get_argparse_options(config_field, resolved_field_types[field_name])
+        argument_options["help"] = f"{field_name.replace('_', ' ')} (default: %(default)s)"
+        parser.add_argument(f"--{field_name}", **argument_options)
+
+
+def add_environment_cli_args(
+    parser: argparse.ArgumentParser,
+    environment_factory_type: type[ArenaEnvironmentFactory],
+) -> None:
+    """Add legacy CLI flags for a typed or external environment factory."""
+    if issubclass(environment_factory_type, ExampleEnvironmentBase):
+        environment_factory_type.add_cli_args(parser)
+        return
+
+    environment_cfg_type = _get_legacy_argparse_cfg_type(environment_factory_type)
+    _add_environment_config_arguments(parser, environment_cfg_type)
+
+    add_cli_only_args = getattr(environment_factory_type, "_add_legacy_cli_only_args", None)
+    if add_cli_only_args is not None:
+        add_cli_only_args(parser)
+
+
+def _environment_cfg_from_cli(
+    environment_factory_type: type[ArenaEnvironmentFactory],
+    args_cli: argparse.Namespace,
+) -> ArenaEnvironmentCfg:
+    """Create a typed environment config from matching legacy Namespace values."""
+    environment_cfg_type = _get_legacy_argparse_cfg_type(environment_factory_type)
+    config_values = {
+        config_field.name: getattr(args_cli, config_field.name)
+        for config_field in fields(environment_cfg_type)
+        if hasattr(args_cli, config_field.name)
+    }
+    return environment_cfg_type(**config_values)
+
+
+def build_environment_from_cli(
+    environment_factory_type: type[ArenaEnvironmentFactory],
+    args_cli: argparse.Namespace,
+) -> IsaacLabArenaEnvironment:
+    """Build an environment through its typed or external legacy CLI path."""
+    environment_factory = environment_factory_type()
+    if isinstance(environment_factory, ExampleEnvironmentBase):
+        return environment_factory.get_env(args_cli)
+    return environment_factory.build(_environment_cfg_from_cli(environment_factory_type, args_cli))
+
+
 def parse_and_return_external_environment_from_string(
     environment_path: str,
-) -> tuple[str, type[ExampleEnvironmentBase]]:
+) -> tuple[str, type[ArenaEnvironmentFactory]]:
     """Parse a string and import the environment class
 
     Args:
@@ -42,7 +157,7 @@ def parse_and_return_external_environment_from_string(
         ValueError: If the environment path is not in the format "module_path:class_name"
 
     Returns:
-        tuple[str, type[ExampleEnvironmentBase]]: A tuple with the environment name and the environment class
+        A tuple containing the environment name and factory class.
     """
     # Parse the environment path and import the environment class
     # We assume the environment path is in the format "module_path:class_name"
@@ -88,9 +203,9 @@ def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> a
         dest="example_environment", required=False, help="Example environment to run"
     )
     for env_name in env_registry.get_all_keys():
-        env_cls = env_registry.get_component_by_name(env_name)
-        subparser = subparsers.add_parser(env_cls.name)
-        env_cls.add_cli_args(subparser)
+        environment_factory_type = env_registry.get_component_by_name(env_name)
+        subparser = subparsers.add_parser(environment_factory_type.name)
+        add_environment_cli_args(subparser, environment_factory_type)
 
     return args_parser
 
@@ -152,5 +267,5 @@ def _arena_env_from_example_name(example_environment: str, args_cli: argparse.Na
     assert env_registry.is_registered(
         example_environment
     ), f"Example environment type {example_environment} not supported"
-    example_env = env_registry.get_component_by_name(example_environment)()
-    return example_env.get_env(args_cli)
+    environment_factory_type = env_registry.get_component_by_name(example_environment)
+    return build_environment_from_cli(environment_factory_type, args_cli)
