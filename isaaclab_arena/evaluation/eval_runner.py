@@ -240,9 +240,8 @@ def main():
     # release it.
     if args_cli.chunk_size is not None and len(eval_jobs_config["jobs"]) > args_cli.chunk_size:
         # TODO(cvolk): aggregate per-chunk metrics into one centralized view. Each chunk
-        # subprocess currently prints its own MetricsLogger summary and nothing is merged
-        # or persisted (save_metrics_to_file() is unused). Follow-up: have each chunk write
-        # metrics JSON to a temp file (forward --metrics_file), then merge + print/save here.
+        # subprocess currently persists and prints its own MetricsLogger summary, but nothing
+        # is merged into a single parent summary.
         _run_in_chunks(args_cli, eval_jobs_config)
         return
 
@@ -253,7 +252,6 @@ def main():
 
     with SimulationAppContext(args_cli):
         job_manager = JobManager(eval_jobs_config["jobs"])
-        metrics_logger = MetricsLogger()
 
         job_manager.print_jobs_info()
 
@@ -262,6 +260,7 @@ def main():
         # TODO(alexmillane): Currently each chunk produces its own output directory.
         # We should use the same output directory for all chunks in the future.
         run_output_dir = timestamped_run_dir(args_cli.output_base_dir)
+        metrics_logger = MetricsLogger(os.path.join(run_output_dir, "metrics.json"))
 
         if args_cli.record_viewport_video:
             os.makedirs(run_output_dir, exist_ok=True)
@@ -355,6 +354,7 @@ def main():
                 metrics_logger.append_job_metrics(job.name, aggregated_metrics)
 
         job_manager.print_jobs_info()
+        metrics_logger.save_metrics_to_file()
         metrics_logger.print_metrics()
 
         # Write HTML report.
