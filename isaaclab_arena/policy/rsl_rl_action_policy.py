@@ -16,7 +16,7 @@ from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
 from rsl_rl.runners import DistillationRunner, OnPolicyRunner
 
 from isaaclab_arena.assets.register import register_policy
-from isaaclab_arena.policy.policy_base import PolicyBase
+from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
 
 class _RslRlInferenceEnvWrapper(RslRlVecEnvWrapper):
@@ -42,7 +42,7 @@ class _RslRlInferenceEnvWrapper(RslRlVecEnvWrapper):
 
 
 @dataclass
-class RslRlActionPolicyConfig:
+class RslRlActionPolicyCfg(PolicyCfg):
     """Configuration dataclass for RSL-RL action policy."""
 
     checkpoint_path: str
@@ -55,16 +55,9 @@ class RslRlActionPolicyConfig:
     device: str = "cuda:0"
     """Device to run the policy on."""
 
-    @classmethod
-    def from_cli_args(cls, args: argparse.Namespace) -> "RslRlActionPolicyConfig":
-        return cls(
-            checkpoint_path=args.checkpoint_path,
-            device=args.device if hasattr(args, "device") else "cuda:0",
-        )
-
 
 @register_policy
-class RslRlActionPolicy(PolicyBase):
+class RslRlActionPolicy(PolicyBase[RslRlActionPolicyCfg]):
     """Policy that uses a trained RSL-RL model for inference.
 
     Loads the checkpoint and agent config (``params/agent.yaml``) produced by
@@ -90,11 +83,11 @@ class RslRlActionPolicy(PolicyBase):
     """
 
     name = "rsl_rl"
-    config_class = RslRlActionPolicyConfig
+    config_class = RslRlActionPolicyCfg
 
-    def __init__(self, config: RslRlActionPolicyConfig):
+    def __init__(self, config: RslRlActionPolicyCfg):
         super().__init__(config)
-        self.config: RslRlActionPolicyConfig = config
+        self.config: RslRlActionPolicyCfg = config
         self._policy = None
         self._runner = None
 
@@ -140,11 +133,7 @@ class RslRlActionPolicy(PolicyBase):
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         pass
 
-    @classmethod
-    def from_dict(cls, config_dict: dict) -> "RslRlActionPolicy":
-        config = RslRlActionPolicyConfig(**config_dict)
-        return cls(config)
-
+    # TODO(cvolk, 2026-07-03): Move this legacy argparse adapter into the policy CLI frontend.
     @staticmethod
     def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         """Add RSL-RL action policy specific arguments to the parser."""
@@ -162,5 +151,8 @@ class RslRlActionPolicy(PolicyBase):
 
     @staticmethod
     def from_args(args: argparse.Namespace) -> "RslRlActionPolicy":
-        config = RslRlActionPolicyConfig.from_cli_args(args)
+        config = RslRlActionPolicyCfg(
+            checkpoint_path=args.checkpoint_path,
+            device=args.device if hasattr(args, "device") else "cuda:0",
+        )
         return RslRlActionPolicy(config)

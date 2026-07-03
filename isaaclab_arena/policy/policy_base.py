@@ -3,54 +3,47 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import argparse
+from __future__ import annotations
+
 import gymnasium as gym
 import torch
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from gymnasium.spaces.dict import Dict as GymSpacesDict
-from typing import Any
+from typing import Any, Generic, Self, TypeVar
 
 
-class PolicyBase(ABC):
-    """
-    Base class for policies.
+@dataclass
+class PolicyCfg:
+    """Mark a typed Arena policy configuration."""
 
-    Subclasses should define a `config_class` class variable pointing to their configuration dataclass
-    to enable configuration from dictionaries via the from_dict() method.
-    """
 
-    # Optional: Subclasses can define this to enable from_dict()
-    config_class: type | None = None
+PolicyCfgT = TypeVar("PolicyCfgT", bound=PolicyCfg)
 
-    def __init__(self, config: Any):
-        """
-        Base class for policies.
-        """
+
+class PolicyBase(ABC, Generic[PolicyCfgT]):
+    """Define runtime behavior shared by Arena policies."""
+
+    config_class: type[PolicyCfg] | None = None
+    """Concrete config used by the legacy dictionary-based evaluation path."""
+
+    def __init__(self, config: PolicyCfgT):
         self.config = config
 
     @classmethod
-    def from_dict(cls, config_dict: dict[str, Any]) -> "PolicyBase":
-        """
-        Create a policy instance from a configuration dictionary.
-
-        This method instantiates the policy's config_class from the dict and then
-        creates the policy from that config.
-
-        Path: dict → ConfigDataclass → Policy instance
+    def from_dict(cls, config_dict: dict[str, Any]) -> Self:
+        """Create a policy through the legacy dictionary configuration path.
 
         Args:
-            config_dict: Dictionary containing the configuration fields
+            config_dict: Values used to instantiate ``config_class``.
 
         Returns:
-            Policy instance
+            A policy initialized with its typed config.
         """
         if cls.config_class is None:
             raise NotImplementedError(f"{cls.__name__} must define 'config_class' to use from_dict()")
 
-        # Create config from dict
         config = cls.config_class(**config_dict)  # type: ignore[misc]
-
-        # Create policy from config
         return cls(config)  # type: ignore[call-arg]
 
     @abstractmethod
@@ -94,15 +87,3 @@ class PolicyBase(ABC):
     def is_remote(self) -> bool:
         """Check if policy is run remotely."""
         return False
-
-    @staticmethod
-    @abstractmethod
-    def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-        """Add policy-specific arguments to the parser."""
-        raise NotImplementedError("Function not implemented yet.")
-
-    @staticmethod
-    @abstractmethod
-    def from_args(args: argparse.Namespace) -> "PolicyBase":
-        """Create a policy from the arguments."""
-        raise NotImplementedError("Function not implemented yet.")

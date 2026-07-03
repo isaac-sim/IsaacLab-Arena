@@ -10,7 +10,7 @@ runners depend on.
 
 .. code-block:: python
 
-   policy = ZeroActionPolicy(config=ZeroActionPolicyArgs())
+   policy = ZeroActionPolicy(config=ZeroActionPolicyCfg())
    obs, _ = env.reset()
    action = policy.get_action(env, obs)
 
@@ -34,29 +34,46 @@ Arena ships with four policies:
 Writing a custom policy
 -----------------------
 
-Subclass ``PolicyBase``, set a ``name``, decorate with ``@register_policy``,
-and implement ``get_action``:
+Define a typed ``PolicyCfg``, subclass ``PolicyBase`` with that config, set a
+``name``, decorate with ``@register_policy``, and implement ``get_action``:
 
 .. code-block:: python
+
+   from dataclasses import dataclass
 
    import gymnasium as gym
    import torch
    from gymnasium.spaces.dict import Dict as GymSpacesDict
 
    from isaaclab_arena.assets.register import register_policy
-   from isaaclab_arena.policy.policy_base import PolicyBase
+   from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
+
+
+   @dataclass
+   class MyPolicyCfg(PolicyCfg):
+       device: str = "cuda"
 
 
    @register_policy
-   class MyPolicy(PolicyBase):
+   class MyPolicy(PolicyBase[MyPolicyCfg]):
        name = "my_policy"
+       config_class = MyPolicyCfg
 
-       def __init__(self, config):
+       def __init__(self, config: MyPolicyCfg):
            super().__init__(config)
 
        def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:
            # Your model inference here
            return torch.zeros(env.action_space.shape, device=torch.device(env.unwrapped.device))
+
+The policy contract itself does not depend on argparse. The current single-job
+CLI still expects concrete policies to provide temporary ``add_args_to_parser``
+and ``from_args`` compatibility adapters:
+
+.. code-block:: python
+
+   class MyPolicy(PolicyBase[MyPolicyCfg]):
+       ...
 
        @staticmethod
        def add_args_to_parser(parser):
@@ -65,7 +82,7 @@ and implement ``get_action``:
 
        @staticmethod
        def from_args(args):
-           return MyPolicy(config=None)
+           return MyPolicy(MyPolicyCfg(device=args.device))
 
 Once registered, select the policy by name on the command line:
 
@@ -79,10 +96,9 @@ For policies not registered by name, pass a dotted Python path instead
 (e.g. ``--policy_type mypackage.mypolicy.MyPolicy``). The runner will
 import and instantiate the class directly.
 
-To use a custom policy in the batch eval runner's JSON config, define a
-``config_class`` dataclass on the policy and implement ``from_dict()``.
-This lets the runner instantiate the policy from a plain dict without
-going through argparse. See :doc:`concept_evaluation_types` for details.
+The batch eval runner uses ``config_class`` to instantiate the inherited
+``from_dict()`` path directly, without going through argparse. See
+:doc:`concept_evaluation_types` for details.
 
 More details
 ------------

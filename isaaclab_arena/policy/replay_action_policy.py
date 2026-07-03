@@ -6,68 +6,31 @@
 import argparse
 import gymnasium as gym
 import torch
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from gymnasium.spaces.dict import Dict as GymSpacesDict
 
 from isaaclab.utils.datasets import HDF5DatasetFileHandler
 
 from isaaclab_arena.assets.register import register_policy
-from isaaclab_arena.policy.policy_base import PolicyBase
+from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
 
 @dataclass
-class ReplayActionPolicyArgs:
-    """
-    Configuration dataclass for ReplayActionPolicy.
+class ReplayActionPolicyCfg(PolicyCfg):
+    """Configure a policy that replays actions from a recorded episode."""
 
-    This dataclass serves as the single source of truth for policy configuration,
-    supporting both dict-based (from JSON) and CLI-based configuration paths.
+    replay_file_path: str
+    """Path to the HDF5 file containing the episode."""
 
-    Field metadata is used to auto-generate argparse arguments, ensuring consistency
-    between the dataclass definition and CLI argument parsing.
-    """
+    device: str = "cuda"
+    """Device used to load the recorded episode."""
 
-    replay_file_path: str = field(
-        metadata={
-            "help": "Path to the HDF5 file containing the episode",
-            "required": True,
-        }
-    )
-
-    device: str = field(
-        default="cuda",
-        metadata={
-            "help": "Device to use for loading the dataset",
-        },
-    )
-
-    episode_name: str | None = field(
-        default=None,
-        metadata={
-            "help": "Name of the episode to replay. If not provided, the first episode will be replayed",
-        },
-    )
-
-    @classmethod
-    def from_cli_args(cls, args: argparse.Namespace) -> "ReplayActionPolicyArgs":
-        """
-        Create configuration from parsed CLI arguments.
-
-        Args:
-            args: Parsed command line arguments
-
-        Returns:
-            ReplayActionPolicyArgs instance
-        """
-        return cls(
-            replay_file_path=args.replay_file_path,
-            device=args.device,
-            episode_name=args.episode_name,
-        )
+    episode_name: str | None = None
+    """Episode to replay, or the first episode when omitted."""
 
 
 @register_policy
-class ReplayActionPolicy(PolicyBase):
+class ReplayActionPolicy(PolicyBase[ReplayActionPolicyCfg]):
     """
     Replay the actions from an named episode stored in a HDF5 file.
     If no episode name is provided, the first episode will be replayed.
@@ -75,14 +38,14 @@ class ReplayActionPolicy(PolicyBase):
 
     name = "replay"
     # enable from_dict() from policy_base.PolicyBase
-    config_class = ReplayActionPolicyArgs
+    config_class = ReplayActionPolicyCfg
 
-    def __init__(self, config: ReplayActionPolicyArgs):
+    def __init__(self, config: ReplayActionPolicyCfg):
         """
         Initialize ReplayActionPolicy from a configuration dataclass.
 
         Args:
-            config: ReplayActionPolicyArgs configuration dataclass
+            config: Typed replay policy configuration.
         """
         super().__init__(config)
         self.episode_name = config.episode_name
@@ -137,6 +100,7 @@ class ReplayActionPolicy(PolicyBase):
         """Get the length of the policy (for dataset-driven policies)."""
         return len(self)
 
+    # TODO(cvolk, 2026-07-03): Move this legacy argparse adapter into the policy CLI frontend.
     @staticmethod
     def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         """Add replay action policy specific arguments to the parser."""
@@ -169,5 +133,9 @@ class ReplayActionPolicy(PolicyBase):
         Returns:
             ReplayActionPolicy instance
         """
-        config = ReplayActionPolicyArgs.from_cli_args(args)
+        config = ReplayActionPolicyCfg(
+            replay_file_path=args.replay_file_path,
+            device=args.device,
+            episode_name=args.episode_name,
+        )
         return ReplayActionPolicy(config)

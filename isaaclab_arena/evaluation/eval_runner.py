@@ -92,8 +92,8 @@ def enable_cameras_if_required(eval_jobs_config: dict, args_cli: argparse.Namesp
 def get_policy_from_job(job: Job) -> "PolicyBase":
     """
     Create a policy from a job configuration. Two paths are supported:
-    1. JSON → dict → ConfigDataclass → init cls (preferred, if policy has config_class)
-    2. JSON → dict → CLI args → init cls (if policy has add_args_to_parser() and from_args())
+    1. JSON → dict → PolicyCfg → policy (preferred, if policy has config_class)
+    2. JSON → dict → CLI args → policy (legacy compatibility fallback)
     """
     # Each job can be evaluated with a different policy checkpoint, or even a different policy type
     policy_cls = get_policy_cls(job.policy_type)

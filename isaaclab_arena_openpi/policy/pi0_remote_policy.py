@@ -16,7 +16,7 @@ import websockets.exceptions
 from openpi_client import websocket_client_policy
 
 from isaaclab_arena.policy.policy_base import PolicyBase
-from isaaclab_arena_openpi.policy.pi0_remote_config import DEFAULT_VARIANT, MAX_RECONNECT_ATTEMPTS, Pi0RemotePolicyArgs
+from isaaclab_arena_openpi.policy.pi0_remote_config import DEFAULT_VARIANT, MAX_RECONNECT_ATTEMPTS, Pi0RemotePolicyCfg
 from isaaclab_arena_openpi.policy.websocket_client import WebsocketClientPolicy
 
 
@@ -48,7 +48,7 @@ class Pi0EmbodimentAdapter(ABC):
         """Build the wire-format request payload openpi server expects."""
 
 
-class Pi0RemotePolicy(PolicyBase):
+class Pi0RemotePolicy(PolicyBase[Pi0RemotePolicyCfg]):
     """openpi remote closed-loop policy, parameterized by an embodiment adapter.
 
     Action handling today is straight chunk replay: the policy fetches one
@@ -63,10 +63,11 @@ class Pi0RemotePolicy(PolicyBase):
     # TODO(cvolk, 2026-05-18): Add a RemotePolicy base class.
 
     name = "pi0_remote"
-    config_class = Pi0RemotePolicyArgs
+    config_class = Pi0RemotePolicyCfg
 
-    def __init__(self, config: Pi0RemotePolicyArgs, openpi_embodiment_adapter: Pi0EmbodimentAdapter) -> None:
+    def __init__(self, config: Pi0RemotePolicyCfg) -> None:
         super().__init__(config)
+        openpi_embodiment_adapter = _resolve_openpi_embodiment_adapter(config.openpi_embodiment_adapter)
         assert config.policy_variant in openpi_embodiment_adapter.open_loop_horizon_by_variant, (
             f"Unknown policy_variant {config.policy_variant!r} for adapter"
             f" {type(openpi_embodiment_adapter).__name__};"
@@ -99,6 +100,7 @@ class Pi0RemotePolicy(PolicyBase):
         self._next_chunk_steps: list[int] | None = None
         self.task_description: str | None = None
 
+    # TODO(cvolk, 2026-07-03): Move this legacy argparse adapter into the policy CLI frontend.
     @staticmethod
     def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         group = parser.add_argument_group(
@@ -145,31 +147,17 @@ class Pi0RemotePolicy(PolicyBase):
 
     @staticmethod
     def from_args(args: argparse.Namespace) -> Pi0RemotePolicy:
-        openpi_embodiment_adapter = _resolve_openpi_embodiment_adapter(args.openpi_embodiment_adapter)
         return Pi0RemotePolicy(
-            Pi0RemotePolicyArgs(
+            Pi0RemotePolicyCfg(
+                openpi_embodiment_adapter=args.openpi_embodiment_adapter,
                 policy_variant=args.policy_variant,
                 policy_device=args.policy_device,
                 remote_host=args.remote_host,
                 remote_port=args.remote_port,
                 ping_interval=args.ping_interval,
                 ping_timeout=args.ping_timeout,
-            ),
-            openpi_embodiment_adapter=openpi_embodiment_adapter,
+            )
         )
-
-    @classmethod
-    def from_dict(cls, config_dict: dict[str, Any]) -> Pi0RemotePolicy:
-        """JSON-jobs-config path used by ``eval_runner``.
-
-        Overrides ``PolicyBase.from_dict`` because our ``__init__`` takes an
-        adapter alongside the config dataclass.
-        # TODO(cvolk, 2026-05-18): add a RemotePolicy base class to unify this and other remote policies.
-        """
-        config_dict = dict(config_dict)
-        adapter_key = config_dict.pop("openpi_embodiment_adapter", "droid")
-        openpi_embodiment_adapter = _resolve_openpi_embodiment_adapter(adapter_key)
-        return cls(Pi0RemotePolicyArgs(**config_dict), openpi_embodiment_adapter=openpi_embodiment_adapter)
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
         assert self.task_description, (

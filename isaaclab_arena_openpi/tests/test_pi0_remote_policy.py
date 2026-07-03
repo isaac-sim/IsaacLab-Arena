@@ -13,7 +13,7 @@ import pytest
 import websockets.exceptions
 
 from isaaclab_arena_openpi.policy.droid_adapter import Pi0DroidAdapter
-from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyArgs
+from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 from isaaclab_arena_openpi.policy.pi0_remote_policy import Pi0RemotePolicy
 from isaaclab_arena_openpi.policy.websocket_client import WebsocketClientPolicy
 
@@ -68,8 +68,7 @@ def make_policy(monkeypatch):
 
     def _factory(policy_variant: str = "pi05"):
         return Pi0RemotePolicy(
-            Pi0RemotePolicyArgs(policy_variant=policy_variant, policy_device="cpu"),
-            openpi_embodiment_adapter=Pi0DroidAdapter(),
+            Pi0RemotePolicyCfg(policy_variant=policy_variant, policy_device="cpu"),
         )
 
     return _factory
@@ -145,7 +144,7 @@ def test_get_action_parallel_envs_loops_per_env(monkeypatch):
         return {"actions": _synthetic_chunk()}
 
     _patch_websocket_client(monkeypatch, infer_impl=counting_infer)
-    policy = Pi0RemotePolicy(Pi0RemotePolicyArgs(policy_device="cpu"), openpi_embodiment_adapter=Pi0DroidAdapter())
+    policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu"))
     policy.set_task_description("pick up the block")
 
     num_envs = 3
@@ -168,7 +167,7 @@ def test_get_action_parallel_envs_loops_per_env(monkeypatch):
 def test_reset_honors_env_ids(monkeypatch):
     """reset(env_ids) clears only those envs' caches; others keep replaying."""
     _patch_websocket_client(monkeypatch)
-    policy = Pi0RemotePolicy(Pi0RemotePolicyArgs(policy_device="cpu"), openpi_embodiment_adapter=Pi0DroidAdapter())
+    policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu"))
     policy.set_task_description("pick up the block")
     env = _fake_env(num_envs=3)
     obs = _fake_observation(num_envs=3)
@@ -195,7 +194,7 @@ def test_call_server_with_retry_reconnects_on_drop(monkeypatch):
         return successful_response
 
     _patch_websocket_client(monkeypatch, infer_impl=flaky_infer)
-    policy = Pi0RemotePolicy(Pi0RemotePolicyArgs(policy_device="cpu"), openpi_embodiment_adapter=Pi0DroidAdapter())
+    policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu"))
     policy.set_task_description("pick up the block")
     policy._cached_action_chunks = [np.zeros((15, 8), dtype=np.float32)]
     policy._next_chunk_steps = [5]
@@ -213,7 +212,7 @@ def test_call_server_with_retry_gives_up_after_max_attempts(monkeypatch):
         raise websockets.exceptions.ConnectionClosedError(None, None)
 
     _patch_websocket_client(monkeypatch, infer_impl=always_drops)
-    policy = Pi0RemotePolicy(Pi0RemotePolicyArgs(policy_device="cpu"), openpi_embodiment_adapter=Pi0DroidAdapter())
+    policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu"))
     policy.set_task_description("pick up the block")
 
     with pytest.raises(websockets.exceptions.ConnectionClosedError):
