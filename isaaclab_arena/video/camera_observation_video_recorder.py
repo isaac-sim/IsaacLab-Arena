@@ -29,6 +29,7 @@ import gymnasium as gym
 import numpy as np
 import os
 import re
+import subprocess
 import torch
 from dataclasses import dataclass
 
@@ -61,6 +62,8 @@ class _ActiveWriter:
     writer: object
     temporary_path: str
     final_path: str
+    frame_shape: tuple[int, ...]
+    frame_count: int = 0
 
 
 def format_episode_video_filename(name_prefix: str, env_index: int, camera_name: str, episode_index: int) -> str:
@@ -98,6 +101,36 @@ def _to_uint8(frame: torch.Tensor | np.ndarray) -> np.ndarray:
 def _sanitize_cam_key(camera_name: str) -> str:
     """Strip path separators so a camera name can't escape video_folder."""
     return camera_name.replace("/", "_").replace(os.sep, "_")
+
+
+def _validate_encoded_video(path: str, expected_frames: int) -> None:
+    """Decode the completed stream and require every submitted frame."""
+    command = [
+        imageio_ffmpeg.get_ffmpeg_exe(),
+        "-v",
+        "error",
+        "-xerror",
+        "-i",
+        path,
+        "-map",
+        "0:v:0",
+        "-f",
+        "null",
+        "-",
+        "-progress",
+        "pipe:1",
+        "-nostats",
+    ]
+    result = subprocess.run(command, capture_output=True, text=True)
+    frame_counts = [
+        int(line.removeprefix("frame=")) for line in result.stdout.splitlines() if line.startswith("frame=")
+    ]
+    encoded_frames = frame_counts[-1] if frame_counts else None
+    if result.returncode != 0 or encoded_frames != expected_frames:
+        detail = result.stderr.strip() or "no ffmpeg diagnostic"
+        raise RuntimeError(
+            f"Invalid encoded video {path}: expected {expected_frames} frames, decoded {encoded_frames}; {detail}"
+        )
 
 
 class CameraObsVideoRecorder(gym.Wrapper):
@@ -157,8 +190,15 @@ class CameraObsVideoRecorder(gym.Wrapper):
         if active is None:
             active = self._open_writer(camera_name, env_idx, frame)
             self._writers[key] = active
+        if tuple(frame.shape) != active.frame_shape:
+            self._discard_writer(key, active)
+            raise ValueError(
+                f"Camera {camera_name!r} env {env_idx} changed frame shape from "
+                f"{active.frame_shape} to {tuple(frame.shape)}"
+            )
         try:
             active.writer.send(np.ascontiguousarray(frame))
+            active.frame_count += 1
         except BaseException:
             self._discard_writer(key, active)
             raise
@@ -198,7 +238,12 @@ class CameraObsVideoRecorder(gym.Wrapper):
                 with contextlib.suppress(FileNotFoundError):
                     os.unlink(temporary_path)
             raise
-        return _ActiveWriter(writer=writer, temporary_path=temporary_path, final_path=final_path)
+        return _ActiveWriter(
+            writer=writer,
+            temporary_path=temporary_path,
+            final_path=final_path,
+            frame_shape=tuple(frame.shape),
+        )
 
     def _flush_envs(self, env_ids: list[int]) -> None:
         for env_idx in env_ids:
@@ -209,6 +254,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
                     active.writer.close()
                     if not os.path.isfile(active.temporary_path) or os.path.getsize(active.temporary_path) == 0:
                         raise RuntimeError(f"ffmpeg produced no video: {active.temporary_path}")
+                    _validate_encoded_video(active.temporary_path, expected_frames=active.frame_count)
                     os.replace(active.temporary_path, active.final_path)
                 except BaseException:
                     with contextlib.suppress(FileNotFoundError):
