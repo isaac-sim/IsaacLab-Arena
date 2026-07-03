@@ -11,7 +11,7 @@ from tasks.base_task import BaseTask
 from workflows.workflow_constants import POLICY_SERVER_PORT
 
 # GR00T server image (containing the droid checkpoints).
-DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/gr00t_1_6_droid"
+DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/gr00t_1_6_droid:latest"
 # Droid checkpoint baked into the GR00T server image.
 MODEL_PATH = "/workspace/pretrained_ckpts/GR00T-N1.6-DROID"
 # Embodiment tag for the droid manipulation config (see droid_manip_gr00t_closedloop_config.yaml).
@@ -50,8 +50,8 @@ class Gr00tServerTask(BaseTask):
             "nvidia-smi\n"
             "cd /workspace\n"
             "exec uv run python gr00t/eval/run_gr00t_server.py \\\n"
-            f"  --model_path={MODEL_PATH} \\\n"
-            f"  --embodiment_tag={EMBODIMENT_TAG} \\\n"
+            f'  --model_path="{MODEL_PATH}" \\\n'
+            f'  --embodiment_tag="{EMBODIMENT_TAG}" \\\n'
             "  --host=0.0.0.0 \\\n"
             f"  --port={POLICY_SERVER_PORT}\n"
         )
