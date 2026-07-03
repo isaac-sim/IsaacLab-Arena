@@ -6,5 +6,9 @@
 """Base type for Arena environment configurations."""
 
 
+from dataclasses import dataclass
+
+
+@dataclass
 class ArenaEnvironmentCfg:
     """Mark a typed Arena environment configuration."""
