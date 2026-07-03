@@ -36,6 +36,7 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase[PickAndPlaceMaple
     """Registered provider for the Maple-table pick-and-place environment."""
 
     name: str = "pick_and_place_maple_table"
+    cfg_type = PickAndPlaceMapleTableEnvironmentCfg
 
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
         """Translate the legacy CLI namespace and build the environment."""

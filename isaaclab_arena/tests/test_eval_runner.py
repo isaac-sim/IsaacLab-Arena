@@ -5,6 +5,8 @@
 
 import json
 import os
+from argparse import Namespace
+from pathlib import Path
 
 import pytest
 
@@ -14,6 +16,79 @@ from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function, r
 HEADLESS = True
 NUM_STEPS = 2
 DEFAULT_VISUALIZER = "kit"
+
+
+def test_evaluate_jobs_uses_injected_environment_loader(monkeypatch, tmp_path):
+    from isaaclab_arena.evaluation import eval_runner
+    from isaaclab_arena.evaluation.job_manager import Job, Status
+
+    class FakeEpisodeRecorder:
+        def set_job_name(self, name):
+            self.job_name = name
+
+        def set_output_path(self, path):
+            self.output_path = path
+
+    class FakeEnvironment:
+        def __init__(self):
+            self.unwrapped = Namespace(episode_recorder=FakeEpisodeRecorder())
+            self.closed = False
+
+        def close(self):
+            self.closed = True
+
+    class FakePolicy:
+        def __init__(self):
+            self.closed = False
+
+        def has_length(self):
+            return False
+
+        def close(self):
+            self.closed = True
+
+    environment = FakeEnvironment()
+    policy = FakePolicy()
+    captured = {"loader_calls": [], "rollouts": []}
+
+    def fake_environment_loader(job, render_mode):
+        captured["loader_calls"].append((job, render_mode))
+        return environment
+
+    def fake_rollout(env, selected_policy, num_steps, num_episodes):
+        captured["rollouts"].append((env, selected_policy, num_steps, num_episodes))
+
+    monkeypatch.setattr(eval_runner, "get_policy_from_job", lambda job: policy)
+    monkeypatch.setattr(eval_runner, "rollout_policy", fake_rollout)
+    monkeypatch.setattr(eval_runner, "wrap_env_for_video", lambda env, *args: env)
+    monkeypatch.setattr(eval_runner, "timestamped_run_dir", lambda output_dir: str(tmp_path))
+    monkeypatch.setattr(eval_runner, "build_report", lambda output_dir: Path(output_dir) / "index.html")
+    monkeypatch.setattr(eval_runner, "teardown_simulation_app", lambda **kwargs: None)
+    monkeypatch.setattr(eval_runner, "collect_garbage_and_clear_cuda_cache", lambda: None)
+
+    job = Job(
+        name="typed_hydra_job",
+        num_envs=1,
+        arena_env_args=[],
+        policy_type="zero_action",
+        num_steps=1,
+    )
+    args_cli = Namespace(
+        output_base_dir=str(tmp_path),
+        record_viewport_video=False,
+        record_camera_video=False,
+        continue_on_error=False,
+        serve_evaluation_report=False,
+        evaluation_report_port=8000,
+    )
+
+    eval_runner.evaluate_jobs(args_cli, [job], environment_loader=fake_environment_loader)
+
+    assert captured["loader_calls"] == [(job, None)]
+    assert captured["rollouts"] == [(environment, policy, 1, None)]
+    assert job.status is Status.COMPLETED
+    assert environment.closed
+    assert policy.closed
 
 
 def write_jobs_config_to_file(jobs: list[dict], tmp_file_path: str):
