@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import torch
 from collections.abc import Sequence
 
 from isaaclab.envs import ManagerBasedRLEnv
@@ -14,6 +15,11 @@ from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
+
+
+def external_policy_termination(env: IsaacLabArenaManagerBasedRLEnv) -> torch.Tensor:
+    """Return environments whose policy requested non-timeout episode termination."""
+    return env.external_policy_termination_buf
 
 
 class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
@@ -40,6 +46,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         # Only populated when cfg.pose_snapshot_asset_names is set; the object-poses recorder term reads it.
         self._initial_pose_snapshots: dict[int, dict] = {}
         super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
+        self._external_policy_termination_buf = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
 
     @property
     def variation_recorder(self) -> VariationRecorder | None:
@@ -69,6 +76,20 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         """Return the index of the current episode in ``env_id``."""
         return self._episode_counts.get(env_id, 0)
 
+    @property
+    def external_policy_termination_buf(self) -> torch.Tensor:
+        """Boolean per-environment policy termination requests for the current step."""
+        return self._external_policy_termination_buf
+
+    def request_external_policy_termination(self, termination_mask: torch.Tensor) -> None:
+        """Request non-timeout episode termination for environments selected by ``termination_mask``."""
+        assert isinstance(termination_mask, torch.Tensor), "termination_mask must be a torch.Tensor"
+        assert termination_mask.dtype == torch.bool, "termination_mask must have dtype torch.bool"
+        assert termination_mask.shape == (
+            self.num_envs,
+        ), f"termination_mask must have shape ({self.num_envs},), got {tuple(termination_mask.shape)}"
+        self._external_policy_termination_buf |= termination_mask.to(device=self.device)
+
     def _advance_episode_indices(self, env_ids: Sequence[int]) -> None:
         """Advance the per-env episode counter for each episode in ``env_ids``."""
         for env_id in env_ids:
@@ -85,6 +106,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             return
         # Runs recorder before super() so the just-finished episode is still intact.
         self.episode_recorder_manager.record_pre_reset(env_ids)
+        # Preserve the signal through recording, then clear it before the next episode starts.
+        self._external_policy_termination_buf[env_ids] = False
         # Advance before super() so reset-mode variation draws are tagged with the episode they begin.
         self._advance_episode_indices(env_ids)
         super()._reset_idx(env_ids)
