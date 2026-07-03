@@ -6,17 +6,29 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
+from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
+@dataclass
+class FrankaPutAndCloseDoorEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the Franka put-and-close-door environment."""
+
+    enable_cameras: bool = False
+    object: str = "dex_cube"
+    embodiment: str = "franka_ik"
+    teleop_device: str | None = None
+
+
 @register_environment
-class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
+class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase[FrankaPutAndCloseDoorEnvironmentCfg]):
     """
     A sequential task environment with two subtasks:
     1. Pick and place object into the microwave
@@ -27,6 +39,18 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
     name = "franka_put_and_close_door"
 
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+        """Translate the legacy CLI namespace and build the environment."""
+        return self.build(
+            FrankaPutAndCloseDoorEnvironmentCfg(
+                enable_cameras=args_cli.enable_cameras,
+                object=args_cli.object,
+                embodiment=args_cli.embodiment,
+                teleop_device=args_cli.teleop_device,
+            )
+        )
+
+    def build(self, cfg: FrankaPutAndCloseDoorEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
         from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -41,11 +65,11 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
         # Get assets
         background = self.asset_registry.get_asset_by_name("kitchen")()
         container = self.asset_registry.get_asset_by_name("microwave")()
-        pick_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
+        pick_object = self.asset_registry.get_asset_by_name(cfg.object)()
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
 
-        if args_cli.teleop_device is not None:
-            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+        if cfg.teleop_device is not None:
+            teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()
         else:
             teleop_device = None
 
@@ -73,7 +97,7 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             )
         )
 
-        if args_cli.embodiment == "franka_ik":
+        if cfg.embodiment == "franka_ik":
             # Set Franka arm pose for kitchen setup
             embodiment.set_initial_joint_pose([0.0, -1.309, 0.0, -2.793, 0.0, 3.037, 0.740, 0.04, 0.04])
 

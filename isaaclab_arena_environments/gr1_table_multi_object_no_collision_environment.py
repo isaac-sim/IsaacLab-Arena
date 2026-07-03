@@ -31,9 +31,11 @@ Example (--viz kit enables the Kit visualizer, --episode_length_s triggers perio
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
+from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
@@ -85,8 +87,21 @@ HETERO_FIXED_OBJECTS = [
 ]
 
 
+@dataclass
+class GR1TableMultiObjectNoCollisionEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the GR1 table multi-object environment."""
+
+    enable_cameras: bool = False
+    objects: list[str] | None = None
+    embodiment: str = "gr1_joint"
+    teleop_device: str | None = None
+    episode_length_s: float | None = None
+    mode: str = "homogeneous"
+    num_envs: int = 1
+
+
 @register_environment
-class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
+class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase[GR1TableMultiObjectNoCollisionEnvironmentCfg]):
     """
     Table-based scene with multiple objects (On(table) + built-in no-overlap) and a robot.
     Layout is solved by ArenaEnvBuilder default relation solving; reset uses asset events.
@@ -98,6 +113,21 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
     name: str = "gr1_table_multi_object_no_collision"
 
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+        """Translate the legacy CLI namespace and build the environment."""
+        return self.build(
+            GR1TableMultiObjectNoCollisionEnvironmentCfg(
+                enable_cameras=getattr(args_cli, "enable_cameras", False),
+                objects=getattr(args_cli, "objects", None),
+                embodiment=args_cli.embodiment,
+                teleop_device=args_cli.teleop_device,
+                episode_length_s=args_cli.episode_length_s,
+                mode=getattr(args_cli, "mode", "homogeneous"),
+                num_envs=getattr(args_cli, "num_envs", 1),
+            )
+        )
+
+    def build(self, cfg: GR1TableMultiObjectNoCollisionEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import IsAnchor
@@ -105,16 +135,14 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.tasks.no_task import NoTask
         from isaaclab_arena.utils.pose import Pose
 
-        mode = getattr(args_cli, "mode", "homogeneous")
-        enable_cameras = getattr(args_cli, "enable_cameras", False)
         camera_offset = Pose(
             position_xyz=(0.12515, 0.0, 0.06776),
             rotation_xyzw=(0.11204, -0.17712, -0.79108, 0.57469),
         )
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
-            enable_cameras=enable_cameras,
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(
+            enable_cameras=cfg.enable_cameras,
             camera_offset=camera_offset,
-            use_tiled_camera=(getattr(args_cli, "num_envs", 1) > 1),
+            use_tiled_camera=(cfg.num_envs > 1),
         )
         embodiment.set_initial_pose(
             Pose(
@@ -134,14 +162,13 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
         )
         tabletop_reference.add_relation(IsAnchor())
 
-        object_names = getattr(args_cli, "objects", None)
-        if mode == "heterogeneous":
-            placeable_assets = self._build_heterogeneous_objects(tabletop_reference, object_names)
+        if cfg.mode == "heterogeneous":
+            placeable_assets = self._build_heterogeneous_objects(tabletop_reference, cfg.objects)
         else:
-            placeable_assets = self._build_homogeneous_objects(tabletop_reference, object_names)
+            placeable_assets = self._build_homogeneous_objects(tabletop_reference, cfg.objects)
 
-        if args_cli.teleop_device is not None:
-            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+        if cfg.teleop_device is not None:
+            teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()
         else:
             teleop_device = None
 
@@ -155,7 +182,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase):
             ]
         )
 
-        episode_length_s = args_cli.episode_length_s
+        episode_length_s = cfg.episode_length_s
         env_cfg_callback = None
         if episode_length_s is not None:
 

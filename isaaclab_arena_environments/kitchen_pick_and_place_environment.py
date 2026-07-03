@@ -6,21 +6,47 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
+from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
+@dataclass
+class KitchenPickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the kitchen pick-and-place environment."""
+
+    enable_cameras: bool = False
+    object: str = "cracker_box"
+    object_set: list[str] | None = None
+    embodiment: str = "franka_ik"
+    teleop_device: str | None = None
+
+
 @register_environment
-class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
+class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase[KitchenPickAndPlaceEnvironmentCfg]):
 
     name: str = "kitchen_pick_and_place"
 
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+        """Translate the legacy CLI namespace and build the environment."""
+        return self.build(
+            KitchenPickAndPlaceEnvironmentCfg(
+                enable_cameras=args_cli.enable_cameras,
+                object=args_cli.object,
+                object_set=args_cli.object_set,
+                embodiment=args_cli.embodiment,
+                teleop_device=args_cli.teleop_device,
+            )
+        )
+
+    def build(self, cfg: KitchenPickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -36,17 +62,18 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
         )
         table_top_reference.add_relation(IsAnchor())
 
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
 
         # Validate mutually exclusive object arguments
-        has_object_set = args_cli.object_set is not None and len(args_cli.object_set) > 0
+        has_object_set = cfg.object_set is not None and len(cfg.object_set) > 0
 
         # Create the pick-up object: Either a single object or a set of objects
         if has_object_set:
-            objects = [self.asset_registry.get_asset_by_name(obj)() for obj in args_cli.object_set]
+            assert cfg.object_set is not None
+            objects = [self.asset_registry.get_asset_by_name(obj)() for obj in cfg.object_set]
             pick_up_object = RigidObjectSet(name="object_set", objects=objects)
         else:
-            pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+            pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
         pick_up_object.add_relation(On(table_top_reference, clearance_m=0.02))
         pick_up_object.add_relation(AtPosition(x=0.4, y=0.0))
 
@@ -56,8 +83,8 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase):
             prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
             parent_asset=background,
         )
-        if args_cli.teleop_device is not None:
-            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+        if cfg.teleop_device is not None:
+            teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()
         else:
             teleop_device = None
 

@@ -7,17 +7,24 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
+from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
+@dataclass
+class DexsuiteLiftEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the Dexsuite lift environment."""
+
+
 @register_environment
-class DexsuiteLiftEnvironment(ExampleEnvironmentBase):
+class DexsuiteLiftEnvironment(ExampleEnvironmentBase[DexsuiteLiftEnvironmentCfg]):
     """
     Dexsuite Kuka Allegro lift task; RSL-RL config ``DexsuiteKukaAllegroPPORunnerCfg``.
     The robot picks up a cube and lifts it to a target position.
@@ -26,6 +33,11 @@ class DexsuiteLiftEnvironment(ExampleEnvironmentBase):
     name: str = "dexsuite_lift"
 
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+        """Translate the legacy CLI namespace and build the environment."""
+        return self.build(DexsuiteLiftEnvironmentCfg())
+
+    def build(self, cfg: DexsuiteLiftEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
         import math
 
         import isaaclab_tasks.manager_based.manipulation.dexsuite  # noqa: F401

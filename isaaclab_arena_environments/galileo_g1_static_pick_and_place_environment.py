@@ -24,9 +24,11 @@ from __future__ import annotations
 
 import argparse
 import warnings
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
+from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
@@ -146,8 +148,21 @@ def _asset_scale(asset_name: str) -> tuple[float, float, float]:
     return (1.0, 1.0, 1.0)
 
 
+@dataclass
+class GalileoG1StaticPickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the static-base Galileo G1 pick-and-place environment."""
+
+    enable_cameras: bool = False
+    object: str = TUNED_PICK_UP_OBJECT_NAME
+    destination: str = TUNED_DESTINATION_NAME
+    embodiment: str = "g1_wbc_agile_pink"
+    teleop_device: str | None = None
+    task_description: str = "move the apple to the plate"
+    lock_waist: bool = True
+
+
 @register_environment
-class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
+class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase[GalileoG1StaticPickAndPlaceEnvironmentCfg]):
     """G1 (WBC-balanced, no nav) pick-and-place on the locomanip warehouse shelf.
 
     Defaults to the apple-to-plate pairing so this env composes cleanly into the existing
@@ -157,6 +172,21 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
     name: str = "galileo_g1_static_pick_and_place"
 
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+        """Translate the legacy CLI namespace and build the environment."""
+        return self.build(
+            GalileoG1StaticPickAndPlaceEnvironmentCfg(
+                enable_cameras=args_cli.enable_cameras,
+                object=args_cli.object,
+                destination=args_cli.destination,
+                embodiment=args_cli.embodiment,
+                teleop_device=args_cli.teleop_device,
+                task_description=args_cli.task_description,
+                lock_waist=args_cli.lock_waist,
+            )
+        )
+
+    def build(self, cfg: GalileoG1StaticPickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
         from isaaclab import sim as sim_utils
 
         from isaaclab_arena.assets.object import Object
@@ -200,13 +230,11 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         # small objects can fall through parts of the visible shelf. Add an invisible
         # static cuboid flush with the shelf top so task objects see a clean support.
         shelf_support = StaticShelfSupport()
-        pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)(scale=_asset_scale(args_cli.object))
-        destination = self.asset_registry.get_asset_by_name(args_cli.destination)(
-            scale=_asset_scale(args_cli.destination)
-        )
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
-            enable_cameras=args_cli.enable_cameras,
-            lock_waist=args_cli.lock_waist,
+        pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)(scale=_asset_scale(cfg.object))
+        destination = self.asset_registry.get_asset_by_name(cfg.destination)(scale=_asset_scale(cfg.destination))
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(
+            enable_cameras=cfg.enable_cameras,
+            lock_waist=cfg.lock_waist,
         )
         embodiment.set_finger_contact_friction(
             material_path=G1_STATIC_FINGER_FRICTION_MATERIAL_PATH,
@@ -215,8 +243,8 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
             prim_name_markers=G1_STATIC_FINGER_PRIM_NAME_MARKERS,
         )
 
-        if args_cli.teleop_device is not None:
-            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+        if cfg.teleop_device is not None:
+            teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()
         else:
             teleop_device = None
 
@@ -228,7 +256,7 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         embodiment.set_joint_initial_pos(G1_STATIC_OPEN_ARM_JOINT_POS)
         pick_up_object_x, pick_up_object_y = PICK_UP_OBJECT_SPAWN_XY
         destination_x, destination_y = DESTINATION_SPAWN_XY
-        pick_up_object_z = _shelf_spawn_z(args_cli.object)
+        pick_up_object_z = _shelf_spawn_z(cfg.object)
         # ``PoseRange`` registers a ``randomize_object_pose`` reset event so the apple's
         # XY is resampled every episode within ``APPLE_SPAWN_XY_RANGE_M``. Z and rotation
         # are pinned (rpy_min == rpy_max) so the object always lands flush on the shelf
@@ -252,12 +280,12 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         )
         destination.set_initial_pose(
             Pose(
-                position_xyz=(destination_x, destination_y, _shelf_spawn_z(args_cli.destination)),
+                position_xyz=(destination_x, destination_y, _shelf_spawn_z(cfg.destination)),
                 rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
 
-        task_description = args_cli.task_description
+        task_description = cfg.task_description
 
         def env_cfg_callback(env_cfg):
             from isaaclab.managers import EventTermCfg

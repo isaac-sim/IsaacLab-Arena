@@ -7,21 +7,49 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
+from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
+@dataclass
+class PegInsertEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the peg-insert assembly environment."""
+
+    enable_cameras: bool = False
+    object: str = "peg"
+    destination_object: str = "hole"
+    background: str = "table"
+    embodiment: str = "franka_ik"
+    teleop_device: str | None = None
+
+
 @register_environment
-class PegInsertEnvironment(ExampleEnvironmentBase):
+class PegInsertEnvironment(ExampleEnvironmentBase[PegInsertEnvironmentCfg]):
 
     name: str = "peg_insert"
 
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+        """Translate the legacy CLI namespace and build the environment."""
+        return self.build(
+            PegInsertEnvironmentCfg(
+                enable_cameras=args_cli.enable_cameras,
+                object=args_cli.object,
+                destination_object=args_cli.destination_object,
+                background=args_cli.background,
+                embodiment=args_cli.embodiment,
+                teleop_device=args_cli.teleop_device,
+            )
+        )
+
+    def build(self, cfg: PegInsertEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
         import isaaclab.sim as sim_utils
 
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -30,16 +58,16 @@ class PegInsertEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.utils.pose import Pose
         from isaaclab_arena_environments import mdp
 
-        background = self.asset_registry.get_asset_by_name(args_cli.background)()
-        pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-        destination_object = self.asset_registry.get_asset_by_name(args_cli.destination_object)()
+        background = self.asset_registry.get_asset_by_name(cfg.background)()
+        pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
+        destination_object = self.asset_registry.get_asset_by_name(cfg.destination_object)()
         light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
         light = self.asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
         embodiment.scene_config.robot = mdp.FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
-        if args_cli.teleop_device is not None:
-            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+        if cfg.teleop_device is not None:
+            teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()
         else:
             teleop_device = None
 

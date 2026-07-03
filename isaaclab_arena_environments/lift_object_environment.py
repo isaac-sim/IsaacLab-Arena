@@ -6,21 +6,45 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
+from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
+@dataclass
+class LiftObjectEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the lift-object environment."""
+
+    object: str = "dex_cube"
+    teleop_device: str | None = None
+    embodiment: str = "franka_joint_pos"
+    rl_training_mode: bool = False
+
+
 @register_environment
-class LiftObjectEnvironment(ExampleEnvironmentBase):
+class LiftObjectEnvironment(ExampleEnvironmentBase[LiftObjectEnvironmentCfg]):
 
     name: str = "lift_object"
 
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+        """Translate the legacy CLI namespace and build the environment."""
+        return self.build(
+            LiftObjectEnvironmentCfg(
+                object=args_cli.object,
+                teleop_device=args_cli.teleop_device,
+                embodiment=args_cli.embodiment,
+                rl_training_mode=args_cli.rl_training_mode,
+            )
+        )
+
+    def build(self, cfg: LiftObjectEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
         import isaaclab_arena_examples.policy.base_rsl_rl_policy as base_rsl_rl_policy
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
@@ -28,7 +52,7 @@ class LiftObjectEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.utils.pose import Pose
 
         background = self.asset_registry.get_asset_by_name("table")()
-        pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+        pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
 
         # Add ground plane and light to the scene
         ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
@@ -36,10 +60,10 @@ class LiftObjectEnvironment(ExampleEnvironmentBase):
 
         assets = [background, pick_up_object, ground_plane, light]
 
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(concatenate_observation_terms=True)
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(concatenate_observation_terms=True)
 
-        if args_cli.teleop_device is not None:
-            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+        if cfg.teleop_device is not None:
+            teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()
         else:
             teleop_device = None
 
@@ -58,7 +82,7 @@ class LiftObjectEnvironment(ExampleEnvironmentBase):
             embodiment,
             minimum_height_to_lift=0.04,
             episode_length_s=5.0,
-            rl_training_mode=args_cli.rl_training_mode,
+            rl_training_mode=cfg.rl_training_mode,
         )
 
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
