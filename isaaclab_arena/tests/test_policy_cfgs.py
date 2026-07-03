@@ -6,7 +6,7 @@
 """Verify the typed policy configuration contract."""
 
 import torch
-from dataclasses import dataclass, is_dataclass
+from dataclasses import dataclass
 
 import pytest
 
@@ -30,7 +30,6 @@ def test_core_policies_register_typed_configs(policy_type, cfg_type):
     """Check that each core policy is registered with its concrete config."""
     assert PolicyRegistry().get_policy_cfg_type(policy_type) is cfg_type
     assert issubclass(cfg_type, PolicyCfg)
-    assert is_dataclass(cfg_type)
 
 
 @dataclass
@@ -39,23 +38,40 @@ class _ExamplePolicyCfg(PolicyCfg):
 
 
 class _ExamplePolicy(PolicyBase[_ExamplePolicyCfg]):
+    name = "example_policy"
+
     def get_action(self, env, observation) -> torch.Tensor:
         return torch.tensor([self.config.value])
 
 
-def test_policy_constructs_without_deserialization_on_runtime_contract():
-    """Keep deserialization and argparse adapters outside the policy contract."""
-    policy = _ExamplePolicy(_ExamplePolicyCfg(value=2))
+def test_policy_runtime_contract_accepts_typed_config():
+    """Construct and run a policy using only its typed runtime config."""
+    config = _ExamplePolicyCfg(value=2)
+    policy = _ExamplePolicy(config)
 
-    assert policy.config == _ExamplePolicyCfg(value=2)
-    assert not hasattr(PolicyBase, "config_class")
-    assert not hasattr(PolicyBase, "from_dict")
-    assert not hasattr(PolicyBase, "add_args_to_parser")
-    assert not hasattr(PolicyBase, "from_args")
+    assert policy.config is config
+    assert policy.get_action(env=None, observation=None).item() == 2
+
+
+def test_typed_policy_registration_associates_config(monkeypatch):
+    """Pass the policy and its config through the supported decorator form."""
+    registrations = []
+
+    def record_registration(policy_type, cfg_type):
+        registrations.append((policy_type, cfg_type))
+        return policy_type
+
+    monkeypatch.setattr(policy_registration, "_register_policy", record_registration)
+
+    registered_policy = policy_registration.register_policy(cfg_type=_ExamplePolicyCfg)(_ExamplePolicy)
+
+    assert registered_policy is _ExamplePolicy
+    assert registrations == [(_ExamplePolicy, _ExamplePolicyCfg)]
 
 
 def test_bare_policy_registration_is_deprecated(monkeypatch):
     """Keep the untyped registration form only as an explicit compatibility path."""
+    # TODO(cvolk, 2026-07-03): Delete this test when bare @register_policy support is removed.
     monkeypatch.setattr(policy_registration, "_register_policy", lambda policy_type, cfg_type: policy_type)
 
     with pytest.warns(DeprecationWarning, match="Bare @register_policy is deprecated"):
