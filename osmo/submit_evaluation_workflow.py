@@ -37,8 +37,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from workflows.gr00t_policy_runner_workflow import Gr00tPolicyRunnerWorkflow
-from workflows.pi0_plus_policy_runner_workflow import Pi0PlusPolicyRunnerWorkflow
+from workflows.server_plus_policy_runner_workflow import Gr00tPolicyRunnerWorkflow, Pi0PlusPolicyRunnerWorkflow
 from workflows.workflow import Workflow
 from workflows.zero_action_policy_runner_workflow import ZeroActionPolicyRunnerWorkflow
 
