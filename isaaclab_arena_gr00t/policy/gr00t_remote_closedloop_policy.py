@@ -11,7 +11,6 @@ This policy connects to a GR00T policy server (launched via
 
 from __future__ import annotations
 
-import argparse
 import gymnasium as gym
 import torch
 from dataclasses import dataclass
@@ -125,55 +124,6 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
             raise ConnectionError(f"Cannot reach GR00T policy server at {config.remote_host}:{config.remote_port}")
 
         self.task_description: str | None = None
-
-    # TODO(cvolk, 2026-07-03): Remove this deprecated argparse adapter once the CLI builds typed configs directly.
-
-    @staticmethod
-    def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-        group = parser.add_argument_group(
-            "Gr00t Remote Closedloop Policy",
-            "Arguments for GR00T remote closed-loop policy evaluation.",
-        )
-        group.add_argument(
-            "--policy_config_yaml_path",
-            type=str,
-            required=True,
-            help="Path to the Gr00t closedloop policy config YAML file",
-        )
-        group.add_argument(
-            "--policy_device",
-            type=str,
-            default="cuda",
-            help="Device for Arena-side tensor operations (default: cuda)",
-        )
-        group.add_argument("--remote_host", type=str, default="localhost", help="GR00T policy server hostname")
-        group.add_argument("--remote_port", type=int, default=5555, help="GR00T policy server port")
-        group.add_argument("--remote_api_token", type=str, default=None, help="API token for the policy server")
-        group.add_argument(
-            "--scheduler",
-            type=str,
-            default="chunk",
-            choices=["chunk", "synced_batch"],
-            help=(
-                "Action scheduler: 'chunk' fetches a new chunk for any env that needs one;"
-                " 'synced_batch' waits until ALL envs need a new chunk and then issues a single"
-                " full-batch inference call (envs that finish early hold their current robot state)."
-            ),
-        )
-        return parser
-
-    @staticmethod
-    def from_args(args: argparse.Namespace) -> Gr00tRemoteClosedloopPolicy:
-        config = Gr00tRemoteClosedloopPolicyCfg(
-            policy_config_yaml_path=args.policy_config_yaml_path,
-            policy_device=args.policy_device,
-            num_envs=args.num_envs,
-            remote_host=args.remote_host,
-            remote_port=args.remote_port,
-            remote_api_token=getattr(args, "remote_api_token", None),
-            scheduler=getattr(args, "scheduler", "chunk"),
-        )
-        return Gr00tRemoteClosedloopPolicy(config)
 
     # ---------------------- Policy interface -------------------
 

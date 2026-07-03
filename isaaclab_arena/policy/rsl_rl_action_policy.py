@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import argparse
 import gymnasium as gym
 import os
 import torch
@@ -131,27 +130,3 @@ class RslRlActionPolicy(PolicyBase[RslRlActionPolicyCfg]):
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         pass
-
-    # TODO(cvolk, 2026-07-03): Remove this deprecated argparse adapter once the CLI builds typed configs directly.
-    @staticmethod
-    def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-        """Add RSL-RL action policy specific arguments to the parser."""
-        rsl_rl_group = parser.add_argument_group("RSL-RL Action Policy", "Arguments for RSL-RL action policy")
-        rsl_rl_group.add_argument(
-            "--checkpoint_path",
-            type=str,
-            required=True,
-            help=(
-                "Path to the checkpoint file. Agent config is loaded automatically from params/agent.yaml in the same"
-                " directory."
-            ),
-        )
-        return parser
-
-    @staticmethod
-    def from_args(args: argparse.Namespace) -> "RslRlActionPolicy":
-        config = RslRlActionPolicyCfg(
-            checkpoint_path=args.checkpoint_path,
-            device=args.device if hasattr(args, "device") else "cuda:0",
-        )
-        return RslRlActionPolicy(config)

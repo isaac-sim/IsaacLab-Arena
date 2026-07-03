@@ -14,7 +14,11 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
+from isaaclab_arena.evaluation.policy_runner_cli import (
+    add_policy_cli_args,
+    add_policy_runner_arguments,
+    build_policy_from_cli,
+)
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
@@ -164,11 +168,9 @@ def main():
             f" {policy_cls}"
         )
 
-        # TODO(cvolk, 2026-07-03): Make policy_runner build PolicyCfg, then remove policy-owned
-        # add_args_to_parser and from_args adapters.
-        # Add the example environment arguments + policy-related arguments to the parser
+        # Add the example environment arguments and config-derived policy arguments.
         args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
-        args_parser = policy_cls.add_args_to_parser(args_parser)
+        args_parser = add_policy_cli_args(args_parser, policy_cls)
         args_cli, hydra_overrides = args_parser.parse_known_args()
         assert_hydra_overrides(hydra_overrides, args_parser)
         # Re-apply per-rank device after parse preventing device got overwritten by the default value
@@ -203,8 +205,8 @@ def main():
         env.unwrapped.episode_recorder.set_job_name("policy_runner")
         env.unwrapped.episode_recorder.set_output_path(results_path)
 
-        # Create the policy from the arguments
-        policy = policy_cls.from_args(args_cli)
+        # Create the policy through the typed config compatibility adapter.
+        policy = build_policy_from_cli(policy_cls, args_cli)
 
         # Simulation length.
         if policy.has_length():

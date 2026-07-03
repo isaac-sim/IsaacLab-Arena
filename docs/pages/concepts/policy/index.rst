@@ -51,7 +51,7 @@ Define a typed ``PolicyCfg``, subclass ``PolicyBase`` with that config, set a
 
    @dataclass
    class MyPolicyCfg(PolicyCfg):
-       device: str = "cuda"
+       device: str = "cuda:0"
 
 
    @register_policy(cfg_type=MyPolicyCfg)
@@ -69,22 +69,26 @@ Construct the policy by passing its typed configuration directly:
 
 .. code-block:: python
 
-   policy_cfg = MyPolicyCfg(device="cuda")
+   policy_cfg = MyPolicyCfg(device="cuda:0")
    policy = MyPolicy(policy_cfg)
 
-The typed registration also lets the batch eval runner convert the current
-``Job.policy_config_dict`` representation into ``MyPolicyCfg``. See
+The typed registration lets the single-job runner generate CLI flags from
+``MyPolicyCfg`` and lets the batch eval runner convert the current
+``Job.policy_config_dict`` representation into that same type. See
 :doc:`concept_evaluation_types` for details.
 
-.. TODO(cvolk, 2026-07-03): Remove this compatibility note when policy_runner constructs PolicyCfg directly.
+Config fields named ``device`` or ``num_envs`` reuse the corresponding shared
+runner flags, so their defaults must match the runner defaults.
+
+.. TODO(cvolk, 2026-07-03): Remove this compatibility note with support for untyped downstream policies.
 
 .. note::
 
-   ``policy_runner.py`` is still an argparse frontend and cannot yet construct
-   a typed-only custom policy. Existing first-party policies temporarily retain
-   deprecated ``add_args_to_parser`` and ``from_args`` adapters. New policy
-   implementations should use the typed construction shown above rather than
-   adding those adapters.
+   ``policy_runner.py`` remains an argparse frontend, but policies registered
+   with a ``PolicyCfg`` do not implement argparse methods. The runner generates
+   their flags from that config and reconstructs it before creating the policy.
+   Untyped downstream policies temporarily retain the deprecated
+   ``add_args_to_parser`` and ``from_args`` compatibility path.
 
 More details
 ------------

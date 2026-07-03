@@ -194,9 +194,10 @@ class PolicyRegistry(Registry):
         if cfg_type is not None:
             self._cfg_types[policy_type] = cfg_type
 
-    # TODO(cvolk, 2026-07-03): Remove when eval_runner receives PolicyCfg instead of Job.policy_config_dict.
+    # TODO(cvolk, 2026-07-03): Remove this lookup when policy_runner and eval_runner receive
+    # concrete PolicyCfg objects instead of CLI values and Job.policy_config_dict.
     def get_policy_cfg_type(self, policy_type: type["PolicyBase"]) -> type["PolicyCfg"] | None:
-        """Get the config type used to deserialize Job.policy_config_dict in eval_runner."""
+        """Get the config type used by the temporary policy frontend adapters."""
         ensure_assets_registered()
         return self._cfg_types.get(policy_type)
 

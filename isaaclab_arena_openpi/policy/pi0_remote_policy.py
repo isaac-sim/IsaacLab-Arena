@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import argparse
 import gymnasium as gym
 import numpy as np
 import torch
@@ -17,7 +16,7 @@ from openpi_client import websocket_client_policy
 
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase
-from isaaclab_arena_openpi.policy.pi0_remote_config import DEFAULT_VARIANT, MAX_RECONNECT_ATTEMPTS, Pi0RemotePolicyCfg
+from isaaclab_arena_openpi.policy.pi0_remote_config import MAX_RECONNECT_ATTEMPTS, Pi0RemotePolicyCfg
 from isaaclab_arena_openpi.policy.websocket_client import WebsocketClientPolicy
 
 
@@ -100,65 +99,6 @@ class Pi0RemotePolicy(PolicyBase[Pi0RemotePolicyCfg]):
         self._cached_action_chunks: list[np.ndarray | None] | None = None
         self._next_chunk_steps: list[int] | None = None
         self.task_description: str | None = None
-
-    # TODO(cvolk, 2026-07-03): Remove this deprecated argparse adapter once the CLI builds typed configs directly.
-    @staticmethod
-    def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-        group = parser.add_argument_group(
-            "Pi0 Remote Policy",
-            "Arguments for the openpi (pi0 / pi05) remote client.",
-        )
-        group.add_argument(
-            "--openpi_embodiment_adapter",
-            type=str,
-            default="droid",
-            choices=["droid"],
-            help="Openpi-side embodiment adapter for obs / action wire format (default: droid).",
-        )
-        group.add_argument(
-            "--policy_variant",
-            type=str,
-            default=DEFAULT_VARIANT,
-            help=(
-                f"openpi checkpoint variant (default: {DEFAULT_VARIANT})."
-                " Valid values depend on the chosen --openpi_embodiment_adapter."
-            ),
-        )
-        group.add_argument(
-            "--policy_device",
-            type=str,
-            default="cuda",
-            help="Torch device for action tensors (default: cuda).",
-        )
-        group.add_argument("--remote_host", type=str, default="localhost", help="openpi server host.")
-        group.add_argument("--remote_port", type=int, default=8000, help="openpi server port.")
-        group.add_argument(
-            "--ping_interval",
-            type=float,
-            default=20.0,
-            help="Seconds between websocket keepalive pings.",
-        )
-        group.add_argument(
-            "--ping_timeout",
-            type=float,
-            default=20.0,
-            help="Seconds to wait for a keepalive pong before dropping the connection.",
-        )
-        return parser
-
-    @staticmethod
-    def from_args(args: argparse.Namespace) -> Pi0RemotePolicy:
-        return Pi0RemotePolicy(
-            Pi0RemotePolicyCfg(
-                openpi_embodiment_adapter=args.openpi_embodiment_adapter,
-                policy_variant=args.policy_variant,
-                policy_device=args.policy_device,
-                remote_host=args.remote_host,
-                remote_port=args.remote_port,
-                ping_interval=args.ping_interval,
-                ping_timeout=args.ping_timeout,
-            )
-        )
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
         assert self.task_description, (

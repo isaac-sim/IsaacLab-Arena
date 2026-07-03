@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import argparse
 import gymnasium as gym
 import torch
 from dataclasses import dataclass
@@ -37,35 +36,3 @@ class ZeroActionPolicy(PolicyBase[ZeroActionPolicyCfg]):
         Always returns a zero action.
         """
         return torch.zeros(env.action_space.shape, device=torch.device(env.unwrapped.device))
-
-    # TODO(cvolk, 2026-07-03): Remove this deprecated argparse adapter once the CLI builds typed configs directly.
-    @staticmethod
-    def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-        """
-        Add zero action policy specific arguments to the parser.
-
-        This policy has no configuration parameters, so no arguments are added.
-
-        Args:
-            parser: The argument parser to add arguments to
-
-        Returns:
-            The updated argument parser (unchanged)
-        """
-        # No additional command line arguments for zero action policy
-        return parser
-
-    @staticmethod
-    def from_args(args: argparse.Namespace) -> "ZeroActionPolicy":
-        """
-        Create a ZeroActionPolicy instance from parsed CLI arguments.
-
-        Path: CLI args → ConfigDataclass → init cls
-
-        Args:
-            args: Parsed command line arguments
-
-        Returns:
-            ZeroActionPolicy instance
-        """
-        return ZeroActionPolicy(ZeroActionPolicyCfg())

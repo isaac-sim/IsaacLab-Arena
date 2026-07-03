@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import argparse
 import gymnasium as gym
 import torch
 from dataclasses import dataclass
@@ -22,7 +21,7 @@ class ReplayActionPolicyCfg(PolicyCfg):
     replay_file_path: str
     """Path to the HDF5 file containing the episode."""
 
-    device: str = "cuda"
+    device: str = "cuda:0"
     """Device used to load the recorded episode."""
 
     episode_name: str | None = None
@@ -97,43 +96,3 @@ class ReplayActionPolicy(PolicyBase[ReplayActionPolicyCfg]):
     def length(self) -> int:
         """Get the length of the policy (for dataset-driven policies)."""
         return len(self)
-
-    # TODO(cvolk, 2026-07-03): Remove this deprecated argparse adapter once the CLI builds typed configs directly.
-    @staticmethod
-    def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-        """Add replay action policy specific arguments to the parser."""
-        replay_group = parser.add_argument_group("Replay Action Policy", "Arguments for replay action policy")
-        replay_group.add_argument(
-            "--replay_file_path",
-            type=str,
-            required=True,
-            help="Path to the HDF5 file containing the episode",
-        )
-        # Note: --device is already provided by AppLauncher.add_app_launcher_args()
-        replay_group.add_argument(
-            "--episode_name",
-            type=str,
-            default=None,
-            help="Name of the episode to replay. If not provided, the first episode will be replayed",
-        )
-        return parser
-
-    @staticmethod
-    def from_args(args: argparse.Namespace) -> "ReplayActionPolicy":
-        """
-        Create a ReplayActionPolicy instance from parsed CLI arguments.
-
-        Path: CLI args → ConfigDataclass → init cls
-
-        Args:
-            args: Parsed command line arguments
-
-        Returns:
-            ReplayActionPolicy instance
-        """
-        config = ReplayActionPolicyCfg(
-            replay_file_path=args.replay_file_path,
-            device=args.device,
-            episode_name=args.episode_name,
-        )
-        return ReplayActionPolicy(config)

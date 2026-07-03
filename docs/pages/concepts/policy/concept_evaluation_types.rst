@@ -134,8 +134,8 @@ and pass ``--distributed`` so each process uses a different GPU (via ``LOCAL_RAN
 - ``--distributed``: Enable distributed mode; use with ``torchrun`` and set
   device per rank (e.g. ``cuda:{local_rank}``).
 
-The rest of the arguments (environment, embodiment, object, etc.) come from the
-Arena environments CLI and the policy’s own ``add_args_to_parser``.
+The remaining environment arguments come from the Arena environments CLI. For
+registered policies, policy-specific flags are generated from their ``PolicyCfg``.
 
 .. _sequential-batch-eval-runner:
 

@@ -62,9 +62,9 @@ def _register_policy(cls: type["PolicyBase"], cfg_type: type["PolicyCfg"] | None
 def register_policy(policy_type: type["PolicyBase"] | None = None, *, cfg_type: type["PolicyCfg"] | None = None):
     """Register a policy and its typed configuration."""
     if cfg_type is None:
-        # TODO(cvolk, 2026-07-03): After policy_runner and eval_runner stop using policy-owned
-        # argparse adapters, remove bare @register_policy support and this warning branch. Make
-        # cfg_type required and keyword-only, and remove the optional policy_type argument.
+        # TODO(cvolk, 2026-07-03): After the policy_runner and eval_runner compatibility
+        # fallbacks for untyped downstream policies are removed, require cfg_type and delete
+        # the optional policy_type argument and this warning branch.
         assert policy_type is not None, "Typed policy registration requires cfg_type"
         warnings.warn(
             "Bare @register_policy is deprecated; use @register_policy(cfg_type=PolicyCfgType)",
