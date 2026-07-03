@@ -20,6 +20,7 @@ EnvironmentCfgT = TypeVar("EnvironmentCfgT", bound=ArenaEnvironmentCfg)
 class ExampleEnvironmentBase(ABC, Generic[EnvironmentCfgT]):
 
     name: str | None = None
+    cfg_type: type[EnvironmentCfgT] | None = None
 
     def __init__(self):
         from isaaclab_arena.assets.registries import AssetRegistry, DeviceRegistry, HDRImageRegistry

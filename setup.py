@@ -9,6 +9,8 @@ from setuptools import find_packages, setup
 ISAACLAB_ARENA_VERSION_NUMBER = "1.0.0"
 
 RUNTIME_DEPS = [
+    "hydra-core",
+    "omegaconf",
     "typing_extensions",
     "onnxruntime",
     "vuer[all]",
@@ -51,6 +53,9 @@ setup(
     install_requires=RUNTIME_DEPS,
     extras_require={
         "dev": DEV_DEPS,
+    },
+    package_data={
+        "isaaclab_arena_examples.hydra_configuration": ["*.yaml", "README.md"],
     },
     zip_safe=False,
 )
