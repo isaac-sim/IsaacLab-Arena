@@ -13,22 +13,34 @@ is covered by the all-environments smoke test.
 
 import argparse
 from dataclasses import fields, is_dataclass
-from typing import get_args, get_origin
+
+import pytest
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
 from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 from isaaclab_arena_environments.cli import ensure_environments_registered
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+from isaaclab_arena_environments.galileo_g1_static_pick_and_place_environment import (
+    GalileoG1StaticPickAndPlaceEnvironment,
+)
+from isaaclab_arena_environments.gr1_put_and_close_door_environment import GR1PutAndCloseDoorEnvironment
+from isaaclab_arena_environments.gr1_table_multi_object_no_collision_environment import (
+    GR1TableMultiObjectNoCollisionEnvironment,
+)
+from isaaclab_arena_environments.lift_object_environment import LiftObjectEnvironment
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironment
+
+# TODO(cvolk, 2026-07-03): Delete these compatibility tests with the legacy argparse
+# environment adapters.
 
 
 def _environment_cfg_type(environment_type: type[ExampleEnvironmentBase]) -> type[ArenaEnvironmentCfg]:
-    """Return the concrete configuration type declared by an environment factory."""
-    for base in environment_type.__orig_bases__:
-        if get_origin(base) is ExampleEnvironmentBase:
-            (cfg_type,) = get_args(base)
-            return cfg_type
-    raise AssertionError(f"{environment_type.__name__} does not declare a typed environment configuration")
+    """Return the concrete configuration used by the legacy argparse adapter."""
+    environment_cfg_type = environment_type._legacy_argparse_cfg_type
+    assert (
+        environment_cfg_type is not None
+    ), f"{environment_type.__name__} does not declare a typed environment configuration"
+    return environment_cfg_type
 
 
 def _parse_legacy_arguments(
@@ -84,12 +96,37 @@ def test_every_registered_legacy_adapter_translates_cli_defaults_to_its_typed_cf
 
         assert type(cfg) is cfg_type
         assert isinstance(cfg, ArenaEnvironmentCfg)
-        expected_cfg = cfg_type(**{
-            cfg_field.name: getattr(legacy_arguments, cfg_field.name)
-            for cfg_field in fields(cfg)
-            if hasattr(legacy_arguments, cfg_field.name)
-        })
-        assert cfg == expected_cfg, f"{environment_name} did not retain its legacy defaults"
+        assert cfg == cfg_type(), f"{environment_name} CLI defaults diverged from its typed config defaults"
+
+
+def test_generated_cli_arguments_and_cfg_validation(monkeypatch):
+    """Keep list, boolean, and scalar parsing while configs validate domain values."""
+    test_cases = [
+        (
+            GR1PutAndCloseDoorEnvironment,
+            ["--object_set", "cracker_box", "mustard_bottle"],
+            {"object_set": ["cracker_box", "mustard_bottle"]},
+        ),
+        (GR1PutAndCloseDoorEnvironment, ["--object_set"], {"object_set": []}),
+        (GalileoG1StaticPickAndPlaceEnvironment, ["--no-lock_waist"], {"lock_waist": False}),
+        (LiftObjectEnvironment, ["--rl_training_mode"], {"rl_training_mode": True}),
+        (GR1TableMultiObjectNoCollisionEnvironment, ["--mode", "heterogeneous"], {"mode": "heterogeneous"}),
+        (
+            PickAndPlaceMapleTableEnvironment,
+            ["--light_intensity", "750", "--additional_table_objects", "apple", "banana"],
+            {"light_intensity": 750.0, "additional_table_objects": ["apple", "banana"]},
+        ),
+    ]
+
+    for environment_type, cli_args, expected_values in test_cases:
+        legacy_arguments = _parse_legacy_arguments(environment_type, cli_args)
+        cfg = _capture_typed_cfg(monkeypatch, environment_type, legacy_arguments)
+        for field_name, expected_value in expected_values.items():
+            assert getattr(cfg, field_name) == expected_value
+
+    invalid_mode_args = _parse_legacy_arguments(GR1TableMultiObjectNoCollisionEnvironment, ["--mode", "unsupported"])
+    with pytest.raises(AssertionError, match="Unsupported placement mode"):
+        _capture_typed_cfg(monkeypatch, GR1TableMultiObjectNoCollisionEnvironment, invalid_mode_args)
 
 
 def test_maple_teleop_device_remains_a_cli_only_option(monkeypatch):

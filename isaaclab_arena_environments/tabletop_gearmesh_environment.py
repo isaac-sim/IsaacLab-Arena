@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -39,17 +38,7 @@ class GearMeshEnvironment(ExampleEnvironmentBase[GearMeshEnvironmentCfg]):
     """
 
     name: str = "gear_mesh"
-
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-        """Translate the legacy CLI namespace and build the environment."""
-        return self.build(
-            GearMeshEnvironmentCfg(
-                enable_cameras=args_cli.enable_cameras,
-                background=args_cli.background,
-                embodiment=args_cli.embodiment,
-                teleop_device=args_cli.teleop_device,
-            )
-        )
+    _legacy_argparse_cfg_type = GearMeshEnvironmentCfg
 
     def build(self, cfg: GearMeshEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
@@ -131,12 +120,3 @@ class GearMeshEnvironment(ExampleEnvironmentBase[GearMeshEnvironmentCfg]):
             env_cfg_callback=mdp.assembly_env_cfg_callback,
         )
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        """Add CLI arguments for gear mesh environment."""
-        parser.add_argument("--background", type=str, default="table", help="Background scene (table)")
-        parser.add_argument("--embodiment", type=str, default="franka_ik", help="Robot embodiment")
-        parser.add_argument(
-            "--teleop_device", type=str, default=None, help="Teleoperation device (e.g., keyboard, spacemouse)"
-        )

@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -34,19 +33,7 @@ class PegInsertEnvironmentCfg(ArenaEnvironmentCfg):
 class PegInsertEnvironment(ExampleEnvironmentBase[PegInsertEnvironmentCfg]):
 
     name: str = "peg_insert"
-
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-        """Translate the legacy CLI namespace and build the environment."""
-        return self.build(
-            PegInsertEnvironmentCfg(
-                enable_cameras=args_cli.enable_cameras,
-                object=args_cli.object,
-                destination_object=args_cli.destination_object,
-                background=args_cli.background,
-                embodiment=args_cli.embodiment,
-                teleop_device=args_cli.teleop_device,
-            )
-        )
+    _legacy_argparse_cfg_type = PegInsertEnvironmentCfg
 
     def build(self, cfg: PegInsertEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
@@ -113,11 +100,3 @@ class PegInsertEnvironment(ExampleEnvironmentBase[PegInsertEnvironmentCfg]):
             env_cfg_callback=mdp.assembly_env_cfg_callback,
         )
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default="peg")
-        parser.add_argument("--destination_object", type=str, default="hole")
-        parser.add_argument("--background", type=str, default="table")
-        parser.add_argument("--embodiment", type=str, default="franka_ik")
-        parser.add_argument("--teleop_device", type=str, default=None)

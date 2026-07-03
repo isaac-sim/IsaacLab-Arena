@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -24,6 +23,7 @@ class LiftObjectEnvironmentCfg(ArenaEnvironmentCfg):
     object: str = "dex_cube"
     teleop_device: str | None = None
     embodiment: str = "franka_joint_pos"
+    """Use joint control by default because it is more reliable than IK for RL training."""
     rl_training_mode: bool = False
 
 
@@ -31,17 +31,7 @@ class LiftObjectEnvironmentCfg(ArenaEnvironmentCfg):
 class LiftObjectEnvironment(ExampleEnvironmentBase[LiftObjectEnvironmentCfg]):
 
     name: str = "lift_object"
-
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-        """Translate the legacy CLI namespace and build the environment."""
-        return self.build(
-            LiftObjectEnvironmentCfg(
-                object=args_cli.object,
-                teleop_device=args_cli.teleop_device,
-                embodiment=args_cli.embodiment,
-                rl_training_mode=args_cli.rl_training_mode,
-            )
-        )
+    _legacy_argparse_cfg_type = LiftObjectEnvironmentCfg
 
     def build(self, cfg: LiftObjectEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
@@ -96,18 +86,3 @@ class LiftObjectEnvironment(ExampleEnvironmentBase[LiftObjectEnvironmentCfg]):
         )
 
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default="dex_cube")
-        # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
-        # to be used in the record_demos.py script.
-        parser.add_argument("--teleop_device", type=str, default=None)
-        # For RL training, joint model gives better success rate than IK model.
-        # The IK model tends to stuck in degenerate poses.
-        parser.add_argument("--embodiment", type=str, default="franka_joint_pos")
-        parser.add_argument(
-            "--rl_training_mode",
-            action="store_true",
-            help="Disable success termination (use when training with RSL-RL). Omit for evaluation.",
-        )

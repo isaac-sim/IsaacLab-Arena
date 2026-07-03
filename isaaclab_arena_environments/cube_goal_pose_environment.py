@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -35,18 +34,7 @@ class CubeGoalPoseEnvironment(ExampleEnvironmentBase[CubeGoalPoseEnvironmentCfg]
     """
 
     name = "cube_goal_pose"
-
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-        """Translate the legacy CLI namespace and build the environment."""
-        return self.build(
-            CubeGoalPoseEnvironmentCfg(
-                enable_cameras=args_cli.enable_cameras,
-                object=args_cli.object,
-                background=args_cli.background,
-                embodiment=args_cli.embodiment,
-                teleop_device=args_cli.teleop_device,
-            )
-        )
+    _legacy_argparse_cfg_type = CubeGoalPoseEnvironmentCfg
 
     def build(self, cfg: CubeGoalPoseEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
@@ -103,10 +91,3 @@ class CubeGoalPoseEnvironment(ExampleEnvironmentBase[CubeGoalPoseEnvironmentCfg]
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default="dex_cube")
-        parser.add_argument("--background", type=str, default="table")
-        parser.add_argument("--embodiment", type=str, default="franka_ik")
-        parser.add_argument("--teleop_device", type=str, default=None)

@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -36,19 +35,7 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase[TableTopSortCubesEnvir
     """
 
     name = "tabletop_sort_cubes"
-
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-        """Translate the legacy CLI namespace and build the environment."""
-        return self.build(
-            TableTopSortCubesEnvironmentCfg(
-                enable_cameras=args_cli.enable_cameras,
-                objects=args_cli.objects,
-                destinations=args_cli.destinations,
-                background=args_cli.background,
-                embodiment=args_cli.embodiment,
-                teleop_device=args_cli.teleop_device,
-            )
-        )
+    _legacy_argparse_cfg_type = TableTopSortCubesEnvironmentCfg
 
     def build(self, cfg: TableTopSortCubesEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
@@ -158,21 +145,3 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase[TableTopSortCubesEnvir
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "--objects",
-            nargs="*",
-            default=["red_cube", "green_cube"],
-            help="object list (example: --objects red_cube green_cube)",
-        )
-        parser.add_argument(
-            "--destinations",
-            nargs="*",
-            default=["red_container", "green_container"],
-            help="destination list (example: --destinations red_container green_container)",
-        )
-        parser.add_argument("--background", type=str, default="table")
-        parser.add_argument("--embodiment", type=str, default="franka_ik")
-        parser.add_argument("--teleop_device", type=str, default=None)

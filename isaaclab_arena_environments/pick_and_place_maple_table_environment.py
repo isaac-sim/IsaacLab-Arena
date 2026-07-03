@@ -35,20 +35,7 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase[PickAndPlaceMaple
     """Registered provider for the Maple-table pick-and-place environment."""
 
     name: str = "pick_and_place_maple_table"
-
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-        """Translate the legacy CLI namespace and build the environment."""
-        return self.build(
-            PickAndPlaceMapleTableEnvironmentCfg(
-                enable_cameras=args_cli.enable_cameras,
-                embodiment=args_cli.embodiment,
-                hdr=args_cli.hdr,
-                light_intensity=args_cli.light_intensity,
-                pick_up_object=args_cli.pick_up_object,
-                destination_location=args_cli.destination_location,
-                additional_table_objects=args_cli.additional_table_objects,
-            )
-        )
+    _legacy_argparse_cfg_type = PickAndPlaceMapleTableEnvironmentCfg
 
     def build(self, cfg: PickAndPlaceMapleTableEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
@@ -125,19 +112,10 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase[PickAndPlaceMaple
         )
         return isaaclab_arena_environment
 
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--embodiment", type=str, default="droid_abs_joint_pos")
+    # TODO(cvolk, 2026-07-03): Delete this CLI-only option when teleoperation runners
+    # receive typed configuration instead of the environment subparser namespace.
+    @classmethod
+    def add_cli_args(cls, parser: argparse.ArgumentParser) -> None:
+        super().add_cli_args(parser)
         # Consumed directly by teleop.py and record_demos.py, not by build(cfg).
         parser.add_argument("--teleop_device", type=str, default=None)
-        parser.add_argument("--hdr", type=str, default=None)
-        parser.add_argument("--light_intensity", type=float, default=500.0)
-        parser.add_argument("--pick_up_object", type=str, default="rubiks_cube_hot3d_robolab")
-        parser.add_argument("--destination_location", type=str, default="bowl_ycb_robolab")
-        parser.add_argument(
-            "--additional_table_objects",
-            nargs="*",
-            type=str,
-            default=[],
-            help="Extra objects to place on the table alongside the pick-up object",
-        )

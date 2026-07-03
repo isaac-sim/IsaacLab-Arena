@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -30,16 +29,7 @@ class PressButtonEnvironmentCfg(ArenaEnvironmentCfg):
 class PressButtonEnvironment(ExampleEnvironmentBase[PressButtonEnvironmentCfg]):
 
     name: str = "press_button"
-
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-        """Translate the legacy CLI namespace and build the environment."""
-        return self.build(
-            PressButtonEnvironmentCfg(
-                object=args_cli.object,
-                teleop_device=args_cli.teleop_device,
-                embodiment=args_cli.embodiment,
-            )
-        )
+    _legacy_argparse_cfg_type = PressButtonEnvironmentCfg
 
     def build(self, cfg: PressButtonEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
@@ -75,11 +65,3 @@ class PressButtonEnvironment(ExampleEnvironmentBase[PressButtonEnvironmentCfg]):
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default=None)
-        # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
-        # to be used in the record_demos.py script.
-        parser.add_argument("--teleop_device", type=str, default=None)
-        parser.add_argument("--embodiment", type=str, default="franka_ik")

@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -31,17 +30,7 @@ class GalileoPickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
 class GalileoPickAndPlaceEnvironment(ExampleEnvironmentBase[GalileoPickAndPlaceEnvironmentCfg]):
 
     name: str = "galileo_pick_and_place"
-
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-        """Translate the legacy CLI namespace and build the environment."""
-        return self.build(
-            GalileoPickAndPlaceEnvironmentCfg(
-                enable_cameras=args_cli.enable_cameras,
-                object=args_cli.object,
-                embodiment=args_cli.embodiment,
-                teleop_device=args_cli.teleop_device,
-            )
-        )
+    _legacy_argparse_cfg_type = GalileoPickAndPlaceEnvironmentCfg
 
     def build(self, cfg: GalileoPickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
@@ -89,11 +78,3 @@ class GalileoPickAndPlaceEnvironment(ExampleEnvironmentBase[GalileoPickAndPlaceE
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default="power_drill")
-        parser.add_argument("--embodiment", type=str, default="gr1_pink")
-        # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
-        # to be used in the record_demos.py script.
-        parser.add_argument("--teleop_device", type=str, default=None)

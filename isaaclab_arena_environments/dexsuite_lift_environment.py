@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -31,10 +30,7 @@ class DexsuiteLiftEnvironment(ExampleEnvironmentBase[DexsuiteLiftEnvironmentCfg]
     """
 
     name: str = "dexsuite_lift"
-
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-        """Translate the legacy CLI namespace and build the environment."""
-        return self.build(DexsuiteLiftEnvironmentCfg())
+    _legacy_argparse_cfg_type = DexsuiteLiftEnvironmentCfg
 
     def build(self, cfg: DexsuiteLiftEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
@@ -82,7 +78,3 @@ class DexsuiteLiftEnvironment(ExampleEnvironmentBase[DexsuiteLiftEnvironmentCfg]
             rl_framework_entry_point="rsl_rl_cfg_entry_point",
             rl_policy_cfg=dexsuite_rl_cfg_entry,
         )
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        pass

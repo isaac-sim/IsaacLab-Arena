@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -37,17 +36,7 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase[FrankaPutAndCloseD
     """
 
     name = "franka_put_and_close_door"
-
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-        """Translate the legacy CLI namespace and build the environment."""
-        return self.build(
-            FrankaPutAndCloseDoorEnvironmentCfg(
-                enable_cameras=args_cli.enable_cameras,
-                object=args_cli.object,
-                embodiment=args_cli.embodiment,
-                teleop_device=args_cli.teleop_device,
-            )
-        )
+    _legacy_argparse_cfg_type = FrankaPutAndCloseDoorEnvironmentCfg
 
     def build(self, cfg: FrankaPutAndCloseDoorEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
@@ -145,9 +134,3 @@ class FrankaPutAndCloseDoorEnvironment(ExampleEnvironmentBase[FrankaPutAndCloseD
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default="dex_cube", help="Object to pick and place in the microwave")
-        parser.add_argument("--embodiment", type=str, default="franka_ik", help="Robot embodiment to use")
-        parser.add_argument("--teleop_device", type=str, default=None, help="Teleoperation device to use")

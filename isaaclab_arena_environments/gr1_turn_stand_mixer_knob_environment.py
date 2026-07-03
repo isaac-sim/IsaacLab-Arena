@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -33,19 +32,7 @@ class Gr1TurnStandMixerKnobEnvironmentCfg(ArenaEnvironmentCfg):
 class Gr1TurnStandMixerKnobEnvironment(ExampleEnvironmentBase[Gr1TurnStandMixerKnobEnvironmentCfg]):
 
     name: str = "gr1_turn_stand_mixer_knob"
-
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-        """Translate the legacy CLI namespace and build the environment."""
-        return self.build(
-            Gr1TurnStandMixerKnobEnvironmentCfg(
-                enable_cameras=args_cli.enable_cameras,
-                object=args_cli.object,
-                teleop_device=args_cli.teleop_device,
-                embodiment=args_cli.embodiment,
-                target_level=args_cli.target_level,
-                reset_level=args_cli.reset_level,
-            )
-        )
+    _legacy_argparse_cfg_type = Gr1TurnStandMixerKnobEnvironmentCfg
 
     def build(self, cfg: Gr1TurnStandMixerKnobEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
@@ -94,14 +81,3 @@ class Gr1TurnStandMixerKnobEnvironment(ExampleEnvironmentBase[Gr1TurnStandMixerK
         )
 
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default=None)
-        # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
-        # to be used in the record_demos.py script.
-        parser.add_argument("--teleop_device", type=str, default=None)
-        # Note (xinjieyao, 2025.10.06): Add the embodiment argument for PINK IK EEF control or Joint positional control
-        parser.add_argument("--embodiment", type=str, default="gr1_pink")
-        parser.add_argument("--target_level", type=int, default=4)
-        parser.add_argument("--reset_level", type=int, default=-1)

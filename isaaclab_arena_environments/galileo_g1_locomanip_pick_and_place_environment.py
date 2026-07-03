@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import argparse
 import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -82,21 +81,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
 class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase[GalileoG1LocomanipPickAndPlaceEnvironmentCfg]):
 
     name: str = "galileo_g1_locomanip_pick_and_place"
-
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-        """Translate the legacy CLI namespace and build the environment."""
-        return self.build(
-            GalileoG1LocomanipPickAndPlaceEnvironmentCfg(
-                enable_cameras=args_cli.enable_cameras,
-                object=args_cli.object,
-                destination=args_cli.destination,
-                embodiment=args_cli.embodiment,
-                teleop_device=args_cli.teleop_device,
-                task_description=args_cli.task_description,
-                mimic=getattr(args_cli, "mimic", False),
-                auto=getattr(args_cli, "auto", None),
-            )
-        )
+    _legacy_argparse_cfg_type = GalileoG1LocomanipPickAndPlaceEnvironmentCfg
 
     def build(self, cfg: GalileoG1LocomanipPickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
@@ -190,19 +175,3 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase[GalileoG1
             env_cfg_callback=env_cfg_callback,
         )
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default="brown_box")
-        parser.add_argument("--destination", type=str, default="blue_sorting_bin")
-        parser.add_argument("--embodiment", type=str, default="g1_wbc_pink")
-        parser.add_argument("--teleop_device", type=str, default=None)
-        parser.add_argument(
-            "--task_description",
-            type=str,
-            default=None,
-            help=(
-                "Override the natural-language task description. Defaults to a template derived from --object "
-                "and --destination."
-            ),
-        )

@@ -22,7 +22,6 @@ HOMIE behaviour. The other differences from the locomanip env are:
 
 from __future__ import annotations
 
-import argparse
 import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -156,9 +155,11 @@ class GalileoG1StaticPickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
     object: str = TUNED_PICK_UP_OBJECT_NAME
     destination: str = TUNED_DESTINATION_NAME
     embodiment: str = "g1_wbc_agile_pink"
+    """Use AGILE whole-body control by default; ``g1_wbc_pink`` selects HOMIE instead."""
     teleop_device: str | None = None
     task_description: str = "move the apple to the plate"
     lock_waist: bool = True
+    """Keep the waist out of Pink IK unless extended arm reach is required."""
 
 
 @register_environment
@@ -170,20 +171,7 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase[GalileoG1Sta
     """
 
     name: str = "galileo_g1_static_pick_and_place"
-
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-        """Translate the legacy CLI namespace and build the environment."""
-        return self.build(
-            GalileoG1StaticPickAndPlaceEnvironmentCfg(
-                enable_cameras=args_cli.enable_cameras,
-                object=args_cli.object,
-                destination=args_cli.destination,
-                embodiment=args_cli.embodiment,
-                teleop_device=args_cli.teleop_device,
-                task_description=args_cli.task_description,
-                lock_waist=args_cli.lock_waist,
-            )
-        )
+    _legacy_argparse_cfg_type = GalileoG1StaticPickAndPlaceEnvironmentCfg
 
     def build(self, cfg: GalileoG1StaticPickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
@@ -321,39 +309,4 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase[GalileoG1Sta
             ),
             teleop_device=teleop_device,
             env_cfg_callback=env_cfg_callback,
-        )
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default=TUNED_PICK_UP_OBJECT_NAME)
-        parser.add_argument("--destination", type=str, default=TUNED_DESTINATION_NAME)
-        # Default embodiment is g1_wbc_agile_pink: AGILE end-to-end velocity policy for
-        # whole-body balance + PinkIK upper body. The static task never walks, so AGILE's
-        # single-policy backend is a better fit than HOMIE's stand+walk split (which
-        # ``g1_wbc_pink`` ships). Same 23-D action layout and OpenXR retargeter as the
-        # locomanip env -- the only knob that flips is which lower-body ONNX policy gets
-        # loaded by the WBC factory. ``g1_wbc_pink`` is still accepted as an override
-        # for users who specifically want HOMIE.
-        parser.add_argument("--embodiment", type=str, default="g1_wbc_agile_pink")
-        parser.add_argument("--teleop_device", type=str, default=None)
-        parser.add_argument(
-            "--task_description",
-            type=str,
-            default="move the apple to the plate",
-            help="Natural-language task description for language-conditioned policies.",
-        )
-        # The static task is upper-body-only by design, so we lock the 3 waist
-        # joints by default. Pass ``--no-lock_waist`` to fall back to the default
-        # AGILE-pink behaviour (waist active in Pink IK for extended arm reach).
-        parser.add_argument(
-            "--lock_waist",
-            action=argparse.BooleanOptionalAction,
-            default=True,
-            help=(
-                "Remove waist_yaw/roll/pitch from the upper-body Pink IK active set so "
-                "the torso stays fixed during teleoperation and recorded observations. "
-                "On by default for this static task; pass --no-lock_waist to allow the "
-                "IK to use the waist for extended arm reach (the production AGILE-pink "
-                "default)."
-            ),
         )

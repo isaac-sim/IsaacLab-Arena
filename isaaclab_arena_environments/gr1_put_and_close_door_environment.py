@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import argparse
 import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -47,19 +46,7 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase[GR1PutAndCloseDoorEnv
     """
 
     name = "put_item_in_fridge_and_close_door"
-
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-        """Translate the legacy CLI namespace and build the environment."""
-        return self.build(
-            GR1PutAndCloseDoorEnvironmentCfg(
-                enable_cameras=args_cli.enable_cameras,
-                object=args_cli.object,
-                object_set=args_cli.object_set,
-                kitchen_style=args_cli.kitchen_style,
-                teleop_device=args_cli.teleop_device,
-                embodiment=args_cli.embodiment,
-            )
-        )
+    _legacy_argparse_cfg_type = GR1PutAndCloseDoorEnvironmentCfg
 
     def build(self, cfg: GR1PutAndCloseDoorEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
@@ -220,27 +207,3 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase[GR1PutAndCloseDoorEnv
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "--object",
-            type=str,
-            default="ranch_dressing_hope_robolab",
-            help="Object to pick and place",
-        )
-        parser.add_argument(
-            "--object_set",
-            nargs="+",
-            type=str,
-            default=None,
-            help=(
-                "Used in heterogeneous environments where each environment has a different object spawned from this"
-                " set."
-            ),
-        )
-        parser.add_argument(
-            "--kitchen_style", type=int, default=2, help="Kitchen style ID for lightwheel robocasa kitchen"
-        )
-        parser.add_argument("--teleop_device", type=str, default=None, help="Teleoperation device to use")
-        parser.add_argument("--embodiment", type=str, default="gr1_pink", help="Robot embodiment to use")

@@ -30,7 +30,6 @@ Example (--viz kit enables the Kit visualizer, --episode_length_s triggers perio
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -97,7 +96,11 @@ class GR1TableMultiObjectNoCollisionEnvironmentCfg(ArenaEnvironmentCfg):
     teleop_device: str | None = None
     episode_length_s: float | None = None
     mode: str = "homogeneous"
+    """Placement mode, either ``homogeneous`` or ``heterogeneous``."""
     num_envs: int = 1
+
+    def __post_init__(self) -> None:
+        assert self.mode in {"homogeneous", "heterogeneous"}, f"Unsupported placement mode: {self.mode}"
 
 
 @register_environment
@@ -111,20 +114,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase[GR1TableM
     """
 
     name: str = "gr1_table_multi_object_no_collision"
-
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-        """Translate the legacy CLI namespace and build the environment."""
-        return self.build(
-            GR1TableMultiObjectNoCollisionEnvironmentCfg(
-                enable_cameras=getattr(args_cli, "enable_cameras", False),
-                objects=getattr(args_cli, "objects", None),
-                embodiment=args_cli.embodiment,
-                teleop_device=args_cli.teleop_device,
-                episode_length_s=args_cli.episode_length_s,
-                mode=getattr(args_cli, "mode", "homogeneous"),
-                num_envs=getattr(args_cli, "num_envs", 1),
-            )
-        )
+    _legacy_argparse_cfg_type = GR1TableMultiObjectNoCollisionEnvironmentCfg
 
     def build(self, cfg: GR1TableMultiObjectNoCollisionEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
@@ -254,32 +244,3 @@ class GR1TableMultiObjectNoCollisionEnvironment(ExampleEnvironmentBase[GR1TableM
                 placeable_assets.append(obj_set)
 
         return placeable_assets
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "--objects",
-            nargs="*",
-            type=str,
-            default=None,
-            help=(
-                "Object names (works in both modes). "
-                f"Homo default: {' '.join(DEFAULT_TABLE_OBJECTS)}; "
-                f"Hetero default: {', '.join(HETERO_VARIANT_SETS.keys())} variant sets"
-            ),
-        )
-        parser.add_argument("--embodiment", type=str, default="gr1_joint", help="Robot embodiment to use")
-        parser.add_argument("--teleop_device", type=str, default=None, help="Teleoperation device to use")
-        parser.add_argument(
-            "--episode_length_s",
-            type=float,
-            default=None,
-            help="Episode length in seconds. Enables time_out termination so objects are re-placed on reset.",
-        )
-        parser.add_argument(
-            "--mode",
-            type=str,
-            default="homogeneous",
-            choices=["homogeneous", "heterogeneous"],
-            help="Placement mode: 'homogeneous' (same objects everywhere) or 'heterogeneous' (per-env variants).",
-        )

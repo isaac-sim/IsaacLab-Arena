@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -32,18 +31,7 @@ class KitchenPickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
 class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase[KitchenPickAndPlaceEnvironmentCfg]):
 
     name: str = "kitchen_pick_and_place"
-
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-        """Translate the legacy CLI namespace and build the environment."""
-        return self.build(
-            KitchenPickAndPlaceEnvironmentCfg(
-                enable_cameras=args_cli.enable_cameras,
-                object=args_cli.object,
-                object_set=args_cli.object_set,
-                embodiment=args_cli.embodiment,
-                teleop_device=args_cli.teleop_device,
-            )
-        )
+    _legacy_argparse_cfg_type = KitchenPickAndPlaceEnvironmentCfg
 
     def build(self, cfg: KitchenPickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
@@ -102,23 +90,3 @@ class KitchenPickAndPlaceEnvironment(ExampleEnvironmentBase[KitchenPickAndPlaceE
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "--object",
-            type=str,
-            default="cracker_box",
-            help="Single object to pick up. Overridden by --object_set if provided.",
-        )
-        parser.add_argument(
-            "--object_set",
-            nargs="+",
-            type=str,
-            default=None,
-            help="Multiple objects to spawn across environments. Overrides --object.",
-        )
-        parser.add_argument("--embodiment", type=str, default="franka_ik")
-        # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
-        # to be used in the record_demos.py script.
-        parser.add_argument("--teleop_device", type=str, default=None)
