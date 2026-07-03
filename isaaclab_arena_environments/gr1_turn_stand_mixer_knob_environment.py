@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
-from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentFactoryBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -29,7 +29,7 @@ class Gr1TurnStandMixerKnobEnvironmentCfg(ArenaEnvironmentCfg):
 
 
 @register_environment
-class Gr1TurnStandMixerKnobEnvironment(ExampleEnvironmentBase[Gr1TurnStandMixerKnobEnvironmentCfg]):
+class Gr1TurnStandMixerKnobEnvironment(ArenaEnvironmentFactoryBase[Gr1TurnStandMixerKnobEnvironmentCfg]):
 
     name: str = "gr1_turn_stand_mixer_knob"
     _legacy_argparse_cfg_type = Gr1TurnStandMixerKnobEnvironmentCfg

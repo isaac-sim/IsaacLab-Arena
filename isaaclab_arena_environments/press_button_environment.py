@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
-from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentFactoryBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -26,7 +26,7 @@ class PressButtonEnvironmentCfg(ArenaEnvironmentCfg):
 
 
 @register_environment
-class PressButtonEnvironment(ExampleEnvironmentBase[PressButtonEnvironmentCfg]):
+class PressButtonEnvironment(ArenaEnvironmentFactoryBase[PressButtonEnvironmentCfg]):
 
     name: str = "press_button"
     _legacy_argparse_cfg_type = PressButtonEnvironmentCfg

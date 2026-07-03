@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
-from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentFactoryBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -27,7 +27,7 @@ class Gr1OpenMicrowaveEnvironmentCfg(ArenaEnvironmentCfg):
 
 
 @register_environment
-class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase[Gr1OpenMicrowaveEnvironmentCfg]):
+class Gr1OpenMicrowaveEnvironment(ArenaEnvironmentFactoryBase[Gr1OpenMicrowaveEnvironmentCfg]):
 
     name: str = "gr1_open_microwave"
     _legacy_argparse_cfg_type = Gr1OpenMicrowaveEnvironmentCfg
