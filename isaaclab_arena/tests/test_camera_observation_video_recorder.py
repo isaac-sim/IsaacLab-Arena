@@ -13,6 +13,7 @@ import gymnasium as gym
 import os
 import shutil
 import torch
+from contextlib import ExitStack
 from unittest.mock import patch
 
 import pytest
@@ -100,10 +101,15 @@ class _FakeWriterFactory:
 
 def _mock_writers():
     factory = _FakeWriterFactory()
-    return factory, patch(
-        "isaaclab_arena.video.camera_observation_video_recorder.imageio_ffmpeg.write_frames",
-        side_effect=factory,
+    stack = ExitStack()
+    stack.enter_context(
+        patch(
+            "isaaclab_arena.video.camera_observation_video_recorder.imageio_ffmpeg.write_frames",
+            side_effect=factory,
+        )
     )
+    stack.enter_context(patch("isaaclab_arena.video.camera_observation_video_recorder._validate_encoded_video"))
+    return factory, stack
 
 
 # ---------------------------------------------------------------------------
@@ -249,6 +255,52 @@ def test_long_episode_does_not_buffer_frames(tmp_path):
 
         recorder.close()
         assert list(tmp_path.iterdir()) == []
+
+
+def test_frame_shape_change_discards_partial_video(tmp_path):
+    env = _make_env()
+    _, mocked = _mock_writers()
+    with mocked:
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+        _configure_step(env, n_envs=1)
+        recorder.step(None)
+        env._step_return = (
+            {CAMERA_OBS_GROUP_KEY: {cam: torch.zeros(1, H + 2, W, C, dtype=torch.uint8) for cam in CAMERAS}},
+            None,
+            torch.zeros(1, dtype=torch.bool),
+            torch.zeros(1, dtype=torch.bool),
+            None,
+        )
+
+        with pytest.raises(ValueError, match="changed frame shape"):
+            recorder.step(None)
+
+        recorder.close()
+        assert list(tmp_path.iterdir()) == []
+
+
+def test_failed_completion_validation_never_publishes(tmp_path):
+    env = _make_env()
+    factory = _FakeWriterFactory()
+    with (
+        patch(
+            "isaaclab_arena.video.camera_observation_video_recorder.imageio_ffmpeg.write_frames",
+            side_effect=factory,
+        ),
+        patch(
+            "isaaclab_arena.video.camera_observation_video_recorder._validate_encoded_video",
+            side_effect=RuntimeError("truncated stream"),
+        ),
+    ):
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+        _configure_step(env, n_envs=1)
+        recorder.step(None)
+        _configure_step(env, done_envs=[0], n_envs=1)
+        with pytest.raises(RuntimeError, match="truncated stream"):
+            recorder.step(None)
+
+    assert not list(tmp_path.glob("*.mp4"))
+    assert not list(tmp_path.glob("*.part"))
 
 
 @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not available")

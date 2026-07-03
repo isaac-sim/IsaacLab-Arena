@@ -71,7 +71,10 @@ def _forward_policy_episode_terminations(env, policy: PolicyBase) -> None:
     assert (
         termination_mask.ndim == 1 and termination_mask.shape[0] == env.unwrapped.num_envs
     ), f"Policy termination mask must have shape ({env.unwrapped.num_envs},), got {tuple(termination_mask.shape)}"
-    env.unwrapped.request_external_policy_termination(termination_mask)
+    request_termination = getattr(env.unwrapped, "request_external_policy_termination", None)
+    if request_termination is None:
+        raise RuntimeError("This environment does not support external policy termination")
+    request_termination(termination_mask)
 
 
 def rollout_policy(
