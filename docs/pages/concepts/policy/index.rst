@@ -65,41 +65,26 @@ Define a typed ``PolicyCfg``, subclass ``PolicyBase`` with that config, set a
            # Your model inference here
            return torch.zeros(env.action_space.shape, device=torch.device(env.unwrapped.device))
 
-The policy contract itself does not depend on argparse. The current single-job
-CLI still expects concrete policies to provide the deprecated
-``add_args_to_parser`` and ``from_args`` compatibility adapters:
+Construct the policy by passing its typed configuration directly:
 
 .. code-block:: python
 
-   class MyPolicy(PolicyBase[MyPolicyCfg]):
-       ...
+   policy_cfg = MyPolicyCfg(device="cuda")
+   policy = MyPolicy(policy_cfg)
 
-       # Deprecated compatibility adapter for the current argparse frontend.
-       @staticmethod
-       def add_args_to_parser(parser):
-           # Add any CLI arguments your policy needs, then return the parser
-           return parser
-
-       @staticmethod
-       def from_args(args):
-           return MyPolicy(MyPolicyCfg(device=args.device))
-
-Once registered, select the policy by name on the command line:
-
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --policy_type my_policy \
-     ...
-
-For policies not registered by name, pass a dotted Python path instead
-(e.g. ``--policy_type mypackage.mypolicy.MyPolicy``). The runner will
-import and instantiate the class directly.
-
-The typed registration associates the policy with its configuration for legacy
-dictionary-based evaluation. Typed callers can construct ``MyPolicyCfg`` and
-pass it to ``MyPolicy`` directly, without going through argparse. See
+The typed registration also lets the batch eval runner convert the current
+``Job.policy_config_dict`` representation into ``MyPolicyCfg``. See
 :doc:`concept_evaluation_types` for details.
+
+.. TODO(cvolk, 2026-07-03): Remove this compatibility note when policy_runner constructs PolicyCfg directly.
+
+.. note::
+
+   ``policy_runner.py`` is still an argparse frontend and cannot yet construct
+   a typed-only custom policy. Existing first-party policies temporarily retain
+   deprecated ``add_args_to_parser`` and ``from_args`` adapters. New policy
+   implementations should use the typed construction shown above rather than
+   adding those adapters.
 
 More details
 ------------
