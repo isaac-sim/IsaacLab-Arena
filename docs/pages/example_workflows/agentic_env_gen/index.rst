@@ -79,9 +79,9 @@ See :doc:`gui_runner` for the full UI walkthrough.
 Available Generated Specs
 -------------------------
 
-The ``robolab`` subfolder contains linked environment graph specs generated from
-RoboLab tasks. See ``isaaclab_arena_environments/robolab/task_catalog.md`` for the
-list of RoboLab tasks currently supported in Arena.
+The ``isaaclab_arena_environments/robolab`` subfolder contains Arena environment graph specs generated
+from RoboLab tasks. See :doc:`../robolab_task_catalog` for the list of RoboLab tasks
+currently supported in Arena.
 
 Run a Generated Environment
 ---------------------------

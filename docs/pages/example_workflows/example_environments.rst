@@ -27,13 +27,13 @@ tables in the :doc:`imitation_learning/index` and
 Agentically Generated Graph Specs
 ---------------------------------
 
-Linked RoboLab environment graph YAMLs live under
+RoboLab environment graph YAMLs live under
 ``isaaclab_arena_environments/robolab/``. They are generated from natural-language
 prompts and consumed with ``--env_graph_spec_yaml`` instead of the positional
 ``example_environment`` name.
 
-See ``isaaclab_arena_environments/robolab/task_catalog.md`` for the list of RoboLab
-tasks currently supported in Arena.
+See :doc:`robolab_task_catalog` for the list of RoboLab tasks
+currently supported in Arena.
 
 
 Pick & Place
@@ -629,3 +629,9 @@ See Also
 - :doc:`../concepts/concept_overview` — the Scene / Embodiment / Task building blocks used by every environment listed here.
 - :doc:`../quickstart/first_arena_env` — walkthrough of the ``pick_and_place_maple_table`` environment.
 - :doc:`../arena_in_your_repo/index` — how to register your own ``ExampleEnvironmentBase`` subclass alongside the built-in ones.
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   robolab_task_catalog
