@@ -6,18 +6,29 @@
 
 from __future__ import annotations
 
-import argparse
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
+from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
+@dataclass
+class GearMeshEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the gear-mesh assembly environment."""
+
+    enable_cameras: bool = False
+    background: str = "table"
+    embodiment: str = "franka_ik"
+    teleop_device: str | None = None
+
+
 @register_environment
-class GearMeshEnvironment(ExampleEnvironmentBase):
+class GearMeshEnvironment(ExampleEnvironmentBase[GearMeshEnvironmentCfg]):
     """
     Gear mesh assembly environment with 4 gears:
     - gear_base: gear base (to be meshed with)
@@ -27,8 +38,10 @@ class GearMeshEnvironment(ExampleEnvironmentBase):
     """
 
     name: str = "gear_mesh"
+    _legacy_argparse_cfg_type = GearMeshEnvironmentCfg
 
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+    def build(self, cfg: GearMeshEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
         import isaaclab.sim as sim_utils
 
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -38,18 +51,18 @@ class GearMeshEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena_environments import mdp
 
         # Get assets from registry
-        background = self.asset_registry.get_asset_by_name(args_cli.background)()
+        background = self.asset_registry.get_asset_by_name(cfg.background)()
         gear_base = self.asset_registry.get_asset_by_name("gear_base")()
         medium_gear = self.asset_registry.get_asset_by_name("medium_gear")()
         small_gear = self.asset_registry.get_asset_by_name("small_gear")()
         large_gear = self.asset_registry.get_asset_by_name("large_gear")()
         light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
         light = self.asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
         embodiment.scene_config.robot = mdp.FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
-        if args_cli.teleop_device is not None:
-            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+        if cfg.teleop_device is not None:
+            teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()
         else:
             teleop_device = None
 
@@ -107,12 +120,3 @@ class GearMeshEnvironment(ExampleEnvironmentBase):
             env_cfg_callback=mdp.assembly_env_cfg_callback,
         )
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        """Add CLI arguments for gear mesh environment."""
-        parser.add_argument("--background", type=str, default="table", help="Background scene (table)")
-        parser.add_argument("--embodiment", type=str, default="franka_ik", help="Robot embodiment")
-        parser.add_argument(
-            "--teleop_device", type=str, default=None, help="Teleoperation device (e.g., keyboard, spacemouse)"
-        )

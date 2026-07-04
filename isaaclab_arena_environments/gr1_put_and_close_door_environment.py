@@ -5,11 +5,12 @@
 
 from __future__ import annotations
 
-import argparse
 import math
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
+from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
@@ -22,8 +23,20 @@ RANDOMIZATION_HALF_RANGE_Y_M = 0.01
 RANDOMIZATION_HALF_RANGE_Z_M = 0.0
 
 
+@dataclass
+class GR1PutAndCloseDoorEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the GR1 put-and-close-door environment."""
+
+    enable_cameras: bool = False
+    object: str = "ranch_dressing_hope_robolab"
+    object_set: list[str] | None = None
+    kitchen_style: int = 2
+    teleop_device: str | None = None
+    embodiment: str = "gr1_pink"
+
+
 @register_environment
-class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
+class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase[GR1PutAndCloseDoorEnvironmentCfg]):
     """
     A sequential task environment with two subtasks for GR1 humanoid robot:
     1. Pick and place object into the refrigerator shelf
@@ -33,8 +46,10 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
     """
 
     name = "put_item_in_fridge_and_close_door"
+    _legacy_argparse_cfg_type = GR1PutAndCloseDoorEnvironmentCfg
 
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+    def build(self, cfg: GR1PutAndCloseDoorEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
         from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
         from isaaclab.utils import configclass
 
@@ -102,11 +117,11 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
                     setattr(self.datagen_config, key, value)
 
         camera_offset = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_xyzw=(0.11204, -0.17712, -0.79108, 0.57469))
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
-            enable_cameras=args_cli.enable_cameras, camera_offset=camera_offset
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(
+            enable_cameras=cfg.enable_cameras, camera_offset=camera_offset
         )
         kitchen_background = self.asset_registry.get_asset_by_name("lightwheel_robocasa_kitchen")(
-            style_id=args_cli.kitchen_style
+            style_id=cfg.kitchen_style
         )
 
         kitchen_counter_top = ObjectReference(
@@ -118,8 +133,8 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
 
         light = self.asset_registry.get_asset_by_name("light")()
 
-        if args_cli.teleop_device is not None:
-            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+        if cfg.teleop_device is not None:
+            teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()
         else:
             teleop_device = None
 
@@ -147,11 +162,11 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             parent_asset=kitchen_background,
         )
 
-        if args_cli.object_set is not None and len(args_cli.object_set) > 0:
-            objects = [self.asset_registry.get_asset_by_name(obj)() for obj in args_cli.object_set]
+        if cfg.object_set is not None and len(cfg.object_set) > 0:
+            objects = [self.asset_registry.get_asset_by_name(obj)() for obj in cfg.object_set]
             pickup_object = RigidObjectSet(name="object_set", objects=objects)
         else:
-            pickup_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+            pickup_object = self.asset_registry.get_asset_by_name(cfg.object)()
 
         pickup_object.add_relation(On(kitchen_counter_top))
         pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
@@ -192,27 +207,3 @@ class GR1PutAndCloseDoorEnvironment(ExampleEnvironmentBase):
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "--object",
-            type=str,
-            default="ranch_dressing_hope_robolab",
-            help="Object to pick and place",
-        )
-        parser.add_argument(
-            "--object_set",
-            nargs="+",
-            type=str,
-            default=None,
-            help=(
-                "Used in heterogeneous environments where each environment has a different object spawned from this"
-                " set."
-            ),
-        )
-        parser.add_argument(
-            "--kitchen_style", type=int, default=2, help="Kitchen style ID for lightwheel robocasa kitchen"
-        )
-        parser.add_argument("--teleop_device", type=str, default=None, help="Teleoperation device to use")
-        parser.add_argument("--embodiment", type=str, default="gr1_pink", help="Robot embodiment to use")

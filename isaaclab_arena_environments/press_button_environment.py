@@ -5,36 +5,48 @@
 
 from __future__ import annotations
 
-import argparse
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
+from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
+@dataclass
+class PressButtonEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the press-button environment."""
+
+    object: str | None = None
+    teleop_device: str | None = None
+    embodiment: str = "franka_ik"
+
+
 @register_environment
-class PressButtonEnvironment(ExampleEnvironmentBase):
+class PressButtonEnvironment(ExampleEnvironmentBase[PressButtonEnvironmentCfg]):
 
     name: str = "press_button"
+    _legacy_argparse_cfg_type = PressButtonEnvironmentCfg
 
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+    def build(self, cfg: PressButtonEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.press_button_task import PressButtonTask
         from isaaclab_arena.utils.pose import Pose
 
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)()
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)()
 
         background = self.asset_registry.get_asset_by_name("packing_table")()
         press_object = self.asset_registry.get_asset_by_name("coffee_machine")()
 
         assets = [background, press_object]
 
-        if args_cli.teleop_device is not None:
-            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+        if cfg.teleop_device is not None:
+            teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()
         else:
             teleop_device = None
 
@@ -53,11 +65,3 @@ class PressButtonEnvironment(ExampleEnvironmentBase):
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default=None)
-        # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
-        # to be used in the record_demos.py script.
-        parser.add_argument("--teleop_device", type=str, default=None)
-        parser.add_argument("--embodiment", type=str, default="franka_ik")

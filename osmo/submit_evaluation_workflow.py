@@ -1,34 +1,35 @@
-# Copyright (c) 2025-2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Configure and submit an Isaac Lab Arena evaluation OSMO workflow.
+"""Configure and submit an Isaac Lab Arena policy-runner OSMO workflow.
+
+Select the policy with ``--policy``:
+
+  * ``zero_action`` -- a single policy-runner task running the built-in zero-action policy.
+  * ``pi0``         -- a policy-runner task co-scheduled with the pi0 inference server it queries.
+  * ``gr00t``       -- a policy-runner task co-scheduled with the GR00T inference server it queries.
 
 Usage examples:
 
-    # Default policy_runner evaluation (zero_action on kitchen_pick_and_place)
-    python osmo/submit_evaluation_workflow.py --pool isaac-dev-l40-03
-
-    # Custom policy_runner.py and Arena environment arguments
+    # Zero-action policy runner
     python osmo/submit_evaluation_workflow.py \
-        --gpus 1 \
-        --cpus 15 \
-        --memory 64Gi \
-        --storage 200Gi \
-        --platform ovx-l40 \
-        --exec_timeout 1d \
-        --queue_timeout 2d \
-        --workflow_name arena-evaluation \
-        --priority NORMAL \
-        --pool isaac-dev-l40-03 \
-        --workflow_type policy_runner \
-        --policy_type zero_action \
-        --policy_runner_args '--num_steps 500 --headless' \
+        --policy zero_action \
         --arena_env_args 'kitchen_pick_and_place --object cracker_box --embodiment franka_ik'
 
+    # pi0 policy runner + server
+    python osmo/submit_evaluation_workflow.py \
+        --policy pi0 \
+        --arena_env_args 'kitchen_pick_and_place --object cracker_box --embodiment franka_ik'
+
+    # GR00T policy runner + server
+    python osmo/submit_evaluation_workflow.py \
+        --policy gr00t \
+        --arena_env_args 'kitchen_pick_and_place --object cracker_box'
+
     # Dry run (print rendered YAML without submitting)
-    python osmo/submit_evaluation_workflow.py --pool isaac-dev-l40-03 --dry-run
+    python osmo/submit_evaluation_workflow.py --policy zero_action --arena_env_args '...' --dry-run
 """
 
 from __future__ import annotations
@@ -36,78 +37,33 @@ from __future__ import annotations
 import argparse
 import sys
 
-from tasks.policy_runner_task import DEFAULT_ARENA_ENV_ARGS
-from workflows.policy_runner_workflow import PolicyRunnerWorkflow
-from workflows.utils.policy_types import PolicyType
-from workflows.utils.workflow_types import WorkflowType
+from workflows.server_plus_policy_runner_workflow import Gr00tPolicyRunnerWorkflow, Pi0PlusPolicyRunnerWorkflow
+from workflows.workflow import Workflow
+from workflows.zero_action_policy_runner_workflow import ZeroActionPolicyRunnerWorkflow
 
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Configure and submit an Isaac Lab Arena evaluation OSMO workflow.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__,
-    )
-
-    task = parser.add_argument_group("task")
-    task.add_argument(
-        "--workflow_type",
-        default=WorkflowType.POLICY_RUNNER.value,
-        choices=[workflow_type.value for workflow_type in WorkflowType],
-        help="Workflow command set to run",
-    )
-    task.add_argument(
-        "--policy_type",
-        default=PolicyType.ZERO_ACTION.value,
-        choices=[policy_type.value for policy_type in PolicyType],
-        help="Registered policy type to run",
-    )
-    task.add_argument(
-        "--policy_runner_args",
-        default=None,
-        help="Additional policy-runner arguments before the Arena environment args",
-    )
-    task.add_argument(
-        "--arena_env_args",
-        default=DEFAULT_ARENA_ENV_ARGS,
-        help="Arena environment name and env-related arguments",
-    )
-
-    resources = parser.add_argument_group("resources")
-    resources.add_argument("--cpus", type=int, default=15)
-    resources.add_argument("--gpus", type=int, default=1)
-    resources.add_argument("--memory", default="64Gi")
-    resources.add_argument("--storage", default="200Gi")
-    resources.add_argument("--platform", default="ovx-l40")
-
-    timeouts = parser.add_argument_group("timeouts")
-    timeouts.add_argument("--exec_timeout", default="1d")
-    timeouts.add_argument("--queue_timeout", default="2d")
-
-    workflow = parser.add_argument_group("workflow")
-    workflow.add_argument("--workflow_name", default="arena-evaluation", help="OSMO workflow name")
-    workflow.add_argument("--pool", default=None, help="Target a specific OSMO compute pool")
-    workflow.add_argument("--priority", default="NORMAL", choices=["HIGH", "NORMAL", "LOW"])
-
-    parser.add_argument("--dry-run", action="store_true", help="Render without submitting")
-
-    return parser
+POLICIES: dict[str, type[Workflow]] = {
+    "zero_action": ZeroActionPolicyRunnerWorkflow,
+    "pi0": Pi0PlusPolicyRunnerWorkflow,
+    "gr00t": Gr00tPolicyRunnerWorkflow,
+}
 
 
 def main(cli_args: list[str] | None = None) -> int:
-    args = build_parser().parse_args(cli_args)
-    workflow_type = WorkflowType(args.workflow_type)
+    # Resolve --policy first so we can build the parser for the selected workflow's tasks.
+    policy_parser = argparse.ArgumentParser(add_help=False)
+    policy_parser.add_argument("--policy", choices=POLICIES, required=True)
+    policy_args, _ = policy_parser.parse_known_args(cli_args)
+    workflow_cls = POLICIES[policy_args.policy]
 
-    workflow = PolicyRunnerWorkflow(
-        workflow_type=workflow_type,
-        workflow_args=args,
-        task_args=args,
+    parser = workflow_cls.build_parser(
+        description="Configure and submit an Isaac Lab Arena policy-runner OSMO workflow.",
+        epilog=__doc__,
     )
-    return workflow.submit_workflow(
-        dry_run=args.dry_run,
-        pool=args.pool,
-        priority=args.priority,
-    )
+    parser.add_argument("--policy", choices=POLICIES, required=True, help="Which policy-runner workflow to submit")
+    args = parser.parse_args(cli_args)
+
+    workflow = workflow_cls(workflow_args=args, task_args=args)
+    return workflow.submit_workflow(dry_run=args.dry_run, pool=args.pool, priority=args.priority)
 
 
 if __name__ == "__main__":

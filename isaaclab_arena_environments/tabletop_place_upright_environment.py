@@ -5,25 +5,39 @@
 
 from __future__ import annotations
 
-import argparse
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
+from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
+@dataclass
+class TableTopPlaceUprightEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the tabletop place-upright environment."""
+
+    enable_cameras: bool = False
+    object: str = "mug"
+    background: str = "table"
+    embodiment: str = "agibot"
+    teleop_device: str | None = "keyboard"
+
+
 @register_environment
-class TableTopPlaceUprightEnvironment(ExampleEnvironmentBase):
+class TableTopPlaceUprightEnvironment(ExampleEnvironmentBase[TableTopPlaceUprightEnvironmentCfg]):
     """
     A place upright environment for the Seattle Lab table.
     """
 
     name = "tabletop_place_upright"
+    _legacy_argparse_cfg_type = TableTopPlaceUprightEnvironmentCfg
 
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+    def build(self, cfg: TableTopPlaceUprightEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
         import isaaclab.envs.mdp as mdp
         from isaaclab.managers import EventTermCfg as EventTerm
         from isaaclab.managers import SceneEntityCfg
@@ -58,21 +72,21 @@ class TableTopPlaceUprightEnvironment(ExampleEnvironmentBase):
             )
 
         # Add the asset registry from the arena migration package
-        background = self.asset_registry.get_asset_by_name(args_cli.background)()
-        placeable_object = self.asset_registry.get_asset_by_name(args_cli.object)(
+        background = self.asset_registry.get_asset_by_name(cfg.background)()
+        placeable_object = self.asset_registry.get_asset_by_name(cfg.object)(
             initial_pose=Pose(position_xyz=(0.05, 0.0, 0.75), rotation_xyzw=(1.0, 0.0, 0.0, 0.0))
         )
-        if args_cli.embodiment == "agibot":
-            embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
-                enable_cameras=args_cli.enable_cameras, arm_mode=ArmMode.LEFT
+        if cfg.embodiment == "agibot":
+            embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(
+                enable_cameras=cfg.enable_cameras, arm_mode=ArmMode.LEFT
             )
         else:
             raise NotImplementedError(
-                f"Embodiment {args_cli.embodiment} not supported for tabletop place upright environment"
+                f"Embodiment {cfg.embodiment} not supported for tabletop place upright environment"
             )
 
-        if args_cli.teleop_device is not None:
-            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+        if cfg.teleop_device is not None:
+            teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()
         else:
             teleop_device = None
 
@@ -101,10 +115,3 @@ class TableTopPlaceUprightEnvironment(ExampleEnvironmentBase):
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default="mug")
-        parser.add_argument("--background", type=str, default="table")
-        parser.add_argument("--embodiment", type=str, default="agibot")
-        parser.add_argument("--teleop_device", type=str, default="keyboard")

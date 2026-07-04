@@ -5,25 +5,40 @@
 
 from __future__ import annotations
 
-import argparse
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
+from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
+@dataclass
+class TableTopSortCubesEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the tabletop cube-sorting environment."""
+
+    enable_cameras: bool = False
+    objects: list[str] = field(default_factory=lambda: ["red_cube", "green_cube"])
+    destinations: list[str] = field(default_factory=lambda: ["red_container", "green_container"])
+    background: str = "table"
+    embodiment: str = "franka_ik"
+    teleop_device: str | None = None
+
+
 @register_environment
-class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
+class TableTopSortCubesEnvironment(ExampleEnvironmentBase[TableTopSortCubesEnvironmentCfg]):
     """
     A pick and place environment for the Seattle Lab table.
     """
 
     name = "tabletop_sort_cubes"
+    _legacy_argparse_cfg_type = TableTopSortCubesEnvironmentCfg
 
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+    def build(self, cfg: TableTopSortCubesEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
 
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
@@ -31,12 +46,12 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.utils.pose import Pose
 
         assert (
-            len(args_cli.destinations) == len(args_cli.objects) == 2
+            len(cfg.destinations) == len(cfg.objects) == 2
         ), "Only 2 objects and 2 destinations are supported in this environment."
 
         # Add the asset registry from the arena migration package
         light = self.asset_registry.get_asset_by_name("light")()
-        background = self.asset_registry.get_asset_by_name(args_cli.background)()
+        background = self.asset_registry.get_asset_by_name(cfg.background)()
         background.set_initial_pose(
             Pose(
                 position_xyz=(0.3, 0.0, 0.0),
@@ -44,10 +59,8 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
             )
         )
 
-        if args_cli.embodiment == "franka_ik":
-            embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
-                enable_cameras=args_cli.enable_cameras
-            )
+        if cfg.embodiment == "franka_ik":
+            embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
             # reset initial pose of embodiment
             embodiment.set_initial_pose(
                 Pose(
@@ -64,15 +77,15 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
         else:
             raise NotImplementedError
 
-        if args_cli.teleop_device is not None:
-            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+        if cfg.teleop_device is not None:
+            teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()
             # increase sensitivity for teleop device
             teleop_device.pos_sensitivity = 0.25
             teleop_device.rot_sensitivity = 0.5
         else:
             teleop_device = None
 
-        destination_location_1 = self.asset_registry.get_asset_by_name(args_cli.destinations[0])()
+        destination_location_1 = self.asset_registry.get_asset_by_name(cfg.destinations[0])()
         destination_location_1.set_initial_pose(
             Pose(
                 position_xyz=(0.0, 0.1, 0.1),
@@ -80,7 +93,7 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
             )
         )
 
-        destination_location_2 = self.asset_registry.get_asset_by_name(args_cli.destinations[1])()
+        destination_location_2 = self.asset_registry.get_asset_by_name(cfg.destinations[1])()
         destination_location_2.set_initial_pose(
             Pose(
                 position_xyz=(0.0, -0.1, 0.1),
@@ -88,7 +101,7 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
             )
         )
 
-        pick_up_object_1 = self.asset_registry.get_asset_by_name(args_cli.objects[0])()
+        pick_up_object_1 = self.asset_registry.get_asset_by_name(cfg.objects[0])()
         pick_up_object_1.set_initial_pose(
             Pose(
                 position_xyz=(0.0, 0.3, 0.1),
@@ -96,7 +109,7 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
             )
         )
 
-        pick_up_object_2 = self.asset_registry.get_asset_by_name(args_cli.objects[1])()
+        pick_up_object_2 = self.asset_registry.get_asset_by_name(cfg.objects[1])()
         pick_up_object_2.set_initial_pose(
             Pose(
                 position_xyz=(0.0, -0.3, 0.1),
@@ -132,21 +145,3 @@ class TableTopSortCubesEnvironment(ExampleEnvironmentBase):
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "--objects",
-            nargs="*",
-            default=["red_cube", "green_cube"],
-            help="object list (example: --objects red_cube green_cube)",
-        )
-        parser.add_argument(
-            "--destinations",
-            nargs="*",
-            default=["red_container", "green_container"],
-            help="destination list (example: --destinations red_container green_container)",
-        )
-        parser.add_argument("--background", type=str, default="table")
-        parser.add_argument("--embodiment", type=str, default="franka_ik")
-        parser.add_argument("--teleop_device", type=str, default=None)

@@ -5,25 +5,39 @@
 
 from __future__ import annotations
 
-import argparse
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
+from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
+@dataclass
+class CubeGoalPoseEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the cube goal-pose environment."""
+
+    enable_cameras: bool = False
+    object: str = "dex_cube"
+    background: str = "table"
+    embodiment: str = "franka_ik"
+    teleop_device: str | None = None
+
+
 @register_environment
-class CubeGoalPoseEnvironment(ExampleEnvironmentBase):
+class CubeGoalPoseEnvironment(ExampleEnvironmentBase[CubeGoalPoseEnvironmentCfg]):
     """
     A environment for achieving the goal pose of a cube.
     """
 
     name = "cube_goal_pose"
+    _legacy_argparse_cfg_type = CubeGoalPoseEnvironmentCfg
 
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+    def build(self, cfg: CubeGoalPoseEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
 
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
@@ -31,16 +45,16 @@ class CubeGoalPoseEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.utils.pose import Pose
 
         # Add the asset registry from the arena migration package
-        background = self.asset_registry.get_asset_by_name(args_cli.background)()
+        background = self.asset_registry.get_asset_by_name(cfg.background)()
         light = self.asset_registry.get_asset_by_name("light")()
-        object = self.asset_registry.get_asset_by_name(args_cli.object)()
+        object = self.asset_registry.get_asset_by_name(cfg.object)()
         object.set_initial_pose(
             Pose(
                 position_xyz=(0.1, 0.0, 0.2),
                 rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
         embodiment.set_initial_pose(
             Pose(
                 position_xyz=(-0.4, 0.0, 0.0),
@@ -52,8 +66,8 @@ class CubeGoalPoseEnvironment(ExampleEnvironmentBase):
             initial_joint_pose=[0.0444, -0.1894, -0.1107, -2.5148, 0.0044, 2.3775, 0.6952, 0.0400, 0.0400]
         )
 
-        if args_cli.teleop_device is not None:
-            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+        if cfg.teleop_device is not None:
+            teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()
             # increase sensitivity for teleop device
             teleop_device.pos_sensitivity = 0.25
             teleop_device.rot_sensitivity = 0.5
@@ -77,10 +91,3 @@ class CubeGoalPoseEnvironment(ExampleEnvironmentBase):
             teleop_device=teleop_device,
         )
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default="dex_cube")
-        parser.add_argument("--background", type=str, default="table")
-        parser.add_argument("--embodiment", type=str, default="franka_ik")
-        parser.add_argument("--teleop_device", type=str, default=None)
