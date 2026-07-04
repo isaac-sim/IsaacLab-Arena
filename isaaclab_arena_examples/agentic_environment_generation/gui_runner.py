@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""CLI launcher for the ArenaEnvInitialGraphSpec live editor.
+"""CLI launcher for the ArenaEnvGraphSpec live editor.
 
 Usage:
     # Default — start with a prompt:
@@ -11,7 +11,7 @@ Usage:
 
     # Open an existing spec:
     python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py \\
-        --env_initial_graph_spec isaaclab_arena/tests/test_data/pick_and_place_maple_table_init_env_graph.yaml
+        --env_graph_spec_yaml isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml
 
     # Custom port:
     python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py --port 8600
@@ -48,18 +48,17 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--env_initial_graph_spec",
+        "--env_graph_spec_yaml",
         type=Path,
         default=None,
-        help="Optional ArenaEnvInitialGraphSpec YAML to open in the editor.",
+        help="Optional ArenaEnvGraphSpec YAML to open in the editor.",
     )
     parser.add_argument(
         "--out_dir",
         type=Path,
         default=DEFAULT_AGENTIC_OUTPUT_DIR,
         help=(
-            "Directory for generated initial/linked spec YAML files (default:"
-            " isaaclab_arena_environments/agent_generated)."
+            "Directory for generated env graph spec YAML files (default: isaaclab_arena_environments/agent_generated)."
         ),
     )
     parser.add_argument(
@@ -69,7 +68,7 @@ def main() -> None:
         help="Streamlit server port (default: 8501).",
     )
     args = parser.parse_args()
-    serve_live_editor(args.env_initial_graph_spec, out_dir=args.out_dir, port=args.port)
+    serve_live_editor(args.env_graph_spec_yaml, out_dir=args.out_dir, port=args.port)
 
 
 def serve_live_editor(yaml_path: Path | None, *, out_dir: Path = DEFAULT_AGENTIC_OUTPUT_DIR, port: int = 8501) -> None:
@@ -111,7 +110,7 @@ def serve_live_editor(yaml_path: Path | None, *, out_dir: Path = DEFAULT_AGENTIC
             "--",
         ]
         if yaml_path is not None:
-            cmd.extend(["--env_initial_graph_spec", str(yaml_path.resolve())])
+            cmd.extend(["--env_graph_spec_yaml", str(yaml_path.resolve())])
         cmd.extend(["--out_dir", str(out_dir.resolve())])
 
         print(f"[review_gui] launching Streamlit live editor: {' '.join(cmd)}", file=sys.stderr)

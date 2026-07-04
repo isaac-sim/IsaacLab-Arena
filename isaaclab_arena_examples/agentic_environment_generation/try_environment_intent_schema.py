@@ -3,17 +3,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Run the agent on a prompt and dump the compiled ArenaEnvInitialGraphSpec.
+"""Run the agent on a prompt and dump the ArenaEnvGraphSpec.
 
 Examples:
-    # Print the Pydantic EnvironmentIntentSpec JSON schema (no agent call):
+    # Print the Pydantic ArenaEnvGraphSpec JSON schema (no agent call):
     python isaaclab_arena_examples/agentic_environment_generation/try_environment_intent_schema.py --print-schema
 
     # Print the catalog sent to the agent (no agent call):
     python isaaclab_arena_examples/agentic_environment_generation/try_environment_intent_schema.py --print-catalog
 
-    # Call the agent, compile, print, and dump YAML:
-    python isaaclab_arena_examples/agentic_environment_generation/try_environment_intent_schema.py \
+    # Call the agent, print, and dump YAML:
+    python isaaclab_arena_examples/agentic_environment_generation/try_environment_intent_schema.py \\
         --prompt "franka pick up avocado from the table and place it into a bowl on the table. there are other veggies on the table as distractor"
 """
 
@@ -22,17 +22,14 @@ from __future__ import annotations
 import argparse
 import json
 
-from isaaclab_arena.agentic_environment_generation.asset_matcher import IntentResolutionTraceEvent
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
     EnvironmentGenerationAgent,
     build_asset_catalogue,
     build_relation_catalogue,
     build_task_catalogue,
 )
-from isaaclab_arena.agentic_environment_generation.environment_intent_spec import EnvironmentIntentSpec
-from isaaclab_arena.agentic_environment_generation.intent_compiler import IntentCompiler
-from isaaclab_arena.agentic_environment_generation.spec_io import DEFAULT_AGENTIC_OUTPUT_DIR, save_initial_graph_spec
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
+from isaaclab_arena.agentic_environment_generation.spec_io import DEFAULT_AGENTIC_OUTPUT_DIR, write_env_graph_spec
+from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 
 DEFAULT_PROMPT = (
     "franka pick up avocado from the maple table and place it into a bowl on the table. "
@@ -44,32 +41,29 @@ SEQUENTIAL_PROMPT = (
 )
 
 
-def _format_trace_event(event: IntentResolutionTraceEvent) -> str:
-    chosen = event.chosen if event.chosen is not None else "<none>"
-    extra = f"  [{event.note}]" if event.note else ""
-    return f"  {event.stage:34s} {event.query!s:24s} -> {chosen}{extra}"
+def _iter_printable_assets(spec: ArenaEnvGraphSpec):
+    yield "embodiment", spec.embodiment.id, spec.embodiment.registry_name, spec.embodiment.params
+    yield "background", spec.background.id, spec.background.registry_name, spec.background.params
+    for obj in spec.objects:
+        yield "object", obj.id, obj.registry_name, obj.params
+    for ref in spec.object_references or []:
+        yield "object_reference", ref.id, ref.id, ref.params
 
 
-def print_initial_graph(spec: ArenaEnvInitialGraphSpec) -> None:
-    """Print the compiled graph in a human-readable tabular layout."""
-    print(f"\n=== ArenaEnvInitialGraphSpec (env_name={spec.env_name!r}) ===")
+def print_env_graph(spec: ArenaEnvGraphSpec) -> None:
+    """Print the generated graph in a human-readable tabular layout."""
+    print(f"\n=== ArenaEnvGraphSpec (env_name={spec.env_name!r}) ===")
 
-    print("\nnodes:")
-    for node in spec.nodes:
-        params_str = f"  params={node.params}" if node.params else ""
-        print(f"  {node.id:24s} type={node.type.value:18s} name={node.name}{params_str}")
+    print("\nassets:")
+    for role, asset_id, registry_name, params in _iter_printable_assets(spec):
+        params_str = f"  params={params}" if params else ""
+        print(f"  {asset_id:24s} role={role:18s} registry_name={registry_name}{params_str}")
 
-    print("\ninitial_state_spec:")
-    initial = spec.initial_state_spec
-    s_count = len(initial.spatial_constraints)
-    t_count = len(initial.task_constraints)
-    print(f"  {initial.id:24s} spatial={s_count} task={t_count}")
-    for constraint in initial.spatial_constraints:
-        ref_str = f"  reference={constraint.reference}" if constraint.reference is not None else ""
-        params_str = f"  params={constraint.params}" if constraint.params else ""
-        print(f"    {constraint.kind:16s} subject={constraint.subject}{ref_str}{params_str}")
-    for constraint in initial.task_constraints:
-        print(f"    {constraint.type.value:16s} parent={constraint.parent}  child={constraint.child}")
+    print("\nrelations:")
+    for relation in spec.relations:
+        ref_str = f"  reference={relation.reference}" if relation.reference is not None else ""
+        params_str = f"  params={relation.params}" if relation.params else ""
+        print(f"  {relation.kind:16s} subject={relation.subject}{ref_str}{params_str}")
 
     print("\ntasks:")
     for i, task in enumerate(spec.tasks):
@@ -77,18 +71,6 @@ def print_initial_graph(spec: ArenaEnvInitialGraphSpec) -> None:
         print(f"    params: {task.params}")
         if task.description:
             print(f"    description: {task.description}")
-
-
-def print_resolution_trace(compiler: IntentCompiler) -> None:
-    """Print compiler trace events and any resolution errors."""
-    print("\n=== trace ===")
-    for event in compiler.trace:
-        print(_format_trace_event(event))
-
-    if compiler.has_resolution_errors:
-        print("\n=== resolution errors ===")
-        for event in compiler.resolution_errors:
-            print(_format_trace_event(event))
 
 
 def main() -> None:
@@ -101,7 +83,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.print_schema:
-        print(json.dumps(EnvironmentIntentSpec.model_json_schema(), indent=2))
+        print(json.dumps(ArenaEnvGraphSpec.model_json_schema(), indent=2))
         return
 
     asset_catalog = build_asset_catalogue()
@@ -127,21 +109,13 @@ def main() -> None:
     print("=== raw agent response ===")
     print(raw)
 
-    # Surface the forced chain-of-thought field.
-    print("\n=== agent reasoning ===")
-    print(spec.reasoning)
-
-    print("\n=== parsed EnvironmentIntentSpec ===")
+    print("\n=== parsed ArenaEnvGraphSpec ===")
     print(spec.model_dump_json(indent=2))
 
-    compiler = IntentCompiler()
-    env_graph_spec = compiler.compile(spec)
-    print_initial_graph(env_graph_spec)
-    print_resolution_trace(compiler)
+    print_env_graph(spec)
 
-    out_path, linked_path = save_initial_graph_spec(env_graph_spec, DEFAULT_AGENTIC_OUTPUT_DIR)
-    print(f"\n=== wrote ArenaEnvInitialGraphSpec YAML to {out_path} ===")
-    print(f"=== wrote linked ArenaEnvGraphSpec YAML to {linked_path} ===")
+    out_path = write_env_graph_spec(spec, DEFAULT_AGENTIC_OUTPUT_DIR)
+    print(f"\n=== wrote ArenaEnvGraphSpec YAML to {out_path} ===")
 
 
 if __name__ == "__main__":

@@ -7,13 +7,11 @@ from __future__ import annotations
 
 import traceback
 import yaml
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import streamlit as st
 
-from isaaclab_arena.agentic_environment_generation.asset_matcher import ASSET_ERROR_STAGES
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
     AssetCatalogue,
     EnvironmentGenerationAgent,
@@ -23,11 +21,10 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     build_relation_catalogue,
     build_task_catalogue,
 )
-from isaaclab_arena.agentic_environment_generation.intent_compiler import IntentCompiler
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
+from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
     SpecParseResult,
-    try_save_initial_graph_spec,
+    try_save_env_graph_spec,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.visualization_panel import reset_viz_render_state
 
@@ -76,24 +73,8 @@ def _get_generation_agent() -> EnvironmentGenerationAgent | None:
     return agent
 
 
-def _format_trace_lines(trace: list[dict[str, Any]], *, errors_only: bool = False) -> str:
-    """Format intent-compiler trace events as fixed-width log lines."""
-    error_stages = ASSET_ERROR_STAGES | IntentCompiler.INTENT_ERROR_STAGES
-    lines: list[str] = []
-    for event in trace:
-        stage = event.get("stage", "")
-        if errors_only and stage not in error_stages:
-            continue
-        chosen = event.get("chosen")
-        chosen_str = chosen if chosen is not None else "<none>"
-        note = event.get("note") or ""
-        note_str = f"  [{note}]" if note else ""
-        lines.append(f"{stage:34s} {event.get('query', ''):24s} -> {chosen_str}{note_str}")
-    return "\n".join(lines)
-
-
-def _apply_generated_yaml(yaml_text: str, *, spec: ArenaEnvInitialGraphSpec | None = None) -> None:
-    """Push compiled spec YAML into the editor; dashboard preview refreshes in the viz fragment."""
+def _apply_generated_yaml(yaml_text: str, *, spec: ArenaEnvGraphSpec | None = None) -> None:
+    """Push generated spec YAML into the editor; dashboard preview refreshes in the viz fragment."""
     st.session_state["edited_text"] = yaml_text
     st.session_state["editor_version"] = st.session_state.get("editor_version", 0) + 1
     st.session_state["last_rendered_text"] = ""
@@ -109,7 +90,7 @@ def _apply_generated_yaml(yaml_text: str, *, spec: ArenaEnvInitialGraphSpec | No
 
 
 def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
-    """Call the LLM, compile intent in-process, and load YAML into the editor."""
+    """Call the LLM and load the returned environment graph spec YAML into the editor."""
     prompt = prompt.strip()
     if not prompt:
         return False, "Enter a prompt describing the environment."
@@ -128,7 +109,7 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
         return False, traceback.format_exc()
 
     try:
-        intent, _raw = agent.generate_spec(
+        spec, _raw = agent.generate_spec(
             prompt,
             asset_catalog=catalogues.asset_catalogue,
             relation_catalog=catalogues.relation_catalogue,
@@ -138,58 +119,25 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
         return False, traceback.format_exc()
 
     try:
-        compiler = IntentCompiler()
-        spec = compiler.compile(intent)
         yaml_text = yaml.safe_dump(spec.to_dict(), sort_keys=False)
-        trace = [asdict(event) for event in compiler.trace]
-        has_resolution_errors = compiler.has_resolution_errors
-        reasoning = intent.reasoning
     except Exception:
         return False, traceback.format_exc()
 
     _apply_generated_yaml(yaml_text, spec=spec)
 
-    if reasoning:
-        st.session_state["last_generation_reasoning"] = reasoning
-    if trace:
-        st.session_state["last_generation_trace"] = trace
-
     out_dir = Path(st.session_state["out_dir"])
-    paths, error = try_save_initial_graph_spec(spec, out_dir)
+    path, error = try_save_env_graph_spec(spec, out_dir)
     if error is not None:
-        if has_resolution_errors:
-            error_trace = _format_trace_lines(trace, errors_only=True)
-            return (
-                True,
-                (
-                    "Spec generated with resolution warnings — review the trace below and edit the YAML as needed.\n\n"
-                    f"{error}\n\n{error_trace}"
-                ),
-            )
         return True, f"Spec generated and loaded into the YAML editor, but save failed: {error}"
 
-    initial_path, linked_path = paths
-    st.session_state["save_path"] = str(initial_path)
-
-    saved_msg = f"Wrote {initial_path} and {linked_path}."
-
-    if has_resolution_errors:
-        error_trace = _format_trace_lines(trace, errors_only=True)
-        return (
-            True,
-            (
-                "Spec generated with resolution warnings — review the trace below and edit the YAML as needed.\n\n"
-                f"{saved_msg}\n\n{error_trace}"
-            ),
-        )
-
-    return True, f"Spec generated, loaded into the YAML editor, and saved.\n\n{saved_msg}"
+    st.session_state["save_path"] = str(path)
+    return True, f"Spec generated, loaded into the YAML editor, and saved to {path}."
 
 
 def render_generation_panel() -> None:
     """Prompt input and generate-spec controls (top of the left column)."""
     st.subheader("Generate from prompt")
-    st.caption("Calls the env-generation agent (LLM) then compiles intent in-process.")
+    st.caption("Calls the env-generation agent (LLM) and loads the returned environment graph spec.")
 
     prompt = st.text_area(
         "Prompt",
@@ -203,24 +151,14 @@ def render_generation_panel() -> None:
     if agent_error:
         st.info(f"LLM agent unavailable: {agent_error}", icon="ℹ️")
 
-    if st.button("Generate & compile", type="primary", use_container_width=True):
-        with st.spinner("Generating spec (LLM call + intent compile)…"):
+    if st.button("Generate spec", type="primary", use_container_width=True):
+        with st.spinner("Generating spec (LLM call)…"):
             ok, message = run_generation_pipeline(st.session_state["generation_prompt"])
         if ok:
-            if "resolution warnings" in message or "save failed" in message.lower():
+            if "save failed" in message.lower():
                 st.warning(message, icon="⚠️")
             else:
                 st.success(message, icon="✅")
             st.rerun()
         else:
             st.error(f"Generation failed\n\n```\n{message}\n```", icon="🛑")
-
-    reasoning = st.session_state.get("last_generation_reasoning")
-    if reasoning:
-        with st.expander("Agent reasoning (last run)", expanded=False):
-            st.markdown(reasoning)
-
-    trace = st.session_state.get("last_generation_trace")
-    if trace:
-        with st.expander("Resolution trace (last run)", expanded=False):
-            st.code(_format_trace_lines(trace), language=None)

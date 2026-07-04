@@ -4,31 +4,53 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: foodpacking_1bin_1box_1can
-nodes:
-- id: maple_table_robolab
-  name: maple_table_robolab
-  type: background
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
   params: {}
-- id: droid
-  name: droid_abs_joint_pos
-  type: embodiment
+background:
+  id: maple_table_robolab
+  registry_name: maple_table_robolab
   params: {}
+objects:
 - id: cheez_it_box
-  name: cheez_it_ycb_robolab
-  type: object
+  registry_name: cheez_it_ycb_robolab
   params: {}
 - id: bin_a06
-  name: bin_a06_vomp_robolab
-  type: object
+  registry_name: bin_a06_vomp_robolab
   params: {}
 - id: mustard
-  name: mustard_bottle_hope_robolab
-  type: object
+  registry_name: mustard_bottle_hope_robolab
   params: {}
 - id: tomato_soup_can
-  name: tomato_soup_can
-  type: object
+  registry_name: tomato_soup_can
   params: {}
+relations:
+- kind: is_anchor
+  subject: maple_table_robolab
+  reference: null
+  params: {}
+- kind: 'on'
+  subject: cheez_it_box
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: bin_a06
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: mustard
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: tomato_soup_can
+  reference: maple_table_robolab
+  params: {}
+- kind: rotate_around_solution
+  subject: tomato_soup_can
+  reference: null
+  params:
+    roll_rad: -1.57
 tasks:
 - kind: PickAndPlaceTask
   params:
@@ -36,54 +58,8 @@ tasks:
     destination_location: bin_a06
     background_scene: maple_table_robolab
     episode_length_s: 20.0
-    max_separation: [0.1, 0.1, 0.1]
+    max_separation:
+    - 0.1
+    - 0.1
+    - 0.1
   description: pick up the cheez it box and place it into the bin
-  id: task_0_PickAndPlaceTask
-  initial_state_spec_id: state_initial
-  success_state_spec_id: state_spec_1
-state_specs:
-- id: state_initial
-  is_delta: false
-  spatial_constraints:
-  - kind: is_anchor
-    subject: maple_table_robolab
-    params: {}
-    id: state_initial_0_is_anchor_maple_table_robolab
-  - kind: 'on'
-    subject: cheez_it_box
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_1_on_maple_table_robolab_cheez_it_box
-  - kind: 'on'
-    subject: bin_a06
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_2_on_maple_table_robolab_bin_a06
-  - kind: 'on'
-    subject: mustard
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_3_on_maple_table_robolab_mustard
-  - kind: 'on'
-    subject: tomato_soup_can
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_4_on_maple_table_robolab_tomato_soup_can
-  # TODO: support rotate around solution from the agent intent spec
-  - kind: 'rotate_around_solution'
-    subject: tomato_soup_can
-    params: {
-      roll_rad: -1.57
-    }
-    id: state_initial_5_rotate_around_solution_tomato_soup_can
-  task_constraints: []
-- id: state_spec_1
-  is_delta: true
-  spatial_constraints:
-  - kind: 'on'
-    subject: cheez_it_box
-    reference: bin_a06
-    params: {}
-    id: state_spec_1_cheez_it_box_on_bin_a06
-  task_constraints: []
-cli_override_specs: []

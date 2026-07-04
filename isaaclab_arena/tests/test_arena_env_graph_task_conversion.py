@@ -171,15 +171,12 @@ def test_build_task_from_spec_passes_description_as_task_description(monkeypatch
     registry = type("R", (), {"get_task_by_name": lambda self, _name: FakeTask})()
     monkeypatch.setattr(conversion, "TaskRegistry", lambda: registry)
 
-    from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphTaskSpec
+    from isaaclab_arena.environments.arena_env_graph_types import TaskSpec
 
-    spec = ArenaEnvGraphTaskSpec(
-        id="task_0",
+    spec = TaskSpec(
         kind="PickAndPlaceTask",
         params={},
         description="put the mustard in the left bin",
-        initial_state_spec_id="state_initial",
-        success_state_spec_id="state_spec_1",
     )
     conversion._build_task_from_spec(spec, {})
     assert captured["task_description"] == "put the mustard in the left bin"
@@ -196,15 +193,12 @@ def test_build_task_from_spec_params_task_description_takes_precedence(monkeypat
     registry = type("R", (), {"get_task_by_name": lambda self, _name: FakeTask})()
     monkeypatch.setattr(conversion, "TaskRegistry", lambda: registry)
 
-    from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphTaskSpec
+    from isaaclab_arena.environments.arena_env_graph_types import TaskSpec
 
-    spec = ArenaEnvGraphTaskSpec(
-        id="task_0",
+    spec = TaskSpec(
         kind="PickAndPlaceTask",
         params={"task_description": "from params"},
         description="from spec description",
-        initial_state_spec_id="state_initial",
-        success_state_spec_id="state_spec_1",
     )
     conversion._build_task_from_spec(spec, {})
     assert captured["task_description"] == "from params"

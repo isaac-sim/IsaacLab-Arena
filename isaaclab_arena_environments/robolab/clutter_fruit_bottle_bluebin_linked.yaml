@@ -4,79 +4,135 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: clutter_fruit_bottle_bluebin
-nodes:
-- id: maple_table_robolab
-  name: maple_table_robolab
-  type: background
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
   params: {}
-- id: droid
-  name: droid_abs_joint_pos
-  type: embodiment
+background:
+  id: maple_table_robolab
+  registry_name: maple_table_robolab
   params: {}
+objects:
 - id: pumpkin_large
-  name: pumpkinlarge_vomp_robolab
-  type: object
+  registry_name: pumpkinlarge_vomp_robolab
   params:
-    scale: [1.25, 1.25, 1.25]
+    scale:
+    - 1.25
+    - 1.25
+    - 1.25
 - id: pumpkin_small
-  name: pumpkinsmall_vomp_robolab
-  type: object
+  registry_name: pumpkinsmall_vomp_robolab
   params: {}
 - id: lemon_1
-  name: lemon_01_fruits_veggies_robolab
-  type: object
+  registry_name: lemon_01_fruits_veggies_robolab
   params: {}
 - id: lemon_2
-  name: lemon_01_fruits_veggies_robolab
-  type: object
+  registry_name: lemon_01_fruits_veggies_robolab
   params: {}
 - id: lime_1
-  name: lime01_fruits_veggies_robolab
-  type: object
+  registry_name: lime01_fruits_veggies_robolab
   params: {}
 - id: lime_2
-  name: lime01_fruits_veggies_robolab
-  type: object
+  registry_name: lime01_fruits_veggies_robolab
   params: {}
 - id: orange_1
-  name: orange_01_fruits_veggies_robolab
-  type: object
+  registry_name: orange_01_fruits_veggies_robolab
   params: {}
 - id: orange_2
-  name: orange_01_fruits_veggies_robolab
-  type: object
+  registry_name: orange_01_fruits_veggies_robolab
   params: {}
 - id: pomegranate
-  name: pomegranate01_fruits_veggies_robolab
-  type: object
+  registry_name: pomegranate01_fruits_veggies_robolab
   params: {}
 - id: white_packer_bottle
-  name: whitepackerbottle_a01_vomp_robolab
-  type: object
+  registry_name: whitepackerbottle_a01_vomp_robolab
   params: {}
 - id: avocado
-  name: avocado01_fruits_veggies_robolab
-  type: object
+  registry_name: avocado01_fruits_veggies_robolab
   params: {}
 - id: crabbypenholder
-  name: crabbypenholder_vomp_robolab
-  type: object
+  registry_name: crabbypenholder_vomp_robolab
   params: {}
 - id: serving_bowl
-  name: serving_bowl_vomp_robolab
-  type: object
+  registry_name: serving_bowl_vomp_robolab
   params: {}
 - id: utilityjug
-  name: utilityjug_a01_vomp_robolab
-  type: object
+  registry_name: utilityjug_a01_vomp_robolab
   params: {}
 - id: red_onion
-  name: red_onion_fruits_veggies_robolab
-  type: object
+  registry_name: red_onion_fruits_veggies_robolab
   params: {}
 - id: container_f24
-  name: container_f24_vomp_robolab
-  type: object
+  registry_name: container_f24_vomp_robolab
+  params: {}
+relations:
+- kind: is_anchor
+  subject: maple_table_robolab
+  reference: null
+  params: {}
+- kind: 'on'
+  subject: pumpkin_large
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: pumpkin_small
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: lemon_1
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: lemon_2
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: lime_1
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: lime_2
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: orange_1
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: orange_2
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: pomegranate
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: white_packer_bottle
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: avocado
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: crabbypenholder
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: serving_bowl
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: utilityjug
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: red_onion
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: container_f24
+  reference: maple_table_robolab
   params: {}
 tasks:
 - kind: PickAndPlaceTask
@@ -85,107 +141,8 @@ tasks:
     destination_location: container_f24
     background_scene: maple_table_robolab
     episode_length_s: 20.0
-    max_separation: [0.1, 0.1, 0.1]
+    max_separation:
+    - 0.1
+    - 0.1
+    - 0.1
   description: pick up the large pumpkin and place it into the bin
-  id: task_0_PickAndPlaceTask
-  initial_state_spec_id: state_initial
-  success_state_spec_id: state_spec_1
-state_specs:
-- id: state_initial
-  is_delta: false
-  spatial_constraints:
-  - kind: is_anchor
-    subject: maple_table_robolab
-    params: {}
-    id: state_initial_0_is_anchor_maple_table_robolab
-  - kind: 'on'
-    subject: pumpkin_large
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_1_on_maple_table_robolab_pumpkin_large
-  - kind: 'on'
-    subject: pumpkin_small
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_2_on_maple_table_robolab_pumpkin_small
-  - kind: 'on'
-    subject: lemon_1
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_3_on_maple_table_robolab_lemon_1
-  - kind: 'on'
-    subject: lemon_2
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_4_on_maple_table_robolab_lemon_2
-  - kind: 'on'
-    subject: lime_1
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_5_on_maple_table_robolab_lime_1
-  - kind: 'on'
-    subject: lime_2
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_6_on_maple_table_robolab_lime_2
-  - kind: 'on'
-    subject: orange_1
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_7_on_maple_table_robolab_orange_1
-  - kind: 'on'
-    subject: orange_2
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_8_on_maple_table_robolab_orange_2
-  - kind: 'on'
-    subject: pomegranate
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_9_on_maple_table_robolab_pomegranate
-  - kind: 'on'
-    subject: white_packer_bottle
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_10_on_maple_table_robolab_white_packer_bottle
-  - kind: 'on'
-    subject: avocado
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_11_on_maple_table_robolab_avocado
-  - kind: 'on'
-    subject: crabbypenholder
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_12_on_maple_table_robolab_crabbypenholder
-  - kind: 'on'
-    subject: serving_bowl
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_13_on_maple_table_robolab_serving_bowl
-  - kind: 'on'
-    subject: utilityjug
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_14_on_maple_table_robolab_utilityjug
-  - kind: 'on'
-    subject: red_onion
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_15_on_maple_table_robolab_red_onion
-  - kind: 'on'
-    subject: container_f24
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_16_on_maple_table_robolab_container_f24
-  task_constraints: []
-- id: state_spec_1
-  is_delta: true
-  spatial_constraints:
-  - kind: 'on'
-    subject: pumpkin_large
-    reference: container_f24
-    params: {}
-    id: state_spec_1_pumpkin_large_on_container_f24
-  task_constraints: []
-cli_override_specs: []

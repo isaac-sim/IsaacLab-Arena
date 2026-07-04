@@ -7,8 +7,8 @@ evaluation. This workflow shows how agentically composed environments can be
 used by the policy runner, the sequential batch evaluation runner with the
 variation system, and policy-specific evaluation flows such as GR00T and PI.
 
-Behind the scenes, this workflow introduces the intent spec, environment graph
-spec, and environment graph linking.
+Behind the scenes, this workflow uses the ``ArenaEnvGraphSpec`` schema for scene
+layout, tasks, and spatial relations.
 
 **Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
 
@@ -29,13 +29,8 @@ specs:
       --mode resolve \
       --prompt "Droid picks up the mustard bottle from the maple table and places it in the grey bin."
 
-The runner writes files under ``isaaclab_arena_environments/agent_generated/`` by
-default:
-
-* ``*_initial.yaml``: the direct output of intent compilation.
-* ``*_linked.yaml``: the linked environment graph used by Arena runtime tools.
-
-Pass the linked YAML to policy and evaluation commands.
+The runner writes ``<env_name>.yaml`` under ``isaaclab_arena_environments/agent_generated/`` by
+default. Pass it to policy and evaluation commands with ``--env_graph_spec_yaml``.
 
 Prompt to Simulation Environment
 --------------------------------
@@ -103,7 +98,7 @@ The same YAML can also be built directly by the generation runner:
 
    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py \
       --mode build \
-      --linked_env_graph_spec_yaml isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml \
+      --env_graph_spec_yaml isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml \
       --headless
 
 
@@ -133,8 +128,8 @@ with variations through the policy runner:
 Sequential Batch Evaluation Runner with Variations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Evaluation jobs can also point their environment source at a linked graph YAML
-with variations, instead of a registered example-environment name:
+Evaluation jobs can also point their environment source at an environment graph
+spec YAML with variations, instead of a registered example-environment name:
 
 .. code-block:: json
 

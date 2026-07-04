@@ -14,7 +14,7 @@ from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 if TYPE_CHECKING:
     import argparse
 
-    from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphCliOverrideSpec, ArenaEnvGraphNodeSpec
+    from isaaclab_arena.environments.arena_env_graph_types import CliOverrideSpec
     from isaaclab_arena.relations.relations import RelationBase
 
 
@@ -38,127 +38,86 @@ def unique_node_id(existing_ids: set[str], base: str) -> str:
     return f"{base}_{suffix}"
 
 
-def assert_unique_ids(nodes: list[Any], tasks: list[Any], state_specs: list[Any]) -> None:
-    """Ensure every graph id is unique, including spatial constraint ids inside states."""
+def assert_graph_spec_asset_ids_unique(
+    embodiment: Any,
+    background: Any,
+    objects: list[Any],
+    object_references: list[Any],
+) -> None:
+    """Ensure every asset and object-reference id in a graph spec is unique."""
     id_locations: dict[str, list[str]] = {}
-    for node in nodes:
-        _add_id_location(id_locations, node.id, f"node '{node.id}'")
-    for task in tasks:
-        _add_id_location(id_locations, task.id, f"task '{task.id}'")
-    for state_spec in state_specs:
-        _add_id_location(id_locations, state_spec.id, f"state spec '{state_spec.id}'")
-        for constraint in state_spec.spatial_constraints:
-            _add_id_location(id_locations, constraint.id, f"spatial constraint '{constraint.id}'")
+    for asset, label in (
+        (embodiment, "embodiment"),
+        (background, "background"),
+    ):
+        _add_id_location(id_locations, asset.id, label)
+    for obj in objects:
+        _add_id_location(id_locations, obj.id, f"object '{obj.id}'")
+    for ref in object_references:
+        _add_id_location(id_locations, ref.id, f"object_reference '{ref.id}'")
 
     duplicates = {spec_id: locations for spec_id, locations in id_locations.items() if len(locations) > 1}
-    assert not duplicates, f"Duplicate env graph ids found: {duplicates}"
+    assert not duplicates, f"Duplicate graph asset ids found: {duplicates}"
 
 
-def assert_constraint_references(nodes: list[Any], state_specs: list[Any]) -> None:
-    """Ensure every node parent and constraint reference points to a node that exists."""
-    node_ids = {node.id for node in nodes}
-
-    # Track ids seen so far so a node's parent must be defined *earlier* in the list. The
-    # conversion process (_instantiate_assets_from_nodes) materializes nodes in order and looks
-    # up the parent, so a parent listed after its reference would otherwise only fail
-    # there with a raw KeyError.
-    seen_node_ids: set[str] = set()
-    for node in nodes:
-        parent = getattr(node, "parent", None)
-        if parent is not None:
-            assert parent in node_ids, f"Node '{node.id}' references unknown parent '{parent}'"
-            assert parent in seen_node_ids, (
-                f"Node '{node.id}' references parent '{parent}' defined later in the node list; "
-                "a parent must appear before any node that references it"
-            )
-        seen_node_ids.add(node.id)
-
-    for state_spec in state_specs:
-        for constraint in state_spec.spatial_constraints:
-            assert (
-                constraint.subject in node_ids
-            ), f"Constraint '{constraint.id}' references unknown subject node '{constraint.subject}'"
-            if constraint.reference is not None:
-                assert (
-                    constraint.reference in node_ids
-                ), f"Constraint '{constraint.id}' references unknown reference node '{constraint.reference}'"
-
-        for task_constraint in state_spec.task_constraints:
-            assert (
-                task_constraint.parent in node_ids
-            ), f"Task constraint '{task_constraint.id}' references unknown parent node '{task_constraint.parent}'"
-            if task_constraint.child is not None:
-                assert (
-                    task_constraint.child in node_ids
-                ), f"Task constraint '{task_constraint.id}' references unknown child node '{task_constraint.child}'"
-
-
-def assert_task_wiring(tasks: list[Any], state_specs: list[Any]) -> None:
-    """Ensure each task's ``initial_state_spec_id`` / ``success_state_spec_id`` references a state."""
-    state_spec_ids = {state_spec.id for state_spec in state_specs}
-    for task in tasks:
-        for label, state_spec_id in (
-            ("initial_state_spec_id", task.initial_state_spec_id),
-            ("success_state_spec_id", task.success_state_spec_id),
-        ):
-            assert (
-                state_spec_id in state_spec_ids
-            ), f"Task '{task.id}' references unknown state spec '{state_spec_id}' for '{label}'"
-
-
-def assert_spatial_constraint_shapes(state_specs: list[Any]) -> None:
-    """Check each spatial constraint has the subject/reference shape its relation expects."""
-    for state_spec in state_specs:
-        for constraint in state_spec.spatial_constraints:
-            relation_cls = relation_class_for_spatial_constraint_type(constraint.kind)
-            is_unary = relation_cls.is_unary()
-            constraint_kind = constraint.kind
-
-            if is_unary:
-                assert constraint.reference is None, (
-                    f"Spatial constraint '{constraint.id}' of kind '{constraint_kind}' must not define"
-                    " relation.reference"
-                )
-            else:
-                assert (
-                    constraint.reference is not None
-                ), f"Spatial constraint '{constraint.id}' of kind '{constraint_kind}' requires relation.reference"
-
-
-def assert_cli_override_specs_reference_nodes(
-    nodes: list[ArenaEnvGraphNodeSpec], cli_override_specs: list[ArenaEnvGraphCliOverrideSpec]
+def assert_graph_spec_object_reference_parents(
+    object_references: list[Any],
+    known_ids: set[str],
 ) -> None:
-    """Check each CLI override uses a unique flag and points to a real node."""
-    node_ids = {node.id for node in nodes}
-    seen_args: set[str] = set()
-    for override in cli_override_specs:
-        assert override.arg not in seen_args, f"Duplicate cli_override arg '--{override.arg}'"
-        seen_args.add(override.arg)
+    """Ensure each object reference parent exists."""
+    for ref in object_references:
+        assert ref.parent_id in known_ids, f"Object reference '{ref.id}' references unknown parent '{ref.parent_id}'"
+
+
+def assert_graph_spec_relation_references(relations: list[Any], known_ids: set[str]) -> None:
+    """Ensure relation subject/reference endpoints name known asset ids."""
+    for index, relation in enumerate(relations):
         assert (
-            override.target_node_id in node_ids
-        ), f"CLI override '--{override.arg}' targets unknown node '{override.target_node_id}'"
+            relation.subject in known_ids
+        ), f"Relation[{index}] kind '{relation.kind}' references unknown subject '{relation.subject}'"
+        if relation.reference is not None:
+            assert (
+                relation.reference in known_ids
+            ), f"Relation[{index}] kind '{relation.kind}' references unknown reference '{relation.reference}'"
 
 
-def add_cli_override_args(parser: argparse.ArgumentParser, override_specs: list[ArenaEnvGraphCliOverrideSpec]) -> None:
-    """Add each declared override to the CLI ``parser`` as a ``--flag``.
+def assert_graph_spec_task_param_references(tasks: list[Any], known_ids: set[str]) -> None:
+    """Ensure string-valued task params reference known asset ids."""
+    for task in tasks:
+        for param_name, param_value in task.params.items():
+            if isinstance(param_value, str):
+                assert (
+                    param_value in known_ids
+                ), f"Task '{task.kind}' param '{param_name}' references unknown node '{param_value}'"
 
-    Each flag defaults to `None`, so an omitted flag falls back to the node's YAML-specified asset.
 
-    A declared flag that collides with one already on the parser (a built-in like ``--num_envs``
-    or ``--seed``, or any flag added by ``AppLauncher.add_app_launcher_args``) is rejected.
-    """
+def assert_spatial_relation_shapes(relations: list[Any]) -> None:
+    """Check each relation has the subject/reference shape its kind expects."""
+    for index, relation in enumerate(relations):
+        relation_cls = relation_class_for_spatial_constraint_type(relation.kind)
+        if relation_cls.is_unary():
+            assert (
+                relation.reference is None
+            ), f"Relation[{index}] kind '{relation.kind}' must not define relation.reference"
+        else:
+            assert (
+                relation.reference is not None
+            ), f"Relation[{index}] kind '{relation.kind}' requires relation.reference"
+
+
+def add_cli_override_args(parser: argparse.ArgumentParser, override_specs: list[CliOverrideSpec]) -> None:
+    """Add each declared override to the CLI ``parser`` as a ``--flag``."""
     for override in override_specs:
         flag = f"--{override.arg}"
-        # _option_string_actions maps every registered option string ('--num_envs') to its action
-        assert flag not in parser._option_string_actions, (  # noqa: SLF001 (introspect registered flags)
-            f"CLI override flag '{flag}' (node '{override.target_node_id}') is already a parser flag "
+        assert flag not in parser._option_string_actions, (  # noqa: SLF001
+            f"CLI override flag '{flag}' (asset '{override.target_node_id}') is already a parser flag "
             "(e.g. --num_envs/--seed or an AppLauncher flag); rename its 'arg' in the YAML."
         )
         parser.add_argument(
             flag,
             type=str,
             default=None,
-            help=f"Override the asset behind graph node '{override.target_node_id}'.",
+            help=f"Override the registry name behind graph asset '{override.target_node_id}'.",
         )
 
 
@@ -172,12 +131,7 @@ def relation_class_for_spatial_constraint_type(constraint_type: str) -> type[Rel
 
 
 def iter_nested_leaf_values(value: Any, key_path: str = "") -> Iterator[tuple[str, Any]]:
-    """Walk nested task-arg values while keeping a readable path for errors.
-
-    Example:
-        >>> list(iter_nested_leaf_values({"object": "mug", "destination": ["table", "shelf"]}))
-        [('object', 'mug'), ('destination[0]', 'table'), ('destination[1]', 'shelf')]
-    """
+    """Walk nested task-arg values while keeping a readable path for errors."""
     if isinstance(value, dict):
         for key, item in value.items():
             nested_key_path = f"{key_path}.{key}" if key_path else str(key)
@@ -191,12 +145,7 @@ def iter_nested_leaf_values(value: Any, key_path: str = "") -> Iterator[tuple[st
 
 
 def map_nested_leaf_values(value: Any, transform: Callable[[Any], Any]) -> Any:
-    """Apply a transform to nested task-arg leaves while preserving container shape.
-
-    Example:
-        >>> map_nested_leaf_values({"a": [1, 2], "b": (3, 4)}, lambda x: x * 10)
-        {'a': [10, 20], 'b': (30, 40)}
-    """
+    """Apply a transform to nested task-arg leaves while preserving container shape."""
     if isinstance(value, dict):
         return {key: map_nested_leaf_values(item, transform) for key, item in value.items()}
     if isinstance(value, list):
@@ -207,22 +156,12 @@ def map_nested_leaf_values(value: Any, transform: Callable[[Any], Any]) -> Any:
 
 
 def normalize_identifier(identifier: str) -> str:
-    """Normalize names so YAML keys can be matched across casing and separators.
-
-    Example:
-        >>> normalize_identifier("Pickup_Object")
-        'pickupobject'
-    """
+    """Normalize names so YAML keys can be matched across casing and separators."""
     return "".join(char for char in identifier.lower() if char.isalnum())
 
 
 def camel_to_snake(identifier: str) -> str:
-    """Turn a class-like name into the module-style name we try during discovery.
-
-    Example:
-        >>> camel_to_snake("AtPosition")
-        'at_position'
-    """
+    """Turn a class-like name into the module-style name we try during discovery."""
     chars: list[str] = []
     for index, char in enumerate(identifier):
         if char.isupper() and index > 0 and (identifier[index - 1].islower() or identifier[index - 1].isdigit()):
@@ -232,12 +171,5 @@ def camel_to_snake(identifier: str) -> str:
 
 
 def strip_suffix(value: str, suffix: str) -> str:
-    """Remove a suffix only when the value actually has it.
-
-    Example:
-        >>> strip_suffix("AtPositionSpec", "Spec")
-        'AtPosition'
-        >>> strip_suffix("AtPosition", "Spec")
-        'AtPosition'
-    """
+    """Remove a suffix only when the value actually has it."""
     return value[: -len(suffix)] if value.endswith(suffix) else value

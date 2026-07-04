@@ -56,31 +56,36 @@ def agent(stub_openai):
     return a
 
 
-# Minimal EnvironmentIntentSpec payload — exercises every required field plus one
-# task. Reused across the generate_spec happy-path tests.
+# Minimal ArenaEnvGraphSpec payload — uses registered asset names from the test fixture.
 _MINIMAL_SPEC: dict = {
-    "reasoning": (
-        "User wants a pick-and-place: foreground object is 'avocado', "
-        "target container is 'bowl', background is the kitchen table."
-    ),
-    "background": "kitchen",
-    "embodiment": "franka_ik",
-    "items": [
-        {"query": "avocado", "category_tags": [], "instance_name": None},
-        {"query": "bowl", "category_tags": [], "instance_name": None},
+    "env_name": "llm_gen_maple_table_robolab_PickAndPlaceTask",
+    "embodiment": {"id": "franka_ik", "registry_name": "franka_ik"},
+    "background": {"id": "maple_table_robolab", "registry_name": "maple_table_robolab"},
+    "objects": [
+        {"id": "rubiks_cube_hot3d_robolab", "registry_name": "rubiks_cube_hot3d_robolab"},
+        {"id": "bowl_ycb_robolab", "registry_name": "bowl_ycb_robolab"},
     ],
-    "initial_state_graph": [
-        {"kind": "on", "subject": "avocado", "reference": "kitchen"},
-        {"kind": "on", "subject": "bowl", "reference": "kitchen"},
+    "object_references": [
+        {
+            "id": "maple_table_robolab_table",
+            "parent_id": "maple_table_robolab",
+            "prim_path": "{ENV_REGEX_NS}/maple_table_robolab/table",
+            "object_type": "rigid",
+        },
+    ],
+    "relations": [
+        {"kind": "is_anchor", "subject": "maple_table_robolab_table"},
+        {"kind": "on", "subject": "rubiks_cube_hot3d_robolab", "reference": "maple_table_robolab_table"},
+        {"kind": "on", "subject": "bowl_ycb_robolab", "reference": "maple_table_robolab_table"},
     ],
     "tasks": [{
         "kind": "PickAndPlaceTask",
         "params": {
-            "pick_up_object": "avocado",
-            "destination_location": "bowl",
-            "background_scene": "kitchen",
+            "pick_up_object": "rubiks_cube_hot3d_robolab",
+            "destination_location": "bowl_ycb_robolab",
+            "background_scene": "maple_table_robolab",
         },
-        "description": "pick up the avocado and place it in the bowl",
+        "description": "pick up the rubiks cube and place it in the bowl",
     }],
 }
 
@@ -167,18 +172,15 @@ class TestGenerateSpec:
         )
         kwargs = agent.client.chat.completions.create.call_args.kwargs
         assert kwargs["response_format"]["type"] == "json_schema"
-        assert kwargs["response_format"]["json_schema"]["name"] == "EnvironmentIntentSpec"
+        assert kwargs["response_format"]["json_schema"]["name"] == "ArenaEnvGraphSpec"
         assert kwargs["response_format"]["json_schema"]["strict"] is True
-        # The schema sent on the wire is the cached, strict-mode-munged copy.
         assert kwargs["response_format"]["json_schema"]["schema"] is agent._spec_schema
 
     def test_tolerates_unescaped_control_chars(self, agent):
-        # DeepSeek-v4-flash emits literal tab/newline characters inside JSON
-        # strings despite the structured-outputs contract.
         payload = dict(_MINIMAL_SPEC)
-        payload["reasoning"] = "pick up\tthe\tavocado"
+        payload["env_name"] = "pick\tup"
         raw = json.dumps(payload).replace("\\t", "\t")
-        assert "\t" in raw  # raw payload now has literal tab chars in a string
+        assert "\t" in raw
         agent.client.chat.completions.create.return_value = _chat_response(content=raw)
         spec, _ = agent.generate_spec(
             "p",
@@ -186,7 +188,7 @@ class TestGenerateSpec:
             relation_catalog=_relation_catalog("RELATIONS"),
             task_catalog=_task_catalog("TASKS"),
         )
-        assert "\t" in spec.reasoning
+        assert "\t" in spec.env_name
 
     def test_user_message_contains_catalog_and_prompt(self, agent):
         agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
@@ -230,7 +232,7 @@ class TestGenerateSpec:
             task_catalog=_task_catalog("TASKS"),
             max_retries=3,
         )
-        assert spec.background == "kitchen"
+        assert spec.background.registry_name == "maple_table_robolab"
         assert agent.client.chat.completions.create.call_count == 2
 
     def test_raises_after_api_errors_exhaust_retries(self, agent):
@@ -251,18 +253,16 @@ class TestGenerateSpec:
 # ---------------------------------------------------------------------------
 
 
-# Marked flaky to absorb intermittent wire-level hiccups on the inference endpoint.
-# TODO(qianl): drop the flaky marker once production-side retry is implemented.
 @pytest.mark.flaky(max_runs=3, min_passes=1)
 def test_generate_spec_against_live_endpoint():
     """End-to-end smoke test against the real OpenAI-compatible endpoint."""
     agent = EnvironmentGenerationAgent()
     asset_catalog = _catalog(
         "EMBODIMENTS: franka_ik\n\n"
-        "BACKGROUNDS: maple_table_kitchen\n\n"
+        "BACKGROUNDS: maple_table_robolab\n\n"
         "OBJECTS (2):\n"
-        "- avocado_robolab  tags=['vegetable']\n"
-        "- bowl_robolab  tags=['container']"
+        "- rubiks_cube_hot3d_robolab  tags=[]\n"
+        "- bowl_ycb_robolab  tags=[]"
     )
     task_catalog = _task_catalog(
         "TASKS (1):\n- PickAndPlaceTask (pick_up_object, destination_location, background_scene): Pick-and-place task."
@@ -273,7 +273,7 @@ def test_generate_spec_against_live_endpoint():
         task_catalog=task_catalog,
     )
     assert isinstance(raw, str) and raw, "agent returned empty raw response"
-    assert spec.tasks, "EnvironmentIntentSpec must contain at least one task"
-    assert spec.background, "EnvironmentIntentSpec.background must be populated"
-    assert spec.embodiment, "EnvironmentIntentSpec.embodiment must be populated"
-    assert spec.reasoning, "EnvironmentIntentSpec.reasoning must be populated"
+    assert spec.tasks, "ArenaEnvGraphSpec must contain at least one task"
+    assert spec.background.registry_name, "background.registry_name must be populated"
+    assert spec.embodiment.registry_name, "embodiment.registry_name must be populated"
+    assert spec.relations, "relations must be populated"
