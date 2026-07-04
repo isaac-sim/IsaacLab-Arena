@@ -51,14 +51,22 @@ def required_task_init_param_names(task_cls: type) -> list[str]:
 class ArenaEnvGraphSpec(BaseModel):
     """Environment graph spec — the single source of truth for scene layout and tasks."""
 
-    env_name: str = Field(min_length=1)
-    embodiment: AssetSpec
-    background: AssetSpec
-    objects: list[AssetSpec] = Field(default_factory=list)
-    object_references: list[ObjectReferenceSpec] | None = None
-    relations: list[SpatialRelationSpec] = Field(default_factory=list)
-    tasks: list[TaskSpec] = Field(default_factory=list)
-    cli_override_specs: list[CliOverrideSpec] | None = None
+    env_name: str = Field(min_length=1, description="Short snake_case label summarizing the scene and tasks.")
+    embodiment: AssetSpec = Field(description="The robot that performs the tasks.")
+    background: AssetSpec = Field(description="The static scene the robot and objects sit in.")
+    objects: list[AssetSpec] = Field(default_factory=list, description="Movable scene objects, including distractors.")
+    object_references: list[ObjectReferenceSpec] | None = Field(
+        default=None, description="Optional prims inside the background exposed as assets (e.g. a table surface)."
+    )
+    relations: list[SpatialRelationSpec] = Field(
+        default_factory=list, description="Spatial layout relations across all assets."
+    )
+    tasks: list[TaskSpec] = Field(
+        default_factory=list, description="Tasks the robot performs to manipulate the objects."
+    )
+    cli_override_specs: list[CliOverrideSpec] | None = Field(
+        default=None, description="Optional authoring-time CLI flags that swap an asset's registry_name; usually empty."
+    )
 
     @field_validator("object_references", "cli_override_specs", mode="before")
     @classmethod

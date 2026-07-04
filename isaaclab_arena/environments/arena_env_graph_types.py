@@ -23,7 +23,7 @@ class AssetSpec(BaseModel):
         min_length=1,
         description=(
             "Unique id for this asset instance. Use underscore-connected identifiers "
-            "(e.g. 'banana_1', 'maple_table_robolab'). Referenced by relations and task params."
+            "(e.g. 'banana', 'maple_table'). Referenced by relations and task params."
         ),
     )
     registry_name: str = Field(
@@ -52,7 +52,14 @@ class ObjectReferenceSpec(BaseModel):
         default=None,
         description="USD prim path inside the parent background (required for conversion).",
     )
-    object_type: ObjectType = Field(description="Physics type for the referenced prim.")
+    object_type: ObjectType = Field(
+        description=(
+            "Physics type for the referenced prim. Use the first matching value:\n"
+            "- articulation: door or other articulated prim in open/close door tasks\n"
+            "- rigid: manipulable prim in pick-and-place tasks\n"
+            "- base: static anchor prim (e.g. table surface) in is_anchor or placement relations"
+        ),
+    )
     params: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
