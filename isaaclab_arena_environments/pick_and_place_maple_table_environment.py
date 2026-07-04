@@ -6,8 +6,13 @@
 from __future__ import annotations
 
 import argparse
+import json
+import os
+import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
@@ -29,6 +34,12 @@ _REACH_BOX = dict(x_min=0.05, x_max=0.45, y_min=-0.25, y_max=0.25)
 # silent fallback. Enable with --use_staging_assets for development/evaluation until the assets are promoted.
 _PROD_NUCLEUS_HOST = "omniverse-content-production.s3-us-west-2.amazonaws.com"
 _STAGING_NUCLEUS_HOST = "omniverse-content-staging.s3.us-west-2.amazonaws.com"
+_LOCAL_ASSET_HOSTS = {
+    _PROD_NUCLEUS_HOST,
+    _STAGING_NUCLEUS_HOST,
+    "omniverse-content-production.s3.us-west-2.amazonaws.com",
+}
+_ASSET_PROVENANCE_FILE = "CAP_ASSET_PROVENANCE.json"
 
 
 def _to_staging_url(url: str) -> str:
@@ -47,6 +58,49 @@ def _staging_subclass(asset_cls: type) -> tuple[type, str]:
     """
     staged = _to_staging_url(asset_cls.usd_path)
     return type(f"{asset_cls.__name__}Staging", (asset_cls,), {"usd_path": staged}), staged
+
+
+def _local_asset_path(source_url: str, local_root: str | Path) -> str:
+    """Map one approved Isaac asset URL into the image's host-qualified local mirror."""
+    parsed = urlparse(source_url)
+    if parsed.scheme != "https" or parsed.netloc not in _LOCAL_ASSET_HOSTS:
+        raise RuntimeError(f"unsupported CAP asset source URL: {source_url}")
+    root = Path(local_root).expanduser().resolve()
+    target = (root / parsed.netloc / parsed.path.lstrip("/")).resolve()
+    if not target.is_relative_to(root):
+        raise RuntimeError(f"CAP asset source escapes the local asset root: {source_url}")
+    if not target.is_file():
+        raise FileNotFoundError(f"baked CAP asset is missing: {target} (source: {source_url})")
+    return str(target)
+
+
+def _local_asset_subclass(asset_cls: type, local_root: str | Path) -> tuple[type, str, str]:
+    """Return an instance-local asset subclass backed by the baked mirror."""
+    source_url = getattr(asset_cls, "usd_path", None)
+    if not source_url:
+        raise RuntimeError(f"CAP asset class has no usd_path: {asset_cls.__name__}")
+    local_path = _local_asset_path(source_url, local_root)
+    localized = type(f"{asset_cls.__name__}Local", (asset_cls,), {"usd_path": local_path})
+    return localized, source_url, local_path
+
+
+def _load_local_asset_provenance(local_root: str | Path) -> dict:
+    path = Path(local_root).expanduser().resolve() / _ASSET_PROVENANCE_FILE
+    try:
+        provenance = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"invalid baked CAP asset provenance: {path}") from exc
+    tree_hash = provenance.get("tree_sha256")
+    if (
+        provenance.get("schema_version") != 1
+        or not isinstance(tree_hash, str)
+        or not re.fullmatch(r"[0-9a-f]{64}", tree_hash)
+    ):
+        raise RuntimeError(f"invalid baked CAP asset provenance schema or tree hash: {path}")
+    expected_tree_hash = os.environ.get("CAP_IMAGE_ASSET_TREE_SHA256")
+    if expected_tree_hash and tree_hash != expected_tree_hash:
+        raise RuntimeError(f"baked CAP asset tree hash {tree_hash} does not match image pin {expected_tree_hash}")
+    return provenance
 
 
 def _apply_staging_stand_override(embodiment) -> str:
@@ -68,6 +122,25 @@ def _apply_staging_stand_override(embodiment) -> str:
     stand.spawn.usd_path = staged
     embodiment.scene_config.stand = stand
     return staged
+
+
+def _apply_local_droid_asset_override(embodiment, local_root: str | Path) -> dict[str, str]:
+    """Localize DROID robot and stand spawn configs without mutating shared defaults."""
+    import copy
+
+    source_urls = {}
+    local_paths = {}
+    for name in ("robot", "stand"):
+        asset_cfg = getattr(embodiment.scene_config, name)
+        source_url = getattr(asset_cfg.spawn, "usd_path", None)
+        if not source_url:
+            raise RuntimeError(f"DROID {name} has no spawn.usd_path to localize")
+        localized_cfg = copy.deepcopy(asset_cfg)
+        localized_cfg.spawn.usd_path = _local_asset_path(source_url, local_root)
+        setattr(embodiment.scene_config, name, localized_cfg)
+        source_urls[f"{name}_source_usd"] = source_url
+        local_paths[f"{name}_local_usd"] = localized_cfg.spawn.usd_path
+    return {**source_urls, **local_paths}
 
 
 @dataclass
@@ -111,6 +184,20 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
         gap_profile = cfg.gap_profile
         use_staging = cfg.use_staging_assets
         is_droid = "droid" in cfg.embodiment
+        configured_local_root = os.environ.get("CAP_LOCAL_ASSET_ROOT")
+        local_asset_root = Path(configured_local_root).expanduser().resolve() if configured_local_root else None
+        local_asset_provenance = (
+            _load_local_asset_provenance(local_asset_root) if local_asset_root is not None else None
+        )
+
+        # Materialization is independent of the GaP camera/reach profile. An explicit local mirror must never
+        # silently fall back to network-backed assets, including for layout-only jobs. The baked CAP closure is
+        # deliberately scoped to the DROID setup, so reject unsupported embodiments before scene construction.
+        if local_asset_root is not None:
+            assert is_droid, (
+                "CAP_LOCAL_ASSET_ROOT contains the CAP DROID scene closure; "
+                f"got unsupported embodiment '{cfg.embodiment}'."
+            )
 
         # Fail early on a misconfigured profile rather than silently producing a scene without the GaP camera:
         # the exterior agentview camera and its variation require cameras enabled and a DROID embodiment.
@@ -134,7 +221,25 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
                 f"[pick_and_place_maple_table] STAGING ASSET OVERRIDE (opt-in): maple_table -> {staged_table_url}",
                 flush=True,
             )
+        table_source_url = background_cls.usd_path
+        if local_asset_root is not None:
+            background_cls, table_source_url, local_table_path = _local_asset_subclass(background_cls, local_asset_root)
+            print(
+                f"[pick_and_place_maple_table] LOCAL ASSET OVERRIDE: maple_table -> {local_table_path}",
+                flush=True,
+            )
         background = background_cls()
+
+        asset_source_urls: dict[str, str] = {}
+        asset_resolved_usds: dict[str, str] = {}
+
+        def _instantiate_asset(name: str):
+            asset_cls = self.asset_registry.get_asset_by_name(name)
+            if local_asset_root is not None:
+                asset_cls, source_url, local_path = _local_asset_subclass(asset_cls, local_asset_root)
+                asset_source_urls[name] = source_url
+                asset_resolved_usds[name] = local_path
+            return asset_cls()
 
         # Pick targets. Opt-in 2-5-object sort profile: --pick_targets lists the ordered pick objects and the
         # task becomes the stock SortMultiObjectTask (all targets -> the destination). Unset (default) keeps the
@@ -160,8 +265,8 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
             )
         else:
             pick_target_names = [cfg.pick_up_object]
-        pick_objects = [self.asset_registry.get_asset_by_name(name)() for name in pick_target_names]
-        destination_location = self.asset_registry.get_asset_by_name(cfg.destination_location)()
+        pick_objects = [_instantiate_asset(name) for name in pick_target_names]
+        destination_location = _instantiate_asset(cfg.destination_location)
 
         # Step 2: Describe spatial relationships
         table_reference = ObjectReference(
@@ -176,9 +281,7 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
             obj.add_relation(On(table_reference))
         destination_location.add_relation(On(table_reference))
 
-        additional_table_objects = [
-            self.asset_registry.get_asset_by_name(name)() for name in cfg.additional_table_objects
-        ]
+        additional_table_objects = [_instantiate_asset(name) for name in cfg.additional_table_objects]
         for obj in additional_table_objects:
             obj.add_relation(On(table_reference))
 
@@ -207,6 +310,15 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
             staged_stand_url = _apply_staging_stand_override(embodiment)
             print(
                 f"[pick_and_place_maple_table] STAGING ASSET OVERRIDE (opt-in): droid_stand -> {staged_stand_url}",
+                flush=True,
+            )
+        droid_asset_paths = {}
+        if local_asset_root is not None:
+            droid_asset_paths = _apply_local_droid_asset_override(embodiment, local_asset_root)
+            print(
+                "[pick_and_place_maple_table] LOCAL ASSET OVERRIDE: "
+                f"droid_robot -> {droid_asset_paths['robot_local_usd']}; "
+                f"droid_stand -> {droid_asset_paths['stand_local_usd']}",
                 flush=True,
             )
 
@@ -282,8 +394,31 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
             provenance = {
                 "profile": "gap_profile",
                 "asset_channel": "staging" if use_staging else "production",
-                "table_usd": background.usd_path,
-                "droid_stand_usd": getattr(embodiment.scene_config.stand.spawn, "usd_path", None),
+                "asset_materialization": "local_baked" if local_asset_root is not None else "remote",
+                "table_usd": table_source_url,
+                "table_source_usd": table_source_url,
+                "table_resolved_usd": background.usd_path,
+                "droid_robot_usd": droid_asset_paths.get(
+                    "robot_source_usd", getattr(embodiment.scene_config.robot.spawn, "usd_path", None)
+                ),
+                "droid_robot_source_usd": droid_asset_paths.get(
+                    "robot_source_usd",
+                    getattr(embodiment.scene_config.robot.spawn, "usd_path", None),
+                ),
+                "droid_robot_resolved_usd": getattr(embodiment.scene_config.robot.spawn, "usd_path", None),
+                "droid_stand_usd": droid_asset_paths.get(
+                    "stand_source_usd", getattr(embodiment.scene_config.stand.spawn, "usd_path", None)
+                ),
+                "droid_stand_source_usd": droid_asset_paths.get(
+                    "stand_source_usd",
+                    getattr(embodiment.scene_config.stand.spawn, "usd_path", None),
+                ),
+                "droid_stand_resolved_usd": getattr(embodiment.scene_config.stand.spawn, "usd_path", None),
+                "asset_source_urls": asset_source_urls,
+                "asset_resolved_usds": asset_resolved_usds,
+                "baked_asset_tree_sha256": (
+                    local_asset_provenance["tree_sha256"] if local_asset_provenance is not None else None
+                ),
                 "task": "SortMultiObjectTask" if is_multi_object else "PickAndPlaceTask",
                 "pick_targets": [obj.name for obj in pick_objects],  # ordered pick-target identities
                 "destination": destination_location.name,
