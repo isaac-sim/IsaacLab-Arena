@@ -39,6 +39,93 @@ _LOCAL_ASSET_HOSTS = {
     "omniverse-content-production.s3.us-west-2.amazonaws.com",
 }
 _ASSET_PROVENANCE_FILE = "CAP_ASSET_PROVENANCE.json"
+# Keep exact-layout bodies just above the tabletop. A larger drop introduces avoidable lateral drift before
+# the policy's first observation, which weakens millimeter-scale distance control.
+_CONTROLLED_ON_CLEARANCE_M = 0.001
+_CONTROLLED_TABLE_EDGE_MARGIN_M = 0.05
+_CONTROLLED_PICK_WORKSPACE = dict(x_min=0.05, x_max=0.45, y_min=-0.25, y_max=0.25)
+_CONTROLLED_DESTINATION_WORKSPACE = dict(x_min=0.45, x_max=0.55, y_min=-0.25, y_max=0.25)
+
+
+def _compute_controlled_object_bin_layout(
+    pick_bbox,
+    destination_bbox,
+    table_bbox,
+    *,
+    gap_m: float,
+    side: str,
+    pick_center_x: float,
+    destination_center_x: float,
+    pair_midpoint_y: float,
+) -> tuple[tuple[float, float, float], tuple[float, float, float], float]:
+    """Return exact pick/destination poses for a controlled planar AABB gap."""
+    pick_x = pick_center_x - float(pick_bbox.center[0, 0])
+    destination_x = destination_center_x - float(destination_bbox.center[0, 0])
+    center_separation_y = float(destination_bbox.size[0, 1]) * 0.5 + float(pick_bbox.size[0, 1]) * 0.5 + gap_m
+    if side == "positive_y":
+        pick_center_y = pair_midpoint_y + center_separation_y * 0.5
+        destination_center_y = pair_midpoint_y - center_separation_y * 0.5
+    elif side == "negative_y":
+        pick_center_y = pair_midpoint_y - center_separation_y * 0.5
+        destination_center_y = pair_midpoint_y + center_separation_y * 0.5
+    else:
+        raise ValueError(f"unsupported controlled object-bin side: {side!r}")
+    pick_y = pick_center_y - float(pick_bbox.center[0, 1])
+    destination_y = destination_center_y - float(destination_bbox.center[0, 1])
+
+    table_top_z = float(table_bbox.max_point[0, 2])
+    pick_position = (
+        pick_x,
+        pick_y,
+        table_top_z + _CONTROLLED_ON_CLEARANCE_M - float(pick_bbox.min_point[0, 2]),
+    )
+    destination_position = (
+        destination_x,
+        destination_y,
+        table_top_z + _CONTROLLED_ON_CLEARANCE_M - float(destination_bbox.min_point[0, 2]),
+    )
+    pick_world = pick_bbox.translated(pick_position)
+    destination_world = destination_bbox.translated(destination_position)
+    actual_gap_m = (
+        float(pick_world.min_point[0, 1] - destination_world.max_point[0, 1])
+        if side == "positive_y"
+        else float(destination_world.min_point[0, 1] - pick_world.max_point[0, 1])
+    )
+    if abs(actual_gap_m - gap_m) >= 1e-6:
+        raise ValueError(f"controlled layout produced {actual_gap_m} m instead of {gap_m} m")
+    x_overlap_m = min(float(pick_world.max_point[0, 0]), float(destination_world.max_point[0, 0])) - max(
+        float(pick_world.min_point[0, 0]), float(destination_world.min_point[0, 0])
+    )
+    if x_overlap_m <= 0.0:
+        raise ValueError(
+            "controlled layout requires overlapping pick/destination X AABBs so the requested Y gap "
+            "is the closest planar gap"
+        )
+
+    for name, world_bbox, position, workspace in (
+        ("pick object", pick_world, pick_position, _CONTROLLED_PICK_WORKSPACE),
+        (
+            "destination",
+            destination_world,
+            destination_position,
+            _CONTROLLED_DESTINATION_WORKSPACE,
+        ),
+    ):
+        inside_table = (
+            world_bbox.min_point[0, 0] >= table_bbox.min_point[0, 0] + _CONTROLLED_TABLE_EDGE_MARGIN_M
+            and world_bbox.max_point[0, 0] <= table_bbox.max_point[0, 0] - _CONTROLLED_TABLE_EDGE_MARGIN_M
+            and world_bbox.min_point[0, 1] >= table_bbox.min_point[0, 1] + _CONTROLLED_TABLE_EDGE_MARGIN_M
+            and world_bbox.max_point[0, 1] <= table_bbox.max_point[0, 1] - _CONTROLLED_TABLE_EDGE_MARGIN_M
+        )
+        if not inside_table:
+            raise ValueError(f"controlled layout puts {name} outside the Maple tabletop margin")
+        if not (
+            workspace["x_min"] <= position[0] <= workspace["x_max"]
+            and workspace["y_min"] <= position[1] <= workspace["y_max"]
+        ):
+            raise ValueError(f"controlled layout puts {name} origin outside the DROID workspace: {position}")
+
+    return pick_position, destination_position, actual_gap_m
 
 
 def _to_staging_url(url: str) -> str:
@@ -154,9 +241,10 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
         from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.relations.relations import IsAnchor, On, PositionLimits
+        from isaaclab_arena.relations.relations import IsAnchor, On, PositionLimits, Side
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+        from isaaclab_arena.utils.pose import Pose
 
         # Opt-in CAP/GaP evaluation profile. Off by default so stock defaults and existing VLA jobs are
         # unchanged; when on it adds the exterior agentview camera + its extrinsics variation, and the
@@ -249,6 +337,29 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
         pick_objects = [_instantiate_asset(name) for name in pick_target_names]
         destination_location = _instantiate_asset(args_cli.destination_location)
 
+        object_bin_gap_m = getattr(args_cli, "object_bin_gap_m", None)
+        object_bin_side = getattr(args_cli, "object_bin_side", Side.POSITIVE_Y.value)
+        object_pick_center_x = getattr(args_cli, "object_pick_center_x", 0.38)
+        object_bin_center_x = getattr(args_cli, "object_bin_center_x", 0.46)
+        object_bin_pair_midpoint_y = getattr(args_cli, "object_bin_pair_midpoint_y", 0.01)
+        configured_placement_clearance_m = getattr(args_cli, "placement_clearance_m", None)
+        placement_clearance_m = (
+            5e-4
+            if object_bin_gap_m is not None and configured_placement_clearance_m is None
+            else configured_placement_clearance_m
+        )
+        if object_bin_gap_m is not None:
+            assert gap_profile, "--object_bin_gap_m requires --gap_profile so the realized gap is recorded"
+            assert not is_multi_object, "--object_bin_gap_m currently requires the single-object task"
+            assert object_bin_gap_m > 0.0, "--object_bin_gap_m must be positive"
+            assert not args_cli.random_yaw_init, "--object_bin_gap_m requires deterministic object yaw"
+            assert placement_clearance_m is not None
+            assert placement_clearance_m >= 0.0, "--placement_clearance_m must be non-negative"
+            assert object_bin_gap_m >= placement_clearance_m, (
+                f"--object_bin_gap_m ({object_bin_gap_m}) must be at least the placement clearance "
+                f"({placement_clearance_m})"
+            )
+
         # Step 2: Describe spatial relationships
         table_reference = ObjectReference(
             name="table",
@@ -258,9 +369,34 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
         )
         table_reference.add_relation(IsAnchor())
 
-        for obj in pick_objects:
-            obj.add_relation(On(table_reference))
-        destination_location.add_relation(On(table_reference))
+        if object_bin_gap_m is not None:
+            # The generic differentiable relation solver is intentionally not used for this controlled
+            # sensitivity variable: its 1 cm optimizer step leaves millimeter-scale residuals. Compute the
+            # exact face gap from the authored AABBs, then make both objects placement anchors. They remain
+            # ordinary dynamic rigid bodies in simulation; IsAnchor only fixes their reset layout.
+            pick_object = pick_objects[0]
+            pick_bbox = pick_object.get_bounding_box()
+            destination_bbox = destination_location.get_bounding_box()
+            table_bbox = table_reference.get_world_bounding_box()
+            pick_position, destination_position, _ = _compute_controlled_object_bin_layout(
+                pick_bbox,
+                destination_bbox,
+                table_bbox,
+                gap_m=object_bin_gap_m,
+                side=object_bin_side,
+                pick_center_x=object_pick_center_x,
+                destination_center_x=object_bin_center_x,
+                pair_midpoint_y=object_bin_pair_midpoint_y,
+            )
+
+            pick_object.set_initial_pose(Pose(position_xyz=pick_position))
+            destination_location.set_initial_pose(Pose(position_xyz=destination_position))
+            pick_object.add_relation(IsAnchor())
+            destination_location.add_relation(IsAnchor())
+        else:
+            for obj in pick_objects:
+                obj.add_relation(On(table_reference))
+            destination_location.add_relation(On(table_reference))
 
         additional_table_objects = [_instantiate_asset(name) for name in args_cli.additional_table_objects]
         for obj in additional_table_objects:
@@ -362,6 +498,7 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
         pose_snapshot_asset_names = []
         if gap_profile:
             from isaaclab_arena.recording.common_terms import (
+                ControlledGapObservationEpisodeRecorderTermCfg,
                 GapProvenanceEpisodeRecorderTermCfg,
                 ObjectPosesEpisodeRecorderTermCfg,
             )
@@ -401,11 +538,30 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
                 "distractors": distractor_names,
                 "placement_seed": getattr(args_cli, "placement_seed", None),
                 "seed": getattr(args_cli, "seed", None),
+                "object_bin_gap_m": object_bin_gap_m,
+                "object_bin_side": object_bin_side if object_bin_gap_m is not None else None,
+                "object_pick_center_x": object_pick_center_x if object_bin_gap_m is not None else None,
+                "object_bin_center_x": object_bin_center_x if object_bin_gap_m is not None else None,
+                "object_bin_pair_midpoint_y": object_bin_pair_midpoint_y if object_bin_gap_m is not None else None,
+                "object_bin_placement_mode": "exact_aabb" if object_bin_gap_m is not None else None,
+                "placement_clearance_m": placement_clearance_m,
             }
             episode_recorder_terms = {
                 "gap_provenance": GapProvenanceEpisodeRecorderTermCfg(params={"provenance": provenance}),
                 "object_poses": ObjectPosesEpisodeRecorderTermCfg(),
             }
+            if object_bin_gap_m is not None:
+                episode_recorder_terms["controlled_gap_observation"] = ControlledGapObservationEpisodeRecorderTermCfg(
+                    params={
+                        "pick_asset_name": pick_objects[0].name,
+                        "destination_asset_name": destination_location.name,
+                        "side": object_bin_side,
+                        "pick_local_bbox_min": pick_bbox.min_point[0].tolist(),
+                        "pick_local_bbox_max": pick_bbox.max_point[0].tolist(),
+                        "destination_local_bbox_min": destination_bbox.min_point[0].tolist(),
+                        "destination_local_bbox_max": destination_bbox.max_point[0].tolist(),
+                    }
+                )
             pose_snapshot_asset_names = [
                 *[obj.name for obj in pick_objects],
                 destination_location.name,
@@ -422,6 +578,9 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
             episode_recorder_terms=episode_recorder_terms,
         )
         isaaclab_arena_environment.pose_snapshot_asset_names = pose_snapshot_asset_names
+        if placement_clearance_m is not None:
+            assert placement_clearance_m >= 0.0, "--placement_clearance_m must be non-negative"
+            isaaclab_arena_environment.placement_clearance_m = placement_clearance_m
         return isaaclab_arena_environment
 
     @staticmethod
@@ -468,6 +627,39 @@ class PickAndPlaceMapleTableEnvironment(ExampleEnvironmentBase):
             default=20.0,
             help="Task episode length in seconds (stock default 20.0; raise for longer GaP rollouts).",
         )
+        parser.add_argument(
+            "--object_bin_gap_m",
+            type=float,
+            default=None,
+            help=(
+                "Opt-in initial post-reset planar AABB gap between the single pick object and destination. "
+                "Uses exact anchored placement and requires --gap_profile."
+            ),
+        )
+        parser.add_argument(
+            "--object_bin_side",
+            choices=["positive_y", "negative_y"],
+            default="positive_y",
+        )
+        parser.add_argument(
+            "--object_pick_center_x",
+            type=float,
+            default=0.38,
+            help="World X coordinate of the pick object's authored AABB center in controlled-gap mode.",
+        )
+        parser.add_argument(
+            "--object_bin_center_x",
+            type=float,
+            default=0.46,
+            help="World X coordinate of the destination's authored AABB center in controlled-gap mode.",
+        )
+        parser.add_argument(
+            "--object_bin_pair_midpoint_y",
+            type=float,
+            default=0.01,
+            help="World Y midpoint of the pick/destination AABB centers in controlled-gap mode.",
+        )
+        parser.add_argument("--placement_clearance_m", type=float, default=None)
         parser.add_argument(
             "--use_staging_assets",
             action="store_true",
