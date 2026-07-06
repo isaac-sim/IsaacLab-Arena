@@ -6,6 +6,7 @@
 import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
+from isaaclab_arena.tests.utils.markers import requires_docker_assets
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 HEADLESS = True
@@ -44,6 +45,7 @@ def run_policy_runner_with_external_environment(
 
 
 @pytest.mark.with_subprocess
+@requires_docker_assets  # the external example env loads unpromoted table assets
 def test_external_environment_franka_table():
     run_policy_runner_with_external_environment(
         policy_type="zero_action",
@@ -55,6 +57,7 @@ def test_external_environment_franka_table():
 
 
 @pytest.mark.with_subprocess
+@requires_docker_assets  # the external example env loads unpromoted table assets
 def test_external_environment_franka_table_with_task():
     run_policy_runner_with_external_environment(
         policy_type="zero_action",
