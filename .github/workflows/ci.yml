@@ -95,6 +95,25 @@ jobs:
           # fresh directory owned by the current process instead.
           PRE_COMMIT_HOME: /tmp/pre-commit-cache
 
+  uv_package:
+    name: uv package
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 30
+
+    container:
+      image: python:3.11-slim
+
+    steps:
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
+
+      # Validates the lockfile and the editable-install packaging (roots,
+      # namespace modules, runtime resources). The sim test suite needs a GPU
+      # plus the full Isaac Sim wheel install and runs in the Docker-backed
+      # `test` job.
       - name: Validate uv lock and editable package
         run: |
           python -m pip install --no-cache-dir uv==0.9.27
