@@ -20,13 +20,6 @@ from isaaclab_arena.environments.arena_env_graph_types import (
     SpatialRelationSpec,
     TaskSpec,
 )
-from isaaclab_arena.environments.graph_spec_utils import (
-    assert_graph_spec_asset_ids_unique,
-    assert_graph_spec_object_reference_parents,
-    assert_graph_spec_relation_references,
-    assert_graph_spec_task_param_references,
-    assert_spatial_relation_shapes,
-)
 
 if TYPE_CHECKING:
     import argparse
@@ -77,23 +70,61 @@ class ArenaEnvGraphSpec(BaseModel):
 
     @model_validator(mode="after")
     def validate(self) -> Self:
-        """Check unique asset ids, cross-references, relation shapes, task params, and CLI overrides."""
-        object_references = self.object_references or []
-        assert_graph_spec_asset_ids_unique(self.embodiment, self.background, self.objects, object_references)
-        known_ids = self._known_asset_ids
-        assert_graph_spec_object_reference_parents(object_references, known_ids)
-        assert_graph_spec_relation_references(self.relations, known_ids)
-        assert_graph_spec_task_param_references(self.tasks, known_ids)
-        assert_spatial_relation_shapes(self.relations)
+        """Check unique asset ids, cross-references, task params, and CLI overrides."""
+        known_ids = self._assert_asset_ids_unique()
+        if self.object_references:
+            self._assert_object_reference_parents(self.object_references, known_ids)
+        self._assert_relation_references(self.relations, known_ids)
+        self._assert_task_param_references(self.tasks, known_ids)
         self._validate_cli_override_specs()
         self._validate_agent_ready_tasks()
         return self
 
-    @property
-    def _known_asset_ids(self) -> set[str]:
-        ids = {self.embodiment.id, self.background.id, *(obj.id for obj in self.objects)}
-        ids.update(ref.id for ref in (self.object_references or []))
-        return ids
+    def _assert_asset_ids_unique(self) -> None:
+        """Ensure every asset and object-reference id in this spec is unique."""
+        seen: set[str] = set()
+        duplicates: set[str] = set()
+        for asset_id in (
+            self.embodiment.id,
+            self.background.id,
+            *(obj.id for obj in self.objects),
+            *(ref.id for ref in (self.object_references or [])),
+        ):
+            if asset_id in seen:
+                duplicates.add(asset_id)
+            seen.add(asset_id)
+        assert not duplicates, f"Duplicate graph asset ids found: {sorted(duplicates)}"
+        return seen
+
+    @staticmethod
+    def _assert_object_reference_parents(object_references: list[ObjectReferenceSpec], known_ids: set[str]) -> None:
+        """Ensure each object reference parent exists."""
+        for ref in object_references:
+            assert (
+                ref.parent_id in known_ids
+            ), f"Object reference '{ref.id}' references unknown parent '{ref.parent_id}'"
+
+    @staticmethod
+    def _assert_relation_references(relations: list[SpatialRelationSpec], known_ids: set[str]) -> None:
+        """Ensure relation subject/reference endpoints name known asset ids."""
+        for index, relation in enumerate(relations):
+            assert (
+                relation.subject in known_ids
+            ), f"Relation[{index}] kind '{relation.kind}' references unknown subject '{relation.subject}'"
+            if relation.reference is not None:
+                assert (
+                    relation.reference in known_ids
+                ), f"Relation[{index}] kind '{relation.kind}' references unknown reference '{relation.reference}'"
+
+    @staticmethod
+    def _assert_task_param_references(tasks: list[TaskSpec], known_ids: set[str]) -> None:
+        """Ensure string-valued task params reference known asset ids."""
+        for task in tasks:
+            for param_name, param_value in task.params.items():
+                if isinstance(param_value, str):
+                    assert (
+                        param_value in known_ids
+                    ), f"Task '{task.kind}' param '{param_name}' references unknown node '{param_value}'"
 
     def summary(self) -> str:
         """Return a one-line summary of object, task, and relation counts."""
@@ -128,7 +159,7 @@ class ArenaEnvGraphSpec(BaseModel):
                 override.target_node_id in swappable_ids
             ), f"CLI override '--{override.arg}' targets unknown or non-swappable asset '{override.target_node_id}'"
 
-    def _mutable_asset_by_id(self, asset_id: str) -> AssetSpec:
+    def _asset_by_id(self, asset_id: str) -> AssetSpec:
         if self.embodiment.id == asset_id:
             return self.embodiment
         if self.background.id == asset_id:
@@ -177,7 +208,7 @@ class ArenaEnvGraphSpec(BaseModel):
         for override in self.cli_override_specs or []:
             new_name = getattr(args_cli, override.dest, None)
             if new_name is not None:
-                self._mutable_asset_by_id(override.target_node_id).registry_name = new_name
+                self._asset_by_id(override.target_node_id).registry_name = new_name
 
     def to_arena_env(self, enable_cameras: bool = False) -> IsaacLabArenaEnvironment:
         """Convert this graph spec into an :class:`IsaacLabArenaEnvironment`.

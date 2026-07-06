@@ -9,10 +9,9 @@ from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object_reference import ObjectReference
-from isaaclab_arena.assets.registries import AssetRegistry
+from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
 from isaaclab_arena.environments.arena_env_graph_task_conversion_utils import build_task_from_specs
 from isaaclab_arena.environments.arena_env_graph_types import SpatialRelationSpec
-from isaaclab_arena.environments.graph_spec_utils import relation_class_for_spatial_constraint_type, unique_node_id
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.utils.pose import Pose
@@ -49,9 +48,19 @@ def _ensure_scene_lighting(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: dic
     if _scene_already_has_light(graph_spec, assets_by_node_id):
         return
 
-    node_id = unique_node_id(set(assets_by_node_id), _DEFAULT_LIGHT_NODE_ID)
+    node_id = _unique_node_id(set(assets_by_node_id), _DEFAULT_LIGHT_NODE_ID)
     assets_by_node_id[node_id] = AssetRegistry().get_asset_by_name(_DEFAULT_LIGHT_ASSET_NAME)()
     print(f"INFO: no light found in scene or background USD(s); injected default light '{node_id}'.")
+
+
+def _unique_node_id(existing_ids: set[str], base: str) -> str:
+    """Return the first non-colliding id from ``base``, ``base_1``, ``base_2``, ... given ``existing_ids``."""
+    if base not in existing_ids:
+        return base
+    suffix = 1
+    while f"{base}_{suffix}" in existing_ids:
+        suffix += 1
+    return f"{base}_{suffix}"
 
 
 def _scene_already_has_light(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: dict[str, Any]) -> bool:
@@ -108,7 +117,7 @@ def _attach_spatial_relations_to_assets(
     """Attach one Relation per spatial relation to the asset(s) it targets, in place."""
     for relation in relations:
         subject_asset = assets_by_node_id[relation.subject]
-        relation_class = relation_class_for_spatial_constraint_type(relation.kind)
+        relation_class = ObjectRelationLibraryRegistry().get_object_relation_by_name(relation.kind)
         if relation_class.is_unary():
             subject_asset.add_relation(relation_class(**relation.params))
             if relation.kind == "is_anchor" and subject_asset.get_initial_pose() is None:

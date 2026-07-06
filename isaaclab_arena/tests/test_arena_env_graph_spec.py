@@ -11,10 +11,9 @@ import pytest
 from pydantic import ValidationError
 
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.assets.registries import TaskRegistry
+from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environments.arena_env_graph_types import CliOverrideSpec
-from isaaclab_arena.environments.graph_spec_utils import relation_class_for_spatial_constraint_type
 from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On, PositionLimits
 
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
@@ -66,10 +65,10 @@ def test_graph_spec_loads_pick_and_place_yaml():
     table_anchor = spec.relations[0]
     assert table_anchor.kind == "is_anchor"
     assert table_anchor.subject == "maple_table_robolab_table"
-    assert relation_class_for_spatial_constraint_type(table_anchor.kind) is IsAnchor
-    assert relation_class_for_spatial_constraint_type(cube_limits.kind) is PositionLimits
-    assert relation_class_for_spatial_constraint_type(mug_position.kind) is AtPosition
-    assert relation_class_for_spatial_constraint_type(spec.relations[1].kind) is On
+    assert ObjectRelationLibraryRegistry().get_object_relation_by_name(table_anchor.kind) is IsAnchor
+    assert ObjectRelationLibraryRegistry().get_object_relation_by_name(cube_limits.kind) is PositionLimits
+    assert ObjectRelationLibraryRegistry().get_object_relation_by_name(mug_position.kind) is AtPosition
+    assert ObjectRelationLibraryRegistry().get_object_relation_by_name(spec.relations[1].kind) is On
 
 
 def test_graph_spec_parses_at_position():
@@ -97,7 +96,7 @@ def test_cli_override_specs_parsed_from_yaml():
 def test_add_cli_override_args_registers_declared_flags():
     import argparse
 
-    from isaaclab_arena.environments.graph_spec_utils import add_cli_override_args
+    from isaaclab_arena_environments.cli import add_cli_override_args
 
     parser = argparse.ArgumentParser()
     specs = ArenaEnvGraphSpec.read_cli_override_specs(_GRAPH)
@@ -232,11 +231,11 @@ def test_graph_spec_rejects_unknown_relation_subject():
         ArenaEnvGraphSpec.from_dict(data)
 
 
-def test_graph_spec_rejects_object_reference_without_prim_path():
+def test_graph_spec_accepts_missing_object_reference_prim_path():
     data = ArenaEnvGraphSpec.from_yaml(_GRAPH).to_dict()
-    data["object_references"][0]["prim_path"] = None
-    with pytest.raises(ValidationError, match="requires prim_path"):
-        ArenaEnvGraphSpec.from_dict(data)
+    data["object_references"][0].pop("prim_path", None)
+    spec = ArenaEnvGraphSpec.from_dict(data)
+    assert spec.object_references[0].prim_path is None
 
 
 def _minimal_env_graph_data():

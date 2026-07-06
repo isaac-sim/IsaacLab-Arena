@@ -7,13 +7,13 @@
 
 from __future__ import annotations
 
+from numbers import Real
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
-from isaaclab_arena.environments.graph_spec_utils import coerce_number_sequence
 
 
 class AssetSpec(BaseModel):
@@ -50,7 +50,7 @@ class ObjectReferenceSpec(BaseModel):
     parent_id: str = Field(min_length=1, description="Id of the parent background asset node.")
     prim_path: str | None = Field(
         default=None,
-        description="USD prim path inside the parent background (required for conversion).",
+        description="USD prim path inside the parent background; leave empty until resolved.",
     )
     object_type: ObjectType = Field(
         description=(
@@ -61,11 +61,6 @@ class ObjectReferenceSpec(BaseModel):
         ),
     )
     params: dict[str, Any] = Field(default_factory=dict)
-
-    @model_validator(mode="after")
-    def _require_prim_path(self) -> ObjectReferenceSpec:
-        assert self.prim_path is not None and self.prim_path.strip(), f"Object reference '{self.id}' requires prim_path"
-        return self
 
 
 class TaskSpec(BaseModel):
@@ -82,8 +77,7 @@ class TaskSpec(BaseModel):
         default_factory=dict,
         description=(
             "Constructor kwargs for the task (listed in TASKS). Each object param must "
-            "name exactly one asset or object-reference node id. Scene params use the "
-            "background node id."
+            "name exactly one asset or object-reference node id."
         ),
     )
     description: str | None = Field(
@@ -94,8 +88,7 @@ class TaskSpec(BaseModel):
     @field_validator("kind")
     @classmethod
     def _validate_registered_task_type(cls, value: str) -> str:
-        registry = TaskRegistry()
-        assert registry.is_registered(value), f"Unknown task kind '{value}'"
+        assert TaskRegistry().is_registered(value), f"Unknown task kind '{value}'"
         return value
 
 
@@ -145,17 +138,27 @@ class SpatialRelationSpec(BaseModel):
 def _normalize_relation_params(params: dict[str, Any]) -> dict[str, Any]:
     normalized = dict(params)
     if "position_xyz" in normalized:
-        normalized["position_xyz"] = coerce_number_sequence(normalized["position_xyz"], 3, "position_xyz")
+        normalized["position_xyz"] = _coerce_number_sequence(normalized["position_xyz"], 3, "position_xyz")
     if "rotation_xyzw" in normalized:
-        normalized["rotation_xyzw"] = coerce_number_sequence(normalized["rotation_xyzw"], 4, "rotation_xyzw")
+        normalized["rotation_xyzw"] = _coerce_number_sequence(normalized["rotation_xyzw"], 4, "rotation_xyzw")
     return normalized
+
+
+def _coerce_number_sequence(value: Any, length: int, field_name: str) -> tuple[float, ...]:
+    """Coerce a fixed-length numeric list or tuple (e.g. position or quaternion)."""
+    assert isinstance(value, (list, tuple)), f"Field '{field_name}' must be a list or tuple of {length} numbers"
+    assert len(value) == length, f"Field '{field_name}' must contain exactly {length} numbers, got {len(value)}"
+    assert all(
+        isinstance(item, Real) and not isinstance(item, bool) for item in value
+    ), f"Field '{field_name}' must contain only numbers"
+    return tuple(float(item) for item in value)
 
 
 class CliOverrideSpec(BaseModel):
     """One CLI flag that swaps an asset's registry name, declared in the graph YAML."""
 
-    arg: str = Field(min_length=1)
-    target_node_id: str = Field(min_length=1)
+    arg: str = Field(min_length=1)  # flag name without leading dashes; "object" -> --object
+    target_node_id: str = Field(min_length=1)  # graph asset id whose registry_name the flag swaps
 
     @property
     def dest(self) -> str:
