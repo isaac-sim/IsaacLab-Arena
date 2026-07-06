@@ -111,6 +111,7 @@ def test_run_experiment_returns_failure_and_closes_resources(monkeypatch, tmp_pa
     result = experiment_runner.run_experiment(
         _experiment(rollout=RolloutCfg(num_steps=2), num_rebuilds=1),
         output_dir=tmp_path,
+        arena_builder_factory=lambda cfg: None,
     )
 
     assert result.status is ExperimentStatus.FAILED

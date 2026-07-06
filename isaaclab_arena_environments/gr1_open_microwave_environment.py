@@ -29,6 +29,7 @@ class Gr1OpenMicrowaveEnvironmentCfg(ArenaEnvironmentCfg):
 class Gr1OpenMicrowaveEnvironment(ArenaEnvironmentFactory[Gr1OpenMicrowaveEnvironmentCfg]):
 
     name: str = "gr1_open_microwave"
+    _legacy_argparse_cfg_type = Gr1OpenMicrowaveEnvironmentCfg
 
     def build(self, cfg: Gr1OpenMicrowaveEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""

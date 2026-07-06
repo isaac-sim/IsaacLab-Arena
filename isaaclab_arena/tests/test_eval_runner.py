@@ -243,13 +243,12 @@ def test_eval_runner_graph_spec_with_variation(tmp_path):
 
 def _test_eval_config_variation_lands_in_events_cfg(simulation_app):
     """Enable a wrist camera extrinsics variation and check that it shows up as an event term in the cfg."""
-    from isaaclab_arena.evaluation.experiment_runner import build_arena_builder
-    from isaaclab_arena.evaluation.legacy_job_config import arena_experiments_from_legacy_config
+    from isaaclab_arena.evaluation.legacy_job_config import load_legacy_experiments
 
     camera_name = "wrist_camera"
     event_name = f"{camera_name}_extrinsics_variation"
 
-    (experiment,) = arena_experiments_from_legacy_config(
+    experiments, arena_builder_factories = load_legacy_experiments(
         {
             "jobs": [{
                 "name": "maple_table_camera_extrinsics",
@@ -268,8 +267,9 @@ def _test_eval_config_variation_lands_in_events_cfg(simulation_app):
         },
         device="cuda:0",
     )
+    (experiment,) = experiments
 
-    env = build_arena_builder(experiment).make_registered()
+    env = arena_builder_factories[experiment.name](experiment).make_registered()
     try:
         env_cfg = env.unwrapped.cfg
         assert hasattr(env_cfg.events, event_name), (

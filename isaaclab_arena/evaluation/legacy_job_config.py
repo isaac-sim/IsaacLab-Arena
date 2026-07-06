@@ -8,15 +8,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, fields
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg, RolloutCfg
+from isaaclab_arena.evaluation.experiment_runner import ArenaBuilderFactory, build_registered_arena_builder
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena.utils.hydra_overrides import hydra_overrides_from_nested_dict
 from isaaclab_arena_environments.cli import (
+    _get_legacy_argparse_cfg_type,
     ensure_environments_registered,
     get_arena_builder_from_cli,
     get_isaaclab_arena_environments_cli_parser,
@@ -40,6 +43,7 @@ class LegacyCliEnvironmentCfg(ArenaEnvironmentCfg):
     arguments: list[str]
     """Arguments passed to the existing environment parser."""
 
+
 _BUILDER_FIELD_NAMES = {config_field.name for config_field in fields(ArenaEnvBuilderCfg)}
 _LEGACY_EXPERIMENT_FIELD_NAMES = {
     "name",
@@ -56,27 +60,31 @@ _LEGACY_EXPERIMENT_FIELD_NAMES = {
 }
 
 
-def arena_experiments_from_legacy_config(
+def load_legacy_experiments(
     config: dict[str, Any],
     *,
     device: str,
-) -> list[ArenaExperimentCfg]:
-    """Translate the existing ``{"jobs": [...]}`` document into typed experiments."""
+) -> tuple[list[ArenaExperimentCfg], dict[str, ArenaBuilderFactory]]:
+    """Translate legacy jobs and resolve the builder used by each experiment."""
     assert set(config) == {"jobs"}, "legacy evaluation config must contain only a 'jobs' list"
     job_configs = config["jobs"]
     assert isinstance(job_configs, list), "legacy evaluation config 'jobs' must be a list"
 
-    experiments = [_arena_experiment_from_legacy_job(job_config, device=device) for job_config in job_configs]
+    loaded_experiments = [_arena_experiment_from_legacy_job(job_config, device=device) for job_config in job_configs]
+    experiments = [experiment for experiment, _ in loaded_experiments]
     experiment_names = [experiment.name for experiment in experiments]
     assert len(experiment_names) == len(set(experiment_names)), "experiment names must be unique"
-    return experiments
+    arena_builder_factories = {
+        experiment.name: arena_builder_factory for experiment, arena_builder_factory in loaded_experiments
+    }
+    return experiments, arena_builder_factories
 
 
 def _arena_experiment_from_legacy_job(
     job_config: dict[str, Any],
     *,
     device: str,
-) -> ArenaExperimentCfg:
+) -> tuple[ArenaExperimentCfg, ArenaBuilderFactory]:
     """Translate one legacy job mapping into a typed experiment."""
     assert isinstance(job_config, dict), "each legacy job must be a mapping"
     unknown_fields = set(job_config) - _LEGACY_EXPERIMENT_FIELD_NAMES
@@ -87,7 +95,7 @@ def _arena_experiment_from_legacy_job(
     status = job_config.get("status")
     assert status in (None, "pending"), "execution status does not belong in an experiment configuration"
 
-    environment_cfg, builder_cfg = _environment_and_builder_cfgs_from_legacy_args(
+    environment_cfg, builder_cfg, arena_builder_factory = _environment_and_builder_cfgs_from_legacy_args(
         job_config["arena_env_args"],
         device=device,
         language_instruction=job_config.get("language_instruction"),
@@ -97,17 +105,20 @@ def _arena_experiment_from_legacy_job(
     variations = job_config.get("variations", {})
     assert isinstance(variations, dict), "variations must be a mapping"
 
-    return ArenaExperimentCfg(
-        name=job_config["name"],
-        environment=environment_cfg,
-        environment_builder=builder_cfg,
-        policy=policy_cfg,
-        rollout=RolloutCfg(
-            num_steps=job_config.get("num_steps"),
-            num_episodes=job_config.get("num_episodes"),
+    return (
+        ArenaExperimentCfg(
+            name=job_config["name"],
+            environment=environment_cfg,
+            environment_builder=builder_cfg,
+            policy=policy_cfg,
+            rollout=RolloutCfg(
+                num_steps=job_config.get("num_steps"),
+                num_episodes=job_config.get("num_episodes"),
+            ),
+            num_rebuilds=job_config.get("num_rebuilds", 1),
+            variations=variations,
         ),
-        num_rebuilds=job_config.get("num_rebuilds", 1),
-        variations=variations,
+        arena_builder_factory,
     )
 
 
@@ -116,7 +127,7 @@ def _environment_and_builder_cfgs_from_legacy_args(
     *,
     device: str,
     language_instruction: str | None,
-) -> tuple[ArenaEnvironmentCfg, ArenaEnvBuilderCfg]:
+) -> tuple[ArenaEnvironmentCfg, ArenaEnvBuilderCfg, ArenaBuilderFactory]:
     """Split the legacy mixed environment mapping into its two typed configs."""
     assert isinstance(arena_env_args, dict), "arena_env_args must be a mapping"
     assert arena_env_args.get("environment"), "arena_env_args.environment is required"
@@ -136,6 +147,7 @@ def _environment_and_builder_cfgs_from_legacy_args(
         # parser remains responsible for validating them until graph construction
         # receives a typed API.
         accepted_fields = set(arena_env_args)
+        arena_builder_factory = build_legacy_cli_arena_builder
     else:
         ensure_environments_registered()
         environment_registry = EnvironmentRegistry()
@@ -143,17 +155,21 @@ def _environment_and_builder_cfgs_from_legacy_args(
             environment_source, ensure_loaded=False
         ), f"Environment {environment_source!r} is not registered"
         environment_factory_type = environment_registry.get_component_by_name(environment_source)
-        environment_cfg_type = environment_registry.get_environment_cfg_type(environment_factory_type)
+        environment_cfg_type = _get_legacy_argparse_cfg_type(environment_factory_type)
         environment_field_names = {config_field.name for config_field in fields(environment_cfg_type)}
         environment_values = {
             field_name: value for field_name, value in arena_env_args.items() if field_name in environment_field_names
         }
         environment_cfg = environment_cfg_type(**environment_values)
         accepted_fields = _BUILDER_FIELD_NAMES | environment_field_names | {"environment"}
+        arena_builder_factory = partial(
+            build_registered_arena_builder,
+            environment_factory_type=environment_factory_type,
+        )
 
     unknown_fields = set(arena_env_args) - accepted_fields
     assert not unknown_fields, f"unknown arena_env_args fields for {environment_source!r}: {sorted(unknown_fields)}"
-    return environment_cfg, ArenaEnvBuilderCfg(**builder_values)
+    return environment_cfg, ArenaEnvBuilderCfg(**builder_values), arena_builder_factory
 
 
 # TODO(cvolk, 2026-07-06): Delete this graph-only dict-to-CLI conversion with

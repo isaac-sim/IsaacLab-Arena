@@ -11,8 +11,8 @@ import pytest
 from isaaclab_arena.evaluation import legacy_job_config
 from isaaclab_arena.evaluation.legacy_job_config import (
     LegacyCliEnvironmentCfg,
-    arena_experiments_from_legacy_config,
     build_legacy_cli_arena_builder,
+    load_legacy_experiments,
 )
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
@@ -39,7 +39,8 @@ def test_legacy_mapping_constructs_concrete_experiment_configs():
         }]
     }
 
-    (experiment,) = arena_experiments_from_legacy_config(legacy_config, device="cuda:1")
+    experiments, arena_builder_factories = load_legacy_experiments(legacy_config, device="cuda:1")
+    (experiment,) = experiments
 
     assert experiment.name == "maple_table"
     assert experiment.environment == PickAndPlaceMapleTableEnvironmentCfg(
@@ -54,6 +55,7 @@ def test_legacy_mapping_constructs_concrete_experiment_configs():
     assert experiment.policy == ZeroActionPolicyCfg()
     assert experiment.rollout.num_steps == 20
     assert experiment.variations == {"light": {"intensity": {"enabled": True}}}
+    assert set(arena_builder_factories) == {"maple_table"}
 
 
 def test_legacy_graph_environment_preserves_declared_asset_overrides():
@@ -71,16 +73,18 @@ def test_legacy_graph_environment_preserves_declared_asset_overrides():
         }]
     }
 
-    (experiment,) = arena_experiments_from_legacy_config(legacy_config, device="cpu")
+    experiments, arena_builder_factories = load_legacy_experiments(legacy_config, device="cpu")
+    (experiment,) = experiments
 
     assert isinstance(experiment.environment, LegacyCliEnvironmentCfg)
     assert experiment.environment.arguments[:3] == ["--enable_cameras", "--env_graph_spec_yaml", str(graph_path)]
     assert experiment.environment.arguments[-2:] == ["--object", "dex_cube"]
+    assert arena_builder_factories[experiment.name] is build_legacy_cli_arena_builder
 
 
 def test_legacy_graph_builder_keeps_namespace_inside_compatibility_adapter(monkeypatch):
     graph_path = Path(TestConstants.test_data_dir) / "pick_and_place_maple_table_env_graph.yaml"
-    (experiment,) = arena_experiments_from_legacy_config(
+    experiments, arena_builder_factories = load_legacy_experiments(
         {
             "jobs": [{
                 "name": "graph_environment",
@@ -92,6 +96,7 @@ def test_legacy_graph_builder_keeps_namespace_inside_compatibility_adapter(monke
         },
         device="cuda:1",
     )
+    (experiment,) = experiments
     parsed_args = SimpleNamespace()
     expected_builder = object()
     captured = {}
@@ -110,7 +115,7 @@ def test_legacy_graph_builder_keeps_namespace_inside_compatibility_adapter(monke
 
     monkeypatch.setattr(legacy_job_config, "get_arena_builder_from_cli", get_builder)
 
-    builder = build_legacy_cli_arena_builder(experiment)
+    builder = arena_builder_factories[experiment.name](experiment)
 
     assert builder is expected_builder
     assert captured["arguments"] == experiment.environment.arguments
@@ -133,7 +138,7 @@ def test_legacy_mapping_rejects_unconsumed_environment_values():
     }
 
     with pytest.raises(AssertionError, match="embodimant"):
-        arena_experiments_from_legacy_config(legacy_config, device="cpu")
+        load_legacy_experiments(legacy_config, device="cpu")
 
 
 def test_legacy_mapping_rejects_execution_status():
@@ -148,4 +153,4 @@ def test_legacy_mapping_rejects_execution_status():
     }
 
     with pytest.raises(AssertionError, match="execution status"):
-        arena_experiments_from_legacy_config(legacy_config, device="cpu")
+        load_legacy_experiments(legacy_config, device="cpu")

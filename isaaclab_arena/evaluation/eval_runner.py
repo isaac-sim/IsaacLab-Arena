@@ -21,33 +21,23 @@ from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg, ArenaExperimentResult, ExperimentStatus
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
-from isaaclab_arena.evaluation.experiment_runner import ArenaBuilderFactory, build_arena_builder, run_experiment
-from isaaclab_arena.evaluation.legacy_job_config import (
-    LegacyCliEnvironmentCfg,
-    arena_experiments_from_legacy_config,
-    build_legacy_cli_arena_builder,
-)
+from isaaclab_arena.evaluation.experiment_runner import ArenaBuilderFactory, run_experiment
+from isaaclab_arena.evaluation.legacy_job_config import load_legacy_experiments
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir
 from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 
 
-def list_variations(experiments: list[ArenaExperimentCfg]) -> None:
+def list_variations(
+    experiments: list[ArenaExperimentCfg],
+    arena_builder_factories: dict[str, ArenaBuilderFactory],
+) -> None:
     """Print the Hydra-configurable variations for every experiment."""
     for experiment in experiments:
-        arena_builder = _arena_builder_factory_for(experiment)(experiment)
+        arena_builder = arena_builder_factories[experiment.name](experiment)
         print(f"=== Variations for experiment '{experiment.name}' ===", flush=True)
         print(arena_builder.get_variations_catalogue_as_string(), flush=True)
-
-
-# TODO(cvolk, 2026-07-06): Remove graph-specific builder selection when graph
-# environments participate in the typed environment-factory contract.
-def _arena_builder_factory_for(experiment: ArenaExperimentCfg) -> ArenaBuilderFactory:
-    """Select typed construction or the isolated legacy graph adapter."""
-    if isinstance(experiment.environment, LegacyCliEnvironmentCfg):
-        return build_legacy_cli_arena_builder
-    return build_arena_builder
 
 
 # TODO(cvolk, 2026-07-06): Delete this raw-dictionary inspection when the YAML
@@ -102,6 +92,7 @@ def _run_in_chunks(args_cli: argparse.Namespace, legacy_config: dict) -> None:
 def evaluate_experiments(
     args_cli: argparse.Namespace,
     experiments: list[ArenaExperimentCfg],
+    arena_builder_factories: dict[str, ArenaBuilderFactory],
 ) -> list[ArenaExperimentResult]:
     """Run typed experiments sequentially inside the active simulation application."""
     # TODO(cvolk, 2026-07-06): Replace this legacy argparse dispatcher input with
@@ -133,7 +124,7 @@ def evaluate_experiments(
                 record_camera_video=args_cli.record_camera_video,
                 video_base_dir=experiment_output_dir,
             ),
-            arena_builder_factory=_arena_builder_factory_for(experiment),
+            arena_builder_factory=arena_builder_factories[experiment.name],
         )
         results.append(result)
 
@@ -209,8 +200,8 @@ def main() -> None:
 
     if args_cli.list_variations:
         with SimulationAppContext(args_cli):
-            experiments = arena_experiments_from_legacy_config(legacy_config, device=args_cli.device)
-            list_variations(experiments)
+            experiments, arena_builder_factories = load_legacy_experiments(legacy_config, device=args_cli.device)
+            list_variations(experiments, arena_builder_factories)
         return
 
     if args_cli.chunk_size is not None and len(legacy_config["jobs"]) > args_cli.chunk_size:
@@ -220,8 +211,8 @@ def main() -> None:
         return
 
     with SimulationAppContext(args_cli):
-        experiments = arena_experiments_from_legacy_config(legacy_config, device=args_cli.device)
-        evaluate_experiments(args_cli, experiments)
+        experiments, arena_builder_factories = load_legacy_experiments(legacy_config, device=args_cli.device)
+        evaluate_experiments(args_cli, experiments, arena_builder_factories)
 
 
 if __name__ == "__main__":

@@ -31,6 +31,7 @@ class Gr1TurnStandMixerKnobEnvironmentCfg(ArenaEnvironmentCfg):
 class Gr1TurnStandMixerKnobEnvironment(ArenaEnvironmentFactory[Gr1TurnStandMixerKnobEnvironmentCfg]):
 
     name: str = "gr1_turn_stand_mixer_knob"
+    _legacy_argparse_cfg_type = Gr1TurnStandMixerKnobEnvironmentCfg
 
     def build(self, cfg: Gr1TurnStandMixerKnobEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""

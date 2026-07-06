@@ -30,6 +30,7 @@ class KitchenPickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
 class KitchenPickAndPlaceEnvironment(ArenaEnvironmentFactory[KitchenPickAndPlaceEnvironmentCfg]):
 
     name: str = "kitchen_pick_and_place"
+    _legacy_argparse_cfg_type = KitchenPickAndPlaceEnvironmentCfg
 
     def build(self, cfg: KitchenPickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
