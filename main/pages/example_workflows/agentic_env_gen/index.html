@@ -347,7 +347,10 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Example Workflows</span></p>
 <ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../example_environments.html">Example Environments</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../example_environments.html">Example Environments</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../robolab_task_catalog.html">RoboLab Task Catalog</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../imitation_learning/index.html">Imitation Learning</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../locomanipulation/index.html">G1 Loco-Manipulation Box Pick and Place Task</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../locomanipulation/step_1_environment_setup.html">Environment Setup and Validation</a></li>
@@ -565,16 +568,9 @@ positioning in robot coordinates.</p></li>
 </section>
 <section id="available-generated-specs">
 <h2>Available Generated Specs<a class="headerlink" href="#available-generated-specs" title="Link to this heading">#</a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">robolab</span></code> subfolder contains example environment graph specs that can be
-used directly with policy and evaluation commands:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab/bagel_plate_banana_bowl_linked.yaml</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab/bin_mug_marker_bowl_linked.yaml</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab/butter_raisin_box_grey_bin_linked.yaml</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab/tools_container_linked.yaml</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab/two_bin_linked.yaml</span></code></p></li>
-</ul>
+<p>The <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/robolab</span></code> subfolder contains Arena environment graph specs generated
+from RoboLab tasks. See <a class="reference internal" href="../robolab_task_catalog.html"><span class="doc">RoboLab Task Catalog</span></a> for the list of RoboLab tasks
+currently supported in Arena.</p>
 </section>
 <section id="run-a-generated-environment">
 <h2>Run a Generated Environment<a class="headerlink" href="#run-a-generated-environment" title="Link to this heading">#</a></h2>
