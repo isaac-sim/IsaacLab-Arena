@@ -120,10 +120,15 @@ env_cfg = IsaacLabArenaEnvironment(
     scene=scene,
 )
 
-env_builder = ArenaEnvBuilder(env_cfg, ArenaEnvBuilderCfg())
+builder_cfg = ArenaEnvBuilderCfg()
+env_builder = ArenaEnvBuilder(env_cfg, builder_cfg)
 env = env_builder.make_registered()
 env.reset()
 ```
+
+Python callers set builder options directly on `ArenaEnvBuilderCfg`. Runner scripts
+continue to accept the same options as CLI flags, such as `--num_envs 4 --seed 7`,
+and translate them into an `ArenaEnvBuilderCfg` before building the environment.
 
 Explore more examples in the [documentation](https://isaac-sim.github.io/IsaacLab-Arena/main/index.html), including:
 

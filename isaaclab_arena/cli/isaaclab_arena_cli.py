@@ -14,9 +14,15 @@ from isaaclab_arena.cli.dataclass_cli import (
 )
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 
+# This set changes only where flags appear in --help; their definitions still come
+# from ArenaEnvBuilderCfg.
+# TODO(cvolk, 2026-07-06): Remove this legacy help-group mapping when nested builder
+# configs introduce responsibility-based CLI groups.
+_LEGACY_ISAAC_LAB_BUILDER_CFG_FIELDS = frozenset({"disable_fabric", "env_spacing", "mimic", "num_envs", "seed"})
 
-# TODO(cvolk, 2026-07-03): Remove this compatibility adapter when the argparse frontend
-# is retired and runner entry points receive ArenaEnvBuilderCfg directly.
+
+# TODO(cvolk, 2026-07-03): Delete this Namespace-to-config adapter after policy_runner,
+# eval_runner, and the remaining argparse scripts pass ArenaEnvBuilderCfg directly.
 def arena_env_builder_cfg_from_argparse(args_cli: argparse.Namespace) -> ArenaEnvBuilderCfg:
     """Translate parsed CLI arguments into the typed builder configuration.
 
@@ -29,8 +35,8 @@ def arena_env_builder_cfg_from_argparse(args_cli: argparse.Namespace) -> ArenaEn
     return dataclass_from_cli(ArenaEnvBuilderCfg, args_cli)
 
 
-# TODO(cvolk, 2026-07-03): Remove this parser pipeline and its add_* helpers when Arena
-# runner entry points accept typed configs instead of argparse namespaces.
+# TODO(cvolk, 2026-07-03): Delete this parser pipeline and its add_* helpers after
+# policy_runner, eval_runner, and the remaining argparse scripts accept typed configs.
 def get_isaaclab_arena_cli_parser() -> argparse.ArgumentParser:
     """Get a complete argument parser with both Isaac Lab and IsaacLab Arena arguments."""
     parser = argparse.ArgumentParser(description="IsaacLab Arena CLI parser.")
@@ -43,9 +49,16 @@ def get_isaaclab_arena_cli_parser() -> argparse.ArgumentParser:
 
 
 def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
-    """Add legacy arguments shared with Isaac Lab scripts."""
+    """Add builder and distributed flags historically grouped under Isaac Lab."""
 
     isaac_lab_group = parser.add_argument_group("Isaac Lab Arguments", "Arguments specific to Isaac Lab framework")
+    add_dataclass_cli_args(
+        isaac_lab_group,
+        ArenaEnvBuilderCfg,
+        included_fields=_LEGACY_ISAAC_LAB_BUILDER_CFG_FIELDS,
+    )
+    # TODO(cvolk, 2026-07-06): Move --distributed into a typed runner or simulation-app
+    # config. It controls AppLauncher and policy_runner process setup, not ArenaEnvBuilder.
     isaac_lab_group.add_argument(
         "--distributed",
         action="store_true",
@@ -63,6 +76,8 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
     # AppLauncher already owns --device. Verify that its default agrees with the
     # builder config before generating the remaining builder flags.
     assert_cli_defaults_match_dataclass(parser, ArenaEnvBuilderCfg, {"device"})
+    # TODO(cvolk, 2026-07-06): Delete this custom spelling when the argparse builder
+    # adapter is removed. It exists only to preserve the current CLI during migration.
     arena_group.add_argument(
         "--no-solve-relations",
         action="store_false",
@@ -73,9 +88,12 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
     add_dataclass_cli_args(
         arena_group,
         ArenaEnvBuilderCfg,
-        # Keep Arena's existing dashed --no-solve-relations spelling rather
-        # than argparse's generated --no-solve_relations spelling.
-        excluded_fields={"device", "solve_relations"},
+        # Preserve Arena's existing negative-only --no-solve-relations flag.
+        # Generic bool handling would also add --solve_relations and would spell
+        # the negative flag --no-solve_relations.
+        # AppLauncher owns --device, while policy_runner preserves the historical
+        # location of --language_instruction.
+        excluded_fields={"device", "language_instruction", "solve_relations"} | _LEGACY_ISAAC_LAB_BUILDER_CFG_FIELDS,
     )
     arena_group.add_argument(
         "--list-variations",

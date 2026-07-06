@@ -160,8 +160,9 @@ def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> a
     return args_parser
 
 
-# TODO(cvolk, 2026-07-03): Remove this environment-subparser pipeline with the per-environment
-# add_cli_args() and get_env(args_cli) adapters when runners receive typed environment configs.
+# TODO(cvolk, 2026-07-03): Delete this environment-subparser pipeline with the
+# per-environment add_cli_args() and get_env(args_cli) adapters after runner scripts
+# receive typed environment configs.
 def get_isaaclab_arena_environments_cli_parser(
     args_parser: argparse.ArgumentParser | None = None,
 ) -> argparse.ArgumentParser:
@@ -173,8 +174,9 @@ def get_isaaclab_arena_environments_cli_parser(
     return args_parser
 
 
-# TODO(cvolk, 2026-07-03): Remove this legacy construction pipeline when frontends provide
-# typed environment and builder configs instead of this Namespace and get_env(args_cli) path.
+# TODO(cvolk, 2026-07-03): Delete this construction pipeline after eval_runner,
+# policy_runner, imitation-learning scripts, and notebooks pass typed environment and
+# builder configs instead of an argparse Namespace.
 def get_arena_builder_from_cli(
     args_cli: argparse.Namespace,
     hydra_overrides: list[str] | None = None,
