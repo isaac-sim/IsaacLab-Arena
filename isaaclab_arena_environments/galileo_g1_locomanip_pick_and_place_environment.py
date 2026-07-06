@@ -80,6 +80,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
 class GalileoG1LocomanipPickAndPlaceEnvironment(ArenaEnvironmentFactory[GalileoG1LocomanipPickAndPlaceEnvironmentCfg]):
 
     name: str = "galileo_g1_locomanip_pick_and_place"
+    _legacy_argparse_cfg_type = GalileoG1LocomanipPickAndPlaceEnvironmentCfg
 
     def build(self, cfg: GalileoG1LocomanipPickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""

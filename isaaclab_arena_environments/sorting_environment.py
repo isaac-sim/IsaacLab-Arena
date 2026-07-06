@@ -34,6 +34,7 @@ class TableTopSortCubesEnvironment(ArenaEnvironmentFactory[TableTopSortCubesEnvi
     """
 
     name = "tabletop_sort_cubes"
+    _legacy_argparse_cfg_type = TableTopSortCubesEnvironmentCfg
 
     def build(self, cfg: TableTopSortCubesEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""

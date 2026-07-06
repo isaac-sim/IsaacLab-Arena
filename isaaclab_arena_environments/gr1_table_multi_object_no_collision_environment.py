@@ -113,6 +113,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
     """
 
     name: str = "gr1_table_multi_object_no_collision"
+    _legacy_argparse_cfg_type = GR1TableMultiObjectNoCollisionEnvironmentCfg
 
     def build(self, cfg: GR1TableMultiObjectNoCollisionEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""

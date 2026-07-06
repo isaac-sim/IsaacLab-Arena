@@ -38,8 +38,8 @@ def ensure_environments_registered():
 # retired, this section generates their environment-subcommand flags and reconstructs
 # the same typed config from the resulting Namespace. External factories that still
 # inherit ExampleEnvironmentBase continue using their own add_cli_args() and get_env().
-# TODO(cvolk, 2026-07-03): Delete this section when the remaining runners receive
-# typed environment configs directly.
+# TODO(cvolk, 2026-07-03): Delete this section and the factories'
+# _legacy_argparse_cfg_type declarations when runners receive typed configs directly.
 _FIELDS_PROVIDED_BY_SHARED_PARSERS = {"auto", "enable_cameras", "mimic", "num_envs"}
 
 
@@ -47,7 +47,11 @@ def _get_legacy_argparse_cfg_type(
     environment_factory_type: type[ArenaEnvironmentFactory],
 ) -> type[ArenaEnvironmentCfg]:
     """Return the config dataclass used by a first-party factory's legacy CLI adapter."""
-    return EnvironmentRegistry().get_environment_cfg_type(environment_factory_type)
+    environment_cfg_type = getattr(environment_factory_type, "_legacy_argparse_cfg_type", None)
+    assert (
+        environment_cfg_type is not None
+    ), f"{environment_factory_type.__name__} must define _legacy_argparse_cfg_type while argparse is supported"
+    return environment_cfg_type
 
 
 def add_environment_cli_args(

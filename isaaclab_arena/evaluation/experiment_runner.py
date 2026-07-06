@@ -10,11 +10,12 @@ from __future__ import annotations
 import os
 import time
 import traceback
+from collections.abc import Callable
 from dataclasses import fields, replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
-from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
+from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg, ArenaExperimentResult, ExperimentStatus
 from isaaclab_arena.evaluation.rollout import rollout_policy
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
@@ -29,19 +30,23 @@ if TYPE_CHECKING:
     import gymnasium as gym
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentFactory
     from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
 ArenaBuilderFactory = Callable[[ArenaExperimentCfg], "ArenaEnvBuilder"]
 
 
-def build_arena_builder(cfg: ArenaExperimentCfg) -> ArenaEnvBuilder:
-    """Build an Arena compiler from a registered environment configuration."""
+def build_registered_arena_builder(
+    cfg: ArenaExperimentCfg,
+    *,
+    environment_factory_type: type[ArenaEnvironmentFactory],
+) -> ArenaEnvBuilder:
+    """Build an Arena compiler with an already resolved environment factory."""
     # ArenaEnvBuilder imports Isaac Lab runtime modules and must be loaded only after
     # the dispatcher has started SimulationApp.
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
-    environment_factory_type = EnvironmentRegistry().get_factory_type_for_cfg(cfg.environment)
     arena_environment = environment_factory_type().build(cfg.environment)
 
     return ArenaEnvBuilder(
@@ -55,12 +60,10 @@ def run_experiment(
     cfg: ArenaExperimentCfg,
     *,
     output_dir: str | Path,
+    arena_builder_factory: ArenaBuilderFactory,
     video_cfg: VideoRecordingCfg | None = None,
-    arena_builder_factory: ArenaBuilderFactory = build_arena_builder,
 ) -> ArenaExperimentResult:
     """Execute one typed experiment and return its result."""
-    # TODO(cvolk, 2026-07-06): Remove the injectable legacy builder path when
-    # environment graphs support typed construction outside their argparse frontend.
     started_at = time.time()
     metrics_per_rebuild: list[MetricsDataCollection] = []
     output_dir = str(output_dir)

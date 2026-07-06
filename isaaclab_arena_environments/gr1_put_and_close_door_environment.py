@@ -45,6 +45,7 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
     """
 
     name = "put_item_in_fridge_and_close_door"
+    _legacy_argparse_cfg_type = GR1PutAndCloseDoorEnvironmentCfg
 
     def build(self, cfg: GR1PutAndCloseDoorEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
