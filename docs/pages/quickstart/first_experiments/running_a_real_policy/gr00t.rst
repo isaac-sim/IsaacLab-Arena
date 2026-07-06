@@ -93,12 +93,12 @@ Each evaluation is run without restarting Isaac Sim to save on the startup time.
    9 closed-loop evaluation runs of GR00T N1.6 on the DROID embodiment — each cell varies the
    pick-up object, background HDR, and destination.
 
-At the end of the run you will see an experiment summary table followed by a metrics report:
+At the end of the run you will see a job summary table followed by a metrics report:
 
 .. code-block:: text
 
    +---------------------------------------+-----------+-----...-+----------+-----------+--------------+
-   |            Experiment Name            |   Status  | Policy  | Num Envs | Num Steps | Num Episodes |
+   |                Job Name               |   Status  | Policy  | Num Envs | Num Steps | Num Episodes |
    +---------------------------------------+-----------+-----...-+----------+-----------+--------------+
    |   droid_pnp_srl_gr00t_billiard_hall   | completed | Gr00t.. |    1     |    None   |      3       |
    |     droid_pnp_srl_gr00t_blue_block    | completed | Gr00t.. |    1     |    None   |      3       |

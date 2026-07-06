@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import sys
 from dataclasses import dataclass
 from types import SimpleNamespace
 
@@ -49,6 +50,40 @@ def _experiment(**overrides):
     }
     values.update(overrides)
     return ArenaExperimentCfg(**values)
+
+
+def test_build_registered_arena_builder_uses_resolved_factory(monkeypatch):
+    arena_environment = object()
+    captured = {}
+
+    class _EnvironmentFactory:
+        def build(self, cfg):
+            captured["environment_cfg"] = cfg
+            return arena_environment
+
+    class _ArenaEnvBuilder:
+        def __init__(self, environment, builder_cfg, hydra_overrides):
+            captured["environment"] = environment
+            captured["builder_cfg"] = builder_cfg
+            captured["hydra_overrides"] = hydra_overrides
+
+    monkeypatch.setitem(
+        sys.modules,
+        "isaaclab_arena.environments.arena_env_builder",
+        SimpleNamespace(ArenaEnvBuilder=_ArenaEnvBuilder),
+    )
+    experiment = _experiment(variations={"light": {"intensity": {"enabled": True}}})
+
+    builder = experiment_runner.build_registered_arena_builder(
+        experiment,
+        environment_factory_type=_EnvironmentFactory,
+    )
+
+    assert isinstance(builder, _ArenaEnvBuilder)
+    assert captured["environment_cfg"] is experiment.environment
+    assert captured["environment"] is arena_environment
+    assert captured["builder_cfg"] is experiment.environment_builder
+    assert captured["hydra_overrides"] == ["light.intensity.enabled=true"]
 
 
 def test_run_experiment_splits_episode_budget_without_mutating_config(monkeypatch, tmp_path):
