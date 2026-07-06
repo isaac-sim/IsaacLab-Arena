@@ -173,8 +173,8 @@ def get_isaaclab_arena_environments_cli_parser(
     return args_parser
 
 
-# TODO(cvolk, 2026-07-03): Replace this legacy construction pipeline with typed environment
-# and builder configs. Then remove its Namespace input and the get_env(args_cli) path below.
+# TODO(cvolk, 2026-07-03): Remove this legacy construction pipeline when frontends provide
+# typed environment and builder configs instead of this Namespace and get_env(args_cli) path.
 def get_arena_builder_from_cli(
     args_cli: argparse.Namespace,
     hydra_overrides: list[str] | None = None,

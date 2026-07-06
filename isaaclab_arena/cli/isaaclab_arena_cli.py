@@ -4,10 +4,27 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+from dataclasses import fields
 
 from isaaclab.app import AppLauncher
 
+from isaaclab_arena.cli.dataclass_cli import (
+    add_dataclass_cli_args,
+    assert_cli_defaults_match_dataclass,
+    dataclass_from_cli,
+)
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+
+_BUILDER_CFG_FIELD_NAMES = frozenset(config_field.name for config_field in fields(ArenaEnvBuilderCfg))
+_ISAAC_LAB_BUILDER_CFG_FIELDS = frozenset({"disable_fabric", "env_spacing", "mimic", "num_envs", "seed"})
+_BUILDER_CFG_FIELDS_PROVIDED_BY_OTHER_FRONTENDS = frozenset({"device", "language_instruction"})
+_BUILDER_CFG_FIELDS_WITH_CUSTOM_CLI = frozenset({"solve_relations"})
+
+assert (
+    _ISAAC_LAB_BUILDER_CFG_FIELDS
+    | _BUILDER_CFG_FIELDS_PROVIDED_BY_OTHER_FRONTENDS
+    | _BUILDER_CFG_FIELDS_WITH_CUSTOM_CLI
+) <= _BUILDER_CFG_FIELD_NAMES
 
 
 # TODO(cvolk, 2026-07-03): Remove this compatibility adapter when the argparse frontend
@@ -21,20 +38,7 @@ def arena_env_builder_cfg_from_argparse(args_cli: argparse.Namespace) -> ArenaEn
     Returns:
         The configuration consumed by ``ArenaEnvBuilder``.
     """
-    return ArenaEnvBuilderCfg(
-        num_envs=args_cli.num_envs,
-        env_spacing=args_cli.env_spacing,
-        seed=args_cli.seed,
-        solve_relations=args_cli.solve_relations,
-        placement_seed=args_cli.placement_seed,
-        resolve_on_reset=args_cli.resolve_on_reset,
-        random_yaw_init=args_cli.random_yaw_init,
-        disable_fabric=args_cli.disable_fabric,
-        mimic=args_cli.mimic,
-        presets=args_cli.presets,
-        device=args_cli.device,
-        language_instruction=getattr(args_cli, "language_instruction", None),
-    )
+    return dataclass_from_cli(ArenaEnvBuilderCfg, args_cli)
 
 
 # TODO(cvolk, 2026-07-03): Remove this parser pipeline and its add_* helpers when Arena
@@ -51,17 +55,16 @@ def get_isaaclab_arena_cli_parser() -> argparse.ArgumentParser:
 
 
 def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
-    """Add Isaac Lab specific command line arguments to the given parser."""
+    """Add builder arguments shared with Isaac Lab scripts."""
 
     isaac_lab_group = parser.add_argument_group("Isaac Lab Arguments", "Arguments specific to Isaac Lab framework")
 
-    isaac_lab_group.add_argument(
-        "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
+    assert_cli_defaults_match_dataclass(parser, ArenaEnvBuilderCfg, {"device"})
+    add_dataclass_cli_args(
+        isaac_lab_group,
+        ArenaEnvBuilderCfg,
+        excluded_fields=_BUILDER_CFG_FIELD_NAMES - _ISAAC_LAB_BUILDER_CFG_FIELDS,
     )
-    isaac_lab_group.add_argument("--seed", type=int, default=42, help="Optional seed for the random number generator.")
-    isaac_lab_group.add_argument("--num_envs", type=int, default=1, help="Number of environments to simulate.")
-    isaac_lab_group.add_argument("--env_spacing", type=float, default=30.0, help="Spacing between environments.")
-    isaac_lab_group.add_argument("--mimic", action="store_true", default=False, help="Enable mimic environment.")
     isaac_lab_group.add_argument(
         "--distributed",
         action="store_true",
@@ -79,42 +82,16 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         "--no-solve-relations",
         action="store_false",
         dest="solve_relations",
-        default=True,
+        default=ArenaEnvBuilderCfg().solve_relations,
         help="Disable solving spatial relations in the environment.",
     )
-    arena_group.add_argument(
-        "--placement_seed",
-        type=int,
-        default=None,
-        help="Seed for object placement. If set, objects are placed at the same positions across runs.",
-    )
-    arena_group.add_argument(
-        "--presets",
-        type=str,
-        default=None,
-        help=(
-            "Physics backend preset: 'physx' or 'newton'. "
-            "Mirrors Isaac Lab's ``presets=newton`` Hydra syntax. "
-            "When not set, each environment uses its own default."
-        ),
-    )
-    arena_group.add_argument(
-        "--resolve_on_reset",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help=(
-            "Re-place objects from the pool on each reset (default: True). Use --no-resolve_on_reset to keep the same"
-            " layout."
-        ),
-    )
-    arena_group.add_argument(
-        "--random_yaw_init",
-        action="store_true",
-        default=False,
-        help=(
-            "Randomly rotate objects (except anchors) around the Z-axis for scene variety. "
-            "Collisions use a larger enclosing box; the solver won't optimize this rotation. "
-            "Only affects objects positioned by the placement solver; manually-placed objects are unaffected."
+    add_dataclass_cli_args(
+        arena_group,
+        ArenaEnvBuilderCfg,
+        excluded_fields=(
+            _ISAAC_LAB_BUILDER_CFG_FIELDS
+            | _BUILDER_CFG_FIELDS_PROVIDED_BY_OTHER_FRONTENDS
+            | _BUILDER_CFG_FIELDS_WITH_CUSTOM_CLI
         ),
     )
     arena_group.add_argument(

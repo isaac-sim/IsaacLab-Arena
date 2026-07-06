@@ -7,14 +7,18 @@
 
 import pytest
 
-from isaaclab_arena.cli.isaaclab_arena_cli import (
-    arena_env_builder_cfg_from_argparse,
-    get_isaaclab_arena_cli_parser,
-)
+from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 
 
 # TODO(cvolk, 2026-07-03): Delete this compatibility test with arena_env_builder_cfg_from_argparse.
+def test_generated_cli_defaults_match_builder_configuration():
+    """Use the typed builder configuration as the default CLI contract."""
+    args_cli = get_isaaclab_arena_cli_parser().parse_args([])
+
+    assert arena_env_builder_cfg_from_argparse(args_cli) == ArenaEnvBuilderCfg()
+
+
 def test_argparse_adapter_maps_builder_configuration():
     """Translate only builder-owned command-line values into the typed config."""
     args_cli = get_isaaclab_arena_cli_parser().parse_args([
