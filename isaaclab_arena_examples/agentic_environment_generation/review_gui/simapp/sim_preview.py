@@ -150,7 +150,7 @@ def run_sim_preview(
     import yaml
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyArgs
+    from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyCfg
 
     started_at = time.monotonic()
     _preview_log(started_at, "run_sim_preview started")
@@ -171,7 +171,7 @@ def run_sim_preview(
 
     args = _preview_args(num_envs=num_envs, env_spacing=env_spacing)
     builder = ArenaEnvBuilder(arena_env, args)
-    policy = ZeroActionPolicy(ZeroActionPolicyArgs())
+    policy = ZeroActionPolicy(ZeroActionPolicyCfg())
 
     cache_dir = sim_preview_cache_dir()
     stamp = int(time.time() * 1000)

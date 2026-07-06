@@ -24,15 +24,16 @@ from __future__ import annotations
 
 import numpy as np
 import torch
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
+from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.policy_constants import (
     NUM_BASE_HEIGHT_CMD,
     NUM_NAVIGATE_CMD,
     NUM_TORSO_ORIENTATION_RPY_CMD,
 )
-from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyConfig, TaskMode
+from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyCfg, TaskMode
 from isaaclab_arena_gr00t.utils.image_conversion import resize_frames_with_padding
 from isaaclab_arena_gr00t.utils.io_utils import load_robot_joints_config_from_yaml, to_numpy, to_tensor
 from isaaclab_arena_gr00t.utils.joints_conversion import (
@@ -46,25 +47,17 @@ from isaaclab_arena_gr00t.utils.joints_conversion import (
 
 
 @dataclass
-class Gr00tBasePolicyArgs:
-    """Base arguments for GR00T policies, shared by local and remote.
+class Gr00tBasePolicyCfg(PolicyCfg):
+    """Configure settings shared by local and remote GR00T policies.
 
     Subclasses (e.g. for local vs remote) may add fields such as ``num_envs``.
     """
 
-    policy_config_yaml_path: str = field(
-        metadata={
-            "help": "Path to the Gr00t closedloop policy config YAML file",
-            "required": True,
-        }
-    )
+    policy_config_yaml_path: str
+    """Path to the GR00T closed-loop policy YAML configuration."""
 
-    policy_device: str = field(
-        default="cuda",
-        metadata={
-            "help": "Device to use for policy inference (e.g. 'cuda', 'cpu').",
-        },
-    )
+    policy_device: str = "cuda"
+    """Device used for Arena-side policy operations."""
 
 
 # --------------------------------------------------------------------------- #
@@ -73,7 +66,7 @@ class Gr00tBasePolicyArgs:
 
 
 def load_gr00t_joint_configs(
-    policy_config: Gr00tClosedloopPolicyConfig,
+    policy_config: Gr00tClosedloopPolicyCfg,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """Load policy, action, and state joint configs from paths in the config.
 
@@ -235,7 +228,7 @@ def build_gr00t_policy_observations(
     rgb_list_np: list[np.ndarray],
     joint_pos_sim_np: np.ndarray,
     task_description: str,
-    policy_config: Gr00tClosedloopPolicyConfig,
+    policy_config: Gr00tClosedloopPolicyCfg,
     robot_state_joints_config: dict[str, Any],
     policy_joints_config: dict[str, Any],
     modality_configs: dict[str, Any],

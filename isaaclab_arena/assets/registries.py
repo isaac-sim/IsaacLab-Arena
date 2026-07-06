@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.assets.hdr_image import HDRImage
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
-    from isaaclab_arena.policy.policy_base import PolicyBase
+    from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
     from isaaclab_arena.relations.relations import RelationBase
     from isaaclab_arena.tasks.task_base import TaskBase
 
@@ -184,6 +184,24 @@ class RetargeterRegistry(Registry):
 class PolicyRegistry(Registry):
     def __init__(self):
         super().__init__()
+        # TODO(cvolk, 2026-07-06): Remove config-type metadata when typed experiment
+        # configs replace policy_runner CLI values and Job.policy_config_dict.
+        self._cfg_types: dict[type["PolicyBase"], type["PolicyCfg"]] = {}
+
+    # TODO(cvolk, 2026-07-06): Use the generic Registry.register() method once
+    # frontends no longer need the associated policy config type.
+    def register_policy(self, policy_type: type["PolicyBase"], cfg_type: type["PolicyCfg"]) -> None:
+        """Register a policy and its typed configuration."""
+        self.register(policy_type, policy_type.name)
+        self._cfg_types[policy_type] = cfg_type
+
+    # TODO(cvolk, 2026-07-06): Remove this lookup when policy_runner and eval_runner receive
+    # concrete PolicyCfg objects instead of CLI values and Job.policy_config_dict.
+    def get_policy_cfg_type(self, policy_type: type["PolicyBase"]) -> type["PolicyCfg"]:
+        """Get the config type used by the temporary policy frontend adapters."""
+        ensure_assets_registered()
+        assert policy_type in self._cfg_types, f"Policy {policy_type.__name__} must register a PolicyCfg"
+        return self._cfg_types[policy_type]
 
     def get_policy(self, name: str) -> type["PolicyBase"]:
         """Gets a policy by name.
