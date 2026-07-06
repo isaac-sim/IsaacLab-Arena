@@ -30,7 +30,8 @@ class _TestConstants:
         # python.sh under the submodule; the native uv env has no submodule, so fall back
         # to the current interpreter (the uv venv python, which carries the isaaclab wheel).
         docker_python = f"{self.repo_root}/submodules/IsaacLab/_isaac_sim/python.sh"
-        self.python_path = docker_python if os.path.exists(docker_python) else sys.executable
+        self.is_docker = os.path.exists(docker_python)
+        self.python_path = docker_python if self.is_docker else sys.executable
 
         self.test_data_dir = f"{self.test_dir}/test_data"
 
