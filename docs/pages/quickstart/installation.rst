@@ -67,11 +67,12 @@ is currently Docker-only, see the note):
    ``--output_base_dir`` to redirect, e.g. to Docker's ``/eval`` mount.
 
 .. note::
-   The third, subprocess-based phase (``-m with_subprocess``) runs the full
-   evaluation pipeline on the bundled example environments. Those tests expect
-   the Docker eval mounts (e.g. ``/eval``) and exercise contact-sensor success
-   detection that currently depends on the Docker Isaac Lab build, so run that
-   phase from the Docker workflow below.
+   The third, subprocess-based phase (``-m with_subprocess``) also runs
+   natively. A few of its tests skip outside Docker, with the reason stated in
+   the skip marker: some load assets not yet promoted to the public Nucleus,
+   and two hit API differences between the Docker Isaac Lab build and the
+   public wheel (to be removed once the Isaac Lab versions converge). The
+   Docker workflow below runs the full set.
 
 .. note::
    Known upstream limitation: ``isaacsim-kernel`` 6.0.0 pins both
