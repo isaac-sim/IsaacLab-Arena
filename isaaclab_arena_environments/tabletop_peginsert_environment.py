@@ -32,7 +32,6 @@ class PegInsertEnvironmentCfg(ArenaEnvironmentCfg):
 class PegInsertEnvironment(ArenaEnvironmentFactory[PegInsertEnvironmentCfg]):
 
     name: str = "peg_insert"
-    _legacy_argparse_cfg_type = PegInsertEnvironmentCfg
 
     def build(self, cfg: PegInsertEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""

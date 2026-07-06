@@ -38,16 +38,16 @@ class MetricsLogger:
         self.metrics_file = metrics_file
         self.metrics_data = {}
 
-    def append_job_metrics(self, job_name: str, metrics_data: MetricsDataCollection):
-        """Add or update metrics for a specific job.
+    def append_experiment_metrics(self, experiment_name: str, metrics_data: MetricsDataCollection):
+        """Add or update metrics for a specific experiment.
 
         Args:
-            job_name: Name of the job
+            experiment_name: Name of the experiment.
             metrics_data: MetricsDataCollection instance containing the data for all metrics.
         """
-        if job_name not in self.metrics_data:
-            self.metrics_data[job_name] = {}
-        self.metrics_data[job_name].update(metrics_to_plain_python_types(metrics_data))
+        if experiment_name not in self.metrics_data:
+            self.metrics_data[experiment_name] = {}
+        self.metrics_data[experiment_name].update(metrics_to_plain_python_types(metrics_data))
 
     def save_metrics_to_file(self):
         """Save all metrics to JSON file."""
@@ -64,8 +64,8 @@ class MetricsLogger:
         print("METRICS SUMMARY")
         print("=" * 70)
 
-        for job_name, metrics in sorted(self.metrics_data.items()):
-            print(f"\n{job_name}:")
+        for experiment_name, metrics in sorted(self.metrics_data.items()):
+            print(f"\n{experiment_name}:")
             if metrics:
                 for metric_name, value in sorted(metrics.items()):
                     if isinstance(value, float):

@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import random
+from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.utils.singleton import SingletonMeta
@@ -15,6 +16,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.assets.hdr_image import HDRImage
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
+    from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
     from isaaclab_arena.relations.relations import RelationBase
     from isaaclab_arena.tasks.task_base import TaskBase
@@ -184,24 +186,31 @@ class RetargeterRegistry(Registry):
 class PolicyRegistry(Registry):
     def __init__(self):
         super().__init__()
-        # TODO(cvolk, 2026-07-06): Remove config-type metadata when typed experiment
-        # configs replace policy_runner CLI values and Job.policy_config_dict.
         self._cfg_types: dict[type["PolicyBase"], type["PolicyCfg"]] = {}
+        self._policy_types_by_cfg_type: dict[type["PolicyCfg"], type["PolicyBase"]] = {}
 
-    # TODO(cvolk, 2026-07-06): Use the generic Registry.register() method once
-    # frontends no longer need the associated policy config type.
     def register_policy(self, policy_type: type["PolicyBase"], cfg_type: type["PolicyCfg"]) -> None:
         """Register a policy and its typed configuration."""
+        assert cfg_type not in self._policy_types_by_cfg_type, f"Policy config {cfg_type.__name__} already registered"
         self.register(policy_type, policy_type.name)
         self._cfg_types[policy_type] = cfg_type
+        self._policy_types_by_cfg_type[cfg_type] = policy_type
 
-    # TODO(cvolk, 2026-07-06): Remove this lookup when policy_runner and eval_runner receive
-    # concrete PolicyCfg objects instead of CLI values and Job.policy_config_dict.
+    # TODO(cvolk, 2026-07-06): Remove this policy-to-config lookup when policy_runner
+    # receives a concrete PolicyCfg and the JSON job adapter is deleted. Typed experiment
+    # execution will keep using the reverse config-to-policy registration.
     def get_policy_cfg_type(self, policy_type: type["PolicyBase"]) -> type["PolicyCfg"]:
         """Get the config type used by the temporary policy frontend adapters."""
         ensure_assets_registered()
         assert policy_type in self._cfg_types, f"Policy {policy_type.__name__} must register a PolicyCfg"
         return self._cfg_types[policy_type]
+
+    def get_policy_type_for_cfg(self, cfg: "PolicyCfg") -> type["PolicyBase"]:
+        """Get the registered policy that consumes a concrete configuration."""
+        ensure_assets_registered()
+        cfg_type = type(cfg)
+        assert cfg_type in self._policy_types_by_cfg_type, f"Policy config {cfg_type.__name__} is not registered"
+        return self._policy_types_by_cfg_type[cfg_type]
 
     def get_policy(self, name: str) -> type["PolicyBase"]:
         """Gets a policy by name.
@@ -211,6 +220,20 @@ class PolicyRegistry(Registry):
         """
         ensure_assets_registered()
         return self.get_component_by_name(name)
+
+    def resolve_policy_type(self, name: str) -> type["PolicyBase"]:
+        """Resolve a registered policy name or dotted policy class path."""
+        if self.is_registered(name):
+            return self.get_policy(name)
+
+        assert "." in name, (
+            "policy type must be a registered name or dotted Python path of the form "
+            f"'module.submodule.ClassName', got: {name}"
+        )
+        module_path, class_name = name.rsplit(".", 1)
+        policy_type = getattr(import_module(module_path), class_name)
+        assert policy_type in self._cfg_types, f"Policy {policy_type.__name__} must register a PolicyCfg"
+        return policy_type
 
 
 class HDRImageRegistry(Registry):
@@ -257,10 +280,39 @@ class HDRImageRegistry(Registry):
 
 
 class EnvironmentRegistry(Registry):
-    """Registry for example environment classes."""
+    """Registry for Arena environment factories and their concrete configs."""
 
     def __init__(self):
         super().__init__()
+        self._cfg_types: dict[type["ArenaEnvironmentFactory"], type["ArenaEnvironmentCfg"]] = {}
+        self._factory_types_by_cfg_type: dict[type["ArenaEnvironmentCfg"], type["ArenaEnvironmentFactory"]] = {}
+
+    def register_environment(
+        self,
+        factory_type: type["ArenaEnvironmentFactory"],
+        cfg_type: type["ArenaEnvironmentCfg"],
+    ) -> None:
+        """Register an environment factory and its typed configuration."""
+        assert (
+            cfg_type not in self._factory_types_by_cfg_type
+        ), f"Environment config {cfg_type.__name__} already registered"
+        self.register(factory_type, factory_type.name)
+        self._cfg_types[factory_type] = cfg_type
+        self._factory_types_by_cfg_type[cfg_type] = factory_type
+
+    def get_environment_cfg_type(
+        self,
+        factory_type: type["ArenaEnvironmentFactory"],
+    ) -> type["ArenaEnvironmentCfg"]:
+        """Get the concrete config consumed by a registered environment factory."""
+        assert factory_type in self._cfg_types, f"Environment {factory_type.__name__} must register a config"
+        return self._cfg_types[factory_type]
+
+    def get_factory_type_for_cfg(self, cfg: "ArenaEnvironmentCfg") -> type["ArenaEnvironmentFactory"]:
+        """Get the registered environment factory that consumes a concrete config."""
+        cfg_type = type(cfg)
+        assert cfg_type in self._factory_types_by_cfg_type, f"Environment config {cfg_type.__name__} is not registered"
+        return self._factory_types_by_cfg_type[cfg_type]
 
 
 class ObjectRelationLibraryRegistry(Registry):

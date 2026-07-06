@@ -33,7 +33,6 @@ class CubeGoalPoseEnvironment(ArenaEnvironmentFactory[CubeGoalPoseEnvironmentCfg
     """
 
     name = "cube_goal_pose"
-    _legacy_argparse_cfg_type = CubeGoalPoseEnvironmentCfg
 
     def build(self, cfg: CubeGoalPoseEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""

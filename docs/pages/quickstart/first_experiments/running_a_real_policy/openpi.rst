@@ -97,12 +97,12 @@ Each evaluation is run without restarting Isaac Sim to save on the startup time.
    9 closed-loop evaluation runs of pi05 on the DROID embodiment — each cell varies the
    pick-up object, background HDR, and destination.
 
-At the end of the run you will see a job summary table followed by a metrics report:
+At the end of the run you will see an experiment summary table followed by a metrics report:
 
 .. code-block:: text
 
    +----------------------------------------------+-----------+----------------------------------------------------------------+----------+-----------+--------------+
-   |                   Job Name                   |   Status  |                          Policy Type                           | Num Envs | Num Steps | Num Episodes |
+   |               Experiment Name               |   Status  |                          Policy Type                           | Num Envs | Num Steps | Num Episodes |
    +----------------------------------------------+-----------+----------------------------------------------------------------+----------+-----------+--------------+
    |      droid_pnp_srl_openpi_billiard_hall      | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
    | droid_pnp_srl_openpi_rubiks_cube_home_office | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |
