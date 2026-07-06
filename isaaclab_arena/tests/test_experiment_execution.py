@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation import experiment_runner
+from isaaclab_arena.evaluation import experiment_execution
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg, ExperimentStatus, RolloutCfg
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
@@ -63,17 +63,17 @@ def test_build_and_run_experiment_splits_episode_budget_without_mutating_config(
         received_builder_factories.append(arena_builder_factory)
         return _environment()
 
-    monkeypatch.setattr(experiment_runner, "_build_environment", make_environment)
-    monkeypatch.setattr(experiment_runner, "_build_policy", lambda cfg: _Policy())
-    monkeypatch.setattr(experiment_runner, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
-    monkeypatch.setattr(experiment_runner, "close_experiment_resources", lambda policy, env: None)
+    monkeypatch.setattr(experiment_execution, "_build_environment", make_environment)
+    monkeypatch.setattr(experiment_execution, "_build_policy", lambda cfg: _Policy())
+    monkeypatch.setattr(experiment_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
+    monkeypatch.setattr(experiment_execution, "close_experiment_resources", lambda policy, env: None)
 
     def record_rollout(env, policy, num_steps, num_episodes):
         rollout_limits.append((num_steps, num_episodes))
 
-    monkeypatch.setattr(experiment_runner, "rollout_policy", record_rollout)
+    monkeypatch.setattr(experiment_execution, "rollout_policy", record_rollout)
 
-    result = experiment_runner.build_and_run_experiment(
+    result = experiment_execution.build_and_run_experiment(
         experiment,
         output_dir=tmp_path,
         arena_builder_factory=custom_builder_factory,
@@ -91,24 +91,24 @@ def test_build_and_run_experiment_returns_failure_and_closes_resources(monkeypat
     policy = _Policy()
 
     monkeypatch.setattr(
-        experiment_runner,
+        experiment_execution,
         "_build_environment",
         lambda cfg, render_mode, arena_builder_factory: environment,
     )
-    monkeypatch.setattr(experiment_runner, "_build_policy", lambda cfg: policy)
-    monkeypatch.setattr(experiment_runner, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
+    monkeypatch.setattr(experiment_execution, "_build_policy", lambda cfg: policy)
+    monkeypatch.setattr(experiment_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
     monkeypatch.setattr(
-        experiment_runner,
+        experiment_execution,
         "close_experiment_resources",
         lambda closed_policy, closed_environment: closed_resources.append((closed_policy, closed_environment)),
     )
     monkeypatch.setattr(
-        experiment_runner,
+        experiment_execution,
         "rollout_policy",
         lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("rollout failed")),
     )
 
-    result = experiment_runner.build_and_run_experiment(
+    result = experiment_execution.build_and_run_experiment(
         _experiment(rollout=RolloutCfg(num_steps=2), num_rebuilds=1),
         output_dir=tmp_path,
         arena_builder_factory=lambda cfg: None,
@@ -117,3 +117,31 @@ def test_build_and_run_experiment_returns_failure_and_closes_resources(monkeypat
     assert result.status is ExperimentStatus.FAILED
     assert "rollout failed" in result.error
     assert closed_resources == [(policy, environment)]
+
+
+def test_build_and_run_experiment_uses_legacy_step_fallback(monkeypatch, tmp_path):
+    rollout_limits = []
+
+    monkeypatch.setattr(
+        experiment_execution,
+        "_build_environment",
+        lambda cfg, render_mode, arena_builder_factory: _environment(),
+    )
+    monkeypatch.setattr(experiment_execution, "_build_policy", lambda cfg: _Policy())
+    monkeypatch.setattr(experiment_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
+    monkeypatch.setattr(experiment_execution, "close_experiment_resources", lambda policy, env: None)
+    monkeypatch.setattr(
+        experiment_execution,
+        "rollout_policy",
+        lambda env, policy, num_steps, num_episodes: rollout_limits.append((num_steps, num_episodes)),
+    )
+
+    result = experiment_execution.build_and_run_experiment(
+        _experiment(rollout=RolloutCfg(), num_rebuilds=1),
+        output_dir=tmp_path,
+        arena_builder_factory=lambda cfg: None,
+        fallback_num_steps=17,
+    )
+
+    assert result.status is ExperimentStatus.COMPLETED
+    assert rollout_limits == [(17, None)]
