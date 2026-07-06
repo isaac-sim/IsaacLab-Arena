@@ -506,7 +506,7 @@ plugs into both the single-job runner and the batch eval runner without any
 changes to either. In bare IsaacLab you would write an ad-hoc inference loop
 for each model; Arena’s <code class="docutils literal notranslate"><span class="pre">PolicyBase</span></code> gives a consistent contract that all
 runners depend on.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">policy</span> <span class="o">=</span> <span class="n">ZeroActionPolicy</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">ZeroActionPolicyArgs</span><span class="p">())</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">policy</span> <span class="o">=</span> <span class="n">ZeroActionPolicy</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">ZeroActionPolicyCfg</span><span class="p">())</span>
 <span class="n">obs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
 <span class="n">action</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">get_action</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">obs</span><span class="p">)</span>
 </pre></div>
@@ -527,50 +527,52 @@ its accompanying <code class="docutils literal notranslate"><span class="pre">pa
 </section>
 <section id="writing-a-custom-policy">
 <h2>Writing a custom policy<a class="headerlink" href="#writing-a-custom-policy" title="Link to this heading">#</a></h2>
-<p>Subclass <code class="docutils literal notranslate"><span class="pre">PolicyBase</span></code>, set a <code class="docutils literal notranslate"><span class="pre">name</span></code>, decorate with <code class="docutils literal notranslate"><span class="pre">&#64;register_policy</span></code>,
-and implement <code class="docutils literal notranslate"><span class="pre">get_action</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">gymnasium</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gym</span>
+<p>Define a typed <code class="docutils literal notranslate"><span class="pre">PolicyCfg</span></code>, subclass <code class="docutils literal notranslate"><span class="pre">PolicyBase</span></code> with that config, set a
+<code class="docutils literal notranslate"><span class="pre">name</span></code>, register it with its config, and implement <code class="docutils literal notranslate"><span class="pre">get_action</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">gymnasium</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gym</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">gymnasium.spaces.dict</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span> <span class="k">as</span> <span class="n">GymSpacesDict</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.assets.register</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_policy</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.policy.policy_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">PolicyBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.policy.policy_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">PolicyBase</span><span class="p">,</span> <span class="n">PolicyCfg</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MyPolicyCfg</span><span class="p">(</span><span class="n">PolicyCfg</span><span class="p">):</span>
+    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cuda:0&quot;</span>
 
 
 <span class="nd">@register_policy</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">MyPolicy</span><span class="p">(</span><span class="n">PolicyBase</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MyPolicy</span><span class="p">(</span><span class="n">PolicyBase</span><span class="p">[</span><span class="n">MyPolicyCfg</span><span class="p">]):</span>
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;my_policy&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">MyPolicyCfg</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">gym</span><span class="o">.</span><span class="n">Env</span><span class="p">,</span> <span class="n">observation</span><span class="p">:</span> <span class="n">GymSpacesDict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
         <span class="c1"># Your model inference here</span>
         <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">action_space</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">unwrapped</span><span class="o">.</span><span class="n">device</span><span class="p">))</span>
-
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">add_args_to_parser</span><span class="p">(</span><span class="n">parser</span><span class="p">):</span>
-        <span class="c1"># Add any CLI arguments your policy needs, then return the parser</span>
-        <span class="k">return</span> <span class="n">parser</span>
-
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">from_args</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">MyPolicy</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>Once registered, select the policy by name on the command line:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>my_policy<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>...
+<p>Construct the policy by passing its typed configuration directly:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">policy_cfg</span> <span class="o">=</span> <span class="n">MyPolicyCfg</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">)</span>
+<span class="n">policy</span> <span class="o">=</span> <span class="n">MyPolicy</span><span class="p">(</span><span class="n">policy_cfg</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>For policies not registered by name, pass a dotted Python path instead
-(e.g. <code class="docutils literal notranslate"><span class="pre">--policy_type</span> <span class="pre">mypackage.mypolicy.MyPolicy</span></code>). The runner will
-import and instantiate the class directly.</p>
-<p>To use a custom policy in the batch eval runner’s JSON config, define a
-<code class="docutils literal notranslate"><span class="pre">config_class</span></code> dataclass on the policy and implement <code class="docutils literal notranslate"><span class="pre">from_dict()</span></code>.
-This lets the runner instantiate the policy from a plain dict without
-going through argparse. See <a class="reference internal" href="concept_evaluation_types.html"><span class="doc">Evaluation Types</span></a> for details.</p>
+<p>The typed registration lets the single-job runner generate CLI flags from
+<code class="docutils literal notranslate"><span class="pre">MyPolicyCfg</span></code> and lets the batch eval runner convert the current
+<code class="docutils literal notranslate"><span class="pre">Job.policy_config_dict</span></code> representation into that same type. See
+<a class="reference internal" href="concept_evaluation_types.html"><span class="doc">Evaluation Types</span></a> for details.</p>
+<p>Config fields named <code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">num_envs</span></code> reuse the corresponding shared
+runner flags, so their defaults must match the runner defaults.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code> remains an argparse frontend, but policies do not
+implement argparse methods. The runner generates their flags from the
+registered config and reconstructs it before creating the policy.</p>
+</div>
 </section>
 <section id="more-details">
 <h2>More details<a class="headerlink" href="#more-details" title="Link to this heading">#</a></h2>

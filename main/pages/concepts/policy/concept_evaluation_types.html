@@ -635,8 +635,8 @@ and pass <code class="docutils literal notranslate"><span class="pre">--distribu
 <li><p><code class="docutils literal notranslate"><span class="pre">--distributed</span></code>: Enable distributed mode; use with <code class="docutils literal notranslate"><span class="pre">torchrun</span></code> and set
 device per rank (e.g. <code class="docutils literal notranslate"><span class="pre">cuda:{local_rank}</span></code>).</p></li>
 </ul>
-<p>The rest of the arguments (environment, embodiment, object, etc.) come from the
-Arena environments CLI and the policy’s own <code class="docutils literal notranslate"><span class="pre">add_args_to_parser</span></code>.</p>
+<p>The remaining environment arguments come from the Arena environments CLI. For
+registered policies, policy-specific flags are generated from their <code class="docutils literal notranslate"><span class="pre">PolicyCfg</span></code>.</p>
 </section>
 <section id="sequential-batch-eval-runner-batch-jobs">
 <span id="sequential-batch-eval-runner"></span><h2>2. Sequential batch eval runner — batch jobs<a class="headerlink" href="#sequential-batch-eval-runner-batch-jobs" title="Link to this heading">#</a></h2>
@@ -677,8 +677,8 @@ object with:</p>
 internally to the same CLI-style list the policy runner uses.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">policy_type</span></code>: Same as policy runner (registered name or dotted class path).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">policy_config_dict</span></code>: Policy configuration (e.g. checkpoint path, model
-options). Used with <code class="docutils literal notranslate"><span class="pre">PolicyBase.from_dict</span></code> if the policy has a
-<code class="docutils literal notranslate"><span class="pre">config_class</span></code>, otherwise converted to CLI args and <code class="docutils literal notranslate"><span class="pre">from_args</span></code>.</p></li>
+options). Deserialized through the policy’s registered config type; the
+deprecated CLI conversion fallback remains for legacy policies without one.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">num_steps</span></code> or <code class="docutils literal notranslate"><span class="pre">num_episodes</span></code> (optional): Simulation length for this job.
 If both are omitted, the runner uses the policy’s length if defined, or a CLI
 default (e.g. <code class="docutils literal notranslate"><span class="pre">--num_steps</span></code>).</p></li>
