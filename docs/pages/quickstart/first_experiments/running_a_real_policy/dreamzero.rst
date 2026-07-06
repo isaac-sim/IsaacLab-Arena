@@ -45,8 +45,8 @@ This produces ``nvcr.io/nvidian/dreamzero_inference_server:<tag>`` with the
    osmo workflow submit isaaclab_arena_dreamzero/docker/dreamzero_inference_server.yaml \
        --set port=5000
 
-The job starts the WebSocket inference server on the requested port using 2 H100
-GPUs. Once the job is running, find its IP from the OSMO job logs; you will pass it to the
+The job starts the WebSocket inference server on the requested port using a single H100
+GPU. Once the job is running, find its IP from the OSMO job logs; you will pass it to the
 policy as ``--dreamzero_host`` below.
 
 Terminal 2 — arena policy runner
@@ -77,4 +77,5 @@ specific to the environment go after it.
 
 Defaults: ``--dreamzero_host localhost``, ``--dreamzero_port 5000``,
 ``--dreamzero_embodiment_adapter droid`` (the only embodiment adapter the checkpoint
-currently supports). Run headless by swapping ``--viz kit`` for ``--headless``.
+currently supports), ``--dreamzero_cam2_source right``. Run headless by swapping
+``--viz kit`` for ``--headless``.

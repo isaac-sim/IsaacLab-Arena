@@ -5,18 +5,18 @@
 
 workflow:
   name: dreamzero-inference-server
-  # H100 only: the 16B-parameter model runs in float32 (~65 GiB per GPU replica).
-  # Each rank holds a full model copy (data parallelism, not tensor parallelism),
-  # so per-GPU memory is the same regardless of how many GPUs are used.
-  # H100 (80 GiB) fits; L40 (48 GiB) is insufficient.
+  # H100 only: the checkpoint runs in bfloat16 and uses ~46 GiB of GPU
+  # memory during inference. A single H100 (80 GiB) provides sufficient
+  # headroom; an L40 (48 GiB) does not. Multi-GPU execution parallelizes
+  # inference across full model replicas rather than sharding the weights.
   pool: isaac-dev-h100-01
 
   resources:
     default:
-      cpu: 16
-      gpu: 2
-      memory: 256Gi
-      storage: 250Gi
+      cpu: 8
+      gpu: 1
+      memory: 128Gi
+      storage: 100Gi
 
   tasks:
   - name: serve
@@ -29,9 +29,9 @@ workflow:
       set -e
 
       cd /workspace/dreamzero
-      CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.run \
+      CUDA_VISIBLE_DEVICES=0 python -m torch.distributed.run \
         --standalone \
-        --nproc_per_node=2 \
+        --nproc_per_node=1 \
         socket_test_optimized_AR.py \
         --port {{ port }} \
         --enable-dit-cache \

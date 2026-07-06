@@ -15,14 +15,19 @@ import pytest
 import websockets.exceptions
 
 from isaaclab_arena_dreamzero.policy.dreamzero_remote_config import DreamZeroRemotePolicyConfig
-from isaaclab_arena_dreamzero.policy.dreamzero_remote_policy import DreamZeroRemotePolicy, _msgpack_encode
-from isaaclab_arena_dreamzero.policy.droid_adapter import DroidAdapter, DroidAdapterConfig
+from isaaclab_arena_dreamzero.policy.dreamzero_remote_policy import (
+    _EMBODIMENT_ADAPTER_LOADERS,
+    DreamZeroEmbodimentAdapter,
+    DreamZeroRemotePolicy,
+    _msgpack_encode,
+)
+from isaaclab_arena_dreamzero.policy.droid_adapter import DroidAdapter
 from isaaclab_arena_dreamzero.policy.image_utils import TARGET_H, TARGET_W, resize_with_pad
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 NUM_ENVS = 2
-NUM_JOINTS = DroidAdapterConfig().num_arm_joints + 1  # arm joints + 1 gripper in robot_joint_pos
+NUM_JOINTS = DroidAdapter.num_arm_joints + 1  # arm joints + 1 gripper in robot_joint_pos
 ACTION_DIM = DroidAdapter.action_dim
 
 
@@ -30,12 +35,17 @@ def _fake_env(num_envs: int = NUM_ENVS):
     return types.SimpleNamespace(unwrapped=types.SimpleNamespace(num_envs=num_envs))
 
 
-def _fake_observation(num_envs: int = NUM_ENVS) -> dict:
+def _fake_observation(num_envs: int = NUM_ENVS, include_cam2: bool = True) -> dict:
+    cam_obs = {
+        "external_camera_rgb": torch.zeros((num_envs, 480, 640, 3), dtype=torch.uint8),
+        "wrist_camera_rgb": torch.zeros((num_envs, 480, 640, 3), dtype=torch.uint8),
+    }
+    if include_cam2:
+        # Droid mounts a second exterior camera; present by default so the 'right'
+        # default cam2_source resolves.
+        cam_obs["external_camera_2_rgb"] = torch.zeros((num_envs, 480, 640, 3), dtype=torch.uint8)
     return {
-        "camera_obs": {
-            "external_camera_rgb": torch.zeros((num_envs, 480, 640, 3), dtype=torch.uint8),
-            "wrist_camera_rgb": torch.zeros((num_envs, 480, 640, 3), dtype=torch.uint8),
-        },
+        "camera_obs": cam_obs,
         "policy": {
             "robot_joint_pos": torch.arange(num_envs * NUM_JOINTS, dtype=torch.float32).reshape(num_envs, NUM_JOINTS),
         },
@@ -96,10 +106,8 @@ def _patch_ws(monkeypatch, fake_ws: _FakeWs | None = None) -> _FakeWs:
     return fake_ws
 
 
-def _make_dreamzero_remote_policy(
-    open_loop_horizon: int = 24, num_arm_joints: int = 7, cam2_source: str = "black"
-) -> DreamZeroRemotePolicy:
-    adapter = DroidAdapter(DroidAdapterConfig(num_arm_joints=num_arm_joints, cam2_source=cam2_source))
+def _make_dreamzero_remote_policy(open_loop_horizon: int = 24, cam2_source: str = "right") -> DreamZeroRemotePolicy:
+    adapter = DroidAdapter(cam2_source=cam2_source)
     return DreamZeroRemotePolicy(
         DreamZeroRemotePolicyConfig(open_loop_horizon=open_loop_horizon, policy_device="cpu"),
         dreamzero_embodiment_adapter=adapter,
@@ -110,10 +118,8 @@ def _make_dreamzero_remote_policy(
 def make_policy(monkeypatch):
     _patch_ws(monkeypatch)
 
-    def _factory(num_arm_joints: int = 7, cam2_source: str = "black", open_loop_horizon: int = 24):
-        policy = _make_dreamzero_remote_policy(
-            open_loop_horizon=open_loop_horizon, num_arm_joints=num_arm_joints, cam2_source=cam2_source
-        )
+    def _factory(cam2_source: str = "right", open_loop_horizon: int = 24):
+        policy = _make_dreamzero_remote_policy(open_loop_horizon=open_loop_horizon, cam2_source=cam2_source)
         policy.set_task_description("pick up the object")
         return policy
 
@@ -136,59 +142,48 @@ def test_config_rejects_non_positive_horizon():
         DreamZeroRemotePolicyConfig(open_loop_horizon=0)
 
 
-def test_droid_adapter_config_defaults():
-    """Default DroidAdapterConfig values match the DreamZero-DROID wire spec."""
-    cfg = DroidAdapterConfig()
-    assert cfg.num_arm_joints == 7
-    assert cfg.cam2_source == "black"
+def test_droid_adapter_defaults():
+    """DroidAdapter constants and default cam2_source match the DreamZero-DROID wire spec."""
+    adapter = DroidAdapter()
+    assert adapter.num_arm_joints == 7
+    assert adapter.action_dim == 8
+    # Defaults to the droid embodiment's second exterior camera, not a black canvas.
+    assert adapter.cam2_source == "right"
 
 
-def test_droid_adapter_config_rejects_invalid_cam2_source():
+def test_droid_adapter_rejects_invalid_cam2_source():
     """cam2_source rejects values outside the allowed set."""
     with pytest.raises(AssertionError, match="cam2_source"):
-        DroidAdapterConfig(cam2_source="fisheye")
+        DroidAdapter(cam2_source="fisheye")
 
 
-def test_droid_adapter_config_rejects_non_positive_num_arm_joints():
-    """num_arm_joints of zero or less is rejected at construction time."""
-    with pytest.raises(AssertionError, match="num_arm_joints"):
-        DroidAdapterConfig(num_arm_joints=0)
+def test_droid_adapter_target_image_size_matches_image_utils_constants():
+    """target_image_size is fixed to image_utils' (TARGET_H, TARGET_W)."""
+    assert DroidAdapter.target_image_size == (TARGET_H, TARGET_W)
 
 
-def test_droid_adapter_config_defaults_target_image_size_to_image_utils_constants():
-    """target_image_height/width default to image_utils' TARGET_H/TARGET_W."""
-    cfg = DroidAdapterConfig()
-    assert cfg.target_image_height == TARGET_H
-    assert cfg.target_image_width == TARGET_W
-
-
-def test_droid_adapter_config_rejects_non_positive_target_image_size():
-    """target_image_height/width of zero or less are rejected at construction time."""
-    with pytest.raises(AssertionError, match="target_image_height"):
-        DroidAdapterConfig(target_image_height=0)
-    with pytest.raises(AssertionError, match="target_image_width"):
-        DroidAdapterConfig(target_image_width=0)
+def test_droid_adapter_config_field_names_derived_from_constructor():
+    """config_field_names is derived from __init__, so cam2_source is the only routed key."""
+    assert DroidAdapter.config_field_names() == ("cam2_source",)
 
 
 # ── from_dict ─────────────────────────────────────────────────────────────────
 
 
 def test_from_dict_routes_fields_to_policy_and_adapter_configs(monkeypatch):
-    """from_dict splits a flat dict between DreamZeroRemotePolicyConfig and DroidAdapterConfig by field name."""
+    """from_dict splits a flat dict between DreamZeroRemotePolicyConfig and the adapter by field name."""
     _patch_ws(monkeypatch)
     policy = DreamZeroRemotePolicy.from_dict({
         "remote_host": "example.com",
         "remote_port": 1234,
         "policy_device": "cpu",
-        "num_arm_joints": 6,
         "cam2_source": "duplicate",
     })
     assert policy.config.remote_host == "example.com"
     assert policy.config.remote_port == 1234
     adapter = policy._dreamzero_embodiment_adapter
     assert isinstance(adapter, DroidAdapter)
-    assert adapter.config.num_arm_joints == 6
-    assert adapter.config.cam2_source == "duplicate"
+    assert adapter.cam2_source == "duplicate"
 
 
 def test_from_dict_defaults_embodiment_adapter_to_droid(monkeypatch):
@@ -205,9 +200,41 @@ def test_from_dict_rejects_unsupported_embodiment_adapter():
 
 
 def test_from_dict_rejects_unknown_keys():
-    """A key that matches neither DreamZeroRemotePolicyConfig nor DroidAdapterConfig raises a clear error."""
+    """A key that matches neither DreamZeroRemotePolicyConfig nor the adapter raises a clear error."""
     with pytest.raises(AssertionError, match="Unknown DreamZeroRemotePolicy config keys"):
         DreamZeroRemotePolicy.from_dict({"embodiment": "droid"})
+
+
+def test_registry_supports_new_embodiment_without_policy_edits(monkeypatch):
+    """Registering an adapter in the loader registry makes it selectable and routes its
+    config fields generically (derived from __init__) — no branching in DreamZeroRemotePolicy."""
+    _patch_ws(monkeypatch)
+
+    class _FakeAdapter(DreamZeroEmbodimentAdapter):
+        action_dim = 3
+
+        def __init__(self, widget: str = "default") -> None:
+            self.widget = widget
+
+        def extract(self, observation, env_id):
+            return None
+
+        def pack_request(self, extracted):
+            return {}
+
+        def parse_actions(self, response):
+            return np.asarray(response, dtype=np.float32)
+
+    monkeypatch.setitem(_EMBODIMENT_ADAPTER_LOADERS, "fake", lambda: _FakeAdapter)
+
+    policy = DreamZeroRemotePolicy.from_dict({
+        "dreamzero_embodiment_adapter": "fake",
+        "policy_device": "cpu",
+        "widget": "custom",
+    })
+    adapter = policy._dreamzero_embodiment_adapter
+    assert isinstance(adapter, _FakeAdapter)
+    assert adapter.widget == "custom"
 
 
 # ── image_utils ───────────────────────────────────────────────────────────────
@@ -276,29 +303,9 @@ def test_build_request_image_shapes(make_policy):
         assert req[key].dtype == np.uint8
 
 
-def test_build_request_image_shapes_use_configured_target_size(monkeypatch):
-    """Overriding target_image_height/width on DroidAdapterConfig resizes request images accordingly."""
-    _patch_ws(monkeypatch)
-    adapter = DroidAdapter(DroidAdapterConfig(target_image_height=90, target_image_width=160))
-    policy = DreamZeroRemotePolicy(
-        DreamZeroRemotePolicyConfig(policy_device="cpu"), dreamzero_embodiment_adapter=adapter
-    )
-    policy.set_task_description("pick up the object")
-    policy._maybe_init_per_env_state(NUM_ENVS)
-    obs = _fake_observation()
-    req = policy._build_request(obs, env_id=0)
-
-    for key in (
-        "observation/exterior_image_0_left",
-        "observation/exterior_image_1_left",
-        "observation/wrist_image_left",
-    ):
-        assert req[key].shape == (90, 160, 3), f"{key} has wrong shape"
-
-
 def test_build_request_joint_split(make_policy):
     """robot_joint_pos is split into arm joint_position and gripper_position at num_arm_joints."""
-    policy = make_policy(num_arm_joints=7)
+    policy = make_policy()
     policy._maybe_init_per_env_state(NUM_ENVS)
     obs = _fake_observation()
     req = policy._build_request(obs, env_id=0)
@@ -362,7 +369,7 @@ def test_cam2_source_right_missing_raises(make_policy):
     """Missing right-shoulder camera raises AssertionError when cam2_source='right'."""
     policy = make_policy(cam2_source="right")
     policy._maybe_init_per_env_state(NUM_ENVS)
-    obs = _fake_observation()  # no 'external_camera_2_rgb' key
+    obs = _fake_observation(include_cam2=False)  # no 'external_camera_2_rgb' key
     with pytest.raises(AssertionError, match="external_camera_2_rgb"):
         policy._build_request(obs, env_id=0)
 

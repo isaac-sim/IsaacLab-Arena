@@ -9,10 +9,12 @@ import argparse
 import contextlib
 import dataclasses
 import gymnasium as gym
+import inspect
 import numpy as np
 import torch
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import Any
 
 import msgpack
@@ -62,13 +64,24 @@ class DreamZeroEmbodimentAdapter(ABC):
     format for a specific physical embodiment (DROID, ...).
 
     Subclasses declare the embodiment-specific action layout and observation keys.
-    Adding support for a new embodiment means writing a new adapter here, not
-    branching inside DreamZeroRemotePolicy — this keeps the client embodiment
-    agnostic and makes each embodiment's joint order / camera mapping explicit
-    in one place.
+    Adding support for a new embodiment means writing a new adapter and adding one
+    entry to ``_EMBODIMENT_ADAPTER_LOADERS`` — no branching inside
+    DreamZeroRemotePolicy. This keeps the client embodiment agnostic and makes each
+    embodiment's joint order / camera mapping explicit in one place.
     """
 
     action_dim: int
+
+    @classmethod
+    def config_field_names(cls) -> tuple[str, ...]:
+        """Eval-jobs config keys that configure this adapter (routed by DreamZeroRemotePolicy.from_dict).
+
+        Derived from ``__init__`` so it cannot drift from the constructor signature and
+        stays consistent with the default ``from_config_dict`` (``cls(**config)``). Override
+        only if the adapter takes constructor args that are not eval-jobs config fields.
+        """
+        params = inspect.signature(cls.__init__).parameters.values()
+        return tuple(p.name for p in params if p.name != "self" and p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY))
 
     @abstractmethod
     def extract(self, observation: dict[str, Any], env_id: int) -> Any:
@@ -87,22 +100,52 @@ class DreamZeroEmbodimentAdapter(ABC):
     def pack_request(self, extracted: Any) -> dict[str, Any]:
         """Build the observation/* portion of the DreamZero wire-format request."""
 
+    @abstractmethod
+    def parse_actions(self, response: dict[str, Any] | np.ndarray) -> np.ndarray:
+        """Decode a server response into a float32 (num_steps, action_dim) action chunk.
 
-_SUPPORTED_EMBODIMENT_ADAPTERS = ("droid",)
+        Owns the embodiment-specific parts of response decoding — envelope
+        unwrapping, dimensional padding, and joint ordering / conversion to Arena
+        actions. The policy handles only the replay horizon on top of this.
+        """
+
+    @staticmethod
+    def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+        """Register this adapter's CLI arguments. Default: none."""
+        return parser
+
+    @classmethod
+    def from_cli_args(cls, args: argparse.Namespace) -> DreamZeroEmbodimentAdapter:
+        """Build the adapter from parsed CLI args. Default: no-argument construction."""
+        return cls()
+
+    @classmethod
+    def from_config_dict(cls, config: dict[str, Any]) -> DreamZeroEmbodimentAdapter:
+        """Build the adapter from its slice of an eval-jobs config dict. Default: kwargs."""
+        return cls(**config)
 
 
-def _resolve_dreamzero_embodiment_adapter(key: str, args: argparse.Namespace) -> DreamZeroEmbodimentAdapter:
-    """Instantiate the adapter registered under ``key``.
+def _load_droid_adapter() -> type[DreamZeroEmbodimentAdapter]:
+    from isaaclab_arena_dreamzero.policy.droid_adapter import DroidAdapter
 
-    Imports are deferred to call time so adapter modules can ``from
-    dreamzero_remote_policy import DreamZeroEmbodimentAdapter`` at module top
-    without creating a circular import.
-    """
-    if key == "droid":
-        from isaaclab_arena_dreamzero.policy.droid_adapter import DroidAdapter, DroidAdapterConfig
+    return DroidAdapter
 
-        return DroidAdapter(DroidAdapterConfig.from_cli_args(args))
-    raise ValueError(f"Unknown dreamzero_embodiment_adapter {key!r}; expected one of {_SUPPORTED_EMBODIMENT_ADAPTERS}")
+
+_EMBODIMENT_ADAPTER_LOADERS: dict[str, Callable[[], type[DreamZeroEmbodimentAdapter]]] = {
+    "droid": _load_droid_adapter,
+}
+"""Registry mapping embodiment key -> a loader for its adapter class. Loaders defer
+the import to call time so adapter modules can import DreamZeroEmbodimentAdapter at
+their module top without a circular import. Register a new embodiment by adding an entry."""
+
+
+def _resolve_adapter_class(key: str) -> type[DreamZeroEmbodimentAdapter]:
+    """Return the adapter class registered under ``key``."""
+    loader = _EMBODIMENT_ADAPTER_LOADERS.get(key)
+    assert (
+        loader is not None
+    ), f"Unknown dreamzero_embodiment_adapter {key!r}; expected one of {sorted(_EMBODIMENT_ADAPTER_LOADERS)}"
+    return loader()
 
 
 @register_policy
@@ -159,7 +202,7 @@ class DreamZeroRemotePolicy(PolicyBase):
             "--dreamzero_embodiment_adapter",
             type=str,
             default="droid",
-            choices=list(_SUPPORTED_EMBODIMENT_ADAPTERS),
+            choices=sorted(_EMBODIMENT_ADAPTER_LOADERS),
             help="DreamZero-side embodiment adapter for obs / action wire format (default: droid).",
         )
         group.add_argument(
@@ -168,15 +211,16 @@ class DreamZeroRemotePolicy(PolicyBase):
             default="cuda",
             help="Torch device for action tensors.",
         )
-        from isaaclab_arena_dreamzero.policy.droid_adapter import DroidAdapterConfig
-
-        DroidAdapterConfig.add_args_to_parser(parser)
+        # Register every embodiment adapter's args; the chosen one is selected at
+        # from_args time via --dreamzero_embodiment_adapter.
+        for load_adapter in _EMBODIMENT_ADAPTER_LOADERS.values():
+            load_adapter().add_args_to_parser(parser)
         return parser
 
     @staticmethod
     def from_args(args: argparse.Namespace) -> DreamZeroRemotePolicy:
         """Construct policy from parsed CLI arguments."""
-        adapter = _resolve_dreamzero_embodiment_adapter(args.dreamzero_embodiment_adapter, args)
+        adapter = _resolve_adapter_class(args.dreamzero_embodiment_adapter).from_cli_args(args)
         return DreamZeroRemotePolicy(
             DreamZeroRemotePolicyConfig.from_cli_args(args), dreamzero_embodiment_adapter=adapter
         )
@@ -189,22 +233,17 @@ class DreamZeroRemotePolicy(PolicyBase):
         adapter alongside the config dataclass. An optional
         ``dreamzero_embodiment_adapter`` key selects the adapter (default
         'droid'), mirroring ``--dreamzero_embodiment_adapter`` on the CLI path.
-        Remaining adapter-specific fields (e.g. ``num_arm_joints``,
-        ``cam2_source``) are recognized by name and routed to the adapter's
-        config; everything else goes to ``DreamZeroRemotePolicyConfig``. Any
+        Keys listed in the chosen adapter's ``config_field_names`` are routed to
+        the adapter; everything else goes to ``DreamZeroRemotePolicyConfig``. Any
         key that matches neither raises a clear error instead of an opaque
         ``TypeError`` from the dataclass constructor.
         """
-        from isaaclab_arena_dreamzero.policy.droid_adapter import DroidAdapter, DroidAdapterConfig
-
         config_dict = dict(config_dict)
         adapter_key = config_dict.pop("dreamzero_embodiment_adapter", "droid")
-        assert (
-            adapter_key in _SUPPORTED_EMBODIMENT_ADAPTERS
-        ), f"Unknown dreamzero_embodiment_adapter {adapter_key!r}; expected one of {_SUPPORTED_EMBODIMENT_ADAPTERS}"
+        adapter_cls = _resolve_adapter_class(adapter_key)
+        adapter_field_names = set(adapter_cls.config_field_names())
 
         policy_field_names = {f.name for f in dataclasses.fields(DreamZeroRemotePolicyConfig)}
-        adapter_field_names = {f.name for f in dataclasses.fields(DroidAdapterConfig)}
         unknown_keys = set(config_dict) - policy_field_names - adapter_field_names
         assert not unknown_keys, (
             f"Unknown DreamZeroRemotePolicy config keys: {sorted(unknown_keys)};"
@@ -212,7 +251,7 @@ class DreamZeroRemotePolicy(PolicyBase):
         )
 
         adapter_kwargs = {key: config_dict.pop(key) for key in list(config_dict) if key in adapter_field_names}
-        adapter = DroidAdapter(DroidAdapterConfig(**adapter_kwargs))
+        adapter = adapter_cls.from_config_dict(adapter_kwargs)
         return cls(DreamZeroRemotePolicyConfig(**config_dict), dreamzero_embodiment_adapter=adapter)
 
     # TODO(tstuyck, 2026-07-01): add a RemotePolicy base class
@@ -326,26 +365,19 @@ class DreamZeroRemotePolicy(PolicyBase):
         return request
 
     def _parse_action_chunk(self, response: dict[str, Any] | np.ndarray) -> np.ndarray:
-        """Normalize server response to a float32 (open_loop_horizon, action_dim) array.
+        """Decode a server response and truncate it to the replay horizon.
+
+        Response decoding (envelope, padding, ordering) is delegated to the
+        embodiment adapter; this only enforces and applies open_loop_horizon.
 
         Args:
-            response: Decoded MessagePack payload — either a dict with an 'actions' key
-                or a bare ndarray. Server may return action_dim - 1 actions (no gripper);
-                a zero column is appended in that case.
+            response: Decoded MessagePack payload — either a dict with an 'actions'
+                key or a bare ndarray.
 
         Returns:
             float32 ndarray of shape (open_loop_horizon, action_dim).
         """
-        action_dim = self._dreamzero_embodiment_adapter.action_dim
-        raw = response.get("actions", response) if isinstance(response, dict) else response
-        chunk = np.asarray(raw, dtype=np.float32)
-        assert chunk.ndim == 2, f"Expected 2-D action chunk from server, got shape {chunk.shape}"
-        assert chunk.shape[1] in (
-            action_dim - 1,
-            action_dim,
-        ), f"Expected {action_dim - 1} or {action_dim} action dims, got {chunk.shape[1]}"
-        if chunk.shape[1] == action_dim - 1:
-            chunk = np.concatenate([chunk, np.zeros((len(chunk), 1), dtype=np.float32)], axis=1)
+        chunk = self._dreamzero_embodiment_adapter.parse_actions(response)
         assert (
             chunk.shape[0] >= self.config.open_loop_horizon
         ), f"Server returned {chunk.shape[0]} steps but open_loop_horizon={self.config.open_loop_horizon}"

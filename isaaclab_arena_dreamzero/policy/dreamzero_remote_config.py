@@ -16,9 +16,9 @@ class DreamZeroRemotePolicyConfig:
     """Transport and runtime configuration for DreamZeroRemotePolicy.
 
     Embodiment-specific observation/action wire-format settings (camera keys, joint
-    counts, ...) live on the embodiment adapter's own config instead (see
-    ``DroidAdapterConfig`` in ``droid_adapter.py``), so this class stays usable
-    unchanged regardless of which embodiment adapter the policy is constructed with.
+    counts, ...) live on the embodiment adapter instead (see ``DroidAdapter`` in
+    ``droid_adapter.py``), so this class stays usable unchanged regardless of which
+    embodiment adapter the policy is constructed with.
     """
 
     remote_host: str = "localhost"
