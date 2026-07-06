@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import random
-from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.utils.singleton import SingletonMeta
@@ -196,8 +195,8 @@ class PolicyRegistry(Registry):
         self._policy_types_by_cfg_type[cfg_type] = policy_type
 
     # TODO(cvolk, 2026-07-06): Remove this policy-to-config lookup when policy_runner
-    # receives a concrete PolicyCfg and the JSON job adapter is deleted. Typed experiment
-    # execution will keep using the reverse config-to-policy registration.
+    # and eval_runner receive concrete PolicyCfg instances. Typed experiment execution
+    # will keep using the reverse config-to-policy registration.
     def get_policy_cfg_type(self, policy_type: type["PolicyBase"]) -> type["PolicyCfg"]:
         """Get the config type used by the temporary policy frontend adapters."""
         ensure_assets_registered()
@@ -219,20 +218,6 @@ class PolicyRegistry(Registry):
         """
         ensure_assets_registered()
         return self.get_component_by_name(name)
-
-    def resolve_policy_type(self, name: str) -> type["PolicyBase"]:
-        """Resolve a registered policy name or dotted policy class path."""
-        if self.is_registered(name):
-            return self.get_policy(name)
-
-        assert "." in name, (
-            "policy type must be a registered name or dotted Python path of the form "
-            f"'module.submodule.ClassName', got: {name}"
-        )
-        module_path, class_name = name.rsplit(".", 1)
-        policy_type = getattr(import_module(module_path), class_name)
-        assert policy_type in self._cfg_types, f"Policy {policy_type.__name__} must register a PolicyCfg"
-        return policy_type
 
 
 class HDRImageRegistry(Registry):

@@ -8,8 +8,6 @@ import argparse
 
 def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
     """Add eval runner specific arguments to the parser."""
-    # TODO(cvolk, 2026-07-06): Delete --eval_jobs_config when the evaluation
-    # frontend requires a structured YAML experiment configuration.
     parser.add_argument(
         "--eval_jobs_config",
         type=str,
@@ -41,7 +39,7 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         "--serve_evaluation_report",
         action="store_true",
         default=False,
-        help="After all experiments finish, serve the evaluation report over HTTP.",
+        help="After all jobs finish, serve the evaluation report over HTTP.",
     )
     parser.add_argument(
         "--evaluation_report_port",
@@ -53,14 +51,14 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         "--continue_on_error",
         action="store_true",
         default=False,
-        help="Continue with remaining experiments when an experiment fails instead of stopping immediately.",
+        help="Continue evaluation with remaining jobs when a job fails instead of stopping immediately.",
     )
     parser.add_argument(
         "--chunk_size",
         type=int,
         default=None,
         help=(
-            "Run legacy JSON experiments in chunks of at most this many, one fresh subprocess per chunk."
+            "Run jobs in chunks of at most this many, one fresh subprocess per chunk."
             " Each restart lets the OS reclaim accumulated memory, avoiding OOM on"
             " long sweeps. Default unset — single process. Leave unset for normal runs;"
             " set only if a long sweep grows in host memory or gets OOM-killed."

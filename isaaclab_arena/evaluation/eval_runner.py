@@ -3,216 +3,354 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Dispatch typed Arena experiments from the temporary eval-jobs JSON frontend."""
-
-from __future__ import annotations
-
 import argparse
+import dataclasses
 import json
 import math
 import os
 import subprocess
 import sys
 import tempfile
+import traceback
 from pathlib import Path
-from prettytable import PrettyTable
+from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg, ArenaExperimentResult, ExperimentStatus
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
-from isaaclab_arena.evaluation.experiment_runner import ArenaBuilderFactory, run_experiment
-from isaaclab_arena.evaluation.legacy_job_config import load_legacy_experiments
+from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
+from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
+from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
-from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
-from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import (
+    SimulationAppContext,
+    collect_garbage_and_clear_cuda_cache,
+    teardown_simulation_app,
+)
+from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir, wrap_env_for_video
 from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
+from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
+
+if TYPE_CHECKING:
+    from isaaclab_arena.metrics.metric_data import MetricsDataCollection
+    from isaaclab_arena.policy.policy_base import PolicyBase
 
 
-def list_variations(
-    experiments: list[ArenaExperimentCfg],
-    arena_builder_factories: dict[str, ArenaBuilderFactory],
-) -> None:
-    """Print the Hydra-configurable variations for every experiment."""
-    for experiment in experiments:
-        arena_builder = arena_builder_factories[experiment.name](experiment)
-        print(f"=== Variations for experiment '{experiment.name}' ===", flush=True)
+def load_env(
+    arena_env_args: list[str],
+    job_name: str,
+    variations: list[str] | None = None,
+    render_mode: str | None = None,
+    language_instruction: str | None = None,
+):
+
+    args_parser = get_isaaclab_arena_environments_cli_parser()
+
+    arena_env_args_cli = args_parser.parse_args(arena_env_args)
+    # Optionally override the language instruction.
+    arena_env_args_cli.language_instruction = language_instruction
+    arena_builder = get_arena_builder_from_cli(arena_env_args_cli, hydra_overrides=variations)
+
+    _, env_cfg, env_kwargs = arena_builder.build_registered()
+
+    # Set unique dataset filename for this job to avoid file locking conflicts
+    if env_cfg.recorders is not None:
+        env_cfg.recorders.dataset_filename = f"dataset_{job_name}"
+
+    env = arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
+    # Don't reset here - rollout_policy() will reset the env. Every reset triggers a new episode, initializing recorder & creating a new hdf5 entry.
+    return env
+
+
+def list_variations(eval_jobs_config: dict) -> None:
+    """Print the Hydra-configurable variations for each job's environment."""
+    job_manager = JobManager(eval_jobs_config["jobs"])
+    for job in job_manager.all_jobs:
+        args_parser = get_isaaclab_arena_environments_cli_parser()
+        arena_env_args_cli = args_parser.parse_args(job.arena_env_args)
+        arena_builder = get_arena_builder_from_cli(arena_env_args_cli, hydra_overrides=job.variations)
+        print(f"=== Variations for job '{job.name}' ===", flush=True)
         print(arena_builder.get_variations_catalogue_as_string(), flush=True)
 
 
-# TODO(cvolk, 2026-07-06): Delete this raw-dictionary inspection when the YAML
-# frontend composes typed experiments before configuring SimulationApp.
 def enable_cameras_if_required(eval_jobs_config: dict, args_cli: argparse.Namespace) -> None:
-    """Enable process-wide camera support when a legacy job requests cameras."""
-    for job_config in eval_jobs_config["jobs"]:
-        if job_config.get("arena_env_args", {}).get("enable_cameras", False):
-            args_cli.enable_cameras = True
-            return
+    """
+    Check if any job requires cameras and enable them in args_cli if needed. Users can set
+    enable_cameras: true in individual job config, or add --enable_cameras to the CLI.
+    Camera support must be enabled when the simulation starts, not during individual job execution.
+
+    Args:
+        eval_jobs_config: Dictionary containing job configurations
+        args_cli: CLI arguments namespace to modify
+    """
+    for job_dict in eval_jobs_config["jobs"]:
+        if "arena_env_args" in job_dict and job_dict["arena_env_args"].get("enable_cameras", False):
+            if not hasattr(args_cli, "enable_cameras") or not args_cli.enable_cameras:
+                args_cli.enable_cameras = True
+            break
 
 
-# TODO(cvolk, 2026-07-06): Replace temporary JSON chunk documents with typed YAML
-# experiment dispatch when the YAML frontend is introduced.
-def _run_chunk(chunk_label: str, chunk_jobs: list[dict]) -> int:
-    """Run legacy ``chunk_jobs`` in a fresh eval-runner subprocess."""
-    print(f"[eval_runner] {chunk_label}", flush=True)
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as temporary_file:
-        json.dump({"jobs": chunk_jobs}, temporary_file)
-        chunk_path = Path(temporary_file.name)
+# TODO(cvolk, 2026-07-06): Accept a concrete PolicyCfg from the typed experiment
+# configuration and remove config-type lookup and dictionary construction here.
+def get_policy_from_job(job: Job) -> "PolicyBase":
+    """Create a policy from a job's registered typed configuration."""
+    # Each job can be evaluated with a different policy checkpoint, or even a different policy type
+    policy_cls = get_policy_cls(job.policy_type)
+    policy_cfg_type = PolicyRegistry().get_policy_cfg_type(policy_cls)
 
-    forwarded_args = [argument for argument in sys.argv if argument != "--serve_evaluation_report"]
-    child_command = [sys.executable, *forwarded_args, "--eval_jobs_config", str(chunk_path)]
+    policy_config_dict = dict(job.policy_config_dict)
+    # Align policy num_envs with env when the policy config supports it (optional key)
+    config_fields = {f.name for f in dataclasses.fields(policy_cfg_type)}
+    if "num_envs" in config_fields:
+        policy_config_dict["num_envs"] = job.num_envs
+
+    return policy_cls(policy_cfg_type(**policy_config_dict))
+
+
+def _close_policy(policy: "PolicyBase | None") -> None:
     try:
-        result = subprocess.run(child_command, check=False)
+        if policy is not None:
+            policy.close()
     finally:
+        collect_garbage_and_clear_cuda_cache()
+
+
+def _close_env(env) -> None:
+    if env is None:
+        return
+    try:
+        teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
+    finally:
+        try:
+            # cleanup managers, including recorder manager closing hdf5 file
+            env.close()
+        finally:
+            collect_garbage_and_clear_cuda_cache()
+
+
+def _close_job_resources(policy: "PolicyBase | None", env) -> None:
+    try:
+        _close_policy(policy)
+    finally:
+        _close_env(env)
+
+
+def _split_episodes_across_rebuilds(num_episodes: int | None, num_rebuilds: int, job_name: str) -> list[int | None]:
+    """Split a job's total ``num_episodes`` as evenly as possible across its rebuilds.
+
+    ``num_episodes`` is the total accumulated across rebuilds. The first ``remainder`` rebuilds
+    get one extra episode when the split is uneven (e.g. ``num_episodes=5, num_rebuilds=2`` ->
+    ``[3, 2]``). Returns a list of ``None`` (one per rebuild) when the job is length-driven by
+    steps rather than episodes.
+    """
+    if num_episodes is None:
+        return [None] * num_rebuilds
+    assert num_episodes >= num_rebuilds, (
+        f"Job '{job_name}': num_episodes ({num_episodes}) must be >= num_rebuilds"
+        f" ({num_rebuilds}) so each rebuild runs at least one episode"
+    )
+    # Give every rebuild ``base`` episodes, then hand out the leftover episodes one at a
+    # time to the first ``remainder`` rebuilds.
+    base, remainder = divmod(num_episodes, num_rebuilds)
+    episodes_per_rebuild = [base] * num_rebuilds
+    for rebuild_idx in range(remainder):
+        episodes_per_rebuild[rebuild_idx] += 1
+    return episodes_per_rebuild
+
+
+def _run_chunk(chunk_label: str, chunk_jobs: list[dict]) -> int:
+    """Run ``chunk_jobs`` in a fresh ``eval_runner`` subprocess and return its exit code."""
+    print(f"[eval_runner] {chunk_label}", flush=True)
+    # Serialize this chunk's jobs to a temp config the child loads via --eval_jobs_config.
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+        json.dump({"jobs": chunk_jobs}, tmp)
+        chunk_path = Path(tmp.name)
+    # Re-run this invocation in the child, with --eval_jobs_config appended so it wins over
+    # the master config (argparse keeps the last value).
+    # Strip --serve_evaluation_report: a child that served its report would block on
+    # serve_until_ctrl_c forever.
+    forwarded_args = [arg for arg in sys.argv if arg != "--serve_evaluation_report"]
+    config_override = ["--eval_jobs_config", str(chunk_path)]
+    child_cmd = [sys.executable, *forwarded_args, *config_override]
+    try:
+        result = subprocess.run(child_cmd, check=False)
+    finally:
+        # Remove the temp chunk config now that the child has loaded it.
         chunk_path.unlink(missing_ok=True)
     return result.returncode
 
 
-def _run_in_chunks(args_cli: argparse.Namespace, legacy_config: dict) -> None:
-    """Run each legacy job chunk in a fresh eval-runner subprocess."""
-    jobs = legacy_config["jobs"]
+def _run_in_chunks(args_cli: argparse.Namespace, master_cfg: dict) -> None:
+    """Run each chunk of ``master_cfg['jobs']`` in a fresh ``eval_runner`` subprocess."""
+    jobs = master_cfg["jobs"]
     chunk_size = args_cli.chunk_size
-    assert chunk_size > 0, f"--chunk_size must be positive, got {chunk_size}"
-    num_chunks = math.ceil(len(jobs) / chunk_size)
-    print(f"[eval_runner] {len(jobs)} jobs → {num_chunks} chunks of <= {chunk_size}", flush=True)
+    if chunk_size <= 0:
+        raise ValueError(f"--chunk_size must be positive, got {chunk_size}")
+    n_chunks = math.ceil(len(jobs) / chunk_size)
+    print(f"[eval_runner] {len(jobs)} jobs → {n_chunks} chunks of <= {chunk_size}", flush=True)
 
     if args_cli.serve_evaluation_report:
         print("--serve_evaluation_report is ignored with --chunk_size.", flush=True)
 
-    for chunk_index in range(num_chunks):
-        start = chunk_index * chunk_size
+    for chunk_idx in range(n_chunks):
+        start = chunk_idx * chunk_size
         end = min(start + chunk_size, len(jobs))
-        chunk_label = f"chunk {chunk_index + 1}/{num_chunks}: jobs {start}..{end - 1}"
-        return_code = _run_chunk(chunk_label, jobs[start:end])
-        if return_code != 0:
-            print(f"[eval_runner] chunk {chunk_index} failed (exit {return_code}).", flush=True)
-            sys.exit(return_code)
+        chunk_label = f"chunk {chunk_idx + 1}/{n_chunks}: jobs {start}..{end - 1}"
+        returncode = _run_chunk(chunk_label, jobs[start:end])
+        if returncode != 0:
+            print(f"[eval_runner] chunk {chunk_idx} failed (exit {returncode}).", flush=True)
+            sys.exit(returncode)
 
 
-def evaluate_experiments(
-    args_cli: argparse.Namespace,
-    experiments: list[ArenaExperimentCfg],
-    arena_builder_factories: dict[str, ArenaBuilderFactory],
-) -> list[ArenaExperimentResult]:
-    """Run typed experiments sequentially inside the active simulation application."""
-    # TODO(cvolk, 2026-07-06): Replace this legacy argparse dispatcher input with
-    # a typed run configuration when the YAML frontend is introduced.
-    assert experiments, "evaluation must contain at least one experiment"
-    experiment_names = [experiment.name for experiment in experiments]
-    assert len(experiment_names) == len(set(experiment_names)), "experiment names must be unique"
-
-    results: list[ArenaExperimentResult] = []
-    metrics_logger = MetricsLogger()
-    _print_experiments_info(experiments, results)
-
-    # One output directory is shared by every sequential experiment in this process.
-    # TODO(alexmillane): Currently each chunk produces its own output directory.
-    # We should use the same output directory for all chunks in the future.
-    run_output_dir = timestamped_run_dir(args_cli.output_base_dir)
-    if args_cli.record_viewport_video:
-        os.makedirs(run_output_dir, exist_ok=True)
-        print(f"[INFO] Video recording enabled. Videos will be saved to: {run_output_dir}")
-
-    for experiment in experiments:
-        print(f"Running experiment {experiment.name}")
-        experiment_output_dir = os.path.join(run_output_dir, experiment.name)
-        result = run_experiment(
-            experiment,
-            output_dir=experiment_output_dir,
-            video_cfg=VideoRecordingCfg(
-                record_viewport_video=args_cli.record_viewport_video,
-                record_camera_video=args_cli.record_camera_video,
-                video_base_dir=experiment_output_dir,
-            ),
-            arena_builder_factory=arena_builder_factories[experiment.name],
-        )
-        results.append(result)
-
-        if result.metrics is not None:
-            metrics_logger.append_experiment_metrics(experiment.name, result.metrics)
-
-        if result.status is ExperimentStatus.FAILED:
-            print(f"Experiment {experiment.name} failed:\n{result.error}")
-            if not args_cli.continue_on_error:
-                raise RuntimeError(f"Experiment {experiment.name} failed:\n{result.error}")
-
-    _print_experiments_info(experiments, results)
-    metrics_logger.print_metrics()
-
-    report_path = build_report(run_output_dir)
-    if args_cli.serve_evaluation_report:
-        serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
-    return results
-
-
-def _print_experiments_info(
-    experiments: list[ArenaExperimentCfg],
-    results: list[ArenaExperimentResult],
-) -> None:
-    """Print the configured experiments and their latest execution status."""
-    results_by_name = {result.experiment_name: result for result in results}
-    table = PrettyTable(
-        field_names=[
-            "Experiment Name",
-            "Status",
-            "Policy Type",
-            "Num Envs",
-            "Num Steps",
-            "Num Episodes",
-            "Num Rebuilds",
-        ]
-    )
-    for experiment in experiments:
-        result = results_by_name.get(experiment.name)
-        policy_type = PolicyRegistry().get_policy_type_for_cfg(experiment.policy)
-        table.add_row([
-            experiment.name,
-            result.status.value if result is not None else "pending",
-            policy_type.name,
-            experiment.environment_builder.num_envs,
-            experiment.rollout.num_steps,
-            experiment.rollout.num_episodes,
-            experiment.num_rebuilds,
-        ])
-    print(table)
-
-
-def main() -> None:
-    """Load the legacy JSON frontend and dispatch its typed experiments."""
+def main():
     args_parser = get_isaaclab_arena_cli_parser()
-    args_parser.parse_known_args()
+    args_cli, unknown = args_parser.parse_known_args()
 
+    # Load job configuration before starting simulation to check requirements
     add_eval_runner_arguments(args_parser)
     args_cli, _ = args_parser.parse_known_args()
     assert not args_cli.distributed, "Distributed evaluation is not supported yet"
+
     assert os.path.exists(
         args_cli.eval_jobs_config
     ), f"eval_jobs_config file does not exist: {args_cli.eval_jobs_config}"
 
-    # TODO(cvolk, 2026-07-06): Delete JSON loading when evaluation configuration
-    # moves to the structured YAML experiment frontend.
-    with open(args_cli.eval_jobs_config, encoding="utf-8") as config_file:
-        legacy_config = json.load(config_file)
+    with open(args_cli.eval_jobs_config, encoding="utf-8") as f:
+        eval_jobs_config = json.load(f)
 
-    if args_cli.record_camera_video:
-        args_cli.enable_cameras = True
-    enable_cameras_if_required(legacy_config, args_cli)
-
+    # Print the variations catalogue for each job's environment and exit.
     if args_cli.list_variations:
         with SimulationAppContext(args_cli):
-            experiments, arena_builder_factories = load_legacy_experiments(legacy_config, device=args_cli.device)
-            list_variations(experiments, arena_builder_factories)
+            list_variations(eval_jobs_config)
         return
 
-    if args_cli.chunk_size is not None and len(legacy_config["jobs"]) > args_cli.chunk_size:
-        # TODO(cvolk, 2026-07-06): Aggregate per-chunk metrics into one centralized
-        # result when the dispatcher stops communicating through temporary config files.
-        _run_in_chunks(args_cli, legacy_config)
+    # Chunked dispatch (--chunk_size N). Splits this config across subprocesses so each
+    # gets a fresh SimulationApp. Required for long sweeps because some host memory leaks
+    # each cycle and is only reclaimed when the process exits — in-process teardown can't
+    # release it.
+    if args_cli.chunk_size is not None and len(eval_jobs_config["jobs"]) > args_cli.chunk_size:
+        # TODO(cvolk): aggregate per-chunk metrics into one centralized view. Each chunk
+        # subprocess currently prints its own MetricsLogger summary and nothing is merged
+        # or persisted (save_metrics_to_file() is unused). Follow-up: have each chunk write
+        # metrics JSON to a temp file (forward --metrics_file), then merge + print/save here.
+        _run_in_chunks(args_cli, eval_jobs_config)
         return
+
+    # Check if any job requires cameras and enable them if needed before starting simulation
+    if args_cli.record_camera_video:
+        args_cli.enable_cameras = True
+    enable_cameras_if_required(eval_jobs_config, args_cli)
 
     with SimulationAppContext(args_cli):
-        experiments, arena_builder_factories = load_legacy_experiments(legacy_config, device=args_cli.device)
-        evaluate_experiments(args_cli, experiments, arena_builder_factories)
+        job_manager = JobManager(eval_jobs_config["jobs"])
+        metrics_logger = MetricsLogger()
+
+        job_manager.print_jobs_info()
+
+        # One reverse-dated run directory shared by all jobs; each job gets a subdirectory within it.
+        # Always dated so every run produces its own report dir, recording or not.
+        # TODO(alexmillane): Currently each chunk produces its own output directory.
+        # We should use the same output directory for all chunks in the future.
+        run_output_dir = timestamped_run_dir(args_cli.output_base_dir)
+
+        if args_cli.record_viewport_video:
+            os.makedirs(run_output_dir, exist_ok=True)
+            print(f"[INFO] Video recording enabled. Videos will be saved to: {run_output_dir}")
+
+        for job in job_manager:
+            if job is None:
+                continue
+            env = None
+            policy = None
+
+            metrics_per_run: list[MetricsDataCollection] = []
+
+            # num_episodes is the total across rebuilds, so split it over the rebuilds.
+            num_episodes_per_rebuild = _split_episodes_across_rebuilds(job.num_episodes, job.num_rebuilds, job.name)
+
+            # Rebuild the environment and re-run the rollout job.num_rebuilds times, then
+            # aggregate the metrics across rebuilds into a single result.
+            for rebuild_idx in range(job.num_rebuilds):
+                try:
+                    job_output_dir = os.path.join(run_output_dir, job.name)
+
+                    # Per-job video output directory; cameras are tagged with the rebuild index.
+                    video_cfg = VideoRecordingCfg(
+                        record_viewport_video=args_cli.record_viewport_video,
+                        record_camera_video=args_cli.record_camera_video,
+                        video_base_dir=job_output_dir,
+                        camera_name_prefix=f"robot-cam-rebuild{rebuild_idx}",
+                    )
+                    env = load_env(
+                        job.arena_env_args,
+                        job.name,
+                        variations=job.variations,
+                        render_mode=video_cfg.render_mode,
+                        language_instruction=job.language_instruction,
+                    )
+
+                    # Write per-episode results to disk.
+                    # TODO: Aggregate the per-episode records across rebuilds into a single file,
+                    # as is done for the metrics below.
+                    results_path = os.path.join(job_output_dir, f"episode_results_rebuild{rebuild_idx}.jsonl")
+                    env.unwrapped.episode_recorder.set_job_name(job.name)
+                    env.unwrapped.episode_recorder.set_output_path(results_path)
+
+                    policy = get_policy_from_job(job)
+
+                    # Episodes allotted to this rebuild (None when the job is length-driven by steps).
+                    num_episodes_this_rebuild = num_episodes_per_rebuild[rebuild_idx]
+
+                    # Resolve simulation length: num_steps and num_episodes are mutually exclusive.
+                    # Priority: job config -> policy length -> CLI default
+                    if job.num_steps is None and num_episodes_this_rebuild is None:
+                        if policy.has_length():
+                            job.num_steps = policy.length()
+                        else:
+                            job.num_steps = args_cli.num_steps
+
+                    env = wrap_env_for_video(env, video_cfg, job.num_steps, num_episodes_this_rebuild)
+
+                    metrics = rollout_policy(
+                        env,
+                        policy,
+                        num_steps=job.num_steps,
+                        num_episodes=num_episodes_this_rebuild,
+                    )
+
+                    job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
+
+                    # users may not specify metrics for a task, although it's not recommended
+                    if metrics is not None:
+                        metrics_per_run.append(metrics)
+
+                except Exception as e:
+                    job_manager.complete_job(job, metrics={}, status=Status.FAILED)
+                    print(f"Job {job.name} failed with error: {e}")
+                    print(f"Traceback: {traceback.format_exc()}")
+                    if not args_cli.continue_on_error:
+                        raise
+
+                finally:
+                    try:
+                        _close_job_resources(policy, env)
+                    finally:
+                        policy = None
+                        env = None
+                        collect_garbage_and_clear_cuda_cache()
+
+            # Aggregate the metrics from the different experiments into a single view.
+            if metrics_per_run:
+                aggregated_metrics = aggregate_metrics(metrics_per_run)
+                metrics_logger.append_job_metrics(job.name, aggregated_metrics)
+
+        job_manager.print_jobs_info()
+        metrics_logger.print_metrics()
+
+        # Write HTML report.
+        report_path = build_report(run_output_dir)
+        if args_cli.serve_evaluation_report:
+            serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
 
 
 if __name__ == "__main__":

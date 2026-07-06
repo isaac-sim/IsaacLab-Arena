@@ -121,8 +121,6 @@ class ArenaEnvGraphSpec(ArenaEnvGraphSpecBase):
         For each override, set the target node's asset ``name`` to the value passed on the
         command line. Flags left unset are skipped, so an untouched graph stays the same.
         """
-        # TODO(cvolk, 2026-07-06): Replace Namespace-based graph overrides with a
-        # typed graph-construction boundary in a dedicated environment-graph refactor.
         nodes_by_id = self.nodes_by_id
         for override in self.cli_override_specs:
             new_name = getattr(args_cli, override.dest, None)

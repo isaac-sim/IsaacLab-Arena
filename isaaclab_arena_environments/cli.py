@@ -142,8 +142,6 @@ def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> a
 
     # A graph spec YAML may declare its own swappable flags under `cli_override_specs`. Register them
     # here, before parsing, so they appear in --help and parse like any other flag.
-    # TODO(cvolk, 2026-07-06): Replace dynamic graph CLI flags with typed graph
-    # configuration in a dedicated environment-graph construction refactor.
     env_graph_spec_yaml = getattr(args, "env_graph_spec_yaml", None)
     if env_graph_spec_yaml is not None:
         # The env comes from the graph spec, so don't register the example-environment subparsers.
@@ -213,8 +211,6 @@ def get_arena_builder_from_cli(
 
 def _arena_env_from_graph_spec(env_graph_spec_yaml: str, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
     """Build the arena env from a graph spec YAML, applying any CLI node overrides."""
-    # TODO(cvolk, 2026-07-06): Replace this Namespace-based graph construction
-    # path with a typed graph factory after the evaluation-config migration.
     spec = ArenaEnvGraphSpec.from_yaml(env_graph_spec_yaml)
     spec.apply_cli_override_args(args_cli)
     # cameras are enabled in embodiment, need to pass along to the env

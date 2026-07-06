@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg, ArenaExperimentResult, ExperimentStatus
-from isaaclab_arena.evaluation.rollout import rollout_policy
+from isaaclab_arena.evaluation.policy_runner import rollout_policy
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.utils.hydra_overrides import hydra_overrides_from_nested_dict
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import (
