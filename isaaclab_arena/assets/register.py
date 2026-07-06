@@ -18,6 +18,7 @@ from isaaclab_arena.assets.registries import (
 )
 
 if TYPE_CHECKING:
+    from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
 
@@ -56,8 +57,6 @@ def register_policy(cls: type["PolicyBase"]):
     if PolicyRegistry().is_registered(cls.name, ensure_loaded=False):
         print(f"WARNING: Policy {cls.name} is already registered. Doing nothing.")
     else:
-        # TODO(cvolk, 2026-07-06): Register only the policy class once typed experiment
-        # configs make config-type discovery unnecessary in policy_runner and eval_runner.
         PolicyRegistry().register_policy(cls, _policy_cfg_type_from_policy(cls))
     return cls
 
@@ -77,7 +76,7 @@ def register_environment(cls):
     if registry.is_registered(cls.name, ensure_loaded=False):
         print(f"WARNING: Environment {cls.name} is already registered. Doing nothing.")
     else:
-        registry.register(cls, cls.name)
+        registry.register_environment(cls, _environment_cfg_type_from_factory(cls))
     return cls
 
 
@@ -109,9 +108,6 @@ def agent_ready(cls):
     return cls
 
 
-# TODO(cvolk, 2026-07-06): Remove this resolver and the PolicyRegistry config-type
-# metadata when policy_runner accepts a PolicyCfg instead of argparse values and
-# eval_runner accepts one instead of Job.policy_config_dict.
 def _policy_cfg_type_from_policy(policy_type: type["PolicyBase"]) -> type["PolicyCfg"]:
     """Return the concrete config declared by ``PolicyBase[Cfg]``."""
     # Importing PolicyBase at module load time creates assets.register -> policy package ->
@@ -128,4 +124,25 @@ def _policy_cfg_type_from_policy(policy_type: type["PolicyBase"]) -> type["Polic
     assert isinstance(cfg_type, type) and issubclass(
         cfg_type, PolicyCfg
     ), f"{policy_type.__name__} must use a concrete PolicyCfg subclass"
+    return cfg_type
+
+
+def _environment_cfg_type_from_factory(
+    factory_type: type["ArenaEnvironmentFactory"],
+) -> type["ArenaEnvironmentCfg"]:
+    """Return the concrete config declared by ``ArenaEnvironmentFactory[Cfg]``."""
+    from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
+
+    factory_bases = [base for base in get_original_bases(factory_type) if get_origin(base) is ArenaEnvironmentFactory]
+    assert (
+        len(factory_bases) == 1
+    ), f"{factory_type.__name__} must directly inherit ArenaEnvironmentFactory[ConcreteEnvironmentCfg]"
+
+    cfg_types = get_args(factory_bases[0])
+    assert len(cfg_types) == 1, f"{factory_type.__name__} must declare exactly one environment config"
+
+    cfg_type = cfg_types[0]
+    assert isinstance(cfg_type, type) and issubclass(
+        cfg_type, ArenaEnvironmentCfg
+    ), f"{factory_type.__name__} must use a concrete ArenaEnvironmentCfg subclass"
     return cfg_type

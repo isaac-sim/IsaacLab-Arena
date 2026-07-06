@@ -35,7 +35,6 @@ class FrankaPutAndCloseDoorEnvironment(ArenaEnvironmentFactory[FrankaPutAndClose
     """
 
     name = "franka_put_and_close_door"
-    _legacy_argparse_cfg_type = FrankaPutAndCloseDoorEnvironmentCfg
 
     def build(self, cfg: FrankaPutAndCloseDoorEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""

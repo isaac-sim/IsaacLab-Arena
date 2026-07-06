@@ -37,7 +37,6 @@ class GearMeshEnvironment(ArenaEnvironmentFactory[GearMeshEnvironmentCfg]):
     """
 
     name: str = "gear_mesh"
-    _legacy_argparse_cfg_type = GearMeshEnvironmentCfg
 
     def build(self, cfg: GearMeshEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""

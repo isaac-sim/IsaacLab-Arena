@@ -72,10 +72,10 @@ Construct the policy by passing its typed configuration directly:
    policy_cfg = MyPolicyCfg(device="cuda:0")
    policy = MyPolicy(policy_cfg)
 
-The typed registration lets the single-job runner generate CLI flags from
-``MyPolicyCfg`` and lets the batch eval runner convert the current
-``Job.policy_config_dict`` representation into that same type. See
-:doc:`concept_evaluation_types` for details.
+The typed registration lets Arena resolve ``MyPolicy`` from ``MyPolicyCfg`` at
+execution time. It also lets the current argparse policy runner generate its
+temporary CLI flags and the legacy JSON evaluation adapter construct the same
+config type. See :doc:`concept_evaluation_types` for details.
 
 Config fields named ``device`` or ``num_envs`` reuse the corresponding shared
 runner flags, so their defaults must match the runner defaults.

@@ -331,12 +331,12 @@ Run the batch evaluation:
      --eval_jobs_config isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.json
 
 This will automatically evaluate the policy with the given configuration and output the metrics.
-You should see the following output on the console indicating the jobs and metrics.
+You should see the following output on the console indicating the experiments and metrics.
 
 .. code-block:: text
 
    +---------------------------------------------------------+------------+----------------------------------------------------------------------------+----------+-----------+--------------+
-   | Job Name                                                | Status     | Policy Type                                                                | Num Envs | Num Steps | Num Episodes |
+   | Experiment Name                                         | Status     | Policy Type                                                                | Num Envs | Num Steps | Num Episodes |
    +---------------------------------------------------------+------------+----------------------------------------------------------------------------+----------+-----------+--------------+
    || gr1_put_jug_in_fridge_and_close_door                   || completed || isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy || 10      || 500      || None        |
    || gr1_put_ranch_dressing_bottle_in_fridge_and_close_door || completed || isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy || 10      || 500      || None        |

@@ -38,8 +38,8 @@ def ensure_environments_registered():
 # retired, this section generates their environment-subcommand flags and reconstructs
 # the same typed config from the resulting Namespace. External factories that still
 # inherit ExampleEnvironmentBase continue using their own add_cli_args() and get_env().
-# TODO(cvolk, 2026-07-03): Delete this section and the factories'
-# _legacy_argparse_cfg_type declarations when runners receive typed configs directly.
+# TODO(cvolk, 2026-07-03): Delete this section when the remaining runners receive
+# typed environment configs directly.
 _FIELDS_PROVIDED_BY_SHARED_PARSERS = {"auto", "enable_cameras", "mimic", "num_envs"}
 
 
@@ -47,11 +47,7 @@ def _get_legacy_argparse_cfg_type(
     environment_factory_type: type[ArenaEnvironmentFactory],
 ) -> type[ArenaEnvironmentCfg]:
     """Return the config dataclass used by a first-party factory's legacy CLI adapter."""
-    environment_cfg_type = getattr(environment_factory_type, "_legacy_argparse_cfg_type", None)
-    assert (
-        environment_cfg_type is not None
-    ), f"{environment_factory_type.__name__} must define _legacy_argparse_cfg_type while argparse is supported"
-    return environment_cfg_type
+    return EnvironmentRegistry().get_environment_cfg_type(environment_factory_type)
 
 
 def add_environment_cli_args(
@@ -142,6 +138,8 @@ def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> a
 
     # A graph spec YAML may declare its own swappable flags under `cli_override_specs`. Register them
     # here, before parsing, so they appear in --help and parse like any other flag.
+    # TODO(cvolk, 2026-07-06): Replace dynamic graph CLI flags with typed graph
+    # configuration in a dedicated environment-graph construction refactor.
     env_graph_spec_yaml = getattr(args, "env_graph_spec_yaml", None)
     if env_graph_spec_yaml is not None:
         # The env comes from the graph spec, so don't register the example-environment subparsers.
@@ -211,6 +209,8 @@ def get_arena_builder_from_cli(
 
 def _arena_env_from_graph_spec(env_graph_spec_yaml: str, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
     """Build the arena env from a graph spec YAML, applying any CLI node overrides."""
+    # TODO(cvolk, 2026-07-06): Replace this Namespace-based graph construction
+    # path with a typed graph factory after the evaluation-config migration.
     spec = ArenaEnvGraphSpec.from_yaml(env_graph_spec_yaml)
     spec.apply_cli_override_args(args_cli)
     # cameras are enabled in embodiment, need to pass along to the env

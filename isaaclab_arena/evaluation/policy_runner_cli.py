@@ -120,7 +120,7 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
         "--serve_evaluation_report",
         action="store_true",
         default=False,
-        help="After all jobs finish, serve the evaluation report over HTTP.",
+        help="After the rollout finishes, serve the evaluation report over HTTP.",
     )
     parser.add_argument(
         "--evaluation_report_port",

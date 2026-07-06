@@ -38,6 +38,11 @@ def test_core_policies_register_typed_configs(policy_type, cfg_type):
     assert issubclass(cfg_type, PolicyCfg)
 
 
+def test_policy_registration_resolves_policy_from_concrete_config():
+    """Resolve runtime policy construction from an experiment's concrete config."""
+    assert PolicyRegistry().get_policy_type_for_cfg(ZeroActionPolicyCfg()) is ZeroActionPolicy
+
+
 @dataclass
 class _ExamplePolicyCfg(PolicyCfg):
     value: int = 1

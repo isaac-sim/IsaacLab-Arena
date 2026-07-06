@@ -11,10 +11,11 @@ exercise that boundary without constructing an Isaac Sim environment.
 """
 
 import argparse
-from dataclasses import fields, is_dataclass
+from dataclasses import dataclass, fields, is_dataclass
 
 import pytest
 
+import isaaclab_arena.assets.register as environment_registration
 from isaaclab_arena.assets.registries import EnvironmentRegistry
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 from isaaclab_arena_environments.cli import (
@@ -80,6 +81,7 @@ def test_every_registered_cli_adapter_uses_its_typed_cfg_defaults():
 
         assert type(environment_cfg) is environment_cfg_type
         assert isinstance(environment_cfg, ArenaEnvironmentCfg)
+        assert EnvironmentRegistry().get_factory_type_for_cfg(environment_cfg) is environment_factory_type
         assert (
             environment_cfg == environment_cfg_type()
         ), f"{environment_name} CLI defaults diverged from its typed config defaults"
@@ -174,3 +176,31 @@ def test_maple_teleop_device_remains_a_cli_only_option():
 
     assert legacy_arguments.teleop_device == "spacemouse"
     assert "teleop_device" not in {config_field.name for config_field in fields(environment_cfg)}
+
+
+@dataclass
+class _ExampleEnvironmentCfg(ArenaEnvironmentCfg):
+    value: int = 1
+
+
+class _ExampleEnvironmentFactory(ArenaEnvironmentFactory[_ExampleEnvironmentCfg]):
+    name = "example_environment"
+
+    def build(self, cfg):
+        return cfg.value
+
+
+def test_environment_registration_infers_config_from_generic(monkeypatch):
+    """Register the concrete config declared by ``ArenaEnvironmentFactory[Cfg]``."""
+    registrations = []
+
+    def record_registration(self, factory_type, cfg_type):
+        registrations.append((factory_type, cfg_type))
+
+    monkeypatch.setattr(EnvironmentRegistry, "is_registered", lambda self, name, ensure_loaded=False: False)
+    monkeypatch.setattr(EnvironmentRegistry, "register_environment", record_registration)
+
+    registered_factory = environment_registration.register_environment(_ExampleEnvironmentFactory)
+
+    assert registered_factory is _ExampleEnvironmentFactory
+    assert registrations == [(_ExampleEnvironmentFactory, _ExampleEnvironmentCfg)]

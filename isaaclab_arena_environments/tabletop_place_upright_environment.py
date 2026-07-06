@@ -33,7 +33,6 @@ class TableTopPlaceUprightEnvironment(ArenaEnvironmentFactory[TableTopPlaceUprig
     """
 
     name = "tabletop_place_upright"
-    _legacy_argparse_cfg_type = TableTopPlaceUprightEnvironmentCfg
 
     def build(self, cfg: TableTopPlaceUprightEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""

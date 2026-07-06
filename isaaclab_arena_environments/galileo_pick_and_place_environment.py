@@ -29,7 +29,6 @@ class GalileoPickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
 class GalileoPickAndPlaceEnvironment(ArenaEnvironmentFactory[GalileoPickAndPlaceEnvironmentCfg]):
 
     name: str = "galileo_pick_and_place"
-    _legacy_argparse_cfg_type = GalileoPickAndPlaceEnvironmentCfg
 
     def build(self, cfg: GalileoPickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""

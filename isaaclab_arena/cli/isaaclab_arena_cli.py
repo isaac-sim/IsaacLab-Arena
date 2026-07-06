@@ -126,6 +126,8 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
 
 def add_env_graph_spec_cli_args(parser: argparse.ArgumentParser) -> None:
     """Add environment graph spec specific command line arguments to the given parser."""
+    # TODO(cvolk, 2026-07-06): Remove this graph-specific argparse surface once
+    # environment graphs have an independent typed construction API.
     env_graph_spec_group = parser.add_argument_group(
         "Environment Graph Spec Arguments", "Arguments specific to environment graph spec"
     )

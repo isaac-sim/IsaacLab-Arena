@@ -139,29 +139,30 @@ registered policies, policy-specific flags are generated from their ``PolicyCfg`
 
 .. _sequential-batch-eval-runner:
 
-2. Sequential batch eval runner — batch jobs
---------------------------------------------
+2. Sequential batch eval runner — experiments
+----------------------------------------------
 
 The **sequential batch eval runner** (``isaaclab_arena/evaluation/eval_runner.py``)
-runs a **batch** of evaluation jobs sequentially in a single process. Each job can have
+runs a **batch** of evaluation experiments sequentially in a single process. Each experiment can have
 a different environment (scene/object/embodiment), policy type, policy config,
 and length (steps or episodes). This is suited for benchmarking many
 configurations (e.g. many objects or tasks) without launching multiple processes
-by hand. Persistence of the simulation application is maintained between jobs.
+by hand. Persistence of the simulation application is maintained between experiments.
 
 **Design context:** For how environments are composed and how metrics are
 defined and computed, see :doc:`Environment Design <../concept_overview>`
-and :doc:`Metrics Design <../task/concept_metrics_design>`. Policies used per job
+and :doc:`Metrics Design <../task/concept_metrics_design>`. Policies used per experiment
 follow :doc:`Policy Design <index>`.
 
 **Features:**
 
-- One JSON config file (``--eval_jobs_config``) listing all jobs.
-- Jobs run one after another; each job builds its environment, creates the
-  policy from the job config, runs ``rollout_policy``, then tears down the env
-  before the next job.
-- If a job fails, the runner continues with the next job and marks the failed
-  job accordingly.
+- The current compatibility frontend reads one JSON config file
+  (``--eval_jobs_config``) and translates every entry into a typed experiment.
+- Experiments run one after another; each experiment builds its environment,
+  creates the policy from its concrete config, runs ``rollout_policy``, then
+  tears down the environment before the next experiment.
+- If an experiment fails, ``--continue_on_error`` controls whether the runner
+  proceeds to the next experiment.
 - Metrics are aggregated and printed at the end (e.g. via ``MetricsLogger``).
 - **Distributed evaluation is not supported**: the sequential batch eval runner
   runs in a single process. For multi-GPU, use multiple policy runner
@@ -171,22 +172,21 @@ follow :doc:`Policy Design <index>`.
 
     Experiment with distributed evaluation in the sequential batch eval runner.
 
-**Jobs config format**
+**Legacy JSON config format**
 
-The config file must be a JSON object with a ``"jobs"`` array. Each job is an
+The current config file is a JSON object with a legacy ``"jobs"`` array. Each entry is an
 object with:
 
-- ``name``: Unique job name (for logging and metrics).
+- ``name``: Unique experiment name (for logging and metrics).
 - ``arena_env_args``: Environment arguments as a dict (e.g. ``environment``,
-  ``num_envs``, ``object``, ``embodiment``, ``enable_cameras``, etc.). Converted
-  internally to the same CLI-style list the policy runner uses.
+  ``num_envs``, ``object``, ``embodiment``, ``enable_cameras``, etc.). The
+  compatibility adapter splits these directly into the concrete environment
+  config and ``ArenaEnvBuilderCfg``.
 - ``policy_type``: Same as policy runner (registered name or dotted class path).
 - ``policy_config_dict``: Policy configuration (e.g. checkpoint path, model
-  options). Deserialized through the policy's registered config type; the
-  deprecated CLI conversion fallback remains for legacy policies without one.
-- ``num_steps`` or ``num_episodes`` (optional): Simulation length for this job.
-  If both are omitted, the runner uses the policy’s length if defined, or a CLI
-  default (e.g. ``--num_steps``).
+  options). Deserialized through the policy's registered config type.
+- ``num_steps`` or ``num_episodes`` (optional): Simulation length for this experiment.
+  If both are omitted, the policy must provide an intrinsic length.
 
 **Example config structure**
 
@@ -232,11 +232,10 @@ object with:
 
    python isaaclab_arena/evaluation/eval_runner.py \
      --viz kit \
-     --eval_jobs_config path/to/eval_jobs_config.json \
-     --num_steps 1000
+     --eval_jobs_config path/to/eval_jobs_config.json
 
-If any job needs cameras, set ``enable_cameras: true`` in that job’s
-``arena_env_args``; the sequential batch eval runner automatically enables camera support if any job requires it.
+If any experiment needs cameras, set ``enable_cameras: true`` in that entry's
+``arena_env_args``; the sequential batch eval runner automatically enables camera support if any experiment requires it.
 
 Choosing an evaluation type
 ---------------------------
@@ -244,4 +243,5 @@ Choosing an evaluation type
 - **One-off run, one setup**: use the **policy runner** (single or multi-GPU);
   use ``--object_set`` for heterogeneous objects in one run.
 - **Many env/policy combinations in one go**: use the **sequential batch eval
-  runner** with a jobs JSON; use ``--object_set`` for heterogeneous objects in one run.
+  runner** with the current JSON compatibility frontend; use ``--object_set``
+  for heterogeneous objects in one run.

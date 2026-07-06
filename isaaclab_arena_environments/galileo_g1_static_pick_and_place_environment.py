@@ -170,7 +170,6 @@ class GalileoG1StaticPickAndPlaceEnvironment(ArenaEnvironmentFactory[GalileoG1St
     """
 
     name: str = "galileo_g1_static_pick_and_place"
-    _legacy_argparse_cfg_type = GalileoG1StaticPickAndPlaceEnvironmentCfg
 
     def build(self, cfg: GalileoG1StaticPickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
