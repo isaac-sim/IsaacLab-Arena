@@ -10,6 +10,8 @@ import torch
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
+import warp as wp
+
 from isaaclab_arena.relations.relation_loss_strategies import (
     NoCollisionLossStrategy,
     RelationLossStrategy,
@@ -37,6 +39,184 @@ class NoOverlapPair:
     obstacle_max: torch.Tensor
 
 
+@wp.kernel
+def _query_bvh_pairs(
+    bvh_id: wp.uint64,
+    lower_bounds: wp.array(dtype=wp.vec3),
+    upper_bounds: wp.array(dtype=wp.vec3),
+    num_objects: int,
+    clearance_m: float,
+    pair_first: wp.array(dtype=int),
+    pair_second: wp.array(dtype=int),
+    pair_count: wp.array(dtype=int),
+):
+    """Write every unordered, same-environment overlap once."""
+    flat_index = wp.tid()
+    env_index = flat_index // num_objects
+    root = wp.bvh_get_group_root(bvh_id, env_index)
+    padding = wp.vec3(clearance_m, clearance_m, clearance_m)
+    query = wp.bvh_query_aabb(
+        bvh_id,
+        lower_bounds[flat_index] - padding,
+        upper_bounds[flat_index] + padding,
+        root,
+    )
+    hit = int(0)
+    while wp.bvh_query_next(query, hit):
+        if hit > flat_index:
+            output_index = wp.atomic_add(pair_count, 0, 1)
+            pair_first[output_index] = flat_index
+            pair_second[output_index] = hit
+
+
+def _select_no_overlap_pairs_bvh(
+    world_min: torch.Tensor,
+    world_max: torch.Tensor,
+    num_non_anchors: int,
+    num_anchors: int,
+    on_pair_keys: torch.Tensor,
+    clearance_m: float,
+    dense_pair_instance_threshold: float,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, bool]:
+    """Select directed collision pair instances with a grouped GPU BVH.
+
+    Args:
+        world_min: World-space minimum extents, shape (batch_size, num_objects, 3).
+        world_max: World-space maximum extents, shape (batch_size, num_objects, 3).
+        num_non_anchors: Number of movable objects at the start of the object axis.
+        num_anchors: Number of fixed anchors following the movable objects.
+        on_pair_keys: Sorted canonical object-pair keys excluded by On relations.
+        clearance_m: Minimum clearance between boxes in meters.
+        dense_pair_instance_threshold: Directed-candidate count at which the caller
+            should use dense vectorization.
+
+    Returns:
+        Environment, subject, and obstacle indices, plus whether to use the dense path.
+    """
+    batch_size, num_objects, _ = world_min.shape
+    assert num_objects == num_non_anchors + num_anchors
+    device = world_min.device
+    empty = torch.empty(0, dtype=torch.long, device=device)
+
+    with torch.no_grad():
+        capacity = batch_size * num_objects * (num_objects - 1) // 2
+        assert capacity <= torch.iinfo(torch.int32).max, "BVH pair capacity exceeds int32 indexing."
+        if capacity == 0:
+            return empty, empty, empty, False
+
+        flat_min = world_min.detach().contiguous().view(-1, 3)
+        flat_max = world_max.detach().contiguous().view(-1, 3)
+        group_ids = torch.arange(batch_size, dtype=torch.int32, device=device).repeat_interleave(num_objects)
+        pair_first_flat = torch.empty(capacity, dtype=torch.int32, device=device)
+        pair_second_flat = torch.empty(capacity, dtype=torch.int32, device=device)
+        pair_count = torch.zeros(1, dtype=torch.int32, device=device)
+
+        wp.init()
+        lower_bounds_wp = wp.from_torch(flat_min, dtype=wp.vec3)
+        upper_bounds_wp = wp.from_torch(flat_max, dtype=wp.vec3)
+        group_ids_wp = wp.from_torch(group_ids)
+        pair_first_wp = wp.from_torch(pair_first_flat)
+        pair_second_wp = wp.from_torch(pair_second_flat)
+        pair_count_wp = wp.from_torch(pair_count)
+        warp_stream = wp.stream_from_torch(torch.cuda.current_stream(device))
+        with wp.ScopedStream(warp_stream):
+            bvh = wp.Bvh(
+                lower_bounds_wp,
+                upper_bounds_wp,
+                groups=group_ids_wp,
+                constructor="lbvh",
+                leaf_size=1,
+            )
+            wp.launch(
+                _query_bvh_pairs,
+                dim=batch_size * num_objects,
+                inputs=[
+                    bvh.id,
+                    lower_bounds_wp,
+                    upper_bounds_wp,
+                    num_objects,
+                    clearance_m + 1.0e-6,
+                    pair_first_wp,
+                    pair_second_wp,
+                    pair_count_wp,
+                ],
+                device=lower_bounds_wp.device,
+            )
+
+        num_candidates = int(pair_count.item())
+        if num_candidates == 0:
+            return empty, empty, empty, False
+        if 2 * num_candidates >= dense_pair_instance_threshold:
+            return empty, empty, empty, True
+
+        flat_first = pair_first_flat[:num_candidates].long()
+        flat_second = pair_second_flat[:num_candidates].long()
+        env_indices = torch.div(flat_first, num_objects, rounding_mode="floor")
+        first_indices = flat_first.remainder(num_objects)
+        second_indices = flat_second.remainder(num_objects)
+
+        first_is_movable = first_indices < num_non_anchors
+        second_is_movable = second_indices < num_non_anchors
+        has_movable = first_is_movable | second_is_movable
+        env_indices = env_indices[has_movable]
+        first_indices = first_indices[has_movable]
+        second_indices = second_indices[has_movable]
+        first_is_movable = first_is_movable[has_movable]
+        second_is_movable = second_is_movable[has_movable]
+        if first_indices.numel() == 0:
+            return empty, empty, empty, False
+
+        canonical_first = torch.minimum(first_indices, second_indices)
+        canonical_second = torch.maximum(first_indices, second_indices)
+        candidate_keys = canonical_first * num_objects + canonical_second
+        if on_pair_keys.numel() > 0:
+            on_positions = torch.searchsorted(on_pair_keys, candidate_keys)
+            safe_positions = on_positions.clamp_max(on_pair_keys.numel() - 1)
+            keep = (on_positions == on_pair_keys.numel()) | (on_pair_keys[safe_positions] != candidate_keys)
+            env_indices = env_indices[keep]
+            first_indices = first_indices[keep]
+            second_indices = second_indices[keep]
+            first_is_movable = first_is_movable[keep]
+            second_is_movable = second_is_movable[keep]
+            if first_indices.numel() == 0:
+                return empty, empty, empty, False
+
+        both_movable = first_is_movable & second_is_movable
+        cross_role = first_is_movable ^ second_is_movable
+
+        cross_env = env_indices[cross_role]
+        cross_subject = torch.where(first_is_movable[cross_role], first_indices[cross_role], second_indices[cross_role])
+        cross_obstacle = torch.where(
+            first_is_movable[cross_role], second_indices[cross_role], first_indices[cross_role]
+        )
+        cross_order = cross_subject * num_anchors + (cross_obstacle - num_non_anchors)
+
+        movable_env = env_indices[both_movable]
+        movable_first = torch.minimum(first_indices[both_movable], second_indices[both_movable])
+        movable_second = torch.maximum(first_indices[both_movable], second_indices[both_movable])
+        undirected_order = (
+            movable_first * (2 * num_non_anchors - movable_first - 1) // 2 + movable_second - movable_first - 1
+        )
+        movable_order = num_non_anchors * num_anchors + 2 * undirected_order
+
+        directed_env = torch.cat([cross_env, movable_env, movable_env])
+        subject_indices = torch.cat([cross_subject, movable_first, movable_second])
+        obstacle_indices = torch.cat([cross_obstacle, movable_second, movable_first])
+        pair_order = torch.cat([cross_order, movable_order, movable_order + 1])
+        if subject_indices.numel() == 0:
+            return empty, empty, empty, False
+
+        # Match the old pair order within each environment so the segment reduction
+        # has a stable input order even though only selected pair instances remain.
+        uncompressed_pair_count = num_non_anchors * num_anchors + num_non_anchors * (num_non_anchors - 1)
+        order = torch.argsort(directed_env * uncompressed_pair_count + pair_order)
+        directed_env = directed_env[order]
+        subject_indices = subject_indices[order]
+        obstacle_indices = obstacle_indices[order]
+
+        return directed_env, subject_indices, obstacle_indices, False
+
+
 class RelationSolver:
     """Differentiable solver for 3D spatial relations of IsaacLab Arena Objects
 
@@ -46,6 +226,12 @@ class RelationSolver:
 
     POSITION_HISTORY_SAVE_INTERVAL = 10
     """Save position snapshot every N iterations (when save_position_history is enabled)."""
+
+    DENSE_NO_OVERLAP_PAIR_FRACTION = 0.5
+    """Use the dense collision path when at least this fraction of eligible pairs is selected."""
+
+    MIN_BVH_OBJECTS = 64
+    """Use dense vectorization below this object count, where broad-phase overhead dominates."""
 
     def __init__(
         self,
@@ -62,6 +248,7 @@ class RelationSolver:
         self._last_position_history: list = []
         self._last_loss_per_env: torch.Tensor | None = None
         self._last_no_overlap_pair_count: int = 0
+        self._last_selected_no_overlap_pair_count: int = 0
 
     def _get_strategy(self, relation: RelationBase) -> RelationLossStrategy | UnaryRelationLossStrategy:
         """Look up the appropriate strategy for a relation type.
@@ -124,7 +311,7 @@ class RelationSolver:
                     relation_strategy = cast(RelationLossStrategy, strategy)
                     parent = relation.parent
                     if parent in state.anchor_objects:
-                        parent_world_bbox = parent.get_world_bounding_box().to(device)
+                        parent_world_bbox = state.get_anchor_world_bbox(parent)
                     else:
                         parent_pos = state.get_position(parent)
                         parent_bbox = state.get_bbox(parent)
@@ -146,7 +333,7 @@ class RelationSolver:
         # Add built-in no-overlap loss between all object pairs
         total_loss = total_loss + self._compute_no_overlap_loss(state, debug)
 
-        self._last_loss_per_env = total_loss.detach().clone()
+        self._last_loss_per_env = total_loss.detach()
         return total_loss.mean()
 
     def _compute_no_overlap_loss(
@@ -167,16 +354,131 @@ class RelationSolver:
         Returns:
             Per-environment loss tensor of shape (batch_size,).
         """
-        device = state.device
-        batch_size = state.batch_size
-        zero_loss = torch.zeros(batch_size, device=device, dtype=torch.float32)
+        if debug:
+            return self._compute_no_overlap_loss_dense(state, debug=True)
 
+        device = state.device
         non_anchor_objects = state.optimizable_objects
         anchor_objects = list(state.anchor_objects)
+
+        collision_objects = [*non_anchor_objects, *anchor_objects]
+        object_indices = {obj: index for index, obj in enumerate(collision_objects)}
+        num_non_anchors = len(non_anchor_objects)
+        num_anchors = len(anchor_objects)
 
         # Skip no-overlap for On pairs: the On loss already pushes the child
         # onto the parent surface, so penalizing bbox overlap between them
         # would fight that constraint and cause oscillation.
+        on_pair_keys: set[int] = set()
+        for obj in collision_objects:
+            for rel in obj.get_relations():
+                if isinstance(rel, On) and rel.parent in object_indices:
+                    first = object_indices[obj]
+                    second = object_indices[rel.parent]
+                    first, second = min(first, second), max(first, second)
+                    on_pair_keys.add(first * len(collision_objects) + second)
+
+        pair_count = num_non_anchors * num_anchors + num_non_anchors * (num_non_anchors - 1)
+        for pair_key in on_pair_keys:
+            first, second = divmod(pair_key, len(collision_objects))
+            if second < num_non_anchors:
+                pair_count -= 2
+            elif first < num_non_anchors:
+                pair_count -= 1
+        self._last_no_overlap_pair_count = pair_count
+
+        optimizable_positions = state.optimizable_positions
+        assert optimizable_positions is not None
+        zero_loss = optimizable_positions.sum(dim=(1, 2)) * 0.0
+        if pair_count == 0:
+            self._last_selected_no_overlap_pair_count = 0
+            return zero_loss
+        if device.type != "cuda" or len(collision_objects) < self.MIN_BVH_OBJECTS:
+            return self._compute_no_overlap_loss_dense(state)
+
+        # World-space (min, max) extents once per object, shape (batch, 3). Non-anchor
+        # extents carry gradient through the object's position; anchor extents are constant.
+        world_min: list[torch.Tensor] = []
+        world_max: list[torch.Tensor] = []
+        for obj in non_anchor_objects:
+            pos = state.get_position(obj)
+            bbox = state.get_bbox(obj)
+            world_min.append(pos + bbox.min_point)
+            world_max.append(pos + bbox.max_point)
+        for anchor in anchor_objects:
+            anchor_world_bbox = state.get_anchor_world_bbox(anchor)
+            world_min.append(anchor_world_bbox.min_point.expand(state.batch_size, 3))
+            world_max.append(anchor_world_bbox.max_point.expand(state.batch_size, 3))
+
+        # (batch_size, num_objects, 3). Pair selection is discrete and deliberately
+        # detached; selected extents are gathered again below to retain gradients.
+        world_min_tensor = torch.stack(world_min, dim=1)
+        world_max_tensor = torch.stack(world_max, dim=1)
+        precomputed_extents = {obj: (world_min[index], world_max[index]) for index, obj in enumerate(collision_objects)}
+        # No re-validation here: world_min/world_max are built by translating
+        # (pos + bbox.min/max) or expanding the extents RelationSolverState already
+        # validated once at construction, and both operations preserve min <= max.
+        common_overlap = (
+            world_min_tensor.max(dim=1).values <= world_max_tensor.min(dim=1).values + self.params.clearance_m
+        ).all()
+        if bool(common_overlap):
+            return self._compute_no_overlap_loss_dense(state, extents=precomputed_extents)
+        on_pair_key_tensor = torch.tensor(sorted(on_pair_keys), dtype=torch.long, device=device)
+        env_indices, subject_indices, obstacle_indices, use_dense = _select_no_overlap_pairs_bvh(
+            world_min_tensor,
+            world_max_tensor,
+            num_non_anchors,
+            num_anchors,
+            on_pair_key_tensor,
+            self.params.clearance_m,
+            self.DENSE_NO_OVERLAP_PAIR_FRACTION * pair_count * state.batch_size,
+        )
+        if use_dense:
+            return self._compute_no_overlap_loss_dense(state, extents=precomputed_extents)
+
+        selected_pair_count = subject_indices.numel()
+        self._last_selected_no_overlap_pair_count = selected_pair_count
+        if selected_pair_count == 0:
+            return zero_loss
+
+        # Dense vectorization wins when most pairs overlap; it also retains the old
+        # allocation and reduction order for that worst-case broad-phase workload.
+        if selected_pair_count >= self.DENSE_NO_OVERLAP_PAIR_FRACTION * pair_count * state.batch_size:
+            return self._compute_no_overlap_loss_dense(state, extents=precomputed_extents)
+
+        subject_min = world_min_tensor[env_indices, subject_indices]
+        subject_max = world_max_tensor[env_indices, subject_indices]
+        obstacle_min = world_min_tensor[env_indices, obstacle_indices].detach()
+        obstacle_max = world_max_tensor[env_indices, obstacle_indices].detach()
+        pair_loss = self._no_collision_strategy.compute_loss_batched(
+            self.params.clearance_m,
+            subject_min,
+            subject_max,
+            obstacle_min,
+            obstacle_max,
+            assume_valid_extents=True,
+        )
+
+        # Pair rows are sorted by environment and original pair order. A contiguous
+        # segment reduction avoids CUDA atomic-add nondeterminism from index_add.
+        pairs_per_env = torch.bincount(env_indices, minlength=state.batch_size)
+        return zero_loss + torch.segment_reduce(pair_loss, reduce="sum", lengths=pairs_per_env)
+
+    def _compute_no_overlap_loss_dense(
+        self,
+        state: RelationSolverState,
+        debug: bool = False,
+        extents: dict[ObjectBase, tuple[torch.Tensor, torch.Tensor]] | None = None,
+    ) -> torch.Tensor:
+        """Compute the original dense all-pairs no-overlap loss."""
+        batch_size = state.batch_size
+        optimizable_positions = state.optimizable_positions
+        assert optimizable_positions is not None
+        zero_loss = optimizable_positions.sum(dim=(1, 2)) * 0.0
+
+        non_anchor_objects = state.optimizable_objects
+        anchor_objects = list(state.anchor_objects)
+
         on_pairs: set[tuple[int, int]] = set()
         for obj in [*non_anchor_objects, *anchor_objects]:
             for rel in obj.get_relations():
@@ -184,19 +486,18 @@ class RelationSolver:
                     on_pairs.add((id(obj), id(rel.parent)))
                     on_pairs.add((id(rel.parent), id(obj)))
 
-        # World-space (min, max) extents once per object, shape (batch, 3). Non-anchor
-        # extents carry gradient through the object's position; anchor extents are constant.
-        extents: dict[ObjectBase, tuple[torch.Tensor, torch.Tensor]] = {}
-        for obj in non_anchor_objects:
-            pos = state.get_position(obj)
-            bbox = state.get_bbox(obj)
-            extents[obj] = (pos + bbox.min_point, pos + bbox.max_point)
-        for anchor in anchor_objects:
-            anchor_world_bbox = anchor.get_world_bounding_box().to(device)
-            extents[anchor] = (
-                anchor_world_bbox.min_point.expand(batch_size, 3),
-                anchor_world_bbox.max_point.expand(batch_size, 3),
-            )
+        if extents is None:
+            extents = {}
+            for obj in non_anchor_objects:
+                pos = state.get_position(obj)
+                bbox = state.get_bbox(obj)
+                extents[obj] = (pos + bbox.min_point, pos + bbox.max_point)
+            for anchor in anchor_objects:
+                anchor_world_bbox = state.get_anchor_world_bbox(anchor)
+                extents[anchor] = (
+                    anchor_world_bbox.min_point.expand(batch_size, 3),
+                    anchor_world_bbox.max_point.expand(batch_size, 3),
+                )
 
         pairs: list[NoOverlapPair] = []
         pair_names: list[tuple[str, str]] = []  # for the debug=True print
@@ -225,6 +526,7 @@ class RelationSolver:
                 pair_names.append((other.name, child.name))
 
         self._last_no_overlap_pair_count = len(pairs)
+        self._last_selected_no_overlap_pair_count = len(pairs) * batch_size
         if not pairs:
             return zero_loss
 
@@ -235,7 +537,12 @@ class RelationSolver:
         obstacle_max = torch.stack([p.obstacle_max for p in pairs], dim=0)
 
         pair_loss = self._no_collision_strategy.compute_loss_batched(
-            self.params.clearance_m, subject_min, subject_max, obstacle_min, obstacle_max
+            self.params.clearance_m,
+            subject_min,
+            subject_max,
+            obstacle_min,
+            obstacle_max,
+            assume_valid_extents=True,
         )
 
         if debug:
@@ -291,9 +598,10 @@ class RelationSolver:
         # Setup optimizer (only for optimizable positions)
         optimizer = torch.optim.Adam([state.optimizable_positions], lr=self.params.lr)
 
-        # Compute initial loss so _last_loss_per_env is always populated, even when max_iters=0.
-        with torch.no_grad():
-            self._compute_total_loss(state)
+        # Populate loss metadata for the zero-iteration inspection mode.
+        if self.params.max_iters == 0:
+            with torch.no_grad():
+                self._compute_total_loss(state)
 
         # Optimization loop
         loss_history = []
@@ -307,17 +615,18 @@ class RelationSolver:
 
             # Compute total loss
             loss = self._compute_total_loss(state)
-            loss_history.append(loss.item())
+            loss_value = loss.item()
+            loss_history.append(loss_value)
 
             # Backprop and update (only optimizable positions will update)
             loss.backward()
             optimizer.step()
 
             if self.params.verbose and iter % 100 == 0:
-                print(f"Iter {iter}: loss = {loss.item():.6f}")
+                print(f"Iter {iter}: loss = {loss_value:.6f}")
 
             # Check convergence
-            if loss.item() < self.params.convergence_threshold:
+            if loss_value < self.params.convergence_threshold:
                 if self.params.verbose:
                     print(f"Converged at iteration {iter}")
                 break
