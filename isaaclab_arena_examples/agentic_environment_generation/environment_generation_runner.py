@@ -106,6 +106,12 @@ def generate_env_graph_spec(args_cli: argparse.Namespace) -> ArenaEnvGraphSpec:
         task_catalog=task_catalog,
         temperature=args_cli.temperature,
     )
+    # last_validation_traces holds one line per failure, e.g.
+    #   "embodiment.registry_name: Unknown asset registry_name 'not_a_real_asset'"
+    #   "Task 'PickAndPlaceTask' is missing required param 'pick_up_object'"
+    assert (
+        env_graph_spec is not None
+    ), f"Agent returned an invalid spec. Validation traces: {agent.last_validation_traces}"
     print(
         f"[runner] generated → {env_graph_spec.summary()}, env_name={env_graph_spec.env_name!r}",
         flush=True,

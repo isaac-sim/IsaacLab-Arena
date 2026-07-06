@@ -188,6 +188,7 @@ class TestGenerateSpec:
             relation_catalog=_relation_catalog("RELATIONS"),
             task_catalog=_task_catalog("TASKS"),
         )
+        assert spec is not None
         assert "\t" in spec.env_name
 
     def test_user_message_contains_catalog_and_prompt(self, agent):
@@ -232,6 +233,7 @@ class TestGenerateSpec:
             task_catalog=_task_catalog("TASKS"),
             max_retries=3,
         )
+        assert spec is not None
         assert spec.background.registry_name == "maple_table_robolab"
         assert agent.client.chat.completions.create.call_count == 2
 
@@ -246,6 +248,21 @@ class TestGenerateSpec:
                 max_retries=1,
             )
         assert agent.client.chat.completions.create.call_count == 2
+
+    def test_returns_none_with_validation_traces_on_invalid_spec(self, agent):
+        invalid = dict(_MINIMAL_SPEC)
+        invalid["embodiment"]["registry_name"] = "not_a_real_asset"
+        agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(invalid))
+        spec, raw = agent.generate_spec(
+            "p",
+            asset_catalog=_catalog("catalog"),
+            relation_catalog=_relation_catalog("RELATIONS"),
+            task_catalog=_task_catalog("TASKS"),
+        )
+        assert raw
+        assert spec is None
+        assert agent.last_validation_traces
+        assert any("registry_name" in line for line in agent.last_validation_traces)
 
 
 # ---------------------------------------------------------------------------
@@ -272,6 +289,7 @@ def test_generate_spec_against_live_endpoint():
         asset_catalog=asset_catalog,
         task_catalog=task_catalog,
     )
+    assert spec is not None
     assert isinstance(raw, str) and raw, "agent returned empty raw response"
     assert spec.tasks, "ArenaEnvGraphSpec must contain at least one task"
     assert spec.background.registry_name, "background.registry_name must be populated"

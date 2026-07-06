@@ -105,6 +105,11 @@ def main() -> None:
         task_catalog=task_catalog,
         temperature=args.temperature,
     )
+    if spec is None:
+        print("=== validation traces ===")
+        for line in agent.last_validation_traces:
+            print(line)
+        return
 
     print("=== raw agent response ===")
     print(raw)

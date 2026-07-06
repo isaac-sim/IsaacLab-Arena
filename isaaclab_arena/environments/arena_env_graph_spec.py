@@ -5,14 +5,12 @@
 
 from __future__ import annotations
 
-import inspect
 import yaml
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from isaaclab_arena.assets.registries import TaskRegistry
 from isaaclab_arena.environments.arena_env_graph_types import (
     AssetSpec,
     CliOverrideSpec,
@@ -25,20 +23,6 @@ if TYPE_CHECKING:
     import argparse
 
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-
-
-def required_task_init_param_names(task_cls: type) -> list[str]:
-    """Return required ``__init__`` parameter names for a task class."""
-    sig = inspect.signature(task_cls.__init__)
-    required: list[str] = []
-    for name, param in sig.parameters.items():
-        if name == "self":
-            continue
-        if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
-            continue
-        if param.default is inspect.Parameter.empty:
-            required.append(name)
-    return required
 
 
 class ArenaEnvGraphSpec(BaseModel):
@@ -77,7 +61,6 @@ class ArenaEnvGraphSpec(BaseModel):
         self._assert_relation_references(self.relations, known_ids)
         self._assert_task_param_references(self.tasks, known_ids)
         self._validate_cli_override_specs()
-        self._validate_agent_ready_tasks()
         return self
 
     def _assert_asset_ids_unique(self) -> None:
@@ -129,19 +112,6 @@ class ArenaEnvGraphSpec(BaseModel):
     def summary(self) -> str:
         """Return a one-line summary of object, task, and relation counts."""
         return f"{len(self.objects)} objects · {len(self.tasks)} tasks · {len(self.relations)} relations"
-
-    def _validate_agent_ready_tasks(self) -> None:
-        task_registry = TaskRegistry()
-        for task in self.tasks:
-            task_cls = task_registry.get_task_by_name(task.kind)
-            assert getattr(task_cls, "agent_ready", False), f"Task {task.kind!r} is not agent-ready"
-            assert task.description and task.description.strip(), f"Task {task.kind!r} requires a non-empty description"
-            for required_param in required_task_init_param_names(task_cls):
-                assert required_param in task.params, f"Task {task.kind!r} is missing required param {required_param}"
-                value = task.params[required_param]
-                assert (
-                    isinstance(value, str) and value.strip()
-                ), f"Task {task.kind!r} required param {required_param!r} must be a non-empty string"
 
     def _validate_cli_override_specs(self) -> None:
         """Check each CLI override uses a unique flag and points to a swappable asset."""

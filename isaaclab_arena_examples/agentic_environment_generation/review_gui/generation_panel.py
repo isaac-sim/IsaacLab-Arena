@@ -115,6 +115,9 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
             relation_catalog=catalogues.relation_catalogue,
             task_catalog=catalogues.task_catalogue,
         )
+        if spec is None:
+            traces = "\n".join(agent.last_validation_traces) or "unknown validation error"
+            return False, f"Agent returned an invalid spec:\n{traces}"
     except Exception:
         return False, traceback.format_exc()
 

@@ -15,8 +15,13 @@ from typing import Any
 from openai import OpenAI
 
 from isaaclab_arena.agentic_environment_generation.agent_utils import build_strict_schema, extract_response_text, ping
+from isaaclab_arena.agentic_environment_generation.spec_validation import (
+    collect_agent_ready_task_validation_traces,
+    required_task_init_param_names,
+    try_parse_env_graph_spec,
+)
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec, required_task_init_param_names
+from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.relations.relations import RelationBase
 
 # TODO(qianl): This is currently Nvidia internal. Switch to public endpoint.
@@ -216,6 +221,7 @@ class EnvironmentGenerationAgent:
         # Validate basic connection and key authentication.
         ping(self.client, self.model)
         self._spec_schema = build_strict_schema(ArenaEnvGraphSpec)
+        self.last_validation_traces: list[str] = []
 
     def generate_spec(
         self,
@@ -226,7 +232,7 @@ class EnvironmentGenerationAgent:
         temperature: float = 0.2,
         max_tokens: int = 4096,
         max_retries: int = 3,
-    ) -> tuple[ArenaEnvGraphSpec, str]:
+    ) -> tuple[ArenaEnvGraphSpec | None, str]:
         """Call the model with user prompt and return the parsed ArenaEnvGraphSpec.
 
         Args:
@@ -247,8 +253,9 @@ class EnvironmentGenerationAgent:
                 retry is a fresh API call.
 
         Returns:
-            A ``(ArenaEnvGraphSpec, raw_response)`` tuple. The raw text is
-            useful for debugging.
+            A ``(ArenaEnvGraphSpec | None, raw_response)`` tuple. When schema
+            validation fails, ``spec`` is ``None`` and ``agent.last_validation_traces``
+            holds the error lines. The raw text is useful for debugging.
         """
         asset_catalog = asset_catalog or build_asset_catalogue()
         relation_catalog = relation_catalog or build_relation_catalogue()
@@ -299,7 +306,11 @@ class EnvironmentGenerationAgent:
                 # (e.g. literal tabs) inside JSON strings — DeepSeek-v4-flash is known
                 # to emit these.
                 data = json.loads(text, strict=False)
-                spec = ArenaEnvGraphSpec.model_validate(data)
+                # TODO(qianl): add fuzzy-match support for registry_name matching.
+                spec, traces = try_parse_env_graph_spec(data)
+                if spec is not None:
+                    traces = [*traces, *collect_agent_ready_task_validation_traces(spec)]
+                self.last_validation_traces = traces
                 return spec, text
             except Exception as exc:
                 last_exc = exc
@@ -327,7 +338,7 @@ GUIDANCE:
   suffixes in ``id``.
 - Only populate ``object_references`` when the prompt explicitly mentions surfaces or appliances
   inside the background; otherwise leave it unset.
-- For each ``object_reference``, set ``prim_path`` to "unknown".
+- For each ``object_reference``, leave ``prim_path`` empty.
 - REQUIRED: include an ``is_anchor`` relation on the resting surface (background or an
   ``object_reference`` within it).
 - All objects need an ``on`` relation with that anchor as ``reference``.

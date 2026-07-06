@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False) -> Any:
-    """Build an IsaacLabArenaEnvironment from a validated :class:`ArenaEnvGraphSpec`.
+    """Build an IsaacLabArenaEnvironment from a validated ArenaEnvGraphSpec.
 
     Args:
         graph_spec: A validated graph spec (asset refs exist, ids unique, etc.).
