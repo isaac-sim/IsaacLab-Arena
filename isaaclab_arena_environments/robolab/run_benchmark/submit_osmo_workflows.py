@@ -33,7 +33,7 @@ VARIATIONS = (
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+    return Path(__file__).resolve().parents[3]
 
 
 def _num_robolab_environments(value: str) -> int:
@@ -44,7 +44,7 @@ def _num_robolab_environments(value: str) -> int:
 
 
 def get_n_robolab_envs(num_environments: int) -> list[Path]:
-    robolab_dir = Path(__file__).resolve().parent
+    robolab_dir = Path(__file__).resolve().parents[1]
     robolab_envs = sorted(robolab_dir.glob("*.yaml"))
     if num_environments == -1:
         return robolab_envs
