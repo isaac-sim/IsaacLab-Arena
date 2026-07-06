@@ -273,6 +273,11 @@ def build_report(video_dir: str | pathlib.Path, title: str = _DEFAULT_TITLE) -> 
     output.write_text(render_report(report), encoding="utf-8")
     num_episodes = sum(len(job.episodes) for job in report.jobs)
     print(f"Wrote evaluation report with {len(report.jobs)} job(s) and {num_episodes} episode(s) to: {output}")
+    num_videos = sum(len(episode.video_by_camera) for job in report.jobs for episode in job.episodes)
+    if num_episodes == 0:
+        print("[WARNING] No episode results or rollout videos were found; the report is empty.")
+    elif num_videos == 0:
+        print("[INFO] No rollout videos were recorded; the report contains episode results only.")
     return output
 
 
