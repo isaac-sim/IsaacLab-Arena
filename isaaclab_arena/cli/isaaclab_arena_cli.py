@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
-from dataclasses import fields
 
 from isaaclab.app import AppLauncher
 
@@ -14,17 +13,6 @@ from isaaclab_arena.cli.dataclass_cli import (
     dataclass_from_cli,
 )
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-
-_BUILDER_CFG_FIELD_NAMES = frozenset(config_field.name for config_field in fields(ArenaEnvBuilderCfg))
-_ISAAC_LAB_BUILDER_CFG_FIELDS = frozenset({"disable_fabric", "env_spacing", "mimic", "num_envs", "seed"})
-_BUILDER_CFG_FIELDS_PROVIDED_BY_OTHER_FRONTENDS = frozenset({"device", "language_instruction"})
-_BUILDER_CFG_FIELDS_WITH_CUSTOM_CLI = frozenset({"solve_relations"})
-
-assert (
-    _ISAAC_LAB_BUILDER_CFG_FIELDS
-    | _BUILDER_CFG_FIELDS_PROVIDED_BY_OTHER_FRONTENDS
-    | _BUILDER_CFG_FIELDS_WITH_CUSTOM_CLI
-) <= _BUILDER_CFG_FIELD_NAMES
 
 
 # TODO(cvolk, 2026-07-03): Remove this compatibility adapter when the argparse frontend
@@ -55,16 +43,9 @@ def get_isaaclab_arena_cli_parser() -> argparse.ArgumentParser:
 
 
 def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
-    """Add builder arguments shared with Isaac Lab scripts."""
+    """Add legacy arguments shared with Isaac Lab scripts."""
 
     isaac_lab_group = parser.add_argument_group("Isaac Lab Arguments", "Arguments specific to Isaac Lab framework")
-
-    assert_cli_defaults_match_dataclass(parser, ArenaEnvBuilderCfg, {"device"})
-    add_dataclass_cli_args(
-        isaac_lab_group,
-        ArenaEnvBuilderCfg,
-        excluded_fields=_BUILDER_CFG_FIELD_NAMES - _ISAAC_LAB_BUILDER_CFG_FIELDS,
-    )
     isaac_lab_group.add_argument(
         "--distributed",
         action="store_true",
@@ -78,6 +59,10 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
     arena_group = parser.add_argument_group(
         "Isaac Lab Arena Arguments", "Arguments specific to Isaac Lab Arena framework"
     )
+
+    # AppLauncher already owns --device. Verify that its default agrees with the
+    # builder config before generating the remaining builder flags.
+    assert_cli_defaults_match_dataclass(parser, ArenaEnvBuilderCfg, {"device"})
     arena_group.add_argument(
         "--no-solve-relations",
         action="store_false",
@@ -88,11 +73,9 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
     add_dataclass_cli_args(
         arena_group,
         ArenaEnvBuilderCfg,
-        excluded_fields=(
-            _ISAAC_LAB_BUILDER_CFG_FIELDS
-            | _BUILDER_CFG_FIELDS_PROVIDED_BY_OTHER_FRONTENDS
-            | _BUILDER_CFG_FIELDS_WITH_CUSTOM_CLI
-        ),
+        # Keep Arena's existing dashed --no-solve-relations spelling rather
+        # than argparse's generated --no-solve_relations spelling.
+        excluded_fields={"device", "solve_relations"},
     )
     arena_group.add_argument(
         "--list-variations",

@@ -39,8 +39,9 @@ def test_argparse_adapter_maps_builder_configuration():
         "newton",
         "--device",
         "cpu",
+        "--language_instruction",
+        "pick up the cube",
     ])
-    args_cli.language_instruction = "pick up the cube"
 
     cfg = arena_env_builder_cfg_from_argparse(args_cli)
 

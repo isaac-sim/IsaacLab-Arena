@@ -87,12 +87,6 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
         help="Number of episodes to run the policy (if num_steps is not provided)",
     )
     parser.add_argument(
-        "--language_instruction",
-        type=str,
-        default=None,
-        help="Language instruction for the policy. Takes precedence over the task's own description.",
-    )
-    parser.add_argument(
         "--record_viewport_video",
         action="store_true",
         default=False,
