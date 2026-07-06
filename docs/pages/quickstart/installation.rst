@@ -17,8 +17,8 @@ Native uv developer setup
 -------------------------
 
 Isaac Lab Arena can be installed natively with `uv <https://docs.astral.sh/uv/>`_
-against the public Isaac Lab and Isaac Sim wheels -- no Docker, no submodule
-initialization, and no ``ISAACLAB_PATH`` required.
+against the public Isaac Lab and Isaac Sim wheels; the committed lockfile pins
+the complete environment.
 
 .. code-block:: bash
 
@@ -50,13 +50,21 @@ Launch a short zero-action rollout:
 .. code-block:: bash
 
     uv run python isaaclab_arena/evaluation/policy_runner.py \
-      --headless --policy_type zero_action --num_steps 20 \
-      --output_base_dir "$PWD/output" cube_goal_pose
+      --headless --policy_type zero_action --num_steps 20 cube_goal_pose
+
+Optionally verify the installation by running the in-process test phases (the
+same phases the Docker workflow runs below; the third, subprocess-based phase
+is currently Docker-only, see the note):
+
+.. code-block:: bash
+
+    uv run pytest -sv -m "with_cameras and not with_subprocess" isaaclab_arena/tests/
+    uv run pytest -sv -m "not with_cameras and not with_subprocess" isaaclab_arena/tests/
 
 .. note::
-   The policy and evaluation runners retain the Docker-compatible
-   ``/eval/output`` default. Pass ``--output_base_dir`` with a writable path
-   when running them natively.
+   The policy and evaluation runners write to ``./outputs`` under the current
+   working directory by default (natively and in Docker alike). Pass
+   ``--output_base_dir`` to redirect, e.g. to Docker's ``/eval`` mount.
 
 .. note::
    The third, subprocess-based phase (``-m with_subprocess``) runs the full
@@ -76,10 +84,6 @@ Launch a short zero-action rollout:
 
 With ``isaaclab_arena`` installed you're ready to build your first environment;
 see :doc:`first_arena_env`.
-
-.. note::
-   The ``uv`` path is the native developer setup. The Docker workflow below is
-   still supported and is what CI and large-scale evaluation use today.
 
 
 Installation via Docker

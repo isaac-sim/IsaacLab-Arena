@@ -142,6 +142,9 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
             # method claims to return w,x,y,z, but it actually returns x,y,z,w.
             # I am testing this in the test test_isaaclab_bug_get_local_poses.py.
             t_parent_C, q_parent_C_xyzw = view.get_local_poses()
+            # NOTE: the public Isaac Lab 3.0.0b2 wheel returns warp ProxyArrays from
+            # get_local_poses() (`.torch` converts); the Docker submodule build returns
+            # torch Tensors. Remove this shim once the two Isaac Lab versions converge.
             if not isinstance(t_parent_C, torch.Tensor):
                 t_parent_C = t_parent_C.torch
             if not isinstance(q_parent_C_xyzw, torch.Tensor):
