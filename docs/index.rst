@@ -218,6 +218,7 @@ TABLE OF CONTENTS
    pages/example_workflows/imitation_learning/index
    pages/example_workflows/reinforcement_learning_workflows/index
    pages/example_workflows/agentic_env_gen/index
+   pages/example_workflows/sensitivity_analysis/index
 
 .. toctree::
    :maxdepth: 1

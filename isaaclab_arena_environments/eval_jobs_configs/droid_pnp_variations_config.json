@@ -11,7 +11,7 @@
                 "hdr": "home_office_robolab"
             },
             "num_steps": 10,
-            "num_rebuilds": 1,
+            "num_rebuilds": 5,
             "policy_type": "zero_action",
             "policy_config_dict": {},
             "variations": {
