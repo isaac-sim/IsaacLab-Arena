@@ -40,10 +40,7 @@ objects:
 - id: wooden_bowl
   registry_name: wooden_bowl_hot3d_robolab
   params:
-    scale:
-    - 0.5
-    - 0.5
-    - 0.5
+    scale: [0.5, 0.5, 0.5]
 - id: spoon_big
   registry_name: spoon_big_vomp_robolab
   params: {}

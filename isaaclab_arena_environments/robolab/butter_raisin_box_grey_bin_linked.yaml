@@ -55,10 +55,7 @@ tasks:
     pick_up_object: raisin_box
     destination_location: grey_bin
     background_scene: maple_table_robolab
-    max_separation:
-    - 0.1
-    - 0.1
-    - 0.1
+    max_separation: [0.1, 0.1, 0.1]
     episode_length_s: 20.0
   description: Pick up the red raisin box and place it into the grey bin on the maple
     table.

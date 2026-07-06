@@ -3,7 +3,21 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""End-to-end agentic environment generation and execution."""
+"""End-to-end agentic environment generation and execution.
+
+Usage::
+
+    # Resolve a prompt into an environment graph spec YAML (no Isaac Sim):
+    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode resolve --prompt ...
+
+    # Build a gym env from a graph spec YAML and run the zero-action policy:
+    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode build --headless \\
+        --num_envs 1 --env_graph_spec_yaml <env>_env_graph.yaml
+
+    # Resolve and build in one process:
+    python isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py --mode full --headless \\
+        --num_envs 1 --prompt ...
+"""
 
 from __future__ import annotations
 

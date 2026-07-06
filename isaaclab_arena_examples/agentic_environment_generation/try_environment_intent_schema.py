@@ -13,7 +13,7 @@ Examples:
     python isaaclab_arena_examples/agentic_environment_generation/try_environment_intent_schema.py --print-catalog
 
     # Call the agent, print, and dump YAML:
-    python isaaclab_arena_examples/agentic_environment_generation/try_environment_intent_schema.py \\
+    python isaaclab_arena_examples/agentic_environment_generation/try_environment_intent_schema.py \
         --prompt "franka pick up avocado from the table and place it into a bowl on the table. there are other veggies on the table as distractor"
 """
 

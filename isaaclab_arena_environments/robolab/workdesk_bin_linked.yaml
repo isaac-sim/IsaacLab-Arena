@@ -37,10 +37,7 @@ objects:
 - id: wooden_bowl
   registry_name: wooden_bowl_hot3d_robolab
   params:
-    scale:
-    - 0.5
-    - 0.5
-    - 0.5
+    scale: [0.5, 0.5, 0.5]
 - id: spoon_big
   registry_name: spoon_big_vomp_robolab
   params: {}
@@ -113,8 +110,5 @@ tasks:
     destination_location: grey_bin
     background_scene: maple_table_robolab
     episode_length_s: 20.0
-    max_separation:
-    - 0.1
-    - 0.1
-    - 0.1
+    max_separation: [0.1, 0.1, 0.1]
   description: place the lizard figurine into the grey bin on the table

@@ -16,10 +16,7 @@ objects:
 - id: pumpkin_large
   registry_name: pumpkinlarge_vomp_robolab
   params:
-    scale:
-    - 1.25
-    - 1.25
-    - 1.25
+    scale: [1.25, 1.25, 1.25]
 - id: pumpkin_small
   registry_name: pumpkinsmall_vomp_robolab
   params: {}
@@ -141,8 +138,5 @@ tasks:
     destination_location: container_f24
     background_scene: maple_table_robolab
     episode_length_s: 20.0
-    max_separation:
-    - 0.1
-    - 0.1
-    - 0.1
+    max_separation: [0.1, 0.1, 0.1]
   description: pick up the large pumpkin and place it into the bin
