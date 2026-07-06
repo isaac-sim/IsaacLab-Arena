@@ -150,13 +150,12 @@ def test_candidate_bbox_aligns_with_candidate_yaw():
 
 
 def test_rotate_candidate_bboxes_encloses_marker_plus_sampled_yaw():
-    """_rotate_candidate_bboxes applies the total yaw (marker + sampled) passed by the caller."""
+    """Rotated bbox equals the original bbox rotated by the combined marker+sampled yaw."""
     box = _make_long_box("box")
     marker_yaw, sampled_yaw = math.pi / 6, math.pi / 3
     total_yaw = marker_yaw + sampled_yaw
     box.add_relation(RotateAroundSolution(yaw_rad=marker_yaw))
 
-    # In production, _generate_initial_orientations computes total_yaw before calling this method.
     rotated = ObjectPlacer._rotate_candidate_bboxes([box], {box: box.get_bounding_box()}, [{box: total_yaw}])
 
     expected = box.get_bounding_box().rotated_around_z(total_yaw)

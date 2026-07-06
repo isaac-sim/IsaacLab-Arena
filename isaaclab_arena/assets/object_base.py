@@ -26,7 +26,7 @@ from isaaclab_arena.assets.asset import Asset
 # while pure-Python spec modules can import from `object_type` directly without
 # pulling in isaaclab/omni/pxr at module-load time.
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
+from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, UnaryRelation
 from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
@@ -180,8 +180,6 @@ class ObjectBase(Asset, ABC):
     @property
     def is_anchor(self) -> bool:
         """True if this object has an IsAnchor relation."""
-        from isaaclab_arena.relations.relations import IsAnchor
-
         return any(isinstance(r, IsAnchor) for r in self.relations)
 
     def get_spatial_relations(self) -> list[RelationBase]:

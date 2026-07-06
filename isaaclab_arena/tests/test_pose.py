@@ -4,8 +4,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import math
+import torch
 
-from isaaclab_arena.utils.pose import Pose, PosePerEnv, rotate_quat_by_yaw, wrap_angle_to_pi
+from isaaclab_arena.utils.pose import (
+    Pose,
+    PosePerEnv,
+    rotate_points_by_yaw,
+    rotate_points_by_yaw_batch,
+    rotate_quat_by_yaw,
+    wrap_angle_to_pi,
+)
 
 
 def _yaw_of(quat_xyzw: tuple[float, float, float, float]) -> float:
@@ -38,6 +46,16 @@ def test_pose_composition():
 
     assert T_C_A.position_xyz == (3.0, 0.0, 0.0)
     assert T_C_A.rotation_xyzw == (0.0, 0.0, 0.0, 1.0)
+
+
+def test_rotate_points_by_yaw_batch_matches_scalar():
+    """Batch rotation with per-element yaws produces the same result as scalar rotation per row."""
+    points = torch.tensor([[1.0, 2.0, 0.5], [3.0, -1.0, 1.0], [0.0, 4.0, -0.3]])
+    yaws = torch.tensor([0.7, -1.2, 2.1])
+    batch_result = rotate_points_by_yaw_batch(points, yaws)
+    for i in range(len(yaws)):
+        scalar_result = rotate_points_by_yaw(points[i : i + 1], yaws[i].item())
+        assert torch.allclose(batch_result[i], scalar_result.squeeze(0), atol=1e-6)
 
 
 def test_pose_per_env_stores_poses():

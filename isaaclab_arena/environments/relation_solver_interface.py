@@ -12,7 +12,7 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import get_rotation_xyzw, solve_and_place_objects
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import get_anchor_objects
-from isaaclab_arena.utils.pose import Pose, PosePerEnv, rotate_quat_by_yaw
+from isaaclab_arena.utils.pose import Pose, PosePerEnv, rotate_quat_by_yaw, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
     from isaaclab.managers import EventTermCfg
@@ -107,8 +107,10 @@ def _apply_dynamic_spawn_pose(
         pos = layout.positions.get(obj)
         if pos is None:
             continue
-        yaw = layout.orientations.get(obj, 0.0)
-        rot = rotate_quat_by_yaw(get_rotation_xyzw(obj), yaw)
+        base_rot = get_rotation_xyzw(obj)
+        marker_yaw = yaw_from_quat_xyzw(base_rot)
+        total_yaw = layout.orientations.get(obj, marker_yaw)
+        rot = rotate_quat_by_yaw(base_rot, total_yaw - marker_yaw)
         object_cfg = getattr(obj, "object_cfg", None)
         assert object_cfg is not None, f"Object '{obj.name}' must have object_cfg initialized before placement."
         object_cfg.init_state.pos = pos
@@ -143,8 +145,9 @@ def _apply_static_initial_poses(
             if pos is None:
                 missing_envs.append(env_idx)
             else:
-                yaw = layouts[env_idx].orientations.get(obj, 0.0)
-                rotation_xyzw = rotate_quat_by_yaw(base_rotation_xyzw, yaw)
+                marker_yaw = yaw_from_quat_xyzw(base_rotation_xyzw)
+                total_yaw = layouts[env_idx].orientations.get(obj, marker_yaw)
+                rotation_xyzw = rotate_quat_by_yaw(base_rotation_xyzw, total_yaw - marker_yaw)
                 poses.append(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
         if missing_envs:
             print(

@@ -151,7 +151,7 @@ class WarpMeshAndSphereCache:
         scale = tuple(getattr(obj, "scale", (1.0, 1.0, 1.0)))
         key = (usd_path, scale)
         if key not in self._trimesh_cache:
-            from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd
+            from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd  # deferred: pxr import
 
             try:
                 self._trimesh_cache[key] = extract_trimesh_from_usd(usd_path, scale)

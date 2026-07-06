@@ -103,8 +103,8 @@ def mesh_sdf(points: torch.Tensor, warp_mesh: wp.Mesh) -> torch.Tensor:
     return _MeshSDFFunction.apply(points, warp_mesh)
 
 
-# Warp returns ~1e6 when a BVH query finds no enclosing face; 1e5 catches these
-# while staying safely below any realistic SDF magnitude.
+# The kernels above write 1.0e6 when the BVH finds no enclosing face; 1e5 catches
+# these while staying safely above any realistic SDF magnitude.
 _SDF_SENTINEL = 1.0e5
 
 
@@ -119,7 +119,7 @@ def sdf_sentinel_count(sdf_values: torch.Tensor) -> int:
 
 
 def clamp_sdf_sentinel(sdf_values: torch.Tensor) -> torch.Tensor:
-    """Replace sentinel SDF values with 0 so no-face hits contribute zero loss rather than large positive."""
+    """Replace sentinel SDF values with 0 so no-face hits produce a constant penalty with zero gradient."""
     return torch.where(sdf_values >= _SDF_SENTINEL, torch.zeros_like(sdf_values), sdf_values)
 
 

@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-import math
 import torch
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -28,10 +28,19 @@ from isaaclab_arena.relations.relations import (
 from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, mesh_sdf
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.pose import Pose, PosePerEnv, rotate_quat_by_yaw, wrap_angle_to_pi, yaw_from_quat_xyzw
+from isaaclab_arena.utils.pose import (
+    Pose,
+    PosePerEnv,
+    centers_in_target_frame,
+    rotate_quat_by_yaw,
+    wrap_angle_to_pi,
+    yaw_from_quat_xyzw,
+)
 from isaaclab_arena.utils.random import get_random_rotation
 
 if TYPE_CHECKING:
+    import trimesh
+
     from isaaclab_arena.assets.object_base import ObjectBase
 
 
@@ -79,7 +88,7 @@ class ObjectPlacer:
     def __init__(self, params: ObjectPlacerParams | None = None):
         self.params = params or ObjectPlacerParams()
         self._solver = RelationSolver(params=self.params.solver_params)
-        self._cpu_mesh_manager = None
+        self._cpu_mesh_manager: WarpMeshAndSphereCache | None = None
 
     def place(
         self,
@@ -601,7 +610,12 @@ class ObjectPlacer:
     def _collect_skip_pairs(
         positions: dict[ObjectBase, tuple[float, float, float]],
     ) -> tuple[set[tuple], set[int]]:
-        """Build On-pair skip set and anchor ID set from positioned objects."""
+        """Build On-pair skip set and anchor ID set from positioned objects.
+
+        Returns:
+            Tuple of (on_pairs, anchor_ids) where on_pairs contains (id(a), id(b))
+            tuples for On-linked objects, and anchor_ids contains id() of anchors.
+        """
         on_pairs: set[tuple] = set()
         anchor_ids: set[int] = set()
         for obj in positions:
@@ -617,7 +631,7 @@ class ObjectPlacer:
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
         skip_mesh_pairs: bool = False,
-    ):
+    ) -> Iterator[tuple[ObjectBase, ObjectBase]]:
         """Yield (a, b) pairs for overlap checks, skipping On/anchor-anchor/mesh pairs as configured."""
         on_pairs, anchor_ids = self._collect_skip_pairs(positions)
         mesh_manager = self._get_cpu_mesh_manager() if skip_mesh_pairs else None
@@ -643,17 +657,12 @@ class ObjectPlacer:
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
         skip_mesh_pairs: bool = False,
     ) -> bool:
-        """AABB overlap check. Skips On-pairs, anchor-anchor, and (optionally) mesh-validated pairs."""
+        """AABB overlap check on pre-rotated env_bboxes. Skips On-pairs and anchor-anchor pairs."""
         clearance_m = self.params.solver_params.clearance_m
         margin = max(0.0, clearance_m - 1e-6)
 
         for a, b in self._non_skip_pairs(positions, skip_mesh_pairs=skip_mesh_pairs):
-            a_bbox = env_bboxes[a]
-            b_bbox = env_bboxes[b]
-            a_world = a_bbox.translated(positions[a])
-            b_world = b_bbox.translated(positions[b])
-
-            if a_world.overlaps(b_world, margin=margin).item():
+            if self._pair_aabb_overlaps(env_bboxes[a], env_bboxes[b], positions[a], positions[b], 0.0, 0.0, margin):
                 if self.params.verbose:
                     print(f"  Overlap between '{a.name}' and '{b.name}'")
                 return False
@@ -740,7 +749,7 @@ class ObjectPlacer:
         strategy = self._solver.params.strategies[type(relation)]
         return strategy.margin_m
 
-    def _get_cpu_mesh_manager(self):
+    def _get_cpu_mesh_manager(self) -> WarpMeshAndSphereCache:
         """Return the CPU-device mesh manager, creating it on first call."""
         if self._cpu_mesh_manager is None:
             self._cpu_mesh_manager = WarpMeshAndSphereCache(
@@ -772,12 +781,6 @@ class ObjectPlacer:
                             f"  [NoCollision] MESH mode: '{obj.name}' has no collision mesh,"
                             " falling back to AABB validation for this pair"
                         )
-                a_pos = torch.tensor(positions[a], dtype=torch.float32)
-                b_pos = torch.tensor(positions[b], dtype=torch.float32)
-                if self._pair_aabb_overlaps(a, b, a_pos, b_pos, orientations, tolerance):
-                    if self.params.verbose:
-                        print(f"  AABB overlap between '{a.name}' and '{b.name}' (mesh unavailable)")
-                    return False
                 continue
 
             a_pos = torch.tensor(positions[a], dtype=torch.float32)
@@ -792,15 +795,15 @@ class ObjectPlacer:
 
     def _spheres_penetrate_mesh(
         self,
-        source,
-        source_mesh,
-        source_pos,
-        target,
-        target_mesh,
-        target_pos,
-        mesh_manager,
-        tolerance,
-        orientations,
+        source: ObjectBase,
+        source_mesh: trimesh.Trimesh,
+        source_pos: torch.Tensor,
+        target: ObjectBase,
+        target_mesh: trimesh.Trimesh,
+        target_pos: torch.Tensor,
+        mesh_manager: WarpMeshAndSphereCache,
+        tolerance: float,
+        orientations: dict[ObjectBase, float] | None,
     ) -> bool:
         """True if source's spheres penetrate target's mesh or if BVH returns no-face sentinel."""
         spheres = mesh_manager.get_query_spheres(source_mesh, obj=source)
@@ -817,37 +820,6 @@ class ObjectPlacer:
         return False
 
     @staticmethod
-    def _pair_aabb_overlaps(
-        a: ObjectBase,
-        b: ObjectBase,
-        a_pos: torch.Tensor,
-        b_pos: torch.Tensor,
-        orientations: dict[ObjectBase, float] | None,
-        margin: float,
-    ) -> bool:
-        """Return True if the yaw-rotated AABBs of a and b overlap."""
-        for obj in (a, b):
-            if obj.is_anchor:
-                pose = obj.get_initial_pose()
-                if isinstance(pose, Pose):
-                    qx, qy = pose.rotation_xyzw[0], pose.rotation_xyzw[1]
-                    assert abs(qx) < 1e-6 and abs(qy) < 1e-6, (
-                        f"AABB fallback requires anchor '{obj.name}' to have pure-Z rotation, "
-                        f"got rotation_xyzw={pose.rotation_xyzw}"
-                    )
-        a_bbox = a.get_bounding_box()
-        b_bbox = b.get_bounding_box()
-        a_yaw = ObjectPlacer._effective_yaw(a, orientations)
-        b_yaw = ObjectPlacer._effective_yaw(b, orientations)
-        if a_yaw != 0.0:
-            a_bbox = a_bbox.rotated_around_z(a_yaw)
-        if b_yaw != 0.0:
-            b_bbox = b_bbox.rotated_around_z(b_yaw)
-        a_world = a_bbox.translated(a_pos)
-        b_world = b_bbox.translated(b_pos)
-        return a_world.overlaps(b_world, margin=margin).item()
-
-    @staticmethod
     def _effective_yaw(obj: ObjectBase, orientations: dict[ObjectBase, float] | None) -> float:
         """Resolve effective Z-yaw: orientations dict, else initial_pose for anchors."""
         if orientations is not None and obj in orientations:
@@ -858,6 +830,25 @@ class ObjectPlacer:
         if not isinstance(pose, Pose):
             return 0.0
         return yaw_from_quat_xyzw(pose.rotation_xyzw)
+
+    @staticmethod
+    def _pair_aabb_overlaps(
+        a_bbox: AxisAlignedBoundingBox,
+        b_bbox: AxisAlignedBoundingBox,
+        pos_a: tuple[float, float, float],
+        pos_b: tuple[float, float, float],
+        yaw_a: float,
+        yaw_b: float,
+        margin: float,
+    ) -> bool:
+        """True if two yaw-rotated, world-translated AABBs overlap (with margin)."""
+        if yaw_a != 0.0:
+            a_bbox = a_bbox.rotated_around_z(yaw_a)
+        if yaw_b != 0.0:
+            b_bbox = b_bbox.rotated_around_z(yaw_b)
+        a_world = a_bbox.translated(pos_a)
+        b_world = b_bbox.translated(pos_b)
+        return a_world.overlaps(b_world, margin=margin).item()
 
     @staticmethod
     def _centers_in_target_frame(
@@ -871,24 +862,7 @@ class ObjectPlacer:
         """Transform source sphere centers into the target's local frame (Z-yaw only)."""
         src_yaw = ObjectPlacer._effective_yaw(source_obj, orientations)
         tgt_yaw = ObjectPlacer._effective_yaw(target_obj, orientations)
-
-        if src_yaw == 0.0 and tgt_yaw == 0.0:
-            return centers_local + source_pos - target_pos
-
-        net_yaw = src_yaw - tgt_yaw
-        cos_n = math.cos(net_yaw)
-        sin_n = math.sin(net_yaw)
-        rx = centers_local[:, 0] * cos_n - centers_local[:, 1] * sin_n
-        ry = centers_local[:, 0] * sin_n + centers_local[:, 1] * cos_n
-        rotated_centers = torch.stack([rx, ry, centers_local[:, 2]], dim=-1)
-
-        offset = source_pos - target_pos
-        cos_t = math.cos(-tgt_yaw)
-        sin_t = math.sin(-tgt_yaw)
-        ox = offset[0] * cos_t - offset[1] * sin_t
-        oy = offset[0] * sin_t + offset[1] * cos_t
-        rotated_offset = torch.tensor([ox, oy, offset[2].item()], dtype=centers_local.dtype)
-        return rotated_centers + rotated_offset
+        return centers_in_target_frame(centers_local, src_yaw, tgt_yaw, source_pos - target_pos)
 
     def _validate_placement(
         self,
@@ -947,7 +921,7 @@ class ObjectPlacer:
 
             rotate_marker = self._get_rotate_around_solution(obj)
             base_rotation = rotate_marker.get_rotation_xyzw() if rotate_marker else (0.0, 0.0, 0.0, 1.0)
-            marker_yaw = self._get_yaw_from_rotate_around_solution(obj)
+            marker_yaw = yaw_from_quat_xyzw(base_rotation)
 
             def _sampled_yaw_delta(env_idx: int) -> float:
                 """Total yaw minus marker yaw = solver-sampled delta."""

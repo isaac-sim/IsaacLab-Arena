@@ -683,3 +683,38 @@ def test_aabb_gate_does_not_reject_diagonal_cylinders():
     assert placer._validate_no_overlap_mesh(
         positions
     ), "Mesh validator should accept diagonal cylinders that don't geometrically overlap"
+
+
+def test_broadphase_does_not_falsely_cull_yawed_elongated_pair():
+    """Elongated objects at ~90° yaw whose unrotated AABBs are separated must still produce loss.
+
+    Regression for double-rotation in the broadphase: if bboxes were rotated twice,
+    the second rotation could recover the unrotated shape and falsely mark the pair separated.
+    """
+    table = _make_table()
+    # Elongated boxes: 0.4m long, 0.02m wide
+    a_mesh = trimesh.creation.box(extents=(0.4, 0.02, 0.05))
+    b_mesh = trimesh.creation.box(extents=(0.4, 0.02, 0.05))
+    a = DummyObject(
+        "a",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.01, -0.025), max_point=(0.2, 0.01, 0.025)),
+        collision_mesh=a_mesh,
+    )
+    b = DummyObject(
+        "b",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.01, -0.025), max_point=(0.2, 0.01, 0.025)),
+        collision_mesh=b_mesh,
+    )
+    a.add_relation(On(table))
+    b.add_relation(On(table))
+
+    # Place b offset in X by 0.05: unrotated AABBs overlap (half-width 0.2+0.2 > 0.05),
+    # but if we yaw both by pi/2 the unrotated AABB (width 0.02) would be separated.
+    yaw = math.pi / 2
+    initial = [{table: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.05), b: (0.05, 0.0, 0.05)}]
+    orientations = [{a: yaw, b: yaw}]
+
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False))
+    solver.solve([table, a, b], initial, orientations=orientations)
+    loss = solver.last_loss_per_env[0].item()
+    assert loss > 0.0, "Broadphase must not falsely cull yawed elongated pairs that genuinely collide"

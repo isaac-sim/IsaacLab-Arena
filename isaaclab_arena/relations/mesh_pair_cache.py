@@ -9,12 +9,55 @@ from __future__ import annotations
 
 import torch
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 import warp as wp
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
+
+
+class MeshPairEntry(NamedTuple):
+    """One directed sphere-to-mesh collision pair (subject spheres vs obstacle mesh).
+
+    Dimensions: S = sphere count for this pair's subject, B = batch_size.
+    """
+
+    subject: ObjectBase
+    """Subject (sphere source) object."""
+
+    obstacle: ObjectBase
+    """Obstacle (mesh target) object."""
+
+    is_anchor: bool
+    """True when obstacle is a static anchor."""
+
+    anchor_pos: torch.Tensor | None
+    """(3,) world-frame position of the anchor obstacle; None for non-anchors."""
+
+    anchor_yaw: float
+    """Anchor Z-yaw in radians (0.0 for non-anchors)."""
+
+    centers_local: torch.Tensor
+    """(S, 3) sphere centers in subject-local frame."""
+
+    radii: torch.Tensor
+    """(S,) sphere radii."""
+
+    subject_bbox_min: torch.Tensor
+    """(B, 3) subject bounding box min corners."""
+
+    subject_bbox_max: torch.Tensor
+    """(B, 3) subject bounding box max corners."""
+
+    obstacle_bbox_min: torch.Tensor
+    """(B, 3) obstacle bounding box min corners."""
+
+    obstacle_bbox_max: torch.Tensor
+    """(B, 3) obstacle bounding box max corners."""
+
+    warp_mesh: wp.Mesh
+    """Warp mesh asset for the obstacle."""
 
 
 @dataclass(slots=True)

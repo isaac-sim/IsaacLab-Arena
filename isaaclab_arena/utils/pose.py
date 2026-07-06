@@ -83,6 +83,51 @@ def rotate_quat_by_yaw(
     return (bx * cz + by * sz, -bx * sz + by * cz, bz * cz + bw * sz, -bz * sz + bw * cz)
 
 
+def rotate_points_by_yaw(points: torch.Tensor, yaw: float) -> torch.Tensor:
+    """Rotate (N, 3) points about the Z-axis by a scalar yaw (radians). Z is unchanged."""
+    if yaw == 0.0:
+        return points
+    cos_y = math.cos(yaw)
+    sin_y = math.sin(yaw)
+    x = points[:, 0] * cos_y - points[:, 1] * sin_y
+    y = points[:, 0] * sin_y + points[:, 1] * cos_y
+    return torch.stack([x, y, points[:, 2]], dim=-1)
+
+
+def rotate_points_by_yaw_batch(points: torch.Tensor, yaws: torch.Tensor) -> torch.Tensor:
+    """Rotate (N, 3) points about Z-axis by per-element yaw (N,) radians. Z is unchanged."""
+    cos_y = torch.cos(yaws)
+    sin_y = torch.sin(yaws)
+    x = points[:, 0] * cos_y - points[:, 1] * sin_y
+    y = points[:, 0] * sin_y + points[:, 1] * cos_y
+    return torch.stack([x, y, points[:, 2]], dim=-1)
+
+
+def centers_in_target_frame(
+    centers_local: torch.Tensor,
+    src_yaw: float,
+    tgt_yaw: float,
+    offset: torch.Tensor,
+) -> torch.Tensor:
+    """Transform source sphere centers into the target's local frame (Z-yaw only).
+
+    Computes R(src_yaw - tgt_yaw) * centers_local + R(-tgt_yaw) * offset.
+
+    Args:
+        centers_local: (N, 3) sphere centers in the source's local frame.
+        src_yaw: Source object yaw (radians).
+        tgt_yaw: Target object yaw (radians).
+        offset: (3,) vector from target position to source position (world frame).
+    """
+    net_yaw = src_yaw - tgt_yaw
+    if net_yaw == 0.0 and tgt_yaw == 0.0:
+        return centers_local + offset
+
+    rotated_centers = rotate_points_by_yaw(centers_local, net_yaw)
+    rotated_offset = rotate_points_by_yaw(offset.unsqueeze(0), -tgt_yaw).squeeze(0)
+    return rotated_centers + rotated_offset
+
+
 def compose_poses(T_C_B: Pose, T_B_A: Pose) -> Pose:
     """Compose two poses. T_C_A = T_C_B * T_B_A
 
