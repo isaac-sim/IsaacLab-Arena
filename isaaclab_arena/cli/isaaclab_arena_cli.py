@@ -7,18 +7,8 @@ import argparse
 
 from isaaclab.app import AppLauncher
 
-from isaaclab_arena.cli.dataclass_cli import (
-    add_dataclass_cli_args,
-    assert_cli_defaults_match_dataclass,
-    dataclass_from_cli,
-)
+from isaaclab_arena.cli.dataclass_cli import dataclass_from_cli
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-
-# This set changes only where flags appear in --help; their definitions still come
-# from ArenaEnvBuilderCfg.
-# TODO(cvolk, 2026-07-06): Remove this legacy help-group mapping when nested builder
-# configs introduce responsibility-based CLI groups.
-_LEGACY_ISAAC_LAB_BUILDER_CFG_FIELDS = frozenset({"disable_fabric", "env_spacing", "mimic", "num_envs", "seed"})
 
 
 # TODO(cvolk, 2026-07-03): Delete this Namespace-to-config adapter after policy_runner,
@@ -49,14 +39,21 @@ def get_isaaclab_arena_cli_parser() -> argparse.ArgumentParser:
 
 
 def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
-    """Add builder and distributed flags historically grouped under Isaac Lab."""
+    """Add the existing Isaac Lab builder and distributed CLI flags."""
 
     isaac_lab_group = parser.add_argument_group("Isaac Lab Arguments", "Arguments specific to Isaac Lab framework")
-    add_dataclass_cli_args(
-        isaac_lab_group,
-        ArenaEnvBuilderCfg,
-        included_fields=_LEGACY_ISAAC_LAB_BUILDER_CFG_FIELDS,
+
+    # TODO(cvolk, 2026-07-06): Delete these manual builder flags after runner scripts
+    # receive ArenaEnvBuilderCfg directly. The adapter tests keep their defaults aligned
+    # with ArenaEnvBuilderCfg during the transition.
+    isaac_lab_group.add_argument(
+        "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
     )
+    isaac_lab_group.add_argument("--seed", type=int, default=42, help="Optional seed for the random number generator.")
+    isaac_lab_group.add_argument("--num_envs", type=int, default=1, help="Number of environments to simulate.")
+    isaac_lab_group.add_argument("--env_spacing", type=float, default=30.0, help="Spacing between environments.")
+    isaac_lab_group.add_argument("--mimic", action="store_true", default=False, help="Enable mimic environment.")
+
     # TODO(cvolk, 2026-07-06): Move --distributed into a typed runner or simulation-app
     # config. It controls AppLauncher and policy_runner process setup, not ArenaEnvBuilder.
     isaac_lab_group.add_argument(
@@ -73,28 +70,52 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         "Isaac Lab Arena Arguments", "Arguments specific to Isaac Lab Arena framework"
     )
 
-    # AppLauncher already owns --device. Verify that its default agrees with the
-    # builder config before generating the remaining builder flags.
-    assert_cli_defaults_match_dataclass(parser, ArenaEnvBuilderCfg, {"device"})
-    # TODO(cvolk, 2026-07-06): Delete this custom spelling when the argparse builder
-    # adapter is removed. It exists only to preserve the current CLI during migration.
+    # TODO(cvolk, 2026-07-06): Delete these manual builder flags after runner scripts
+    # receive ArenaEnvBuilderCfg directly. The adapter tests keep their defaults aligned
+    # with ArenaEnvBuilderCfg during the transition.
     arena_group.add_argument(
         "--no-solve-relations",
         action="store_false",
         dest="solve_relations",
-        default=ArenaEnvBuilderCfg().solve_relations,
+        default=True,
         help="Disable solving spatial relations in the environment.",
     )
-    add_dataclass_cli_args(
-        arena_group,
-        ArenaEnvBuilderCfg,
-        # Preserve Arena's existing negative-only --no-solve-relations flag.
-        # Generic bool handling would also add --solve_relations and would spell
-        # the negative flag --no-solve_relations.
-        # AppLauncher owns --device, while policy_runner preserves the historical
-        # location of --language_instruction.
-        excluded_fields={"device", "language_instruction", "solve_relations"} | _LEGACY_ISAAC_LAB_BUILDER_CFG_FIELDS,
+    arena_group.add_argument(
+        "--placement_seed",
+        type=int,
+        default=None,
+        help="Seed for object placement. If set, objects are placed at the same positions across runs.",
     )
+    arena_group.add_argument(
+        "--presets",
+        type=str,
+        default=None,
+        help=(
+            "Physics backend preset: 'physx' or 'newton'. "
+            "Mirrors Isaac Lab's ``presets=newton`` Hydra syntax. "
+            "When not set, each environment uses its own default."
+        ),
+    )
+    arena_group.add_argument(
+        "--resolve_on_reset",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Re-place objects from the pool on each reset (default: True). Use --no-resolve_on_reset to keep the same"
+            " layout."
+        ),
+    )
+    arena_group.add_argument(
+        "--random_yaw_init",
+        action="store_true",
+        default=False,
+        help=(
+            "Randomly rotate objects (except anchors) around the Z-axis for scene variety. "
+            "Collisions use a larger enclosing box; the solver won't optimize this rotation. "
+            "Only affects objects positioned by the placement solver; manually-placed objects are unaffected."
+        ),
+    )
+
     arena_group.add_argument(
         "--list-variations",
         action="store_true",

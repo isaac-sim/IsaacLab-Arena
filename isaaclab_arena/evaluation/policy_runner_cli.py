@@ -13,7 +13,6 @@ from isaaclab_arena.cli.dataclass_cli import (
     assert_cli_defaults_match_dataclass,
     dataclass_from_cli,
 )
-from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 
 if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
@@ -87,14 +86,11 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Number of episodes to run the policy (if num_steps is not provided)",
     )
-    # Keep this generated flag in its historical policy-runner help section while
-    # ArenaEnvBuilderCfg remains the source of its type and default.
-    # TODO(cvolk, 2026-07-06): Delete this placement adapter when policy_runner receives
-    # ArenaEnvBuilderCfg directly instead of rebuilding it from an argparse Namespace.
-    add_dataclass_cli_args(
-        parser,
-        ArenaEnvBuilderCfg,
-        included_fields={"language_instruction"},
+    parser.add_argument(
+        "--language_instruction",
+        type=str,
+        default=None,
+        help="Language instruction for the policy. Takes precedence over the task's own description.",
     )
     parser.add_argument(
         "--record_viewport_video",

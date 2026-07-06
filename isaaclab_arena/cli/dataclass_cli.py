@@ -14,32 +14,20 @@ from typing import Any, Literal, TypeVar, get_args, get_origin, get_type_hints
 
 CfgT = TypeVar("CfgT")
 
-# TODO(cvolk, 2026-07-03): Delete this module after policy_runner and the environment
-# runners stop generating argparse flags from config classes and rebuilding configs
-# from argparse Namespaces.
+# TODO(cvolk, 2026-07-03): Delete this module when Arena frontends receive typed
+# configuration objects instead of reconstructing them from argparse Namespaces.
 
 
 def add_dataclass_cli_args(
     parser: argparse.ArgumentParser,
     cfg_type: type[CfgT],
     *,
-    included_fields: Collection[str] | None = None,
     excluded_fields: Collection[str] = (),
 ) -> None:
-    """Generate CLI flags for the selected fields of a config dataclass.
-
-    ``included_fields`` lets legacy parsers retain their existing help groups without
-    duplicating field types or defaults outside the config class.
-    """
+    """Generate CLI flags for the selected fields of a config dataclass."""
     assert is_dataclass(cfg_type), f"{cfg_type.__name__} must be a dataclass"
     resolved_field_types = get_type_hints(cfg_type)
-    if included_fields is not None:
-        unknown_fields = set(included_fields) - set(resolved_field_types)
-        assert not unknown_fields, f"{cfg_type.__name__} has no fields {sorted(unknown_fields)}"
-
     for config_field in fields(cfg_type):
-        if included_fields is not None and config_field.name not in included_fields:
-            continue
         if config_field.name in excluded_fields:
             continue
 

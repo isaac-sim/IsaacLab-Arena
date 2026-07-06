@@ -14,8 +14,8 @@ from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_argume
 
 # TODO(cvolk, 2026-07-03): Delete the argparse adapter tests below with
 # arena_env_builder_cfg_from_argparse once runners pass ArenaEnvBuilderCfg directly.
-def test_generated_cli_defaults_match_builder_configuration():
-    """Use the typed builder configuration as the default CLI contract."""
+def test_cli_defaults_match_builder_configuration():
+    """Keep the manual CLI defaults aligned with the typed builder configuration."""
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
 
     assert arena_env_builder_cfg_from_argparse(args_cli) == ArenaEnvBuilderCfg()
@@ -65,32 +65,6 @@ def test_argparse_adapter_maps_builder_configuration():
         device="cpu",
         language_instruction="pick up the cube",
     )
-
-
-# TODO(cvolk, 2026-07-06): Update this test when nested builder configs replace the
-# historical argparse help groups with responsibility-based groups.
-def test_builder_cli_fields_keep_historical_help_groups():
-    """Keep the typed-config refactor from reorganizing the CLI help output."""
-    parser = get_isaaclab_arena_cli_parser()
-    add_policy_runner_arguments(parser)
-    options_by_group = {
-        group.title: {option for action in group._group_actions for option in action.option_strings}
-        for group in parser._action_groups
-    }
-    isaac_lab_builder_options = {"--disable_fabric", "--env_spacing", "--mimic", "--num_envs", "--seed"}
-    arena_builder_options = {
-        "--no-solve-relations",
-        "--placement_seed",
-        "--presets",
-        "--random_yaw_init",
-        "--resolve_on_reset",
-    }
-
-    assert isaac_lab_builder_options <= options_by_group["Isaac Lab Arguments"]
-    assert isaac_lab_builder_options.isdisjoint(options_by_group["Isaac Lab Arena Arguments"])
-    assert arena_builder_options <= options_by_group["Isaac Lab Arena Arguments"]
-    assert "--language_instruction" in parser._option_string_actions
-    assert "--language_instruction" not in options_by_group["Isaac Lab Arena Arguments"]
 
 
 def test_builder_configuration_requires_positive_num_envs():
