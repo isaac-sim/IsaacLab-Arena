@@ -12,6 +12,7 @@ import re
 import shlex
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 POLICIES = ("pi0", "gr00t")
@@ -25,8 +26,9 @@ PLATFORM = "ovx-l40s"
 VARIATIONS = (
     "light.hdr_image.enabled=true "
     "droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true "
-    "'droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high=[0.05,0.05,0.05]' "
-    "'droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low=[-0.05,-0.05,-0.05]'"
+    "droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high=[0.05,0.05,0.05] "
+    "droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low=[-0.05,-0.05,-0.05] "
+    "light.hdr_image.hdr_names=[home_office_robolab]"
 )
 
 
@@ -53,10 +55,10 @@ def _repo_relative(path: Path) -> str:
     return path.resolve().relative_to(_repo_root()).as_posix()
 
 
-def _workflow_name(prefix: str, policy: str, env_path: Path) -> str:
+def _workflow_name(prefix: str, policy: str, env_path: Path, run_id: str) -> str:
     stem = env_path.stem.removesuffix("_linked")
     slug = re.sub(r"[^a-z0-9]+", "-", stem.lower()).strip("-")
-    return f"{prefix}-{policy}-{slug}"
+    return f"{prefix}-{policy}-{slug}-{run_id}"
 
 
 def _policy_runner_args(policy: str, num_episodes: int) -> str:
@@ -66,7 +68,12 @@ def _policy_runner_args(policy: str, num_episodes: int) -> str:
     )
 
 
-def _build_command(args: argparse.Namespace, policy: str, env_path: Path) -> list[str]:
+def _run_id() -> str:
+    """Reverse datetime (year-first) shared by all workflows submitted in one run."""
+    return datetime.now().strftime("%Y%m%d-%H%M%S")
+
+
+def _build_command(args: argparse.Namespace, policy: str, env_path: Path, run_id: str) -> list[str]:
     submit_script = _repo_root() / "osmo" / "submit_evaluation_workflow.py"
     command = [
         sys.executable,
@@ -74,7 +81,7 @@ def _build_command(args: argparse.Namespace, policy: str, env_path: Path) -> lis
         "--policy",
         policy,
         "--workflow_name",
-        _workflow_name(args.workflow_name_prefix, policy, env_path),
+        _workflow_name(args.workflow_name_prefix, policy, env_path, run_id),
         "--priority",
         PRIORITY,
         "--pool",
@@ -111,9 +118,10 @@ def main() -> int:
         print(f"Expected {args.num_robolab_environments} robolab YAMLs, found {len(envs)}.", file=sys.stderr)
         return 1
 
+    run_id = _run_id()
     for env_path in envs:
         for policy in POLICIES:
-            command = _build_command(args, policy, env_path)
+            command = _build_command(args, policy, env_path, run_id)
             print(f"\n$ {shlex.join(command)}", flush=True)
             result = subprocess.run(command, cwd=_repo_root())
             if result.returncode != 0:
