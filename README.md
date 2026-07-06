@@ -79,7 +79,7 @@ cd IsaacLab-Arena
 uv sync
 ```
 
-`uv sync` creates a Python 3.12 virtual environment in `.venv/`, installs Isaac Lab-Arena, and pulls `isaaclab[isaacsim,all]==3.0.0b2` with the matching Isaac Sim 6.0, PyTorch, and Newton wheels. No submodule init and no `ISAACLAB_PATH` are required. Accept the Isaac Sim EULA non-interactively and run the non-camera and camera smoke tests:
+`uv sync` creates a Python 3.12 virtual environment in `.venv/`, installs Isaac Lab-Arena, and pulls `isaaclab[isaacsim,all]==3.0.0b2` with the matching Isaac Sim 6.0, PyTorch, and Newton wheels — the committed lockfile pins the complete environment. Accept the Isaac Sim EULA non-interactively and run the non-camera and camera smoke tests:
 
 ```bash
 export OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y   # accept the Isaac Sim EULA non-interactively
@@ -87,15 +87,14 @@ uv run pytest -q isaaclab_arena/tests/test_achieve_cube_goal_pose.py::test_achie
 uv run pytest -q isaaclab_arena/tests/test_camera_observation.py::test_camera_observation
 ```
 
-Launch a short native rollout with a writable output directory:
+Launch a short rollout:
 
 ```bash
 uv run python isaaclab_arena/evaluation/policy_runner.py \
-  --headless --policy_type zero_action --num_steps 20 \
-  --output_base_dir "$PWD/output" cube_goal_pose
+  --headless --policy_type zero_action --num_steps 20 cube_goal_pose
 ```
 
-> The policy and evaluation runners retain Docker's `/eval/output` default. Pass `--output_base_dir` when running them natively.
+> Outputs land in `./outputs` by default (both natively and in Docker); pass `--output_base_dir` to redirect them, e.g. to Docker's `/eval` mount.
 >
 > The subprocess-based eval phase (`-m with_subprocess`) is currently Docker-only. See the installation guide for details.
 

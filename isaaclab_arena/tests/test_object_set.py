@@ -18,7 +18,12 @@ OBJECT_SET_BOTTLES_PRIM_PATH = "/World/envs/env_.*/ObjectSet_Bottles"
 
 
 def _get_current_stage():
-    """Return Isaac Lab's ``get_current_stage`` across Isaac Sim versions."""
+    """Return ``get_current_stage`` across Isaac Lab versions.
+
+    The public Isaac Lab 3.0.0b2 wheel exposes it at ``isaaclab.sim.utils.stage``; the
+    Docker submodule build only has the ``isaacsim.core.utils.stage`` location. Remove
+    this shim once the two Isaac Lab versions converge.
+    """
     try:
         from isaaclab.sim.utils.stage import get_current_stage
     except ImportError:
