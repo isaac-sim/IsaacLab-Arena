@@ -10,7 +10,8 @@ from isaaclab_arena_gr00t.policy.config.task_mode import TaskMode
 
 
 @dataclass
-class Gr00tClosedloopPolicyConfig:
+class Gr00tClosedloopPolicyCfg:
+    """Configure GR00T closed-loop policy translation and inference."""
 
     language_instruction: str = field(
         default="", metadata={"description": "Instruction given to the policy in natural language."}

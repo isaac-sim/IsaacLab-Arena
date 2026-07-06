@@ -6,27 +6,30 @@
 from __future__ import annotations
 
 import argparse
-from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from abc import abstractmethod
+from typing import TYPE_CHECKING, TypeVar
+
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
+ArenaEnvironmentCfgT = TypeVar("ArenaEnvironmentCfgT", bound=ArenaEnvironmentCfg)
 
-class ExampleEnvironmentBase(ABC):
 
-    name: str | None = None
-
-    def __init__(self):
-        from isaaclab_arena.assets.registries import AssetRegistry, DeviceRegistry, HDRImageRegistry
-
-        self.asset_registry = AssetRegistry()
-        self.device_registry = DeviceRegistry()
-        self.hdr_registry = HDRImageRegistry()
+# TODO(cvolk, 2026-07-03): Remove after external factories migrate from argparse to build(cfg).
+class ExampleEnvironmentBase(ArenaEnvironmentFactory[ArenaEnvironmentCfgT]):
+    """Provide deprecated argparse compatibility for external environment factories."""
 
     @abstractmethod
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+        # TODO(cvolk, 2026-07-03): Deprecate this legacy argparse entry point; build(cfg) will
+        # become the primary environment construction API.
         pass
+
+    def build(self, cfg: ArenaEnvironmentCfgT) -> IsaacLabArenaEnvironment:
+        """Reject typed construction until a legacy external factory migrates."""
+        raise NotImplementedError(f"Legacy factory {type(self).__name__} only supports get_env(args_cli)")
 
     @abstractmethod
     def add_cli_args(parser: argparse.ArgumentParser) -> None:

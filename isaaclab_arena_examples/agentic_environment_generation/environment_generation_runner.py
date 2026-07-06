@@ -190,9 +190,9 @@ def run_zero_action_policy(env: ManagerBasedEnv, num_steps: int) -> None:
     """Run the zero-action policy for a given number of steps."""
     import torch
 
-    from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyArgs
+    from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyCfg
 
-    policy = ZeroActionPolicy(ZeroActionPolicyArgs())
+    policy = ZeroActionPolicy(ZeroActionPolicyCfg())
     obs, _ = env.reset()
     policy.reset()
     for step in range(num_steps):

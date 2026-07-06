@@ -4,6 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import dataclass
+from typing import Literal
+
+from isaaclab_arena.policy.policy_base import PolicyCfg
 
 DEFAULT_VARIANT = "pi05"
 
@@ -15,10 +18,19 @@ MAX_RECONNECT_ATTEMPTS = 3
 # (--policy_config_yaml_path). Decide on one mechanism (likely Hydra) when the
 # planned RemotePolicy base class lands; the config-loading shape belongs there.
 @dataclass
-class Pi0RemotePolicyArgs:
+class Pi0RemotePolicyCfg(PolicyCfg):
     """Connection + runtime config for ``Pi0RemotePolicy``."""
+
+    openpi_embodiment_adapter: Literal["droid"] = "droid"
+    """Adapter used to translate Arena observations and policy actions."""
 
     policy_variant: str = DEFAULT_VARIANT
     policy_device: str = "cuda"
     remote_host: str = "localhost"
     remote_port: int = 8000
+
+    ping_interval: float | None = 20.0
+    """Seconds between websocket keepalive pings, or None to disable pings."""
+
+    ping_timeout: float | None = 20.0
+    """Seconds to wait for a keepalive pong before dropping, or None to wait indefinitely."""

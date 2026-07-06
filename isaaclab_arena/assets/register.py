@@ -3,6 +3,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from types import get_original_bases
+from typing import TYPE_CHECKING, get_args, get_origin
+
 from isaaclab_arena.assets.registries import (
     AssetRegistry,
     DeviceRegistry,
@@ -13,6 +16,9 @@ from isaaclab_arena.assets.registries import (
     RetargeterRegistry,
     TaskRegistry,
 )
+
+if TYPE_CHECKING:
+    from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
 
 # Decorator to register an asset with the AssetRegistry.
@@ -45,11 +51,14 @@ def register_retargeter(cls):
 
 
 # Decorator to register a policy with the PolicyRegistry.
-def register_policy(cls):
+def register_policy(cls: type["PolicyBase"]):
+    """Register a policy and its typed configuration."""
     if PolicyRegistry().is_registered(cls.name, ensure_loaded=False):
         print(f"WARNING: Policy {cls.name} is already registered. Doing nothing.")
     else:
-        PolicyRegistry().register(cls, cls.name)
+        # TODO(cvolk, 2026-07-06): Register only the policy class once typed experiment
+        # configs make config-type discovery unnecessary in policy_runner and eval_runner.
+        PolicyRegistry().register_policy(cls, _policy_cfg_type_from_policy(cls))
     return cls
 
 
@@ -98,3 +107,25 @@ def agent_ready(cls):
     """Mark a task class as available to the environment-generation agent."""
     cls.agent_ready = True
     return cls
+
+
+# TODO(cvolk, 2026-07-06): Remove this resolver and the PolicyRegistry config-type
+# metadata when policy_runner accepts a PolicyCfg instead of argparse values and
+# eval_runner accepts one instead of Job.policy_config_dict.
+def _policy_cfg_type_from_policy(policy_type: type["PolicyBase"]) -> type["PolicyCfg"]:
+    """Return the concrete config declared by ``PolicyBase[Cfg]``."""
+    # Importing PolicyBase at module load time creates assets.register -> policy package ->
+    # concrete policy -> assets.register. Delay it until a concrete policy is decorated.
+    from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
+
+    policy_bases = [base for base in get_original_bases(policy_type) if get_origin(base) is PolicyBase]
+    assert len(policy_bases) == 1, f"{policy_type.__name__} must directly inherit PolicyBase[ConcretePolicyCfg]"
+
+    cfg_types = get_args(policy_bases[0])
+    assert len(cfg_types) == 1, f"{policy_type.__name__} must declare exactly one policy config"
+
+    cfg_type = cfg_types[0]
+    assert isinstance(cfg_type, type) and issubclass(
+        cfg_type, PolicyCfg
+    ), f"{policy_type.__name__} must use a concrete PolicyCfg subclass"
+    return cfg_type

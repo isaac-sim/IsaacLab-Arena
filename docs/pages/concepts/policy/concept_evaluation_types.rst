@@ -134,8 +134,8 @@ and pass ``--distributed`` so each process uses a different GPU (via ``LOCAL_RAN
 - ``--distributed``: Enable distributed mode; use with ``torchrun`` and set
   device per rank (e.g. ``cuda:{local_rank}``).
 
-The rest of the arguments (environment, embodiment, object, etc.) come from the
-Arena environments CLI and the policy’s own ``add_args_to_parser``.
+The remaining environment arguments come from the Arena environments CLI. For
+registered policies, policy-specific flags are generated from their ``PolicyCfg``.
 
 .. _sequential-batch-eval-runner:
 
@@ -182,8 +182,8 @@ object with:
   internally to the same CLI-style list the policy runner uses.
 - ``policy_type``: Same as policy runner (registered name or dotted class path).
 - ``policy_config_dict``: Policy configuration (e.g. checkpoint path, model
-  options). Used with ``PolicyBase.from_dict`` if the policy has a
-  ``config_class``, otherwise converted to CLI args and ``from_args``.
+  options). Deserialized through the policy's registered config type; the
+  deprecated CLI conversion fallback remains for legacy policies without one.
 - ``num_steps`` or ``num_episodes`` (optional): Simulation length for this job.
   If both are omitted, the runner uses the policy’s length if defined, or a CLI
   default (e.g. ``--num_steps``).
