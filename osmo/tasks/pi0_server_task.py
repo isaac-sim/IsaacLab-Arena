@@ -44,6 +44,7 @@ class Pi0ServerTask(BaseTask):
     def _get_run_script(self) -> str:
         return (
             "set -euxo pipefail\n"
+            "nvidia-smi\n"
             f"export XLA_PYTHON_CLIENT_MEM_FRACTION={XLA_PYTHON_CLIENT_MEM_FRACTION}\n"
             f"cd {OPENPI_APP_DIR}\n"
             "uv run scripts/serve_policy.py policy:checkpoint \\\n"

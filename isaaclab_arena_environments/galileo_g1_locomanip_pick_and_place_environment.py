@@ -5,11 +5,12 @@
 
 from __future__ import annotations
 
-import argparse
 import math
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.register import register_environment
+from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
@@ -61,24 +62,41 @@ def _apply_legacy_datagen_name_override(
     return env_cfg
 
 
+@dataclass
+class GalileoG1LocomanipPickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the Galileo G1 locomotion-and-manipulation environment."""
+
+    enable_cameras: bool = False
+    object: str = "brown_box"
+    destination: str = "blue_sorting_bin"
+    embodiment: str = "g1_wbc_pink"
+    teleop_device: str | None = None
+    task_description: str | None = None
+    mimic: bool = False
+    auto: bool | None = None
+    """Legacy auto-annotation flag; ``None`` records that the caller did not define it."""
+
+
 @register_environment
-class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
+class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase[GalileoG1LocomanipPickAndPlaceEnvironmentCfg]):
 
     name: str = "galileo_g1_locomanip_pick_and_place"
+    _legacy_argparse_cfg_type = GalileoG1LocomanipPickAndPlaceEnvironmentCfg
 
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+    def build(self, cfg: GalileoG1LocomanipPickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import G1PickAndPlaceMimicEnvCfg, PickAndPlaceTask
         from isaaclab_arena.utils.pose import Pose, PoseRange
 
         background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
-        pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-        destination = self.asset_registry.get_asset_by_name(args_cli.destination)()
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
+        pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
+        destination = self.asset_registry.get_asset_by_name(cfg.destination)()
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
 
-        if args_cli.teleop_device is not None:
-            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+        if cfg.teleop_device is not None:
+            teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()
         else:
             teleop_device = None
 
@@ -100,12 +118,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
         )
         embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.18, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
-        if (
-            args_cli.embodiment == "g1_wbc_pink"
-            and hasattr(args_cli, "mimic")
-            and args_cli.mimic
-            and not hasattr(args_cli, "auto")
-        ):
+        if cfg.embodiment == "g1_wbc_pink" and cfg.mimic and cfg.auto is None:
             # Set navigation p-controller for locomanip use case
             action_cfg = embodiment.get_action_cfg()
             action_cfg.g1_action.use_p_control = True
@@ -117,13 +130,13 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
                 ([-0.0955, -1.1070, -1.78], False),
             ]
 
-        if args_cli.task_description is not None:
-            task_description = args_cli.task_description
-        elif _is_legacy_pair(args_cli.object, args_cli.destination):
+        if cfg.task_description is not None:
+            task_description = cfg.task_description
+        elif _is_legacy_pair(cfg.object, cfg.destination):
             task_description = _LEGACY_BROWN_BOX_TO_BLUE_BIN_DESCRIPTION
         else:
-            object_label = args_cli.object.replace("_", " ")
-            destination_label = args_cli.destination.replace("_", " ")
+            object_label = cfg.object.replace("_", " ")
+            destination_label = cfg.destination.replace("_", " ")
             task_description = (
                 f"Pick up the {object_label} from the shelf, and place it on the {destination_label} on the table"
                 " located at the right of the shelf."
@@ -162,19 +175,3 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
             env_cfg_callback=env_cfg_callback,
         )
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default="brown_box")
-        parser.add_argument("--destination", type=str, default="blue_sorting_bin")
-        parser.add_argument("--embodiment", type=str, default="g1_wbc_pink")
-        parser.add_argument("--teleop_device", type=str, default=None)
-        parser.add_argument(
-            "--task_description",
-            type=str,
-            default=None,
-            help=(
-                "Override the natural-language task description. Defaults to a template derived from --object "
-                "and --destination."
-            ),
-        )

@@ -5,22 +5,35 @@
 
 from __future__ import annotations
 
-import argparse
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
+from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
+@dataclass
+class Gr1OpenMicrowaveEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the GR1 open-microwave environment."""
+
+    enable_cameras: bool = False
+    object: str | None = None
+    teleop_device: str | None = None
+    embodiment: str = "gr1_pink"
+
+
 @register_environment
-class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
+class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase[Gr1OpenMicrowaveEnvironmentCfg]):
 
     name: str = "gr1_open_microwave"
+    _legacy_argparse_cfg_type = Gr1OpenMicrowaveEnvironmentCfg
 
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+    def build(self, cfg: Gr1OpenMicrowaveEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.open_door_task import OpenDoorTask
@@ -29,14 +42,12 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
         background = self.asset_registry.get_asset_by_name("kitchen")()
         microwave = self.asset_registry.get_asset_by_name("microwave")()
         assets = [background, microwave]
-        assert args_cli.embodiment in ["gr1_pink", "gr1_joint"], "Invalid GR1T2 embodiment {}".format(
-            args_cli.embodiment
-        )
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
+        assert cfg.embodiment in ["gr1_pink", "gr1_joint"], f"Invalid GR1T2 embodiment {cfg.embodiment}"
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
         embodiment.set_initial_pose(Pose(position_xyz=(-0.4, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
-        if args_cli.teleop_device is not None:
-            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+        if cfg.teleop_device is not None:
+            teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()
         else:
             teleop_device = None
 
@@ -48,8 +59,8 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
         microwave.set_initial_pose(microwave_pose)
 
         # Optionally add another object
-        if args_cli.object is not None:
-            object = self.asset_registry.get_asset_by_name(args_cli.object)()
+        if cfg.object is not None:
+            object = self.asset_registry.get_asset_by_name(cfg.object)()
             object_pose = Pose(
                 position_xyz=(0.466, -0.437, 0.154),
                 rotation_xyzw=(-0.5, 0.5, -0.5, 0.5),
@@ -69,12 +80,3 @@ class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
         )
 
         return isaaclab_arena_environment
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default=None)
-        # NOTE(alexmillane, 2025.09.04): We need a teleop device argument in order
-        # to be used in the record_demos.py script.
-        parser.add_argument("--teleop_device", type=str, default=None)
-        # Note (xinjieyao, 2025.10.06): Add the embodiment argument for PINK IK EEF control or Joint positional control
-        parser.add_argument("--embodiment", type=str, default="gr1_pink")

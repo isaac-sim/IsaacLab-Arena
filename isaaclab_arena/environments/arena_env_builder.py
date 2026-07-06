@@ -36,6 +36,7 @@ from isaaclab_arena.progress_tracking.progress_tracker import (
 )
 from isaaclab_arena.recording.common_terms import CoreEpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
+from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
@@ -164,16 +165,19 @@ class ArenaEnvBuilder:
     def _compose_episode_recorders_cfg(self, extra_terms: dict[str, EpisodeRecorderTermCfg] | None = None) -> object:
         """Build a configclass container with one EpisodeRecorderTermCfg field per episode recorder term.
 
-        Note that this function automatically adds the core and variations terms.
+        Note that this function automatically adds the core, variations, and progress terms. The
+        progress term records nothing for tasks that define no progress objectives.
         """
         fields = [
             ("core", EpisodeRecorderTermCfg, CoreEpisodeRecorderTermCfg()),
             ("variations", EpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg()),
+            ("progress", EpisodeRecorderTermCfg, ProgressEpisodeRecorderTermCfg()),
         ]
         for name, term_cfg in (extra_terms or {}).items():
             assert name not in (
                 "core",
                 "variations",
+                "progress",
             ), f"Episode recorder term name '{name}' collides with a built-in term."
             fields.append((name, EpisodeRecorderTermCfg, term_cfg))
         return make_configclass("EpisodeRecorderManagerCfg", fields)()

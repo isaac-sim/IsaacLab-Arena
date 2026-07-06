@@ -22,11 +22,12 @@ HOMIE behaviour. The other differences from the locomanip env are:
 
 from __future__ import annotations
 
-import argparse
 import warnings
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
+from isaaclab_arena.environments.arena_environment_cfg import ArenaEnvironmentCfg
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
@@ -146,8 +147,23 @@ def _asset_scale(asset_name: str) -> tuple[float, float, float]:
     return (1.0, 1.0, 1.0)
 
 
+@dataclass
+class GalileoG1StaticPickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the static-base Galileo G1 pick-and-place environment."""
+
+    enable_cameras: bool = False
+    object: str = TUNED_PICK_UP_OBJECT_NAME
+    destination: str = TUNED_DESTINATION_NAME
+    embodiment: str = "g1_wbc_agile_pink"
+    """Use AGILE whole-body control by default; ``g1_wbc_pink`` selects HOMIE instead."""
+    teleop_device: str | None = None
+    task_description: str = "move the apple to the plate"
+    lock_waist: bool = True
+    """Keep the waist out of Pink IK unless extended arm reach is required."""
+
+
 @register_environment
-class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
+class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase[GalileoG1StaticPickAndPlaceEnvironmentCfg]):
     """G1 (WBC-balanced, no nav) pick-and-place on the locomanip warehouse shelf.
 
     Defaults to the apple-to-plate pairing so this env composes cleanly into the existing
@@ -155,8 +171,10 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
     """
 
     name: str = "galileo_g1_static_pick_and_place"
+    _legacy_argparse_cfg_type = GalileoG1StaticPickAndPlaceEnvironmentCfg
 
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+    def build(self, cfg: GalileoG1StaticPickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
         from isaaclab import sim as sim_utils
 
         from isaaclab_arena.assets.object import Object
@@ -200,13 +218,11 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         # small objects can fall through parts of the visible shelf. Add an invisible
         # static cuboid flush with the shelf top so task objects see a clean support.
         shelf_support = StaticShelfSupport()
-        pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)(scale=_asset_scale(args_cli.object))
-        destination = self.asset_registry.get_asset_by_name(args_cli.destination)(
-            scale=_asset_scale(args_cli.destination)
-        )
-        embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
-            enable_cameras=args_cli.enable_cameras,
-            lock_waist=args_cli.lock_waist,
+        pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)(scale=_asset_scale(cfg.object))
+        destination = self.asset_registry.get_asset_by_name(cfg.destination)(scale=_asset_scale(cfg.destination))
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(
+            enable_cameras=cfg.enable_cameras,
+            lock_waist=cfg.lock_waist,
         )
         embodiment.set_finger_contact_friction(
             material_path=G1_STATIC_FINGER_FRICTION_MATERIAL_PATH,
@@ -215,8 +231,8 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
             prim_name_markers=G1_STATIC_FINGER_PRIM_NAME_MARKERS,
         )
 
-        if args_cli.teleop_device is not None:
-            teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+        if cfg.teleop_device is not None:
+            teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()
         else:
             teleop_device = None
 
@@ -228,7 +244,7 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         embodiment.set_joint_initial_pos(G1_STATIC_OPEN_ARM_JOINT_POS)
         pick_up_object_x, pick_up_object_y = PICK_UP_OBJECT_SPAWN_XY
         destination_x, destination_y = DESTINATION_SPAWN_XY
-        pick_up_object_z = _shelf_spawn_z(args_cli.object)
+        pick_up_object_z = _shelf_spawn_z(cfg.object)
         # ``PoseRange`` registers a ``randomize_object_pose`` reset event so the apple's
         # XY is resampled every episode within ``APPLE_SPAWN_XY_RANGE_M``. Z and rotation
         # are pinned (rpy_min == rpy_max) so the object always lands flush on the shelf
@@ -252,12 +268,12 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
         )
         destination.set_initial_pose(
             Pose(
-                position_xyz=(destination_x, destination_y, _shelf_spawn_z(args_cli.destination)),
+                position_xyz=(destination_x, destination_y, _shelf_spawn_z(cfg.destination)),
                 rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
             )
         )
 
-        task_description = args_cli.task_description
+        task_description = cfg.task_description
 
         def env_cfg_callback(env_cfg):
             from isaaclab.managers import EventTermCfg
@@ -293,39 +309,4 @@ class GalileoG1StaticPickAndPlaceEnvironment(ExampleEnvironmentBase):
             ),
             teleop_device=teleop_device,
             env_cfg_callback=env_cfg_callback,
-        )
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default=TUNED_PICK_UP_OBJECT_NAME)
-        parser.add_argument("--destination", type=str, default=TUNED_DESTINATION_NAME)
-        # Default embodiment is g1_wbc_agile_pink: AGILE end-to-end velocity policy for
-        # whole-body balance + PinkIK upper body. The static task never walks, so AGILE's
-        # single-policy backend is a better fit than HOMIE's stand+walk split (which
-        # ``g1_wbc_pink`` ships). Same 23-D action layout and OpenXR retargeter as the
-        # locomanip env -- the only knob that flips is which lower-body ONNX policy gets
-        # loaded by the WBC factory. ``g1_wbc_pink`` is still accepted as an override
-        # for users who specifically want HOMIE.
-        parser.add_argument("--embodiment", type=str, default="g1_wbc_agile_pink")
-        parser.add_argument("--teleop_device", type=str, default=None)
-        parser.add_argument(
-            "--task_description",
-            type=str,
-            default="move the apple to the plate",
-            help="Natural-language task description for language-conditioned policies.",
-        )
-        # The static task is upper-body-only by design, so we lock the 3 waist
-        # joints by default. Pass ``--no-lock_waist`` to fall back to the default
-        # AGILE-pink behaviour (waist active in Pink IK for extended arm reach).
-        parser.add_argument(
-            "--lock_waist",
-            action=argparse.BooleanOptionalAction,
-            default=True,
-            help=(
-                "Remove waist_yaw/roll/pitch from the upper-body Pink IK active set so "
-                "the torso stays fixed during teleoperation and recorded observations. "
-                "On by default for this static task; pass --no-lock_waist to allow the "
-                "IK to use the waist for extended arm reach (the production AGILE-pink "
-                "default)."
-            ),
         )
