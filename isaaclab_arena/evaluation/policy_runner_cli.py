@@ -101,10 +101,11 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--output_base_dir",
         type=str,
-        default="/eval/output",
+        default="outputs",
         help=(
             "Base directory for evaluation outputs (videos, per-episode results, report); a"
             " reverse-dated run subdirectory is added per run."
+            " Defaults to ./outputs; pass e.g. /eval/output to write to Docker's eval mount."
         ),
     )
     parser.add_argument(
