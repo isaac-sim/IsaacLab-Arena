@@ -28,7 +28,7 @@ class ReplayActionPolicyCfg(PolicyCfg):
     """Episode to replay, or the first episode when omitted."""
 
 
-@register_policy(cfg_type=ReplayActionPolicyCfg)
+@register_policy
 class ReplayActionPolicy(PolicyBase[ReplayActionPolicyCfg]):
     """
     Replay the actions from an named episode stored in a HDF5 file.

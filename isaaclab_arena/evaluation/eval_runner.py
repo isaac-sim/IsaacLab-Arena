@@ -12,7 +12,6 @@ import subprocess
 import sys
 import tempfile
 import traceback
-import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -91,37 +90,21 @@ def enable_cameras_if_required(eval_jobs_config: dict, args_cli: argparse.Namesp
             break
 
 
+# TODO(cvolk, 2026-07-06): Accept a concrete PolicyCfg from the typed experiment
+# configuration and remove config-type lookup and dictionary construction here.
 def get_policy_from_job(job: Job) -> "PolicyBase":
-    """
-    Create a policy from a job configuration. Two paths are supported:
-    1. JSON → dict → registered PolicyCfg → policy (preferred)
-    2. JSON → dict → CLI args → policy (deprecated compatibility fallback)
-    """
+    """Create a policy from a job's registered typed configuration."""
     # Each job can be evaluated with a different policy checkpoint, or even a different policy type
     policy_cls = get_policy_cls(job.policy_type)
     policy_cfg_type = PolicyRegistry().get_policy_cfg_type(policy_cls)
 
     policy_config_dict = dict(job.policy_config_dict)
     # Align policy num_envs with env when the policy config supports it (optional key)
-    if policy_cfg_type is not None:
-        config_fields = {f.name for f in dataclasses.fields(policy_cfg_type)}
-        if "num_envs" in config_fields:
-            policy_config_dict["num_envs"] = job.num_envs
+    config_fields = {f.name for f in dataclasses.fields(policy_cfg_type)}
+    if "num_envs" in config_fields:
+        policy_config_dict["num_envs"] = job.num_envs
 
-    if policy_cfg_type is not None:
-        policy = policy_cls(policy_cfg_type(**policy_config_dict))
-    else:
-        # TODO(cvolk, 2026-07-03): Remove this deprecated fallback once every policy registers a typed config.
-        warnings.warn(
-            f"Policy {policy_cls.__name__} uses the deprecated argparse construction path; register a PolicyCfg",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        policy_args_parser = get_isaaclab_arena_cli_parser()
-        policy_added_args_parser = policy_cls.add_args_to_parser(policy_args_parser)
-        policy_args = policy_added_args_parser.parse_args(policy_config_dict)
-        policy = policy_cls.from_args(policy_args)
-    return policy
+    return policy_cls(policy_cfg_type(**policy_config_dict))
 
 
 def _close_policy(policy: "PolicyBase | None") -> None:

@@ -122,52 +122,23 @@ def test_registered_policies_do_not_own_argparse_adapters():
         assert "from_args" not in policy_type.__dict__
 
 
-def test_untyped_policy_keeps_deprecated_argparse_fallback(monkeypatch):
-    """Preserve the temporary policy-owned adapter for downstream policies."""
-
-    class LegacyPolicy:
-        name = "legacy_policy"
-
-        @staticmethod
-        def add_args_to_parser(parser):
-            parser.add_argument("--legacy_value", type=int, default=1)
-            return parser
-
-        @staticmethod
-        def from_args(args_cli):
-            return args_cli.legacy_value
-
-    monkeypatch.setattr(PolicyRegistry, "get_policy_cfg_type", lambda self, policy_type: None)
-    parser = argparse.ArgumentParser(exit_on_error=False)
-
-    with pytest.warns(DeprecationWarning, match="deprecated policy-owned argparse flags"):
-        add_policy_cli_args(parser, LegacyPolicy)
-
-    assert build_policy_from_cli(LegacyPolicy, parser.parse_args(["--legacy_value", "2"])) == 2
-
-
-def test_typed_policy_registration_associates_config(monkeypatch):
-    """Pass the policy and its config through the supported decorator form."""
+def test_policy_registration_infers_config_from_generic(monkeypatch):
+    """Register the concrete config declared by ``PolicyBase[Cfg]``."""
     registrations = []
 
-    def record_registration(policy_type, cfg_type):
+    def record_registration(self, policy_type, cfg_type):
         registrations.append((policy_type, cfg_type))
-        return policy_type
 
-    monkeypatch.setattr(policy_registration, "_register_policy", record_registration)
+    monkeypatch.setattr(PolicyRegistry, "is_registered", lambda self, name, ensure_loaded=False: False)
+    monkeypatch.setattr(PolicyRegistry, "register_policy", record_registration)
 
-    registered_policy = policy_registration.register_policy(cfg_type=_ExamplePolicyCfg)(_ExamplePolicy)
+    registered_policy = policy_registration.register_policy(_ExamplePolicy)
 
     assert registered_policy is _ExamplePolicy
     assert registrations == [(_ExamplePolicy, _ExamplePolicyCfg)]
 
 
-def test_bare_policy_registration_is_deprecated(monkeypatch):
-    """Keep the untyped registration form only as an explicit compatibility path."""
-    # TODO(cvolk, 2026-07-03): Delete this test when bare @register_policy support is removed.
-    monkeypatch.setattr(policy_registration, "_register_policy", lambda policy_type, cfg_type: policy_type)
-
-    with pytest.warns(DeprecationWarning, match="Bare @register_policy is deprecated"):
-        registered_policy = policy_registration.register_policy(_ExamplePolicy)
-
-    assert registered_policy is _ExamplePolicy
+def test_unregistered_policy_config_is_rejected():
+    """Require every policy to register a typed configuration."""
+    with pytest.raises(AssertionError, match="Policy _ExamplePolicy must register a PolicyCfg"):
+        PolicyRegistry().get_policy_cfg_type(_ExamplePolicy)

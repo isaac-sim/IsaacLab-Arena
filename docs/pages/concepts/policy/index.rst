@@ -54,7 +54,7 @@ Define a typed ``PolicyCfg``, subclass ``PolicyBase`` with that config, set a
        device: str = "cuda:0"
 
 
-   @register_policy(cfg_type=MyPolicyCfg)
+   @register_policy
    class MyPolicy(PolicyBase[MyPolicyCfg]):
        name = "my_policy"
 
@@ -80,15 +80,11 @@ The typed registration lets the single-job runner generate CLI flags from
 Config fields named ``device`` or ``num_envs`` reuse the corresponding shared
 runner flags, so their defaults must match the runner defaults.
 
-.. TODO(cvolk, 2026-07-03): Remove this compatibility note with support for untyped downstream policies.
-
 .. note::
 
-   ``policy_runner.py`` remains an argparse frontend, but policies registered
-   with a ``PolicyCfg`` do not implement argparse methods. The runner generates
-   their flags from that config and reconstructs it before creating the policy.
-   Untyped downstream policies temporarily retain the deprecated
-   ``add_args_to_parser`` and ``from_args`` compatibility path.
+   ``policy_runner.py`` remains an argparse frontend, but policies do not
+   implement argparse methods. The runner generates their flags from the
+   registered config and reconstructs it before creating the policy.
 
 More details
 ------------

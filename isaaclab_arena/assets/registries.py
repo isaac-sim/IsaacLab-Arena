@@ -184,22 +184,24 @@ class RetargeterRegistry(Registry):
 class PolicyRegistry(Registry):
     def __init__(self):
         super().__init__()
+        # TODO(cvolk, 2026-07-06): Remove config-type metadata when typed experiment
+        # configs replace policy_runner CLI values and Job.policy_config_dict.
         self._cfg_types: dict[type["PolicyBase"], type["PolicyCfg"]] = {}
 
-    # TODO(cvolk, 2026-07-03): After bare policy registration is removed, make cfg_type
-    # non-optional and remove the None branch.
-    def register_policy(self, policy_type: type["PolicyBase"], cfg_type: type["PolicyCfg"] | None) -> None:
-        """Register a policy and its config, accepting None only for deprecated callers."""
+    # TODO(cvolk, 2026-07-06): Use the generic Registry.register() method once
+    # frontends no longer need the associated policy config type.
+    def register_policy(self, policy_type: type["PolicyBase"], cfg_type: type["PolicyCfg"]) -> None:
+        """Register a policy and its typed configuration."""
         self.register(policy_type, policy_type.name)
-        if cfg_type is not None:
-            self._cfg_types[policy_type] = cfg_type
+        self._cfg_types[policy_type] = cfg_type
 
-    # TODO(cvolk, 2026-07-03): Remove this lookup when policy_runner and eval_runner receive
+    # TODO(cvolk, 2026-07-06): Remove this lookup when policy_runner and eval_runner receive
     # concrete PolicyCfg objects instead of CLI values and Job.policy_config_dict.
-    def get_policy_cfg_type(self, policy_type: type["PolicyBase"]) -> type["PolicyCfg"] | None:
+    def get_policy_cfg_type(self, policy_type: type["PolicyBase"]) -> type["PolicyCfg"]:
         """Get the config type used by the temporary policy frontend adapters."""
         ensure_assets_registered()
-        return self._cfg_types.get(policy_type)
+        assert policy_type in self._cfg_types, f"Policy {policy_type.__name__} must register a PolicyCfg"
+        return self._cfg_types[policy_type]
 
     def get_policy(self, name: str) -> type["PolicyBase"]:
         """Gets a policy by name.

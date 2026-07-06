@@ -18,49 +18,6 @@ CfgT = TypeVar("CfgT")
 # configuration objects instead of reconstructing them from argparse Namespaces.
 
 
-def _field_default(config_field: Field[Any]) -> Any:
-    """Return one dataclass field's default value, or ``MISSING``."""
-    if config_field.default is not MISSING:
-        return config_field.default
-    if config_field.default_factory is not MISSING:
-        return config_field.default_factory()
-    return MISSING
-
-
-def _unwrap_optional_type(field_type: Any) -> Any:
-    """Return ``T`` from ``T | None`` so argparse can use ``T`` as a converter."""
-    union_members = get_args(field_type)
-    non_none_members = tuple(member for member in union_members if member is not type(None))
-    if len(non_none_members) == 1 and len(non_none_members) != len(union_members):
-        return non_none_members[0]
-    return field_type
-
-
-def _get_argparse_options(config_field: Field[Any], field_type: Any) -> dict[str, Any]:
-    """Describe one generated argparse flag using its dataclass field."""
-    argument_options: dict[str, Any] = {}
-    default = _field_default(config_field)
-    if default is MISSING:
-        argument_options["required"] = True
-    else:
-        argument_options["default"] = default
-
-    cli_value_type = _unwrap_optional_type(field_type)
-    if get_origin(cli_value_type) is list:
-        (list_item_type,) = get_args(cli_value_type)
-        argument_options.update(type=list_item_type, nargs="*")
-    elif get_origin(cli_value_type) is Literal:
-        choices = get_args(cli_value_type)
-        choice_types = {type(choice) for choice in choices}
-        assert len(choice_types) == 1, f"{config_field.name} Literal choices must have one value type"
-        argument_options.update(type=choice_types.pop(), choices=choices)
-    elif cli_value_type is bool:
-        argument_options["action"] = "store_true" if default is False else argparse.BooleanOptionalAction
-    else:
-        argument_options["type"] = cli_value_type
-    return argument_options
-
-
 def add_dataclass_cli_args(
     parser: argparse.ArgumentParser,
     cfg_type: type[CfgT],
@@ -112,3 +69,46 @@ def dataclass_from_cli(cfg_type: type[CfgT], args_cli: argparse.Namespace) -> Cf
         if hasattr(args_cli, config_field.name)
     }
     return cfg_type(**config_values)
+
+
+def _field_default(config_field: Field[Any]) -> Any:
+    """Return one dataclass field's default value, or ``MISSING``."""
+    if config_field.default is not MISSING:
+        return config_field.default
+    if config_field.default_factory is not MISSING:
+        return config_field.default_factory()
+    return MISSING
+
+
+def _unwrap_optional_type(field_type: Any) -> Any:
+    """Return ``T`` from ``T | None`` so argparse can use ``T`` as a converter."""
+    union_members = get_args(field_type)
+    non_none_members = tuple(member for member in union_members if member is not type(None))
+    if len(non_none_members) == 1 and len(non_none_members) != len(union_members):
+        return non_none_members[0]
+    return field_type
+
+
+def _get_argparse_options(config_field: Field[Any], field_type: Any) -> dict[str, Any]:
+    """Describe one generated argparse flag using its dataclass field."""
+    argument_options: dict[str, Any] = {}
+    default = _field_default(config_field)
+    if default is MISSING:
+        argument_options["required"] = True
+    else:
+        argument_options["default"] = default
+
+    cli_value_type = _unwrap_optional_type(field_type)
+    if get_origin(cli_value_type) is list:
+        (list_item_type,) = get_args(cli_value_type)
+        argument_options.update(type=list_item_type, nargs="*")
+    elif get_origin(cli_value_type) is Literal:
+        choices = get_args(cli_value_type)
+        choice_types = {type(choice) for choice in choices}
+        assert len(choice_types) == 1, f"{config_field.name} Literal choices must have one value type"
+        argument_options.update(type=choice_types.pop(), choices=choices)
+    elif cli_value_type is bool:
+        argument_options["action"] = "store_true" if default is False else argparse.BooleanOptionalAction
+    else:
+        argument_options["type"] = cli_value_type
+    return argument_options

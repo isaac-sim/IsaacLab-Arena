@@ -55,7 +55,7 @@ class RslRlActionPolicyCfg(PolicyCfg):
     """Device to run the policy on."""
 
 
-@register_policy(cfg_type=RslRlActionPolicyCfg)
+@register_policy
 class RslRlActionPolicy(PolicyBase[RslRlActionPolicyCfg]):
     """Policy that uses a trained RSL-RL model for inference.
 

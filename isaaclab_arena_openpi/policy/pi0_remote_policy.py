@@ -48,7 +48,7 @@ class Pi0EmbodimentAdapter(ABC):
         """Build the wire-format request payload openpi server expects."""
 
 
-@register_policy(cfg_type=Pi0RemotePolicyCfg)
+@register_policy
 class Pi0RemotePolicy(PolicyBase[Pi0RemotePolicyCfg]):
     """openpi remote closed-loop policy, parameterized by an embodiment adapter.
 

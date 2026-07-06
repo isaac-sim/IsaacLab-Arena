@@ -17,7 +17,7 @@ class ZeroActionPolicyCfg(PolicyCfg):
     """Configure a policy that always returns zero actions."""
 
 
-@register_policy(cfg_type=ZeroActionPolicyCfg)
+@register_policy
 class ZeroActionPolicy(PolicyBase[ZeroActionPolicyCfg]):
 
     name = "zero_action"

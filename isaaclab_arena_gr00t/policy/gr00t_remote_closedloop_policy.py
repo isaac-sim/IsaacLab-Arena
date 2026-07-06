@@ -58,7 +58,7 @@ class Gr00tRemoteClosedloopPolicyCfg(Gr00tBasePolicyCfg):
     """Action scheduler used to consume inference chunks."""
 
 
-@register_policy(cfg_type=Gr00tRemoteClosedloopPolicyCfg)
+@register_policy
 class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
     """GR00T closed-loop policy that delegates inference to a remote GR00T server.
 
