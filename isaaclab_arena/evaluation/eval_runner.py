@@ -4,38 +4,29 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
-import dataclasses
 import json
 import math
 import os
 import subprocess
 import sys
 import tempfile
-import traceback
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.evaluation.arena_experiment import ExperimentStatus
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
-from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
-from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
-from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
+from isaaclab_arena.evaluation.experiment_execution import build_and_run_experiment
+from isaaclab_arena.evaluation.job_manager import JobManager, Status
+from isaaclab_arena.evaluation.legacy_job_adapter import load_legacy_experiments
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
-from isaaclab_arena.utils.isaaclab_utils.simulation_app import (
-    SimulationAppContext,
-    collect_garbage_and_clear_cuda_cache,
-    teardown_simulation_app,
-)
-from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir, wrap_env_for_video
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir
 from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
-if TYPE_CHECKING:
-    from isaaclab_arena.metrics.metric_data import MetricsDataCollection
-    from isaaclab_arena.policy.policy_base import PolicyBase
 
-
+# TODO(cvolk, 2026-07-06): Delete this direct argparse construction helper when
+# callers use typed experiment configuration through eval_runner.
 def load_env(
     arena_env_args: list[str],
     job_name: str,
@@ -88,74 +79,6 @@ def enable_cameras_if_required(eval_jobs_config: dict, args_cli: argparse.Namesp
             if not hasattr(args_cli, "enable_cameras") or not args_cli.enable_cameras:
                 args_cli.enable_cameras = True
             break
-
-
-# TODO(cvolk, 2026-07-06): Accept a concrete PolicyCfg from the typed experiment
-# configuration and remove config-type lookup and dictionary construction here.
-def get_policy_from_job(job: Job) -> "PolicyBase":
-    """Create a policy from a job's registered typed configuration."""
-    # Each job can be evaluated with a different policy checkpoint, or even a different policy type
-    policy_cls = get_policy_cls(job.policy_type)
-    policy_cfg_type = PolicyRegistry().get_policy_cfg_type(policy_cls)
-
-    policy_config_dict = dict(job.policy_config_dict)
-    # Align policy num_envs with env when the policy config supports it (optional key)
-    config_fields = {f.name for f in dataclasses.fields(policy_cfg_type)}
-    if "num_envs" in config_fields:
-        policy_config_dict["num_envs"] = job.num_envs
-
-    return policy_cls(policy_cfg_type(**policy_config_dict))
-
-
-def _close_policy(policy: "PolicyBase | None") -> None:
-    try:
-        if policy is not None:
-            policy.close()
-    finally:
-        collect_garbage_and_clear_cuda_cache()
-
-
-def _close_env(env) -> None:
-    if env is None:
-        return
-    try:
-        teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
-    finally:
-        try:
-            # cleanup managers, including recorder manager closing hdf5 file
-            env.close()
-        finally:
-            collect_garbage_and_clear_cuda_cache()
-
-
-def _close_job_resources(policy: "PolicyBase | None", env) -> None:
-    try:
-        _close_policy(policy)
-    finally:
-        _close_env(env)
-
-
-def _split_episodes_across_rebuilds(num_episodes: int | None, num_rebuilds: int, job_name: str) -> list[int | None]:
-    """Split a job's total ``num_episodes`` as evenly as possible across its rebuilds.
-
-    ``num_episodes`` is the total accumulated across rebuilds. The first ``remainder`` rebuilds
-    get one extra episode when the split is uneven (e.g. ``num_episodes=5, num_rebuilds=2`` ->
-    ``[3, 2]``). Returns a list of ``None`` (one per rebuild) when the job is length-driven by
-    steps rather than episodes.
-    """
-    if num_episodes is None:
-        return [None] * num_rebuilds
-    assert num_episodes >= num_rebuilds, (
-        f"Job '{job_name}': num_episodes ({num_episodes}) must be >= num_rebuilds"
-        f" ({num_rebuilds}) so each rebuild runs at least one episode"
-    )
-    # Give every rebuild ``base`` episodes, then hand out the leftover episodes one at a
-    # time to the first ``remainder`` rebuilds.
-    base, remainder = divmod(num_episodes, num_rebuilds)
-    episodes_per_rebuild = [base] * num_rebuilds
-    for rebuild_idx in range(remainder):
-        episodes_per_rebuild[rebuild_idx] += 1
-    return episodes_per_rebuild
 
 
 def _run_chunk(chunk_label: str, chunk_jobs: list[dict]) -> int:
@@ -242,6 +165,13 @@ def main():
     enable_cameras_if_required(eval_jobs_config, args_cli)
 
     with SimulationAppContext(args_cli):
+        experiments, arena_builder_factories = load_legacy_experiments(
+            eval_jobs_config,
+            device=args_cli.device,
+        )
+        experiments_by_name = {experiment.name: experiment for experiment in experiments}
+        # TODO(cvolk, 2026-07-06): Replace JobManager with typed experiment results
+        # when the JSON job frontend is removed.
         job_manager = JobManager(eval_jobs_config["jobs"])
         metrics_logger = MetricsLogger()
 
@@ -260,89 +190,29 @@ def main():
         for job in job_manager:
             if job is None:
                 continue
-            env = None
-            policy = None
+            experiment = experiments_by_name[job.name]
+            job_output_dir = os.path.join(run_output_dir, job.name)
+            result = build_and_run_experiment(
+                experiment,
+                output_dir=job_output_dir,
+                arena_builder_factory=arena_builder_factories[job.name],
+                video_cfg=VideoRecordingCfg(
+                    record_viewport_video=args_cli.record_viewport_video,
+                    record_camera_video=args_cli.record_camera_video,
+                    video_base_dir=job_output_dir,
+                ),
+                fallback_num_steps=getattr(args_cli, "num_steps", None),
+            )
 
-            metrics_per_run: list[MetricsDataCollection] = []
+            status = Status.COMPLETED if result.status is ExperimentStatus.COMPLETED else Status.FAILED
+            job_manager.complete_job(job, metrics=result.metrics or {}, status=status)
+            if result.metrics is not None:
+                metrics_logger.append_job_metrics(job.name, result.metrics)
 
-            # num_episodes is the total across rebuilds, so split it over the rebuilds.
-            num_episodes_per_rebuild = _split_episodes_across_rebuilds(job.num_episodes, job.num_rebuilds, job.name)
-
-            # Rebuild the environment and re-run the rollout job.num_rebuilds times, then
-            # aggregate the metrics across rebuilds into a single result.
-            for rebuild_idx in range(job.num_rebuilds):
-                try:
-                    job_output_dir = os.path.join(run_output_dir, job.name)
-
-                    # Per-job video output directory; cameras are tagged with the rebuild index.
-                    video_cfg = VideoRecordingCfg(
-                        record_viewport_video=args_cli.record_viewport_video,
-                        record_camera_video=args_cli.record_camera_video,
-                        video_base_dir=job_output_dir,
-                        camera_name_prefix=f"robot-cam-rebuild{rebuild_idx}",
-                    )
-                    env = load_env(
-                        job.arena_env_args,
-                        job.name,
-                        variations=job.variations,
-                        render_mode=video_cfg.render_mode,
-                        language_instruction=job.language_instruction,
-                    )
-
-                    # Write per-episode results to disk.
-                    # TODO: Aggregate the per-episode records across rebuilds into a single file,
-                    # as is done for the metrics below.
-                    results_path = os.path.join(job_output_dir, f"episode_results_rebuild{rebuild_idx}.jsonl")
-                    env.unwrapped.episode_recorder.set_job_name(job.name)
-                    env.unwrapped.episode_recorder.set_output_path(results_path)
-
-                    policy = get_policy_from_job(job)
-
-                    # Episodes allotted to this rebuild (None when the job is length-driven by steps).
-                    num_episodes_this_rebuild = num_episodes_per_rebuild[rebuild_idx]
-
-                    # Resolve simulation length: num_steps and num_episodes are mutually exclusive.
-                    # Priority: job config -> policy length -> CLI default
-                    if job.num_steps is None and num_episodes_this_rebuild is None:
-                        if policy.has_length():
-                            job.num_steps = policy.length()
-                        else:
-                            job.num_steps = args_cli.num_steps
-
-                    env = wrap_env_for_video(env, video_cfg, job.num_steps, num_episodes_this_rebuild)
-
-                    metrics = rollout_policy(
-                        env,
-                        policy,
-                        num_steps=job.num_steps,
-                        num_episodes=num_episodes_this_rebuild,
-                    )
-
-                    job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
-
-                    # users may not specify metrics for a task, although it's not recommended
-                    if metrics is not None:
-                        metrics_per_run.append(metrics)
-
-                except Exception as e:
-                    job_manager.complete_job(job, metrics={}, status=Status.FAILED)
-                    print(f"Job {job.name} failed with error: {e}")
-                    print(f"Traceback: {traceback.format_exc()}")
-                    if not args_cli.continue_on_error:
-                        raise
-
-                finally:
-                    try:
-                        _close_job_resources(policy, env)
-                    finally:
-                        policy = None
-                        env = None
-                        collect_garbage_and_clear_cuda_cache()
-
-            # Aggregate the metrics from the different experiments into a single view.
-            if metrics_per_run:
-                aggregated_metrics = aggregate_metrics(metrics_per_run)
-                metrics_logger.append_job_metrics(job.name, aggregated_metrics)
+            if result.status is ExperimentStatus.FAILED:
+                print(f"Job {job.name} failed:\n{result.error}")
+                if not args_cli.continue_on_error:
+                    raise RuntimeError(f"Job {job.name} failed:\n{result.error}")
 
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()

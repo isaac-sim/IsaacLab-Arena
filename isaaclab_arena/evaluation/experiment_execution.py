@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Execute typed Arena experiments independently of their configuration frontend."""
+"""Build and execute typed Arena experiments for an evaluation frontend."""
 
 from __future__ import annotations
 
@@ -37,6 +37,7 @@ def build_and_run_experiment(
     output_dir: str | Path,
     arena_builder_factory: ArenaBuilderFactory,
     video_cfg: VideoRecordingCfg | None = None,
+    fallback_num_steps: int | None = None,
 ) -> ArenaExperimentResult:
     """Build and run one typed experiment, then return its result."""
     started_at = time.time()
@@ -67,7 +68,12 @@ def build_and_run_experiment(
                 env.unwrapped.episode_recorder.set_output_path(results_path)
 
                 policy = _build_policy(cfg)
-                num_steps, num_episodes = _resolve_rollout_limit(cfg, policy, num_episodes)
+                num_steps, num_episodes = _resolve_rollout_limit(
+                    cfg,
+                    policy,
+                    num_episodes,
+                    fallback_num_steps,
+                )
                 env = wrap_env_for_video(env, rebuild_video_cfg, num_steps, num_episodes)
                 metrics = rollout_policy(env, policy, num_steps=num_steps, num_episodes=num_episodes)
                 if metrics is not None:
@@ -122,13 +128,21 @@ def _resolve_rollout_limit(
     cfg: ArenaExperimentCfg,
     policy: PolicyBase,
     num_episodes: int | None,
+    fallback_num_steps: int | None,
 ) -> tuple[int | None, int | None]:
     """Resolve explicit rollout limits or a replay policy's intrinsic length."""
     num_steps = cfg.rollout.num_steps
     if num_steps is None and num_episodes is None:
-        assert policy.has_length(), f"Experiment '{cfg.name}' must configure num_steps or num_episodes"
-        num_steps = policy.length()
-        assert num_steps is not None and num_steps > 0, f"Policy for experiment '{cfg.name}' has no usable length"
+        if policy.has_length():
+            num_steps = policy.length()
+            assert num_steps is not None and num_steps > 0, f"Policy for experiment '{cfg.name}' has no usable length"
+        else:
+            # TODO(cvolk, 2026-07-06): Remove this fallback when the legacy eval-runner
+            # CLI no longer supplies a process-wide default rollout length.
+            assert (
+                fallback_num_steps is not None and fallback_num_steps > 0
+            ), f"Experiment '{cfg.name}' must configure num_steps or num_episodes"
+            num_steps = fallback_num_steps
     return num_steps, num_episodes
 
 
