@@ -364,6 +364,11 @@ class RelationSolver:
         """Position snapshots from the most recent solve() call."""
         return self._last_position_history
 
+    @property
+    def last_no_overlap_pair_count(self) -> int:
+        """Directed no-overlap pair count from the most recent solve() call."""
+        return self._last_no_overlap_pair_count
+
     def debug_losses(self, objects: list[ObjectBase]) -> None:
         """Print detailed loss breakdown for all relations using final positions.
 

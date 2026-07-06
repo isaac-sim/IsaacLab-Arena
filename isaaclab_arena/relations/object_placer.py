@@ -820,3 +820,8 @@ class ObjectPlacer:
     def last_position_history(self) -> list:
         """Position snapshots from the most recent place() call."""
         return self._solver.last_position_history
+
+    @property
+    def last_no_overlap_pair_count(self) -> int:
+        """Directed no-overlap pair count from the most recent place() call."""
+        return self._solver.last_no_overlap_pair_count
