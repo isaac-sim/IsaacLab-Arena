@@ -8,6 +8,9 @@
 from dataclasses import dataclass
 
 
+# TODO(cvolk, 2026-07-06): Replace this flat legacy-CLI-shaped configuration with
+# nested scene, placement, and physics configs once the typed experiment runner
+# owns configuration composition.
 @dataclass
 class ArenaEnvBuilderCfg:
     """Configure how Arena builds an Isaac Lab environment."""
