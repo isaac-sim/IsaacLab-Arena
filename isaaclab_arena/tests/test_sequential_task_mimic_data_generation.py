@@ -9,11 +9,16 @@ import tempfile
 import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
+from isaaclab_arena.tests.utils.markers import requires_docker_isaaclab
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 HEADLESS = True
 ENABLE_CAMERAS = False
 GENERATION_NUM_TRIALS = 1
+
+# Mimic data generation hits a contact-view API difference on the public Isaac Lab wheel
+# ('NoneType' object has no attribute 'filter_count'); runs on the Docker build only.
+pytestmark = requires_docker_isaaclab
 
 
 @pytest.mark.with_subprocess
