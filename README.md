@@ -96,7 +96,7 @@ uv run python isaaclab_arena/evaluation/policy_runner.py \
 
 > Outputs land in `./outputs` by default (both natively and in Docker); pass `--output_base_dir` to redirect them, e.g. to Docker's `/eval` mount.
 >
-> The subprocess-based eval phase (`-m with_subprocess`) is currently Docker-only. See the installation guide for details.
+> The subprocess-based eval phase (`-m with_subprocess`) also runs natively; a few tests skip outside Docker (unpromoted assets, Isaac Lab build differences) — see the installation guide.
 
 **Source install inside Docker:**
 
