@@ -42,7 +42,7 @@ def _test_build_placement_region(simulation_app) -> bool:
     """Region pads the anchor footprint by the object's XY reach and rises by its height + clearance."""
     from unittest.mock import MagicMock
 
-    from isaaclab_arena.relations.background_colliders import build_placement_region
+    from isaaclab_arena.scene.background_colliders import build_placement_region
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     anchor = MagicMock()
@@ -68,7 +68,7 @@ def _test_find_background_colliders(simulation_app) -> bool:
 
     from isaaclab_arena.assets.background import Background
     from isaaclab_arena.assets.object_reference import ObjectReference
-    from isaaclab_arena.relations.background_colliders import find_background_colliders
+    from isaaclab_arena.scene.background_colliders import find_background_colliders
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
@@ -92,7 +92,7 @@ def _test_find_background_colliders_recurses_to_components(simulation_app) -> bo
     from pxr import Kind, Usd, UsdGeom
 
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.relations.background_colliders import find_background_colliders
+    from isaaclab_arena.scene.background_colliders import find_background_colliders
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
@@ -121,7 +121,7 @@ def _test_find_background_colliders_explicit_prim_paths(simulation_app) -> bool:
     from pathlib import Path
 
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.relations.background_colliders import find_background_colliders
+    from isaaclab_arena.scene.background_colliders import find_background_colliders
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
@@ -149,7 +149,7 @@ def _test_find_background_colliders_nested_prim_path(simulation_app) -> bool:
     from pxr import Usd, UsdGeom
 
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.relations.background_colliders import find_background_colliders
+    from isaaclab_arena.scene.background_colliders import find_background_colliders
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
