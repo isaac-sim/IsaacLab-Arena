@@ -526,7 +526,7 @@ environment.</span><a class="headerlink" href="#id1" title="Link to this image">
     <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span><span class="p">,</span>  <span class="c1"># optional</span>
 <span class="p">)</span>
 
-<span class="n">env</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">environment</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">)</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>
+<span class="n">env</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">environment</span><span class="p">,</span> <span class="n">ArenaEnvBuilderCfg</span><span class="p">())</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> compiles the scene, embodiment, and task configurations into

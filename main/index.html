@@ -580,7 +580,7 @@ into a <code class="docutils literal notranslate"><span class="pre">ManagerBased
    <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">isaaclab_arena_environment</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">)</span>
+<span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">isaaclab_arena_environment</span><span class="p">,</span> <span class="n">ArenaEnvBuilderCfg</span><span class="p">())</span>
 <span class="n">env</span> <span class="o">=</span> <span class="n">env_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span> <span class="c1"># This will register the environment with the gym registry.</span>
 </pre></div>
 </div>

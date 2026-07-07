@@ -751,7 +751,7 @@ and add them to the scene:</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.relations</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsAnchor</span><span class="p">,</span> <span class="n">On</span><span class="p">,</span> <span class="n">AtPosition</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.scene.scene</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scene</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.arena_env_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArenaEnvBuilder</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.arena_env_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArenaEnvBuilder</span><span class="p">,</span> <span class="n">ArenaEnvBuilderCfg</span>
 
 <span class="c1"># Define anchor</span>
 <span class="n">table_reference</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
@@ -773,7 +773,7 @@ and add them to the scene:</p>
 <span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">table_background</span><span class="p">,</span> <span class="n">table_reference</span><span class="p">,</span> <span class="n">cracker_box</span><span class="p">,</span> <span class="n">mug</span><span class="p">,</span> <span class="n">light</span><span class="p">])</span>
 <span class="n">env</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;demo&quot;</span><span class="p">,</span> <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
 
-<span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">)</span>
+<span class="n">env_builder</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">ArenaEnvBuilderCfg</span><span class="p">())</span>
 <span class="n">gym_env</span> <span class="o">=</span> <span class="n">env_builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>
 </pre></div>
 </div>
