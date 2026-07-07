@@ -245,15 +245,6 @@ def test_graph_spec_rejects_invalid_composition_task_counts():
         ArenaEnvGraphSpec.from_dict(data)
 
 
-def test_graph_spec_from_dict_migrates_legacy_tasks_list():
-    data = _minimal_env_graph_data()
-    legacy_tasks = data.pop("task")["tasks"]
-    data["tasks"] = legacy_tasks
-    spec = ArenaEnvGraphSpec.from_dict(data)
-    assert spec.task.composition == "atomic"
-    assert len(spec.task.tasks) == 1
-
-
 def _minimal_env_graph_data():
     return {
         "env_name": "minimal_env_graph",

@@ -161,28 +161,7 @@ class ArenaEnvGraphSpec(BaseModel):
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:
         assert isinstance(data, dict), f"Env graph spec must be a dict, got {type(data).__name__}"
-        return cls.model_validate(cls._normalize_legacy_task_field(dict(data)))
-
-    @staticmethod
-    def _normalize_legacy_task_field(data: dict[str, Any]) -> dict[str, Any]:
-        """Migrate legacy top-level ``tasks`` lists into the singular ``task`` root node."""
-        if "task" in data or "tasks" not in data:
-            return data
-        legacy_tasks = data.pop("tasks")
-        assert isinstance(legacy_tasks, list) and legacy_tasks, "Legacy 'tasks' must be a non-empty list"
-        if len(legacy_tasks) == 1:
-            composition = "atomic"
-            description = legacy_tasks[0].get("description") or "task"
-        else:
-            composition = "sequential"
-            descriptions = [entry.get("description", "") for entry in legacy_tasks if entry.get("description")]
-            description = " ; ".join(descriptions) if descriptions else "sequential composite task"
-        data["task"] = {
-            "composition": composition,
-            "description": description,
-            "tasks": [{key: value for key, value in entry.items() if key != "description"} for entry in legacy_tasks],
-        }
-        return data
+        return cls.model_validate(data)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to the plain YAML mapping — the inverse of ``from_dict``."""
