@@ -24,6 +24,14 @@ IDENTITY_ROTATION_XYZW = (0.0, 0.0, 0.0, 1.0)
 
 # Name of the reset event term that owns the pooled object placer
 PLACEMENT_RESET_EVENT_NAME = "placement_reset"
+_PLACEMENT_POOL_REGISTRY: dict[str, PooledObjectPlacer] = {}
+
+
+def register_placement_pool(placement_pool: PooledObjectPlacer) -> str:
+    """Register a runtime placement pool and return its lightweight key."""
+    key = f"placement_pool_{id(placement_pool)}"
+    _PLACEMENT_POOL_REGISTRY[key] = placement_pool
+    return key
 
 
 def get_placement_pool(env) -> PooledObjectPlacer | None:
@@ -39,7 +47,13 @@ def get_placement_pool(env) -> PooledObjectPlacer | None:
         term_cfg = env.unwrapped.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME)
     except ValueError:
         return None
-    return term_cfg.params.get("placement_pool")
+    placement_pool = term_cfg.params.get("placement_pool")
+    if placement_pool is not None:
+        return placement_pool
+    placement_pool_key = term_cfg.params.get("placement_pool_key")
+    if placement_pool_key is None:
+        return None
+    return _PLACEMENT_POOL_REGISTRY.get(placement_pool_key)
 
 
 def get_rotation_xyzw(obj: ObjectBase) -> tuple[float, float, float, float]:
@@ -96,11 +110,40 @@ def write_layout_to_sim(
         asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_id_tensor)
 
 
+def _write_layout_to_sim_by_name(
+    env: ManagerBasedEnv,
+    env_id: int,
+    result: PlacementResult,
+    anchor_object_names: set[str],
+    base_rotations_by_name: dict[str, tuple[float, float, float, float]],
+) -> None:
+    """Write one env's solved layout using only config-safe object names."""
+    env_id_tensor = torch.tensor([env_id], device=env.device)
+    zero_velocity = Velocity.zero().to_tensor(device=env.device).unsqueeze(0)
+    for obj, pos in result.positions.items():
+        if obj.name in anchor_object_names:
+            continue
+        asset = env.scene[obj.name]
+        base_rotation = base_rotations_by_name.get(obj.name, IDENTITY_ROTATION_XYZW)
+        marker_yaw = yaw_from_quat_xyzw(base_rotation)
+        total_yaw = result.orientations.get(obj, marker_yaw)
+        rotation_xyzw = rotate_quat_by_yaw(base_rotation, total_yaw - marker_yaw)
+        pose = Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw)
+        pose_t_xyz_q_xyzw = pose.to_tensor(device=env.device).unsqueeze(0)
+        pose_t_xyz_q_xyzw[0, :3] += env.scene.env_origins[env_id, :]
+        asset.write_root_pose_to_sim(pose_t_xyz_q_xyzw, env_ids=env_id_tensor)
+        asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_id_tensor)
+
+
 def solve_and_place_objects(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor | None,
-    objects: list[ObjectBase],
-    placement_pool: PooledObjectPlacer,
+    objects: list[ObjectBase] | None = None,
+    placement_pool: PooledObjectPlacer | None = None,
+    object_names: list[str] | None = None,
+    anchor_object_names: list[str] | None = None,
+    base_rotations_by_name: dict[str, tuple[float, float, float, float]] | None = None,
+    placement_pool_key: str | None = None,
 ) -> None:
     """Coordinated reset event that draws layouts from the pool and writes poses.
 
@@ -112,10 +155,30 @@ def solve_and_place_objects(
         env: The Isaac Lab environment.
         env_ids: 1-D tensor of environment indices being reset.
         objects: All objects (including anchors) participating in relation solving.
-        placement_pool: Pooled object placer to draw layouts from.
+            Kept for direct callers; event configs should pass object_names instead.
+        placement_pool: Pooled object placer to draw layouts from. Kept for direct
+            callers; event configs should pass placement_pool_key instead.
+        object_names: Config-safe names of objects participating in relation solving.
+        anchor_object_names: Config-safe names of anchor objects.
+        base_rotations_by_name: Config-safe base rotations keyed by object name.
+        placement_pool_key: Key returned by register_placement_pool.
     """
     if env_ids is None or len(env_ids) == 0:
         return
+    if placement_pool is None:
+        assert placement_pool_key is not None, "Either placement_pool or placement_pool_key must be provided."
+        placement_pool = _PLACEMENT_POOL_REGISTRY[placement_pool_key]
+    if object_names is None:
+        assert objects is not None, "Either objects or object_names must be provided."
+        object_names = [obj.name for obj in objects]
+    if anchor_object_names is None:
+        assert objects is not None, "Either objects or anchor_object_names must be provided."
+        anchor_object_names = [obj.name for obj in get_anchor_objects(objects)]
+    if base_rotations_by_name is None:
+        if objects is None:
+            base_rotations_by_name = {name: IDENTITY_ROTATION_XYZW for name in object_names}
+        else:
+            base_rotations_by_name = {obj.name: get_rotation_xyzw(obj) for obj in objects}
 
     reset_env_ids = env_ids.tolist()
     num_scene_envs = env.scene.env_origins.shape[0]
@@ -124,8 +187,7 @@ def solve_and_place_objects(
     ), f"Placement pool has {placement_pool.num_envs} envs, but scene has {num_scene_envs} env origins."
     results_by_env = placement_pool.sample_for_envs(reset_env_ids)
 
-    anchor_objects_set = set(get_anchor_objects(objects))
-    base_rotations = get_base_rotation_per_object(objects)
+    anchor_object_names_set = set(anchor_object_names)
 
     for cur_env in reset_env_ids:
         result = results_by_env[cur_env]
@@ -135,4 +197,4 @@ def solve_and_place_objects(
                 f"env {cur_env}; failed checks: {result.validation_results.get_failed_validation_check_names}."
             )
         # only write the non-anchor objects to the sim
-        write_layout_to_sim(env, cur_env, result, anchor_objects_set, base_rotations)
+        _write_layout_to_sim_by_name(env, cur_env, result, anchor_object_names_set, base_rotations_by_name)

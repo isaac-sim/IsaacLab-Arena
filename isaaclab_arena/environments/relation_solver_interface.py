@@ -9,7 +9,7 @@ import copy
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_events import get_rotation_xyzw, solve_and_place_objects
+from isaaclab_arena.relations.placement_events import get_rotation_xyzw, register_placement_pool, solve_and_place_objects
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
@@ -136,8 +136,10 @@ def _apply_dynamic_spawn_pose(
         func=solve_and_place_objects,
         mode="reset",
         params={
-            "objects": objects,
-            "placement_pool": placement_pool,
+            "object_names": [obj.name for obj in objects],
+            "anchor_object_names": [obj.name for obj in anchor_objects_set],
+            "base_rotations_by_name": {obj.name: get_rotation_xyzw(obj) for obj in objects},
+            "placement_pool_key": register_placement_pool(placement_pool),
         },
     )
 

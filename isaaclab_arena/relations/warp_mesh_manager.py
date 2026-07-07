@@ -186,13 +186,14 @@ class WarpMeshAndSphereCache:
         """
         key = self._cache_key(mesh, obj)
         if key not in self._warp_mesh_cache:
-            if not mesh.is_watertight:
+            use_mesh_as_is = bool(getattr(obj, "use_collision_mesh_as_is", False))
+            if not mesh.is_watertight and not use_mesh_as_is:
                 name = obj.name if obj is not None else repr(mesh)
                 print(
                     f"  [WarpMeshAndSphereCache] '{name}' mesh is not watertight — using convex hull (concavities will"
                     " be filled)"
                 )
-            work_mesh = mesh if mesh.is_watertight else mesh.convex_hull
+            work_mesh = mesh if mesh.is_watertight or use_mesh_as_is else mesh.convex_hull
             vertices = wp.array(np.asarray(work_mesh.vertices, dtype=np.float32), dtype=wp.vec3, device=self._device)
             indices = wp.array(
                 np.asarray(work_mesh.faces, dtype=np.int32).flatten(), dtype=wp.int32, device=self._device

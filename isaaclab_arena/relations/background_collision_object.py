@@ -29,6 +29,7 @@ class BackgroundCollisionObject:
     ) -> None:
         self.name = name
         self.relations = []
+        self.use_collision_mesh_as_is = True
         self._pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
         self._mesh = mesh
         self._bounding_box = _bounding_box_from_mesh(self._mesh)

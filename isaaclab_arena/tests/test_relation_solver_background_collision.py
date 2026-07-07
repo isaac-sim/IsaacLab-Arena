@@ -91,6 +91,7 @@ def test_background_collision_object_combines_meshes():
 
     assert background is not None
     assert background.name == "__background_collision_mesh__"
+    assert background.use_collision_mesh_as_is
     assert len(background.get_collision_mesh().split()) == 2
     bounds = background.get_collision_mesh().bounds
     assert bounds[0][0] < -1.09
