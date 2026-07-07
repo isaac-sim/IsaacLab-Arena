@@ -77,16 +77,6 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         ),
     )
     arena_group.add_argument(
-        "--random_yaw_init",
-        action="store_true",
-        default=False,
-        help=(
-            "Randomly rotate objects (except anchors) around the Z-axis for scene variety. "
-            "Collisions use a larger enclosing box; the solver won't optimize this rotation. "
-            "Only affects objects positioned by the placement solver; manually-placed objects are unaffected."
-        ),
-    )
-    arena_group.add_argument(
         "--list-variations",
         action="store_true",
         default=False,

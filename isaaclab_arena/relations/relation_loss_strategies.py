@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import torch
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -15,12 +17,11 @@ from isaaclab_arena.relations.loss_primitives import (
     single_boundary_linear_loss,
     single_point_linear_loss,
 )
+from isaaclab_arena.relations.relations import Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.relations import AtPosition, NextTo, NotNextTo, On, PositionLimits, Relation
-
-from isaaclab_arena.relations.relations import Side
 
 
 class Axis(IntEnum):
@@ -158,7 +159,7 @@ class UnaryRelationLossStrategy(ABC):
     @abstractmethod
     def compute_loss(
         self,
-        relation: "Relation",
+        relation: Relation,
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
@@ -182,7 +183,7 @@ class RelationLossStrategy(ABC):
     @abstractmethod
     def compute_loss(
         self,
-        relation: "Relation",
+        relation: Relation,
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
@@ -223,7 +224,7 @@ class NextToLossStrategy(RelationLossStrategy):
 
     def compute_loss(
         self,
-        relation: "NextTo",
+        relation: NextTo,
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
@@ -304,7 +305,7 @@ class OnLossStrategy(RelationLossStrategy):
 
     def compute_loss(
         self,
-        relation: "On",
+        relation: On,
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
@@ -413,7 +414,7 @@ class NotNextToLossStrategy(RelationLossStrategy):
 
     def compute_loss(
         self,
-        relation: "NotNextTo",
+        relation: NotNextTo,
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
         parent_world_bbox: AxisAlignedBoundingBox,
@@ -448,23 +449,15 @@ class NotNextToLossStrategy(RelationLossStrategy):
 
 
 class NoCollisionLossStrategy:
-    """Loss strategy for no-overlap constraints between objects.
+    """AABB no-overlap loss between object pairs."""
 
-    Computes loss based on:
-    1. X overlap: zero when child and parent are separated along X; else overlap length
-    2. Y overlap: zero when separated along Y; else overlap length
-    3. Z overlap: zero when separated along Z; else overlap length
-    4. Volume loss: slope * (overlap_x * overlap_y * overlap_z)
-
-    This is a standalone strategy (not a RelationLossStrategy) because no-overlap
-    is a built-in solver behavior, not a user-specified relation.
-    """
-
-    def __init__(self, slope: float = 10.0):
+    def __init__(
+        self,
+        slope: float = 10.0,
+    ):
         """
         Args:
-            slope: Gradient magnitude for overlap volume loss (default: 10.0).
-                   Loss scales with slope times overlap volume.
+            slope: Gradient magnitude for overlap loss.
         """
         self.slope = slope
 
@@ -477,8 +470,6 @@ class NoCollisionLossStrategy:
         obstacle_max: torch.Tensor,
     ) -> torch.Tensor:
         """Overlap-volume no-overlap loss for boxes already reduced to world-space extents.
-
-        The subject box carries gradient; it is pushed off the obstacle box (expanded by clearance).
 
         Args:
             clearance_m: Minimum clearance between boxes in meters.
@@ -522,7 +513,7 @@ class AtPositionLossStrategy(UnaryRelationLossStrategy):
 
     def compute_loss(
         self,
-        relation: "AtPosition",
+        relation: AtPosition,
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
@@ -542,17 +533,14 @@ class AtPositionLossStrategy(UnaryRelationLossStrategy):
 
         total_loss = torch.zeros(child_pos.shape[0], dtype=child_pos.dtype, device=child_pos.device)
 
-        # X position constraint
         if relation.x is not None:
             x_loss = single_point_linear_loss(child_pos[:, 0], relation.x, slope=self.slope)
             total_loss = total_loss + x_loss
 
-        # Y position constraint
         if relation.y is not None:
             y_loss = single_point_linear_loss(child_pos[:, 1], relation.y, slope=self.slope)
             total_loss = total_loss + y_loss
 
-        # Z position constraint
         if relation.z is not None:
             z_loss = single_point_linear_loss(child_pos[:, 2], relation.z, slope=self.slope)
             total_loss = total_loss + z_loss
@@ -578,7 +566,7 @@ class PositionLimitsLossStrategy(UnaryRelationLossStrategy):
 
     def compute_loss(
         self,
-        relation: "PositionLimits",
+        relation: PositionLimits,
         child_pos: torch.Tensor,
         child_bbox: AxisAlignedBoundingBox,
     ) -> torch.Tensor:
@@ -598,7 +586,6 @@ class PositionLimitsLossStrategy(UnaryRelationLossStrategy):
 
         total_loss = torch.zeros(child_pos.shape[0], dtype=child_pos.dtype, device=child_pos.device)
 
-        # Iterate over X (0), Y (1), Z (2) with their optional bounds
         axis_bounds = [
             (relation.x_min, relation.x_max),
             (relation.y_min, relation.y_max),

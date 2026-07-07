@@ -37,7 +37,9 @@ from isaaclab_arena.progress_tracking.progress_tracker import (
 from isaaclab_arena.recording.common_terms import CoreEpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
+from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
+from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
@@ -83,12 +85,19 @@ class ArenaEnvBuilder:
           events restore the same layout every time.
         """
         objects_with_relations = self.arena_env.scene.get_objects_with_relations()
+
+        placer_params = self.arena_env.placer_params
+        if placer_params is None:
+            placer_params = ObjectPlacerParams(
+                placement_seed=self.args.placement_seed,
+                solver_params=RelationSolverParams(verbose=False, save_position_history=False),
+            )
+            if self.args.resolve_on_reset is not None:
+                placer_params.resolve_on_reset = self.args.resolve_on_reset
         self._placement_event_cfg = solve_and_apply_relation_placement(
             objects_with_relations,
             num_envs=self.args.num_envs,
-            placement_seed=self.args.placement_seed,
-            resolve_on_reset=self.args.resolve_on_reset,
-            random_yaw_init=self.args.random_yaw_init,
+            placer_params=placer_params,
         )
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:

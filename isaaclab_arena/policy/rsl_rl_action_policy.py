@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import argparse
 import gymnasium as gym
 import os
 import torch
@@ -16,7 +15,7 @@ from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
 from rsl_rl.runners import DistillationRunner, OnPolicyRunner
 
 from isaaclab_arena.assets.register import register_policy
-from isaaclab_arena.policy.policy_base import PolicyBase
+from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
 
 class _RslRlInferenceEnvWrapper(RslRlVecEnvWrapper):
@@ -42,7 +41,7 @@ class _RslRlInferenceEnvWrapper(RslRlVecEnvWrapper):
 
 
 @dataclass
-class RslRlActionPolicyConfig:
+class RslRlActionPolicyCfg(PolicyCfg):
     """Configuration dataclass for RSL-RL action policy."""
 
     checkpoint_path: str
@@ -55,16 +54,9 @@ class RslRlActionPolicyConfig:
     device: str = "cuda:0"
     """Device to run the policy on."""
 
-    @classmethod
-    def from_cli_args(cls, args: argparse.Namespace) -> "RslRlActionPolicyConfig":
-        return cls(
-            checkpoint_path=args.checkpoint_path,
-            device=args.device if hasattr(args, "device") else "cuda:0",
-        )
-
 
 @register_policy
-class RslRlActionPolicy(PolicyBase):
+class RslRlActionPolicy(PolicyBase[RslRlActionPolicyCfg]):
     """Policy that uses a trained RSL-RL model for inference.
 
     Loads the checkpoint and agent config (``params/agent.yaml``) produced by
@@ -90,11 +82,10 @@ class RslRlActionPolicy(PolicyBase):
     """
 
     name = "rsl_rl"
-    config_class = RslRlActionPolicyConfig
 
-    def __init__(self, config: RslRlActionPolicyConfig):
+    def __init__(self, config: RslRlActionPolicyCfg):
         super().__init__(config)
-        self.config: RslRlActionPolicyConfig = config
+        self.config: RslRlActionPolicyCfg = config
         self._policy = None
         self._runner = None
 
@@ -139,28 +130,3 @@ class RslRlActionPolicy(PolicyBase):
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         pass
-
-    @classmethod
-    def from_dict(cls, config_dict: dict) -> "RslRlActionPolicy":
-        config = RslRlActionPolicyConfig(**config_dict)
-        return cls(config)
-
-    @staticmethod
-    def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-        """Add RSL-RL action policy specific arguments to the parser."""
-        rsl_rl_group = parser.add_argument_group("RSL-RL Action Policy", "Arguments for RSL-RL action policy")
-        rsl_rl_group.add_argument(
-            "--checkpoint_path",
-            type=str,
-            required=True,
-            help=(
-                "Path to the checkpoint file. Agent config is loaded automatically from params/agent.yaml in the same"
-                " directory."
-            ),
-        )
-        return parser
-
-    @staticmethod
-    def from_args(args: argparse.Namespace) -> "RslRlActionPolicy":
-        config = RslRlActionPolicyConfig.from_cli_args(args)
-        return RslRlActionPolicy(config)

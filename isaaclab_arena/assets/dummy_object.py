@@ -2,17 +2,18 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
-import torch
+from __future__ import annotations
 
-from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
+import torch
+import trimesh
+
+from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, UnaryRelation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
 
 
 class DummyObject:
-    """
-    Dummy object for testing purposes without Isaac Sim dependencies.
-    """
+    """Dummy object for testing purposes without Isaac Sim dependencies."""
 
     def __init__(
         self,
@@ -20,6 +21,7 @@ class DummyObject:
         bounding_box: AxisAlignedBoundingBox,
         initial_pose: Pose | None = None,
         relations: list[RelationBase] = [],
+        collision_mesh: trimesh.Trimesh | None = None,
         **kwargs,
     ):
         self.name = name
@@ -27,6 +29,7 @@ class DummyObject:
         self.bounding_box = bounding_box
         assert self.bounding_box is not None
         self.relations = list(relations)
+        self._collision_mesh = collision_mesh
 
     def add_relation(self, relation: RelationBase) -> None:
         self.relations.append(relation)
@@ -63,3 +66,11 @@ class DummyObject:
 
     def is_initial_pose_set(self) -> bool:
         return self.initial_pose is not None
+
+    @property
+    def is_anchor(self) -> bool:
+        return any(isinstance(r, IsAnchor) for r in self.relations)
+
+    def get_collision_mesh(self) -> trimesh.Trimesh | None:
+        """Return the collision mesh, or None to fall back to AABB."""
+        return self._collision_mesh
