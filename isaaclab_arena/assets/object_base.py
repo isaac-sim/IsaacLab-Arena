@@ -7,9 +7,13 @@ from __future__ import annotations
 
 import torch
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
 import warp as wp
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
+
+if TYPE_CHECKING:
+    import trimesh
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
@@ -22,7 +26,7 @@ from isaaclab_arena.assets.asset import Asset
 # while pure-Python spec modules can import from `object_type` directly without
 # pulling in isaaclab/omni/pxr at module-load time.
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.relations.relations import Relation, RelationBase, UnaryRelation
+from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, UnaryRelation
 from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
@@ -72,6 +76,9 @@ class ObjectBase(Asset, ABC):
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get bounding box in world coordinates (local bbox rotated and translated)."""
         ...
+
+    def get_collision_mesh(self) -> trimesh.Trimesh | None:
+        """Return collision mesh, or None to fall back to AABB overlap."""
 
     def _get_initial_pose_as_pose(self) -> Pose | None:
         """Return a single ``Pose`` suitable for *init_state* and bounding-box calculations.
@@ -169,6 +176,11 @@ class ObjectBase(Asset, ABC):
     def get_relations(self) -> list[RelationBase]:
         """Get all relations for this object."""
         return self.relations
+
+    @property
+    def is_anchor(self) -> bool:
+        """True if this object has an IsAnchor relation."""
+        return any(isinstance(r, IsAnchor) for r in self.relations)
 
     def get_spatial_relations(self) -> list[RelationBase]:
         """Get only spatial relations (On, NextTo, AtPosition, etc.), excluding markers like IsAnchor."""

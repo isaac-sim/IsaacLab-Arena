@@ -2,8 +2,13 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
+from __future__ import annotations
+
 import torch
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import trimesh
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
@@ -20,9 +25,7 @@ from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
 
 
 class Object(ObjectBase):
-    """
-    Encapsulates the pick-up object config for a pick-and-place environment.
-    """
+    """Pick-up object config for a pick-and-place environment."""
 
     def __init__(
         self,
@@ -73,6 +76,9 @@ class Object(ObjectBase):
         if self.bounding_box is None:
             self.bounding_box = compute_local_bounding_box_from_usd(self.usd_path, self.scale)
         return self.bounding_box
+
+    def get_collision_mesh(self) -> trimesh.Trimesh | None:
+        """Return None: USD-backed objects expose no preloaded collision mesh."""
 
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get bounding box in world coordinates (local bbox rotated and translated).

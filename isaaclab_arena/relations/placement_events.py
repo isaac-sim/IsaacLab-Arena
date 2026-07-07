@@ -12,7 +12,7 @@ from isaaclab.envs import ManagerBasedEnv
 
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
-from isaaclab_arena.utils.pose import Pose, rotate_quat_by_yaw
+from isaaclab_arena.utils.pose import Pose, rotate_quat_by_yaw, yaw_from_quat_xyzw
 from isaaclab_arena.utils.velocity import Velocity
 
 if TYPE_CHECKING:
@@ -85,7 +85,9 @@ def write_layout_to_sim(
         if obj in anchor_objects_set:
             continue
         asset = env.scene[obj.name]
-        rotation_xyzw = rotate_quat_by_yaw(base_rotations[obj], result.orientations.get(obj, 0.0))
+        marker_yaw = yaw_from_quat_xyzw(base_rotations[obj])
+        total_yaw = result.orientations.get(obj, marker_yaw)
+        rotation_xyzw = rotate_quat_by_yaw(base_rotations[obj], total_yaw - marker_yaw)
         pose = Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw)
         pose_t_xyz_q_xyzw = pose.to_tensor(device=env.device).unsqueeze(0)
         pose_t_xyz_q_xyzw[0, :3] += env.scene.env_origins[env_id, :]

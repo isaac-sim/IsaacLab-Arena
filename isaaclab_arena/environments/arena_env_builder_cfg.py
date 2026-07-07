@@ -21,7 +21,6 @@ class ArenaEnvBuilderCfg:
     solve_relations: bool = True
     placement_seed: int | None = None
     resolve_on_reset: bool | None = None
-    random_yaw_init: bool = False
     disable_fabric: bool = False
     mimic: bool = False
     presets: str | None = None

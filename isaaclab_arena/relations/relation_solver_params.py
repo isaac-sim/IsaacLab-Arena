@@ -5,6 +5,7 @@
 
 from dataclasses import dataclass, field
 
+from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.relation_loss_strategies import (
     AtPositionLossStrategy,
     NextToLossStrategy,
@@ -49,6 +50,12 @@ class RelationSolverParams:
 
     save_position_history: bool = True
     """Save position snapshots during optimization for visualization/debugging. Disable to reduce memory."""
+
+    collision_mode: CollisionMode = CollisionMode.BBOX
+    """Which collision detection method to use for no-overlap constraints."""
+
+    num_spheres: int = 30
+    """Number of bounding spheres per object for MESH mode. Higher = more accurate but slower."""
 
     clearance_m: float = 0.01
     """Minimum clearance (meters) enforced between every pair of non-anchor objects.

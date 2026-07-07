@@ -1,0 +1,45 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+workflow:
+  name: dreamzero-inference-server
+  # H100 only: the checkpoint runs in bfloat16 and uses ~46 GiB of GPU
+  # memory during inference. A single H100 (80 GiB) provides sufficient
+  # headroom; an L40 (48 GiB) does not. Multi-GPU execution parallelizes
+  # inference across full model replicas rather than sharding the weights.
+  pool: isaac-dev-h100-01
+
+  resources:
+    default:
+      cpu: 8
+      gpu: 1
+      memory: 128Gi
+      storage: 100Gi
+
+  tasks:
+  - name: serve
+    image: nvcr.io/nvidian/dreamzero_inference_server:latest
+    credentials:
+      nvcr-nvidian: {}
+    command: ["bash", "-c"]
+    args:
+    - |
+      set -e
+
+      cd /workspace/dreamzero
+      CUDA_VISIBLE_DEVICES=0 python -m torch.distributed.run \
+        --standalone \
+        --nproc_per_node=1 \
+        socket_test_optimized_AR.py \
+        --port {{ port }} \
+        --enable-dit-cache \
+        --model-path "${MODELS_DIR}/DreamZero-DROID"
+
+    environment:
+      NCCL_DEBUG: INFO
+      NO_ALBUMENTATIONS_UPDATE: "1"
+
+default-values:
+  port: "5000"
