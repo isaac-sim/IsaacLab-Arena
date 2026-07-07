@@ -119,64 +119,56 @@ where:
 
 Use ``--list-variations`` on any environment to discover the exact paths available.
 
-Configuring variations in an eval jobs config
----------------------------------------------
+Configuring variations in an experiment collection
+---------------------------------------------------
 
-When running batches of jobs with ``eval_runner.py``, variations are configured per job via a
-dedicated ``variations`` field instead of command-line override tokens.  The field is a nested
-dict that mirrors the dotted Hydra paths: each level of nesting corresponds to one segment of
-the ``<asset>.<variation_name>.<cfg_field>`` path.  For example, the nested entry
-``{"light": {"hdr_image": {"enabled": true}}}`` is equivalent to the command-line override
-``light.hdr_image.enabled=true``.
+When running an experiment collection with ``eval_runner.py``, variations are configured per
+experiment through a ``variations`` field. The field is a nested mapping that mirrors the dotted
+Hydra paths: each level corresponds to one segment of the
+``<asset>.<variation_name>.<cfg_field>`` path.
 
-The example config ``isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json``
-enables three variations on a single job:
+The keyed YAML collection
+``isaaclab_arena_environments/experiment_configs/droid_pnp_variations_config.yaml`` enables three
+variations on one experiment:
 
-.. code-block:: json
+.. code-block:: yaml
 
-   {
-       "jobs": [
-           {
-               "name": "variations_demo",
-               "arena_env_args": {
-                   "environment": "pick_and_place_maple_table",
-                   "embodiment": "droid_rel_joint_pos",
-                   "pick_up_object": "rubiks_cube_hot3d_robolab",
-                   "destination_location": "bowl_ycb_robolab",
-                   "hdr": "home_office_robolab"
-               },
-               "num_steps": 10,
-               "num_rebuilds": 5,
-               "policy_type": "zero_action",
-               "policy_config_dict": {},
-               "variations": {
-                   "light": {
-                       "hdr_image": { "enabled": true },
-                       "intensity": { "enabled": true }
-                   },
-                   "droid_rel_joint_pos": {
-                       "camera_extrinsics_wrist_camera": { "enabled": true }
-                   }
-               }
-           }
-       ]
-   }
+   experiments:
+     variations_demo:
+       environment:
+         type: pick_and_place_maple_table
+         enable_cameras: true
+         embodiment: droid_rel_joint_pos
+         hdr: home_office_robolab
+       policy:
+         type: zero_action
+       rollout:
+         num_steps: 10
+       variations:
+         light:
+           hdr_image:
+             enabled: true
+           intensity:
+             enabled: true
+         droid_rel_joint_pos:
+           camera_extrinsics_wrist_camera:
+             enabled: true
 
 Run it with:
 
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/eval_runner.py \
+     isaaclab_arena_environments/experiment_configs/droid_pnp_variations_config.yaml \
      --headless \
-     --enable_cameras \
-     --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json
+     experiments.variations_demo.environment.light_intensity=750
 
 ``--list-variations`` works with ``eval_runner.py`` too, printing the variations catalogue for
-each job's environment:
+each experiment's environment:
 
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/eval_runner.py \
+     isaaclab_arena_environments/experiment_configs/droid_pnp_variations_config.yaml \
      --headless \
-     --list-variations \
-     --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json
+     --list-variations

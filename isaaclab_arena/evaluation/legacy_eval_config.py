@@ -13,21 +13,22 @@ from typing import Any
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg, RolloutCfg
+from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg, ArenaExperimentCollectionCfg, RolloutCfg
 from isaaclab_arena.evaluation.legacy_environment_cli_args import legacy_environment_args_to_cli_args
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena_environments.cli import ensure_environments_registered
 
-# TODO(cvolk, 2026-07-07): Delete this adapter when eval_runner loads typed YAML
-# experiments directly. The current JSON format identifies environments and policies
-# by name and mixes environment-specific and builder values in ``arena_env_args``.
+# TODO(cvolk, 2026-07-07): Delete this adapter after the remaining eval-jobs JSON
+# documents move to typed YAML collections. The JSON format identifies environments
+# and policies by name and mixes environment-specific and builder values in
+# ``arena_env_args``.
 # This module resolves those names, separates the values into their concrete typed
 # configs, and marks graph-YAML environments for the narrow argparse compatibility
 # path in ``legacy_graph_environment_cli``.
-# The planned Hydra/YAML frontend will compose those typed configs directly, so none
-# of this JSON translation or argparse fallback will be needed.
+# Typed YAML collections compose those configs directly; this translation remains only
+# for the JSON configurations that have not migrated yet.
 
 
 @dataclass(frozen=True)
@@ -41,11 +42,11 @@ class _EnvironmentCfgs:
     """Arena builder values that were mixed into the legacy environment arguments."""
 
 
-def experiment_cfgs_from_legacy_eval_config(
+def experiment_collection_from_legacy_eval_config(
     config: dict[str, Any],
     device: str,
-) -> list[ArenaExperimentCfg]:
-    """Create typed experiment configs from a legacy eval-jobs document."""
+) -> ArenaExperimentCollectionCfg:
+    """Create a typed experiment collection from a legacy eval-jobs document."""
     assert set(config) == {"jobs"}, "legacy evaluation config must contain only a 'jobs' list"
     job_configs = config["jobs"]
     assert isinstance(job_configs, list), "legacy evaluation config 'jobs' must be a list"
@@ -53,7 +54,9 @@ def experiment_cfgs_from_legacy_eval_config(
     experiment_cfgs = [_experiment_cfg_from_legacy_job(job_config, device=device) for job_config in job_configs]
     experiment_names = [experiment_cfg.name for experiment_cfg in experiment_cfgs]
     assert len(experiment_names) == len(set(experiment_names)), "experiment names must be unique"
-    return experiment_cfgs
+    return ArenaExperimentCollectionCfg(
+        experiments=dict(zip(experiment_names, experiment_cfgs, strict=True)),
+    )
 
 
 def _experiment_cfg_from_legacy_job(

@@ -9,22 +9,31 @@ import argparse
 def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
     """Add eval runner specific arguments to the parser."""
     parser.add_argument(
-        "--eval_jobs_config",
+        "experiment_config",
         type=str,
-        default="isaaclab_arena_environments/eval_jobs_configs/zero_action_jobs_config.json",
-        help="Path to the eval jobs config file.",
+        nargs="?",
+        help="YAML experiment collection to evaluate.",
+    )
+    # TODO(cvolk, 2026-07-07): Remove this alias after the remaining eval-jobs
+    # JSON documents migrate to typed YAML experiment collections.
+    parser.add_argument(
+        "--eval_jobs_config",
+        dest="legacy_eval_jobs_config",
+        type=str,
+        default=None,
+        help="Deprecated path to a legacy JSON eval-jobs configuration.",
     )
     parser.add_argument(
         "--record_viewport_video",
         action="store_true",
         default=False,
-        help="Record viewport videos for each eval job.",
+        help="Record viewport videos for each experiment.",
     )
     parser.add_argument(
         "--record_camera_video",
         action="store_true",
         default=False,
-        help="Record one mp4 per (env, camera, episode) from obs['camera_obs'] for each eval job.",
+        help="Record one mp4 per (env, camera, episode) from obs['camera_obs'] for each experiment.",
     )
     parser.add_argument(
         "--output_base_dir",
@@ -32,14 +41,14 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         default="/eval/output",
         help=(
             "Base directory for evaluation outputs (videos, per-episode results, report); a"
-            " reverse-dated run subdirectory and per-job subdirectory are added."
+            " reverse-dated run subdirectory and per-experiment subdirectory are added."
         ),
     )
     parser.add_argument(
         "--serve_evaluation_report",
         action="store_true",
         default=False,
-        help="After all jobs finish, serve the evaluation report over HTTP.",
+        help="After all experiments finish, serve the evaluation report over HTTP.",
     )
     parser.add_argument(
         "--evaluation_report_port",
@@ -51,16 +60,5 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         "--continue_on_error",
         action="store_true",
         default=False,
-        help="Continue evaluation with remaining jobs when a job fails instead of stopping immediately.",
-    )
-    parser.add_argument(
-        "--chunk_size",
-        type=int,
-        default=None,
-        help=(
-            "Run jobs in chunks of at most this many, one fresh subprocess per chunk."
-            " Each restart lets the OS reclaim accumulated memory, avoiding OOM on"
-            " long sweeps. Default unset — single process. Leave unset for normal runs;"
-            " set only if a long sweep grows in host memory or gets OOM-killed."
-        ),
+        help="Continue with remaining experiments when one fails instead of stopping immediately.",
     )

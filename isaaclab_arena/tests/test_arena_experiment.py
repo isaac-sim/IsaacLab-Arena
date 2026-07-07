@@ -10,6 +10,7 @@ import pytest
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation.arena_experiment import (
     ArenaExperimentCfg,
+    ArenaExperimentCollectionCfg,
     ArenaExperimentResult,
     ExperimentStatus,
     RolloutCfg,
@@ -61,6 +62,18 @@ def test_rollout_limits_are_mutually_exclusive_and_positive():
 def test_episode_budget_gives_every_rebuild_an_episode():
     with pytest.raises(AssertionError, match="each rebuild runs at least one episode"):
         _experiment(rollout=RolloutCfg(num_episodes=2), num_rebuilds=3)
+
+
+def test_experiment_collection_uses_canonical_mapping_names():
+    experiment = _experiment()
+
+    collection = ArenaExperimentCollectionCfg(experiments={experiment.name: experiment})
+
+    assert list(collection.experiments) == ["test_experiment"]
+    with pytest.raises(AssertionError, match="must not be empty"):
+        ArenaExperimentCollectionCfg(experiments={})
+    with pytest.raises(AssertionError, match="must match the configured name"):
+        ArenaExperimentCollectionCfg(experiments={"different_name": experiment})
 
 
 def test_experiment_result_records_outcome_separately():

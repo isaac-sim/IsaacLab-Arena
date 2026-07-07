@@ -3,226 +3,235 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Evaluate typed Arena experiment collections."""
+
+from __future__ import annotations
+
 import argparse
 import json
-import math
 import os
-import subprocess
-import sys
-import tempfile
 import traceback
+from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.evaluation.arena_experiment import ExperimentStatus
+from isaaclab_arena.evaluation.arena_experiment import (
+    ArenaExperimentCollectionCfg,
+    ArenaExperimentResult,
+    ExperimentStatus,
+)
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
-from isaaclab_arena.evaluation.experiment_execution import build_and_run_experiment
-from isaaclab_arena.evaluation.job_manager import JobManager, Status
-from isaaclab_arena.evaluation.legacy_eval_config import experiment_cfgs_from_legacy_eval_config
+from isaaclab_arena.evaluation.experiment_collection_hydra import compose_experiment_collection
+from isaaclab_arena.evaluation.experiment_execution import build_and_run_experiment, build_arena_builder_for_experiment
+from isaaclab_arena.evaluation.legacy_eval_config import experiment_collection_from_legacy_eval_config
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
+from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
+from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir
 from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
-from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
+from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
+
+# TODO(cvolk, 2026-07-07): Replace these first migrated config types with an
+# extension-owned lightweight registration mechanism as more environment and policy
+# configurations move to YAML. Importing every runtime implementation before
+# SimulationApp would also import pxr/PhysX modules too early.
+_YAML_ENVIRONMENT_CFG_TYPES = {
+    "pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg,
+}
+_YAML_POLICY_CFG_TYPES = {
+    "zero_action": ZeroActionPolicyCfg,
+}
 
 
-# TODO(cvolk, 2026-07-06): Delete this direct argparse construction helper when
-# callers use typed experiment configuration through eval_runner.
-def load_env(
-    arena_env_args: list[str],
-    job_name: str,
-    variations: list[str] | None = None,
-    render_mode: str | None = None,
-    language_instruction: str | None = None,
-):
-
-    args_parser = get_isaaclab_arena_environments_cli_parser()
-
-    arena_env_args_cli = args_parser.parse_args(arena_env_args)
-    # Optionally override the language instruction.
-    arena_env_args_cli.language_instruction = language_instruction
-    arena_builder = get_arena_builder_from_cli(arena_env_args_cli, hydra_overrides=variations)
-
-    _, env_cfg, env_kwargs = arena_builder.build_registered()
-
-    # Set unique dataset filename for this job to avoid file locking conflicts
-    if env_cfg.recorders is not None:
-        env_cfg.recorders.dataset_filename = f"dataset_{job_name}"
-
-    env = arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
-    # Don't reset here - rollout_policy() will reset the env. Every reset triggers a new episode, initializing recorder & creating a new hdf5 entry.
-    return env
+def _resolve_config_path(args_cli: argparse.Namespace) -> Path:
+    """Return the one experiment configuration selected on the command line."""
+    positional_path = args_cli.experiment_config
+    legacy_path = args_cli.legacy_eval_jobs_config
+    assert (positional_path is None) != (
+        legacy_path is None
+    ), "Provide exactly one experiment configuration: a positional YAML path or --eval_jobs_config for legacy JSON"
+    path = Path(positional_path or legacy_path).resolve()
+    assert path.is_file(), f"experiment configuration does not exist: {path}"
+    if legacy_path is not None:
+        assert path.suffix == ".json", "--eval_jobs_config only accepts legacy JSON configurations"
+    else:
+        assert path.suffix in (".yaml", ".yml"), "the positional experiment configuration must be YAML"
+    return path
 
 
-def list_variations(eval_jobs_config: dict) -> None:
-    """Print the Hydra-configurable variations for each job's environment."""
-    job_manager = JobManager(eval_jobs_config["jobs"])
-    for job in job_manager.all_jobs:
-        args_parser = get_isaaclab_arena_environments_cli_parser()
-        arena_env_args_cli = args_parser.parse_args(job.arena_env_args)
-        arena_builder = get_arena_builder_from_cli(arena_env_args_cli, hydra_overrides=job.variations)
-        print(f"=== Variations for job '{job.name}' ===", flush=True)
+def _compose_typed_experiment_collection(
+    config_path: Path,
+    device: str,
+    hydra_overrides: list[str],
+) -> ArenaExperimentCollectionCfg:
+    """Compose the typed YAML frontend and apply its process-wide device."""
+    collection_cfg = compose_experiment_collection(
+        config_path,
+        environment_cfg_types=_YAML_ENVIRONMENT_CFG_TYPES,
+        policy_cfg_types=_YAML_POLICY_CFG_TYPES,
+        overrides=hydra_overrides,
+    )
+    return _collection_with_device(collection_cfg, device)
+
+
+def _collection_with_device(
+    collection_cfg: ArenaExperimentCollectionCfg,
+    device: str,
+) -> ArenaExperimentCollectionCfg:
+    """Apply the process-wide simulation device to every experiment builder."""
+    return ArenaExperimentCollectionCfg(
+        experiments={
+            experiment_name: replace(
+                experiment_cfg,
+                environment_builder=replace(experiment_cfg.environment_builder, device=device),
+            )
+            for experiment_name, experiment_cfg in collection_cfg.experiments.items()
+        }
+    )
+
+
+def _typed_collection_enables_cameras(collection_cfg: ArenaExperimentCollectionCfg) -> bool:
+    """Return whether any typed experiment enables environment cameras."""
+    return any(
+        _environment_enables_cameras(experiment_cfg.environment)
+        for experiment_cfg in collection_cfg.experiments.values()
+    )
+
+
+# TODO(cvolk, 2026-07-07): Delete the JSON loading and camera-inspection helpers
+# below with --eval_jobs_config after the remaining JSON documents migrate to typed
+# YAML collections.
+def _load_legacy_eval_config(config_path: Path, hydra_overrides: list[str]) -> dict[str, Any]:
+    """Load the retained JSON document without importing its runtime implementations."""
+    assert not hydra_overrides, "Hydra overrides are supported only for typed YAML experiment collections"
+    with config_path.open(encoding="utf-8") as config_file:
+        legacy_config = json.load(config_file)
+    assert isinstance(legacy_config, dict), "legacy evaluation configuration must be a mapping"
+    return legacy_config
+
+
+def _legacy_eval_config_enables_cameras(legacy_config: dict[str, Any]) -> bool:
+    """Read camera startup requirements without adapting legacy JSON before SimulationApp."""
+    jobs = legacy_config.get("jobs", [])
+    assert isinstance(jobs, list), "legacy evaluation config 'jobs' must be a list"
+    return any(
+        isinstance(job_config, dict)
+        and isinstance(job_config.get("arena_env_args"), dict)
+        and job_config["arena_env_args"].get("enable_cameras", False)
+        for job_config in jobs
+    )
+
+
+def _environment_enables_cameras(environment_cfg: object) -> bool:
+    """Return whether one concrete typed environment enables cameras."""
+    return bool(getattr(environment_cfg, "enable_cameras", False))
+
+
+def _list_variations(collection_cfg: ArenaExperimentCollectionCfg) -> None:
+    """Print the Hydra-configurable variations for every experiment."""
+    for experiment_name, experiment_cfg in collection_cfg.experiments.items():
+        arena_builder = build_arena_builder_for_experiment(experiment_cfg)
+        print(f"=== Variations for experiment '{experiment_name}' ===", flush=True)
         print(arena_builder.get_variations_catalogue_as_string(), flush=True)
 
 
-def enable_cameras_if_required(eval_jobs_config: dict, args_cli: argparse.Namespace) -> None:
-    """
-    Check if any job requires cameras and enable them in args_cli if needed. Users can set
-    enable_cameras: true in individual job config, or add --enable_cameras to the CLI.
-    Camera support must be enabled when the simulation starts, not during individual job execution.
+def _run_experiments(
+    collection_cfg: ArenaExperimentCollectionCfg,
+    args_cli: argparse.Namespace,
+) -> dict[str, ArenaExperimentResult]:
+    """Run the configured experiments sequentially and return their results."""
+    metrics_logger = MetricsLogger()
+    results = {}
+    run_output_dir = timestamped_run_dir(args_cli.output_base_dir)
 
-    Args:
-        eval_jobs_config: Dictionary containing job configurations
-        args_cli: CLI arguments namespace to modify
-    """
-    for job_dict in eval_jobs_config["jobs"]:
-        if "arena_env_args" in job_dict and job_dict["arena_env_args"].get("enable_cameras", False):
-            if not hasattr(args_cli, "enable_cameras") or not args_cli.enable_cameras:
-                args_cli.enable_cameras = True
-            break
+    if args_cli.record_viewport_video:
+        os.makedirs(run_output_dir, exist_ok=True)
+        print(f"[INFO] Video recording enabled. Videos will be saved to: {run_output_dir}")
 
+    for experiment_name, experiment_cfg in collection_cfg.experiments.items():
+        print(f"Running experiment {experiment_name}", flush=True)
+        experiment_output_dir = os.path.join(run_output_dir, experiment_name)
+        try:
+            result = build_and_run_experiment(
+                experiment_cfg,
+                output_dir=experiment_output_dir,
+                video_cfg=VideoRecordingCfg(
+                    record_viewport_video=args_cli.record_viewport_video,
+                    record_camera_video=args_cli.record_camera_video,
+                    video_base_dir=experiment_output_dir,
+                ),
+            )
+        except Exception as error:
+            result = ArenaExperimentResult(
+                experiment_name=experiment_name,
+                status=ExperimentStatus.FAILED,
+            )
+            results[experiment_name] = result
+            print(f"Experiment {experiment_name} failed with error: {error}")
+            print(f"Traceback: {traceback.format_exc()}")
+            if not args_cli.continue_on_error:
+                raise
+            continue
 
-def _run_chunk(chunk_label: str, chunk_jobs: list[dict]) -> int:
-    """Run ``chunk_jobs`` in a fresh ``eval_runner`` subprocess and return its exit code."""
-    print(f"[eval_runner] {chunk_label}", flush=True)
-    # Serialize this chunk's jobs to a temp config the child loads via --eval_jobs_config.
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
-        json.dump({"jobs": chunk_jobs}, tmp)
-        chunk_path = Path(tmp.name)
-    # Re-run this invocation in the child, with --eval_jobs_config appended so it wins over
-    # the master config (argparse keeps the last value).
-    # Strip --serve_evaluation_report: a child that served its report would block on
-    # serve_until_ctrl_c forever.
-    forwarded_args = [arg for arg in sys.argv if arg != "--serve_evaluation_report"]
-    config_override = ["--eval_jobs_config", str(chunk_path)]
-    child_cmd = [sys.executable, *forwarded_args, *config_override]
-    try:
-        result = subprocess.run(child_cmd, check=False)
-    finally:
-        # Remove the temp chunk config now that the child has loaded it.
-        chunk_path.unlink(missing_ok=True)
-    return result.returncode
+        results[experiment_name] = result
+        if result.metrics is not None:
+            metrics_logger.append_job_metrics(experiment_name, result.metrics)
 
+    _print_experiment_results(collection_cfg, results)
+    metrics_logger.print_metrics()
 
-def _run_in_chunks(args_cli: argparse.Namespace, master_cfg: dict) -> None:
-    """Run each chunk of ``master_cfg['jobs']`` in a fresh ``eval_runner`` subprocess."""
-    jobs = master_cfg["jobs"]
-    chunk_size = args_cli.chunk_size
-    if chunk_size <= 0:
-        raise ValueError(f"--chunk_size must be positive, got {chunk_size}")
-    n_chunks = math.ceil(len(jobs) / chunk_size)
-    print(f"[eval_runner] {len(jobs)} jobs → {n_chunks} chunks of <= {chunk_size}", flush=True)
-
+    report_path = build_report(run_output_dir)
     if args_cli.serve_evaluation_report:
-        print("--serve_evaluation_report is ignored with --chunk_size.", flush=True)
-
-    for chunk_idx in range(n_chunks):
-        start = chunk_idx * chunk_size
-        end = min(start + chunk_size, len(jobs))
-        chunk_label = f"chunk {chunk_idx + 1}/{n_chunks}: jobs {start}..{end - 1}"
-        returncode = _run_chunk(chunk_label, jobs[start:end])
-        if returncode != 0:
-            print(f"[eval_runner] chunk {chunk_idx} failed (exit {returncode}).", flush=True)
-            sys.exit(returncode)
+        serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
+    return results
 
 
-def main():
+def _print_experiment_results(
+    collection_cfg: ArenaExperimentCollectionCfg,
+    results: dict[str, ArenaExperimentResult],
+) -> None:
+    """Print one final status line for every configured experiment."""
+    print("Experiment results:", flush=True)
+    for experiment_name in collection_cfg.experiments:
+        result = results.get(experiment_name)
+        status = result.status.value if result is not None else "not run"
+        print(f"  {experiment_name}: {status}", flush=True)
+
+
+def main() -> None:
+    """Load and evaluate one typed or legacy experiment collection."""
     args_parser = get_isaaclab_arena_cli_parser()
-    args_cli, unknown = args_parser.parse_known_args()
-
-    # Load job configuration before starting simulation to check requirements
     add_eval_runner_arguments(args_parser)
-    args_cli, _ = args_parser.parse_known_args()
+    args_cli, hydra_overrides = args_parser.parse_known_args()
     assert not args_cli.distributed, "Distributed evaluation is not supported yet"
 
-    assert os.path.exists(
-        args_cli.eval_jobs_config
-    ), f"eval_jobs_config file does not exist: {args_cli.eval_jobs_config}"
-
-    with open(args_cli.eval_jobs_config, encoding="utf-8") as f:
-        eval_jobs_config = json.load(f)
-
-    # Print the variations catalogue for each job's environment and exit.
-    if args_cli.list_variations:
-        with SimulationAppContext(args_cli):
-            list_variations(eval_jobs_config)
-        return
-
-    # Chunked dispatch (--chunk_size N). Splits this config across subprocesses so each
-    # gets a fresh SimulationApp. Required for long sweeps because some host memory leaks
-    # each cycle and is only reclaimed when the process exits — in-process teardown can't
-    # release it.
-    if args_cli.chunk_size is not None and len(eval_jobs_config["jobs"]) > args_cli.chunk_size:
-        # TODO(cvolk): aggregate per-chunk metrics into one centralized view. Each chunk
-        # subprocess currently prints its own MetricsLogger summary and nothing is merged
-        # or persisted (save_metrics_to_file() is unused). Follow-up: have each chunk write
-        # metrics JSON to a temp file (forward --metrics_file), then merge + print/save here.
-        _run_in_chunks(args_cli, eval_jobs_config)
-        return
-
-    # Check if any job requires cameras and enable them if needed before starting simulation
-    if args_cli.record_camera_video:
-        args_cli.enable_cameras = True
-    enable_cameras_if_required(eval_jobs_config, args_cli)
+    config_path = _resolve_config_path(args_cli)
+    if config_path.suffix in (".yaml", ".yml"):
+        assert_hydra_overrides(hydra_overrides, args_parser)
+        collection_cfg = _compose_typed_experiment_collection(config_path, args_cli.device, hydra_overrides)
+        legacy_config = None
+        requires_environment_cameras = _typed_collection_enables_cameras(collection_cfg)
+    else:
+        legacy_config = _load_legacy_eval_config(config_path, hydra_overrides)
+        collection_cfg = None
+        requires_environment_cameras = _legacy_eval_config_enables_cameras(legacy_config)
+    args_cli.enable_cameras = bool(
+        args_cli.enable_cameras or args_cli.record_camera_video or requires_environment_cameras
+    )
 
     with SimulationAppContext(args_cli):
-        experiment_cfgs = experiment_cfgs_from_legacy_eval_config(
-            eval_jobs_config,
-            device=args_cli.device,
-        )
-        experiment_cfgs_by_name = {experiment_cfg.name: experiment_cfg for experiment_cfg in experiment_cfgs}
-        # TODO(cvolk, 2026-07-06): Replace JobManager with typed experiment results
-        # when the JSON job frontend is removed.
-        job_manager = JobManager(eval_jobs_config["jobs"])
-        metrics_logger = MetricsLogger()
-
-        job_manager.print_jobs_info()
-
-        # One reverse-dated run directory shared by all jobs; each job gets a subdirectory within it.
-        # Always dated so every run produces its own report dir, recording or not.
-        # TODO(alexmillane): Currently each chunk produces its own output directory.
-        # We should use the same output directory for all chunks in the future.
-        run_output_dir = timestamped_run_dir(args_cli.output_base_dir)
-
-        if args_cli.record_viewport_video:
-            os.makedirs(run_output_dir, exist_ok=True)
-            print(f"[INFO] Video recording enabled. Videos will be saved to: {run_output_dir}")
-
-        for job in job_manager:
-            if job is None:
-                continue
-            experiment_cfg = experiment_cfgs_by_name[job.name]
-            job_output_dir = os.path.join(run_output_dir, job.name)
-            try:
-                result = build_and_run_experiment(
-                    experiment_cfg,
-                    output_dir=job_output_dir,
-                    video_cfg=VideoRecordingCfg(
-                        record_viewport_video=args_cli.record_viewport_video,
-                        record_camera_video=args_cli.record_camera_video,
-                        video_base_dir=job_output_dir,
-                    ),
-                )
-            except Exception as error:
-                job_manager.complete_job(job, metrics={}, status=Status.FAILED)
-                print(f"Job {job.name} failed with error: {error}")
-                print(f"Traceback: {traceback.format_exc()}")
-                if not args_cli.continue_on_error:
-                    raise
-                continue
-
-            status = Status.COMPLETED if result.status is ExperimentStatus.COMPLETED else Status.FAILED
-            job_manager.complete_job(job, metrics=result.metrics or {}, status=status)
-            if result.metrics is not None:
-                metrics_logger.append_job_metrics(job.name, result.metrics)
-
-        job_manager.print_jobs_info()
-        metrics_logger.print_metrics()
-
-        # Write HTML report.
-        report_path = build_report(run_output_dir)
-        if args_cli.serve_evaluation_report:
-            serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
+        # TODO(cvolk, 2026-07-07): Remove this in-simulator JSON adaptation after
+        # every evaluation configuration uses the typed YAML frontend. Importing all
+        # legacy implementations before SimulationApp would load pxr/PhysX too early.
+        if collection_cfg is None:
+            assert legacy_config is not None
+            collection_cfg = experiment_collection_from_legacy_eval_config(legacy_config, device=args_cli.device)
+        if args_cli.list_variations:
+            _list_variations(collection_cfg)
+            return
+        _run_experiments(collection_cfg, args_cli)
 
 
 if __name__ == "__main__":

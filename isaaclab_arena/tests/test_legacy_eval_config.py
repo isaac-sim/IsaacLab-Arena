@@ -12,7 +12,7 @@ import pytest
 
 from isaaclab_arena.evaluation import legacy_graph_environment_cli
 from isaaclab_arena.evaluation.legacy_environment_cli_args import legacy_environment_args_to_cli_args
-from isaaclab_arena.evaluation.legacy_eval_config import experiment_cfgs_from_legacy_eval_config
+from isaaclab_arena.evaluation.legacy_eval_config import experiment_collection_from_legacy_eval_config
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
@@ -40,7 +40,8 @@ def test_legacy_jobs_become_concrete_experiment_configs():
         }]
     }
 
-    (experiment,) = experiment_cfgs_from_legacy_eval_config(legacy_config, device="cuda:1")
+    collection = experiment_collection_from_legacy_eval_config(legacy_config, device="cuda:1")
+    experiment = collection.experiments["maple_table"]
 
     assert experiment.name == "maple_table"
     assert experiment.environment == PickAndPlaceMapleTableEnvironmentCfg(
@@ -72,7 +73,8 @@ def test_legacy_graph_environment_stays_in_the_existing_cli_path():
         }]
     }
 
-    (experiment,) = experiment_cfgs_from_legacy_eval_config(legacy_config, device="cpu")
+    collection = experiment_collection_from_legacy_eval_config(legacy_config, device="cpu")
+    experiment = collection.experiments["graph_environment"]
 
     assert isinstance(experiment.environment, LegacyGraphEnvironmentCfg)
     assert experiment.environment.arena_env_args == legacy_environment_args_to_cli_args(
@@ -82,7 +84,7 @@ def test_legacy_graph_environment_stays_in_the_existing_cli_path():
 
 def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeypatch):
     graph_path = Path(TestConstants.test_data_dir) / "pick_and_place_maple_table_env_graph.yaml"
-    (experiment,) = experiment_cfgs_from_legacy_eval_config(
+    collection = experiment_collection_from_legacy_eval_config(
         {
             "jobs": [{
                 "name": "graph_environment",
@@ -94,6 +96,7 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
         },
         device="cuda:1",
     )
+    experiment = collection.experiments["graph_environment"]
     parsed_args = SimpleNamespace()
     expected_builder = object()
     captured = {}
@@ -140,4 +143,4 @@ def test_registered_environment_rejects_arguments_missing_from_its_typed_config(
     }
 
     with pytest.raises(AssertionError, match="unknown_environment_field"):
-        experiment_cfgs_from_legacy_eval_config(legacy_config, device="cpu")
+        experiment_collection_from_legacy_eval_config(legacy_config, device="cpu")

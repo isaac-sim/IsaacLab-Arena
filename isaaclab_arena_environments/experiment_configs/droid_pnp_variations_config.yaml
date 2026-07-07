@@ -1,0 +1,28 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+experiments:
+  variations_demo:
+    environment:
+      type: pick_and_place_maple_table
+      enable_cameras: true
+      embodiment: droid_rel_joint_pos
+      hdr: home_office_robolab
+
+    policy:
+      type: zero_action
+
+    rollout:
+      num_steps: 10
+
+    variations:
+      light:
+        hdr_image:
+          enabled: true
+        intensity:
+          enabled: true
+      droid_rel_joint_pos:
+        camera_extrinsics_wrist_camera:
+          enabled: true

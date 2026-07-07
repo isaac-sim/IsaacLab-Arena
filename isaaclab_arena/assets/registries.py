@@ -196,8 +196,8 @@ class PolicyRegistry(Registry):
         self._policy_types_by_cfg_type[cfg_type] = policy_type
 
     # TODO(cvolk, 2026-07-06): Remove this policy-to-config lookup when policy_runner
-    # and eval_runner receive concrete PolicyCfg instances. Typed experiment execution
-    # will keep using the reverse config-to-policy registration.
+    # and the remaining legacy JSON evaluation adapter no longer resolve a policy name
+    # into its concrete config type.
     def get_policy_cfg_type(self, policy_type: type["PolicyBase"]) -> type["PolicyCfg"]:
         """Get the config type used by the temporary policy frontend adapters."""
         ensure_assets_registered()
@@ -286,8 +286,8 @@ class EnvironmentRegistry(Registry):
         self._factory_types_by_cfg_type[cfg_type] = factory_type
 
     # TODO(cvolk, 2026-07-07): Remove this factory-to-config lookup and
-    # _cfg_types_by_factory_type when the legacy JSON adapter no longer resolves an
-    # environment name into its concrete config type.
+    # _cfg_types_by_factory_type when the remaining legacy JSON configurations no
+    # longer resolve an environment name into its concrete config type.
     def get_environment_cfg_type(
         self,
         factory_type: type["ArenaEnvironmentFactory"],

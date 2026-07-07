@@ -86,10 +86,19 @@ def _build_environment_from_cfg(
     render_mode: str | None,
 ) -> gym.Env:
     """Compile and instantiate an experiment's environment."""
+    arena_builder = build_arena_builder_for_experiment(cfg)
+    _, env_cfg, env_kwargs = arena_builder.build_registered()
+    if env_cfg.recorders is not None:
+        env_cfg.recorders.dataset_filename = f"dataset_{cfg.name}"
+    return arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
+
+
+def build_arena_builder_for_experiment(cfg: ArenaExperimentCfg) -> ArenaEnvBuilder:
+    """Build the Arena environment builder configured by an experiment."""
     hydra_overrides = overrides_from_dict(cfg.variations)
     # TODO(cvolk, 2026-07-07): Remove the legacy branch when graph environments
     # have typed configs and no longer require the argparse construction path.
-    arena_builder = (
+    return (
         build_arena_builder_from_legacy_graph(
             cfg.environment,
             device=cfg.environment_builder.device,
@@ -97,15 +106,11 @@ def _build_environment_from_cfg(
             hydra_overrides=hydra_overrides,
         )
         if isinstance(cfg.environment, LegacyGraphEnvironmentCfg)
-        else _build_arena_builder_from_cfg(cfg, hydra_overrides)
+        else _build_registered_arena_builder(cfg, hydra_overrides)
     )
-    _, env_cfg, env_kwargs = arena_builder.build_registered()
-    if env_cfg.recorders is not None:
-        env_cfg.recorders.dataset_filename = f"dataset_{cfg.name}"
-    return arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
 
 
-def _build_arena_builder_from_cfg(cfg: ArenaExperimentCfg, hydra_overrides: list[str]) -> ArenaEnvBuilder:
+def _build_registered_arena_builder(cfg: ArenaExperimentCfg, hydra_overrides: list[str]) -> ArenaEnvBuilder:
     """Build an Arena environment builder from a registered typed config."""
     # ArenaEnvBuilder imports pxr modules that must not load before SimulationApp.
     # Keep this runtime import deferred even though the type-only import is at the top.

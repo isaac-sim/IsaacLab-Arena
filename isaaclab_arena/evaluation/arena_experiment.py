@@ -72,6 +72,21 @@ class ArenaExperimentCfg:
             )
 
 
+@dataclass
+class ArenaExperimentCollectionCfg:
+    """Configure experiments in execution order."""
+
+    experiments: dict[str, ArenaExperimentCfg]
+    """Experiments keyed by their canonical names in execution order."""
+
+    def __post_init__(self) -> None:
+        assert self.experiments, "experiment collection must not be empty"
+        for experiment_name, experiment_cfg in self.experiments.items():
+            assert (
+                experiment_cfg.name == experiment_name
+            ), f"Experiment mapping key '{experiment_name}' must match the configured name '{experiment_cfg.name}'"
+
+
 class ExperimentStatus(Enum):
     """Describe whether an experiment completed or failed."""
 
