@@ -20,8 +20,8 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class RolloutCfg:
-    """Configure the stopping condition for one evaluation rollout."""
+class RolloutLimitCfg:
+    """Configure the stopping limit for one evaluation rollout."""
 
     num_steps: int | None = None
     """Number of environment steps, or ``None`` for an episode-driven rollout."""
@@ -53,8 +53,8 @@ class ArenaRunCfg:
     environment_builder: ArenaEnvBuilderCfg = field(default_factory=ArenaEnvBuilderCfg)
     """Configuration used to compile the Arena environment for Isaac Lab."""
 
-    rollout: RolloutCfg = field(default_factory=RolloutCfg)
-    """Stopping condition for the policy rollout."""
+    rollout_limit: RolloutLimitCfg = field(default_factory=RolloutLimitCfg)
+    """Step or episode limit for the policy rollout."""
 
     num_rebuilds: int = 1
     """Number of fresh environment constructions over which metrics are aggregated."""
@@ -65,9 +65,9 @@ class ArenaRunCfg:
     def __post_init__(self) -> None:
         assert self.name, "run name must not be empty"
         assert self.num_rebuilds > 0, "num_rebuilds must be greater than zero"
-        if self.rollout.num_episodes is not None:
-            assert self.rollout.num_episodes >= self.num_rebuilds, (
-                f"Run '{self.name}': num_episodes ({self.rollout.num_episodes}) must be >= num_rebuilds "
+        if self.rollout_limit.num_episodes is not None:
+            assert self.rollout_limit.num_episodes >= self.num_rebuilds, (
+                f"Run '{self.name}': num_episodes ({self.rollout_limit.num_episodes}) must be >= num_rebuilds "
                 f"({self.num_rebuilds}) so each rebuild runs at least one episode"
             )
 

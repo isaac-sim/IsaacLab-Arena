@@ -13,7 +13,7 @@ from typing import Any
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, RolloutCfg
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, RolloutLimitCfg
 from isaaclab_arena.evaluation.legacy_environment_cli_args import legacy_environment_args_to_cli_args
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls
@@ -78,7 +78,7 @@ def _run_cfg_from_legacy_job(
         environment=environment_cfgs.environment_cfg,
         environment_builder=environment_cfgs.environment_builder_cfg,
         policy=_policy_cfg_from_legacy_job(job_config),
-        rollout=RolloutCfg(
+        rollout_limit=RolloutLimitCfg(
             num_steps=job_config.get("num_steps"),
             num_episodes=job_config.get("num_episodes"),
         ),

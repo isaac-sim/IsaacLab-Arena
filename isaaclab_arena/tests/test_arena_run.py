@@ -8,12 +8,7 @@ from dataclasses import dataclass
 import pytest
 
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation.arena_run import (
-    ArenaRunCfg,
-    ArenaRunResult,
-    RolloutCfg,
-    RunStatus,
-)
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg, RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
 
@@ -32,7 +27,7 @@ def _run(**overrides) -> ArenaRunCfg:
         "name": "test_run",
         "environment": _EnvironmentCfg(),
         "policy": _PolicyCfg(),
-        "rollout": RolloutCfg(num_steps=10),
+        "rollout_limit": RolloutLimitCfg(num_steps=10),
     }
     values.update(overrides)
     return ArenaRunCfg(**values)
@@ -51,16 +46,16 @@ def test_run_contains_only_evaluation_intent():
 
 def test_rollout_limits_are_mutually_exclusive_and_positive():
     with pytest.raises(AssertionError, match="mutually exclusive"):
-        RolloutCfg(num_steps=1, num_episodes=1)
+        RolloutLimitCfg(num_steps=1, num_episodes=1)
     with pytest.raises(AssertionError, match="num_steps must be greater"):
-        RolloutCfg(num_steps=0)
+        RolloutLimitCfg(num_steps=0)
     with pytest.raises(AssertionError, match="num_episodes must be greater"):
-        RolloutCfg(num_episodes=0)
+        RolloutLimitCfg(num_episodes=0)
 
 
 def test_episode_budget_gives_every_rebuild_an_episode():
     with pytest.raises(AssertionError, match="each rebuild runs at least one episode"):
-        _run(rollout=RolloutCfg(num_episodes=2), num_rebuilds=3)
+        _run(rollout_limit=RolloutLimitCfg(num_episodes=2), num_rebuilds=3)
 
 
 def test_run_result_records_outcome_separately():

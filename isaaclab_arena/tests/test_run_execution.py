@@ -10,7 +10,7 @@ import pytest
 
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation import run_execution
-from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, RolloutCfg, RunStatus
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, RolloutLimitCfg, RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
 
@@ -46,7 +46,7 @@ def _run(**overrides):
         "name": "test_run",
         "environment": _EnvironmentCfg(),
         "policy": _PolicyCfg(),
-        "rollout": RolloutCfg(num_episodes=5),
+        "rollout_limit": RolloutLimitCfg(num_episodes=5),
         "num_rebuilds": 2,
     }
     values.update(overrides)
@@ -81,7 +81,7 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
     assert result.status is RunStatus.COMPLETED
     assert rollout_limits == [(None, 3), (None, 2)]
     assert received_run_cfgs == [run, run]
-    assert run.rollout == RolloutCfg(num_episodes=5)
+    assert run.rollout_limit == RolloutLimitCfg(num_episodes=5)
 
 
 def test_build_and_run_raises_and_closes_resources(monkeypatch, tmp_path):
@@ -109,7 +109,7 @@ def test_build_and_run_raises_and_closes_resources(monkeypatch, tmp_path):
 
     with pytest.raises(RuntimeError, match="rollout failed"):
         run_execution.build_and_run(
-            _run(rollout=RolloutCfg(num_steps=2), num_rebuilds=1),
+            _run(rollout_limit=RolloutLimitCfg(num_steps=2), num_rebuilds=1),
             output_dir=tmp_path,
         )
 
@@ -135,7 +135,7 @@ def test_build_and_run_requires_a_limit_for_an_unbounded_policy(monkeypatch, tmp
 
     with pytest.raises(AssertionError, match="must configure num_steps or num_episodes"):
         run_execution.build_and_run(
-            _run(rollout=RolloutCfg(), num_rebuilds=1),
+            _run(rollout_limit=RolloutLimitCfg(), num_rebuilds=1),
             output_dir=tmp_path,
         )
 

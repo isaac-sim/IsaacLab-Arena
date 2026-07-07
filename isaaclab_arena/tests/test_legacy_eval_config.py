@@ -53,7 +53,7 @@ def test_legacy_jobs_become_concrete_run_configs():
     assert run.environment_builder.device == "cuda:1"
     assert run.environment_builder.language_instruction == "Move the bottle."
     assert run.policy == ZeroActionPolicyCfg()
-    assert run.rollout.num_steps == 20
+    assert run.rollout_limit.num_steps == 20
     assert run.variations == {"light": {"intensity": {"enabled": True}}}
 
 

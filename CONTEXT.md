@@ -19,6 +19,10 @@ _Avoid_: Mutable Job, Experiment Result
 **Rollout**:
 Policy interaction with an environment governed by an episode or step stopping condition.
 
+**Rollout Limit**:
+The step or episode boundary that stops a Rollout.
+_Avoid_: Run Duration
+
 **Rebuild**:
 A fresh construction of a Run's environment used to repeat the same evaluation and aggregate its results.
 

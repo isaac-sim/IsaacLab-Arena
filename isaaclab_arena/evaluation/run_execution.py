@@ -42,7 +42,7 @@ def build_and_run(
     output_dir = str(output_dir)
     video_cfg = video_cfg or VideoRecordingCfg(video_base_dir=output_dir)
     episodes_per_rebuild = _split_episodes_across_rebuilds(
-        cfg.rollout.num_episodes,
+        cfg.rollout_limit.num_episodes,
         cfg.num_rebuilds,
         cfg.name,
     )
@@ -142,12 +142,11 @@ def _resolve_rollout_limit(
     num_episodes: int | None,
 ) -> tuple[int | None, int | None]:
     """Resolve a configured rollout limit or use the policy's intrinsic length."""
-    num_steps = cfg.rollout.num_steps
+    num_steps = cfg.rollout_limit.num_steps
     if num_steps is None and num_episodes is None:
-        assert policy.has_length(), (
-            f"Run '{cfg.name}' must configure num_steps or num_episodes because its policy has no intrinsic "
-            "length"
-        )
+        assert (
+            policy.has_length()
+        ), f"Run '{cfg.name}' must configure num_steps or num_episodes because its policy has no intrinsic length"
         num_steps = policy.length()
         assert num_steps is not None and num_steps > 0, f"Policy for run '{cfg.name}' has no usable length"
     return num_steps, num_episodes
