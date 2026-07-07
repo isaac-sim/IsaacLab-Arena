@@ -31,7 +31,6 @@ class Gr00tPolicyRunnerTask(PolicyRunnerTask):
         lead: bool | None = None,
     ) -> None:
         super().__init__(task_cfg=task_cfg, lead=lead)
-        self.policy_config_yaml_path = task_cfg.policy_config_yaml_path
         # Host of the GR00T server this runner connects to; the workflow resolves it from the server task.
         self.remote_host = remote_host
 
@@ -40,7 +39,7 @@ class Gr00tPolicyRunnerTask(PolicyRunnerTask):
             "--policy_type",
             "isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy",
             "--policy_config_yaml_path",
-            self.policy_config_yaml_path,
+            self.task_cfg.policy_config_yaml_path,
             "--remote_host",
             self.remote_host,
             "--remote_port",

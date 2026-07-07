@@ -6,8 +6,7 @@
 """Base class for Isaac Lab Arena OSMO tasks.
 
 Child classes define the task-specific entry script, inputs, image, and credentials; ``BaseTask``
-assembles the dict that OSMO consumes under ``workflow.groups[*].tasks``. Task parameters are
-supplied as typed config dataclasses rather than argparse namespaces.
+assembles the dict that OSMO consumes under ``workflow.groups[*].tasks``.
 """
 
 from abc import ABC, abstractmethod

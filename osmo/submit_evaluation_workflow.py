@@ -5,10 +5,6 @@
 
 """Configure and submit an Isaac Lab Arena policy-runner OSMO workflow.
 
-Tasks and workflows declare their parameters as config dataclasses; this top-level script is the
-only place that turns those configs into CLI flags (and back). In-program callers construct the
-config objects directly instead.
-
 Select the policy with ``--policy``:
 
   * ``zero_action`` -- a single policy-runner task running the built-in zero-action policy.

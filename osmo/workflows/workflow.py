@@ -16,11 +16,20 @@ import subprocess
 import tempfile
 import yaml
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from tasks.base_task import BaseTask, TaskCfg
 from workflows.utils.yaml_utils import block_literal_str  # noqa: F401  (registers representer)
+
+
+class WorkflowPriority(str, Enum):
+    """OSMO scheduling priority for a workflow."""
+
+    HIGH = "HIGH"
+    NORMAL = "NORMAL"
+    LOW = "LOW"
 
 
 @dataclass
@@ -29,24 +38,34 @@ class WorkflowCfg:
 
     workflow_name: str = "arena-workflow"
     """OSMO workflow name."""
+
     pool: str = "isaac-dev-l40s-04"
     """Target OSMO compute pool."""
-    priority: Literal["HIGH", "NORMAL", "LOW"] = "NORMAL"
+
+    priority: WorkflowPriority = WorkflowPriority.NORMAL
     """OSMO scheduling priority."""
+
     cpus: int = 15
     """Requested CPU cores."""
+
     gpus: int = 1
     """Requested GPUs."""
+
     memory: str = "128Gi"
     """Requested memory."""
+
     storage: str = "200Gi"
     """Requested storage."""
+
     platform: str = "ovx-l40s"
     """Target hardware platform."""
+
     exec_timeout: str = "1d"
     """Maximum execution time before the workflow is killed."""
+
     queue_timeout: str = "2d"
     """Maximum time the workflow may wait in the queue."""
+
     dry_run: bool = False
     """Render the workflow YAML and print it instead of submitting to OSMO."""
 
@@ -140,7 +159,7 @@ class Workflow:
         if self.workflow_cfg.pool:
             cmd.extend(["--pool", self.workflow_cfg.pool])
         if self.workflow_cfg.priority:
-            cmd.extend(["--priority", self.workflow_cfg.priority])
+            cmd.extend(["--priority", self.workflow_cfg.priority.value])
 
         print(f"Submitting workflow '{self.workflow_cfg.workflow_name}':")
         print(f"  {' '.join(cmd)}\n")
