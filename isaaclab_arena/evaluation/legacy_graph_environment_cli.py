@@ -31,7 +31,6 @@ class LegacyGraphEnvironmentCfg(ArenaEnvironmentCfg):
 
 def build_arena_builder_from_legacy_graph(
     cfg: LegacyGraphEnvironmentCfg,
-    *,
     device: str,
     language_instruction: str | None,
     hydra_overrides: list[str],
