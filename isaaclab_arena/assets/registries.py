@@ -196,7 +196,7 @@ class PolicyRegistry(Registry):
         self._policy_types_by_cfg_type[cfg_type] = policy_type
 
     # TODO(cvolk, 2026-07-06): Remove this policy-to-config lookup when policy_runner
-    # and eval_runner receive concrete PolicyCfg instances. Typed experiment execution
+    # and eval_runner receive concrete PolicyCfg instances. Typed run execution
     # will keep using the reverse config-to-policy registration.
     def get_policy_cfg_type(self, policy_type: type["PolicyBase"]) -> type["PolicyCfg"]:
         """Get the config type used by the temporary policy frontend adapters."""

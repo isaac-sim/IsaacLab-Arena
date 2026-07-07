@@ -9,8 +9,8 @@ from types import SimpleNamespace
 import pytest
 
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation import experiment_execution
-from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg, ExperimentStatus, RolloutCfg
+from isaaclab_arena.evaluation import run_execution
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, RolloutCfg, RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
 
@@ -41,100 +41,101 @@ def _environment():
     return SimpleNamespace(unwrapped=SimpleNamespace(episode_recorder=_EpisodeRecorder()))
 
 
-def _experiment(**overrides):
+def _run(**overrides):
     values = {
-        "name": "test_experiment",
+        "name": "test_run",
         "environment": _EnvironmentCfg(),
         "policy": _PolicyCfg(),
         "rollout": RolloutCfg(num_episodes=5),
         "num_rebuilds": 2,
     }
     values.update(overrides)
-    return ArenaExperimentCfg(**values)
+    return ArenaRunCfg(**values)
 
 
-def test_build_and_run_experiment_splits_episode_budget_without_mutating_config(monkeypatch, tmp_path):
-    experiment = _experiment()
+def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch, tmp_path):
+    run = _run()
     rollout_limits = []
-    received_experiment_cfgs = []
+    received_run_cfgs = []
 
     def make_environment(cfg, render_mode):
-        received_experiment_cfgs.append(cfg)
+        received_run_cfgs.append(cfg)
         return _environment()
 
-    monkeypatch.setattr(experiment_execution, "_build_environment_from_cfg", make_environment)
-    monkeypatch.setattr(experiment_execution, "_build_policy_from_cfg", lambda cfg: _Policy())
-    monkeypatch.setattr(experiment_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
-    monkeypatch.setattr(experiment_execution, "close_experiment_resources", lambda policy, env: None)
+    monkeypatch.setattr(run_execution, "_build_environment_from_cfg", make_environment)
+    monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: _Policy())
+    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
+    monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
 
     def record_rollout(env, policy, num_steps, num_episodes):
         rollout_limits.append((num_steps, num_episodes))
 
-    monkeypatch.setattr(experiment_execution, "rollout_policy", record_rollout)
+    monkeypatch.setattr(run_execution, "rollout_policy", record_rollout)
 
-    result = experiment_execution.build_and_run_experiment(
-        experiment,
+    result = run_execution.build_and_run(
+        run,
         output_dir=tmp_path,
     )
 
-    assert result.status is ExperimentStatus.COMPLETED
+    assert result.run_name == "test_run"
+    assert result.status is RunStatus.COMPLETED
     assert rollout_limits == [(None, 3), (None, 2)]
-    assert received_experiment_cfgs == [experiment, experiment]
-    assert experiment.rollout == RolloutCfg(num_episodes=5)
+    assert received_run_cfgs == [run, run]
+    assert run.rollout == RolloutCfg(num_episodes=5)
 
 
-def test_build_and_run_experiment_raises_and_closes_resources(monkeypatch, tmp_path):
+def test_build_and_run_raises_and_closes_resources(monkeypatch, tmp_path):
     closed_resources = []
     environment = _environment()
     policy = _Policy()
 
     monkeypatch.setattr(
-        experiment_execution,
+        run_execution,
         "_build_environment_from_cfg",
         lambda cfg, render_mode: environment,
     )
-    monkeypatch.setattr(experiment_execution, "_build_policy_from_cfg", lambda cfg: policy)
-    monkeypatch.setattr(experiment_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
+    monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: policy)
+    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
     monkeypatch.setattr(
-        experiment_execution,
-        "close_experiment_resources",
+        run_execution,
+        "close_run_resources",
         lambda closed_policy, closed_environment: closed_resources.append((closed_policy, closed_environment)),
     )
     monkeypatch.setattr(
-        experiment_execution,
+        run_execution,
         "rollout_policy",
         lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("rollout failed")),
     )
 
     with pytest.raises(RuntimeError, match="rollout failed"):
-        experiment_execution.build_and_run_experiment(
-            _experiment(rollout=RolloutCfg(num_steps=2), num_rebuilds=1),
+        run_execution.build_and_run(
+            _run(rollout=RolloutCfg(num_steps=2), num_rebuilds=1),
             output_dir=tmp_path,
         )
 
     assert closed_resources == [(policy, environment)]
 
 
-def test_build_and_run_experiment_requires_a_limit_for_an_unbounded_policy(monkeypatch, tmp_path):
+def test_build_and_run_requires_a_limit_for_an_unbounded_policy(monkeypatch, tmp_path):
     closed_resources = []
     environment = _environment()
     policy = _Policy()
 
     monkeypatch.setattr(
-        experiment_execution,
+        run_execution,
         "_build_environment_from_cfg",
         lambda cfg, render_mode: environment,
     )
-    monkeypatch.setattr(experiment_execution, "_build_policy_from_cfg", lambda cfg: policy)
+    monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: policy)
     monkeypatch.setattr(
-        experiment_execution,
-        "close_experiment_resources",
+        run_execution,
+        "close_run_resources",
         lambda closed_policy, closed_environment: closed_resources.append((closed_policy, closed_environment)),
     )
 
     with pytest.raises(AssertionError, match="must configure num_steps or num_episodes"):
-        experiment_execution.build_and_run_experiment(
-            _experiment(rollout=RolloutCfg(), num_rebuilds=1),
+        run_execution.build_and_run(
+            _run(rollout=RolloutCfg(), num_rebuilds=1),
             output_dir=tmp_path,
         )
 

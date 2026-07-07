@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Typed declarations and results for Arena evaluation experiments."""
+"""Typed declarations and results for Arena evaluation runs."""
 
 from __future__ import annotations
 
@@ -38,11 +38,11 @@ class RolloutCfg:
 
 
 @dataclass
-class ArenaExperimentCfg:
-    """Declare one portable Arena evaluation experiment."""
+class ArenaRunCfg:
+    """Declare one independently dispatchable Arena evaluation run."""
 
     name: str
-    """Name used to identify the experiment and its recorded output."""
+    """Name used to identify the run and its recorded output."""
 
     environment: ArenaEnvironmentCfg
     """Concrete configuration for the environment under evaluation."""
@@ -63,30 +63,30 @@ class ArenaExperimentCfg:
     """Variation values applied when the environment is compiled."""
 
     def __post_init__(self) -> None:
-        assert self.name, "experiment name must not be empty"
+        assert self.name, "run name must not be empty"
         assert self.num_rebuilds > 0, "num_rebuilds must be greater than zero"
         if self.rollout.num_episodes is not None:
             assert self.rollout.num_episodes >= self.num_rebuilds, (
-                f"Experiment '{self.name}': num_episodes ({self.rollout.num_episodes}) must be >= num_rebuilds "
+                f"Run '{self.name}': num_episodes ({self.rollout.num_episodes}) must be >= num_rebuilds "
                 f"({self.num_rebuilds}) so each rebuild runs at least one episode"
             )
 
 
-class ExperimentStatus(Enum):
-    """Describe whether an experiment completed or failed."""
+class RunStatus(Enum):
+    """Describe whether a run completed or failed."""
 
     COMPLETED = "completed"
     FAILED = "failed"
 
 
 @dataclass
-class ArenaExperimentResult:
-    """Record the outcome of executing one Arena experiment."""
+class ArenaRunResult:
+    """Record the outcome of executing one Arena run."""
 
-    experiment_name: str
-    """Name of the experiment that produced this result."""
+    run_name: str
+    """Name of the run that produced this result."""
 
-    status: ExperimentStatus
+    status: RunStatus
     """Final execution status."""
 
     metrics: MetricsDataCollection | None = None

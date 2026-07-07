@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Build and execute typed Arena experiments for an evaluation frontend."""
+"""Build and execute typed Arena runs for an evaluation frontend."""
 
 from __future__ import annotations
 
@@ -13,13 +13,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
-from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg, ArenaExperimentResult, ExperimentStatus
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RunStatus
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
     LegacyGraphEnvironmentCfg,
     build_arena_builder_from_legacy_graph,
 )
 from isaaclab_arena.evaluation.policy_runner import rollout_policy
-from isaaclab_arena.evaluation.resource_cleanup import close_experiment_resources
+from isaaclab_arena.evaluation.resource_cleanup import close_run_resources
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
@@ -32,12 +32,12 @@ if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
 
-def build_and_run_experiment(
-    cfg: ArenaExperimentCfg,
+def build_and_run(
+    cfg: ArenaRunCfg,
     output_dir: str | Path,
     video_cfg: VideoRecordingCfg | None = None,
-) -> ArenaExperimentResult:
-    """Build and run one typed experiment, then return its result."""
+) -> ArenaRunResult:
+    """Build and execute one typed Arena run, then return its result."""
     metrics_per_rebuild: list[MetricsDataCollection] = []
     output_dir = str(output_dir)
     video_cfg = video_cfg or VideoRecordingCfg(video_base_dir=output_dir)
@@ -72,20 +72,20 @@ def build_and_run_experiment(
             if metrics is not None:
                 metrics_per_rebuild.append(metrics)
         finally:
-            close_experiment_resources(policy, env)
+            close_run_resources(policy, env)
 
-    return ArenaExperimentResult(
-        experiment_name=cfg.name,
-        status=ExperimentStatus.COMPLETED,
+    return ArenaRunResult(
+        run_name=cfg.name,
+        status=RunStatus.COMPLETED,
         metrics=aggregate_metrics(metrics_per_rebuild) if metrics_per_rebuild else None,
     )
 
 
 def _build_environment_from_cfg(
-    cfg: ArenaExperimentCfg,
+    cfg: ArenaRunCfg,
     render_mode: str | None,
 ) -> gym.Env:
-    """Compile and instantiate an experiment's environment."""
+    """Compile and instantiate a run's environment."""
     hydra_overrides = overrides_from_dict(cfg.variations)
     # TODO(cvolk, 2026-07-07): Remove the legacy branch when graph environments
     # have typed configs and no longer require the argparse construction path.
@@ -105,7 +105,7 @@ def _build_environment_from_cfg(
     return arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
 
 
-def _build_arena_builder_from_cfg(cfg: ArenaExperimentCfg, hydra_overrides: list[str]) -> ArenaEnvBuilder:
+def _build_arena_builder_from_cfg(cfg: ArenaRunCfg, hydra_overrides: list[str]) -> ArenaEnvBuilder:
     """Build an Arena environment builder from a registered typed config."""
     # ArenaEnvBuilder imports pxr modules that must not load before SimulationApp.
     # Keep this runtime import deferred even though the type-only import is at the top.
@@ -120,8 +120,8 @@ def _build_arena_builder_from_cfg(cfg: ArenaExperimentCfg, hydra_overrides: list
     )
 
 
-def _build_policy_from_cfg(cfg: ArenaExperimentCfg) -> PolicyBase:
-    """Instantiate the registered policy configured by an experiment."""
+def _build_policy_from_cfg(cfg: ArenaRunCfg) -> PolicyBase:
+    """Instantiate the registered policy configured by a run."""
     policy_cfg = _policy_cfg_for_num_envs(cfg.policy, cfg.environment_builder.num_envs)
     policy_type = PolicyRegistry().get_policy_type_for_cfg(policy_cfg)
     return policy_type(policy_cfg)
@@ -137,7 +137,7 @@ def _policy_cfg_for_num_envs(policy_cfg: PolicyCfg, num_envs: int) -> PolicyCfg:
 
 
 def _resolve_rollout_limit(
-    cfg: ArenaExperimentCfg,
+    cfg: ArenaRunCfg,
     policy: PolicyBase,
     num_episodes: int | None,
 ) -> tuple[int | None, int | None]:
@@ -145,24 +145,24 @@ def _resolve_rollout_limit(
     num_steps = cfg.rollout.num_steps
     if num_steps is None and num_episodes is None:
         assert policy.has_length(), (
-            f"Experiment '{cfg.name}' must configure num_steps or num_episodes because its policy has no intrinsic "
+            f"Run '{cfg.name}' must configure num_steps or num_episodes because its policy has no intrinsic "
             "length"
         )
         num_steps = policy.length()
-        assert num_steps is not None and num_steps > 0, f"Policy for experiment '{cfg.name}' has no usable length"
+        assert num_steps is not None and num_steps > 0, f"Policy for run '{cfg.name}' has no usable length"
     return num_steps, num_episodes
 
 
 def _split_episodes_across_rebuilds(
     num_episodes: int | None,
     num_rebuilds: int,
-    experiment_name: str,
+    run_name: str,
 ) -> list[int | None]:
-    """Split an experiment's episode budget as evenly as possible across rebuilds."""
+    """Split a run's episode budget as evenly as possible across rebuilds."""
     if num_episodes is None:
         return [None] * num_rebuilds
     assert num_episodes >= num_rebuilds, (
-        f"Experiment '{experiment_name}': num_episodes ({num_episodes}) must be >= num_rebuilds "
+        f"Run '{run_name}': num_episodes ({num_episodes}) must be >= num_rebuilds "
         f"({num_rebuilds}) so each rebuild runs at least one episode"
     )
     base, remainder = divmod(num_episodes, num_rebuilds)

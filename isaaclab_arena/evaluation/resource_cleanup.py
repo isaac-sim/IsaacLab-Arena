@@ -42,8 +42,8 @@ def close_environment(env: gym.Env | None) -> None:
             collect_garbage_and_clear_cuda_cache()
 
 
-def close_experiment_resources(policy: PolicyBase | None, env: gym.Env | None) -> None:
-    """Close an experiment's policy and environment."""
+def close_run_resources(policy: PolicyBase | None, env: gym.Env | None) -> None:
+    """Close a run's policy and environment."""
     try:
         close_policy(policy)
     finally:

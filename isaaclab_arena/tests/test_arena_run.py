@@ -8,11 +8,11 @@ from dataclasses import dataclass
 import pytest
 
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation.arena_experiment import (
-    ArenaExperimentCfg,
-    ArenaExperimentResult,
-    ExperimentStatus,
+from isaaclab_arena.evaluation.arena_run import (
+    ArenaRunCfg,
+    ArenaRunResult,
     RolloutCfg,
+    RunStatus,
 )
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
@@ -27,26 +27,26 @@ class _PolicyCfg(PolicyCfg):
     value: int = 2
 
 
-def _experiment(**overrides) -> ArenaExperimentCfg:
+def _run(**overrides) -> ArenaRunCfg:
     values = {
-        "name": "test_experiment",
+        "name": "test_run",
         "environment": _EnvironmentCfg(),
         "policy": _PolicyCfg(),
         "rollout": RolloutCfg(num_steps=10),
     }
     values.update(overrides)
-    return ArenaExperimentCfg(**values)
+    return ArenaRunCfg(**values)
 
 
-def test_experiment_contains_only_evaluation_intent():
-    """Keep execution state and results separate from the experiment declaration."""
-    experiment = _experiment()
+def test_run_contains_only_evaluation_intent():
+    """Keep execution state and results separate from the run declaration."""
+    run = _run()
 
-    assert experiment.name == "test_experiment"
-    assert experiment.environment == _EnvironmentCfg()
-    assert experiment.policy == _PolicyCfg()
-    assert not hasattr(experiment, "status")
-    assert not hasattr(experiment, "metrics")
+    assert run.name == "test_run"
+    assert run.environment == _EnvironmentCfg()
+    assert run.policy == _PolicyCfg()
+    assert not hasattr(run, "status")
+    assert not hasattr(run, "metrics")
 
 
 def test_rollout_limits_are_mutually_exclusive_and_positive():
@@ -60,13 +60,14 @@ def test_rollout_limits_are_mutually_exclusive_and_positive():
 
 def test_episode_budget_gives_every_rebuild_an_episode():
     with pytest.raises(AssertionError, match="each rebuild runs at least one episode"):
-        _experiment(rollout=RolloutCfg(num_episodes=2), num_rebuilds=3)
+        _run(rollout=RolloutCfg(num_episodes=2), num_rebuilds=3)
 
 
-def test_experiment_result_records_outcome_separately():
-    result = ArenaExperimentResult(
-        experiment_name="test_experiment",
-        status=ExperimentStatus.COMPLETED,
+def test_run_result_records_outcome_separately():
+    result = ArenaRunResult(
+        run_name="test_run",
+        status=RunStatus.COMPLETED,
     )
 
+    assert result.run_name == "test_run"
     assert result.metrics is None

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 
 # TODO(cvolk, 2026-07-06): Replace this flat legacy-CLI-shaped configuration with
-# nested scene, placement, and physics configs once the typed experiment runner
+# nested scene, placement, and physics configs once the typed run configuration
 # owns configuration composition.
 @dataclass
 class ArenaEnvBuilderCfg:

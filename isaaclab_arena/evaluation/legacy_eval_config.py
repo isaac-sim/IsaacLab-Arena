@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Convert the existing eval-jobs JSON format into typed experiment configs."""
+"""Convert the existing JSON experiment format into typed run configs."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from typing import Any
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg, RolloutCfg
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, RolloutCfg
 from isaaclab_arena.evaluation.legacy_environment_cli_args import legacy_environment_args_to_cli_args
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls
@@ -21,12 +21,12 @@ from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena_environments.cli import ensure_environments_registered
 
 # TODO(cvolk, 2026-07-07): Delete this adapter when eval_runner loads typed YAML
-# experiments directly. The current JSON format identifies environments and policies
+# experiment files directly. The current JSON format identifies environments and policies
 # by name and mixes environment-specific and builder values in ``arena_env_args``.
 # This module resolves those names, separates the values into their concrete typed
 # configs, and marks graph-YAML environments for the narrow argparse compatibility
 # path in ``legacy_graph_environment_cli``.
-# The planned Hydra/YAML frontend will compose those typed configs directly, so none
+# The planned Hydra/YAML frontend will compose typed run configs directly, so none
 # of this JSON translation or argparse fallback will be needed.
 
 
@@ -41,26 +41,26 @@ class _EnvironmentCfgs:
     """Arena builder values that were mixed into the legacy environment arguments."""
 
 
-def experiment_cfgs_from_legacy_eval_config(
+def run_cfgs_from_legacy_eval_config(
     config: dict[str, Any],
     device: str,
-) -> list[ArenaExperimentCfg]:
-    """Create typed experiment configs from a legacy eval-jobs document."""
+) -> list[ArenaRunCfg]:
+    """Create typed run configs from a legacy JSON experiment document."""
     assert set(config) == {"jobs"}, "legacy evaluation config must contain only a 'jobs' list"
     job_configs = config["jobs"]
     assert isinstance(job_configs, list), "legacy evaluation config 'jobs' must be a list"
 
-    experiment_cfgs = [_experiment_cfg_from_legacy_job(job_config, device=device) for job_config in job_configs]
-    experiment_names = [experiment_cfg.name for experiment_cfg in experiment_cfgs]
-    assert len(experiment_names) == len(set(experiment_names)), "experiment names must be unique"
-    return experiment_cfgs
+    run_cfgs = [_run_cfg_from_legacy_job(job_config, device=device) for job_config in job_configs]
+    run_names = [run_cfg.name for run_cfg in run_cfgs]
+    assert len(run_names) == len(set(run_names)), "run names must be unique"
+    return run_cfgs
 
 
-def _experiment_cfg_from_legacy_job(
+def _run_cfg_from_legacy_job(
     job_config: dict[str, Any],
     device: str,
-) -> ArenaExperimentCfg:
-    """Create one typed experiment config from a legacy job mapping."""
+) -> ArenaRunCfg:
+    """Create one typed run config from a legacy job mapping."""
     assert isinstance(job_config, dict), "each legacy job must be a mapping"
     for required_field in ("name", "arena_env_args", "policy_type"):
         assert required_field in job_config, f"{required_field} is required"
@@ -73,7 +73,7 @@ def _experiment_cfg_from_legacy_job(
     variations = job_config.get("variations", {})
     assert isinstance(variations, dict), "variations must be a mapping"
 
-    return ArenaExperimentCfg(
+    return ArenaRunCfg(
         name=job_config["name"],
         environment=environment_cfgs.environment_cfg,
         environment_builder=environment_cfgs.environment_builder_cfg,
