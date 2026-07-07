@@ -36,9 +36,10 @@ The page is split into a left editing column and a right preview column.
 
 Generate from prompt
    Enter a natural-language task and scene description, then click
-   ``Generate``. The GUI calls the environment-generation agent and loads the
-   returned ``ArenaEnvGraphSpec`` YAML into the editor. After a successful
-   generation, the panel can show the agent reasoning from the last run.
+   ``Generate spec``. The GUI calls the environment-generation agent and loads
+   the returned ``ArenaEnvGraphSpec`` YAML into the editor. When validation
+   fails, the invalid YAML is still loaded into the editor and the validation
+   traces are shown alongside it.
 
 YAML editor
    Edit the generated or loaded ``ArenaEnvGraphSpec`` directly. The editor

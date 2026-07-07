@@ -5,7 +5,8 @@
 
 """CLI launcher for the ArenaEnvGraphSpec live editor.
 
-Usage:
+Usage::
+
     # Default — start with a prompt:
     python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py
 
