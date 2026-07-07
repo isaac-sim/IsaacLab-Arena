@@ -12,8 +12,6 @@ from typing import TYPE_CHECKING, Any
 from isaaclab_arena.affordances.affordance_base import AffordanceBase
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.registries import TaskRegistry
-from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
-from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_env_graph_types import CompositeTaskSpec, TaskSpec
@@ -34,6 +32,12 @@ def build_task_from_spec(task_spec: CompositeTaskSpec, assets_by_node_id: dict[s
         )
 
     subtasks = [_build_atomic_task_from_spec(spec, assets_by_node_id) for spec in task_spec.subtasks]
+    # Lazy import: CompositeTaskBase / SequentialTaskBase -> composite_task_base pulls in pxr (USD), which requires a
+    # launched SimulationApp. Deferring it keeps this module importable by data-only consumers
+    # (spec parsers, unit tests, pytest collection) without dragging in sim deps at import time.
+    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
+    from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
+
     if task_spec.composition == "parallel":
         return CompositeTaskBase(
             subtasks=subtasks,

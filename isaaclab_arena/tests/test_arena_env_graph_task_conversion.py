@@ -200,7 +200,10 @@ def test_build_task_from_spec_sequential_wraps_multiple_tasks(monkeypatch):
         "_build_atomic_task_from_spec",
         lambda task_spec, _assets, task_description=None: task_spec.kind,
     )
-    monkeypatch.setattr(conversion, "SequentialTaskBase", FakeSequential)
+    monkeypatch.setattr(
+        "isaaclab_arena.tasks.sequential_task_base.SequentialTaskBase",
+        FakeSequential,
+    )
 
     from isaaclab_arena.environments.arena_env_graph_types import CompositeTaskSpec, TaskSpec
 

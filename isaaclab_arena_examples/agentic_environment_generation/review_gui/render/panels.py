@@ -40,8 +40,6 @@ def render_unary_constraints(relations: list[SpatialRelationSpec]) -> str:
 def render_tasks_table(spec: ArenaEnvGraphSpec) -> str:
     """Render task rows as an HTML table for the dashboard tasks panel."""
     atomic_tasks = spec.task.subtasks
-    if not atomic_tasks:
-        return "<p class='muted'><em>No tasks defined.</em></p>"
     rows = []
     composition = html_lib.escape(spec.task.composition)
     summary = html_lib.escape(spec.task.description)
