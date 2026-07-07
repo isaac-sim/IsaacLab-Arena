@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 # Registered policy configs are the source of truth. Until policy_runner receives a
 # PolicyCfg directly, these helpers generate its policy flags and reconstruct the same
 # config from the parsed Namespace.
-# TODO(cvolk, 2026-07-03): Delete this compatibility section when policy_runner receives
+# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this compatibility section when policy_runner receives
 # typed policy configs directly.
 _FIELDS_PROVIDED_BY_SHARED_PARSER = {"device", "num_envs"}
 

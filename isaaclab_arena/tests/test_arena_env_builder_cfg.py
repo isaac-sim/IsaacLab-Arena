@@ -12,7 +12,7 @@ from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
 
 
-# TODO(cvolk, 2026-07-03): Delete the argparse adapter tests below with
+# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete the argparse adapter tests below with
 # arena_env_builder_cfg_from_argparse once runners pass ArenaEnvBuilderCfg directly.
 def test_cli_defaults_match_builder_configuration():
     """Keep the manual CLI defaults aligned with the typed builder configuration."""

@@ -3,11 +3,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import json
 import time
 from enum import Enum
 from prettytable import PrettyTable
 from queue import Queue
+
+from isaaclab_arena.evaluation.legacy_environment_cli_args import legacy_environment_args_to_cli_args
+from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 
 
 class Status(Enum):
@@ -137,22 +139,9 @@ class Job:
         Returns:
             List of Hydra override strings (empty when ``variations`` is empty).
         """
-        overrides: list[str] = []
-        # Iterative depth-first walk over (dotted-path-prefix, node) pairs.
-        stack: list[tuple[str, object]] = [("", variations)]
-        while stack:
-            prefix, node = stack.pop()
-            if isinstance(node, dict):
-                for key, value in node.items():
-                    assert key != "", "Variation override keys must be non-empty"
-                    child_prefix = f"{prefix}.{key}" if prefix else str(key)
-                    stack.append((child_prefix, value))
-                continue
-            assert prefix != "", "Variation override path must be non-empty"
-            # json.dumps with compact separators yields Hydra-parseable values
-            # (true/false, null, [a,b,c]) without spaces.
-            overrides.append(f"{prefix}={json.dumps(node, separators=(',', ':'))}")
-        return overrides
+        # TODO(cvolk, 2026-07-07): [typed-config-migration] Remove this compatibility method with ``Job``
+        # when the JSON evaluation frontend is retired.
+        return overrides_from_dict(variations)
 
     @classmethod
     def convert_args_dict_to_cli_args_list(cls, args_dict: dict) -> list[str]:
@@ -169,42 +158,9 @@ class Job:
         Raises:
             AssertionError: If 'environment' key is missing or None
         """
-        assert "environment" in args_dict, "environment is required in args_dict"
-        assert args_dict["environment"] is not None, "environment cannot be None"
-
-        args_list = []
-
-        # Priority arguments that should come first (global args that must precede the subcommand)
-        priority_keys = ["num_envs", "env_spacing", "enable_cameras", "placement_seed"]
-
-        # Process priority arguments first (--num_envs, --enable_cameras)
-        for key in priority_keys:
-            if key in args_dict:
-                value = args_dict[key]
-                if isinstance(value, bool) and value:
-                    args_list += [f"--{key}"]
-                elif not isinstance(value, bool) and value is not None:
-                    args_list += [f"--{key}", str(value)]
-
-        # The env source comes next.
-        # It could be either an example-environment name or a graph spec yaml detected via extension.
-        environment = str(args_dict["environment"])
-        if environment.endswith((".yaml", ".yml")):
-            args_list += ["--env_graph_spec_yaml", environment]
-        else:
-            args_list += [environment]
-
-        # Process all other arguments (object, embodiment, etc.)
-        for key, value in args_dict.items():
-            if key in priority_keys or key == "environment":
-                continue
-
-            if isinstance(value, bool) and value:
-                args_list += [f"--{key}"]
-            elif not isinstance(value, bool) and value is not None:
-                args_list += [f"--{key}", str(value)]
-
-        return args_list
+        # TODO(cvolk, 2026-07-07): [typed-config-migration] Remove this compatibility method with ``Job``
+        # when the JSON evaluation frontend is retired.
+        return legacy_environment_args_to_cli_args(args_dict)
 
 
 class JobManager:
