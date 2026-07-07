@@ -506,14 +506,14 @@
 <h1>Agentic Environment Generation GUI<a class="headerlink" href="#agentic-environment-generation-gui" title="Link to this heading">#</a></h1>
 <p>The agentic environment-generation GUI is a Streamlit live editor for creating,
 reviewing, editing, saving, visualizing, and simulation-previewing
-<code class="docutils literal notranslate"><span class="pre">ArenaEnvInitialGraphSpec</span></code> YAML files.</p>
+<code class="docutils literal notranslate"><span class="pre">ArenaEnvGraphSpec</span></code> YAML files.</p>
 <p>Run the GUI from inside the Isaac Lab-Arena development container:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/gui_runner.py
 </pre></div>
 </div>
-<p>You can also open an existing initial graph spec:</p>
+<p>You can also open an existing environment graph spec:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/gui_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--env_initial_graph_spec<span class="w"> </span>isaaclab_arena/tests/test_data/pick_and_place_maple_table_init_env_graph.yaml
+<span class="w">   </span>--env_graph_spec_yaml<span class="w"> </span>isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml
 </pre></div>
 </div>
 <p>By default, generated YAML files are written under
@@ -532,15 +532,15 @@ result before using it in policy evaluation.</span><a class="headerlink" href="#
 <p>The page is split into a left editing column and a right preview column.</p>
 <dl class="simple">
 <dt>Generate from prompt</dt><dd><p>Enter a natural-language task and scene description, then click
-<code class="docutils literal notranslate"><span class="pre">Generate</span> <span class="pre">&amp;</span> <span class="pre">compile</span></code>. The GUI calls the environment-generation agent,
-compiles the resulting intent spec into an <code class="docutils literal notranslate"><span class="pre">ArenaEnvInitialGraphSpec</span></code>, and
-loads the YAML into the editor. After a successful generation, the panel can
-show the agent reasoning and the compiler resolution trace from the last run.</p>
+<code class="docutils literal notranslate"><span class="pre">Generate</span> <span class="pre">spec</span></code>. The GUI calls the environment-generation agent and loads
+the returned <code class="docutils literal notranslate"><span class="pre">ArenaEnvGraphSpec</span></code> YAML into the editor. When validation
+fails, the invalid YAML is still loaded into the editor and the validation
+traces are shown alongside it.</p>
 </dd>
-<dt>YAML editor</dt><dd><p>Edit the generated or loaded <code class="docutils literal notranslate"><span class="pre">ArenaEnvInitialGraphSpec</span></code> directly. The editor
+<dt>YAML editor</dt><dd><p>Edit the generated or loaded <code class="docutils literal notranslate"><span class="pre">ArenaEnvGraphSpec</span></code> directly. The editor
 validates the YAML as you work and shows either a valid-spec summary or the
-parse/validation error. The <code class="docutils literal notranslate"><span class="pre">Save</span> <span class="pre">YAML</span></code> button writes both the initial YAML and
-the linked graph YAML to the configured output directory.</p>
+parse/validation error. The <code class="docutils literal notranslate"><span class="pre">Save</span> <span class="pre">YAML</span></code> button writes the spec to
+<code class="docutils literal notranslate"><span class="pre">&lt;env_name&gt;.yaml</span></code> in the configured output directory.</p>
 </dd>
 <dt>Visualization</dt><dd><p>Shows an automatically refreshed dashboard for valid YAML. The dashboard
 includes graph nodes, node thumbnails when available, the graph layout, task
@@ -559,23 +559,20 @@ the requested rollout steps.</p>
 <h2>Editing and Update Flow<a class="headerlink" href="#editing-and-update-flow" title="Link to this heading">#</a></h2>
 <p>The main update flow is:</p>
 <ol class="arabic simple">
-<li><p>Type a prompt and click <code class="docutils literal notranslate"><span class="pre">Generate</span> <span class="pre">&amp;</span> <span class="pre">compile</span></code>.</p></li>
-<li><p>The agent receives the prompt and returns an <code class="docutils literal notranslate"><span class="pre">EnvironmentIntentSpec</span></code>, which
-is compiled into an <code class="docutils literal notranslate"><span class="pre">ArenaEnvInitialGraphSpec</span></code>. The generated YAML is loaded
-into the editor and saved as initial and linked specs.</p></li>
+<li><p>Type a prompt and click <code class="docutils literal notranslate"><span class="pre">Generate</span></code>.</p></li>
+<li><p>The agent receives the prompt and returns an <code class="docutils literal notranslate"><span class="pre">ArenaEnvGraphSpec</span></code>. The
+generated YAML is loaded into the editor and saved as <code class="docutils literal notranslate"><span class="pre">&lt;env_name&gt;.yaml</span></code>.</p></li>
 <li><p>The user can manually edit the YAML in the editor. Once the edited YAML
-passes validation, click <code class="docutils literal notranslate"><span class="pre">Save</span> <span class="pre">YAML</span></code> to write it to the output directory. The
-spec is saved to <code class="docutils literal notranslate"><span class="pre">&lt;env_name&gt;_initial.yaml</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;env_name&gt;_linked.yaml</span></code>
-under the selected output directory. Use <code class="docutils literal notranslate"><span class="pre">Change</span> <span class="pre">output</span> <span class="pre">directory</span></code> to choose
-a different output location. The filename is derived from <code class="docutils literal notranslate"><span class="pre">env_name</span></code> and can
-be changed by editing <code class="docutils literal notranslate"><span class="pre">env_name</span></code> in the YAML editor.</p></li>
+passes validation, click <code class="docutils literal notranslate"><span class="pre">Save</span> <span class="pre">YAML</span></code> to write it to the output directory.
+Use <code class="docutils literal notranslate"><span class="pre">Change</span> <span class="pre">output</span> <span class="pre">directory</span></code> to choose a different output location. The
+filename is derived from <code class="docutils literal notranslate"><span class="pre">env_name</span></code> and can be changed by editing
+<code class="docutils literal notranslate"><span class="pre">env_name</span></code> in the YAML editor.</p></li>
 <li><p>The graph visualization refreshes automatically when the valid YAML text
 changes.</p></li>
-<li><p>Click <code class="docutils literal notranslate"><span class="pre">Run</span> <span class="pre">link</span> <span class="pre">+</span> <span class="pre">relation</span> <span class="pre">solver</span> <span class="pre">preview</span></code> to manually trigger the
-simulation preview. This action sends the current editor text to the SimApp
-preview service, links the graph, builds the Arena environment, solves
-relations, runs the configured zero-action rollout, and displays two viewport
-captures.</p></li>
+<li><p>Click <code class="docutils literal notranslate"><span class="pre">Run</span> <span class="pre">relation</span> <span class="pre">solver</span> <span class="pre">preview</span></code> to manually trigger the simulation
+preview. This action sends the current editor text to the SimApp preview
+service, builds the Arena environment, solves relations, runs the configured
+zero-action rollout, and displays two viewport captures.</p></li>
 </ol>
 </section>
 </section>

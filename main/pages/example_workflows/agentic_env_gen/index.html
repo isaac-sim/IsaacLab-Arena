@@ -506,8 +506,8 @@ prompts, then reuses the generated environment graph specs for downstream policy
 evaluation. This workflow shows how agentically composed environments can be
 used by the policy runner, the sequential batch evaluation runner with the
 variation system, and policy-specific evaluation flows such as GR00T and PI.</p>
-<p>Behind the scenes, this workflow introduces the intent spec, environment graph
-spec, and environment graph linking.</p>
+<p>Behind the scenes, this workflow uses the <code class="docutils literal notranslate"><span class="pre">ArenaEnvGraphSpec</span></code> schema for scene
+layout, tasks, and spatial relations.</p>
 <p><strong>Docker Container</strong>: Base (see <a class="reference internal" href="../../quickstart/installation.html"><span class="doc">Installation</span></a> for more details)</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
 </pre></div>
@@ -525,13 +525,8 @@ specs:</p>
 <span class="w">   </span>--prompt<span class="w"> </span><span class="s2">&quot;Droid picks up the mustard bottle from the maple table and places it in the grey bin.&quot;</span>
 </pre></div>
 </div>
-<p>The runner writes files under <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/agent_generated/</span></code> by
-default:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">*_initial.yaml</span></code>: the direct output of intent compilation.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">*_linked.yaml</span></code>: the linked environment graph used by Arena runtime tools.</p></li>
-</ul>
-<p>Pass the linked YAML to policy and evaluation commands.</p>
+<p>The runner writes <code class="docutils literal notranslate"><span class="pre">&lt;env_name&gt;.yaml</span></code> under <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/agent_generated/</span></code> by
+default. Pass it to policy and evaluation commands with <code class="docutils literal notranslate"><span class="pre">--env_graph_spec_yaml</span></code>.</p>
 </section>
 <section id="prompt-to-simulation-environment">
 <h2>Prompt to Simulation Environment<a class="headerlink" href="#prompt-to-simulation-environment" title="Link to this heading">#</a></h2>
@@ -587,7 +582,7 @@ currently supported in Arena.</p>
 <p>The same YAML can also be built directly by the generation runner:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/environment_generation_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--mode<span class="w"> </span>build<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--linked_env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--headless
 </pre></div>
 </div>
@@ -615,8 +610,8 @@ sensitivity.</span><a class="headerlink" href="#id2" title="Link to this image">
 </section>
 <section id="sequential-batch-evaluation-runner-with-variations">
 <h3>Sequential Batch Evaluation Runner with Variations<a class="headerlink" href="#sequential-batch-evaluation-runner-with-variations" title="Link to this heading">#</a></h3>
-<p>Evaluation jobs can also point their environment source at a linked graph YAML
-with variations, instead of a registered example-environment name:</p>
+<p>Evaluation jobs can also point their environment source at an environment graph
+spec YAML with variations, instead of a registered example-environment name:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;agentic_env_eval&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>

@@ -48,7 +48,7 @@ Important flags:
   selects the OpenPI remote policy client.
 * ``--enable_cameras`` is required because OpenPI consumes visual observations.
 * ``--env_graph_spec_yaml`` points the runner at the agentically generated
-  linked environment graph.
+  environment graph spec.
 
 Add a language instruction when you want to make the OpenPI task explicit:
 
@@ -87,7 +87,7 @@ Run with Eval Runner
 --------------------
 
 For repeatable evaluation, put the generated environment graph spec YAML in an
-eval jobs config. The ``environment`` field points at the linked YAML, and the
+eval jobs config. The ``environment`` field points at the graph spec YAML, and the
 OpenPI connection options go in ``policy_config_dict``:
 
 .. code-block:: json

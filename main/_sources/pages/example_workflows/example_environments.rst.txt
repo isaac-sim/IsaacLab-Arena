@@ -10,7 +10,7 @@ Isaac Lab Arena ships a catalog of ready-to-run environments under
   subclass and registered with the global ``EnvironmentRegistry``. The
   registered ``Task ID`` is passed as the positional ``example_environment``
   argument to scripts such as ``isaaclab_arena/evaluation/policy_runner.py``.
-* **Environment graph YAML specs**: linked graph specs that describe the same
+* **Environment graph YAML specs**: ``ArenaEnvGraphSpec`` files that describe the same
   scene, embodiment, task, objects, and relations declaratively. These are
   passed with ``--env_graph_spec_yaml`` and can be generated from prompts by the
   :doc:`agentic_env_gen/index` workflow.

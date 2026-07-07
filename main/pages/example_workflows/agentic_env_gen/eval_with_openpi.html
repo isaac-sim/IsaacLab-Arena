@@ -540,7 +540,7 @@ details on OpenPI variants, rebuild flags, and server setup.</p>
 selects the OpenPI remote policy client.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--enable_cameras</span></code> is required because OpenPI consumes visual observations.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">--env_graph_spec_yaml</span></code> points the runner at the agentically generated
-linked environment graph.</p></li>
+environment graph spec.</p></li>
 </ul>
 <p>Add a language instruction when you want to make the OpenPI task explicit:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
@@ -576,7 +576,7 @@ after the environment source.</p>
 <section id="run-with-eval-runner">
 <h2>Run with Eval Runner<a class="headerlink" href="#run-with-eval-runner" title="Link to this heading">#</a></h2>
 <p>For repeatable evaluation, put the generated environment graph spec YAML in an
-eval jobs config. The <code class="docutils literal notranslate"><span class="pre">environment</span></code> field points at the linked YAML, and the
+eval jobs config. The <code class="docutils literal notranslate"><span class="pre">environment</span></code> field points at the graph spec YAML, and the
 OpenPI connection options go in <code class="docutils literal notranslate"><span class="pre">policy_config_dict</span></code>:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;jobs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
