@@ -5,9 +5,7 @@
 
 """Remote pi0 policy-runner task for the Isaac Lab Arena OSMO workflow."""
 
-import argparse
-
-from tasks.policy_runner_task import PolicyRunnerTask
+from tasks.policy_runner_task import PolicyRunnerTask, PolicyRunnerTaskCfg
 from workflows.workflow_constants import POLICY_SERVER_PORT
 
 
@@ -16,12 +14,11 @@ class Pi0RemotePolicyRunnerTask(PolicyRunnerTask):
 
     def __init__(
         self,
-        workflow_args: argparse.Namespace,
-        task_args: argparse.Namespace,
+        task_cfg: PolicyRunnerTaskCfg,
         remote_host: str,
         lead: bool | None = None,
     ) -> None:
-        super().__init__(workflow_args=workflow_args, task_args=task_args, lead=lead)
+        super().__init__(task_cfg=task_cfg, lead=lead)
         # Host of the pi0 server this runner connects to; the workflow resolves it from the server task.
         self.remote_host = remote_host
 

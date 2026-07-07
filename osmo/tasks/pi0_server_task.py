@@ -20,12 +20,10 @@ class Pi0ServerTask(BaseTask):
 
     def __init__(
         self,
-        workflow_args: Any,
-        task_args: Any,
         image: str = DEFAULT_IMAGE,
         lead: bool | None = None,
     ) -> None:
-        super().__init__(workflow_args=workflow_args, task_args=task_args, lead=lead)
+        super().__init__(task_cfg=None, lead=lead)
         self.image = image
 
     @staticmethod

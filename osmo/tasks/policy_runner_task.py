@@ -8,15 +8,29 @@
 This is the programmatic equivalent of the former ``arena_base.yaml`` template.
 """
 
-import argparse
 from abc import abstractmethod
+from dataclasses import dataclass
 from typing import Any
 
-from tasks.base_task import BaseTask
+from tasks.base_task import BaseTask, TaskCfg
 from workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 
 DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
 POLICY_RUNNER_COMMAND = "/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py"
+
+
+@dataclass
+class PolicyRunnerTaskCfg(TaskCfg):
+    """Config for a policy-runner evaluation task."""
+
+    arena_env: str
+    """Graph-spec YAML path or registered example-environment name."""
+    policy_runner_args: str = ""
+    """Additional policy-runner arguments before the Arena environment args."""
+    arena_env_args: str = ""
+    """Env-related arguments for the chosen Arena environment."""
+    variations: str = ""
+    """Hydra-style variation overrides appended to the env, e.g. 'light.hdr_image.enabled=true'."""
 
 
 def _normalize_args(args: str) -> str:
@@ -31,42 +45,17 @@ class PolicyRunnerTask(BaseTask):
 
     def __init__(
         self,
-        workflow_args: Any,
-        task_args: Any,
+        task_cfg: PolicyRunnerTaskCfg,
         image: str = DEFAULT_IMAGE,
         lead: bool | None = None,
     ) -> None:
-        super().__init__(workflow_args=workflow_args, task_args=task_args, lead=lead)
+        super().__init__(task_cfg=task_cfg, lead=lead)
 
-        self.policy_runner_args = _normalize_args(self.task_args.policy_runner_args)
-        self.arena_env = self.task_args.arena_env
-        self.arena_env_args = _normalize_args(self.task_args.arena_env_args)
-        self.variations = _normalize_args(self.task_args.variations)
+        self.policy_runner_args = _normalize_args(task_cfg.policy_runner_args)
+        self.arena_env = task_cfg.arena_env
+        self.arena_env_args = _normalize_args(task_cfg.arena_env_args)
+        self.variations = _normalize_args(task_cfg.variations)
         self.image = image
-
-    @staticmethod
-    def add_task_arguments(parser: argparse.ArgumentParser) -> None:
-        group = parser.add_argument_group("policy-runner task")
-        group.add_argument(
-            "--policy_runner_args",
-            default="",
-            help="Additional policy-runner arguments before the Arena environment args",
-        )
-        group.add_argument(
-            "--arena_env",
-            required=True,
-            help="Graph-spec YAML path or registered example-environment name",
-        )
-        group.add_argument(
-            "--arena_env_args",
-            default="",
-            help="Env-related arguments for the chosen Arena environment",
-        )
-        group.add_argument(
-            "--variations",
-            default="",
-            help="Hydra-style variation overrides appended to the env, e.g. 'light.hdr_image.enabled=true'",
-        )
 
     @staticmethod
     def get_task_name() -> str:
