@@ -18,7 +18,7 @@ import yaml
 from pathlib import Path
 from typing import Any, TextIO
 
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
+from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.boot import launch_simulation_app
 
 
@@ -112,7 +112,7 @@ def _serve_socket(socket_path: str) -> int:
                         writer,
                         app=app,
                         render_fn=render_thumbnails_with_app,
-                        spec_cls=ArenaEnvInitialGraphSpec,
+                        spec_cls=ArenaEnvGraphSpec,
                     )
                 finally:
                     reader.close()

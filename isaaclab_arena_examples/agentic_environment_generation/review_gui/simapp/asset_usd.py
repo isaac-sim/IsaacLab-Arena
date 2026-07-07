@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Resolve graph nodes to USD paths and local AABB dimensions (no Kit viewport)."""
+"""Resolve graph assets to USD paths and local AABB dimensions (no Kit viewport)."""
 
 from __future__ import annotations
 
@@ -11,17 +11,9 @@ import hashlib
 import sys
 
 from isaaclab_arena.assets.registries import AssetRegistry
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
-from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeType
+from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environments.arena_env_graph_types import AssetSpec
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
-
-# Registry-backed nodes with a root USD. ``object_reference`` nodes point at a prim
-# inside a parent background and need parent-stage framing — not supported yet.
-RENDERABLE_NODE_TYPES = frozenset({
-    ArenaEnvGraphNodeType.EMBODIMENT,
-    ArenaEnvGraphNodeType.BACKGROUND,
-    ArenaEnvGraphNodeType.OBJECT,
-})
 
 AabbDimensionsM = tuple[float, float, float]
 
@@ -31,25 +23,32 @@ def usd_cache_key(usd_path: str) -> str:
     return hashlib.sha1(usd_path.encode("utf-8")).hexdigest()[:16]
 
 
-def resolve_node_usd_paths(spec: ArenaEnvInitialGraphSpec) -> dict[str, str]:
-    """Map ``node.id → usd_path`` via :class:`AssetRegistry`."""
+def resolve_node_usd_paths(spec: ArenaEnvGraphSpec) -> dict[str, str]:
+    """Map ``asset.id → usd_path`` via :class:`AssetRegistry`."""
     registry = AssetRegistry()
     paths: dict[str, str] = {}
-    for node in spec.nodes:
-        if node.type not in RENDERABLE_NODE_TYPES:
-            continue
+    for asset_spec in [spec.embodiment, spec.background, *spec.objects]:
         try:
-            if not registry.is_registered(node.name):
-                print(f"[asset_usd]   {node.id}: asset '{node.name}' not registered, skipping.", file=sys.stderr)
+            if not registry.is_registered(asset_spec.registry_name):
+                print(
+                    f"[asset_usd]   {asset_spec.id}: asset '{asset_spec.registry_name}' not registered, skipping.",
+                    file=sys.stderr,
+                )
                 continue
-            cls = registry.get_asset_by_name(node.name)
+            cls = registry.get_asset_by_name(asset_spec.registry_name)
             usd_path = extract_usd_path(cls)
             if not usd_path:
-                print(f"[asset_usd]   {node.id}: '{node.name}' has no usd_path, skipping.", file=sys.stderr)
+                print(
+                    f"[asset_usd]   {asset_spec.id}: '{asset_spec.registry_name}' has no usd_path, skipping.",
+                    file=sys.stderr,
+                )
                 continue
-            paths[node.id] = usd_path
+            paths[asset_spec.id] = usd_path
         except Exception as exc:
-            print(f"[asset_usd]   {node.id}: lookup failed for '{node.name}': {exc}", file=sys.stderr)
+            print(
+                f"[asset_usd]   {asset_spec.id}: lookup failed for '{asset_spec.registry_name}': {exc}",
+                file=sys.stderr,
+            )
     return paths
 
 
@@ -69,9 +68,9 @@ def extract_usd_path(cls) -> str | None:
     return getattr(spawn, "usd_path", None) if spawn is not None else None
 
 
-def scale_for_asset_node(node, asset_cls) -> tuple[float, float, float]:
-    """Return spawn scale for a graph node, preferring spec params over library defaults."""
-    param_scale = node.params.get("scale")
+def scale_for_asset_spec(asset_spec: AssetSpec, asset_cls) -> tuple[float, float, float]:
+    """Return spawn scale for an asset spec, preferring spec params over library defaults."""
+    param_scale = asset_spec.params.get("scale")
     if param_scale is not None:
         return (float(param_scale[0]), float(param_scale[1]), float(param_scale[2]))
     class_scale = getattr(asset_cls, "scale", None)
@@ -94,23 +93,24 @@ def aabb_dimensions_from_usd(
         return None
 
 
-def resolve_node_aabb_dimensions_m(spec: ArenaEnvInitialGraphSpec) -> dict[str, AabbDimensionsM]:
-    """Return axis-aligned bounding box sizes in meters for each node with a resolvable USD."""
+def resolve_node_aabb_dimensions_m(spec: ArenaEnvGraphSpec) -> dict[str, AabbDimensionsM]:
+    """Return axis-aligned bounding box sizes in meters for each asset with a resolvable USD."""
     registry = AssetRegistry()
     dimensions: dict[str, AabbDimensionsM] = {}
-    for node in spec.nodes:
-        if node.type not in RENDERABLE_NODE_TYPES:
-            continue
+    for asset_spec in [spec.embodiment, spec.background, *spec.objects]:
         try:
-            if not registry.is_registered(node.name):
+            if not registry.is_registered(asset_spec.registry_name):
                 continue
-            asset_cls = registry.get_asset_by_name(node.name)
+            asset_cls = registry.get_asset_by_name(asset_spec.registry_name)
             usd_path = extract_usd_path(asset_cls)
             if not usd_path:
                 continue
-            dims = aabb_dimensions_from_usd(usd_path, scale_for_asset_node(node, asset_cls))
+            dims = aabb_dimensions_from_usd(usd_path, scale_for_asset_spec(asset_spec, asset_cls))
             if dims is not None:
-                dimensions[node.id] = dims
+                dimensions[asset_spec.id] = dims
         except Exception as exc:
-            print(f"[asset_usd]   {node.id}: bbox lookup failed for '{node.name}': {exc}", file=sys.stderr)
+            print(
+                f"[asset_usd]   {asset_spec.id}: bbox lookup failed for '{asset_spec.registry_name}': {exc}",
+                file=sys.stderr,
+            )
     return dimensions

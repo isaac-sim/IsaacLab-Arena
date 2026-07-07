@@ -9,26 +9,15 @@ import yaml
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Self
 
-from pydantic import BaseModel, Field, SerializeAsAny, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
-from isaaclab_arena.assets.registries import TaskRegistry
 from isaaclab_arena.environments.arena_env_graph_types import (
-    ArenaEnvGraphCliOverrideSpec,
-    ArenaEnvGraphNodeSpec,
-    ArenaEnvGraphSpatialRelationSpec,
-    ArenaEnvGraphStateSpec,
-    ArenaEnvGraphTaskSpec,
+    AssetSpec,
+    CliOverrideSpec,
+    ObjectReferenceSpec,
+    SpatialRelationSpec,
     TaskSpec,
-    parse_graph_node,
 )
-from isaaclab_arena.environments.graph_spec_utils import (
-    assert_cli_override_specs_reference_nodes,
-    assert_constraint_references,
-    assert_spatial_constraint_shapes,
-    assert_task_wiring,
-    assert_unique_ids,
-)
-from isaaclab_arena.tasks.task_transition import Effect, Relocate, TaskTransition
 
 if TYPE_CHECKING:
     import argparse
@@ -36,20 +25,123 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
-class ArenaEnvGraphSpecBase(BaseModel):
-    """Shared fields and serialization helpers for env-graph spec classes."""
+class ArenaEnvGraphSpec(BaseModel):
+    """Environment graph spec — the single source of truth for scene layout and tasks."""
 
-    env_name: str = Field(min_length=1)
-    nodes: list[SerializeAsAny[ArenaEnvGraphNodeSpec]] = Field(default_factory=list)
+    env_name: str = Field(min_length=1, description="Short snake_case label summarizing the scene and tasks.")
+    embodiment: AssetSpec = Field(description="The robot that performs the tasks.")
+    background: AssetSpec = Field(description="The static scene the robot and objects sit in.")
+    objects: list[AssetSpec] = Field(default_factory=list, description="Movable scene objects, including distractors.")
+    object_references: list[ObjectReferenceSpec] | None = Field(
+        default=None, description="Optional prims inside the background exposed as assets (e.g. a table surface)."
+    )
+    relations: list[SpatialRelationSpec] = Field(
+        default_factory=list, description="Spatial layout relations across all assets."
+    )
+    tasks: list[TaskSpec] = Field(
+        default_factory=list, description="Tasks the robot performs to manipulate the objects."
+    )
+    cli_override_specs: list[CliOverrideSpec] | None = Field(
+        default=None, description="Optional authoring-time CLI flags that swap an asset's registry_name; usually empty."
+    )
 
-    @field_validator("nodes", mode="before")
+    @field_validator("object_references", "cli_override_specs", mode="before")
     @classmethod
-    def _parse_nodes(cls, nodes: Any) -> list[Any]:
-        if nodes is None:
-            return []
-        if not isinstance(nodes, list):
-            raise ValueError("Field 'nodes' must be a list")
-        return [parse_graph_node(node) for node in nodes]
+    def _none_if_empty_list(cls, value: Any) -> Any:
+        if value == []:
+            return None
+        return value
+
+    @model_validator(mode="after")
+    def validate(self) -> Self:
+        """Check unique asset ids, cross-references, task params, and CLI overrides."""
+        known_ids = self._assert_asset_ids_unique()
+        if self.object_references:
+            valid_parent_ids = {self.background.id, *(obj.id for obj in self.objects)}
+            self._assert_object_reference_parents(self.object_references, valid_parent_ids)
+        self._assert_relation_references(self.relations, known_ids)
+        self._assert_task_param_references(self.tasks, known_ids)
+        self._validate_cli_override_specs()
+        return self
+
+    def _assert_asset_ids_unique(self) -> set[str]:
+        """Ensure every asset and object-reference id in this spec is unique, returning the id set."""
+        seen: set[str] = set()
+        duplicates: set[str] = set()
+        for asset_id in (
+            self.embodiment.id,
+            self.background.id,
+            *(obj.id for obj in self.objects),
+            *(ref.id for ref in (self.object_references or [])),
+        ):
+            if asset_id in seen:
+                duplicates.add(asset_id)
+            seen.add(asset_id)
+        assert not duplicates, f"Duplicate graph asset ids found: {sorted(duplicates)}"
+        return seen
+
+    @staticmethod
+    def _assert_object_reference_parents(
+        object_references: list[ObjectReferenceSpec], valid_parent_ids: set[str]
+    ) -> None:
+        """Ensure each object reference's parent is a background or object asset."""
+        for ref in object_references:
+            assert ref.parent_id in valid_parent_ids, (
+                f"Object reference '{ref.id}' references invalid parent '{ref.parent_id}'; "
+                "parent must be the background or an object id"
+            )
+
+    @staticmethod
+    def _assert_relation_references(relations: list[SpatialRelationSpec], known_ids: set[str]) -> None:
+        """Ensure relation subject/reference endpoints name known asset ids."""
+        for index, relation in enumerate(relations):
+            assert (
+                relation.subject in known_ids
+            ), f"Relation[{index}] kind '{relation.kind}' references unknown subject '{relation.subject}'"
+            if relation.reference is not None:
+                assert (
+                    relation.reference in known_ids
+                ), f"Relation[{index}] kind '{relation.kind}' references unknown reference '{relation.reference}'"
+
+    @staticmethod
+    def _assert_task_param_references(tasks: list[TaskSpec], known_ids: set[str]) -> None:
+        """Ensure string-valued task params reference known asset ids."""
+        for task in tasks:
+            for param_name, param_value in task.params.items():
+                if isinstance(param_value, str):
+                    assert (
+                        param_value in known_ids
+                    ), f"Task '{task.kind}' param '{param_name}' references unknown node '{param_value}'"
+
+    def summary(self) -> str:
+        """Return a one-line summary of object, task, and relation counts."""
+        return f"{len(self.objects)} objects · {len(self.tasks)} tasks · {len(self.relations)} relations"
+
+    def _validate_cli_override_specs(self) -> None:
+        """Check each CLI override uses a unique flag and points to a swappable asset."""
+        cli_override_specs = self.cli_override_specs or []
+        swappable_ids = {
+            self.embodiment.id,
+            self.background.id,
+            *(obj.id for obj in self.objects),
+        }
+        seen_args: set[str] = set()
+        for override in cli_override_specs:
+            assert override.arg not in seen_args, f"Duplicate cli_override arg '--{override.arg}'"
+            seen_args.add(override.arg)
+            assert (
+                override.target_node_id in swappable_ids
+            ), f"CLI override '--{override.arg}' targets unknown or non-swappable asset '{override.target_node_id}'"
+
+    def _asset_by_id(self, asset_id: str) -> AssetSpec:
+        if self.embodiment.id == asset_id:
+            return self.embodiment
+        if self.background.id == asset_id:
+            return self.background
+        for obj in self.objects:
+            if obj.id == asset_id:
+                return obj
+        raise KeyError(asset_id)
 
     @staticmethod
     def _load_yaml_dict(path: str | Path) -> dict[str, Any]:
@@ -69,10 +161,6 @@ class ArenaEnvGraphSpecBase(BaseModel):
         assert isinstance(data, dict), f"Env graph spec must be a dict, got {type(data).__name__}"
         return cls.model_validate(data)
 
-    def validate(self) -> Self:
-        """Validate this spec. Override in subclasses to enforce invariants."""
-        return self
-
     def to_dict(self) -> dict[str, Any]:
         """Serialize to the plain YAML mapping — the inverse of ``from_dict``."""
         return self.model_dump(mode="json", exclude_none=True)
@@ -83,173 +171,25 @@ class ArenaEnvGraphSpecBase(BaseModel):
         with Path(path).open("w", encoding="utf-8") as f:
             yaml.safe_dump(self.to_dict(), f, sort_keys=False)
 
-    @property
-    def nodes_by_id(self) -> dict[str, ArenaEnvGraphNodeSpec]:
-        return {node.id: node for node in self.nodes}
-
-
-class ArenaEnvGraphSpec(ArenaEnvGraphSpecBase):
-    """A full environment graph with all tasks wired to state specs."""
-
-    tasks: list[ArenaEnvGraphTaskSpec] = Field(default_factory=list)
-    state_specs: list[ArenaEnvGraphStateSpec] = Field(default_factory=list)
-    cli_override_specs: list[ArenaEnvGraphCliOverrideSpec] = Field(default_factory=list)
-
-    @model_validator(mode="after")
-    def validate(self) -> ArenaEnvGraphSpec:
-        """Check unique ids, cross-references, constraint shapes, task wiring, and CLI overrides."""
-        assert_unique_ids(self.nodes, self.tasks, self.state_specs)
-        assert_constraint_references(self.nodes, self.state_specs)
-        assert_task_wiring(self.tasks, self.state_specs)
-        assert_spatial_constraint_shapes(self.state_specs)
-        assert_cli_override_specs_reference_nodes(self.nodes, self.cli_override_specs)
-        return self
-
     @staticmethod
-    def read_cli_override_specs(path: str | Path) -> list[ArenaEnvGraphCliOverrideSpec]:
-        """Read just the ``cli_override_specs`` section of a graph YAML, skipping the rest.
-
-        The CLI flags need to be registered before the simulator starts. Loading the full
-        graph would import ``pxr`` too early, so this only reads the override entries.
-        """
+    def read_cli_override_specs(path: str | Path) -> list[CliOverrideSpec]:
+        """Read just the ``cli_override_specs`` section of a graph YAML."""
         raw_specs = ArenaEnvGraphSpec._load_yaml_dict(path).get("cli_override_specs") or []
-        return [ArenaEnvGraphCliOverrideSpec.model_validate(entry) for entry in raw_specs]
+        return [CliOverrideSpec.model_validate(entry) for entry in raw_specs]
 
     def apply_cli_override_args(self, args_cli: argparse.Namespace) -> None:
-        """Apply the CLI override flags to this graph, in place.
-
-        For each override, set the target node's asset ``name`` to the value passed on the
-        command line. Flags left unset are skipped, so an untouched graph stays the same.
-        """
-        nodes_by_id = self.nodes_by_id
-        for override in self.cli_override_specs:
+        """Apply CLI override flags in place by swapping target assets' ``registry_name``."""
+        for override in self.cli_override_specs or []:
             new_name = getattr(args_cli, override.dest, None)
             if new_name is not None:
-                nodes_by_id[override.target_node_id].name = new_name
-
-    @property
-    def tasks_by_id(self) -> dict[str, ArenaEnvGraphTaskSpec]:
-        return {task.id: task for task in self.tasks}
-
-    @property
-    def state_specs_by_id(self) -> dict[str, ArenaEnvGraphStateSpec]:
-        return {state_spec.id: state_spec for state_spec in self.state_specs}
+                self._asset_by_id(override.target_node_id).registry_name = new_name
 
     def to_arena_env(self, enable_cameras: bool = False) -> IsaacLabArenaEnvironment:
-        """Convert this graph spec into an `IsaacLabArenaEnvironment`.
-
-        The first ``state_spec`` is used as the scene's initial state.
+        """Convert this graph spec into an :class:`IsaacLabArenaEnvironment`.
 
         Args:
             enable_cameras: Forwarded to the embodiment so its cameras are spawned.
         """
-        # Lazy import: build_arena_env_from_graph_spec pulls in Scene -> phyx_utils ->
-        # pxr.PhysxSchema, which requires SimulationApp. Keeping the import here lets
-        # data-only consumers of the spec (parsers, tests) import this module before
-        # SimulationApp is started.
-        # TODO(xinjieyao, 2026-05-26): once `build_arena_env_from_graph_spec` aggregates across all state_specs,
-        # this wrapper stays single-arg — no caller-side selection is needed.
         from isaaclab_arena.environments.arena_env_graph_conversion_utils import build_arena_env_from_graph_spec
 
         return build_arena_env_from_graph_spec(self, enable_cameras=enable_cameras)
-
-
-class ArenaEnvInitialGraphSpec(ArenaEnvGraphSpecBase):
-    """Initial-state environment graph produced by the agent intent pipeline."""
-
-    tasks: list[TaskSpec] = Field(default_factory=list)
-    initial_state_spec: ArenaEnvGraphStateSpec
-
-    @model_validator(mode="after")
-    def validate(self) -> Self:
-        """Check unique IDs, constraint references, and spatial constraint shapes."""
-        assert_unique_ids(self.nodes, [], [self.initial_state_spec])
-        assert_constraint_references(self.nodes, [self.initial_state_spec])
-        assert_spatial_constraint_shapes([self.initial_state_spec])
-        return self
-
-    def link(self) -> ArenaEnvGraphSpec:
-        """Link this initial graph into a fully-wired :class:`ArenaEnvGraphSpec`.
-
-        Uses :attr:`initial_state_spec` as ``state_spec_0``, then chains each task's declared
-        ``success_state_transition`` to produce a delta state.  The topology is implicit in the
-        sequential task list: task ``i`` carries ``state_spec_i`` to ``state_spec_{i+1}``,
-        yielding ``N+1`` states for ``N`` tasks.
-
-        Returns:
-            A fully-wired, strictly-validated :class:`ArenaEnvGraphSpec`.
-        """
-        states: list[ArenaEnvGraphStateSpec] = [self.initial_state_spec]
-        out_tasks: list[ArenaEnvGraphTaskSpec] = []
-
-        for i, task in enumerate(self.tasks):
-            new_state_id = f"state_spec_{i + 1}"
-            transition = _get_task_state_transition(task)
-            states.append(_get_next_state_spec(new_state_id, transition))
-            out_tasks.append(
-                ArenaEnvGraphTaskSpec(
-                    id=f"task_{i}_{task.kind}",
-                    kind=task.kind,
-                    params=task.params,
-                    description=task.description,
-                    initial_state_spec_id=states[i].id,
-                    success_state_spec_id=new_state_id,
-                )
-            )
-
-        return ArenaEnvGraphSpec(
-            env_name=self.env_name,
-            nodes=self.nodes,
-            tasks=out_tasks,
-            state_specs=states,
-        )
-
-
-# ---------------------------------------------------------------------------
-# Link helpers (used by ArenaEnvInitialGraphSpec.link)
-# ---------------------------------------------------------------------------
-
-
-def _get_task_state_transition(task: TaskSpec) -> TaskTransition:
-    """Look up the task class via ``TaskRegistry`` and return its declared success transition.
-
-    All task params are forwarded; ``success_state_transition`` binds only the ones it acts
-    on as named parameters and ignores the rest (scene, episode length, …) via ``**_``.
-    """
-    task_cls = TaskRegistry().get_task_by_name(task.kind)
-    assert task_cls is not None, f"task '{task.kind}' not found in TaskRegistry"
-    return task_cls.success_state_transition(**task.params)
-
-
-def _get_task_effects(transition: TaskTransition) -> list[Effect]:
-    """Return only the ``Relocate`` effects; other effect types (e.g. ``SetState``) are skipped."""
-    return [effect for effect in transition.effects if isinstance(effect, Relocate)]
-
-
-def _get_next_state_spec(new_state_id: str, transition: TaskTransition) -> ArenaEnvGraphStateSpec:
-    """Build the delta state for one task's success transition.
-
-    Each derived state records only the spatial constraints introduced by the task
-    (``is_delta=True``), not a full snapshot.  E.g. for a PnP task that places the mug
-    on the bowl::
-
-        mug on bowl  # only the relocation effect
-
-    Args:
-        new_state_id: ID to assign to the new state spec.
-        transition: The task's declared success transition.
-
-    Returns:
-        An ``ArenaEnvGraphStateSpec`` with ``is_delta=True`` containing only the
-        relocation constraints produced by this task.
-    """
-    spatial_constraints = [
-        ArenaEnvGraphSpatialRelationSpec(
-            id=f"{new_state_id}_{r.subject}_{r.relation}_{r.target}",
-            kind=r.relation,
-            reference=r.target,
-            subject=r.subject,
-        )
-        for r in _get_task_effects(transition)
-    ]
-    return ArenaEnvGraphStateSpec(id=new_state_id, is_delta=True, spatial_constraints=spatial_constraints)

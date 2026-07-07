@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import html as html_lib
 
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
+from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.mermaid_graph import render_mermaid_graph
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.panels import (
     render_node_cards,
@@ -18,12 +18,11 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.st
 
 
 def render_dashboard_html(
-    spec: ArenaEnvInitialGraphSpec,
+    spec: ArenaEnvGraphSpec,
     thumbnails: dict[str, bytes] | None = None,
     aabb_dimensions_m: dict[str, tuple[float, float, float]] | None = None,
 ) -> str:
     """Render the self-contained review dashboard HTML for ``spec``."""
-    initial_state = spec.initial_state_spec
     thumbnails = thumbnails or {}
     aabb_dimensions_m = aabb_dimensions_m or {}
     return f"""<!DOCTYPE html>
@@ -37,21 +36,21 @@ def render_dashboard_html(
 <body>
 <header>
   <h1>{html_lib.escape(spec.env_name)}</h1>
-  <p class="sub">{len(spec.nodes)} nodes · {len(spec.tasks)} tasks · initial state: <code>{html_lib.escape(initial_state.id)}</code></p>
+  <p class="sub">{html_lib.escape(spec.summary())}</p>
 </header>
 <main>
   <section class="panel nodes-panel">
-    <h2>Nodes</h2>
+    <h2>Assets</h2>
     <div class="node-grid">{render_node_cards(spec, thumbnails, aabb_dimensions_m)}</div>
   </section>
   <section class="panel graph-panel">
-    <h2>Spatial graph <span class="muted">(initial state: <code>{html_lib.escape(initial_state.id)}</code>)</span></h2>
+    <h2>Spatial graph</h2>
     <div class="graph-row">
       <div class="graph-mermaid">
-        <pre class="mermaid">{render_mermaid_graph(spec, initial_state)}</pre>
+        <pre class="mermaid">{render_mermaid_graph(spec)}</pre>
       </div>
       <aside class="graph-unary">
-        {render_unary_constraints(initial_state)}
+        {render_unary_constraints(spec.relations)}
       </aside>
     </div>
   </section>

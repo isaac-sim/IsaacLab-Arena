@@ -8,26 +8,26 @@ from __future__ import annotations
 import html as html_lib
 import yaml
 
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
-from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeSpec, ArenaEnvGraphStateSpec
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnails import render_node_thumbnail
+from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environments.arena_env_graph_types import AssetSpec, SpatialRelationSpec
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnails import render_asset_thumbnail
 
 
-def render_unary_constraints(state: ArenaEnvGraphStateSpec) -> str:
-    """List constraints without a reference beside the spatial graph."""
+def render_unary_constraints(relations: list[SpatialRelationSpec]) -> str:
+    """List unary relations beside the spatial graph."""
     rows = []
-    for constraint in state.spatial_constraints:
-        if constraint.reference is not None:
+    for relation in relations:
+        if relation.reference is not None:
             continue
         params = (
             " <code"
-            f' class="muted">{html_lib.escape(yaml.safe_dump(constraint.params, default_flow_style=True).rstrip())}</code>'
-            if constraint.params
+            f' class="muted">{html_lib.escape(yaml.safe_dump(relation.params, default_flow_style=True).rstrip())}</code>'
+            if relation.params
             else ""
         )
         rows.append(
-            f'<li><span class="badge type-{html_lib.escape(constraint.kind)}">{html_lib.escape(constraint.kind)}</span>'
-            f" on <code>{html_lib.escape(constraint.subject)}</code>{params}</li>"
+            f'<li><span class="badge type-{html_lib.escape(relation.kind)}">{html_lib.escape(relation.kind)}</span>'
+            f" on <code>{html_lib.escape(relation.subject)}</code>{params}</li>"
         )
     if not rows:
         return '<p class="muted unary-empty"><em>No unary constraints.</em></p>'
@@ -37,7 +37,7 @@ def render_unary_constraints(state: ArenaEnvGraphStateSpec) -> str:
     )
 
 
-def render_tasks_table(spec: ArenaEnvInitialGraphSpec) -> str:
+def render_tasks_table(spec: ArenaEnvGraphSpec) -> str:
     """Render task rows as an HTML table for the dashboard tasks panel."""
     if not spec.tasks:
         return "<p class='muted'><em>No tasks defined.</em></p>"
@@ -62,32 +62,38 @@ def render_tasks_table(spec: ArenaEnvInitialGraphSpec) -> str:
 
 
 def render_node_cards(
-    spec: ArenaEnvInitialGraphSpec,
+    spec: ArenaEnvGraphSpec,
     thumbnails: dict[str, bytes] | None = None,
     aabb_dimensions_m: dict[str, tuple[float, float, float]] | None = None,
 ) -> str:
-    """Render one card per graph node for the dashboard nodes panel."""
+    """Render one card per asset for the dashboard nodes panel."""
     thumbnails = thumbnails or {}
     aabb_dimensions_m = aabb_dimensions_m or {}
+    entries = [
+        ("embodiment", spec.embodiment),
+        ("background", spec.background),
+        *(("object", obj) for obj in spec.objects),
+    ]
     return "\n".join(
-        render_node_card(node, thumbnails.get(node.id), aabb_dimensions_m.get(node.id)) for node in spec.nodes
+        render_node_card(role, asset, thumbnails.get(asset.id), aabb_dimensions_m.get(asset.id))
+        for role, asset in entries
     )
 
 
 def render_node_card(
-    node: ArenaEnvGraphNodeSpec,
+    role: str,
+    asset: AssetSpec,
     png_bytes: bytes | None = None,
     aabb_dimensions_m: tuple[float, float, float] | None = None,
 ) -> str:
-    """Render a single node card with USD snapshot or placeholder thumbnail and YAML dump."""
-    node_dict = node.model_dump(mode="json", exclude_none=True)
-    node_yaml = yaml.safe_dump(node_dict, sort_keys=False).rstrip()
-    thumb = render_node_thumbnail(node, png_bytes, aabb_dimensions_m)
-    return f"""<article class="node-card type-{html_lib.escape(node.type.value)}">
+    """Render a single asset card with USD snapshot or placeholder thumbnail and YAML dump."""
+    node_yaml = yaml.safe_dump(asset.model_dump(mode="json", exclude_none=True), sort_keys=False).rstrip()
+    thumb = render_asset_thumbnail(asset.registry_name, png_bytes, aabb_dimensions_m)
+    return f"""<article class="node-card type-{html_lib.escape(role)}">
   {thumb}
   <div class="node-meta">
-    <div class="node-id">{html_lib.escape(node.id)}</div>
-    <span class="badge type-{html_lib.escape(node.type.value)}">{html_lib.escape(node.type.value)}</span>
+    <div class="node-id">{html_lib.escape(asset.id)}</div>
+    <span class="badge type-{html_lib.escape(role)}">{html_lib.escape(role)}</span>
   </div>
   <pre class="node-yaml">{html_lib.escape(node_yaml)}</pre>
 </article>"""

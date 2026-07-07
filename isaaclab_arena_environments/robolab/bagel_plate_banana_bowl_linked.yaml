@@ -4,34 +4,54 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: bagel_plate_banana_bowl
-nodes:
-- id: maple_table_robolab
-  name: maple_table_robolab
-  type: background
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
   params: {}
-- id: droid
-  name: droid_abs_joint_pos
-  type: embodiment
+background:
+  id: maple_table_robolab
+  registry_name: maple_table_robolab
   params: {}
+objects:
 - id: banana
-  name: banana_ycb_robolab
-  type: object
+  registry_name: banana_ycb_robolab
   params: {}
 - id: plate
-  name: plate_large_vomp_robolab
-  type: object
+  registry_name: plate_large_vomp_robolab
   params: {}
 - id: bagel_1
-  name: bagel_00_objaverse_robolab
-  type: object
+  registry_name: bagel_00_objaverse_robolab
   params: {}
 - id: bagel_2
-  name: bagel_00_objaverse_robolab
-  type: object
+  registry_name: bagel_00_objaverse_robolab
   params: {}
 - id: bowl
-  name: bowl_ycb_robolab
-  type: object
+  registry_name: bowl_ycb_robolab
+  params: {}
+relations:
+- kind: is_anchor
+  subject: maple_table_robolab
+  reference: null
+  params: {}
+- kind: 'on'
+  subject: banana
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: plate
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: bagel_1
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: bagel_2
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: bowl
+  reference: maple_table_robolab
   params: {}
 tasks:
 - kind: PickAndPlaceTask
@@ -41,50 +61,3 @@ tasks:
     background_scene: maple_table_robolab
     episode_length_s: 20.0
   description: Pick up the banana and place it on the plate.
-  id: task_0_PickAndPlaceTask
-  initial_state_spec_id: state_initial
-  success_state_spec_id: state_spec_1
-state_specs:
-- id: state_initial
-  is_delta: false
-  spatial_constraints:
-  - kind: is_anchor
-    subject: maple_table_robolab
-    params: {}
-    id: state_initial_0_is_anchor_maple_table_robolab
-  - kind: 'on'
-    subject: banana
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_1_on_maple_table_robolab_banana
-  - kind: 'on'
-    subject: plate
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_2_on_maple_table_robolab_plate
-  - kind: 'on'
-    subject: bagel_1
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_3_on_maple_table_robolab_bagel_1
-  - kind: 'on'
-    subject: bagel_2
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_4_on_maple_table_robolab_bagel_2
-  - kind: 'on'
-    subject: bowl
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_5_on_maple_table_robolab_bowl
-  task_constraints: []
-- id: state_spec_1
-  is_delta: true
-  spatial_constraints:
-  - kind: 'on'
-    subject: banana
-    reference: plate
-    params: {}
-    id: state_spec_1_banana_on_plate
-  task_constraints: []
-cli_override_specs: []

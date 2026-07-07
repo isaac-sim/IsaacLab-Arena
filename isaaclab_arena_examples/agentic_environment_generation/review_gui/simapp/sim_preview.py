@@ -17,7 +17,7 @@ from typing import Any
 from isaaclab.envs.common import ViewerCfg
 
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
+from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import (
     collect_garbage_and_clear_cuda_cache,
     teardown_simulation_app,
@@ -153,12 +153,11 @@ def run_sim_preview(
     if not isinstance(raw, dict):
         raise ValueError(f"expected mapping, got {type(raw).__name__}")
 
-    initial_spec = ArenaEnvInitialGraphSpec.model_validate(raw)
-    graph_spec = initial_spec.link()
+    graph_spec = ArenaEnvGraphSpec.model_validate(raw)
     arena_env = graph_spec.to_arena_env()
     preview_name = f"{arena_env.name}_preview_{uuid.uuid4().hex[:8]}"
     arena_env.name = preview_name
-    _preview_log(started_at, f"linked spec → arena env ({preview_name})")
+    _preview_log(started_at, f"validated spec → arena env ({preview_name})")
 
     builder_cfg = _preview_cfg(num_envs=num_envs, env_spacing=env_spacing)
     builder = ArenaEnvBuilder(arena_env, builder_cfg)

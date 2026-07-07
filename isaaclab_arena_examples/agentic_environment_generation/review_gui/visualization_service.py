@@ -12,7 +12,7 @@ import json
 
 import streamlit as st
 
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
+from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import render_dashboard_html
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppError,
@@ -24,7 +24,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_co
 )
 
 
-def _spec_render_key(spec: ArenaEnvInitialGraphSpec) -> str:
+def _spec_render_key(spec: ArenaEnvGraphSpec) -> str:
     payload = json.dumps(spec.to_dict(), sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
@@ -63,7 +63,7 @@ def _show_simapp_render_error_once(exc: SimAppError) -> None:
     )
 
 
-def render_dashboard_with_thumbnails(spec: ArenaEnvInitialGraphSpec) -> str:
+def render_dashboard_with_thumbnails(spec: ArenaEnvGraphSpec) -> str:
     """Render review HTML, asking the SimApp server for live USD thumbnails when available."""
     spec_key = _spec_render_key(spec)
     cached_html = _cached_dashboard_html(spec_key)

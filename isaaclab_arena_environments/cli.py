@@ -13,8 +13,8 @@ from isaaclab_arena.assets.registries import EnvironmentRegistry
 from isaaclab_arena.cli.dataclass_cli import add_dataclass_cli_args, dataclass_from_cli
 from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environments.arena_env_graph_types import CliOverrideSpec
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
-from isaaclab_arena.environments.graph_spec_utils import add_cli_override_args
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
@@ -127,6 +127,22 @@ def parse_and_return_external_environment_from_string(
     name = getattr(environment_class, "name", environment_class.__name__)
     assert name is not None, "Environment class must have a 'name' attribute"
     return name, environment_class
+
+
+def add_cli_override_args(parser: argparse.ArgumentParser, override_specs: list[CliOverrideSpec]) -> None:
+    """Add each declared override to the CLI ``parser`` as a ``--flag``."""
+    for override in override_specs:
+        flag = f"--{override.arg}"
+        assert flag not in parser._option_string_actions, (  # noqa: SLF001
+            f"CLI override flag '{flag}' (asset '{override.target_node_id}') is already a parser flag "
+            "(e.g. --num_envs/--seed or an AppLauncher flag); rename its 'arg' in the YAML."
+        )
+        parser.add_argument(
+            flag,
+            type=str,
+            default=None,
+            help=f"Override the registry name behind graph asset '{override.target_node_id}'.",
+        )
 
 
 def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
