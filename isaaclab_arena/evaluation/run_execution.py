@@ -86,10 +86,19 @@ def _build_environment_from_cfg(
     render_mode: str | None,
 ) -> gym.Env:
     """Compile and instantiate a run's environment."""
+    arena_builder = build_arena_builder_from_run_cfg(cfg)
+    _, env_cfg, env_kwargs = arena_builder.build_registered()
+    if env_cfg.recorders is not None:
+        env_cfg.recorders.dataset_filename = f"dataset_{cfg.name}"
+    return arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
+
+
+def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg) -> ArenaEnvBuilder:
+    """Build an Arena environment builder from one typed run config."""
     hydra_overrides = overrides_from_dict(cfg.variations)
     # TODO(cvolk, 2026-07-07): [typed-config-migration] Remove the legacy branch when graph environments
     # have typed configs and no longer require the argparse construction path.
-    arena_builder = (
+    return (
         build_arena_builder_from_legacy_graph(
             cfg.environment,
             device=cfg.environment_builder.device,
@@ -99,10 +108,6 @@ def _build_environment_from_cfg(
         if isinstance(cfg.environment, LegacyGraphEnvironmentCfg)
         else _build_arena_builder_from_cfg(cfg, hydra_overrides)
     )
-    _, env_cfg, env_kwargs = arena_builder.build_registered()
-    if env_cfg.recorders is not None:
-        env_cfg.recorders.dataset_filename = f"dataset_{cfg.name}"
-    return arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
 
 
 def _build_arena_builder_from_cfg(cfg: ArenaRunCfg, hydra_overrides: list[str]) -> ArenaEnvBuilder:
