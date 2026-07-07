@@ -188,8 +188,8 @@ def _preserve_argparse_environment(
     )
 
 
-def _build_legacy_cli_arena_builder(experiment: ArenaExperimentCfg) -> ArenaEnvBuilder:
-    """Build an environment through the existing argparse construction path."""
+def _build_arena_builder_from_legacy_cfg(experiment: ArenaExperimentCfg) -> ArenaEnvBuilder:
+    """Build an Arena environment builder from preserved legacy CLI arguments."""
     assert isinstance(experiment.environment, _LegacyCliEnvironmentCfg)
     parser = get_isaaclab_arena_environments_cli_parser()
     args_cli = parser.parse_args(experiment.environment.arguments)

@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg, ArenaExperimentResult, ExperimentStatus
 from isaaclab_arena.evaluation.job_manager import Job
+from isaaclab_arena.evaluation.legacy_job_adapter import _build_arena_builder_from_legacy_cfg, _LegacyCliEnvironmentCfg
 from isaaclab_arena.evaluation.policy_runner import rollout_policy
 from isaaclab_arena.evaluation.resource_cleanup import close_experiment_resources
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
@@ -52,12 +53,12 @@ def build_and_run_experiment(
                 video_base_dir=output_dir,
                 camera_name_prefix=f"robot-cam-rebuild{rebuild_index}",
             )
-            env = _build_environment(cfg, rebuild_video_cfg.render_mode)
+            env = _build_environment_from_cfg(cfg, rebuild_video_cfg.render_mode)
             results_path = os.path.join(output_dir, f"episode_results_rebuild{rebuild_index}.jsonl")
             env.unwrapped.episode_recorder.set_job_name(cfg.name)
             env.unwrapped.episode_recorder.set_output_path(results_path)
 
-            policy = _build_policy(cfg)
+            policy = _build_policy_from_cfg(cfg)
             num_steps, num_episodes = _resolve_rollout_limit(
                 cfg,
                 policy,
@@ -77,27 +78,29 @@ def build_and_run_experiment(
     )
 
 
-def _build_environment(
+def _build_environment_from_cfg(
     cfg: ArenaExperimentCfg,
     render_mode: str | None,
 ) -> gym.Env:
     """Compile and instantiate an experiment's environment."""
-    arena_builder = _build_arena_builder(cfg)
+    # TODO(cvolk, 2026-07-07): Remove the legacy branch when graph environments
+    # have typed configs and no longer require the argparse construction path.
+    arena_builder = (
+        _build_arena_builder_from_legacy_cfg(cfg)
+        if isinstance(cfg.environment, _LegacyCliEnvironmentCfg)
+        else _build_arena_builder_from_cfg(cfg)
+    )
     _, env_cfg, env_kwargs = arena_builder.build_registered()
     if env_cfg.recorders is not None:
         env_cfg.recorders.dataset_filename = f"dataset_{cfg.name}"
     return arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
 
 
-def _build_arena_builder(cfg: ArenaExperimentCfg) -> ArenaEnvBuilder:
-    """Build an Arena environment builder from the experiment's concrete config."""
+def _build_arena_builder_from_cfg(cfg: ArenaExperimentCfg) -> ArenaEnvBuilder:
+    """Build an Arena environment builder from a registered typed config."""
+    # ArenaEnvBuilder imports pxr modules that must not load before SimulationApp.
+    # Keep this runtime import deferred even though the type-only import is at the top.
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaaclab_arena.evaluation.legacy_job_adapter import _build_legacy_cli_arena_builder, _LegacyCliEnvironmentCfg
-
-    # TODO(cvolk, 2026-07-07): Remove this branch when graph environments have a
-    # typed config and no longer require the argparse construction path.
-    if isinstance(cfg.environment, _LegacyCliEnvironmentCfg):
-        return _build_legacy_cli_arena_builder(cfg)
 
     environment_factory_type = EnvironmentRegistry().get_factory_type_for_cfg(cfg.environment)
     arena_environment = environment_factory_type().build(cfg.environment)
@@ -108,7 +111,7 @@ def _build_arena_builder(cfg: ArenaExperimentCfg) -> ArenaEnvBuilder:
     )
 
 
-def _build_policy(cfg: ArenaExperimentCfg) -> PolicyBase:
+def _build_policy_from_cfg(cfg: ArenaExperimentCfg) -> PolicyBase:
     """Instantiate the registered policy configured by an experiment."""
     policy_cfg = _policy_cfg_for_num_envs(cfg.policy, cfg.environment_builder.num_envs)
     policy_type = PolicyRegistry().get_policy_type_for_cfg(policy_cfg)
