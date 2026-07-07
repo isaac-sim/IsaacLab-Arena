@@ -45,7 +45,7 @@ if TYPE_CHECKING:
 
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
-DEFAULT_PROMPT = "Franka picks up a cube from the maple table and places it into a bowl on the table."
+DEFAULT_PROMPT = "Franka picks up a rubiks cube from the maple table and places it into a bowl on the table."
 
 
 def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None:

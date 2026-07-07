@@ -342,3 +342,70 @@ def test_generate_spec_five_bananas_parallel_pick_and_place_against_live_endpoin
     assert spec is not None, f"spec validation failed: {agent.last_validation_traces}"
     assert isinstance(data, dict) and data, "agent returned empty parsed response"
     _assert_five_bananas_parallel_pick_and_place_spec(spec)
+
+
+@pytest.mark.flaky(max_runs=3, min_passes=1)
+def test_resolve_usd_prim_robocasa_kitchen_counter_and_fridge():
+    """End-to-end pass-1 + pass-2 prim resolution for Robocasa kitchen counter and fridge."""
+    from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec
+    from isaaclab_arena.utils.asset_usd import resolve_asset_usd_path
+    from isaaclab_arena.utils.usd_prim_tree import load_usd_prim_tree
+
+    agent = EnvironmentGenerationAgent()
+    asset_catalog = _catalog(
+        "EMBODIMENTS:\n- droid_abs_joint_pos  tags=[default]\n\n"
+        "BACKGROUNDS: lightwheel_robocasa_kitchen\n\n"
+        "OBJECTS:\n"
+        "- avocado01_fruits_veggies_robolab  tags=[]\n"
+        "- plate_large_vomp_robolab  tags=[]\n"
+        "- broccoli  tags=[]\n"
+        "- sweet_potato  tags=[]"
+    )
+    task_catalog = _task_catalog(
+        "TASKS (2):\n"
+        "- PickAndPlaceTask (pick_up_object, destination_location, background_scene): Pick and place.\n"
+        "- OpenDoorTask (openable_object): Open a door."
+    )
+    prompt = (
+        "droid picks up an avocado on the counter top and places it in a plate; "
+        "other veggies on the counter as distractors; then open the fridge door."
+    )
+    spec, data = agent.generate_spec(
+        prompt,
+        asset_catalog=asset_catalog,
+        task_catalog=task_catalog,
+    )
+    assert spec is not None, f"spec validation failed: {agent.last_validation_traces}"
+    assert isinstance(data, dict) and data, "agent returned empty parsed response"
+    assert spec.object_references, "expected object_references for counter and fridge"
+    spec.validate_resolved()
+
+    usd_path = resolve_asset_usd_path(
+        AssetSpec(
+            id=spec.background.id,
+            registry_name=spec.background.registry_name,
+            params=spec.background.params,
+        ),
+    )
+    prim_paths = {record.relative_path for record in load_usd_prim_tree(usd_path)}
+
+    counter_ref = next(
+        (ref for ref in spec.object_references if ref.object_type.value == "base"),
+        None,
+    )
+    assert counter_ref is not None, "expected a base object_reference for the counter anchor"
+    assert counter_ref.prim_path in prim_paths, f"counter prim_path not in USD tree: {counter_ref.prim_path!r}"
+    assert "top_geometry" in (counter_ref.prim_path or ""), "counter anchor should reference a top_geometry prim"
+
+    fridge_ref = next(
+        (ref for ref in spec.object_references if ref.object_type.value == "articulation"),
+        None,
+    )
+    assert fridge_ref is not None, "expected an articulation object_reference for the fridge"
+    assert fridge_ref.prim_path in prim_paths, f"fridge prim_path not in USD tree: {fridge_ref.prim_path!r}"
+    assert "fridge_main_group" in (fridge_ref.prim_path or "")
+    assert fridge_ref.params.get("openable_joint_name"), "fridge ref needs openable_joint_name"
+
+    anchor = next(rel for rel in spec.relations if rel.kind == "is_anchor")
+    assert anchor.subject == counter_ref.id
+    assert anchor.subject != spec.background.id

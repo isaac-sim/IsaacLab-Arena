@@ -15,6 +15,11 @@ from typing import Any
 from openai import OpenAI
 
 from isaaclab_arena.agentic_environment_generation.agent_utils import build_strict_schema, extract_response_text, ping
+from isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver import (
+    build_resolve_schema,
+    merge_resolved_object_references,
+    resolve_object_reference_prim_paths_with_client,
+)
 from isaaclab_arena.agentic_environment_generation.spec_validation import (
     collect_agent_ready_task_validation_traces,
     required_task_init_param_names,
@@ -22,7 +27,10 @@ from isaaclab_arena.agentic_environment_generation.spec_validation import (
 )
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec, is_unresolved_prim_path
 from isaaclab_arena.relations.relations import RelationBase
+from isaaclab_arena.utils.asset_usd import resolve_asset_usd_path
+from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord, load_usd_prim_tree
 
 # TODO(qianl): This is currently Nvidia internal. Switch to public endpoint.
 DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
@@ -224,7 +232,30 @@ class EnvironmentGenerationAgent:
         # Validate basic connection and key authentication.
         ping(self.client, self.model)
         self._spec_schema = build_strict_schema(ArenaEnvGraphSpec)
+        self._resolve_schema = build_resolve_schema()
         self.last_validation_traces: list[str] = []
+
+    def resolve_usd_prim_paths(
+        self,
+        spec: ArenaEnvGraphSpec,
+        *,
+        prim_tree: list[UsdPrimRecord],
+        temperature: float = 0.1,
+        max_tokens: int = 4096,
+        max_retries: int = 3,
+    ) -> tuple[list[ObjectReferenceSpec], str]:
+        """Pass 2: resolve object_reference prim_path values from a background USD prim tree."""
+        resolved, raw = resolve_object_reference_prim_paths_with_client(
+            self.client,
+            self.model,
+            spec,
+            prim_tree=prim_tree,
+            schema=self._resolve_schema,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            max_retries=max_retries,
+        )
+        return resolved, raw
 
     def generate_spec(
         self,
@@ -313,6 +344,16 @@ class EnvironmentGenerationAgent:
                 spec, traces = try_parse_env_graph_spec(data)
                 if spec is not None:
                     traces = [*traces, *collect_agent_ready_task_validation_traces(spec)]
+                    if spec.object_references:
+                        # Pass 2: resolve any placeholder object_reference prim paths against the
+                        # background USD prim tree, then assert every reference is resolved.
+                        if any(is_unresolved_prim_path(ref.prim_path) for ref in spec.object_references):
+                            usd_path = resolve_asset_usd_path(spec.background)
+                            prim_tree = load_usd_prim_tree(usd_path)
+                            resolved_refs, _ = self.resolve_usd_prim_paths(spec, prim_tree=prim_tree)
+                            spec = merge_resolved_object_references(spec, resolved_refs)
+                            data = spec.to_dict()
+                        spec.validate_resolved()
                 self.last_validation_traces = traces
                 return spec, data
             except Exception as exc:

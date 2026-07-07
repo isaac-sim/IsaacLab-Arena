@@ -7,20 +7,24 @@
 
 from __future__ import annotations
 
-import hashlib
 import sys
 
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec
+from isaaclab_arena.utils.asset_usd import extract_asset_usd_path, usd_cache_key
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
 
 AabbDimensionsM = tuple[float, float, float]
 
-
-def usd_cache_key(usd_path: str) -> str:
-    """Return a stable short hash for caching PNGs keyed by USD path."""
-    return hashlib.sha1(usd_path.encode("utf-8")).hexdigest()[:16]
+__all__ = [
+    "AabbDimensionsM",
+    "aabb_dimensions_from_usd",
+    "resolve_node_aabb_dimensions_m",
+    "resolve_node_usd_paths",
+    "scale_for_asset_spec",
+    "usd_cache_key",
+]
 
 
 def resolve_node_usd_paths(spec: ArenaEnvGraphSpec) -> dict[str, str]:
@@ -35,8 +39,8 @@ def resolve_node_usd_paths(spec: ArenaEnvGraphSpec) -> dict[str, str]:
                     file=sys.stderr,
                 )
                 continue
-            cls = registry.get_asset_by_name(asset_spec.registry_name)
-            usd_path = extract_usd_path(cls)
+            asset_cls = registry.get_asset_by_name(asset_spec.registry_name)
+            usd_path = extract_asset_usd_path(asset_cls, **asset_spec.params)
             if not usd_path:
                 print(
                     f"[asset_usd]   {asset_spec.id}: '{asset_spec.registry_name}' has no usd_path, skipping.",
@@ -50,22 +54,6 @@ def resolve_node_usd_paths(spec: ArenaEnvGraphSpec) -> dict[str, str]:
                 file=sys.stderr,
             )
     return paths
-
-
-def extract_usd_path(cls) -> str | None:
-    """Return the asset's root USD path, or ``None`` if not extractable."""
-    usd_path = getattr(cls, "usd_path", None)
-    if usd_path:
-        return usd_path
-
-    try:
-        instance = cls()
-    except Exception:
-        return None
-    scene_config = getattr(instance, "scene_config", None)
-    robot = getattr(scene_config, "robot", None) if scene_config is not None else None
-    spawn = getattr(robot, "spawn", None) if robot is not None else None
-    return getattr(spawn, "usd_path", None) if spawn is not None else None
 
 
 def scale_for_asset_spec(asset_spec: AssetSpec, asset_cls) -> tuple[float, float, float]:
@@ -102,7 +90,7 @@ def resolve_node_aabb_dimensions_m(spec: ArenaEnvGraphSpec) -> dict[str, AabbDim
             if not registry.is_registered(asset_spec.registry_name):
                 continue
             asset_cls = registry.get_asset_by_name(asset_spec.registry_name)
-            usd_path = extract_usd_path(asset_cls)
+            usd_path = extract_asset_usd_path(asset_cls, **asset_spec.params)
             if not usd_path:
                 continue
             dims = aabb_dimensions_from_usd(usd_path, scale_for_asset_spec(asset_spec, asset_cls))
