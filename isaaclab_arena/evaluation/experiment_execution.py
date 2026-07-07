@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg, ArenaExperimentResult, ExperimentStatus
 from isaaclab_arena.evaluation.job_manager import Job
-from isaaclab_arena.evaluation.legacy_job_adapter import _build_arena_builder_from_legacy_cfg, _LegacyCliEnvironmentCfg
+from isaaclab_arena.evaluation.legacy_job_adapter import _arena_builder_from_legacy_args, _LegacyCliEnvironmentCfg
 from isaaclab_arena.evaluation.policy_runner import rollout_policy
 from isaaclab_arena.evaluation.resource_cleanup import close_experiment_resources
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
@@ -86,7 +86,12 @@ def _build_environment_from_cfg(
     # TODO(cvolk, 2026-07-07): Remove the legacy branch when graph environments
     # have typed configs and no longer require the argparse construction path.
     arena_builder = (
-        _build_arena_builder_from_legacy_cfg(cfg)
+        _arena_builder_from_legacy_args(
+            arena_env_args=cfg.environment.arena_env_args,
+            device=cfg.environment_builder.device,
+            language_instruction=cfg.environment_builder.language_instruction,
+            hydra_overrides=Job.convert_variations_dict_to_hydra_overrides(cfg.variations),
+        )
         if isinstance(cfg.environment, _LegacyCliEnvironmentCfg)
         else _build_arena_builder_from_cfg(cfg)
     )

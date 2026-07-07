@@ -69,7 +69,7 @@ def test_legacy_graph_environment_stays_in_the_existing_cli_path():
     (experiment,) = adapt_legacy_eval_config(legacy_config, device="cpu")
 
     assert isinstance(experiment.environment, legacy_job_adapter._LegacyCliEnvironmentCfg)
-    assert experiment.environment.arguments == Job.convert_args_dict_to_cli_args_list(
+    assert experiment.environment.arena_env_args == Job.convert_args_dict_to_cli_args_list(
         legacy_config["jobs"][0]["arena_env_args"]
     )
 
@@ -106,10 +106,15 @@ def test_legacy_graph_builder_keeps_namespace_inside_adapter(monkeypatch):
 
     monkeypatch.setattr(legacy_job_adapter, "get_arena_builder_from_cli", get_builder)
 
-    builder = legacy_job_adapter._build_arena_builder_from_legacy_cfg(experiment)
+    builder = legacy_job_adapter._arena_builder_from_legacy_args(
+        arena_env_args=experiment.environment.arena_env_args,
+        device=experiment.environment_builder.device,
+        language_instruction=experiment.environment_builder.language_instruction,
+        hydra_overrides=Job.convert_variations_dict_to_hydra_overrides(experiment.variations),
+    )
 
     assert builder is expected_builder
-    assert captured["arguments"] == experiment.environment.arguments
+    assert captured["arguments"] == experiment.environment.arena_env_args
     assert parsed_args.device == "cuda:1"
     assert parsed_args.language_instruction is None
     assert captured["hydra_overrides"] == ["light.intensity.enabled=true"]
