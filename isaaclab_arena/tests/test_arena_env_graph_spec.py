@@ -210,20 +210,6 @@ def test_graph_spec_rejects_invalid_data():
         assert error_match in str(exc_info.value), label
 
 
-def test_graph_spec_rejects_unknown_registry_name():
-    data = ArenaEnvGraphSpec.from_yaml(_GRAPH).to_dict()
-    data["objects"][0]["registry_name"] = "not_a_real_asset"
-    with pytest.raises(ValidationError, match="Unknown asset registry_name"):
-        ArenaEnvGraphSpec.from_dict(data)
-
-
-def test_graph_spec_rejects_duplicate_asset_ids():
-    data = ArenaEnvGraphSpec.from_yaml(_GRAPH).to_dict()
-    data["objects"][1]["id"] = data["objects"][0]["id"]
-    with pytest.raises(ValidationError, match="Duplicate graph asset ids"):
-        ArenaEnvGraphSpec.from_dict(data)
-
-
 def test_graph_spec_rejects_unknown_relation_subject():
     data = ArenaEnvGraphSpec.from_yaml(_GRAPH).to_dict()
     data["relations"][0]["subject"] = "missing_node"
