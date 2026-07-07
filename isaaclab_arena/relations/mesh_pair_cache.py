@@ -30,13 +30,13 @@ class MeshPairEntry(NamedTuple):
     """Obstacle (mesh target) object."""
 
     is_anchor: bool
-    """True when obstacle is a static anchor."""
+    """True when obstacle is fixed in world coordinates."""
 
     anchor_pos: torch.Tensor | None
-    """(3,) world-frame position of the anchor obstacle; None for non-anchors."""
+    """(3,) world-frame position of the fixed obstacle; None for non-fixed obstacles."""
 
     anchor_yaw: float
-    """Anchor Z-yaw in radians (0.0 for non-anchors)."""
+    """Fixed obstacle Z-yaw in radians (0.0 for non-fixed obstacles)."""
 
     centers_local: torch.Tensor
     """(S, 3) sphere centers in subject-local frame."""
@@ -83,13 +83,13 @@ class MeshPairCache:
     """(P,) obstacle (mesh target) object reference per pair."""
 
     pair_is_anchor: list[bool]
-    """(P,) True if the obstacle is a static anchor."""
+    """(P,) True if the obstacle is fixed in world coordinates."""
 
     pair_anchor_pos: list[torch.Tensor | None]
-    """(P,) world position for anchor obstacles (None for non-anchors)."""
+    """(P,) world position for fixed obstacles (None for non-fixed obstacles)."""
 
     pair_anchor_yaw: list[float]
-    """(P,) anchor yaw in radians (0.0 for non-anchors)."""
+    """(P,) fixed obstacle yaw in radians (0.0 for non-fixed obstacles)."""
 
     pair_subject_bbox_min: torch.Tensor
     """(P, B, 3) subject bounding box min corners."""

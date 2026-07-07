@@ -144,7 +144,7 @@ class RelationSolver:
         """Compute pairwise no-overlap loss, skipping On-linked pairs.
 
         - Non-anchor vs fixed obstacle (anchor or background): gradient flows to the non-anchor only.
-        - Non-anchor vs non-anchor: both objects accumulate gradient.
+        - Non-anchor vs non-anchor mesh pairs are checked in every available SDF direction.
         """
         if self.params.collision_mode == CollisionMode.MESH:
             assert self._mesh_manager is not None, "MESH collision requires a mesh manager."

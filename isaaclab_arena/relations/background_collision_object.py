@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 import trimesh
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
@@ -19,16 +20,19 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
 
 
+BACKGROUND_COLLISION_OBJECT_NAME = "__background_collision_mesh__"
+
+
 class BackgroundCollisionObject:
     """Single fixed collision-only object built from multiple background meshes."""
 
     def __init__(
         self,
         mesh: trimesh.Trimesh,
-        name: str = "__background_collision_mesh__",
+        name: str = BACKGROUND_COLLISION_OBJECT_NAME,
     ) -> None:
         self.name = name
-        self.relations = []
+        self._relations: tuple = ()
         self.use_collision_mesh_as_is = True
         self._pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
         self._mesh = mesh
@@ -41,7 +45,7 @@ class BackgroundCollisionObject:
 
     def get_relations(self) -> list:
         """Return no relations; this object is collision-only."""
-        return self.relations
+        return []
 
     def get_spatial_relations(self) -> list:
         """Return no spatial relations."""
@@ -64,27 +68,50 @@ class BackgroundCollisionObject:
         return self._mesh
 
 
-def make_background_collision_object(objects: list[ObjectBase]) -> BackgroundCollisionObject | None:
+def make_background_collision_object(objects: Sequence[ObjectBase]) -> BackgroundCollisionObject | None:
     """Build one fixed collision object from the full background mesh."""
-    mesh = _combine_background_meshes(objects)
+    mesh, skipped_objects = _combine_background_meshes(objects)
+    assert not skipped_objects, (
+        "Cannot build one complete background collision mesh; mesh extraction failed for "
+        f"{[obj.name for obj in skipped_objects]}."
+    )
     if mesh is None:
         return None
     return BackgroundCollisionObject(mesh)
 
 
-def _combine_background_meshes(objects: list[ObjectBase]) -> trimesh.Trimesh | None:
+def make_background_collision_objects(objects: Sequence[ObjectBase]) -> list[ObjectBase | BackgroundCollisionObject]:
+    """Build mesh aggregate plus meshless fixed obstacles kept for AABB fallback."""
+    mesh, skipped_objects = _combine_background_meshes(objects)
+    collision_objects: list[ObjectBase | BackgroundCollisionObject] = []
+    if mesh is not None:
+        collision_objects.append(BackgroundCollisionObject(mesh))
+    if skipped_objects:
+        print(
+            "Background mesh extraction failed for "
+            f"{[obj.name for obj in skipped_objects]}; keeping them as individual AABB collision obstacles."
+        )
+        collision_objects.extend(skipped_objects)
+    if mesh is None and not skipped_objects:
+        return []
+    return collision_objects
+
+
+def _combine_background_meshes(objects: Sequence[ObjectBase]) -> tuple[trimesh.Trimesh | None, list[ObjectBase]]:
     manager = WarpMeshAndSphereCache(device="cpu")
     meshes = []
+    skipped_objects = []
     for obj in objects:
         mesh = manager.get_collision_mesh(obj)
         if mesh is None:
+            skipped_objects.append(obj)
             continue
         pose = obj.get_initial_pose()
         assert isinstance(pose, Pose), f"Background object '{obj.name}' must have a fixed Pose."
         meshes.append(_mesh_in_world_frame(mesh, pose))
     if not meshes:
-        return None
-    return trimesh.util.concatenate(meshes)
+        return None, skipped_objects
+    return trimesh.util.concatenate(meshes), skipped_objects
 
 
 def _mesh_in_world_frame(mesh: trimesh.Trimesh, pose: Pose) -> trimesh.Trimesh:

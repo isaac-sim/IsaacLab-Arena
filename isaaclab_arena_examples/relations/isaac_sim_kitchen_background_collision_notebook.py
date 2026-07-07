@@ -3,10 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import annotations
-
-# pyright: reportArgumentType=false, reportCallIssue=false, reportAttributeAccessIssue=false
-
 """Example: place objects on the robocasa kitchen counter while avoiding the background mesh.
 
 The kitchen is loaded as one passive background. In MESH collision mode, ArenaEnvBuilder asks
@@ -18,8 +14,10 @@ omitting it runs headless, so nothing shows):
 
     /isaac-sim/python.sh \\
         isaaclab_arena_examples/relations/isaac_sim_kitchen_background_collision_notebook.py \\
-        --viz kit --enable_cameras --view_steps 200
+        --viz kit --view_steps 0
 """
+
+from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
@@ -27,11 +25,16 @@ import pinocchio  # noqa: F401
 
 from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
 
+# pyright: reportArgumentType=false, reportCallIssue=false, reportAttributeAccessIssue=false
+
+
 if TYPE_CHECKING:
     from isaacsim import SimulationApp
 
 _KITCHEN = "lightwheel_robocasa_kitchen"
 _COUNTER_PRIM = "{ENV_REGEX_NS}/" + _KITCHEN + "/counter_main_main_group"
+_DEMO_SOLVER_MAX_ITERS = 80
+_DEMO_NUM_SPHERES = 8
 
 
 def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, args_cli=None) -> list[str]:
@@ -86,8 +89,16 @@ def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, a
     print(f"Using background collision obstacles: {collision_names}", flush=True)
 
     placer_params = ObjectPlacerParams(
+        max_placement_attempts=2,
+        min_unique_layouts_per_env=1,
         random_yaw_init=True,
-        solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, verbose=False, save_position_history=False),
+        solver_params=RelationSolverParams(
+            collision_mode=CollisionMode.MESH,
+            max_iters=_DEMO_SOLVER_MAX_ITERS,
+            num_spheres=_DEMO_NUM_SPHERES,
+            verbose=False,
+            save_position_history=False,
+        ),
     )
     env = ArenaEnvBuilder(
         IsaacLabArenaEnvironment(name="kitchen_background_collision", scene=scene, placer_params=placer_params),

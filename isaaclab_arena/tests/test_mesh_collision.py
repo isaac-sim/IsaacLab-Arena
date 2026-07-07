@@ -100,6 +100,44 @@ def test_warp_mesh_caching():
     assert m1 is m2
 
 
+@requires_warp
+def test_warp_mesh_raw_mesh_flag_skips_convex_hull(monkeypatch):
+    """Raw background meshes should bypass convex-hull repair when explicitly requested."""
+    mesh = trimesh.Trimesh(
+        vertices=np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 1.0, 0.0],
+                [0.0, 1.0, 0.0],
+            ],
+            dtype=np.float64,
+        ),
+        faces=np.array([[0, 1, 2], [0, 2, 3]], dtype=np.int64),
+        process=False,
+    )
+    raw_obj = DummyObject(
+        "raw_background",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.0)),
+        collision_mesh=mesh,
+    )
+    raw_obj.use_collision_mesh_as_is = True
+    normal_obj = DummyObject(
+        "normal_background",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.0)),
+        collision_mesh=mesh,
+    )
+
+    def fail_convex_hull(self):
+        raise RuntimeError("convex hull should not be requested for raw mesh objects")
+
+    monkeypatch.setattr(trimesh.Trimesh, "convex_hull", property(fail_convex_hull))
+
+    WarpMeshAndSphereCache(device="cpu").get_warp_mesh(mesh, obj=raw_obj)
+    with pytest.raises(RuntimeError, match="convex hull"):
+        WarpMeshAndSphereCache(device="cpu").get_warp_mesh(mesh, obj=normal_obj)
+
+
 def _batched_aabb_loss(strategy, clearance_m, child_pos, child_bbox, parent_world_bbox):
     """Helper: compute single-pair AABB loss via compute_loss_batched."""
     subject_min = (child_pos + child_bbox.min_point).unsqueeze(0).unsqueeze(0)
@@ -345,6 +383,37 @@ def test_validate_no_overlap_mesh_catches_overlap():
     # Separated positions
     positions_sep = {table: (0.0, 0.0, 0.0), a: (0.2, 0.0, 0.05), b: (-0.2, 0.0, 0.05)}
     assert placer._validate_no_overlap_mesh(positions_sep)
+
+
+@requires_warp
+def test_validate_placement_mesh_mode_rejects_aabb_foreground_background_overlap():
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_validation import PlacementCheck
+
+    table = _make_table()
+    box = DummyObject(
+        "aabb_only_box",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.05, -0.05, -0.05), max_point=(0.05, 0.05, 0.05)),
+    )
+    box.add_relation(On(table))
+    background = _make_box_obj("mesh_background", 0.2, 0.2, 0.2)
+    background.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.075), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+
+    params = ObjectPlacerParams(
+        solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, verbose=False),
+        verbose=False,
+    )
+    placer = ObjectPlacer(params=params)
+    env_bboxes = {table: table.get_bounding_box(), box: box.get_bounding_box()}
+
+    overlapping = {table: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.075)}
+    validation = placer._validate_placement(overlapping, env_bboxes, collision_objects=[background])
+    assert not validation.validation_results[PlacementCheck.NO_OVERLAP]
+
+    clear = {table: (0.0, 0.0, 0.0), box: (0.3, 0.0, 0.075)}
+    validation = placer._validate_placement(clear, env_bboxes, collision_objects=[background])
+    assert validation.validation_results[PlacementCheck.NO_OVERLAP]
 
 
 @requires_warp
@@ -718,3 +787,53 @@ def test_broadphase_does_not_falsely_cull_yawed_elongated_pair():
     solver.solve([table, a, b], initial, orientations=orientations)
     loss = solver.last_loss_per_env[0].item()
     assert loss > 0.0, "Broadphase must not falsely cull yawed elongated pairs that genuinely collide"
+
+
+@requires_warp
+def test_mesh_mode_queries_aabb_subject_against_mesh_background():
+    """AABB-only placed objects should still collide against mesh background obstacles in MESH mode."""
+    table = _make_table()
+    box = DummyObject(
+        "aabb_only_box",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.05, -0.05, -0.05), max_point=(0.05, 0.05, 0.05)),
+    )
+    box.add_relation(On(table))
+    background = _make_box_obj("mesh_background", 0.2, 0.2, 0.2)
+    background.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.05), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+
+    initial = [{table: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.05)}]
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False))
+    solver.solve([table, box], initial, collision_objects=[background])
+
+    assert solver._mesh_cache is not None
+    assert any(
+        subject is box and obstacle is background
+        for subject, obstacle in zip(solver._mesh_cache.pair_subject_objs, solver._mesh_cache.pair_obstacle_objs)
+    )
+    assert solver.last_loss_per_env[0].item() > 0.0
+    assert solver._last_no_overlap_pair_count == 0
+
+
+@requires_warp
+def test_mesh_mode_scores_mixed_mesh_aabb_placed_pair():
+    """A mesh object and AABB-only placed object should not fall out of both collision paths."""
+    table = _make_table()
+    mesh_box = _make_box_obj("mesh_box", 0.1, 0.1, 0.1)
+    aabb_box = DummyObject(
+        "aabb_only_box",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.05, -0.05, -0.05), max_point=(0.05, 0.05, 0.05)),
+    )
+    mesh_box.add_relation(On(table))
+    aabb_box.add_relation(On(table))
+
+    initial = [{table: (0.0, 0.0, 0.0), mesh_box: (0.0, 0.0, 0.05), aabb_box: (0.0, 0.0, 0.05)}]
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False))
+    solver.solve([table, mesh_box, aabb_box], initial)
+
+    assert solver.last_loss_per_env[0].item() > 0.0
+    assert solver._mesh_cache is not None
+    assert any(
+        subject is aabb_box and obstacle is mesh_box
+        for subject, obstacle in zip(solver._mesh_cache.pair_subject_objs, solver._mesh_cache.pair_obstacle_objs)
+    )
+    assert solver._last_no_overlap_pair_count == 0

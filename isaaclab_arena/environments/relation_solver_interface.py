@@ -9,7 +9,11 @@ import copy
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_events import get_rotation_xyzw, register_placement_pool, solve_and_place_objects
+from isaaclab_arena.relations.placement_events import (
+    get_rotation_xyzw,
+    register_placement_pool,
+    solve_and_place_objects,
+)
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.pose import Pose, PosePerEnv

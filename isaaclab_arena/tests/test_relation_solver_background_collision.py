@@ -82,10 +82,17 @@ def _mesh_box(name: str, extents: tuple[float, float, float], position: tuple[fl
 
 def test_background_collision_object_combines_meshes():
     """Multiple fixed background meshes are represented as one collision-only object."""
-    from isaaclab_arena.relations.background_collision_object import make_background_collision_object
+    import pytest
+
+    from isaaclab_arena.relations.background_collision_object import (
+        BackgroundCollisionObject,
+        make_background_collision_object,
+        make_background_collision_objects,
+    )
 
     left = _mesh_box("left_cabinet", (0.2, 0.2, 0.2), (-1.0, 0.0, 0.0))
     right = _mesh_box("right_cabinet", (0.2, 0.2, 0.2), (1.0, 0.0, 0.0))
+    meshless = _make_background()
 
     background = make_background_collision_object([left, right])
 
@@ -96,6 +103,13 @@ def test_background_collision_object_combines_meshes():
     bounds = background.get_collision_mesh().bounds
     assert bounds[0][0] < -1.09
     assert bounds[1][0] > 1.09
+
+    collision_objects = make_background_collision_objects([left, meshless])
+    assert isinstance(collision_objects[0], BackgroundCollisionObject)
+    assert collision_objects[1] is meshless
+
+    with pytest.raises(AssertionError, match="mesh extraction failed"):
+        make_background_collision_object([left, meshless])
 
 
 def test_collision_objects_add_no_overlap_loss():
@@ -137,12 +151,13 @@ def test_solver_pushes_object_off_background_obstacle():
     background = _make_background()
 
     initial_positions = [{desk: (0.0, 0.0, 0.0), box: (0.3, 0.3, 0.1)}]
-    solver = RelationSolver(RelationSolverParams(verbose=False, save_position_history=False))
+    solver_params = RelationSolverParams(verbose=False, save_position_history=False)
+    solver = RelationSolver(solver_params)
 
     result = solver.solve([desk, box], initial_positions, collision_objects=[background])[0]
 
     box_world = box.get_bounding_box().translated(result[box])
-    assert not box_world.overlaps(background.get_world_bounding_box(), margin=0.0).item()
+    assert not box_world.overlaps(background.get_world_bounding_box(), margin=solver_params.clearance_m).item()
 
 
 def test_solve_without_collision_objects_is_a_noop():
@@ -254,15 +269,16 @@ def test_object_placer_place_forwards_collision_objects():
     box.add_relation(On(desk))
     background = _make_background()
 
+    solver_params = RelationSolverParams(verbose=False, save_position_history=False)
     params = ObjectPlacerParams(
         placement_seed=0,
-        solver_params=RelationSolverParams(verbose=False, save_position_history=False),
+        solver_params=solver_params,
     )
     result = ObjectPlacer(params=params).place([desk, box], num_envs=1, collision_objects=[background])[0]
 
     assert result.success
     box_world = box.get_bounding_box().translated(result.positions[box])
-    assert not box_world.overlaps(background.get_world_bounding_box(), margin=0.0).item()
+    assert not box_world.overlaps(background.get_world_bounding_box(), margin=solver_params.clearance_m).item()
 
 
 def test_pooled_object_placer_forwards_collision_objects():
@@ -277,10 +293,11 @@ def test_pooled_object_placer_forwards_collision_objects():
     box.add_relation(On(desk))
     background = _make_background()
 
+    solver_params = RelationSolverParams(verbose=False, save_position_history=False)
     params = ObjectPlacerParams(
         placement_seed=0,
         apply_positions_to_objects=False,
-        solver_params=RelationSolverParams(verbose=False, save_position_history=False),
+        solver_params=solver_params,
     )
     pool = PooledObjectPlacer(
         objects=[desk, box],
@@ -292,7 +309,7 @@ def test_pooled_object_placer_forwards_collision_objects():
     layout = pool.sample_with_replacement(1)[0]
 
     box_world = box.get_bounding_box().translated(layout.positions[box])
-    assert not box_world.overlaps(background.get_world_bounding_box(), margin=0.0).item()
+    assert not box_world.overlaps(background.get_world_bounding_box(), margin=solver_params.clearance_m).item()
 
 
 def test_pooled_object_placer_multi_env_avoids_obstacle():
@@ -308,10 +325,11 @@ def test_pooled_object_placer_multi_env_avoids_obstacle():
     background = _make_background()
 
     num_envs = 3
+    solver_params = RelationSolverParams(verbose=False, save_position_history=False)
     params = ObjectPlacerParams(
         placement_seed=0,
         apply_positions_to_objects=False,
-        solver_params=RelationSolverParams(verbose=False, save_position_history=False),
+        solver_params=solver_params,
     )
     pool = PooledObjectPlacer(
         objects=[desk, box],
@@ -326,4 +344,79 @@ def test_pooled_object_placer_multi_env_avoids_obstacle():
     assert len(layouts) == num_envs
     for layout in layouts:
         box_world = box.get_bounding_box().translated(layout.positions[box])
-        assert not box_world.overlaps(background.get_world_bounding_box(), margin=0.0).item()
+        assert not box_world.overlaps(background.get_world_bounding_box(), margin=solver_params.clearance_m).item()
+
+
+def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch):
+    """Relation solving automatically includes passive scene collision objects."""
+    from types import SimpleNamespace
+
+    import isaaclab_arena.environments.arena_env_builder as builder_module
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
+
+    objects_with_relations = [object()]
+    background_collision = object()
+    calls = {}
+
+    class Scene:
+        def get_objects_with_relations(self):
+            return objects_with_relations
+
+        def get_collision_objects(self, combine_background_mesh: bool = False):
+            calls["combine_background_mesh"] = combine_background_mesh
+            return [background_collision]
+
+    def fake_solve_and_apply_relation_placement(objects, num_envs, placer_params, collision_objects):
+        calls["objects"] = objects
+        calls["num_envs"] = num_envs
+        calls["placer_params"] = placer_params
+        calls["collision_objects"] = collision_objects
+        return "placement_event"
+
+    monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
+    placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH))
+    arena_env = SimpleNamespace(scene=Scene(), placer_params=placer_params)
+    builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2))
+
+    builder._solve_relations()
+
+    assert calls["combine_background_mesh"] is True
+    assert calls["objects"] == objects_with_relations
+    assert calls["num_envs"] == 2
+    assert calls["placer_params"] is placer_params
+    assert calls["collision_objects"] == [background_collision]
+    assert builder._placement_event_cfg == "placement_event"
+
+
+def test_arena_env_builder_uses_individual_background_collisions_for_bbox(monkeypatch):
+    """BBOX mode still includes passive collisions without aggregating whole backgrounds."""
+    from types import SimpleNamespace
+
+    import isaaclab_arena.environments.arena_env_builder as builder_module
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+
+    calls = {}
+
+    class Scene:
+        def get_objects_with_relations(self):
+            return []
+
+        def get_collision_objects(self, combine_background_mesh: bool = False):
+            calls["combine_background_mesh"] = combine_background_mesh
+            return []
+
+    def fake_solve_and_apply_relation_placement(objects, num_envs, placer_params, collision_objects):
+        calls["collision_objects"] = collision_objects
+
+    monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
+    arena_env = SimpleNamespace(scene=Scene(), placer_params=None)
+    builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())
+
+    builder._solve_relations()
+
+    assert calls["combine_background_mesh"] is False
+    assert calls["collision_objects"] == []

@@ -53,14 +53,17 @@ def compute_no_overlap_loss_aabb(
     - Non-anchor vs fixed obstacle (anchor or collision object): gradient flows to the non-anchor only.
     - Non-anchor vs non-anchor: both objects accumulate gradient (two directed passes).
 
-    When skip_mesh_pairs=True, only processes pairs where at least one object lacks a collision mesh.
+    When skip_mesh_pairs=True, only processes pairs that cannot be represented by the mesh path.
+    In MESH mode, objects without a collision mesh are approximated by their AABB and queried
+    against any mesh obstacle, so the AABB fallback is reserved for pairs where neither side has
+    a mesh target.
 
     Args:
         state: Solver state with positions and batch info.
         no_collision_strategy: Loss strategy for scoring overlap.
         clearance_m: Minimum clearance between objects.
         mesh_manager: Warp mesh cache (for skip_mesh_pairs filtering).
-        skip_mesh_pairs: Skip pairs where both objects have meshes.
+        skip_mesh_pairs: Skip pairs handled by mesh or mixed mesh/AABB collision.
         debug: Print per-pair loss when True.
 
     Returns:
@@ -101,12 +104,7 @@ def compute_no_overlap_loss_aabb(
         for obstacle in fixed_obstacles:
             if (id(child), id(obstacle)) in on_pairs:
                 continue
-            if (
-                skip_mesh_pairs
-                and mesh_manager is not None
-                and mesh_manager.get_collision_mesh(child) is not None
-                and mesh_manager.get_collision_mesh(obstacle) is not None
-            ):
+            if skip_mesh_pairs and mesh_manager is not None and mesh_manager.get_collision_mesh(obstacle) is not None:
                 continue
             obstacle_min, obstacle_max = extents[obstacle]
             pairs.append(NoOverlapPair(child_min, child_max, obstacle_min, obstacle_max))
@@ -121,8 +119,10 @@ def compute_no_overlap_loss_aabb(
             if (
                 skip_mesh_pairs
                 and mesh_manager is not None
-                and mesh_manager.get_collision_mesh(child) is not None
-                and mesh_manager.get_collision_mesh(other) is not None
+                and (
+                    mesh_manager.get_collision_mesh(child) is not None
+                    or mesh_manager.get_collision_mesh(other) is not None
+                )
             ):
                 continue
             other_min, other_max = extents[other]

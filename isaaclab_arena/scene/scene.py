@@ -17,7 +17,7 @@ from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.object_set import RigidObjectSet
-from isaaclab_arena.relations.background_collision_object import make_background_collision_object
+from isaaclab_arena.relations.background_collision_object import make_background_collision_objects
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
 from isaaclab_arena.utils.pose import Pose
@@ -126,15 +126,15 @@ class Scene:
         """Return relation-free assets that qualify as passive collision obstacles.
 
         A qualifying asset is an Object / ObjectReference that carries no relations (so it is
-        absent from get_objects_with_relations), exposes a USD path for its bounding box, and
-        has a single fixed initial Pose. Assets with a per-env / per-reset or unset pose are
-        skipped, since no constant world bounding box can be computed for them.
+        absent from get_objects_with_relations), exposes a USD path for geometry, and has a
+        single fixed initial Pose. Assets with a per-env / per-reset or unset pose are skipped,
+        since no constant world bounding box can be computed for them.
 
         Args:
             combine_background_mesh: If True and mesh extraction succeeds, return one
                 collision-only object with all background meshes baked into world coordinates.
-                When False, whole-scene Background assets are skipped because their AABB spans the
-                placement surface and would reject valid layouts.
+                When False, whole-scene Background assets are skipped because their AABB spans
+                the full scene and would reject valid layouts.
 
         Returns:
             Qualifying collision objects, in scene-insertion order.
@@ -143,16 +143,19 @@ class Scene:
         for asset in self.assets.values():
             if not isinstance(asset, (Object, ObjectReference)):
                 continue
-            # Relation objects are already passed to the solver directly; the aggregate
-            # background mesh is only the passive scene geometry outside that graph.
             if isinstance(asset, Background) and not combine_background_mesh:
                 continue
             if asset.get_relations():
                 continue
             # Without a USD path no bounding box can be computed for collision.
             if isinstance(asset, Object) and asset.usd_path is None:
+                print(f"Skipping background object '{asset.name}' as a collision obstacle: missing USD path.")
                 continue
             if isinstance(asset, ObjectReference) and asset.parent_asset.usd_path is None:
+                print(
+                    f"Skipping background object reference '{asset.name}' as a collision obstacle: "
+                    f"parent asset '{asset.parent_asset.name}' is missing a USD path."
+                )
                 continue
             # A single fixed Pose is required so get_world_bounding_box() places the obstacle
             # correctly; PoseRange/PosePerEnv move per env/reset and None is unplaced, so such
@@ -169,9 +172,7 @@ class Scene:
         if not collision_objects:
             return []
         if combine_background_mesh:
-            background_collision_object = make_background_collision_object(collision_objects)
-            if background_collision_object is not None:
-                return [background_collision_object]
+            return make_background_collision_objects(collision_objects)
         return collision_objects
 
     def export_to_usd(self, output_path: pathlib.Path, root_prim_path: str = "/World") -> None:

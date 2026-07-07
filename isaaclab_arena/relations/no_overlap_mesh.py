@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 import torch
+import trimesh
 from typing import TYPE_CHECKING
 
 import warp as wp
@@ -186,16 +187,17 @@ def _collect_mesh_pairs(
 
     for i, child in enumerate(non_anchor_objects):
         child_mesh = manager.get_collision_mesh(child)
-        if child_mesh is None:
-            if child.name not in warned_no_mesh:
-                warned_no_mesh.add(child.name)
-                print(f"[NoCollision] '{child.name}' has no collision mesh; pair will use AABB fallback.")
-            continue
-        child_spheres = manager.get_query_spheres(child_mesh, obj=child).to(device)
-        child_centers_local = child_spheres[:, :3]
-        child_radii = child_spheres[:, 3]
+        if child_mesh is None and child.name not in warned_no_mesh:
+            warned_no_mesh.add(child.name)
+            print(
+                f"[NoCollision] '{child.name}' has no collision mesh; using an AABB-sphere approximation "
+                "for mesh-obstacle pairs."
+            )
         # Use unrotated bbox: _rotate_bbox_extents handles yaw in the broadphase filter.
         child_bbox = child.get_bounding_box().to(device)
+        child_spheres = _get_subject_spheres(child_mesh, child_bbox, child, manager, device)
+        child_centers_local = child_spheres[:, :3]
+        child_radii = child_spheres[:, 3]
         c_bbox_min = child_bbox.min_point.expand(state.batch_size, 3)
         c_bbox_max = child_bbox.max_point.expand(state.batch_size, 3)
 
@@ -242,7 +244,7 @@ def _collect_mesh_pairs(
             if (id(child), id(other)) in on_pairs:
                 continue
             other_mesh = manager.get_collision_mesh(other)
-            if other_mesh is None:
+            if other_mesh is None and child_mesh is None:
                 if other.name not in warned_no_mesh:
                     warned_no_mesh.add(other.name)
                     print(f"[NoCollision] '{other.name}' has no collision mesh; pair will use AABB fallback.")
@@ -251,44 +253,63 @@ def _collect_mesh_pairs(
             o_bbox_min = other_bbox.min_point.expand(state.batch_size, 3)
             o_bbox_max = other_bbox.max_point.expand(state.batch_size, 3)
 
-            # forward: child's spheres → other's mesh
-            pairs.append(
-                MeshPairEntry(
-                    subject=child,
-                    obstacle=other,
-                    is_anchor=False,
-                    anchor_pos=None,
-                    anchor_yaw=0.0,
-                    centers_local=child_centers_local,
-                    radii=child_radii,
-                    subject_bbox_min=c_bbox_min,
-                    subject_bbox_max=c_bbox_max,
-                    obstacle_bbox_min=o_bbox_min,
-                    obstacle_bbox_max=o_bbox_max,
-                    warp_mesh=manager.get_warp_mesh(other_mesh, obj=other),
+            if other_mesh is not None:
+                # forward: child's mesh/spheres or AABB-sphere approximation → other's mesh
+                pairs.append(
+                    MeshPairEntry(
+                        subject=child,
+                        obstacle=other,
+                        is_anchor=False,
+                        anchor_pos=None,
+                        anchor_yaw=0.0,
+                        centers_local=child_centers_local,
+                        radii=child_radii,
+                        subject_bbox_min=c_bbox_min,
+                        subject_bbox_max=c_bbox_max,
+                        obstacle_bbox_min=o_bbox_min,
+                        obstacle_bbox_max=o_bbox_max,
+                        warp_mesh=manager.get_warp_mesh(other_mesh, obj=other),
+                    )
                 )
-            )
 
-            # reverse: other's spheres → child's mesh
-            other_spheres = manager.get_query_spheres(other_mesh, obj=other).to(device)
-            pairs.append(
-                MeshPairEntry(
-                    subject=other,
-                    obstacle=child,
-                    is_anchor=False,
-                    anchor_pos=None,
-                    anchor_yaw=0.0,
-                    centers_local=other_spheres[:, :3],
-                    radii=other_spheres[:, 3],
-                    subject_bbox_min=o_bbox_min,
-                    subject_bbox_max=o_bbox_max,
-                    obstacle_bbox_min=c_bbox_min,
-                    obstacle_bbox_max=c_bbox_max,
-                    warp_mesh=manager.get_warp_mesh(child_mesh, obj=child),
+            if child_mesh is not None:
+                # reverse: other's mesh/spheres or AABB-sphere approximation → child's mesh
+                other_spheres = _get_subject_spheres(other_mesh, other_bbox, other, manager, device)
+                pairs.append(
+                    MeshPairEntry(
+                        subject=other,
+                        obstacle=child,
+                        is_anchor=False,
+                        anchor_pos=None,
+                        anchor_yaw=0.0,
+                        centers_local=other_spheres[:, :3],
+                        radii=other_spheres[:, 3],
+                        subject_bbox_min=o_bbox_min,
+                        subject_bbox_max=o_bbox_max,
+                        obstacle_bbox_min=c_bbox_min,
+                        obstacle_bbox_max=c_bbox_max,
+                        warp_mesh=manager.get_warp_mesh(child_mesh, obj=child),
+                    )
                 )
-            )
 
     return pairs
+
+
+def _get_subject_spheres(
+    mesh: trimesh.Trimesh | None,
+    bbox,
+    obj,
+    manager: WarpMeshAndSphereCache,
+    device: torch.device,
+) -> torch.Tensor:
+    """Return subject query spheres from a mesh, or from an AABB box proxy."""
+    if mesh is not None:
+        return manager.get_query_spheres(mesh, obj=obj).to(device)
+    center = bbox.center[0].detach().cpu().numpy()
+    extents = bbox.size[0].detach().cpu().numpy()
+    box_mesh = trimesh.creation.box(extents=extents)
+    box_mesh.apply_translation(center)
+    return manager.get_query_spheres(box_mesh).to(device)
 
 
 def _finalize_mesh_cache(entries: list[MeshPairEntry], device: torch.device) -> MeshPairCache | None:

@@ -30,6 +30,7 @@ class DummyObject:
         assert self.bounding_box is not None
         self.relations = list(relations)
         self._collision_mesh = collision_mesh
+        self.use_collision_mesh_as_is = False
 
     def add_relation(self, relation: RelationBase) -> None:
         self.relations.append(relation)

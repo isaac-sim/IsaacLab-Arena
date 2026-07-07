@@ -8,8 +8,10 @@ import pathlib
 import torch
 import tqdm
 import traceback
+from types import SimpleNamespace
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 NUM_STEPS = 50
@@ -36,6 +38,46 @@ def background_from_usd_path(name: str, usd_path: pathlib.Path, initial_pose: Po
             )
 
     return ObjectReferenceTestKitchenBackground()
+
+
+def _object_reference_with_cached_bbox(parent_pose: Pose | None, relative_pose: Pose, bbox: AxisAlignedBoundingBox):
+    """Construct an ObjectReference around cached geometry without opening a USD."""
+    from isaaclab_arena.assets.object_reference import ObjectReference
+
+    obj_ref = ObjectReference.__new__(ObjectReference)
+    obj_ref.parent_asset = SimpleNamespace(initial_pose=parent_pose)
+    obj_ref.initial_pose_relative_to_parent = relative_pose
+    obj_ref._bounding_box = bbox
+    return obj_ref
+
+
+def test_object_reference_world_bbox_applies_parent_yaw():
+    """Parent yaw rotates the referenced prim bbox once, then translates to the prim world pose."""
+    yaw_90 = (0.0, 0.0, 2**-0.5, 2**-0.5)
+    obj_ref = _object_reference_with_cached_bbox(
+        parent_pose=Pose(position_xyz=(10.0, 0.0, 0.0), rotation_xyzw=yaw_90),
+        relative_pose=Pose(position_xyz=(1.0, 2.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
+        bbox=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.1, 0.05)),
+    )
+
+    world_bbox = obj_ref.get_world_bounding_box()
+
+    assert torch.allclose(world_bbox.min_point, torch.tensor([[7.9, 1.0, 0.0]]), atol=1e-6)
+    assert torch.allclose(world_bbox.max_point, torch.tensor([[8.0, 1.2, 0.05]]), atol=1e-6)
+
+
+def test_object_reference_world_bbox_without_parent_pose_uses_reference_pose():
+    """A reference without a parent pose is placed directly from its relative prim pose."""
+    obj_ref = _object_reference_with_cached_bbox(
+        parent_pose=None,
+        relative_pose=Pose(position_xyz=(1.0, 2.0, 3.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
+        bbox=AxisAlignedBoundingBox(min_point=(-0.1, -0.2, 0.0), max_point=(0.1, 0.2, 0.3)),
+    )
+
+    world_bbox = obj_ref.get_world_bounding_box()
+
+    assert torch.allclose(world_bbox.min_point, torch.tensor([[0.9, 1.8, 3.0]]), atol=1e-6)
+    assert torch.allclose(world_bbox.max_point, torch.tensor([[1.1, 2.2, 3.3]]), atol=1e-6)
 
 
 def get_test_scene():

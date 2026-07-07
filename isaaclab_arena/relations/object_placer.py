@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import torch
+import trimesh
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, TypeVar, cast
@@ -46,8 +47,6 @@ from isaaclab_arena.utils.yaw import (
 )
 
 if TYPE_CHECKING:
-    import trimesh
-
     from isaaclab_arena.assets.object_base import ObjectBase
 
 
@@ -691,7 +690,7 @@ class ObjectPlacer:
         positions: dict[ObjectBase, tuple[float, float, float]],
         skip_mesh_pairs: bool = False,
     ) -> Iterator[tuple[ObjectBase, ObjectBase]]:
-        """Yield (a, b) pairs for overlap checks, skipping On/anchor-anchor/mesh pairs as configured."""
+        """Yield pairs for AABB validation, skipping pairs handled by mesh/mixed collision."""
         on_pairs, anchor_ids = self._collect_skip_pairs(positions)
         mesh_manager = self._get_cpu_mesh_manager() if skip_mesh_pairs else None
         objects = list(positions.keys())
@@ -702,10 +701,8 @@ class ObjectPlacer:
                     continue
                 if (id(a), id(b)) in on_pairs:
                     continue
-                if (
-                    mesh_manager is not None
-                    and mesh_manager.get_collision_mesh(a) is not None
-                    and mesh_manager.get_collision_mesh(b) is not None
+                if mesh_manager is not None and (
+                    mesh_manager.get_collision_mesh(a) is not None or mesh_manager.get_collision_mesh(b) is not None
                 ):
                     continue
                 yield a, b
@@ -738,11 +735,7 @@ class ObjectPlacer:
                 continue
             obj_world = env_bboxes[obj].translated(positions[obj])
             for background, background_world in background_worlds:
-                if (
-                    mesh_manager is not None
-                    and mesh_manager.get_collision_mesh(obj) is not None
-                    and mesh_manager.get_collision_mesh(background) is not None
-                ):
+                if mesh_manager is not None and mesh_manager.get_collision_mesh(background) is not None:
                     continue
                 if obj_world.overlaps(background_world, margin=margin).item():
                     if self.params.verbose:
@@ -857,7 +850,7 @@ class ObjectPlacer:
         for a, b in self._non_skip_pairs(positions):
             a_mesh = mesh_manager.get_collision_mesh(a)
             b_mesh = mesh_manager.get_collision_mesh(b)
-            if a_mesh is None or b_mesh is None:
+            if a_mesh is None and b_mesh is None:
                 for obj, mesh in [(a, a_mesh), (b, b_mesh)]:
                     if mesh is None and obj.name not in warned_no_mesh:
                         warned_no_mesh.add(obj.name)
@@ -870,30 +863,48 @@ class ObjectPlacer:
             a_pos = torch.tensor(positions[a], dtype=torch.float32)
             b_pos = torch.tensor(positions[b], dtype=torch.float32)
 
-            if self._spheres_penetrate_mesh(a, a_mesh, a_pos, b, b_mesh, b_pos, mesh_manager, tolerance, orientations):
+            if b_mesh is not None and self._spheres_penetrate_mesh(
+                a,
+                self._collision_mesh_or_aabb_proxy(a, a_mesh),
+                a_pos,
+                b,
+                b_mesh,
+                b_pos,
+                mesh_manager,
+                tolerance,
+                orientations,
+            ):
                 return False
-            if self._spheres_penetrate_mesh(b, b_mesh, b_pos, a, a_mesh, a_pos, mesh_manager, tolerance, orientations):
+            if a_mesh is not None and self._spheres_penetrate_mesh(
+                b,
+                self._collision_mesh_or_aabb_proxy(b, b_mesh),
+                b_pos,
+                a,
+                a_mesh,
+                a_pos,
+                mesh_manager,
+                tolerance,
+                orientations,
+            ):
                 return False
 
         for source in positions:
             if source.is_anchor:
                 continue
             source_mesh = mesh_manager.get_collision_mesh(source)
-            if source_mesh is None:
-                continue
             source_pos = torch.tensor(positions[source], dtype=torch.float32)
             for background in collision_objects:
                 target_mesh = mesh_manager.get_collision_mesh(background)
                 if target_mesh is None:
                     continue
                 target_pose = background.get_initial_pose()
-                assert isinstance(target_pose, Pose), (
-                    f"Background collision object '{background.name}' must have a fixed Pose in MESH mode."
-                )
+                assert isinstance(
+                    target_pose, Pose
+                ), f"Background collision object '{background.name}' must have a fixed Pose in MESH mode."
                 target_pos = torch.tensor(target_pose.position_xyz, dtype=torch.float32)
                 if self._spheres_penetrate_mesh(
                     source,
-                    source_mesh,
+                    self._collision_mesh_or_aabb_proxy(source, source_mesh),
                     source_pos,
                     background,
                     target_mesh,
@@ -905,6 +916,16 @@ class ObjectPlacer:
                     return False
 
         return True
+
+    @staticmethod
+    def _collision_mesh_or_aabb_proxy(obj: ObjectBase, mesh: trimesh.Trimesh | None) -> trimesh.Trimesh:
+        """Return an object's collision mesh, or a box mesh matching its default AABB."""
+        if mesh is not None:
+            return mesh
+        bbox = obj.get_bounding_box()
+        box_mesh = trimesh.creation.box(extents=bbox.size[0].detach().cpu().numpy())
+        box_mesh.apply_translation(bbox.center[0].detach().cpu().numpy())
+        return box_mesh
 
     def _spheres_penetrate_mesh(
         self,

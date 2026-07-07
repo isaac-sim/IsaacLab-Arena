@@ -67,11 +67,6 @@ class PooledObjectPlacer:
             optimized or relation-constrained.
     """
 
-    def __deepcopy__(self, memo: dict[int, object]) -> PooledObjectPlacer:
-        """Keep event configs from cloning this stateful placement pool."""
-        memo[id(self)] = self
-        return self
-
     def __init__(
         self,
         objects: list[ObjectBase],

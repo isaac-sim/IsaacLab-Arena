@@ -181,12 +181,13 @@ class WarpMeshAndSphereCache:
     def get_warp_mesh(self, mesh: trimesh.Trimesh, obj: ObjectBase | None = None) -> wp.Mesh:
         """Get or create a Warp BVH mesh for SDF queries.
 
-        Non-watertight meshes are replaced by their convex hull to ensure
-        correct inside/outside signs.
+        Non-watertight meshes are replaced by their convex hull to improve
+        inside/outside signs unless the object explicitly requests raw mesh use.
+        Raw open meshes preserve concavities but may have unreliable SDF signs.
         """
         key = self._cache_key(mesh, obj)
         if key not in self._warp_mesh_cache:
-            use_mesh_as_is = bool(getattr(obj, "use_collision_mesh_as_is", False))
+            use_mesh_as_is = obj.use_collision_mesh_as_is if obj is not None else False
             if not mesh.is_watertight and not use_mesh_as_is:
                 name = obj.name if obj is not None else repr(mesh)
                 print(

@@ -58,6 +58,8 @@ class ObjectBase(Asset, ABC):
         self.object_cfg = None
         self.event_cfg = None
         self.relations: list[RelationBase] = []
+        self.use_collision_mesh_as_is = False
+        """If True, mesh collision uses this object's raw mesh without convex-hull repair."""
 
     def get_initial_pose(self) -> Pose | PoseRange | PosePerEnv | None:
         """Return the current initial pose of this object.
