@@ -80,6 +80,15 @@ class ObjectBase(Asset, ABC):
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return collision mesh, or None to fall back to AABB overlap."""
 
+    def get_cavity_mesh(self) -> trimesh.Trimesh | None:
+        """Return the watertight interior-cavity proxy mesh, or None if the object is not a container.
+
+        Used by the ``In`` relation to keep a placed child inside this object's usable interior
+        volume. The proxy is authored in the object's local frame and should be watertight so its
+        signed-distance field has a correct inside/outside sign.
+        """
+        return None
+
     def _get_initial_pose_as_pose(self) -> Pose | None:
         """Return a single ``Pose`` suitable for *init_state* and bounding-box calculations.
 

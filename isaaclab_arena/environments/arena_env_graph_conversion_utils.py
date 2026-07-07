@@ -40,6 +40,30 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
         scene=Scene(assets=scene_assets),
         embodiment=assets_by_node_id[graph_spec.embodiment.id],
         task=build_task_from_specs(graph_spec.tasks, assets_by_node_id),
+        placer_params=_placer_params_for_relations(graph_spec.relations),
+    )
+
+
+def _placer_params_for_relations(relations: list[SpatialRelationSpec]) -> Any:
+    """Return placer params for the scene, selecting MESH collision mode when an ``In`` relation is present.
+
+    ``In`` is mesh-only (it needs a container cavity SDF), so a scene that spawns an object inside a
+    container must solve placement in ``CollisionMode.MESH``. Scenes without ``In`` keep the default
+    (BBOX) params so their layouts are unchanged.
+    """
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
+    from isaaclab_arena.relations.relations import In
+
+    if not any(relation.kind == In.name for relation in relations):
+        return None
+    # Solve once and reuse the layout: MESH-mode placement caches non-picklable Warp meshes, which a
+    # per-reset pooled placement event cannot serialize into the env config.
+    return ObjectPlacerParams(
+        solver_params=RelationSolverParams(
+            collision_mode=CollisionMode.MESH, verbose=False, save_position_history=False
+        ),
+        resolve_on_reset=False,
     )
 
 

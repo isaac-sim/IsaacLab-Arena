@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
-from isaaclab_arena.relations.relations import On
+from isaaclab_arena.relations.relations import In, On
 from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
 if TYPE_CHECKING:
@@ -73,10 +73,11 @@ def compute_no_overlap_loss_aabb(
     non_anchor_objects = state.optimizable_objects
     anchor_objects = list(state.anchor_objects)
 
+    # On and In both link a child to a support/container it must touch or enter; exclude both.
     on_pairs: set[tuple[int, int]] = set()
     for obj in [*non_anchor_objects, *anchor_objects]:
         for rel in obj.get_relations():
-            if isinstance(rel, On):
+            if isinstance(rel, (On, In)):
                 on_pairs.add((id(obj), id(rel.parent)))
                 on_pairs.add((id(rel.parent), id(obj)))
 

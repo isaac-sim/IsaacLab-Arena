@@ -27,6 +27,10 @@ class PlacementCheck(StrEnum):
     """Build-time check: every ``NotNextTo`` relation holds — child has cleared the keep-out zone
     beside the parent, within the relation's ``tolerance_m``."""
 
+    IN_RELATION = "in_relation"
+    """Build-time check: every ``In`` relation holds — the child's bounding-box corners lie inside
+    the parent container's cavity proxy volume."""
+
     PHYSICS_SETTLED = "physics_settled"
     """Run-time check: after stepping physics the movable objects' velocities fall
     below threshold, i.e. the layout is stable and does not drift or topple."""

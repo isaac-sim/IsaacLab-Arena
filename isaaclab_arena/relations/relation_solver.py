@@ -10,17 +10,20 @@ import torch
 from typing import TYPE_CHECKING, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode
+from isaaclab_arena.relations.in_relation_mesh import compute_in_loss_mesh
 from isaaclab_arena.relations.no_overlap_aabb import compute_no_overlap_loss_aabb
 from isaaclab_arena.relations.no_overlap_mesh import compute_no_overlap_loss_mesh, prepare_mesh_collision_cache
 from isaaclab_arena.relations.relation_loss_strategies import (
+    InLossStrategy,
     NoCollisionLossStrategy,
     RelationLossStrategy,
     UnaryRelationLossStrategy,
 )
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
-from isaaclab_arena.relations.relations import On, Relation, RelationBase, UnaryRelation
+from isaaclab_arena.relations.relations import In, On, Relation, RelationBase, UnaryRelation
 from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
@@ -49,6 +52,7 @@ class RelationSolver:
         self.params = params or RelationSolverParams()
         # High slope (vs 10-100 for relation strategies) so overlap avoidance dominates.
         self._no_collision_strategy = NoCollisionLossStrategy(slope=10000.0)
+        self._in_strategy = InLossStrategy(slope=100.0)
         self._last_loss_history: list[float] = []
         self._last_position_history: list = []
         self._last_loss_per_env: torch.Tensor | None = None
@@ -93,6 +97,9 @@ class RelationSolver:
 
         for obj in state.optimizable_objects:
             for relation in obj.get_spatial_relations():
+                # In is a mesh-SDF containment relation, handled below in _compute_in_loss.
+                if isinstance(relation, In):
+                    continue
                 child_pos = state.get_position(obj)
                 strategy = self._get_strategy(relation)
                 child_bbox = state.get_bbox(obj)
@@ -130,11 +137,48 @@ class RelationSolver:
 
                 total_loss = total_loss + loss
 
+        # Add mesh-SDF containment loss for In relations (MESH mode only)
+        total_loss = total_loss + self._compute_in_loss(state, debug)
+
         # Add built-in no-overlap loss between all object pairs
         total_loss = total_loss + self._compute_no_overlap_loss(state, debug)
 
         self._last_loss_per_env = total_loss.detach().clone()
         return total_loss.mean()
+
+    def _compute_in_loss(self, state: RelationSolverState, debug: bool = False) -> torch.Tensor:
+        """Mesh-SDF containment loss for In relations; zeros when there are none."""
+        if self._mesh_manager is None:
+            return torch.zeros(state.batch_size, device=state.device, dtype=torch.float32)
+        return compute_in_loss_mesh(
+            state, self._mesh_manager, self._mesh_orientations, self._in_strategy.slope, debug
+        )
+
+    def _validate_in_preconditions(self, state: RelationSolverState) -> None:
+        """Assert every In relation's mesh-only preconditions before solving (fails loud)."""
+        for obj in state.optimizable_objects:
+            for relation in obj.get_spatial_relations():
+                if not isinstance(relation, In):
+                    continue
+                assert self.params.collision_mode == CollisionMode.MESH, (
+                    f"In relation on '{obj.name}' requires RelationSolverParams(collision_mode=CollisionMode.MESH); "
+                    f"got {self.params.collision_mode}. In is a mesh-only relation."
+                )
+                # The container may be a fixed anchor or an optimizable object (e.g. a bowl On a table).
+                # Optimizable objects are Z-yaw-only by construction; only anchors can carry an arbitrary
+                # authored rotation, so guard their roll/pitch here (MESH cavity queries assume pure-Z).
+                parent = relation.parent
+                if parent in state.anchor_objects:
+                    pose = parent.get_initial_pose()
+                    is_pure_z = (
+                        isinstance(pose, Pose)
+                        and abs(pose.rotation_xyzw[0]) < 1e-6
+                        and abs(pose.rotation_xyzw[1]) < 1e-6
+                    )
+                    assert is_pure_z, (
+                        f"In parent '{parent.name}' must have identity or pure-Z rotation in MESH mode; "
+                        f"got {pose.rotation_xyzw if isinstance(pose, Pose) else pose}."
+                    )
 
     def _compute_no_overlap_loss(
         self,
@@ -200,6 +244,8 @@ class RelationSolver:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         state = RelationSolverState(objects, initial_positions, device=device, env_bboxes=env_bboxes)
 
+        self._validate_in_preconditions(state)
+
         if self.params.verbose:
             anchor_names = [obj.name for obj in state.anchor_objects]
             optimizable_names = [obj.name for obj in state.optimizable_objects]
@@ -224,10 +270,12 @@ class RelationSolver:
         if self.params.collision_mode == CollisionMode.MESH:
             non_anchor_objects = state.optimizable_objects
             anchor_objects = list(state.anchor_objects)
+            # On and In both link a child to a support/container it must touch or enter, so their
+            # pairs are excluded from no-overlap (else the child would be pushed off/out).
             on_pairs: set[tuple[int, int]] = set()
             for obj in [*non_anchor_objects, *anchor_objects]:
                 for rel in obj.get_relations():
-                    if isinstance(rel, On):
+                    if isinstance(rel, (On, In)):
                         on_pairs.add((id(obj), id(rel.parent)))
                         on_pairs.add((id(rel.parent), id(obj)))
             self._mesh_orientations = orientations

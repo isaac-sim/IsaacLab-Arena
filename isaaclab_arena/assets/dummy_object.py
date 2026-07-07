@@ -22,6 +22,7 @@ class DummyObject:
         initial_pose: Pose | None = None,
         relations: list[RelationBase] = [],
         collision_mesh: trimesh.Trimesh | None = None,
+        cavity_mesh: trimesh.Trimesh | None = None,
         **kwargs,
     ):
         self.name = name
@@ -30,6 +31,7 @@ class DummyObject:
         assert self.bounding_box is not None
         self.relations = list(relations)
         self._collision_mesh = collision_mesh
+        self._cavity_mesh = cavity_mesh
 
     def add_relation(self, relation: RelationBase) -> None:
         self.relations.append(relation)
@@ -74,3 +76,7 @@ class DummyObject:
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return the collision mesh, or None to fall back to AABB."""
         return self._collision_mesh
+
+    def get_cavity_mesh(self) -> trimesh.Trimesh | None:
+        """Return the interior-cavity proxy mesh for In-relation containment, or None."""
+        return self._cavity_mesh

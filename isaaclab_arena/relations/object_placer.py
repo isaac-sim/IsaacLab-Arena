@@ -17,7 +17,9 @@ from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
 from isaaclab_arena.relations.relation_loss_strategies import SIDE_CONFIGS, next_to_violations, not_next_to_violations
 from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.relations.in_relation_mesh import bbox_corners_local
 from isaaclab_arena.relations.relations import (
+    In,
     NextTo,
     NotNextTo,
     On,
@@ -26,7 +28,7 @@ from isaaclab_arena.relations.relations import (
     get_anchor_objects,
 )
 from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
-from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, mesh_sdf
+from isaaclab_arena.relations.warp_sdf_kernels import clamp_sdf_sentinel, has_sdf_sentinel, mesh_sdf
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import (
     Pose,
@@ -349,6 +351,10 @@ class ObjectPlacer:
                     f" {type(initial_pose).__name__}."
                 )
                 positions[obj] = initial_pose.position_xyz
+            elif any(isinstance(r, In) for r in obj.get_relations()):
+                positions[obj] = self._compute_in_guided_position(
+                    obj, anchor_objects, anchor_bbox, env_bboxes, positions, generator
+                )
             elif any(isinstance(r, On) for r in obj.get_relations()):
                 positions[obj] = self._compute_on_guided_position(
                     obj, anchor_objects, anchor_bbox, env_bboxes, generator
@@ -507,6 +513,54 @@ class ObjectPlacer:
 
         return (x, y, z)
 
+    def _compute_in_guided_position(
+        self,
+        obj: ObjectBase,
+        anchor_objects: set[ObjectBase],
+        anchor_bbox: AxisAlignedBoundingBox,
+        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        positions: dict[ObjectBase, tuple[float, float, float]],
+        generator: torch.Generator | None = None,
+    ) -> tuple[float, float, float]:
+        """Compute an initial position for an object with an In relation.
+
+        Seeds the child at the container's location (mid-height) so the cavity-SDF loss starts from
+        inside the container. When the container has already been positioned this pass (e.g. a bin
+        placed On a table before the item is seeded), the child starts right at it rather than
+        somewhere on the wider anchor surface, which is what lets a small container on a large table
+        converge.
+
+        Args:
+            env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
+            positions: Positions computed so far this pass, used to seed at an already-placed container.
+            generator: Optional RNG generator for reproducible sampling.
+        """
+        parent = next(r for r in obj.get_relations() if isinstance(r, In)).parent
+        parent_local_bbox = env_bboxes[parent]
+        if parent in positions:
+            parent_x, parent_y, parent_z = positions[parent]
+            mid_z = float((parent_local_bbox.min_point[0, 2] + parent_local_bbox.max_point[0, 2]) / 2.0)
+            return (parent_x, parent_y, parent_z + mid_z)
+
+        parent_bbox = self._get_on_parent_world_bbox(parent, anchor_objects, anchor_bbox, env_bboxes)
+        child_bbox = env_bboxes[obj]
+        x = self._sample_axis_position(
+            parent_bbox.min_point[0, 0],
+            parent_bbox.max_point[0, 0],
+            child_bbox.min_point[0, 0],
+            child_bbox.max_point[0, 0],
+            generator,
+        )
+        y = self._sample_axis_position(
+            parent_bbox.min_point[0, 1],
+            parent_bbox.max_point[0, 1],
+            child_bbox.min_point[0, 1],
+            child_bbox.max_point[0, 1],
+            generator,
+        )
+        z = float((parent_bbox.min_point[0, 2] + parent_bbox.max_point[0, 2]) / 2.0)
+        return (x, y, z)
+
     def _sample_axis_position(
         self,
         parent_min: float,
@@ -620,7 +674,8 @@ class ObjectPlacer:
         anchor_ids: set[int] = set()
         for obj in positions:
             for rel in obj.get_relations():
-                if isinstance(rel, On) and rel.parent in positions:
+                # On and In both link a child to a support/container it must touch or enter.
+                if isinstance(rel, (On, In)) and rel.parent in positions:
                     on_pairs.add((id(obj), id(rel.parent)))
                     on_pairs.add((id(rel.parent), id(obj)))
             if obj.is_anchor:
@@ -864,6 +919,46 @@ class ObjectPlacer:
         tgt_yaw = ObjectPlacer._effective_yaw(target_obj, orientations)
         return centers_in_target_frame(centers_local, src_yaw, tgt_yaw, source_pos - target_pos)
 
+    def _validate_in_relations(
+        self,
+        positions: dict[ObjectBase, tuple[float, float, float]],
+        orientations: dict[ObjectBase, float] | None = None,
+    ) -> bool:
+        """Validate each In relation: the child's bbox corners lie inside the parent cavity proxy.
+
+        Mirrors compute_in_loss_mesh's containment criterion (cavity SDF <= margin inset), so the
+        check and the solver agree on what "inside" means.
+
+        Args:
+            positions: Solved positions for each object.
+            orientations: Optional per-object yaw (radians about Z).
+        """
+        mesh_manager = self._get_cpu_mesh_manager()
+        mesh_manager.reset_sentinel_warning()
+        tolerance = 1e-4
+        for obj in positions:
+            for rel in obj.get_relations():
+                if not isinstance(rel, In):
+                    continue
+                parent = rel.parent
+                if parent not in positions:
+                    continue
+                cavity_mesh = mesh_manager.get_cavity_warp_mesh(parent)
+                assert cavity_mesh is not None, (
+                    f"In parent '{parent.name}' has no usable cavity (explicit proxy or watertight-capped mesh)."
+                )
+                corners_local = bbox_corners_local(obj, torch.device("cpu"))
+                child_pos = torch.tensor(positions[obj], dtype=torch.float32)
+                parent_pos = torch.tensor(positions[parent], dtype=torch.float32)
+                points = self._centers_in_target_frame(corners_local, obj, parent, child_pos, parent_pos, orientations)
+                sdf = clamp_sdf_sentinel(mesh_sdf(points, cavity_mesh))
+                mesh_manager.warn_sdf_sentinel(sdf)
+                if has_sdf_sentinel(sdf) or (sdf > -rel.margin_m + tolerance).any():
+                    if self.params.verbose:
+                        print(f"  In relation: '{obj.name}' not inside '{parent.name}' cavity")
+                    return False
+        return True
+
     def _validate_placement(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
@@ -887,6 +982,7 @@ class ObjectPlacer:
         on_relation = self._validate_on_relations(positions, env_bboxes)
         next_to = self._validate_next_to_relations(positions, env_bboxes)
         not_next_to = self._validate_not_next_to_relations(positions, env_bboxes)
+        in_relation = self._validate_in_relations(positions, orientations) if use_mesh else True
 
         return PlacementValidationResults(
             validation_results={
@@ -894,12 +990,14 @@ class ObjectPlacer:
                 PlacementCheck.ON_RELATION: on_relation,
                 PlacementCheck.NEXT_TO: next_to,
                 PlacementCheck.NOT_NEXT_TO: not_next_to,
+                PlacementCheck.IN_RELATION: in_relation,
             },
             required_checks={
                 PlacementCheck.NO_OVERLAP,
                 PlacementCheck.ON_RELATION,
                 PlacementCheck.NEXT_TO,
                 PlacementCheck.NOT_NEXT_TO,
+                PlacementCheck.IN_RELATION,
             },
         )
 

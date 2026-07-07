@@ -27,6 +27,19 @@ def _mesh_content_hash(mesh: trimesh.Trimesh) -> int:
     return hash((mesh.vertices.tobytes(), mesh.faces.tobytes()))
 
 
+def _box_from_bounding_box(obj: ObjectBase) -> trimesh.Trimesh | None:
+    """Return a watertight box matching obj's local axis-aligned bounding box, or None if unavailable."""
+    bbox = obj.get_bounding_box()
+    lo = bbox.min_point[0].tolist()
+    hi = bbox.max_point[0].tolist()
+    extents = [hi[i] - lo[i] for i in range(3)]
+    if any(extent <= 0.0 for extent in extents):
+        return None
+    box = trimesh.creation.box(extents=extents)
+    box.apply_translation([(hi[i] + lo[i]) / 2.0 for i in range(3)])
+    return box
+
+
 def greedy_sphere_decomposition(
     mesh: trimesh.Trimesh,
     num_spheres: int = 30,
@@ -124,6 +137,7 @@ class WarpMeshAndSphereCache:
         self._warp_mesh_cache: dict[tuple, wp.Mesh] = {}
         self._sphere_cache: dict[tuple, torch.Tensor] = {}
         self._trimesh_cache: dict[tuple, trimesh.Trimesh | None] = {}
+        self._cavity_trimesh_cache: dict[int, trimesh.Trimesh | None] = {}
         self._sentinel_warned: bool = False
 
     def reset_sentinel_warning(self) -> None:
@@ -199,6 +213,53 @@ class WarpMeshAndSphereCache:
             )
             self._warp_mesh_cache[key] = wp.Mesh(points=vertices, indices=indices)
         return self._warp_mesh_cache[key]
+
+    def get_cavity_warp_mesh(self, obj: ObjectBase) -> wp.Mesh | None:
+        """Get the Warp BVH mesh for obj's interior cavity, or None if none is available.
+
+        Prefers an explicitly authored proxy (``get_cavity_mesh()``); otherwise derives a watertight
+        cavity from the container's own collision mesh by capping its opening (``fill_holes``) — using
+        the real geometry rather than the convex hull, which would fill the cavity. Returns None (so
+        the ``In`` precondition fails loud) when no watertight cavity can be obtained. Cached so it
+        never collides with the object's outer collision-mesh cache entry.
+        """
+        cavity = obj.get_cavity_mesh()
+        if cavity is None:
+            cavity = self._derive_cavity_trimesh(obj)
+        if cavity is None:
+            return None
+        return self.get_warp_mesh(cavity, obj=None)
+
+    def _derive_cavity_trimesh(self, obj: ObjectBase) -> trimesh.Trimesh | None:
+        """Derive a watertight interior-cavity proxy from obj's collision mesh, or None.
+
+        Caps the mesh's open boundaries (e.g. a bowl/bin's top opening) to make it watertight so its
+        signed-distance field has a correct inside/outside sign. Returns None when the result is still
+        non-watertight (fails loud upstream) rather than guessing a wrong cavity.
+        """
+        if id(obj) in self._cavity_trimesh_cache:
+            return self._cavity_trimesh_cache[id(obj)]
+        proxy = None
+        mesh = self.get_collision_mesh(obj)
+        if mesh is not None:
+            capped = mesh.copy()
+            capped.fill_holes()
+            if capped.is_watertight:
+                proxy = capped
+        if proxy is None:
+            # Many real container meshes (thick walls, handles, multiple openings) can't be capped
+            # into a watertight interior. Fall back to a box the size of the object's bounding box:
+            # coarse but watertight, and a good interior approximation for box-like containers
+            # (bins/crates/pails). Author an explicit get_cavity_mesh() for concave shapes (e.g. bowls)
+            # where the box would over-cover.
+            proxy = _box_from_bounding_box(obj)
+            if proxy is not None:
+                print(
+                    f"  [WarpMeshAndSphereCache] '{obj.name}' cavity: mesh not watertight-cappable; "
+                    "using a bounding-box cavity approximation."
+                )
+        self._cavity_trimesh_cache[id(obj)] = proxy
+        return proxy
 
     def get_query_spheres(self, mesh: trimesh.Trimesh, obj: ObjectBase | None = None) -> torch.Tensor:
         """Get or compute sphere decomposition as (K, 4) tensor [cx, cy, cz, radius]."""

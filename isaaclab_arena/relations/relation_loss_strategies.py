@@ -496,6 +496,22 @@ class NoCollisionLossStrategy:
         return self.slope * (overlap_x * overlap_y * overlap_z)
 
 
+class InLossStrategy:
+    """Mesh-SDF containment loss for the ``In`` relation.
+
+    Solver-owned (like NoCollisionLossStrategy) rather than a bounding-box RelationLossStrategy: the
+    actual loss is computed against the parent cavity proxy's signed-distance field in
+    in_relation_mesh.compute_in_loss_mesh. This holds only the shared gradient scale.
+    """
+
+    def __init__(self, slope: float = 100.0):
+        """
+        Args:
+            slope: Gradient magnitude for the containment loss.
+        """
+        self.slope = slope
+
+
 class AtPositionLossStrategy(UnaryRelationLossStrategy):
     """Loss strategy for AtPosition relations.
 

@@ -161,6 +161,42 @@ class On(Relation):
 
 
 @register_object_relation
+class In(Relation):
+    """Represents an 'inside a container' relationship between objects.
+
+    Places the child inside the parent container's interior cavity, keeping the child's sample
+    points within the parent's authored watertight cavity-proxy volume. This is a mesh-only
+    relation: it requires ``CollisionMode.MESH`` and a parent that provides a cavity proxy
+    (``get_cavity_mesh()``); unlike ``On`` it respects the container's walls rather than resting
+    on the outer bounding-box top.
+
+    Note: Loss computation is handled in the solver's mesh-SDF path (compute_in_loss_mesh in
+    in_relation_mesh.py), not by a bounding-box RelationLossStrategy.
+    """
+
+    name = "in"
+
+    def __init__(
+        self,
+        parent: ObjectBase,
+        relation_loss_weight: float = 1.0,
+        margin_m: float = 0.0,
+    ):
+        """
+        Args:
+            parent: The container asset that the child should be placed inside. Must expose a
+                cavity proxy via get_cavity_mesh() and be a fixed anchor.
+            relation_loss_weight: Weight for the relationship loss function.
+            margin_m: Inward safety inset (meters) from the cavity walls the child's sample points
+                are pulled to (default: 0). Larger values keep the child further from the interior
+                surface.
+        """
+        super().__init__(parent, relation_loss_weight)
+        assert margin_m >= 0.0, f"margin_m must be non-negative, got {margin_m}"
+        self.margin_m = margin_m
+
+
+@register_object_relation
 class NotNextTo(Relation):
     """Forbids placing the child next to the parent on the given side.
 

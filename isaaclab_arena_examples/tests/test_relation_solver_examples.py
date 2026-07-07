@@ -44,3 +44,12 @@ def test_isaac_sim_no_collision_smoke():
 
     result = run_simulation_app_function(smoke_test_isaac_sim_no_collision)
     assert result, "Isaac Sim no-overlap smoke test failed"
+
+
+def test_isaac_sim_in_relation_smoke():
+    """Smoke test: verify the Isaac Sim In-relation (item in bowl) notebook runs without errors."""
+    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+    from isaaclab_arena_examples.relations.isaac_sim_in_relation_notebook import smoke_test_in_relation
+
+    result = run_simulation_app_function(smoke_test_in_relation)
+    assert result, "Isaac Sim In-relation smoke test failed"
