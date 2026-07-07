@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -253,6 +254,7 @@ class TestGenerateSpec:
 
 # Marked flaky to absorb intermittent wire-level hiccups on the inference endpoint.
 # TODO(qianl): drop the flaky marker once production-side retry is implemented.
+@pytest.mark.skipif(not os.environ.get("NV_API_KEY"), reason="live endpoint test requires NV_API_KEY")
 @pytest.mark.flaky(max_runs=3, min_passes=1)
 def test_generate_spec_against_live_endpoint():
     """End-to-end smoke test against the real OpenAI-compatible endpoint."""

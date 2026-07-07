@@ -174,7 +174,7 @@ def _run_pick_and_place_object_set_test(
     initial_pose=None,
 ):
     """Build env with one object set and PickAndPlaceTask, run common assertions, close. path_contains: str or list[str] of length NUM_ENVS."""
-    from isaacsim.core.utils.stage import get_current_stage
+    from isaaclab.sim.utils.stage import get_current_stage
 
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
@@ -250,7 +250,7 @@ def _test_articulation_object_set(simulation_app):
 
 
 def _test_single_object_in_one_object_set(simulation_app):
-    from isaacsim.core.utils.stage import get_current_stage
+    from isaaclab.sim.utils.stage import get_current_stage
 
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.object_set import RigidObjectSet
@@ -315,7 +315,7 @@ def _test_single_object_in_one_object_set(simulation_app):
 
 
 def _test_multi_objects_in_one_object_set(simulation_app):
-    from isaacsim.core.utils.stage import get_current_stage
+    from isaaclab.sim.utils.stage import get_current_stage
 
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.object_set import RigidObjectSet
@@ -389,7 +389,7 @@ def _test_multi_objects_in_one_object_set(simulation_app):
 
 
 def _test_multi_object_sets(simulation_app):
-    from isaacsim.core.utils.stage import get_current_stage
+    from isaaclab.sim.utils.stage import get_current_stage
 
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.registries import AssetRegistry

@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.sensors import Camera, TiledCamera
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 from isaaclab.utils.math import quat_apply
 
 from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
