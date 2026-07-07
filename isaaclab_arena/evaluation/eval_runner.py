@@ -26,6 +26,8 @@ from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_
 from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 
 
+# TODO(cvolk): Move experiment-level variation inspection out of this CLI entry point.
+# Run orchestration belongs in evaluation; catalogue formatting belongs in variations.
 def list_variations(run_cfgs: list[ArenaRunCfg]) -> None:
     """Print the Hydra-configurable variations for each run's environment."""
     for run_cfg in run_cfgs:
