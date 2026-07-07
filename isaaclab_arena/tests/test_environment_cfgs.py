@@ -67,12 +67,14 @@ def test_core_environment_factory_does_not_expose_argparse_methods():
 def test_every_registered_cli_adapter_uses_its_typed_cfg_defaults():
     """Generate every environment's default Namespace and recover its config."""
     ensure_environments_registered()
+    environment_registry = EnvironmentRegistry()
 
-    for environment_name in sorted(EnvironmentRegistry().get_all_keys()):
-        environment_factory_type = EnvironmentRegistry().get_component_by_name(environment_name)
+    for environment_name in sorted(environment_registry.get_all_keys()):
+        environment_factory_type = environment_registry.get_component_by_name(environment_name)
         assert issubclass(environment_factory_type, ArenaEnvironmentFactory)
 
-        environment_cfg_type = _get_legacy_argparse_cfg_type(environment_factory_type)
+        environment_cfg_type = environment_registry.get_environment_cfg_type(environment_factory_type)
+        assert _get_legacy_argparse_cfg_type(environment_factory_type) is environment_cfg_type
         assert is_dataclass(environment_cfg_type), f"{environment_cfg_type.__name__} must be a dataclass"
 
         legacy_arguments = _parse_legacy_arguments(environment_factory_type)
@@ -80,6 +82,7 @@ def test_every_registered_cli_adapter_uses_its_typed_cfg_defaults():
 
         assert type(environment_cfg) is environment_cfg_type
         assert isinstance(environment_cfg, ArenaEnvironmentCfg)
+        assert environment_registry.get_factory_type_for_cfg(environment_cfg) is environment_factory_type
         assert (
             environment_cfg == environment_cfg_type()
         ), f"{environment_name} CLI defaults diverged from its typed config defaults"

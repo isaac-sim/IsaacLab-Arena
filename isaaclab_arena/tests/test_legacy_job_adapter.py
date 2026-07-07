@@ -34,8 +34,7 @@ def test_legacy_jobs_become_concrete_experiment_configs():
         }]
     }
 
-    (experiment_plan,) = adapt_legacy_eval_config(legacy_config, device="cuda:1")
-    experiment = experiment_plan.experiment_cfg
+    (experiment,) = adapt_legacy_eval_config(legacy_config, device="cuda:1")
 
     assert experiment.name == "maple_table"
     assert experiment.environment == PickAndPlaceMapleTableEnvironmentCfg(
@@ -50,7 +49,6 @@ def test_legacy_jobs_become_concrete_experiment_configs():
     assert experiment.policy == ZeroActionPolicyCfg()
     assert experiment.rollout.num_steps == 20
     assert experiment.variations == {"light": {"intensity": {"enabled": True}}}
-    assert callable(experiment_plan.arena_builder_factory)
 
 
 def test_legacy_graph_environment_stays_in_the_existing_cli_path():
@@ -68,8 +66,7 @@ def test_legacy_graph_environment_stays_in_the_existing_cli_path():
         }]
     }
 
-    (experiment_plan,) = adapt_legacy_eval_config(legacy_config, device="cpu")
-    experiment = experiment_plan.experiment_cfg
+    (experiment,) = adapt_legacy_eval_config(legacy_config, device="cpu")
 
     assert isinstance(experiment.environment, legacy_job_adapter._LegacyCliEnvironmentCfg)
     assert experiment.environment.arguments == Job.convert_args_dict_to_cli_args_list(
@@ -79,7 +76,7 @@ def test_legacy_graph_environment_stays_in_the_existing_cli_path():
 
 def test_legacy_graph_builder_keeps_namespace_inside_adapter(monkeypatch):
     graph_path = Path(TestConstants.test_data_dir) / "pick_and_place_maple_table_env_graph.yaml"
-    (experiment_plan,) = adapt_legacy_eval_config(
+    (experiment,) = adapt_legacy_eval_config(
         {
             "jobs": [{
                 "name": "graph_environment",
@@ -91,7 +88,6 @@ def test_legacy_graph_builder_keeps_namespace_inside_adapter(monkeypatch):
         },
         device="cuda:1",
     )
-    experiment = experiment_plan.experiment_cfg
     parsed_args = SimpleNamespace()
     expected_builder = object()
     captured = {}
@@ -110,7 +106,7 @@ def test_legacy_graph_builder_keeps_namespace_inside_adapter(monkeypatch):
 
     monkeypatch.setattr(legacy_job_adapter, "get_arena_builder_from_cli", get_builder)
 
-    builder = experiment_plan.arena_builder_factory(experiment)
+    builder = legacy_job_adapter._build_legacy_cli_arena_builder(experiment)
 
     assert builder is expected_builder
     assert captured["arguments"] == experiment.environment.arguments

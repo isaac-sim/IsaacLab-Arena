@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Translate the existing eval-jobs JSON format into typed experiment plans.
+"""Translate the existing eval-jobs JSON format into typed experiment configs.
 
 ``adapt_legacy_eval_config`` is the boundary between the old JSON/argparse input
 and typed experiment execution. Everything else in this module is compatibility
@@ -13,33 +13,23 @@ code hidden from the runner.
 from __future__ import annotations
 
 from dataclasses import dataclass, fields
-from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation.arena_experiment import (
-    ArenaBuilderFactory,
-    ArenaExperimentCfg,
-    ArenaExperimentPlan,
-    RolloutCfg,
-)
+from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg, RolloutCfg
 from isaaclab_arena.evaluation.job_manager import Job
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena_environments.cli import (
-    _get_legacy_argparse_cfg_type,
     ensure_environments_registered,
     get_arena_builder_from_cli,
     get_isaaclab_arena_environments_cli_parser,
 )
 
-__all__ = ["adapt_legacy_eval_config"]
-
 if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentFactory
 
 # TODO(cvolk, 2026-07-07): Delete this adapter when eval_runner loads typed YAML
 # experiments directly. The current JSON format identifies environments and policies
@@ -68,34 +58,28 @@ class _EnvironmentAdaptation:
     builder_cfg: ArenaEnvBuilderCfg
     """Arena builder values that were mixed into the legacy environment arguments."""
 
-    arena_builder_factory: ArenaBuilderFactory
-    """Resolved construction strategy for the typed or argparse environment path."""
-
-
-_BUILDER_FIELD_NAMES = {config_field.name for config_field in fields(ArenaEnvBuilderCfg)}
-
 
 def adapt_legacy_eval_config(
     config: dict[str, Any],
     *,
     device: str,
-) -> list[ArenaExperimentPlan]:
-    """Translate a legacy eval-jobs document into executable typed plans."""
+) -> list[ArenaExperimentCfg]:
+    """Translate a legacy eval-jobs document into typed experiment configs."""
     assert set(config) == {"jobs"}, "legacy evaluation config must contain only a 'jobs' list"
     job_configs = config["jobs"]
     assert isinstance(job_configs, list), "legacy evaluation config 'jobs' must be a list"
 
-    experiment_plans = [_adapt_legacy_job(job_config, device=device) for job_config in job_configs]
-    experiment_names = [experiment_plan.experiment_cfg.name for experiment_plan in experiment_plans]
+    experiment_cfgs = [_adapt_legacy_job(job_config, device=device) for job_config in job_configs]
+    experiment_names = [experiment_cfg.name for experiment_cfg in experiment_cfgs]
     assert len(experiment_names) == len(set(experiment_names)), "experiment names must be unique"
-    return experiment_plans
+    return experiment_cfgs
 
 
 def _adapt_legacy_job(
     job_config: dict[str, Any],
     *,
     device: str,
-) -> ArenaExperimentPlan:
+) -> ArenaExperimentCfg:
     """Translate one legacy job mapping into a typed experiment."""
     assert isinstance(job_config, dict), "each legacy job must be a mapping"
     for required_field in ("name", "arena_env_args", "policy_type"):
@@ -109,7 +93,7 @@ def _adapt_legacy_job(
     variations = job_config.get("variations", {})
     assert isinstance(variations, dict), "variations must be a mapping"
 
-    experiment_cfg = ArenaExperimentCfg(
+    return ArenaExperimentCfg(
         name=job_config["name"],
         environment=adapted_environment.cfg,
         environment_builder=adapted_environment.builder_cfg,
@@ -120,10 +104,6 @@ def _adapt_legacy_job(
         ),
         num_rebuilds=job_config.get("num_rebuilds", 1),
         variations=variations,
-    )
-    return ArenaExperimentPlan(
-        experiment_cfg=experiment_cfg,
-        arena_builder_factory=adapted_environment.arena_builder_factory,
     )
 
 
@@ -153,7 +133,9 @@ def _adapt_builder_cfg(
 ) -> ArenaEnvBuilderCfg:
     """Extract Arena builder values that the legacy format mixes with environment values."""
     builder_values = {
-        field_name: value for field_name, value in arena_env_args.items() if field_name in _BUILDER_FIELD_NAMES
+        config_field.name: arena_env_args[config_field.name]
+        for config_field in fields(ArenaEnvBuilderCfg)
+        if config_field.name in arena_env_args
     }
     builder_values["device"] = device
     builder_values["language_instruction"] = language_instruction
@@ -172,27 +154,23 @@ def _adapt_registered_environment(
         environment_name, ensure_loaded=False
     ), f"Environment {environment_name!r} is not registered"
     environment_factory_type = environment_registry.get_component_by_name(environment_name)
-    environment_cfg_type = _get_legacy_argparse_cfg_type(environment_factory_type)
+    environment_cfg_type = environment_registry.get_environment_cfg_type(environment_factory_type)
+    builder_field_names = {config_field.name for config_field in fields(ArenaEnvBuilderCfg)}
     environment_field_names = {config_field.name for config_field in fields(environment_cfg_type)}
-    typed_field_names = _BUILDER_FIELD_NAMES | environment_field_names | {"environment"}
+    supported_argument_names = builder_field_names | environment_field_names | {"environment"}
 
     # Preserve any environment-specific CLI option not represented by the typed
     # configuration until the JSON/argparse frontend is removed.
-    if set(arena_env_args) - typed_field_names:
+    if set(arena_env_args) - supported_argument_names:
         return _preserve_argparse_environment(arena_env_args, builder_cfg)
 
     environment_values = {
         field_name: value for field_name, value in arena_env_args.items() if field_name in environment_field_names
     }
     environment_cfg = environment_cfg_type(**environment_values)
-    arena_builder_factory = partial(
-        _build_registered_arena_builder,
-        environment_factory_type=environment_factory_type,
-    )
     return _EnvironmentAdaptation(
         cfg=environment_cfg,
         builder_cfg=builder_cfg,
-        arena_builder_factory=arena_builder_factory,
     )
 
 
@@ -207,23 +185,6 @@ def _preserve_argparse_environment(
     return _EnvironmentAdaptation(
         cfg=environment_cfg,
         builder_cfg=builder_cfg,
-        arena_builder_factory=_build_legacy_cli_arena_builder,
-    )
-
-
-def _build_registered_arena_builder(
-    experiment: ArenaExperimentCfg,
-    *,
-    environment_factory_type: type[ArenaEnvironmentFactory],
-) -> ArenaEnvBuilder:
-    """Build a registered environment using its already resolved factory."""
-    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-
-    arena_environment = environment_factory_type().build(experiment.environment)
-    return ArenaEnvBuilder(
-        arena_environment,
-        experiment.environment_builder,
-        hydra_overrides=Job.convert_variations_dict_to_hydra_overrides(experiment.variations),
     )
 
 

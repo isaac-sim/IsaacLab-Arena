@@ -166,13 +166,11 @@ def main():
     enable_cameras_if_required(eval_jobs_config, args_cli)
 
     with SimulationAppContext(args_cli):
-        experiment_plans = adapt_legacy_eval_config(
+        experiment_cfgs = adapt_legacy_eval_config(
             eval_jobs_config,
             device=args_cli.device,
         )
-        experiment_plans_by_name = {
-            experiment_plan.experiment_cfg.name: experiment_plan for experiment_plan in experiment_plans
-        }
+        experiment_cfgs_by_name = {experiment_cfg.name: experiment_cfg for experiment_cfg in experiment_cfgs}
         # TODO(cvolk, 2026-07-06): Replace JobManager with typed experiment results
         # when the JSON job frontend is removed.
         job_manager = JobManager(eval_jobs_config["jobs"])
@@ -193,18 +191,17 @@ def main():
         for job in job_manager:
             if job is None:
                 continue
-            experiment_plan = experiment_plans_by_name[job.name]
+            experiment_cfg = experiment_cfgs_by_name[job.name]
             job_output_dir = os.path.join(run_output_dir, job.name)
             try:
                 result = build_and_run_experiment(
-                    experiment_plan,
+                    experiment_cfg,
                     output_dir=job_output_dir,
                     video_cfg=VideoRecordingCfg(
                         record_viewport_video=args_cli.record_viewport_video,
                         record_camera_video=args_cli.record_camera_video,
                         video_base_dir=job_output_dir,
                     ),
-                    fallback_num_steps=getattr(args_cli, "num_steps", None),
                 )
             except Exception as error:
                 job_manager.complete_job(job, metrics={}, status=Status.FAILED)
