@@ -8,7 +8,7 @@ from enum import Enum
 from prettytable import PrettyTable
 from queue import Queue
 
-from isaaclab_arena.evaluation.legacy_job_format import legacy_environment_args_to_cli_args
+from isaaclab_arena.evaluation.legacy_environment_cli_args import legacy_environment_args_to_cli_args
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 
 

@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Translate the existing eval-jobs JSON format into typed experiment configs."""
+"""Convert the existing eval-jobs JSON format into typed experiment configs."""
 
 from __future__ import annotations
 
@@ -14,7 +14,8 @@ from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg, RolloutCfg
-from isaaclab_arena.evaluation.legacy_job_format import LegacyGraphEnvironmentCfg, legacy_environment_args_to_cli_args
+from isaaclab_arena.evaluation.legacy_environment_cli_args import legacy_environment_args_to_cli_args
+from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena_environments.cli import ensure_environments_registered
@@ -24,7 +25,7 @@ from isaaclab_arena_environments.cli import ensure_environments_registered
 # by name and mixes environment-specific and builder values in ``arena_env_args``.
 # This module resolves those names, separates the values into their concrete typed
 # configs, and marks graph-YAML environments for the narrow argparse compatibility
-# path in ``legacy_environment_cli``.
+# path in ``legacy_graph_environment_cli``.
 # The planned Hydra/YAML frontend will compose those typed configs directly, so none
 # of this JSON translation or argparse fallback will be needed.
 

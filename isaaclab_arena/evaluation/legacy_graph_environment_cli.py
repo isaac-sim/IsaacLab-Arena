@@ -7,9 +7,10 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.evaluation.legacy_job_format import LegacyGraphEnvironmentCfg
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
@@ -18,6 +19,14 @@ if TYPE_CHECKING:
 # TODO(cvolk, 2026-07-07): Delete this module when graph-YAML environments have a
 # typed configuration and factory. Until then, only graph construction crosses the
 # argparse compatibility boundary; policy, rollout, and rebuild execution stay typed.
+
+
+@dataclass
+class LegacyGraphEnvironmentCfg(ArenaEnvironmentCfg):
+    """Carry a graph-YAML environment through its temporary CLI construction path."""
+
+    arena_env_args: list[str]
+    """Arguments consumed by the existing graph-environment parser."""
 
 
 def build_arena_builder_from_legacy_graph(

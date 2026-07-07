@@ -3,14 +3,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Test conversion from legacy evaluation configs to typed experiments."""
+
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from isaaclab_arena.evaluation import legacy_environment_cli
-from isaaclab_arena.evaluation.legacy_job_adapter import experiment_cfgs_from_legacy_eval_config
-from isaaclab_arena.evaluation.legacy_job_format import LegacyGraphEnvironmentCfg, legacy_environment_args_to_cli_args
+from isaaclab_arena.evaluation import legacy_graph_environment_cli
+from isaaclab_arena.evaluation.legacy_environment_cli_args import legacy_environment_args_to_cli_args
+from isaaclab_arena.evaluation.legacy_eval_config import experiment_cfgs_from_legacy_eval_config
+from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
@@ -100,16 +103,16 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
             captured["arguments"] = arguments
             return parsed_args
 
-    monkeypatch.setattr(legacy_environment_cli, "get_isaaclab_arena_environments_cli_parser", lambda: _Parser())
+    monkeypatch.setattr(legacy_graph_environment_cli, "get_isaaclab_arena_environments_cli_parser", lambda: _Parser())
 
     def get_builder(args_cli, hydra_overrides):
         captured["args_cli"] = args_cli
         captured["hydra_overrides"] = hydra_overrides
         return expected_builder
 
-    monkeypatch.setattr(legacy_environment_cli, "get_arena_builder_from_cli", get_builder)
+    monkeypatch.setattr(legacy_graph_environment_cli, "get_arena_builder_from_cli", get_builder)
 
-    builder = legacy_environment_cli.build_arena_builder_from_legacy_graph(
+    builder = legacy_graph_environment_cli.build_arena_builder_from_legacy_graph(
         experiment.environment,
         device=experiment.environment_builder.device,
         language_instruction=experiment.environment_builder.language_instruction,

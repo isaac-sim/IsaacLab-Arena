@@ -3,23 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Format values used only by the existing JSON evaluation-job frontend."""
+"""Format environment arguments for the existing evaluation CLI."""
 
-from dataclasses import dataclass
 from typing import Any
-
-from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 
 # TODO(cvolk, 2026-07-07): Delete this module with the JSON evaluation-job
 # frontend once eval_runner loads typed YAML experiments directly.
-
-
-@dataclass
-class LegacyGraphEnvironmentCfg(ArenaEnvironmentCfg):
-    """Carry a graph-YAML environment through its temporary CLI construction path."""
-
-    arena_env_args: list[str]
-    """Arguments consumed by the existing graph-environment parser."""
 
 
 def legacy_environment_args_to_cli_args(args: dict[str, Any]) -> list[str]:
