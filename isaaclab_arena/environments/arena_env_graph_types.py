@@ -8,12 +8,14 @@
 from __future__ import annotations
 
 from numbers import Real
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
+
+TaskComposition = Literal["atomic", "parallel", "sequential"]
 
 
 class AssetSpec(BaseModel):
@@ -64,7 +66,7 @@ class ObjectReferenceSpec(BaseModel):
 
 
 class TaskSpec(BaseModel):
-    """Task entry in an environment graph."""
+    """Atomic registered task leaf referenced by a composite root task."""
 
     kind: str = Field(
         min_length=1,
@@ -72,10 +74,6 @@ class TaskSpec(BaseModel):
             "Registered task class name from the TASKS block in the user message "
             "(e.g. 'PickAndPlaceTask', 'OpenDoorTask'). Must match TaskRegistry exactly."
         ),
-    )
-    description: str = Field(
-        min_length=1,
-        description="Natural-language summary of the task (e.g. 'pick up the avocado and place it in the bowl'). ",
     )
     params: dict[str, Any] = Field(
         default_factory=dict,
@@ -90,6 +88,37 @@ class TaskSpec(BaseModel):
     def _validate_registered_task_type(cls, value: str) -> str:
         assert TaskRegistry().is_registered(value), f"Unknown task kind '{value}'"
         return value
+
+
+class CompositeTaskSpec(BaseModel):
+    """Root task node for an environment graph."""
+
+    composition: TaskComposition = Field(
+        description=(
+            "How the atomic tasks combine: "
+            "'atomic' for a single task, "
+            "'parallel' when subtasks may complete in any order, "
+            "'sequential' when subtasks must complete in list order."
+        ),
+    )
+    description: str = Field(
+        min_length=1,
+        description="Natural-language summary of the overall task (e.g. 'pick and place all bananas into the bin').",
+    )
+    tasks: list[TaskSpec] = Field(
+        default_factory=list,
+        description="Atomic registered tasks that compose this root task.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_composition_task_count(self) -> CompositeTaskSpec:
+        if self.composition == "atomic":
+            assert len(self.tasks) == 1, "composition 'atomic' requires exactly one atomic task"
+        else:
+            assert (
+                len(self.tasks) >= 2
+            ), f"composition '{self.composition}' requires at least two atomic tasks, got {len(self.tasks)}"
+        return self
 
 
 class SpatialRelationSpec(BaseModel):

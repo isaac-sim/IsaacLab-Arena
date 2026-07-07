@@ -39,17 +39,27 @@ def render_unary_constraints(relations: list[SpatialRelationSpec]) -> str:
 
 def render_tasks_table(spec: ArenaEnvGraphSpec) -> str:
     """Render task rows as an HTML table for the dashboard tasks panel."""
-    if not spec.tasks:
+    atomic_tasks = spec.task.tasks
+    if not atomic_tasks:
         return "<p class='muted'><em>No tasks defined.</em></p>"
     rows = []
-    for index, task in enumerate(spec.tasks):
+    composition = html_lib.escape(spec.task.composition)
+    summary = html_lib.escape(spec.task.description)
+    rows.append(
+        "<tr>"
+        "<td><code>root</code></td>"
+        f'<td><span class="badge type-task">{composition}</span></td>'
+        f"<td>{summary}</td>"
+        "<td><pre>(composite root)</pre></td>"
+        "</tr>"
+    )
+    for index, task in enumerate(atomic_tasks):
         params_str = yaml.safe_dump(task.params, sort_keys=False).rstrip() if task.params else "(empty)"
-        description = html_lib.escape(task.description or "")
         rows.append(
             "<tr>"
             f"<td><code>{index}</code></td>"
             f'<td><span class="badge type-task">{html_lib.escape(task.kind)}</span></td>'
-            f"<td>{description}</td>"
+            "<td class='muted'><em>—</em></td>"
             f"<td><pre>{html_lib.escape(params_str)}</pre></td>"
             "</tr>"
         )

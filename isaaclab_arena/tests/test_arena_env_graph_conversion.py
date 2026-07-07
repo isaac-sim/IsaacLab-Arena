@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.environments.arena_env_graph_types import AssetSpec
+from isaaclab_arena.environments.arena_env_graph_types import AssetSpec, CompositeTaskSpec, TaskSpec
 
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
 
@@ -111,6 +111,20 @@ def _minimal_scene_spec(*, objects: list[AssetSpec]) -> ArenaEnvGraphSpec:
         embodiment=AssetSpec(id="robot", registry_name="droid_abs_joint_pos"),
         background=AssetSpec(id="background", registry_name="maple_table_robolab"),
         objects=objects,
+        task=CompositeTaskSpec(
+            composition="atomic",
+            description="noop task",
+            tasks=[
+                TaskSpec(
+                    kind="PickAndPlaceTask",
+                    params={
+                        "pick_up_object": objects[0].id,
+                        "destination_location": objects[0].id,
+                        "background_scene": "background",
+                    },
+                )
+            ],
+        ),
     )
 
 

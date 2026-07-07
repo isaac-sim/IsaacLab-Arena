@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
-from isaaclab_arena.environments.arena_env_graph_task_conversion_utils import build_task_from_specs
+from isaaclab_arena.environments.arena_env_graph_task_conversion_utils import build_task_from_spec
 from isaaclab_arena.environments.arena_env_graph_types import SpatialRelationSpec
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.scene.scene import Scene
@@ -39,7 +39,7 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
         name=graph_spec.env_name,
         scene=Scene(assets=scene_assets),
         embodiment=assets_by_node_id[graph_spec.embodiment.id],
-        task=build_task_from_specs(graph_spec.tasks, assets_by_node_id),
+        task=build_task_from_spec(graph_spec.task, assets_by_node_id),
     )
 
 

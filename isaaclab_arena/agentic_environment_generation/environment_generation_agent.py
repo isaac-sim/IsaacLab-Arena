@@ -345,4 +345,6 @@ GUIDANCE:
 - REQUIRED: include an ``is_anchor`` relation on the resting surface (background or an
   ``object_reference`` within it).
 - All objects need an ``on`` relation with that anchor as ``reference``.
+- For repeated objects (e.g. five bananas into one bin), create separate object ids and one
+  ``PickAndPlaceTask`` leaf per object under a ``parallel`` root task.
 """

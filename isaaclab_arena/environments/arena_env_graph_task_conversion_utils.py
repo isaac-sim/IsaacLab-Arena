@@ -12,9 +12,11 @@ from typing import TYPE_CHECKING, Any
 from isaaclab_arena.affordances.affordance_base import AffordanceBase
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.registries import TaskRegistry
+from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
+from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
 
 if TYPE_CHECKING:
-    from isaaclab_arena.environments.arena_env_graph_types import TaskSpec
+    from isaaclab_arena.environments.arena_env_graph_types import CompositeTaskSpec, TaskSpec
 
 
 # Annotation bases that mark a task __init__ kwarg as a graph-node reference.
@@ -24,33 +26,36 @@ if TYPE_CHECKING:
 NODE_REF_BASES: tuple[type, ...] = (Asset, AffordanceBase)
 
 
-def build_task_from_specs(task_specs: list[TaskSpec], assets_by_node_id: dict[str, Any]) -> Any | None:
-    """Build each task spec into a live task and combine them into one env-level task.
+def build_task_from_spec(task_spec: CompositeTaskSpec, assets_by_node_id: dict[str, Any]) -> Any:
+    """Build the root graph task into a live env-level task instance."""
+    if task_spec.composition == "atomic":
+        return _build_atomic_task_from_spec(
+            task_spec.tasks[0], assets_by_node_id, task_description=task_spec.description
+        )
 
-    None for no specs, the sole task for one, or a SequentialTaskBase (all required to succeed) for many.
-    """
-    task_instances = [_build_task_from_spec(spec, assets_by_node_id) for spec in task_specs]
-    if not task_instances:
-        return None
-    if len(task_instances) == 1:
-        return task_instances[0]
-    # Lazy import: SequentialTaskBase -> composite_task_base pulls in pxr (USD), which requires a
-    # launched SimulationApp. Deferring it keeps this module importable by data-only consumers
-    # (spec parsers, unit tests, pytest collection) without dragging in sim deps at import time.
-    from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
-
+    subtasks = [_build_atomic_task_from_spec(spec, assets_by_node_id) for spec in task_spec.tasks]
+    if task_spec.composition == "parallel":
+        return CompositeTaskBase(
+            subtasks=subtasks,
+            task_description=task_spec.description,
+        )
     return SequentialTaskBase(
-        subtasks=task_instances,
-        desired_subtask_success_state=[True] * len(task_instances),
+        subtasks=subtasks,
+        task_description=task_spec.description,
     )
 
 
-def _build_task_from_spec(task_spec: TaskSpec, assets_by_node_id: dict[str, Any]) -> Any:
+def _build_atomic_task_from_spec(
+    task_spec: TaskSpec,
+    assets_by_node_id: dict[str, Any],
+    *,
+    task_description: str | None = None,
+) -> Any:
     """Look up the task class by name, resolve any Asset-typed kwargs, instantiate."""
     task_class = TaskRegistry().get_task_by_name(task_spec.kind)
     task_init_kwargs = _resolve_node_refs_in_task_args(task_class, task_spec.params, assets_by_node_id)
-    if task_spec.description and "task_description" not in task_init_kwargs:
-        task_init_kwargs["task_description"] = task_spec.description
+    if task_description and "task_description" not in task_init_kwargs:
+        task_init_kwargs["task_description"] = task_description
     return task_class(**task_init_kwargs)
 
 

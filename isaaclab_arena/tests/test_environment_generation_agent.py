@@ -78,15 +78,18 @@ _MINIMAL_SPEC: dict = {
         {"kind": "on", "subject": "rubiks_cube_hot3d_robolab", "reference": "maple_table_robolab_table"},
         {"kind": "on", "subject": "bowl_ycb_robolab", "reference": "maple_table_robolab_table"},
     ],
-    "tasks": [{
-        "kind": "PickAndPlaceTask",
-        "params": {
-            "pick_up_object": "rubiks_cube_hot3d_robolab",
-            "destination_location": "bowl_ycb_robolab",
-            "background_scene": "maple_table_robolab",
-        },
+    "task": {
+        "composition": "atomic",
         "description": "pick up the rubiks cube and place it in the bowl",
-    }],
+        "tasks": [{
+            "kind": "PickAndPlaceTask",
+            "params": {
+                "pick_up_object": "rubiks_cube_hot3d_robolab",
+                "destination_location": "bowl_ycb_robolab",
+                "background_scene": "maple_table_robolab",
+            },
+        }],
+    },
 }
 
 
@@ -292,7 +295,7 @@ def test_generate_spec_against_live_endpoint():
     )
     assert spec is not None
     assert isinstance(data, dict) and data, "agent returned empty parsed response"
-    assert spec.tasks, "ArenaEnvGraphSpec must contain at least one task"
+    assert spec.task.tasks, "ArenaEnvGraphSpec must contain at least one atomic task"
     assert spec.background.registry_name, "background.registry_name must be populated"
     assert spec.embodiment.registry_name, "embodiment.registry_name must be populated"
     assert spec.relations, "relations must be populated"

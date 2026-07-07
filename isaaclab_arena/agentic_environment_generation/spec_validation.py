@@ -69,7 +69,7 @@ def collect_agent_ready_task_validation_traces(spec: ArenaEnvGraphSpec) -> list[
     """Return agent-only task constraint violations not enforced by ``ArenaEnvGraphSpec``."""
     traces: list[str] = []
     task_registry = TaskRegistry()
-    for task in spec.tasks:
+    for task in spec.task.tasks:
         task_cls = task_registry.get_task_by_name(task.kind)
         if not getattr(task_cls, "agent_ready", False):
             traces.append(f"Task {task.kind!r} is not agent-ready")

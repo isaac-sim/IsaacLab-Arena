@@ -157,11 +157,69 @@ def test_resolve_raises_on_non_string_node_id():
         conversion._resolve_node_refs_in_task_args(_Task, {"pick_up_object": 123}, {"cube": object()})
 
 
-# --------------------------------- build_task_from_specs ---------------------------------
+# --------------------------------- build_task_from_spec ----------------------------------
 
 
-def test_build_task_from_spec_passes_description_as_task_description(monkeypatch):
-    """Graph task ``description`` is forwarded as the constructor ``task_description`` kwarg."""
+def test_build_task_from_spec_atomic_returns_single_task(monkeypatch):
+    built: list[Any] = []
+
+    class FakeTask:
+        def __init__(self, **kwargs):
+            built.append(kwargs)
+
+    registry = type("R", (), {"get_task_by_name": lambda self, _name: FakeTask})()
+    monkeypatch.setattr(conversion, "TaskRegistry", lambda: registry)
+
+    from isaaclab_arena.environments.arena_env_graph_types import CompositeTaskSpec, TaskSpec
+
+    spec = CompositeTaskSpec(
+        composition="atomic",
+        description="pick up the cube",
+        tasks=[
+            TaskSpec(
+                kind="PickAndPlaceTask",
+                params={},
+            )
+        ],
+    )
+    result = conversion.build_task_from_spec(spec, {})
+    assert isinstance(result, FakeTask)
+    assert built == [{"task_description": "pick up the cube"}]
+
+
+def test_build_task_from_spec_sequential_wraps_multiple_tasks(monkeypatch):
+    captured: dict[str, Any] = {}
+
+    class FakeSequential:
+        def __init__(self, subtasks, task_description=None):
+            captured["subtasks"] = subtasks
+            captured["task_description"] = task_description
+
+    monkeypatch.setattr(
+        conversion,
+        "_build_atomic_task_from_spec",
+        lambda task_spec, _assets, task_description=None: task_spec.kind,
+    )
+    monkeypatch.setattr(conversion, "SequentialTaskBase", FakeSequential)
+
+    from isaaclab_arena.environments.arena_env_graph_types import CompositeTaskSpec, TaskSpec
+
+    spec = CompositeTaskSpec(
+        composition="sequential",
+        description="do two things in order",
+        tasks=[
+            TaskSpec(kind="PickAndPlaceTask", params={}),
+            TaskSpec(kind="PickAndPlaceTask", params={}),
+        ],
+    )
+    result = conversion.build_task_from_spec(spec, {})
+    assert isinstance(result, FakeSequential)
+    assert captured["subtasks"] == ["PickAndPlaceTask", "PickAndPlaceTask"]
+    assert captured["task_description"] == "do two things in order"
+
+
+def test_build_task_from_spec_forwards_root_description_to_atomic_task(monkeypatch):
+    """Root ``task.description`` is forwarded as the constructor ``task_description`` kwarg."""
     captured: dict[str, Any] = {}
 
     class FakeTask:
@@ -171,18 +229,18 @@ def test_build_task_from_spec_passes_description_as_task_description(monkeypatch
     registry = type("R", (), {"get_task_by_name": lambda self, _name: FakeTask})()
     monkeypatch.setattr(conversion, "TaskRegistry", lambda: registry)
 
-    from isaaclab_arena.environments.arena_env_graph_types import TaskSpec
+    from isaaclab_arena.environments.arena_env_graph_types import CompositeTaskSpec, TaskSpec
 
-    spec = TaskSpec(
-        kind="PickAndPlaceTask",
-        params={},
+    spec = CompositeTaskSpec(
+        composition="atomic",
         description="put the mustard in the left bin",
+        tasks=[TaskSpec(kind="PickAndPlaceTask", params={})],
     )
-    conversion._build_task_from_spec(spec, {})
+    conversion.build_task_from_spec(spec, {})
     assert captured["task_description"] == "put the mustard in the left bin"
 
 
-def test_build_task_from_spec_params_task_description_takes_precedence(monkeypatch):
+def test_build_atomic_task_from_spec_params_task_description_takes_precedence(monkeypatch):
     """An explicit ``task_description`` in params overrides the spec ``description`` field."""
     captured: dict[str, Any] = {}
 
@@ -198,16 +256,6 @@ def test_build_task_from_spec_params_task_description_takes_precedence(monkeypat
     spec = TaskSpec(
         kind="PickAndPlaceTask",
         params={"task_description": "from params"},
-        description="from spec description",
     )
-    conversion._build_task_from_spec(spec, {})
+    conversion._build_atomic_task_from_spec(spec, {}, task_description="from root")
     assert captured["task_description"] == "from params"
-
-
-def test_build_task_from_specs_empty_returns_none():
-    """No specs -> no task (the empty path short-circuits before any registry/sim lookup).
-
-    The single-task and SequentialTaskBase-wrapping paths run real registered tasks, so they
-    are covered by the end-to-end sim test in ``test_arena_env_graph_conversion.py``.
-    """
-    assert conversion.build_task_from_specs([], {}) is None

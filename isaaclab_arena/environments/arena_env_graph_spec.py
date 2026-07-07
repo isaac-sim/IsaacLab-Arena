@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from isaaclab_arena.environments.arena_env_graph_types import (
     AssetSpec,
     CliOverrideSpec,
+    CompositeTaskSpec,
     ObjectReferenceSpec,
     SpatialRelationSpec,
     TaskSpec,
@@ -38,9 +39,7 @@ class ArenaEnvGraphSpec(BaseModel):
     relations: list[SpatialRelationSpec] = Field(
         default_factory=list, description="Spatial layout relations across all assets."
     )
-    tasks: list[TaskSpec] = Field(
-        default_factory=list, description="Tasks the robot performs to manipulate the objects."
-    )
+    task: CompositeTaskSpec = Field(description="Root task the robot performs to manipulate the objects.")
     cli_override_specs: list[CliOverrideSpec] | None = Field(
         default=None, description="Optional authoring-time CLI flags that swap an asset's registry_name; usually empty."
     )
@@ -60,7 +59,7 @@ class ArenaEnvGraphSpec(BaseModel):
             valid_parent_ids = {self.background.id, *(obj.id for obj in self.objects)}
             self._assert_object_reference_parents(self.object_references, valid_parent_ids)
         self._assert_relation_references(self.relations, known_ids)
-        self._assert_task_param_references(self.tasks, known_ids)
+        self._assert_task_param_references(self.task.tasks, known_ids)
         self._validate_cli_override_specs()
         return self
 
@@ -115,7 +114,10 @@ class ArenaEnvGraphSpec(BaseModel):
 
     def summary(self) -> str:
         """Return a one-line summary of object, task, and relation counts."""
-        return f"{len(self.objects)} objects · {len(self.tasks)} tasks · {len(self.relations)} relations"
+        return (
+            f"{len(self.objects)} objects · {len(self.task.tasks)} atomic tasks "
+            f"({self.task.composition}) · {len(self.relations)} relations"
+        )
 
     def _validate_cli_override_specs(self) -> None:
         """Check each CLI override uses a unique flag and points to a swappable asset."""
@@ -159,7 +161,28 @@ class ArenaEnvGraphSpec(BaseModel):
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:
         assert isinstance(data, dict), f"Env graph spec must be a dict, got {type(data).__name__}"
-        return cls.model_validate(data)
+        return cls.model_validate(cls._normalize_legacy_task_field(dict(data)))
+
+    @staticmethod
+    def _normalize_legacy_task_field(data: dict[str, Any]) -> dict[str, Any]:
+        """Migrate legacy top-level ``tasks`` lists into the singular ``task`` root node."""
+        if "task" in data or "tasks" not in data:
+            return data
+        legacy_tasks = data.pop("tasks")
+        assert isinstance(legacy_tasks, list) and legacy_tasks, "Legacy 'tasks' must be a non-empty list"
+        if len(legacy_tasks) == 1:
+            composition = "atomic"
+            description = legacy_tasks[0].get("description") or "task"
+        else:
+            composition = "sequential"
+            descriptions = [entry.get("description", "") for entry in legacy_tasks if entry.get("description")]
+            description = " ; ".join(descriptions) if descriptions else "sequential composite task"
+        data["task"] = {
+            "composition": composition,
+            "description": description,
+            "tasks": [{key: value for key, value in entry.items() if key != "description"} for entry in legacy_tasks],
+        }
+        return data
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to the plain YAML mapping — the inverse of ``from_dict``."""

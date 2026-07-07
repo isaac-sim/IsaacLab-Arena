@@ -70,12 +70,11 @@ def print_env_graph(spec: ArenaEnvGraphSpec) -> None:
         params_str = f"  params={relation.params}" if relation.params else ""
         print(f"  {relation.kind:16s} subject={relation.subject}{ref_str}{params_str}")
 
-    print("\ntasks:")
-    for i, task in enumerate(spec.tasks):
+    print(f"\ntask: composition={spec.task.composition}")
+    print(f"  description: {spec.task.description}")
+    for i, task in enumerate(spec.task.tasks):
         print(f"  [{i}] kind={task.kind}")
         print(f"    params: {task.params}")
-        if task.description:
-            print(f"    description: {task.description}")
 
 
 def main() -> None:
