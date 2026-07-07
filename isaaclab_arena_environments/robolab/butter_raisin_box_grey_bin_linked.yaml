@@ -53,7 +53,7 @@ task:
   composition: atomic
   description: Pick up the red raisin box and place it into the grey bin on the maple
     table.
-  tasks:
+  subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: raisin_box

@@ -48,7 +48,7 @@ relations:
 task:
   composition: atomic
   description: put the mustard in the left bin
-  tasks:
+  subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: mustard

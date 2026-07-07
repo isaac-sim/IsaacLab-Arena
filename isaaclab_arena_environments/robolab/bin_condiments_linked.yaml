@@ -105,7 +105,7 @@ relations:
 task:
   composition: atomic
   description: pick up the coffee pot and place it into the grey bin
-  tasks:
+  subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: coffee_pot

@@ -35,7 +35,7 @@ relations:
 task:
   composition: atomic
   description: put the rubiks cube in the bowl
-  tasks:
+  subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: rubiks_cube

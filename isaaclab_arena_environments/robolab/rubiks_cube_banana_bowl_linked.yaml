@@ -43,7 +43,7 @@ task:
   composition: sequential
   description: pick up the banana and place it in the bowl ; pick up the cube and
     place it in the bowl
-  tasks:
+  subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: banana

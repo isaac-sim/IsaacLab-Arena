@@ -137,7 +137,7 @@ relations:
 task:
   composition: atomic
   description: pick up the large pumpkin and place it into the bin
-  tasks:
+  subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: pumpkin_large

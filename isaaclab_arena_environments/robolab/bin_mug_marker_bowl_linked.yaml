@@ -56,7 +56,7 @@ relations:
 task:
   composition: atomic
   description: Pick up the bowl and place it in the grey bin.
-  tasks:
+  subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: bowl

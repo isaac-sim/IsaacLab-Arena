@@ -73,7 +73,7 @@ task:
   composition: sequential
   description: pick up the rubiks cube and place it in the bowl ; pick up the mug
     and place it in the bowl
-  tasks:
+  subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: rubiks_cube_hot3d_robolab

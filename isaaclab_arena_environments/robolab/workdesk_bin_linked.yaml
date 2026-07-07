@@ -109,7 +109,7 @@ relations:
 task:
   composition: atomic
   description: place the lizard figurine into the grey bin on the table
-  tasks:
+  subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: lizard_figurine

@@ -105,7 +105,7 @@ class CompositeTaskSpec(BaseModel):
         min_length=1,
         description="Natural-language summary of the overall task (e.g. 'pick and place all bananas into the bin').",
     )
-    tasks: list[TaskSpec] = Field(
+    subtasks: list[TaskSpec] = Field(
         default_factory=list,
         description="Atomic registered tasks that compose this root task.",
     )
@@ -113,11 +113,11 @@ class CompositeTaskSpec(BaseModel):
     @model_validator(mode="after")
     def _validate_composition_task_count(self) -> CompositeTaskSpec:
         if self.composition == "atomic":
-            assert len(self.tasks) == 1, "composition 'atomic' requires exactly one atomic task"
+            assert len(self.subtasks) == 1, "composition 'atomic' requires exactly one atomic task"
         else:
             assert (
-                len(self.tasks) >= 2
-            ), f"composition '{self.composition}' requires at least two atomic tasks, got {len(self.tasks)}"
+                len(self.subtasks) >= 2
+            ), f"composition '{self.composition}' requires at least two atomic tasks, got {len(self.subtasks)}"
         return self
 
 

@@ -59,7 +59,7 @@ class ArenaEnvGraphSpec(BaseModel):
             valid_parent_ids = {self.background.id, *(obj.id for obj in self.objects)}
             self._assert_object_reference_parents(self.object_references, valid_parent_ids)
         self._assert_relation_references(self.relations, known_ids)
-        self._assert_task_param_references(self.task.tasks, known_ids)
+        self._assert_task_param_references(self.task.subtasks, known_ids)
         self._validate_cli_override_specs()
         return self
 
@@ -103,9 +103,9 @@ class ArenaEnvGraphSpec(BaseModel):
                 ), f"Relation[{index}] kind '{relation.kind}' references unknown reference '{relation.reference}'"
 
     @staticmethod
-    def _assert_task_param_references(tasks: list[TaskSpec], known_ids: set[str]) -> None:
+    def _assert_task_param_references(subtasks: list[TaskSpec], known_ids: set[str]) -> None:
         """Ensure string-valued task params reference known asset ids."""
-        for task in tasks:
+        for task in subtasks:
             for param_name, param_value in task.params.items():
                 if isinstance(param_value, str):
                     assert (
@@ -115,7 +115,7 @@ class ArenaEnvGraphSpec(BaseModel):
     def summary(self) -> str:
         """Return a one-line summary of object, task, and relation counts."""
         return (
-            f"{len(self.objects)} objects · {len(self.task.tasks)} atomic tasks "
+            f"{len(self.objects)} objects · {len(self.task.subtasks)} atomic tasks "
             f"({self.task.composition}) · {len(self.relations)} relations"
         )
 

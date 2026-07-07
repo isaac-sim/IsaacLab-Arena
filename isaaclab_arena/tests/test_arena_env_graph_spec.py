@@ -29,7 +29,7 @@ def test_graph_spec_loads_pick_and_place_yaml():
     assert len(spec.objects) == 3
     assert len(spec.object_references) == 1
     assert len(spec.relations) == 6
-    assert len(spec.task.tasks) == 2
+    assert len(spec.task.subtasks) == 2
     assert spec.task.composition == "sequential"
 
     table = spec.object_references[0]
@@ -41,13 +41,13 @@ def test_graph_spec_loads_pick_and_place_yaml():
     mug = next(obj for obj in spec.objects if obj.id == "mug_ycb_robolab")
     assert mug.registry_name == "mug_ycb_robolab"
 
-    task = spec.task.tasks[0]
+    task = spec.task.subtasks[0]
     assert task.kind == "PickAndPlaceTask"
     assert TaskRegistry().is_registered(task.kind)
     assert task.params["pick_up_object"] == "rubiks_cube_hot3d_robolab"
     assert task.params["destination_location"] == "bowl_ycb_robolab"
 
-    second_task = spec.task.tasks[1]
+    second_task = spec.task.subtasks[1]
     assert second_task.kind == "PickAndPlaceTask"
     assert second_task.params["pick_up_object"] == "mug_ycb_robolab"
 
@@ -188,7 +188,7 @@ def test_graph_spec_rejects_invalid_data():
         ),
         (
             "unknown task kind",
-            lambda data: data["task"]["tasks"][0].update({"kind": "UnknownTask"}),
+            lambda data: data["task"]["subtasks"][0].update({"kind": "UnknownTask"}),
             "Unknown task kind 'UnknownTask'",
         ),
         (
@@ -228,7 +228,7 @@ def test_graph_spec_accepts_missing_object_reference_prim_path():
 def test_graph_spec_rejects_invalid_composition_task_counts():
     data = _minimal_env_graph_data()
     data["task"]["composition"] = "atomic"
-    data["task"]["tasks"].append({
+    data["task"]["subtasks"].append({
         "kind": "PickAndPlaceTask",
         "params": {
             "pick_up_object": "cube",
@@ -261,7 +261,7 @@ def _minimal_env_graph_data():
         "task": {
             "composition": "atomic",
             "description": "pick up the cube",
-            "tasks": [{
+            "subtasks": [{
                 "kind": "PickAndPlaceTask",
                 "params": {
                     "pick_up_object": "cube",
@@ -277,7 +277,7 @@ def test_graph_spec_accepts_missing_optional_fields():
     data = _minimal_env_graph_data()
     del data["object_references"]
     data["relations"] = [{"kind": "is_anchor", "subject": "background"}]
-    data["task"]["tasks"][0]["params"]["destination_location"] = "background"
+    data["task"]["subtasks"][0]["params"]["destination_location"] = "background"
     spec = ArenaEnvGraphSpec.from_dict(data)
     assert spec.object_references is None
     assert spec.cli_override_specs is None
@@ -287,7 +287,7 @@ def test_graph_spec_omits_empty_optional_fields_from_dict():
     data = _minimal_env_graph_data()
     del data["object_references"]
     data["relations"] = [{"kind": "is_anchor", "subject": "background"}]
-    data["task"]["tasks"][0]["params"]["destination_location"] = "background"
+    data["task"]["subtasks"][0]["params"]["destination_location"] = "background"
     spec = ArenaEnvGraphSpec.from_dict(data)
     dumped = spec.to_dict()
     assert "object_references" not in dumped

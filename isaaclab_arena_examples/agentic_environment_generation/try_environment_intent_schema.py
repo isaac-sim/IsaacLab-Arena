@@ -72,7 +72,7 @@ def print_env_graph(spec: ArenaEnvGraphSpec) -> None:
 
     print(f"\ntask: composition={spec.task.composition}")
     print(f"  description: {spec.task.description}")
-    for i, task in enumerate(spec.task.tasks):
+    for i, task in enumerate(spec.task.subtasks):
         print(f"  [{i}] kind={task.kind}")
         print(f"    params: {task.params}")
 

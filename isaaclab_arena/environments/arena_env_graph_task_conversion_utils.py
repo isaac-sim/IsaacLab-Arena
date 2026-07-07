@@ -30,10 +30,10 @@ def build_task_from_spec(task_spec: CompositeTaskSpec, assets_by_node_id: dict[s
     """Build the root graph task into a live env-level task instance."""
     if task_spec.composition == "atomic":
         return _build_atomic_task_from_spec(
-            task_spec.tasks[0], assets_by_node_id, task_description=task_spec.description
+            task_spec.subtasks[0], assets_by_node_id, task_description=task_spec.description
         )
 
-    subtasks = [_build_atomic_task_from_spec(spec, assets_by_node_id) for spec in task_spec.tasks]
+    subtasks = [_build_atomic_task_from_spec(spec, assets_by_node_id) for spec in task_spec.subtasks]
     if task_spec.composition == "parallel":
         return CompositeTaskBase(
             subtasks=subtasks,

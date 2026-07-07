@@ -54,7 +54,7 @@ relations:
 task:
   composition: atomic
   description: pick up the cheez it box and place it into the bin
-  tasks:
+  subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: cheez_it_box

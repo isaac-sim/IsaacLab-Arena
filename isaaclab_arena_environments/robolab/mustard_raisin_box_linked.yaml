@@ -40,7 +40,7 @@ relations:
 task:
   composition: atomic
   description: Pick up the mustard bottle and place it on the raisin box.
-  tasks:
+  subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: mustard_bottle

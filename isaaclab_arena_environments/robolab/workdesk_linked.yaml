@@ -116,7 +116,7 @@ relations:
 task:
   composition: atomic
   description: place the computer mouse on the keyboard
-  tasks:
+  subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: computer_mouse

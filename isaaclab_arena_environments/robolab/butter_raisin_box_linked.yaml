@@ -40,7 +40,7 @@ relations:
 task:
   composition: atomic
   description: pick up the butter box and place it on top of the raisin box
-  tasks:
+  subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: butter_hope_robolab

@@ -49,7 +49,7 @@ relations:
 task:
   composition: atomic
   description: place the bbq sauce bottle into the purple crate on the table
-  tasks:
+  subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: bbq_sauce_bottle

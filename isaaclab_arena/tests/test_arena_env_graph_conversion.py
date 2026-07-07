@@ -114,7 +114,7 @@ def _minimal_scene_spec(*, objects: list[AssetSpec]) -> ArenaEnvGraphSpec:
         task=CompositeTaskSpec(
             composition="atomic",
             description="noop task",
-            tasks=[
+            subtasks=[
                 TaskSpec(
                     kind="PickAndPlaceTask",
                     params={

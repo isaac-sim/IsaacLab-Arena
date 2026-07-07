@@ -116,7 +116,7 @@ relations:
 task:
   composition: atomic
   description: place the apple into the plasticpail on the table
-  tasks:
+  subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: apple

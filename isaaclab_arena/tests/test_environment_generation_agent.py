@@ -82,7 +82,7 @@ _MINIMAL_SPEC: dict = {
     "task": {
         "composition": "atomic",
         "description": "pick up the rubiks cube and place it in the bowl",
-        "tasks": [{
+        "subtasks": [{
             "kind": "PickAndPlaceTask",
             "params": {
                 "pick_up_object": "rubiks_cube_hot3d_robolab",
@@ -297,8 +297,8 @@ def _assert_atomic_pick_and_place_spec(spec: ArenaEnvGraphSpec) -> None:
     assert on_subjects == object_ids
 
     assert spec.task.composition == "atomic"
-    assert len(spec.task.tasks) == 1
-    assert spec.task.tasks[0].kind == "PickAndPlaceTask"
+    assert len(spec.task.subtasks) == 1
+    assert spec.task.subtasks[0].kind == "PickAndPlaceTask"
 
 
 def _assert_five_bananas_parallel_pick_and_place_spec(spec: ArenaEnvGraphSpec) -> None:
@@ -311,11 +311,11 @@ def _assert_five_bananas_parallel_pick_and_place_spec(spec: ArenaEnvGraphSpec) -
         assert obj_id in on_subjects, f"object {obj_id!r} missing 'on' relation"
 
     assert spec.task.composition == "parallel"
-    assert len(spec.task.tasks) == 5
+    assert len(spec.task.subtasks) == 5
 
     pick_ids: list[str] = []
     dest_ids: list[str] = []
-    for leaf in spec.task.tasks:
+    for leaf in spec.task.subtasks:
         assert leaf.kind == "PickAndPlaceTask"
         pick_ids.append(leaf.params["pick_up_object"])
         dest_ids.append(leaf.params["destination_location"])

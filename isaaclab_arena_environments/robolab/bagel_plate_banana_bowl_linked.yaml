@@ -56,7 +56,7 @@ relations:
 task:
   composition: atomic
   description: Pick up the banana and place it on the plate.
-  tasks:
+  subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: banana

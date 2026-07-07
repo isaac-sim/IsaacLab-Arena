@@ -175,7 +175,7 @@ def test_build_task_from_spec_atomic_returns_single_task(monkeypatch):
     spec = CompositeTaskSpec(
         composition="atomic",
         description="pick up the cube",
-        tasks=[
+        subtasks=[
             TaskSpec(
                 kind="PickAndPlaceTask",
                 params={},
@@ -207,7 +207,7 @@ def test_build_task_from_spec_sequential_wraps_multiple_tasks(monkeypatch):
     spec = CompositeTaskSpec(
         composition="sequential",
         description="do two things in order",
-        tasks=[
+        subtasks=[
             TaskSpec(kind="PickAndPlaceTask", params={}),
             TaskSpec(kind="PickAndPlaceTask", params={}),
         ],
@@ -234,7 +234,7 @@ def test_build_task_from_spec_forwards_root_description_to_atomic_task(monkeypat
     spec = CompositeTaskSpec(
         composition="atomic",
         description="put the mustard in the left bin",
-        tasks=[TaskSpec(kind="PickAndPlaceTask", params={})],
+        subtasks=[TaskSpec(kind="PickAndPlaceTask", params={})],
     )
     conversion.build_task_from_spec(spec, {})
     assert captured["task_description"] == "put the mustard in the left bin"

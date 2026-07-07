@@ -69,7 +69,7 @@ relations:
 task:
   composition: atomic
   description: pick up the spring clamp and place it in the right bin
-  tasks:
+  subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: spring_clamp
