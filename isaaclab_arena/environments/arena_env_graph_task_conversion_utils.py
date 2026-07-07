@@ -14,7 +14,7 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.registries import TaskRegistry
 
 if TYPE_CHECKING:
-    from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphTaskSpec
+    from isaaclab_arena.environments.arena_env_graph_types import TaskSpec
 
 
 # Annotation bases that mark a task __init__ kwarg as a graph-node reference.
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 NODE_REF_BASES: tuple[type, ...] = (Asset, AffordanceBase)
 
 
-def build_task_from_specs(task_specs: list[ArenaEnvGraphTaskSpec], assets_by_node_id: dict[str, Any]) -> Any | None:
+def build_task_from_specs(task_specs: list[TaskSpec], assets_by_node_id: dict[str, Any]) -> Any | None:
     """Build each task spec into a live task and combine them into one env-level task.
 
     None for no specs, the sole task for one, or a SequentialTaskBase (all required to succeed) for many.
@@ -45,7 +45,7 @@ def build_task_from_specs(task_specs: list[ArenaEnvGraphTaskSpec], assets_by_nod
     )
 
 
-def _build_task_from_spec(task_spec: ArenaEnvGraphTaskSpec, assets_by_node_id: dict[str, Any]) -> Any:
+def _build_task_from_spec(task_spec: TaskSpec, assets_by_node_id: dict[str, Any]) -> Any:
     """Look up the task class by name, resolve any Asset-typed kwargs, instantiate."""
     task_class = TaskRegistry().get_task_by_name(task_spec.kind)
     task_init_kwargs = _resolve_node_refs_in_task_args(task_class, task_spec.params, assets_by_node_id)

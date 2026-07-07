@@ -52,8 +52,8 @@ The important pieces are:
 * ``--policy_config_yaml_path`` provides the DROID manipulation policy config.
 * ``--remote_host`` and ``--remote_port`` must match the GR00T server.
 * ``--enable_cameras`` is required because GR00T consumes visual observations.
-* ``--env_graph_spec_yaml`` points the runner at the agentically generated linked
-  environment graph.
+* ``--env_graph_spec_yaml`` points the runner at the agentically generated
+  environment graph spec.
 
 Add a language instruction when you want to make the GR00T task explicit:
 

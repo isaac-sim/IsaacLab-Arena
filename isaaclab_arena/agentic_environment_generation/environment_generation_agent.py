@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Agent for parsing natural-language env-generation prompts into an EnvironmentIntentSpec."""
+"""Agent for parsing natural-language env-generation prompts into an ArenaEnvGraphSpec."""
 
 from __future__ import annotations
 
@@ -15,11 +15,13 @@ from typing import Any
 from openai import OpenAI
 
 from isaaclab_arena.agentic_environment_generation.agent_utils import build_strict_schema, extract_response_text, ping
-from isaaclab_arena.agentic_environment_generation.environment_intent_spec import (
-    EnvironmentIntentSpec,
+from isaaclab_arena.agentic_environment_generation.spec_validation import (
+    collect_agent_ready_task_validation_traces,
     required_task_init_param_names,
+    try_parse_env_graph_spec,
 )
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
+from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.relations.relations import RelationBase
 
 # TODO(qianl): This is currently Nvidia internal. Switch to public endpoint.
@@ -36,21 +38,27 @@ DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
 class AssetCatalogue:
     """Registered asset vocabulary grouped for the agent prompt."""
 
-    # A list of embodiment names for agent to choose from.
-    embodiments: list[str] = field(default_factory=list)
-    # A list of background names for agent to choose from.
-    backgrounds: list[str] = field(default_factory=list)
+    # A list of embodiment names and their tags for agent to choose from.
+    embodiments: list[dict[str, Any]] = field(default_factory=list)
+    # A list of background names and their tags for agent to choose from.
+    backgrounds: list[dict[str, Any]] = field(default_factory=list)
     # A list of object names and their tags for agent to choose from.
     objects: list[dict[str, Any]] = field(default_factory=list)
 
     def to_catalog_string(self) -> str:
         """Format this catalogue as the user-message vocabulary block."""
+        embodiment_lines = "\n".join(
+            f"- {e['name']}  tags={e['tags']}" for e in sorted(self.embodiments, key=lambda e: e["name"])
+        )
+        background_lines = "\n".join(
+            f"- {b['name']}  tags={b['tags']}" for b in sorted(self.backgrounds, key=lambda b: b["name"])
+        )
         object_lines = "\n".join(
             f"- {o['name']}  tags={o['tags']}" for o in sorted(self.objects, key=lambda o: o["name"])
         )
         return (
-            f"EMBODIMENTS: {', '.join(sorted(self.embodiments))}\n\n"
-            f"BACKGROUNDS: {', '.join(sorted(self.backgrounds))}\n\n"
+            f"EMBODIMENTS ({len(self.embodiments)}):\n{embodiment_lines}\n\n"
+            f"BACKGROUNDS ({len(self.backgrounds)}):\n{background_lines}\n\n"
             f"OBJECTS ({len(self.objects)}):\n{object_lines}"
         )
 
@@ -67,9 +75,9 @@ def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalog
         cls = registry.get_asset_by_name(name)
         tags = getattr(cls, "tags", None) or []
         if "embodiment" in tags:
-            catalogue.embodiments.append(name)
+            catalogue.embodiments.append({"name": name, "tags": [t for t in tags if t != "embodiment"]})
         elif "background" in tags:
-            catalogue.backgrounds.append(name)
+            catalogue.backgrounds.append({"name": name, "tags": [t for t in tags if t != "background"]})
         elif "object" in tags:
             catalogue.objects.append({"name": name, "tags": [t for t in tags if t != "object"]})
     return catalogue
@@ -191,7 +199,7 @@ def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
 
 
 class EnvironmentGenerationAgent:
-    """Parses a natural-language env-generation prompt into an EnvironmentIntentSpec."""
+    """Parses a natural-language env-generation prompt into an ArenaEnvGraphSpec."""
 
     def __init__(
         self,
@@ -215,7 +223,8 @@ class EnvironmentGenerationAgent:
         self.client = OpenAI(api_key=self.api_key, base_url=base_url)
         # Validate basic connection and key authentication.
         ping(self.client, self.model)
-        self._spec_schema = build_strict_schema(EnvironmentIntentSpec)
+        self._spec_schema = build_strict_schema(ArenaEnvGraphSpec)
+        self.last_validation_traces: list[str] = []
 
     def generate_spec(
         self,
@@ -226,8 +235,8 @@ class EnvironmentGenerationAgent:
         temperature: float = 0.2,
         max_tokens: int = 4096,
         max_retries: int = 3,
-    ) -> tuple[EnvironmentIntentSpec, str]:
-        """Call the model with user prompt and return the parsed EnvironmentIntentSpec.
+    ) -> tuple[ArenaEnvGraphSpec | None, dict[str, Any]]:
+        """Call the model with user prompt and return the parsed ArenaEnvGraphSpec.
 
         Args:
             prompt: Natural-language env description from the end user.
@@ -238,7 +247,7 @@ class EnvironmentGenerationAgent:
             task_catalog: Pre-built task vocabulary. When ``None``, built from
                 ``TaskRegistry`` tasks marked ``@agent_ready``.
             temperature: Sampling temperature forwarded to the model. Kept
-                low by default (0.2) because EnvironmentIntentSpec generation is a
+                low by default (0.2) because spec generation is a
                 deterministic-ish translation task — high temperature
                 yields creative but invalid schemas.
             max_tokens: Hard cap on the response length.
@@ -247,8 +256,9 @@ class EnvironmentGenerationAgent:
                 retry is a fresh API call.
 
         Returns:
-            A ``(EnvironmentIntentSpec, raw_response)`` tuple. The raw text is
-            useful for debugging.
+            A ``(ArenaEnvGraphSpec | None, data)`` tuple. ``data`` is the parsed
+            JSON object from the model. When schema validation fails, ``spec`` is
+            ``None`` and ``agent.last_validation_traces`` holds the error trace.
         """
         asset_catalog = asset_catalog or build_asset_catalogue()
         relation_catalog = relation_catalog or build_relation_catalogue()
@@ -277,7 +287,7 @@ class EnvironmentGenerationAgent:
                     response_format={
                         "type": "json_schema",
                         "json_schema": {
-                            "name": "EnvironmentIntentSpec",
+                            "name": "ArenaEnvGraphSpec",
                             "strict": True,
                             "schema": self._spec_schema,
                         },
@@ -299,8 +309,12 @@ class EnvironmentGenerationAgent:
                 # (e.g. literal tabs) inside JSON strings — DeepSeek-v4-flash is known
                 # to emit these.
                 data = json.loads(text, strict=False)
-                spec = EnvironmentIntentSpec.model_validate(data)
-                return spec, text
+                # TODO(qianl): add fuzzy-match support for registry_name matching.
+                spec, traces = try_parse_env_graph_spec(data)
+                if spec is not None:
+                    traces = [*traces, *collect_agent_ready_task_validation_traces(spec)]
+                self.last_validation_traces = traces
+                return spec, data
             except Exception as exc:
                 last_exc = exc
 
@@ -310,29 +324,25 @@ class EnvironmentGenerationAgent:
 
     def _system_prompt(self) -> str:
         return """\
-You are an env-generation parser for robot manipulation tasks.
-Convert a natural-language prompt into an EnvironmentIntentSpec.
+You are an environment-generator for robot manipulation tasks.
+Convert a natural-language prompt into an ArenaEnvGraphSpec.
 
 GUIDANCE:
-- Follow the per-field ``description`` strings in the schema for what each field expects.
-- Use only asset names from EMBODIMENTS / BACKGROUNDS / OBJECTS, relation kinds from \
-RELATIONS, and task kinds from TASKS in the user message.
-- If the prompt does not specify a value for an optional field, output null.
-  Do NOT hallucinate values — the resolver tolerates nulls; it cannot fix invented data.
-- For binary relations (e.g. on), subject is the placed object and reference is \
-the surface it is relative to (typically the background name).
-- REQUIRED: include an is_anchor (unary) relation for the surface other objects rest on.
-- Articulated objects (microwave, fridge, cabinet) still need an 'on' relation in \
-initial_state_graph (subject=object, reference=background) to anchor them.
-- Distractor items around the appliance need the same 'on' pattern in initial_state_graph.
-- Do not invent relation or task kinds absent from RELATIONS / TASKS.
-- Each task entry needs kind, params (all required keys from TASKS), and description.
-- params values are node ids or the background name, not registry asset names.
-- NODE IDS: an item's id is its instance_name if set, else its query. For multiple
-  items of the same kind, give each a unique instance_name and use those exact ids everywhere.
-- Use underscore_connected identifiers for every query and instance_name (e.g.
-  'bbq_sauce_bottle', not 'bbq sauce bottle') so node ids are valid Python identifiers.
-- Every relation subject/reference and object task param must name one node id — never
-  a bare query that maps to several instances. Each must name exactly one;
-  if the prompt doesn't say which, pick any.
+- Follow the per-field ``description`` strings in the schema.
+- Use only exact names from the catalog for ``registry_name``:
+  EMBODIMENTS for ``embodiment``, BACKGROUNDS for ``background``, and OBJECTS for ``objects``.
+- Do NOT hallucinate asset names — every ``registry_name`` must appear verbatim in the catalog.
+  If the prompt includes the exact registry name, use it.
+  If no reasonable match can be found, return empty string.
+  If multiple reasonable matches are found, return the closest match or the one with the most specific name.
+- For embodiment, if the prompt only mention the robot family (driod/franka) and there are multiple
+  variance of that family in EMBODIMENTS, pick the one with the default tag.
+- For multiple instances of the same registry asset, use semantic (left/right) or numerical (1/2/3)
+  suffixes in ``id``.
+- Only populate ``object_references`` when the prompt explicitly mentions surfaces or appliances
+  inside the background; otherwise leave it unset.
+- For each ``object_reference``, leave ``prim_path`` empty.
+- REQUIRED: include an ``is_anchor`` relation on the resting surface (background or an
+  ``object_reference`` within it).
+- All objects need an ``on`` relation with that anchor as ``reference``.
 """
