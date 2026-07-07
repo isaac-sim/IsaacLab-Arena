@@ -40,12 +40,12 @@ def get_test_environment(*, camera_extrinsics_enabled: bool):
 
 
 def _test_disabled_camera_extrinsics_variation_not_in_events_cfg(simulation_app):
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     arena_env = get_test_environment(camera_extrinsics_enabled=False)
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
-    env_cfg, _ = ArenaEnvBuilder(arena_env, args_cli).compose_manager_cfg()
+    env_cfg, _ = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).compose_manager_cfg()
 
     assert not hasattr(env_cfg.events, EVENT_NAME), (
         f"Disabled variation must not add '{EVENT_NAME}' to env_cfg.events; "
@@ -55,13 +55,13 @@ def _test_disabled_camera_extrinsics_variation_not_in_events_cfg(simulation_app)
 
 
 def _test_enabled_camera_extrinsics_variation_in_events_cfg(simulation_app):
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.variations.camera_extrinsics_variation import apply_camera_extrinsics_from_sampler
 
     arena_env = get_test_environment(camera_extrinsics_enabled=True)
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
-    env_cfg, _ = ArenaEnvBuilder(arena_env, args_cli).compose_manager_cfg()
+    env_cfg, _ = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).compose_manager_cfg()
 
     assert hasattr(
         env_cfg.events, EVENT_NAME
@@ -79,11 +79,13 @@ def _test_enabled_camera_extrinsics_variation_in_events_cfg(simulation_app):
 def _test_camera_extrinsics_variation_realized_at_runtime(simulation_app):
     from isaaclab.utils.math import quat_apply
 
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
-    env = ArenaEnvBuilder(get_test_environment(camera_extrinsics_enabled=True), args_cli).make_registered()
+    env = ArenaEnvBuilder(
+        get_test_environment(camera_extrinsics_enabled=True), arena_env_builder_cfg_from_argparse(args_cli)
+    ).make_registered()
     env.reset()
 
     camera = env.unwrapped.scene[CAMERA_NAME]

@@ -51,7 +51,7 @@ def _build_two_sphere_env(poses, velocities, num_envs=1):
     Returns the gym-wrapped env (already reset) and the two object names.
     """
     from isaaclab_arena.assets.object_library import Sphere
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -68,7 +68,7 @@ def _build_two_sphere_env(poses, velocities, num_envs=1):
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     args_cli.num_envs = num_envs
-    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env = env_builder.make_registered()
     env.reset()
     return env, [sphere.name for sphere in spheres]
@@ -144,7 +144,7 @@ def _build_parallel_layout_env(num_envs, expected_settled):
     background/anchor object would be in a real settle check).
     """
     from isaaclab_arena.assets.object_library import ProceduralTable, Sphere
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -174,7 +174,7 @@ def _build_parallel_layout_env(num_envs, expected_settled):
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     args_cli.num_envs = num_envs
-    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env = env_builder.make_registered()
     env.reset()
     return env, [sphere_a.name, sphere_b.name]
@@ -225,7 +225,7 @@ def _test_validate_pool_layouts_grades_each_layout(simulation_app):
     import isaaclab.sim as sim_utils
 
     from isaaclab_arena.assets.object_library import CrackerBox, OfficeTable
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
@@ -256,7 +256,7 @@ def _test_validate_pool_layouts_grades_each_layout(simulation_app):
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     args_cli.num_envs = num_envs
-    env = ArenaEnvBuilder(isaaclab_arena_environment, args_cli).make_registered()
+    env = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli)).make_registered()
     env.reset()
 
     try:

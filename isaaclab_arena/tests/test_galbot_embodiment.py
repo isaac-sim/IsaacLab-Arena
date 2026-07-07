@@ -21,7 +21,7 @@ def get_galbot_test_environment(num_envs: int = 1):
     from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.common.arm_mode import ArmMode
     from isaaclab_arena.embodiments.galbot.galbot import GalbotEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -70,7 +70,7 @@ def get_galbot_test_environment(num_envs: int = 1):
         task=PickAndPlaceTask(pick_up_object, destination_location, background),
     )
 
-    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env = env_builder.make_registered()
     env.reset()
 

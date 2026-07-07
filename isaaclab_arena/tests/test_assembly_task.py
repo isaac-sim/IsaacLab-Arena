@@ -19,7 +19,7 @@ def get_peg_insert_test_environment(num_envs: int, remove_events: bool = False):
     import isaaclab.sim as sim_utils
 
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -71,7 +71,7 @@ def get_peg_insert_test_environment(num_envs: int, remove_events: bool = False):
         env_cfg_callback=mdp.assembly_env_cfg_callback,
     )
 
-    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     name, cfg, env_kwargs = env_builder.build_registered()
 
     if remove_events:
@@ -89,7 +89,7 @@ def get_gear_mesh_test_environment(num_envs: int, remove_events: bool = False):
     import isaaclab.sim as sim_utils
 
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -148,7 +148,7 @@ def get_gear_mesh_test_environment(num_envs: int, remove_events: bool = False):
         env_cfg_callback=mdp.assembly_env_cfg_callback,
     )
 
-    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     name, cfg, env_kwargs = env_builder.build_registered()
 
     if remove_events:

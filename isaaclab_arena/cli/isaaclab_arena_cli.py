@@ -7,7 +7,26 @@ import argparse
 
 from isaaclab.app import AppLauncher
 
+from isaaclab_arena.cli.dataclass_cli import dataclass_from_cli
+from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 
+
+# TODO(cvolk, 2026-07-03): Delete this Namespace-to-config adapter after policy_runner,
+# eval_runner, and the remaining argparse scripts pass ArenaEnvBuilderCfg directly.
+def arena_env_builder_cfg_from_argparse(args_cli: argparse.Namespace) -> ArenaEnvBuilderCfg:
+    """Translate parsed CLI arguments into the typed builder configuration.
+
+    Args:
+        args_cli: Parsed Arena and Isaac Lab command-line arguments.
+
+    Returns:
+        The configuration consumed by ``ArenaEnvBuilder``.
+    """
+    return dataclass_from_cli(ArenaEnvBuilderCfg, args_cli)
+
+
+# TODO(cvolk, 2026-07-03): Delete this parser pipeline and its add_* helpers after
+# policy_runner, eval_runner, and the remaining argparse scripts accept typed configs.
 def get_isaaclab_arena_cli_parser() -> argparse.ArgumentParser:
     """Get a complete argument parser with both Isaac Lab and IsaacLab Arena arguments."""
     parser = argparse.ArgumentParser(description="IsaacLab Arena CLI parser.")
@@ -20,10 +39,13 @@ def get_isaaclab_arena_cli_parser() -> argparse.ArgumentParser:
 
 
 def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
-    """Add Isaac Lab specific command line arguments to the given parser."""
+    """Add the existing Isaac Lab builder and distributed CLI flags."""
 
     isaac_lab_group = parser.add_argument_group("Isaac Lab Arguments", "Arguments specific to Isaac Lab framework")
 
+    # TODO(cvolk, 2026-07-06): Delete these manual builder flags after runner scripts
+    # receive ArenaEnvBuilderCfg directly. The adapter tests keep their defaults aligned
+    # with ArenaEnvBuilderCfg during the transition.
     isaac_lab_group.add_argument(
         "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
     )
@@ -31,6 +53,9 @@ def add_isaac_lab_cli_args(parser: argparse.ArgumentParser) -> None:
     isaac_lab_group.add_argument("--num_envs", type=int, default=1, help="Number of environments to simulate.")
     isaac_lab_group.add_argument("--env_spacing", type=float, default=30.0, help="Spacing between environments.")
     isaac_lab_group.add_argument("--mimic", action="store_true", default=False, help="Enable mimic environment.")
+
+    # TODO(cvolk, 2026-07-06): Move --distributed into a typed runner or simulation-app
+    # config. It controls AppLauncher and policy_runner process setup, not ArenaEnvBuilder.
     isaac_lab_group.add_argument(
         "--distributed",
         action="store_true",
@@ -44,6 +69,10 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
     arena_group = parser.add_argument_group(
         "Isaac Lab Arena Arguments", "Arguments specific to Isaac Lab Arena framework"
     )
+
+    # TODO(cvolk, 2026-07-06): Delete these manual builder flags after runner scripts
+    # receive ArenaEnvBuilderCfg directly. The adapter tests keep their defaults aligned
+    # with ArenaEnvBuilderCfg during the transition.
     arena_group.add_argument(
         "--no-solve-relations",
         action="store_false",

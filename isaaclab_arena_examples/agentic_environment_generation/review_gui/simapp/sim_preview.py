@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import argparse
 import math
 import sys
 import time
@@ -17,6 +16,7 @@ from typing import Any
 
 from isaaclab.envs.common import ViewerCfg
 
+from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import (
     collect_garbage_and_clear_cuda_cache,
@@ -68,20 +68,11 @@ def _skip_task_viewer_cfg(arena_env):
         task.get_viewer_cfg = original_get_viewer_cfg
 
 
-def _preview_args(*, num_envs: int, env_spacing: float) -> argparse.Namespace:
-    return argparse.Namespace(
+def _preview_cfg(*, num_envs: int, env_spacing: float) -> ArenaEnvBuilderCfg:
+    return ArenaEnvBuilderCfg(
         num_envs=num_envs,
         env_spacing=env_spacing,
-        device="cuda:0",
-        disable_fabric=False,
-        seed=42,
-        solve_relations=True,
-        placement_seed=None,
         resolve_on_reset=False,
-        random_yaw_init=False,
-        mimic=False,
-        distributed=False,
-        presets=None,
     )
 
 
@@ -168,8 +159,8 @@ def run_sim_preview(
     arena_env.name = preview_name
     _preview_log(started_at, f"validated spec → arena env ({preview_name})")
 
-    args = _preview_args(num_envs=num_envs, env_spacing=env_spacing)
-    builder = ArenaEnvBuilder(arena_env, args)
+    builder_cfg = _preview_cfg(num_envs=num_envs, env_spacing=env_spacing)
+    builder = ArenaEnvBuilder(arena_env, builder_cfg)
     policy = ZeroActionPolicy(ZeroActionPolicyCfg())
 
     cache_dir = sim_preview_cache_dir()
@@ -177,13 +168,13 @@ def run_sim_preview(
     first_path = cache_dir / f"{preview_name}_{stamp}_first.png"
     last_path = cache_dir / f"{preview_name}_{stamp}_last.png"
 
-    pool_layouts = args.num_envs * _PREVIEW_LAYOUTS_PER_ENV
+    pool_layouts = builder_cfg.num_envs * _PREVIEW_LAYOUTS_PER_ENV
     env = None
     try:
-        eye, target = _overview_camera(args.num_envs, args.env_spacing)
+        eye, target = _overview_camera(builder_cfg.num_envs, builder_cfg.env_spacing)
         _preview_log(
             started_at,
-            f"solving spatial relations ({args.num_envs} envs, {pool_layouts} layout pool)…",
+            f"solving spatial relations ({builder_cfg.num_envs} envs, {pool_layouts} layout pool)…",
         )
         t_relations = time.monotonic()
         with _skip_task_viewer_cfg(arena_env):
@@ -197,7 +188,7 @@ def run_sim_preview(
         _preview_log(started_at, f"sim scene ready ({time.monotonic() - t_spawn:.1f}s)")
 
         obs, _ = env.reset()
-        _apply_overview_camera(env, app, args.num_envs, args.env_spacing)
+        _apply_overview_camera(env, app, builder_cfg.num_envs, builder_cfg.env_spacing)
 
         if capture_viewport_png(app, first_path) is None:
             raise RuntimeError("failed to capture first-frame viewport screenshot")
@@ -206,7 +197,7 @@ def run_sim_preview(
             action = policy.get_action(env, obs)
             obs, _, _, _, _ = env.step(action)
 
-        _apply_overview_camera(env, app, args.num_envs, args.env_spacing)
+        _apply_overview_camera(env, app, builder_cfg.num_envs, builder_cfg.env_spacing)
 
         if capture_viewport_png(app, last_path) is None:
             raise RuntimeError("failed to capture last-frame viewport screenshot")

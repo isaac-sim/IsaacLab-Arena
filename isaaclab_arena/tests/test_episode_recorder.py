@@ -98,7 +98,7 @@ def create_recorder_env(
     """
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -136,7 +136,7 @@ def create_recorder_env(
     # The builder applies the language-instruction override onto the env cfg's task_description, which the
     # core recorder then records.
     args_cli.language_instruction = LANGUAGE_INSTRUCTION
-    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env_cfg, env_kwargs = env_builder.compose_manager_cfg()
 
     # Per-env reset poses: env 0 lands in the drawer (success), env 1 lands outside (failure).

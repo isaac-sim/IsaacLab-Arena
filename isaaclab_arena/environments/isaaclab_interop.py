@@ -6,6 +6,7 @@
 import argparse
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
+from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse
 from isaaclab_arena_environments.cli import (
     add_environment_cli_args,
     build_environment_from_cli,
@@ -74,7 +75,9 @@ def environment_registration_callback() -> list[str]:
     # Create the environment config
     isaaclab_arena_environment = build_environment_from_cli(environment_factory_type, args)
     # Build and register the environment
-    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args)
+    # TODO(cvolk, 2026-07-06): Remove this Namespace conversion when the Isaac Lab
+    # external callback can receive ArenaEnvBuilderCfg directly.
+    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args))
     env_builder.build_registered()
     # Return the arguments that were not consumed by this callback
     return remaining_args

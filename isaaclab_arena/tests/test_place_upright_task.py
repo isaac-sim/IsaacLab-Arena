@@ -15,7 +15,7 @@ HEADLESS = True
 def get_test_environment(dont_reset_placeable_object_pose: bool, num_envs: int):
     """Returns a scene which we use for these tests."""
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.agibot.agibot import AgibotEmbodiment
     from isaaclab_arena.embodiments.common.arm_mode import ArmMode
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -48,7 +48,7 @@ def get_test_environment(dont_reset_placeable_object_pose: bool, num_envs: int):
         scene=scene,
         task=PlaceUprightTask(mug, mug.orientation_threshold),
     )
-    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env = env_builder.make_registered().unwrapped
     env.reset()
 

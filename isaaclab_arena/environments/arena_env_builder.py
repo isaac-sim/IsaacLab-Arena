@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import argparse
 import datetime
 import gymnasium as gym
 from typing import Any
@@ -21,6 +20,7 @@ from isaaclab_teleop import IsaacTeleopCfg
 
 from isaaclab_arena.assets.registries import DeviceRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
+from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     IsaacArenaManagerBasedMimicEnvCfg,
@@ -55,14 +55,14 @@ class ArenaEnvBuilder:
     def __init__(
         self,
         arena_env: IsaacLabArenaEnvironment,
-        args: argparse.Namespace,
+        cfg: ArenaEnvBuilderCfg,
         hydra_overrides: list[str] | None = None,
     ):
         self.arena_env = arena_env
-        self.args = args
+        self.cfg = cfg
         self.hydra_overrides = hydra_overrides
         self.interactive_scene_cfg = InteractiveSceneCfg(
-            num_envs=args.num_envs, env_spacing=args.env_spacing, replicate_physics=False
+            num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, replicate_physics=False
         )
         self._placement_event_cfg: EventTermCfg | None = None
 
@@ -76,8 +76,9 @@ class ArenaEnvBuilder:
         4. Applies solved positions either by writing fixed per-object initial poses
            or by registering a pooled reset placement event
 
-        Behaviour on reset depends on :attr:`ObjectPlacerParams.resolve_on_reset`
-        (overridable from CLI with --resolve_on_reset / --no-resolve_on_reset):
+        Behaviour on reset depends on ``ObjectPlacerParams.resolve_on_reset``.
+        When the environment does not provide placer parameters, the builder creates
+        them from ``ArenaEnvBuilderCfg``.
 
         * **True** (default) — registers a reset event that draws a fresh layout
           from the pool for each resetting environment.
@@ -89,14 +90,14 @@ class ArenaEnvBuilder:
         placer_params = self.arena_env.placer_params
         if placer_params is None:
             placer_params = ObjectPlacerParams(
-                placement_seed=self.args.placement_seed,
+                placement_seed=self.cfg.placement_seed,
                 solver_params=RelationSolverParams(verbose=False, save_position_history=False),
             )
-            if self.args.resolve_on_reset is not None:
-                placer_params.resolve_on_reset = self.args.resolve_on_reset
+            if self.cfg.resolve_on_reset is not None:
+                placer_params.resolve_on_reset = self.cfg.resolve_on_reset
         self._placement_event_cfg = solve_and_apply_relation_placement(
             objects_with_relations,
-            num_envs=self.args.num_envs,
+            num_envs=self.cfg.num_envs,
             placer_params=placer_params,
         )
 
@@ -200,7 +201,7 @@ class ArenaEnvBuilder:
             An (env_cfg, env_kwargs) tuple.
         """
         # Solve relations before building scene config so positions are captured correctly.
-        if self.args.solve_relations:
+        if self.cfg.solve_relations:
             self._solve_relations()
 
         # Apply Hydra variation overrides. Needs to happen before build-time variations are applied.
@@ -315,12 +316,10 @@ class ArenaEnvBuilder:
 
         episode_length_s = task.get_episode_length_s()
 
-        # Language instruction is optionally overridden on the CLI.
-        language_instruction = getattr(self.args, "language_instruction", None)
-        task_description = language_instruction or task.get_task_description()
+        task_description = self.cfg.language_instruction or task.get_task_description()
 
         # Build the environment configuration
-        if not self.args.mimic:
+        if not self.cfg.mimic:
             env_cfg = IsaacLabArenaManagerBasedRLEnvCfg(
                 observations=observation_cfg,
                 actions=actions_cfg,
@@ -376,11 +375,10 @@ class ArenaEnvBuilder:
             env_cfg = self.arena_env.env_cfg_callback(env_cfg)
 
         # Set seed for Isaac Lab env.
-        env_cfg.seed = self.args.seed
+        env_cfg.seed = self.cfg.seed
 
-        # Apply the --presets CLI flag (e.g. --presets newton).
-        # This runs after the callback so the user's CLI choice is the final authority.
-        presets = getattr(self.args, "presets", None)
+        # Apply the requested physics backend after the callback so it remains the final authority.
+        presets = self.cfg.presets
         if presets is not None:
             from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
 
@@ -397,7 +395,7 @@ class ArenaEnvBuilder:
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:
         """Return the entry point of the environment."""
-        if self.args.mimic:
+        if self.cfg.mimic:
             embodiment = self.arena_env.embodiment
             assert embodiment is not None and not isinstance(
                 embodiment, NoEmbodiment
@@ -443,9 +441,9 @@ class ArenaEnvBuilder:
         )
         cfg = parse_env_cfg(
             name,
-            device=self.args.device,
-            num_envs=self.args.num_envs,
-            use_fabric=not self.args.disable_fabric,
+            device=self.cfg.device,
+            num_envs=self.cfg.num_envs,
+            use_fabric=not self.cfg.disable_fabric,
         )
         return name, cfg, env_kwargs
 
