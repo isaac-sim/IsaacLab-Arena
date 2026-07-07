@@ -10,19 +10,18 @@ import os
 import subprocess
 import sys
 import tempfile
-import traceback
 from pathlib import Path
 from prettytable import PrettyTable
 
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RunStatus
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
-from isaaclab_arena.evaluation.run_execution import build_and_run, build_arena_builder_from_run_cfg
+from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg, execute_experiment
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
-from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir
+from isaaclab_arena.video.video_recording import timestamped_run_dir
 from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 
 
@@ -34,51 +33,6 @@ def list_variations(run_cfgs: list[ArenaRunCfg]) -> None:
         arena_builder = build_arena_builder_from_run_cfg(run_cfg)
         print(f"=== Variations for run '{run_cfg.name}' ===", flush=True)
         print(arena_builder.get_variations_catalogue_as_string(), flush=True)
-
-
-def execute_experiment(
-    run_cfgs: list[ArenaRunCfg],
-    output_dir: str | Path,
-    record_viewport_video: bool = False,
-    record_camera_video: bool = False,
-    continue_on_error: bool = False,
-) -> list[ArenaRunResult]:
-    """Execute an experiment's runs in order and return their results.
-
-    Args:
-        run_cfgs: Ordered run configurations that make up the experiment.
-        output_dir: Directory containing one output subdirectory per run.
-        record_viewport_video: Whether to record the viewport for each run.
-        record_camera_video: Whether to record observation cameras for each run.
-        continue_on_error: Whether to continue with later runs after one fails.
-
-    Returns:
-        One result per attempted run, in execution order.
-    """
-    results = []
-    for run_cfg in run_cfgs:
-        print(f"Running run '{run_cfg.name}'", flush=True)
-        run_output_dir = os.path.join(output_dir, run_cfg.name)
-        try:
-            result = build_and_run(
-                run_cfg,
-                output_dir=run_output_dir,
-                video_cfg=VideoRecordingCfg(
-                    record_viewport_video=record_viewport_video,
-                    record_camera_video=record_camera_video,
-                    video_base_dir=run_output_dir,
-                ),
-            )
-        except Exception as error:
-            results.append(ArenaRunResult(run_name=run_cfg.name, status=RunStatus.FAILED))
-            print(f"Run '{run_cfg.name}' failed with error: {error}")
-            print(f"Traceback: {traceback.format_exc()}")
-            if not continue_on_error:
-                raise
-            continue
-
-        results.append(result)
-    return results
 
 
 def print_runs_info(run_cfgs: list[ArenaRunCfg], results: list[ArenaRunResult]) -> None:
