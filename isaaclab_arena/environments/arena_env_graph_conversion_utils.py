@@ -100,6 +100,7 @@ def _instantiate_assets_from_spec(
         assets_by_node_id[obj.id] = asset_registry.get_asset_by_name(obj.registry_name)(**params)
 
     for ref in graph_spec.object_references or []:
+        assert ref.prim_path is not None, "Object reference must have a prim path"
         assets_by_node_id[ref.id] = ObjectReference(
             name=ref.id,
             prim_path=ref.prim_path,

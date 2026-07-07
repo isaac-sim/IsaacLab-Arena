@@ -40,8 +40,8 @@ class AssetCatalogue:
 
     # A list of embodiment names and their tags for agent to choose from.
     embodiments: list[dict[str, Any]] = field(default_factory=list)
-    # A list of background names for agent to choose from.
-    backgrounds: list[str] = field(default_factory=list)
+    # A list of background names and their tags for agent to choose from.
+    backgrounds: list[dict[str, Any]] = field(default_factory=list)
     # A list of object names and their tags for agent to choose from.
     objects: list[dict[str, Any]] = field(default_factory=list)
 
@@ -50,12 +50,15 @@ class AssetCatalogue:
         embodiment_lines = "\n".join(
             f"- {e['name']}  tags={e['tags']}" for e in sorted(self.embodiments, key=lambda e: e["name"])
         )
+        background_lines = "\n".join(
+            f"- {b['name']}  tags={b['tags']}" for b in sorted(self.backgrounds, key=lambda b: b["name"])
+        )
         object_lines = "\n".join(
             f"- {o['name']}  tags={o['tags']}" for o in sorted(self.objects, key=lambda o: o["name"])
         )
         return (
             f"EMBODIMENTS ({len(self.embodiments)}):\n{embodiment_lines}\n\n"
-            f"BACKGROUNDS: {', '.join(sorted(self.backgrounds))}\n\n"
+            f"BACKGROUNDS ({len(self.backgrounds)}):\n{background_lines}\n\n"
             f"OBJECTS ({len(self.objects)}):\n{object_lines}"
         )
 
@@ -74,7 +77,7 @@ def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalog
         if "embodiment" in tags:
             catalogue.embodiments.append({"name": name, "tags": [t for t in tags if t != "embodiment"]})
         elif "background" in tags:
-            catalogue.backgrounds.append(name)
+            catalogue.backgrounds.append({"name": name, "tags": [t for t in tags if t != "background"]})
         elif "object" in tags:
             catalogue.objects.append({"name": name, "tags": [t for t in tags if t != "object"]})
     return catalogue

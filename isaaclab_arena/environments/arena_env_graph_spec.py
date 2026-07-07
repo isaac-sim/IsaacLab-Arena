@@ -57,14 +57,15 @@ class ArenaEnvGraphSpec(BaseModel):
         """Check unique asset ids, cross-references, task params, and CLI overrides."""
         known_ids = self._assert_asset_ids_unique()
         if self.object_references:
-            self._assert_object_reference_parents(self.object_references, known_ids)
+            valid_parent_ids = {self.background.id, *(obj.id for obj in self.objects)}
+            self._assert_object_reference_parents(self.object_references, valid_parent_ids)
         self._assert_relation_references(self.relations, known_ids)
         self._assert_task_param_references(self.tasks, known_ids)
         self._validate_cli_override_specs()
         return self
 
-    def _assert_asset_ids_unique(self) -> None:
-        """Ensure every asset and object-reference id in this spec is unique."""
+    def _assert_asset_ids_unique(self) -> set[str]:
+        """Ensure every asset and object-reference id in this spec is unique, returning the id set."""
         seen: set[str] = set()
         duplicates: set[str] = set()
         for asset_id in (
@@ -80,12 +81,15 @@ class ArenaEnvGraphSpec(BaseModel):
         return seen
 
     @staticmethod
-    def _assert_object_reference_parents(object_references: list[ObjectReferenceSpec], known_ids: set[str]) -> None:
-        """Ensure each object reference parent exists."""
+    def _assert_object_reference_parents(
+        object_references: list[ObjectReferenceSpec], valid_parent_ids: set[str]
+    ) -> None:
+        """Ensure each object reference's parent is a background or object asset."""
         for ref in object_references:
-            assert (
-                ref.parent_id in known_ids
-            ), f"Object reference '{ref.id}' references unknown parent '{ref.parent_id}'"
+            assert ref.parent_id in valid_parent_ids, (
+                f"Object reference '{ref.id}' references invalid parent '{ref.parent_id}'; "
+                "parent must be the background or an object id"
+            )
 
     @staticmethod
     def _assert_relation_references(relations: list[SpatialRelationSpec], known_ids: set[str]) -> None:

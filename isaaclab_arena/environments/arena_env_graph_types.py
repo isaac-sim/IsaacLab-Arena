@@ -138,13 +138,13 @@ class SpatialRelationSpec(BaseModel):
 def _normalize_relation_params(params: dict[str, Any]) -> dict[str, Any]:
     normalized = dict(params)
     if "position_xyz" in normalized:
-        normalized["position_xyz"] = _coerce_number_sequence(normalized["position_xyz"], 3, "position_xyz")
+        normalized["position_xyz"] = _convert_to_float_tuple(normalized["position_xyz"], 3, "position_xyz")
     if "rotation_xyzw" in normalized:
-        normalized["rotation_xyzw"] = _coerce_number_sequence(normalized["rotation_xyzw"], 4, "rotation_xyzw")
+        normalized["rotation_xyzw"] = _convert_to_float_tuple(normalized["rotation_xyzw"], 4, "rotation_xyzw")
     return normalized
 
 
-def _coerce_number_sequence(value: Any, length: int, field_name: str) -> tuple[float, ...]:
+def _convert_to_float_tuple(value: Any, length: int, field_name: str) -> tuple[float, ...]:
     """Coerce a fixed-length numeric list or tuple (e.g. position or quaternion)."""
     assert isinstance(value, (list, tuple)), f"Field '{field_name}' must be a list or tuple of {length} numbers"
     assert len(value) == length, f"Field '{field_name}' must contain exactly {length} numbers, got {len(value)}"

@@ -183,7 +183,7 @@ def test_graph_spec_rejects_invalid_data():
                 "prim_path": "/World/table",
                 "object_type": "rigid",
             }),
-            "references unknown parent",
+            "references invalid parent",
         ),
         (
             "unknown task kind",
