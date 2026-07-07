@@ -14,8 +14,10 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg, ArenaExperimentResult, ExperimentStatus
-from isaaclab_arena.evaluation.legacy_environment_cli import build_arena_builder_from_legacy_graph
-from isaaclab_arena.evaluation.legacy_job_format import LegacyGraphEnvironmentCfg
+from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
+    LegacyGraphEnvironmentCfg,
+    build_arena_builder_from_legacy_graph,
+)
 from isaaclab_arena.evaluation.policy_runner import rollout_policy
 from isaaclab_arena.evaluation.resource_cleanup import close_experiment_resources
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics

@@ -18,7 +18,7 @@ from isaaclab_arena.evaluation.arena_experiment import ExperimentStatus
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.experiment_execution import build_and_run_experiment
 from isaaclab_arena.evaluation.job_manager import JobManager, Status
-from isaaclab_arena.evaluation.legacy_job_adapter import experiment_cfgs_from_legacy_eval_config
+from isaaclab_arena.evaluation.legacy_eval_config import experiment_cfgs_from_legacy_eval_config
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir
