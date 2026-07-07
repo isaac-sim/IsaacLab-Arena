@@ -179,7 +179,7 @@ class ArenaEnvGraphSpec(BaseModel):
 
     def apply_cli_override_args(self, args_cli: argparse.Namespace) -> None:
         """Apply CLI override flags in place by swapping target assets' ``registry_name``."""
-        # TODO(cvolk, 2026-07-06): Replace Namespace-based graph overrides with a
+        # TODO(cvolk, 2026-07-06): [typed-config-migration] Replace Namespace-based graph overrides with a
         # typed graph-construction boundary in a dedicated environment-graph refactor.
         for override in self.cli_override_specs or []:
             new_name = getattr(args_cli, override.dest, None)

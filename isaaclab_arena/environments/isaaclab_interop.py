@@ -75,7 +75,7 @@ def environment_registration_callback() -> list[str]:
     # Create the environment config
     isaaclab_arena_environment = build_environment_from_cli(environment_factory_type, args)
     # Build and register the environment
-    # TODO(cvolk, 2026-07-06): Remove this Namespace conversion when the Isaac Lab
+    # TODO(cvolk, 2026-07-06): [typed-config-migration] Remove this Namespace conversion when the Isaac Lab
     # external callback can receive ArenaEnvBuilderCfg directly.
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args))
     env_builder.build_registered()

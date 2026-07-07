@@ -111,7 +111,7 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
         )
         return isaaclab_arena_environment
 
-    # TODO(cvolk, 2026-07-03): Delete this CLI-only option when teleoperation runners
+    # TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this CLI-only option when teleoperation runners
     # receive typed configuration instead of the environment subparser namespace.
     @staticmethod
     def _add_legacy_cli_only_args(parser: argparse.ArgumentParser) -> None:

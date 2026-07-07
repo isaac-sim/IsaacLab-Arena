@@ -142,7 +142,7 @@ def build_env_from_env_graph_spec(env_graph_spec_path: Path, args_cli: argparse.
 
     loaded_env_graph_spec = ArenaEnvGraphSpec.from_yaml(env_graph_spec_path)
     arena_env = loaded_env_graph_spec.to_arena_env()
-    # TODO(cvolk, 2026-07-06): Pass ArenaEnvBuilderCfg into this function after this
+    # TODO(cvolk, 2026-07-06): [typed-config-migration] Pass ArenaEnvBuilderCfg into this function after this
     # runner stops carrying all configuration in one argparse Namespace.
     builder = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli))
     env = builder.make_registered()

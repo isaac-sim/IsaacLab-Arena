@@ -17,13 +17,13 @@ if TYPE_CHECKING:
 ArenaEnvironmentCfgT = TypeVar("ArenaEnvironmentCfgT", bound=ArenaEnvironmentCfg)
 
 
-# TODO(cvolk, 2026-07-03): Remove after external factories migrate from argparse to build(cfg).
+# TODO(cvolk, 2026-07-03): [typed-config-migration] Remove after external factories migrate from argparse to build(cfg).
 class ExampleEnvironmentBase(ArenaEnvironmentFactory[ArenaEnvironmentCfgT]):
     """Provide deprecated argparse compatibility for external environment factories."""
 
     @abstractmethod
     def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-        # TODO(cvolk, 2026-07-03): Deprecate this legacy argparse entry point; build(cfg) will
+        # TODO(cvolk, 2026-07-03): [typed-config-migration] Deprecate this legacy argparse entry point; build(cfg) will
         # become the primary environment construction API.
         pass
 

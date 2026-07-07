@@ -87,7 +87,7 @@ def _build_environment_from_cfg(
 ) -> gym.Env:
     """Compile and instantiate a run's environment."""
     hydra_overrides = overrides_from_dict(cfg.variations)
-    # TODO(cvolk, 2026-07-07): Remove the legacy branch when graph environments
+    # TODO(cvolk, 2026-07-07): [typed-config-migration] Remove the legacy branch when graph environments
     # have typed configs and no longer require the argparse construction path.
     arena_builder = (
         build_arena_builder_from_legacy_graph(
@@ -129,7 +129,7 @@ def _build_policy_from_cfg(cfg: ArenaRunCfg) -> PolicyBase:
 
 def _policy_cfg_for_num_envs(policy_cfg: PolicyCfg, num_envs: int) -> PolicyCfg:
     """Align legacy policy batch-size fields with the environment batch size."""
-    # TODO(cvolk, 2026-07-06): Remove the duplicated policy ``num_envs`` fields and
+    # TODO(cvolk, 2026-07-06): [typed-config-migration] Remove the duplicated policy ``num_envs`` fields and
     # this adapter once policies receive the environment batch size as runtime context.
     if "num_envs" not in {config_field.name for config_field in fields(policy_cfg)}:
         return policy_cfg

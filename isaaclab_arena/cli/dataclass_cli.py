@@ -14,7 +14,7 @@ from typing import Any, Literal, TypeVar, get_args, get_origin, get_type_hints
 
 CfgT = TypeVar("CfgT")
 
-# TODO(cvolk, 2026-07-03): Delete this module when Arena frontends receive typed
+# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this module when Arena frontends receive typed
 # configuration objects instead of reconstructing them from argparse Namespaces.
 
 

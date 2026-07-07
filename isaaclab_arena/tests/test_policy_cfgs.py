@@ -20,7 +20,7 @@ from isaaclab_arena.policy.replay_action_policy import ReplayActionPolicy, Repla
 from isaaclab_arena.policy.rsl_rl_action_policy import RslRlActionPolicy, RslRlActionPolicyCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyCfg
 
-# TODO(cvolk, 2026-07-03): Delete the CLI compatibility tests when policy_runner
+# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete the CLI compatibility tests when policy_runner
 # receives typed policy configs directly.
 
 

@@ -7,7 +7,7 @@
 
 from typing import Any
 
-# TODO(cvolk, 2026-07-07): Delete this module with the JSON evaluation-job
+# TODO(cvolk, 2026-07-07): [typed-config-migration] Delete this module with the JSON evaluation-job
 # frontend once eval_runner loads typed YAML experiments directly.
 
 

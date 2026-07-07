@@ -16,7 +16,7 @@ from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaa
 if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
-# TODO(cvolk, 2026-07-07): Delete this module when graph-YAML environments have a
+# TODO(cvolk, 2026-07-07): [typed-config-migration] Delete this module when graph-YAML environments have a
 # typed configuration and factory. Until then, only graph construction crosses the
 # argparse compatibility boundary; policy, rollout, and rebuild execution stay typed.
 

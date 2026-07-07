@@ -26,7 +26,7 @@ from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 
-# TODO(cvolk, 2026-07-06): Delete this direct argparse construction helper when
+# TODO(cvolk, 2026-07-06): [typed-config-migration] Delete this direct argparse construction helper when
 # callers use typed run configuration through eval_runner.
 def load_env(
     arena_env_args: list[str],
@@ -172,7 +172,7 @@ def main():
             device=args_cli.device,
         )
         run_cfgs_by_name = {run_cfg.name: run_cfg for run_cfg in run_cfgs}
-        # TODO(cvolk, 2026-07-06): Replace JobManager with typed run results
+        # TODO(cvolk, 2026-07-06): [typed-config-migration] Replace JobManager with typed run results
         # when the JSON job frontend is removed.
         job_manager = JobManager(experiment_config["jobs"])
         metrics_logger = MetricsLogger()

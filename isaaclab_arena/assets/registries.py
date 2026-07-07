@@ -195,15 +195,16 @@ class PolicyRegistry(Registry):
         self._cfg_types[policy_type] = cfg_type
         self._policy_types_by_cfg_type[cfg_type] = policy_type
 
-    # TODO(cvolk, 2026-07-06): Remove this policy-to-config lookup when policy_runner
-    # and eval_runner receive concrete PolicyCfg instances. Typed run execution
-    # will keep using the reverse config-to-policy registration.
+    # TODO(cvolk, 2026-07-06): [typed-config-migration] Remove this policy-to-config
+    # lookup when policy_runner and eval_runner receive PolicyCfg instances directly.
     def get_policy_cfg_type(self, policy_type: type["PolicyBase"]) -> type["PolicyCfg"]:
         """Get the config type used by the temporary policy frontend adapters."""
         ensure_assets_registered()
         assert policy_type in self._cfg_types, f"Policy {policy_type.__name__} must register a PolicyCfg"
         return self._cfg_types[policy_type]
 
+    # NOTE(cvolk, 2026-07-07): [typed-config-migration] This reverse lookup belongs
+    # to typed run execution and remains after the legacy adapters are removed.
     def get_policy_type_for_cfg(self, cfg: "PolicyCfg") -> type["PolicyBase"]:
         """Get the registered policy that consumes a concrete configuration."""
         ensure_assets_registered()
@@ -265,7 +266,7 @@ class HDRImageRegistry(Registry):
 
 
 class EnvironmentRegistry(Registry):
-    """Registry for Arena environment factories and their concrete configs."""
+    """Registry for Arena environment factories and their configs."""
 
     def __init__(self):
         super().__init__()
@@ -285,9 +286,9 @@ class EnvironmentRegistry(Registry):
         self._cfg_types_by_factory_type[factory_type] = cfg_type
         self._factory_types_by_cfg_type[cfg_type] = factory_type
 
-    # TODO(cvolk, 2026-07-07): Remove this factory-to-config lookup and
-    # _cfg_types_by_factory_type when the legacy JSON adapter no longer resolves an
-    # environment name into its concrete config type.
+    # TODO(cvolk, 2026-07-07): [typed-config-migration] Remove this factory-to-config
+    # lookup and _cfg_types_by_factory_type when the legacy JSON adapter no longer
+    # resolves an environment name into its config type.
     def get_environment_cfg_type(
         self,
         factory_type: type["ArenaEnvironmentFactory"],
@@ -299,12 +300,10 @@ class EnvironmentRegistry(Registry):
         ), f"Environment {factory_type.__name__} must register a config"
         return self._cfg_types_by_factory_type[factory_type]
 
+    # NOTE(cvolk, 2026-07-07): [typed-config-migration] This reverse lookup belongs
+    # to typed run execution and remains after the legacy adapters are removed.
     def get_factory_type_for_cfg(self, cfg: "ArenaEnvironmentCfg") -> type["ArenaEnvironmentFactory"]:
-        """Resolve the registered factory used to execute a typed environment config.
-
-        This reverse lookup is part of the typed runtime path and remains after the
-        legacy argparse and JSON adapters are removed.
-        """
+        """Resolve the registered factory used to execute a typed environment config."""
         ensure_assets_registered()
         cfg_type = type(cfg)
         assert cfg_type in self._factory_types_by_cfg_type, f"Environment config {cfg_type.__name__} is not registered"

@@ -38,7 +38,7 @@ from isaaclab_arena_environments.pick_and_place_maple_table_environment import (
     PickAndPlaceMapleTableEnvironmentCfg,
 )
 
-# TODO(cvolk, 2026-07-03): Delete these compatibility tests with the legacy argparse
+# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete these compatibility tests with the legacy argparse
 # environment adapter.
 
 

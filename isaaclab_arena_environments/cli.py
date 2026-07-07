@@ -38,7 +38,7 @@ def ensure_environments_registered():
 # retired, this section generates their environment-subcommand flags and reconstructs
 # the same typed config from the resulting Namespace. External factories that still
 # inherit ExampleEnvironmentBase continue using their own add_cli_args() and get_env().
-# TODO(cvolk, 2026-07-03): Delete this section and the factories'
+# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this section and the factories'
 # _legacy_argparse_cfg_type declarations when runners receive typed configs directly.
 _FIELDS_PROVIDED_BY_SHARED_PARSERS = {"auto", "enable_cameras", "mimic", "num_envs"}
 
@@ -176,7 +176,7 @@ def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> a
     return args_parser
 
 
-# TODO(cvolk, 2026-07-03): Delete this environment-subparser pipeline with the
+# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this environment-subparser pipeline with the
 # per-environment add_cli_args() and get_env(args_cli) adapters after runner scripts
 # receive typed environment configs.
 def get_isaaclab_arena_environments_cli_parser(
@@ -190,7 +190,7 @@ def get_isaaclab_arena_environments_cli_parser(
     return args_parser
 
 
-# TODO(cvolk, 2026-07-03): Delete this construction pipeline after eval_runner,
+# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this construction pipeline after eval_runner,
 # policy_runner, imitation-learning scripts, and notebooks pass typed environment and
 # builder configs instead of an argparse Namespace.
 def get_arena_builder_from_cli(

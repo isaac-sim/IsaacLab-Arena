@@ -139,7 +139,7 @@ class Job:
         Returns:
             List of Hydra override strings (empty when ``variations`` is empty).
         """
-        # TODO(cvolk, 2026-07-07): Remove this compatibility method with ``Job``
+        # TODO(cvolk, 2026-07-07): [typed-config-migration] Remove this compatibility method with ``Job``
         # when the JSON evaluation frontend is retired.
         return overrides_from_dict(variations)
 
@@ -158,7 +158,7 @@ class Job:
         Raises:
             AssertionError: If 'environment' key is missing or None
         """
-        # TODO(cvolk, 2026-07-07): Remove this compatibility method with ``Job``
+        # TODO(cvolk, 2026-07-07): [typed-config-migration] Remove this compatibility method with ``Job``
         # when the JSON evaluation frontend is retired.
         return legacy_environment_args_to_cli_args(args_dict)
 
