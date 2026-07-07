@@ -201,6 +201,26 @@ def test_graph_spec_rejects_invalid_data():
             lambda data: data["objects"][0].update({"registry_name": "not_a_real_asset"}),
             "Unknown asset registry_name",
         ),
+        (
+            "atomic composition with two subtasks",
+            lambda data: (
+                data["task"].update({"composition": "atomic"}),
+                data["task"]["subtasks"].append({
+                    "kind": "PickAndPlaceTask",
+                    "params": {
+                        "pick_up_object": "cube",
+                        "destination_location": "background",
+                        "background_scene": "background",
+                    },
+                }),
+            ),
+            "composition 'atomic' requires exactly one atomic task",
+        ),
+        (
+            "parallel composition with one subtask",
+            lambda data: data["task"].update({"composition": "parallel"}),
+            "composition 'parallel' requires at least two atomic tasks",
+        ),
     ]
 
     for label, mutate, error_match in cases:
@@ -223,26 +243,6 @@ def test_graph_spec_accepts_missing_object_reference_prim_path():
     data["object_references"][0].pop("prim_path", None)
     spec = ArenaEnvGraphSpec.from_dict(data)
     assert spec.object_references[0].prim_path is None
-
-
-def test_graph_spec_rejects_invalid_composition_task_counts():
-    data = _minimal_env_graph_data()
-    data["task"]["composition"] = "atomic"
-    data["task"]["subtasks"].append({
-        "kind": "PickAndPlaceTask",
-        "params": {
-            "pick_up_object": "cube",
-            "destination_location": "background",
-            "background_scene": "background",
-        },
-    })
-    with pytest.raises(ValidationError, match="composition 'atomic' requires exactly one atomic task"):
-        ArenaEnvGraphSpec.from_dict(data)
-
-    data = _minimal_env_graph_data()
-    data["task"]["composition"] = "parallel"
-    with pytest.raises(ValidationError, match="composition 'parallel' requires at least two atomic tasks"):
-        ArenaEnvGraphSpec.from_dict(data)
 
 
 def _minimal_env_graph_data():

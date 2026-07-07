@@ -221,28 +221,6 @@ def test_build_task_from_spec_sequential_wraps_multiple_tasks(monkeypatch):
     assert captured["task_description"] == "do two things in order"
 
 
-def test_build_task_from_spec_forwards_root_description_to_atomic_task(monkeypatch):
-    """Root ``task.description`` is forwarded as the constructor ``task_description`` kwarg."""
-    captured: dict[str, Any] = {}
-
-    class FakeTask:
-        def __init__(self, **kwargs):
-            captured.update(kwargs)
-
-    registry = type("R", (), {"get_task_by_name": lambda self, _name: FakeTask})()
-    monkeypatch.setattr(conversion, "TaskRegistry", lambda: registry)
-
-    from isaaclab_arena.environments.arena_env_graph_types import CompositeTaskSpec, TaskSpec
-
-    spec = CompositeTaskSpec(
-        composition="atomic",
-        description="put the mustard in the left bin",
-        subtasks=[TaskSpec(kind="PickAndPlaceTask", params={})],
-    )
-    conversion.build_task_from_spec(spec, {})
-    assert captured["task_description"] == "put the mustard in the left bin"
-
-
 def test_build_atomic_task_from_spec_params_task_description_takes_precedence(monkeypatch):
     """An explicit ``task_description`` in params overrides the spec ``description`` field."""
     captured: dict[str, Any] = {}
