@@ -7,15 +7,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
 if TYPE_CHECKING:
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 
 
@@ -72,6 +74,28 @@ class ArenaExperimentCfg:
             )
 
 
+# TODO(cvolk, 2026-07-07): Remove the explicit builder strategy after typed
+# environment configs can be resolved to their registered factories at runtime.
+ArenaBuilderFactory: TypeAlias = Callable[[ArenaExperimentCfg], "ArenaEnvBuilder"]
+
+
+@dataclass(frozen=True)
+class ArenaExperimentPlan:
+    """Temporarily pair a typed experiment config with its environment builder.
+
+    This runtime wrapper carries the environment construction strategy resolved by
+    the legacy adapter. It can be removed once typed environment configs can be
+    resolved to their registered factories directly. It is not part of the portable
+    experiment configuration.
+    """
+
+    experiment_cfg: ArenaExperimentCfg
+    """Portable configuration describing what to evaluate."""
+
+    arena_builder_factory: ArenaBuilderFactory
+    """Runtime strategy used to construct the configured Arena environment."""
+
+
 class ExperimentStatus(Enum):
     """Describe whether an experiment completed or failed."""
 
@@ -89,19 +113,5 @@ class ArenaExperimentResult:
     status: ExperimentStatus
     """Final execution status."""
 
-    started_at: float
-    """Wall-clock start time in seconds since the epoch."""
-
-    ended_at: float
-    """Wall-clock end time in seconds since the epoch."""
-
     metrics: MetricsDataCollection | None = None
     """Metrics aggregated over all successful rebuilds, when provided by the task."""
-
-    error: str | None = None
-    """Formatted traceback when the experiment failed."""
-
-    @property
-    def duration_seconds(self) -> float:
-        """Return the experiment's elapsed wall-clock time in seconds."""
-        return self.ended_at - self.started_at

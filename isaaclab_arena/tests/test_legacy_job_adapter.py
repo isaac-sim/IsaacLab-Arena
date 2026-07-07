@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 from isaaclab_arena.evaluation import legacy_job_adapter
 from isaaclab_arena.evaluation.job_manager import Job
-from isaaclab_arena.evaluation.legacy_job_adapter import LegacyCliEnvironmentCfg, load_legacy_experiments
+from isaaclab_arena.evaluation.legacy_job_adapter import adapt_legacy_eval_config
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
@@ -34,8 +34,8 @@ def test_legacy_jobs_become_concrete_experiment_configs():
         }]
     }
 
-    experiments, arena_builder_factories = load_legacy_experiments(legacy_config, device="cuda:1")
-    (experiment,) = experiments
+    (experiment_plan,) = adapt_legacy_eval_config(legacy_config, device="cuda:1")
+    experiment = experiment_plan.experiment_cfg
 
     assert experiment.name == "maple_table"
     assert experiment.environment == PickAndPlaceMapleTableEnvironmentCfg(
@@ -50,7 +50,7 @@ def test_legacy_jobs_become_concrete_experiment_configs():
     assert experiment.policy == ZeroActionPolicyCfg()
     assert experiment.rollout.num_steps == 20
     assert experiment.variations == {"light": {"intensity": {"enabled": True}}}
-    assert set(arena_builder_factories) == {"maple_table"}
+    assert callable(experiment_plan.arena_builder_factory)
 
 
 def test_legacy_graph_environment_stays_in_the_existing_cli_path():
@@ -68,10 +68,10 @@ def test_legacy_graph_environment_stays_in_the_existing_cli_path():
         }]
     }
 
-    experiments, _ = load_legacy_experiments(legacy_config, device="cpu")
-    (experiment,) = experiments
+    (experiment_plan,) = adapt_legacy_eval_config(legacy_config, device="cpu")
+    experiment = experiment_plan.experiment_cfg
 
-    assert isinstance(experiment.environment, LegacyCliEnvironmentCfg)
+    assert isinstance(experiment.environment, legacy_job_adapter._LegacyCliEnvironmentCfg)
     assert experiment.environment.arguments == Job.convert_args_dict_to_cli_args_list(
         legacy_config["jobs"][0]["arena_env_args"]
     )
@@ -79,7 +79,7 @@ def test_legacy_graph_environment_stays_in_the_existing_cli_path():
 
 def test_legacy_graph_builder_keeps_namespace_inside_adapter(monkeypatch):
     graph_path = Path(TestConstants.test_data_dir) / "pick_and_place_maple_table_env_graph.yaml"
-    experiments, arena_builder_factories = load_legacy_experiments(
+    (experiment_plan,) = adapt_legacy_eval_config(
         {
             "jobs": [{
                 "name": "graph_environment",
@@ -91,7 +91,7 @@ def test_legacy_graph_builder_keeps_namespace_inside_adapter(monkeypatch):
         },
         device="cuda:1",
     )
-    (experiment,) = experiments
+    experiment = experiment_plan.experiment_cfg
     parsed_args = SimpleNamespace()
     expected_builder = object()
     captured = {}
@@ -110,7 +110,7 @@ def test_legacy_graph_builder_keeps_namespace_inside_adapter(monkeypatch):
 
     monkeypatch.setattr(legacy_job_adapter, "get_arena_builder_from_cli", get_builder)
 
-    builder = arena_builder_factories[experiment.name](experiment)
+    builder = experiment_plan.arena_builder_factory(experiment)
 
     assert builder is expected_builder
     assert captured["arguments"] == experiment.environment.arguments
