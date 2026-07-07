@@ -66,20 +66,14 @@ def try_parse_env_graph_spec(data: dict[str, Any]) -> tuple[ArenaEnvGraphSpec | 
 
 
 def collect_agent_ready_task_validation_traces(spec: ArenaEnvGraphSpec) -> list[str]:
-    """Return agent-ready task constraint violations for a parsed spec."""
+    """Return agent-only task constraint violations not enforced by ``ArenaEnvGraphSpec``."""
     traces: list[str] = []
     task_registry = TaskRegistry()
     for task in spec.tasks:
         task_cls = task_registry.get_task_by_name(task.kind)
         if not getattr(task_cls, "agent_ready", False):
             traces.append(f"Task {task.kind!r} is not agent-ready")
-        if not (task.description and task.description.strip()):
-            traces.append(f"Task {task.kind!r} requires a non-empty description")
         for required_param in required_task_init_param_names(task_cls):
             if required_param not in task.params:
                 traces.append(f"Task {task.kind!r} is missing required param {required_param!r}")
-                continue
-            value = task.params[required_param]
-            if not (isinstance(value, str) and value.strip()):
-                traces.append(f"Task {task.kind!r} required param {required_param!r} must be a non-empty string")
     return traces

@@ -73,16 +73,16 @@ class TaskSpec(BaseModel):
             "(e.g. 'PickAndPlaceTask', 'OpenDoorTask'). Must match TaskRegistry exactly."
         ),
     )
+    description: str = Field(
+        min_length=1,
+        description="Natural-language summary of the task (e.g. 'pick up the avocado and place it in the bowl'). ",
+    )
     params: dict[str, Any] = Field(
         default_factory=dict,
         description=(
             "Constructor kwargs for the task (listed in TASKS). Each object param must "
             "name exactly one asset or object-reference node id."
         ),
-    )
-    description: str | None = Field(
-        default=None,
-        description="Natural-language summary of the task (e.g. 'pick up the avocado and place it in the bowl'). ",
     )
 
     @field_validator("kind")
