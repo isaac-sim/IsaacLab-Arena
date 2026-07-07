@@ -14,11 +14,12 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg, ArenaExperimentResult, ExperimentStatus
-from isaaclab_arena.evaluation.job_manager import Job
-from isaaclab_arena.evaluation.legacy_job_adapter import _arena_builder_from_legacy_args, _LegacyCliEnvironmentCfg
+from isaaclab_arena.evaluation.legacy_environment_cli import build_arena_builder_from_legacy_graph
+from isaaclab_arena.evaluation.legacy_job_format import LegacyGraphEnvironmentCfg
 from isaaclab_arena.evaluation.policy_runner import rollout_policy
 from isaaclab_arena.evaluation.resource_cleanup import close_experiment_resources
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
+from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
 
 if TYPE_CHECKING:
@@ -83,17 +84,18 @@ def _build_environment_from_cfg(
     render_mode: str | None,
 ) -> gym.Env:
     """Compile and instantiate an experiment's environment."""
+    hydra_overrides = overrides_from_dict(cfg.variations)
     # TODO(cvolk, 2026-07-07): Remove the legacy branch when graph environments
     # have typed configs and no longer require the argparse construction path.
     arena_builder = (
-        _arena_builder_from_legacy_args(
-            arena_env_args=cfg.environment.arena_env_args,
+        build_arena_builder_from_legacy_graph(
+            cfg.environment,
             device=cfg.environment_builder.device,
             language_instruction=cfg.environment_builder.language_instruction,
-            hydra_overrides=Job.convert_variations_dict_to_hydra_overrides(cfg.variations),
+            hydra_overrides=hydra_overrides,
         )
-        if isinstance(cfg.environment, _LegacyCliEnvironmentCfg)
-        else _build_arena_builder_from_cfg(cfg)
+        if isinstance(cfg.environment, LegacyGraphEnvironmentCfg)
+        else _build_arena_builder_from_cfg(cfg, hydra_overrides)
     )
     _, env_cfg, env_kwargs = arena_builder.build_registered()
     if env_cfg.recorders is not None:
@@ -101,7 +103,7 @@ def _build_environment_from_cfg(
     return arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
 
 
-def _build_arena_builder_from_cfg(cfg: ArenaExperimentCfg) -> ArenaEnvBuilder:
+def _build_arena_builder_from_cfg(cfg: ArenaExperimentCfg, hydra_overrides: list[str]) -> ArenaEnvBuilder:
     """Build an Arena environment builder from a registered typed config."""
     # ArenaEnvBuilder imports pxr modules that must not load before SimulationApp.
     # Keep this runtime import deferred even though the type-only import is at the top.
@@ -112,7 +114,7 @@ def _build_arena_builder_from_cfg(cfg: ArenaExperimentCfg) -> ArenaEnvBuilder:
     return ArenaEnvBuilder(
         arena_environment,
         cfg.environment_builder,
-        hydra_overrides=Job.convert_variations_dict_to_hydra_overrides(cfg.variations),
+        hydra_overrides=hydra_overrides,
     )
 
 

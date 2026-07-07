@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 from copy import deepcopy
 from dataclasses import field, make_dataclass
 from typing import TYPE_CHECKING, Any
@@ -17,6 +18,23 @@ from omegaconf import OmegaConf
 
 if TYPE_CHECKING:
     from isaaclab_arena.variations.variation_base import VariationBase
+
+
+def overrides_from_dict(values: dict[str, Any]) -> list[str]:
+    """Serialize nested variation values as dotted Hydra override strings."""
+    overrides: list[str] = []
+    stack: list[tuple[str, object]] = [("", values)]
+    while stack:
+        prefix, value = stack.pop()
+        if isinstance(value, dict):
+            for key, child_value in value.items():
+                assert key, "Hydra override keys must be non-empty"
+                child_prefix = f"{prefix}.{key}" if prefix else str(key)
+                stack.append((child_prefix, child_value))
+            continue
+        assert prefix, "Hydra override paths must be non-empty"
+        overrides.append(f"{prefix}={json.dumps(value, separators=(',', ':'))}")
+    return overrides
 
 
 def apply_overrides(
