@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 class _LegacyCliEnvironmentCfg(ArenaEnvironmentCfg):
     """Carry environment arguments understood only by the existing CLI adapter."""
 
-    arguments: list[str]
+    arena_env_args: list[str]
     """Arguments passed to the existing environment parser."""
 
 
@@ -180,7 +180,7 @@ def _preserve_argparse_environment(
 ) -> _EnvironmentAdaptation:
     """Keep unsupported environment fields inside the existing CLI path."""
     environment_cfg = _LegacyCliEnvironmentCfg(
-        arguments=Job.convert_args_dict_to_cli_args_list(arena_env_args),
+        arena_env_args=Job.convert_args_dict_to_cli_args_list(arena_env_args),
     )
     return _EnvironmentAdaptation(
         cfg=environment_cfg,
@@ -188,16 +188,20 @@ def _preserve_argparse_environment(
     )
 
 
-def _build_arena_builder_from_legacy_cfg(experiment: ArenaExperimentCfg) -> ArenaEnvBuilder:
-    """Build an Arena environment builder from preserved legacy CLI arguments."""
-    assert isinstance(experiment.environment, _LegacyCliEnvironmentCfg)
+def _arena_builder_from_legacy_args(
+    arena_env_args: list[str],
+    device: str,
+    language_instruction: str | None,
+    hydra_overrides: list[str],
+) -> ArenaEnvBuilder:
+    """Convert preserved legacy arguments into an Arena environment builder."""
     parser = get_isaaclab_arena_environments_cli_parser()
-    args_cli = parser.parse_args(experiment.environment.arguments)
-    args_cli.device = experiment.environment_builder.device
-    args_cli.language_instruction = experiment.environment_builder.language_instruction
+    args_cli = parser.parse_args(arena_env_args)
+    args_cli.device = device
+    args_cli.language_instruction = language_instruction
     return get_arena_builder_from_cli(
         args_cli,
-        hydra_overrides=Job.convert_variations_dict_to_hydra_overrides(experiment.variations),
+        hydra_overrides=hydra_overrides,
     )
 
 
