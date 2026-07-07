@@ -43,7 +43,6 @@ class _EnvironmentCfgs:
 
 def experiment_cfgs_from_legacy_eval_config(
     config: dict[str, Any],
-    *,
     device: str,
 ) -> list[ArenaExperimentCfg]:
     """Create typed experiment configs from a legacy eval-jobs document."""
@@ -59,7 +58,6 @@ def experiment_cfgs_from_legacy_eval_config(
 
 def _experiment_cfg_from_legacy_job(
     job_config: dict[str, Any],
-    *,
     device: str,
 ) -> ArenaExperimentCfg:
     """Create one typed experiment config from a legacy job mapping."""
@@ -91,7 +89,6 @@ def _experiment_cfg_from_legacy_job(
 
 def _environment_cfgs_from_legacy_args(
     arena_env_args: dict[str, Any],
-    *,
     device: str,
     language_instruction: str | None,
 ) -> _EnvironmentCfgs:
