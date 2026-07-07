@@ -16,7 +16,7 @@ import pytest
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
 from isaaclab_arena.tests.test_eval_runner import run_eval_runner, write_jobs_config_to_file
-from isaaclab_arena_environments.cli import ensure_environments_registered
+from isaaclab_arena_environments.cli import add_environment_cli_args, ensure_environments_registered
 
 NUM_STEPS = 2
 HEADLESS = True
@@ -67,21 +67,20 @@ def test_eval_runner_all_environments(tmp_path):
 
 
 def test_all_environments_have_default_args():
-    """Every registered env's ``add_cli_args`` parser must accept zero extra args.
+    """Every registered environment's generated CLI flags must have defaults.
 
-    Enforces that envs declare defaults for all their CLI options so that they
-    can be run without explicit arguments. Each failing env is reported in the
-    assertion message rather than aborting on the first one.
+    Enforces that environment configs declare defaults for all generated CLI
+    options. Each failing environment is reported rather than aborting early.
     """
     ensure_environments_registered()
     env_registry = EnvironmentRegistry()
 
     failures: list[str] = []
     for env_name in sorted(env_registry.get_all_keys()):
-        env_cls = env_registry.get_component_by_name(env_name)
+        environment_factory_type = env_registry.get_component_by_name(env_name)
         # Use a parser that doesn't sys.exit on error so we can collect failures.
         parser = argparse.ArgumentParser(exit_on_error=False)
-        env_cls.add_cli_args(parser)
+        add_environment_cli_args(parser, environment_factory_type)
 
         for action in parser._actions:
             if isinstance(action, argparse._HelpAction):

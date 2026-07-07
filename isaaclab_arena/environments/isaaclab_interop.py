@@ -6,7 +6,11 @@
 import argparse
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
-from isaaclab_arena_environments.cli import ensure_environments_registered
+from isaaclab_arena_environments.cli import (
+    add_environment_cli_args,
+    build_environment_from_cli,
+    ensure_environments_registered,
+)
 
 
 def is_simulation_app_running() -> bool:
@@ -60,15 +64,15 @@ def environment_registration_callback() -> list[str]:
     parser.add_argument("--task", type=str, required=True, help="Name of the IsaacLab Arena environment to register.")
     environment_name = parser.parse_known_args()[0].task
     ensure_environments_registered()
-    environment = EnvironmentRegistry().get_component_by_name(environment_name)()
+    environment_factory_type = EnvironmentRegistry().get_component_by_name(environment_name)
     # Get the full list of environment-specific CLI args.
     AppLauncher.add_app_launcher_args(parser)
     add_isaac_lab_cli_args(parser)
     add_isaaclab_arena_cli_args(parser)
-    environment.add_cli_args(parser)
+    add_environment_cli_args(parser, environment_factory_type)
     args, remaining_args = parser.parse_known_args()
     # Create the environment config
-    isaaclab_arena_environment = environment.get_env(args)
+    isaaclab_arena_environment = build_environment_from_cli(environment_factory_type, args)
     # Build and register the environment
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args)
     env_builder.build_registered()

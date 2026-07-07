@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Build and serve an HTML evaluation report of the per-camera per-episode rollout videos."""
+"""Build and serve an HTML evaluation report of per-episode results and rollout videos."""
 
 from __future__ import annotations
 
@@ -105,7 +105,7 @@ def _scan_results(root: pathlib.Path) -> dict[str, dict[tuple[int, int, int], di
 
 
 def _scan_jobs(root: pathlib.Path) -> list[JobReport]:
-    """Recursively scan ``root`` for recorder mp4s and group them into per-job reports.
+    """Recursively scan ``root`` for episode results and recorder mp4s and group them by job.
 
     Intended for use with two different output folder structures:
     - The eval_runner.py writes one per-job sub-directory under ``root``.
@@ -141,22 +141,29 @@ def _scan_jobs(root: pathlib.Path) -> list[JobReport]:
             cameras.append(camera)
 
     jobs = []
-    for job in sorted(raw):
+    for job in sorted(set(raw) | set(results)):
         episodes = []
-        for env_index in sorted(raw[job]):
+        result_keys_by_env: dict[int, set[tuple[int, int]]] = {}
+        for env_index, rebuild, recorder_episode in results.get(job, {}):
+            result_keys_by_env.setdefault(env_index, set()).add((rebuild, recorder_episode))
+
+        video_envs = raw.get(job, {})
+        for env_index in sorted(set(video_envs) | set(result_keys_by_env)):
             # Renumber (rebuild, recorder_episode) pairs into a contiguous, rebuild-agnostic index.
-            for episode_index, recording_key in enumerate(sorted(raw[job][env_index])):
+            video_recordings = video_envs.get(env_index, {})
+            recording_keys = set(video_recordings) | result_keys_by_env.get(env_index, set())
+            for episode_index, recording_key in enumerate(sorted(recording_keys)):
                 rebuild, recorder_episode = recording_key
                 record = results.get(job, {}).get((env_index, rebuild, recorder_episode), {})
                 episodes.append(
                     EpisodeVideos(
                         env_index=env_index,
                         episode_index=episode_index,
-                        video_by_camera=raw[job][env_index][recording_key],
+                        video_by_camera=video_recordings.get(recording_key, {}),
                         record=record,
                     )
                 )
-        jobs.append(JobReport(name=job, cameras=sorted(cameras_by_job[job]), episodes=episodes))
+        jobs.append(JobReport(name=job, cameras=sorted(cameras_by_job.get(job, [])), episodes=episodes))
     return jobs
 
 
@@ -266,6 +273,11 @@ def build_report(video_dir: str | pathlib.Path, title: str = _DEFAULT_TITLE) -> 
     output.write_text(render_report(report), encoding="utf-8")
     num_episodes = sum(len(job.episodes) for job in report.jobs)
     print(f"Wrote evaluation report with {len(report.jobs)} job(s) and {num_episodes} episode(s) to: {output}")
+    num_videos = sum(len(episode.video_by_camera) for job in report.jobs for episode in job.episodes)
+    if num_episodes == 0:
+        print("[WARNING] No episode results or rollout videos were found; the report is empty.")
+    elif num_videos == 0:
+        print("[INFO] No rollout videos were recorded; the report contains episode results only.")
     return output
 
 

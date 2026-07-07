@@ -6,26 +6,33 @@
 
 from __future__ import annotations
 
-import argparse
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
-from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
+@dataclass
+class DexsuiteLiftEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the Dexsuite lift environment."""
+
+
 @register_environment
-class DexsuiteLiftEnvironment(ExampleEnvironmentBase):
+class DexsuiteLiftEnvironment(ArenaEnvironmentFactory[DexsuiteLiftEnvironmentCfg]):
     """
     Dexsuite Kuka Allegro lift task; RSL-RL config ``DexsuiteKukaAllegroPPORunnerCfg``.
     The robot picks up a cube and lifts it to a target position.
     """
 
     name: str = "dexsuite_lift"
+    _legacy_argparse_cfg_type = DexsuiteLiftEnvironmentCfg
 
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+    def build(self, cfg: DexsuiteLiftEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
         import math
 
         import isaaclab_tasks.manager_based.manipulation.dexsuite  # noqa: F401
@@ -70,7 +77,3 @@ class DexsuiteLiftEnvironment(ExampleEnvironmentBase):
             rl_framework_entry_point="rsl_rl_cfg_entry_point",
             rl_policy_cfg=dexsuite_rl_cfg_entry,
         )
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        pass

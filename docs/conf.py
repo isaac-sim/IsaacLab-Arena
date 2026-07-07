@@ -57,6 +57,7 @@ sys.path.append(os.path.abspath("_ext"))
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "myst_parser",
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
@@ -69,6 +70,17 @@ extensions = [
     "sphinx_multiversion",
     "isaaclab_arena_doc_tools",
 ]
+
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".md": "markdown",
+}
+
+# task_catalog.md embeds scene thumbnails via raw HTML <img> tags inside tables.
+myst_allow_insecure_html = True
+# The RoboLab catalog links to YAML specs that live outside the docs tree; keep
+# Markdown links as normal links instead of resolving them as Sphinx documents.
+myst_all_links_external = True
 
 # put type hints inside the description instead of the signature (easier to read)
 # autodoc_typehints = 'description'
@@ -88,7 +100,7 @@ templates_path = ["_templates"]
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ["_build", "_templates", "Thumbs.db", ".DS_Store", "venv_docs"]
+exclude_patterns = ["_build", "_templates", "Thumbs.db", ".DS_Store", "venv_docs", "README.md"]
 
 # Be picky about missing references
 nitpicky = True  # warns on broken references

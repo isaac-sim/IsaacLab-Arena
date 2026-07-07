@@ -6,3 +6,4 @@ nvidia-sphinx-theme==0.0.8
 snowballstemmer==2.2.0
 setuptools
 sphinx_design==0.6.1
+myst-parser>=3.0.0
