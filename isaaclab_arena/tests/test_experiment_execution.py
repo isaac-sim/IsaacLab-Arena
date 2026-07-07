@@ -6,9 +6,16 @@
 from dataclasses import dataclass
 from types import SimpleNamespace
 
+import pytest
+
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation import experiment_execution
-from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg, ExperimentStatus, RolloutCfg
+from isaaclab_arena.evaluation.arena_experiment import (
+    ArenaExperimentCfg,
+    ArenaExperimentPlan,
+    ExperimentStatus,
+    RolloutCfg,
+)
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
 
@@ -74,9 +81,11 @@ def test_build_and_run_experiment_splits_episode_budget_without_mutating_config(
     monkeypatch.setattr(experiment_execution, "rollout_policy", record_rollout)
 
     result = experiment_execution.build_and_run_experiment(
-        experiment,
+        ArenaExperimentPlan(
+            experiment_cfg=experiment,
+            arena_builder_factory=custom_builder_factory,
+        ),
         output_dir=tmp_path,
-        arena_builder_factory=custom_builder_factory,
     )
 
     assert result.status is ExperimentStatus.COMPLETED
@@ -85,7 +94,7 @@ def test_build_and_run_experiment_splits_episode_budget_without_mutating_config(
     assert experiment.rollout == RolloutCfg(num_episodes=5)
 
 
-def test_build_and_run_experiment_returns_failure_and_closes_resources(monkeypatch, tmp_path):
+def test_build_and_run_experiment_raises_and_closes_resources(monkeypatch, tmp_path):
     closed_resources = []
     environment = _environment()
     policy = _Policy()
@@ -108,14 +117,15 @@ def test_build_and_run_experiment_returns_failure_and_closes_resources(monkeypat
         lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("rollout failed")),
     )
 
-    result = experiment_execution.build_and_run_experiment(
-        _experiment(rollout=RolloutCfg(num_steps=2), num_rebuilds=1),
-        output_dir=tmp_path,
-        arena_builder_factory=lambda cfg: None,
-    )
+    with pytest.raises(RuntimeError, match="rollout failed"):
+        experiment_execution.build_and_run_experiment(
+            ArenaExperimentPlan(
+                experiment_cfg=_experiment(rollout=RolloutCfg(num_steps=2), num_rebuilds=1),
+                arena_builder_factory=lambda cfg: None,
+            ),
+            output_dir=tmp_path,
+        )
 
-    assert result.status is ExperimentStatus.FAILED
-    assert "rollout failed" in result.error
     assert closed_resources == [(policy, environment)]
 
 
@@ -137,9 +147,11 @@ def test_build_and_run_experiment_uses_legacy_step_fallback(monkeypatch, tmp_pat
     )
 
     result = experiment_execution.build_and_run_experiment(
-        _experiment(rollout=RolloutCfg(), num_rebuilds=1),
+        ArenaExperimentPlan(
+            experiment_cfg=_experiment(rollout=RolloutCfg(), num_rebuilds=1),
+            arena_builder_factory=lambda cfg: None,
+        ),
         output_dir=tmp_path,
-        arena_builder_factory=lambda cfg: None,
         fallback_num_steps=17,
     )
 

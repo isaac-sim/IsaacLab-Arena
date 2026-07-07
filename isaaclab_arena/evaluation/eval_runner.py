@@ -10,6 +10,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import traceback
 from pathlib import Path
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
@@ -17,7 +18,7 @@ from isaaclab_arena.evaluation.arena_experiment import ExperimentStatus
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.experiment_execution import build_and_run_experiment
 from isaaclab_arena.evaluation.job_manager import JobManager, Status
-from isaaclab_arena.evaluation.legacy_job_adapter import load_legacy_experiments
+from isaaclab_arena.evaluation.legacy_job_adapter import adapt_legacy_eval_config
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir
@@ -165,11 +166,13 @@ def main():
     enable_cameras_if_required(eval_jobs_config, args_cli)
 
     with SimulationAppContext(args_cli):
-        experiments, arena_builder_factories = load_legacy_experiments(
+        experiment_plans = adapt_legacy_eval_config(
             eval_jobs_config,
             device=args_cli.device,
         )
-        experiments_by_name = {experiment.name: experiment for experiment in experiments}
+        experiment_plans_by_name = {
+            experiment_plan.experiment_cfg.name: experiment_plan for experiment_plan in experiment_plans
+        }
         # TODO(cvolk, 2026-07-06): Replace JobManager with typed experiment results
         # when the JSON job frontend is removed.
         job_manager = JobManager(eval_jobs_config["jobs"])
@@ -190,29 +193,31 @@ def main():
         for job in job_manager:
             if job is None:
                 continue
-            experiment = experiments_by_name[job.name]
+            experiment_plan = experiment_plans_by_name[job.name]
             job_output_dir = os.path.join(run_output_dir, job.name)
-            result = build_and_run_experiment(
-                experiment,
-                output_dir=job_output_dir,
-                arena_builder_factory=arena_builder_factories[job.name],
-                video_cfg=VideoRecordingCfg(
-                    record_viewport_video=args_cli.record_viewport_video,
-                    record_camera_video=args_cli.record_camera_video,
-                    video_base_dir=job_output_dir,
-                ),
-                fallback_num_steps=getattr(args_cli, "num_steps", None),
-            )
+            try:
+                result = build_and_run_experiment(
+                    experiment_plan,
+                    output_dir=job_output_dir,
+                    video_cfg=VideoRecordingCfg(
+                        record_viewport_video=args_cli.record_viewport_video,
+                        record_camera_video=args_cli.record_camera_video,
+                        video_base_dir=job_output_dir,
+                    ),
+                    fallback_num_steps=getattr(args_cli, "num_steps", None),
+                )
+            except Exception as error:
+                job_manager.complete_job(job, metrics={}, status=Status.FAILED)
+                print(f"Job {job.name} failed with error: {error}")
+                print(f"Traceback: {traceback.format_exc()}")
+                if not args_cli.continue_on_error:
+                    raise
+                continue
 
             status = Status.COMPLETED if result.status is ExperimentStatus.COMPLETED else Status.FAILED
             job_manager.complete_job(job, metrics=result.metrics or {}, status=status)
             if result.metrics is not None:
                 metrics_logger.append_job_metrics(job.name, result.metrics)
-
-            if result.status is ExperimentStatus.FAILED:
-                print(f"Job {job.name} failed:\n{result.error}")
-                if not args_cli.continue_on_error:
-                    raise RuntimeError(f"Job {job.name} failed:\n{result.error}")
 
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()

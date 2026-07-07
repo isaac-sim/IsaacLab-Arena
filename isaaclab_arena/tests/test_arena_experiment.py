@@ -67,10 +67,6 @@ def test_experiment_result_records_outcome_separately():
     result = ArenaExperimentResult(
         experiment_name="test_experiment",
         status=ExperimentStatus.COMPLETED,
-        started_at=10.0,
-        ended_at=12.5,
     )
 
-    assert result.duration_seconds == 2.5
     assert result.metrics is None
-    assert result.error is None
