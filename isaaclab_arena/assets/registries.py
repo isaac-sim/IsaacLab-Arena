@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.assets.hdr_image import HDRImage
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
+    from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
     from isaaclab_arena.relations.relations import RelationBase
     from isaaclab_arena.tasks.task_base import TaskBase
@@ -264,10 +265,41 @@ class HDRImageRegistry(Registry):
 
 
 class EnvironmentRegistry(Registry):
-    """Registry for example environment classes."""
+    """Registry for Arena environment factories and their concrete configs."""
 
     def __init__(self):
         super().__init__()
+        self._cfg_types: dict[type["ArenaEnvironmentFactory"], type["ArenaEnvironmentCfg"]] = {}
+        self._factory_types_by_cfg_type: dict[type["ArenaEnvironmentCfg"], type["ArenaEnvironmentFactory"]] = {}
+
+    def register_environment(
+        self,
+        factory_type: type["ArenaEnvironmentFactory"],
+        cfg_type: type["ArenaEnvironmentCfg"],
+    ) -> None:
+        """Register an environment factory and the config it consumes."""
+        assert (
+            cfg_type not in self._factory_types_by_cfg_type
+        ), f"Environment config {cfg_type.__name__} already registered"
+        self.register(factory_type, factory_type.name)
+        self._cfg_types[factory_type] = cfg_type
+        self._factory_types_by_cfg_type[cfg_type] = factory_type
+
+    def get_environment_cfg_type(
+        self,
+        factory_type: type["ArenaEnvironmentFactory"],
+    ) -> type["ArenaEnvironmentCfg"]:
+        """Get the concrete config consumed by a registered environment factory."""
+        ensure_assets_registered()
+        assert factory_type in self._cfg_types, f"Environment {factory_type.__name__} must register a config"
+        return self._cfg_types[factory_type]
+
+    def get_factory_type_for_cfg(self, cfg: "ArenaEnvironmentCfg") -> type["ArenaEnvironmentFactory"]:
+        """Get the registered environment factory that consumes a concrete config."""
+        ensure_assets_registered()
+        cfg_type = type(cfg)
+        assert cfg_type in self._factory_types_by_cfg_type, f"Environment config {cfg_type.__name__} is not registered"
+        return self._factory_types_by_cfg_type[cfg_type]
 
 
 class ObjectRelationLibraryRegistry(Registry):
