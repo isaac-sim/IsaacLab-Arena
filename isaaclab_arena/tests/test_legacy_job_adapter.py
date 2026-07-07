@@ -106,7 +106,7 @@ def test_legacy_graph_builder_keeps_namespace_inside_adapter(monkeypatch):
 
     monkeypatch.setattr(legacy_job_adapter, "get_arena_builder_from_cli", get_builder)
 
-    builder = legacy_job_adapter._build_legacy_cli_arena_builder(experiment)
+    builder = legacy_job_adapter._build_arena_builder_from_legacy_cfg(experiment)
 
     assert builder is expected_builder
     assert captured["arguments"] == experiment.environment.arguments

@@ -269,7 +269,7 @@ class EnvironmentRegistry(Registry):
 
     def __init__(self):
         super().__init__()
-        self._cfg_types: dict[type["ArenaEnvironmentFactory"], type["ArenaEnvironmentCfg"]] = {}
+        self._cfg_types_by_factory_type: dict[type["ArenaEnvironmentFactory"], type["ArenaEnvironmentCfg"]] = {}
         self._factory_types_by_cfg_type: dict[type["ArenaEnvironmentCfg"], type["ArenaEnvironmentFactory"]] = {}
 
     def register_environment(
@@ -282,20 +282,29 @@ class EnvironmentRegistry(Registry):
             cfg_type not in self._factory_types_by_cfg_type
         ), f"Environment config {cfg_type.__name__} already registered"
         self.register(factory_type, factory_type.name)
-        self._cfg_types[factory_type] = cfg_type
+        self._cfg_types_by_factory_type[factory_type] = cfg_type
         self._factory_types_by_cfg_type[cfg_type] = factory_type
 
+    # TODO(cvolk, 2026-07-07): Remove this factory-to-config lookup and
+    # _cfg_types_by_factory_type when the legacy JSON adapter no longer resolves an
+    # environment name into its concrete config type.
     def get_environment_cfg_type(
         self,
         factory_type: type["ArenaEnvironmentFactory"],
     ) -> type["ArenaEnvironmentCfg"]:
-        """Get the concrete config consumed by a registered environment factory."""
+        """Get the config type needed to translate a legacy named environment."""
         ensure_assets_registered()
-        assert factory_type in self._cfg_types, f"Environment {factory_type.__name__} must register a config"
-        return self._cfg_types[factory_type]
+        assert (
+            factory_type in self._cfg_types_by_factory_type
+        ), f"Environment {factory_type.__name__} must register a config"
+        return self._cfg_types_by_factory_type[factory_type]
 
     def get_factory_type_for_cfg(self, cfg: "ArenaEnvironmentCfg") -> type["ArenaEnvironmentFactory"]:
-        """Get the registered environment factory that consumes a concrete config."""
+        """Resolve the registered factory used to execute a typed environment config.
+
+        This reverse lookup is part of the typed runtime path and remains after the
+        legacy argparse and JSON adapters are removed.
+        """
         ensure_assets_registered()
         cfg_type = type(cfg)
         assert cfg_type in self._factory_types_by_cfg_type, f"Environment config {cfg_type.__name__} is not registered"

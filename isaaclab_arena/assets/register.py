@@ -16,9 +16,9 @@ from isaaclab_arena.assets.registries import (
     RetargeterRegistry,
     TaskRegistry,
 )
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 if TYPE_CHECKING:
-    from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
 
@@ -109,7 +109,7 @@ def agent_ready(cls):
 
 
 def _policy_cfg_type_from_policy(policy_type: type["PolicyBase"]) -> type["PolicyCfg"]:
-    """Return the concrete config declared by ``PolicyBase[Cfg]``."""
+    """Read ``PolicyBase[Cfg]`` so the registry can map a config back to its policy."""
     # Importing PolicyBase at module load time creates assets.register -> policy package ->
     # concrete policy -> assets.register. Delay it until a concrete policy is decorated.
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
@@ -130,19 +130,26 @@ def _policy_cfg_type_from_policy(policy_type: type["PolicyBase"]) -> type["Polic
 def _environment_cfg_type_from_factory(
     factory_type: type["ArenaEnvironmentFactory"],
 ) -> type["ArenaEnvironmentCfg"]:
-    """Return the concrete config declared by ``ArenaEnvironmentFactory[Cfg]``."""
-    from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
+    """Read the config type from a factory's ``ArenaEnvironmentFactory[Cfg]`` base.
 
-    factory_bases = [base for base in get_original_bases(factory_type) if get_origin(base) is ArenaEnvironmentFactory]
+    The generic base is the single declaration of which config a factory consumes.
+    Registration records that relationship so typed execution can later resolve the
+    factory from a concrete config instance.
+    """
+    generic_factory_bases = [
+        declared_base
+        for declared_base in get_original_bases(factory_type)
+        if get_origin(declared_base) is ArenaEnvironmentFactory
+    ]
     assert (
-        len(factory_bases) == 1
+        len(generic_factory_bases) == 1
     ), f"{factory_type.__name__} must directly inherit ArenaEnvironmentFactory[ConcreteEnvironmentCfg]"
 
-    cfg_types = get_args(factory_bases[0])
-    assert len(cfg_types) == 1, f"{factory_type.__name__} must declare exactly one environment config"
+    declared_cfg_types = get_args(generic_factory_bases[0])
+    assert len(declared_cfg_types) == 1, f"{factory_type.__name__} must declare exactly one environment config"
 
-    cfg_type = cfg_types[0]
-    assert isinstance(cfg_type, type) and issubclass(
-        cfg_type, ArenaEnvironmentCfg
+    declared_cfg_type = declared_cfg_types[0]
+    assert isinstance(declared_cfg_type, type) and issubclass(
+        declared_cfg_type, ArenaEnvironmentCfg
     ), f"{factory_type.__name__} must use a concrete ArenaEnvironmentCfg subclass"
-    return cfg_type
+    return declared_cfg_type

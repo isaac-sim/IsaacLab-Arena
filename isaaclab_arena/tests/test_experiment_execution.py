@@ -62,8 +62,8 @@ def test_build_and_run_experiment_splits_episode_budget_without_mutating_config(
         received_experiment_cfgs.append(cfg)
         return _environment()
 
-    monkeypatch.setattr(experiment_execution, "_build_environment", make_environment)
-    monkeypatch.setattr(experiment_execution, "_build_policy", lambda cfg: _Policy())
+    monkeypatch.setattr(experiment_execution, "_build_environment_from_cfg", make_environment)
+    monkeypatch.setattr(experiment_execution, "_build_policy_from_cfg", lambda cfg: _Policy())
     monkeypatch.setattr(experiment_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
     monkeypatch.setattr(experiment_execution, "close_experiment_resources", lambda policy, env: None)
 
@@ -90,10 +90,10 @@ def test_build_and_run_experiment_raises_and_closes_resources(monkeypatch, tmp_p
 
     monkeypatch.setattr(
         experiment_execution,
-        "_build_environment",
+        "_build_environment_from_cfg",
         lambda cfg, render_mode: environment,
     )
-    monkeypatch.setattr(experiment_execution, "_build_policy", lambda cfg: policy)
+    monkeypatch.setattr(experiment_execution, "_build_policy_from_cfg", lambda cfg: policy)
     monkeypatch.setattr(experiment_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
     monkeypatch.setattr(
         experiment_execution,
@@ -122,10 +122,10 @@ def test_build_and_run_experiment_requires_a_limit_for_an_unbounded_policy(monke
 
     monkeypatch.setattr(
         experiment_execution,
-        "_build_environment",
+        "_build_environment_from_cfg",
         lambda cfg, render_mode: environment,
     )
-    monkeypatch.setattr(experiment_execution, "_build_policy", lambda cfg: policy)
+    monkeypatch.setattr(experiment_execution, "_build_policy_from_cfg", lambda cfg: policy)
     monkeypatch.setattr(
         experiment_execution,
         "close_experiment_resources",
