@@ -15,7 +15,6 @@ from typing import Any
 from tasks.base_task import BaseTask, TaskCfg
 from workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 
-DEFAULT_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
 POLICY_RUNNER_COMMAND = "/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py"
 
 
@@ -32,14 +31,14 @@ class PolicyRunnerTaskCfg(TaskCfg):
     arena_env_args: list[str] = field(default_factory=list)
     """Env-related arguments for the chosen Arena environment."""
 
-    variations: list[str] = field(default_factory=list)
+    variation_args: list[str] = field(default_factory=list)
     """Hydra-style variation overrides appended to the env, e.g. 'light.hdr_image.enabled=true'."""
 
-    image: str = DEFAULT_IMAGE
+    image: str = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
     """Container image the policy-runner task runs in."""
 
 
-def _normalize_args(args: list[str]) -> str:
+def _arg_list_to_cli_string(args: list[str]) -> str:
     """Flatten argument tokens into a single whitespace-normalized command-line string."""
     return " ".join(" ".join(args).replace("\\\n", " ").split())
 
@@ -88,10 +87,10 @@ class PolicyRunnerTask(BaseTask):
             *self._get_policy_args(),
             "--output_base_dir",
             OSMO_TASK_OUTPUT_DIR,
-            _normalize_args(self.task_cfg.policy_runner_args),
+            _arg_list_to_cli_string(self.task_cfg.policy_runner_args),
             self.get_arena_env_token(),
-            _normalize_args(self.task_cfg.arena_env_args),
-            _normalize_args(self.task_cfg.variations),
+            _arg_list_to_cli_string(self.task_cfg.arena_env_args),
+            _arg_list_to_cli_string(self.task_cfg.variation_args),
         ]
         return " ".join(part for part in parts if part)
 
