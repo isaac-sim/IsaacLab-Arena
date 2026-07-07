@@ -111,6 +111,15 @@ def main() -> None:
         )
 
     st.markdown("### ArenaEnvGraphSpec live editor")
+
+    feedback = st.session_state.pop("_generation_feedback", None)
+    if feedback is not None:
+        kind, message = feedback
+        if kind == "warning":
+            st.warning(message, icon="⚠️")
+        elif kind == "success":
+            st.success(message, icon="✅")
+
     left, right = st.columns([2, 3], gap="large")
     with left:
         render_generation_panel()

@@ -73,7 +73,12 @@ def _get_generation_agent() -> EnvironmentGenerationAgent | None:
     return agent
 
 
-def _apply_generated_yaml(yaml_text: str, *, spec: ArenaEnvGraphSpec | None = None) -> None:
+def _apply_generated_yaml(
+    yaml_text: str,
+    *,
+    spec: ArenaEnvGraphSpec | None = None,
+    validation_error: str | None = None,
+) -> None:
     """Push generated spec YAML into the editor; dashboard preview refreshes in the viz fragment."""
     st.session_state["edited_text"] = yaml_text
     st.session_state["editor_version"] = st.session_state.get("editor_version", 0) + 1
@@ -84,6 +89,9 @@ def _apply_generated_yaml(yaml_text: str, *, spec: ArenaEnvGraphSpec | None = No
         st.session_state["_validation_text"] = yaml_text
         st.session_state["_validation_result"] = SpecParseResult(spec=spec, error=None)
         st.session_state["_defer_viz_render"] = True
+    elif validation_error is not None:
+        st.session_state["_validation_text"] = yaml_text
+        st.session_state["_validation_result"] = SpecParseResult(spec=None, error=validation_error)
     else:
         st.session_state.pop("_validation_text", None)
         st.session_state.pop("_validation_result", None)
@@ -109,22 +117,28 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
         return False, traceback.format_exc()
 
     try:
-        spec, _raw = agent.generate_spec(
+        spec, data = agent.generate_spec(
             prompt,
             asset_catalog=catalogues.asset_catalogue,
             relation_catalog=catalogues.relation_catalogue,
             task_catalog=catalogues.task_catalogue,
         )
-        if spec is None:
-            traces = "\n".join(agent.last_validation_traces) or "unknown validation error"
-            return False, f"Agent returned an invalid spec:\n{traces}"
     except Exception:
         return False, traceback.format_exc()
 
     try:
-        yaml_text = yaml.safe_dump(spec.to_dict(), sort_keys=False)
+        yaml_text = yaml.safe_dump(
+            spec.to_dict() if spec is not None else data,
+            sort_keys=False,
+        )
     except Exception:
         return False, traceback.format_exc()
+
+    if spec is None:
+        traces = "\n".join(agent.last_validation_traces) or "unknown validation error"
+        error = f"Agent returned an invalid spec:\n{traces}"
+        _apply_generated_yaml(yaml_text, validation_error=error)
+        return True, f"Invalid spec loaded into the YAML editor.\n{traces}"
 
     _apply_generated_yaml(yaml_text, spec=spec)
 
@@ -158,10 +172,11 @@ def render_generation_panel() -> None:
         with st.spinner("Generating spec (LLM call)…"):
             ok, message = run_generation_pipeline(st.session_state["generation_prompt"])
         if ok:
-            if "save failed" in message.lower():
-                st.warning(message, icon="⚠️")
+            lowered = message.lower()
+            if "invalid spec" in lowered or "save failed" in lowered:
+                st.session_state["_generation_feedback"] = ("warning", message)
             else:
-                st.success(message, icon="✅")
+                st.session_state["_generation_feedback"] = ("success", message)
             st.rerun()
         else:
             st.error(f"Generation failed\n\n```\n{message}\n```", icon="🛑")

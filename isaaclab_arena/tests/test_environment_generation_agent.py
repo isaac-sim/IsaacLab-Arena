@@ -253,13 +253,14 @@ class TestGenerateSpec:
         invalid = dict(_MINIMAL_SPEC)
         invalid["embodiment"]["registry_name"] = "not_a_real_asset"
         agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(invalid))
-        spec, raw = agent.generate_spec(
+        spec, data = agent.generate_spec(
             "p",
             asset_catalog=_catalog("catalog"),
             relation_catalog=_relation_catalog("RELATIONS"),
             task_catalog=_task_catalog("TASKS"),
         )
-        assert raw
+        assert isinstance(data, dict)
+        assert data["embodiment"]["registry_name"] == "not_a_real_asset"
         assert spec is None
         assert agent.last_validation_traces
         assert any("registry_name" in line for line in agent.last_validation_traces)
@@ -284,13 +285,13 @@ def test_generate_spec_against_live_endpoint():
     task_catalog = _task_catalog(
         "TASKS (1):\n- PickAndPlaceTask (pick_up_object, destination_location, background_scene): Pick-and-place task."
     )
-    spec, raw = agent.generate_spec(
+    spec, data = agent.generate_spec(
         "pick up the avocado and place it in the bowl on the kitchen table",
         asset_catalog=asset_catalog,
         task_catalog=task_catalog,
     )
     assert spec is not None
-    assert isinstance(raw, str) and raw, "agent returned empty raw response"
+    assert isinstance(data, dict) and data, "agent returned empty parsed response"
     assert spec.tasks, "ArenaEnvGraphSpec must contain at least one task"
     assert spec.background.registry_name, "background.registry_name must be populated"
     assert spec.embodiment.registry_name, "embodiment.registry_name must be populated"

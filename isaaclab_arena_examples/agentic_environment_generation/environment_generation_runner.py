@@ -26,7 +26,11 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.agentic_environment_generation.spec_io import DEFAULT_AGENTIC_OUTPUT_DIR, write_env_graph_spec
+from isaaclab_arena.agentic_environment_generation.spec_io import (
+    DEFAULT_AGENTIC_OUTPUT_DIR,
+    write_env_graph_dict,
+    write_env_graph_spec,
+)
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
@@ -99,7 +103,7 @@ def generate_env_graph_spec(args_cli: argparse.Namespace) -> ArenaEnvGraphSpec:
 
     agent_kwargs = {"model": args_cli.model} if args_cli.model else {}
     agent = EnvironmentGenerationAgent(**agent_kwargs)
-    env_graph_spec, _raw_response = agent.generate_spec(
+    env_graph_spec, data = agent.generate_spec(
         args_cli.prompt,
         asset_catalog=asset_catalog,
         relation_catalog=relation_catalog,
@@ -109,9 +113,13 @@ def generate_env_graph_spec(args_cli: argparse.Namespace) -> ArenaEnvGraphSpec:
     # last_validation_traces holds one line per failure, e.g.
     #   "embodiment.registry_name: Unknown asset registry_name 'not_a_real_asset'"
     #   "Task 'PickAndPlaceTask' is missing required param 'pick_up_object'"
-    assert (
-        env_graph_spec is not None
-    ), f"Agent returned an invalid spec. Validation traces: {agent.last_validation_traces}"
+    if env_graph_spec is None:
+        print("\n[runner] validation traces:", flush=True)
+        for line in agent.last_validation_traces:
+            print(f"  {line}", flush=True)
+        invalid_path = write_env_graph_dict(data, args_cli.out_dir)
+        print(f"[runner] wrote invalid spec YAML to {invalid_path}", flush=True)
+        assert False, f"Agent returned an invalid spec. Validation traces: {agent.last_validation_traces}"
     print(
         f"[runner] generated → {env_graph_spec.summary()}, env_name={env_graph_spec.env_name!r}",
         flush=True,

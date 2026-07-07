@@ -8,7 +8,9 @@
 from __future__ import annotations
 
 import re
+import yaml
 from pathlib import Path
+from typing import Any
 
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 
@@ -31,4 +33,15 @@ def write_env_graph_spec(graph_spec: ArenaEnvGraphSpec, out_dir: Path) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     path = env_graph_spec_path(graph_spec.env_name, out_dir)
     graph_spec.write_yaml(path)
+    return path
+
+
+def write_env_graph_dict(data: dict[str, Any], out_dir: Path) -> Path:
+    """Dump a parsed agent response dict to YAML under ``out_dir`` (no validation)."""
+    env_name = data.get("env_name", "unnamed_env")
+    if not isinstance(env_name, str):
+        env_name = "unnamed_env"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = env_graph_spec_path(env_name, out_dir)
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
     return path

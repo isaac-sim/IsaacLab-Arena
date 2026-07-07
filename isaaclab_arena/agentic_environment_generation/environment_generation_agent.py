@@ -232,7 +232,7 @@ class EnvironmentGenerationAgent:
         temperature: float = 0.2,
         max_tokens: int = 4096,
         max_retries: int = 3,
-    ) -> tuple[ArenaEnvGraphSpec | None, str]:
+    ) -> tuple[ArenaEnvGraphSpec | None, dict[str, Any]]:
         """Call the model with user prompt and return the parsed ArenaEnvGraphSpec.
 
         Args:
@@ -253,9 +253,9 @@ class EnvironmentGenerationAgent:
                 retry is a fresh API call.
 
         Returns:
-            A ``(ArenaEnvGraphSpec | None, raw_response)`` tuple. When schema
-            validation fails, ``spec`` is ``None`` and ``agent.last_validation_traces``
-            holds the error lines. The raw text is useful for debugging.
+            A ``(ArenaEnvGraphSpec | None, data)`` tuple. ``data`` is the parsed
+            JSON object from the model. When schema validation fails, ``spec`` is
+            ``None`` and ``agent.last_validation_traces`` holds the error trace.
         """
         asset_catalog = asset_catalog or build_asset_catalogue()
         relation_catalog = relation_catalog or build_relation_catalogue()
@@ -311,7 +311,7 @@ class EnvironmentGenerationAgent:
                 if spec is not None:
                     traces = [*traces, *collect_agent_ready_task_validation_traces(spec)]
                 self.last_validation_traces = traces
-                return spec, text
+                return spec, data
             except Exception as exc:
                 last_exc = exc
 

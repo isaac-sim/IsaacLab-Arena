@@ -28,7 +28,11 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     build_relation_catalogue,
     build_task_catalogue,
 )
-from isaaclab_arena.agentic_environment_generation.spec_io import DEFAULT_AGENTIC_OUTPUT_DIR, write_env_graph_spec
+from isaaclab_arena.agentic_environment_generation.spec_io import (
+    DEFAULT_AGENTIC_OUTPUT_DIR,
+    write_env_graph_dict,
+    write_env_graph_spec,
+)
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 
 DEFAULT_PROMPT = (
@@ -98,21 +102,23 @@ def main() -> None:
         return
 
     agent = EnvironmentGenerationAgent(model=args.model)
-    spec, raw = agent.generate_spec(
+    spec, data = agent.generate_spec(
         args.prompt,
         asset_catalog=asset_catalog,
         relation_catalog=relation_catalog,
         task_catalog=task_catalog,
         temperature=args.temperature,
     )
+    print("=== agent response ===")
+    print(json.dumps(data, indent=2))
+
     if spec is None:
         print("=== validation traces ===")
         for line in agent.last_validation_traces:
             print(line)
+        out_path = write_env_graph_dict(data, DEFAULT_AGENTIC_OUTPUT_DIR)
+        print(f"\n=== wrote invalid ArenaEnvGraphSpec YAML to {out_path} ===")
         return
-
-    print("=== raw agent response ===")
-    print(raw)
 
     print("\n=== parsed ArenaEnvGraphSpec ===")
     print(spec.model_dump_json(indent=2))
