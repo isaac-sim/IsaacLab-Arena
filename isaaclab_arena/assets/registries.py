@@ -38,29 +38,22 @@ class Registry(metaclass=SingletonMeta):
         assert key is not None, "component name is not set"
         self._components[key] = component
 
+    def _ensure_components_registered(self) -> None:
+        """Import the modules that populate this registry."""
+        if isinstance(self, REGISTRIES):
+            ensure_assets_registered()
+
     def is_registered(self, key: str, ensure_loaded: bool = True) -> bool:
-        """Check whether a component is already registered under ``key``.
+        """Check whether a component is already registered under a key.
 
         Args:
             key: The name to look up.
-            ensure_loaded: Whether to load every component before answering.
-
-                Components register themselves lazily: nothing is in the registry until
-                ``ensure_assets_registered()`` imports all the library modules. So a plain
-                membership check can say "not registered" simply because the libraries
-                haven't been imported yet. With ``ensure_loaded=True`` (the default) we
-                import them first, so the answer reflects everything that exists.
-
-                The ``register_*`` decorators pass ``False``. They run *while* those
-                library modules are being imported, and all they need is to spot a
-                duplicate key. Forcing a full load at that moment would re-enter the
-                import that's already in progress and pull in the task/environment modules
-                — which import Isaac Sim's ``pxr``/USD packages. If that happens during
-                pytest collection (before ``SimulationApp()`` starts) the simulator
-                segfaults, because those packages must be imported only after it starts.
+            ensure_loaded: Whether to import the modules that populate this registry.
+                Registration decorators pass False to avoid re-entering imports that are
+                already in progress.
         """
-        if ensure_loaded and isinstance(self, REGISTRIES):
-            ensure_assets_registered()
+        if ensure_loaded:
+            self._ensure_components_registered()
         return key in self._components
 
     def get_component_by_name(self, key: str) -> Any:
@@ -72,8 +65,7 @@ class Registry(metaclass=SingletonMeta):
         Returns:
             Any: The component.
         """
-        if isinstance(self, REGISTRIES):
-            ensure_assets_registered()
+        self._ensure_components_registered()
         assert key in self._components, f"component {key} not found, please check if requested component is registered"
         return self._components[key]
 
@@ -83,8 +75,7 @@ class Registry(metaclass=SingletonMeta):
         Returns:
             list[str]: The list of keys.
         """
-        if isinstance(self, REGISTRIES):
-            ensure_assets_registered()
+        self._ensure_components_registered()
         return list(self._components.keys())
 
 
@@ -188,6 +179,10 @@ class PolicyRegistry(Registry):
         self._cfg_types: dict[type["PolicyBase"], type["PolicyCfg"]] = {}
         self._policy_types_by_cfg_type: dict[type["PolicyCfg"], type["PolicyBase"]] = {}
 
+    def _ensure_components_registered(self) -> None:
+        """Import only the modules that register Arena's built-in policies."""
+        import isaaclab_arena.policy  # noqa: F401
+
     def register_policy(self, policy_type: type["PolicyBase"], cfg_type: type["PolicyCfg"]) -> None:
         """Register a policy and its typed configuration."""
         assert cfg_type not in self._policy_types_by_cfg_type, f"Policy config {cfg_type.__name__} already registered"
@@ -199,7 +194,7 @@ class PolicyRegistry(Registry):
     # lookup when policy_runner and eval_runner receive PolicyCfg instances directly.
     def get_policy_cfg_type(self, policy_type: type["PolicyBase"]) -> type["PolicyCfg"]:
         """Get the config type used by the temporary policy frontend adapters."""
-        ensure_assets_registered()
+        self._ensure_components_registered()
         assert policy_type in self._cfg_types, f"Policy {policy_type.__name__} must register a PolicyCfg"
         return self._cfg_types[policy_type]
 
@@ -207,7 +202,7 @@ class PolicyRegistry(Registry):
     # to typed run execution and remains after the legacy adapters are removed.
     def get_policy_type_for_cfg(self, cfg: "PolicyCfg") -> type["PolicyBase"]:
         """Get the registered policy that consumes a concrete configuration."""
-        ensure_assets_registered()
+        self._ensure_components_registered()
         cfg_type = type(cfg)
         assert cfg_type in self._policy_types_by_cfg_type, f"Policy config {cfg_type.__name__} is not registered"
         return self._policy_types_by_cfg_type[cfg_type]
@@ -218,7 +213,6 @@ class PolicyRegistry(Registry):
         Args:
             name (str): The name of the policy.
         """
-        ensure_assets_registered()
         return self.get_component_by_name(name)
 
 
@@ -294,7 +288,6 @@ class EnvironmentRegistry(Registry):
         factory_type: type["ArenaEnvironmentFactory"],
     ) -> type["ArenaEnvironmentCfg"]:
         """Get the config type needed to translate a legacy named environment."""
-        ensure_assets_registered()
         assert (
             factory_type in self._cfg_types_by_factory_type
         ), f"Environment {factory_type.__name__} must register a config"
@@ -304,7 +297,6 @@ class EnvironmentRegistry(Registry):
     # to typed run execution and remains after the legacy adapters are removed.
     def get_factory_type_for_cfg(self, cfg: "ArenaEnvironmentCfg") -> type["ArenaEnvironmentFactory"]:
         """Resolve the registered factory used to execute a typed environment config."""
-        ensure_assets_registered()
         cfg_type = type(cfg)
         assert cfg_type in self._factory_types_by_cfg_type, f"Environment config {cfg_type.__name__} is not registered"
         return self._factory_types_by_cfg_type[cfg_type]
@@ -342,13 +334,12 @@ class TaskRegistry(Registry):
         return self.get_component_by_name(name)
 
 
-# Registries populated lazily by ensure_assets_registered(). EnvironmentRegistry is
-# excluded: triggering the cascade during env registration causes an env<->tasks cycle.
+# Registries populated by the broad asset loader. PolicyRegistry and
+# EnvironmentRegistry use their own narrower registration boundaries.
 REGISTRIES = (
     AssetRegistry,
     DeviceRegistry,
     RetargeterRegistry,
-    PolicyRegistry,
     HDRImageRegistry,
     ObjectRelationLibraryRegistry,
     TaskRegistry,

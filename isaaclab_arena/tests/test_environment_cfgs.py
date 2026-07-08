@@ -15,6 +15,7 @@ from dataclasses import fields, is_dataclass
 
 import pytest
 
+import isaaclab_arena.assets.registries as registries
 from isaaclab_arena.assets.registries import EnvironmentRegistry
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 from isaaclab_arena_environments.cli import (
@@ -62,6 +63,25 @@ def test_core_environment_factory_does_not_expose_argparse_methods():
     """Keep CLI compatibility outside the core factory contract."""
     assert not hasattr(ArenaEnvironmentFactory, "add_cli_args")
     assert not hasattr(ArenaEnvironmentFactory, "get_env")
+
+
+def test_environment_config_lookups_do_not_load_unrelated_assets(monkeypatch):
+    """Keep registered config lookups independent from global asset registration."""
+
+    def fail_if_assets_are_loaded():
+        pytest.fail("EnvironmentRegistry config lookups must not trigger global asset registration")
+
+    monkeypatch.setattr(registries, "ensure_assets_registered", fail_if_assets_are_loaded)
+
+    environment_registry = EnvironmentRegistry()
+    assert (
+        environment_registry.get_environment_cfg_type(PickAndPlaceMapleTableEnvironment)
+        is PickAndPlaceMapleTableEnvironmentCfg
+    )
+    assert (
+        environment_registry.get_factory_type_for_cfg(PickAndPlaceMapleTableEnvironmentCfg())
+        is PickAndPlaceMapleTableEnvironment
+    )
 
 
 def test_every_registered_cli_adapter_uses_its_typed_cfg_defaults():

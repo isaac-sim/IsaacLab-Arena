@@ -12,6 +12,7 @@ from dataclasses import dataclass
 import pytest
 
 import isaaclab_arena.assets.register as policy_registration
+import isaaclab_arena.assets.registries as registries
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_cli_args, build_policy_from_cli, policy_cfg_from_cli
@@ -36,6 +37,20 @@ def test_core_policies_register_typed_configs(policy_type, cfg_type):
     """Check that each core policy is registered with its concrete config."""
     assert PolicyRegistry().get_policy_cfg_type(policy_type) is cfg_type
     assert issubclass(cfg_type, PolicyCfg)
+
+
+def test_policy_registry_does_not_load_unrelated_assets(monkeypatch):
+    """Keep policy lookups independent from global asset registration."""
+
+    def fail_if_assets_are_loaded():
+        pytest.fail("PolicyRegistry must not trigger global asset registration")
+
+    monkeypatch.setattr(registries, "ensure_assets_registered", fail_if_assets_are_loaded)
+
+    policy_registry = PolicyRegistry()
+    assert "zero_action" in policy_registry.get_all_keys()
+    assert policy_registry.get_policy_cfg_type(ZeroActionPolicy) is ZeroActionPolicyCfg
+    assert policy_registry.get_policy_type_for_cfg(ZeroActionPolicyCfg()) is ZeroActionPolicy
 
 
 def test_policy_registration_resolves_policy_from_concrete_config():
