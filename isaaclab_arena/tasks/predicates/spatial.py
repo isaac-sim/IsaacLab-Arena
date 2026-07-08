@@ -8,9 +8,9 @@ from __future__ import annotations
 import torch
 
 import warp as wp
+from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import SceneEntityCfg
-from isaaclab.assets import RigidObject
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 
 from isaaclab_arena.tasks.predicates.object_settling import get_object_settled_state
@@ -34,9 +34,9 @@ def object_lifted(
     Returns True when ``object_name`` is at least ``distance`` m above a height reference.
     """
 
-    assert (surface_height is not None) != use_settled_state, (
-        "object_lifted requires exactly one of surface_height or use_settled_state"
-    )
+    assert (
+        surface_height is not None
+    ) != use_settled_state, "object_lifted requires exactly one of surface_height or use_settled_state"
 
     object_z = get_root_pos_w(env, object_name)[:, 2]
     if use_settled_state:
@@ -54,7 +54,7 @@ def object_moved(
     env_id: int | None = None,
 ) -> torch.Tensor:
     """Checks if an object has moved.
-    
+
     Returns True when object_name's linear speed exceeds velocity_threshold (m/s).
     """
 
@@ -103,9 +103,9 @@ def object_on_destination(
     force_threshold: float = 1.0,
     velocity_threshold: float = 0.5,
 ) -> torch.Tensor:
-    """ Checks if an object is in contact with it's detination location via a contact sensor.
+    """Checks if an object is in contact with it's destination location via a contact sensor.
 
-    Returns True when the object is in contact with destination above a force threshold 
+    Returns True when the object is in contact with destination above a force threshold
     and below a velocity threshold.
     """
 
@@ -143,7 +143,7 @@ def objects_on_destinations(
     Returns True only when ALL objects in the list satisfy the destination condition.
     See `object_on_destination` for details on the single-object logic.
     """
-    
+
     condition_met = torch.ones((env.unwrapped.num_envs), device=env.unwrapped.device, dtype=torch.bool)
     for object_cfg, contact_sensor_cfg in zip(object_cfg_list, contact_sensor_cfg_list):
         single_condition = object_on_destination(

@@ -46,7 +46,7 @@ def objects_settled(
 def get_object_settled_state(env, name: str) -> tuple[torch.Tensor, torch.Tensor]:
     """Return the settled state of an object.
 
-    The settled state is a tuple of two tensors, the settled pos and the settled mask. 
+    The settled state is a tuple of two tensors, the settled pos and the settled mask.
     The settled pos (num_envs, 3) is meaningful when the settled mask (num_envs,) is True.
     """
     entry = _get_entry(env, name)
