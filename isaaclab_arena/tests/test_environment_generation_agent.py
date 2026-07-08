@@ -18,6 +18,7 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
 )
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import TaskCompositionType
+from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -135,6 +136,11 @@ _KITCHEN_PASS1: dict = {
     ],
 }
 
+_KITCHEN_PRIM_TREE = [
+    UsdPrimRecord("counter_right_main_group/top_geometry", "base"),
+    UsdPrimRecord("fridge_main_group", "articulation", ("fridge_door_joint",)),
+]
+
 _RESOLVE_RESPONSE: dict = {
     "object_references": [
         {
@@ -246,14 +252,14 @@ class TestGenerateSpec:
         raw = json.dumps(payload).replace("\\t", "\t")
         assert "\t" in raw
         agent.client.chat.completions.create.return_value = _chat_response(content=raw)
-        spec, _ = agent.generate_spec(
+        result = agent.generate_spec(
             "p",
             asset_catalog=_catalog("catalog"),
             relation_catalog=_relation_catalog("RELATIONS"),
             task_catalog=_task_catalog("TASKS"),
         )
-        assert spec is not None
-        assert "\t" in spec.env_name
+        assert isinstance(result, ArenaEnvGraphSpec)
+        assert "\t" in result.env_name
 
     def test_user_message_contains_catalog_and_prompt(self, agent):
         agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
@@ -289,14 +295,14 @@ class TestGenerateSpec:
             ConnectionError("timeout"),
             _chat_response(content=json.dumps(_MINIMAL_SPEC)),
         ]
-        spec, _ = agent.generate_spec(
+        result = agent.generate_spec(
             "p",
             asset_catalog=_catalog("catalog"),
             relation_catalog=_relation_catalog("RELATIONS"),
             task_catalog=_task_catalog("TASKS"),
         )
-        assert spec is not None
-        assert spec.background.registry_name == "maple_table_robolab"
+        assert isinstance(result, ArenaEnvGraphSpec)
+        assert result.background.registry_name == "maple_table_robolab"
         assert agent.client.chat.completions.create.call_count == 2
 
     def test_raises_after_api_errors_exhaust_retries(self, stub_openai):
@@ -316,37 +322,35 @@ class TestGenerateSpec:
     @patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.resolve_asset_usd_path")
     def test_two_pass_generate_spec_resolves_object_references(self, mock_resolve_usd, mock_load_tree, agent):
         mock_resolve_usd.return_value = "/tmp/scene.usd"
-        mock_load_tree.return_value = []
+        mock_load_tree.return_value = _KITCHEN_PRIM_TREE
         agent.client.chat.completions.create.side_effect = [
             _chat_response(content=json.dumps(_KITCHEN_PASS1)),
             _chat_response(content=json.dumps(_RESOLVE_RESPONSE)),
         ]
-        spec, data = agent.generate_spec(
+        result = agent.generate_spec(
             "kitchen task",
             asset_catalog=_catalog("catalog"),
             relation_catalog=_relation_catalog("RELATIONS"),
             task_catalog=_task_catalog("TASKS"),
         )
-        assert spec is not None
+        assert isinstance(result, ArenaEnvGraphSpec)
         assert agent.client.chat.completions.create.call_count == 2
-        assert data == spec.to_dict()
-        counter = next(ref for ref in spec.object_references if ref.id == "counter_top")
+        counter = next(ref for ref in result.object_references if ref.id == "counter_top")
         assert counter.prim_path == "counter_right_main_group/top_geometry"
-        spec.validate_resolved()
+        result.validate_resolved()
 
-    def test_returns_none_with_validation_traces_on_invalid_spec(self, agent):
+    def test_returns_dict_with_validation_traces_on_invalid_spec(self, agent):
         invalid = dict(_MINIMAL_SPEC)
         invalid["embodiment"]["registry_name"] = "not_a_real_asset"
         agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(invalid))
-        spec, data = agent.generate_spec(
+        result = agent.generate_spec(
             "p",
             asset_catalog=_catalog("catalog"),
             relation_catalog=_relation_catalog("RELATIONS"),
             task_catalog=_task_catalog("TASKS"),
         )
-        assert isinstance(data, dict)
-        assert data["embodiment"]["registry_name"] == "not_a_real_asset"
-        assert spec is None
+        assert isinstance(result, dict)
+        assert result["embodiment"]["registry_name"] == "not_a_real_asset"
         assert agent.last_validation_traces
         assert any("registry_name" in line for line in agent.last_validation_traces)
 
@@ -408,9 +412,8 @@ def _assert_five_bananas_parallel_pick_and_place_spec(spec: ArenaEnvGraphSpec) -
 def test_generate_spec_atomic_pick_and_place_against_live_endpoint():
     """Live test: avocado into bowl yields an atomic pick-and-place task."""
     agent = EnvironmentGenerationAgent()
-    spec, data = agent.generate_spec(_ATOMIC_PICK_AND_PLACE_PROMPT)
-    assert spec is not None, f"spec validation failed: {agent.last_validation_traces}"
-    assert isinstance(data, dict) and data, "agent returned empty parsed response"
+    spec = agent.generate_spec(_ATOMIC_PICK_AND_PLACE_PROMPT)
+    assert isinstance(spec, ArenaEnvGraphSpec), f"spec validation failed: {agent.last_validation_traces}"
     _assert_atomic_pick_and_place_spec(spec)
 
 
@@ -418,9 +421,8 @@ def test_generate_spec_atomic_pick_and_place_against_live_endpoint():
 def test_generate_spec_five_bananas_parallel_pick_and_place_against_live_endpoint():
     """Live test: five bananas into one bin yields a parallel composite task."""
     agent = EnvironmentGenerationAgent()
-    spec, data = agent.generate_spec(_FIVE_BANANAS_PROMPT)
-    assert spec is not None, f"spec validation failed: {agent.last_validation_traces}"
-    assert isinstance(data, dict) and data, "agent returned empty parsed response"
+    spec = agent.generate_spec(_FIVE_BANANAS_PROMPT)
+    assert isinstance(spec, ArenaEnvGraphSpec), f"spec validation failed: {agent.last_validation_traces}"
     _assert_five_bananas_parallel_pick_and_place_spec(spec)
 
 
@@ -450,27 +452,26 @@ def test_resolve_usd_prim_robocasa_kitchen_counter_and_fridge():
         "droid picks up an avocado on the counter top and places it in a plate; "
         "other veggies on the counter as distractors; then open the fridge door."
     )
-    spec, data = agent.generate_spec(
+    result = agent.generate_spec(
         prompt,
         asset_catalog=asset_catalog,
         task_catalog=task_catalog,
     )
-    assert spec is not None, f"spec validation failed: {agent.last_validation_traces}"
-    assert isinstance(data, dict) and data, "agent returned empty parsed response"
-    assert spec.object_references, "expected object_references for counter and fridge"
-    spec.validate_resolved()
+    assert isinstance(result, ArenaEnvGraphSpec), f"spec validation failed: {agent.last_validation_traces}"
+    assert result.object_references, "expected object_references for counter and fridge"
+    result.validate_resolved()
 
     usd_path = resolve_asset_usd_path(
         AssetSpec(
-            id=spec.background.id,
-            registry_name=spec.background.registry_name,
-            params=spec.background.params,
+            id=result.background.id,
+            registry_name=result.background.registry_name,
+            params=result.background.params,
         ),
     )
     prim_paths = {record.relative_path for record in load_usd_prim_tree(usd_path)}
 
     counter_ref = next(
-        (ref for ref in spec.object_references if ref.object_type.value == "base"),
+        (ref for ref in result.object_references if ref.object_type.value == "base"),
         None,
     )
     assert counter_ref is not None, "expected a base object_reference for the counter anchor"
@@ -478,7 +479,7 @@ def test_resolve_usd_prim_robocasa_kitchen_counter_and_fridge():
     assert "top_geometry" in (counter_ref.prim_path or ""), "counter anchor should reference a top_geometry prim"
 
     fridge_ref = next(
-        (ref for ref in spec.object_references if ref.object_type.value == "articulation"),
+        (ref for ref in result.object_references if ref.object_type.value == "articulation"),
         None,
     )
     assert fridge_ref is not None, "expected an articulation object_reference for the fridge"
@@ -486,6 +487,6 @@ def test_resolve_usd_prim_robocasa_kitchen_counter_and_fridge():
     assert "fridge_main_group" in (fridge_ref.prim_path or "")
     assert fridge_ref.params.get("openable_joint_name"), "fridge ref needs openable_joint_name"
 
-    anchor = next(rel for rel in spec.relations if rel.kind == "is_anchor")
+    anchor = next(rel for rel in result.relations if rel.kind == "is_anchor")
     assert anchor.subject == counter_ref.id
-    assert anchor.subject != spec.background.id
+    assert anchor.subject != result.background.id

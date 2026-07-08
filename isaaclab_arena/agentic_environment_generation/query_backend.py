@@ -25,14 +25,6 @@ class StructuredOutputRequest:
     retry_label: str
 
 
-@dataclass(frozen=True)
-class StructuredOutputResult:
-    """Parsed structured-output response from the model."""
-
-    data: dict[str, Any]
-    raw_text: str
-
-
 class QueryBackend:
     """Shared LLM JSON-schema runner with retry and tolerant JSON parsing."""
 
@@ -51,7 +43,7 @@ class QueryBackend:
         self.max_tokens = max_tokens
         self.max_retries = max_retries
 
-    def run_json(self, request: StructuredOutputRequest) -> StructuredOutputResult:
+    def run_json(self, request: StructuredOutputRequest) -> dict[str, Any]:
         """Call a JSON-schema structured-output endpoint and parse the response as JSON."""
         messages = [
             {"role": "system", "content": request.system},
@@ -89,7 +81,7 @@ class QueryBackend:
                 # ``strict=False`` lets json.loads accept unescaped control characters
                 # (e.g. literal tabs) inside JSON strings — DeepSeek-v4-flash is known
                 # to emit these.
-                return StructuredOutputResult(data=json.loads(text, strict=False), raw_text=text)
+                return json.loads(text, strict=False)
             except Exception as exc:
                 last_exc = exc
         raise RuntimeError(

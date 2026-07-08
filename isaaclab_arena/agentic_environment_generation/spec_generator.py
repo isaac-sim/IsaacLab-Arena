@@ -76,7 +76,7 @@ class SpecGenerator:
     ) -> tuple[ArenaEnvGraphSpec | None, dict[str, Any]]:
         """Generate an ArenaEnvGraphSpec from a natural-language prompt."""
         vocabulary = build_vocabulary(asset_catalog, relation_catalog, task_catalog)
-        result = self._query_backend.run_json(
+        data = self._query_backend.run_json(
             StructuredOutputRequest(
                 schema_name="ArenaEnvGraphSpec",
                 schema=self._schema,
@@ -85,7 +85,6 @@ class SpecGenerator:
                 retry_label="generate_spec",
             )
         )
-        data = result.data
         spec, parse_traces = try_parse_env_graph_spec(data)
         traces.extend(parse_traces)
         if spec is not None:

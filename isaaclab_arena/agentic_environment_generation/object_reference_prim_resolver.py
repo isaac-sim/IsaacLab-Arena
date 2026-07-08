@@ -138,7 +138,7 @@ class ObjectReferencePrimResolver:
         """Always resolve object_reference prim_path values against the background USD prim tree."""
         usd_path = resolve_asset_usd_path(spec.background)
         prim_tree = load_usd_prim_tree(usd_path)
-        result = self._query_backend.run_json(
+        data = self._query_backend.run_json(
             StructuredOutputRequest(
                 schema_name="ResolvedObjectReferences",
                 schema=self._schema,
@@ -148,7 +148,7 @@ class ObjectReferencePrimResolver:
             )
         )
         resolved = ResolvedObjectReferences.model_validate(
-            result.data,
+            data,
             context={"prim_tree": prim_tree},
         ).object_references
         spec = _merge_resolved_object_references(spec, resolved)

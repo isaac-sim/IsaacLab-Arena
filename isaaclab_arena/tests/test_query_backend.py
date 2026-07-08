@@ -27,7 +27,7 @@ def test_run_json_parses_content_channel():
     client = MagicMock()
     client.chat.completions.create.return_value = _chat_response(content='{"ok": true}')
     backend = QueryBackend(client, "test-model")
-    result = backend.run_json(
+    data = backend.run_json(
         StructuredOutputRequest(
             schema_name="TestSchema",
             schema={"type": "object"},
@@ -36,8 +36,7 @@ def test_run_json_parses_content_channel():
             retry_label="test",
         )
     )
-    assert result.data == {"ok": True}
-    assert result.raw_text == '{"ok": true}'
+    assert data == {"ok": True}
 
 
 def test_run_json_parses_reasoning_content_channel():
@@ -47,7 +46,7 @@ def test_run_json_parses_reasoning_content_channel():
         reasoning_content='{"ok": true}',
     )
     backend = QueryBackend(client, "test-model")
-    result = backend.run_json(
+    data = backend.run_json(
         StructuredOutputRequest(
             schema_name="TestSchema",
             schema={"type": "object"},
@@ -56,14 +55,14 @@ def test_run_json_parses_reasoning_content_channel():
             retry_label="test",
         )
     )
-    assert result.data == {"ok": True}
+    assert data == {"ok": True}
 
 
 def test_run_json_tolerates_unescaped_control_chars():
     client = MagicMock()
     client.chat.completions.create.return_value = _chat_response(content='{"name": "pick\tup"}')
     backend = QueryBackend(client, "test-model")
-    result = backend.run_json(
+    data = backend.run_json(
         StructuredOutputRequest(
             schema_name="TestSchema",
             schema={"type": "object"},
@@ -72,7 +71,7 @@ def test_run_json_tolerates_unescaped_control_chars():
             retry_label="test",
         )
     )
-    assert result.data["name"] == "pick\tup"
+    assert data["name"] == "pick\tup"
 
 
 def test_run_json_retries_then_succeeds():
@@ -82,7 +81,7 @@ def test_run_json_retries_then_succeeds():
         _chat_response(content='{"ok": true}'),
     ]
     backend = QueryBackend(client, "test-model", max_retries=3)
-    result = backend.run_json(
+    data = backend.run_json(
         StructuredOutputRequest(
             schema_name="TestSchema",
             schema={"type": "object"},
@@ -91,7 +90,7 @@ def test_run_json_retries_then_succeeds():
             retry_label="test",
         )
     )
-    assert result.data == {"ok": True}
+    assert data == {"ok": True}
     assert client.chat.completions.create.call_count == 2
 
 
