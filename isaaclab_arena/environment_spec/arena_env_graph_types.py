@@ -44,14 +44,6 @@ class AssetSpec(BaseModel):
         return value
 
 
-def is_unresolved_prim_path(value: str | None) -> bool:
-    """Return True when prim_path is still a pass-1 placeholder."""
-    if value is None:
-        return True
-    stripped = value.strip()
-    return stripped == "" or stripped.lower() == "unknown"
-
-
 def isaaclab_prim_path_for_background_ref(registry_name: str, prim_path: str) -> str:
     """Expand a relative prim suffix to the Isaac Lab runtime prim path."""
     if prim_path.startswith("{ENV_REGEX_NS}/"):
@@ -80,26 +72,6 @@ class ObjectReferenceSpec(BaseModel):
         ),
     )
     params: dict[str, Any] = Field(default_factory=dict)
-
-    def validate_resolved(self) -> None:
-        """Assert prim_path is set to a resolved relative suffix."""
-        assert not is_unresolved_prim_path(
-            self.prim_path
-        ), f"Object reference '{self.id}' requires a resolved prim_path, got {self.prim_path!r}"
-
-
-class ResolveObjectReferencePrimPathsResult(BaseModel):
-    """Pass-2 resolver output: resolved prim_path values for object_reference nodes."""
-
-    object_references: list[ObjectReferenceSpec] = Field(
-        description="Resolved object references with prim_path set to a relative suffix under the parent background.",
-    )
-
-    @model_validator(mode="after")
-    def _all_prim_paths_resolved(self) -> ResolveObjectReferencePrimPathsResult:
-        for ref in self.object_references:
-            ref.validate_resolved()
-        return self
 
 
 class TaskSpec(BaseModel):

@@ -249,7 +249,7 @@ def test_graph_spec_rejects_object_reference_without_prim_path_at_build():
     data = ArenaEnvGraphSpec.from_yaml(_GRAPH).to_dict()
     data["object_references"][0]["prim_path"] = None
     spec = ArenaEnvGraphSpec.from_dict(data)
-    with pytest.raises(AssertionError, match="requires a resolved prim_path"):
+    with pytest.raises(AssertionError, match="requires a prim_path"):
         spec.validate_resolved()
 
 

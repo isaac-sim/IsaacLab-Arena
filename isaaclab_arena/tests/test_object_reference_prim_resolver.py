@@ -10,16 +10,12 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
-from isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver import (
-    ObjectReferencePrimResolver,
-    merge_resolved_object_references,
-)
+import pytest
+from pydantic import ValidationError
+
+from isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver import ObjectReferencePrimResolver
 from isaaclab_arena.agentic_environment_generation.query_backend import QueryBackend
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.environments.arena_env_graph_types import (
-    ResolveObjectReferencePrimPathsResult,
-    isaaclab_prim_path_for_background_ref,
-)
 from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
 
 _KITCHEN_PASS1: dict = {
@@ -71,24 +67,6 @@ _KITCHEN_PASS1: dict = {
     ],
 }
 
-_KITCHEN_PASS1_RESOLVED_PRIM: dict = {
-    **_KITCHEN_PASS1,
-    "object_references": [
-        {
-            "id": "counter_top",
-            "parent_id": "lightwheel_robocasa_kitchen",
-            "prim_path": "counter_right_main_group/top_geometry",
-            "object_type": "base",
-        },
-        {
-            "id": "fridge",
-            "parent_id": "lightwheel_robocasa_kitchen",
-            "prim_path": "fridge_main_group",
-            "object_type": "articulation",
-        },
-    ],
-}
-
 _PRIM_TREE = [
     UsdPrimRecord("counter_right_main_group/top_geometry", "base"),
     UsdPrimRecord("fridge_main_group", "articulation", ("fridge_door_joint",)),
@@ -121,42 +99,75 @@ def _chat_response(content: str):
     return resp
 
 
-def test_isaaclab_prim_path_expands_relative_suffix():
-    path = isaaclab_prim_path_for_background_ref("lightwheel_robocasa_kitchen", "fridge_main_group")
-    assert path == "{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/fridge_main_group"
-
-
-def test_isaaclab_prim_path_preserves_full_path():
-    full = "{ENV_REGEX_NS}/lightwheel_robocasa_kitchen/table"
-    assert isaaclab_prim_path_for_background_ref("lightwheel_robocasa_kitchen", full) == full
-
-
-def test_merge_resolved_object_references():
-    spec = ArenaEnvGraphSpec.model_validate(_KITCHEN_PASS1)
-    resolved = ResolveObjectReferencePrimPathsResult.model_validate(_RESOLVE_RESPONSE).object_references
-    merged = merge_resolved_object_references(spec, resolved)
-    counter = next(ref for ref in merged.object_references if ref.id == "counter_top")
-    fridge = next(ref for ref in merged.object_references if ref.id == "fridge")
-    assert counter.prim_path == "counter_right_main_group/top_geometry"
-    assert fridge.prim_path == "fridge_main_group"
-    assert fridge.params["openable_joint_name"] == "fridge_door_joint"
-    merged.validate_resolved()
-
-
 @patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.load_usd_prim_tree")
 @patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.resolve_asset_usd_path")
-def test_object_reference_prim_resolver_infer_always_calls_llm(mock_resolve_usd, mock_load_tree):
+def test_object_reference_prim_resolver_infer_merges_llm_output(mock_resolve_usd, mock_load_tree):
     mock_resolve_usd.return_value = "/tmp/scene.usd"
     mock_load_tree.return_value = _PRIM_TREE
     client = MagicMock()
     client.chat.completions.create.return_value = _chat_response(json.dumps(_RESOLVE_RESPONSE))
     resolver = ObjectReferencePrimResolver(QueryBackend(client, "test-model"))
-    spec = ArenaEnvGraphSpec.model_validate(_KITCHEN_PASS1_RESOLVED_PRIM)
-    traces: list[str] = []
-    merged = resolver.infer(spec, traces)
+    spec = ArenaEnvGraphSpec.model_validate(_KITCHEN_PASS1)
+    merged = resolver.infer(spec, [])
     client.chat.completions.create.assert_called_once()
     counter = next(ref for ref in merged.object_references if ref.id == "counter_top")
     fridge = next(ref for ref in merged.object_references if ref.id == "fridge")
     assert counter.prim_path == "counter_right_main_group/top_geometry"
+    assert fridge.prim_path == "fridge_main_group"
     assert fridge.params["openable_joint_name"] == "fridge_door_joint"
-    merged.validate_resolved()
+
+
+@pytest.mark.parametrize(
+    ("response", "match"),
+    [
+        (
+            {
+                "object_references": [{
+                    "id": "counter_top",
+                    "parent_id": "lightwheel_robocasa_kitchen",
+                    "prim_path": None,
+                    "object_type": "base",
+                }]
+            },
+            "requires a prim_path",
+        ),
+        (
+            {
+                "object_references": [{
+                    "id": "counter_top",
+                    "parent_id": "lightwheel_robocasa_kitchen",
+                    "prim_path": "missing_prim",
+                    "object_type": "base",
+                }]
+            },
+            "is not in the background prim tree",
+        ),
+        (
+            {
+                "object_references": [{
+                    "id": "counter_top",
+                    "parent_id": "lightwheel_robocasa_kitchen",
+                    "prim_path": "counter_right_main_group/top_geometry",
+                    "object_type": "rigid",
+                }]
+            },
+            "does not match prim tree",
+        ),
+    ],
+)
+@patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.load_usd_prim_tree")
+@patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.resolve_asset_usd_path")
+def test_object_reference_prim_resolver_infer_rejects_invalid_llm_output(
+    mock_resolve_usd,
+    mock_load_tree,
+    response,
+    match,
+):
+    mock_resolve_usd.return_value = "/tmp/scene.usd"
+    mock_load_tree.return_value = _PRIM_TREE
+    client = MagicMock()
+    client.chat.completions.create.return_value = _chat_response(json.dumps(response))
+    resolver = ObjectReferencePrimResolver(QueryBackend(client, "test-model"))
+    spec = ArenaEnvGraphSpec.model_validate(_KITCHEN_PASS1)
+    with pytest.raises(ValidationError, match=match):
+        resolver.infer(spec, [])

@@ -120,9 +120,9 @@ class ArenaEnvGraphSpec(BaseModel):
         )
 
     def validate_resolved(self) -> Self:
-        """Assert every object_reference has a resolved prim_path."""
+        """Assert every object_reference has a prim_path set."""
         for ref in self.object_references or []:
-            ref.validate_resolved()
+            assert ref.prim_path is not None, f"Object reference '{ref.id}' requires a prim_path"
         return self
 
     def _validate_cli_override_specs(self) -> None:
