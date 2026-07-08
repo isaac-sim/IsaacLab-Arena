@@ -119,12 +119,6 @@ class ArenaEnvGraphSpec(BaseModel):
             f"({self.task.composition}) · {len(self.relations)} relations"
         )
 
-    def validate_resolved(self) -> Self:
-        """Assert every object_reference has a prim_path set."""
-        for ref in self.object_references or []:
-            assert ref.prim_path is not None, f"Object reference '{ref.id}' requires a prim_path"
-        return self
-
     def _validate_cli_override_specs(self) -> None:
         """Check each CLI override uses a unique flag and points to a swappable asset."""
         cli_override_specs = self.cli_override_specs or []
@@ -176,7 +170,6 @@ class ArenaEnvGraphSpec(BaseModel):
     def write_yaml(self, path: str | Path) -> None:
         """Validate this spec and write it to ``path`` as YAML."""
         self.validate()
-        self.validate_resolved()
         with Path(path).open("w", encoding="utf-8") as f:
             yaml.safe_dump(self.to_dict(), f, sort_keys=False)
 
@@ -203,5 +196,4 @@ class ArenaEnvGraphSpec(BaseModel):
         """
         from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_arena_env_from_graph_spec
 
-        self.validate_resolved()
         return build_arena_env_from_graph_spec(self, enable_cameras=enable_cameras)

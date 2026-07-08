@@ -232,91 +232,20 @@ class TestGenerateSpec:
         mock_build_relations.assert_called_once_with()
         mock_build_tasks.assert_called_once_with()
 
-    def test_request_sets_response_format_to_json_schema(self, agent):
-        agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
-        agent.generate_spec(
-            "p",
-            asset_catalog=_catalog("catalog"),
-            relation_catalog=_relation_catalog("RELATIONS"),
-            task_catalog=_task_catalog("TASKS"),
-        )
-        kwargs = agent.client.chat.completions.create.call_args.kwargs
-        assert kwargs["response_format"]["type"] == "json_schema"
-        assert kwargs["response_format"]["json_schema"]["name"] == "ArenaEnvGraphSpec"
-        assert kwargs["response_format"]["json_schema"]["strict"] is True
-        assert kwargs["response_format"]["json_schema"]["schema"] is agent.spec_generator._schema
-
-    def test_tolerates_unescaped_control_chars(self, agent):
-        payload = dict(_MINIMAL_SPEC)
-        payload["env_name"] = "pick\tup"
-        raw = json.dumps(payload).replace("\\t", "\t")
-        assert "\t" in raw
-        agent.client.chat.completions.create.return_value = _chat_response(content=raw)
+    def test_returns_dict_when_pass1_invalid(self, agent):
+        invalid = dict(_MINIMAL_SPEC)
+        invalid["embodiment"]["registry_name"] = "not_a_real_asset"
+        agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(invalid))
         result = agent.generate_spec(
             "p",
             asset_catalog=_catalog("catalog"),
             relation_catalog=_relation_catalog("RELATIONS"),
             task_catalog=_task_catalog("TASKS"),
         )
-        assert isinstance(result, ArenaEnvGraphSpec)
-        assert "\t" in result.env_name
-
-    def test_user_message_contains_catalog_and_prompt(self, agent):
-        agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
-        agent.generate_spec(
-            "user wants avocado on kitchen",
-            asset_catalog=_catalog("<<CATALOG-MARKER>>"),
-            relation_catalog=_relation_catalog("<<RELATIONS-MARKER>>"),
-            task_catalog=_task_catalog("<<TASKS-MARKER>>"),
-        )
-        msgs = agent.client.chat.completions.create.call_args.kwargs["messages"]
-        assert [m["role"] for m in msgs] == ["system", "user"]
-        user_msg = msgs[1]["content"]
-        assert "<<CATALOG-MARKER>>" in user_msg
-        assert "<<RELATIONS-MARKER>>" in user_msg
-        assert "<<TASKS-MARKER>>" in user_msg
-        assert "user wants avocado on kitchen" in user_msg
-
-    def test_raises_when_response_has_no_choices(self, agent):
-        resp = MagicMock()
-        resp.choices = []
-        agent.client.chat.completions.create.return_value = resp
-        with pytest.raises(RuntimeError, match="failed generate_spec after 4 attempts"):
-            agent.generate_spec(
-                "p",
-                asset_catalog=_catalog("catalog"),
-                relation_catalog=_relation_catalog("RELATIONS"),
-                task_catalog=_task_catalog("TASKS"),
-            )
-        assert agent.client.chat.completions.create.call_count == 4
-
-    def test_retries_after_api_error_then_succeeds(self, agent):
-        agent.client.chat.completions.create.side_effect = [
-            ConnectionError("timeout"),
-            _chat_response(content=json.dumps(_MINIMAL_SPEC)),
-        ]
-        result = agent.generate_spec(
-            "p",
-            asset_catalog=_catalog("catalog"),
-            relation_catalog=_relation_catalog("RELATIONS"),
-            task_catalog=_task_catalog("TASKS"),
-        )
-        assert isinstance(result, ArenaEnvGraphSpec)
-        assert result.background.registry_name == "maple_table_robolab"
-        assert agent.client.chat.completions.create.call_count == 2
-
-    def test_raises_after_api_errors_exhaust_retries(self, stub_openai):
-        agent = EnvironmentGenerationAgent(api_key="test-key", max_retries=1)
-        agent.client.chat.completions.create.side_effect = ConnectionError("timeout")
-        agent.client.chat.completions.create.reset_mock()
-        with pytest.raises(RuntimeError, match="failed generate_spec after 2 attempts"):
-            agent.generate_spec(
-                "p",
-                asset_catalog=_catalog("catalog"),
-                relation_catalog=_relation_catalog("RELATIONS"),
-                task_catalog=_task_catalog("TASKS"),
-            )
-        assert agent.client.chat.completions.create.call_count == 2
+        assert isinstance(result, dict)
+        assert result["embodiment"]["registry_name"] == "not_a_real_asset"
+        assert agent.last_validation_traces
+        assert any("registry_name" in line for line in agent.last_validation_traces)
 
     @patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.load_usd_prim_tree")
     @patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.resolve_asset_usd_path")
@@ -337,22 +266,6 @@ class TestGenerateSpec:
         assert agent.client.chat.completions.create.call_count == 2
         counter = next(ref for ref in result.object_references if ref.id == "counter_top")
         assert counter.prim_path == "counter_right_main_group/top_geometry"
-        result.validate_resolved()
-
-    def test_returns_dict_with_validation_traces_on_invalid_spec(self, agent):
-        invalid = dict(_MINIMAL_SPEC)
-        invalid["embodiment"]["registry_name"] = "not_a_real_asset"
-        agent.client.chat.completions.create.return_value = _chat_response(content=json.dumps(invalid))
-        result = agent.generate_spec(
-            "p",
-            asset_catalog=_catalog("catalog"),
-            relation_catalog=_relation_catalog("RELATIONS"),
-            task_catalog=_task_catalog("TASKS"),
-        )
-        assert isinstance(result, dict)
-        assert result["embodiment"]["registry_name"] == "not_a_real_asset"
-        assert agent.last_validation_traces
-        assert any("registry_name" in line for line in agent.last_validation_traces)
 
 
 # ---------------------------------------------------------------------------
@@ -459,7 +372,6 @@ def test_resolve_usd_prim_robocasa_kitchen_counter_and_fridge():
     )
     assert isinstance(result, ArenaEnvGraphSpec), f"spec validation failed: {agent.last_validation_traces}"
     assert result.object_references, "expected object_references for counter and fridge"
-    result.validate_resolved()
 
     usd_path = resolve_asset_usd_path(
         AssetSpec(

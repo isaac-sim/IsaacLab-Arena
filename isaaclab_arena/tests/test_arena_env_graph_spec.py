@@ -245,14 +245,6 @@ def test_graph_spec_accepts_missing_object_reference_prim_path():
     assert spec.object_references[0].prim_path is None
 
 
-def test_graph_spec_rejects_object_reference_without_prim_path_at_build():
-    data = ArenaEnvGraphSpec.from_yaml(_GRAPH).to_dict()
-    data["object_references"][0]["prim_path"] = None
-    spec = ArenaEnvGraphSpec.from_dict(data)
-    with pytest.raises(AssertionError, match="requires a prim_path"):
-        spec.validate_resolved()
-
-
 def _minimal_env_graph_data():
     return {
         "env_name": "minimal_env_graph",
