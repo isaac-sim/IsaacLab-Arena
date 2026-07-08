@@ -1,0 +1,16 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+runs:
+  maple_table:
+    environment:
+      type: pick_and_place_maple_table
+      enable_cameras: true
+    policy:
+      type: zero_action
+    environment_builder:
+      num_envs: 1
+    rollout_limit:
+      num_steps: 10
