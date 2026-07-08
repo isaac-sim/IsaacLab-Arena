@@ -17,6 +17,9 @@ from isaaclab_arena_environments.pick_and_place_maple_table_environment import P
 
 ENVIRONMENT_CFG_TYPES = {"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg}
 POLICY_CFG_TYPES = {"zero_action": ZeroActionPolicyCfg}
+GETTING_STARTED_EXPERIMENT_PATH = (
+    Path(TestConstants.arena_environments_dir) / "experiment_configs" / "getting_started_experiment.yaml"
+)
 
 
 def _load_experiment(config_path: str | Path, overrides: list[str] | None = None):
@@ -34,39 +37,50 @@ def _write_experiment(tmp_path: Path, contents: str) -> Path:
     return config_path
 
 
-def test_maple_table_experiment_composes_typed_run():
-    config_path = Path(TestConstants.arena_environments_dir) / "experiment_configs" / "maple_table_experiment.yaml"
+def test_getting_started_experiment_composes_typed_runs():
+    runs = _load_experiment(GETTING_STARTED_EXPERIMENT_PATH)
 
-    (run,) = _load_experiment(config_path)
+    assert [run.name for run in runs] == [
+        "01_baseline",
+        "02_swap_objects",
+        "03_change_background_hdr",
+        "04_parallel_envs",
+    ]
+    assert runs[0].environment == PickAndPlaceMapleTableEnvironmentCfg(
+        embodiment="droid_rel_joint_pos",
+        hdr="home_office_robolab",
+    )
+    assert runs[1].environment == PickAndPlaceMapleTableEnvironmentCfg(
+        embodiment="droid_rel_joint_pos",
+        pick_up_object="mustard_bottle_hot3d_robolab",
+        destination_location="wooden_bowl_hot3d_robolab",
+        hdr="home_office_robolab",
+    )
+    assert runs[2].environment.hdr == "billiard_hall_robolab"
+    assert all(run.policy == ZeroActionPolicyCfg() for run in runs)
+    assert [run.environment_builder.num_envs for run in runs] == [1, 1, 1, 64]
+    assert runs[3].environment_builder.env_spacing == 2.5
+    assert [run.rollout_limit.num_steps for run in runs] == [50, 50, 50, 100]
 
-    assert run.name == "maple_table"
-    assert run.environment == PickAndPlaceMapleTableEnvironmentCfg(enable_cameras=True)
-    assert run.policy == ZeroActionPolicyCfg()
-    assert run.environment_builder.num_envs == 1
-    assert run.rollout_limit.num_steps == 10
 
-
-def _test_maple_table_experiment_executes_composed_run(simulation_app, output_dir: Path):
-    """Load the checked-in Experiment and execute its Run in Isaac Sim."""
+def _test_getting_started_experiment_executes_baseline_run(simulation_app, output_dir: Path):
+    """Load the checked-in Experiment and execute its baseline Run in Isaac Sim."""
     from isaaclab_arena.evaluation.arena_run import RunStatus
     from isaaclab_arena.evaluation.run_execution import build_and_run
 
-    config_path = Path(TestConstants.arena_environments_dir) / "experiment_configs" / "maple_table_experiment.yaml"
-    (run,) = _load_experiment(config_path)
+    baseline_run = _load_experiment(GETTING_STARTED_EXPERIMENT_PATH)[0]
 
-    result = build_and_run(run, output_dir=output_dir)
+    result = build_and_run(baseline_run, output_dir=output_dir)
 
-    assert result.run_name == "maple_table"
+    assert result.run_name == "01_baseline"
     assert result.status is RunStatus.COMPLETED
     return True
 
 
-@pytest.mark.with_cameras
-def test_maple_table_experiment_executes_composed_run(tmp_path):
+def test_getting_started_experiment_executes_baseline_run(tmp_path):
     assert run_simulation_app_function(
-        _test_maple_table_experiment_executes_composed_run,
+        _test_getting_started_experiment_executes_baseline_run,
         headless=True,
-        enable_cameras=True,
         output_dir=tmp_path,
     )
 
@@ -76,13 +90,13 @@ def test_runs_keep_yaml_order_and_hydra_overrides_take_precedence(tmp_path):
         tmp_path,
         """
 runs:
-  first:
+  - name: first
     environment:
       type: pick_and_place_maple_table
       light_intensity: 600.0
     policy:
       type: zero_action
-  second:
+  - name: second
     environment:
       type: pick_and_place_maple_table
     policy:
@@ -139,19 +153,39 @@ runs:
     ],
 )
 def test_invalid_run_configuration_is_rejected(tmp_path, run_contents, exception_type, error):
-    config_path = _write_experiment(tmp_path, f"runs:\n  invalid:{run_contents}")
+    config_path = _write_experiment(tmp_path, f"runs:\n  - name: invalid{run_contents}")
 
     with pytest.raises(exception_type, match=error):
         _load_experiment(config_path)
 
 
-def test_run_mapping_key_is_the_only_name(tmp_path):
+def test_run_name_is_required(tmp_path):
     config_path = _write_experiment(
         tmp_path,
         """
 runs:
-  maple_table:
-    name: duplicate_name
+  - environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+""",
+    )
+
+    with pytest.raises(AssertionError, match="must define a non-empty string 'name'"):
+        _load_experiment(config_path)
+
+
+def test_duplicate_run_name_is_rejected(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+runs:
+  - name: maple_table
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+  - name: maple_table
     environment:
       type: pick_and_place_maple_table
     policy:
@@ -159,7 +193,7 @@ runs:
 """,
     )
 
-    with pytest.raises(AssertionError, match="mapping key is its name"):
+    with pytest.raises(AssertionError, match="Run name 'maple_table' is duplicated"):
         _load_experiment(config_path)
 
 
@@ -168,7 +202,7 @@ def test_unknown_hydra_override_is_rejected(tmp_path):
         tmp_path,
         """
 runs:
-  maple_table:
+  - name: maple_table
     environment:
       type: pick_and_place_maple_table
     policy:
