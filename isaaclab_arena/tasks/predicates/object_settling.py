@@ -30,9 +30,6 @@ def objects_settled(
     env_id: int | None = None,
 ) -> torch.Tensor:
     """True per env when every object in the env is at rest, records each object's position on first settle."""
-    for object_name in object_names:
-        assert object_name in get_env(env).scene.keys(), f"Object '{object_name}' not found in scene"
-
     object_vels = torch.stack(
         [torch.linalg.vector_norm(get_root_lin_vel_w(env, name), dim=-1) for name in object_names], dim=0
     )

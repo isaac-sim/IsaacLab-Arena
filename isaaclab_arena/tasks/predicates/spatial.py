@@ -14,7 +14,7 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 
 from isaaclab_arena.tasks.predicates.object_settling import get_object_settled_state
-from isaaclab_arena.tasks.predicates.predicate_utils import get_root_lin_vel_w, get_root_pos_w, select
+from isaaclab_arena.tasks.predicates.predicate_utils import get_env, get_root_lin_vel_w, get_root_pos_w, select
 
 
 def object_lifted(
@@ -109,8 +109,9 @@ def object_on_destination(
     and below a velocity threshold.
     """
 
-    object: RigidObject = env.unwrapped.scene[object_cfg.name]
-    sensor: ContactSensor = env.unwrapped.scene[contact_sensor_cfg.name]
+    unwrapped_env = get_env(env)
+    object: RigidObject = unwrapped_env.scene[object_cfg.name]
+    sensor: ContactSensor = unwrapped_env.scene[contact_sensor_cfg.name]
 
     # force_matrix_w shape is (N, B, M, 3), where N is the number of sensors, B is number of bodies in each sensor
     # and ``M`` is the number of filtered bodies.
@@ -144,7 +145,14 @@ def objects_on_destinations(
     See `object_on_destination` for details on the single-object logic.
     """
 
-    condition_met = torch.ones((env.unwrapped.num_envs), device=env.unwrapped.device, dtype=torch.bool)
+    if len(object_cfg_list) != len(contact_sensor_cfg_list):
+        raise ValueError(
+            "object_cfg_list and contact_sensor_cfg_list must have equal length, got "
+            f"{len(object_cfg_list)} objects and {len(contact_sensor_cfg_list)} sensors"
+        )
+
+    unwrapped_env = get_env(env)
+    condition_met = torch.ones((unwrapped_env.num_envs), device=unwrapped_env.device, dtype=torch.bool)
     for object_cfg, contact_sensor_cfg in zip(object_cfg_list, contact_sensor_cfg_list):
         single_condition = object_on_destination(
             env=env,
