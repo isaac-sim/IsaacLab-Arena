@@ -8,12 +8,13 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver import (
+    ObjectReferencePrimResolver,
     merge_resolved_object_references,
-    resolve_object_reference_prim_paths_with_client,
 )
+from isaaclab_arena.agentic_environment_generation.query_backend import QueryBackend
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environments.arena_env_graph_types import (
     ResolveObjectReferencePrimPathsResult,
@@ -66,6 +67,24 @@ _KITCHEN_PASS1: dict = {
             "kind": "OpenDoorTask",
             "params": {"openable_object": "fridge"},
             "description": "open the fridge door",
+        },
+    ],
+}
+
+_KITCHEN_PASS1_RESOLVED_PRIM: dict = {
+    **_KITCHEN_PASS1,
+    "object_references": [
+        {
+            "id": "counter_top",
+            "parent_id": "lightwheel_robocasa_kitchen",
+            "prim_path": "counter_right_main_group/top_geometry",
+            "object_type": "base",
+        },
+        {
+            "id": "fridge",
+            "parent_id": "lightwheel_robocasa_kitchen",
+            "prim_path": "fridge_main_group",
+            "object_type": "articulation",
         },
     ],
 }
@@ -124,20 +143,20 @@ def test_merge_resolved_object_references():
     merged.validate_resolved()
 
 
-def test_resolve_object_reference_prim_paths_with_client_mocked():
+@patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.load_usd_prim_tree")
+@patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.resolve_asset_usd_path")
+def test_object_reference_prim_resolver_infer_always_calls_llm(mock_resolve_usd, mock_load_tree):
+    mock_resolve_usd.return_value = "/tmp/scene.usd"
+    mock_load_tree.return_value = _PRIM_TREE
     client = MagicMock()
     client.chat.completions.create.return_value = _chat_response(json.dumps(_RESOLVE_RESPONSE))
-    spec = ArenaEnvGraphSpec.model_validate(_KITCHEN_PASS1)
-    from isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver import build_resolve_schema
-
-    resolved, raw = resolve_object_reference_prim_paths_with_client(
-        client,
-        "test-model",
-        spec,
-        prim_tree=_PRIM_TREE,
-        schema=build_resolve_schema(),
-    )
-    assert len(resolved) == 2
-    assert "counter_right_main_group/top_geometry" in raw
-    fridge = next(ref for ref in resolved if ref.id == "fridge")
+    resolver = ObjectReferencePrimResolver(QueryBackend(client, "test-model"))
+    spec = ArenaEnvGraphSpec.model_validate(_KITCHEN_PASS1_RESOLVED_PRIM)
+    traces: list[str] = []
+    merged = resolver.infer(spec, traces)
+    client.chat.completions.create.assert_called_once()
+    counter = next(ref for ref in merged.object_references if ref.id == "counter_top")
+    fridge = next(ref for ref in merged.object_references if ref.id == "fridge")
+    assert counter.prim_path == "counter_right_main_group/top_geometry"
     assert fridge.params["openable_joint_name"] == "fridge_door_joint"
+    merged.validate_resolved()

@@ -67,18 +67,10 @@ _MINIMAL_SPEC: dict = {
         {"id": "rubiks_cube_hot3d_robolab", "registry_name": "rubiks_cube_hot3d_robolab"},
         {"id": "bowl_ycb_robolab", "registry_name": "bowl_ycb_robolab"},
     ],
-    "object_references": [
-        {
-            "id": "maple_table_robolab_table",
-            "parent_id": "maple_table_robolab",
-            "prim_path": "{ENV_REGEX_NS}/maple_table_robolab/table",
-            "object_type": "rigid",
-        },
-    ],
     "relations": [
-        {"kind": "is_anchor", "subject": "maple_table_robolab_table"},
-        {"kind": "on", "subject": "rubiks_cube_hot3d_robolab", "reference": "maple_table_robolab_table"},
-        {"kind": "on", "subject": "bowl_ycb_robolab", "reference": "maple_table_robolab_table"},
+        {"kind": "is_anchor", "subject": "maple_table_robolab"},
+        {"kind": "on", "subject": "rubiks_cube_hot3d_robolab", "reference": "maple_table_robolab"},
+        {"kind": "on", "subject": "bowl_ycb_robolab", "reference": "maple_table_robolab"},
     ],
     "task": {
         "composition": "atomic",
@@ -92,6 +84,73 @@ _MINIMAL_SPEC: dict = {
             },
         }],
     },
+}
+
+_KITCHEN_PASS1: dict = {
+    "env_name": "llm_gen_kitchen_pick_and_open",
+    "embodiment": {"id": "droid_abs_joint_pos", "registry_name": "droid_abs_joint_pos"},
+    "background": {
+        "id": "lightwheel_robocasa_kitchen",
+        "registry_name": "lightwheel_robocasa_kitchen",
+        "params": {"layout_id": 1, "style_id": 1},
+    },
+    "objects": [
+        {"id": "avocado", "registry_name": "avocado01_fruits_veggies_robolab"},
+        {"id": "plate", "registry_name": "plate_large_vomp_robolab"},
+    ],
+    "object_references": [
+        {
+            "id": "counter_top",
+            "parent_id": "lightwheel_robocasa_kitchen",
+            "prim_path": "unknown",
+            "object_type": "base",
+        },
+        {
+            "id": "fridge",
+            "parent_id": "lightwheel_robocasa_kitchen",
+            "prim_path": "unknown",
+            "object_type": "articulation",
+        },
+    ],
+    "relations": [
+        {"kind": "is_anchor", "subject": "counter_top"},
+        {"kind": "on", "subject": "avocado", "reference": "counter_top"},
+        {"kind": "on", "subject": "plate", "reference": "counter_top"},
+    ],
+    "tasks": [
+        {
+            "kind": "PickAndPlaceTask",
+            "params": {
+                "pick_up_object": "avocado",
+                "destination_location": "plate",
+                "background_scene": "lightwheel_robocasa_kitchen",
+            },
+            "description": "pick avocado and place on plate",
+        },
+        {
+            "kind": "OpenDoorTask",
+            "params": {"openable_object": "fridge"},
+            "description": "open the fridge door",
+        },
+    ],
+}
+
+_RESOLVE_RESPONSE: dict = {
+    "object_references": [
+        {
+            "id": "counter_top",
+            "parent_id": "lightwheel_robocasa_kitchen",
+            "prim_path": "counter_right_main_group/top_geometry",
+            "object_type": "base",
+        },
+        {
+            "id": "fridge",
+            "parent_id": "lightwheel_robocasa_kitchen",
+            "prim_path": "fridge_main_group",
+            "object_type": "articulation",
+            "params": {"openable_joint_name": "fridge_door_joint"},
+        },
+    ],
 }
 
 
@@ -179,7 +238,7 @@ class TestGenerateSpec:
         assert kwargs["response_format"]["type"] == "json_schema"
         assert kwargs["response_format"]["json_schema"]["name"] == "ArenaEnvGraphSpec"
         assert kwargs["response_format"]["json_schema"]["strict"] is True
-        assert kwargs["response_format"]["json_schema"]["schema"] is agent._spec_schema
+        assert kwargs["response_format"]["json_schema"]["schema"] is agent.spec_generator._schema
 
     def test_tolerates_unescaped_control_chars(self, agent):
         payload = dict(_MINIMAL_SPEC)
@@ -216,13 +275,12 @@ class TestGenerateSpec:
         resp = MagicMock()
         resp.choices = []
         agent.client.chat.completions.create.return_value = resp
-        with pytest.raises(RuntimeError, match="failed after 4 attempts"):
+        with pytest.raises(RuntimeError, match="failed generate_spec after 4 attempts"):
             agent.generate_spec(
                 "p",
                 asset_catalog=_catalog("catalog"),
                 relation_catalog=_relation_catalog("RELATIONS"),
                 task_catalog=_task_catalog("TASKS"),
-                max_retries=3,
             )
         assert agent.client.chat.completions.create.call_count == 4
 
@@ -236,23 +294,45 @@ class TestGenerateSpec:
             asset_catalog=_catalog("catalog"),
             relation_catalog=_relation_catalog("RELATIONS"),
             task_catalog=_task_catalog("TASKS"),
-            max_retries=3,
         )
         assert spec is not None
         assert spec.background.registry_name == "maple_table_robolab"
         assert agent.client.chat.completions.create.call_count == 2
 
-    def test_raises_after_api_errors_exhaust_retries(self, agent):
+    def test_raises_after_api_errors_exhaust_retries(self, stub_openai):
+        agent = EnvironmentGenerationAgent(api_key="test-key", max_retries=1)
         agent.client.chat.completions.create.side_effect = ConnectionError("timeout")
-        with pytest.raises(RuntimeError, match="failed after 2 attempts"):
+        agent.client.chat.completions.create.reset_mock()
+        with pytest.raises(RuntimeError, match="failed generate_spec after 2 attempts"):
             agent.generate_spec(
                 "p",
                 asset_catalog=_catalog("catalog"),
                 relation_catalog=_relation_catalog("RELATIONS"),
                 task_catalog=_task_catalog("TASKS"),
-                max_retries=1,
             )
         assert agent.client.chat.completions.create.call_count == 2
+
+    @patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.load_usd_prim_tree")
+    @patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.resolve_asset_usd_path")
+    def test_two_pass_generate_spec_resolves_object_references(self, mock_resolve_usd, mock_load_tree, agent):
+        mock_resolve_usd.return_value = "/tmp/scene.usd"
+        mock_load_tree.return_value = []
+        agent.client.chat.completions.create.side_effect = [
+            _chat_response(content=json.dumps(_KITCHEN_PASS1)),
+            _chat_response(content=json.dumps(_RESOLVE_RESPONSE)),
+        ]
+        spec, data = agent.generate_spec(
+            "kitchen task",
+            asset_catalog=_catalog("catalog"),
+            relation_catalog=_relation_catalog("RELATIONS"),
+            task_catalog=_task_catalog("TASKS"),
+        )
+        assert spec is not None
+        assert agent.client.chat.completions.create.call_count == 2
+        assert data == spec.to_dict()
+        counter = next(ref for ref in spec.object_references if ref.id == "counter_top")
+        assert counter.prim_path == "counter_right_main_group/top_geometry"
+        spec.validate_resolved()
 
     def test_returns_none_with_validation_traces_on_invalid_spec(self, agent):
         invalid = dict(_MINIMAL_SPEC)

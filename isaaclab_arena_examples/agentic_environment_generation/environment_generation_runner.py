@@ -109,14 +109,15 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path:
     relation_catalog = build_relation_catalogue()
     task_catalog = build_task_catalogue()
 
-    agent_kwargs = {"model": args_cli.model} if args_cli.model else {}
+    agent_kwargs: dict = {"temperature": args_cli.temperature}
+    if args_cli.model:
+        agent_kwargs["model"] = args_cli.model
     agent = EnvironmentGenerationAgent(**agent_kwargs)
     env_graph_spec, data = agent.generate_spec(
         args_cli.prompt,
         asset_catalog=asset_catalog,
         relation_catalog=relation_catalog,
         task_catalog=task_catalog,
-        temperature=args_cli.temperature,
     )
     # last_validation_traces holds one line per failure, e.g.
     #   "embodiment.registry_name: Unknown asset registry_name 'not_a_real_asset'"
