@@ -35,6 +35,11 @@ def get_root_lin_vel_w(env, name: str) -> torch.Tensor:
     return wp.to_torch(get_rigid_object(env, name).data.root_lin_vel_w)
 
 
+def get_root_ang_vel_w(env, name: str) -> torch.Tensor:
+    """Get the root angular velocity of a rigid object in the world frame."""
+    return wp.to_torch(get_rigid_object(env, name).data.root_ang_vel_w)
+
+
 def select(result: torch.Tensor, env_id: int | None) -> torch.Tensor:
     """Return the entry at ``env_id`` if requested, otherwise the full vector."""
     if env_id is None:
