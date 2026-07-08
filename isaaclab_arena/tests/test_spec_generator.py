@@ -12,64 +12,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
-    AssetCatalogue,
-    RelationCatalogue,
-    TaskCatalogue,
-)
 from isaaclab_arena.agentic_environment_generation.query_backend import QueryBackend
 from isaaclab_arena.agentic_environment_generation.spec_generator import SpecGenerator
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
-
-_MINIMAL_SPEC: dict = {
-    "env_name": "llm_gen_maple_table_robolab_PickAndPlaceTask",
-    "embodiment": {"id": "franka_ik", "registry_name": "franka_ik"},
-    "background": {"id": "maple_table_robolab", "registry_name": "maple_table_robolab"},
-    "objects": [
-        {"id": "rubiks_cube_hot3d_robolab", "registry_name": "rubiks_cube_hot3d_robolab"},
-        {"id": "bowl_ycb_robolab", "registry_name": "bowl_ycb_robolab"},
-    ],
-    "relations": [
-        {"kind": "is_anchor", "subject": "maple_table_robolab"},
-        {"kind": "on", "subject": "rubiks_cube_hot3d_robolab", "reference": "maple_table_robolab"},
-        {"kind": "on", "subject": "bowl_ycb_robolab", "reference": "maple_table_robolab"},
-    ],
-    "tasks": [{
-        "kind": "PickAndPlaceTask",
-        "params": {
-            "pick_up_object": "rubiks_cube_hot3d_robolab",
-            "destination_location": "bowl_ycb_robolab",
-            "background_scene": "maple_table_robolab",
-        },
-        "description": "pick up the rubiks cube and place it in the bowl",
-    }],
-}
-
-
-def _chat_response(content: str | None = None, reasoning_content: str | None = None):
-    resp = MagicMock()
-    resp.choices = [MagicMock()]
-    resp.choices[0].message.content = content
-    resp.choices[0].message.reasoning_content = reasoning_content
-    return resp
-
-
-def _catalog(text: str) -> AssetCatalogue:
-    catalogue = AssetCatalogue()
-    catalogue.to_catalog_string = lambda: text  # type: ignore[method-assign]
-    return catalogue
-
-
-def _relation_catalog(text: str) -> RelationCatalogue:
-    catalogue = RelationCatalogue()
-    catalogue.to_catalog_string = lambda: text  # type: ignore[method-assign]
-    return catalogue
-
-
-def _task_catalog(text: str) -> TaskCatalogue:
-    catalogue = TaskCatalogue()
-    catalogue.to_catalog_string = lambda: text  # type: ignore[method-assign]
-    return catalogue
+from isaaclab_arena.tests.utils.agentic_environment_generation import catalog as make_catalog
+from isaaclab_arena.tests.utils.agentic_environment_generation import chat_response, minimal_spec_dict
+from isaaclab_arena.tests.utils.agentic_environment_generation import relation_catalog as make_relation_catalog
+from isaaclab_arena.tests.utils.agentic_environment_generation import task_catalog as make_task_catalog
 
 
 @pytest.fixture
@@ -85,24 +34,24 @@ def _infer(
     client: MagicMock,
     prompt: str = "p",
     *,
-    asset_catalog: AssetCatalogue | None = None,
-    relation_catalog: RelationCatalogue | None = None,
-    task_catalog: TaskCatalogue | None = None,
+    asset_catalog=None,
+    relation_catalog=None,
+    task_catalog=None,
     traces: list[str] | None = None,
 ):
     traces = traces if traces is not None else []
     return generator.infer(
         prompt,
         traces,
-        asset_catalog=asset_catalog or _catalog("catalog"),
-        relation_catalog=relation_catalog or _relation_catalog("RELATIONS"),
-        task_catalog=task_catalog or _task_catalog("TASKS"),
+        asset_catalog=asset_catalog or make_catalog("catalog"),
+        relation_catalog=relation_catalog or make_relation_catalog("RELATIONS"),
+        task_catalog=task_catalog or make_task_catalog("TASKS"),
     )
 
 
 def test_infer_sets_response_format_to_json_schema(spec_generator):
     generator, client = spec_generator
-    client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
+    client.chat.completions.create.return_value = chat_response(content=json.dumps(minimal_spec_dict()))
     _infer(generator, client)
     kwargs = client.chat.completions.create.call_args.kwargs
     assert kwargs["response_format"]["type"] == "json_schema"
@@ -113,11 +62,11 @@ def test_infer_sets_response_format_to_json_schema(spec_generator):
 
 def test_infer_tolerates_unescaped_control_chars(spec_generator):
     generator, client = spec_generator
-    payload = dict(_MINIMAL_SPEC)
+    payload = dict(minimal_spec_dict())
     payload["env_name"] = "pick\tup"
     raw = json.dumps(payload).replace("\\t", "\t")
     assert "\t" in raw
-    client.chat.completions.create.return_value = _chat_response(content=raw)
+    client.chat.completions.create.return_value = chat_response(content=raw)
     spec, _ = _infer(generator, client)
     assert spec is not None
     assert "\t" in spec.env_name
@@ -125,14 +74,14 @@ def test_infer_tolerates_unescaped_control_chars(spec_generator):
 
 def test_infer_user_message_contains_catalog_and_prompt(spec_generator):
     generator, client = spec_generator
-    client.chat.completions.create.return_value = _chat_response(content=json.dumps(_MINIMAL_SPEC))
+    client.chat.completions.create.return_value = chat_response(content=json.dumps(minimal_spec_dict()))
     _infer(
         generator,
         client,
         "user wants avocado on kitchen",
-        asset_catalog=_catalog("<<CATALOG-MARKER>>"),
-        relation_catalog=_relation_catalog("<<RELATIONS-MARKER>>"),
-        task_catalog=_task_catalog("<<TASKS-MARKER>>"),
+        asset_catalog=make_catalog("<<CATALOG-MARKER>>"),
+        relation_catalog=make_relation_catalog("<<RELATIONS-MARKER>>"),
+        task_catalog=make_task_catalog("<<TASKS-MARKER>>"),
     )
     msgs = client.chat.completions.create.call_args.kwargs["messages"]
     assert [m["role"] for m in msgs] == ["system", "user"]
@@ -157,7 +106,7 @@ def test_infer_retries_after_api_error_then_succeeds(spec_generator):
     generator, client = spec_generator
     client.chat.completions.create.side_effect = [
         ConnectionError("timeout"),
-        _chat_response(content=json.dumps(_MINIMAL_SPEC)),
+        chat_response(content=json.dumps(minimal_spec_dict())),
     ]
     spec, _ = _infer(generator, client)
     assert isinstance(spec, ArenaEnvGraphSpec)
@@ -176,9 +125,9 @@ def test_infer_raises_after_api_errors_exhaust_retries():
 
 def test_infer_returns_none_with_validation_traces_on_invalid_spec(spec_generator):
     generator, client = spec_generator
-    invalid = dict(_MINIMAL_SPEC)
+    invalid = dict(minimal_spec_dict())
     invalid["embodiment"]["registry_name"] = "not_a_real_asset"
-    client.chat.completions.create.return_value = _chat_response(content=json.dumps(invalid))
+    client.chat.completions.create.return_value = chat_response(content=json.dumps(invalid))
     traces: list[str] = []
     spec, data = _infer(generator, client, traces=traces)
     assert spec is None

@@ -16,98 +16,23 @@ from pydantic import ValidationError
 from isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver import ObjectReferencePrimResolver
 from isaaclab_arena.agentic_environment_generation.query_backend import QueryBackend
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
-
-_KITCHEN_PASS1: dict = {
-    "env_name": "llm_gen_kitchen_pick_and_open",
-    "embodiment": {"id": "droid_abs_joint_pos", "registry_name": "droid_abs_joint_pos"},
-    "background": {
-        "id": "lightwheel_robocasa_kitchen",
-        "registry_name": "lightwheel_robocasa_kitchen",
-        "params": {"layout_id": 1, "style_id": 1},
-    },
-    "objects": [
-        {"id": "avocado", "registry_name": "avocado01_fruits_veggies_robolab"},
-        {"id": "plate", "registry_name": "plate_large_vomp_robolab"},
-    ],
-    "object_references": [
-        {
-            "id": "counter_top",
-            "parent_id": "lightwheel_robocasa_kitchen",
-            "prim_path": "unknown",
-            "object_type": "base",
-        },
-        {
-            "id": "fridge",
-            "parent_id": "lightwheel_robocasa_kitchen",
-            "prim_path": "unknown",
-            "object_type": "articulation",
-        },
-    ],
-    "relations": [
-        {"kind": "is_anchor", "subject": "counter_top"},
-        {"kind": "on", "subject": "avocado", "reference": "counter_top"},
-        {"kind": "on", "subject": "plate", "reference": "counter_top"},
-    ],
-    "tasks": [
-        {
-            "kind": "PickAndPlaceTask",
-            "params": {
-                "pick_up_object": "avocado",
-                "destination_location": "plate",
-                "background_scene": "lightwheel_robocasa_kitchen",
-            },
-            "description": "pick avocado and place on plate",
-        },
-        {
-            "kind": "OpenDoorTask",
-            "params": {"openable_object": "fridge"},
-            "description": "open the fridge door",
-        },
-    ],
-}
-
-_PRIM_TREE = [
-    UsdPrimRecord("counter_right_main_group/top_geometry", "base"),
-    UsdPrimRecord("fridge_main_group", "articulation", ("fridge_door_joint",)),
-]
-
-_RESOLVE_RESPONSE = {
-    "object_references": [
-        {
-            "id": "counter_top",
-            "parent_id": "lightwheel_robocasa_kitchen",
-            "prim_path": "counter_right_main_group/top_geometry",
-            "object_type": "base",
-        },
-        {
-            "id": "fridge",
-            "parent_id": "lightwheel_robocasa_kitchen",
-            "prim_path": "fridge_main_group",
-            "object_type": "articulation",
-            "params": {"openable_joint_name": "fridge_door_joint"},
-        },
-    ],
-}
-
-
-def _chat_response(content: str):
-    resp = MagicMock()
-    resp.choices = [MagicMock()]
-    resp.choices[0].message.content = content
-    resp.choices[0].message.reasoning_content = None
-    return resp
+from isaaclab_arena.tests.utils.agentic_environment_generation import (
+    chat_response,
+    kitchen_pass1_dict,
+    kitchen_prim_tree,
+    kitchen_resolve_response,
+)
 
 
 @patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.load_usd_prim_tree")
 @patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.resolve_asset_usd_path")
 def test_object_reference_prim_resolver_infer_merges_llm_output(mock_resolve_usd, mock_load_tree):
     mock_resolve_usd.return_value = "/tmp/scene.usd"
-    mock_load_tree.return_value = _PRIM_TREE
+    mock_load_tree.return_value = kitchen_prim_tree()
     client = MagicMock()
-    client.chat.completions.create.return_value = _chat_response(json.dumps(_RESOLVE_RESPONSE))
+    client.chat.completions.create.return_value = chat_response(json.dumps(kitchen_resolve_response()))
     resolver = ObjectReferencePrimResolver(QueryBackend(client, "test-model"))
-    spec = ArenaEnvGraphSpec.model_validate(_KITCHEN_PASS1)
+    spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
     merged = resolver.infer(spec, [])
     client.chat.completions.create.assert_called_once()
     counter = next(ref for ref in merged.object_references if ref.id == "counter_top")
@@ -164,10 +89,10 @@ def test_object_reference_prim_resolver_infer_rejects_invalid_llm_output(
     match,
 ):
     mock_resolve_usd.return_value = "/tmp/scene.usd"
-    mock_load_tree.return_value = _PRIM_TREE
+    mock_load_tree.return_value = kitchen_prim_tree()
     client = MagicMock()
-    client.chat.completions.create.return_value = _chat_response(json.dumps(response))
+    client.chat.completions.create.return_value = chat_response(json.dumps(response))
     resolver = ObjectReferencePrimResolver(QueryBackend(client, "test-model"))
-    spec = ArenaEnvGraphSpec.model_validate(_KITCHEN_PASS1)
+    spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
     with pytest.raises(ValidationError, match=match):
         resolver.infer(spec, [])

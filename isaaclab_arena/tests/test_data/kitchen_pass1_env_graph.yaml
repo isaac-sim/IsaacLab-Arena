@@ -1,0 +1,49 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: llm_gen_kitchen_pick_and_open
+embodiment:
+  id: droid_abs_joint_pos
+  registry_name: droid_abs_joint_pos
+background:
+  id: lightwheel_robocasa_kitchen
+  registry_name: lightwheel_robocasa_kitchen
+  params:
+    layout_id: 1
+    style_id: 1
+objects:
+- id: avocado
+  registry_name: avocado01_fruits_veggies_robolab
+- id: plate
+  registry_name: plate_large_vomp_robolab
+object_references:
+- id: counter_top
+  parent_id: lightwheel_robocasa_kitchen
+  prim_path: unknown
+  object_type: base
+- id: fridge
+  parent_id: lightwheel_robocasa_kitchen
+  prim_path: unknown
+  object_type: articulation
+relations:
+- kind: is_anchor
+  subject: counter_top
+- kind: 'on'
+  subject: avocado
+  reference: counter_top
+- kind: 'on'
+  subject: plate
+  reference: counter_top
+tasks:
+- kind: PickAndPlaceTask
+  params:
+    pick_up_object: avocado
+    destination_location: plate
+    background_scene: lightwheel_robocasa_kitchen
+  description: pick avocado and place on plate
+- kind: OpenDoorTask
+  params:
+    openable_object: fridge
+  description: open the fridge door
