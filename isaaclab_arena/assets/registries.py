@@ -272,11 +272,12 @@ class HDRImageRegistry(_GloballyLoadedRegistry):
         return random.choice(hdrs)
 
 
-# Environment factories come from extension packages, not the shared asset
-# registration pass. Those packages explicitly populate this registry before
-# lookup; first-party callers do so through ensure_environments_registered().
 class EnvironmentRegistry(Registry):
-    """Registry for Arena environment factories and their configs."""
+    """Store factories and configs registered by environment extension packages.
+
+    This registry has no lazy loader. First-party callers populate it through
+    ensure_environments_registered() before lookup.
+    """
 
     def __init__(self):
         super().__init__()
