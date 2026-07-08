@@ -690,7 +690,7 @@ class ObjectPlacer:
         positions: dict[ObjectBase, tuple[float, float, float]],
         skip_mesh_pairs: bool = False,
     ) -> Iterator[tuple[ObjectBase, ObjectBase]]:
-        """Yield pairs for AABB validation, skipping pairs handled by mesh/mixed collision."""
+        """Yield non-relation object pairs, optionally skipping pairs handled by mesh collision."""
         on_pairs, anchor_ids = self._collect_skip_pairs(positions)
         mesh_manager = self._get_cpu_mesh_manager() if skip_mesh_pairs else None
         objects = list(positions.keys())
@@ -839,7 +839,7 @@ class ObjectPlacer:
         orientations: dict[ObjectBase, float] | None = None,
         collision_objects: list[ObjectBase] | None = None,
     ) -> bool:
-        """Sphere-to-SDF overlap check. Mesh-less pairs fall back to AABB."""
+        """Sphere-to-SDF overlap check; both-meshless pairs fall back to AABB validation."""
         clearance_m = self.params.solver_params.clearance_m
         tolerance = max(0.0, clearance_m - 1e-6)
         mesh_manager = self._get_cpu_mesh_manager()

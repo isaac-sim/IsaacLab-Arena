@@ -112,6 +112,57 @@ def test_background_collision_object_combines_meshes():
         make_background_collision_object([left, meshless])
 
 
+def test_background_collision_objects_skip_failed_whole_background(monkeypatch):
+    """A failed whole-scene Background must not degrade into a room-sized AABB obstacle."""
+    from isaaclab_arena.assets.background import Background
+    from isaaclab_arena.relations.background_collision_object import (
+        BackgroundCollisionObject,
+        make_background_collision_objects,
+    )
+    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+    from isaaclab_arena.utils.pose import Pose
+
+    left = _mesh_box("left_cabinet", (0.2, 0.2, 0.2), (-1.0, 0.0, 0.0))
+    kitchen = Background.__new__(Background)
+    kitchen.name = "kitchen"
+    kitchen.initial_pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+    monkeypatch.setattr(
+        WarpMeshAndSphereCache,
+        "get_collision_mesh",
+        lambda self, obj: left.get_collision_mesh() if obj is left else None,
+    )
+
+    collision_objects = make_background_collision_objects([left, kitchen])
+
+    assert len(collision_objects) == 1
+    assert isinstance(collision_objects[0], BackgroundCollisionObject)
+    assert kitchen not in collision_objects
+
+
+def test_mesh_in_world_frame_applies_pose_rotation():
+    """Background aggregate meshes are transformed by the source object's fixed pose."""
+    import torch
+    import trimesh
+
+    from isaaclab_arena.relations.background_collision_object import _mesh_in_world_frame
+    from isaaclab_arena.utils.pose import Pose
+
+    mesh = trimesh.creation.box(extents=(2.0, 1.0, 1.0))
+    yaw_90 = (0.0, 0.0, 2**-0.5, 2**-0.5)
+
+    transformed = _mesh_in_world_frame(
+        mesh,
+        Pose(position_xyz=(3.0, 4.0, 0.0), rotation_xyzw=yaw_90),
+    )
+
+    assert torch.allclose(
+        torch.tensor(transformed.bounds[0], dtype=torch.float32), torch.tensor([2.5, 3.0, -0.5]), atol=1e-6
+    )
+    assert torch.allclose(
+        torch.tensor(transformed.bounds[1], dtype=torch.float32), torch.tensor([3.5, 5.0, 0.5]), atol=1e-6
+    )
+
+
 def test_collision_objects_add_no_overlap_loss():
     """Box overlapping the obstacle incurs positive loss; zero loss when the obstacle is absent."""
     from isaaclab_arena.relations.relation_solver import RelationSolver

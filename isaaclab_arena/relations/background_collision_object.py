@@ -12,7 +12,6 @@ import trimesh
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
@@ -82,22 +81,33 @@ def make_background_collision_object(objects: Sequence[ObjectBase]) -> Backgroun
 
 def make_background_collision_objects(objects: Sequence[ObjectBase]) -> list[ObjectBase | BackgroundCollisionObject]:
     """Build mesh aggregate plus meshless fixed obstacles kept for AABB fallback."""
+    from isaaclab_arena.assets.background import Background
+
     mesh, skipped_objects = _combine_background_meshes(objects)
     collision_objects: list[ObjectBase | BackgroundCollisionObject] = []
     if mesh is not None:
         collision_objects.append(BackgroundCollisionObject(mesh))
     if skipped_objects:
+        aabb_fallback_objects = [obj for obj in skipped_objects if not isinstance(obj, Background)]
+        skipped_backgrounds = [obj for obj in skipped_objects if isinstance(obj, Background)]
+        if skipped_backgrounds:
+            print(
+                "Background mesh extraction failed for whole-scene Background assets "
+                f"{[obj.name for obj in skipped_backgrounds]}; skipping their room-sized AABB fallback."
+            )
+        if not aabb_fallback_objects:
+            return collision_objects
         print(
             "Background mesh extraction failed for "
-            f"{[obj.name for obj in skipped_objects]}; keeping them as individual AABB collision obstacles."
+            f"{[obj.name for obj in aabb_fallback_objects]}; keeping them as individual AABB collision obstacles."
         )
-        collision_objects.extend(skipped_objects)
-    if mesh is None and not skipped_objects:
-        return []
+        collision_objects.extend(aabb_fallback_objects)
     return collision_objects
 
 
 def _combine_background_meshes(objects: Sequence[ObjectBase]) -> tuple[trimesh.Trimesh | None, list[ObjectBase]]:
+    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+
     manager = WarpMeshAndSphereCache(device="cpu")
     meshes = []
     skipped_objects = []

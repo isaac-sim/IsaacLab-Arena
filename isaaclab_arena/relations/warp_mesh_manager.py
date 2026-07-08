@@ -125,6 +125,7 @@ class WarpMeshAndSphereCache:
         self._sphere_cache: dict[tuple, torch.Tensor] = {}
         self._trimesh_cache: dict[tuple, trimesh.Trimesh | None] = {}
         self._sentinel_warned: bool = False
+        self._raw_open_mesh_warned: set[tuple] = set()
 
     def reset_sentinel_warning(self) -> None:
         """Re-arm for a new solve/validation pass."""
@@ -173,10 +174,11 @@ class WarpMeshAndSphereCache:
     def _cache_key(self, mesh: trimesh.Trimesh, obj: ObjectBase | None = None) -> tuple:
         """Compute cache key. Uses (usd_path, scale) for USD objects, content hash otherwise."""
         usd_path = getattr(obj, "usd_path", None) if obj is not None else None
+        use_mesh_as_is = obj.use_collision_mesh_as_is if obj is not None else False
         if usd_path is not None:
             scale = tuple(getattr(obj, "scale", (1.0, 1.0, 1.0)))
-            return (usd_path, scale, self._num_spheres, self._sphere_radius)
-        return (_mesh_content_hash(mesh), self._num_spheres, self._sphere_radius)
+            return (usd_path, scale, use_mesh_as_is, self._num_spheres, self._sphere_radius)
+        return (_mesh_content_hash(mesh), use_mesh_as_is, self._num_spheres, self._sphere_radius)
 
     def get_warp_mesh(self, mesh: trimesh.Trimesh, obj: ObjectBase | None = None) -> wp.Mesh:
         """Get or create a Warp BVH mesh for SDF queries.
@@ -194,6 +196,10 @@ class WarpMeshAndSphereCache:
                     f"  [WarpMeshAndSphereCache] '{name}' mesh is not watertight — using convex hull (concavities will"
                     " be filled)"
                 )
+            if not mesh.is_watertight and use_mesh_as_is and key not in self._raw_open_mesh_warned:
+                self._raw_open_mesh_warned.add(key)
+                name = obj.name if obj is not None else repr(mesh)
+                print(f"  [WarpMeshAndSphereCache] '{name}' raw mesh is not watertight; SDF signs may be unreliable.")
             work_mesh = mesh if mesh.is_watertight or use_mesh_as_is else mesh.convex_hull
             vertices = wp.array(np.asarray(work_mesh.vertices, dtype=np.float32), dtype=wp.vec3, device=self._device)
             indices = wp.array(

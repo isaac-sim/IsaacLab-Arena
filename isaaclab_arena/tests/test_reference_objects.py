@@ -52,11 +52,11 @@ def _object_reference_with_cached_bbox(parent_pose: Pose | None, relative_pose: 
 
 
 def test_object_reference_world_bbox_applies_parent_yaw():
-    """Parent yaw rotates the referenced prim bbox once, then translates to the prim world pose."""
+    """Parent yaw, not the prim's relative yaw, rotates the already-local referenced bbox."""
     yaw_90 = (0.0, 0.0, 2**-0.5, 2**-0.5)
     obj_ref = _object_reference_with_cached_bbox(
         parent_pose=Pose(position_xyz=(10.0, 0.0, 0.0), rotation_xyzw=yaw_90),
-        relative_pose=Pose(position_xyz=(1.0, 2.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
+        relative_pose=Pose(position_xyz=(1.0, 2.0, 0.0), rotation_xyzw=yaw_90),
         bbox=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.1, 0.05)),
     )
 
@@ -64,6 +64,93 @@ def test_object_reference_world_bbox_applies_parent_yaw():
 
     assert torch.allclose(world_bbox.min_point, torch.tensor([[7.9, 1.0, 0.0]]), atol=1e-6)
     assert torch.allclose(world_bbox.max_point, torch.tensor([[8.0, 1.2, 0.05]]), atol=1e-6)
+
+
+def test_object_reference_get_collision_mesh_extracts_referenced_prim(monkeypatch):
+    """ObjectReference collision meshes are extracted from the referenced sub-prim."""
+    import trimesh
+
+    from isaaclab_arena.assets.object_reference import ObjectReference
+
+    expected_mesh = trimesh.creation.box(extents=(0.2, 0.1, 0.05))
+    calls = {}
+    obj_ref = ObjectReference.__new__(ObjectReference)
+    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen")
+    obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/counter"
+    obj_ref._parent_scale = (2.0, 1.0, 1.0)
+    obj_ref._collision_mesh = None
+    obj_ref._collision_mesh_loaded = False
+
+    class OpenStage:
+        def __init__(self, path):
+            calls["opened"] = path
+
+        def __enter__(self):
+            return "stage"
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr("isaaclab_arena.assets.object_reference.open_stage", OpenStage)
+    monkeypatch.setattr(
+        ObjectReference,
+        "isaaclab_prim_path_to_original_prim_path",
+        staticmethod(lambda prim_path, parent, stage: "/World/counter"),
+    )
+
+    def fake_extract(stage, prim_path, scale):
+        calls["extract"] = (stage, prim_path, scale)
+        return expected_mesh
+
+    monkeypatch.setattr("isaaclab_arena.assets.object_reference.extract_trimesh_from_prim", fake_extract)
+
+    assert obj_ref.get_collision_mesh() is expected_mesh
+    assert obj_ref.get_collision_mesh() is expected_mesh
+    assert calls == {
+        "opened": "/tmp/kitchen.usd",
+        "extract": ("stage", "/World/counter", (2.0, 1.0, 1.0)),
+    }
+
+
+def test_object_reference_get_collision_mesh_returns_none_on_extraction_failure(monkeypatch):
+    """Meshless references fall back to AABB collision instead of aborting aggregation."""
+    from isaaclab_arena.assets.object_reference import ObjectReference
+
+    calls = {"extract_count": 0}
+    obj_ref = ObjectReference.__new__(ObjectReference)
+    obj_ref.name = "counter"
+    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen")
+    obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/counter"
+    obj_ref._parent_scale = (1.0, 1.0, 1.0)
+    obj_ref._collision_mesh = None
+    obj_ref._collision_mesh_loaded = False
+
+    class OpenStage:
+        def __init__(self, path):
+            pass
+
+        def __enter__(self):
+            return "stage"
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr("isaaclab_arena.assets.object_reference.open_stage", OpenStage)
+    monkeypatch.setattr(
+        ObjectReference,
+        "isaaclab_prim_path_to_original_prim_path",
+        staticmethod(lambda prim_path, parent, stage: "/World/counter"),
+    )
+
+    def fail_extract(stage, prim_path, scale):
+        calls["extract_count"] += 1
+        raise ValueError("No mesh geometry found under /World/counter")
+
+    monkeypatch.setattr("isaaclab_arena.assets.object_reference.extract_trimesh_from_prim", fail_extract)
+
+    assert obj_ref.get_collision_mesh() is None
+    assert obj_ref.get_collision_mesh() is None
+    assert calls["extract_count"] == 1
 
 
 def test_object_reference_world_bbox_without_parent_pose_uses_reference_pose():

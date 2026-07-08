@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import trimesh
+
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from pxr import Usd
@@ -13,7 +15,7 @@ from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.relations.relations import IsAnchor, RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_prim, open_stage
+from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_prim, extract_trimesh_from_prim, open_stage
 from isaaclab_arena.utils.usd_pose_helpers import get_prim_pose_in_default_prim_frame
 
 
@@ -29,6 +31,8 @@ class ObjectReference(ObjectBase):
         self.initial_pose_relative_to_parent = self._get_referenced_prim_pose_relative_to_parent(parent_asset)
         self.object_cfg = self._init_object_cfg()
         self._bounding_box: AxisAlignedBoundingBox | None = None
+        self._collision_mesh: trimesh.Trimesh | None = None
+        self._collision_mesh_loaded = False
 
     def get_initial_pose(self) -> Pose:
         if self.parent_asset.initial_pose is None:
@@ -85,6 +89,22 @@ class ObjectReference(ObjectBase):
             return box.translated(world_position)
         quarters = quaternion_to_90_deg_z_quarters(parent_pose.rotation_xyzw)
         return box.rotated_90_around_z(quarters).translated(world_position)
+
+    def get_collision_mesh(self) -> trimesh.Trimesh | None:
+        """Return the referenced prim's collision mesh in its local frame, or None if unavailable."""
+        if not getattr(self, "_collision_mesh_loaded", False):
+            self._collision_mesh_loaded = True
+            try:
+                usd_path = getattr(self.parent_asset, "usd_path")
+                with open_stage(usd_path) as parent_stage:
+                    prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(
+                        self.prim_path, self.parent_asset, parent_stage
+                    )
+                    self._collision_mesh = extract_trimesh_from_prim(parent_stage, prim_path_in_usd, self._parent_scale)
+            except (OSError, ValueError) as e:
+                print(f"Could not extract collision mesh for object reference '{self.name}': {e}")
+                return None
+        return self._collision_mesh
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         # NOTE(alexmillane): Right now this requires that the object

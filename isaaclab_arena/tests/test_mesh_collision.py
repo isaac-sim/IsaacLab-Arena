@@ -133,9 +133,10 @@ def test_warp_mesh_raw_mesh_flag_skips_convex_hull(monkeypatch):
 
     monkeypatch.setattr(trimesh.Trimesh, "convex_hull", property(fail_convex_hull))
 
-    WarpMeshAndSphereCache(device="cpu").get_warp_mesh(mesh, obj=raw_obj)
+    manager = WarpMeshAndSphereCache(device="cpu")
+    manager.get_warp_mesh(mesh, obj=raw_obj)
     with pytest.raises(RuntimeError, match="convex hull"):
-        WarpMeshAndSphereCache(device="cpu").get_warp_mesh(mesh, obj=normal_obj)
+        manager.get_warp_mesh(mesh, obj=normal_obj)
 
 
 def _batched_aabb_loss(strategy, clearance_m, child_pos, child_bbox, parent_world_bbox):

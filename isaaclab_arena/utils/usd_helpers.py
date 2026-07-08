@@ -316,3 +316,61 @@ def extract_trimesh_from_usd(
     if not all_verts:
         raise ValueError(f"No mesh geometry found in {usd_path}")
     return trimesh.Trimesh(vertices=np.vstack(all_verts), faces=np.array(all_faces, dtype=np.int32))
+
+
+def extract_trimesh_from_prim(
+    stage: Usd.Stage,
+    prim_path: str,
+    scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+) -> trimesh.Trimesh:
+    """Extract mesh geometry under a prim into the prim's local frame."""
+    assert all(
+        s > 0 for s in scale
+    ), f"All scale components must be positive (negative scale flips winding/SDF sign), got {scale}"
+
+    root_prim = stage.GetPrimAtPath(prim_path)
+    if not root_prim:
+        raise ValueError(f"No prim found at path {prim_path}")
+    if not root_prim.IsA(UsdGeom.Xformable):
+        raise ValueError(f"Prim at path {prim_path} is not Xformable")
+
+    root_world_tf = np.array(UsdGeom.Xformable(root_prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+    root_world_tf_inv = np.linalg.inv(root_world_tf)
+    scale_np = np.asarray(scale, dtype=np.float64)
+
+    all_verts: list[np.ndarray] = []
+    all_faces: list[list[int]] = []
+    offset = 0
+
+    for prim in Usd.PrimRange(root_prim):
+        if not prim.IsA(UsdGeom.Mesh):
+            continue
+        mesh_prim = UsdGeom.Mesh(prim)
+        points = mesh_prim.GetPointsAttr().Get()
+        face_vertex_counts = mesh_prim.GetFaceVertexCountsAttr().Get()
+        face_vertex_indices = mesh_prim.GetFaceVertexIndicesAttr().Get()
+        if points is None or face_vertex_counts is None or face_vertex_indices is None:
+            continue
+
+        prim_world_tf = np.array(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+        prim_to_root_tf = prim_world_tf @ root_world_tf_inv
+        verts = np.asarray(points, dtype=np.float64)
+        verts_h = np.hstack([verts, np.ones((len(verts), 1))])
+        verts_root = (verts_h @ prim_to_root_tf)[:, :3] * scale_np
+
+        idx = 0
+        for count in face_vertex_counts:
+            for k in range(1, count - 1):
+                all_faces.append([
+                    face_vertex_indices[idx] + offset,
+                    face_vertex_indices[idx + k] + offset,
+                    face_vertex_indices[idx + k + 1] + offset,
+                ])
+            idx += count
+
+        all_verts.append(verts_root)
+        offset += len(verts_root)
+
+    if not all_verts:
+        raise ValueError(f"No mesh geometry found under {prim_path}")
+    return trimesh.Trimesh(vertices=np.vstack(all_verts), faces=np.array(all_faces, dtype=np.int32))

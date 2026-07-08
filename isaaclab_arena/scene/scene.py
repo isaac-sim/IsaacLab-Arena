@@ -132,12 +132,13 @@ class Scene:
 
         Args:
             combine_background_mesh: If True and mesh extraction succeeds, return one
-                collision-only object with all background meshes baked into world coordinates.
+                collision-only object with extracted background meshes baked into world coordinates,
+                plus individual meshless non-Background objects for AABB fallback.
                 When False, whole-scene Background assets are skipped because their AABB spans
                 the full scene and would reject valid layouts.
 
         Returns:
-            Qualifying collision objects, in scene-insertion order.
+            Passive collision objects for placement loss and validation.
         """
         collision_objects: list[Object | ObjectReference] = []
         for asset in self.assets.values():
