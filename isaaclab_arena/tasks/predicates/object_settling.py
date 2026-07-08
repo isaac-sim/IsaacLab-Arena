@@ -32,8 +32,8 @@ _SETTLED_OBJ_POS_ATTR = "_settled_object_positions"
 def objects_settled(
     env,
     object_names: list[str],
-    lin_vel_thresh: float = 1e-2,
-    ang_vel_thresh: float = 1e-2,
+    lin_vel_threshold: float = 1e-2,
+    ang_vel_threshold: float = 1e-2,
     env_id: int | None = None,
 ) -> torch.Tensor:
     """True per env when every object in the env is at rest, records each object's position on first settle.
@@ -48,7 +48,7 @@ def objects_settled(
     ang_speeds = torch.stack(
         [torch.linalg.vector_norm(get_root_ang_vel_w(env, name), dim=-1) for name in object_names], dim=0
     )
-    settled = torch.all((lin_speeds < lin_vel_thresh) & (ang_speeds < ang_vel_thresh), dim=0)
+    settled = torch.all((lin_speeds < lin_vel_threshold) & (ang_speeds < ang_vel_threshold), dim=0)
     for name in object_names:
         _record_object_settled_pos(env, name, settled)
 
