@@ -39,7 +39,10 @@ class Registry(metaclass=SingletonMeta):
         self._components[key] = component
 
     def _ensure_components_registered(self) -> None:
-        """Ensure lazily registered components are available for lookup."""
+        """Provide a hook for registries that load components lazily.
+
+        Registries populated explicitly inherit this no-op implementation.
+        """
         pass
 
     def is_registered(self, key: str, ensure_loaded: bool = True) -> bool:
