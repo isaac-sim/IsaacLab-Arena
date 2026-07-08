@@ -275,8 +275,8 @@ class HDRImageRegistry(_GloballyLoadedRegistry):
 class EnvironmentRegistry(Registry):
     """Store factories and configs registered by environment extension packages.
 
-    This registry has no lazy loader. First-party callers populate it through
-    ensure_environments_registered() before lookup.
+    This registry has no lazy loader. The isaaclab_arena_environments package
+    populates it through ensure_environments_registered() before lookup.
     """
 
     def __init__(self):
