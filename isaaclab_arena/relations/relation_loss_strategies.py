@@ -21,7 +21,15 @@ from isaaclab_arena.relations.relations import Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.relations import AtPosition, NextTo, NotNextTo, On, PositionLimits, Relation, UnaryRelation
+    from isaaclab_arena.relations.relations import (
+        AtPosition,
+        NextTo,
+        NotNextTo,
+        On,
+        PositionLimits,
+        Relation,
+        UnaryRelation,
+    )
 
 
 class Axis(IntEnum):
