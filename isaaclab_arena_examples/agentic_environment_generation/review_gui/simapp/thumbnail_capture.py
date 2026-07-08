@@ -15,11 +15,11 @@ from omni.kit.viewport.utility import frame_viewport_prims, get_active_viewport
 from pxr import Gf, Sdf, UsdGeom, UsdLux
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.utils.asset_usd import usd_cache_key
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
     AabbDimensionsM,
     resolve_node_aabb_dimensions_m,
     resolve_node_usd_paths,
-    usd_cache_key,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import (
     capture_viewport_png,

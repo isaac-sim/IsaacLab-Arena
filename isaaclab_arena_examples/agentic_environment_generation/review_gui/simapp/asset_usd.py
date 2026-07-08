@@ -12,19 +12,10 @@ import sys
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec
-from isaaclab_arena.utils.asset_usd import extract_asset_usd_path, usd_cache_key
+from isaaclab_arena.utils.asset_usd import extract_asset_usd_path
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
 
 AabbDimensionsM = tuple[float, float, float]
-
-__all__ = [
-    "AabbDimensionsM",
-    "aabb_dimensions_from_usd",
-    "resolve_node_aabb_dimensions_m",
-    "resolve_node_usd_paths",
-    "scale_for_asset_spec",
-    "usd_cache_key",
-]
 
 
 def resolve_node_usd_paths(spec: ArenaEnvGraphSpec) -> dict[str, str]:
