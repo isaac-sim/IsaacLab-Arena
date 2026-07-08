@@ -44,13 +44,6 @@ class AssetSpec(BaseModel):
         return value
 
 
-def isaaclab_prim_path_for_background_ref(registry_name: str, prim_path: str) -> str:
-    """Expand a relative prim suffix to the Isaac Lab runtime prim path."""
-    if prim_path.startswith("{ENV_REGEX_NS}/"):
-        return prim_path
-    return f"{{ENV_REGEX_NS}}/{registry_name}/{prim_path.lstrip('/')}"
-
-
 class ObjectReferenceSpec(BaseModel):
     """USD prim reference inside a parent background asset."""
 
@@ -58,10 +51,7 @@ class ObjectReferenceSpec(BaseModel):
     parent_id: str = Field(min_length=1, description="Id of the parent background asset node.")
     prim_path: str | None = Field(
         default=None,
-        description=(
-            "Relative prim suffix under the parent background (e.g. counter_right_main_group/top_geometry). "
-            "Set to unknown on pass 1; a follow-up resolver fills this before env build."
-        ),
+        description="USD prim path inside the parent background; leave empty until resolved.",
     )
     object_type: ObjectType = Field(
         description=(
