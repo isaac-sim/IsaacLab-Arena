@@ -39,9 +39,8 @@ class Registry(metaclass=SingletonMeta):
         self._components[key] = component
 
     def _ensure_components_registered(self) -> None:
-        """Import the modules that populate this registry."""
-        if isinstance(self, REGISTRIES):
-            ensure_assets_registered()
+        """Ensure lazily registered components are available for lookup."""
+        pass
 
     def is_registered(self, key: str, ensure_loaded: bool = True) -> bool:
         """Check whether a component is already registered under a key.
@@ -79,7 +78,15 @@ class Registry(metaclass=SingletonMeta):
         return list(self._components.keys())
 
 
-class AssetRegistry(Registry):
+class _GloballyLoadedRegistry(Registry):
+    """Load components through the shared asset registration pass."""
+
+    def _ensure_components_registered(self) -> None:
+        """Import all modules covered by the shared asset registration pass."""
+        ensure_assets_registered()
+
+
+class AssetRegistry(_GloballyLoadedRegistry):
 
     def __init__(self):
         super().__init__()
@@ -135,7 +142,7 @@ class AssetRegistry(Registry):
         return random.choice(assets)
 
 
-class DeviceRegistry(Registry):
+class DeviceRegistry(_GloballyLoadedRegistry):
 
     def __init__(self):
         super().__init__()
@@ -160,7 +167,7 @@ class DeviceRegistry(Registry):
         return device.get_device_cfg(pipeline_builder=pipeline_builder, embodiment=embodiment)
 
 
-class RetargeterRegistry(Registry):
+class RetargeterRegistry(_GloballyLoadedRegistry):
     def __init__(self):
         super().__init__()
 
@@ -216,7 +223,7 @@ class PolicyRegistry(Registry):
         return self.get_component_by_name(name)
 
 
-class HDRImageRegistry(Registry):
+class HDRImageRegistry(_GloballyLoadedRegistry):
     """Registry for HDR/EXR environment map textures."""
 
     def __init__(self):
@@ -302,7 +309,7 @@ class EnvironmentRegistry(Registry):
         return self._factory_types_by_cfg_type[cfg_type]
 
 
-class ObjectRelationLibraryRegistry(Registry):
+class ObjectRelationLibraryRegistry(_GloballyLoadedRegistry):
     """Registry for object relation classes."""
 
     def __init__(self):
@@ -318,7 +325,7 @@ class ObjectRelationLibraryRegistry(Registry):
         return self.get_component_by_name(name)
 
 
-class TaskRegistry(Registry):
+class TaskRegistry(_GloballyLoadedRegistry):
     """Registry for TaskBase subclasses."""
 
     def __init__(self):
@@ -332,18 +339,6 @@ class TaskRegistry(Registry):
         """
         ensure_assets_registered()
         return self.get_component_by_name(name)
-
-
-# Registries populated by the broad asset loader. PolicyRegistry and
-# EnvironmentRegistry use their own narrower registration boundaries.
-REGISTRIES = (
-    AssetRegistry,
-    DeviceRegistry,
-    RetargeterRegistry,
-    HDRImageRegistry,
-    ObjectRelationLibraryRegistry,
-    TaskRegistry,
-)
 
 
 # Lazy registration to avoid circular imports
