@@ -188,6 +188,9 @@ class PolicyRegistry(Registry):
 
     def _ensure_components_registered(self) -> None:
         """Import only the modules that register Arena's built-in policies."""
+        # Built-in names such as zero_action, replay, and rsl_rl must work without
+        # callers importing each policy module first. Importing the policy package
+        # registers them without loading unrelated assets, tasks, embodiments, or pxr.
         import isaaclab_arena.policy  # noqa: F401
 
     def register_policy(self, policy_type: type["PolicyBase"], cfg_type: type["PolicyCfg"]) -> None:
@@ -266,6 +269,9 @@ class HDRImageRegistry(_GloballyLoadedRegistry):
         return random.choice(hdrs)
 
 
+# Environment factories come from extension packages, not the shared asset
+# registration pass. Those packages explicitly populate this registry before
+# lookup; first-party callers do so through ensure_environments_registered().
 class EnvironmentRegistry(Registry):
     """Registry for Arena environment factories and their configs."""
 
