@@ -80,7 +80,7 @@ def _record_object_settled_pos(env, name: str, settled: torch.Tensor) -> None:
 def reset_settled(env, env_ids=None) -> None:
     """Clear recorded settle data for ``env_ids`` (all envs if None). Runs on env reset."""
     store = getattr(get_env(env), _SETTLED_OBJ_POS_ATTR, None)
-    if not store:
+    if store is None:
         return
     ids = slice(None) if env_ids is None else torch.as_tensor(env_ids, dtype=torch.long, device=get_env(env).device)
     for entry in store.values():
