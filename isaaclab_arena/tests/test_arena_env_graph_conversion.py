@@ -31,7 +31,7 @@ def _test_arena_env_graph_conversion_builds_sequential_pick_and_place_task(simul
 
     assert arena_env.name == "pick_and_place_maple_table_default"
     assert isinstance(arena_env.task, SequentialTaskBase)
-    assert arena_env.task.desired_subtask_success_state == [True, True]
+    assert arena_env.task.desired_subtask_success_state is None
     assert len(arena_env.task.subtasks) == 2
     assert all(isinstance(subtask, PickAndPlaceTask) for subtask in arena_env.task.subtasks)
     assert arena_env.task.subtasks[0].pick_up_object.name == "rubiks_cube_hot3d_robolab"
