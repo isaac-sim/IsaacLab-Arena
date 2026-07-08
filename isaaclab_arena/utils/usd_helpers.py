@@ -69,6 +69,13 @@ def is_rigid_body(prim: Usd.Prim) -> bool:
     return prim.HasAPI(UsdPhysics.RigidBodyAPI)
 
 
+def has_physics_or_collision(prim: Usd.Prim) -> bool:
+    """Return True when prim participates in physics simulation or collision."""
+    if is_articulation_root(prim) or is_rigid_body(prim):
+        return True
+    return prim.HasAPI(UsdPhysics.CollisionAPI)
+
+
 def object_type_for_prim(prim: Usd.Prim) -> ObjectType:
     """Classify a prim for object-reference resolution."""
     if is_articulation_root(prim):

@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.usd_helpers import (
     articulation_joint_names,
+    has_physics_or_collision,
     object_type_for_prim,
     open_stage,
     relative_path_from_default_prim,
@@ -40,6 +41,8 @@ def load_usd_prim_tree(usd_path: str) -> list[UsdPrimRecord]:
     with open_stage(usd_path) as stage:
         for prim in stage.Traverse():
             if prim.IsPseudoRoot():
+                continue
+            if not has_physics_or_collision(prim):
                 continue
             relative_path = relative_path_from_default_prim(stage, str(prim.GetPath()))
             if not relative_path:
