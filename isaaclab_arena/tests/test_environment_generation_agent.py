@@ -121,6 +121,33 @@ class TestGenerateSpec:
         assert agent.client.chat.completions.create.call_count == 2
         assert result.object_references
 
+    @patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.load_usd_prim_tree")
+    @patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.resolve_asset_usd_path")
+    def test_two_pass_generate_spec_returns_dict_on_pass2_failure(self, mock_resolve_usd, mock_load_tree, agent):
+        mock_resolve_usd.return_value = "/tmp/scene.usd"
+        mock_load_tree.return_value = kitchen_prim_tree()
+        bad_resolve = {
+            "object_references": [{
+                "id": "counter_top",
+                "parent_id": "lightwheel_robocasa_kitchen",
+                "prim_path": "missing_prim",
+                "object_type": "base",
+            }]
+        }
+        agent.client.chat.completions.create.side_effect = [
+            chat_response(content=json.dumps(kitchen_pass1_dict())),
+            chat_response(content=json.dumps(bad_resolve)),
+        ]
+        result = agent.generate_spec(
+            "kitchen task",
+            asset_catalog=catalog("catalog"),
+            relation_catalog=relation_catalog("RELATIONS"),
+            task_catalog=make_task_catalog("TASKS"),
+        )
+        assert isinstance(result, dict)
+        assert agent.client.chat.completions.create.call_count == 2
+        assert any("is not in the background prim tree" in line for line in agent.last_validation_traces)
+
 
 # ---------------------------------------------------------------------------
 # Live endpoint (network + auth required)

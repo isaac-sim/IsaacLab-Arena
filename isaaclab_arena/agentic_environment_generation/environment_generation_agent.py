@@ -268,9 +268,10 @@ class EnvironmentGenerationAgent:
                 ``TaskRegistry`` tasks marked ``@agent_ready``.
 
         Returns:
-            A validated :class:`ArenaEnvGraphSpec` on success, otherwise the
-            parsed JSON ``dict`` from the model. When validation fails,
-            ``agent.traces`` holds the error trace.
+            A validated :class:`ArenaEnvGraphSpec` on success, otherwise a ``dict``
+            (the model's raw JSON on pass-1 failure, or the unresolved spec on pass-2
+            prim-path failure). When validation fails, ``agent.traces`` holds the
+            error trace.
         """
         self.traces = []
         asset_catalog = asset_catalog or build_asset_catalogue()
@@ -286,5 +287,8 @@ class EnvironmentGenerationAgent:
         if spec is None:
             return data
         if spec.object_references:
-            spec = self.object_reference_resolver.infer(spec, self.traces)
+            resolved = self.object_reference_resolver.infer(spec, self.traces)
+            if resolved is None:
+                return spec.to_dict()
+            spec = resolved
         return spec

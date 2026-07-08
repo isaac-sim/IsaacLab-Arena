@@ -10,10 +10,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from pydantic import BaseModel, Field, ValidationInfo, model_validator
+from pydantic import BaseModel, Field, ValidationError, ValidationInfo, model_validator
 
 from isaaclab_arena.agentic_environment_generation.agent_utils import build_strict_schema
 from isaaclab_arena.agentic_environment_generation.query_backend import QueryBackend, StructuredOutputRequest
+from isaaclab_arena.agentic_environment_generation.spec_validation import format_validation_error
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environments.arena_env_graph_types import ObjectReferenceSpec
 from isaaclab_arena.utils.asset_usd import resolve_asset_usd_path
@@ -134,8 +135,18 @@ class ObjectReferencePrimResolver:
         self,
         spec: ArenaEnvGraphSpec,
         traces: list[str],
-    ) -> ArenaEnvGraphSpec:
-        """Always resolve object_reference prim_path values against the background USD prim tree."""
+    ) -> ArenaEnvGraphSpec | None:
+        """Resolve object_reference prim_path values against the background USD prim tree.
+
+        Args:
+            spec: Pass-1 spec whose object references carry unresolved prim paths.
+            traces: Accumulator for validation error lines, extended in place when the
+                model output fails prim-tree validation.
+
+        Returns:
+            The spec with resolved prim paths on success, otherwise ``None`` (with
+            error lines appended to ``traces``).
+        """
         usd_path = resolve_asset_usd_path(spec.background)
         prim_tree = load_usd_prim_tree(usd_path)
         data = self._query_backend.run_json(
@@ -147,9 +158,15 @@ class ObjectReferencePrimResolver:
                 retry_label="resolve_usd_prim",
             )
         )
-        resolved = ResolvedObjectReferences.model_validate(
-            data,
-            context={"prim_tree": prim_tree},
-        ).object_references
-        spec = _merge_resolved_object_references(spec, resolved)
-        return spec
+        try:
+            resolved = ResolvedObjectReferences.model_validate(
+                data,
+                context={"prim_tree": prim_tree},
+            ).object_references
+            return _merge_resolved_object_references(spec, resolved)
+        except ValidationError as exc:
+            traces.extend(format_validation_error(exc))
+            return None
+        except AssertionError as exc:
+            traces.append(str(exc))
+            return None

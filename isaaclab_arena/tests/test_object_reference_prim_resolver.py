@@ -11,7 +11,6 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from pydantic import ValidationError
 
 from isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver import ObjectReferencePrimResolver
 from isaaclab_arena.agentic_environment_generation.query_backend import QueryBackend
@@ -82,7 +81,7 @@ def test_object_reference_prim_resolver_infer_merges_llm_output(mock_resolve_usd
 )
 @patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.load_usd_prim_tree")
 @patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.resolve_asset_usd_path")
-def test_object_reference_prim_resolver_infer_rejects_invalid_llm_output(
+def test_object_reference_prim_resolver_infer_records_invalid_llm_output(
     mock_resolve_usd,
     mock_load_tree,
     response,
@@ -94,5 +93,7 @@ def test_object_reference_prim_resolver_infer_rejects_invalid_llm_output(
     client.chat.completions.create.return_value = chat_response(json.dumps(response))
     resolver = ObjectReferencePrimResolver(QueryBackend(client, "test-model"))
     spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
-    with pytest.raises(ValidationError, match=match):
-        resolver.infer(spec, [])
+    traces: list[str] = []
+    result = resolver.infer(spec, traces)
+    assert result is None
+    assert any(match in line for line in traces), traces
