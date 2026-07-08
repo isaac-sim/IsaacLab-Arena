@@ -5,52 +5,52 @@
 
 # Typed YAML equivalent of eval_jobs_configs/getting_started_jobs_config.json.
 runs:
-  - name: 01_baseline
-    environment:
-      type: pick_and_place_maple_table
-      embodiment: droid_rel_joint_pos
-      pick_up_object: rubiks_cube_hot3d_robolab
-      destination_location: bowl_ycb_robolab
-      hdr: home_office_robolab
-    policy:
-      type: zero_action
-    rollout_limit:
-      num_steps: 50
+- name: 01_baseline
+  environment:
+    type: pick_and_place_maple_table
+    embodiment: droid_rel_joint_pos
+    pick_up_object: rubiks_cube_hot3d_robolab
+    destination_location: bowl_ycb_robolab
+    hdr: home_office_robolab
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_steps: 50
 
-  - name: 02_swap_objects
-    environment:
-      type: pick_and_place_maple_table
-      embodiment: droid_rel_joint_pos
-      pick_up_object: mustard_bottle_hot3d_robolab
-      destination_location: wooden_bowl_hot3d_robolab
-      hdr: home_office_robolab
-    policy:
-      type: zero_action
-    rollout_limit:
-      num_steps: 50
+- name: 02_swap_objects
+  environment:
+    type: pick_and_place_maple_table
+    embodiment: droid_rel_joint_pos
+    pick_up_object: mustard_bottle_hot3d_robolab
+    destination_location: wooden_bowl_hot3d_robolab
+    hdr: home_office_robolab
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_steps: 50
 
-  - name: 03_change_background_hdr
-    environment:
-      type: pick_and_place_maple_table
-      embodiment: droid_rel_joint_pos
-      pick_up_object: rubiks_cube_hot3d_robolab
-      destination_location: bowl_ycb_robolab
-      hdr: billiard_hall_robolab
-    policy:
-      type: zero_action
-    rollout_limit:
-      num_steps: 50
+- name: 03_change_background_hdr
+  environment:
+    type: pick_and_place_maple_table
+    embodiment: droid_rel_joint_pos
+    pick_up_object: rubiks_cube_hot3d_robolab
+    destination_location: bowl_ycb_robolab
+    hdr: billiard_hall_robolab
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_steps: 50
 
-  - name: 04_parallel_envs
-    environment:
-      type: pick_and_place_maple_table
-      embodiment: droid_rel_joint_pos
-      pick_up_object: rubiks_cube_hot3d_robolab
-      destination_location: bowl_ycb_robolab
-    policy:
-      type: zero_action
-    environment_builder:
-      num_envs: 64
-      env_spacing: 2.5
-    rollout_limit:
-      num_steps: 100
+- name: 04_parallel_envs
+  environment:
+    type: pick_and_place_maple_table
+    embodiment: droid_rel_joint_pos
+    pick_up_object: rubiks_cube_hot3d_robolab
+    destination_location: bowl_ycb_robolab
+  policy:
+    type: zero_action
+  environment_builder:
+    num_envs: 64
+    env_spacing: 2.5
+  rollout_limit:
+    num_steps: 100
