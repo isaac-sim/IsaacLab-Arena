@@ -78,10 +78,10 @@ class Registry(metaclass=SingletonMeta):
         return list(self._components.keys())
 
 
-# TODO(cvolk, 2026-07-08): [typed-config-migration] Separate lightweight
-# component discovery from simulator-dependent registration for these domains.
-# The shared loader imports pxr, so assets (including embodiments), devices,
-# retargeters, HDRs, relations, and tasks cannot be discovered before SimulationApp starts.
+# TODO(cvolk, 2026-07-08): Let these registries list their components before
+# SimulationApp starts. Their shared loader currently imports pxr, so assets
+# (including embodiments), devices, retargeters, HDRs, relations, and tasks can
+# only be discovered after the simulator has started.
 class _GloballyLoadedRegistry(Registry):
     """Load components through the shared asset registration pass."""
 
