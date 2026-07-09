@@ -10,13 +10,14 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 from pathlib import Path
-from typing import TYPE_CHECKING
 
+from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperiment
-
-if TYPE_CHECKING:
-    from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-    from isaaclab_arena.policy.policy_base import PolicyCfg
+from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
+from isaaclab_arena.hydra.arena_experiment import load_arena_experiment_from_yaml
+from isaaclab_arena.policy.policy_base import PolicyCfg
+from isaaclab_arena_environments.cli import ensure_environments_registered
 
 
 def load_arena_experiment_from_config_file(
@@ -45,30 +46,31 @@ def load_arena_experiment_from_config_file(
     assert suffix in {".json", ".yaml", ".yml"}, f"Experiment config must use .json, .yaml, or .yml, got '{path}'"
 
     if suffix == ".json":
-        from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
-
         assert not overrides, "Experiment overrides are supported only for typed YAML Experiments"
         with path.open(encoding="utf-8") as experiment_config_file:
             legacy_experiment_config = json.load(experiment_config_file)
-        experiment = run_cfgs_from_legacy_eval_config(legacy_experiment_config, device=device)
-    else:
-        from isaaclab_arena.hydra.arena_experiment import load_arena_experiment_from_yaml
+        return run_cfgs_from_legacy_eval_config(legacy_experiment_config, device=device)
 
-        experiment = load_arena_experiment_from_yaml(
-            path,
-            environment_cfg_types=_registered_environment_cfg_types(),
-            policy_cfg_types=_registered_policy_cfg_types(),
-            overrides=overrides,
+    yaml_experiment = load_arena_experiment_from_yaml(
+        path,
+        environment_cfg_types=_registered_environment_cfg_types(),
+        policy_cfg_types=_registered_policy_cfg_types(),
+        overrides=overrides,
+    )
+
+    experiment_with_process_device: ArenaExperiment = []
+    for run_config in yaml_experiment:
+        environment_builder_with_process_device = replace(run_config.environment_builder, device=device)
+        run_config_with_process_device = replace(
+            run_config,
+            environment_builder=environment_builder_with_process_device,
         )
-
-    return [replace(run, environment_builder=replace(run.environment_builder, device=device)) for run in experiment]
+        experiment_with_process_device.append(run_config_with_process_device)
+    return experiment_with_process_device
 
 
 def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
     """Return registered environment selector names and their config types."""
-    from isaaclab_arena.assets.registries import EnvironmentRegistry
-    from isaaclab_arena_environments.cli import ensure_environments_registered
-
     ensure_environments_registered()
     registry = EnvironmentRegistry()
     return {
@@ -79,8 +81,6 @@ def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
 
 def _registered_policy_cfg_types() -> dict[str, type[PolicyCfg]]:
     """Return registered policy selector names and their config types."""
-    from isaaclab_arena.assets.registries import PolicyRegistry
-
     registry = PolicyRegistry()
     return {
         name: registry.get_policy_cfg_type(registry.get_component_by_name(name)) for name in registry.get_all_keys()
