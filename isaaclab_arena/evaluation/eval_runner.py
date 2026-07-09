@@ -16,7 +16,10 @@ from prettytable import PrettyTable
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperiment
-from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
+from isaaclab_arena.evaluation.arena_experiment_config_loader import (
+    load_arena_experiment_from_config_file,
+    validate_experiment_config_path,
+)
 from isaaclab_arena.evaluation.arena_run import ArenaRunResult
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg, execute_experiment
@@ -141,19 +144,6 @@ def _parse_eval_runner_args() -> argparse.Namespace:
     return args_cli
 
 
-def _validate_experiment_config_path(experiment_config: str | Path) -> Path:
-    """Return a supported Experiment configuration path that exists."""
-    experiment_config_path = Path(experiment_config)
-    assert experiment_config_path.is_file(), f"Experiment config does not exist: '{experiment_config_path}'"
-    experiment_config_suffix = experiment_config_path.suffix.lower()
-    assert experiment_config_suffix in {
-        ".json",
-        ".yaml",
-        ".yml",
-    }, f"Experiment config must use .json, .yaml, or .yml, got '{experiment_config_path}'"
-    return experiment_config_path
-
-
 def _load_legacy_json_experiment_config(
     experiment_config_path: Path,
     experiment_overrides: list[str],
@@ -177,7 +167,7 @@ def _load_legacy_json_experiment_config(
 
 def main():
     args_cli = _parse_eval_runner_args()
-    experiment_config_path = _validate_experiment_config_path(args_cli.experiment_config)
+    experiment_config_path = validate_experiment_config_path(args_cli.experiment_config)
     legacy_experiment_config = _load_legacy_json_experiment_config(
         experiment_config_path,
         args_cli.experiment_override,
