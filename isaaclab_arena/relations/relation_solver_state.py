@@ -42,9 +42,6 @@ class RelationSolverState:
                 length > 1 = batched.
             device: Torch device for all tensors. Defaults to CPU.
             env_bboxes: Optional per-env bounding boxes keyed by object.
-                ObjectPlacer always supplies these for placement solves. Direct
-                solver/debug calls may omit them to use each object's default
-                get_bounding_box().
             collision_objects: Optional fixed background obstacles that participate in
                 no-overlap collision only (never in relation constraints). They keep a
                 constant world bounding box and are not optimized. Must be disjoint from objects.
@@ -147,8 +144,7 @@ class RelationSolverState:
 
     @property
     def collision_objects(self) -> list[ObjectBase]:
-        """Fixed background obstacles included in no-overlap collision only."""
-        # Copy so callers cannot mutate the state's internal obstacle list.
+        """Copy of the collision-only fixed obstacles (constant world pose, no relation constraints)."""
         return list(self._collision_objects)
 
     def get_position(self, obj: ObjectBase) -> torch.Tensor:

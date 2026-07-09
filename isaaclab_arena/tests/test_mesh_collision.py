@@ -687,6 +687,40 @@ def test_mixed_mesh_aabb_uses_per_env_bbox_proxy():
 
 
 @requires_warp
+def test_mixed_mesh_aabb_varying_proxy_uses_aabb_fallback():
+    """Varying per-env AABB proxies stay on the AABB collision path."""
+    table = _make_table()
+    source = DummyObject(
+        "source",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.01, -0.01, -0.01), max_point=(0.01, 0.01, 0.01)),
+    )
+    target = _make_box_obj("target", sx=0.05, sy=0.05, sz=0.05)
+    target.collision_mode = CollisionMode.MESH
+
+    initial = [
+        {table: (0.0, 0.0, -1.0), source: (0.0, 0.0, 0.0), target: (0.25, 0.0, 0.0)},
+        {table: (0.0, 0.0, -1.0), source: (0.0, 0.0, 0.0), target: (0.25, 0.0, 0.0)},
+    ]
+    env_bboxes = {
+        table: table.get_bounding_box(),
+        source: AxisAlignedBoundingBox(
+            min_point=torch.tensor([[-0.01, -0.01, -0.01], [-0.3, -0.3, -0.01]]),
+            max_point=torch.tensor([[0.01, 0.01, 0.01], [0.3, 0.3, 0.01]]),
+        ),
+        target: target.get_bounding_box(),
+    }
+
+    solver = RelationSolver(
+        params=RelationSolverParams(collision_mode=CollisionMode.BBOX, clearance_m=0.0, max_iters=0, verbose=False)
+    )
+    solver.solve([table, source, target], initial, env_bboxes=env_bboxes)
+
+    losses = solver.last_loss_per_env
+    assert losses[1].item() > losses[0].item()
+    assert solver._last_no_overlap_pair_count > 0
+
+
+@requires_warp
 def test_yawed_aabb_proxy_validation_is_not_double_rotated():
     """AABB proxy spheres built from yaw-expanded bboxes must not rotate by source yaw again."""
     from isaaclab_arena.relations.object_placer import ObjectPlacer

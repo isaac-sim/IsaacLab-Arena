@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 
 class FixedCollisionObject:
-    """Single fixed collision-only object built from multiple fixed meshes."""
+    """Collision-only obstacle wrapping a single world-frame mesh with an identity pose."""
 
     def __init__(
         self,
@@ -46,7 +46,7 @@ class FixedCollisionObject:
         return []
 
     def get_spatial_relations(self) -> list[RelationBase]:
-        """Return no spatial relations."""
+        """Return no spatial relations; the object is collision-only."""
         return []
 
     def get_initial_pose(self) -> Pose:
@@ -54,20 +54,24 @@ class FixedCollisionObject:
         return self._pose
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Return bounds for the world-frame aggregate mesh."""
+        """Return the mesh bounds; identical to the world bounds since the mesh is in world frame."""
         return self._bounding_box
 
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Return the world-space bounds of the combined fixed mesh."""
+        """Return the mesh bounds in world frame."""
         return self._bounding_box
 
     def get_collision_mesh(self) -> trimesh.Trimesh:
-        """Return the combined fixed mesh in world coordinates."""
+        """Return the mesh in world coordinates."""
         return self._mesh
 
 
 def make_fixed_collision_objects(objects: Sequence[ObjectBase]) -> list[ObjectBase | FixedCollisionObject]:
-    """Build mesh aggregate plus meshless fixed obstacles kept for AABB fallback."""
+    """Combine the objects' collision meshes into one FixedCollisionObject.
+
+    Objects in BBOX mode or without an extractable mesh are returned unchanged;
+    a whole-scene Background that cannot aggregate is an error.
+    """
     from isaaclab_arena.assets.background import Background
 
     mesh, skipped_objects = _combine_fixed_meshes(objects)
@@ -77,14 +81,10 @@ def make_fixed_collision_objects(objects: Sequence[ObjectBase]) -> list[ObjectBa
     if skipped_objects:
         aabb_fallback_objects = [obj for obj in skipped_objects if not isinstance(obj, Background)]
         bbox_backgrounds = [
-            obj
-            for obj in skipped_objects
-            if isinstance(obj, Background) and getattr(obj, "collision_mode", None) == CollisionMode.BBOX
+            obj for obj in skipped_objects if isinstance(obj, Background) and obj.collision_mode == CollisionMode.BBOX
         ]
         skipped_backgrounds = [
-            obj
-            for obj in skipped_objects
-            if isinstance(obj, Background) and getattr(obj, "collision_mode", None) != CollisionMode.BBOX
+            obj for obj in skipped_objects if isinstance(obj, Background) and obj.collision_mode != CollisionMode.BBOX
         ]
         assert not bbox_backgrounds, (
             "Whole-scene Background assets cannot use explicit BBOX collision because their AABBs span the full scene: "
@@ -111,7 +111,7 @@ def _combine_fixed_meshes(objects: Sequence[ObjectBase]) -> tuple[trimesh.Trimes
     meshes = []
     skipped_objects = []
     for obj in objects:
-        if getattr(obj, "collision_mode", None) == CollisionMode.BBOX:
+        if obj.collision_mode == CollisionMode.BBOX:
             skipped_objects.append(obj)
             continue
         mesh = manager.get_collision_mesh(obj)

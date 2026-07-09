@@ -92,7 +92,7 @@ class MeshPairCache:
     """(P,) obstacle (mesh target) object reference per pair."""
 
     pair_subject_applies_yaw: list[bool]
-    """(P,) True when subject sphere centers should rotate by subject yaw."""
+    """(P,) True when subject sphere centers are in the subject's unrotated local frame."""
 
     pair_is_anchor: list[bool]
     """(P,) True if the obstacle is fixed in world coordinates."""

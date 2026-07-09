@@ -329,7 +329,7 @@ class RelationSolver:
         return state.get_final_positions()
 
     def _should_use_mesh_collision(self, state: RelationSolverState) -> bool:
-        """Return True when the solve has any object-level mesh collision enabled."""
+        """Return True when the default mode or any object's override resolves to MESH."""
         if self.params.collision_mode == CollisionMode.MESH:
             return True
         objects = [*state.optimizable_objects, *state.anchor_objects, *state.collision_objects]

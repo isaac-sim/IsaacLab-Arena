@@ -223,18 +223,18 @@ def _collect_mesh_pairs(
     for i, child in enumerate(non_anchor_objects):
         child_uses_mesh = object_uses_mesh_collision(child, default_collision_mode)
         child_mesh = manager.get_collision_mesh(child) if child_uses_mesh else None
+        child_bbox = state.get_bbox(child).to(device)
+        child_bbox_is_invariant = child_bbox.is_batch_invariant()
         if child_uses_mesh and child_mesh is None and child.name not in warned_no_mesh:
             warned_no_mesh.add(child.name)
-            print(
-                f"[NoCollision] '{child.name}' has no collision mesh; using an AABB-sphere approximation "
-                "for mesh-obstacle pairs."
+            fallback = (
+                "using an AABB-sphere approximation for mesh-obstacle pairs"
+                if child_bbox_is_invariant
+                else "pair will use AABB fallback for varying per-env bboxes"
             )
-        # The caller tells the cache whether these bboxes already include yaw.
-        child_bbox = state.get_bbox(child).to(device)
+            print(f"[NoCollision] '{child.name}' has no collision mesh; {fallback}.")
         child_spheres = _get_subject_spheres(child_mesh, child_bbox, child, manager, device)
         child_applies_yaw = child_mesh is not None or not bboxes_include_yaw
-        child_centers_local = child_spheres[:, :3]
-        child_radii = child_spheres[:, 3]
         c_bbox_min = child_bbox.min_point.expand(state.batch_size, 3)
         c_bbox_max = child_bbox.max_point.expand(state.batch_size, 3)
 
@@ -261,6 +261,8 @@ def _collect_mesh_pairs(
                 f"pure-Z rotation, got rotation_xyzw={pose.rotation_xyzw}. "
                 "Roll/pitch fixed obstacles are not supported in MESH mode."
             )
+            if child_spheres is None:
+                continue
             obstacle_bbox = obstacle.get_bounding_box().to(device)
             pairs.append(
                 MeshPairEntry(
@@ -269,9 +271,9 @@ def _collect_mesh_pairs(
                     is_anchor=True,
                     anchor_pos=torch.tensor(pose.position_xyz, dtype=torch.float32, device=device),
                     anchor_yaw=yaw_from_quat_xyzw(pose.rotation_xyzw),
-                    centers_local=child_centers_local,
+                    centers_local=child_spheres[:, :3],
                     subject_applies_yaw=child_applies_yaw,
-                    radii=child_radii,
+                    radii=child_spheres[:, 3],
                     subject_bbox_min=c_bbox_min,
                     subject_bbox_max=c_bbox_max,
                     subject_bbox_includes_yaw=bboxes_include_yaw,
@@ -289,16 +291,22 @@ def _collect_mesh_pairs(
                 continue
             other_uses_mesh = object_uses_mesh_collision(other, default_collision_mode)
             other_mesh = manager.get_collision_mesh(other) if other_uses_mesh else None
+            other_bbox = state.get_bbox(other).to(device)
+            other_bbox_is_invariant = other_bbox.is_batch_invariant()
             if other_mesh is None and child_mesh is None:
                 if other_uses_mesh and other.name not in warned_no_mesh:
                     warned_no_mesh.add(other.name)
-                    print(f"[NoCollision] '{other.name}' has no collision mesh; pair will use AABB fallback.")
+                    fallback = (
+                        "using an AABB-sphere approximation for mesh-obstacle pairs"
+                        if other_bbox_is_invariant
+                        else "pair will use AABB fallback for varying per-env bboxes"
+                    )
+                    print(f"[NoCollision] '{other.name}' has no collision mesh; {fallback}.")
                 continue
-            other_bbox = state.get_bbox(other).to(device)
             o_bbox_min = other_bbox.min_point.expand(state.batch_size, 3)
             o_bbox_max = other_bbox.max_point.expand(state.batch_size, 3)
 
-            if other_mesh is not None:
+            if other_mesh is not None and child_spheres is not None:
                 # forward: child's mesh/spheres or AABB-sphere approximation → other's mesh
                 pairs.append(
                     MeshPairEntry(
@@ -307,9 +315,9 @@ def _collect_mesh_pairs(
                         is_anchor=False,
                         anchor_pos=None,
                         anchor_yaw=0.0,
-                        centers_local=child_centers_local,
+                        centers_local=child_spheres[:, :3],
                         subject_applies_yaw=child_applies_yaw,
-                        radii=child_radii,
+                        radii=child_spheres[:, 3],
                         subject_bbox_min=c_bbox_min,
                         subject_bbox_max=c_bbox_max,
                         subject_bbox_includes_yaw=bboxes_include_yaw,
@@ -323,6 +331,8 @@ def _collect_mesh_pairs(
             if child_mesh is not None:
                 # reverse: other's mesh/spheres or AABB-sphere approximation → child's mesh
                 other_spheres = _get_subject_spheres(other_mesh, other_bbox, other, manager, device)
+                if other_spheres is None:
+                    continue
                 other_applies_yaw = other_mesh is not None or not bboxes_include_yaw
                 pairs.append(
                     MeshPairEntry(
@@ -353,10 +363,12 @@ def _get_subject_spheres(
     obj: ObjectBase,
     manager: WarpMeshAndSphereCache,
     device: torch.device,
-) -> torch.Tensor:
-    """Return query spheres as ``(num_spheres, 4)`` rows of ``x, y, z, radius``."""
+) -> torch.Tensor | None:
+    """Return (S, 4) query spheres; return None for varying meshless bboxes."""
     if mesh is not None:
         return manager.get_query_spheres(mesh, obj=obj).to(device)
+    if not bbox.is_batch_invariant():
+        return None
     center = bbox.center[0].detach().cpu().numpy()
     extents = bbox.size[0].detach().cpu().numpy()
     box_mesh = trimesh.creation.box(extents=extents)

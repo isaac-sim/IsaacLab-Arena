@@ -101,6 +101,14 @@ class ArenaEnvBuilder:
             )
             if self.cfg.resolve_on_reset is not None:
                 placer_params.resolve_on_reset = self.cfg.resolve_on_reset
+        if not objects_with_relations:
+            self._placement_event_cfg = solve_and_apply_relation_placement(
+                objects_with_relations,
+                num_envs=self.cfg.num_envs,
+                placer_params=placer_params,
+                collision_objects=[],
+            )
+            return
         # Relation-free background geometry is invisible to the relation graph, but placed objects
         # must still avoid it. In MESH mode, use one world-frame aggregate background mesh.
         scene_assets = self.arena_env.scene.assets.values()
@@ -118,7 +126,7 @@ class ArenaEnvBuilder:
         )
 
     def _should_include_background_mesh(self, objects: list[ObjectBase], default_collision_mode: CollisionMode) -> bool:
-        """Return True when relation solving may query whole-background meshes."""
+        """Return True when the default mode or any object/Background override resolves to MESH."""
         if default_collision_mode == CollisionMode.MESH:
             return True
         if any(get_object_collision_mode(obj, default_collision_mode) == CollisionMode.MESH for obj in objects):

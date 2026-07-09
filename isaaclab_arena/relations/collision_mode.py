@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 class CollisionMode(Enum):
-    """Selects the default collision method for no-overlap constraints.
+    """Collision-detection method for no-overlap constraints.
 
     Individual objects may override this default. A pair uses mesh collision when either
     object resolves to MESH and provides a mesh; the meshless side is approximated by its AABB.
@@ -32,5 +32,5 @@ def get_object_collision_mode(obj: ObjectBase, default: CollisionMode) -> Collis
 
 
 def object_uses_mesh_collision(obj: ObjectBase, default: CollisionMode) -> bool:
-    """Return True when an object should provide mesh collision in the current solve."""
+    """Return True when the object's effective collision mode is MESH."""
     return get_object_collision_mode(obj, default) == CollisionMode.MESH

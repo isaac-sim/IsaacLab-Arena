@@ -32,8 +32,8 @@ def get_passive_collision_objects(
 
     Args:
         assets: Scene assets to scan for relation-free fixed objects.
-        include_background: If True, combine mesh-capable passive objects into one
-            fixed collision mesh and keep meshless non-Background objects for AABB fallback.
+        include_background: If True, include Background assets and aggregate all
+            mesh-capable objects into a single FixedCollisionObject.
     """
     collision_objects: list[ObjectBase] = []
     for asset in assets:

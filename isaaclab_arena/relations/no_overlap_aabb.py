@@ -55,9 +55,6 @@ def compute_no_overlap_loss_aabb(
     - Non-anchor vs fixed obstacle (anchor or collision object): gradient flows to the non-anchor only.
     - Non-anchor vs non-anchor: both objects accumulate gradient (two directed passes).
 
-    When skip_mesh_pairs=True, pairs handled by mesh collision are left to the mesh path; pairs
-    that do not have a mesh target remain here.
-
     Args:
         state: Solver state with positions and batch info.
         no_collision_strategy: Loss strategy for scoring overlap.
@@ -108,8 +105,9 @@ def compute_no_overlap_loss_aabb(
             if (
                 skip_mesh_pairs
                 and mesh_manager is not None
-                and object_uses_mesh_collision(obstacle, default_collision_mode)
-                and mesh_manager.get_collision_mesh(obstacle) is not None
+                and _fixed_pair_is_covered_by_mesh_collision(
+                    state, child, obstacle, mesh_manager, default_collision_mode
+                )
             ):
                 continue
             obstacle_min, obstacle_max = extents[obstacle]
@@ -125,15 +123,8 @@ def compute_no_overlap_loss_aabb(
             if (
                 skip_mesh_pairs
                 and mesh_manager is not None
-                and (
-                    (
-                        object_uses_mesh_collision(child, default_collision_mode)
-                        and mesh_manager.get_collision_mesh(child) is not None
-                    )
-                    or (
-                        object_uses_mesh_collision(other, default_collision_mode)
-                        and mesh_manager.get_collision_mesh(other) is not None
-                    )
+                and _dynamic_pair_is_covered_by_mesh_collision(
+                    state, child, other, mesh_manager, default_collision_mode
                 )
             ):
                 continue
@@ -161,3 +152,51 @@ def compute_no_overlap_loss_aabb(
             print(f"  [NoOverlap] {subject_name} vs {obstacle_name}: loss={loss.mean().item():.6f}")
 
     return pair_loss.sum(dim=0), num_pairs
+
+
+def _fixed_pair_is_covered_by_mesh_collision(
+    state: RelationSolverState,
+    subject: ObjectBase,
+    obstacle: ObjectBase,
+    mesh_manager: WarpMeshAndSphereCache,
+    default_collision_mode: CollisionMode,
+) -> bool:
+    """Return True when MESH loss handles subject vs fixed obstacle."""
+    obstacle_mesh = (
+        mesh_manager.get_collision_mesh(obstacle)
+        if object_uses_mesh_collision(obstacle, default_collision_mode)
+        else None
+    )
+    return obstacle_mesh is not None and _has_mesh_or_invariant_bbox(
+        state, subject, mesh_manager, default_collision_mode
+    )
+
+
+def _dynamic_pair_is_covered_by_mesh_collision(
+    state: RelationSolverState,
+    a: ObjectBase,
+    b: ObjectBase,
+    mesh_manager: WarpMeshAndSphereCache,
+    default_collision_mode: CollisionMode,
+) -> bool:
+    """Return True when MESH loss handles a non-anchor object pair."""
+    a_mesh = mesh_manager.get_collision_mesh(a) if object_uses_mesh_collision(a, default_collision_mode) else None
+    b_mesh = mesh_manager.get_collision_mesh(b) if object_uses_mesh_collision(b, default_collision_mode) else None
+    if a_mesh is None and b_mesh is None:
+        return False
+    return _has_mesh_or_invariant_bbox(state, a, mesh_manager, default_collision_mode) and _has_mesh_or_invariant_bbox(
+        state, b, mesh_manager, default_collision_mode
+    )
+
+
+def _has_mesh_or_invariant_bbox(
+    state: RelationSolverState,
+    obj: ObjectBase,
+    mesh_manager: WarpMeshAndSphereCache,
+    default_collision_mode: CollisionMode,
+) -> bool:
+    """Return True when MESH loss can represent obj as mesh or one bbox proxy."""
+    mesh = mesh_manager.get_collision_mesh(obj) if object_uses_mesh_collision(obj, default_collision_mode) else None
+    if mesh is not None:
+        return True
+    return state.get_bbox(obj).is_batch_invariant()

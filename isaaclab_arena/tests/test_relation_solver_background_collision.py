@@ -124,6 +124,7 @@ def test_background_collision_objects_reject_failed_whole_background(monkeypatch
     left = _mesh_box("left_cabinet", (0.2, 0.2, 0.2), (-1.0, 0.0, 0.0))
     kitchen = Background.__new__(Background)
     kitchen.name = "kitchen"
+    kitchen.collision_mode = None
     kitchen.initial_pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
     monkeypatch.setattr(
         WarpMeshAndSphereCache,
@@ -145,6 +146,7 @@ def test_background_collision_objects_treat_background_none_pose_as_identity(mon
 
     kitchen = Background.__new__(Background)
     kitchen.name = "kitchen"
+    kitchen.collision_mode = None
     kitchen.initial_pose = None
     mesh_source = _mesh_box("source", (0.2, 0.2, 0.2), (0.0, 0.0, 0.0))
     monkeypatch.setattr(
@@ -267,7 +269,7 @@ def test_solve_without_collision_objects_is_a_noop():
 
 
 def test_relation_solver_state_rejects_object_as_collision_object():
-    """An object cannot be both optimized and a fixed obstacle; the state must reject the overlap."""
+    """An object cannot be both optimized and a fixed collision obstacle."""
     import pytest
 
     from isaaclab_arena.relations.relation_solver_state import RelationSolverState
@@ -501,7 +503,7 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
 
 
 def test_arena_env_builder_uses_individual_background_collisions_for_bbox(monkeypatch):
-    """BBOX mode still includes passive collisions without aggregating whole backgrounds."""
+    """BBOX mode skips passive discovery when there are no relation-solved objects."""
     from types import SimpleNamespace
 
     import isaaclab_arena.environments.arena_env_builder as builder_module
@@ -517,9 +519,7 @@ def test_arena_env_builder_uses_individual_background_collisions_for_bbox(monkey
             return []
 
     def fake_get_passive_collision_objects(assets, include_background: bool = False):
-        calls["assets"] = list(assets)
-        calls["include_background"] = include_background
-        return []
+        raise AssertionError("passive collision discovery should not run without relation objects")
 
     def fake_solve_and_apply_relation_placement(objects, num_envs, placer_params, collision_objects):
         calls["collision_objects"] = collision_objects
@@ -531,8 +531,6 @@ def test_arena_env_builder_uses_individual_background_collisions_for_bbox(monkey
 
     builder._solve_relations()
 
-    assert calls["assets"] == []
-    assert calls["include_background"] is False
     assert calls["collision_objects"] == []
 
 
@@ -588,20 +586,26 @@ def test_arena_env_builder_includes_background_mesh_for_background_override(monk
 
     import isaaclab_arena.environments.arena_env_builder as builder_module
     from isaaclab_arena.assets.background import Background
+    from isaaclab_arena.assets.dummy_object import DummyObject
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     background = Background.__new__(Background)
     background.collision_mode = CollisionMode.MESH
+    placed_object = DummyObject(
+        "placed_object",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)),
+    )
     calls = {}
 
     class Scene:
         assets = {"background": background}
 
         def get_objects_with_relations(self):
-            return []
+            return [placed_object]
 
     def fake_get_passive_collision_objects(assets, include_background: bool = False):
         calls["assets"] = list(assets)
@@ -621,4 +625,4 @@ def test_arena_env_builder_includes_background_mesh_for_background_override(monk
 
     assert calls["assets"] == [background]
     assert calls["include_background"] is True
-    assert calls["objects"] == []
+    assert calls["objects"] == [placed_object]
