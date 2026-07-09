@@ -10,8 +10,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from isaaclab_arena.evaluation import arena_experiment_config_loader
+from isaaclab_arena.evaluation import arena_experiment_config_loader, eval_runner
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
+from isaaclab_arena.evaluation.eval_runner import (
+    _assert_camera_support_enabled,
+    legacy_json_experiment_requires_cameras,
+)
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
@@ -55,8 +59,6 @@ def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
 
 
 def test_eval_runner_loads_typed_experiment_after_simulation_starts(monkeypatch):
-    from isaaclab_arena.evaluation import eval_runner
-
     simulation_is_running = False
 
     class _SimulationAppContext:
@@ -92,8 +94,6 @@ def test_eval_runner_loads_typed_experiment_after_simulation_starts(monkeypatch)
 
 
 def test_typed_camera_run_requires_prelaunch_camera_flag():
-    from isaaclab_arena.evaluation.eval_runner import _assert_camera_support_enabled
-
     camera_run = SimpleNamespace(
         name="camera_run",
         environment=SimpleNamespace(enable_cameras=True),
@@ -106,16 +106,12 @@ def test_typed_camera_run_requires_prelaunch_camera_flag():
 
 
 def test_legacy_json_camera_detection_is_preserved():
-    from isaaclab_arena.evaluation.eval_runner import legacy_json_experiment_requires_cameras
-
     legacy_experiment_config = {"jobs": [{"arena_env_args": {}}, {"arena_env_args": {"enable_cameras": True}}]}
 
     assert legacy_json_experiment_requires_cameras(legacy_experiment_config)
 
 
 def test_eval_runner_rejects_yaml_chunking_before_starting_simulation(monkeypatch):
-    from isaaclab_arena.evaluation.eval_runner import main
-
     monkeypatch.setattr(
         "sys.argv",
         [
@@ -128,7 +124,7 @@ def test_eval_runner_rejects_yaml_chunking_before_starting_simulation(monkeypatc
     )
 
     with pytest.raises(AssertionError, match="only legacy JSON Experiments"):
-        main()
+        eval_runner.main()
 
 
 def test_legacy_json_experiment_rejects_hydra_overrides():
