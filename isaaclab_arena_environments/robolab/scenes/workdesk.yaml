@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: workdesk_bin
+env_name: workdesk
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -13,11 +13,11 @@ background:
   registry_name: maple_table_robolab
   params: {}
 objects:
-- id: lizard_figurine
-  registry_name: lizard_figurine_hot3d_robolab
+- id: computer_mouse
+  registry_name: computer_mouse_hot3d_robolab
   params: {}
-- id: grey_bin
-  registry_name: grey_bin_robolab
+- id: keyboard
+  registry_name: keyboard_hot3d_robolab
   params: {}
 - id: ceramic_mug
   registry_name: ceramic_mug_hot3d_robolab
@@ -25,11 +25,17 @@ objects:
 - id: glasses
   registry_name: glasses_hot3d_robolab
   params: {}
+- id: lizard_figurine
+  registry_name: lizard_figurine_hot3d_robolab
+  params: {}
 - id: marker
   registry_name: marker_hot3d_robolab
   params: {}
 - id: remote_control
   registry_name: remote_control_hot3d_robolab
+  params: {}
+- id: rubiks_cube
+  registry_name: rubiks_cube_hot3d_robolab
   params: {}
 - id: smartphone
   registry_name: smartphone_hot3d_robolab
@@ -41,14 +47,11 @@ objects:
     - 0.5
     - 0.5
     - 0.5
-- id: spoon_big
-  registry_name: spoon_big_vomp_robolab
-  params: {}
-- id: computer_mouse
-  registry_name: computer_mouse_hot3d_robolab
-  params: {}
 - id: yogurt_cup
   registry_name: yogurt_cup_hope_robolab
+  params: {}
+- id: oatmeal_raisin_cookies
+  registry_name: oatmeal_raisin_cookies_hope_robolab
   params: {}
 - id: granola_bar
   registry_name: granola_bars_hope_robolab
@@ -59,11 +62,11 @@ relations:
   reference: null
   params: {}
 - kind: 'on'
-  subject: lizard_figurine
+  subject: computer_mouse
   reference: maple_table_robolab
   params: {}
 - kind: 'on'
-  subject: grey_bin
+  subject: keyboard
   reference: maple_table_robolab
   params: {}
 - kind: 'on'
@@ -75,11 +78,19 @@ relations:
   reference: maple_table_robolab
   params: {}
 - kind: 'on'
+  subject: lizard_figurine
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
   subject: marker
   reference: maple_table_robolab
   params: {}
 - kind: 'on'
   subject: remote_control
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: rubiks_cube
   reference: maple_table_robolab
   params: {}
 - kind: 'on'
@@ -91,32 +102,14 @@ relations:
   reference: maple_table_robolab
   params: {}
 - kind: 'on'
-  subject: spoon_big
-  reference: maple_table_robolab
-  params: {}
-- kind: 'on'
-  subject: computer_mouse
-  reference: maple_table_robolab
-  params: {}
-- kind: 'on'
   subject: yogurt_cup
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: oatmeal_raisin_cookies
   reference: maple_table_robolab
   params: {}
 - kind: 'on'
   subject: granola_bar
   reference: maple_table_robolab
   params: {}
-task:
-  composition: atomic
-  description: place the lizard figurine into the grey bin on the table
-  subtasks:
-  - kind: PickAndPlaceTask
-    params:
-      pick_up_object: lizard_figurine
-      destination_location: grey_bin
-      background_scene: maple_table_robolab
-      episode_length_s: 20.0
-      max_separation:
-      - 0.1
-      - 0.1
-      - 0.1

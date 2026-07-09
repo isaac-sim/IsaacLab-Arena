@@ -1,0 +1,39 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: butter_raisin_box
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: maple_table_robolab
+  registry_name: maple_table_robolab
+  params: {}
+objects:
+- id: butter_hope_robolab
+  registry_name: butter_hope_robolab
+  params: {}
+- id: raisin_box_hope_robolab
+  registry_name: raisin_box_hope_robolab
+  params: {}
+relations:
+- kind: is_anchor
+  subject: maple_table_robolab
+  reference: null
+  params: {}
+- kind: 'on'
+  subject: butter_hope_robolab
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: raisin_box_hope_robolab
+  reference: maple_table_robolab
+  params: {}
+- kind: rotate_around_solution
+  subject: raisin_box_hope_robolab
+  reference: null
+  params:
+    pitch_rad: 1.57

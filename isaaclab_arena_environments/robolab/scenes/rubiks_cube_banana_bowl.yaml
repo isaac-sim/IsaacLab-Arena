@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: banana_bowl
+env_name: rubiks_cube_banana_bowl
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
@@ -15,6 +15,9 @@ background:
 objects:
 - id: banana
   registry_name: banana_ycb_robolab
+  params: {}
+- id: cube
+  registry_name: dex_cube
   params: {}
 - id: bowl
   registry_name: bowl_ycb_robolab
@@ -32,13 +35,7 @@ relations:
   subject: banana
   reference: maple_table_robolab
   params: {}
-task:
-  composition: atomic
-  description: pick up the banana and place it in the bowl
-  subtasks:
-  - kind: PickAndPlaceTask
-    params:
-      pick_up_object: banana
-      destination_location: bowl
-      background_scene: maple_table_robolab
-      episode_length_s: 20.0
+- kind: 'on'
+  subject: cube
+  reference: maple_table_robolab
+  params: {}
