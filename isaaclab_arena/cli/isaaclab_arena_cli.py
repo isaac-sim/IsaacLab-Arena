@@ -74,7 +74,7 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
     # receive ArenaEnvBuilderCfg directly. The adapter tests keep their defaults aligned
     # with ArenaEnvBuilderCfg during the transition.
     arena_group.add_argument(
-        "--no-solve-relations",
+        "--no_solve_relations",
         action="store_false",
         dest="solve_relations",
         default=True,
@@ -106,7 +106,7 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         ),
     )
     arena_group.add_argument(
-        "--list-variations",
+        "--list_variations",
         action="store_true",
         default=False,
         help="Print Hydra-configurable variations for the selected environment and exit.",

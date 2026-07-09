@@ -10,17 +10,26 @@
                 "destination_location": "bowl_ycb_robolab",
                 "hdr": "home_office_robolab"
             },
-            "num_steps": 10,
-            "num_rebuilds": 1,
-            "policy_type": "zero_action",
-            "policy_config_dict": {},
+            "num_episodes": 10,
+            "num_rebuilds": 10,
+            "policy_type": "isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy",
+            "policy_config_dict": {
+                "policy_variant": "pi05",
+                "policy_device": "cuda:0",
+                "remote_host": "127.0.0.1",
+                "remote_port": 8000,
+                "openpi_embodiment_adapter": "droid"
+            },
             "variations": {
                 "light": {
                     "hdr_image": { "enabled": true },
                     "intensity": { "enabled": true }
                 },
+                "directional_light": {
+                    "direction": { "enabled": true }
+                },
                 "droid_rel_joint_pos": {
-                    "camera_extrinsics_wrist_camera": { "enabled": true }
+                    "camera_extrinsics_wrist_camera": { "enabled": false }
                 }
             }
         }
