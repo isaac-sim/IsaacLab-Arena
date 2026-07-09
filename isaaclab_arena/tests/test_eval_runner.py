@@ -23,7 +23,12 @@ def write_jobs_config_to_file(jobs: list[dict], tmp_file_path: str):
         json.dump(jobs_config, f, indent=4)
 
 
-def run_eval_runner(jobs_config_path: str, headless: bool = HEADLESS):
+def run_eval_runner(
+    experiment_config_path: str,
+    headless: bool = HEADLESS,
+    config_option: str = "--eval_jobs_config",
+    extra_args: list[str] | None = None,
+):
     """Run the eval_runner as a subprocess with timeout.
 
     --continue_on_error is NOT passed, so the eval_runner re-raises on the
@@ -31,12 +36,15 @@ def run_eval_runner(jobs_config_path: str, headless: bool = HEADLESS):
     raises CalledProcessError, which surfaces as a test failure.
 
     Args:
-        jobs_config_path: Path to the jobs config JSON file.
+        experiment_config_path: Path to the Experiment configuration file.
         headless: Whether to run in headless mode.
+        config_option: CLI option used to pass the Experiment path.
+        extra_args: Additional eval_runner arguments.
     """
     args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/eval_runner.py"]
-    args.append("--eval_jobs_config")
-    args.append(jobs_config_path)
+    args.append(config_option)
+    args.append(experiment_config_path)
+    args.extend(extra_args or [])
     if headless:
         args.append("--headless")
     else:
@@ -44,6 +52,36 @@ def run_eval_runner(jobs_config_path: str, headless: bool = HEADLESS):
         args.append(DEFAULT_VISUALIZER)
 
     run_subprocess(args)
+
+
+@pytest.mark.with_subprocess
+def test_eval_runner_from_typed_yaml(tmp_path):
+    """Execute a typed YAML Experiment through the neutral eval_runner CLI."""
+    experiment_config_path = tmp_path / "experiment.yaml"
+    experiment_config_path.write_text(
+        """
+runs:
+- name: yaml_baseline
+  environment:
+    type: pick_and_place_maple_table
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_steps: 10
+""",
+        encoding="utf-8",
+    )
+
+    run_eval_runner(
+        str(experiment_config_path),
+        config_option="--experiment_config",
+        extra_args=[
+            "--experiment_override",
+            "runs.yaml_baseline.rollout_limit.num_steps=2",
+            "--output_base_dir",
+            str(tmp_path / "output"),
+        ],
+    )
 
 
 @pytest.mark.with_subprocess

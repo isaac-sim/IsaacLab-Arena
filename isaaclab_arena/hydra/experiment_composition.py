@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import re
 from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 from typing import Any
@@ -35,10 +36,6 @@ def _get_new_hydra_context_if_none_exists() -> AbstractContextManager[None]:
     return initialize(version_base=None, config_path=None)
 
 
-# TODO(cvolk, 2026-07-08): [typed-config-migration] Integrate this composer into eval_runner:
-# dispatch --experiment_config YAML files here after AppLauncher starts and JSON files to the
-# legacy adapter; forward YAML-only --experiment_override values and the process device to typed
-# Runs, while keeping JSON camera auto-detection and chunking during the migration.
 def load_arena_experiment_from_yaml(
     yaml_path: str | Path,
     *,
@@ -92,6 +89,14 @@ def load_arena_experiment_from_yaml(
     return experiment
 
 
+def _assert_run_name_is_hydra_compatible(run_name: str) -> None:
+    """Check that a Run name can be used directly in a Hydra override path."""
+    assert re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]*", run_name), (
+        f"Experiment Run name '{run_name}' must start with a letter or underscore and contain only letters, "
+        "numbers, underscores, or hyphens"
+    )
+
+
 def _read_and_validate_yaml_runs_as_values(yaml_path: str | Path) -> dict[str, dict[str, Any]]:
     """Read an Arena Experiment YAML file and return its Run values by name.
 
@@ -127,6 +132,7 @@ def _read_and_validate_yaml_runs_as_values(yaml_path: str | Path) -> dict[str, d
         assert isinstance(run_values, dict)
         run_name = run_values.pop("name", None)
         assert isinstance(run_name, str) and run_name, f"Run at index {index} must define a non-empty string 'name'"
+        _assert_run_name_is_hydra_compatible(run_name)
         assert run_name not in runs, f"Experiment Run name '{run_name}' is duplicated"
         runs[run_name] = run_values
     return runs
