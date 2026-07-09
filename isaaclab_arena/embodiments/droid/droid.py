@@ -42,6 +42,7 @@ from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
+from isaaclab_arena.variations.camera_intrinsics_variation import CameraIntrinsicsVariation
 
 
 class DroidEmbodimentBase(EmbodimentBase, ABC):
@@ -73,6 +74,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self.reward_config = None
         self.mimic_env = None
         self.add_variation(CameraExtrinsicsVariation(camera_name="wrist_camera"))
+        self.add_variation(CameraIntrinsicsVariation(self.camera_config.wrist_camera, camera_name="wrist_camera"))
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
         # We override the default initial pose setting function in order to also set
