@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field, ValidationError, ValidationInfo, model_validator
 
@@ -18,7 +18,9 @@ from isaaclab_arena.agentic_environment_generation.spec_validation import format
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environments.arena_env_graph_types import ObjectReferenceSpec
 from isaaclab_arena.utils.asset_usd import resolve_asset_usd_path
-from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord, load_usd_prim_tree
+
+if TYPE_CHECKING:
+    from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
 
 
 class ResolvedObjectReferences(BaseModel):
@@ -147,6 +149,9 @@ class ObjectReferencePrimResolver:
             The spec with resolved prim paths on success, otherwise ``None`` (with
             error lines appended to ``traces``).
         """
+        # Defer pxr import until call time to avoid conflict with SimulationApp.
+        from isaaclab_arena.utils.usd_prim_tree import load_usd_prim_tree
+
         usd_path = resolve_asset_usd_path(spec.background)
         prim_tree = load_usd_prim_tree(usd_path)
         data = self._query_backend.run_json(

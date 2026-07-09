@@ -23,7 +23,7 @@ from isaaclab_arena.tests.utils.agentic_environment_generation import (
 )
 
 
-@patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.load_usd_prim_tree")
+@patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
 @patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.resolve_asset_usd_path")
 def test_object_reference_prim_resolver_infer_merges_llm_output(mock_resolve_usd, mock_load_tree):
     mock_resolve_usd.return_value = "/tmp/scene.usd"
@@ -79,7 +79,7 @@ def test_object_reference_prim_resolver_infer_merges_llm_output(mock_resolve_usd
         ),
     ],
 )
-@patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.load_usd_prim_tree")
+@patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
 @patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.resolve_asset_usd_path")
 def test_object_reference_prim_resolver_infer_records_invalid_llm_output(
     mock_resolve_usd,
