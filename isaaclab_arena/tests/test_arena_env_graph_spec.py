@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.environments.arena_env_graph_types import CliOverrideSpec
+from isaaclab_arena.environments.arena_env_graph_types import CliOverrideSpec, TaskCompositionType
 from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On, PositionLimits
 
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
@@ -30,7 +30,7 @@ def test_graph_spec_loads_pick_and_place_yaml():
     assert len(spec.object_references) == 1
     assert len(spec.relations) == 6
     assert len(spec.task.subtasks) == 2
-    assert spec.task.composition == "sequential"
+    assert spec.task.composition is TaskCompositionType.SEQUENTIAL
 
     table = spec.object_references[0]
     assert table.id == "maple_table_robolab_table"

@@ -17,6 +17,7 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     TaskCatalogue,
 )
 from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environments.arena_env_graph_types import TaskCompositionType
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -293,7 +294,7 @@ def _assert_atomic_pick_and_place_spec(spec: ArenaEnvGraphSpec) -> None:
     on_subjects = {relation.subject for relation in spec.relations if relation.kind == "on"}
     assert on_subjects == object_ids
 
-    assert spec.task.composition == "atomic"
+    assert spec.task.composition is TaskCompositionType.ATOMIC
     assert len(spec.task.subtasks) == 1
     assert spec.task.subtasks[0].kind == "PickAndPlaceTask"
 
@@ -307,7 +308,7 @@ def _assert_five_bananas_parallel_pick_and_place_spec(spec: ArenaEnvGraphSpec) -
     for obj_id in object_ids:
         assert obj_id in on_subjects, f"object {obj_id!r} missing 'on' relation"
 
-    assert spec.task.composition == "parallel"
+    assert spec.task.composition is TaskCompositionType.PARALLEL
     assert len(spec.task.subtasks) == 5
 
     pick_ids: list[str] = []

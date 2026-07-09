@@ -7,15 +7,14 @@
 
 from __future__ import annotations
 
+from enum import Enum
 from numbers import Real
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
-
-TaskComposition = Literal["atomic", "parallel", "sequential"]
 
 
 class AssetSpec(BaseModel):
@@ -90,16 +89,19 @@ class TaskSpec(BaseModel):
         return value
 
 
+class TaskCompositionType(str, Enum):
+    """How atomic subtasks combine in a composite root task."""
+
+    ATOMIC = "atomic"
+    PARALLEL = "parallel"
+    SEQUENTIAL = "sequential"
+
+
 class CompositeTaskSpec(BaseModel):
     """Root task node for an environment graph."""
 
-    composition: TaskComposition = Field(
-        description=(
-            "How the atomic tasks combine: "
-            "'atomic' for a single task, "
-            "'parallel' when subtasks may complete in any order, "
-            "'sequential' when subtasks must complete in list order."
-        ),
+    composition: TaskCompositionType = Field(
+        description="How the subtasks combine: " + ", ".join([f"'{e.value}'" for e in TaskCompositionType])
     )
     description: str = Field(
         min_length=1,
@@ -112,12 +114,12 @@ class CompositeTaskSpec(BaseModel):
 
     @model_validator(mode="after")
     def _validate_composition_task_count(self) -> CompositeTaskSpec:
-        if self.composition == "atomic":
+        if self.composition is TaskCompositionType.ATOMIC:
             assert len(self.subtasks) == 1, "composition 'atomic' requires exactly one atomic task"
         else:
             assert (
                 len(self.subtasks) >= 2
-            ), f"composition '{self.composition}' requires at least two atomic tasks, got {len(self.subtasks)}"
+            ), f"composition '{self.composition.value}' requires at least two atomic tasks, got {len(self.subtasks)}"
         return self
 
 

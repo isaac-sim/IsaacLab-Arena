@@ -170,10 +170,10 @@ def test_build_task_from_spec_atomic_returns_single_task(monkeypatch):
     registry = type("R", (), {"get_task_by_name": lambda self, _name: FakeTask})()
     monkeypatch.setattr(conversion, "TaskRegistry", lambda: registry)
 
-    from isaaclab_arena.environments.arena_env_graph_types import CompositeTaskSpec, TaskSpec
+    from isaaclab_arena.environments.arena_env_graph_types import CompositeTaskSpec, TaskCompositionType, TaskSpec
 
     spec = CompositeTaskSpec(
-        composition="atomic",
+        composition=TaskCompositionType.ATOMIC,
         description="pick up the cube",
         subtasks=[
             TaskSpec(
@@ -205,10 +205,10 @@ def test_build_task_from_spec_sequential_wraps_multiple_tasks(monkeypatch):
         FakeSequential,
     )
 
-    from isaaclab_arena.environments.arena_env_graph_types import CompositeTaskSpec, TaskSpec
+    from isaaclab_arena.environments.arena_env_graph_types import CompositeTaskSpec, TaskCompositionType, TaskSpec
 
     spec = CompositeTaskSpec(
-        composition="sequential",
+        composition=TaskCompositionType.SEQUENTIAL,
         description="do two things in order",
         subtasks=[
             TaskSpec(kind="PickAndPlaceTask", params={}),

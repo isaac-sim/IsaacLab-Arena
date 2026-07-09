@@ -26,7 +26,9 @@ NODE_REF_BASES: tuple[type, ...] = (Asset, AffordanceBase)
 
 def build_task_from_spec(task_spec: CompositeTaskSpec, assets_by_node_id: dict[str, Any]) -> Any:
     """Build the root graph task into a live env-level task instance."""
-    if task_spec.composition == "atomic":
+    from isaaclab_arena.environments.arena_env_graph_types import TaskCompositionType
+
+    if task_spec.composition is TaskCompositionType.ATOMIC:
         return _build_atomic_task_from_spec(
             task_spec.subtasks[0], assets_by_node_id, task_description=task_spec.description
         )
@@ -38,7 +40,7 @@ def build_task_from_spec(task_spec: CompositeTaskSpec, assets_by_node_id: dict[s
     from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
     from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
 
-    if task_spec.composition == "parallel":
+    if task_spec.composition is TaskCompositionType.PARALLEL:
         return CompositeTaskBase(
             subtasks=subtasks,
             task_description=task_spec.description,
