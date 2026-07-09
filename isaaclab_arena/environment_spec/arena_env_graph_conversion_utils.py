@@ -21,6 +21,17 @@ _DEFAULT_LIGHT_NODE_ID = "auto_dome_light"
 if TYPE_CHECKING:
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
+_EMBODIMENT_SPATIAL_RELATION_KINDS = frozenset(
+    {"on", "next_to", "not_next_to", "at_position", "position_limits", "face_to"}
+)
+
+# Solution markers are not spatial constraints; they adjust how the solved pose is applied.
+# rotate_around_solution bakes a fixed yaw into the footprint before solving (see ObjectPlacer),
+# which is preferable to face_to for embodiments whose origin is offset from their footprint.
+_EMBODIMENT_SOLUTION_MARKER_KINDS = frozenset({"rotate_around_solution"})
+
+_EMBODIMENT_ALLOWED_RELATION_KINDS = _EMBODIMENT_SPATIAL_RELATION_KINDS | _EMBODIMENT_SOLUTION_MARKER_KINDS
+
 
 def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False) -> Any:
     """Build an IsaacLabArenaEnvironment from a validated ArenaEnvGraphSpec.
@@ -35,6 +46,7 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
 
     assets_by_node_id = instantiate_assets_from_spec(graph_spec, AssetRegistry(), enable_cameras=enable_cameras)
     _ensure_scene_lighting(graph_spec, assets_by_node_id)
+    _validate_embodiment_relations(graph_spec, graph_spec.relations)
     _attach_spatial_relations_to_assets(graph_spec.relations, assets_by_node_id)
     scene_assets = [asset for node_id, asset in assets_by_node_id.items() if node_id != graph_spec.embodiment.id]
     return IsaacLabArenaEnvironment(
@@ -129,6 +141,18 @@ def instantiate_assets_from_spec(
             assets_by_node_id[ref.id] = ObjectReference(**common_kwargs)
 
     return assets_by_node_id
+
+
+def _validate_embodiment_relations(graph_spec: ArenaEnvGraphSpec, relations: list[SpatialRelationSpec]) -> None:
+    """Reject unsupported or anchor-style relations on the embodiment node."""
+    embodiment_id = graph_spec.embodiment.id
+    for relation in relations:
+        if relation.subject != embodiment_id:
+            continue
+        assert relation.kind != "is_anchor", "Embodiment cannot be marked is_anchor"
+        assert (
+            relation.kind in _EMBODIMENT_ALLOWED_RELATION_KINDS
+        ), f"Embodiment relation kind {relation.kind!r} is not supported for placement solving"
 
 
 def _attach_spatial_relations_to_assets(

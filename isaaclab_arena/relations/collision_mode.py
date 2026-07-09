@@ -24,7 +24,8 @@ class CollisionMode(Enum):
 
 def get_object_collision_mode(obj: CollisionObject, default: CollisionMode) -> CollisionMode:
     """Return an object's collision mode, falling back to the solver default."""
-    return default if obj.collision_mode is None else obj.collision_mode
+    override = getattr(obj, "collision_mode", None)
+    return default if override is None else override
 
 
 def object_uses_mesh_collision(obj: CollisionObject, default: CollisionMode) -> bool:

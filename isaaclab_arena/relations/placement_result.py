@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.placement_entity import PlacementEntity
     from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 
 
@@ -20,7 +20,7 @@ class PlacementResult:
     validation_results: PlacementValidationResults
     """Validation checklist for the placement."""
 
-    positions: dict[ObjectBase, tuple[float, float, float]]
+    positions: dict[PlacementEntity, tuple[float, float, float]]
     """Final positions for each object."""
 
     final_loss: float
@@ -29,8 +29,8 @@ class PlacementResult:
     attempts: int
     """Number of attempts made."""
 
-    orientations: dict[ObjectBase, float] = field(default_factory=dict)
-    """Placement-computed absolute world Z-yaws. Omitted objects retain their marker orientation."""
+    orientations: dict[PlacementEntity, float] = field(default_factory=dict)
+    """Total applied Z-yaw (radians) per object (marker + sampled). Empty when unrotated."""
 
     @property
     def success(self) -> bool:

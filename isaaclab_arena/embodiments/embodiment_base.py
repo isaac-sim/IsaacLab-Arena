@@ -3,17 +3,26 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.relations.collision_mode import CollisionMode
+from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, UnaryRelation
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.cameras import ArenaCameraCfg, make_camera_observation_cfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances
+from isaaclab_arena.utils.embodiment_placement import PlacementUsdSource, compute_embodiment_placement_bbox
 from isaaclab_arena.utils.pose import Pose
+
+if TYPE_CHECKING:
+    import trimesh
 
 
 class EmbodimentBase(Asset):
@@ -37,6 +46,12 @@ class EmbodimentBase(Asset):
         self.initial_pose = initial_pose
         self.concatenate_observation_terms = concatenate_observation_terms
         self.arm_mode = arm_mode or self.default_arm_mode
+        self.relations: list[RelationBase] = []
+        self._placement_bounding_box: AxisAlignedBoundingBox | None = None
+        # None means use the solver's default collision mode for this embodiment.
+        self.collision_mode: CollisionMode | None = None
+        # If True, mesh collision replaces non-watertight meshes with their convex hull.
+        self.repair_collision_mesh_non_watertight = True
         # These should be filled by the subclass
         self.scene_config: Any | None = None
         self.camera_config: Any | None = None
@@ -49,6 +64,70 @@ class EmbodimentBase(Asset):
         self.mimic_env: Any | None = None
         self.xr: Any | None = None
         self.termination_cfg: Any | None = None
+
+    @property
+    def placement_kind(self) -> str:
+        """Embodiments use the embodiment placement apply path."""
+        return "embodiment"
+
+    @property
+    def placement_scene_entity_name(self) -> str:
+        """Isaac Lab scene entity name used when writing solved poses to sim."""
+        return self.get_embodiment_name_in_scene()
+
+    def add_relation(self, relation: RelationBase) -> None:
+        """Attach a spatial relation to this embodiment."""
+        assert not isinstance(relation, IsAnchor), "Embodiment cannot be marked as an anchor"
+        self.relations.append(relation)
+
+    def get_relations(self) -> list[RelationBase]:
+        """Return all relations attached to this embodiment."""
+        return self.relations
+
+    def get_spatial_relations(self) -> list[RelationBase]:
+        """Return spatial constraints, excluding placement markers."""
+        return [relation for relation in self.relations if isinstance(relation, (Relation, UnaryRelation))]
+
+    def get_initial_pose(self) -> Pose | None:
+        """Return the embodiment's initial pose."""
+        return self.initial_pose
+
+    @property
+    def is_anchor(self) -> bool:
+        """Embodiments are never relation anchors."""
+        return False
+
+    def get_placement_usd_sources(self) -> list[PlacementUsdSource]:
+        """Return USD assets that define this embodiment's placement footprint."""
+        scene_config = self.scene_config
+        assert scene_config is not None and hasattr(
+            scene_config, "robot"
+        ), f"{self.__class__.__name__} must populate scene_config.robot before placement bbox lookup"
+        robot = scene_config.robot
+        spawn = robot.spawn
+        usd_path = spawn.usd_path
+        scale = getattr(spawn, "scale", None) or (1.0, 1.0, 1.0)
+        if not isinstance(scale, tuple):
+            scale = tuple(scale)
+        return [PlacementUsdSource(usd_path=usd_path, scale=scale)]
+
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Return the USD-derived local placement footprint relative to the robot origin."""
+        if self._placement_bounding_box is None:
+            self._placement_bounding_box = compute_embodiment_placement_bbox(self.get_placement_usd_sources())
+        return self._placement_bounding_box
+
+    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Return the placement footprint in world coordinates."""
+        local_bbox = self.get_bounding_box()
+        pose = self.get_initial_pose()
+        if pose is None:
+            return local_bbox
+        quarters = quaternion_to_90_deg_z_quarters(pose.rotation_xyzw)
+        return local_bbox.rotated_90_around_z(quarters).translated(pose.position_xyz)
+
+    def get_collision_mesh(self) -> trimesh.Trimesh | None:
+        """Embodiments fall back to AABB overlap checks in the relation solver."""
 
     def set_initial_pose(self, pose: Pose) -> None:
         self.initial_pose = pose

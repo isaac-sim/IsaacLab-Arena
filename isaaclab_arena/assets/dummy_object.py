@@ -75,6 +75,14 @@ class DummyObject:
     def is_anchor(self) -> bool:
         return any(isinstance(r, IsAnchor) for r in self.relations)
 
+    @property
+    def placement_kind(self) -> str:
+        return "object"
+
+    @property
+    def placement_scene_entity_name(self) -> str:
+        return self.name
+
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return the collision mesh, or None to fall back to AABB."""
         return self._collision_mesh

@@ -16,8 +16,8 @@ from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.utils.random import get_rngs
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.placement_entity import PlacementEntity
 
 
 @dataclass
@@ -70,7 +70,7 @@ class PooledObjectPlacer:
 
     def __init__(
         self,
-        objects: list[ObjectBase],
+        objects: list[PlacementEntity],
         placer_params: ObjectPlacerParams,
         pool_size: int = 100,
         num_envs: int | None = None,
@@ -326,7 +326,7 @@ class PooledObjectPlacer:
     # ------------------------------------------------------------------
 
     @property
-    def objects(self) -> list[ObjectBase]:
+    def objects(self) -> list[PlacementEntity]:
         """All objects (including anchors) participating in relation solving."""
         return self._objects
 

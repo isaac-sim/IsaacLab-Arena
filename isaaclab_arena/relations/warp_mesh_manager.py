@@ -20,6 +20,7 @@ from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, sdf_sent
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.placement_entity import PlacementEntity
 
 
 def _mesh_content_hash(mesh: trimesh.Trimesh) -> int:
@@ -143,11 +144,11 @@ class WarpMeshAndSphereCache:
                 "(no mesh face found). Collision detection may be incomplete for these points."
             )
 
-    def get_collision_mesh(self, obj: CollisionObject) -> trimesh.Trimesh | None:
+    def get_collision_mesh(self, obj: PlacementEntity | CollisionObject) -> trimesh.Trimesh | None:
         """Return the cached collision mesh, extracting from USD on first access."""
-        from isaaclab_arena.assets.object import Object
-
-        if not isinstance(obj, Object) or obj.usd_path is None:
+        # PlacementEntity/CollisionObject don't guarantee usd_path; only Object subclasses set it.
+        usd_path = getattr(obj, "usd_path", None)
+        if usd_path is None:
             return obj.get_collision_mesh()
         usd_path = obj.usd_path
         scale = tuple(obj.scale)
@@ -172,7 +173,7 @@ class WarpMeshAndSphereCache:
         """Target Warp device string (e.g. 'cuda:0', 'cpu')."""
         return self._device
 
-    def _cache_key(self, mesh: trimesh.Trimesh, obj: CollisionObject | None = None) -> tuple:
+    def _cache_key(self, mesh: trimesh.Trimesh, obj: PlacementEntity | CollisionObject | None = None) -> tuple:
         """Compute cache key. Uses (usd_path, scale) for USD objects, content hash otherwise."""
         from isaaclab_arena.assets.object import Object
 
@@ -181,7 +182,7 @@ class WarpMeshAndSphereCache:
             return (obj.usd_path, tuple(obj.scale), repair_non_watertight, self._num_spheres, self._sphere_radius)
         return (_mesh_content_hash(mesh), repair_non_watertight, self._num_spheres, self._sphere_radius)
 
-    def get_warp_mesh(self, mesh: trimesh.Trimesh, obj: CollisionObject | None = None) -> wp.Mesh:
+    def get_warp_mesh(self, mesh: trimesh.Trimesh, obj: PlacementEntity | CollisionObject | None = None) -> wp.Mesh:
         """Get or create a Warp BVH mesh for SDF queries.
 
         Non-watertight meshes are replaced by their convex hull for reliable
@@ -209,7 +210,9 @@ class WarpMeshAndSphereCache:
             self._warp_mesh_cache[key] = wp.Mesh(points=vertices, indices=indices)
         return self._warp_mesh_cache[key]
 
-    def get_query_spheres(self, mesh: trimesh.Trimesh, obj: CollisionObject | None = None) -> torch.Tensor:
+    def get_query_spheres(
+        self, mesh: trimesh.Trimesh, obj: PlacementEntity | CollisionObject | None = None
+    ) -> torch.Tensor:
         """Get or compute sphere decomposition as (K, 4) tensor [cx, cy, cz, radius]."""
         key = self._cache_key(mesh, obj)
         if key not in self._sphere_cache:

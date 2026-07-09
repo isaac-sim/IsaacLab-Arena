@@ -5,7 +5,7 @@
 
 """Bounding-box helpers for heterogeneous placement.
 
-Keeps num_envs and per-env geometry logic out of ObjectBase.
+Keeps num_envs and per-env geometry logic out of PlacementEntity.
 """
 
 from __future__ import annotations
@@ -16,17 +16,17 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.placement_entity import PlacementEntity
 
 
-def has_heterogeneous_objects(objects: list[ObjectBase]) -> bool:
+def has_heterogeneous_objects(objects: list[PlacementEntity]) -> bool:
     """Return whether placement must use env-specific object geometry."""
     from isaaclab_arena.assets.object_set import RigidObjectSet
 
     return any(isinstance(obj, RigidObjectSet) for obj in objects)
 
 
-def assign_variants_for_envs(objects: list[ObjectBase], num_envs: int, placement_seed: int | None = None) -> None:
+def assign_variants_for_envs(objects: list[PlacementEntity], num_envs: int, placement_seed: int | None = None) -> None:
     """Assign per-env variants on every RigidObjectSet in the list.
 
     Placers call this once they know the real environment count, before
@@ -44,7 +44,7 @@ def assign_variants_for_envs(objects: list[ObjectBase], num_envs: int, placement
             variant_set_idx += 1
 
 
-def get_bounding_box_per_env(obj: ObjectBase, num_envs: int) -> AxisAlignedBoundingBox:
+def get_bounding_box_per_env(obj: PlacementEntity, num_envs: int) -> AxisAlignedBoundingBox:
     """Return bounding boxes expanded to (num_envs, 3).
 
     RigidObjectSet delegates to its own get_bounding_box_per_env.
@@ -72,7 +72,7 @@ class PerEnvBoundingBoxes:
       (num_envs * candidates_per_env, 3), grouped contiguously by env.
     """
 
-    object_bboxes: dict[ObjectBase, AxisAlignedBoundingBox]
+    object_bboxes: dict[PlacementEntity, AxisAlignedBoundingBox]
     num_envs: int
 
     def __post_init__(self) -> None:
@@ -85,7 +85,7 @@ class PerEnvBoundingBoxes:
                 bbox.max_point.shape[0] == self.num_envs
             ), f"Object '{obj.name}' bbox max_point has {bbox.max_point.shape[0]} envs, expected {self.num_envs}."
 
-    def get_bounding_boxes_for_env_id(self, env_id: int) -> dict[ObjectBase, AxisAlignedBoundingBox]:
+    def get_bounding_boxes_for_env_id(self, env_id: int) -> dict[PlacementEntity, AxisAlignedBoundingBox]:
         """Return object bboxes for a single env (each (1, 3)), used for per-env initialization and validation."""
         return {
             obj: AxisAlignedBoundingBox(
@@ -95,7 +95,7 @@ class PerEnvBoundingBoxes:
             for obj, bbox in self.object_bboxes.items()
         }
 
-    def get_bounding_boxes_for_all_envs(self) -> list[dict[ObjectBase, AxisAlignedBoundingBox]]:
+    def get_bounding_boxes_for_all_envs(self) -> list[dict[PlacementEntity, AxisAlignedBoundingBox]]:
         """Return one-env bbox dicts for every env.
 
         The outer list has length num_envs. Each bbox has min_point/max_point
@@ -105,7 +105,7 @@ class PerEnvBoundingBoxes:
 
     def get_bounding_boxes_for_solver_candidates(
         self, candidates_per_env: int
-    ) -> dict[ObjectBase, AxisAlignedBoundingBox]:
+    ) -> dict[PlacementEntity, AxisAlignedBoundingBox]:
         """Return bboxes tiled to one row per solver candidate.
 
         Each bbox has shape (num_envs * candidates_per_env, 3). Rows are grouped
@@ -121,7 +121,7 @@ class PerEnvBoundingBoxes:
         }
 
 
-def build_per_env_bounding_boxes(objects: list[ObjectBase], num_envs: int) -> PerEnvBoundingBoxes:
+def build_per_env_bounding_boxes(objects: list[PlacementEntity], num_envs: int) -> PerEnvBoundingBoxes:
     """Build per-env bboxes for each placement object."""
     object_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
     return PerEnvBoundingBoxes(object_bboxes=object_bboxes, num_envs=num_envs)

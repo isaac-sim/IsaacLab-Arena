@@ -22,9 +22,9 @@ from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import On, Relation, RelationBase, UnaryRelation
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.mesh_pair_cache import MeshPairCache
+    from isaaclab_arena.relations.placement_entity import PlacementEntity
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
@@ -54,7 +54,7 @@ class RelationSolver:
         self._last_position_history: list = []
         self._last_loss_per_env: torch.Tensor | None = None
         self._last_no_overlap_pair_count: int = 0
-        self._mesh_orientations: list[dict[ObjectBase, float]] | None = None
+        self._mesh_orientations: list[dict[PlacementEntity, float]] | None = None
         self._warned_no_mesh: set[str] = set()
         self._mesh_manager: WarpMeshAndSphereCache | None = None
         self._mesh_cache: MeshPairCache | None = None
@@ -183,17 +183,17 @@ class RelationSolver:
 
     def solve(
         self,
-        objects: list[ObjectBase],
-        initial_positions: list[dict[ObjectBase, tuple[float, float, float]]],
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
+        objects: list[PlacementEntity],
+        initial_positions: list[dict[PlacementEntity, tuple[float, float, float]]],
+        env_bboxes: dict[PlacementEntity, AxisAlignedBoundingBox] | None = None,
         env_bboxes_include_yaw: bool = False,
-        orientations: list[dict[ObjectBase, float]] | None = None,
+        orientations: list[dict[PlacementEntity, float]] | None = None,
         collision_objects: list[CollisionObject] | None = None,
-    ) -> list[dict[ObjectBase, tuple[float, float, float]]]:
+    ) -> list[dict[PlacementEntity, tuple[float, float, float]]]:
         """Solve for optimal positions of all objects.
 
         Args:
-            objects: List of ObjectBase instances. Must include at least one object
+            objects: List of PlacementEntity instances. Must include at least one object
                 marked with IsAnchor() which serves as a fixed reference.
             initial_positions: List of dicts (one per env). Use a single-element list
                 for single-env placement.
@@ -353,7 +353,7 @@ class RelationSolver:
         """Position snapshots from the most recent solve() call."""
         return self._last_position_history
 
-    def debug_losses(self, objects: list[ObjectBase]) -> None:
+    def debug_losses(self, objects: list[PlacementEntity]) -> None:
         """Print detailed loss breakdown for all relations using final positions.
 
         Call this after solve() to inspect why objects may not be correctly positioned.
@@ -378,7 +378,7 @@ class RelationSolver:
 
 
 def _print_relation_debug(
-    obj: ObjectBase,
+    obj: PlacementEntity,
     relation: Relation,
     child_pos: torch.Tensor,
     parent_pos: torch.Tensor,
@@ -424,7 +424,7 @@ def _print_relation_debug(
 
 
 def _print_unary_relation_debug(
-    obj: ObjectBase,
+    obj: PlacementEntity,
     relation: RelationBase,
     child_pos: torch.Tensor,
     loss: torch.Tensor,

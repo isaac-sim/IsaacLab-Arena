@@ -185,6 +185,20 @@ class ObjectBase(Asset, ABC):
         """Get all relations for this object."""
         return self.relations
 
+    def add_relation(self, relation: RelationBase) -> None:
+        """Add a relation to this object."""
+        self.relations.append(relation)
+
+    @property
+    def placement_kind(self) -> str:
+        """Scene objects use the object placement apply path."""
+        return "object"
+
+    @property
+    def placement_scene_entity_name(self) -> str:
+        """Isaac Lab scene entity name used when writing solved poses to sim."""
+        return self.name
+
     @property
     def is_anchor(self) -> bool:
         """True if this object has an IsAnchor relation."""

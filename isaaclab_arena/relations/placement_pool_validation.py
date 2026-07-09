@@ -21,7 +21,7 @@ from isaaclab_arena.utils import physics_settle
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
-    from isaaclab_arena.relations.object_base import ObjectBase
+    from isaaclab_arena.relations.object_base import PlacementEntity
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.placement_validation import PlacementValidationResults
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
@@ -33,7 +33,7 @@ def _write_layout_to_envs_for_episode_index(
     num_envs: int,
     episode_index: int,
     anchor_objects_set: set,
-    base_rotations: dict[ObjectBase, tuple[float, float, float, float]],
+    base_rotations: dict[PlacementEntity, tuple[float, float, float, float]],
 ) -> list[tuple[int, PlacementResult]]:
     """Write one layout per env for this episode; return the ``(env_id, layout)`` layouts written.
 

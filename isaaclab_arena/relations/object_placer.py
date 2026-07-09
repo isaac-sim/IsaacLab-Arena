@@ -46,8 +46,10 @@ from isaaclab_arena.utils.yaw import (
 )
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object_base import ObjectBase
+    import trimesh
+
     from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.placement_entity import PlacementEntity
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
 
@@ -61,14 +63,14 @@ class PlacementCandidate:
     loss: float
     """Loss value returned by the solver."""
 
-    positions: dict[ObjectBase, tuple[float, float, float]]
+    positions: dict[PlacementEntity, tuple[float, float, float]]
     """Solved positions for each object."""
 
     validation_results: PlacementValidationResults
     """Per-check validation results for this candidate's layout."""
 
-    orientations: dict[ObjectBase, float] = field(default_factory=dict)
-    """Placement-computed absolute world Z-yaws. Omitted objects retain their marker orientation."""
+    orientations: dict[PlacementEntity, float] = field(default_factory=dict)
+    """Total applied Z-yaw (marker + sampled) per object. Empty when unrotated."""
 
     @property
     def is_valid(self) -> bool:
@@ -102,7 +104,7 @@ class ObjectPlacer:
 
     def place(
         self,
-        objects: list[ObjectBase],
+        objects: list[PlacementEntity],
         num_envs: int = 1,
         collision_objects: list[CollisionObject] | None = None,
     ) -> list[PlacementResult]:
@@ -155,7 +157,7 @@ class ObjectPlacer:
 
     def place_ranked_per_env(
         self,
-        objects: list[ObjectBase],
+        objects: list[PlacementEntity],
         num_envs: int,
         results_per_env: int,
         collision_objects: list[CollisionObject] | None = None,
@@ -190,8 +192,8 @@ class ObjectPlacer:
 
     def _prepare_placement(
         self,
-        objects: list[ObjectBase],
-    ) -> tuple[set[ObjectBase], torch.Generator | None]:
+        objects: list[PlacementEntity],
+    ) -> tuple[set[PlacementEntity], torch.Generator | None]:
         """Validate placement inputs and allocate an RNG seeded per candidate later."""
         object_set = set(objects)
         for obj in objects:
@@ -224,8 +226,8 @@ class ObjectPlacer:
 
     def _place_ranked(
         self,
-        objects: list[ObjectBase],
-        anchor_objects_set: set[ObjectBase],
+        objects: list[PlacementEntity],
+        anchor_objects_set: set[PlacementEntity],
         num_envs: int,
         candidates_per_env: int,
         attempts_per_result: int,
@@ -250,8 +252,8 @@ class ObjectPlacer:
         base_candidate_bboxes = self._bake_marker_rotation_footprints(objects, unrotated_candidate_bboxes)
         per_env_bboxes = env_bboxes.get_bounding_boxes_for_all_envs()
 
-        initial_positions: list[dict[ObjectBase, tuple[float, float, float]]] = []
-        orientations_per_candidate: list[dict[ObjectBase, float]] = []
+        initial_positions: list[dict[PlacementEntity, tuple[float, float, float]]] = []
+        orientations_per_candidate: list[dict[PlacementEntity, float]] = []
         for candidate_idx in range(num_candidates):
             cur_env = candidate_idx // candidates_per_env
             if generator is not None:
@@ -354,11 +356,11 @@ class ObjectPlacer:
 
     def _generate_initial_positions(
         self,
-        objects: list[ObjectBase],
-        anchor_objects: set[ObjectBase],
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        objects: list[PlacementEntity],
+        anchor_objects: set[PlacementEntity],
+        env_bboxes: dict[PlacementEntity, AxisAlignedBoundingBox],
         generator: torch.Generator | None = None,
-    ) -> dict[ObjectBase, tuple[float, float, float]]:
+    ) -> dict[PlacementEntity, tuple[float, float, float]]:
         """Generate initial positions for all objects.
 
         Anchors keep their initial_pose. Objects with an On relation are initialized within
@@ -378,7 +380,7 @@ class ObjectPlacer:
 
         cx, cy, cz = float(anchor_bbox.center[0, 0]), float(anchor_bbox.center[0, 1]), float(anchor_bbox.center[0, 2])
 
-        positions: dict[ObjectBase, tuple[float, float, float]] = {}
+        positions: dict[PlacementEntity, tuple[float, float, float]] = {}
         for obj in objects:
             if obj in anchor_objects:
                 initial_pose = obj.get_initial_pose()
@@ -397,8 +399,8 @@ class ObjectPlacer:
 
     @staticmethod
     def _get_world_bbox_for_init(
-        obj: ObjectBase,
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        obj: PlacementEntity,
+        env_bboxes: dict[PlacementEntity, AxisAlignedBoundingBox],
     ) -> AxisAlignedBoundingBox:
         initial_pose = obj.get_initial_pose()
         assert isinstance(
@@ -408,16 +410,16 @@ class ObjectPlacer:
 
     def _generate_initial_orientations(
         self,
-        objects: list[ObjectBase],
-        anchor_objects: set[ObjectBase],
+        objects: list[PlacementEntity],
+        anchor_objects: set[PlacementEntity],
         generator: torch.Generator | None = None,
-    ) -> dict[ObjectBase, float]:
+    ) -> dict[PlacementEntity, float]:
         """Sample absolute world Z-yaws for non-anchor objects without FaceTo.
 
         Marker yaw is included; random_yaw_init adds a sampled delta. Roll/pitch marker objects
         are omitted here so their requested rotation is applied directly.
         """
-        orientations: dict[ObjectBase, float] = {}
+        orientations: dict[PlacementEntity, float] = {}
         for obj in objects:
             marker = self._get_relation(obj, RotateAroundSolution)
             has_roll_pitch = marker is not None and (marker.roll_rad != 0.0 or marker.pitch_rad != 0.0)
@@ -437,8 +439,8 @@ class ObjectPlacer:
 
     @staticmethod
     def _apply_face_to_orientations(
-        positions_per_candidate: list[dict[ObjectBase, tuple[float, float, float]]],
-        orientations_per_candidate: list[dict[ObjectBase, float]],
+        positions_per_candidate: list[dict[PlacementEntity, tuple[float, float, float]]],
+        orientations_per_candidate: list[dict[PlacementEntity, float]],
     ) -> None:
         """Write defined FaceTo yaws into each candidate's orientation dictionary in place.
 
@@ -460,9 +462,9 @@ class ObjectPlacer:
 
     def _bake_marker_rotation_footprints(
         self,
-        objects: list[ObjectBase],
-        candidate_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
-    ) -> dict[ObjectBase, AxisAlignedBoundingBox]:
+        objects: list[PlacementEntity],
+        candidate_bboxes: dict[PlacementEntity, AxisAlignedBoundingBox],
+    ) -> dict[PlacementEntity, AxisAlignedBoundingBox]:
         """Enclose the applied footprint of roll/pitch marker objects.
 
         Roll/pitch marker objects are excluded from the sampled-yaw path, because the yaw-only bbox
@@ -481,10 +483,10 @@ class ObjectPlacer:
 
     @staticmethod
     def _rotate_candidate_bboxes(
-        objects: list[ObjectBase],
-        candidate_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
-        orientations_per_candidate: list[dict[ObjectBase, float]],
-    ) -> dict[ObjectBase, AxisAlignedBoundingBox]:
+        objects: list[PlacementEntity],
+        candidate_bboxes: dict[PlacementEntity, AxisAlignedBoundingBox],
+        orientations_per_candidate: list[dict[PlacementEntity, float]],
+    ) -> dict[PlacementEntity, AxisAlignedBoundingBox]:
         """Replace each candidate's bbox with the enclosing box of its yaw-rotated object.
 
         orientations_per_candidate carries absolute world yaw.
@@ -493,7 +495,7 @@ class ObjectPlacer:
         if not any(orientations for orientations in orientations_per_candidate):
             return candidate_bboxes
         num_candidates = len(orientations_per_candidate)
-        rotated: dict[ObjectBase, AxisAlignedBoundingBox] = {}
+        rotated: dict[PlacementEntity, AxisAlignedBoundingBox] = {}
         for obj in objects:
             bbox = candidate_bboxes[obj]
             yaws = [orientations_per_candidate[c].get(obj, 0.0) for c in range(num_candidates)]
@@ -505,18 +507,18 @@ class ObjectPlacer:
 
     @staticmethod
     def _get_bounding_boxes_for_candidate_index(
-        bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        bboxes: dict[PlacementEntity, AxisAlignedBoundingBox],
         candidate_idx: int,
-    ) -> dict[ObjectBase, AxisAlignedBoundingBox]:
+    ) -> dict[PlacementEntity, AxisAlignedBoundingBox]:
         """Slice one candidate's bboxes (each (1, 3)) out of the stacked (num_candidates, 3) boxes."""
         return {obj: bbox[candidate_idx] for obj, bbox in bboxes.items()}
 
     def _get_on_parent_world_bbox(
         self,
-        parent: ObjectBase,
-        anchor_objects: set[ObjectBase],
+        parent: PlacementEntity,
+        anchor_objects: set[PlacementEntity],
         anchor_bbox: AxisAlignedBoundingBox,
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        env_bboxes: dict[PlacementEntity, AxisAlignedBoundingBox],
     ) -> AxisAlignedBoundingBox:
         """Resolve the world bbox of an On relation's parent for initialization purposes.
 
@@ -536,10 +538,10 @@ class ObjectPlacer:
 
     def _compute_on_guided_position(
         self,
-        obj: ObjectBase,
-        anchor_objects: set[ObjectBase],
+        obj: PlacementEntity,
+        anchor_objects: set[PlacementEntity],
         anchor_bbox: AxisAlignedBoundingBox,
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        env_bboxes: dict[PlacementEntity, AxisAlignedBoundingBox],
         generator: torch.Generator | None = None,
     ) -> tuple[float, float, float]:
         """Compute an initial position for an object with an On relation.
@@ -608,8 +610,8 @@ class ObjectPlacer:
 
     def _validate_on_relations(
         self,
-        positions: dict[ObjectBase, tuple[float, float, float]],
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        positions: dict[PlacementEntity, tuple[float, float, float]],
+        env_bboxes: dict[PlacementEntity, AxisAlignedBoundingBox],
     ) -> bool:
         """Validate each On relation; keep in sync with OnLossStrategy in relation_loss_strategies.py.
 
@@ -677,7 +679,7 @@ class ObjectPlacer:
 
     @staticmethod
     def _collect_skip_pairs(
-        positions: dict[ObjectBase, tuple[float, float, float]],
+        positions: dict[PlacementEntity, tuple[float, float, float]],
     ) -> tuple[set[tuple], set[int]]:
         """Build On-pair skip set and anchor ID set from positioned objects.
 
@@ -698,9 +700,9 @@ class ObjectPlacer:
 
     def _non_skip_pairs(
         self,
-        positions: dict[ObjectBase, tuple[float, float, float]],
+        positions: dict[PlacementEntity, tuple[float, float, float]],
         skip_mesh_pairs: bool = False,
-    ) -> Iterator[tuple[ObjectBase, ObjectBase]]:
+    ) -> Iterator[tuple[PlacementEntity, PlacementEntity]]:
         """Yield non-relation object pairs, optionally skipping pairs handled by mesh collision."""
         on_pairs, anchor_ids = self._collect_skip_pairs(positions)
         mesh_manager = self._get_cpu_mesh_manager() if skip_mesh_pairs else None
@@ -728,8 +730,8 @@ class ObjectPlacer:
 
     def _validate_no_overlap(
         self,
-        positions: dict[ObjectBase, tuple[float, float, float]],
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        positions: dict[PlacementEntity, tuple[float, float, float]],
+        env_bboxes: dict[PlacementEntity, AxisAlignedBoundingBox],
         collision_objects: list[CollisionObject] | None = None,
         skip_mesh_pairs: bool = False,
     ) -> bool:
@@ -769,8 +771,8 @@ class ObjectPlacer:
 
     def _validate_next_to_relations(
         self,
-        positions: dict[ObjectBase, tuple[float, float, float]],
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        positions: dict[PlacementEntity, tuple[float, float, float]],
+        env_bboxes: dict[PlacementEntity, AxisAlignedBoundingBox],
     ) -> bool:
         """Validate each NextTo relation: child on the requested side, facing edge within the
         relation's tolerance_m of distance_m from the parent edge. Shares next_to_violations with
@@ -805,8 +807,8 @@ class ObjectPlacer:
 
     def _validate_not_next_to_relations(
         self,
-        positions: dict[ObjectBase, tuple[float, float, float]],
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
+        positions: dict[PlacementEntity, tuple[float, float, float]],
+        env_bboxes: dict[PlacementEntity, AxisAlignedBoundingBox],
     ) -> bool:
         """Validate each NotNextTo relation: child has cleared the keep-out zone beside the parent
         (within the relation's tolerance_m) via either route — back over the edge or past the
@@ -861,9 +863,9 @@ class ObjectPlacer:
 
     def _validate_no_overlap_mesh(
         self,
-        positions: dict[ObjectBase, tuple[float, float, float]],
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
-        orientations: dict[ObjectBase, float] | None = None,
+        positions: dict[PlacementEntity, tuple[float, float, float]],
+        env_bboxes: dict[PlacementEntity, AxisAlignedBoundingBox],
+        orientations: dict[PlacementEntity, float] | None = None,
         collision_objects: list[CollisionObject] | None = None,
     ) -> bool:
         """Sphere-to-SDF overlap check; both-meshless pairs fall back to AABB validation."""
@@ -981,19 +983,19 @@ class ObjectPlacer:
 
     def _spheres_penetrate_mesh(
         self,
-        source: ObjectBase,
+        source: PlacementEntity,
         source_mesh: trimesh.Trimesh,
-        source_sphere_cache_obj: ObjectBase | None,
+        source_sphere_cache_obj: PlacementEntity | None,
         source_applies_yaw: bool,
         source_uses_pose_yaw: bool,
         source_pos: torch.Tensor,
-        target: ObjectBase | CollisionObject,
+        target: PlacementEntity | CollisionObject,
         target_mesh: trimesh.Trimesh,
         target_pos: torch.Tensor,
         target_uses_pose_yaw: bool,
         mesh_manager: WarpMeshAndSphereCache,
         tolerance: float,
-        orientations: dict[ObjectBase, float] | None,
+        orientations: dict[PlacementEntity, float] | None,
     ) -> bool:
         """True if source's spheres penetrate target's mesh or if BVH returns no-face sentinel.
 
@@ -1025,13 +1027,13 @@ class ObjectPlacer:
 
     @staticmethod
     def _effective_yaw(
-        obj: ObjectBase | CollisionObject,
-        orientations: dict[ObjectBase, float] | None,
+        obj: PlacementEntity | CollisionObject,
+        orientations: dict[PlacementEntity, float] | None,
         use_pose_yaw: bool,
     ) -> float:
         """Resolve effective Z-yaw from sampled orientations or, when allowed, fixed initial pose."""
         if orientations is not None and obj in orientations:
-            return orientations[cast("ObjectBase", obj)]
+            return orientations[cast("PlacementEntity", obj)]
         if not use_pose_yaw:
             return 0.0
         pose = obj.get_initial_pose()
@@ -1061,11 +1063,11 @@ class ObjectPlacer:
     @staticmethod
     def _centers_in_target_frame(
         centers_local: torch.Tensor,
-        source_obj: ObjectBase,
-        target_obj: ObjectBase | CollisionObject,
+        source_obj: PlacementEntity,
+        target_obj: PlacementEntity | CollisionObject,
         source_pos: torch.Tensor,
         target_pos: torch.Tensor,
-        orientations: dict[ObjectBase, float] | None,
+        orientations: dict[PlacementEntity, float] | None,
         source_applies_yaw: bool = True,
         source_uses_pose_yaw: bool = True,
         target_uses_pose_yaw: bool = True,
@@ -1079,9 +1081,9 @@ class ObjectPlacer:
 
     def _validate_placement(
         self,
-        positions: dict[ObjectBase, tuple[float, float, float]],
-        env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
-        orientations: dict[ObjectBase, float] | None = None,
+        positions: dict[PlacementEntity, tuple[float, float, float]],
+        env_bboxes: dict[PlacementEntity, AxisAlignedBoundingBox],
+        orientations: dict[PlacementEntity, float] | None = None,
         collision_objects: list[CollisionObject] | None = None,
     ) -> PlacementValidationResults:
         """Validate overlap and all supported placement relations.
@@ -1136,8 +1138,8 @@ class ObjectPlacer:
 
     def _validate_face_to_relations(
         self,
-        positions: dict[ObjectBase, tuple[float, float, float]],
-        orientations: dict[ObjectBase, float] | None,
+        positions: dict[PlacementEntity, tuple[float, float, float]],
+        orientations: dict[PlacementEntity, float] | None,
     ) -> bool:
         """Validate that every FaceTo subject has a defined direction and computed yaw."""
         for obj in positions:
@@ -1159,7 +1161,7 @@ class ObjectPlacer:
 
     def _should_validate_mesh(
         self,
-        positions: dict[ObjectBase, tuple[float, float, float]],
+        positions: dict[PlacementEntity, tuple[float, float, float]],
         collision_objects: list[CollisionObject] | None,
     ) -> bool:
         """Return True when any object in this validation uses mesh collision."""
@@ -1171,9 +1173,9 @@ class ObjectPlacer:
 
     def _apply_poses(
         self,
-        positions_per_env: list[dict[ObjectBase, tuple[float, float, float]]],
-        anchor_objects: set[ObjectBase],
-        orientations_per_env: list[dict[ObjectBase, float]],
+        positions_per_env: list[dict[PlacementEntity, tuple[float, float, float]]],
+        anchor_objects: set[PlacementEntity],
+        orientations_per_env: list[dict[PlacementEntity, float]],
     ) -> None:
         """Apply solved positions and orientations to non-anchor objects.
 
@@ -1212,7 +1214,7 @@ class ObjectPlacer:
                 obj.set_initial_pose(PosePerEnv(poses=poses))
 
     @staticmethod
-    def _get_relation(obj: ObjectBase, relation_type: type[RelationT]) -> RelationT | None:
+    def _get_relation(obj: PlacementEntity, relation_type: type[RelationT]) -> RelationT | None:
         return next((relation for relation in obj.get_relations() if isinstance(relation, relation_type)), None)
 
     @property

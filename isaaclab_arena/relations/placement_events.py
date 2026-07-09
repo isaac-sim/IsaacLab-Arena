@@ -16,7 +16,7 @@ from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
-    from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.placement_entity import PlacementEntity
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 
@@ -42,20 +42,22 @@ def get_placement_pool(env) -> PooledObjectPlacer | None:
     return term_cfg.params.get("placement_pool")
 
 
-def get_rotation_xyzw(obj: ObjectBase) -> tuple[float, float, float, float]:
+def get_rotation_xyzw(obj: PlacementEntity) -> tuple[float, float, float, float]:
     """Return the RotateAroundSolution rotation for *obj*, or identity if none."""
     rotate_marker = next((r for r in obj.get_relations() if isinstance(r, RotateAroundSolution)), None)
     return rotate_marker.get_rotation_xyzw() if rotate_marker else IDENTITY_ROTATION_XYZW
 
 
-def get_base_rotation_per_object(objects: list[ObjectBase]) -> dict[ObjectBase, tuple[float, float, float, float]]:
+def get_base_rotation_per_object(
+    objects: list[PlacementEntity],
+) -> dict[PlacementEntity, tuple[float, float, float, float]]:
     """Return the base rotation for each object."""
     return {obj: get_rotation_xyzw(obj) for obj in objects}
 
 
 def get_movable_object_names(
-    objects: list[ObjectBase],
-    anchor_objects_set: set[ObjectBase],
+    objects: list[PlacementEntity],
+    anchor_objects_set: set[PlacementEntity],
 ) -> list[str]:
     """Return the names of non-anchor objects."""
     return [obj.name for obj in objects if obj not in anchor_objects_set]
@@ -65,8 +67,8 @@ def write_layout_to_sim(
     env: ManagerBasedEnv,
     env_id: int,
     result: PlacementResult,
-    anchor_objects_set: set[ObjectBase],
-    base_rotations: dict[ObjectBase, tuple[float, float, float, float]],
+    anchor_objects_set: set[PlacementEntity],
+    base_rotations: dict[PlacementEntity, tuple[float, float, float, float]],
 ) -> None:
     """Write one env's solved layout into the sim.
 
@@ -85,7 +87,7 @@ def write_layout_to_sim(
     for obj, pos in result.positions.items():
         if obj in anchor_objects_set:
             continue
-        asset = env.scene[obj.name]
+        asset = env.scene[obj.placement_scene_entity_name]
         marker_yaw = yaw_from_quat_xyzw(base_rotations[obj])
         total_yaw = result.orientations.get(obj, marker_yaw)
         rotation_xyzw = rotate_quat_by_yaw(base_rotations[obj], total_yaw - marker_yaw)
@@ -99,7 +101,7 @@ def write_layout_to_sim(
 def solve_and_place_objects(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor | None,
-    objects: list[ObjectBase],
+    objects: list[PlacementEntity],
     placement_pool: PooledObjectPlacer,
 ) -> None:
     """Coordinated reset event that draws layouts from the pool and writes poses.

@@ -66,10 +66,6 @@ class Object(ObjectBase):
         self.object_cfg = self._init_object_cfg()
         self.event_cfg = self._init_event_cfg()
 
-    def add_relation(self, relation: RelationBase) -> None:
-        """Add a relation to this object."""
-        self.relations.append(relation)
-
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get local bounding box (relative to object origin)."""
         assert self.usd_path is not None
