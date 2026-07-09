@@ -16,9 +16,8 @@ from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 HEADLESS = True
 
 TEST_LIGHT_NAME = "directional_light"
-TEST_VARIATION_NAME = "direction"
-TEST_AZIMUTH = 0.0
-TEST_ELEVATION = 0.0
+TEST_AZIMUTH = math.pi / 4.0
+TEST_ELEVATION = math.radians(30.0)
 
 
 # ---------------------------------------------------------------------------
@@ -69,7 +68,7 @@ def get_test_environment(*, enabled: bool):
     light = AssetRegistry().get_asset_by_name(TEST_LIGHT_NAME)()
     assert light.name == TEST_LIGHT_NAME
 
-    variation = light.get_variation(TEST_VARIATION_NAME)
+    variation = light.get_variation("direction")
     # Degenerate range so the sampled direction is deterministic.
     variation.apply_cfg(
         type(variation.cfg)(

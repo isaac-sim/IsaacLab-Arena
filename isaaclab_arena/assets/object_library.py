@@ -377,11 +377,7 @@ class LightBase(LibraryObject, ABC):
     tags = ["light"]
 
     def set_intensity(self, intensity: float) -> None:
-        """Set the light's intensity and refresh the object cfg.
-
-        Args:
-            intensity: The new light intensity. Must be non-negative.
-        """
+        """Set the light's intensity."""
         assert intensity >= 0.0, f"Light intensity must be non-negative, got {intensity}."
         self.spawner_cfg.intensity = intensity
         self.object_cfg = self._init_object_cfg()
@@ -456,7 +452,7 @@ class DirectionalLight(LightBase):
 
     name = "directional_light"
     default_prim_path = "/World/DirectionalLight"
-    default_spawner_cfg = sim_utils.DistantLightCfg(intensity=1000.0, angle=0.53)
+    default_spawner_cfg = sim_utils.DistantLightCfg(intensity=1000.0)
     default_initial_pose = Pose(position_xyz=(0.0, 0.0, 5.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
 
     spawner_cfg: sim_utils.DistantLightCfg
@@ -479,11 +475,7 @@ class DirectionalLight(LightBase):
         self.add_variation(LightDirectionVariation(self))
 
     def set_orientation(self, rotation_xyzw: tuple[float, float, float, float]) -> None:
-        """Set the light's orientation and refresh the object cfg.
-
-        Args:
-            rotation_xyzw: The new orientation quaternion as ``(x, y, z, w)``.
-        """
+        """Set the light's orientation."""
         position_xyz = self.initial_pose.position_xyz if self.initial_pose is not None else (0.0, 0.0, 0.0)
         self.initial_pose = Pose(position_xyz=position_xyz, rotation_xyzw=tuple(rotation_xyzw))
         self.object_cfg = self._init_object_cfg()

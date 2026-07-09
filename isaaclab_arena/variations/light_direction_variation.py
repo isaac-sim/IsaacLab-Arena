@@ -37,7 +37,7 @@ def quat_xyzw_from_azimuth_elevation(azimuth_rad: float, elevation_rad: float) -
         elevation_rad: Angle down from directly above [rad]. 0 is directly overhead.
 
     Returns:
-        The orientation quaternion as ``(x, y, z, w)``.
+        The orientation quaternion as (x, y, z, w).
     """
     axis = torch.tensor([[-math.sin(azimuth_rad), math.cos(azimuth_rad), 0.0]])
     angle = torch.tensor([elevation_rad])
