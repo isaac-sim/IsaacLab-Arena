@@ -26,10 +26,10 @@ from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
 
-# TODO(cvolk, 2026-07-08): [typed-config-migration] Add an evaluation-layer loader and a neutral
-# --experiment_config flag; route YAML here and JSON through the legacy adapter. Preserve JSON graph
-# compatibility, pre-SimulationApp camera detection, and process-wide --device handling. Forward explicit
-# --experiment_override values, and reject YAML chunking until chunk dispatch is generalized around Runs.
+# TODO(cvolk, 2026-07-08): [typed-config-migration] Integrate this composer into eval_runner:
+# dispatch --experiment_config YAML files here after AppLauncher starts and JSON files to the
+# legacy adapter; forward YAML-only --experiment_override values and the process device to typed
+# Runs, while keeping JSON camera auto-detection and chunking during the migration.
 def load_arena_experiment_from_yaml(
     yaml_path: str | Path,
     *,
