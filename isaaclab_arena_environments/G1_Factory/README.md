@@ -34,21 +34,41 @@ GR00T server process, so checkpoint paths are documented here instead of added a
 
 ## Run a real GR00T policy
 
-Start the GR00T policy server from an environment that has GR00T installed and can access the checkpoint. Replace
-`<checkpoint>` with the task checkpoint from the table above.
+The policy config passed to Arena is not the model checkpoint. It only configures Arena-side observation/action
+translation for `Gr00tRemoteClosedloopPolicy`. To use a G1 Factory checkpoint, start the GR00T server with that
+checkpoint, then run the Arena client against that server.
+
+Populate the pinned GR00T submodule first:
 
 ```bash
-python gr00t/eval/run_gr00t_server.py \
-  --model_path <checkpoint> \
-  --embodiment_tag NEW_EMBODIMENT \
-  --host 0.0.0.0 \
+git submodule update --init submodules/Isaac-GR00T
+```
+
+If SSH access to GitHub submodules is not configured in your environment, use an HTTPS rewrite for the submodule
+checkout:
+
+```bash
+git -c url.https://github.com/.insteadOf=git@github.com: submodule update --init submodules/Isaac-GR00T
+```
+
+In terminal 1, start the GR00T policy server from an environment that can access the checkpoint. This `LMDrillLift`
+example uses the legacy G1 Factory checkpoint from the table above.
+
+```bash
+cd submodules/Isaac-GR00T
+uv run python gr00t/eval/run_gr00t_server.py \
+  --model-path /mnt/data/isaaclab_arena/ckpts/D1-100/g1_benchmark_LMDrillLiftD1_100_gn1_5_output/checkpoint-20000 \
+  --embodiment-tag NEW_EMBODIMENT \
+  --device cuda \
+  --host 127.0.0.1 \
   --port 5555
 ```
 
-Then run the Arena client from this repository. This example uses `LMDrillLift`.
+In terminal 2, run the Arena client from the Arena repository root. Include `submodules/Isaac-GR00T` on `PYTHONPATH`;
+the client imports GR00T's `PolicyClient` even though inference runs in the server process.
 
 ```bash
-PYTHONPATH=/workspaces/isaaclab_arena:${PYTHONPATH:-} \
+PYTHONPATH="$(pwd):$(pwd)/submodules/Isaac-GR00T:${PYTHONPATH:-}" \
 submodules/IsaacLab/isaaclab.sh -p \
   isaaclab_arena/evaluation/policy_runner.py \
   --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
