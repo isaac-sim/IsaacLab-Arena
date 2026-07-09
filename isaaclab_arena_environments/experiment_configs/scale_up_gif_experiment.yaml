@@ -1,0 +1,20 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+runs:
+- name: scale_up_4_envs
+  environment:
+    type: pick_and_place_maple_table
+    embodiment: droid_rel_joint_pos
+    pick_up_object: rubiks_cube_hot3d_robolab
+    destination_location: bowl_ycb_robolab
+  policy:
+    type: zero_action
+  environment_builder:
+    num_envs: 64
+    env_spacing: 2.5
+    placement_seed: 42
+  rollout_limit:
+    num_steps: 50

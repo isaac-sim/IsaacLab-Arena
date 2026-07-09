@@ -1,0 +1,27 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+runs:
+- name: gr1_open_microwave_cracker_box
+  environment:
+    type: gr1_open_microwave
+    object: cracker_box
+    embodiment: gr1_joint
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_steps: 10
+
+- name: gr1_open_microwave_sugar_box
+  environment:
+    type: gr1_open_microwave
+    object: sugar_box
+    embodiment: gr1_pink
+  policy:
+    type: zero_action
+  environment_builder:
+    num_envs: 10
+  rollout_limit:
+    num_steps: 10

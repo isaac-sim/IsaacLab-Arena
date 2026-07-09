@@ -19,9 +19,13 @@ from isaaclab_arena.evaluation.arena_experiment import ArenaExperiment
 from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     load_arena_experiment_from_config_file,
     validate_experiment_config_path,
+    warn_if_legacy_json_experiment_config,
 )
 from isaaclab_arena.evaluation.arena_run import ArenaRunResult
-from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
+from isaaclab_arena.evaluation.eval_runner_cli import (
+    add_eval_runner_arguments,
+    warn_if_deprecated_eval_jobs_config_argument,
+)
 from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg, execute_experiment
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
@@ -137,6 +141,7 @@ def _run_legacy_json_in_chunks(args_cli: argparse.Namespace, legacy_experiment_c
 
 def _parse_eval_runner_args() -> argparse.Namespace:
     """Parse and validate the eval runner command-line arguments."""
+    warn_if_deprecated_eval_jobs_config_argument(sys.argv[1:])
     args_parser = get_isaaclab_arena_cli_parser()
     add_eval_runner_arguments(args_parser)
     args_cli, _ = args_parser.parse_known_args()
@@ -168,6 +173,7 @@ def _load_legacy_json_experiment_config(
 def main():
     args_cli = _parse_eval_runner_args()
     experiment_config_path = validate_experiment_config_path(args_cli.experiment_config)
+    warn_if_legacy_json_experiment_config(experiment_config_path)
     legacy_experiment_config = _load_legacy_json_experiment_config(
         experiment_config_path,
         args_cli.experiment_override,

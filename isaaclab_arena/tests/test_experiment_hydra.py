@@ -16,13 +16,16 @@ from isaaclab_arena.hydra.experiment_composition import load_arena_experiment_fr
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena_environments.gr1_open_microwave_environment import Gr1OpenMicrowaveEnvironmentCfg
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 
-ENVIRONMENT_CFG_TYPES = {"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg}
+ENVIRONMENT_CFG_TYPES = {
+    "gr1_open_microwave": Gr1OpenMicrowaveEnvironmentCfg,
+    "pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg,
+}
 POLICY_CFG_TYPES = {"zero_action": ZeroActionPolicyCfg}
-GETTING_STARTED_EXPERIMENT_PATH = (
-    Path(TestConstants.arena_environments_dir) / "experiment_configs" / "getting_started_experiment.yaml"
-)
+EXPERIMENT_CONFIG_DIR = Path(TestConstants.arena_environments_dir) / "experiment_configs"
+GETTING_STARTED_EXPERIMENT_PATH = EXPERIMENT_CONFIG_DIR / "getting_started_experiment.yaml"
 
 
 def _load_experiment(config_path: str | Path, overrides: list[str] | None = None):
@@ -64,6 +67,20 @@ def test_getting_started_experiment_composes_typed_runs():
     assert [run.environment_builder.num_envs for run in runs] == [1, 1, 1, 64]
     assert runs[3].environment_builder.env_spacing == 2.5
     assert [run.rollout_limit.num_steps for run in runs] == [50, 50, 50, 100]
+
+
+@pytest.mark.parametrize(
+    ("config_name", "expected_run_names"),
+    [
+        ("zero_action_experiment.yaml", ["gr1_open_microwave_cracker_box", "gr1_open_microwave_sugar_box"]),
+        ("droid_pnp_variations_experiment.yaml", ["variations_demo"]),
+        ("scale_up_gif_experiment.yaml", ["scale_up_4_envs"]),
+    ],
+)
+def test_core_experiment_configs_compose(config_name, expected_run_names):
+    experiment = _load_experiment(EXPERIMENT_CONFIG_DIR / config_name)
+
+    assert [run.name for run in experiment] == expected_run_names
 
 
 def test_experiment_composition_preserves_caller_owned_hydra_context():

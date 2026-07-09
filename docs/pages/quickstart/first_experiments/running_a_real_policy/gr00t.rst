@@ -76,13 +76,19 @@ object and lighting condition, as we shall see in the next section.
 
 To measure success rates across several variations of the environment in a single command:
 
+.. note::
+
+   This workflow temporarily uses deprecated JSON Experiment compatibility because typed YAML
+   discovery for the GR00T extension policy is not available yet. The command therefore emits
+   a JSON-format deprecation warning.
+
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/eval_runner.py \
      --viz kit \
-     --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_gr00t_jobs_config.json
+     --experiment_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_gr00t_jobs_config.json
 
-This runs nine jobs sequentially — each varying the object, background, and destination — and reports a per-job success rate.
+This executes nine Runs sequentially — each varying the object, background, and destination — and reports a per-Run success rate.
 Each evaluation is run without restarting Isaac Sim to save on the startup time.
 
 .. figure:: ../../../../images/gr00t_droid_3x3_grid.gif
@@ -93,12 +99,12 @@ Each evaluation is run without restarting Isaac Sim to save on the startup time.
    9 closed-loop evaluation runs of GR00T N1.6 on the DROID embodiment — each cell varies the
    pick-up object, background HDR, and destination.
 
-At the end of the run you will see a job summary table followed by a metrics report:
+At the end of the Experiment you will see a Run summary table followed by a metrics report:
 
 .. code-block:: text
 
    +---------------------------------------+-----------+-----...-+----------+-----------+--------------+
-   |                Job Name               |   Status  | Policy  | Num Envs | Num Steps | Num Episodes |
+   |                Run Name               |   Status  | Policy  | Num Envs | Num Steps | Num Episodes |
    +---------------------------------------+-----------+-----...-+----------+-----------+--------------+
    |   droid_pnp_srl_gr00t_billiard_hall   | completed | Gr00t.. |    1     |    None   |      3       |
    |     droid_pnp_srl_gr00t_blue_block    | completed | Gr00t.. |    1     |    None   |      3       |
@@ -152,7 +158,7 @@ episode; the runner writes an ``index.html`` which is then served over HTTP.
 
    python isaaclab_arena/evaluation/eval_runner.py \
      --viz kit \
-     --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_gr00t_jobs_config.json \
+     --experiment_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_gr00t_jobs_config.json \
      --output_base_dir ./output \
      --record_camera_video --serve_evaluation_report
 

@@ -64,21 +64,19 @@ class RslRlActionPolicy(PolicyBase[RslRlActionPolicyCfg]):
 
     Example configuration for eval runner:
 
-    .. code-block:: json
+    .. code-block:: yaml
 
-        {
-          "jobs": [
-            {
-              "name": "eval_lift_cube",
-              "policy_type": "rsl_rl",
-              "policy_config_dict": {
-                "checkpoint_path": "logs/rsl_rl/lift_object/2026-01-28_17-26-10/model_1000.pt",
-                "device": "cuda:0"
-              },
-              "arena_env_args": ["lift_object", "--embodiment", "franka_ik"]
-            }
-          ]
-        }
+        runs:
+        - name: eval_lift_cube
+          environment:
+            type: lift_object
+            embodiment: franka_ik
+          policy:
+            type: rsl_rl
+            checkpoint_path: logs/rsl_rl/lift_object/2026-01-28_17-26-10/model_1000.pt
+            device: cuda:0
+          rollout_limit:
+            num_episodes: 100
     """
 
     name = "rsl_rl"

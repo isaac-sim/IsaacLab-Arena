@@ -272,9 +272,15 @@ just over-fitting to a single object mesh.
 Step 4: Sequential Batch Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A sequential batch of jobs, i.e. different tasks, objects, embodiments or policies, can be evaluated by the ``eval_runner.py`` script.
-It minimizes the overhead of reloading system modules and environment classes for each job while keeping the simulation application alive.
+A sequential Experiment of Runs, i.e. different tasks, objects, embodiments or policies, can be evaluated by the ``eval_runner.py`` script.
+It minimizes the overhead of reloading system modules and environment classes for each Run while keeping the simulation application alive.
 The evaluation batch can be specified in a config file, with examples shown below.
+
+.. note::
+
+   This workflow temporarily uses deprecated JSON Experiment compatibility because typed YAML
+   discovery for the GR00T extension policy is not available yet. The command therefore emits
+   a JSON-format deprecation warning.
 
 .. dropdown:: Configuration file (``gr1_sequential_static_manip_eval_jobs_config.json``):
    :animate: fade-in
@@ -328,15 +334,15 @@ Run the batch evaluation:
 
    python isaaclab_arena/evaluation/eval_runner.py \
      --viz kit \
-     --eval_jobs_config isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.json
+     --experiment_config isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.json
 
 This will automatically evaluate the policy with the given configuration and output the metrics.
-You should see the following output on the console indicating the jobs and metrics.
+You should see the following output on the console indicating the Runs and metrics.
 
 .. code-block:: text
 
    +---------------------------------------------------------+------------+----------------------------------------------------------------------------+----------+-----------+--------------+
-   | Job Name                                                | Status     | Policy Type                                                                | Num Envs | Num Steps | Num Episodes |
+   | Run Name                                                | Status     | Policy Type                                                                | Num Envs | Num Steps | Num Episodes |
    +---------------------------------------------------------+------------+----------------------------------------------------------------------------+----------+-----------+--------------+
    || gr1_put_jug_in_fridge_and_close_door                   || completed || isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy || 10      || 500      || None        |
    || gr1_put_ranch_dressing_bottle_in_fridge_and_close_door || completed || isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy || 10      || 500      || None        |

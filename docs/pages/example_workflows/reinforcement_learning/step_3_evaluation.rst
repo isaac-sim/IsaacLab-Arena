@@ -97,44 +97,38 @@ For more statistically significant results, run across many environments in para
 Method 3: Batch Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To evaluate multiple checkpoints in sequence, use ``eval_runner.py`` with a JSON config.
+To evaluate multiple checkpoints in sequence, use ``eval_runner.py`` with a typed YAML Experiment.
 Here we evaluate the models you trained yourself.
 The checkpoint path should be replaced with the timestamp of your training run in the ``logs/rsl_rl/generic_experiment/`` directory.
 
 **1. Create an evaluation config**
 
-Create a file ``eval_config.json``:
+Create a file ``eval_config.yaml``:
 
-.. code-block:: json
+.. code-block:: yaml
 
-   {
-     "jobs": [
-       {
-         "name": "lift_object_model_1000",
-         "policy_type": "rsl_rl",
-         "num_episodes": 1024,
-         "arena_env_args": {
-           "environment": "lift_object",
-           "num_envs": 64
-         },
-         "policy_config_dict": {
-           "checkpoint_path": "logs/rsl_rl/generic_experiment/<timestamp>/model_1000.pt"
-         }
-       },
-       {
-         "name": "lift_object_model_1999",
-         "policy_type": "rsl_rl",
-         "num_episodes": 1024,
-         "arena_env_args": {
-           "environment": "lift_object",
-           "num_envs": 64
-         },
-         "policy_config_dict": {
-           "checkpoint_path": "logs/rsl_rl/generic_experiment/<timestamp>/model_1999.pt"
-         }
-       }
-     ]
-   }
+   runs:
+   - name: lift_object_model_1000
+     environment:
+       type: lift_object
+     policy:
+       type: rsl_rl
+       checkpoint_path: logs/rsl_rl/generic_experiment/<timestamp>/model_1000.pt
+     environment_builder:
+       num_envs: 64
+     rollout_limit:
+       num_episodes: 1024
+
+   - name: lift_object_model_1999
+     environment:
+       type: lift_object
+     policy:
+       type: rsl_rl
+       checkpoint_path: logs/rsl_rl/generic_experiment/<timestamp>/model_1999.pt
+     environment_builder:
+       num_envs: 64
+     rollout_limit:
+       num_episodes: 1024
 
 **2. Run**
 
@@ -142,7 +136,7 @@ Create a file ``eval_config.json``:
 
    python isaaclab_arena/evaluation/eval_runner.py \
      --viz kit \
-     --eval_jobs_config eval_config.json
+     --experiment_config eval_config.yaml
 
 .. code-block:: text
 

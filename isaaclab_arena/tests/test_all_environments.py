@@ -15,7 +15,7 @@ import argparse
 import pytest
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
-from isaaclab_arena.tests.test_eval_runner import run_eval_runner, write_jobs_config_to_file
+from isaaclab_arena.tests.test_eval_runner import run_eval_runner, write_yaml_experiment
 from isaaclab_arena_environments.cli import add_environment_cli_args, ensure_environments_registered
 
 NUM_STEPS = 2
@@ -38,32 +38,31 @@ ENV_ARG_OVERRIDES: dict[str, dict] = {
 }
 
 
-def _build_jobs_for_all_envs() -> list[dict]:
+def _build_runs_for_all_envs() -> list[dict]:
     ensure_environments_registered()
     env_names = sorted(EnvironmentRegistry().get_all_keys())
-    jobs = []
+    runs = []
     for env_name in env_names:
-        arena_env_args = {"environment": env_name}
-        arena_env_args.update(ENV_ARG_OVERRIDES.get(env_name, {}))
-        jobs.append({
+        environment = {"type": env_name}
+        environment.update(ENV_ARG_OVERRIDES.get(env_name, {}))
+        runs.append({
             "name": f"smoke_{env_name}",
-            "arena_env_args": arena_env_args,
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_config_dict": {},
+            "environment": environment,
+            "policy": {"type": "zero_action"},
+            "rollout_limit": {"num_steps": NUM_STEPS},
         })
-    return jobs
+    return runs
 
 
 @pytest.mark.with_subprocess
 def test_eval_runner_all_environments(tmp_path):
     """Boot every registered environment for a few steps with the zero_action policy."""
-    jobs = _build_jobs_for_all_envs()
-    assert len(jobs) > 0, "Expected at least one environment to be registered"
+    runs = _build_runs_for_all_envs()
+    assert runs, "Expected at least one environment to be registered"
 
-    config_path = str(tmp_path / "test_eval_runner_all_environments.json")
-    write_jobs_config_to_file(jobs, config_path)
-    run_eval_runner(config_path, headless=HEADLESS)
+    config_path = tmp_path / "all_environments_experiment.yaml"
+    write_yaml_experiment(runs, config_path)
+    run_eval_runner(str(config_path), headless=HEADLESS)
 
 
 def test_all_environments_have_default_args():

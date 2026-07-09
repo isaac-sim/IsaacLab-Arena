@@ -5,6 +5,7 @@
 
 """Test loading Arena Experiments at the evaluation boundary."""
 
+import warnings
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -14,10 +15,15 @@ from isaaclab_arena.evaluation import arena_experiment_config_loader, eval_runne
 from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     load_arena_experiment_from_config_file,
     validate_experiment_config_path,
+    warn_if_legacy_json_experiment_config,
 )
 from isaaclab_arena.evaluation.eval_runner import (
     _assert_camera_support_enabled,
     legacy_json_experiment_requires_cameras,
+)
+from isaaclab_arena.evaluation.eval_runner_cli import (
+    _DEFAULT_EXPERIMENT_CONFIG_PATH,
+    warn_if_deprecated_eval_jobs_config_argument,
 )
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
@@ -29,6 +35,30 @@ GETTING_STARTED_JSON_PATH = (
 GETTING_STARTED_YAML_PATH = (
     Path(TestConstants.arena_environments_dir) / "experiment_configs" / "getting_started_experiment.yaml"
 )
+
+
+def test_default_experiment_config_is_typed_yaml():
+    default_config_path = Path(TestConstants.repo_root) / _DEFAULT_EXPERIMENT_CONFIG_PATH
+
+    assert default_config_path.suffix == ".yaml"
+    assert default_config_path.is_file()
+
+
+def test_legacy_json_experiment_emits_deprecation_warning():
+    with pytest.warns(FutureWarning, match="JSON Experiment configs are deprecated"):
+        warn_if_legacy_json_experiment_config(GETTING_STARTED_JSON_PATH)
+
+
+def test_eval_jobs_config_alias_emits_deprecation_warning():
+    with pytest.warns(FutureWarning, match="--eval_jobs_config is deprecated"):
+        warn_if_deprecated_eval_jobs_config_argument(["--eval_jobs_config=config.json"])
+
+
+def test_typed_yaml_and_preferred_option_emit_no_deprecation_warning():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        warn_if_legacy_json_experiment_config(GETTING_STARTED_YAML_PATH)
+        warn_if_deprecated_eval_jobs_config_argument(["--experiment_config", str(GETTING_STARTED_YAML_PATH)])
 
 
 def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):

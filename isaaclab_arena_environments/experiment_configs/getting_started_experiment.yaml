@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Typed YAML equivalent of eval_jobs_configs/getting_started_jobs_config.json.
+# Getting-started Experiment composed as typed Runs.
 runs:
 - name: baseline
   environment:

@@ -86,8 +86,14 @@ To use with variations, append the variation overrides after the environment sou
 Run with Eval Runner
 --------------------
 
-For repeatable evaluation, put the generated environment graph spec YAML in an
-eval jobs config. The ``environment`` field points at the graph spec YAML, and the
+.. note::
+
+   This workflow temporarily uses deprecated JSON Experiment compatibility because generated
+   graph environments and the OpenPI extension policy do not yet have typed YAML Experiment
+   selectors. The command therefore emits a JSON-format deprecation warning.
+
+For repeatable evaluation, put the generated environment graph spec YAML in a
+legacy JSON Experiment config. The ``environment`` field points at the graph spec YAML, and the
 OpenPI connection options go in ``policy_config_dict``:
 
 .. code-block:: json
@@ -125,7 +131,7 @@ Then run the sequential batch evaluation runner:
 
    python isaaclab_arena/evaluation/eval_runner.py \
       --viz kit \
-      --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/agentic_openpi_jobs_config.json
+      --experiment_config isaaclab_arena_environments/eval_jobs_configs/agentic_openpi_jobs_config.json
 
 This keeps the generated environment, language instruction, OpenPI policy
 settings, and variation settings in one reusable config.

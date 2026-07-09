@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from dataclasses import replace
 from pathlib import Path
 
@@ -18,6 +19,16 @@ from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_ev
 from isaaclab_arena.hydra.experiment_composition import load_arena_experiment_from_yaml
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena_environments.cli import ensure_environments_registered
+
+
+def warn_if_legacy_json_experiment_config(experiment_config_path: str | Path) -> None:
+    """Warn when an Experiment uses the deprecated JSON configuration format."""
+    if Path(experiment_config_path).suffix.lower() == ".json":
+        warnings.warn(
+            "JSON Experiment configs are deprecated and will be removed in a future release. "
+            "Use a typed YAML Experiment with --experiment_config.",
+            FutureWarning,
+        )
 
 
 def validate_experiment_config_path(experiment_config: str | Path) -> Path:
@@ -52,6 +63,7 @@ def load_arena_experiment_from_config_file(
         The ordered typed Runs that make up the Experiment.
     """
     path = validate_experiment_config_path(experiment_config_path)
+    warn_if_legacy_json_experiment_config(path)
 
     if path.suffix.lower() == ".json":
         assert not overrides, "Experiment overrides are supported only for typed YAML Experiments"

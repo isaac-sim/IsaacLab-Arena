@@ -108,50 +108,46 @@ Batch Evaluation
 ^^^^^^^^^^^^^^^^
 
 To evaluate multiple checkpoints in sequence, use ``eval_runner.py`` with a
-JSON config.
+typed YAML Experiment.
 
 **1. Create an evaluation config**
 
-Create a file ``eval_config.json``:
+Create a file ``eval_config.yaml``:
 
-.. code-block:: json
+.. code-block:: yaml
 
-   {
-     "jobs": [
-       {
-         "name": "dexsuite_lift_7500",
-         "arena_env_args": {
-           "environment": "dexsuite_lift",
-           "num_envs": 64,
-           "env_spacing": 3
-         },
-         "num_steps": 5000,
-         "policy_type": "rsl_rl",
-         "policy_config_dict": {
-           "checkpoint_path": "models/isaaclab_arena/dexsuite_lift/model_7500.pt"
-         }
-       },
-       {
-         "name": "dexsuite_lift_14999",
-         "arena_env_args": {
-           "environment": "dexsuite_lift",
-           "num_envs": 64,
-           "env_spacing": 3
-         },
-         "num_steps": 5000,
-         "policy_type": "rsl_rl",
-         "policy_config_dict": {
-           "checkpoint_path": "models/isaaclab_arena/dexsuite_lift/model_14999.pt"
-         }
-       }
-     ]
-   }
+   runs:
+   - name: dexsuite_lift_7500
+     environment:
+       type: dexsuite_lift
+     policy:
+       type: rsl_rl
+       checkpoint_path: models/isaaclab_arena/dexsuite_lift/model_7500.pt
+     environment_builder:
+       num_envs: 64
+       env_spacing: 3
+       presets: newton
+     rollout_limit:
+       num_steps: 5000
+
+   - name: dexsuite_lift_14999
+     environment:
+       type: dexsuite_lift
+     policy:
+       type: rsl_rl
+       checkpoint_path: models/isaaclab_arena/dexsuite_lift/model_14999.pt
+     environment_builder:
+       num_envs: 64
+       env_spacing: 3
+       presets: newton
+     rollout_limit:
+       num_steps: 5000
 
 **2. Run**
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py --presets newton --eval_jobs_config eval_config.json
+   python isaaclab_arena/evaluation/eval_runner.py --experiment_config eval_config.yaml
 
 
 Understanding the Metrics

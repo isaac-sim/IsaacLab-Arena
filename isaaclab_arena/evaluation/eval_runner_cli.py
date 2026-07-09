@@ -4,8 +4,18 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import warnings
 
-_DEFAULT_EXPERIMENT_CONFIG_PATH = "isaaclab_arena_environments/eval_jobs_configs/zero_action_jobs_config.json"
+_DEFAULT_EXPERIMENT_CONFIG_PATH = "isaaclab_arena_environments/experiment_configs/zero_action_experiment.yaml"
+
+
+def warn_if_deprecated_eval_jobs_config_argument(arguments: list[str]) -> None:
+    """Warn when command-line arguments use the deprecated Experiment option."""
+    if any(argument == "--eval_jobs_config" or argument.startswith("--eval_jobs_config=") for argument in arguments):
+        warnings.warn(
+            "--eval_jobs_config is deprecated and will be removed in a future release. Use --experiment_config.",
+            FutureWarning,
+        )
 
 
 def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
@@ -18,7 +28,7 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         dest="experiment_config",
         type=str,
         default=_DEFAULT_EXPERIMENT_CONFIG_PATH,
-        help="Path to a typed YAML Experiment or legacy JSON evaluation config.",
+        help="Path to a typed YAML Experiment. Legacy JSON Experiment configs are deprecated.",
     )
     parser.add_argument(
         "--experiment_override",
