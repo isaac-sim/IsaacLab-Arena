@@ -14,24 +14,24 @@ Select the policy with ``--policy``:
 Usage examples:
 
     # Zero-action policy runner
-    python osmo/submit_evaluation_workflow.py \
+    python -m osmo.submit_evaluation_workflow \
         --policy zero_action \
         --arena_env kitchen_pick_and_place \
         --arena_env_args '--object cracker_box --embodiment franka_ik'
 
     # pi0 policy runner + server
-    python osmo/submit_evaluation_workflow.py \
+    python -m osmo.submit_evaluation_workflow \
         --policy pi0 \
         --arena_env kitchen_pick_and_place \
         --arena_env_args '--object cracker_box --embodiment franka_ik'
 
     # GR00T policy runner + server
-    python osmo/submit_evaluation_workflow.py \
+    python -m osmo.submit_evaluation_workflow \
         --policy gr00t \
         --arena_env kitchen_pick_and_place
 
     # Dry run (print rendered YAML without submitting)
-    python osmo/submit_evaluation_workflow.py --policy zero_action --arena_env ... --dry_run
+    python -m osmo.submit_evaluation_workflow --policy zero_action --arena_env ... --dry_run
 """
 
 from __future__ import annotations
@@ -39,10 +39,10 @@ from __future__ import annotations
 import argparse
 import sys
 
-from workflows.server_plus_policy_runner_workflow import Gr00tPolicyRunnerWorkflow, Pi0PlusPolicyRunnerWorkflow
-from workflows.utils.dataclass_cli import add_dataclass_cli_args, dataclass_from_cli
-from workflows.workflow import Workflow, WorkflowCfg
-from workflows.zero_action_policy_runner_workflow import ZeroActionPolicyRunnerWorkflow
+from isaaclab_arena.cli.dataclass_cli import add_dataclass_cli_args, dataclass_from_cli
+from osmo.workflows.server_plus_policy_runner_workflow import Gr00tPolicyRunnerWorkflow, Pi0PlusPolicyRunnerWorkflow
+from osmo.workflows.workflow import Workflow, WorkflowCfg
+from osmo.workflows.zero_action_policy_runner_workflow import ZeroActionPolicyRunnerWorkflow
 
 POLICIES: dict[str, type[Workflow]] = {
     "zero_action": ZeroActionPolicyRunnerWorkflow,

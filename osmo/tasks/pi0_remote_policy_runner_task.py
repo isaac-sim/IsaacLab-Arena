@@ -5,8 +5,8 @@
 
 """Remote pi0 policy-runner task for the Isaac Lab Arena OSMO workflow."""
 
-from tasks.policy_runner_task import PolicyRunnerTask, PolicyRunnerTaskCfg
-from workflows.workflow_constants import POLICY_SERVER_PORT
+from osmo.tasks.policy_runner_task import PolicyRunnerTask, PolicyRunnerTaskCfg
+from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 
 class Pi0RemotePolicyRunnerTask(PolicyRunnerTask):

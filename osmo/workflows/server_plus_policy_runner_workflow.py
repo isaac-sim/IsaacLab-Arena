@@ -7,13 +7,13 @@
 
 from __future__ import annotations
 
-from tasks.base_task import BaseTask
-from tasks.gr00t_policy_runner_task import Gr00tPolicyRunnerTask, Gr00tPolicyRunnerTaskCfg
-from tasks.gr00t_server_task import Gr00tServerTask
-from tasks.pi0_remote_policy_runner_task import Pi0RemotePolicyRunnerTask
-from tasks.pi0_server_task import Pi0ServerTask
-from tasks.policy_runner_task import PolicyRunnerTaskCfg
-from workflows.workflow import Workflow
+from osmo.tasks.base_task import BaseTask
+from osmo.tasks.gr00t_policy_runner_task import Gr00tPolicyRunnerTask, Gr00tPolicyRunnerTaskCfg
+from osmo.tasks.gr00t_server_task import Gr00tServerTask
+from osmo.tasks.pi0_remote_policy_runner_task import Pi0RemotePolicyRunnerTask
+from osmo.tasks.pi0_server_task import Pi0ServerTask
+from osmo.tasks.policy_runner_task import PolicyRunnerTaskCfg
+from osmo.workflows.workflow import Workflow
 
 
 class ServerPlusPolicyRunnerWorkflow(Workflow):

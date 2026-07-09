@@ -20,8 +20,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from tasks.base_task import BaseTask, TaskCfg
-from workflows.utils.yaml_utils import block_literal_str  # noqa: F401  (registers representer)
+from osmo.tasks.base_task import BaseTask, TaskCfg
+from osmo.workflows.utils.yaml_utils import block_literal_str  # noqa: F401  (registers representer)
 
 
 class WorkflowPriority(str, Enum):

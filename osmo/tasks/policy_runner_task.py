@@ -12,8 +12,8 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
-from tasks.base_task import BaseTask, TaskCfg
-from workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
+from osmo.tasks.base_task import BaseTask, TaskCfg
+from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 
 POLICY_RUNNER_COMMAND = "/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py"
 

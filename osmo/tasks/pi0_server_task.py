@@ -6,7 +6,7 @@
 from dataclasses import dataclass
 from typing import Any
 
-from tasks.base_task import BaseTask, TaskCfg
+from osmo.tasks.base_task import BaseTask, TaskCfg
 
 OPENPI_APP_DIR = "/app"
 XLA_PYTHON_CLIENT_MEM_FRACTION = "0.5"

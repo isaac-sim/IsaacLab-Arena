@@ -7,8 +7,8 @@
 
 from dataclasses import dataclass
 
-from tasks.policy_runner_task import PolicyRunnerTask, PolicyRunnerTaskCfg
-from workflows.workflow_constants import POLICY_SERVER_PORT
+from osmo.tasks.policy_runner_task import PolicyRunnerTask, PolicyRunnerTaskCfg
+from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 DEFAULT_POLICY_CONFIG = "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml"
 

@@ -8,8 +8,8 @@
 from dataclasses import dataclass
 from typing import Any
 
-from tasks.base_task import BaseTask, TaskCfg
-from workflows.workflow_constants import POLICY_SERVER_PORT
+from osmo.tasks.base_task import BaseTask, TaskCfg
+from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 
 @dataclass

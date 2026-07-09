@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
-from workflows.utils.yaml_utils import block_literal_str
+from osmo.workflows.utils.yaml_utils import block_literal_str
 
 
 @dataclass
