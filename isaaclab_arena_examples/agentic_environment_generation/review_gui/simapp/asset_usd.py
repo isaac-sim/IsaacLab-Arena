@@ -61,6 +61,43 @@ def resolve_node_usd_paths(spec: ArenaEnvGraphSpec) -> dict[str, str]:
     return paths
 
 
+def viewer_cfg_for_asset_spec(asset_spec: AssetSpec):
+    """Return a custom :class:`ViewerCfg` for snapshot rendering, or ``None`` to auto-frame."""
+    from isaaclab.envs.common import ViewerCfg
+
+    from isaaclab_arena.assets.background import Background
+
+    registry = AssetRegistry()
+    if not registry.is_registered(asset_spec.registry_name):
+        return None
+    asset_cls = registry.get_asset_by_name(asset_spec.registry_name)
+    if not issubclass(asset_cls, Background):
+        return None
+    try:
+        instance = asset_cls(**asset_spec.params)
+    except Exception as exc:
+        print(
+            f"[asset_usd]   {asset_spec.id}: viewer cfg lookup failed for '{asset_spec.registry_name}': {exc}",
+            file=sys.stderr,
+        )
+        return None
+    viewer_cfg = instance.get_viewer_cfg()
+    default = ViewerCfg()
+    if viewer_cfg.eye == default.eye and viewer_cfg.lookat == default.lookat:
+        return None
+    return viewer_cfg
+
+
+def resolve_background_viewer_cfgs(spec: ArenaEnvGraphSpec) -> dict[str, object]:
+    """Map background ``asset.id`` to its :class:`ViewerCfg`` for snapshot rendering."""
+    if spec.background is None:
+        return {}
+    viewer_cfg = viewer_cfg_for_asset_spec(spec.background)
+    if viewer_cfg is None:
+        return {}
+    return {spec.background.id: viewer_cfg}
+
+
 def scale_for_asset_spec(asset_spec: AssetSpec, asset_cls) -> tuple[float, float, float]:
     """Return spawn scale for an asset spec, preferring spec params over library defaults."""
     param_scale = asset_spec.params.get("scale")
