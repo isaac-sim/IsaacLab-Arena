@@ -1,0 +1,25 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: non_hammer_tools_in_right_bin
+external_yaml: ../scenes/tools_container.yaml
+task:
+  composition: parallel
+  description: Put the non-hammer tools in the right bin
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: cordless_drill
+      destination_location: bin_b04
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+      max_separation: [0.1, 0.1, 0.1]
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: spring_clamp
+      destination_location: bin_b04
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+      max_separation: [0.1, 0.1, 0.1]

@@ -1,0 +1,25 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: throw_away_snacks
+external_yaml: ../scenes/workdesk_snacks.yaml
+task:
+  composition: parallel
+  description: Put away the snacks in the bin
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: apple
+      destination_location: plasticpail
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+      max_separation: [0.1, 0.1, 0.1]
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: yogurt_cup
+      destination_location: plasticpail
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+      max_separation: [0.1, 0.1, 0.1]

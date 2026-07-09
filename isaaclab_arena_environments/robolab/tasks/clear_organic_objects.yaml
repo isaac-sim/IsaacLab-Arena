@@ -1,0 +1,88 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: clear_organic_objects
+external_yaml: ../scenes/clutter_fruit_bottle_bluebin.yaml
+task:
+  composition: parallel
+  description: Clear away the organic objects
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: lemon_1
+      destination_location: container_f24
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+      max_separation: [0.1, 0.1, 0.1]
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: lemon_2
+      destination_location: container_f24
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+      max_separation: [0.1, 0.1, 0.1]
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: lime_1
+      destination_location: container_f24
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+      max_separation: [0.1, 0.1, 0.1]
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: lime_2
+      destination_location: container_f24
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+      max_separation: [0.1, 0.1, 0.1]
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: orange_1
+      destination_location: container_f24
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+      max_separation: [0.1, 0.1, 0.1]
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: orange_2
+      destination_location: container_f24
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+      max_separation: [0.1, 0.1, 0.1]
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: pomegranate
+      destination_location: container_f24
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+      max_separation: [0.1, 0.1, 0.1]
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: pumpkin_large
+      destination_location: container_f24
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+      max_separation: [0.1, 0.1, 0.1]
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: pumpkin_small
+      destination_location: container_f24
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+      max_separation: [0.1, 0.1, 0.1]
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: red_onion
+      destination_location: container_f24
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+      max_separation: [0.1, 0.1, 0.1]
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: avocado
+      destination_location: container_f24
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+      max_separation: [0.1, 0.1, 0.1]
