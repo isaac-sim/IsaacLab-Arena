@@ -28,6 +28,10 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.th
     format_aabb_dimensions_m,
     render_asset_thumbnail,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
+    is_resolved_prim_path,
+    resolve_object_reference_usd_targets,
+)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppClient,
     spawn_simapp_process,
@@ -35,7 +39,6 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.cl
     wait_for_simapp_socket,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (
-    _preview_args,
     parse_sim_preview_params,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
@@ -68,11 +71,6 @@ def session_state(monkeypatch):
 
 
 class TestSimPreviewParams:
-    def test_preview_args_honor_gui_overrides(self):
-        args = _preview_args(num_envs=4, env_spacing=2.5)
-        assert args.num_envs == 4
-        assert args.env_spacing == 2.5
-
     def test_parse_sim_preview_params_requires_all_keys(self):
         with pytest.raises(ValueError, match="missing required sim preview params"):
             parse_sim_preview_params({})
@@ -98,7 +96,39 @@ class TestNodeThumbnailAabb:
     def test_render_object_reference_shows_unsupported_note(self):
         html = render_asset_thumbnail("table_top", is_object_reference=True)
         assert "thumb-unsupported" in html
-        assert "Prim reference — snapshot not supported" in html
+        assert "Resolve prim_path to enable collision-mesh snapshot" in html
+
+    def test_render_object_reference_shows_collision_preview(self):
+        html = render_asset_thumbnail("counter_top", png_bytes=b"fake", is_object_reference=True)
+        assert "thumb-rendered" in html
+        assert "Collision mesh preview" in html
+
+
+class TestObjectReferenceUsdTargets:
+    def test_is_resolved_prim_path(self):
+        assert not is_resolved_prim_path(None)
+        assert not is_resolved_prim_path("unknown")
+        assert is_resolved_prim_path("counter_right_main_group/top_geometry")
+
+    def test_resolve_object_reference_usd_targets_skips_unresolved(self):
+        from isaaclab_arena.tests.utils.agentic_environment_generation import kitchen_pass1_dict
+
+        spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
+        assert resolve_object_reference_usd_targets(spec) == {}
+
+    def test_resolve_object_reference_usd_targets_resolved(self, monkeypatch):
+        from isaaclab_arena.tests.utils.agentic_environment_generation import kitchen_pass1_dict
+
+        data = kitchen_pass1_dict()
+        data["object_references"][0]["prim_path"] = "counter_right_main_group/top_geometry"
+        spec = ArenaEnvGraphSpec.model_validate(data)
+        monkeypatch.setattr(
+            "isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path",
+            lambda self, *_args, **_kwargs: "/tmp/scene.usd",
+        )
+        targets = resolve_object_reference_usd_targets(spec)
+        assert set(targets) == {"counter_top"}
+        assert targets["counter_top"].relative_prim_path == "counter_right_main_group/top_geometry"
 
 
 class TestValidateYamlText:

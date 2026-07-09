@@ -9,7 +9,7 @@ import html as html_lib
 import yaml
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec, SpatialRelationSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec, ObjectReferenceSpec, SpatialRelationSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnails import render_asset_thumbnail
 
 
@@ -81,11 +81,22 @@ def render_node_cards(
         ("embodiment", spec.embodiment),
         ("background", spec.background),
         *(("object", obj) for obj in spec.objects),
+        *(("object_reference", ref) for ref in (spec.object_references or [])),
     ]
-    return "\n".join(
-        render_node_card(role, asset, thumbnails.get(asset.id), aabb_dimensions_m.get(asset.id))
-        for role, asset in entries
-    )
+    cards: list[str] = []
+    for role, asset in entries:
+        if role == "object_reference":
+            assert isinstance(asset, ObjectReferenceSpec)
+            cards.append(
+                render_object_reference_card(
+                    asset,
+                    thumbnails.get(asset.id),
+                )
+            )
+        else:
+            assert isinstance(asset, AssetSpec)
+            cards.append(render_node_card(role, asset, thumbnails.get(asset.id), aabb_dimensions_m.get(asset.id)))
+    return "\n".join(cards)
 
 
 def render_node_card(
@@ -102,6 +113,27 @@ def render_node_card(
   <div class="node-meta">
     <div class="node-id">{html_lib.escape(asset.id)}</div>
     <span class="badge type-{html_lib.escape(role)}">{html_lib.escape(role)}</span>
+  </div>
+  <pre class="node-yaml">{html_lib.escape(node_yaml)}</pre>
+</article>"""
+
+
+def render_object_reference_card(
+    ref: ObjectReferenceSpec,
+    png_bytes: bytes | None = None,
+) -> str:
+    """Render a single object_reference card with optional collision-mesh snapshot."""
+    node_yaml = yaml.safe_dump(ref.model_dump(mode="json", exclude_none=True), sort_keys=False).rstrip()
+    thumb = render_asset_thumbnail(
+        ref.id,
+        png_bytes,
+        is_object_reference=True,
+    )
+    return f"""<article class="node-card type-object_reference">
+  {thumb}
+  <div class="node-meta">
+    <div class="node-id">{html_lib.escape(ref.id)}</div>
+    <span class="badge type-object_reference">object_reference</span>
   </div>
   <pre class="node-yaml">{html_lib.escape(node_yaml)}</pre>
 </article>"""

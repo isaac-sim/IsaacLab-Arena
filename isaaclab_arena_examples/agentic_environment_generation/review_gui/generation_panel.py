@@ -126,6 +126,8 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
     except Exception:
         return False, traceback.format_exc()
 
+    st.session_state["generation_traces"] = list(agent.traces)
+
     try:
         yaml_text = yaml.safe_dump(
             spec.to_dict() if spec is not None else data,
