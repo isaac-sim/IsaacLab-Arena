@@ -11,7 +11,10 @@ from types import SimpleNamespace
 import pytest
 
 from isaaclab_arena.evaluation import arena_experiment_config_loader, eval_runner
-from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
+from isaaclab_arena.evaluation.arena_experiment_config_loader import (
+    load_arena_experiment_from_config_file,
+    validate_experiment_config_path,
+)
 from isaaclab_arena.evaluation.eval_runner import (
     _assert_camera_support_enabled,
     legacy_json_experiment_requires_cameras,
@@ -141,4 +144,4 @@ def test_unknown_experiment_config_file_type_is_rejected(tmp_path):
     config_path.write_text("", encoding="utf-8")
 
     with pytest.raises(AssertionError, match="must use .json, .yaml, or .yml"):
-        load_arena_experiment_from_config_file(config_path, device="cuda:0")
+        validate_experiment_config_path(config_path)

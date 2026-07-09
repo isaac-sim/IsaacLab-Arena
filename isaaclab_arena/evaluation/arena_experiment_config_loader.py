@@ -20,6 +20,18 @@ from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena_environments.cli import ensure_environments_registered
 
 
+def validate_experiment_config_path(experiment_config: str | Path) -> Path:
+    """Return an existing Experiment configuration path with a supported suffix."""
+    experiment_config_path = Path(experiment_config)
+    assert experiment_config_path.is_file(), f"Experiment config does not exist: '{experiment_config_path}'"
+    assert experiment_config_path.suffix.lower() in {
+        ".json",
+        ".yaml",
+        ".yml",
+    }, f"Experiment config must use .json, .yaml, or .yml, got '{experiment_config_path}'"
+    return experiment_config_path
+
+
 def load_arena_experiment_from_config_file(
     experiment_config_path: str | Path,
     *,
@@ -39,13 +51,9 @@ def load_arena_experiment_from_config_file(
     Returns:
         The ordered typed Runs that make up the Experiment.
     """
-    path = Path(experiment_config_path)
-    assert path.is_file(), f"Experiment config does not exist: '{path}'"
+    path = validate_experiment_config_path(experiment_config_path)
 
-    suffix = path.suffix.lower()
-    assert suffix in {".json", ".yaml", ".yml"}, f"Experiment config must use .json, .yaml, or .yml, got '{path}'"
-
-    if suffix == ".json":
+    if path.suffix.lower() == ".json":
         assert not overrides, "Experiment overrides are supported only for typed YAML Experiments"
         with path.open(encoding="utf-8") as experiment_config_file:
             legacy_experiment_config = json.load(experiment_config_file)
@@ -58,6 +66,9 @@ def load_arena_experiment_from_config_file(
         overrides=overrides,
     )
 
+    # TODO(cvolk, 2026-07-09): [typed-config-migration] Make device a process-level
+    # evaluation setting shared by AppLauncher and Run execution. Then remove device
+    # from ArenaEnvBuilderCfg and delete this per-Run copy.
     experiment_with_process_device: ArenaExperiment = []
     for run_config in yaml_experiment:
         environment_builder_with_process_device = replace(run_config.environment_builder, device=device)
