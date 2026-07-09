@@ -164,7 +164,7 @@ def _solve_and_place_with_pool(env, env_ids, objects, pool):
         env_ids,
         object_names=[obj.name for obj in objects],
         anchor_object_names=[obj.name for obj in objects if obj.is_anchor],
-        base_rotations_by_name={obj.name: get_rotation_xyzw(obj) for obj in objects},
+        rotations_by_name={obj.name: get_rotation_xyzw(obj) for obj in objects},
         placement_pool_key=register_placement_pool(pool),
     )
 
@@ -228,7 +228,7 @@ def test_solve_and_place_objects_uses_registered_pool_key():
         torch.tensor([0]),
         object_names=["desk", "box1"],
         anchor_object_names=["desk"],
-        base_rotations_by_name={"desk": (0.0, 0.0, 0.0, 1.0), "box1": (0.0, 0.0, 0.0, 1.0)},
+        rotations_by_name={"desk": (0.0, 0.0, 0.0, 1.0), "box1": (0.0, 0.0, 0.0, 1.0)},
         placement_pool_key=pool_key,
     )
 
@@ -248,7 +248,7 @@ def test_solve_and_place_objects_rejects_missing_registered_pool_key():
             torch.tensor([0]),
             object_names=["box1"],
             anchor_object_names=[],
-            base_rotations_by_name={"box1": (0.0, 0.0, 0.0, 1.0)},
+            rotations_by_name={"box1": (0.0, 0.0, 0.0, 1.0)},
             placement_pool_key="placement_pool_missing",
         )
 

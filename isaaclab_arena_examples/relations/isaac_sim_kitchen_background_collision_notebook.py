@@ -6,7 +6,7 @@
 """Example: place objects on the robocasa kitchen counter while avoiding the background mesh.
 
 The kitchen is loaded as one passive background. In MESH collision mode, ArenaEnvBuilder asks
-Scene.get_collision_objects(combine_background_mesh=True) for one world-frame aggregate background
+Scene.get_passive_collision_objects(include_background=True) for one world-frame aggregate background
 mesh and the relation solver keeps placed objects out of it.
 
 Run standalone from the repo root inside the container (pass --viz kit to open the Kit viewer;
@@ -43,7 +43,7 @@ def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, a
     Args:
         simulation_app: The already-launched Isaac Sim application; the viewer runs until it stops.
         view_steps: Number of steps to run (0 = until the viewer window is closed).
-        args_cli: Parsed CLI namespace. When None, defaults are parsed (used by the smoke test).
+        args_cli: Parsed CLI namespace. When None, defaults are parsed.
 
     Returns:
         The names of the background collision obstacles used by the builder.
@@ -58,7 +58,6 @@ def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, a
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor, On
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.utils.pose import Pose
 
     if args_cli is None:
         args_cli = get_isaaclab_arena_cli_parser().parse_args([])
@@ -67,8 +66,6 @@ def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, a
 
     registry = AssetRegistry()
     background = registry.get_asset_by_name(_KITCHEN)()
-    if background.get_initial_pose() is None:
-        background.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     light = registry.get_asset_by_name("light")()
     light.set_intensity(3000.0)  # brighten the room (default DomeLight intensity is 500)
 
@@ -84,7 +81,7 @@ def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, a
         objects.append(obj)
 
     scene = Scene(assets=[background, counter, *objects, light])
-    collision_objects = scene.get_collision_objects(combine_background_mesh=True)
+    collision_objects = scene.get_passive_collision_objects(include_background=True)
     collision_names = [c.name for c in collision_objects]
     print(f"Using background collision obstacles: {collision_names}", flush=True)
 
@@ -124,7 +121,7 @@ def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, a
 def smoke_test_kitchen_background_collision(simulation_app: SimulationApp) -> bool:
     """Run the demo and assert the aggregate background mesh is used."""
     collision_names = run_kitchen_background_collision_demo(simulation_app, view_steps=2)
-    assert collision_names == ["__background_collision_mesh__"], collision_names
+    assert collision_names == ["__fixed_collision_mesh__"], collision_names
     return True
 
 

@@ -17,7 +17,7 @@ from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.object_set import RigidObjectSet
-from isaaclab_arena.relations.background_collision_object import make_background_collision_objects
+from isaaclab_arena.relations.background_collision_object import make_fixed_collision_objects
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
 from isaaclab_arena.utils.pose import Pose
@@ -122,16 +122,17 @@ class Scene:
                 objects_with_relations.append(asset)
         return objects_with_relations
 
-    def get_collision_objects(self, combine_background_mesh: bool = False) -> list[Any]:
+    def get_passive_collision_objects(self, include_background: bool = False) -> list[Any]:
         """Return relation-free assets that qualify as passive collision obstacles.
 
         A qualifying asset is an Object / ObjectReference that carries no relations (so it is
         absent from get_objects_with_relations), exposes a USD path for geometry, and has a
-        single fixed initial Pose. Assets with a per-env / per-reset or unset pose are skipped,
-        since no constant world bounding box can be computed for them.
+        single fixed initial Pose. A whole-scene Background with unset pose is treated as
+        fixed at the USD origin when include_background=True. Other assets with a
+        per-env / per-reset or unset pose are skipped.
 
         Args:
-            combine_background_mesh: If True and mesh extraction succeeds, return one
+            include_background: If True and mesh extraction succeeds, return one
                 collision-only object with extracted background meshes baked into world coordinates,
                 plus individual meshless non-Background objects for AABB fallback.
                 When False, whole-scene Background assets are skipped because their AABB spans
@@ -144,7 +145,7 @@ class Scene:
         for asset in self.assets.values():
             if not isinstance(asset, (Object, ObjectReference)):
                 continue
-            if isinstance(asset, Background) and not combine_background_mesh:
+            if isinstance(asset, Background) and not include_background:
                 continue
             if asset.get_relations():
                 continue
@@ -162,6 +163,9 @@ class Scene:
             # correctly; PoseRange/PosePerEnv move per env/reset and None is unplaced, so such
             # assets cannot contribute a constant obstacle bbox and are skipped.
             initial_pose = asset.get_initial_pose()
+            if isinstance(asset, Background) and include_background and initial_pose is None:
+                collision_objects.append(asset)
+                continue
             if not isinstance(initial_pose, Pose):
                 pose_kind = "None" if initial_pose is None else type(initial_pose).__name__
                 print(
@@ -170,10 +174,16 @@ class Scene:
                 )
                 continue
             collision_objects.append(asset)
+        collision_object_set = set(collision_objects)
+        collision_objects = [
+            asset
+            for asset in collision_objects
+            if not isinstance(asset, ObjectReference) or asset.parent_asset not in collision_object_set
+        ]
         if not collision_objects:
             return []
-        if combine_background_mesh:
-            return make_background_collision_objects(collision_objects)
+        if include_background:
+            return make_fixed_collision_objects(collision_objects)
         return collision_objects
 
     def export_to_usd(self, output_path: pathlib.Path, root_prim_path: str = "/World") -> None:

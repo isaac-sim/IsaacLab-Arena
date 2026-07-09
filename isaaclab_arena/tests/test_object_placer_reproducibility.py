@@ -341,6 +341,8 @@ def test_marker_yaw_applied_without_random_yaw_init():
     placer = ObjectPlacer(
         params=ObjectPlacerParams(placement_seed=1, solver_params=solver_params, random_yaw_init=False)
     )
+    orientations = placer._generate_initial_orientations([desk, box1, box2], {desk})
+    assert abs(wrap_angle_to_pi(orientations[box1] - marker_yaw)) < 1e-5
     placer.place([desk, box1, box2], num_envs=1)
     applied = _yaw_rad_from_quat(box1.get_initial_pose().rotation_xyzw)
     assert abs(wrap_angle_to_pi(applied - marker_yaw)) < 1e-5, f"Marker yaw {marker_yaw} must be applied; got {applied}"

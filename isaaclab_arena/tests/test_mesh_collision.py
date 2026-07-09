@@ -73,6 +73,13 @@ def _make_table() -> DummyObject:
     return table
 
 
+def _env_bboxes_for(
+    positions: dict[DummyObject, tuple[float, float, float]],
+) -> dict[DummyObject, AxisAlignedBoundingBox]:
+    """Return default bboxes keyed by the positioned objects."""
+    return {obj: obj.get_bounding_box() for obj in positions}
+
+
 def test_sphere_decomposition_covers_surface():
     mesh = trimesh.creation.cylinder(radius=0.05, height=0.1, sections=32)
     spheres = greedy_sphere_decomposition(mesh, num_spheres=20, n_surface=500)
@@ -89,6 +96,39 @@ def test_sphere_decomposition_covers_surface():
             covered += 1
     coverage = covered / len(surface_pts)
     assert coverage > 0.8, f"Coverage only {coverage:.1%}"
+
+
+def test_object_placer_aabb_proxy_uses_candidate_bbox():
+    """Mesh validation builds AABB proxies from the candidate bbox."""
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+
+    bbox = AxisAlignedBoundingBox(min_point=(-0.2, -0.1, -0.05), max_point=(0.2, 0.1, 0.05))
+    proxy = ObjectPlacer._collision_mesh_or_aabb_proxy(None, bbox)
+
+    np.testing.assert_allclose(proxy.extents, [0.4, 0.2, 0.1], atol=1e-6)
+
+
+def test_effective_yaw_ignores_placed_initial_pose_unless_allowed():
+    """Placed non-anchors do not inherit initial_pose yaw unless the caller explicitly allows pose yaw."""
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+
+    obj = _make_box_obj("placed", sx=0.1, sy=0.02, sz=0.05)
+    obj.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.7071068, 0.7071068)))
+
+    assert ObjectPlacer._effective_yaw(obj, orientations=None, use_pose_yaw=False) == 0.0
+    assert ObjectPlacer._effective_yaw(obj, orientations=None, use_pose_yaw=True) > 1.5
+
+
+def test_mesh_broadphase_rotates_bbox_about_object_origin():
+    """Mesh broadphase bbox rotation matches AxisAlignedBoundingBox origin-frame semantics."""
+    from isaaclab_arena.relations.no_overlap_mesh import _rotate_bbox_extents
+
+    bbox = AxisAlignedBoundingBox(min_point=(0.1, -0.01, -0.02), max_point=(0.3, 0.01, 0.02))
+    expected = bbox.rotated_around_z(torch.tensor([math.pi / 2]))
+    min_point, max_point = _rotate_bbox_extents(bbox.min_point, bbox.max_point, torch.tensor([math.pi / 2]))
+
+    torch.testing.assert_close(min_point, expected.min_point)
+    torch.testing.assert_close(max_point, expected.max_point)
 
 
 @requires_warp
@@ -121,7 +161,7 @@ def test_warp_mesh_raw_mesh_flag_skips_convex_hull(monkeypatch):
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.0)),
         collision_mesh=mesh,
     )
-    raw_obj.use_collision_mesh_as_is = True
+    raw_obj.repair_collision_mesh_non_watertight = False
     normal_obj = DummyObject(
         "normal_background",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.0)),
@@ -379,11 +419,11 @@ def test_validate_no_overlap_mesh_catches_overlap():
 
     # Overlapping positions
     positions = {table: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.05), b: (0.0, 0.0, 0.05)}
-    assert not placer._validate_no_overlap_mesh(positions)
+    assert not placer._validate_no_overlap_mesh(positions, _env_bboxes_for(positions))
 
     # Separated positions
     positions_sep = {table: (0.0, 0.0, 0.0), a: (0.2, 0.0, 0.05), b: (-0.2, 0.0, 0.05)}
-    assert placer._validate_no_overlap_mesh(positions_sep)
+    assert placer._validate_no_overlap_mesh(positions_sep, _env_bboxes_for(positions_sep))
 
 
 @requires_warp
@@ -436,7 +476,8 @@ def test_validate_no_overlap_mesh_sentinel_fails(monkeypatch):
     )
     placer = ObjectPlacer(params=params)
     positions = {table: (0.0, 0.0, 0.0), a: (0.2, 0.0, 0.05), b: (-0.2, 0.0, 0.05)}
-    assert placer._validate_no_overlap_mesh(positions)
+    env_bboxes = _env_bboxes_for(positions)
+    assert placer._validate_no_overlap_mesh(positions, env_bboxes)
 
     # Force every query to hit the sentinel; the same separated layout must now fail.
     from isaaclab_arena.relations import object_placer as _op_mod
@@ -448,7 +489,7 @@ def test_validate_no_overlap_mesh_sentinel_fails(monkeypatch):
 
     monkeypatch.setattr(warp_sdf_kernels, "mesh_sdf", fake_sdf)
     monkeypatch.setattr(_op_mod, "mesh_sdf", fake_sdf)
-    assert not placer._validate_no_overlap_mesh(positions)
+    assert not placer._validate_no_overlap_mesh(positions, env_bboxes)
 
 
 @requires_warp
@@ -482,7 +523,9 @@ def test_validate_no_overlap_mesh_respects_anchor_yaw():
     # Child at Y=0.02: outside unrotated anchor (half-width=0.01),
     # but inside rotated anchor (half-length=0.1 now spans Y).
     positions = {table: (0.0, 0.0, 0.0), anchor: (0.0, 0.0, 0.05), child: (0.0, 0.02, 0.05)}
-    assert not placer._validate_no_overlap_mesh(positions), "Validator should detect overlap with yawed anchor"
+    assert not placer._validate_no_overlap_mesh(
+        positions, _env_bboxes_for(positions)
+    ), "Validator should detect overlap with yawed anchor"
 
 
 @requires_warp
@@ -578,6 +621,193 @@ def test_broadphase_does_not_skip_overlapping_pairs():
     solver.solve([table, a, b], initial)
     loss = solver.last_loss_per_env[0].item()
     assert loss > 0.0, "Overlapping objects should produce nonzero loss"
+
+
+@requires_warp
+def test_object_collision_mode_can_force_bbox_in_mesh_solver():
+    """Objects can opt out of mesh collision even when the solver default is MESH."""
+    table = _make_table()
+    a = _make_cylinder("a", radius=0.05)
+    b = _make_cylinder("b", radius=0.05)
+    a.collision_mode = CollisionMode.BBOX
+    b.collision_mode = CollisionMode.BBOX
+    a.add_relation(On(table))
+    b.add_relation(On(table))
+
+    initial = [{table: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.05), b: (0.02, 0.0, 0.05)}]
+
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False))
+    solver.solve([table, a, b], initial)
+
+    assert solver._mesh_cache is None
+    assert solver.last_loss_per_env[0].item() > 0.0
+
+
+@requires_warp
+def test_object_collision_mode_can_enable_mesh_in_bbox_solver():
+    """An object can opt into mesh collision while the solver default remains BBOX."""
+    table = _make_table()
+    a = _make_cylinder("a", radius=0.05)
+    b = _make_cylinder("b", radius=0.05)
+    a.collision_mode = CollisionMode.MESH
+
+    initial = [{table: (0.0, 0.0, 0.0), a: (0.0, 0.0, 0.2), b: (0.02, 0.0, 0.2)}]
+
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.BBOX, max_iters=0, verbose=False))
+    solver.solve([table, a, b], initial)
+
+    assert solver._mesh_cache is not None
+    assert solver._mesh_cache.num_pairs > 0
+    assert solver.last_loss_per_env[0].item() > 0.0
+
+
+@requires_warp
+def test_mixed_mesh_aabb_uses_per_env_bbox_proxy():
+    """AABB-only subjects paired with mesh targets use the candidate/env bbox, not the default bbox."""
+    table = _make_table()
+    source = DummyObject(
+        "source",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.01, -0.01, -0.01), max_point=(0.01, 0.01, 0.01)),
+    )
+    target = _make_box_obj("target", sx=0.1, sy=0.1, sz=0.1)
+    target.collision_mode = CollisionMode.MESH
+
+    initial = [{table: (0.0, 0.0, 0.0), source: (0.0, 0.0, 0.2), target: (0.08, 0.0, 0.2)}]
+    env_bboxes = {
+        table: table.get_bounding_box(),
+        source: AxisAlignedBoundingBox(min_point=(-0.06, -0.06, -0.01), max_point=(0.06, 0.06, 0.01)),
+        target: target.get_bounding_box(),
+    }
+
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.BBOX, max_iters=0, verbose=False))
+    solver.solve([table, source, target], initial, env_bboxes=env_bboxes)
+
+    assert solver._mesh_cache is not None
+    assert solver.last_loss_per_env[0].item() > 0.0
+
+
+@requires_warp
+def test_yawed_aabb_proxy_validation_is_not_double_rotated():
+    """AABB proxy spheres built from yaw-expanded bboxes must not rotate by source yaw again."""
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+
+    source = DummyObject(
+        "source",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.01, -0.025), max_point=(0.2, 0.01, 0.025)),
+    )
+    source.collision_mode = CollisionMode.BBOX
+    target = _make_box_obj("target", sx=0.05, sy=0.05, sz=0.05)
+    target.collision_mode = CollisionMode.MESH
+
+    positions = {source: (0.0, 0.0, 0.0), target: (0.0, 0.15, 0.0)}
+    env_bboxes = {
+        source: source.get_bounding_box().rotated_around_z(torch.tensor([math.pi / 2])),
+        target: target.get_bounding_box(),
+    }
+    placer = ObjectPlacer(
+        params=ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX, verbose=False))
+    )
+
+    assert not placer._validate_no_overlap_mesh(positions, env_bboxes, orientations={source: math.pi / 2})
+
+
+@requires_warp
+def test_yawed_aabb_proxy_solver_loss_is_not_double_rotated():
+    """Solver mixed mesh/AABB loss uses yaw-expanded proxy bboxes without rotating them again."""
+    table = _make_table()
+    source = DummyObject(
+        "source",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.01, -0.025), max_point=(0.2, 0.01, 0.025)),
+    )
+    source.collision_mode = CollisionMode.BBOX
+    target = _make_box_obj("target", sx=0.05, sy=0.05, sz=0.05)
+    target.collision_mode = CollisionMode.MESH
+    initial = [{table: (0.0, 0.0, -1.0), source: (0.0, 0.0, 0.0), target: (0.0, 0.15, 0.0)}]
+    env_bboxes = {
+        table: table.get_bounding_box(),
+        source: source.get_bounding_box().rotated_around_z(torch.tensor([math.pi / 2])),
+        target: target.get_bounding_box(),
+    }
+
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.BBOX, max_iters=0, verbose=False))
+    solver.solve(
+        [table, source, target],
+        initial,
+        env_bboxes=env_bboxes,
+        env_bboxes_include_yaw=True,
+        orientations=[{source: math.pi / 2}],
+    )
+
+    assert solver.last_loss_per_env[0].item() > 0.0
+
+
+@requires_warp
+def test_yawed_aabb_proxy_solver_loss_rotates_unexpanded_bbox():
+    """Direct solver calls rotate AABB proxy spheres when bboxes are not pre-expanded."""
+    table = _make_table()
+    source = DummyObject(
+        "source",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.01, -0.025), max_point=(0.2, 0.01, 0.025)),
+    )
+    source.collision_mode = CollisionMode.BBOX
+    target = _make_box_obj("target", sx=0.05, sy=0.05, sz=0.05)
+    target.collision_mode = CollisionMode.MESH
+    initial = [{table: (0.0, 0.0, -1.0), source: (0.0, 0.0, 0.0), target: (0.0, 0.15, 0.0)}]
+    env_bboxes = {table: table.get_bounding_box(), source: source.get_bounding_box(), target: target.get_bounding_box()}
+
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.BBOX, max_iters=0, verbose=False))
+    solver.solve([table, source, target], initial, env_bboxes=env_bboxes, orientations=[{source: math.pi / 2}])
+
+    assert solver.last_loss_per_env[0].item() > 0.0
+
+
+@requires_warp
+def test_validate_no_overlap_mesh_respects_yawed_collision_object():
+    """Passive mesh obstacles use their fixed initial_pose yaw during validation."""
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+
+    source = DummyObject(
+        "source",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.01, -0.01, -0.01), max_point=(0.01, 0.01, 0.01)),
+    )
+    source.collision_mode = CollisionMode.BBOX
+    obstacle = _make_box_obj("obstacle", sx=0.2, sy=0.02, sz=0.05)
+    obstacle.collision_mode = CollisionMode.MESH
+    sz = math.sin(math.pi / 4)
+    cz = math.cos(math.pi / 4)
+    obstacle.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, sz, cz)))
+    positions = {source: (0.0, 0.05, 0.0)}
+    env_bboxes = {source: source.get_bounding_box()}
+    placer = ObjectPlacer(
+        params=ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX, verbose=False))
+    )
+
+    assert not placer._validate_no_overlap_mesh(positions, env_bboxes, collision_objects=[obstacle])
+
+
+@requires_warp
+def test_solver_mesh_loss_broadphase_respects_yawed_collision_object():
+    """Fixed mesh obstacle bboxes still rotate when placed-object bboxes are yaw-expanded."""
+    table = _make_table()
+    source = DummyObject(
+        "source",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.01, -0.01, -0.01), max_point=(0.01, 0.01, 0.01)),
+    )
+    source.collision_mode = CollisionMode.BBOX
+    obstacle = _make_box_obj("obstacle", sx=0.2, sy=0.02, sz=0.05)
+    obstacle.collision_mode = CollisionMode.MESH
+    sz = math.sin(math.pi / 4)
+    cz = math.cos(math.pi / 4)
+    obstacle.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, sz, cz)))
+    initial = [{table: (0.0, 0.0, -1.0), source: (0.0, 0.05, 0.0)}]
+    env_bboxes = {table: table.get_bounding_box(), source: source.get_bounding_box()}
+
+    solver = RelationSolver(params=RelationSolverParams(collision_mode=CollisionMode.BBOX, max_iters=0, verbose=False))
+    solver.solve([table, source], initial, env_bboxes=env_bboxes, orientations=[{}], collision_objects=[obstacle])
+
+    assert solver.last_loss_per_env[0].item() > 0.0
 
 
 @requires_warp
@@ -751,7 +981,7 @@ def test_aabb_gate_does_not_reject_diagonal_cylinders():
 
     # Mesh validator accepts (cylinders don't actually overlap)
     assert placer._validate_no_overlap_mesh(
-        positions
+        positions, env_bboxes
     ), "Mesh validator should accept diagonal cylinders that don't geometrically overlap"
 
 
@@ -813,6 +1043,37 @@ def test_mesh_mode_queries_aabb_subject_against_mesh_background():
     )
     assert solver.last_loss_per_env[0].item() > 0.0
     assert solver._last_no_overlap_pair_count == 0
+
+
+@requires_warp
+def test_mesh_mode_scores_background_collision_object():
+    """Aggregated background meshes participate in MESH-mode solve and validation."""
+    from isaaclab_arena.relations.background_collision_object import FixedCollisionObject
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+
+    table = _make_table()
+    box = DummyObject(
+        "aabb_only_box",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.05, -0.05, -0.05), max_point=(0.05, 0.05, 0.05)),
+    )
+    box.add_relation(On(table))
+    background = FixedCollisionObject(trimesh.creation.box(extents=(0.2, 0.2, 0.2)))
+
+    initial = [{table: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.05)}]
+    solver_params = RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False)
+    solver = RelationSolver(params=solver_params)
+    solver.solve([table, box], initial, collision_objects=[background])
+
+    params = ObjectPlacerParams(solver_params=solver_params)
+    validation = ObjectPlacer(params=params)._validate_placement(
+        {table: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.05)},
+        {table: table.get_bounding_box(), box: box.get_bounding_box()},
+        collision_objects=[background],
+    )
+
+    assert solver.last_loss_per_env[0].item() > 0.0
+    assert not validation.do_all_required_validation_checks_pass()
 
 
 @requires_warp

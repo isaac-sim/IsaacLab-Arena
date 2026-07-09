@@ -86,7 +86,11 @@ def test_object_reference_get_collision_mesh_extracts_referenced_prim(monkeypatc
             calls["opened"] = path
 
         def __enter__(self):
-            return "stage"
+            class Stage:
+                def GetPrimAtPath(self, prim_path):
+                    return object()
+
+            return Stage()
 
         def __exit__(self, exc_type, exc, tb):
             return False
@@ -99,7 +103,7 @@ def test_object_reference_get_collision_mesh_extracts_referenced_prim(monkeypatc
     )
 
     def fake_extract(stage, prim_path, scale):
-        calls["extract"] = (stage, prim_path, scale)
+        calls["extract"] = (prim_path, scale)
         return expected_mesh
 
     monkeypatch.setattr("isaaclab_arena.assets.object_reference.extract_trimesh_from_prim", fake_extract)
@@ -108,7 +112,7 @@ def test_object_reference_get_collision_mesh_extracts_referenced_prim(monkeypatc
     assert obj_ref.get_collision_mesh() is expected_mesh
     assert calls == {
         "opened": "/tmp/kitchen.usd",
-        "extract": ("stage", "/World/counter", (2.0, 1.0, 1.0)),
+        "extract": ("/World/counter", (2.0, 1.0, 1.0)),
     }
 
 
@@ -130,7 +134,11 @@ def test_object_reference_get_collision_mesh_returns_none_on_extraction_failure(
             pass
 
         def __enter__(self):
-            return "stage"
+            class Stage:
+                def GetPrimAtPath(self, prim_path):
+                    return object()
+
+            return Stage()
 
         def __exit__(self, exc_type, exc, tb):
             return False
@@ -151,6 +159,45 @@ def test_object_reference_get_collision_mesh_returns_none_on_extraction_failure(
     assert obj_ref.get_collision_mesh() is None
     assert obj_ref.get_collision_mesh() is None
     assert calls["extract_count"] == 1
+
+
+def test_object_reference_get_collision_mesh_raises_on_missing_prim(monkeypatch):
+    """Bad reference paths are configuration errors, not meshless fallback cases."""
+    import pytest
+
+    from isaaclab_arena.assets.object_reference import ObjectReference
+
+    obj_ref = ObjectReference.__new__(ObjectReference)
+    obj_ref.name = "counter"
+    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen")
+    obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/missing"
+    obj_ref._parent_scale = (1.0, 1.0, 1.0)
+    obj_ref._collision_mesh = None
+    obj_ref._collision_mesh_loaded = False
+
+    class OpenStage:
+        def __init__(self, path):
+            pass
+
+        def __enter__(self):
+            class Stage:
+                def GetPrimAtPath(self, prim_path):
+                    return None
+
+            return Stage()
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr("isaaclab_arena.assets.object_reference.open_stage", OpenStage)
+    monkeypatch.setattr(
+        ObjectReference,
+        "isaaclab_prim_path_to_original_prim_path",
+        staticmethod(lambda prim_path, parent, stage: "/World/missing"),
+    )
+
+    with pytest.raises(ValueError, match="No prim found"):
+        obj_ref.get_collision_mesh()
 
 
 def test_object_reference_world_bbox_without_parent_pose_uses_reference_pose():

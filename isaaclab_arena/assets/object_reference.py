@@ -10,7 +10,7 @@ from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from pxr import Usd
 
 from isaaclab_arena.affordances.openable import Openable
-from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.relations.relations import IsAnchor, RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
@@ -22,7 +22,7 @@ from isaaclab_arena.utils.usd_pose_helpers import get_prim_pose_in_default_prim_
 class ObjectReference(ObjectBase):
     """An object which *refers* to an existing element in the scene"""
 
-    def __init__(self, parent_asset: Asset, **kwargs):
+    def __init__(self, parent_asset: Object, **kwargs):
         super().__init__(**kwargs)
         self.parent_asset = parent_asset
         # Store parent's scale for bounding box calculations
@@ -92,19 +92,30 @@ class ObjectReference(ObjectBase):
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return the referenced prim's collision mesh in its local frame, or None if unavailable."""
-        if not getattr(self, "_collision_mesh_loaded", False):
-            self._collision_mesh_loaded = True
+        if not self._collision_mesh_loaded:
             try:
-                usd_path = getattr(self.parent_asset, "usd_path")
-                with open_stage(usd_path) as parent_stage:
-                    prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(
-                        self.prim_path, self.parent_asset, parent_stage
-                    )
-                    self._collision_mesh = extract_trimesh_from_prim(parent_stage, prim_path_in_usd, self._parent_scale)
-            except (OSError, ValueError) as e:
+                self._collision_mesh = self._extract_collision_mesh()
+            except OSError as e:
+                # Stage/file errors can be transient in Isaac Sim startup paths, so leave
+                # _collision_mesh_loaded false and retry on the next call.
                 print(f"Could not extract collision mesh for object reference '{self.name}': {e}")
                 return None
+            except ValueError as e:
+                if "No mesh geometry found" not in str(e):
+                    raise
+                print(f"Could not extract collision mesh for object reference '{self.name}': {e}")
+            self._collision_mesh_loaded = True
         return self._collision_mesh
+
+    def _extract_collision_mesh(self) -> trimesh.Trimesh:
+        """Extract the referenced prim mesh from the parent asset USD."""
+        with open_stage(self.parent_asset.usd_path) as parent_stage:
+            prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(
+                self.prim_path, self.parent_asset, parent_stage
+            )
+            if not parent_stage.GetPrimAtPath(prim_path_in_usd):
+                raise ValueError(f"No prim found with path {prim_path_in_usd} in {self.parent_asset.usd_path}")
+            return extract_trimesh_from_prim(parent_stage, prim_path_in_usd, self._parent_scale)
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         # NOTE(alexmillane): Right now this requires that the object
@@ -155,7 +166,7 @@ class ObjectReference(ObjectBase):
         )
         return object_cfg
 
-    def _get_referenced_prim_pose_relative_to_parent(self, parent_asset: Asset) -> Pose:
+    def _get_referenced_prim_pose_relative_to_parent(self, parent_asset: Object) -> Pose:
         """Get the prim's transform pose relative to the parent's default prim.
 
         The position is scaled by the parent's scale factor.
@@ -175,7 +186,9 @@ class ObjectReference(ObjectBase):
             return Pose(position_xyz=scaled_pos, rotation_xyzw=prim_pose.rotation_xyzw)
 
     @staticmethod
-    def isaaclab_prim_path_to_original_prim_path(isaaclab_prim_path: str, parent_asset: Asset, stage: Usd.Stage) -> str:
+    def isaaclab_prim_path_to_original_prim_path(
+        isaaclab_prim_path: str, parent_asset: Object, stage: Usd.Stage
+    ) -> str:
         """Convert an IsaacLab prim path to the prim path in the original USD stage.
 
         Two steps to getting the original prim path from the IsaacLab prim path.

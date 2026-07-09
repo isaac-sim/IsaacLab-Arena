@@ -82,43 +82,42 @@ def _mesh_box(name: str, extents: tuple[float, float, float], position: tuple[fl
 
 def test_background_collision_object_combines_meshes():
     """Multiple fixed background meshes are represented as one collision-only object."""
-    import pytest
-
-    from isaaclab_arena.relations.background_collision_object import (
-        BackgroundCollisionObject,
-        make_background_collision_object,
-        make_background_collision_objects,
-    )
+    from isaaclab_arena.relations.background_collision_object import FixedCollisionObject, make_fixed_collision_objects
+    from isaaclab_arena.relations.collision_mode import CollisionMode
 
     left = _mesh_box("left_cabinet", (0.2, 0.2, 0.2), (-1.0, 0.0, 0.0))
     right = _mesh_box("right_cabinet", (0.2, 0.2, 0.2), (1.0, 0.0, 0.0))
     meshless = _make_background()
 
-    background = make_background_collision_object([left, right])
+    collision_objects = make_fixed_collision_objects([left, right])
+    background = collision_objects[0]
 
-    assert background is not None
-    assert background.name == "__background_collision_mesh__"
-    assert background.use_collision_mesh_as_is
+    assert len(collision_objects) == 1
+    assert background.name == "__fixed_collision_mesh__"
+    assert not background.repair_collision_mesh_non_watertight
     assert len(background.get_collision_mesh().split()) == 2
     bounds = background.get_collision_mesh().bounds
     assert bounds[0][0] < -1.09
     assert bounds[1][0] > 1.09
 
-    collision_objects = make_background_collision_objects([left, meshless])
-    assert isinstance(collision_objects[0], BackgroundCollisionObject)
+    collision_objects = make_fixed_collision_objects([left, meshless])
+    assert isinstance(collision_objects[0], FixedCollisionObject)
     assert collision_objects[1] is meshless
 
-    with pytest.raises(AssertionError, match="mesh extraction failed"):
-        make_background_collision_object([left, meshless])
+    bbox_only = _mesh_box("bbox_only", (0.2, 0.2, 0.2), (2.0, 0.0, 0.0))
+    bbox_only.collision_mode = CollisionMode.BBOX
+    collision_objects = make_fixed_collision_objects([left, bbox_only])
+    assert isinstance(collision_objects[0], FixedCollisionObject)
+    assert collision_objects[1] is bbox_only
+    assert len(collision_objects[0].get_collision_mesh().split()) == 1
 
 
-def test_background_collision_objects_skip_failed_whole_background(monkeypatch):
-    """A failed whole-scene Background must not degrade into a room-sized AABB obstacle."""
+def test_background_collision_objects_reject_failed_whole_background(monkeypatch):
+    """Whole-scene Background mesh extraction failure raises."""
+    import pytest
+
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.relations.background_collision_object import (
-        BackgroundCollisionObject,
-        make_background_collision_objects,
-    )
+    from isaaclab_arena.relations.background_collision_object import make_fixed_collision_objects
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.utils.pose import Pose
 
@@ -132,11 +131,49 @@ def test_background_collision_objects_skip_failed_whole_background(monkeypatch):
         lambda self, obj: left.get_collision_mesh() if obj is left else None,
     )
 
-    collision_objects = make_background_collision_objects([left, kitchen])
+    with pytest.raises(AssertionError, match="whole-scene Background"):
+        make_fixed_collision_objects([left, kitchen])
+
+
+def test_background_collision_objects_treat_background_none_pose_as_identity(monkeypatch):
+    """A Background with no initial pose is fixed at the USD origin for mesh aggregation."""
+    import torch
+
+    from isaaclab_arena.assets.background import Background
+    from isaaclab_arena.relations.background_collision_object import make_fixed_collision_objects
+    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+
+    kitchen = Background.__new__(Background)
+    kitchen.name = "kitchen"
+    kitchen.initial_pose = None
+    mesh_source = _mesh_box("source", (0.2, 0.2, 0.2), (0.0, 0.0, 0.0))
+    monkeypatch.setattr(
+        WarpMeshAndSphereCache, "get_collision_mesh", lambda self, obj: mesh_source.get_collision_mesh()
+    )
+
+    collision_objects = make_fixed_collision_objects([kitchen])
 
     assert len(collision_objects) == 1
-    assert isinstance(collision_objects[0], BackgroundCollisionObject)
-    assert kitchen not in collision_objects
+    assert torch.allclose(collision_objects[0].get_bounding_box().min_point, torch.tensor([[-0.1, -0.1, -0.1]]))
+    assert torch.allclose(collision_objects[0].get_bounding_box().max_point, torch.tensor([[0.1, 0.1, 0.1]]))
+
+
+def test_background_collision_objects_reject_bbox_whole_background():
+    """Whole-scene Backgrounds cannot use BBOX collision because their AABBs are room-scale."""
+    import pytest
+
+    from isaaclab_arena.assets.background import Background
+    from isaaclab_arena.relations.background_collision_object import make_fixed_collision_objects
+    from isaaclab_arena.relations.collision_mode import CollisionMode
+    from isaaclab_arena.utils.pose import Pose
+
+    kitchen = Background.__new__(Background)
+    kitchen.name = "kitchen"
+    kitchen.collision_mode = CollisionMode.BBOX
+    kitchen.initial_pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+
+    with pytest.raises(AssertionError, match="Whole-scene Background assets cannot use explicit BBOX"):
+        make_fixed_collision_objects([kitchen])
 
 
 def test_mesh_in_world_frame_applies_pose_rotation():
@@ -263,12 +300,14 @@ def test_validate_no_overlap_rejects_background_overlap():
     assert placer._validate_no_overlap(clear, env_bboxes, [background])
 
 
-def _test_scene_get_collision_objects_filters(simulation_app) -> bool:
+def _test_scene_get_passive_collision_objects_filters(simulation_app) -> bool:
     """Only relation-free objects with a USD path and a fixed Pose are returned; Background is excluded."""
     from unittest.mock import MagicMock
 
+    import isaaclab_arena.scene.scene as scene_module
     from isaaclab_arena.assets.background import Background
     from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.relations.relations import IsAnchor
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose, PoseRange
@@ -289,23 +328,36 @@ def _test_scene_get_collision_objects_filters(simulation_app) -> bool:
         rpy_max=(0.0, 0.0, 0.0),
     )
     furniture = fake_object("furniture", [], "bg.usd", fixed_pose)
-    # A Background qualifies on every other check but must still be excluded: its whole-scene
-    # AABB would swallow the placement surface. Verifies the production case, not just a mock Object.
+    # A Background qualifies on every other check but must still be excluded from AABB fallback.
     kitchen = fake_object("kitchen", [], "kitchen.usd", fixed_pose, spec=Background)
+    kitchen_no_pose = fake_object("kitchen_no_pose", [], "kitchen.usd", None, spec=Background)
+    counter_ref = fake_object("counter_ref", [], None, fixed_pose, spec=ObjectReference)
+    counter_ref.parent_asset = kitchen
     anchored = fake_object("anchored", [IsAnchor()], "a.usd", fixed_pose)
     no_usd = fake_object("no_usd", [], None, fixed_pose)
     no_pose = fake_object("no_pose", [], "n.usd", None)
     ranged = fake_object("ranged", [], "r.usd", pose_range)
 
     scene = Scene()
-    scene.assets = {o.name: o for o in [furniture, kitchen, anchored, no_usd, no_pose, ranged]}
+    scene.assets = {
+        o.name: o for o in [furniture, counter_ref, kitchen, kitchen_no_pose, anchored, no_usd, no_pose, ranged]
+    }
 
-    return scene.get_collision_objects() == [furniture]
+    calls = {}
+    original = scene_module.make_fixed_collision_objects
+    scene_module.make_fixed_collision_objects = lambda objects: calls.setdefault("objects", objects)
+    try:
+        no_combine = scene.get_passive_collision_objects()
+        combined = scene.get_passive_collision_objects(include_background=True)
+    finally:
+        scene_module.make_fixed_collision_objects = original
+
+    return no_combine == [furniture, counter_ref] and combined == [furniture, kitchen, kitchen_no_pose]
 
 
-def test_scene_get_collision_objects_filters():
-    result = run_simulation_app_function(_test_scene_get_collision_objects_filters, headless=HEADLESS)
-    assert result, "Scene.get_collision_objects() returned the wrong subset"
+def test_scene_get_passive_collision_objects_filters():
+    result = run_simulation_app_function(_test_scene_get_passive_collision_objects_filters, headless=HEADLESS)
+    assert result, "Scene.get_passive_collision_objects() returned the wrong subset"
 
 
 def test_object_placer_place_forwards_collision_objects():
@@ -416,8 +468,8 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
         def get_objects_with_relations(self):
             return objects_with_relations
 
-        def get_collision_objects(self, combine_background_mesh: bool = False):
-            calls["combine_background_mesh"] = combine_background_mesh
+        def get_passive_collision_objects(self, include_background: bool = False):
+            calls["include_background"] = include_background
             return [background_collision]
 
     def fake_solve_and_apply_relation_placement(objects, num_envs, placer_params, collision_objects):
@@ -434,7 +486,7 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
 
     builder._solve_relations()
 
-    assert calls["combine_background_mesh"] is True
+    assert calls["include_background"] is True
     assert calls["objects"] == objects_with_relations
     assert calls["num_envs"] == 2
     assert calls["placer_params"] is placer_params
@@ -456,8 +508,8 @@ def test_arena_env_builder_uses_individual_background_collisions_for_bbox(monkey
         def get_objects_with_relations(self):
             return []
 
-        def get_collision_objects(self, combine_background_mesh: bool = False):
-            calls["combine_background_mesh"] = combine_background_mesh
+        def get_passive_collision_objects(self, include_background: bool = False):
+            calls["include_background"] = include_background
             return []
 
     def fake_solve_and_apply_relation_placement(objects, num_envs, placer_params, collision_objects):
@@ -469,5 +521,85 @@ def test_arena_env_builder_uses_individual_background_collisions_for_bbox(monkey
 
     builder._solve_relations()
 
-    assert calls["combine_background_mesh"] is False
+    assert calls["include_background"] is False
     assert calls["collision_objects"] == []
+
+
+def test_arena_env_builder_includes_background_mesh_for_object_mesh_override(monkeypatch):
+    """Object-level MESH override enables aggregate background meshes."""
+    from types import SimpleNamespace
+
+    import isaaclab_arena.environments.arena_env_builder as builder_module
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    mesh_object = DummyObject(
+        "mesh_object",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)),
+    )
+    mesh_object.collision_mode = CollisionMode.MESH
+    calls = {}
+
+    class Scene:
+        def get_objects_with_relations(self):
+            return [mesh_object]
+
+        def get_passive_collision_objects(self, include_background: bool = False):
+            calls["include_background"] = include_background
+            return []
+
+    def fake_solve_and_apply_relation_placement(objects, num_envs, placer_params, collision_objects):
+        calls["objects"] = objects
+
+    monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
+    placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX))
+    arena_env = SimpleNamespace(scene=Scene(), placer_params=placer_params)
+    builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())
+
+    builder._solve_relations()
+
+    assert calls["include_background"] is True
+    assert calls["objects"] == [mesh_object]
+
+
+def test_arena_env_builder_includes_background_mesh_for_background_override(monkeypatch):
+    """A passive Background can opt into mesh collision when the solver default is BBOX."""
+    from types import SimpleNamespace
+
+    import isaaclab_arena.environments.arena_env_builder as builder_module
+    from isaaclab_arena.assets.background import Background
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
+
+    background = Background.__new__(Background)
+    background.collision_mode = CollisionMode.MESH
+    calls = {}
+
+    class Scene:
+        assets = {"background": background}
+
+        def get_objects_with_relations(self):
+            return []
+
+        def get_passive_collision_objects(self, include_background: bool = False):
+            calls["include_background"] = include_background
+            return []
+
+    def fake_solve_and_apply_relation_placement(objects, num_envs, placer_params, collision_objects):
+        calls["objects"] = objects
+
+    monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
+    placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX))
+    arena_env = SimpleNamespace(scene=Scene(), placer_params=placer_params)
+    builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())
+
+    builder._solve_relations()
+
+    assert calls["include_background"] is True
+    assert calls["objects"] == []

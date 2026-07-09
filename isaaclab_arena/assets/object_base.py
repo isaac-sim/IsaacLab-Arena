@@ -26,6 +26,7 @@ from isaaclab_arena.assets.asset import Asset
 # while pure-Python spec modules can import from `object_type` directly without
 # pulling in isaaclab/omni/pxr at module-load time.
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, UnaryRelation
 from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -58,8 +59,10 @@ class ObjectBase(Asset, ABC):
         self.object_cfg = None
         self.event_cfg = None
         self.relations: list[RelationBase] = []
-        self.use_collision_mesh_as_is = False
-        """If True, mesh collision uses this object's raw mesh without convex-hull repair."""
+        # None means use the solver's default collision mode for this object.
+        self.collision_mode: CollisionMode | None = None
+        # If True, mesh collision replaces non-watertight meshes with their convex hull.
+        self.repair_collision_mesh_non_watertight = True
 
     def get_initial_pose(self) -> Pose | PoseRange | PosePerEnv | None:
         """Return the current initial pose of this object.

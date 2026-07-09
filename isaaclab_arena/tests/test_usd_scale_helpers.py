@@ -98,6 +98,73 @@ def _test_extract_trimesh_translated_child_nonuniform_scale(simulation_app):
     return True
 
 
+def _test_extract_trimesh_from_prim_scales_in_root_frame(simulation_app):
+    """extract_trimesh_from_prim applies parent scale in the referenced prim frame."""
+    from pxr import Gf, Usd, UsdGeom
+
+    from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_prim
+
+    stage = Usd.Stage.CreateInMemory()
+    root = stage.DefinePrim("/root", "Xform")
+    stage.SetDefaultPrim(root)
+
+    child_xform = UsdGeom.Xform.Define(stage, "/root/child")
+    child_xform.AddTranslateOp().Set(Gf.Vec3d(1.0, 0.0, 0.0))
+
+    mesh_prim = UsdGeom.Mesh.Define(stage, "/root/child/cube")
+    points = [
+        Gf.Vec3f(-0.5, -0.5, -0.5),
+        Gf.Vec3f(0.5, -0.5, -0.5),
+        Gf.Vec3f(0.5, 0.5, -0.5),
+        Gf.Vec3f(-0.5, 0.5, -0.5),
+        Gf.Vec3f(-0.5, -0.5, 0.5),
+        Gf.Vec3f(0.5, -0.5, 0.5),
+        Gf.Vec3f(0.5, 0.5, 0.5),
+        Gf.Vec3f(-0.5, 0.5, 0.5),
+    ]
+    face_vertex_counts = [4, 4, 4, 4, 4, 4]
+    face_vertex_indices = [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        0,
+        1,
+        5,
+        4,
+        2,
+        3,
+        7,
+        6,
+        0,
+        3,
+        7,
+        4,
+        1,
+        2,
+        6,
+        5,
+    ]
+    mesh_prim.GetPointsAttr().Set(points)
+    mesh_prim.GetFaceVertexCountsAttr().Set(face_vertex_counts)
+    mesh_prim.GetFaceVertexIndicesAttr().Set(face_vertex_indices)
+
+    tri = extract_trimesh_from_prim(stage, "/root", scale=(2.0, 1.0, 1.0))
+    verts = tri.vertices
+
+    # Root-frame scale: child center x=1 scales to x=2, so cube x bounds become [1, 3].
+    assert np.isclose(verts[:, 0].min(), 1.0, atol=1e-5), f"got {verts[:, 0].min():.4f}"
+    assert np.isclose(verts[:, 0].max(), 3.0, atol=1e-5), f"got {verts[:, 0].max():.4f}"
+    assert np.isclose(verts[:, 1].min(), -0.5, atol=1e-5)
+    assert np.isclose(verts[:, 1].max(), 0.5, atol=1e-5)
+
+    return True
+
+
 def _test_bbox_translated_child_nonuniform_scale(simulation_app):
     """AABB is conservative vs mesh path for translated children under non-uniform scale."""
     import tempfile
@@ -260,6 +327,11 @@ def _test_both_paths_agree_origin_prim(simulation_app):
 
 def test_extract_trimesh_translated_child_nonuniform_scale():
     result = run_simulation_app_function(_test_extract_trimesh_translated_child_nonuniform_scale, headless=HEADLESS)
+    assert result
+
+
+def test_extract_trimesh_from_prim_scales_in_root_frame():
+    result = run_simulation_app_function(_test_extract_trimesh_from_prim_scales_in_root_frame, headless=HEADLESS)
     assert result
 
 

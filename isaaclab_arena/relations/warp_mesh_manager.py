@@ -174,11 +174,11 @@ class WarpMeshAndSphereCache:
     def _cache_key(self, mesh: trimesh.Trimesh, obj: ObjectBase | None = None) -> tuple:
         """Compute cache key. Uses (usd_path, scale) for USD objects, content hash otherwise."""
         usd_path = getattr(obj, "usd_path", None) if obj is not None else None
-        use_mesh_as_is = obj.use_collision_mesh_as_is if obj is not None else False
+        repair_non_watertight = obj.repair_collision_mesh_non_watertight if obj is not None else True
         if usd_path is not None:
             scale = tuple(getattr(obj, "scale", (1.0, 1.0, 1.0)))
-            return (usd_path, scale, use_mesh_as_is, self._num_spheres, self._sphere_radius)
-        return (_mesh_content_hash(mesh), use_mesh_as_is, self._num_spheres, self._sphere_radius)
+            return (usd_path, scale, repair_non_watertight, self._num_spheres, self._sphere_radius)
+        return (_mesh_content_hash(mesh), repair_non_watertight, self._num_spheres, self._sphere_radius)
 
     def get_warp_mesh(self, mesh: trimesh.Trimesh, obj: ObjectBase | None = None) -> wp.Mesh:
         """Get or create a Warp BVH mesh for SDF queries.
@@ -189,18 +189,18 @@ class WarpMeshAndSphereCache:
         """
         key = self._cache_key(mesh, obj)
         if key not in self._warp_mesh_cache:
-            use_mesh_as_is = obj.use_collision_mesh_as_is if obj is not None else False
-            if not mesh.is_watertight and not use_mesh_as_is:
+            repair_non_watertight = obj.repair_collision_mesh_non_watertight if obj is not None else True
+            if not mesh.is_watertight and repair_non_watertight:
                 name = obj.name if obj is not None else repr(mesh)
                 print(
                     f"  [WarpMeshAndSphereCache] '{name}' mesh is not watertight — using convex hull (concavities will"
                     " be filled)"
                 )
-            if not mesh.is_watertight and use_mesh_as_is and key not in self._raw_open_mesh_warned:
+            if not mesh.is_watertight and not repair_non_watertight and key not in self._raw_open_mesh_warned:
                 self._raw_open_mesh_warned.add(key)
                 name = obj.name if obj is not None else repr(mesh)
                 print(f"  [WarpMeshAndSphereCache] '{name}' raw mesh is not watertight; SDF signs may be unreliable.")
-            work_mesh = mesh if mesh.is_watertight or use_mesh_as_is else mesh.convex_hull
+            work_mesh = mesh if mesh.is_watertight or not repair_non_watertight else mesh.convex_hull
             vertices = wp.array(np.asarray(work_mesh.vertices, dtype=np.float32), dtype=wp.vec3, device=self._device)
             indices = wp.array(
                 np.asarray(work_mesh.faces, dtype=np.int32).flatten(), dtype=wp.int32, device=self._device

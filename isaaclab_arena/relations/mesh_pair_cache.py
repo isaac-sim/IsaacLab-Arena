@@ -41,6 +41,9 @@ class MeshPairEntry(NamedTuple):
     centers_local: torch.Tensor
     """(S, 3) sphere centers in subject-local frame."""
 
+    subject_applies_yaw: bool
+    """True when subject sphere centers are in the object's unrotated local frame."""
+
     radii: torch.Tensor
     """(S,) sphere radii."""
 
@@ -50,11 +53,17 @@ class MeshPairEntry(NamedTuple):
     subject_bbox_max: torch.Tensor
     """(B, 3) subject bounding box max corners."""
 
+    subject_bbox_includes_yaw: bool
+    """True when subject bbox extents are already yaw-expanded."""
+
     obstacle_bbox_min: torch.Tensor
     """(B, 3) obstacle bounding box min corners."""
 
     obstacle_bbox_max: torch.Tensor
     """(B, 3) obstacle bounding box max corners."""
+
+    obstacle_bbox_includes_yaw: bool
+    """True when obstacle bbox extents are already yaw-expanded."""
 
     warp_mesh: wp.Mesh
     """Warp mesh asset for the obstacle."""
@@ -82,6 +91,9 @@ class MeshPairCache:
     pair_obstacle_objs: list[ObjectBase]
     """(P,) obstacle (mesh target) object reference per pair."""
 
+    pair_subject_applies_yaw: list[bool]
+    """(P,) True when subject sphere centers should rotate by subject yaw."""
+
     pair_is_anchor: list[bool]
     """(P,) True if the obstacle is fixed in world coordinates."""
 
@@ -97,11 +109,17 @@ class MeshPairCache:
     pair_subject_bbox_max: torch.Tensor
     """(P, B, 3) subject bounding box max corners."""
 
+    pair_subject_bbox_includes_yaw: list[bool]
+    """(P,) True when subject bbox extents are already yaw-expanded."""
+
     pair_obstacle_bbox_min: torch.Tensor
     """(P, B, 3) obstacle bounding box min corners."""
 
     pair_obstacle_bbox_max: torch.Tensor
     """(P, B, 3) obstacle bounding box max corners."""
+
+    pair_obstacle_bbox_includes_yaw: list[bool]
+    """(P,) True when obstacle bbox extents are already yaw-expanded."""
 
     pair_max_radius: torch.Tensor
     """(P,) maximum sphere radius across all spheres in each pair."""
@@ -127,6 +145,13 @@ class MeshPairCache:
     def __post_init__(self) -> None:
         assert len(self.pair_subject_objs) == self.num_pairs, "pair_subject_objs length mismatch"
         assert len(self.pair_obstacle_objs) == self.num_pairs, "pair_obstacle_objs length mismatch"
+        assert len(self.pair_subject_applies_yaw) == self.num_pairs, "pair_subject_applies_yaw length mismatch"
+        assert (
+            len(self.pair_subject_bbox_includes_yaw) == self.num_pairs
+        ), "pair_subject_bbox_includes_yaw length mismatch"
+        assert (
+            len(self.pair_obstacle_bbox_includes_yaw) == self.num_pairs
+        ), "pair_obstacle_bbox_includes_yaw length mismatch"
         assert len(self.pair_is_anchor) == self.num_pairs, "pair_is_anchor length mismatch"
         assert self.all_centers_local.shape[0] == self.total_spheres, "all_centers_local size mismatch"
         assert self.all_radii.shape[0] == self.total_spheres, "all_radii size mismatch"

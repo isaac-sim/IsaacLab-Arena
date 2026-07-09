@@ -132,7 +132,7 @@ def test_dynamic_spawn_pose_event_params_are_config_safe():
     assert "placement_pool" not in event_cfg.params
     assert event_cfg.params["object_names"] == ["desk", "box"]
     assert event_cfg.params["anchor_object_names"] == ["desk"]
-    assert event_cfg.params["base_rotations_by_name"] == {
+    assert event_cfg.params["rotations_by_name"] == {
         "desk": get_rotation_xyzw(desk),
         "box": get_rotation_xyzw(box),
     }

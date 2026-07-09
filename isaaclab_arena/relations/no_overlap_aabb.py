@@ -11,6 +11,7 @@ import torch
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.collision_mode import CollisionMode, object_uses_mesh_collision
 from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import On
@@ -45,6 +46,7 @@ def compute_no_overlap_loss_aabb(
     no_collision_strategy: NoCollisionLossStrategy,
     clearance_m: float,
     mesh_manager: WarpMeshAndSphereCache | None,
+    default_collision_mode: CollisionMode = CollisionMode.BBOX,
     skip_mesh_pairs: bool = False,
     debug: bool = False,
 ) -> tuple[torch.Tensor, int]:
@@ -53,16 +55,15 @@ def compute_no_overlap_loss_aabb(
     - Non-anchor vs fixed obstacle (anchor or collision object): gradient flows to the non-anchor only.
     - Non-anchor vs non-anchor: both objects accumulate gradient (two directed passes).
 
-    When skip_mesh_pairs=True, only processes pairs that cannot be represented by the mesh path.
-    In MESH mode, objects without a collision mesh are approximated by their AABB and queried
-    against any mesh obstacle, so the AABB fallback is reserved for pairs where neither side has
-    a mesh target.
+    When skip_mesh_pairs=True, pairs handled by mesh collision are left to the mesh path; pairs
+    that do not have a mesh target remain here.
 
     Args:
         state: Solver state with positions and batch info.
         no_collision_strategy: Loss strategy for scoring overlap.
         clearance_m: Minimum clearance between objects.
         mesh_manager: Warp mesh cache (for skip_mesh_pairs filtering).
+        default_collision_mode: Collision mode used by objects without a per-object override.
         skip_mesh_pairs: Skip pairs handled by mesh or mixed mesh/AABB collision.
         debug: Print per-pair loss when True.
 
@@ -104,7 +105,12 @@ def compute_no_overlap_loss_aabb(
         for obstacle in fixed_obstacles:
             if (id(child), id(obstacle)) in on_pairs:
                 continue
-            if skip_mesh_pairs and mesh_manager is not None and mesh_manager.get_collision_mesh(obstacle) is not None:
+            if (
+                skip_mesh_pairs
+                and mesh_manager is not None
+                and object_uses_mesh_collision(obstacle, default_collision_mode)
+                and mesh_manager.get_collision_mesh(obstacle) is not None
+            ):
                 continue
             obstacle_min, obstacle_max = extents[obstacle]
             pairs.append(NoOverlapPair(child_min, child_max, obstacle_min, obstacle_max))
@@ -120,8 +126,14 @@ def compute_no_overlap_loss_aabb(
                 skip_mesh_pairs
                 and mesh_manager is not None
                 and (
-                    mesh_manager.get_collision_mesh(child) is not None
-                    or mesh_manager.get_collision_mesh(other) is not None
+                    (
+                        object_uses_mesh_collision(child, default_collision_mode)
+                        and mesh_manager.get_collision_mesh(child) is not None
+                    )
+                    or (
+                        object_uses_mesh_collision(other, default_collision_mode)
+                        and mesh_manager.get_collision_mesh(other) is not None
+                    )
                 )
             ):
                 continue

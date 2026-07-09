@@ -23,14 +23,16 @@ if TYPE_CHECKING:
 
 IDENTITY_ROTATION_XYZW = (0.0, 0.0, 0.0, 1.0)
 
-# Name of the reset event term that owns the pooled object placer
+# Name of the reset event term that owns the pooled object placer.
 PLACEMENT_RESET_EVENT_NAME = "placement_reset"
+# EventTermCfg params must stay config-serializable, so runtime pools live here
+# and params carry only a registry key.
 _PLACEMENT_POOL_REGISTRY: dict[str, PooledObjectPlacer] = {}
 _PLACEMENT_POOL_KEY_COUNTER = count()
 
 
 def register_placement_pool(placement_pool: PooledObjectPlacer) -> str:
-    """Register a runtime placement pool and return its lightweight key."""
+    """Register a runtime placement pool and return its config-safe key."""
     key = f"placement_pool_{next(_PLACEMENT_POOL_KEY_COUNTER)}"
     _PLACEMENT_POOL_REGISTRY[key] = placement_pool
     return key
@@ -47,7 +49,7 @@ def clear_placement_pool_registry() -> None:
 
 
 def _get_registered_placement_pool(key: str) -> PooledObjectPlacer:
-    """Return a registered placement pool or raise a reset-friendly error."""
+    """Return a registered placement pool or raise if the key is unavailable."""
     try:
         return _PLACEMENT_POOL_REGISTRY[key]
     except KeyError as exc:
@@ -119,7 +121,7 @@ def write_layout_to_sim(
         env_id,
         result,
         anchor_object_names={obj.name for obj in anchor_objects_set},
-        base_rotations_by_name={obj.name: rotation for obj, rotation in base_rotations.items()},
+        rotations_by_name={obj.name: rotation for obj, rotation in base_rotations.items()},
     )
 
 
@@ -128,7 +130,7 @@ def _write_layout_to_sim_by_name(
     env_id: int,
     result: PlacementResult,
     anchor_object_names: set[str],
-    base_rotations_by_name: dict[str, tuple[float, float, float, float]],
+    rotations_by_name: dict[str, tuple[float, float, float, float]],
 ) -> None:
     """Write one env's solved layout using only config-safe object names."""
     env_id_tensor = torch.tensor([env_id], device=env.device)
@@ -137,7 +139,7 @@ def _write_layout_to_sim_by_name(
         if obj.name in anchor_object_names:
             continue
         asset = env.scene[obj.name]
-        base_rotation = base_rotations_by_name[obj.name]
+        base_rotation = rotations_by_name[obj.name]
         marker_yaw = yaw_from_quat_xyzw(base_rotation)
         total_yaw = result.orientations.get(obj, marker_yaw)
         rotation_xyzw = rotate_quat_by_yaw(base_rotation, total_yaw - marker_yaw)
@@ -153,7 +155,7 @@ def solve_and_place_objects(
     env_ids: torch.Tensor | None,
     object_names: list[str],
     anchor_object_names: list[str],
-    base_rotations_by_name: dict[str, tuple[float, float, float, float]],
+    rotations_by_name: dict[str, tuple[float, float, float, float]],
     placement_pool_key: str,
 ) -> None:
     """Coordinated reset event that draws layouts from the pool and writes poses.
@@ -167,14 +169,14 @@ def solve_and_place_objects(
         env_ids: 1-D tensor of environment indices being reset.
         object_names: Config-safe names of objects participating in relation solving.
         anchor_object_names: Config-safe names of anchor objects.
-        base_rotations_by_name: Config-safe base rotations keyed by object name.
+        rotations_by_name: Config-safe rotations keyed by object name.
         placement_pool_key: Key returned by register_placement_pool.
     """
     if env_ids is None or len(env_ids) == 0:
         return
     placement_pool = _get_registered_placement_pool(placement_pool_key)
-    missing_rotations = set(object_names) - set(base_rotations_by_name)
-    assert not missing_rotations, f"Missing base rotations for objects: {sorted(missing_rotations)}"
+    missing_rotations = set(object_names) - set(rotations_by_name)
+    assert not missing_rotations, f"Missing rotations for objects: {sorted(missing_rotations)}"
 
     reset_env_ids = env_ids.tolist()
     num_scene_envs = env.scene.env_origins.shape[0]
@@ -193,4 +195,4 @@ def solve_and_place_objects(
                 f"env {cur_env}; failed checks: {result.validation_results.get_failed_validation_check_names}."
             )
         # only write the non-anchor objects to the sim
-        _write_layout_to_sim_by_name(env, cur_env, result, anchor_object_names_set, base_rotations_by_name)
+        _write_layout_to_sim_by_name(env, cur_env, result, anchor_object_names_set, rotations_by_name)

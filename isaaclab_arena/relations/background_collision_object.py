@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Passive collision object that represents all fixed scene background geometry."""
+"""Passive collision object that represents fixed scene geometry."""
 
 from __future__ import annotations
 
@@ -12,41 +12,43 @@ import trimesh
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.relations import RelationBase
 
 
-BACKGROUND_COLLISION_OBJECT_NAME = "__background_collision_mesh__"
+FIXED_COLLISION_OBJECT_NAME = "__fixed_collision_mesh__"
 
 
-class BackgroundCollisionObject:
-    """Single fixed collision-only object built from multiple background meshes."""
+class FixedCollisionObject:
+    """Single fixed collision-only object built from multiple fixed meshes."""
 
     def __init__(
         self,
         mesh: trimesh.Trimesh,
-        name: str = BACKGROUND_COLLISION_OBJECT_NAME,
+        name: str = FIXED_COLLISION_OBJECT_NAME,
     ) -> None:
         self.name = name
-        self._relations: tuple = ()
-        self.use_collision_mesh_as_is = True
+        self.collision_mode = CollisionMode.MESH
+        self.repair_collision_mesh_non_watertight = False
         self._pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
         self._mesh = mesh
         self._bounding_box = _bounding_box_from_mesh(self._mesh)
 
     @property
     def is_anchor(self) -> bool:
-        """Background collision geometry is fixed but not part of the relation graph."""
+        """Return False; this collision-only object is not a relation anchor."""
         return False
 
-    def get_relations(self) -> list:
+    def get_relations(self) -> list[RelationBase]:
         """Return no relations; this object is collision-only."""
         return []
 
-    def get_spatial_relations(self) -> list:
+    def get_spatial_relations(self) -> list[RelationBase]:
         """Return no spatial relations."""
         return []
 
@@ -55,68 +57,73 @@ class BackgroundCollisionObject:
         return self._pose
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Return the world-space mesh bounds in the identity local frame."""
+        """Return bounds for the world-frame aggregate mesh."""
         return self._bounding_box
 
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Return the world-space bounds of the combined background mesh."""
+        """Return the world-space bounds of the combined fixed mesh."""
         return self._bounding_box
 
     def get_collision_mesh(self) -> trimesh.Trimesh:
-        """Return the combined background mesh in world coordinates."""
+        """Return the combined fixed mesh in world coordinates."""
         return self._mesh
 
 
-def make_background_collision_object(objects: Sequence[ObjectBase]) -> BackgroundCollisionObject | None:
-    """Build one fixed collision object from the full background mesh."""
-    mesh, skipped_objects = _combine_background_meshes(objects)
-    assert not skipped_objects, (
-        "Cannot build one complete background collision mesh; mesh extraction failed for "
-        f"{[obj.name for obj in skipped_objects]}."
-    )
-    if mesh is None:
-        return None
-    return BackgroundCollisionObject(mesh)
-
-
-def make_background_collision_objects(objects: Sequence[ObjectBase]) -> list[ObjectBase | BackgroundCollisionObject]:
+def make_fixed_collision_objects(objects: Sequence[ObjectBase]) -> list[ObjectBase | FixedCollisionObject]:
     """Build mesh aggregate plus meshless fixed obstacles kept for AABB fallback."""
     from isaaclab_arena.assets.background import Background
 
-    mesh, skipped_objects = _combine_background_meshes(objects)
-    collision_objects: list[ObjectBase | BackgroundCollisionObject] = []
+    mesh, skipped_objects = _combine_fixed_meshes(objects)
+    collision_objects: list[ObjectBase | FixedCollisionObject] = []
     if mesh is not None:
-        collision_objects.append(BackgroundCollisionObject(mesh))
+        collision_objects.append(FixedCollisionObject(mesh))
     if skipped_objects:
         aabb_fallback_objects = [obj for obj in skipped_objects if not isinstance(obj, Background)]
-        skipped_backgrounds = [obj for obj in skipped_objects if isinstance(obj, Background)]
-        if skipped_backgrounds:
-            print(
-                "Background mesh extraction failed for whole-scene Background assets "
-                f"{[obj.name for obj in skipped_backgrounds]}; skipping their room-sized AABB fallback."
-            )
-        if not aabb_fallback_objects:
-            return collision_objects
-        print(
-            "Background mesh extraction failed for "
-            f"{[obj.name for obj in aabb_fallback_objects]}; keeping them as individual AABB collision obstacles."
+        bbox_backgrounds = [
+            obj
+            for obj in skipped_objects
+            if isinstance(obj, Background) and getattr(obj, "collision_mode", None) == CollisionMode.BBOX
+        ]
+        skipped_backgrounds = [
+            obj
+            for obj in skipped_objects
+            if isinstance(obj, Background) and getattr(obj, "collision_mode", None) != CollisionMode.BBOX
+        ]
+        assert not bbox_backgrounds, (
+            "Whole-scene Background assets cannot use explicit BBOX collision because their AABBs span the full scene: "
+            f"{[obj.name for obj in bbox_backgrounds]}."
         )
-        collision_objects.extend(aabb_fallback_objects)
+        assert not skipped_backgrounds, (
+            "Cannot build background collision mesh; mesh extraction failed for whole-scene Background assets "
+            f"{[obj.name for obj in skipped_backgrounds]}."
+        )
+        if aabb_fallback_objects:
+            print(
+                "Fixed collision mesh extraction failed for "
+                f"{[obj.name for obj in aabb_fallback_objects]}; keeping them as individual AABB collision obstacles."
+            )
+            collision_objects.extend(aabb_fallback_objects)
     return collision_objects
 
 
-def _combine_background_meshes(objects: Sequence[ObjectBase]) -> tuple[trimesh.Trimesh | None, list[ObjectBase]]:
+def _combine_fixed_meshes(objects: Sequence[ObjectBase]) -> tuple[trimesh.Trimesh | None, list[ObjectBase]]:
+    from isaaclab_arena.assets.background import Background
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
     manager = WarpMeshAndSphereCache(device="cpu")
     meshes = []
     skipped_objects = []
     for obj in objects:
+        if getattr(obj, "collision_mode", None) == CollisionMode.BBOX:
+            skipped_objects.append(obj)
+            continue
         mesh = manager.get_collision_mesh(obj)
         if mesh is None:
             skipped_objects.append(obj)
             continue
         pose = obj.get_initial_pose()
+        if pose is None and isinstance(obj, Background):
+            pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
         assert isinstance(pose, Pose), f"Background object '{obj.name}' must have a fixed Pose."
         meshes.append(_mesh_in_world_frame(mesh, pose))
     if not meshes:

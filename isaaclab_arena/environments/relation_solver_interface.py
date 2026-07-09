@@ -142,7 +142,7 @@ def _apply_dynamic_spawn_pose(
         params={
             "object_names": [obj.name for obj in objects],
             "anchor_object_names": [obj.name for obj in anchor_objects_set],
-            "base_rotations_by_name": {obj.name: get_rotation_xyzw(obj) for obj in objects},
+            "rotations_by_name": {obj.name: get_rotation_xyzw(obj) for obj in objects},
             "placement_pool_key": register_placement_pool(placement_pool),
         },
     )
