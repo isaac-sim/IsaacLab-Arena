@@ -383,7 +383,7 @@ class LightBase(LibraryObject, ABC):
         self.object_cfg = self._init_object_cfg()
 
     def set_color(self, color: tuple[float, float, float]) -> None:
-        """Set the light's RGB color, with each channel in ``[0, 1]``."""
+        """Set the light's RGB color, with each channel in [0, 1]."""
         assert len(color) == 3, f"Light color must be an (r, g, b) triple, got {color}."
         assert all(0.0 <= c <= 1.0 for c in color), f"Light color channels must be in [0, 1], got {color}."
         self.spawner_cfg.color = tuple(color)
