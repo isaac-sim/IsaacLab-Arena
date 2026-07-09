@@ -18,8 +18,6 @@ from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 
-ENVIRONMENT_CFG_TYPES = {"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg}
-POLICY_CFG_TYPES = {"zero_action": ZeroActionPolicyCfg}
 GETTING_STARTED_EXPERIMENT_PATH = (
     Path(TestConstants.arena_environments_dir) / "experiment_configs" / "getting_started_experiment.yaml"
 )
@@ -28,8 +26,8 @@ GETTING_STARTED_EXPERIMENT_PATH = (
 def _load_experiment(config_path: str | Path, overrides: list[str] | None = None):
     return load_arena_experiment_from_yaml(
         config_path,
-        environment_cfg_types=ENVIRONMENT_CFG_TYPES,
-        policy_cfg_types=POLICY_CFG_TYPES,
+        environment_cfg_types={"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+        policy_cfg_types={"zero_action": ZeroActionPolicyCfg},
         overrides=overrides,
     )
 

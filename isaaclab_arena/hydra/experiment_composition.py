@@ -7,8 +7,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from contextlib import nullcontext
+from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +24,17 @@ from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
 
+def _get_new_hydra_context_if_none_exists() -> AbstractContextManager[None]:
+    """Initialize Hydra only when composition has no caller-owned context.
+
+    Arena composes Experiments both standalone and from callers already using
+    Hydra. Existing caller state must remain intact.
+    """
+    if GlobalHydra.instance().is_initialized():
+        return nullcontext()
+    return initialize(version_base=None, config_path=None)
+
+
 # TODO(cvolk, 2026-07-08): [typed-config-migration] Integrate this composer into eval_runner:
 # dispatch --experiment_config YAML files here after AppLauncher starts and JSON files to the
 # legacy adapter; forward YAML-only --experiment_override values and the process device to typed
@@ -32,8 +42,8 @@ from isaaclab_arena.policy.policy_base import PolicyCfg
 def load_arena_experiment_from_yaml(
     yaml_path: str | Path,
     *,
-    environment_cfg_types: Mapping[str, type[ArenaEnvironmentCfg]],
-    policy_cfg_types: Mapping[str, type[PolicyCfg]],
+    environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
+    policy_cfg_types: dict[str, type[PolicyCfg]],
     overrides: list[str] | None = None,
 ) -> ArenaExperiment:
     """Load a YAML Arena Experiment as an ordered list of typed Runs.
@@ -52,19 +62,15 @@ def load_arena_experiment_from_yaml(
     Returns:
         Typed Runs in YAML declaration order.
     """
-    run_values_by_name = _read_and_validate_yaml_run_values(yaml_path)
+    run_values_by_name = _read_and_validate_yaml_runs_as_values(yaml_path)
     config_store = ConfigStore.instance()
     # Reuse these internal names so repeated loads replace their process-global ConfigStore entries.
     hydra_config_namespace = "isaaclab_arena_experiment_composition"
 
-    # Preserve a caller-owned Hydra context; otherwise create one scoped to this composition call.
-    composition_context = (
-        nullcontext() if GlobalHydra.instance().is_initialized() else initialize(version_base=None, config_path=None)
-    )
     try:
-        with composition_context:
+        with _get_new_hydra_context_if_none_exists():
             arena_runs_by_name = {
-                run_name: _compose_arena_run_from_yaml_values(
+                run_name: _build_arena_run_cfg_from_yaml_values(
                     config_store,
                     hydra_config_namespace,
                     index,
@@ -86,7 +92,7 @@ def load_arena_experiment_from_yaml(
     return experiment
 
 
-def _read_and_validate_yaml_run_values(yaml_path: str | Path) -> dict[str, dict[str, Any]]:
+def _read_and_validate_yaml_runs_as_values(yaml_path: str | Path) -> dict[str, dict[str, Any]]:
     """Read an Arena Experiment YAML file and return its Run values by name.
 
     This validates the shared YAML envelope. Fields belonging to a Run,
@@ -126,20 +132,16 @@ def _read_and_validate_yaml_run_values(yaml_path: str | Path) -> dict[str, dict[
     return runs
 
 
-def _compose_arena_run_from_yaml_values(
+def _build_arena_run_cfg_from_yaml_values(
     config_store: ConfigStore,
     hydra_config_namespace: str,
     index: int,
     run_name: str,
     run_values: dict[str, Any],
-    environment_cfg_types: Mapping[str, type[ArenaEnvironmentCfg]],
-    policy_cfg_types: Mapping[str, type[PolicyCfg]],
+    environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
+    policy_cfg_types: dict[str, type[PolicyCfg]],
 ) -> ArenaRunCfg:
     """Build one typed Arena Run from its unresolved YAML values.
-
-    The environment and policy selectors are resolved first. Their typed
-    configs and the remaining Run fields are then composed into one
-    ArenaRunCfg.
 
     Args:
         config_store: Hydra store used for the temporary typed schemas.
@@ -195,8 +197,8 @@ def _compose_typed_config_from_yaml_selector(
     hydra_config_name: str,
     run_name: str,
     section_name: str,
-    section_values: Any,
-    cfg_types: Mapping[str, type[Any]],
+    section_values_with_selector: dict[str, Any],
+    cfg_types: dict[str, type[Any]],
     expected_base_type: type[Any],
 ) -> Any:
     """Resolve one YAML type selector into a concrete typed configuration.
@@ -209,15 +211,15 @@ def _compose_typed_config_from_yaml_selector(
         hydra_config_name: Unique name for the temporary Hydra config.
         run_name: Run containing the selected environment or policy.
         section_name: YAML section being composed, such as environment or policy.
-        section_values: YAML values for the section, including its type selector.
+        section_values_with_selector: YAML field values for the section, including its type selector.
         cfg_types: Available selector names mapped to typed configuration classes.
         expected_base_type: Base class that the selected configuration must inherit.
 
     Returns:
         An instance of the selected concrete configuration class.
     """
-    assert isinstance(section_values, dict), f"Run '{run_name}' must define '{section_name}' as a mapping"
-    values = dict(section_values)
+    assert isinstance(section_values_with_selector, dict), f"Run '{run_name}' must define '{section_name}' as a mapping"
+    values = section_values_with_selector.copy()
     selector = values.pop("type", None)
     assert isinstance(selector, str) and selector, f"Run '{run_name}' is missing '{section_name}.type'"
     available = ", ".join(sorted(cfg_types)) or "(none)"

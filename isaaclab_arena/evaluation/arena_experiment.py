@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Domain type for an Arena Experiment."""
+"""Represent an Arena Experiment as an ordered list of Runs."""
 
 from typing import TypeAlias
 
