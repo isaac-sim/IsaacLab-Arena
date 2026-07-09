@@ -40,7 +40,8 @@ from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTer
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME, unregister_placement_pool
+from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
+from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
@@ -102,10 +103,12 @@ class ArenaEnvBuilder:
                 placer_params.resolve_on_reset = self.cfg.resolve_on_reset
         # Relation-free background geometry is invisible to the relation graph, but placed objects
         # must still avoid it. In MESH mode, use one world-frame aggregate background mesh.
-        collision_objects = self.arena_env.scene.get_passive_collision_objects(
+        scene_assets = self.arena_env.scene.assets.values()
+        collision_objects = get_passive_collision_objects(
+            scene_assets,
             include_background=self._should_include_background_mesh(
                 objects_with_relations, placer_params.solver_params.collision_mode
-            )
+            ),
         )
         self._placement_event_cfg = solve_and_apply_relation_placement(
             objects_with_relations,
@@ -123,7 +126,7 @@ class ArenaEnvBuilder:
         return any(
             isinstance(asset, Background)
             and get_object_collision_mode(asset, default_collision_mode) == CollisionMode.MESH
-            for asset in getattr(self.arena_env.scene, "assets", {}).values()
+            for asset in self.arena_env.scene.assets.values()
         )
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:
@@ -515,28 +518,7 @@ class ArenaEnvBuilder:
         """
         name, cfg, env_kwargs = self.build_registered(env_cfg, env_kwargs)
         env = gym.make(name, cfg=cfg, render_mode=render_mode, **env_kwargs)
-        self._unregister_placement_pool_on_close(env)
         # ViewportCameraController sets the camera before KitVisualizer.initialize() is called,
         # so the call is silently ignored. Re-apply here once the visualizers are fully initialized.
         reapply_viewer_cfg(env)
         return env, cfg
-
-    def _unregister_placement_pool_on_close(self, env: ManagerBasedEnv) -> None:
-        """Unregister the runtime placement pool when the env closes."""
-        try:
-            term_cfg = env.unwrapped.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME)
-        except ValueError:
-            return
-        placement_pool_key = term_cfg.params.get("placement_pool_key")
-        if placement_pool_key is None:
-            return
-
-        close = env.close
-
-        def close_and_unregister(*args, **kwargs):
-            try:
-                return close(*args, **kwargs)
-            finally:
-                unregister_placement_pool(placement_pool_key)
-
-        env.close = close_and_unregister

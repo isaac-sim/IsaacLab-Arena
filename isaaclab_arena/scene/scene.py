@@ -12,15 +12,12 @@ from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from pxr import Gf, Usd, UsdGeom
 
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.object import Object
-from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
+from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.object_set import RigidObjectSet
-from isaaclab_arena.relations.background_collision_object import FixedCollisionObject, make_fixed_collision_objects
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
-from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.variation_base import VariationBase
 
 AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg]
@@ -121,71 +118,6 @@ class Scene:
             if asset.get_relations():
                 objects_with_relations.append(asset)
         return objects_with_relations
-
-    def get_passive_collision_objects(
-        self, include_background: bool = False
-    ) -> list[ObjectBase | FixedCollisionObject]:
-        """Return relation-free assets that qualify as passive collision obstacles.
-
-        A qualifying asset is an Object / ObjectReference that carries no relations (so it is
-        absent from get_objects_with_relations), exposes a USD path for geometry, and has a
-        single fixed initial Pose. A whole-scene Background with unset pose is treated as
-        fixed at the USD origin when include_background=True. Other assets with a
-        per-env / per-reset or unset pose are skipped.
-
-        Args:
-            include_background: If True, combine every mesh-capable passive object into one
-                collision-only object in world coordinates, and keep individual meshless
-                non-Background objects for AABB fallback.
-                When False, whole-scene Background assets are skipped because their AABB spans
-                the full scene and would reject valid layouts.
-
-        Returns:
-            Passive collision objects for placement loss and validation.
-        """
-        collision_objects: list[ObjectBase] = []
-        for asset in self.assets.values():
-            if not isinstance(asset, (Object, ObjectReference)):
-                continue
-            if isinstance(asset, Background) and not include_background:
-                continue
-            if asset.get_relations():
-                continue
-            # Without a USD path no bounding box can be computed for collision.
-            if isinstance(asset, Object) and asset.usd_path is None:
-                print(f"Skipping background object '{asset.name}' as a collision obstacle: missing USD path.")
-                continue
-            if isinstance(asset, ObjectReference) and asset.parent_asset.usd_path is None:
-                print(
-                    f"Skipping background object reference '{asset.name}' as a collision obstacle: "
-                    f"parent asset '{asset.parent_asset.name}' is missing a USD path."
-                )
-                continue
-            # A single fixed Pose is required so get_world_bounding_box() places the obstacle
-            # correctly; PoseRange/PosePerEnv move per env/reset and None is unplaced, so such
-            # assets cannot contribute a constant obstacle bbox and are skipped.
-            initial_pose = asset.get_initial_pose()
-            if isinstance(asset, Background) and include_background and initial_pose is None:
-                collision_objects.append(asset)
-                continue
-            if not isinstance(initial_pose, Pose):
-                pose_kind = "None" if initial_pose is None else type(initial_pose).__name__
-                print(
-                    f"Skipping background object '{asset.name}' as a collision obstacle: "
-                    f"needs a fixed pose but has {pose_kind}."
-                )
-                continue
-            collision_objects.append(asset)
-        collision_object_set = set(collision_objects)
-        collision_objects = [
-            asset
-            for asset in collision_objects
-            if not isinstance(asset, ObjectReference) or asset.parent_asset not in collision_object_set
-        ]
-        passive_collision_objects: list[ObjectBase | FixedCollisionObject] = collision_objects
-        if include_background:
-            passive_collision_objects = make_fixed_collision_objects(collision_objects)
-        return passive_collision_objects
 
     def export_to_usd(self, output_path: pathlib.Path, root_prim_path: str = "/World") -> None:
         """Exports the scene to a USD file.

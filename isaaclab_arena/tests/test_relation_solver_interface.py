@@ -114,9 +114,8 @@ def test_dynamic_spawn_pose_skips_objects_missing_from_fallback_layout():
     assert box.get_initial_pose() is None
 
 
-def test_dynamic_spawn_pose_event_params_are_config_safe():
+def test_dynamic_spawn_pose_event_params_use_runtime_objects():
     from isaaclab_arena.environments.relation_solver_interface import _apply_dynamic_spawn_pose
-    from isaaclab_arena.relations.placement_events import get_rotation_xyzw
 
     desk = _make_desk()
     box = _make_box()
@@ -128,15 +127,8 @@ def test_dynamic_spawn_pose_event_params_are_config_safe():
         anchor_objects_set={desk},
     )
 
-    assert "objects" not in event_cfg.params
-    assert "placement_pool" not in event_cfg.params
-    assert event_cfg.params["object_names"] == ["desk", "box"]
-    assert event_cfg.params["anchor_object_names"] == ["desk"]
-    assert event_cfg.params["rotations_by_name"] == {
-        "desk": get_rotation_xyzw(desk),
-        "box": get_rotation_xyzw(box),
-    }
-    assert event_cfg.params["placement_pool_key"].startswith("placement_pool_")
+    assert [obj.name for obj in event_cfg.params["objects"]] == ["desk", "box"]
+    assert "placement_pool" in event_cfg.params
 
 
 def test_static_initial_poses_skip_object_when_any_layout_is_missing_position(capsys):

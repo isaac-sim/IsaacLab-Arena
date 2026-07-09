@@ -5,9 +5,8 @@
 
 """Example: place objects on the robocasa kitchen counter while avoiding the background mesh.
 
-The kitchen is loaded as one passive background. In MESH collision mode, ArenaEnvBuilder asks
-Scene.get_passive_collision_objects(include_background=True) for one world-frame aggregate background
-mesh and the relation solver keeps placed objects out of it.
+The kitchen is loaded as one passive background. In MESH collision mode, the builder uses one
+world-frame aggregate background mesh and the relation solver keeps placed objects out of it.
 
 Run standalone from the repo root inside the container (pass --viz kit to open the Kit viewer;
 omitting it runs headless, so nothing shows):
@@ -55,6 +54,7 @@ def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, a
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor, On
     from isaaclab_arena.scene.scene import Scene
@@ -81,7 +81,7 @@ def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, a
         objects.append(obj)
 
     scene = Scene(assets=[background, counter, *objects, light])
-    collision_objects = scene.get_passive_collision_objects(include_background=True)
+    collision_objects = get_passive_collision_objects(scene.assets.values(), include_background=True)
     collision_names = [c.name for c in collision_objects]
     print(f"Using background collision obstacles: {collision_names}", flush=True)
 

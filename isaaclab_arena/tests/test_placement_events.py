@@ -152,20 +152,14 @@ def _make_mock_env(num_envs: int, device: str = "cpu") -> MagicMock:
 
 
 def _solve_and_place_with_pool(env, env_ids, objects, pool):
-    """Call the reset event with the same config-safe params EventTermCfg stores."""
-    from isaaclab_arena.relations.placement_events import (
-        get_rotation_xyzw,
-        register_placement_pool,
-        solve_and_place_objects,
-    )
+    """Call the reset event with the same runtime params EventTermCfg stores."""
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
 
     return solve_and_place_objects(
         env,
         env_ids,
-        object_names=[obj.name for obj in objects],
-        anchor_object_names=[obj.name for obj in objects if obj.is_anchor],
-        rotations_by_name={obj.name: get_rotation_xyzw(obj) for obj in objects},
-        placement_pool_key=register_placement_pool(pool),
+        objects=objects,
+        placement_pool=pool,
     )
 
 
@@ -200,12 +194,12 @@ def test_solve_and_place_objects_writes_poses_to_sim():
         assert pose_arg.shape == (1, 7), f"Expected (1,7) pose tensor for {name}, got {pose_arg.shape}"
 
 
-def test_solve_and_place_objects_uses_registered_pool_key():
-    """Config-safe reset params should resolve the runtime placement pool by key."""
-    from isaaclab_arena.relations.placement_events import register_placement_pool, solve_and_place_objects
+def test_solve_and_place_objects_uses_runtime_pool():
+    """Reset params should use the runtime placement pool directly."""
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
     from isaaclab_arena.relations.placement_result import PlacementResult
 
-    _, box1, _ = _create_test_objects()
+    desk, box1, _ = _create_test_objects()
     env = _make_mock_env(num_envs=1)
 
     class Pool:
@@ -222,61 +216,28 @@ def test_solve_and_place_objects_uses_registered_pool_key():
                 )
             }
 
-    pool_key = register_placement_pool(Pool())
     solve_and_place_objects(
         env,
         torch.tensor([0]),
-        object_names=["desk", "box1"],
-        anchor_object_names=["desk"],
-        rotations_by_name={"desk": (0.0, 0.0, 0.0, 1.0), "box1": (0.0, 0.0, 0.0, 1.0)},
-        placement_pool_key=pool_key,
+        objects=[desk, box1],
+        placement_pool=Pool(),
     )
 
     assert "desk" not in env._assets
     env._assets["box1"].write_root_pose_to_sim.assert_called_once()
 
 
-def test_solve_and_place_objects_rejects_missing_registered_pool_key():
-    """A stale placement-pool key should fail with a clear runtime error."""
-    from isaaclab_arena.relations.placement_events import solve_and_place_objects
-
-    env = _make_mock_env(num_envs=1)
-
-    with pytest.raises(RuntimeError, match="not registered"):
-        solve_and_place_objects(
-            env,
-            torch.tensor([0]),
-            object_names=["box1"],
-            anchor_object_names=[],
-            rotations_by_name={"box1": (0.0, 0.0, 0.0, 1.0)},
-            placement_pool_key="placement_pool_missing",
-        )
-
-
-def test_unregister_placement_pool_releases_registered_key():
-    """Placement-pool registry entries can be explicitly released on env teardown."""
-    from isaaclab_arena.relations.placement_events import (
-        clear_placement_pool_registry,
-        get_placement_pool,
-        register_placement_pool,
-        unregister_placement_pool,
-    )
+def test_get_placement_pool_returns_runtime_pool():
+    """Pool validation can retrieve the runtime placement pool from the reset event."""
+    from isaaclab_arena.relations.placement_events import get_placement_pool
 
     class Pool:
         pass
 
-    pool_key = register_placement_pool(Pool())
+    pool = Pool()
     env = MagicMock()
-    env.unwrapped.event_manager.get_term_cfg.return_value.params = {"placement_pool_key": pool_key}
-    assert get_placement_pool(env) is not None
-
-    unregister_placement_pool(pool_key)
-    with pytest.raises(RuntimeError, match="not registered"):
-        get_placement_pool(env)
-
-    # Idempotent cleanup for notebook/test teardown paths.
-    unregister_placement_pool(pool_key)
-    clear_placement_pool_registry()
+    env.unwrapped.event_manager.get_term_cfg.return_value.params = {"placement_pool": pool}
+    assert get_placement_pool(env) is pool
 
 
 def test_solve_and_place_objects_applies_random_yaw():

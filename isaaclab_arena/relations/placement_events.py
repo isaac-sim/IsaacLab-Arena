@@ -6,12 +6,10 @@
 from __future__ import annotations
 
 import torch
-from itertools import count
 from typing import TYPE_CHECKING
 
 from isaaclab.envs import ManagerBasedEnv
 
-from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.velocity import Velocity
@@ -20,47 +18,16 @@ from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 
 IDENTITY_ROTATION_XYZW = (0.0, 0.0, 0.0, 1.0)
 
 # Name of the reset event term that owns the pooled object placer.
 PLACEMENT_RESET_EVENT_NAME = "placement_reset"
-# EventTermCfg params must stay config-serializable, so runtime pools live here
-# and params carry only a registry key.
-_PLACEMENT_POOL_REGISTRY: dict[str, PooledObjectPlacer] = {}
-_PLACEMENT_POOL_KEY_COUNTER = count()
-
-
-def register_placement_pool(placement_pool: PooledObjectPlacer) -> str:
-    """Register a runtime placement pool and return its config-safe key."""
-    key = f"placement_pool_{next(_PLACEMENT_POOL_KEY_COUNTER)}"
-    _PLACEMENT_POOL_REGISTRY[key] = placement_pool
-    return key
-
-
-def unregister_placement_pool(key: str) -> None:
-    """Remove a runtime placement pool registration when its env is torn down."""
-    _PLACEMENT_POOL_REGISTRY.pop(key, None)
-
-
-def clear_placement_pool_registry() -> None:
-    """Clear all runtime placement pools, primarily for notebooks and tests."""
-    _PLACEMENT_POOL_REGISTRY.clear()
-
-
-def _get_registered_placement_pool(key: str) -> PooledObjectPlacer:
-    """Return a registered placement pool or raise if the key is unavailable."""
-    try:
-        return _PLACEMENT_POOL_REGISTRY[key]
-    except KeyError as exc:
-        raise RuntimeError(
-            f"Placement pool '{key}' is not registered in this process. "
-            "Pooled placement reset events must be created and used in the same Python process."
-        ) from exc
 
 
 def get_placement_pool(env) -> PooledObjectPlacer | None:
-    """Return the pooled placer registered on the env, or ``None`` when the env has no pooled placement.
+    """Return the pooled placer stored on the env reset event, or ``None`` when absent.
 
     Lets a runtime caller reach the pool (e.g. to run the post-reset settle check) from the env alone,
     without holding the builder. The pool is reached through the env's event manager.
@@ -72,10 +39,7 @@ def get_placement_pool(env) -> PooledObjectPlacer | None:
         term_cfg = env.unwrapped.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME)
     except ValueError:
         return None
-    placement_pool_key = term_cfg.params.get("placement_pool_key")
-    if placement_pool_key is None:
-        return None
-    return _get_registered_placement_pool(placement_pool_key)
+    return term_cfg.params.get("placement_pool")
 
 
 def get_rotation_xyzw(obj: ObjectBase) -> tuple[float, float, float, float]:
@@ -116,33 +80,15 @@ def write_layout_to_sim(
         anchor_objects_set: The set of anchor objects.
         base_rotations: The base rotations for all objects.
     """
-    _write_layout_to_sim_by_name(
-        env,
-        env_id,
-        result,
-        anchor_object_names={obj.name for obj in anchor_objects_set},
-        rotations_by_name={obj.name: rotation for obj, rotation in base_rotations.items()},
-    )
-
-
-def _write_layout_to_sim_by_name(
-    env: ManagerBasedEnv,
-    env_id: int,
-    result: PlacementResult,
-    anchor_object_names: set[str],
-    rotations_by_name: dict[str, tuple[float, float, float, float]],
-) -> None:
-    """Write one env's solved layout using only config-safe object names."""
     env_id_tensor = torch.tensor([env_id], device=env.device)
     zero_velocity = Velocity.zero().to_tensor(device=env.device).unsqueeze(0)
     for obj, pos in result.positions.items():
-        if obj.name in anchor_object_names:
+        if obj in anchor_objects_set:
             continue
         asset = env.scene[obj.name]
-        base_rotation = rotations_by_name[obj.name]
-        marker_yaw = yaw_from_quat_xyzw(base_rotation)
+        marker_yaw = yaw_from_quat_xyzw(base_rotations[obj])
         total_yaw = result.orientations.get(obj, marker_yaw)
-        rotation_xyzw = rotate_quat_by_yaw(base_rotation, total_yaw - marker_yaw)
+        rotation_xyzw = rotate_quat_by_yaw(base_rotations[obj], total_yaw - marker_yaw)
         pose = Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw)
         pose_t_xyz_q_xyzw = pose.to_tensor(device=env.device).unsqueeze(0)
         pose_t_xyz_q_xyzw[0, :3] += env.scene.env_origins[env_id, :]
@@ -153,10 +99,8 @@ def _write_layout_to_sim_by_name(
 def solve_and_place_objects(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor | None,
-    object_names: list[str],
-    anchor_object_names: list[str],
-    rotations_by_name: dict[str, tuple[float, float, float, float]],
-    placement_pool_key: str,
+    objects: list[ObjectBase],
+    placement_pool: PooledObjectPlacer,
 ) -> None:
     """Coordinated reset event that draws layouts from the pool and writes poses.
 
@@ -167,25 +111,19 @@ def solve_and_place_objects(
     Args:
         env: The Isaac Lab environment.
         env_ids: 1-D tensor of environment indices being reset.
-        object_names: Config-safe names of objects participating in relation solving.
-        anchor_object_names: Config-safe names of anchor objects.
-        rotations_by_name: Config-safe rotations keyed by object name.
-        placement_pool_key: Key returned by register_placement_pool.
+        objects: Objects participating in relation solving.
+        placement_pool: Runtime pool of solved placement layouts.
     """
     if env_ids is None or len(env_ids) == 0:
         return
-    placement_pool = _get_registered_placement_pool(placement_pool_key)
-    missing_rotations = set(object_names) - set(rotations_by_name)
-    assert not missing_rotations, f"Missing rotations for objects: {sorted(missing_rotations)}"
-
     reset_env_ids = env_ids.tolist()
     num_scene_envs = env.scene.env_origins.shape[0]
     assert (
         placement_pool.num_envs == num_scene_envs
     ), f"Placement pool has {placement_pool.num_envs} envs, but scene has {num_scene_envs} env origins."
     results_by_env = placement_pool.sample_for_envs(reset_env_ids)
-
-    anchor_object_names_set = set(anchor_object_names)
+    anchor_objects_set = set(get_anchor_objects(objects))
+    base_rotations = get_base_rotation_per_object(objects)
 
     for cur_env in reset_env_ids:
         result = results_by_env[cur_env]
@@ -195,4 +133,4 @@ def solve_and_place_objects(
                 f"env {cur_env}; failed checks: {result.validation_results.get_failed_validation_check_names}."
             )
         # only write the non-anchor objects to the sim
-        _write_layout_to_sim_by_name(env, cur_env, result, anchor_object_names_set, rotations_by_name)
+        write_layout_to_sim(env, cur_env, result, anchor_objects_set, base_rotations)

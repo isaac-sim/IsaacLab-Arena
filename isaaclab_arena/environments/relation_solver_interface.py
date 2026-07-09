@@ -9,11 +9,7 @@ import copy
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_events import (
-    get_rotation_xyzw,
-    register_placement_pool,
-    solve_and_place_objects,
-)
+from isaaclab_arena.relations.placement_events import get_rotation_xyzw, solve_and_place_objects
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
@@ -38,8 +34,8 @@ def solve_and_apply_relation_placement(
         num_envs: Number of environments to prepare placements for.
         placer_params: Optional placement parameters. A shallow copy is used so
             this function can force pooled placement without mutating the caller's instance.
-        collision_objects: Fixed background obstacles avoided during placement but never
-            optimized or relation-constrained (e.g. furniture that nobody is placed on).
+        collision_objects: Fixed obstacles avoided during placement but never optimized
+            or relation-constrained.
 
     Returns:
         Reset event config to attach to the environment when placement should be
@@ -140,10 +136,8 @@ def _apply_dynamic_spawn_pose(
         func=solve_and_place_objects,
         mode="reset",
         params={
-            "object_names": [obj.name for obj in objects],
-            "anchor_object_names": [obj.name for obj in anchor_objects_set],
-            "rotations_by_name": {obj.name: get_rotation_xyzw(obj) for obj in objects},
-            "placement_pool_key": register_placement_pool(placement_pool),
+            "objects": objects,
+            "placement_pool": placement_pool,
         },
     )
 

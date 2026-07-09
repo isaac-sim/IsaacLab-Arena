@@ -300,11 +300,11 @@ def test_validate_no_overlap_rejects_background_overlap():
     assert placer._validate_no_overlap(clear, env_bboxes, [background])
 
 
-def _test_scene_get_passive_collision_objects_filters(simulation_app) -> bool:
+def _test_get_passive_collision_objects_filters(simulation_app) -> bool:
     """Only relation-free objects with a USD path and a fixed Pose are returned; Background is excluded."""
     from unittest.mock import MagicMock
 
-    import isaaclab_arena.scene.scene as scene_module
+    import isaaclab_arena.relations.passive_collision_objects as passive_collision_module
     from isaaclab_arena.assets.background import Background
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_reference import ObjectReference
@@ -343,21 +343,22 @@ def _test_scene_get_passive_collision_objects_filters(simulation_app) -> bool:
         o.name: o for o in [furniture, counter_ref, kitchen, kitchen_no_pose, anchored, no_usd, no_pose, ranged]
     }
 
-    calls = {}
-    original = scene_module.make_fixed_collision_objects
-    scene_module.make_fixed_collision_objects = lambda objects: calls.setdefault("objects", objects)
+    original = passive_collision_module.make_fixed_collision_objects
+    passive_collision_module.make_fixed_collision_objects = lambda objects: list(objects)
     try:
-        no_combine = scene.get_passive_collision_objects()
-        combined = scene.get_passive_collision_objects(include_background=True)
+        no_combine = passive_collision_module.get_passive_collision_objects(scene.assets.values())
+        combined = passive_collision_module.get_passive_collision_objects(
+            scene.assets.values(), include_background=True
+        )
     finally:
-        scene_module.make_fixed_collision_objects = original
+        passive_collision_module.make_fixed_collision_objects = original
 
     return no_combine == [furniture, counter_ref] and combined == [furniture, kitchen, kitchen_no_pose]
 
 
-def test_scene_get_passive_collision_objects_filters():
-    result = run_simulation_app_function(_test_scene_get_passive_collision_objects_filters, headless=HEADLESS)
-    assert result, "Scene.get_passive_collision_objects() returned the wrong subset"
+def test_get_passive_collision_objects_filters():
+    result = run_simulation_app_function(_test_get_passive_collision_objects_filters, headless=HEADLESS)
+    assert result, "get_passive_collision_objects() returned the wrong subset"
 
 
 def test_object_placer_place_forwards_collision_objects():
@@ -465,12 +466,15 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
     calls = {}
 
     class Scene:
+        assets = {"background_collision": background_collision}
+
         def get_objects_with_relations(self):
             return objects_with_relations
 
-        def get_passive_collision_objects(self, include_background: bool = False):
-            calls["include_background"] = include_background
-            return [background_collision]
+    def fake_get_passive_collision_objects(assets, include_background: bool = False):
+        calls["assets"] = list(assets)
+        calls["include_background"] = include_background
+        return [background_collision]
 
     def fake_solve_and_apply_relation_placement(objects, num_envs, placer_params, collision_objects):
         calls["objects"] = objects
@@ -479,6 +483,7 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
         calls["collision_objects"] = collision_objects
         return "placement_event"
 
+    monkeypatch.setattr(builder_module, "get_passive_collision_objects", fake_get_passive_collision_objects)
     monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH))
     arena_env = SimpleNamespace(scene=Scene(), placer_params=placer_params)
@@ -486,6 +491,7 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
 
     builder._solve_relations()
 
+    assert calls["assets"] == [background_collision]
     assert calls["include_background"] is True
     assert calls["objects"] == objects_with_relations
     assert calls["num_envs"] == 2
@@ -505,22 +511,27 @@ def test_arena_env_builder_uses_individual_background_collisions_for_bbox(monkey
     calls = {}
 
     class Scene:
+        assets = {}
+
         def get_objects_with_relations(self):
             return []
 
-        def get_passive_collision_objects(self, include_background: bool = False):
-            calls["include_background"] = include_background
-            return []
+    def fake_get_passive_collision_objects(assets, include_background: bool = False):
+        calls["assets"] = list(assets)
+        calls["include_background"] = include_background
+        return []
 
     def fake_solve_and_apply_relation_placement(objects, num_envs, placer_params, collision_objects):
         calls["collision_objects"] = collision_objects
 
+    monkeypatch.setattr(builder_module, "get_passive_collision_objects", fake_get_passive_collision_objects)
     monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
     arena_env = SimpleNamespace(scene=Scene(), placer_params=None)
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())
 
     builder._solve_relations()
 
+    assert calls["assets"] == []
     assert calls["include_background"] is False
     assert calls["collision_objects"] == []
 
@@ -545,16 +556,20 @@ def test_arena_env_builder_includes_background_mesh_for_object_mesh_override(mon
     calls = {}
 
     class Scene:
+        assets = {}
+
         def get_objects_with_relations(self):
             return [mesh_object]
 
-        def get_passive_collision_objects(self, include_background: bool = False):
-            calls["include_background"] = include_background
-            return []
+    def fake_get_passive_collision_objects(assets, include_background: bool = False):
+        calls["assets"] = list(assets)
+        calls["include_background"] = include_background
+        return []
 
     def fake_solve_and_apply_relation_placement(objects, num_envs, placer_params, collision_objects):
         calls["objects"] = objects
 
+    monkeypatch.setattr(builder_module, "get_passive_collision_objects", fake_get_passive_collision_objects)
     monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX))
     arena_env = SimpleNamespace(scene=Scene(), placer_params=placer_params)
@@ -562,6 +577,7 @@ def test_arena_env_builder_includes_background_mesh_for_object_mesh_override(mon
 
     builder._solve_relations()
 
+    assert calls["assets"] == []
     assert calls["include_background"] is True
     assert calls["objects"] == [mesh_object]
 
@@ -587,13 +603,15 @@ def test_arena_env_builder_includes_background_mesh_for_background_override(monk
         def get_objects_with_relations(self):
             return []
 
-        def get_passive_collision_objects(self, include_background: bool = False):
-            calls["include_background"] = include_background
-            return []
+    def fake_get_passive_collision_objects(assets, include_background: bool = False):
+        calls["assets"] = list(assets)
+        calls["include_background"] = include_background
+        return []
 
     def fake_solve_and_apply_relation_placement(objects, num_envs, placer_params, collision_objects):
         calls["objects"] = objects
 
+    monkeypatch.setattr(builder_module, "get_passive_collision_objects", fake_get_passive_collision_objects)
     monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX))
     arena_env = SimpleNamespace(scene=Scene(), placer_params=placer_params)
@@ -601,5 +619,6 @@ def test_arena_env_builder_includes_background_mesh_for_background_override(monk
 
     builder._solve_relations()
 
+    assert calls["assets"] == [background]
     assert calls["include_background"] is True
     assert calls["objects"] == []
