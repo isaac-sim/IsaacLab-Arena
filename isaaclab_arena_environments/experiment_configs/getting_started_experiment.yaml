@@ -5,7 +5,7 @@
 
 # Typed YAML equivalent of eval_jobs_configs/getting_started_jobs_config.json.
 runs:
-- name: 01_baseline
+- name: baseline
   environment:
     type: pick_and_place_maple_table
     embodiment: droid_rel_joint_pos
@@ -17,7 +17,7 @@ runs:
   rollout_limit:
     num_steps: 50
 
-- name: 02_swap_objects
+- name: swap_objects
   environment:
     type: pick_and_place_maple_table
     embodiment: droid_rel_joint_pos
@@ -29,7 +29,7 @@ runs:
   rollout_limit:
     num_steps: 50
 
-- name: 03_change_background_hdr
+- name: change_background_hdr
   environment:
     type: pick_and_place_maple_table
     embodiment: droid_rel_joint_pos
@@ -41,7 +41,7 @@ runs:
   rollout_limit:
     num_steps: 50
 
-- name: 04_parallel_envs
+- name: parallel_envs
   environment:
     type: pick_and_place_maple_table
     embodiment: droid_rel_joint_pos
