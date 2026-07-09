@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from isaaclab_arena.hydra.arena_experiment import load_arena_experiment_from_yaml
+from isaaclab_arena.hydra.experiment_composition import load_arena_experiment_from_yaml
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function

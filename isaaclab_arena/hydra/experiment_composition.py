@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Hydra composition for typed Arena Experiments."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
