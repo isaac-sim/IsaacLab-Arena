@@ -14,10 +14,10 @@ from pxr import Gf, Usd, UsdGeom
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.object import Object
-from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.object_set import RigidObjectSet
-from isaaclab_arena.relations.background_collision_object import make_fixed_collision_objects
+from isaaclab_arena.relations.background_collision_object import FixedCollisionObject, make_fixed_collision_objects
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
 from isaaclab_arena.utils.pose import Pose
@@ -122,7 +122,9 @@ class Scene:
                 objects_with_relations.append(asset)
         return objects_with_relations
 
-    def get_passive_collision_objects(self, include_background: bool = False) -> list[Any]:
+    def get_passive_collision_objects(
+        self, include_background: bool = False
+    ) -> list[ObjectBase | FixedCollisionObject]:
         """Return relation-free assets that qualify as passive collision obstacles.
 
         A qualifying asset is an Object / ObjectReference that carries no relations (so it is
@@ -132,16 +134,16 @@ class Scene:
         per-env / per-reset or unset pose are skipped.
 
         Args:
-            include_background: If True and mesh extraction succeeds, return one
-                collision-only object with extracted background meshes baked into world coordinates,
-                plus individual meshless non-Background objects for AABB fallback.
+            include_background: If True, combine every mesh-capable passive object into one
+                collision-only object in world coordinates, and keep individual meshless
+                non-Background objects for AABB fallback.
                 When False, whole-scene Background assets are skipped because their AABB spans
                 the full scene and would reject valid layouts.
 
         Returns:
             Passive collision objects for placement loss and validation.
         """
-        collision_objects: list[Object | ObjectReference] = []
+        collision_objects: list[ObjectBase] = []
         for asset in self.assets.values():
             if not isinstance(asset, (Object, ObjectReference)):
                 continue
@@ -180,11 +182,10 @@ class Scene:
             for asset in collision_objects
             if not isinstance(asset, ObjectReference) or asset.parent_asset not in collision_object_set
         ]
-        if not collision_objects:
-            return []
+        passive_collision_objects: list[ObjectBase | FixedCollisionObject] = collision_objects
         if include_background:
-            return make_fixed_collision_objects(collision_objects)
-        return collision_objects
+            passive_collision_objects = make_fixed_collision_objects(collision_objects)
+        return passive_collision_objects
 
     def export_to_usd(self, output_path: pathlib.Path, root_prim_path: str = "/World") -> None:
         """Exports the scene to a USD file.

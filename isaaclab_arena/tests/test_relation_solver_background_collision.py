@@ -93,7 +93,7 @@ def test_background_collision_object_combines_meshes():
     background = collision_objects[0]
 
     assert len(collision_objects) == 1
-    assert background.name == "__fixed_collision_mesh__"
+    assert background.name == "fixed_collision_mesh"
     assert not background.repair_collision_mesh_non_watertight
     assert len(background.get_collision_mesh().split()) == 2
     bounds = background.get_collision_mesh().bounds

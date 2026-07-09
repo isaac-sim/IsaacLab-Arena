@@ -121,7 +121,7 @@ def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, a
 def smoke_test_kitchen_background_collision(simulation_app: SimulationApp) -> bool:
     """Run the demo and assert the aggregate background mesh is used."""
     collision_names = run_kitchen_background_collision_demo(simulation_app, view_steps=2)
-    assert collision_names == ["__fixed_collision_mesh__"], collision_names
+    assert collision_names == ["fixed_collision_mesh"], collision_names
     return True
 
 

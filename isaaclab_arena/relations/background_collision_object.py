@@ -21,16 +21,13 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.relations import RelationBase
 
 
-FIXED_COLLISION_OBJECT_NAME = "__fixed_collision_mesh__"
-
-
 class FixedCollisionObject:
     """Single fixed collision-only object built from multiple fixed meshes."""
 
     def __init__(
         self,
         mesh: trimesh.Trimesh,
-        name: str = FIXED_COLLISION_OBJECT_NAME,
+        name: str = "fixed_collision_mesh",
     ) -> None:
         self.name = name
         self.collision_mode = CollisionMode.MESH
@@ -124,7 +121,7 @@ def _combine_fixed_meshes(objects: Sequence[ObjectBase]) -> tuple[trimesh.Trimes
         pose = obj.get_initial_pose()
         if pose is None and isinstance(obj, Background):
             pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
-        assert isinstance(pose, Pose), f"Background object '{obj.name}' must have a fixed Pose."
+        assert isinstance(pose, Pose), f"Fixed collision object '{obj.name}' must have a fixed Pose."
         meshes.append(_mesh_in_world_frame(mesh, pose))
     if not meshes:
         return None, skipped_objects
