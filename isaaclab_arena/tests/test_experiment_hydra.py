@@ -8,6 +8,8 @@
 from pathlib import Path
 
 import pytest
+from hydra import initialize
+from hydra.core.global_hydra import GlobalHydra
 
 from isaaclab_arena.hydra.experiment_composition import load_arena_experiment_from_yaml
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
@@ -61,6 +63,17 @@ def test_getting_started_experiment_composes_typed_runs():
     assert [run.environment_builder.num_envs for run in runs] == [1, 1, 1, 64]
     assert runs[3].environment_builder.env_spacing == 2.5
     assert [run.rollout_limit.num_steps for run in runs] == [50, 50, 50, 100]
+
+
+def test_experiment_composition_preserves_caller_owned_hydra_context():
+    with initialize(version_base=None, config_path=None):
+        caller_global_hydra = GlobalHydra.instance()
+        caller_hydra = caller_global_hydra.hydra
+
+        _load_experiment(GETTING_STARTED_EXPERIMENT_PATH)
+
+        assert GlobalHydra.instance() is caller_global_hydra
+        assert GlobalHydra.instance().hydra is caller_hydra
 
 
 def _test_getting_started_experiment_executes_baseline_run(simulation_app, output_dir: Path):

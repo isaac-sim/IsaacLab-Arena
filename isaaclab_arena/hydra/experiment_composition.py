@@ -57,6 +57,7 @@ def load_arena_experiment_from_yaml(
     config_store = ConfigStore.instance()
     hydra_config_namespace = f"arena_experiment_{uuid4().hex}"
 
+    # Preserve a caller-owned Hydra context; otherwise create one scoped to this composition call.
     composition_context = (
         nullcontext() if GlobalHydra.instance().is_initialized() else initialize(version_base=None, config_path=None)
     )
