@@ -62,7 +62,6 @@ def _run_cfg_from_legacy_job(
 ) -> ArenaRunCfg:
     """Create one typed run config from a legacy job mapping."""
     assert isinstance(job_config, dict), "each legacy job must be a mapping"
-    assert "status" not in job_config, "legacy job status is runtime state and cannot configure a typed run"
     for required_field in ("name", "arena_env_args", "policy_type"):
         assert required_field in job_config, f"{required_field} is required"
 

@@ -3,12 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Build and execute typed Arena runs and experiments for an evaluation frontend."""
+"""Build and execute typed Arena runs for an evaluation frontend."""
 
 from __future__ import annotations
 
 import os
-import traceback
 from dataclasses import fields, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -31,51 +30,6 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
-
-
-def execute_experiment(
-    run_cfgs: list[ArenaRunCfg],
-    output_dir: str | Path,
-    record_viewport_video: bool = False,
-    record_camera_video: bool = False,
-    continue_on_error: bool = False,
-) -> list[ArenaRunResult]:
-    """Execute an experiment's runs in order and return their results.
-
-    Args:
-        run_cfgs: Ordered run configurations that make up the experiment.
-        output_dir: Directory containing one output subdirectory per run.
-        record_viewport_video: Whether to record the viewport for each run.
-        record_camera_video: Whether to record observation cameras for each run.
-        continue_on_error: Whether to continue with later runs after one fails.
-
-    Returns:
-        One result per attempted run, in execution order.
-    """
-    results = []
-    for run_cfg in run_cfgs:
-        print(f"Running run '{run_cfg.name}'", flush=True)
-        run_output_dir = os.path.join(output_dir, run_cfg.name)
-        try:
-            result = build_and_run(
-                run_cfg,
-                output_dir=run_output_dir,
-                video_cfg=VideoRecordingCfg(
-                    record_viewport_video=record_viewport_video,
-                    record_camera_video=record_camera_video,
-                    video_base_dir=run_output_dir,
-                ),
-            )
-        except Exception as error:
-            results.append(ArenaRunResult(run_name=run_cfg.name, status=RunStatus.FAILED))
-            print(f"Run '{run_cfg.name}' failed with error: {error}")
-            print(f"Traceback: {traceback.format_exc()}")
-            if not continue_on_error:
-                raise
-            continue
-
-        results.append(result)
-    return results
 
 
 def build_and_run(
@@ -132,19 +86,10 @@ def _build_environment_from_cfg(
     render_mode: str | None,
 ) -> gym.Env:
     """Compile and instantiate a run's environment."""
-    arena_builder = build_arena_builder_from_run_cfg(cfg)
-    _, env_cfg, env_kwargs = arena_builder.build_registered()
-    if env_cfg.recorders is not None:
-        env_cfg.recorders.dataset_filename = f"dataset_{cfg.name}"
-    return arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
-
-
-def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg) -> ArenaEnvBuilder:
-    """Build an Arena environment builder from one typed run config."""
     hydra_overrides = overrides_from_dict(cfg.variations)
     # TODO(cvolk, 2026-07-07): [typed-config-migration] Remove the legacy branch when graph environments
     # have typed configs and no longer require the argparse construction path.
-    return (
+    arena_builder = (
         build_arena_builder_from_legacy_graph(
             cfg.environment,
             device=cfg.environment_builder.device,
@@ -154,6 +99,10 @@ def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg) -> ArenaEnvBuilder:
         if isinstance(cfg.environment, LegacyGraphEnvironmentCfg)
         else _build_arena_builder_from_cfg(cfg, hydra_overrides)
     )
+    _, env_cfg, env_kwargs = arena_builder.build_registered()
+    if env_cfg.recorders is not None:
+        env_cfg.recorders.dataset_filename = f"dataset_{cfg.name}"
+    return arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
 
 
 def _build_arena_builder_from_cfg(cfg: ArenaRunCfg, hydra_overrides: list[str]) -> ArenaEnvBuilder:

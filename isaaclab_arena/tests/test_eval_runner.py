@@ -243,39 +243,36 @@ def test_eval_runner_graph_spec_with_variation(tmp_path):
 
 def _test_eval_config_variation_lands_in_events_cfg(simulation_app):
     """Enable a wrist camera extrinsics variation and check that it shows up as an event term in the cfg."""
-    from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
-    from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg
+    from isaaclab_arena.evaluation.eval_runner import load_env
+    from isaaclab_arena.evaluation.job_manager import Job
 
     camera_name = "wrist_camera"
     event_name = f"{camera_name}_extrinsics_variation"
 
-    experiment_config = {
-        "jobs": [{
-            "name": "maple_table_camera_extrinsics",
-            "arena_env_args": {
-                "num_envs": 1,
-                "enable_cameras": True,
-                "environment": "pick_and_place_maple_table",
-                "embodiment": "droid_abs_joint_pos",
-            },
-            "num_steps": NUM_STEPS,
-            "policy_type": "zero_action",
-            "policy_config_dict": {},
-            # Enabling wrist camera extrinsics variation.
-            "variations": {"droid_abs_joint_pos": {f"camera_extrinsics_{camera_name}": {"enabled": True}}},
-        }]
-    }
-    (run_cfg,) = run_cfgs_from_legacy_eval_config(experiment_config, device="cuda:0")
-    arena_builder = build_arena_builder_from_run_cfg(run_cfg)
-    _, env_cfg, env_kwargs = arena_builder.build_registered()
-    env = arena_builder.make_registered(env_cfg, env_kwargs)
+    job = Job.from_dict({
+        "name": "maple_table_camera_extrinsics",
+        "arena_env_args": {
+            "num_envs": 1,
+            "enable_cameras": True,
+            "environment": "pick_and_place_maple_table",
+            "embodiment": "droid_abs_joint_pos",
+        },
+        "num_steps": NUM_STEPS,
+        "policy_type": "zero_action",
+        "policy_config_dict": {},
+        # Enabling wrist camera extrinsics variation.
+        "variations": {"droid_abs_joint_pos": {f"camera_extrinsics_{camera_name}": {"enabled": True}}},
+    })
+
+    env = load_env(job.arena_env_args, job.name, variations=job.variations)
     try:
         env_cfg = env.unwrapped.cfg
         assert hasattr(env_cfg.events, event_name), (
-            f"Variation enabled via the run's variations block must add '{event_name}' to env_cfg.events; "
+            f"Variation enabled via the job's variations block must add '{event_name}' to env_cfg.events; "
             f"got event fields: {sorted(vars(env_cfg.events))}."
         )
         event_cfg = getattr(env_cfg.events, event_name)
+        # load_env() reloads arena modules, so compare by name rather than class identity.
         assert event_cfg.func.__name__ == "apply_camera_extrinsics_from_sampler"
         assert event_cfg.mode == "reset"
         assert event_cfg.params["asset_cfg"].name == camera_name

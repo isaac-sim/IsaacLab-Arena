@@ -20,21 +20,6 @@ from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 
 
-def test_legacy_environment_arguments_keep_cli_order_and_boolean_flags():
-    args = legacy_environment_args_to_cli_args({
-        "environment": "test_env",
-        "object": "box",
-        "num_envs": 4,
-        "headless": True,
-        "enable_cameras": False,
-    })
-
-    assert args[:3] == ["--num_envs", "4", "test_env"]
-    assert args[args.index("--object") + 1] == "box"
-    assert "--headless" in args
-    assert "--enable_cameras" not in args
-
-
 def test_legacy_jobs_become_concrete_run_configs():
     legacy_config = {
         "jobs": [{
@@ -155,19 +140,4 @@ def test_registered_environment_rejects_arguments_missing_from_its_typed_config(
     }
 
     with pytest.raises(AssertionError, match="unknown_environment_field"):
-        run_cfgs_from_legacy_eval_config(legacy_config, device="cpu")
-
-
-def test_legacy_runtime_status_is_not_a_run_configuration():
-    legacy_config = {
-        "jobs": [{
-            "name": "completed_run",
-            "arena_env_args": {"environment": "pick_and_place_maple_table"},
-            "policy_type": "zero_action",
-            "num_steps": 2,
-            "status": "completed",
-        }]
-    }
-
-    with pytest.raises(AssertionError, match="runtime state"):
         run_cfgs_from_legacy_eval_config(legacy_config, device="cpu")
