@@ -74,6 +74,29 @@ class Relation(RelationBase):
 
 
 @register_object_relation
+class FaceTo(RelationBase):
+    """Orients an object's local +X axis toward another object's world XY position.
+
+    This post-solve relation sets a Z-axis yaw and is not a position constraint.
+    The subject's XY position must differ from its target's.
+    """
+
+    name = "face_to"
+
+    def __init__(self, parent: ObjectBase):
+        """
+        Args:
+            parent: Object to face.
+        """
+        self.parent = parent
+
+    @staticmethod
+    def is_unary() -> bool:
+        """Return whether the relation constrains a single object."""
+        return False
+
+
+@register_object_relation
 class NextTo(Relation):
     """Represents a 'next to' relationship between objects.
 

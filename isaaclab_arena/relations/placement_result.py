@@ -30,7 +30,7 @@ class PlacementResult:
     """Number of attempts made."""
 
     orientations: dict[ObjectBase, float] = field(default_factory=dict)
-    """Total applied Z-yaw (radians) per object (marker + sampled). Empty when unrotated."""
+    """Absolute world Z-yaw (radians) per oriented object. Empty when unrotated."""
 
     @property
     def success(self) -> bool:

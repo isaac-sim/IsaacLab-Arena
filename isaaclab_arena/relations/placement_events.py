@@ -131,7 +131,7 @@ def solve_and_place_objects(
         if not result.success:
             print(
                 "Warning: Writing best-loss fallback placement for "
-                f"env {cur_env}; layout failed strict placement validation."
+                f"env {cur_env}; failed checks: {result.validation_results.get_failed_validation_check_names}."
             )
         # only write the non-anchor objects to the sim
         write_layout_to_sim(env, cur_env, result, anchor_objects_set, base_rotations)

@@ -58,6 +58,30 @@ def wrap_angle_to_pi(angle_rad: float) -> float:
     return (angle_rad + math.pi) % (2.0 * math.pi) - math.pi
 
 
+def yaw_toward_positions(
+    subject_positions: torch.Tensor,
+    target_positions: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return Z-yaws from subject positions toward target positions.
+
+    N is the number of position pairs. Directions shorter than 1e-6 m in XY
+    are undefined.
+
+    Args:
+        subject_positions: Subject world positions with shape (N, 3).
+        target_positions: Target world positions with shape (N, 3).
+
+    Returns:
+        A tuple ``(yaws, is_defined)`` of shape-(N,) tensors containing the
+        world Z-yaws and valid-direction mask.
+    """
+    assert subject_positions.shape == target_positions.shape
+    assert subject_positions.ndim == 2 and subject_positions.shape[1] == 3
+    delta_xy = target_positions[:, :2] - subject_positions[:, :2]
+    is_defined = torch.linalg.vector_norm(delta_xy, dim=1) > 1e-6
+    return torch.atan2(delta_xy[:, 1], delta_xy[:, 0]), is_defined
+
+
 def yaw_from_quat_xyzw(quat_xyzw: tuple[float, float, float, float]) -> float:
     """Extract Z-axis yaw (radians) from an (x, y, z, w) quaternion.
 
