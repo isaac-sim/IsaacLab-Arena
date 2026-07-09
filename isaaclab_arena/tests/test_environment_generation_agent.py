@@ -16,8 +16,8 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     RelationCatalogue,
     TaskCatalogue,
 )
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.environments.arena_env_graph_types import TaskCompositionType
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import TaskCompositionType
 
 # ---------------------------------------------------------------------------
 # Fixtures

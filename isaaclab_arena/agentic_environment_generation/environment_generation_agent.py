@@ -21,7 +21,7 @@ from isaaclab_arena.agentic_environment_generation.spec_validation import (
     try_parse_env_graph_spec,
 )
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.relations.relations import RelationBase
 
 # TODO(qianl): This is currently Nvidia internal. Switch to public endpoint.

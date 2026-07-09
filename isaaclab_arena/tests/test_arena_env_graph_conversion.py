@@ -16,8 +16,8 @@ from pathlib import Path
 
 import pytest
 
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.environments.arena_env_graph_types import (
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import (
     AssetSpec,
     CompositeTaskSpec,
     TaskCompositionType,

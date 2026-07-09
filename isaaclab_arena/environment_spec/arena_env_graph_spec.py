@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from isaaclab_arena.environments.arena_env_graph_types import (
+from isaaclab_arena.environment_spec.arena_env_graph_types import (
     AssetSpec,
     CliOverrideSpec,
     CompositeTaskSpec,
@@ -194,6 +194,6 @@ class ArenaEnvGraphSpec(BaseModel):
         Args:
             enable_cameras: Forwarded to the embodiment so its cameras are spawned.
         """
-        from isaaclab_arena.environments.arena_env_graph_conversion_utils import build_arena_env_from_graph_spec
+        from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_arena_env_from_graph_spec
 
         return build_arena_env_from_graph_spec(self, enable_cameras=enable_cameras)

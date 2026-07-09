@@ -8,8 +8,8 @@ from __future__ import annotations
 import html as html_lib
 import yaml
 
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.environments.arena_env_graph_types import AssetSpec, SpatialRelationSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec, SpatialRelationSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnails import render_asset_thumbnail
 
 

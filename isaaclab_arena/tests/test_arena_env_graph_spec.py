@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for :class:`~isaaclab_arena.environments.arena_env_graph_spec.ArenaEnvGraphSpec`."""
+"""Unit tests for :class:`~isaaclab_arena.environment_spec.arena_env_graph_spec.ArenaEnvGraphSpec`."""
 
 from pathlib import Path
 
@@ -12,8 +12,8 @@ from pydantic import ValidationError
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry, TaskRegistry
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.environments.arena_env_graph_types import CliOverrideSpec, TaskCompositionType
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import CliOverrideSpec, TaskCompositionType
 from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On, PositionLimits
 
 TEST_DATA_DIR = Path(__file__).parent / "test_data"

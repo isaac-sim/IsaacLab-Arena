@@ -14,7 +14,7 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.registries import TaskRegistry
 
 if TYPE_CHECKING:
-    from isaaclab_arena.environments.arena_env_graph_types import CompositeTaskSpec, TaskSpec
+    from isaaclab_arena.environment_spec.arena_env_graph_types import CompositeTaskSpec, TaskSpec
 
 
 # Annotation bases that mark a task __init__ kwarg as a graph-node reference.
@@ -26,7 +26,7 @@ NODE_REF_BASES: tuple[type, ...] = (Asset, AffordanceBase)
 
 def build_task_from_spec(task_spec: CompositeTaskSpec, assets_by_node_id: dict[str, Any]) -> Any:
     """Build the root graph task into a live env-level task instance."""
-    from isaaclab_arena.environments.arena_env_graph_types import TaskCompositionType
+    from isaaclab_arena.environment_spec.arena_env_graph_types import TaskCompositionType
 
     if task_spec.composition is TaskCompositionType.ATOMIC:
         return _build_atomic_task_from_spec(

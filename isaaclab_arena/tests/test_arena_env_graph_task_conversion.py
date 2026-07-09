@@ -13,7 +13,7 @@ import pytest
 
 from isaaclab_arena.affordances.affordance_base import AffordanceBase
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.environments import arena_env_graph_task_conversion_utils as conversion
+from isaaclab_arena.environment_spec import arena_env_graph_task_conversion_utils as conversion
 
 
 # An affordance is only ever mixed into an Asset; Placeable stands in for that contract.
@@ -170,7 +170,7 @@ def test_build_task_from_spec_atomic_returns_single_task(monkeypatch):
     registry = type("R", (), {"get_task_by_name": lambda self, _name: FakeTask})()
     monkeypatch.setattr(conversion, "TaskRegistry", lambda: registry)
 
-    from isaaclab_arena.environments.arena_env_graph_types import CompositeTaskSpec, TaskCompositionType, TaskSpec
+    from isaaclab_arena.environment_spec.arena_env_graph_types import CompositeTaskSpec, TaskCompositionType, TaskSpec
 
     spec = CompositeTaskSpec(
         composition=TaskCompositionType.ATOMIC,
@@ -205,7 +205,7 @@ def test_build_task_from_spec_sequential_wraps_multiple_tasks(monkeypatch):
         FakeSequential,
     )
 
-    from isaaclab_arena.environments.arena_env_graph_types import CompositeTaskSpec, TaskCompositionType, TaskSpec
+    from isaaclab_arena.environment_spec.arena_env_graph_types import CompositeTaskSpec, TaskCompositionType, TaskSpec
 
     spec = CompositeTaskSpec(
         composition=TaskCompositionType.SEQUENTIAL,
@@ -232,7 +232,7 @@ def test_build_atomic_task_from_spec_params_task_description_takes_precedence(mo
     registry = type("R", (), {"get_task_by_name": lambda self, _name: FakeTask})()
     monkeypatch.setattr(conversion, "TaskRegistry", lambda: registry)
 
-    from isaaclab_arena.environments.arena_env_graph_types import TaskSpec
+    from isaaclab_arena.environment_spec.arena_env_graph_types import TaskSpec
 
     spec = TaskSpec(
         kind="PickAndPlaceTask",

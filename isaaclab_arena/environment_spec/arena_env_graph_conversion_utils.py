@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING, Any
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
-from isaaclab_arena.environments.arena_env_graph_task_conversion_utils import build_task_from_spec
-from isaaclab_arena.environments.arena_env_graph_types import SpatialRelationSpec
+from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import build_task_from_spec
+from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.utils.pose import Pose
@@ -21,7 +21,7 @@ _DEFAULT_LIGHT_ASSET_NAME = "light"
 _DEFAULT_LIGHT_NODE_ID = "auto_dome_light"
 
 if TYPE_CHECKING:
-    from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
 
 def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False) -> Any:

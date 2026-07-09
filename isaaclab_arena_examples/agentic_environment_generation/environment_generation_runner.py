@@ -43,7 +43,7 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppCont
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
-    from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
 DEFAULT_PROMPT = "Franka picks up a cube from the maple table and places it into a bowl on the table."
 
@@ -142,7 +142,7 @@ def print_schema() -> None:
     """Print the Pydantic ArenaEnvGraphSpec JSON schema."""
     import json
 
-    from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
     print(json.dumps(ArenaEnvGraphSpec.model_json_schema(), indent=2))
 
@@ -195,8 +195,8 @@ def print_env_graph(spec: ArenaEnvGraphSpec) -> None:
 
 def build_env_from_env_graph_spec(env_graph_spec_path: Path, args_cli: argparse.Namespace) -> ManagerBasedEnv:
     """Build a gymnasium env from an environment graph spec YAML."""
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
 
     loaded_env_graph_spec = ArenaEnvGraphSpec.from_yaml(env_graph_spec_path)
     arena_env = loaded_env_graph_spec.to_arena_env()
