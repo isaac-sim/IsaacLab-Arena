@@ -10,76 +10,41 @@ import os
 import subprocess
 import sys
 import tempfile
-import traceback
 from pathlib import Path
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.evaluation.arena_run import RunStatus
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, build_runs_info_table
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
-from isaaclab_arena.evaluation.job_manager import JobManager, Status
 from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
-from isaaclab_arena.evaluation.run_execution import build_and_run
+from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg, execute_experiment
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
-from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir
+from isaaclab_arena.video.video_recording import timestamped_run_dir
 from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
-from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 
-# TODO(cvolk, 2026-07-06): [typed-config-migration] Delete this direct argparse construction helper when
-# callers use typed run configuration through eval_runner.
-def load_env(
-    arena_env_args: list[str],
-    run_name: str,
-    variations: list[str] | None = None,
-    render_mode: str | None = None,
-    language_instruction: str | None = None,
-):
-
-    args_parser = get_isaaclab_arena_environments_cli_parser()
-
-    arena_env_args_cli = args_parser.parse_args(arena_env_args)
-    # Optionally override the language instruction.
-    arena_env_args_cli.language_instruction = language_instruction
-    arena_builder = get_arena_builder_from_cli(arena_env_args_cli, hydra_overrides=variations)
-
-    _, env_cfg, env_kwargs = arena_builder.build_registered()
-
-    # Set a unique dataset filename for this run to avoid file locking conflicts.
-    if env_cfg.recorders is not None:
-        env_cfg.recorders.dataset_filename = f"dataset_{run_name}"
-
-    env = arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
-    # Don't reset here - rollout_policy() will reset the env. Every reset triggers a new episode, initializing recorder & creating a new hdf5 entry.
-    return env
-
-
-def list_variations(experiment_config: dict) -> None:
+# TODO(cvolk): Move experiment-level variation inspection out of this CLI entry point.
+# Run orchestration belongs in evaluation; catalogue formatting belongs in variations.
+def list_variations(run_cfgs: list[ArenaRunCfg]) -> None:
     """Print the Hydra-configurable variations for each run's environment."""
-    job_manager = JobManager(experiment_config["jobs"])
-    for job in job_manager.all_jobs:
-        args_parser = get_isaaclab_arena_environments_cli_parser()
-        arena_env_args_cli = args_parser.parse_args(job.arena_env_args)
-        arena_builder = get_arena_builder_from_cli(arena_env_args_cli, hydra_overrides=job.variations)
-        print(f"=== Variations for run '{job.name}' ===", flush=True)
+    for run_cfg in run_cfgs:
+        arena_builder = build_arena_builder_from_run_cfg(run_cfg)
+        print(f"=== Variations for run '{run_cfg.name}' ===", flush=True)
         print(arena_builder.get_variations_catalogue_as_string(), flush=True)
 
 
-def enable_cameras_if_required(experiment_config: dict, args_cli: argparse.Namespace) -> None:
-    """
-    Check if any run requires cameras and enable them in args_cli if needed. Users can set
-    enable_cameras: true in an individual legacy job mapping, or add --enable_cameras to the CLI.
-    Camera support must be enabled when the simulation starts, not during individual run execution.
+def legacy_json_experiment_requires_cameras(experiment_config: dict) -> bool:
+    """Return whether a legacy JSON Experiment requires camera support.
 
     Args:
-        experiment_config: Legacy experiment mapping containing run configurations under ``jobs``.
-        args_cli: CLI arguments namespace to modify
+        experiment_config: Legacy Experiment mapping containing entries below jobs.
+
+    Returns:
+        Whether any legacy entry enables environment cameras.
     """
-    for job_dict in experiment_config["jobs"]:
-        if "arena_env_args" in job_dict and job_dict["arena_env_args"].get("enable_cameras", False):
-            if not hasattr(args_cli, "enable_cameras") or not args_cli.enable_cameras:
-                args_cli.enable_cameras = True
-            break
+    return any(
+        job_config.get("arena_env_args", {}).get("enable_cameras", False) for job_config in experiment_config["jobs"]
+    )
 
 
 def _run_chunk(chunk_label: str, chunk_jobs: list[dict]) -> int:
@@ -143,10 +108,11 @@ def main():
     with open(args_cli.eval_jobs_config, encoding="utf-8") as f:
         experiment_config = json.load(f)
 
-    # Print the variations catalogue for each job's environment and exit.
+    # Print the variations catalogue for each run's environment and exit.
     if args_cli.list_variations:
         with SimulationAppContext(args_cli):
-            list_variations(experiment_config)
+            run_cfgs = run_cfgs_from_legacy_eval_config(experiment_config, device=args_cli.device)
+            list_variations(run_cfgs)
         return
 
     # Chunked dispatch (--chunk_size N). Splits this config across subprocesses so each
@@ -161,64 +127,42 @@ def main():
         _run_in_chunks(args_cli, experiment_config)
         return
 
-    # Check if any job requires cameras and enable them if needed before starting simulation
-    if args_cli.record_camera_video:
+    # Check if any run requires cameras and enable them if needed before starting simulation.
+    if args_cli.record_camera_video or legacy_json_experiment_requires_cameras(experiment_config):
         args_cli.enable_cameras = True
-    enable_cameras_if_required(experiment_config, args_cli)
 
     with SimulationAppContext(args_cli):
         run_cfgs = run_cfgs_from_legacy_eval_config(
             experiment_config,
             device=args_cli.device,
         )
-        run_cfgs_by_name = {run_cfg.name: run_cfg for run_cfg in run_cfgs}
-        # TODO(cvolk, 2026-07-06): [typed-config-migration] Replace JobManager with typed run results
-        # when the JSON job frontend is removed.
-        job_manager = JobManager(experiment_config["jobs"])
         metrics_logger = MetricsLogger()
 
-        job_manager.print_jobs_info()
+        print(build_runs_info_table(run_cfgs, []))
 
         # One reverse-dated output directory for the experiment; each legacy job/run
         # gets a subdirectory within it. Always date it so each invocation produces
         # its own report directory, recording or not.
         # TODO(alexmillane): Currently each chunk produces its own output directory.
         # We should use the same output directory for all chunks in the future.
-        experiment_output_dir = timestamped_run_dir(args_cli.output_base_dir)
+        experiment_output_dir = Path(timestamped_run_dir(args_cli.output_base_dir))
 
         if args_cli.record_viewport_video:
             os.makedirs(experiment_output_dir, exist_ok=True)
             print(f"[INFO] Video recording enabled. Videos will be saved to: {experiment_output_dir}")
 
-        for job in job_manager:
-            if job is None:
-                continue
-            run_cfg = run_cfgs_by_name[job.name]
-            run_output_dir = os.path.join(experiment_output_dir, job.name)
-            try:
-                result = build_and_run(
-                    run_cfg,
-                    output_dir=run_output_dir,
-                    video_cfg=VideoRecordingCfg(
-                        record_viewport_video=args_cli.record_viewport_video,
-                        record_camera_video=args_cli.record_camera_video,
-                        video_base_dir=run_output_dir,
-                    ),
-                )
-            except Exception as error:
-                job_manager.complete_job(job, metrics={}, status=Status.FAILED)
-                print(f"Job {job.name} failed with error: {error}")
-                print(f"Traceback: {traceback.format_exc()}")
-                if not args_cli.continue_on_error:
-                    raise
-                continue
-
-            status = Status.COMPLETED if result.status is RunStatus.COMPLETED else Status.FAILED
-            job_manager.complete_job(job, metrics=result.metrics or {}, status=status)
+        results = execute_experiment(
+            run_cfgs,
+            output_dir=experiment_output_dir,
+            record_viewport_video=args_cli.record_viewport_video,
+            record_camera_video=args_cli.record_camera_video,
+            continue_on_error=args_cli.continue_on_error,
+        )
+        for result in results:
             if result.metrics is not None:
-                metrics_logger.append_job_metrics(job.name, result.metrics)
+                metrics_logger.append_job_metrics(result.run_name, result.metrics)
 
-        job_manager.print_jobs_info()
+        print(build_runs_info_table(run_cfgs, results))
         metrics_logger.print_metrics()
 
         # Write HTML report.
