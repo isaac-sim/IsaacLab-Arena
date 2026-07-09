@@ -11,11 +11,9 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from prettytable import PrettyTable
 
-from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, build_runs_info_table
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
 from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg, execute_experiment
@@ -35,51 +33,18 @@ def list_variations(run_cfgs: list[ArenaRunCfg]) -> None:
         print(arena_builder.get_variations_catalogue_as_string(), flush=True)
 
 
-def print_runs_info(run_cfgs: list[ArenaRunCfg], results: list[ArenaRunResult]) -> None:
-    """Print the configuration and current status of every experiment run."""
-    results_by_name = {result.run_name: result for result in results}
-    table = PrettyTable(
-        field_names=[
-            "Run Name",
-            "Status",
-            "Policy Type",
-            "Num Envs",
-            "Num Steps",
-            "Num Episodes",
-            "Num Rebuilds",
-        ]
-    )
-    policy_registry = PolicyRegistry()
-    for run_cfg in run_cfgs:
-        result = results_by_name.get(run_cfg.name)
-        policy_type = policy_registry.get_policy_type_for_cfg(run_cfg.policy)
-        table.add_row([
-            run_cfg.name,
-            result.status.value if result is not None else "pending",
-            policy_type.name,
-            run_cfg.environment_builder.num_envs,
-            run_cfg.rollout_limit.num_steps,
-            run_cfg.rollout_limit.num_episodes,
-            run_cfg.num_rebuilds,
-        ])
-    print(table)
-
-
-def enable_cameras_if_required(experiment_config: dict, args_cli: argparse.Namespace) -> None:
-    """
-    Check if any run requires cameras and enable them in args_cli if needed. Users can set
-    enable_cameras: true in an individual legacy job mapping, or add --enable_cameras to the CLI.
-    Camera support must be enabled when the simulation starts, not during individual run execution.
+def legacy_json_experiment_requires_cameras(experiment_config: dict) -> bool:
+    """Return whether a legacy JSON Experiment requires camera support.
 
     Args:
-        experiment_config: Legacy experiment mapping containing run configurations under ``jobs``.
-        args_cli: CLI arguments namespace to modify
+        experiment_config: Legacy Experiment mapping containing entries below jobs.
+
+    Returns:
+        Whether any legacy entry enables environment cameras.
     """
-    for job_dict in experiment_config["jobs"]:
-        if "arena_env_args" in job_dict and job_dict["arena_env_args"].get("enable_cameras", False):
-            if not hasattr(args_cli, "enable_cameras") or not args_cli.enable_cameras:
-                args_cli.enable_cameras = True
-            break
+    return any(
+        job_config.get("arena_env_args", {}).get("enable_cameras", False) for job_config in experiment_config["jobs"]
+    )
 
 
 def _run_chunk(chunk_label: str, chunk_jobs: list[dict]) -> int:
@@ -163,9 +128,8 @@ def main():
         return
 
     # Check if any run requires cameras and enable them if needed before starting simulation.
-    if args_cli.record_camera_video:
+    if args_cli.record_camera_video or legacy_json_experiment_requires_cameras(experiment_config):
         args_cli.enable_cameras = True
-    enable_cameras_if_required(experiment_config, args_cli)
 
     with SimulationAppContext(args_cli):
         run_cfgs = run_cfgs_from_legacy_eval_config(
@@ -174,14 +138,14 @@ def main():
         )
         metrics_logger = MetricsLogger()
 
-        print_runs_info(run_cfgs, [])
+        print(build_runs_info_table(run_cfgs, []))
 
         # One reverse-dated output directory for the experiment; each legacy job/run
         # gets a subdirectory within it. Always date it so each invocation produces
         # its own report directory, recording or not.
         # TODO(alexmillane): Currently each chunk produces its own output directory.
         # We should use the same output directory for all chunks in the future.
-        experiment_output_dir = timestamped_run_dir(args_cli.output_base_dir)
+        experiment_output_dir = Path(timestamped_run_dir(args_cli.output_base_dir))
 
         if args_cli.record_viewport_video:
             os.makedirs(experiment_output_dir, exist_ok=True)
@@ -198,7 +162,7 @@ def main():
             if result.metrics is not None:
                 metrics_logger.append_job_metrics(result.run_name, result.metrics)
 
-        print_runs_info(run_cfgs, results)
+        print(build_runs_info_table(run_cfgs, results))
         metrics_logger.print_metrics()
 
         # Write HTML report.

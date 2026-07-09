@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 def execute_experiment(
     run_cfgs: list[ArenaRunCfg],
-    output_dir: str | Path,
+    output_dir: Path,
     record_viewport_video: bool = False,
     record_camera_video: bool = False,
     continue_on_error: bool = False,
@@ -55,7 +55,7 @@ def execute_experiment(
     results = []
     for run_cfg in run_cfgs:
         print(f"Running run '{run_cfg.name}'", flush=True)
-        run_output_dir = os.path.join(output_dir, run_cfg.name)
+        run_output_dir = output_dir / run_cfg.name
         try:
             result = build_and_run(
                 run_cfg,
@@ -63,13 +63,13 @@ def execute_experiment(
                 video_cfg=VideoRecordingCfg(
                     record_viewport_video=record_viewport_video,
                     record_camera_video=record_camera_video,
-                    video_base_dir=run_output_dir,
+                    video_base_dir=str(run_output_dir),
                 ),
             )
         except Exception as error:
             results.append(ArenaRunResult(run_name=run_cfg.name, status=RunStatus.FAILED))
-            print(f"Run '{run_cfg.name}' failed with error: {error}")
-            print(f"Traceback: {traceback.format_exc()}")
+            print(f"Run '{run_cfg.name}' failed with error: {error}", flush=True)
+            print(f"Traceback: {traceback.format_exc()}", flush=True)
             if not continue_on_error:
                 raise
             continue

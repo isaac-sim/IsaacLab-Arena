@@ -155,8 +155,8 @@ def test_execute_experiment_runs_in_declaration_order(monkeypatch, tmp_path):
 
     assert [result.run_name for result in results] == ["first", "second"]
     assert received == [
-        ("first", str(tmp_path / "first"), str(tmp_path / "first")),
-        ("second", str(tmp_path / "second"), str(tmp_path / "second")),
+        ("first", tmp_path / "first", str(tmp_path / "first")),
+        ("second", tmp_path / "second", str(tmp_path / "second")),
     ]
 
 
