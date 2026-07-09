@@ -11,7 +11,6 @@ from collections.abc import Mapping
 from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
 
 from hydra import compose, initialize
 from hydra.core.config_store import ConfigStore
@@ -55,7 +54,8 @@ def load_arena_experiment_from_yaml(
     """
     run_values_by_name = _read_and_validate_yaml_run_values(yaml_path)
     config_store = ConfigStore.instance()
-    hydra_config_namespace = f"arena_experiment_{uuid4().hex}"
+    # Reuse these internal names so repeated loads replace their process-global ConfigStore entries.
+    hydra_config_namespace = "isaaclab_arena_experiment_composition"
 
     # Preserve a caller-owned Hydra context; otherwise create one scoped to this composition call.
     composition_context = (
