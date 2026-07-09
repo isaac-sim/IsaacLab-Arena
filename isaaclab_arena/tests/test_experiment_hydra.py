@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from hydra import initialize
+from hydra.core.config_store import ConfigStore
 from hydra.core.global_hydra import GlobalHydra
 
 from isaaclab_arena.hydra.experiment_composition import load_arena_experiment_from_yaml
@@ -74,6 +75,46 @@ def test_experiment_composition_preserves_caller_owned_hydra_context():
 
         assert GlobalHydra.instance() is caller_global_hydra
         assert GlobalHydra.instance().hydra is caller_hydra
+
+
+def test_repeated_composition_reuses_config_store_entries(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+runs:
+  - name: first
+    environment:
+      type: pick_and_place_maple_table
+      light_intensity: 600.0
+    policy:
+      type: zero_action
+""",
+    )
+
+    with initialize(version_base=None, config_path=None):
+        first_experiment = _load_experiment(config_path)
+        config_store_names_after_first_load = set(ConfigStore.instance().repo)
+
+        _write_experiment(
+            tmp_path,
+            """
+runs:
+  - name: second
+    environment:
+      type: pick_and_place_maple_table
+      light_intensity: 700.0
+    policy:
+      type: zero_action
+""",
+        )
+        second_experiment = _load_experiment(config_path)
+
+        assert set(ConfigStore.instance().repo) == config_store_names_after_first_load
+
+    assert first_experiment[0].name == "first"
+    assert first_experiment[0].environment.light_intensity == 600.0
+    assert second_experiment[0].name == "second"
+    assert second_experiment[0].environment.light_intensity == 700.0
 
 
 def _test_getting_started_experiment_executes_baseline_run(simulation_app, output_dir: Path):
