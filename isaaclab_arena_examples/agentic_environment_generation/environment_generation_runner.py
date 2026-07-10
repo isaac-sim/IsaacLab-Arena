@@ -45,7 +45,7 @@ if TYPE_CHECKING:
 
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
-DEFAULT_PROMPT = "Franka picks up a rubiks cube from the maple table and places it into a bowl on the table."
+DEFAULT_PROMPT = "Franka picks up a cube from the maple table and places it into a bowl on the table."
 
 
 def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None:
@@ -113,7 +113,7 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path:
     if args_cli.model:
         agent_kwargs["model"] = args_cli.model
     agent = EnvironmentGenerationAgent(**agent_kwargs)
-    spec, data = agent.generate_spec(
+    env_graph_spec, data = agent.generate_spec(
         args_cli.prompt,
         asset_catalog=asset_catalog,
         relation_catalog=relation_catalog,
@@ -122,19 +122,19 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path:
     # last_validation_traces holds one line per failure, e.g.
     #   "embodiment.registry_name: Unknown asset registry_name 'not_a_real_asset'"
     #   "Task 'PickAndPlaceTask' is missing required param 'pick_up_object'"
-    if spec is None:
+    if env_graph_spec is None:
         print("\n[runner] validation traces:", flush=True)
         for line in agent.last_validation_traces:
             print(f"  {line}", flush=True)
         invalid_path = write_env_graph_dict(data, args_cli.out_dir)
         print(f"[runner] wrote invalid spec YAML to {invalid_path}", flush=True)
         assert False, f"Agent returned an invalid spec. Validation traces: {agent.last_validation_traces}"
-    print_env_graph(spec)
+    print_env_graph(env_graph_spec)
     print(
-        f"[runner] generated → {spec.summary()}, env_name={spec.env_name!r}",
+        f"[runner] generated → {env_graph_spec.summary()}, env_name={env_graph_spec.env_name!r}",
         flush=True,
     )
-    path = write_env_graph_spec(spec, args_cli.out_dir)
+    path = write_env_graph_spec(env_graph_spec, args_cli.out_dir)
     print(f"[runner] wrote environment graph spec → {path}", flush=True)
     return path
 
