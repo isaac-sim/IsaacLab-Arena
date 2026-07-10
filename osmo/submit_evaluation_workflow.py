@@ -14,22 +14,24 @@ Select the policy with ``--policy``:
 Usage examples:
 
     # Zero-action policy runner
-    python osmo/submit_evaluation_workflow.py \
+    python -m osmo.submit_evaluation_workflow \
         --policy zero_action \
-        --arena_env_args 'kitchen_pick_and_place --object cracker_box --embodiment franka_ik'
+        --arena_env kitchen_pick_and_place \
+        --arena_env_args '--object cracker_box --embodiment franka_ik'
 
     # pi0 policy runner + server
-    python osmo/submit_evaluation_workflow.py \
+    python -m osmo.submit_evaluation_workflow \
         --policy pi0 \
-        --arena_env_args 'kitchen_pick_and_place --object cracker_box --embodiment franka_ik'
+        --arena_env kitchen_pick_and_place \
+        --arena_env_args '--object cracker_box --embodiment franka_ik'
 
     # GR00T policy runner + server
-    python osmo/submit_evaluation_workflow.py \
+    python -m osmo.submit_evaluation_workflow \
         --policy gr00t \
-        --arena_env_args 'kitchen_pick_and_place --object cracker_box'
+        --arena_env kitchen_pick_and_place
 
     # Dry run (print rendered YAML without submitting)
-    python osmo/submit_evaluation_workflow.py --policy zero_action --arena_env_args '...' --dry-run
+    python -m osmo.submit_evaluation_workflow --policy zero_action --arena_env ... --dry_run
 """
 
 from __future__ import annotations
@@ -37,9 +39,10 @@ from __future__ import annotations
 import argparse
 import sys
 
-from workflows.server_plus_policy_runner_workflow import Gr00tPolicyRunnerWorkflow, Pi0PlusPolicyRunnerWorkflow
-from workflows.workflow import Workflow
-from workflows.zero_action_policy_runner_workflow import ZeroActionPolicyRunnerWorkflow
+from isaaclab_arena.cli.dataclass_cli import add_dataclass_cli_args, dataclass_from_cli
+from osmo.workflows.server_plus_policy_runner_workflow import Gr00tPolicyRunnerWorkflow, Pi0PlusPolicyRunnerWorkflow
+from osmo.workflows.workflow import Workflow, WorkflowCfg
+from osmo.workflows.zero_action_policy_runner_workflow import ZeroActionPolicyRunnerWorkflow
 
 POLICIES: dict[str, type[Workflow]] = {
     "zero_action": ZeroActionPolicyRunnerWorkflow,
@@ -49,21 +52,26 @@ POLICIES: dict[str, type[Workflow]] = {
 
 
 def main(cli_args: list[str] | None = None) -> int:
-    # Resolve --policy first so we can build the parser for the selected workflow's tasks.
+    # Resolve --policy first so we can generate the flags for the selected workflow's task config.
     policy_parser = argparse.ArgumentParser(add_help=False)
     policy_parser.add_argument("--policy", choices=POLICIES, required=True)
     policy_args, _ = policy_parser.parse_known_args(cli_args)
     workflow_cls = POLICIES[policy_args.policy]
 
-    parser = workflow_cls.build_parser(
+    parser = argparse.ArgumentParser(
         description="Configure and submit an Isaac Lab Arena policy-runner OSMO workflow.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
     parser.add_argument("--policy", choices=POLICIES, required=True, help="Which policy-runner workflow to submit")
+    add_dataclass_cli_args(parser, WorkflowCfg)
+    add_dataclass_cli_args(parser, workflow_cls.task_cfg_type)
     args = parser.parse_args(cli_args)
 
-    workflow = workflow_cls(workflow_args=args, task_args=args)
-    return workflow.submit_workflow(dry_run=args.dry_run, pool=args.pool, priority=args.priority)
+    workflow_cfg = dataclass_from_cli(WorkflowCfg, args)
+    task_cfg = dataclass_from_cli(workflow_cls.task_cfg_type, args)
+    workflow = workflow_cls(workflow_cfg=workflow_cfg, task_cfg=task_cfg)
+    return workflow.submit_workflow()
 
 
 if __name__ == "__main__":
