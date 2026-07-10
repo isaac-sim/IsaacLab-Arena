@@ -17,6 +17,20 @@ OBJECT_SET_JUG_PRIM_PATH = "/World/envs/env_.*/ObjectSet_Jug"
 OBJECT_SET_BOTTLES_PRIM_PATH = "/World/envs/env_.*/ObjectSet_Bottles"
 
 
+def _get_current_stage():
+    """Return ``get_current_stage`` across Isaac Lab versions.
+
+    The public Isaac Lab 3.0.0b2 wheel exposes it at ``isaaclab.sim.utils.stage``; the
+    Docker submodule build only has the ``isaacsim.core.utils.stage`` location. Remove
+    this shim once the two Isaac Lab versions converge.
+    """
+    try:
+        from isaaclab.sim.utils.stage import get_current_stage
+    except ImportError:
+        from isaacsim.core.utils.stage import get_current_stage
+    return get_current_stage()
+
+
 def _make_object_set_variants():
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_base import ObjectType
@@ -174,8 +188,6 @@ def _run_pick_and_place_object_set_test(
     initial_pose=None,
 ):
     """Build env with one object set and PickAndPlaceTask, run common assertions, close. path_contains: str or list[str] of length NUM_ENVS."""
-    from isaacsim.core.utils.stage import get_current_stage
-
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
@@ -208,7 +220,7 @@ def _run_pick_and_place_object_set_test(
         for i in range(NUM_ENVS):
             path = get_asset_usd_path_from_prim_path(
                 prim_path=object_set_prim_path.replace(".*", str(i)),
-                stage=get_current_stage(),
+                stage=_get_current_stage(),
             )
             assert path is not None, "Path is None"
             assert path_contains[i] in path, f"Path does not contain {path_contains[i]!r}: {path}"
@@ -250,8 +262,6 @@ def _test_articulation_object_set(simulation_app):
 
 
 def _test_single_object_in_one_object_set(simulation_app):
-    from isaacsim.core.utils.stage import get_current_stage
-
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.registries import AssetRegistry
@@ -295,7 +305,7 @@ def _test_single_object_in_one_object_set(simulation_app):
         for i in range(NUM_ENVS):
             # Construct the actual prim path for this environment
             path = get_asset_usd_path_from_prim_path(
-                prim_path=OBJECT_SET_1_PRIM_PATH.replace(".*", str(i)), stage=get_current_stage()
+                prim_path=OBJECT_SET_1_PRIM_PATH.replace(".*", str(i)), stage=_get_current_stage()
             )
             assert path is not None, "Path is None"
             assert "cracker_box.usd" in path, "Path does not contain cracker_box.usd"
@@ -315,8 +325,6 @@ def _test_single_object_in_one_object_set(simulation_app):
 
 
 def _test_multi_objects_in_one_object_set(simulation_app):
-    from isaacsim.core.utils.stage import get_current_stage
-
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.registries import AssetRegistry
@@ -368,7 +376,7 @@ def _test_multi_objects_in_one_object_set(simulation_app):
         for i in range(NUM_ENVS):
 
             path = get_asset_usd_path_from_prim_path(
-                prim_path=OBJECT_SET_2_PRIM_PATH.replace(".*", str(i)), stage=get_current_stage()
+                prim_path=OBJECT_SET_2_PRIM_PATH.replace(".*", str(i)), stage=_get_current_stage()
             )
             assert path is not None, "Path is None"
             object_paths.append(path)
@@ -389,8 +397,6 @@ def _test_multi_objects_in_one_object_set(simulation_app):
 
 
 def _test_multi_object_sets(simulation_app):
-    from isaacsim.core.utils.stage import get_current_stage
-
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
@@ -431,10 +437,10 @@ def _test_multi_object_sets(simulation_app):
         for i in range(NUM_ENVS):
 
             path_1 = get_asset_usd_path_from_prim_path(
-                prim_path=OBJECT_SET_1_PRIM_PATH.replace(".*", str(i)), stage=get_current_stage()
+                prim_path=OBJECT_SET_1_PRIM_PATH.replace(".*", str(i)), stage=_get_current_stage()
             )
             path_2 = get_asset_usd_path_from_prim_path(
-                prim_path=OBJECT_SET_2_PRIM_PATH.replace(".*", str(i)), stage=get_current_stage()
+                prim_path=OBJECT_SET_2_PRIM_PATH.replace(".*", str(i)), stage=_get_current_stage()
             )
             object_1_paths.append(path_1)
             object_2_paths.append(path_2)

@@ -10,7 +10,7 @@ import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task

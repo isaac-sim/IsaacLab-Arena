@@ -50,7 +50,7 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
     def build(self, cfg: GR1PutAndCloseDoorEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
         from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
-        from isaaclab.utils import configclass
+        from isaaclab.utils.configclass import configclass
 
         from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
         from isaaclab_arena.assets.object_set import RigidObjectSet

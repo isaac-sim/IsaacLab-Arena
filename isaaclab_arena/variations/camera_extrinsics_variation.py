@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.sensors import Camera, TiledCamera
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 from isaaclab.utils.math import quat_apply
 
 from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
@@ -142,6 +142,13 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
             # method claims to return w,x,y,z, but it actually returns x,y,z,w.
             # I am testing this in the test test_isaaclab_bug_get_local_poses.py.
             t_parent_C, q_parent_C_xyzw = view.get_local_poses()
+            # NOTE: the public Isaac Lab 3.0.0b2 wheel returns warp ProxyArrays from
+            # get_local_poses() (`.torch` converts); the Docker submodule build returns
+            # torch Tensors. Remove this shim once the two Isaac Lab versions converge.
+            if not isinstance(t_parent_C, torch.Tensor):
+                t_parent_C = t_parent_C.torch
+            if not isinstance(q_parent_C_xyzw, torch.Tensor):
+                q_parent_C_xyzw = q_parent_C_xyzw.torch
             self._t_parent_C_in_parent = t_parent_C.detach().clone()
             self._q_parent_C_xyzw = q_parent_C_xyzw.detach().clone()
 
@@ -163,4 +170,5 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
         t_parent_Cnew_in_parent = self._t_parent_C_in_parent[env_ids] + t_C_Cnew_in_parent
 
         # Apply the the sim.
-        view.set_local_poses(translations=t_parent_Cnew_in_parent, orientations=None, indices=env_ids.tolist())
+        view_indices = env_ids.detach().to(device="cpu", dtype=torch.int32).contiguous()
+        view.set_local_poses(translations=t_parent_Cnew_in_parent, orientations=None, indices=view_indices)
