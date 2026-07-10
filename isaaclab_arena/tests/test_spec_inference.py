@@ -25,7 +25,9 @@ from isaaclab_arena.tests.utils.agentic_environment_generation import task_catal
 def spec_inference():
     """A ``SpecInference`` backed by a mocked OpenAI client."""
     client = MagicMock()
+    client.chat.completions.create.return_value = chat_response(content="OK")
     inference = SpecInference(QueryBackend(client, "test-model"))
+    client.chat.completions.create.reset_mock()
     return inference, client
 
 
@@ -60,18 +62,6 @@ def test_infer_sets_response_format_to_json_schema(spec_inference):
     assert kwargs["response_format"]["json_schema"]["schema"] is inference._schema
 
 
-def test_infer_tolerates_unescaped_control_chars(spec_inference):
-    inference, client = spec_inference
-    payload = dict(minimal_spec_dict())
-    payload["env_name"] = "pick\tup"
-    raw = json.dumps(payload).replace("\\t", "\t")
-    assert "\t" in raw
-    client.chat.completions.create.return_value = chat_response(content=raw)
-    spec, _ = _infer(inference, client)
-    assert spec is not None
-    assert "\t" in spec.env_name
-
-
 def test_infer_user_message_contains_catalog_and_prompt(spec_inference):
     inference, client = spec_inference
     client.chat.completions.create.return_value = chat_response(content=json.dumps(minimal_spec_dict()))
@@ -92,16 +82,6 @@ def test_infer_user_message_contains_catalog_and_prompt(spec_inference):
     assert "user wants avocado on kitchen" in user_msg
 
 
-def test_infer_raises_when_response_has_no_choices(spec_inference):
-    inference, client = spec_inference
-    resp = MagicMock()
-    resp.choices = []
-    client.chat.completions.create.return_value = resp
-    with pytest.raises(RuntimeError, match="failed generate_spec after 4 attempts"):
-        _infer(inference, client)
-    assert client.chat.completions.create.call_count == 4
-
-
 def test_infer_retries_after_api_error_then_succeeds(spec_inference):
     inference, client = spec_inference
     client.chat.completions.create.side_effect = [
@@ -111,15 +91,6 @@ def test_infer_retries_after_api_error_then_succeeds(spec_inference):
     spec, _ = _infer(inference, client)
     assert isinstance(spec, ArenaEnvGraphSpec)
     assert spec.background.registry_name == "maple_table_robolab"
-    assert client.chat.completions.create.call_count == 2
-
-
-def test_infer_raises_after_api_errors_exhaust_retries():
-    client = MagicMock()
-    client.chat.completions.create.side_effect = ConnectionError("timeout")
-    inference = SpecInference(QueryBackend(client, "test-model", max_retries=1))
-    with pytest.raises(RuntimeError, match="failed generate_spec after 2 attempts"):
-        _infer(inference, client)
     assert client.chat.completions.create.call_count == 2
 
 

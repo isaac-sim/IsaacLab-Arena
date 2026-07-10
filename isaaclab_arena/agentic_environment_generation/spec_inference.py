@@ -11,8 +11,11 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from isaaclab_arena.agentic_environment_generation.agent_utils import build_strict_schema
-from isaaclab_arena.agentic_environment_generation.query_backend import QueryBackend, StructuredOutputRequest
+from isaaclab_arena.agentic_environment_generation.query_backend import (
+    QueryBackend,
+    StructuredOutputRequest,
+    build_strict_schema,
+)
 from isaaclab_arena.agentic_environment_generation.spec_validation import (
     collect_agent_ready_task_validation_traces,
     format_validation_error,

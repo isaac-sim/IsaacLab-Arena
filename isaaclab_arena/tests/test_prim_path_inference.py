@@ -43,8 +43,11 @@ def test_prim_path_inference_infer_merges_llm_output(mock_resolve_usd, mock_load
     mock_resolve_usd.return_value = "/tmp/scene.usd"
     mock_load_tree.return_value = kitchen_prim_tree()
     client = MagicMock()
+    client.chat.completions.create.return_value = chat_response(content="OK")
+    backend = QueryBackend(client, "test-model")
     client.chat.completions.create.return_value = chat_response(json.dumps(kitchen_resolve_response()))
-    inference = PrimPathInference(QueryBackend(client, "test-model"))
+    client.chat.completions.create.reset_mock()
+    inference = PrimPathInference(backend)
     spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
     merged = inference.infer(spec, [])
     client.chat.completions.create.assert_called_once()
@@ -64,8 +67,11 @@ def test_prim_path_inference_strips_leading_slash(mock_resolve_usd, mock_load_tr
     for ref in response["object_references"]:
         ref["prim_path"] = "/" + ref["prim_path"]
     client = MagicMock()
+    client.chat.completions.create.return_value = chat_response(content="OK")
+    backend = QueryBackend(client, "test-model")
     client.chat.completions.create.return_value = chat_response(json.dumps(response))
-    inference = PrimPathInference(QueryBackend(client, "test-model"))
+    client.chat.completions.create.reset_mock()
+    inference = PrimPathInference(backend)
     spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
     merged = inference.infer(spec, [])
     counter = next(ref for ref in merged.object_references if ref.id == "counter_top")
@@ -123,8 +129,11 @@ def test_prim_path_inference_infer_records_invalid_llm_output(
     mock_resolve_usd.return_value = "/tmp/scene.usd"
     mock_load_tree.return_value = kitchen_prim_tree()
     client = MagicMock()
+    client.chat.completions.create.return_value = chat_response(content="OK")
+    backend = QueryBackend(client, "test-model")
     client.chat.completions.create.return_value = chat_response(json.dumps(response))
-    inference = PrimPathInference(QueryBackend(client, "test-model"))
+    client.chat.completions.create.reset_mock()
+    inference = PrimPathInference(backend)
     spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
     traces: list[str] = []
     result = inference.infer(spec, traces)

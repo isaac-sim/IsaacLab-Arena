@@ -13,7 +13,6 @@ from typing import Any
 
 from openai import OpenAI
 
-from isaaclab_arena.agentic_environment_generation.agent_utils import ping
 from isaaclab_arena.agentic_environment_generation.prim_path_inference import PrimPathInference
 from isaaclab_arena.agentic_environment_generation.query_backend import QueryBackend
 from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
@@ -226,16 +225,14 @@ class EnvironmentGenerationAgent:
                 (network errors, timeouts, empty responses, malformed JSON). Each
                 retry is a fresh API call.
         """
-        self.api_key = api_key or os.getenv("NV_API_KEY")
-        assert self.api_key, "API key required: set NV_API_KEY or pass api_key."
-        self.model = model or DEFAULT_MODEL
-        base_url = base_url or DEFAULT_BASE_URL
-        self.client = OpenAI(api_key=self.api_key, base_url=base_url)
-        # Validate basic connection and key authentication.
-        ping(self.client, self.model)
+        api_key = api_key or os.getenv("NV_API_KEY")
+        assert api_key, "API key required: set NV_API_KEY or pass api_key."
+        resolved_model = model or DEFAULT_MODEL
+        resolved_base_url = base_url or DEFAULT_BASE_URL
+        client = OpenAI(api_key=api_key, base_url=resolved_base_url)
         query_backend = QueryBackend(
-            self.client,
-            self.model,
+            client,
+            resolved_model,
             temperature=temperature,
             max_tokens=max_tokens,
             max_retries=max_retries,

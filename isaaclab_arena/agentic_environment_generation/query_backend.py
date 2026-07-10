@@ -7,13 +7,85 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from dataclasses import dataclass
 from typing import Any
 
-from isaaclab_arena.agentic_environment_generation.agent_utils import extract_response_text
+from pydantic import BaseModel
 
 MAX_RETRIES_LIMIT = 10
+
+
+def _ping(client: Any, model: str) -> str:
+    """Smoke-test the endpoint + API key + model with a minimal request.
+
+    Args:
+        client: An OpenAI-compatible client (typically
+            ``openai.OpenAI`` or a compatible mock).
+        model: Model identifier forwarded to
+            ``client.chat.completions.create(model=...)``.
+
+    Returns:
+        The model's response text.
+    """
+    # TODO(qianl): wrap with transient-error retry.
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": "Respond with exactly: OK"}],
+        temperature=0,
+        max_tokens=8,
+    )
+    choices = getattr(resp, "choices", None) or []
+    assert choices, (
+        f"ping to model {model!r} returned HTTP 200 with no choices "
+        "(content filter / guardrail / rate-limit response with empty body)."
+    )
+    return choices[0].message.content or ""
+
+
+def build_strict_schema(model_cls: type[BaseModel]) -> dict[str, Any]:
+    """Return ``model_cls``'s JSON schema munged for OpenAI strict mode."""
+    schema = copy.deepcopy(model_cls.model_json_schema())
+    _apply_strict_constraints(schema)
+    return schema
+
+
+def _apply_strict_constraints(node: Any) -> None:
+    """Recursively apply OpenAI strict-mode constraints to a JSON-schema node."""
+    if isinstance(node, dict):
+        if node.get("type") == "object" and "properties" in node:
+            node["additionalProperties"] = False
+            node["required"] = list(node["properties"].keys())
+        # Strict mode forbids ``default`` keys (every field is required, so
+        # defaults can never apply). Drop them defensively at every level.
+        node.pop("default", None)
+        for v in node.values():
+            _apply_strict_constraints(v)
+    elif isinstance(node, list):
+        for v in node:
+            _apply_strict_constraints(v)
+
+
+def _extract_response_text(message: Any) -> tuple[str, str]:
+    """Pull the agent's structured-output text from the chat-completion message.
+
+    Returns ``(text, route)`` where ``route`` is one of:
+
+      * ``"content"`` — the standard OpenAI-compatible channel.
+      * ``"reasoning_content"`` — NVIDIA DeepSeek's provider-specific
+        channel; the model emits structured outputs here instead of
+        ``content``. We treat it as equivalent.
+      * ``"empty"`` — both channels were empty / missing; the caller
+        should surface a clear error.
+    """
+    content = getattr(message, "content", None)
+    if content:
+        return content, "content"
+    reasoning = getattr(message, "reasoning_content", None)
+    if reasoning:
+        return reasoning, "reasoning_content"
+    return "", "empty"
 
 
 @dataclass(frozen=True)
@@ -56,6 +128,17 @@ class QueryBackend:
         self._temperature = temperature
         self._max_tokens = max_tokens
         self._max_retries = max_retries
+        _ping(client, model)
+
+    @property
+    def model(self) -> str:
+        """Model identifier passed to completion requests."""
+        return self._model
+
+    @property
+    def client(self) -> Any:
+        """OpenAI-compatible client used for completion requests."""
+        return self._client
 
     def run_json(self, request: StructuredOutputRequest) -> dict[str, Any]:
         """Call a JSON-schema structured-output endpoint and parse the response as JSON.
@@ -94,7 +177,7 @@ class QueryBackend:
                     f"Model {self._model!r} returned HTTP 200 with no choices "
                     "(content filter / guardrail / rate-limit response with empty body)."
                 )
-                text, route = extract_response_text(choices[0].message)
+                text, route = _extract_response_text(choices[0].message)
                 assert route != "empty", (
                     f"Model {self._model!r} returned an empty structured-outputs envelope. "
                     "Verify the endpoint/model supports response_format=json_schema."

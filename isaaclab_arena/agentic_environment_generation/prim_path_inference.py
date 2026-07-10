@@ -30,8 +30,11 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field, ValidationError
 
-from isaaclab_arena.agentic_environment_generation.agent_utils import build_strict_schema
-from isaaclab_arena.agentic_environment_generation.query_backend import QueryBackend, StructuredOutputRequest
+from isaaclab_arena.agentic_environment_generation.query_backend import (
+    QueryBackend,
+    StructuredOutputRequest,
+    build_strict_schema,
+)
 from isaaclab_arena.agentic_environment_generation.spec_validation import format_validation_error
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec

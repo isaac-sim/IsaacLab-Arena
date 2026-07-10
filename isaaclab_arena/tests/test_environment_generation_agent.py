@@ -10,7 +10,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from isaaclab_arena.agentic_environment_generation.environment_generation_agent import EnvironmentGenerationAgent
+from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
+    DEFAULT_BASE_URL,
+    EnvironmentGenerationAgent,
+)
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import TaskCompositionType
 from isaaclab_arena.tests.utils.agentic_environment_generation import (
@@ -39,12 +42,17 @@ def stub_openai():
         yield mock_cls
 
 
+def _agent_client(agent: EnvironmentGenerationAgent):
+    return agent.spec_inference._query_backend.client
+
+
 @pytest.fixture
 def agent(stub_openai):
     """A constructed ``EnvironmentGenerationAgent`` with a fully mocked openai client."""
     a = EnvironmentGenerationAgent(api_key="test-key")
-    a.client.chat.completions.create.side_effect = None
-    a.client.chat.completions.create.reset_mock()
+    client = _agent_client(a)
+    client.chat.completions.create.side_effect = None
+    client.chat.completions.create.reset_mock()
     return a
 
 
@@ -56,13 +64,13 @@ def agent(stub_openai):
 class TestInit:
     def test_explicit_api_key_overrides_env(self, monkeypatch, stub_openai):
         monkeypatch.setenv("NV_API_KEY", "env-key")
-        a = EnvironmentGenerationAgent(api_key="explicit-key")
-        assert a.api_key == "explicit-key"
+        EnvironmentGenerationAgent(api_key="explicit-key")
+        stub_openai.assert_called_once_with(api_key="explicit-key", base_url=DEFAULT_BASE_URL)
 
     def test_falls_back_to_env_var(self, monkeypatch, stub_openai):
         monkeypatch.setenv("NV_API_KEY", "env-key")
-        a = EnvironmentGenerationAgent()
-        assert a.api_key == "env-key"
+        EnvironmentGenerationAgent()
+        stub_openai.assert_called_once_with(api_key="env-key", base_url=DEFAULT_BASE_URL)
 
     def test_raises_when_no_key_anywhere(self, monkeypatch, stub_openai):
         monkeypatch.delenv("NV_API_KEY", raising=False)
@@ -71,7 +79,7 @@ class TestInit:
 
     def test_custom_model_and_base_url(self, stub_openai):
         a = EnvironmentGenerationAgent(api_key="k", model="custom-model", base_url="http://localhost:8000")
-        assert a.model == "custom-model"
+        assert a.spec_inference._query_backend.model == "custom-model"
         stub_openai.assert_called_once_with(api_key="k", base_url="http://localhost:8000")
 
 
@@ -82,7 +90,9 @@ class TestInit:
 
 class TestGenerateSpec:
     def test_builds_catalogues_from_singleton_registries_when_none(self, agent):
-        agent.client.chat.completions.create.return_value = chat_response(content=json.dumps(minimal_spec_dict()))
+        _agent_client(agent).chat.completions.create.return_value = chat_response(
+            content=json.dumps(minimal_spec_dict())
+        )
         with (
             patch(
                 "isaaclab_arena.agentic_environment_generation.environment_generation_agent.build_asset_catalogue",
@@ -107,7 +117,7 @@ class TestGenerateSpec:
     def test_two_pass_generate_spec_resolves_object_references(self, mock_resolve_usd, mock_load_tree, agent):
         mock_resolve_usd.return_value = "/tmp/scene.usd"
         mock_load_tree.return_value = kitchen_prim_tree()
-        agent.client.chat.completions.create.side_effect = [
+        _agent_client(agent).chat.completions.create.side_effect = [
             chat_response(content=json.dumps(kitchen_pass1_dict())),
             chat_response(content=json.dumps(kitchen_resolve_response())),
         ]
@@ -119,7 +129,7 @@ class TestGenerateSpec:
         )
         assert isinstance(spec, ArenaEnvGraphSpec)
         assert data is None
-        assert agent.client.chat.completions.create.call_count == 2
+        assert _agent_client(agent).chat.completions.create.call_count == 2
         assert spec.object_references
 
     @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
@@ -135,7 +145,7 @@ class TestGenerateSpec:
                 "object_type": "base",
             }]
         }
-        agent.client.chat.completions.create.side_effect = [
+        _agent_client(agent).chat.completions.create.side_effect = [
             chat_response(content=json.dumps(kitchen_pass1_dict())),
             chat_response(content=json.dumps(bad_resolve)),
         ]
@@ -147,7 +157,7 @@ class TestGenerateSpec:
         )
         assert spec is None
         assert isinstance(data, dict)
-        assert agent.client.chat.completions.create.call_count == 2
+        assert _agent_client(agent).chat.completions.create.call_count == 2
         assert any("is not in the background prim tree" in line for line in agent.last_validation_traces)
 
 
