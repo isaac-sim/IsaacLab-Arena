@@ -43,7 +43,10 @@ objects:
 - id: wooden_bowl
   registry_name: wooden_bowl_hot3d_robolab
   params:
-    scale: [0.5, 0.5, 0.5]
+    scale:
+    - 0.5
+    - 0.5
+    - 0.5
 - id: yogurt_cup
   registry_name: yogurt_cup_hope_robolab
   params: {}
@@ -110,11 +113,13 @@ relations:
   subject: granola_bar
   reference: maple_table_robolab
   params: {}
-tasks:
-- kind: PickAndPlaceTask
-  params:
-    pick_up_object: computer_mouse
-    destination_location: keyboard
-    background_scene: maple_table_robolab
-    episode_length_s: 20.0
+task:
+  composition: atomic
   description: place the computer mouse on the keyboard
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: computer_mouse
+      destination_location: keyboard
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0

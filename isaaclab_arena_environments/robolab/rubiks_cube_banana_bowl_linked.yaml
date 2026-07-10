@@ -39,18 +39,20 @@ relations:
   subject: cube
   reference: maple_table_robolab
   params: {}
-tasks:
-- kind: PickAndPlaceTask
-  params:
-    pick_up_object: banana
-    destination_location: bowl
-    background_scene: maple_table_robolab
-    episode_length_s: 20.0
-  description: pick up the banana and place it in the bowl
-- kind: PickAndPlaceTask
-  params:
-    pick_up_object: cube
-    destination_location: bowl
-    background_scene: maple_table_robolab
-    episode_length_s: 20.0
-  description: pick up the cube and place it in the bowl
+task:
+  composition: sequential
+  description: pick up the banana and place it in the bowl ; pick up the cube and
+    place it in the bowl
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: banana
+      destination_location: bowl
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: cube
+      destination_location: bowl
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0

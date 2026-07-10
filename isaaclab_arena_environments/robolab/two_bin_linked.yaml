@@ -45,12 +45,17 @@ relations:
   params:
     side: positive_y
     distance_m: 0.3
-tasks:
-- kind: PickAndPlaceTask
-  params:
-    pick_up_object: mustard
-    destination_location: grey_bin_left
-    background_scene: maple_table_robolab
-    episode_length_s: 20.0
-    max_separation: [0.1, 0.1, 0.1]
+task:
+  composition: atomic
   description: put the mustard in the left bin
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: mustard
+      destination_location: grey_bin_left
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+      max_separation:
+      - 0.1
+      - 0.1
+      - 0.1

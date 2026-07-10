@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
 _MERMAID_ID_SAFE = re.compile(r"[^A-Za-z0-9_]")
 

@@ -9,8 +9,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from prettytable import PrettyTable
 from typing import TYPE_CHECKING, Any
 
+from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.policy.policy_base import PolicyCfg
@@ -91,3 +93,33 @@ class ArenaRunResult:
 
     metrics: MetricsDataCollection | None = None
     """Metrics aggregated over all successful rebuilds, when provided by the task."""
+
+
+def build_runs_info_table(run_cfgs: list[ArenaRunCfg], results: list[ArenaRunResult]) -> PrettyTable:
+    """Build a table containing the configuration and current status of every Run."""
+    results_by_name = {result.run_name: result for result in results}
+    table = PrettyTable(
+        field_names=[
+            "Run Name",
+            "Status",
+            "Policy Type",
+            "Num Envs",
+            "Num Steps",
+            "Num Episodes",
+            "Num Rebuilds",
+        ]
+    )
+    policy_registry = PolicyRegistry()
+    for run_cfg in run_cfgs:
+        result = results_by_name.get(run_cfg.name)
+        policy_type = policy_registry.get_policy_type_for_cfg(run_cfg.policy)
+        table.add_row([
+            run_cfg.name,
+            result.status.value if result is not None else "pending",
+            policy_type.name,
+            run_cfg.environment_builder.num_envs,
+            run_cfg.rollout_limit.num_steps,
+            run_cfg.rollout_limit.num_episodes,
+            run_cfg.num_rebuilds,
+        ])
+    return table

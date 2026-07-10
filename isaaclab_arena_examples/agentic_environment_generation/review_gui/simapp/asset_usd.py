@@ -11,8 +11,8 @@ import hashlib
 import sys
 
 from isaaclab_arena.assets.registries import AssetRegistry
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.environments.arena_env_graph_types import AssetSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
 
 AabbDimensionsM = tuple[float, float, float]

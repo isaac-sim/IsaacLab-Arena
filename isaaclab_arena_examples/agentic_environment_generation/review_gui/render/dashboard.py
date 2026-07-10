@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import html as html_lib
 
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.mermaid_graph import render_mermaid_graph
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.panels import (
     render_node_cards,

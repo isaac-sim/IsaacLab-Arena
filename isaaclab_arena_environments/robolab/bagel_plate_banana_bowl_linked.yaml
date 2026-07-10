@@ -53,11 +53,13 @@ relations:
   subject: bowl
   reference: maple_table_robolab
   params: {}
-tasks:
-- kind: PickAndPlaceTask
-  params:
-    pick_up_object: banana
-    destination_location: plate
-    background_scene: maple_table_robolab
-    episode_length_s: 20.0
+task:
+  composition: atomic
   description: Pick up the banana and place it on the plate.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: banana
+      destination_location: plate
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0

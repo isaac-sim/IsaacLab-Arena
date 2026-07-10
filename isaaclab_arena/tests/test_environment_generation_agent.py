@@ -16,6 +16,8 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     RelationCatalogue,
     TaskCatalogue,
 )
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import TaskCompositionType
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -78,15 +80,18 @@ _MINIMAL_SPEC: dict = {
         {"kind": "on", "subject": "rubiks_cube_hot3d_robolab", "reference": "maple_table_robolab_table"},
         {"kind": "on", "subject": "bowl_ycb_robolab", "reference": "maple_table_robolab_table"},
     ],
-    "tasks": [{
-        "kind": "PickAndPlaceTask",
-        "params": {
-            "pick_up_object": "rubiks_cube_hot3d_robolab",
-            "destination_location": "bowl_ycb_robolab",
-            "background_scene": "maple_table_robolab",
-        },
+    "task": {
+        "composition": "atomic",
         "description": "pick up the rubiks cube and place it in the bowl",
-    }],
+        "subtasks": [{
+            "kind": "PickAndPlaceTask",
+            "params": {
+                "pick_up_object": "rubiks_cube_hot3d_robolab",
+                "destination_location": "bowl_ycb_robolab",
+                "background_scene": "maple_table_robolab",
+            },
+        }],
+    },
 }
 
 
@@ -270,29 +275,70 @@ class TestGenerateSpec:
 # Live endpoint (network + auth required)
 # ---------------------------------------------------------------------------
 
+_ATOMIC_PICK_AND_PLACE_PROMPT = "Franka picks up the avocado and place it in the bowl on the maple table"
+
+_FIVE_BANANAS_PROMPT = (
+    "There are five bananas and a grey bin on the maple table. Droid places all the bananas into the bin."
+)
+
+
+def _assert_atomic_pick_and_place_spec(spec: ArenaEnvGraphSpec) -> None:
+    """Check a single-object pick-and-place atomic task layout."""
+    assert len(spec.objects) == 2, f"expected 2 objects, got {len(spec.objects)}"
+
+    is_anchor = [relation for relation in spec.relations if relation.kind == "is_anchor"]
+    assert len(is_anchor) == 1, f"expected one is_anchor relation, got {len(is_anchor)}"
+    assert is_anchor[0].subject == spec.background.id
+
+    object_ids = {obj.id for obj in spec.objects}
+    on_subjects = {relation.subject for relation in spec.relations if relation.kind == "on"}
+    assert on_subjects == object_ids
+
+    assert spec.task.composition is TaskCompositionType.ATOMIC
+    assert len(spec.task.subtasks) == 1
+    assert spec.task.subtasks[0].kind == "PickAndPlaceTask"
+
+
+def _assert_five_bananas_parallel_pick_and_place_spec(spec: ArenaEnvGraphSpec) -> None:
+    """Check the five-bananas-into-bin parallel composite task layout."""
+    assert len(spec.objects) == 6, f"expected 6 objects, got {len(spec.objects)}"
+
+    object_ids = {obj.id for obj in spec.objects}
+    on_subjects = {relation.subject for relation in spec.relations if relation.kind == "on"}
+    for obj_id in object_ids:
+        assert obj_id in on_subjects, f"object {obj_id!r} missing 'on' relation"
+
+    assert spec.task.composition is TaskCompositionType.PARALLEL
+    assert len(spec.task.subtasks) == 5
+
+    pick_ids: list[str] = []
+    dest_ids: list[str] = []
+    for leaf in spec.task.subtasks:
+        assert leaf.kind == "PickAndPlaceTask"
+        pick_ids.append(leaf.params["pick_up_object"])
+        dest_ids.append(leaf.params["destination_location"])
+
+    assert len(set(pick_ids)) == 5, f"expected 5 distinct pick objects, got {pick_ids!r}"
+    assert len(set(dest_ids)) == 1, f"expected one shared destination, got {dest_ids!r}"
+    bin_id = dest_ids[0]
+    assert bin_id not in pick_ids, f"destination {bin_id!r} should not be among pick objects"
+
 
 @pytest.mark.flaky(max_runs=3, min_passes=1)
-def test_generate_spec_against_live_endpoint():
-    """End-to-end smoke test against the real OpenAI-compatible endpoint."""
+def test_generate_spec_atomic_pick_and_place_against_live_endpoint():
+    """Live test: avocado into bowl yields an atomic pick-and-place task."""
     agent = EnvironmentGenerationAgent()
-    asset_catalog = _catalog(
-        "EMBODIMENTS: franka_ik\n\n"
-        "BACKGROUNDS: maple_table_robolab\n\n"
-        "OBJECTS (2):\n"
-        "- rubiks_cube_hot3d_robolab  tags=[]\n"
-        "- bowl_ycb_robolab  tags=[]"
-    )
-    task_catalog = _task_catalog(
-        "TASKS (1):\n- PickAndPlaceTask (pick_up_object, destination_location, background_scene): Pick-and-place task."
-    )
-    spec, data = agent.generate_spec(
-        "pick up the avocado and place it in the bowl on the kitchen table",
-        asset_catalog=asset_catalog,
-        task_catalog=task_catalog,
-    )
-    assert spec is not None
+    spec, data = agent.generate_spec(_ATOMIC_PICK_AND_PLACE_PROMPT)
+    assert spec is not None, f"spec validation failed: {agent.last_validation_traces}"
     assert isinstance(data, dict) and data, "agent returned empty parsed response"
-    assert spec.tasks, "ArenaEnvGraphSpec must contain at least one task"
-    assert spec.background.registry_name, "background.registry_name must be populated"
-    assert spec.embodiment.registry_name, "embodiment.registry_name must be populated"
-    assert spec.relations, "relations must be populated"
+    _assert_atomic_pick_and_place_spec(spec)
+
+
+@pytest.mark.flaky(max_runs=3, min_passes=1)
+def test_generate_spec_five_bananas_parallel_pick_and_place_against_live_endpoint():
+    """Live test: five bananas into one bin yields a parallel composite task."""
+    agent = EnvironmentGenerationAgent()
+    spec, data = agent.generate_spec(_FIVE_BANANAS_PROMPT)
+    assert spec is not None, f"spec validation failed: {agent.last_validation_traces}"
+    assert isinstance(data, dict) and data, "agent returned empty parsed response"
+    _assert_five_bananas_parallel_pick_and_place_spec(spec)

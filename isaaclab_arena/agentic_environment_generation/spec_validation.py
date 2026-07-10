@@ -13,7 +13,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from isaaclab_arena.assets.registries import TaskRegistry
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
 
 def required_task_init_param_names(task_cls: type) -> list[str]:
@@ -69,7 +69,7 @@ def collect_agent_ready_task_validation_traces(spec: ArenaEnvGraphSpec) -> list[
     """Return agent-only task constraint violations not enforced by ``ArenaEnvGraphSpec``."""
     traces: list[str] = []
     task_registry = TaskRegistry()
-    for task in spec.tasks:
+    for task in spec.task.subtasks:
         task_cls = task_registry.get_task_by_name(task.kind)
         if not getattr(task_cls, "agent_ready", False):
             traces.append(f"Task {task.kind!r} is not agent-ready")

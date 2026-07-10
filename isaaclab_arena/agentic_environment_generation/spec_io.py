@@ -12,7 +12,7 @@ import yaml
 from pathlib import Path
 from typing import Any
 
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
 DEFAULT_AGENTIC_OUTPUT_DIR = Path("isaaclab_arena_environments/agent_generated")
 

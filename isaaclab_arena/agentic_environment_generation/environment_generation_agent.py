@@ -21,7 +21,7 @@ from isaaclab_arena.agentic_environment_generation.spec_validation import (
     try_parse_env_graph_spec,
 )
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.relations.relations import RelationBase
 
 # TODO(qianl): This is currently Nvidia internal. Switch to public endpoint.
@@ -345,4 +345,6 @@ GUIDANCE:
 - REQUIRED: include an ``is_anchor`` relation on the resting surface (background or an
   ``object_reference`` within it).
 - All objects need an ``on`` relation with that anchor as ``reference``.
+- For repeated objects (e.g. five bananas into one bin), create separate object ids and one
+  ``PickAndPlaceTask`` leaf per object under a ``parallel`` root task.
 """

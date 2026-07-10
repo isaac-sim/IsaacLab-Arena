@@ -18,7 +18,7 @@ import yaml
 from pathlib import Path
 from typing import Any, TextIO
 
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.boot import launch_simulation_app
 
 

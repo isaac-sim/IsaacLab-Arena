@@ -64,23 +64,25 @@ relations:
     x: 0.65
     y: 0.25
     z: 0.85
-tasks:
-- kind: PickAndPlaceTask
-  description: pick up the rubiks cube and place it in the bowl
-  params:
-    pick_up_object: rubiks_cube_hot3d_robolab
-    destination_location: bowl_ycb_robolab
-    background_scene: maple_table_robolab
-    episode_length_s: 20.0
-- kind: PickAndPlaceTask
-  description: pick up the mug and place it in the bowl
-  params:
-    pick_up_object: mug_ycb_robolab
-    destination_location: bowl_ycb_robolab
-    background_scene: maple_table_robolab
-    episode_length_s: 20.0
 cli_override_specs:
 - arg: embodiment
   target_node_id: droid_abs_joint_pos
 - arg: object
   target_node_id: rubiks_cube_hot3d_robolab
+task:
+  composition: sequential
+  description: pick up the rubiks cube and place it in the bowl ; pick up the mug
+    and place it in the bowl
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: rubiks_cube_hot3d_robolab
+      destination_location: bowl_ycb_robolab
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: mug_ycb_robolab
+      destination_location: bowl_ycb_robolab
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0

@@ -21,7 +21,7 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     build_relation_catalogue,
     build_task_catalogue,
 )
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
     SpecParseResult,
     try_save_env_graph_spec,

@@ -3,10 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Pydantic schema for :class:`~isaaclab_arena.environments.arena_env_graph_spec.ArenaEnvGraphSpec`."""
+"""Pydantic schema for :class:`~isaaclab_arena.environment_spec.arena_env_graph_spec.ArenaEnvGraphSpec`."""
 
 from __future__ import annotations
 
+from enum import Enum
 from numbers import Real
 from typing import Any
 
@@ -64,7 +65,7 @@ class ObjectReferenceSpec(BaseModel):
 
 
 class TaskSpec(BaseModel):
-    """Task entry in an environment graph."""
+    """Atomic registered task leaf referenced by a composite root task."""
 
     kind: str = Field(
         min_length=1,
@@ -72,10 +73,6 @@ class TaskSpec(BaseModel):
             "Registered task class name from the TASKS block in the user message "
             "(e.g. 'PickAndPlaceTask', 'OpenDoorTask'). Must match TaskRegistry exactly."
         ),
-    )
-    description: str = Field(
-        min_length=1,
-        description="Natural-language summary of the task (e.g. 'pick up the avocado and place it in the bowl'). ",
     )
     params: dict[str, Any] = Field(
         default_factory=dict,
@@ -90,6 +87,40 @@ class TaskSpec(BaseModel):
     def _validate_registered_task_type(cls, value: str) -> str:
         assert TaskRegistry().is_registered(value), f"Unknown task kind '{value}'"
         return value
+
+
+class TaskCompositionType(str, Enum):
+    """How atomic subtasks combine in a composite root task."""
+
+    ATOMIC = "atomic"
+    PARALLEL = "parallel"
+    SEQUENTIAL = "sequential"
+
+
+class CompositeTaskSpec(BaseModel):
+    """Root task node for an environment graph."""
+
+    composition: TaskCompositionType = Field(
+        description="How the subtasks combine: " + ", ".join([f"'{e.value}'" for e in TaskCompositionType])
+    )
+    description: str = Field(
+        min_length=1,
+        description="Natural-language summary of the overall task (e.g. 'pick and place all bananas into the bin').",
+    )
+    subtasks: list[TaskSpec] = Field(
+        default_factory=list,
+        description="Atomic registered tasks that compose this root task.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_composition_task_count(self) -> CompositeTaskSpec:
+        if self.composition is TaskCompositionType.ATOMIC:
+            assert len(self.subtasks) == 1, "composition 'atomic' requires exactly one atomic task"
+        else:
+            assert (
+                len(self.subtasks) >= 2
+            ), f"composition '{self.composition.value}' requires at least two atomic tasks, got {len(self.subtasks)}"
+        return self
 
 
 class SpatialRelationSpec(BaseModel):

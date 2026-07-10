@@ -34,7 +34,7 @@ def test_argparse_adapter_maps_builder_configuration():
         "2.5",
         "--seed",
         "7",
-        "--no-solve-relations",
+        "--no_solve_relations",
         "--placement_seed",
         "11",
         "--no-resolve_on_reset",

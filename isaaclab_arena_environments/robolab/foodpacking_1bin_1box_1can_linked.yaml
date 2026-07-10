@@ -51,12 +51,17 @@ relations:
   reference: null
   params:
     roll_rad: -1.57
-tasks:
-- kind: PickAndPlaceTask
-  params:
-    pick_up_object: cheez_it_box
-    destination_location: bin_a06
-    background_scene: maple_table_robolab
-    episode_length_s: 20.0
-    max_separation: [0.1, 0.1, 0.1]
+task:
+  composition: atomic
   description: pick up the cheez it box and place it into the bin
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: cheez_it_box
+      destination_location: bin_a06
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+      max_separation:
+      - 0.1
+      - 0.1
+      - 0.1

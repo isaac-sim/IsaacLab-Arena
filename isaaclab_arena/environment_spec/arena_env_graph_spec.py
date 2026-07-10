@@ -11,9 +11,10 @@ from typing import TYPE_CHECKING, Any, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from isaaclab_arena.environments.arena_env_graph_types import (
+from isaaclab_arena.environment_spec.arena_env_graph_types import (
     AssetSpec,
     CliOverrideSpec,
+    CompositeTaskSpec,
     ObjectReferenceSpec,
     SpatialRelationSpec,
     TaskSpec,
@@ -38,9 +39,7 @@ class ArenaEnvGraphSpec(BaseModel):
     relations: list[SpatialRelationSpec] = Field(
         default_factory=list, description="Spatial layout relations across all assets."
     )
-    tasks: list[TaskSpec] = Field(
-        default_factory=list, description="Tasks the robot performs to manipulate the objects."
-    )
+    task: CompositeTaskSpec = Field(description="Root task the robot performs to manipulate the objects.")
     cli_override_specs: list[CliOverrideSpec] | None = Field(
         default=None, description="Optional authoring-time CLI flags that swap an asset's registry_name; usually empty."
     )
@@ -60,7 +59,7 @@ class ArenaEnvGraphSpec(BaseModel):
             valid_parent_ids = {self.background.id, *(obj.id for obj in self.objects)}
             self._assert_object_reference_parents(self.object_references, valid_parent_ids)
         self._assert_relation_references(self.relations, known_ids)
-        self._assert_task_param_references(self.tasks, known_ids)
+        self._assert_task_param_references(self.task.subtasks, known_ids)
         self._validate_cli_override_specs()
         return self
 
@@ -104,9 +103,9 @@ class ArenaEnvGraphSpec(BaseModel):
                 ), f"Relation[{index}] kind '{relation.kind}' references unknown reference '{relation.reference}'"
 
     @staticmethod
-    def _assert_task_param_references(tasks: list[TaskSpec], known_ids: set[str]) -> None:
+    def _assert_task_param_references(subtasks: list[TaskSpec], known_ids: set[str]) -> None:
         """Ensure string-valued task params reference known asset ids."""
-        for task in tasks:
+        for task in subtasks:
             for param_name, param_value in task.params.items():
                 if isinstance(param_value, str):
                     assert (
@@ -115,7 +114,10 @@ class ArenaEnvGraphSpec(BaseModel):
 
     def summary(self) -> str:
         """Return a one-line summary of object, task, and relation counts."""
-        return f"{len(self.objects)} objects · {len(self.tasks)} tasks · {len(self.relations)} relations"
+        return (
+            f"{len(self.objects)} objects · {len(self.task.subtasks)} atomic tasks "
+            f"({self.task.composition}) · {len(self.relations)} relations"
+        )
 
     def _validate_cli_override_specs(self) -> None:
         """Check each CLI override uses a unique flag and points to a swappable asset."""
@@ -192,6 +194,6 @@ class ArenaEnvGraphSpec(BaseModel):
         Args:
             enable_cameras: Forwarded to the embodiment so its cameras are spawned.
         """
-        from isaaclab_arena.environments.arena_env_graph_conversion_utils import build_arena_env_from_graph_spec
+        from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_arena_env_from_graph_spec
 
         return build_arena_env_from_graph_spec(self, enable_cameras=enable_cameras)
