@@ -3,10 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Pass-2 LLM resolver for object_reference prim_path values.
+"""LLM resolver for object_reference prim_path values.
 
 Input Context:
-    Load the background USD prim tree and format pass-1 object-reference context for the LLM::
+    Load the background USD prim tree and format object-reference context for the LLM::
 
         usd_path = resolve_asset_usd_path(spec.background)
         prim_tree = load_usd_prim_tree(usd_path)
@@ -47,7 +47,7 @@ if TYPE_CHECKING:
 
 
 def _prim_tree_catalog(prim_tree: list[UsdPrimRecord]) -> str:
-    """Format the background USD prim tree for the pass-2 user message."""
+    """Format the background USD prim tree for the user message."""
     records = sorted(prim_tree, key=lambda record: record.relative_path)
     lines = ["BACKGROUND PRIM TREE:"]
     stack: list[str] = []
@@ -67,7 +67,7 @@ def _prim_tree_catalog(prim_tree: list[UsdPrimRecord]) -> str:
 
 
 def _object_reference_context(spec: ArenaEnvGraphSpec) -> str:
-    """Format object-reference context (refs, relations, tasks) for pass-2."""
+    """Format object-reference context (refs, relations, tasks)."""
     ref_ids = {ref.id for ref in spec.object_references or []}
     refs_json = json.dumps(
         [ref.model_dump(mode="json") for ref in (spec.object_references or [])],
@@ -93,7 +93,7 @@ def _object_reference_context(spec: ArenaEnvGraphSpec) -> str:
 
 
 class ResolvedObjectReferences(BaseModel):
-    """Pass-2 resolver output: resolved prim_path values for object_reference nodes."""
+    """Resolver output: resolved prim_path values for object_reference nodes."""
 
     object_references: list[ObjectReferenceSpec] = Field(
         description="Resolved object references with prim_path set to a relative suffix under the parent background.",
@@ -123,7 +123,7 @@ def _merge_resolved_object_references(
     spec: ArenaEnvGraphSpec,
     resolved: list[ObjectReferenceSpec],
 ) -> ArenaEnvGraphSpec:
-    """Merge pass-2 prim_path and params into an environment graph spec."""
+    """Merge resolved prim_path and params into an environment graph spec."""
     resolved_by_id = {ref.id: ref for ref in resolved}
     assert len(resolved_by_id) == len(resolved), "resolve_usd_prim returned duplicate object_reference ids"
     merged_refs: list[ObjectReferenceSpec] = []
@@ -147,7 +147,7 @@ def _merge_resolved_object_references(
 
 
 class ObjectReferencePrimResolver:
-    """Pass 2: resolve object_reference prim_path values against background USD."""
+    """Resolve object_reference prim_path values against background USD."""
 
     def __init__(self, query_backend: QueryBackend):
         self._query_backend = query_backend
@@ -161,7 +161,7 @@ class ObjectReferencePrimResolver:
         """Resolve object_reference prim_path values against the background USD prim tree.
 
         Args:
-            spec: Pass-1 spec whose object references carry unresolved prim paths.
+            spec: Spec whose object references carry unresolved prim paths.
             traces: Accumulator for validation error lines, extended in place when the
                 model output fails prim-tree validation.
 
@@ -196,14 +196,12 @@ class ObjectReferencePrimResolver:
 
     @staticmethod
     def _user_message(spec: ArenaEnvGraphSpec, prim_tree: list[UsdPrimRecord]) -> str:
-        """Format the pass-2 user message for prim_path resolution."""
         return f"{_prim_tree_catalog(prim_tree)}\n\n{_object_reference_context(spec)}"
 
     @staticmethod
     def _system_prompt() -> str:
-        """Return the pass-2 system prompt for prim_path resolution."""
         return """\
-You resolve object_reference prim_path values for robot manipulation environment graphs.
+You resolve object_reference prim_path values for an ArenaEnvGraphSpec.
 
 GUIDANCE:
 - BACKGROUND PRIM TREE lists prims in nested form: each indented line shows a path suffix

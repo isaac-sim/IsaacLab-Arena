@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Pass-1 LLM spec generator for environment graph specs."""
+"""LLM spec generator for environment graph specs."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSp
 
 
 class SpecGenerator:
-    """Pass 1: natural-language prompt -> ArenaEnvGraphSpec JSON."""
+    """Natural-language prompt -> ArenaEnvGraphSpec JSON."""
 
     def __init__(self, query_backend: QueryBackend):
         self._query_backend = query_backend
@@ -67,7 +67,6 @@ class SpecGenerator:
         relation_catalog: Any,
         task_catalog: Any,
     ) -> str:
-        """Format the pass-1 user message for environment graph spec generation."""
         vocabulary = (
             f"{asset_catalog.to_catalog_string()}\n\n"
             f"{relation_catalog.to_catalog_string()}\n\n"
@@ -77,7 +76,6 @@ class SpecGenerator:
 
     @staticmethod
     def _system_prompt() -> str:
-        """Return the pass-1 system prompt for ArenaEnvGraphSpec generation."""
         return """\
 You are an environment-generator for robot manipulation tasks.
 Convert a natural-language prompt into an ArenaEnvGraphSpec.
