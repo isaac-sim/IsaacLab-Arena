@@ -47,7 +47,22 @@ if TYPE_CHECKING:
 
 
 def _prim_tree_catalog(prim_tree: list[UsdPrimRecord]) -> str:
-    """Format the background USD prim tree for the user message."""
+    """Format the background USD prim tree for the user message.
+
+    Each line shows a parent-relative path suffix, indented under its nearest
+    retained ancestor, followed by ``object_type`` and optional joint names.
+    Join ancestor suffixes with ``/`` to recover the full ``relative_path`` for
+    ``prim_path``. Example output::
+
+        BACKGROUND PRIM TREE:
+        counter_right_main_group/top_geometry (base)
+        fridge_main_group (articulation fridge_door_joint)
+        cab_1_main_group (articulation right_door_joint)
+          corpus (rigid)
+            top (base)
+            shelf_1 (base)
+          right_door (rigid)
+    """
     records = sorted(prim_tree, key=lambda record: record.relative_path)
     lines = ["BACKGROUND PRIM TREE:"]
     stack: list[str] = []
