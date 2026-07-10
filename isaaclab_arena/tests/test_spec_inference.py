@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for pass-1 environment graph spec generation."""
+"""Unit tests for environment graph spec inference."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from isaaclab_arena.agentic_environment_generation.query_backend import QueryBackend
-from isaaclab_arena.agentic_environment_generation.spec_generator import SpecGenerator
+from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.tests.utils.agentic_environment_generation import catalog as make_catalog
 from isaaclab_arena.tests.utils.agentic_environment_generation import chat_response, minimal_spec_dict
@@ -22,15 +22,15 @@ from isaaclab_arena.tests.utils.agentic_environment_generation import task_catal
 
 
 @pytest.fixture
-def spec_generator():
-    """A ``SpecGenerator`` backed by a mocked OpenAI client."""
+def spec_inference():
+    """A ``SpecInference`` backed by a mocked OpenAI client."""
     client = MagicMock()
-    generator = SpecGenerator(QueryBackend(client, "test-model"))
-    return generator, client
+    inference = SpecInference(QueryBackend(client, "test-model"))
+    return inference, client
 
 
 def _infer(
-    generator: SpecGenerator,
+    inference: SpecInference,
     client: MagicMock,
     prompt: str = "p",
     *,
@@ -40,7 +40,7 @@ def _infer(
     traces: list[str] | None = None,
 ):
     traces = traces if traces is not None else []
-    return generator.infer(
+    return inference.infer(
         prompt,
         traces,
         asset_catalog=asset_catalog or make_catalog("catalog"),
@@ -49,34 +49,34 @@ def _infer(
     )
 
 
-def test_infer_sets_response_format_to_json_schema(spec_generator):
-    generator, client = spec_generator
+def test_infer_sets_response_format_to_json_schema(spec_inference):
+    inference, client = spec_inference
     client.chat.completions.create.return_value = chat_response(content=json.dumps(minimal_spec_dict()))
-    _infer(generator, client)
+    _infer(inference, client)
     kwargs = client.chat.completions.create.call_args.kwargs
     assert kwargs["response_format"]["type"] == "json_schema"
     assert kwargs["response_format"]["json_schema"]["name"] == "ArenaEnvGraphSpec"
     assert kwargs["response_format"]["json_schema"]["strict"] is True
-    assert kwargs["response_format"]["json_schema"]["schema"] is generator._schema
+    assert kwargs["response_format"]["json_schema"]["schema"] is inference._schema
 
 
-def test_infer_tolerates_unescaped_control_chars(spec_generator):
-    generator, client = spec_generator
+def test_infer_tolerates_unescaped_control_chars(spec_inference):
+    inference, client = spec_inference
     payload = dict(minimal_spec_dict())
     payload["env_name"] = "pick\tup"
     raw = json.dumps(payload).replace("\\t", "\t")
     assert "\t" in raw
     client.chat.completions.create.return_value = chat_response(content=raw)
-    spec, _ = _infer(generator, client)
+    spec, _ = _infer(inference, client)
     assert spec is not None
     assert "\t" in spec.env_name
 
 
-def test_infer_user_message_contains_catalog_and_prompt(spec_generator):
-    generator, client = spec_generator
+def test_infer_user_message_contains_catalog_and_prompt(spec_inference):
+    inference, client = spec_inference
     client.chat.completions.create.return_value = chat_response(content=json.dumps(minimal_spec_dict()))
     _infer(
-        generator,
+        inference,
         client,
         "user wants avocado on kitchen",
         asset_catalog=make_catalog("<<CATALOG-MARKER>>"),
@@ -92,23 +92,23 @@ def test_infer_user_message_contains_catalog_and_prompt(spec_generator):
     assert "user wants avocado on kitchen" in user_msg
 
 
-def test_infer_raises_when_response_has_no_choices(spec_generator):
-    generator, client = spec_generator
+def test_infer_raises_when_response_has_no_choices(spec_inference):
+    inference, client = spec_inference
     resp = MagicMock()
     resp.choices = []
     client.chat.completions.create.return_value = resp
     with pytest.raises(RuntimeError, match="failed generate_spec after 4 attempts"):
-        _infer(generator, client)
+        _infer(inference, client)
     assert client.chat.completions.create.call_count == 4
 
 
-def test_infer_retries_after_api_error_then_succeeds(spec_generator):
-    generator, client = spec_generator
+def test_infer_retries_after_api_error_then_succeeds(spec_inference):
+    inference, client = spec_inference
     client.chat.completions.create.side_effect = [
         ConnectionError("timeout"),
         chat_response(content=json.dumps(minimal_spec_dict())),
     ]
-    spec, _ = _infer(generator, client)
+    spec, _ = _infer(inference, client)
     assert isinstance(spec, ArenaEnvGraphSpec)
     assert spec.background.registry_name == "maple_table_robolab"
     assert client.chat.completions.create.call_count == 2
@@ -117,19 +117,19 @@ def test_infer_retries_after_api_error_then_succeeds(spec_generator):
 def test_infer_raises_after_api_errors_exhaust_retries():
     client = MagicMock()
     client.chat.completions.create.side_effect = ConnectionError("timeout")
-    generator = SpecGenerator(QueryBackend(client, "test-model", max_retries=1))
+    inference = SpecInference(QueryBackend(client, "test-model", max_retries=1))
     with pytest.raises(RuntimeError, match="failed generate_spec after 2 attempts"):
-        _infer(generator, client)
+        _infer(inference, client)
     assert client.chat.completions.create.call_count == 2
 
 
-def test_infer_returns_none_with_validation_traces_on_invalid_spec(spec_generator):
-    generator, client = spec_generator
+def test_infer_returns_none_with_validation_traces_on_invalid_spec(spec_inference):
+    inference, client = spec_inference
     invalid = dict(minimal_spec_dict())
     invalid["embodiment"]["registry_name"] = "not_a_real_asset"
     client.chat.completions.create.return_value = chat_response(content=json.dumps(invalid))
     traces: list[str] = []
-    spec, data = _infer(generator, client, traces=traces)
+    spec, data = _infer(inference, client, traces=traces)
     assert spec is None
     assert data["embodiment"]["registry_name"] == "not_a_real_asset"
     assert traces

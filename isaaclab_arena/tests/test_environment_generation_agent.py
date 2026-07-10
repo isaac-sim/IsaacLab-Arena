@@ -103,7 +103,7 @@ class TestGenerateSpec:
         mock_build_tasks.assert_called_once_with()
 
     @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
-    @patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.resolve_asset_usd_path")
+    @patch("isaaclab_arena.agentic_environment_generation.prim_path_inference.resolve_asset_usd_path")
     def test_two_pass_generate_spec_resolves_object_references(self, mock_resolve_usd, mock_load_tree, agent):
         mock_resolve_usd.return_value = "/tmp/scene.usd"
         mock_load_tree.return_value = kitchen_prim_tree()
@@ -123,7 +123,7 @@ class TestGenerateSpec:
         assert spec.object_references
 
     @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
-    @patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.resolve_asset_usd_path")
+    @patch("isaaclab_arena.agentic_environment_generation.prim_path_inference.resolve_asset_usd_path")
     def test_two_pass_generate_spec_returns_dict_on_pass2_failure(self, mock_resolve_usd, mock_load_tree, agent):
         mock_resolve_usd.return_value = "/tmp/scene.usd"
         mock_load_tree.return_value = kitchen_prim_tree()

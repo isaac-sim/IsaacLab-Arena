@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""LLM spec generator for environment graph specs."""
+"""LLM inference for environment graph specs."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from isaaclab_arena.agentic_environment_generation.spec_validation import (
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
 
-class SpecGenerator:
+class SpecInference:
     """Natural-language prompt -> ArenaEnvGraphSpec JSON."""
 
     def __init__(self, query_backend: QueryBackend):

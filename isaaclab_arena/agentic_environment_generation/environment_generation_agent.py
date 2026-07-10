@@ -14,9 +14,9 @@ from typing import Any
 from openai import OpenAI
 
 from isaaclab_arena.agentic_environment_generation.agent_utils import ping
-from isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver import ObjectReferencePrimResolver
+from isaaclab_arena.agentic_environment_generation.prim_path_inference import PrimPathInference
 from isaaclab_arena.agentic_environment_generation.query_backend import QueryBackend
-from isaaclab_arena.agentic_environment_generation.spec_generator import SpecGenerator
+from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
 from isaaclab_arena.agentic_environment_generation.spec_validation import required_task_init_param_names
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -240,8 +240,8 @@ class EnvironmentGenerationAgent:
             max_tokens=max_tokens,
             max_retries=max_retries,
         )
-        self.spec_generator = SpecGenerator(query_backend)
-        self.object_reference_resolver = ObjectReferencePrimResolver(query_backend)
+        self.spec_inference = SpecInference(query_backend)
+        self.prim_path_inference = PrimPathInference(query_backend)
         self.traces: list[str] = []
 
     @property
@@ -276,7 +276,7 @@ class EnvironmentGenerationAgent:
         asset_catalog = asset_catalog or build_asset_catalogue()
         relation_catalog = relation_catalog or build_relation_catalogue()
         task_catalog = task_catalog or build_task_catalogue()
-        spec, data = self.spec_generator.infer(
+        spec, data = self.spec_inference.infer(
             prompt,
             self.traces,
             asset_catalog=asset_catalog,
@@ -286,7 +286,7 @@ class EnvironmentGenerationAgent:
         if spec is None:
             return None, data
         if spec.object_references:
-            resolved = self.object_reference_resolver.infer(spec, self.traces)
+            resolved = self.prim_path_inference.infer(spec, self.traces)
             if resolved is None:
                 return None, spec.to_dict()
             spec = resolved

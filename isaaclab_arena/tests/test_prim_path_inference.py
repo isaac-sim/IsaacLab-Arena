@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for pass-2 object_reference prim_path resolution."""
+"""Unit tests for object_reference prim_path inference."""
 
 from __future__ import annotations
 
@@ -12,10 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver import (
-    ObjectReferencePrimResolver,
-    _prim_tree_catalog,
-)
+from isaaclab_arena.agentic_environment_generation.prim_path_inference import PrimPathInference, _prim_tree_catalog
 from isaaclab_arena.agentic_environment_generation.query_backend import QueryBackend
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -41,15 +38,15 @@ def test_prim_tree_catalog_nested_format():
 
 
 @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
-@patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.resolve_asset_usd_path")
-def test_object_reference_prim_resolver_infer_merges_llm_output(mock_resolve_usd, mock_load_tree):
+@patch("isaaclab_arena.agentic_environment_generation.prim_path_inference.resolve_asset_usd_path")
+def test_prim_path_inference_infer_merges_llm_output(mock_resolve_usd, mock_load_tree):
     mock_resolve_usd.return_value = "/tmp/scene.usd"
     mock_load_tree.return_value = kitchen_prim_tree()
     client = MagicMock()
     client.chat.completions.create.return_value = chat_response(json.dumps(kitchen_resolve_response()))
-    resolver = ObjectReferencePrimResolver(QueryBackend(client, "test-model"))
+    inference = PrimPathInference(QueryBackend(client, "test-model"))
     spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
-    merged = resolver.infer(spec, [])
+    merged = inference.infer(spec, [])
     client.chat.completions.create.assert_called_once()
     counter = next(ref for ref in merged.object_references if ref.id == "counter_top")
     fridge = next(ref for ref in merged.object_references if ref.id == "fridge")
@@ -97,8 +94,8 @@ def test_object_reference_prim_resolver_infer_merges_llm_output(mock_resolve_usd
     ],
 )
 @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
-@patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.resolve_asset_usd_path")
-def test_object_reference_prim_resolver_infer_records_invalid_llm_output(
+@patch("isaaclab_arena.agentic_environment_generation.prim_path_inference.resolve_asset_usd_path")
+def test_prim_path_inference_infer_records_invalid_llm_output(
     mock_resolve_usd,
     mock_load_tree,
     response,
@@ -108,9 +105,9 @@ def test_object_reference_prim_resolver_infer_records_invalid_llm_output(
     mock_load_tree.return_value = kitchen_prim_tree()
     client = MagicMock()
     client.chat.completions.create.return_value = chat_response(json.dumps(response))
-    resolver = ObjectReferencePrimResolver(QueryBackend(client, "test-model"))
+    inference = PrimPathInference(QueryBackend(client, "test-model"))
     spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
     traces: list[str] = []
-    result = resolver.infer(spec, traces)
+    result = inference.infer(spec, traces)
     assert result is None
     assert any(match in line for line in traces), traces

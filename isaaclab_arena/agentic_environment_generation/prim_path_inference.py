@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""LLM resolver for object_reference prim_path values.
+"""LLM inference for object_reference prim_path values.
 
 Input Context:
     Load the background USD prim tree and format object-reference context for the LLM::
@@ -161,7 +161,7 @@ def _merge_resolved_object_references(
     return spec.model_copy(update={"object_references": merged_refs})
 
 
-class ObjectReferencePrimResolver:
+class PrimPathInference:
     """Resolve object_reference prim_path values against background USD."""
 
     def __init__(self, query_backend: QueryBackend):
@@ -224,8 +224,11 @@ GUIDANCE:
 - Pick prim_path only from those full relative_path values.
 - prim_path must be a relative suffix under the parent background — never include
   {ENV_REGEX_NS} or the background registry name.
-- Match object_type to the prim object_type when possible: base for anchor surfaces,
-  articulation for doors and appliances, rigid for manipulable rigid props.
+- Respect each input object_reference object_type: pick a prim_path whose object_type in
+  BACKGROUND PRIM TREE matches the object_type from the input spec. Do not change object_type.
+- When the input object_type is articulation, pick the articulation root prim (the line that
+  lists joint names), not a rigid child mesh or collision prim under it.
+- When the input object_type is base, pick an anchor-surface prim (counter top, shelf, etc.).
 - When an OpenDoorTask targets an articulation object_reference, set params.openable_joint_name
   to one of the joint names listed for that prim.
 - Return one object_references entry per unresolved reference from the input, preserving id,
