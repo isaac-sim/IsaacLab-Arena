@@ -37,13 +37,14 @@ class ResolvedObjectReferences(BaseModel):
         records_by_path = {record.relative_path: record for record in prim_tree}
         for ref in self.object_references:
             assert ref.prim_path is not None, f"Object reference '{ref.id}' requires a prim_path"
-            record = records_by_path.get(ref.prim_path)
+            prim_path = ref.prim_path.lstrip("/")
+            record = records_by_path.get(prim_path)
             assert (
                 record is not None
-            ), f"Object reference '{ref.id}' prim_path {ref.prim_path!r} is not in the background prim tree"
+            ), f"Object reference '{ref.id}' prim_path {prim_path!r} is not in the background prim tree"
             assert ref.object_type == record.object_type, (
                 f"Object reference '{ref.id}' object_type {ref.object_type!r} does not match prim tree "
-                f"object_type {record.object_type!r} for {ref.prim_path!r}"
+                f"object_type {record.object_type!r} for {prim_path!r}"
             )
         return self
 
@@ -92,7 +93,7 @@ def _object_reference_context(spec: ArenaEnvGraphSpec) -> str:
         rel.model_dump(mode="json") for rel in spec.relations if rel.subject in ref_ids or rel.reference in ref_ids
     ]
     tasks: list[dict[str, Any]] = []
-    for task in spec.tasks:
+    for task in spec.task.subtasks:
         if any(isinstance(value, str) and value in ref_ids for value in task.params.values()):
             tasks.append(task.model_dump(mode="json"))
     return (

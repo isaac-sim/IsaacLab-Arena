@@ -168,8 +168,6 @@ def _iter_printable_assets(spec: ArenaEnvGraphSpec):
     yield "background", spec.background.id, spec.background.registry_name, spec.background.params
     for obj in spec.objects:
         yield "object", obj.id, obj.registry_name, obj.params
-    for ref in spec.object_references or []:
-        yield "object_reference", ref.id, ref.id, ref.params
 
 
 def print_env_graph(spec: ArenaEnvGraphSpec) -> None:
@@ -180,6 +178,12 @@ def print_env_graph(spec: ArenaEnvGraphSpec) -> None:
     for role, asset_id, registry_name, params in _iter_printable_assets(spec):
         params_str = f"  params={params}" if params else ""
         print(f"  {asset_id:24s} role={role:18s} registry_name={registry_name}{params_str}")
+
+    if spec.object_references:
+        print("\nobject_references:")
+        for ref in spec.object_references:
+            params_str = f"  params={ref.params}" if ref.params else ""
+            print(f"  {ref.id:24s} parent={ref.parent_id}  prim_path={ref.prim_path}{params_str}")
 
     print("\nrelations:")
     for relation in spec.relations:
