@@ -24,10 +24,12 @@ relations:
 - kind: 'on'
   subject: bowl_ycb_robolab
   reference: maple_table_robolab
-tasks:
-- kind: PickAndPlaceTask
-  params:
-    pick_up_object: rubiks_cube_hot3d_robolab
-    destination_location: bowl_ycb_robolab
-    background_scene: maple_table_robolab
+task:
+  composition: atomic
   description: pick up the rubiks cube and place it in the bowl
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: rubiks_cube_hot3d_robolab
+      destination_location: bowl_ycb_robolab
+      background_scene: maple_table_robolab
