@@ -40,7 +40,7 @@ from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.observations import gripper_pos
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
-from isaaclab_arena.variations.camera_intrinsics_variation import CameraIntrinsicsVariation
+from isaaclab_arena.variations.camera_intrinsics_variation import CameraIntrinsicsRunTimeVariation
 
 _DEFAULT_CAMERA_OFFSET = Pose(position_xyz=(0.11, -0.031, -0.074), rotation_xyzw=(0.0, 0.0, 0.70711, 0.70711))
 
@@ -89,7 +89,7 @@ class FrankaEmbodimentBase(EmbodimentBase):
         self.observation_config = FrankaObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.add_variation(CameraExtrinsicsVariation(camera_name="wrist_cam"))
-        self.add_variation(CameraIntrinsicsVariation(self.camera_config.wrist_cam, camera_name="wrist_cam"))
+        self.add_variation(CameraIntrinsicsRunTimeVariation(camera_name="wrist_cam"))
 
     def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
         self.event_config.init_franka_arm_pose.params["default_pose"] = initial_joint_pose

@@ -42,7 +42,7 @@ from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
-from isaaclab_arena.variations.camera_intrinsics_variation import CameraIntrinsicsVariation
+from isaaclab_arena.variations.camera_intrinsics_variation import CameraIntrinsicsRunTimeVariation
 
 
 class DroidEmbodimentBase(EmbodimentBase, ABC):
@@ -74,7 +74,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self.reward_config = None
         self.mimic_env = None
         self.add_variation(CameraExtrinsicsVariation(camera_name="wrist_camera"))
-        self.add_variation(CameraIntrinsicsVariation(self.camera_config.wrist_camera, camera_name="wrist_camera"))
+        self.add_variation(CameraIntrinsicsRunTimeVariation(camera_name="wrist_camera"))
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
         # We override the default initial pose setting function in order to also set
@@ -383,15 +383,16 @@ class DroidEventCfg:
             ],
         },
     )
-    randomize_franka_joint_state = EventTerm(
-        func=franka_stack_events.randomize_joint_by_gaussian_offset,
-        mode="reset",
-        params={
-            "mean": 0.0,
-            "std": 0.02,
-            "asset_cfg": SceneEntityCfg("robot"),
-        },
-    )
+    randomize_franka_joint_state = None
+    # EventTerm(
+    #     func=franka_stack_events.randomize_joint_by_gaussian_offset,
+    #     mode="reset",
+    #     params={
+    #         "mean": 0.0,
+    #         "std": 0.02,
+    #         "asset_cfg": SceneEntityCfg("robot"),
+    #     },
+    # )
 
 
 @configclass
@@ -405,7 +406,7 @@ class DroidCameraCfg:
     def __post_init__(self):
         # Get configuration from private attributes set by embodiment constructor
         # These use getattr with defaults to avoid scene parser treating them as assets
-        is_tiled_camera = getattr(self, "_is_tiled_camera", True)
+        is_tiled_camera = getattr(self, "_is_tiled_camera", False)
 
         CameraClass = TiledCameraCfg if is_tiled_camera else CameraCfg
         OffsetClass = CameraClass.OffsetCfg
