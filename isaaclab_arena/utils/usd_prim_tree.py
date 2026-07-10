@@ -45,6 +45,8 @@ def load_usd_prim_tree(usd_path: str) -> list[UsdPrimRecord]:
     with open_stage(usd_path) as stage:
         # Collect prims that directly participate in physics or collision, then add
         # every ancestor so a prim is kept whenever any descendant is kept.
+        # TODO(qianl): Ancestor-only prims are labeled base; non-leaf refs are valid today.
+        # Revisit when relation solving adds descendant mesh exclusion; no issue observed yet.
         included_paths: set[str] = set()
         for prim in stage.Traverse():
             if prim.IsPseudoRoot():
