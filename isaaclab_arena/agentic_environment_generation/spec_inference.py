@@ -24,6 +24,11 @@ class SpecInference:
     """Natural-language prompt -> ArenaEnvGraphSpec JSON."""
 
     def __init__(self, query_backend: QueryBackend):
+        """Wire spec inference to a structured-output backend.
+
+        Args:
+            query_backend: Shared LLM client for JSON-schema completion requests.
+        """
         self._query_backend = query_backend
         self._schema = build_strict_schema(ArenaEnvGraphSpec)
 
@@ -31,12 +36,24 @@ class SpecInference:
         self,
         prompt: str,
         traces: list[str],
-        *,
         asset_catalog: Any,
         relation_catalog: Any,
         task_catalog: Any,
     ) -> tuple[ArenaEnvGraphSpec | None, dict[str, Any]]:
-        """Generate an ArenaEnvGraphSpec from a natural-language prompt."""
+        """Generate an ArenaEnvGraphSpec from a natural-language prompt.
+
+        Args:
+            prompt: End-user environment description.
+            traces: Accumulator for validation error lines, extended in place on failure.
+            asset_catalog: Embodiment, background, and object vocabulary for the user message.
+            relation_catalog: Relation vocabulary for the user message.
+            task_catalog: Task vocabulary for the user message.
+
+        Returns:
+            A ``(spec, data)`` tuple. On success, ``spec`` is validated and ``data`` is the
+            parsed model JSON. On failure, ``spec`` is ``None`` and ``data`` is the raw
+            response object.
+        """
         data = self._query_backend.run_json(
             StructuredOutputRequest(
                 schema_name="ArenaEnvGraphSpec",
@@ -44,9 +61,9 @@ class SpecInference:
                 system=self._system_prompt(),
                 user=self._user_message(
                     prompt,
-                    asset_catalog=asset_catalog,
-                    relation_catalog=relation_catalog,
-                    task_catalog=task_catalog,
+                    asset_catalog,
+                    relation_catalog,
+                    task_catalog,
                 ),
                 retry_label="generate_spec",
             )
@@ -62,7 +79,6 @@ class SpecInference:
     @staticmethod
     def _user_message(
         prompt: str,
-        *,
         asset_catalog: Any,
         relation_catalog: Any,
         task_catalog: Any,

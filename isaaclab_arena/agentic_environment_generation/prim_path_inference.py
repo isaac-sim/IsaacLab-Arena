@@ -165,6 +165,11 @@ class PrimPathInference:
     """Resolve object_reference prim_path values against background USD."""
 
     def __init__(self, query_backend: QueryBackend):
+        """Wire prim-path inference to a structured-output backend.
+
+        Args:
+            query_backend: Shared LLM client for JSON-schema completion requests.
+        """
         self._query_backend = query_backend
         self._schema = build_strict_schema(ResolvedObjectReferences)
 

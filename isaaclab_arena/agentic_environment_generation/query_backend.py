@@ -13,6 +13,8 @@ from typing import Any
 
 from isaaclab_arena.agentic_environment_generation.agent_utils import extract_response_text
 
+MAX_RETRIES_LIMIT = 10
+
 
 @dataclass(frozen=True)
 class StructuredOutputRequest:
@@ -32,27 +34,46 @@ class QueryBackend:
         self,
         client: Any,
         model: str,
-        *,
         temperature: float = 0.2,
         max_tokens: int = 4096,
         max_retries: int = 3,
     ):
+        """Configure an OpenAI-compatible structured-output client.
+
+        Args:
+            client: OpenAI-compatible client exposing ``chat.completions.create``.
+            model: Model identifier passed to the chat completion API.
+            temperature: Sampling temperature for completion requests.
+            max_tokens: Maximum tokens in each completion response.
+            max_retries: Additional attempts after a recoverable failure; must be in
+                ``[0, MAX_RETRIES_LIMIT)``.
+        """
+        assert (
+            0 <= max_retries < MAX_RETRIES_LIMIT
+        ), f"max_retries must be in [0, {MAX_RETRIES_LIMIT}), got {max_retries}"
         self._client = client
         self._model = model
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        self.max_retries = max_retries
+        self._temperature = temperature
+        self._max_tokens = max_tokens
+        self._max_retries = max_retries
 
     def run_json(self, request: StructuredOutputRequest) -> dict[str, Any]:
-        """Call a JSON-schema structured-output endpoint and parse the response as JSON."""
+        """Call a JSON-schema structured-output endpoint and parse the response as JSON.
+
+        Args:
+            request: System/user prompts, JSON schema metadata, and retry log label.
+
+        Returns:
+            Parsed JSON object from the model response.
+        """
         messages = [
             {"role": "system", "content": request.system},
             {"role": "user", "content": request.user},
         ]
         last_exc: Exception | None = None
-        for attempt in range(1 + self.max_retries):
+        for attempt in range(1 + self._max_retries):
             if attempt > 0:
-                print(f"[{request.retry_label}] retry {attempt}/{self.max_retries} after: {last_exc}", flush=True)
+                print(f"[{request.retry_label}] retry {attempt}/{self._max_retries} after: {last_exc}", flush=True)
             try:
                 resp = self._client.chat.completions.create(
                     model=self._model,
@@ -65,8 +86,8 @@ class QueryBackend:
                             "schema": request.schema,
                         },
                     },
-                    temperature=self.temperature,
-                    max_tokens=self.max_tokens,
+                    temperature=self._temperature,
+                    max_tokens=self._max_tokens,
                 )
                 choices = getattr(resp, "choices", None) or []
                 assert choices, (
@@ -86,5 +107,5 @@ class QueryBackend:
                 last_exc = exc
         raise RuntimeError(
             f"Model {self._model!r} failed {request.retry_label} after "
-            f"{1 + self.max_retries} attempts. Last error: {last_exc}"
+            f"{1 + self._max_retries} attempts. Last error: {last_exc}"
         ) from last_exc
