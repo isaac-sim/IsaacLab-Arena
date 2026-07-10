@@ -148,12 +148,14 @@ def _merge_resolved_object_references(
         assert (
             patch.object_type == ref.object_type
         ), f"object_reference {ref.id!r} object_type mismatch: {ref.object_type!r} != {patch.object_type!r}"
+        assert patch.prim_path is not None, f"object_reference {ref.id!r} requires a prim_path"
+        prim_path = patch.prim_path.lstrip("/")
         merged_params = dict(ref.params)
         merged_params.update(patch.params)
         merged_refs.append(
             ref.model_copy(
                 update={
-                    "prim_path": patch.prim_path,
+                    "prim_path": prim_path,
                     "params": merged_params,
                 }
             )

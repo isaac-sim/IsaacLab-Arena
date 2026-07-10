@@ -55,6 +55,25 @@ def test_prim_path_inference_infer_merges_llm_output(mock_resolve_usd, mock_load
     assert fridge.params["openable_joint_name"] == "fridge_door_joint"
 
 
+@patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
+@patch("isaaclab_arena.agentic_environment_generation.prim_path_inference.resolve_asset_usd_path")
+def test_prim_path_inference_strips_leading_slash(mock_resolve_usd, mock_load_tree):
+    mock_resolve_usd.return_value = "/tmp/scene.usd"
+    mock_load_tree.return_value = kitchen_prim_tree()
+    response = kitchen_resolve_response()
+    for ref in response["object_references"]:
+        ref["prim_path"] = "/" + ref["prim_path"]
+    client = MagicMock()
+    client.chat.completions.create.return_value = chat_response(json.dumps(response))
+    inference = PrimPathInference(QueryBackend(client, "test-model"))
+    spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
+    merged = inference.infer(spec, [])
+    counter = next(ref for ref in merged.object_references if ref.id == "counter_top")
+    fridge = next(ref for ref in merged.object_references if ref.id == "fridge")
+    assert counter.prim_path == "counter_right_main_group/top_geometry"
+    assert fridge.prim_path == "fridge_main_group"
+
+
 @pytest.mark.parametrize(
     ("response", "match"),
     [
