@@ -3,15 +3,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import math
 import torch
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import pytest
 from pydantic import ValidationError
 
 from isaaclab_arena.assets.dummy_object import DummyObject
-from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
 from isaaclab_arena.relations.collision_mode import CollisionMode
@@ -30,6 +32,9 @@ from isaaclab_arena.utils.pose import (
     yaw_from_quat_xyzw,
     yaw_toward_positions,
 )
+
+if TYPE_CHECKING:
+    from isaaclab_arena.assets.object_base import ObjectBase
 
 
 def _box(name: str, half_extents: tuple[float, float, float] = (0.1, 0.1, 0.1)) -> DummyObject:
@@ -103,8 +108,11 @@ def test_yaw_toward_positions_is_translation_invariant_and_batched():
 
 
 def test_yaw_toward_positions_rejects_near_coincident_xy():
+    from isaaclab_arena.utils.pose import MINIMUM_FACING_DIRECTION_XY_M
+
+    epsilon = MINIMUM_FACING_DIRECTION_XY_M
     subjects = torch.zeros((3, 3))
-    targets = torch.tensor([[1e-7, 0.0, 1.0], [1e-6, 0.0, 1.0], [1.1e-6, 0.0, 1.0]])
+    targets = torch.tensor([[epsilon * 0.1, 0.0, 1.0], [epsilon, 0.0, 1.0], [epsilon * 1.1, 0.0, 1.0]])
 
     _, is_defined = yaw_toward_positions(subjects, targets)
 
@@ -220,15 +228,14 @@ def test_face_to_rejects_reset_randomization_that_changes_direction(randomized_o
         ObjectPlacer()._prepare_placement([pair.target, pair.subject])
 
 
-def test_face_to_allows_reset_rotation_around_facing_yaw(monkeypatch):
+def test_face_to_allows_reset_rotation_around_facing_yaw():
     pair = _face_to_pair(target_position=(0.0, 2.0, 0.0))
-    pair.subject.add_relation(AtPosition(x=0.0, y=0.0, z=0.0))
     pair.subject.add_relation(RandomAroundSolution(roll_half_rad=0.1, pitch_half_rad=0.2, yaw_half_rad=0.3))
-    placer = ObjectPlacer(ObjectPlacerParams(max_placement_attempts=1))
+    placer = ObjectPlacer()
     positions = {pair.target: (0.0, 2.0, 0.0), pair.subject: (0.0, 0.0, 0.0)}
-    _set_solver_results(monkeypatch, placer, [positions])
 
-    placer.place([pair.target, pair.subject])
+    anchors, _ = placer._prepare_placement([pair.target, pair.subject])
+    placer._apply_poses([positions], anchors, [{pair.subject: math.pi / 2}])
     pose = pair.subject.get_initial_pose()
 
     assert isinstance(pose, PoseRange)
@@ -312,10 +319,10 @@ def test_face_to_registers_as_binary_graph_relation():
     subject = _box("subject")
     target = _box("target")
     spec = SpatialRelationSpec(kind="face_to", subject="camera", reference="object")
-    relation_class = ObjectRelationLibraryRegistry().get_object_relation_by_name(spec.kind)
-    subject.add_relation(relation_class(target, **spec.params))
+    registry = ObjectRelationLibraryRegistry()
+    subject.add_relation(FaceTo(target, **spec.params))
 
-    assert relation_class is FaceTo
+    assert registry.is_registered(spec.kind, ensure_loaded=False)
     (relation,) = subject.get_relations()
     assert relation.parent is target
     with pytest.raises(ValidationError, match="requires relation.reference"):

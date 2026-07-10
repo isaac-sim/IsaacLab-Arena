@@ -416,6 +416,7 @@ class ObjectPlacer:
 
         Undefined directions leave the subject absent from the dictionary.
         """
+        assert positions_per_candidate, "positions_per_candidate must not be empty"
         assert len(positions_per_candidate) == len(orientations_per_candidate)
         objects = positions_per_candidate[0]
         for obj in objects:
