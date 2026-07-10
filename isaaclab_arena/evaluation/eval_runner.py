@@ -19,7 +19,7 @@ from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
-from isaaclab_arena.evaluation.policy_runner import get_policy_cls, rollout_policy
+from isaaclab_arena.evaluation.policy_runner import get_policy_cls, prepare_env_cfg_for_datagen, rollout_policy
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import (
@@ -42,6 +42,7 @@ def load_env(
     variations: list[str] | None = None,
     render_mode: str | None = None,
     language_instruction: str | None = None,
+    disable_auto_reset: bool = False,
 ):
 
     args_parser = get_isaaclab_arena_environments_cli_parser()
@@ -57,9 +58,13 @@ def load_env(
     if env_cfg.recorders is not None:
         env_cfg.recorders.dataset_filename = f"dataset_{job_name}"
 
+    # Datagen: disable the env's in-step() auto-reset (and metric recorders) so the rollout
+    # loop can drive episode boundaries and resets explicitly (see prepare_env_cfg_for_datagen).
+    reset_terms = prepare_env_cfg_for_datagen(env_cfg) if disable_auto_reset else None
+
     env = arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
     # Don't reset here - rollout_policy() will reset the env. Every reset triggers a new episode, initializing recorder & creating a new hdf5 entry.
-    return env
+    return env, reset_terms
 
 
 def list_variations(eval_jobs_config: dict) -> None:
@@ -202,7 +207,14 @@ def _run_in_chunks(args_cli: argparse.Namespace, master_cfg: dict) -> None:
             sys.exit(returncode)
 
 
-def main():
+def main(collector_provider=None):
+    """Run all jobs in an eval config.
+
+    Args:
+        collector_provider: Optional datagen provider (see Task 8's
+            ``nvblox_next`` implementation). When ``None``, no datagen
+            collection runs and behavior matches the plain evaluation path.
+    """
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli, unknown = args_parser.parse_known_args()
 
@@ -236,10 +248,21 @@ def main():
         _run_in_chunks(args_cli, eval_jobs_config)
         return
 
+    # Optional top-level datagen defaults, applied to every job (a per-job "datagen"
+    # block overrides these). When present, datagen data collection runs alongside
+    # each rollout, writing one HDF5 file per episode.
+    datagen_defaults = eval_jobs_config.get("datagen")
+
+    if collector_provider is not None and datagen_defaults is not None:
+        collector_provider.start_run(eval_jobs_config, args_cli.datagen_description, args_cli.device)
+
     # Check if any job requires cameras and enable them if needed before starting simulation
     if args_cli.record_camera_video:
         args_cli.enable_cameras = True
     enable_cameras_if_required(eval_jobs_config, args_cli)
+    # Datagen collection renders dedicated cameras, which requires camera support.
+    if datagen_defaults or any(job_dict.get("datagen") for job_dict in eval_jobs_config["jobs"]):
+        args_cli.enable_cameras = True
 
     with SimulationAppContext(args_cli):
         job_manager = JobManager(eval_jobs_config["jobs"])
@@ -262,11 +285,17 @@ def main():
                 continue
             env = None
             policy = None
+            collector = None
 
             metrics_per_run: list[MetricsDataCollection] = []
 
             # num_episodes is the total across rebuilds, so split it over the rebuilds.
             num_episodes_per_rebuild = _split_episodes_across_rebuilds(job.num_episodes, job.num_rebuilds, job.name)
+
+            # Datagen is active for this job when the provider is enabled for it (top-level
+            # defaults overridden by the job's own datagen block).
+            job_datagen = {**(datagen_defaults or {}), **(job.datagen or {})}
+            is_datagen = collector_provider is not None and collector_provider.is_enabled(job_datagen)
 
             # Rebuild the environment and re-run the rollout job.num_rebuilds times, then
             # aggregate the metrics across rebuilds into a single result.
@@ -281,12 +310,15 @@ def main():
                         video_base_dir=job_output_dir,
                         camera_name_prefix=f"robot-cam-rebuild{rebuild_idx}",
                     )
-                    env = load_env(
+                    # Datagen: disable the env's auto-reset so the rollout drives episode
+                    # boundaries and resets explicitly (see prepare_env_cfg_for_datagen).
+                    env, datagen_reset_terms = load_env(
                         job.arena_env_args,
                         job.name,
                         variations=job.variations,
                         render_mode=video_cfg.render_mode,
                         language_instruction=job.language_instruction,
+                        disable_auto_reset=is_datagen,
                     )
 
                     # Write per-episode results to disk.
@@ -311,11 +343,22 @@ def main():
 
                     env = wrap_env_for_video(env, video_cfg, job.num_steps, num_episodes_this_rebuild)
 
+                    collector = collector_provider.create(job.name, job_datagen, env) if is_datagen else None
+
+                    # Per-episode step cap for datagen, bounded by the env's own cap.
+                    max_episode_length = int(env.unwrapped.max_episode_length)
+                    if is_datagen:
+                        max_episode_length = collector_provider.max_episode_length_cap(job_datagen, max_episode_length)
+
                     metrics = rollout_policy(
                         env,
                         policy,
                         num_steps=job.num_steps,
                         num_episodes=num_episodes_this_rebuild,
+                        language_instruction=job.language_instruction,
+                        collector=collector,
+                        datagen_reset_terms=datagen_reset_terms,
+                        max_episode_length=max_episode_length,
                     )
 
                     job_manager.complete_job(job, metrics=metrics, status=Status.COMPLETED)
@@ -333,16 +376,30 @@ def main():
 
                 finally:
                     try:
-                        _close_job_resources(policy, env)
+                        # Release datagen cameras BEFORE tearing down the stage, so
+                        # their replicator annotators do not leak into the next job.
+                        if collector is not None:
+                            collector.close(env)
+                            try:
+                                collector_provider.on_job_finished(job, collector, env, job.status.value)
+                            except Exception as exc:  # never let datagen bookkeeping fail a run
+                                print(f"[datagen] Warning: failed to record job '{job.name}': {exc}")
                     finally:
-                        policy = None
-                        env = None
-                        collect_garbage_and_clear_cuda_cache()
+                        try:
+                            _close_job_resources(policy, env)
+                        finally:
+                            policy = None
+                            env = None
+                            collector = None
+                            collect_garbage_and_clear_cuda_cache()
 
-            # Aggregate the metrics from the different experiments into a single view.
+            # Aggregate the metrics from the different rebuilds into a single view.
             if metrics_per_run:
                 aggregated_metrics = aggregate_metrics(metrics_per_run)
                 metrics_logger.append_job_metrics(job.name, aggregated_metrics)
+
+        if collector_provider is not None and datagen_defaults is not None:
+            collector_provider.finish_run()
 
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()

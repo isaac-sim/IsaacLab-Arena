@@ -264,7 +264,7 @@ def _test_eval_config_variation_lands_in_events_cfg(simulation_app):
         "variations": {"droid_abs_joint_pos": {f"camera_extrinsics_{camera_name}": {"enabled": True}}},
     })
 
-    env = load_env(job.arena_env_args, job.name, variations=job.variations)
+    env, _ = load_env(job.arena_env_args, job.name, variations=job.variations)
     try:
         env_cfg = env.unwrapped.cfg
         assert hasattr(env_cfg.events, event_name), (
