@@ -117,7 +117,7 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
         return False, traceback.format_exc()
 
     try:
-        result = agent.generate_spec(
+        spec, data = agent.generate_spec(
             prompt,
             asset_catalog=catalogues.asset_catalogue,
             relation_catalog=catalogues.relation_catalogue,
@@ -127,23 +127,23 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
         return False, traceback.format_exc()
 
     try:
-        if isinstance(result, ArenaEnvGraphSpec):
-            yaml_text = yaml.safe_dump(result.to_dict(), sort_keys=False)
-        else:
-            yaml_text = yaml.safe_dump(result, sort_keys=False)
+        yaml_text = yaml.safe_dump(
+            spec.to_dict() if spec is not None else data,
+            sort_keys=False,
+        )
     except Exception:
         return False, traceback.format_exc()
 
-    if isinstance(result, dict):
+    if spec is None:
         traces = "\n".join(agent.last_validation_traces) or "unknown validation error"
         error = f"Agent returned an invalid spec:\n{traces}"
         _apply_generated_yaml(yaml_text, validation_error=error)
         return True, f"Invalid spec loaded into the YAML editor.\n{traces}"
 
-    _apply_generated_yaml(yaml_text, spec=result)
+    _apply_generated_yaml(yaml_text, spec=spec)
 
     out_dir = Path(st.session_state["out_dir"])
-    path, error = try_save_env_graph_spec(result, out_dir)
+    path, error = try_save_env_graph_spec(spec, out_dir)
     if error is not None:
         return True, f"Spec generated and loaded into the YAML editor, but save failed: {error}"
 

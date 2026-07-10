@@ -111,15 +111,16 @@ class TestGenerateSpec:
             chat_response(content=json.dumps(kitchen_pass1_dict())),
             chat_response(content=json.dumps(kitchen_resolve_response())),
         ]
-        result = agent.generate_spec(
+        spec, data = agent.generate_spec(
             "kitchen task",
             asset_catalog=catalog("catalog"),
             relation_catalog=relation_catalog("RELATIONS"),
             task_catalog=make_task_catalog("TASKS"),
         )
-        assert isinstance(result, ArenaEnvGraphSpec)
+        assert isinstance(spec, ArenaEnvGraphSpec)
+        assert data is None
         assert agent.client.chat.completions.create.call_count == 2
-        assert result.object_references
+        assert spec.object_references
 
     @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
     @patch("isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver.resolve_asset_usd_path")
@@ -138,13 +139,14 @@ class TestGenerateSpec:
             chat_response(content=json.dumps(kitchen_pass1_dict())),
             chat_response(content=json.dumps(bad_resolve)),
         ]
-        result = agent.generate_spec(
+        spec, data = agent.generate_spec(
             "kitchen task",
             asset_catalog=catalog("catalog"),
             relation_catalog=relation_catalog("RELATIONS"),
             task_catalog=make_task_catalog("TASKS"),
         )
-        assert isinstance(result, dict)
+        assert spec is None
+        assert isinstance(data, dict)
         assert agent.client.chat.completions.create.call_count == 2
         assert any("is not in the background prim tree" in line for line in agent.last_validation_traces)
 
@@ -206,8 +208,9 @@ def _assert_five_bananas_parallel_pick_and_place_spec(spec: ArenaEnvGraphSpec) -
 def test_generate_spec_atomic_pick_and_place_against_live_endpoint():
     """Live test: avocado into bowl yields an atomic pick-and-place task."""
     agent = EnvironmentGenerationAgent()
-    spec = agent.generate_spec(_ATOMIC_PICK_AND_PLACE_PROMPT)
+    spec, data = agent.generate_spec(_ATOMIC_PICK_AND_PLACE_PROMPT)
     assert isinstance(spec, ArenaEnvGraphSpec), f"spec validation failed: {agent.last_validation_traces}"
+    assert data is None
     _assert_atomic_pick_and_place_spec(spec)
 
 
@@ -215,8 +218,9 @@ def test_generate_spec_atomic_pick_and_place_against_live_endpoint():
 def test_generate_spec_five_bananas_parallel_pick_and_place_against_live_endpoint():
     """Live test: five bananas into one bin yields a parallel composite task."""
     agent = EnvironmentGenerationAgent()
-    spec = agent.generate_spec(_FIVE_BANANAS_PROMPT)
+    spec, data = agent.generate_spec(_FIVE_BANANAS_PROMPT)
     assert isinstance(spec, ArenaEnvGraphSpec), f"spec validation failed: {agent.last_validation_traces}"
+    assert data is None
     _assert_five_bananas_parallel_pick_and_place_spec(spec)
 
 
@@ -242,27 +246,28 @@ def test_resolve_usd_prim_robocasa_kitchen_counter_and_fridge():
         "droid picks up an avocado on the counter top and places it in a plate; "
         "other veggies on the counter as distractors; then open the fridge door."
     )
-    result = agent.generate_spec(
+    spec, data = agent.generate_spec(
         prompt,
         asset_catalog=asset_catalog,
         task_catalog=tasks,
     )
-    assert isinstance(result, ArenaEnvGraphSpec), f"spec validation failed: {agent.last_validation_traces}"
-    assert result.object_references, "expected object_references for counter and fridge"
+    assert isinstance(spec, ArenaEnvGraphSpec), f"spec validation failed: {agent.last_validation_traces}"
+    assert data is None
+    assert spec.object_references, "expected object_references for counter and fridge"
 
     counter_ref = next(
-        (ref for ref in result.object_references if ref.object_type.value == "base"),
+        (ref for ref in spec.object_references if ref.object_type.value == "base"),
         None,
     )
     assert counter_ref is not None, "expected a base object_reference for the counter anchor"
 
     fridge_ref = next(
-        (ref for ref in result.object_references if ref.object_type.value == "articulation"),
+        (ref for ref in spec.object_references if ref.object_type.value == "articulation"),
         None,
     )
     assert fridge_ref is not None, "expected an articulation object_reference for the fridge"
     assert fridge_ref.params.get("openable_joint_name"), "fridge ref needs openable_joint_name"
 
-    anchor = next(rel for rel in result.relations if rel.kind == "is_anchor")
+    anchor = next(rel for rel in spec.relations if rel.kind == "is_anchor")
     assert anchor.subject == counter_ref.id
-    assert anchor.subject != result.background.id
+    assert anchor.subject != spec.background.id

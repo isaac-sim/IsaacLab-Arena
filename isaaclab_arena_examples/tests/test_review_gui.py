@@ -260,7 +260,7 @@ class TestRunGenerationPipeline:
     ):
         session_state["out_dir"] = str(tmp_path)
         mock_agent = MagicMock()
-        mock_agent.generate_spec.return_value = valid_spec
+        mock_agent.generate_spec.return_value = (valid_spec, None)
         session_state["generation_agent"] = mock_agent
 
         mock_catalogues = MagicMock()
@@ -279,7 +279,7 @@ class TestRunGenerationPipeline:
     def test_save_failure_still_reports_success(self, session_state, valid_spec: ArenaEnvGraphSpec, tmp_path: Path):
         session_state["out_dir"] = str(tmp_path)
         mock_agent = MagicMock()
-        mock_agent.generate_spec.return_value = valid_spec
+        mock_agent.generate_spec.return_value = (valid_spec, None)
         session_state["generation_agent"] = mock_agent
 
         mock_catalogues = MagicMock()

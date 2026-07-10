@@ -113,7 +113,7 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path:
     if args_cli.model:
         agent_kwargs["model"] = args_cli.model
     agent = EnvironmentGenerationAgent(**agent_kwargs)
-    result = agent.generate_spec(
+    spec, data = agent.generate_spec(
         args_cli.prompt,
         asset_catalog=asset_catalog,
         relation_catalog=relation_catalog,
@@ -122,19 +122,19 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path:
     # last_validation_traces holds one line per failure, e.g.
     #   "embodiment.registry_name: Unknown asset registry_name 'not_a_real_asset'"
     #   "Task 'PickAndPlaceTask' is missing required param 'pick_up_object'"
-    if isinstance(result, dict):
+    if spec is None:
         print("\n[runner] validation traces:", flush=True)
         for line in agent.last_validation_traces:
             print(f"  {line}", flush=True)
-        invalid_path = write_env_graph_dict(result, args_cli.out_dir)
+        invalid_path = write_env_graph_dict(data, args_cli.out_dir)
         print(f"[runner] wrote invalid spec YAML to {invalid_path}", flush=True)
         assert False, f"Agent returned an invalid spec. Validation traces: {agent.last_validation_traces}"
-    print_env_graph(result)
+    print_env_graph(spec)
     print(
-        f"[runner] generated → {result.summary()}, env_name={result.env_name!r}",
+        f"[runner] generated → {spec.summary()}, env_name={spec.env_name!r}",
         flush=True,
     )
-    path = write_env_graph_spec(result, args_cli.out_dir)
+    path = write_env_graph_spec(spec, args_cli.out_dir)
     print(f"[runner] wrote environment graph spec → {path}", flush=True)
     return path
 

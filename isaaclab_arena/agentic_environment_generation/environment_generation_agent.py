@@ -255,7 +255,7 @@ class EnvironmentGenerationAgent:
         asset_catalog: AssetCatalogue | None = None,
         relation_catalog: RelationCatalogue | None = None,
         task_catalog: TaskCatalogue | None = None,
-    ) -> ArenaEnvGraphSpec | dict[str, Any]:
+    ) -> tuple[ArenaEnvGraphSpec | None, dict[str, Any] | None]:
         """Call the model with user prompt and return the parsed ArenaEnvGraphSpec.
 
         Args:
@@ -268,10 +268,9 @@ class EnvironmentGenerationAgent:
                 ``TaskRegistry`` tasks marked ``@agent_ready``.
 
         Returns:
-            A validated :class:`ArenaEnvGraphSpec` on success, otherwise a ``dict``
-            (the model's raw JSON on pass-1 failure, or the unresolved spec on pass-2
-            prim-path failure). When validation fails, ``agent.traces`` holds the
-            error trace.
+            A ``(spec, data)`` tuple. On success, ``spec`` is validated and
+            ``data`` is None. On failure, ``spec`` is None and ``data`` is the corresponding JSON dict.
+            When validation fails, ``agent.traces`` holds the error trace.
         """
         self.traces = []
         asset_catalog = asset_catalog or build_asset_catalogue()
@@ -285,10 +284,10 @@ class EnvironmentGenerationAgent:
             task_catalog=task_catalog,
         )
         if spec is None:
-            return data
+            return None, data
         if spec.object_references:
             resolved = self.object_reference_resolver.infer(spec, self.traces)
             if resolved is None:
-                return spec.to_dict()
+                return None, spec.to_dict()
             spec = resolved
-        return spec
+        return spec, None
