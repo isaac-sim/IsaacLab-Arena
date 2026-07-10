@@ -48,10 +48,13 @@ def render_asset_thumbnail(
     )
     if png_bytes:
         b64 = base64.b64encode(png_bytes).decode("ascii")
+        title = html_lib.escape(registry_name, quote=True)
+        src = f"data:image/png;base64,{b64}"
         return (
             '<div class="thumb-wrap">'
-            '<div class="thumb thumb-rendered">'
-            f'<img src="data:image/png;base64,{b64}" alt="{html_lib.escape(registry_name)} thumbnail">'
+            '<div class="thumb thumb-rendered thumb-zoomable" role="button" tabindex="0" '
+            f'aria-label="Zoom {title} snapshot" data-zoom-src="{src}" data-zoom-title="{title}">'
+            f'<img src="{src}" alt="{title} thumbnail">'
             f'<span class="thumb-name">{html_lib.escape(registry_name)}</span>'
             f"{collision_note}"
             "</div>"

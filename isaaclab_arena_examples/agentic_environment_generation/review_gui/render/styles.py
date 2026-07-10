@@ -67,6 +67,13 @@ table.tasks pre { padding: 6px 8px; font-size: 11px; }
                     align-items: center; justify-content: center; color: var(--fg-muted);
                     position: relative; overflow: hidden; }
 .node-card .thumb-rendered { background: #0e1115; }
+.node-card .thumb-zoomable { cursor: zoom-in; outline: none; }
+.node-card .thumb-zoomable:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.node-card .thumb-zoomable::after { content: "Click to zoom"; position: absolute; top: 6px; right: 6px;
+                                     padding: 2px 6px; border-radius: 999px;
+                                     background: rgba(15, 17, 21, 0.78); color: var(--fg-muted);
+                                     font-size: 9px; opacity: 0; transition: opacity 120ms ease; }
+.node-card .thumb-zoomable:hover::after, .node-card .thumb-zoomable:focus-visible::after { opacity: 1; }
 .node-card .thumb-rendered img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .node-card .thumb-rendered .thumb-name { position: absolute; bottom: 0; left: 0; right: 0;
                                          padding: 4px 6px; background: rgba(15, 17, 21, 0.78);
@@ -83,4 +90,19 @@ table.tasks pre { padding: 6px 8px; font-size: 11px; }
 .node-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .node-id { font-family: ui-monospace, monospace; font-size: 13px; font-weight: 600; word-break: break-all; }
 .node-yaml { font-size: 11px; }
+.snapshot-lightbox { position: fixed; inset: 0; z-index: 1000; display: none;
+                     align-items: center; justify-content: center; padding: 24px;
+                     background: rgba(0, 0, 0, 0.86); }
+.snapshot-lightbox.is-open { display: flex; }
+.snapshot-lightbox__content { max-width: min(96vw, 1400px); max-height: 94vh; display: flex;
+                              flex-direction: column; gap: 10px; }
+.snapshot-lightbox__chrome { display: flex; align-items: center; justify-content: space-between;
+                             gap: 12px; color: var(--fg); font-family: ui-monospace, monospace; }
+.snapshot-lightbox__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.snapshot-lightbox__close { border: 1px solid var(--border); border-radius: 6px;
+                            background: var(--bg-elev2); color: var(--fg); padding: 4px 10px;
+                            cursor: pointer; font: inherit; }
+.snapshot-lightbox__close:hover { border-color: var(--accent); }
+.snapshot-lightbox img { max-width: min(96vw, 1400px); max-height: 88vh; object-fit: contain;
+                         background: #0e1115; border-radius: 8px; box-shadow: 0 18px 70px rgba(0, 0, 0, 0.55); }
 """
