@@ -40,9 +40,6 @@ def load_arena_experiment_from_config_file(
 ) -> ArenaExperiment:
     """Load a JSON or YAML Arena Experiment and apply its process device.
 
-    Call this only after SimulationApp starts because resolving the complete
-    configuration registries loads Isaac Sim modules.
-
     Args:
         experiment_config_path: Path to a legacy JSON or typed YAML Experiment.
         device: Process-wide simulation device applied to every Run.
@@ -84,15 +81,18 @@ def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
     """Return registered environment selector names and their config types."""
     ensure_environments_registered()
     registry = EnvironmentRegistry()
-    return {
-        name: registry.get_environment_cfg_type(registry.get_component_by_name(name))
-        for name in registry.get_all_keys()
-    }
+    environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]] = {}
+    for name in registry.get_all_keys():
+        environment_factory_type = registry.get_component_by_name(name)
+        environment_cfg_types[name] = registry.get_environment_cfg_type(environment_factory_type)
+    return environment_cfg_types
 
 
 def _registered_policy_cfg_types() -> dict[str, type[PolicyCfg]]:
     """Return registered policy selector names and their config types."""
     registry = PolicyRegistry()
-    return {
-        name: registry.get_policy_cfg_type(registry.get_component_by_name(name)) for name in registry.get_all_keys()
-    }
+    policy_cfg_types: dict[str, type[PolicyCfg]] = {}
+    for name in registry.get_all_keys():
+        policy_type = registry.get_component_by_name(name)
+        policy_cfg_types[name] = registry.get_policy_cfg_type(policy_type)
+    return policy_cfg_types

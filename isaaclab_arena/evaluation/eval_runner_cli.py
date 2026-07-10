@@ -5,6 +5,9 @@
 
 import argparse
 
+from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
+
 _DEFAULT_EXPERIMENT_CONFIG_PATH = "isaaclab_arena_environments/eval_jobs_configs/zero_action_jobs_config.json"
 
 
@@ -18,16 +21,9 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         dest="experiment_config",
         type=str,
         default=_DEFAULT_EXPERIMENT_CONFIG_PATH,
-        help="Path to a typed YAML Experiment or legacy JSON evaluation config.",
-    )
-    parser.add_argument(
-        "--experiment_override",
-        action="append",
-        default=[],
-        metavar="KEY=VALUE",
         help=(
-            "Hydra override for a typed YAML Experiment. Repeat for multiple overrides. "
-            "Also pass --enable_cameras when an override enables environment cameras."
+            "Path to a typed YAML Experiment or legacy JSON evaluation config. "
+            "For YAML, append Hydra KEY=VALUE overrides to the command."
         ),
     )
     parser.add_argument(
@@ -80,3 +76,18 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
             " set only if a long sweep grows in host memory or gets OOM-killed."
         ),
     )
+
+
+def parse_eval_runner_args(argv: list[str] | None = None) -> tuple[argparse.Namespace, list[str]]:
+    """Parse eval-runner arguments and return native Hydra override tokens separately.
+
+    Args:
+        argv: Arguments to parse, or None to read the process arguments.
+    """
+    parser = get_isaaclab_arena_cli_parser()
+    add_eval_runner_arguments(parser)
+    parser.allow_abbrev = False
+    args_cli, experiment_overrides = parser.parse_known_args(argv)
+    assert_hydra_overrides(experiment_overrides, parser)
+    assert not args_cli.distributed, "Distributed evaluation is not supported yet"
+    return args_cli, experiment_overrides

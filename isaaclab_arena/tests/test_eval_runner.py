@@ -5,15 +5,39 @@
 
 import json
 import os
+import subprocess
 
 import pytest
 
+from isaaclab_arena.evaluation.eval_runner_cli import parse_eval_runner_args
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function, run_subprocess
 
 HEADLESS = True
 NUM_STEPS = 2
 DEFAULT_VISUALIZER = "kit"
+
+
+def test_eval_runner_parses_native_hydra_overrides():
+    args_cli, experiment_overrides = parse_eval_runner_args([
+        "--experiment_config",
+        "experiment.yaml",
+        "runs.baseline.rollout_limit.num_steps=2",
+        "runs.baseline.environment.enable_cameras=true",
+    ])
+
+    assert args_cli.experiment_config == "experiment.yaml"
+    assert experiment_overrides == [
+        "runs.baseline.rollout_limit.num_steps=2",
+        "runs.baseline.environment.enable_cameras=true",
+    ]
+
+
+def test_eval_runner_rejects_unknown_non_hydra_arguments(capsys):
+    with pytest.raises(SystemExit):
+        parse_eval_runner_args(["--headles"])
+
+    assert "Unrecognized arguments: --headles" in capsys.readouterr().err
 
 
 def write_jobs_config_to_file(jobs: list[dict], tmp_file_path: str):
@@ -28,7 +52,8 @@ def run_eval_runner(
     headless: bool = HEADLESS,
     config_option: str = "--eval_jobs_config",
     extra_args: list[str] | None = None,
-):
+    capture_output: bool = False,
+) -> subprocess.CompletedProcess[str] | None:
     """Run the eval_runner as a subprocess with timeout.
 
     --continue_on_error is NOT passed, so the eval_runner re-raises on the
@@ -40,6 +65,10 @@ def run_eval_runner(
         headless: Whether to run in headless mode.
         config_option: CLI option used to pass the Experiment path.
         extra_args: Additional eval_runner arguments.
+        capture_output: Whether to capture and return the subprocess output.
+
+    Returns:
+        The completed subprocess when output is captured, otherwise None.
     """
     args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/eval_runner.py"]
     args.append(config_option)
@@ -51,7 +80,7 @@ def run_eval_runner(
         args.append("--viz")
         args.append(DEFAULT_VISUALIZER)
 
-    run_subprocess(args)
+    return run_subprocess(args, capture_output=capture_output)
 
 
 @pytest.mark.with_subprocess
@@ -72,16 +101,20 @@ runs:
         encoding="utf-8",
     )
 
-    run_eval_runner(
+    result = run_eval_runner(
         str(experiment_config_path),
         config_option="--experiment_config",
         extra_args=[
-            "--experiment_override",
-            "runs.yaml_baseline.rollout_limit.num_steps=2",
             "--output_base_dir",
             str(tmp_path / "output"),
+            "runs.yaml_baseline.rollout_limit.num_steps=2",
         ],
+        capture_output=True,
     )
+    assert result is not None
+    run_row = next(line for line in result.stdout.splitlines() if "yaml_baseline" in line and "pending" in line)
+    run_cells = [cell.strip() for cell in run_row.split("|")[1:-1]]
+    assert run_cells[4] == "2"
 
 
 @pytest.mark.with_subprocess

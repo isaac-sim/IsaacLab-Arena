@@ -15,10 +15,8 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     load_arena_experiment_from_config_file,
     validate_experiment_config_path,
 )
-from isaaclab_arena.evaluation.eval_runner import (
-    _assert_camera_support_enabled,
-    legacy_json_experiment_requires_cameras,
-)
+from isaaclab_arena.evaluation.eval_runner import _assert_camera_support_enabled
+from isaaclab_arena.evaluation.legacy_eval_runner import legacy_json_experiment_requires_cameras
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
@@ -89,7 +87,7 @@ def test_eval_runner_loads_typed_experiment_after_simulation_starts(monkeypatch)
             "eval_runner.py",
             "--experiment_config",
             str(GETTING_STARTED_YAML_PATH),
-            "--list-variations",
+            "--list_variations",
         ],
     )
 
@@ -137,6 +135,21 @@ def test_legacy_json_experiment_rejects_hydra_overrides():
             device="cuda:0",
             overrides=["runs.baseline.rollout_limit.num_steps=2"],
         )
+
+
+def test_eval_runner_rejects_native_hydra_overrides_for_legacy_json(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "eval_runner.py",
+            "--experiment_config",
+            str(GETTING_STARTED_JSON_PATH),
+            "runs.baseline.rollout_limit.num_steps=2",
+        ],
+    )
+
+    with pytest.raises(AssertionError, match="only for typed YAML"):
+        eval_runner.main()
 
 
 def test_unknown_experiment_config_file_type_is_rejected(tmp_path):
