@@ -109,15 +109,6 @@ class EmbodimentBase(Asset):
     def get_camera_cfg(self) -> Any:
         return self.camera_config
 
-    @property
-    def usd_path(self) -> str | None:
-        """Robot spawn USD path from ``scene_config``, if configured."""
-        scene_config = self.scene_config
-        robot = getattr(scene_config, "robot", None) if scene_config is not None else None
-        spawn = getattr(robot, "spawn", None) if robot is not None else None
-        spawn_path = getattr(spawn, "usd_path", None) if spawn is not None else None
-        return str(spawn_path) if spawn_path else None
-
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
         if scene_config is None or not hasattr(scene_config, "robot"):
             raise RuntimeError("scene_config must be populated with a `robot` before calling `set_robot_initial_pose`.")

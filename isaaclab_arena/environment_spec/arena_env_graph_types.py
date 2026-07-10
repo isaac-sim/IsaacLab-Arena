@@ -23,6 +23,8 @@ def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
     if isinstance(class_usd, str) and class_usd:
         return class_usd
 
+    # Instantiate when usd_path is set lazily (e.g. Lightwheel backgrounds).
+    # TODO(qianl): add support for embodiments, whose robot USD lives in scene_config.robot.spawn.
     try:
         instance = asset_cls(**params)
     except Exception:
