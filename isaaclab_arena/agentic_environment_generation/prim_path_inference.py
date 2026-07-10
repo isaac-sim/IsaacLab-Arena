@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field, ValidationError
 
-from isaaclab_arena.agentic_environment_generation.query_backend import (
-    QueryBackend,
+from isaaclab_arena.agentic_environment_generation.inference_backend import (
+    InferenceBackend,
     StructuredOutputRequest,
     build_strict_schema,
 )
@@ -140,13 +140,13 @@ def _merge_resolved_object_references(
 class PrimPathInference:
     """Resolve object_reference prim_path values against background USD."""
 
-    def __init__(self, query_backend: QueryBackend):
+    def __init__(self, inference_backend: InferenceBackend):
         """Wire prim-path inference to a structured-output backend.
 
         Args:
-            query_backend: Shared LLM client for JSON-schema completion requests.
+            inference_backend: Shared LLM client for JSON-schema completion requests.
         """
-        self._query_backend = query_backend
+        self._inference_backend = inference_backend
         self._schema = build_strict_schema(ResolvedObjectReferences)
 
     def infer(
@@ -170,7 +170,7 @@ class PrimPathInference:
 
         usd_path = spec.background.resolve_usd_path()
         prim_tree = load_usd_prim_tree(usd_path)
-        data = self._query_backend.run_json(
+        data = self._inference_backend.run_json(
             StructuredOutputRequest(
                 schema_name="ResolvedObjectReferences",
                 schema=self._schema,

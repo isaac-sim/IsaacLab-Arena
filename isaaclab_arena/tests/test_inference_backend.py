@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for :mod:`isaaclab_arena.agentic_environment_generation.query_backend`."""
+"""Unit tests for :mod:`isaaclab_arena.agentic_environment_generation.inference_backend`."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from isaaclab_arena.agentic_environment_generation.query_backend import QueryBackend, StructuredOutputRequest
+from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend, StructuredOutputRequest
 from isaaclab_arena.tests.utils.agentic_environment_generation import chat_response
 
 
@@ -26,9 +26,9 @@ def _request() -> StructuredOutputRequest:
     )
 
 
-def _backend(client: MagicMock, *, max_retries: int = 3) -> QueryBackend:
+def _backend(client: MagicMock, *, max_retries: int = 3) -> InferenceBackend:
     client.chat.completions.create.return_value = chat_response(content="OK")
-    backend = QueryBackend(client, "test-model", max_retries=max_retries)
+    backend = InferenceBackend(client, "test-model", max_retries=max_retries)
     client.chat.completions.create.reset_mock()
     return backend
 

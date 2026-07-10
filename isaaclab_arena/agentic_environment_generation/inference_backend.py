@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""OpenAI-compatible structured-output query backend for agent inference steps."""
+"""OpenAI-compatible structured-output inference backend for agent inference steps."""
 
 from __future__ import annotations
 
@@ -99,7 +99,7 @@ class StructuredOutputRequest:
     retry_label: str
 
 
-class QueryBackend:
+class InferenceBackend:
     """Shared LLM JSON-schema runner with retry and tolerant JSON parsing."""
 
     def __init__(

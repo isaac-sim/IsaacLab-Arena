@@ -11,8 +11,8 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from isaaclab_arena.agentic_environment_generation.query_backend import (
-    QueryBackend,
+from isaaclab_arena.agentic_environment_generation.inference_backend import (
+    InferenceBackend,
     StructuredOutputRequest,
     build_strict_schema,
 )
@@ -26,13 +26,13 @@ from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSp
 class SpecInference:
     """Natural-language prompt -> ArenaEnvGraphSpec JSON."""
 
-    def __init__(self, query_backend: QueryBackend):
+    def __init__(self, inference_backend: InferenceBackend):
         """Wire spec inference to a structured-output backend.
 
         Args:
-            query_backend: Shared LLM client for JSON-schema completion requests.
+            inference_backend: Shared LLM client for JSON-schema completion requests.
         """
-        self._query_backend = query_backend
+        self._inference_backend = inference_backend
         self._schema = build_strict_schema(ArenaEnvGraphSpec)
 
     def infer(
@@ -57,7 +57,7 @@ class SpecInference:
             parsed model JSON. On failure, ``spec`` is ``None`` and ``data`` is the raw
             response object.
         """
-        data = self._query_backend.run_json(
+        data = self._inference_backend.run_json(
             StructuredOutputRequest(
                 schema_name="ArenaEnvGraphSpec",
                 schema=self._schema,

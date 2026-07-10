@@ -13,8 +13,8 @@ from typing import Any
 
 from openai import OpenAI
 
+from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
 from isaaclab_arena.agentic_environment_generation.prim_path_inference import PrimPathInference
-from isaaclab_arena.agentic_environment_generation.query_backend import QueryBackend
 from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
 from isaaclab_arena.agentic_environment_generation.spec_validation import required_task_init_param_names
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
@@ -229,15 +229,15 @@ class EnvironmentGenerationAgent:
         resolved_model = model or DEFAULT_MODEL
         resolved_base_url = base_url or DEFAULT_BASE_URL
         client = OpenAI(api_key=api_key, base_url=resolved_base_url)
-        query_backend = QueryBackend(
+        inference_backend = InferenceBackend(
             client,
             resolved_model,
             temperature=temperature,
             max_tokens=max_tokens,
             max_retries=max_retries,
         )
-        self.spec_inference = SpecInference(query_backend)
-        self.prim_path_inference = PrimPathInference(query_backend)
+        self.spec_inference = SpecInference(inference_backend)
+        self.prim_path_inference = PrimPathInference(inference_backend)
         self.traces: list[str] = []
 
     @property

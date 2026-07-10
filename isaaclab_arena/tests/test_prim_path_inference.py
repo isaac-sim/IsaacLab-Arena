@@ -12,8 +12,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
 from isaaclab_arena.agentic_environment_generation.prim_path_inference import PrimPathInference, _prim_tree_catalog
-from isaaclab_arena.agentic_environment_generation.query_backend import QueryBackend
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.tests.utils.agentic_environment_generation import (
@@ -44,7 +44,7 @@ def test_prim_path_inference_infer_merges_llm_output(mock_resolve_usd, mock_load
     mock_load_tree.return_value = kitchen_prim_tree()
     client = MagicMock()
     client.chat.completions.create.return_value = chat_response(content="OK")
-    backend = QueryBackend(client, "test-model")
+    backend = InferenceBackend(client, "test-model")
     client.chat.completions.create.return_value = chat_response(json.dumps(kitchen_resolve_response()))
     client.chat.completions.create.reset_mock()
     inference = PrimPathInference(backend)
@@ -68,7 +68,7 @@ def test_prim_path_inference_strips_leading_slash(mock_resolve_usd, mock_load_tr
         ref["prim_path"] = "/" + ref["prim_path"]
     client = MagicMock()
     client.chat.completions.create.return_value = chat_response(content="OK")
-    backend = QueryBackend(client, "test-model")
+    backend = InferenceBackend(client, "test-model")
     client.chat.completions.create.return_value = chat_response(json.dumps(response))
     client.chat.completions.create.reset_mock()
     inference = PrimPathInference(backend)
@@ -130,7 +130,7 @@ def test_prim_path_inference_infer_records_invalid_llm_output(
     mock_load_tree.return_value = kitchen_prim_tree()
     client = MagicMock()
     client.chat.completions.create.return_value = chat_response(content="OK")
-    backend = QueryBackend(client, "test-model")
+    backend = InferenceBackend(client, "test-model")
     client.chat.completions.create.return_value = chat_response(json.dumps(response))
     client.chat.completions.create.reset_mock()
     inference = PrimPathInference(backend)

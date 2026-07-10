@@ -43,7 +43,7 @@ def stub_openai():
 
 
 def _agent_client(agent: EnvironmentGenerationAgent):
-    return agent.spec_inference._query_backend.client
+    return agent.spec_inference._inference_backend.client
 
 
 @pytest.fixture
@@ -79,7 +79,7 @@ class TestInit:
 
     def test_custom_model_and_base_url(self, stub_openai):
         a = EnvironmentGenerationAgent(api_key="k", model="custom-model", base_url="http://localhost:8000")
-        assert a.spec_inference._query_backend.model == "custom-model"
+        assert a.spec_inference._inference_backend.model == "custom-model"
         stub_openai.assert_called_once_with(api_key="k", base_url="http://localhost:8000")
 
 
