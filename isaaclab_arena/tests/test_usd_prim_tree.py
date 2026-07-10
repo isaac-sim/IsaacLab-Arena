@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.environments.arena_env_graph_types import AssetSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec
 from isaaclab_arena.utils.asset_usd import resolve_asset_usd_path
 from isaaclab_arena.utils.usd_prim_tree import load_usd_prim_tree
 

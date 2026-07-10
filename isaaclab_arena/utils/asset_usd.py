@@ -11,7 +11,7 @@ import hashlib
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from isaaclab_arena.environments.arena_env_graph_types import AssetSpec
+    from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec
 
 
 def usd_cache_key(usd_path: str) -> str:

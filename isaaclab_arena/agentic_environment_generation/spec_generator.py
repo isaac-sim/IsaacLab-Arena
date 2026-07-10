@@ -15,7 +15,7 @@ from isaaclab_arena.agentic_environment_generation.spec_validation import (
     collect_agent_ready_task_validation_traces,
     try_parse_env_graph_spec,
 )
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
 
 def spec_system_prompt() -> str:

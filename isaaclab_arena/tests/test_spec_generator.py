@@ -14,7 +14,7 @@ import pytest
 
 from isaaclab_arena.agentic_environment_generation.query_backend import QueryBackend
 from isaaclab_arena.agentic_environment_generation.spec_generator import SpecGenerator
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.tests.utils.agentic_environment_generation import catalog as make_catalog
 from isaaclab_arena.tests.utils.agentic_environment_generation import chat_response, minimal_spec_dict
 from isaaclab_arena.tests.utils.agentic_environment_generation import relation_catalog as make_relation_catalog

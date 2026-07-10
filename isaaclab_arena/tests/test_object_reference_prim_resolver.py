@@ -14,7 +14,7 @@ import pytest
 
 from isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver import ObjectReferencePrimResolver
 from isaaclab_arena.agentic_environment_generation.query_backend import QueryBackend
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.tests.utils.agentic_environment_generation import (
     chat_response,
     kitchen_pass1_dict,
