@@ -21,11 +21,11 @@ objects:
 - id: spring_clamp
   registry_name: spring_clamp_ycb_robolab
   params: {}
-- id: hammer_1
-  registry_name: hammer_handal_robolab
+- id: red_hammer
+  registry_name: red_hammer_robolab
   params: {}
-- id: hammer_2
-  registry_name: hammer_handal_robolab
+- id: black_hammer
+  registry_name: black_hammer_robolab
   params: {}
 - id: cordless_drill
   registry_name: cordless_drill_ycb_robolab
@@ -48,11 +48,11 @@ relations:
   reference: maple_table_robolab
   params: {}
 - kind: 'on'
-  subject: hammer_1
+  subject: red_hammer
   reference: maple_table_robolab
   params: {}
 - kind: 'on'
-  subject: hammer_2
+  subject: black_hammer
   reference: maple_table_robolab
   params: {}
 - kind: 'on'

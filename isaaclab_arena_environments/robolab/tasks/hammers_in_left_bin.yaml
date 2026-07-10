@@ -11,14 +11,14 @@ task:
   subtasks:
   - kind: PickAndPlaceTask
     params:
-      pick_up_object: hammer_1
+      pick_up_object: red_hammer
       destination_location: container_f24
       background_scene: maple_table_robolab
       episode_length_s: 20.0
       max_separation: [0.1, 0.1, 0.1]
   - kind: PickAndPlaceTask
     params:
-      pick_up_object: hammer_2
+      pick_up_object: black_hammer
       destination_location: container_f24
       background_scene: maple_table_robolab
       episode_length_s: 20.0
