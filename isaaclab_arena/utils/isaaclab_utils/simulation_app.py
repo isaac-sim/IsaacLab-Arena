@@ -10,6 +10,7 @@ import sys
 import torch
 import traceback
 from contextlib import nullcontext, suppress
+from typing import Any
 
 import omni.kit.app
 from isaaclab.app import AppLauncher
@@ -23,12 +24,19 @@ def get_isaac_sim_version() -> str:
 STARTUP_COMPLETE_MARKER = "[isaaclab-arena] AppLauncher initialization complete"
 
 
-def get_app_launcher(args: argparse.Namespace) -> AppLauncher:
+def get_app_launcher(args: argparse.Namespace | dict[str, Any]) -> AppLauncher:
     """Get an app launcher."""
     import time
 
     t0 = time.monotonic()
-    app_launcher = AppLauncher(args)
+    # AppLauncher consumes and mutates dictionaries while resolving settings,
+    # so keep the typed invocation values intact in a shallow working copy.
+    launcher_args = dict(args) if isinstance(args, dict) else args
+    app_launcher = AppLauncher(launcher_args)
+    if isinstance(args, dict) and "device" in launcher_args:
+        # XR may resolve an implicit CUDA device to CPU. Propagate that one
+        # authoritative value so Run composition uses the same device as Sim.
+        args["device"] = launcher_args["device"]
     elapsed = time.monotonic() - t0
     sys.__stderr__.write(f"{STARTUP_COMPLETE_MARKER} ({elapsed:.1f}s)\n")
     sys.__stderr__.flush()
@@ -128,10 +136,10 @@ def _kill_child_processes() -> None:
 class SimulationAppContext:
     """Context manager for launching and closing a simulation app."""
 
-    def __init__(self, args: argparse.Namespace):
+    def __init__(self, args: argparse.Namespace | dict[str, Any]):
         """
         Args:
-            args (argparse.Namespace): The arguments to the simulation app.
+            args: Typed launcher values or a deprecated argparse Namespace.
         """
         self.args = args
         self.app_launcher = None
