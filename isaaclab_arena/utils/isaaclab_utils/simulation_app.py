@@ -10,6 +10,7 @@ import sys
 import torch
 import traceback
 from contextlib import nullcontext, suppress
+from typing import Any
 
 import omni.kit.app
 from isaaclab.app import AppLauncher
@@ -23,7 +24,7 @@ def get_isaac_sim_version() -> str:
 STARTUP_COMPLETE_MARKER = "[isaaclab-arena] AppLauncher initialization complete"
 
 
-def get_app_launcher(args: argparse.Namespace) -> AppLauncher:
+def get_app_launcher(args: argparse.Namespace | dict[str, Any]) -> AppLauncher:
     """Get an app launcher."""
     import time
 
@@ -128,10 +129,10 @@ def _kill_child_processes() -> None:
 class SimulationAppContext:
     """Context manager for launching and closing a simulation app."""
 
-    def __init__(self, args: argparse.Namespace):
+    def __init__(self, args: argparse.Namespace | dict[str, Any]):
         """
         Args:
-            args (argparse.Namespace): The arguments to the simulation app.
+            args: Typed launcher values or a deprecated argparse Namespace.
         """
         self.args = args
         self.app_launcher = None

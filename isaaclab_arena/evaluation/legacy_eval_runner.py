@@ -7,13 +7,14 @@
 
 from __future__ import annotations
 
-import argparse
 import json
 import math
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+from isaaclab_arena.evaluation.eval_runner_cli import EvalRunnerCfg
 
 
 def load_legacy_json_experiment_config(
@@ -51,48 +52,73 @@ def legacy_json_experiment_requires_cameras(experiment_config: dict) -> bool:
     )
 
 
-def _run_legacy_json_chunk(chunk_label: str, legacy_job_configs: list[dict]) -> int:
+def _without_experiment_config(arguments: list[str]) -> list[str]:
+    """Remove every supported Experiment-path option and its value."""
+    option_names = {
+        "--experiment-config",
+        "--experiment_config",
+        "--eval-jobs-config",
+        "--eval_jobs_config",
+    }
+    filtered: list[str] = []
+    skip_next = False
+    for argument in arguments:
+        if skip_next:
+            skip_next = False
+            continue
+        if argument in option_names:
+            skip_next = True
+            continue
+        if any(argument.startswith(f"{name}=") for name in option_names):
+            continue
+        filtered.append(argument)
+    return filtered
+
+
+def _run_legacy_json_chunk(cfg: EvalRunnerCfg, chunk_label: str, legacy_job_configs: list[dict]) -> int:
     """Run legacy JSON entries in a fresh eval_runner subprocess."""
     print(f"[eval_runner] {chunk_label}", flush=True)
-    # Serialize this chunk's jobs to a temp config the child loads via --experiment_config.
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
         json.dump({"jobs": legacy_job_configs}, tmp)
         chunk_path = Path(tmp.name)
-    # Re-run this invocation in the child, with --experiment_config appended so it wins over
-    # the master config (argparse keeps the last value).
-    # Strip --serve_evaluation_report: a child that served its report would block on
-    # serve_until_ctrl_c forever.
-    forwarded_args = [arg for arg in sys.argv if arg != "--serve_evaluation_report"]
-    config_override = ["--experiment_config", str(chunk_path)]
-    child_cmd = [sys.executable, *forwarded_args, *config_override]
+
+    forwarded_args = _without_experiment_config(cfg.invocation_args)
+    forwarded_args = [
+        arg for arg in forwarded_args if arg not in {"--serve-evaluation-report", "--serve_evaluation_report"}
+    ]
+    eval_runner_path = Path(__file__).with_name("eval_runner.py")
+    child_cmd = [
+        sys.executable,
+        str(eval_runner_path),
+        *forwarded_args,
+        "--experiment-config",
+        str(chunk_path),
+    ]
     try:
         result = subprocess.run(child_cmd, check=False)
     finally:
-        # Remove the temp chunk config now that the child has loaded it.
         chunk_path.unlink(missing_ok=True)
     return result.returncode
 
 
-def run_legacy_json_in_chunks(args_cli: argparse.Namespace, legacy_experiment_config: dict) -> None:
+def run_legacy_json_in_chunks(cfg: EvalRunnerCfg, legacy_experiment_config: dict) -> None:
     """Run each chunk of a legacy JSON Experiment in a fresh subprocess."""
     # TODO(cvolk): Aggregate per-chunk metrics into one centralized view. Each chunk
     # subprocess currently prints its own MetricsLogger summary and nothing is merged
     # or persisted (save_metrics_to_file() is unused). Have each chunk write metrics
     # JSON to a temp file, then merge and print or save them here.
     jobs = legacy_experiment_config["jobs"]
-    chunk_size = args_cli.chunk_size
-    assert chunk_size > 0, f"--chunk_size must be positive, got {chunk_size}"
-    n_chunks = math.ceil(len(jobs) / chunk_size)
-    print(f"[eval_runner] {len(jobs)} Runs → {n_chunks} chunks of <= {chunk_size}", flush=True)
+    assert cfg.chunk_size is not None and cfg.chunk_size > 0, f"--chunk-size must be positive, got {cfg.chunk_size}"
+    n_chunks = math.ceil(len(jobs) / cfg.chunk_size)
+    print(f"[eval_runner] {len(jobs)} Runs → {n_chunks} chunks of <= {cfg.chunk_size}", flush=True)
 
-    if args_cli.serve_evaluation_report:
-        print("--serve_evaluation_report is ignored with --chunk_size.", flush=True)
+    if cfg.serve_evaluation_report:
+        print("--serve-evaluation-report is ignored with --chunk-size.", flush=True)
 
     for chunk_idx in range(n_chunks):
-        start = chunk_idx * chunk_size
-        end = min(start + chunk_size, len(jobs))
+        start = chunk_idx * cfg.chunk_size
+        end = min(start + cfg.chunk_size, len(jobs))
         chunk_label = f"chunk {chunk_idx + 1}/{n_chunks}: Runs {start}..{end - 1}"
-        returncode = _run_legacy_json_chunk(chunk_label, jobs[start:end])
+        returncode = _run_legacy_json_chunk(cfg, chunk_label, jobs[start:end])
         if returncode != 0:
-            print(f"[eval_runner] chunk {chunk_idx} failed (exit {returncode}).", flush=True)
-            sys.exit(returncode)
+            raise SystemExit(returncode)

@@ -6,10 +6,11 @@
 import json
 import os
 import subprocess
+from pathlib import Path
 
 import pytest
 
-from isaaclab_arena.evaluation.eval_runner_cli import parse_eval_runner_args
+from isaaclab_arena.evaluation.eval_runner_cli import parse_eval_runner_cfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function, run_subprocess
 
@@ -19,15 +20,15 @@ DEFAULT_VISUALIZER = "kit"
 
 
 def test_eval_runner_parses_native_hydra_overrides():
-    args_cli, experiment_overrides = parse_eval_runner_args([
-        "--experiment_config",
+    cfg = parse_eval_runner_cfg([
+        "--experiment-config",
         "experiment.yaml",
         "runs.baseline.rollout_limit.num_steps=2",
         "runs.baseline.environment.enable_cameras=true",
     ])
 
-    assert args_cli.experiment_config == "experiment.yaml"
-    assert experiment_overrides == [
+    assert cfg.experiment_config == Path("experiment.yaml")
+    assert cfg.experiment_overrides == [
         "runs.baseline.rollout_limit.num_steps=2",
         "runs.baseline.environment.enable_cameras=true",
     ]
@@ -35,9 +36,31 @@ def test_eval_runner_parses_native_hydra_overrides():
 
 def test_eval_runner_rejects_unknown_non_hydra_arguments(capsys):
     with pytest.raises(SystemExit):
-        parse_eval_runner_args(["--headles"])
+        parse_eval_runner_cfg(["--headles"])
 
     assert "Unrecognized arguments: --headles" in capsys.readouterr().err
+
+
+def test_eval_runner_keeps_app_launcher_values_in_typed_config():
+    cfg = parse_eval_runner_cfg([
+        "--experiment-config",
+        "experiment.yaml",
+        "--device",
+        "cuda:1",
+        "--headless",
+        "--viz",
+        "kit",
+        "--enable_cameras",
+    ])
+
+    assert cfg.device == "cuda:1"
+    assert cfg.app_launcher_args["headless"] is True
+    assert cfg.app_launcher_args["enable_cameras"] is True
+    assert cfg.app_launcher_args["device_explicit"] is True
+    assert cfg.app_launcher_args["headless_explicit"] is True
+    assert cfg.app_launcher_args["visualizer_explicit"] is True
+    assert cfg.app_launcher_args["visualizer"] == ["kit"]
+    assert "experiment_config" not in cfg.app_launcher_args
 
 
 def write_jobs_config_to_file(jobs: list[dict], tmp_file_path: str):

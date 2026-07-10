@@ -3,6 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Run an Arena Experiment locally."""
+
+from __future__ import annotations
+
 import os
 from pathlib import Path
 
@@ -12,7 +16,7 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     validate_experiment_config_path,
 )
 from isaaclab_arena.evaluation.arena_run import build_runs_info_table
-from isaaclab_arena.evaluation.eval_runner_cli import parse_eval_runner_args
+from isaaclab_arena.evaluation.eval_runner_cli import EvalRunnerCfg, parse_eval_runner_cfg
 from isaaclab_arena.evaluation.legacy_eval_runner import (
     legacy_json_experiment_requires_cameras,
     load_legacy_json_experiment_config,
@@ -25,10 +29,9 @@ from isaaclab_arena.video.video_recording import timestamped_run_dir
 from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 
 
-# TODO(cvolk): Move experiment-level variation inspection out of this CLI entry point.
-# Run orchestration belongs in evaluation; catalogue formatting belongs in variations.
+# TODO(cvolk): Move experiment-level variation inspection out of this runtime.
 def list_variations(experiment: ArenaExperiment) -> None:
-    """Print the Hydra-configurable variations for each run's environment."""
+    """Print the Hydra-configurable variations for each Run's environment."""
     for run_cfg in experiment:
         arena_builder = build_arena_builder_from_run_cfg(run_cfg)
         print(f"=== Variations for run '{run_cfg.name}' ===", flush=True)
@@ -50,69 +53,61 @@ def _assert_camera_support_enabled(experiment: ArenaExperiment, enable_cameras: 
     )
 
 
-def main():
-    args_cli, experiment_overrides = parse_eval_runner_args()
-    experiment_config_path = validate_experiment_config_path(args_cli.experiment_config)
+def run_local_experiment(cfg: EvalRunnerCfg) -> int:
+    """Execute an Experiment in one local Isaac Sim process."""
+    experiment_config_path = validate_experiment_config_path(cfg.experiment_config)
     legacy_experiment_config = load_legacy_json_experiment_config(
         experiment_config_path,
-        experiment_overrides,
+        cfg.experiment_overrides,
     )
 
-    if args_cli.record_camera_video or (
+    # Preserve the existing camera behavior from eval_runner: legacy JSON and
+    # camera recording enable AppLauncher automatically, while typed YAML Runs
+    # must still pass --enable_cameras until the camera follow-up lands.
+    if cfg.record_camera_video or (
         legacy_experiment_config is not None and legacy_json_experiment_requires_cameras(legacy_experiment_config)
     ):
-        args_cli.enable_cameras = True
+        cfg.app_launcher_args["enable_cameras"] = True
 
-    # Print the variations catalogue for each run's environment and exit.
-    if args_cli.list_variations:
-        with SimulationAppContext(args_cli):
+    if cfg.list_variations:
+        with SimulationAppContext(cfg.app_launcher_args):
             experiment = load_arena_experiment_from_config_file(
                 experiment_config_path,
-                device=args_cli.device,
-                overrides=experiment_overrides,
+                device=cfg.device,
+                overrides=cfg.experiment_overrides,
             )
-            _assert_camera_support_enabled(experiment, args_cli.enable_cameras)
+            _assert_camera_support_enabled(experiment, bool(cfg.app_launcher_args["enable_cameras"]))
             list_variations(experiment)
-        return
+        return 0
 
-    # Chunked dispatch (--chunk_size N). Splits this config across subprocesses so each
-    # gets a fresh SimulationApp. Required for long sweeps because some host memory leaks
-    # each cycle and is only reclaimed when the process exits — in-process teardown can't
-    # release it.
-    if args_cli.chunk_size is not None:
-        assert legacy_experiment_config is not None, "--chunk_size currently supports only legacy JSON Experiments"
+    if cfg.chunk_size is not None:
+        assert legacy_experiment_config is not None, "--chunk-size currently supports only legacy JSON Experiments"
+        if len(legacy_experiment_config["jobs"]) > cfg.chunk_size:
+            run_legacy_json_in_chunks(cfg, legacy_experiment_config)
+            return 0
 
-        if len(legacy_experiment_config["jobs"]) > args_cli.chunk_size:
-            run_legacy_json_in_chunks(args_cli, legacy_experiment_config)
-            return
-
-    with SimulationAppContext(args_cli):
+    with SimulationAppContext(cfg.app_launcher_args):
         experiment = load_arena_experiment_from_config_file(
             experiment_config_path,
-            device=args_cli.device,
-            overrides=experiment_overrides,
+            device=cfg.device,
+            overrides=cfg.experiment_overrides,
         )
-        _assert_camera_support_enabled(experiment, args_cli.enable_cameras)
-        metrics_logger = MetricsLogger()
+        _assert_camera_support_enabled(experiment, bool(cfg.app_launcher_args["enable_cameras"]))
 
+        metrics_logger = MetricsLogger()
         print(build_runs_info_table(experiment, []))
 
-        # One reverse-dated output directory for the Experiment, with one subdirectory
-        # per Run. Always date it so each invocation produces its own report directory.
-        # TODO(alexmillane): Currently each chunk produces its own output directory.
-        # We should use the same output directory for all chunks in the future.
-        experiment_output_dir = Path(timestamped_run_dir(args_cli.output_base_dir))
-
-        if args_cli.record_viewport_video:
+        experiment_output_dir = Path(timestamped_run_dir(str(cfg.output_base_dir)))
+        if cfg.record_viewport_video:
             os.makedirs(experiment_output_dir, exist_ok=True)
             print(f"[INFO] Video recording enabled. Videos will be saved to: {experiment_output_dir}")
 
         results = execute_experiment(
             experiment,
             output_dir=experiment_output_dir,
-            record_viewport_video=args_cli.record_viewport_video,
-            record_camera_video=args_cli.record_camera_video,
-            continue_on_error=args_cli.continue_on_error,
+            record_viewport_video=cfg.record_viewport_video,
+            record_camera_video=cfg.record_camera_video,
+            continue_on_error=cfg.continue_on_error,
         )
         for result in results:
             if result.metrics is not None:
@@ -121,11 +116,17 @@ def main():
         print(build_runs_info_table(experiment, results))
         metrics_logger.print_metrics()
 
-        # Write HTML report.
         report_path = build_report(experiment_output_dir)
-        if args_cli.serve_evaluation_report:
-            serve_until_ctrl_c(report_path.parent, args_cli.evaluation_report_port, report_path.name)
+        if cfg.serve_evaluation_report:
+            serve_until_ctrl_c(report_path.parent, cfg.evaluation_report_port, report_path.name)
+
+    return 0
+
+
+def main(cli_args: list[str] | None = None) -> int:
+    """Parse one eval-runner invocation and return its process exit code."""
+    return run_local_experiment(parse_eval_runner_cfg(cli_args))
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
