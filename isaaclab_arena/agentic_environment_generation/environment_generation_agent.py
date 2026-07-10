@@ -7,11 +7,8 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from typing import Any
-
-from openai import OpenAI
 
 from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
 from isaaclab_arena.agentic_environment_generation.prim_path_inference import PrimPathInference
@@ -20,11 +17,6 @@ from isaaclab_arena.agentic_environment_generation.spec_validation import requir
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.relations.relations import RelationBase
-
-# TODO(qianl): This is currently Nvidia internal. Switch to public endpoint.
-DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
-DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
-
 
 # ---------------------------------------------------------------------------
 # Asset catalogue (AssetRegistry → user-prompt blocks)
@@ -224,14 +216,10 @@ class EnvironmentGenerationAgent:
                 (network errors, timeouts, empty responses, malformed JSON). Each
                 retry is a fresh API call.
         """
-        api_key = api_key or os.getenv("NV_API_KEY")
-        assert api_key, "API key required: set NV_API_KEY or pass api_key."
-        resolved_model = model or DEFAULT_MODEL
-        resolved_base_url = base_url or DEFAULT_BASE_URL
-        client = OpenAI(api_key=api_key, base_url=resolved_base_url)
         inference_backend = InferenceBackend(
-            client,
-            resolved_model,
+            api_key=api_key,
+            model=model,
+            base_url=base_url,
             temperature=temperature,
             max_tokens=max_tokens,
             max_retries=max_retries,

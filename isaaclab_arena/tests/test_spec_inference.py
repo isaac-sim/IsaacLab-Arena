@@ -26,7 +26,7 @@ def spec_inference():
     """A ``SpecInference`` backed by a mocked OpenAI client."""
     client = MagicMock()
     client.chat.completions.create.return_value = chat_response(content="OK")
-    inference = SpecInference(InferenceBackend(client, "test-model"))
+    inference = SpecInference(InferenceBackend(client=client, model="test-model"))
     client.chat.completions.create.reset_mock()
     return inference, client
 

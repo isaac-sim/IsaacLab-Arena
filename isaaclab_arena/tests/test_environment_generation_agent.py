@@ -10,10 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
-    DEFAULT_BASE_URL,
-    EnvironmentGenerationAgent,
-)
+from isaaclab_arena.agentic_environment_generation.environment_generation_agent import EnvironmentGenerationAgent
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import TaskCompositionType
 from isaaclab_arena.tests.utils.agentic_environment_generation import (
@@ -35,7 +32,7 @@ from isaaclab_arena.tests.utils.agentic_environment_generation import task_catal
 @pytest.fixture
 def stub_openai():
     """Patch ``openai.OpenAI`` so ``EnvironmentGenerationAgent()`` never hits the wire."""
-    with patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.OpenAI") as mock_cls:
+    with patch("isaaclab_arena.agentic_environment_generation.inference_backend.OpenAI") as mock_cls:
         client = MagicMock()
         client.chat.completions.create.return_value = chat_response(content="OK")
         mock_cls.return_value = client
@@ -54,33 +51,6 @@ def agent(stub_openai):
     client.chat.completions.create.side_effect = None
     client.chat.completions.create.reset_mock()
     return a
-
-
-# ---------------------------------------------------------------------------
-# __init__
-# ---------------------------------------------------------------------------
-
-
-class TestInit:
-    def test_explicit_api_key_overrides_env(self, monkeypatch, stub_openai):
-        monkeypatch.setenv("NV_API_KEY", "env-key")
-        EnvironmentGenerationAgent(api_key="explicit-key")
-        stub_openai.assert_called_once_with(api_key="explicit-key", base_url=DEFAULT_BASE_URL)
-
-    def test_falls_back_to_env_var(self, monkeypatch, stub_openai):
-        monkeypatch.setenv("NV_API_KEY", "env-key")
-        EnvironmentGenerationAgent()
-        stub_openai.assert_called_once_with(api_key="env-key", base_url=DEFAULT_BASE_URL)
-
-    def test_raises_when_no_key_anywhere(self, monkeypatch, stub_openai):
-        monkeypatch.delenv("NV_API_KEY", raising=False)
-        with pytest.raises(AssertionError, match="API key required"):
-            EnvironmentGenerationAgent()
-
-    def test_custom_model_and_base_url(self, stub_openai):
-        a = EnvironmentGenerationAgent(api_key="k", model="custom-model", base_url="http://localhost:8000")
-        assert a.spec_inference._inference_backend.model == "custom-model"
-        stub_openai.assert_called_once_with(api_key="k", base_url="http://localhost:8000")
 
 
 # ---------------------------------------------------------------------------

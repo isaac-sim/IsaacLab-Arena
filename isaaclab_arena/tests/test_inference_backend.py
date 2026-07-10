@@ -8,12 +8,26 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend, StructuredOutputRequest
+from isaaclab_arena.agentic_environment_generation.inference_backend import (
+    DEFAULT_BASE_URL,
+    InferenceBackend,
+    StructuredOutputRequest,
+)
 from isaaclab_arena.tests.utils.agentic_environment_generation import chat_response
+
+
+@pytest.fixture
+def stub_openai():
+    """Patch ``openai.OpenAI`` so ``InferenceBackend()`` never hits the wire."""
+    with patch("isaaclab_arena.agentic_environment_generation.inference_backend.OpenAI") as mock_cls:
+        client = MagicMock()
+        client.chat.completions.create.return_value = chat_response(content="OK")
+        mock_cls.return_value = client
+        yield mock_cls
 
 
 def _request() -> StructuredOutputRequest:
@@ -28,9 +42,31 @@ def _request() -> StructuredOutputRequest:
 
 def _backend(client: MagicMock, *, max_retries: int = 3) -> InferenceBackend:
     client.chat.completions.create.return_value = chat_response(content="OK")
-    backend = InferenceBackend(client, "test-model", max_retries=max_retries)
+    backend = InferenceBackend(client=client, model="test-model", max_retries=max_retries)
     client.chat.completions.create.reset_mock()
     return backend
+
+
+class TestInit:
+    def test_explicit_api_key_overrides_env(self, monkeypatch, stub_openai):
+        monkeypatch.setenv("NV_API_KEY", "env-key")
+        InferenceBackend(api_key="explicit-key")
+        stub_openai.assert_called_once_with(api_key="explicit-key", base_url=DEFAULT_BASE_URL)
+
+    def test_falls_back_to_env_var(self, monkeypatch, stub_openai):
+        monkeypatch.setenv("NV_API_KEY", "env-key")
+        InferenceBackend()
+        stub_openai.assert_called_once_with(api_key="env-key", base_url=DEFAULT_BASE_URL)
+
+    def test_raises_when_no_key_anywhere(self, monkeypatch, stub_openai):
+        monkeypatch.delenv("NV_API_KEY", raising=False)
+        with pytest.raises(AssertionError, match="API key required"):
+            InferenceBackend()
+
+    def test_custom_model_and_base_url(self, stub_openai):
+        backend = InferenceBackend(api_key="k", model="custom-model", base_url="http://localhost:8000")
+        assert backend.model == "custom-model"
+        stub_openai.assert_called_once_with(api_key="k", base_url="http://localhost:8000")
 
 
 class TestRunJson:

@@ -9,12 +9,18 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 from dataclasses import dataclass
 from typing import Any
 
+from openai import OpenAI
 from pydantic import BaseModel
 
 MAX_RETRIES_LIMIT = 10
+
+# TODO(qianl): This is currently Nvidia internal. Switch to public endpoint.
+DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
+DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
 
 
 def _ping(client: Any, model: str) -> str:
@@ -104,31 +110,44 @@ class InferenceBackend:
 
     def __init__(
         self,
-        client: Any,
-        model: str,
+        api_key: str | None = None,
+        model: str | None = None,
+        base_url: str | None = None,
         temperature: float = 0.2,
         max_tokens: int = 4096,
         max_retries: int = 3,
+        *,
+        client: Any | None = None,
     ):
         """Configure an OpenAI-compatible structured-output client.
 
         Args:
-            client: OpenAI-compatible client exposing ``chat.completions.create``.
+            api_key: API token for the inference endpoint. Falls back to the
+                ``NV_API_KEY`` environment variable when ``client`` is not provided.
             model: Model identifier passed to the chat completion API.
+            base_url: OpenAI-compatible inference endpoint.
             temperature: Sampling temperature for completion requests.
             max_tokens: Maximum tokens in each completion response.
             max_retries: Additional attempts after a recoverable failure; must be in
                 ``[0, MAX_RETRIES_LIMIT)``.
+            client: Optional pre-built client for tests; when set, ``api_key`` and
+                ``base_url`` are not used.
         """
         assert (
             0 <= max_retries < MAX_RETRIES_LIMIT
         ), f"max_retries must be in [0, {MAX_RETRIES_LIMIT}), got {max_retries}"
+        resolved_model = model or DEFAULT_MODEL
+        if client is None:
+            resolved_api_key = api_key or os.getenv("NV_API_KEY")
+            assert resolved_api_key, "API key required: set NV_API_KEY or pass api_key."
+            resolved_base_url = base_url or DEFAULT_BASE_URL
+            client = OpenAI(api_key=resolved_api_key, base_url=resolved_base_url)
         self._client = client
-        self._model = model
+        self._model = resolved_model
         self._temperature = temperature
         self._max_tokens = max_tokens
         self._max_retries = max_retries
-        _ping(client, model)
+        _ping(client, resolved_model)
 
     @property
     def model(self) -> str:
