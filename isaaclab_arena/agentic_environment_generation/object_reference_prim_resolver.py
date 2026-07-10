@@ -139,11 +139,13 @@ def _merge_resolved_object_references(
         assert (
             patch.object_type == ref.object_type
         ), f"object_reference {ref.id!r} object_type mismatch: {ref.object_type!r} != {patch.object_type!r}"
+        merged_params = dict(ref.params)
+        merged_params.update(patch.params)
         merged_refs.append(
             ref.model_copy(
                 update={
                     "prim_path": patch.prim_path,
-                    "params": dict(ref.params).update(patch.params),
+                    "params": merged_params,
                 }
             )
         )
