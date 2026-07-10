@@ -91,7 +91,9 @@ class ObjectReferencePrimResolver:
 You resolve object_reference prim_path values for robot manipulation environment graphs.
 
 GUIDANCE:
-- Pick prim_path only from relative_path values listed in BACKGROUND PRIM TREE.
+- BACKGROUND PRIM TREE lists prims in nested form: each indented line shows a path suffix
+  under its parent; join ancestor suffixes with '/' to form the full relative_path for prim_path.
+- Pick prim_path only from those full relative_path values.
 - prim_path must be a relative suffix under the parent background — never include
   {ENV_REGEX_NS} or the background registry name.
 - Match object_type to the prim object_type when possible: base for anchor surfaces,
@@ -150,11 +152,22 @@ def _merge_resolved_object_references(
 
 def _prim_tree_catalog(prim_tree: list[UsdPrimRecord]) -> str:
     """Format the background USD prim tree for the pass-2 user message."""
-    lines = []
-    for record in prim_tree:
-        joints = f" joints={list(record.joint_names)}" if record.joint_names else ""
-        lines.append(f"- {record.relative_path}  object_type={record.object_type}{joints}")
-    return "BACKGROUND PRIM TREE:\n" + "\n".join(lines)
+    records = sorted(prim_tree, key=lambda record: record.relative_path)
+    lines = ["BACKGROUND PRIM TREE:"]
+    stack: list[str] = []
+    for record in records:
+        path = record.relative_path
+        while stack and not path.startswith(stack[-1] + "/"):
+            stack.pop()
+        parent = stack[-1] if stack else ""
+        suffix = path[len(parent) + 1 :] if parent else path
+        indent = "  " * len(stack)
+        tag = record.object_type.value
+        if record.joint_names:
+            tag += " " + ",".join(record.joint_names)
+        lines.append(f"{indent}{suffix} ({tag})")
+        stack.append(path)
+    return "\n".join(lines)
 
 
 def _object_reference_context(spec: ArenaEnvGraphSpec) -> str:

@@ -12,8 +12,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver import ObjectReferencePrimResolver
+from isaaclab_arena.agentic_environment_generation.object_reference_prim_resolver import (
+    ObjectReferencePrimResolver,
+    _prim_tree_catalog,
+)
 from isaaclab_arena.agentic_environment_generation.query_backend import QueryBackend
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.tests.utils.agentic_environment_generation import (
     chat_response,
@@ -21,6 +25,19 @@ from isaaclab_arena.tests.utils.agentic_environment_generation import (
     kitchen_prim_tree,
     kitchen_resolve_response,
 )
+from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
+
+
+def test_prim_tree_catalog_nested_format():
+    tree = [
+        UsdPrimRecord("cab_1_main_group", ObjectType.ARTICULATION, ("right_door_joint",)),
+        UsdPrimRecord("cab_1_main_group/corpus", ObjectType.RIGID),
+        UsdPrimRecord("cab_1_main_group/corpus/back", ObjectType.BASE),
+    ]
+    assert (
+        _prim_tree_catalog(tree)
+        == "BACKGROUND PRIM TREE:\ncab_1_main_group (articulation right_door_joint)\n  corpus (rigid)\n    back (base)"
+    )
 
 
 @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")

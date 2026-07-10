@@ -18,6 +18,7 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     RelationCatalogue,
     TaskCatalogue,
 )
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
 
 _TEST_DATA_DIR = Path(__file__).resolve().parent.parent / "test_data"
@@ -59,8 +60,8 @@ def kitchen_resolve_response() -> dict[str, Any]:
 def kitchen_prim_tree() -> list[UsdPrimRecord]:
     """Return the mocked kitchen USD prim tree for pass-2 resolver tests."""
     return [
-        UsdPrimRecord("counter_right_main_group/top_geometry", "base"),
-        UsdPrimRecord("fridge_main_group", "articulation", ("fridge_door_joint",)),
+        UsdPrimRecord("counter_right_main_group/top_geometry", ObjectType.BASE),
+        UsdPrimRecord("fridge_main_group", ObjectType.ARTICULATION, ("fridge_door_joint",)),
     ]
 
 
