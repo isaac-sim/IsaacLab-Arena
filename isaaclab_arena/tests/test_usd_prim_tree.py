@@ -9,19 +9,16 @@ from __future__ import annotations
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec
-from isaaclab_arena.utils.asset_usd import resolve_asset_usd_path
 from isaaclab_arena.utils.usd_prim_tree import load_usd_prim_tree
 
 
 def test_kitchen_prim_tree_counter_and_fridge():
     """Requires Lightwheel Robocasa kitchen USD on disk (Docker dev image)."""
-    usd_path = resolve_asset_usd_path(
-        AssetSpec(
-            id="lightwheel_robocasa_kitchen",
-            registry_name="lightwheel_robocasa_kitchen",
-            params={"layout_id": 1, "style_id": 1},
-        ),
-    )
+    usd_path = AssetSpec(
+        id="lightwheel_robocasa_kitchen",
+        registry_name="lightwheel_robocasa_kitchen",
+        params={"layout_id": 1, "style_id": 1},
+    ).resolve_usd_path()
     tree = load_usd_prim_tree(usd_path)
     records = {record.relative_path: record for record in tree}
 

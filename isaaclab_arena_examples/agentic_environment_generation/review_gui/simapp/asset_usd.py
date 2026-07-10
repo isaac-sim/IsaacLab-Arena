@@ -12,7 +12,6 @@ import sys
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec
-from isaaclab_arena.utils.asset_usd import extract_asset_usd_path
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
 
 AabbDimensionsM = tuple[float, float, float]
@@ -30,15 +29,7 @@ def resolve_node_usd_paths(spec: ArenaEnvGraphSpec) -> dict[str, str]:
                     file=sys.stderr,
                 )
                 continue
-            asset_cls = registry.get_asset_by_name(asset_spec.registry_name)
-            usd_path = extract_asset_usd_path(asset_cls, **asset_spec.params)
-            if not usd_path:
-                print(
-                    f"[asset_usd]   {asset_spec.id}: '{asset_spec.registry_name}' has no usd_path, skipping.",
-                    file=sys.stderr,
-                )
-                continue
-            paths[asset_spec.id] = usd_path
+            paths[asset_spec.id] = asset_spec.resolve_usd_path()
         except Exception as exc:
             print(
                 f"[asset_usd]   {asset_spec.id}: lookup failed for '{asset_spec.registry_name}': {exc}",
@@ -81,9 +72,7 @@ def resolve_node_aabb_dimensions_m(spec: ArenaEnvGraphSpec) -> dict[str, AabbDim
             if not registry.is_registered(asset_spec.registry_name):
                 continue
             asset_cls = registry.get_asset_by_name(asset_spec.registry_name)
-            usd_path = extract_asset_usd_path(asset_cls, **asset_spec.params)
-            if not usd_path:
-                continue
+            usd_path = asset_spec.resolve_usd_path()
             dims = aabb_dimensions_from_usd(usd_path, scale_for_asset_spec(asset_spec, asset_cls))
             if dims is not None:
                 dimensions[asset_spec.id] = dims

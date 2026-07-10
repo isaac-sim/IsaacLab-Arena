@@ -38,7 +38,7 @@ def test_prim_tree_catalog_nested_format():
 
 
 @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
-@patch("isaaclab_arena.agentic_environment_generation.prim_path_inference.resolve_asset_usd_path")
+@patch("isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path")
 def test_prim_path_inference_infer_merges_llm_output(mock_resolve_usd, mock_load_tree):
     mock_resolve_usd.return_value = "/tmp/scene.usd"
     mock_load_tree.return_value = kitchen_prim_tree()
@@ -56,7 +56,7 @@ def test_prim_path_inference_infer_merges_llm_output(mock_resolve_usd, mock_load
 
 
 @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
-@patch("isaaclab_arena.agentic_environment_generation.prim_path_inference.resolve_asset_usd_path")
+@patch("isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path")
 def test_prim_path_inference_strips_leading_slash(mock_resolve_usd, mock_load_tree):
     mock_resolve_usd.return_value = "/tmp/scene.usd"
     mock_load_tree.return_value = kitchen_prim_tree()
@@ -113,7 +113,7 @@ def test_prim_path_inference_strips_leading_slash(mock_resolve_usd, mock_load_tr
     ],
 )
 @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
-@patch("isaaclab_arena.agentic_environment_generation.prim_path_inference.resolve_asset_usd_path")
+@patch("isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path")
 def test_prim_path_inference_infer_records_invalid_llm_output(
     mock_resolve_usd,
     mock_load_tree,

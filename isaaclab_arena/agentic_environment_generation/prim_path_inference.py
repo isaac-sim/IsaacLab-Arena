@@ -8,7 +8,7 @@
 Input Context:
     Load the background USD prim tree and format object-reference context for the LLM::
 
-        usd_path = resolve_asset_usd_path(spec.background)
+        usd_path = spec.background.resolve_usd_path()
         prim_tree = load_usd_prim_tree(usd_path)
         user = self._user_message(spec, prim_tree)
 
@@ -35,7 +35,6 @@ from isaaclab_arena.agentic_environment_generation.query_backend import QueryBac
 from isaaclab_arena.agentic_environment_generation.spec_validation import format_validation_error
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec
-from isaaclab_arena.utils.asset_usd import resolve_asset_usd_path
 
 if TYPE_CHECKING:
     from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
@@ -194,7 +193,7 @@ class PrimPathInference:
         # Defer pxr import until call time to avoid conflict with SimulationApp.
         from isaaclab_arena.utils.usd_prim_tree import load_usd_prim_tree
 
-        usd_path = resolve_asset_usd_path(spec.background)
+        usd_path = spec.background.resolve_usd_path()
         prim_tree = load_usd_prim_tree(usd_path)
         data = self._query_backend.run_json(
             StructuredOutputRequest(

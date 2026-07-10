@@ -17,6 +17,21 @@ from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
 
 
+def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
+    """Return the asset's root USD path or URL, or ``None`` if not extractable."""
+    class_usd = getattr(asset_cls, "usd_path", None)
+    if isinstance(class_usd, str) and class_usd:
+        return class_usd
+
+    try:
+        instance = asset_cls(**params)
+    except Exception:
+        return None
+
+    usd_path = getattr(instance, "usd_path", None)
+    return str(usd_path) if usd_path else None
+
+
 class AssetSpec(BaseModel):
     """One registered asset instance in an environment graph."""
 
@@ -42,6 +57,13 @@ class AssetSpec(BaseModel):
         registry = AssetRegistry()
         assert registry.is_registered(value), f"Unknown asset registry_name '{value}'"
         return value
+
+    def resolve_usd_path(self) -> str:
+        """Return the USD path or URL for this registered asset instance."""
+        asset_cls = AssetRegistry().get_asset_by_name(self.registry_name)
+        usd_path = _extract_asset_usd_path(asset_cls, **self.params)
+        assert usd_path, f"asset {self.registry_name!r} has no usd_path"
+        return usd_path
 
 
 class ObjectReferenceSpec(BaseModel):
