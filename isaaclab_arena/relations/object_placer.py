@@ -60,7 +60,7 @@ class PlacementCandidate:
     """Per-check validation results for this candidate's layout."""
 
     orientations: dict[ObjectBase, float] = field(default_factory=dict)
-    """Absolute world Z-yaw per oriented object. Empty when unrotated."""
+    """Placement-computed absolute world Z-yaws. Omitted objects retain their marker orientation."""
 
     @property
     def is_valid(self) -> bool:
@@ -125,12 +125,13 @@ class ObjectPlacer:
         )
         results_per_env = [env_results[0] for env_results in ranked_results_per_env]
 
-        for env_idx, result in enumerate(results_per_env):
-            if not result.success:
-                print(
-                    f"  env {env_idx}: no valid layout; using lowest-loss fallback "
-                    f"(failed: {result.validation_results.get_failed_validation_check_names})"
-                )
+        if self.params.verbose:
+            for env_idx, result in enumerate(results_per_env):
+                if not result.success:
+                    print(
+                        f"  env {env_idx}: no valid layout; using lowest-loss fallback "
+                        f"(failed: {result.validation_results.get_failed_validation_check_names})"
+                    )
 
         if self.params.apply_positions_to_objects:
             positions_per_env = [r.positions for r in results_per_env]
@@ -178,31 +179,9 @@ class ObjectPlacer:
                 f"Object '{obj.name}' has no relations. All objects passed to place() must have "
                 "at least one relation (e.g., On(), NextTo(), or IsAnchor())."
             )
-            face_to_relations = [relation for relation in obj.get_relations() if isinstance(relation, FaceTo)]
-            assert len(face_to_relations) <= 1, f"Object '{obj.name}' has more than one FaceTo relation."
-            if face_to_relations:
-                assert not obj.is_anchor, f"Anchor object '{obj.name}' cannot have a FaceTo relation."
-                assert face_to_relations[0].parent is not obj, f"Object '{obj.name}' cannot face itself."
-                assert (
-                    face_to_relations[0].parent in object_set
-                ), f"FaceTo parent '{face_to_relations[0].parent.name}' must participate in placement."
-                assert (
-                    self._get_rotate_around_solution(obj) is None
-                ), f"Object '{obj.name}' cannot combine FaceTo with RotateAroundSolution."
-                subject_randomization = self._get_random_around_solution(obj)
-                if subject_randomization is not None:
-                    assert (
-                        subject_randomization.x_half_m == 0.0
-                        and subject_randomization.y_half_m == 0.0
-                        and subject_randomization.roll_half_rad == 0.0
-                        and subject_randomization.pitch_half_rad == 0.0
-                        and subject_randomization.yaw_half_rad == 0.0
-                    ), f"Object '{obj.name}' cannot randomize XY or rotation while using FaceTo."
-                parent_randomization = self._get_random_around_solution(face_to_relations[0].parent)
-                if parent_randomization is not None:
-                    assert (
-                        parent_randomization.x_half_m == 0.0 and parent_randomization.y_half_m == 0.0
-                    ), f"FaceTo parent '{face_to_relations[0].parent.name}' cannot randomize XY."
+            face_to = self._get_face_to(obj)
+            if face_to is not None:
+                self._validate_face_to_configuration(obj, face_to, object_set)
 
         anchor_objects = get_anchor_objects(objects)
         assert len(anchor_objects) > 0, (
@@ -964,11 +943,21 @@ class ObjectPlacer:
         positions: dict[ObjectBase, tuple[float, float, float]],
         orientations: dict[ObjectBase, float] | None,
     ) -> bool:
-        """Validate that every FaceTo subject has a defined orientation."""
+        """Validate that every FaceTo subject has a defined direction and computed yaw."""
         for obj in positions:
-            if self._get_face_to(obj) is not None and (orientations is None or obj not in orientations):
+            face_to = self._get_face_to(obj)
+            if face_to is None:
+                continue
+            subject_position = torch.tensor([positions[obj]])
+            target_position = torch.tensor([positions[face_to.parent]])
+            _, direction_is_defined = yaw_toward_positions(subject_position, target_position)
+            if not direction_is_defined.item():
                 if self.params.verbose:
-                    print(f"  FaceTo: '{obj.name}' has the same XY position as its target")
+                    print(f"  FaceTo: '{obj.name}' is too close to its target in XY")
+                return False
+            if orientations is None or obj not in orientations:
+                if self.params.verbose:
+                    print(f"  FaceTo: '{obj.name}' has no computed facing yaw")
                 return False
         return True
 
@@ -1020,6 +1009,38 @@ class ObjectPlacer:
                 return rel
         return None
 
+    def _validate_face_to_configuration(
+        self,
+        obj: ObjectBase,
+        face_to: FaceTo,
+        object_set: set[ObjectBase],
+    ) -> None:
+        """Require a movable subject, participating target, and stable facing direction."""
+        face_to_count = sum(isinstance(relation, FaceTo) for relation in obj.get_relations())
+        assert face_to_count == 1, f"Object '{obj.name}' has more than one FaceTo relation."
+        assert not obj.is_anchor, f"Anchor object '{obj.name}' cannot have a FaceTo relation."
+        assert face_to.parent is not obj, f"Object '{obj.name}' cannot face itself."
+        assert face_to.parent in object_set, f"FaceTo parent '{face_to.parent.name}' must participate in placement."
+        assert (
+            self._get_rotate_around_solution(obj) is None
+        ), f"Object '{obj.name}' cannot combine FaceTo with RotateAroundSolution."
+
+        subject_randomization = self._get_random_around_solution(obj)
+        if subject_randomization is not None:
+            assert (
+                subject_randomization.x_half_m == 0.0
+                and subject_randomization.y_half_m == 0.0
+                and subject_randomization.roll_half_rad == 0.0
+                and subject_randomization.pitch_half_rad == 0.0
+                and subject_randomization.yaw_half_rad == 0.0
+            ), f"Object '{obj.name}' cannot randomize XY or rotation while using FaceTo."
+
+        parent_randomization = self._get_random_around_solution(face_to.parent)
+        if parent_randomization is not None:
+            assert (
+                parent_randomization.x_half_m == 0.0 and parent_randomization.y_half_m == 0.0
+            ), f"FaceTo parent '{face_to.parent.name}' cannot randomize XY."
+
     @staticmethod
     def _get_rotate_around_solution(obj: ObjectBase) -> RotateAroundSolution | None:
         for rel in obj.get_relations():
@@ -1029,10 +1050,7 @@ class ObjectPlacer:
 
     @staticmethod
     def _get_face_to(obj: ObjectBase) -> FaceTo | None:
-        for relation in obj.get_relations():
-            if isinstance(relation, FaceTo):
-                return relation
-        return None
+        return next((relation for relation in obj.get_relations() if isinstance(relation, FaceTo)), None)
 
     @property
     def last_loss_history(self) -> list[float]:

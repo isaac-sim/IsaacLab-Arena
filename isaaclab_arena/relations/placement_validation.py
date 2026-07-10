@@ -28,7 +28,7 @@ class PlacementCheck(StrEnum):
     beside the parent, within the relation's ``tolerance_m``."""
 
     FACE_TO = "face_to"
-    """Build-time check: every ``FaceTo`` subject has a distinct target XY position."""
+    """Build-time check: every ``FaceTo`` subject has a defined target direction and facing yaw."""
 
     PHYSICS_SETTLED = "physics_settled"
     """Run-time check: after stepping physics the movable objects' velocities fall

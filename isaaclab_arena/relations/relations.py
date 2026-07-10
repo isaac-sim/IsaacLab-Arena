@@ -75,10 +75,10 @@ class Relation(RelationBase):
 
 @register_object_relation
 class FaceTo(RelationBase):
-    """Orients an object's local +X axis toward another object's world XY position.
+    """Relates an object's local +X heading to a target object's world-XY direction.
 
-    This post-solve relation sets a Z-axis yaw and is not a position constraint.
-    The subject's XY position must differ from its target's.
+    This orientation relation does not constrain either object's position. The
+    subject's XY position must differ from the target's.
     """
 
     name = "face_to"
@@ -86,7 +86,7 @@ class FaceTo(RelationBase):
     def __init__(self, parent: ObjectBase):
         """
         Args:
-            parent: Object to face.
+            parent: Target object that defines the facing direction.
         """
         self.parent = parent
 

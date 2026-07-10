@@ -64,7 +64,7 @@ def yaw_toward_positions(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Return Z-yaws from subject positions toward target positions.
 
-    N is the number of position pairs. Directions shorter than 1e-6 m in XY
+    N is the number of position pairs. Directions at most 1e-6 m long in XY
     are undefined.
 
     Args:
@@ -72,8 +72,8 @@ def yaw_toward_positions(
         target_positions: Target world positions with shape (N, 3).
 
     Returns:
-        A tuple ``(yaws, is_defined)`` of shape-(N,) tensors containing the
-        world Z-yaws and valid-direction mask.
+        A tuple ``(yaws, is_defined)`` containing the world Z-yaws and
+        valid-direction mask as two tensors of shape (N,).
     """
     assert subject_positions.shape == target_positions.shape
     assert subject_positions.ndim == 2 and subject_positions.shape[1] == 3
