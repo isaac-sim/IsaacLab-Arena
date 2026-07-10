@@ -5,12 +5,12 @@
 
 from __future__ import annotations
 
-import argparse
 import contextlib
 import dataclasses
 import gymnasium as gym
 import inspect
 import numpy as np
+import time
 import torch
 import uuid
 from abc import ABC, abstractmethod
@@ -24,6 +24,10 @@ import websockets.sync.client as ws_sync
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_dreamzero.policy.dreamzero_remote_config import MAX_RECONNECT_ATTEMPTS, DreamZeroRemotePolicyConfig
+
+RECONNECT_WAIT_S = 120
+"""Per-attempt reconnect budget (seconds) after a connection drop mid-rollout, long enough
+for a supervised tunnel or restarted server to come back before the attempt is charged."""
 
 
 def _msgpack_encode(obj):
@@ -109,16 +113,6 @@ class DreamZeroEmbodimentAdapter(ABC):
         actions. The policy handles only the replay horizon on top of this.
         """
 
-    @staticmethod
-    def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-        """Register this adapter's CLI arguments. Default: none."""
-        return parser
-
-    @classmethod
-    def from_cli_args(cls, args: argparse.Namespace) -> DreamZeroEmbodimentAdapter:
-        """Build the adapter from parsed CLI args. Default: no-argument construction."""
-        return cls()
-
     @classmethod
     def from_config_dict(cls, config: dict[str, Any]) -> DreamZeroEmbodimentAdapter:
         """Build the adapter from its slice of an eval-jobs config dict. Default: kwargs."""
@@ -149,7 +143,7 @@ def _resolve_adapter_class(key: str) -> type[DreamZeroEmbodimentAdapter]:
 
 
 @register_policy
-class DreamZeroRemotePolicy(PolicyBase):
+class DreamZeroRemotePolicy(PolicyBase[DreamZeroRemotePolicyConfig]):
     """Remote closed-loop policy that communicates with a DreamZero inference server.
 
     Observations are formatted into DreamZero's flat wire format and sent over a
@@ -165,9 +159,13 @@ class DreamZeroRemotePolicy(PolicyBase):
     config_class = DreamZeroRemotePolicyConfig
 
     def __init__(
-        self, config: DreamZeroRemotePolicyConfig, dreamzero_embodiment_adapter: DreamZeroEmbodimentAdapter
+        self,
+        config: DreamZeroRemotePolicyConfig,
+        dreamzero_embodiment_adapter: DreamZeroEmbodimentAdapter | None = None,
     ) -> None:
         super().__init__(config)
+        if dreamzero_embodiment_adapter is None:
+            dreamzero_embodiment_adapter = _resolve_adapter_class(config.dreamzero_embodiment_adapter)()
         self._dreamzero_embodiment_adapter = dreamzero_embodiment_adapter
         self.task_description: str | None = None
         self.device = config.policy_device
@@ -180,66 +178,22 @@ class DreamZeroRemotePolicy(PolicyBase):
         self._ws: ws_sync.ClientConnection | None = None
         uri = f"ws://{config.remote_host}:{config.remote_port}"
         print(f"[DreamZeroRemotePolicy] Connecting to DreamZero server at {uri} ...")
-        self._ws = self._connect(uri)
+        self._ws = self._connect_with_wait(uri, deadline_s=config.initial_connect_wait_s)
         print("[DreamZeroRemotePolicy] Connected.")
-
-    @staticmethod
-    def add_args_to_parser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-        """Add DreamZero CLI arguments to parser."""
-        group = parser.add_argument_group(
-            "DreamZero Remote Policy",
-            "Arguments for the DreamZero remote inference client.",
-        )
-        group.add_argument("--dreamzero_host", type=str, default="localhost", help="DreamZero server hostname.")
-        group.add_argument("--dreamzero_port", type=int, default=5000, help="DreamZero server port.")
-        group.add_argument(
-            "--dreamzero_open_loop_horizon",
-            type=int,
-            default=24,
-            help="Action steps to replay per server inference call.",
-        )
-        group.add_argument(
-            "--dreamzero_embodiment_adapter",
-            type=str,
-            default="droid",
-            choices=sorted(_EMBODIMENT_ADAPTER_LOADERS),
-            help="DreamZero-side embodiment adapter for obs / action wire format (default: droid).",
-        )
-        group.add_argument(
-            "--policy_device",
-            type=str,
-            default="cuda",
-            help="Torch device for action tensors.",
-        )
-        # Register every embodiment adapter's args; the chosen one is selected at
-        # from_args time via --dreamzero_embodiment_adapter.
-        for load_adapter in _EMBODIMENT_ADAPTER_LOADERS.values():
-            load_adapter().add_args_to_parser(parser)
-        return parser
-
-    @staticmethod
-    def from_args(args: argparse.Namespace) -> DreamZeroRemotePolicy:
-        """Construct policy from parsed CLI arguments."""
-        adapter = _resolve_adapter_class(args.dreamzero_embodiment_adapter).from_cli_args(args)
-        return DreamZeroRemotePolicy(
-            DreamZeroRemotePolicyConfig.from_cli_args(args), dreamzero_embodiment_adapter=adapter
-        )
 
     @classmethod
     def from_dict(cls, config_dict: dict[str, Any]) -> DreamZeroRemotePolicy:
-        """JSON-jobs-config path used by ``experiment_runner``.
+        """Build the policy from a plain config dict (JSON-config frontends and tests).
 
-        Overrides ``PolicyBase.from_dict`` because our ``__init__`` takes an
-        adapter alongside the config dataclass. An optional
-        ``dreamzero_embodiment_adapter`` key selects the adapter (default
-        'droid'), mirroring ``--dreamzero_embodiment_adapter`` on the CLI path.
-        Keys listed in the chosen adapter's ``config_field_names`` are routed to
-        the adapter; everything else goes to ``DreamZeroRemotePolicyConfig``. Any
-        key that matches neither raises a clear error instead of an opaque
-        ``TypeError`` from the dataclass constructor.
+        An optional ``dreamzero_embodiment_adapter`` key selects the adapter
+        (default 'droid'), mirroring the config field of the same name. Keys listed in
+        the chosen adapter's ``config_field_names`` are routed to the adapter;
+        everything else goes to ``DreamZeroRemotePolicyConfig``. Any key that
+        matches neither raises a clear error instead of an opaque ``TypeError``
+        from the dataclass constructor.
         """
         config_dict = dict(config_dict)
-        adapter_key = config_dict.pop("dreamzero_embodiment_adapter", "droid")
+        adapter_key = config_dict.get("dreamzero_embodiment_adapter", "droid")
         adapter_cls = _resolve_adapter_class(adapter_key)
         adapter_field_names = set(adapter_cls.config_field_names())
 
@@ -429,10 +383,13 @@ class DreamZeroRemotePolicy(PolicyBase):
                 _close_ws_best_effort(self._ws)
                 self._ws = None
                 uri = f"ws://{self.config.remote_host}:{self.config.remote_port}"
-                with contextlib.suppress(OSError):
-                    self._ws = self._connect(uri)
-                # If _connect raised, self._ws remains None; next iteration's None guard
-                # raises OSError which the except clause retries or re-raises.
+                # Reconnect with a paced wait, not a single attempt: when the server sits
+                # behind a supervised tunnel, the tunnel accepts TCP again (or refuses
+                # instantly) well before the server is reachable through it.
+                with contextlib.suppress(OSError, TimeoutError, websockets.exceptions.InvalidMessage):
+                    self._ws = self._connect_with_wait(uri, deadline_s=RECONNECT_WAIT_S)
+                # If the reconnect deadline expired, self._ws remains None; next iteration's
+                # None guard raises OSError which the except clause retries or re-raises.
                 # Invalidate all sessions: after reconnect the server has no history.
                 if self._session_ids is not None:
                     for i in range(len(self._session_ids)):
@@ -461,6 +418,32 @@ class DreamZeroRemotePolicy(PolicyBase):
             payload = _pack({"endpoint": "reset", "session_ids": session_uuids})
             self._ws.send(payload)
             self._ws.recv(timeout=60.0)
+
+    @classmethod
+    def _connect_with_wait(cls, uri: str, deadline_s: int) -> ws_sync.ClientConnection:
+        """Connect, retrying every 15s until ``deadline_s`` elapses.
+
+        The server binds its port only after loading its checkpoint, which can outlast
+        client startup — especially when both are cold-started together (e.g. co-scheduled
+        OSMO tasks) or when a tunnel accepts TCP connections before the server is up.
+
+        Args:
+            uri: WebSocket URI, e.g. ws://localhost:8000.
+            deadline_s: Total time budget in seconds; the last failure is re-raised.
+
+        Returns:
+            An open ClientConnection.
+        """
+        retry_interval_s = 15.0
+        deadline = time.monotonic() + deadline_s
+        while True:
+            try:
+                return cls._connect(uri)
+            except (OSError, TimeoutError, websockets.exceptions.InvalidMessage) as exc:
+                if time.monotonic() + retry_interval_s > deadline:
+                    raise
+                print(f"[DreamZeroRemotePolicy] Server not ready ({exc}); retrying in {retry_interval_s:.0f}s ...")
+                time.sleep(retry_interval_s)
 
     @staticmethod
     def _connect(uri: str) -> ws_sync.ClientConnection:

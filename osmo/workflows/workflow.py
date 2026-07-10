@@ -12,6 +12,7 @@ callers construct the config objects directly.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import tempfile
 import yaml
@@ -79,8 +80,14 @@ class Workflow:
     task_cfg_type: type[TaskCfg] = TaskCfg
     """Config dataclass type for this workflow's lead task. Subclasses set this."""
 
+    workflow_cfg_type: type[WorkflowCfg] = WorkflowCfg
+    """Workflow config dataclass type; subclasses override it to change resource defaults."""
+
     lead_list: list[bool] | None = None
     """Per-task lead flags; ``None`` lets a single-task workflow default its task to lead."""
+
+    submitted_workflow_id: str | None = None
+    """OSMO ID of the last submitted workflow, set by ``_submit_rendered_workflow``."""
 
     def __init__(
         self,
@@ -165,10 +172,20 @@ class Workflow:
         print(f"  {' '.join(cmd)}\n")
 
         try:
-            result = subprocess.run(cmd)
+            # Capture stdout only, to parse the workflow ID; stderr stays inherited so
+            # interactive output (login prompts, progress) remains visible live.
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
+            print(result.stdout, end="")
+            self.submitted_workflow_id = self._parse_submitted_workflow_id(result.stdout)
             return result.returncode
         finally:
             Path(rendered_path).unlink(missing_ok=True)
+
+    @staticmethod
+    def _parse_submitted_workflow_id(submit_stdout: str) -> str | None:
+        """Extract the workflow ID from ``osmo workflow submit`` output, or None."""
+        match = re.search(r"Workflow ID\s*[-:]\s*(\S+)", submit_stdout)
+        return match.group(1) if match else None
 
     def _create_resource_dict(self) -> dict[str, Any]:
         return {
