@@ -8,7 +8,7 @@ from __future__ import annotations
 import torch
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
 from isaaclab_arena.relations.collision_mode import CollisionMode
@@ -23,6 +23,7 @@ from isaaclab_arena.relations.relations import (
     NotNextTo,
     On,
     RandomAroundSolution,
+    RelationBase,
     RotateAroundSolution,
     get_anchor_objects,
 )
@@ -44,6 +45,9 @@ if TYPE_CHECKING:
     import trimesh
 
     from isaaclab_arena.assets.object_base import ObjectBase
+
+
+RelationT = TypeVar("RelationT", bound=RelationBase)
 
 
 @dataclass
@@ -179,9 +183,8 @@ class ObjectPlacer:
                 f"Object '{obj.name}' has no relations. All objects passed to place() must have "
                 "at least one relation (e.g., On(), NextTo(), or IsAnchor())."
             )
-            face_to = self._get_face_to(obj)
-            if face_to is not None:
-                self._validate_face_to_configuration(obj, face_to, object_set)
+            for relation in obj.get_relations():
+                relation.validate_configuration(obj, object_set)
 
         anchor_objects = get_anchor_objects(objects)
         assert len(anchor_objects) > 0, (
@@ -400,7 +403,7 @@ class ObjectPlacer:
                     "Anchors are not repositioned by the placer, so any marker rotation must "
                     "already be baked into the anchor's initial_pose before calling place()."
                 )
-            elif self._get_face_to(obj) is None:
+            elif self._get_relation(obj, FaceTo) is None:
                 orientations[obj] = wrap_angle_to_pi(get_random_rotation(generator) + marker_yaw)
         return orientations
 
@@ -416,7 +419,7 @@ class ObjectPlacer:
         assert len(positions_per_candidate) == len(orientations_per_candidate)
         objects = positions_per_candidate[0]
         for obj in objects:
-            relation = ObjectPlacer._get_face_to(obj)
+            relation = ObjectPlacer._get_relation(obj, FaceTo)
             if relation is None:
                 continue
             subject_positions = torch.tensor([positions[obj] for positions in positions_per_candidate])
@@ -457,7 +460,7 @@ class ObjectPlacer:
         Rejects roll/pitch markers: a Z-rotated box can't enclose them, so they would otherwise
         validate a silently-wrong footprint.
         """
-        marker = ObjectPlacer._get_rotate_around_solution(obj)
+        marker = ObjectPlacer._get_relation(obj, RotateAroundSolution)
         if marker is None:
             return 0.0
         assert marker.roll_rad == 0.0 and marker.pitch_rad == 0.0, (
@@ -945,7 +948,7 @@ class ObjectPlacer:
     ) -> bool:
         """Validate that every FaceTo subject has a defined direction and computed yaw."""
         for obj in positions:
-            face_to = self._get_face_to(obj)
+            face_to = self._get_relation(obj, FaceTo)
             if face_to is None:
                 continue
             subject_position = torch.tensor([positions[obj]])
@@ -977,7 +980,7 @@ class ObjectPlacer:
             if obj in anchor_objects:
                 continue
 
-            rotate_marker = self._get_rotate_around_solution(obj)
+            rotate_marker = self._get_relation(obj, RotateAroundSolution)
             base_rotation = rotate_marker.get_rotation_xyzw() if rotate_marker else (0.0, 0.0, 0.0, 1.0)
             marker_yaw = yaw_from_quat_xyzw(base_rotation)
 
@@ -988,7 +991,7 @@ class ObjectPlacer:
             if num_envs == 1:
                 pos = positions_per_env[0][obj]
                 rotation_xyzw = rotate_quat_by_yaw(base_rotation, _yaw_delta(0))
-                random_marker = self._get_random_around_solution(obj)
+                random_marker = self._get_relation(obj, RandomAroundSolution)
                 if random_marker is not None:
                     obj.set_initial_pose(random_marker.to_pose_range_centered_at(pos, rotation_xyzw=rotation_xyzw))
                 else:
@@ -1003,54 +1006,9 @@ class ObjectPlacer:
                 ]
                 obj.set_initial_pose(PosePerEnv(poses=poses))
 
-    def _get_random_around_solution(self, obj: ObjectBase) -> RandomAroundSolution | None:
-        for rel in obj.get_relations():
-            if isinstance(rel, RandomAroundSolution):
-                return rel
-        return None
-
-    def _validate_face_to_configuration(
-        self,
-        obj: ObjectBase,
-        face_to: FaceTo,
-        object_set: set[ObjectBase],
-    ) -> None:
-        """Require a movable subject, participating target, and stable facing direction."""
-        face_to_count = sum(isinstance(relation, FaceTo) for relation in obj.get_relations())
-        assert face_to_count == 1, f"Object '{obj.name}' has more than one FaceTo relation."
-        assert not obj.is_anchor, f"Anchor object '{obj.name}' cannot have a FaceTo relation."
-        assert face_to.parent is not obj, f"Object '{obj.name}' cannot face itself."
-        assert face_to.parent in object_set, f"FaceTo parent '{face_to.parent.name}' must participate in placement."
-        assert (
-            self._get_rotate_around_solution(obj) is None
-        ), f"Object '{obj.name}' cannot combine FaceTo with RotateAroundSolution."
-
-        subject_randomization = self._get_random_around_solution(obj)
-        if subject_randomization is not None:
-            assert (
-                subject_randomization.x_half_m == 0.0
-                and subject_randomization.y_half_m == 0.0
-                and subject_randomization.roll_half_rad == 0.0
-                and subject_randomization.pitch_half_rad == 0.0
-                and subject_randomization.yaw_half_rad == 0.0
-            ), f"Object '{obj.name}' cannot randomize XY or rotation while using FaceTo."
-
-        parent_randomization = self._get_random_around_solution(face_to.parent)
-        if parent_randomization is not None:
-            assert (
-                parent_randomization.x_half_m == 0.0 and parent_randomization.y_half_m == 0.0
-            ), f"FaceTo parent '{face_to.parent.name}' cannot randomize XY."
-
     @staticmethod
-    def _get_rotate_around_solution(obj: ObjectBase) -> RotateAroundSolution | None:
-        for rel in obj.get_relations():
-            if isinstance(rel, RotateAroundSolution):
-                return rel
-        return None
-
-    @staticmethod
-    def _get_face_to(obj: ObjectBase) -> FaceTo | None:
-        return next((relation for relation in obj.get_relations() if isinstance(relation, FaceTo)), None)
+    def _get_relation(obj: ObjectBase, relation_type: type[RelationT]) -> RelationT | None:
+        return next((relation for relation in obj.get_relations() if isinstance(relation, relation_type)), None)
 
     @property
     def last_loss_history(self) -> list[float]:

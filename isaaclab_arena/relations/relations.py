@@ -39,7 +39,8 @@ class RelationBase:
     in its relations list.
     """
 
-    pass
+    def validate_configuration(self, subject: ObjectBase, objects: set[ObjectBase]) -> None:
+        """Validate this relation for its subject and participating objects."""
 
 
 class UnaryRelation(RelationBase):
@@ -94,6 +95,33 @@ class FaceTo(RelationBase):
     def is_unary() -> bool:
         """Return whether the relation constrains a single object."""
         return False
+
+    def validate_configuration(self, subject: ObjectBase, objects: set[ObjectBase]) -> None:
+        """Validate the facing relation for its subject and target."""
+        face_to_count = sum(isinstance(relation, FaceTo) for relation in subject.get_relations())
+        assert face_to_count == 1, f"Object '{subject.name}' has more than one FaceTo relation."
+        assert not subject.is_anchor, f"Anchor object '{subject.name}' cannot have a FaceTo relation."
+        assert self.parent is not subject, f"Object '{subject.name}' cannot face itself."
+        assert self.parent in objects, f"FaceTo parent '{self.parent.name}' must participate in placement."
+        assert not any(
+            isinstance(relation, RotateAroundSolution) for relation in subject.get_relations()
+        ), f"Object '{subject.name}' cannot combine FaceTo with RotateAroundSolution."
+
+        subject_randomization = next(
+            (relation for relation in subject.get_relations() if isinstance(relation, RandomAroundSolution)), None
+        )
+        if subject_randomization is not None:
+            assert (
+                subject_randomization.x_half_m == 0.0 and subject_randomization.y_half_m == 0.0
+            ), f"Object '{subject.name}' cannot randomize XY while using FaceTo."
+
+        parent_randomization = next(
+            (relation for relation in self.parent.get_relations() if isinstance(relation, RandomAroundSolution)), None
+        )
+        if parent_randomization is not None:
+            assert (
+                parent_randomization.x_half_m == 0.0 and parent_randomization.y_half_m == 0.0
+            ), f"FaceTo parent '{self.parent.name}' cannot randomize XY."
 
 
 @register_object_relation

@@ -22,7 +22,14 @@ from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import AtPosition, FaceTo, IsAnchor, RandomAroundSolution, RotateAroundSolution
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.pose import Pose, PosePerEnv, wrap_angle_to_pi, yaw_from_quat_xyzw, yaw_toward_positions
+from isaaclab_arena.utils.pose import (
+    Pose,
+    PosePerEnv,
+    PoseRange,
+    wrap_angle_to_pi,
+    yaw_from_quat_xyzw,
+    yaw_toward_positions,
+)
 
 
 def _box(name: str, half_extents: tuple[float, float, float] = (0.1, 0.1, 0.1)) -> DummyObject:
@@ -157,7 +164,7 @@ def test_face_to_rebuilds_rotated_footprint_before_validation():
     assert validation.validation_results[PlacementCheck.NO_OVERLAP] is False
 
 
-def test_face_to_suppresses_random_yaw_and_rejects_rotate_marker():
+def test_face_to_suppresses_initial_random_yaw_and_rejects_rotate_marker():
     pair = _face_to_pair()
     placer = ObjectPlacer(ObjectPlacerParams(random_yaw_init=True))
 
@@ -201,8 +208,7 @@ def test_face_to_rejects_invalid_relation_configuration(invalid_case, message):
 @pytest.mark.parametrize(
     ("randomized_object", "randomization", "message"),
     [
-        ("subject", RandomAroundSolution(x_half_m=0.1), "cannot randomize XY or rotation"),
-        ("subject", RandomAroundSolution(yaw_half_rad=0.1), "cannot randomize XY or rotation"),
+        ("subject", RandomAroundSolution(x_half_m=0.1), "cannot randomize XY"),
         ("target", RandomAroundSolution(y_half_m=0.1), "cannot randomize XY"),
     ],
 )
@@ -212,6 +218,22 @@ def test_face_to_rejects_reset_randomization_that_changes_direction(randomized_o
 
     with pytest.raises(AssertionError, match=message):
         ObjectPlacer()._prepare_placement([pair.target, pair.subject])
+
+
+def test_face_to_allows_reset_rotation_around_facing_yaw(monkeypatch):
+    pair = _face_to_pair(target_position=(0.0, 2.0, 0.0))
+    pair.subject.add_relation(AtPosition(x=0.0, y=0.0, z=0.0))
+    pair.subject.add_relation(RandomAroundSolution(roll_half_rad=0.1, pitch_half_rad=0.2, yaw_half_rad=0.3))
+    placer = ObjectPlacer(ObjectPlacerParams(max_placement_attempts=1))
+    positions = {pair.target: (0.0, 2.0, 0.0), pair.subject: (0.0, 0.0, 0.0)}
+    _set_solver_results(monkeypatch, placer, [positions])
+
+    placer.place([pair.target, pair.subject])
+    pose = pair.subject.get_initial_pose()
+
+    assert isinstance(pose, PoseRange)
+    assert pose.rpy_min == pytest.approx((-0.1, -0.2, math.pi / 2 - 0.3))
+    assert pose.rpy_max == pytest.approx((0.1, 0.2, math.pi / 2 + 0.3))
 
 
 def test_relation_solver_ignores_face_to_marker():
