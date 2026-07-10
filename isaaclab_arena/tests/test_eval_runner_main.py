@@ -8,7 +8,7 @@
 from isaaclab_arena.evaluation import eval_runner
 
 
-def test_eval_runner_parses_once_and_delegates_to_local_evaluation(monkeypatch):
+def test_eval_runner_parses_once_and_delegates_to_local_execution(monkeypatch):
     cfg = object()
     parsed_arguments = None
     received_cfg = None

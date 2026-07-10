@@ -10,14 +10,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from isaaclab_arena.evaluation import arena_experiment_config_loader, eval_runner, legacy_eval_runner, local_evaluation
+from isaaclab_arena.evaluation import arena_experiment_config_loader, eval_runner, legacy_eval_runner
 from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     load_arena_experiment_from_config_file,
     validate_experiment_config_path,
 )
+from isaaclab_arena.evaluation.eval_runner import _assert_camera_support_enabled, run_local_experiment
 from isaaclab_arena.evaluation.eval_runner_cli import parse_eval_runner_cfg
 from isaaclab_arena.evaluation.legacy_eval_runner import _run_legacy_json_chunk, legacy_json_experiment_requires_cameras
-from isaaclab_arena.evaluation.local_evaluation import _assert_camera_support_enabled, run_local_experiment
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.utils.isaaclab_utils import simulation_app
@@ -61,7 +61,7 @@ def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
     assert all(run.environment_builder.device == "cuda:1" for run in experiment)
 
 
-def test_local_evaluation_loads_typed_experiment_after_simulation_starts(monkeypatch):
+def test_eval_runner_loads_typed_experiment_after_simulation_starts(monkeypatch):
     simulation_is_running = False
     composed_experiment = [SimpleNamespace(name="baseline", environment=SimpleNamespace(enable_cameras=False))]
 
@@ -84,9 +84,9 @@ def test_local_evaluation_loads_typed_experiment_after_simulation_starts(monkeyp
         assert overrides == ["runs.baseline.rollout_limit.num_steps=7"]
         return composed_experiment
 
-    monkeypatch.setattr(local_evaluation, "SimulationAppContext", _SimulationAppContext)
-    monkeypatch.setattr(local_evaluation, "load_arena_experiment_from_config_file", load_experiment_after_startup)
-    monkeypatch.setattr(local_evaluation, "list_variations", lambda _experiment: None)
+    monkeypatch.setattr(eval_runner, "SimulationAppContext", _SimulationAppContext)
+    monkeypatch.setattr(eval_runner, "load_arena_experiment_from_config_file", load_experiment_after_startup)
+    monkeypatch.setattr(eval_runner, "list_variations", lambda _experiment: None)
 
     cfg = parse_eval_runner_cfg([
         "--experiment-config",
@@ -140,15 +140,15 @@ def test_list_variations_preserves_precedence_over_legacy_chunking(monkeypatch):
             pass
 
     listed_experiment = [SimpleNamespace(name="baseline", environment=SimpleNamespace(enable_cameras=False))]
-    monkeypatch.setattr(local_evaluation, "SimulationAppContext", _SimulationAppContext)
+    monkeypatch.setattr(eval_runner, "SimulationAppContext", _SimulationAppContext)
     monkeypatch.setattr(
-        local_evaluation,
+        eval_runner,
         "load_arena_experiment_from_config_file",
         lambda *_args, **_kwargs: listed_experiment,
     )
-    monkeypatch.setattr(local_evaluation, "list_variations", lambda experiment: experiment is listed_experiment)
+    monkeypatch.setattr(eval_runner, "list_variations", lambda experiment: experiment is listed_experiment)
     monkeypatch.setattr(
-        local_evaluation,
+        eval_runner,
         "run_legacy_json_in_chunks",
         lambda *_args, **_kwargs: pytest.fail("list-variations unexpectedly dispatched chunks"),
     )
@@ -193,13 +193,13 @@ def test_record_camera_video_preserves_automatic_app_launcher_camera_support(mon
         def __exit__(self, _exception_type, _exception, _traceback):
             pass
 
-    monkeypatch.setattr(local_evaluation, "SimulationAppContext", _SimulationAppContext)
+    monkeypatch.setattr(eval_runner, "SimulationAppContext", _SimulationAppContext)
     monkeypatch.setattr(
-        local_evaluation,
+        eval_runner,
         "load_arena_experiment_from_config_file",
         lambda *_args, **_kwargs: [SimpleNamespace(name="baseline", environment=SimpleNamespace())],
     )
-    monkeypatch.setattr(local_evaluation, "list_variations", lambda _experiment: None)
+    monkeypatch.setattr(eval_runner, "list_variations", lambda _experiment: None)
 
     cfg = parse_eval_runner_cfg([
         "--experiment-config",
@@ -222,13 +222,13 @@ def test_record_viewport_video_does_not_change_existing_camera_startup_behavior(
         def __exit__(self, _exception_type, _exception, _traceback):
             pass
 
-    monkeypatch.setattr(local_evaluation, "SimulationAppContext", _SimulationAppContext)
+    monkeypatch.setattr(eval_runner, "SimulationAppContext", _SimulationAppContext)
     monkeypatch.setattr(
-        local_evaluation,
+        eval_runner,
         "load_arena_experiment_from_config_file",
         lambda *_args, **_kwargs: [SimpleNamespace(name="baseline", environment=SimpleNamespace())],
     )
-    monkeypatch.setattr(local_evaluation, "list_variations", lambda _experiment: None)
+    monkeypatch.setattr(eval_runner, "list_variations", lambda _experiment: None)
 
     cfg = parse_eval_runner_cfg([
         "--experiment-config",
@@ -273,7 +273,7 @@ def test_legacy_chunk_subprocess_uses_typed_invocation_args(tmp_path, monkeypatc
     assert chunk_path is not None and not chunk_path.exists()
 
 
-def test_app_launcher_resolved_device_propagates_without_consuming_typed_args(monkeypatch):
+def test_app_launcher_resolved_device_propagates_through_typed_args(monkeypatch):
     launcher_args = {"device": "cuda:0", "device_explicit": False, "enable_cameras": True}
 
     class _AppLauncher:
@@ -286,7 +286,7 @@ def test_app_launcher_resolved_device_propagates_without_consuming_typed_args(mo
 
     simulation_app.get_app_launcher(launcher_args)
 
-    assert launcher_args == {"device": "cpu", "device_explicit": False, "enable_cameras": True}
+    assert launcher_args == {"device": "cpu", "enable_cameras": True}
 
 
 def test_unknown_experiment_config_file_type_is_rejected(tmp_path):

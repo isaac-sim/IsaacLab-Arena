@@ -29,14 +29,7 @@ def get_app_launcher(args: argparse.Namespace | dict[str, Any]) -> AppLauncher:
     import time
 
     t0 = time.monotonic()
-    # AppLauncher consumes and mutates dictionaries while resolving settings,
-    # so keep the typed invocation values intact in a shallow working copy.
-    launcher_args = dict(args) if isinstance(args, dict) else args
-    app_launcher = AppLauncher(launcher_args)
-    if isinstance(args, dict) and "device" in launcher_args:
-        # XR may resolve an implicit CUDA device to CPU. Propagate that one
-        # authoritative value so Run composition uses the same device as Sim.
-        args["device"] = launcher_args["device"]
+    app_launcher = AppLauncher(args)
     elapsed = time.monotonic() - t0
     sys.__stderr__.write(f"{STARTUP_COMPLETE_MARKER} ({elapsed:.1f}s)\n")
     sys.__stderr__.flush()
