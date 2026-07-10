@@ -13,11 +13,11 @@ from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 
-from isaaclab_arena.tasks.predicates.object_settling import get_object_settled_state
+from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
 from isaaclab_arena.tasks.predicates.predicate_utils import get_env, get_root_lin_vel_w, get_root_pos_w, select
 
 
-def object_lifted(
+def object_is_above_height(
     env: ManagerBasedRLEnv,
     object_name: str,
     surface_height: float | None = None,
@@ -25,9 +25,9 @@ def object_lifted(
     distance: float = 1e-2,
     env_id: int | None = None,
 ) -> torch.Tensor:
-    """Checks if an object has been lifted.
+    """Checks if an object is above a certain height.
 
-    The reference is either a fixed ``surface_height`` or, when ``use_settled_state`` is set, the
+    The reference height iseither a fixed ``surface_height`` or, when ``use_settled_state`` is set, the
     object's recorded resting height (see ``objects_settled``). For envs where no settled state
     has been recorded, the result is always False.
 
@@ -36,24 +36,24 @@ def object_lifted(
 
     assert (
         surface_height is not None
-    ) != use_settled_state, "object_lifted requires exactly one of surface_height or use_settled_state"
+    ) != use_settled_state, "object_is_above_height requires exactly one of surface_height or use_settled_state"
 
     object_z = get_root_pos_w(env, object_name)[:, 2]
     if use_settled_state:
-        settled_pos, has_settled = get_object_settled_state(env, object_name)
+        settled_pos, has_settled = get_object_initial_rest_state(env, object_name)
         result = has_settled & (object_z > (settled_pos[:, 2] + distance))
     else:
         result = object_z > (surface_height + distance)
     return select(result, env_id)
 
 
-def object_moved(
+def object_moving(
     env: ManagerBasedRLEnv,
     object_name: str,
     velocity_threshold: float = 1e-2,
     env_id: int | None = None,
 ) -> torch.Tensor:
-    """Checks if an object has moved.
+    """Checks if an object is moving above a certain velocity threshold.
 
     Returns True when object_name's linear speed exceeds velocity_threshold (m/s).
     """

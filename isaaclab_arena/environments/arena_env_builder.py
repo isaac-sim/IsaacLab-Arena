@@ -41,7 +41,6 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
-from isaaclab_arena.tasks.predicates.object_settling import make_object_settling_reset_event_cfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
@@ -254,7 +253,6 @@ class ArenaEnvBuilder:
             placement_event_cfg,
             variations_event_cfg,
             progress_tracking_events_cfg,
-            make_object_settling_reset_event_cfg(),
         )
         termination_cfg = combine_configclass_instances(
             "TerminationCfg",

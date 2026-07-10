@@ -25,7 +25,7 @@ from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.predicates.object_settling import objects_settled
-from isaaclab_arena.tasks.predicates.spatial import object_lifted, object_on_destination, objects_in_proximity
+from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination, objects_in_proximity
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
 from isaaclab_arena.tasks.terminations import SuccessMode, check_success
@@ -174,7 +174,7 @@ class PickAndPlaceTask(TaskBase):
                         object_names=[self.pick_up_object.name],
                     ),
                     partial(
-                        object_lifted,
+                        object_is_above_height,
                         object_name=self.pick_up_object.name,
                         use_settled_state=True,
                     ),
