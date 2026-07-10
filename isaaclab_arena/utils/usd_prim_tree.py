@@ -29,7 +29,11 @@ class UsdPrimRecord:
 
 
 def load_usd_prim_tree(usd_path: str) -> list[UsdPrimRecord]:
-    """Return prim records for every prim in a USD asset.
+    """Return prim records for the physics/collision subtree of a USD asset.
+
+    A prim is included when it directly participates in physics or collision, or
+    when any of its descendants does. Retaining those ancestors keeps the returned
+    records connected as a tree so the nested catalog can recover full paths.
 
     Args:
         usd_path: Filesystem path to the USD.
@@ -39,10 +43,26 @@ def load_usd_prim_tree(usd_path: str) -> list[UsdPrimRecord]:
     """
     records: list[UsdPrimRecord] = []
     with open_stage(usd_path) as stage:
+        # Collect prims that directly participate in physics or collision, then add
+        # every ancestor so a prim is kept whenever any descendant is kept.
+        included_paths: set[str] = set()
         for prim in stage.Traverse():
             if prim.IsPseudoRoot():
                 continue
             if not has_physics_or_collision(prim):
+                continue
+            ancestor = prim
+            while ancestor and not ancestor.IsPseudoRoot():
+                path = str(ancestor.GetPath())
+                if path in included_paths:
+                    break
+                included_paths.add(path)
+                ancestor = ancestor.GetParent()
+
+        for prim in stage.Traverse():
+            if prim.IsPseudoRoot():
+                continue
+            if str(prim.GetPath()) not in included_paths:
                 continue
             relative_path = relative_path_from_default_prim(stage, str(prim.GetPath()))
             if not relative_path:

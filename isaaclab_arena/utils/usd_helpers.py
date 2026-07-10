@@ -97,8 +97,6 @@ def relative_path_from_default_prim(stage: Usd.Stage, prim_path: str) -> str:
     prefix = default_prefix if default_prefix.endswith("/") else default_prefix + "/"
     if prim_path.startswith(prefix):
         return prim_path[len(prefix) :]
-    if prim_path.startswith(default_prefix + "/"):
-        return prim_path[len(default_prefix) + 1 :]
     return prim_path.lstrip("/")
 
 
