@@ -3,25 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""LLM inference for object_reference prim_path values.
-
-Input Context:
-    Load the background USD prim tree and format object-reference context for the LLM::
-
-        usd_path = spec.background.resolve_usd_path()
-        prim_tree = load_usd_prim_tree(usd_path)
-        user = self._user_message(spec, prim_tree)
-
-    ``_user_message`` concatenates the nested prim-tree catalog with object references,
-    related relations, and subtasks that reference those nodes.
-
-Output Processing:
-    Parse structured LLM output, validate prim paths against the prim tree, and merge into the spec::
-
-        parsed = ResolvedObjectReferences.model_validate(data)
-        _validate_against_prim_tree(parsed.object_references, prim_tree)
-        return _merge_resolved_object_references(spec, parsed.object_references)
-"""
+"""LLM inference for object_reference prim_path values."""
 
 from __future__ import annotations
 
@@ -41,11 +23,6 @@ from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenc
 
 if TYPE_CHECKING:
     from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
-
-
-# ---------------------------------------------------------------------------
-# Input Context
-# ---------------------------------------------------------------------------
 
 
 def _prim_tree_catalog(prim_tree: list[UsdPrimRecord]) -> str:
@@ -102,11 +79,6 @@ def _object_reference_context(spec: ArenaEnvGraphSpec) -> str:
         f"RELATIONS INVOLVING OBJECT REFERENCES:\n{json.dumps(relations, indent=2)}\n\n"
         f"TASKS INVOLVING OBJECT REFERENCES:\n{json.dumps(tasks, indent=2)}"
     )
-
-
-# ---------------------------------------------------------------------------
-# Output Processing
-# ---------------------------------------------------------------------------
 
 
 class ResolvedObjectReferences(BaseModel):

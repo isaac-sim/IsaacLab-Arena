@@ -203,7 +203,6 @@ class EnvironmentGenerationAgent:
         api_key: str | None = None,
         model: str | None = None,
         base_url: str | None = None,
-        *,
         temperature: float = 0.2,
         max_tokens: int = 4096,
         max_retries: int = 3,
