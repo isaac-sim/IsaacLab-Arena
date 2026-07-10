@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from isaaclab_arena.assets.dummy_object import DummyObject
 from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
-from isaaclab_arena.environments.arena_env_graph_types import SpatialRelationSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
