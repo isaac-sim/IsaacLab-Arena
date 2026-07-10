@@ -10,13 +10,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.utils.usd_helpers import (
-    articulation_joint_names,
-    has_physics_or_collision,
-    object_type_for_prim,
-    open_stage,
-    relative_path_from_default_prim,
-)
 
 
 @dataclass(frozen=True)
@@ -41,6 +34,14 @@ def load_usd_prim_tree(usd_path: str) -> list[UsdPrimRecord]:
     Returns:
         Sorted list of :class:`UsdPrimRecord` entries keyed by relative_path suffix.
     """
+    from isaaclab_arena.utils.usd_helpers import (
+        articulation_joint_names,
+        has_physics_or_collision,
+        object_type_for_prim,
+        open_stage,
+        relative_path_from_default_prim,
+    )
+
     records: list[UsdPrimRecord] = []
     with open_stage(usd_path) as stage:
         # Collect prims that directly participate in physics or collision, then add
