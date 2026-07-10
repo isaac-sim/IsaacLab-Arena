@@ -9,18 +9,76 @@ from __future__ import annotations
 
 from typing import Any
 
+from pydantic import ValidationError
+
 from isaaclab_arena.agentic_environment_generation.agent_utils import build_strict_schema
 from isaaclab_arena.agentic_environment_generation.query_backend import QueryBackend, StructuredOutputRequest
 from isaaclab_arena.agentic_environment_generation.spec_validation import (
     collect_agent_ready_task_validation_traces,
-    try_parse_env_graph_spec,
+    format_validation_error,
 )
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
 
-def spec_system_prompt() -> str:
-    """Return the pass-1 system prompt for ArenaEnvGraphSpec generation."""
-    return """\
+class SpecGenerator:
+    """Pass 1: natural-language prompt -> ArenaEnvGraphSpec JSON."""
+
+    def __init__(self, query_backend: QueryBackend):
+        self._query_backend = query_backend
+        self._schema = build_strict_schema(ArenaEnvGraphSpec)
+
+    def infer(
+        self,
+        prompt: str,
+        traces: list[str],
+        *,
+        asset_catalog: Any,
+        relation_catalog: Any,
+        task_catalog: Any,
+    ) -> tuple[ArenaEnvGraphSpec | None, dict[str, Any]]:
+        """Generate an ArenaEnvGraphSpec from a natural-language prompt."""
+        data = self._query_backend.run_json(
+            StructuredOutputRequest(
+                schema_name="ArenaEnvGraphSpec",
+                schema=self._schema,
+                system=self._system_prompt(),
+                user=self._user_message(
+                    prompt,
+                    asset_catalog=asset_catalog,
+                    relation_catalog=relation_catalog,
+                    task_catalog=task_catalog,
+                ),
+                retry_label="generate_spec",
+            )
+        )
+        try:
+            spec = ArenaEnvGraphSpec.model_validate(data)
+        except ValidationError as exc:
+            traces.extend(format_validation_error(exc))
+            return None, data
+        traces.extend(collect_agent_ready_task_validation_traces(spec))
+        return spec, data
+
+    @staticmethod
+    def _user_message(
+        prompt: str,
+        *,
+        asset_catalog: Any,
+        relation_catalog: Any,
+        task_catalog: Any,
+    ) -> str:
+        """Format the pass-1 user message for environment graph spec generation."""
+        vocabulary = (
+            f"{asset_catalog.to_catalog_string()}\n\n"
+            f"{relation_catalog.to_catalog_string()}\n\n"
+            f"{task_catalog.to_catalog_string()}"
+        )
+        return f"{vocabulary}\n\nUSER PROMPT:\n{prompt}"
+
+    @staticmethod
+    def _system_prompt() -> str:
+        """Return the pass-1 system prompt for ArenaEnvGraphSpec generation."""
+        return """\
 You are an environment-generator for robot manipulation tasks.
 Convert a natural-language prompt into an ArenaEnvGraphSpec.
 
@@ -43,50 +101,3 @@ GUIDANCE:
   ``object_reference`` within it).
 - All objects need an ``on`` relation with that anchor as ``reference``.
 """
-
-
-def build_vocabulary(
-    asset_catalog: Any,
-    relation_catalog: Any,
-    task_catalog: Any,
-) -> str:
-    """Format asset, relation, and task catalogues for the pass-1 user message."""
-    return (
-        f"{asset_catalog.to_catalog_string()}\n\n"
-        f"{relation_catalog.to_catalog_string()}\n\n"
-        f"{task_catalog.to_catalog_string()}"
-    )
-
-
-class SpecGenerator:
-    """Pass 1: natural-language prompt -> ArenaEnvGraphSpec JSON."""
-
-    def __init__(self, query_backend: QueryBackend):
-        self._query_backend = query_backend
-        self._schema = build_strict_schema(ArenaEnvGraphSpec)
-
-    def infer(
-        self,
-        prompt: str,
-        traces: list[str],
-        *,
-        asset_catalog: Any,
-        relation_catalog: Any,
-        task_catalog: Any,
-    ) -> tuple[ArenaEnvGraphSpec | None, dict[str, Any]]:
-        """Generate an ArenaEnvGraphSpec from a natural-language prompt."""
-        vocabulary = build_vocabulary(asset_catalog, relation_catalog, task_catalog)
-        data = self._query_backend.run_json(
-            StructuredOutputRequest(
-                schema_name="ArenaEnvGraphSpec",
-                schema=self._schema,
-                system=spec_system_prompt(),
-                user=f"{vocabulary}\n\nUSER PROMPT:\n{prompt}",
-                retry_label="generate_spec",
-            )
-        )
-        spec, parse_traces = try_parse_env_graph_spec(data)
-        traces.extend(parse_traces)
-        if spec is not None:
-            traces.extend(collect_agent_ready_task_validation_traces(spec))
-        return spec, data
