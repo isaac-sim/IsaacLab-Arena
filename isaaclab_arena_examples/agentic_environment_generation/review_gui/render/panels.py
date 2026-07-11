@@ -78,10 +78,9 @@ def render_node_cards(
     thumbnails = thumbnails or {}
     aabb_dimensions_m = aabb_dimensions_m or {}
     entries = [
-        ("embodiment", spec.embodiment),
         ("background", spec.background),
-        *(("object", obj) for obj in spec.objects),
         *(("object_reference", ref) for ref in (spec.object_references or [])),
+        *(("object", obj) for obj in spec.objects),
     ]
     cards: list[str] = []
     for role, asset in entries:

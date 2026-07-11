@@ -174,6 +174,13 @@ def _capture_usd_snapshot_job(app, job: _UsdSnapshotJob) -> dict[str, bytes]:
             root_path = _absolute_prim_path(stage, target.relative_prim_path)
             collision_paths = _collect_collision_prim_paths(stage, root_path)
             _select_collision_prims(app, collision_paths)
+            viewport = get_active_viewport()
+            framed = frame_viewport_prims(viewport, prims=[root_path])
+            if not framed:
+                print(
+                    f"[thumbnail_capture]   warning: frame_viewport_prims failed for {root_path}",
+                    file=sys.stderr,
+                )
             png_bytes = capture_viewport_png(app, cache_path, pre_capture_updates=PRE_CAPTURE_UPDATES)
             if png_bytes:
                 out[node_id] = png_bytes

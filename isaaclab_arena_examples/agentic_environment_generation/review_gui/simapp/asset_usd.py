@@ -40,11 +40,16 @@ def is_resolved_prim_path(prim_path: str | None) -> bool:
     return bool(cleaned) and cleaned.lower() != "unknown"
 
 
+def _snapshot_asset_specs(spec: ArenaEnvGraphSpec) -> list[AssetSpec]:
+    """Assets included in review GUI USD thumbnails (excludes embodiment)."""
+    return [spec.background, *spec.objects]
+
+
 def resolve_node_usd_paths(spec: ArenaEnvGraphSpec) -> dict[str, str]:
     """Map ``asset.id → usd_path`` via :class:`AssetRegistry`."""
     registry = AssetRegistry()
     paths: dict[str, str] = {}
-    for asset_spec in [spec.embodiment, spec.background, *spec.objects]:
+    for asset_spec in _snapshot_asset_specs(spec):
         try:
             if not registry.is_registered(asset_spec.registry_name):
                 print(
@@ -127,7 +132,7 @@ def resolve_node_aabb_dimensions_m(spec: ArenaEnvGraphSpec) -> dict[str, AabbDim
     """Return axis-aligned bounding box sizes in meters for each asset with a resolvable USD."""
     registry = AssetRegistry()
     dimensions: dict[str, AabbDimensionsM] = {}
-    for asset_spec in [spec.embodiment, spec.background, *spec.objects]:
+    for asset_spec in _snapshot_asset_specs(spec):
         try:
             if not registry.is_registered(asset_spec.registry_name):
                 continue
