@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperiment
@@ -125,7 +126,7 @@ def run_local_experiment(cfg: EvalRunnerCfg) -> int:
 
 def main() -> int:
     """Parse the process arguments and run one Experiment."""
-    return run_local_experiment(parse_eval_runner_cfg())
+    return run_local_experiment(parse_eval_runner_cfg(sys.argv[1:]))
 
 
 if __name__ == "__main__":

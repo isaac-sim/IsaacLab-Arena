@@ -10,12 +10,12 @@ from isaaclab_arena.evaluation import eval_runner
 
 def test_eval_runner_parses_once_and_delegates_to_local_execution(monkeypatch):
     cfg = object()
-    parse_count = 0
+    parsed_arguments = None
     received_cfg = None
 
-    def _parse():
-        nonlocal parse_count
-        parse_count += 1
+    def _parse(arguments):
+        nonlocal parsed_arguments
+        parsed_arguments = arguments
         return cfg
 
     def _run_local(local_cfg):
@@ -25,7 +25,8 @@ def test_eval_runner_parses_once_and_delegates_to_local_execution(monkeypatch):
 
     monkeypatch.setattr(eval_runner, "parse_eval_runner_cfg", _parse)
     monkeypatch.setattr(eval_runner, "run_local_experiment", _run_local)
+    monkeypatch.setattr(eval_runner.sys, "argv", ["eval_runner.py", "--experiment-config", "experiment.yaml"])
 
     assert eval_runner.main() == 17
-    assert parse_count == 1
+    assert parsed_arguments == ["--experiment-config", "experiment.yaml"]
     assert received_cfg is cfg

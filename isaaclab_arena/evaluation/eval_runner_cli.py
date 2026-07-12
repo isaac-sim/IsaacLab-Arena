@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import argparse
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -63,16 +62,16 @@ class EvalRunnerCfg:
         return str(self.app_launcher_args["device"])
 
 
-def parse_eval_runner_cfg(cli_args: list[str] | None = None) -> EvalRunnerCfg:
+def parse_eval_runner_cfg(cli_args: list[str]) -> EvalRunnerCfg:
     """Parse local eval-runner arguments into typed configuration.
 
     Args:
-        cli_args: Command-line arguments excluding the program name.
+        cli_args: Process arguments excluding the program name.
 
     Returns:
         Typed local evaluation configuration.
     """
-    arguments = list(sys.argv[1:] if cli_args is None else cli_args)
+    arguments = list(cli_args)
     parser = argparse.ArgumentParser(
         description="Run an Isaac Lab-Arena Experiment locally.",
         allow_abbrev=False,
