@@ -33,11 +33,19 @@ def test_eval_runner_parses_native_hydra_overrides():
     ]
 
 
-def test_eval_runner_rejects_unknown_non_hydra_arguments(capsys):
-    with pytest.raises(SystemExit):
-        parse_eval_runner_args(["--headles"])
+@pytest.mark.with_subprocess
+def test_eval_runner_rejects_unknown_non_hydra_arguments():
+    """Reject misspelled CLI flags in a fresh process."""
+    result = subprocess.run(
+        [TestConstants.python_path, f"{TestConstants.evaluation_dir}/eval_runner.py", "--headles"],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
 
-    assert "Unrecognized arguments: --headles" in capsys.readouterr().err
+    assert result.returncode != 0
+    assert "Unrecognized arguments: --headles" in result.stderr
 
 
 def write_jobs_config_to_file(jobs: list[dict], tmp_file_path: str):
