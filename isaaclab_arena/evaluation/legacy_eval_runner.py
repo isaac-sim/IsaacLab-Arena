@@ -52,29 +52,6 @@ def legacy_json_experiment_requires_cameras(experiment_config: dict) -> bool:
     )
 
 
-def _without_experiment_config(arguments: list[str]) -> list[str]:
-    """Remove every supported Experiment-path option and its value."""
-    option_names = {
-        "--experiment-config",
-        "--experiment_config",
-        "--eval-jobs-config",
-        "--eval_jobs_config",
-    }
-    filtered: list[str] = []
-    skip_next = False
-    for argument in arguments:
-        if skip_next:
-            skip_next = False
-            continue
-        if argument in option_names:
-            skip_next = True
-            continue
-        if any(argument.startswith(f"{name}=") for name in option_names):
-            continue
-        filtered.append(argument)
-    return filtered
-
-
 def _run_legacy_json_chunk(cfg: EvalRunnerCfg, chunk_label: str, legacy_job_configs: list[dict]) -> int:
     """Run legacy JSON entries in a fresh eval_runner subprocess."""
     print(f"[eval_runner] {chunk_label}", flush=True)
@@ -82,9 +59,8 @@ def _run_legacy_json_chunk(cfg: EvalRunnerCfg, chunk_label: str, legacy_job_conf
         json.dump({"jobs": legacy_job_configs}, tmp)
         chunk_path = Path(tmp.name)
 
-    forwarded_args = _without_experiment_config(cfg.invocation_args)
     forwarded_args = [
-        arg for arg in forwarded_args if arg not in {"--serve-evaluation-report", "--serve_evaluation_report"}
+        arg for arg in cfg.invocation_args if arg not in {"--serve-evaluation-report", "--serve_evaluation_report"}
     ]
     eval_runner_path = Path(__file__).with_name("eval_runner.py")
     child_cmd = [

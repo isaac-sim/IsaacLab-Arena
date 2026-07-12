@@ -240,7 +240,7 @@ def test_record_viewport_video_does_not_change_existing_camera_startup_behavior(
     assert run_local_experiment(cfg) == 0
 
 
-def test_legacy_chunk_subprocess_uses_typed_invocation_args(tmp_path, monkeypatch):
+def test_legacy_chunk_subprocess_appends_config_override_to_invocation_args(tmp_path, monkeypatch):
     submitted_command = None
     chunk_path = None
 
@@ -268,9 +268,11 @@ def test_legacy_chunk_subprocess_uses_typed_invocation_args(tmp_path, monkeypatc
     assert submitted_command[1].endswith("isaaclab_arena/evaluation/eval_runner.py")
     assert "unrelated-program" not in submitted_command
     assert "--serve_evaluation_report" not in submitted_command
-    assert str(parent_path) not in submitted_command
-    assert submitted_command[-2] == "--experiment-config"
-    assert chunk_path is not None and not chunk_path.exists()
+    assert str(parent_path) in submitted_command
+    assert chunk_path is not None
+    assert submitted_command[-2:] == ["--experiment-config", str(chunk_path)]
+    assert parse_eval_runner_cfg(submitted_command[2:]).experiment_config == chunk_path
+    assert not chunk_path.exists()
 
 
 def test_app_launcher_resolved_device_propagates_through_typed_args(monkeypatch):
