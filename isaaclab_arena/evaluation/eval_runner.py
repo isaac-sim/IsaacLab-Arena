@@ -123,9 +123,9 @@ def run_local_experiment(cfg: EvalRunnerCfg) -> int:
     return 0
 
 
-def main(cli_args: list[str] | None = None) -> int:
-    """Parse one eval-runner invocation and return its process exit code."""
-    return run_local_experiment(parse_eval_runner_cfg(cli_args))
+def main() -> int:
+    """Parse the process arguments and run one Experiment."""
+    return run_local_experiment(parse_eval_runner_cfg())
 
 
 if __name__ == "__main__":

@@ -22,7 +22,7 @@ _DEFAULT_EXPERIMENT_CONFIG_PATH = Path("isaaclab_arena_environments/eval_jobs_co
 
 @dataclass
 class EvalRunnerCfg:
-    """Typed configuration for one local eval-runner invocation."""
+    """Typed configuration for local Experiment execution."""
 
     experiment_config: Path
     """Typed YAML Experiment or deprecated JSON Experiment path."""
@@ -32,9 +32,6 @@ class EvalRunnerCfg:
 
     app_launcher_args: dict[str, Any]
     """Arguments consumed by Isaac Lab's AppLauncher."""
-
-    invocation_args: list[str]
-    """Original arguments forwarded when legacy JSON chunks restart the runner."""
 
     record_viewport_video: bool = False
     """Whether to record the Kit viewport for every Run."""
@@ -169,7 +166,6 @@ def parse_eval_runner_cfg(cli_args: list[str] | None = None) -> EvalRunnerCfg:
         experiment_config=parsed.experiment_config,
         experiment_overrides=experiment_overrides,
         app_launcher_args=app_launcher_args,
-        invocation_args=arguments,
         record_viewport_video=parsed.record_viewport_video,
         record_camera_video=parsed.record_camera_video,
         output_base_dir=parsed.output_base_dir,

@@ -118,14 +118,13 @@ def test_legacy_json_camera_detection_is_preserved():
     assert legacy_json_experiment_requires_cameras(legacy_experiment_config)
 
 
-def test_eval_runner_rejects_yaml_chunking_before_starting_simulation():
+def test_eval_runner_rejects_yaml_chunking_before_starting_simulation(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        ["eval_runner.py", "--experiment-config", str(GETTING_STARTED_YAML_PATH), "--chunk-size", "1"],
+    )
     with pytest.raises(AssertionError, match="only legacy JSON Experiments"):
-        eval_runner.main([
-            "--experiment-config",
-            str(GETTING_STARTED_YAML_PATH),
-            "--chunk-size",
-            "1",
-        ])
+        eval_runner.main()
 
 
 def test_list_variations_preserves_precedence_over_legacy_chunking(monkeypatch):
@@ -173,13 +172,18 @@ def test_legacy_json_experiment_rejects_hydra_overrides():
         )
 
 
-def test_eval_runner_rejects_native_hydra_overrides_for_legacy_json():
-    with pytest.raises(AssertionError, match="only for typed YAML"):
-        eval_runner.main([
+def test_eval_runner_rejects_native_hydra_overrides_for_legacy_json(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "eval_runner.py",
             "--experiment-config",
             str(GETTING_STARTED_JSON_PATH),
             "runs.baseline.rollout_limit.num_steps=2",
-        ])
+        ],
+    )
+    with pytest.raises(AssertionError, match="only for typed YAML"):
+        eval_runner.main()
 
 
 def test_record_camera_video_preserves_automatic_app_launcher_camera_support(monkeypatch):
@@ -240,7 +244,7 @@ def test_record_viewport_video_does_not_change_existing_camera_startup_behavior(
     assert run_local_experiment(cfg) == 0
 
 
-def test_legacy_chunk_subprocess_appends_config_override_to_invocation_args(tmp_path, monkeypatch):
+def test_legacy_chunk_subprocess_replays_process_args_with_config_override(tmp_path, monkeypatch):
     submitted_command = None
     chunk_path = None
 
@@ -253,20 +257,20 @@ def test_legacy_chunk_subprocess_appends_config_override_to_invocation_args(tmp_
         return SimpleNamespace(returncode=0)
 
     parent_path = tmp_path / "parent.json"
-    cfg = parse_eval_runner_cfg([
+    parent_args = [
         "--experiment_config",
         str(parent_path),
         "--chunk_size",
         "1",
         "--serve_evaluation_report",
-    ])
+    ]
     monkeypatch.setattr(legacy_eval_runner.subprocess, "run", _run)
-    monkeypatch.setattr(legacy_eval_runner.sys, "argv", ["unrelated-program", "--wrong"])
+    monkeypatch.setattr(legacy_eval_runner.sys, "argv", ["parent-entry-point", *parent_args])
 
-    assert _run_legacy_json_chunk(cfg, "chunk 1/1", [{"policy_type": "zero_action"}]) == 0
+    assert _run_legacy_json_chunk("chunk 1/1", [{"policy_type": "zero_action"}]) == 0
     assert submitted_command is not None
     assert submitted_command[1].endswith("isaaclab_arena/evaluation/eval_runner.py")
-    assert "unrelated-program" not in submitted_command
+    assert "parent-entry-point" not in submitted_command
     assert "--serve_evaluation_report" not in submitted_command
     assert str(parent_path) in submitted_command
     assert chunk_path is not None

@@ -52,7 +52,7 @@ def legacy_json_experiment_requires_cameras(experiment_config: dict) -> bool:
     )
 
 
-def _run_legacy_json_chunk(cfg: EvalRunnerCfg, chunk_label: str, legacy_job_configs: list[dict]) -> int:
+def _run_legacy_json_chunk(chunk_label: str, legacy_job_configs: list[dict]) -> int:
     """Run legacy JSON entries in a fresh eval_runner subprocess."""
     print(f"[eval_runner] {chunk_label}", flush=True)
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
@@ -60,7 +60,7 @@ def _run_legacy_json_chunk(cfg: EvalRunnerCfg, chunk_label: str, legacy_job_conf
         chunk_path = Path(tmp.name)
 
     forwarded_args = [
-        arg for arg in cfg.invocation_args if arg not in {"--serve-evaluation-report", "--serve_evaluation_report"}
+        arg for arg in sys.argv[1:] if arg not in {"--serve-evaluation-report", "--serve_evaluation_report"}
     ]
     eval_runner_path = Path(__file__).with_name("eval_runner.py")
     child_cmd = [
@@ -95,6 +95,6 @@ def run_legacy_json_in_chunks(cfg: EvalRunnerCfg, legacy_experiment_config: dict
         start = chunk_idx * cfg.chunk_size
         end = min(start + cfg.chunk_size, len(jobs))
         chunk_label = f"chunk {chunk_idx + 1}/{n_chunks}: Runs {start}..{end - 1}"
-        returncode = _run_legacy_json_chunk(cfg, chunk_label, jobs[start:end])
+        returncode = _run_legacy_json_chunk(chunk_label, jobs[start:end])
         if returncode != 0:
             raise SystemExit(returncode)
