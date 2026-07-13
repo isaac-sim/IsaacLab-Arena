@@ -475,6 +475,7 @@ class DirectionalLight(LightBase):
     ):
         from isaaclab_arena.variations.light_color_variation import LightColorVariation
         from isaaclab_arena.variations.light_direction_variation import LightDirectionVariation
+        from isaaclab_arena.variations.light_intensity_variation import LightIntensityVariation
 
         super().__init__(
             instance_name=instance_name,
@@ -483,6 +484,7 @@ class DirectionalLight(LightBase):
             spawner_cfg=spawner_cfg,
         )
         self.add_variation(LightDirectionVariation(self))
+        self.add_variation(LightIntensityVariation(self))
         self.add_variation(LightColorVariation(self))
 
     def set_orientation(self, rotation_xyzw: tuple[float, float, float, float]) -> None:
