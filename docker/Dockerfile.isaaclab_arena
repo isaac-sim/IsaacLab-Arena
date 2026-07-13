@@ -160,8 +160,7 @@ RUN echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/bash.bashrc
 #    configuration from the Run and Debug panel.
 RUN echo "alias debugpy='python -Xfrozen_modules=off -m debugpy --listen localhost:5678 --wait-for-client'" >> /etc/bash.bashrc
 
-# OSMO CLI, used by OSMO tasks that tunnel to a policy server running in another
-# OSMO workflow (see osmo/tasks/dreamzero_policy_runner_task.py).
+# OSMO CLI
 COPY --from=nvcr.io/nvidia/osmo/client:6.3.1 /osmo/osmo_cli_onedir/osmo /usr/local/osmo
 RUN ln -sf /usr/local/osmo/osmo /usr/local/bin/osmo
 
