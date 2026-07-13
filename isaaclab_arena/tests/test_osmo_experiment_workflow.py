@@ -13,7 +13,7 @@ import pytest
 from omegaconf.errors import ConfigKeyError
 
 from osmo.submit_arena_experiment_workflow import POLICY_SERVER_WORKFLOWS, main, submit_arena_experiment_workflow
-from osmo.tasks.eval_runner_task import REMOTE_EXPERIMENT_PATH
+from osmo.tasks.eval_runner_task import DEFAULT_EVAL_RUNNER_IMAGE, REMOTE_EXPERIMENT_PATH, EvalRunnerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow, Pi0ArenaExperimentWorkflow
 from osmo.workflows.workflow import WorkflowCfg
@@ -59,6 +59,7 @@ def _workflow_tasks(workflow: dict) -> list[dict]:
 def test_declares_server_workflow():
     """Keep server dispatch explicit."""
     assert POLICY_SERVER_WORKFLOWS == {"pi0": Pi0ArenaExperimentWorkflow}
+    assert ArenaExperimentWorkflow.task_cfg_type is EvalRunnerTaskCfg
     assert Pi0ArenaExperimentWorkflow.server_task_cfg_type is Pi0ServerTaskCfg
 
 
@@ -165,9 +166,11 @@ def test_references_experiment_source_by_absolute_path(tmp_path):
     workflow = ArenaExperimentWorkflow(
         workflow_cfg=WorkflowCfg(),
         experiment_config_path=experiment_path,
+        task_cfg=EvalRunnerTaskCfg(image="registry.example.com/evaluator:typed-api"),
     )
 
     eval_task = _workflow_tasks(workflow.generate_workflow())[0]
+    assert eval_task["image"] == "registry.example.com/evaluator:typed-api"
     assert _task_file(eval_task, REMOTE_EXPERIMENT_PATH) == {
         "localpath": str(experiment_path.resolve()),
         "path": REMOTE_EXPERIMENT_PATH,
@@ -224,6 +227,8 @@ policy_config: custom-pi0-config
         str(server_path),
         "--osmo_config",
         str(osmo_path),
+        "--image",
+        "registry.example.com/evaluator:branch",
         "--dry_run",
         "osmo_config.workflow_name=overridden-experiment",
         "server_config.image=registry.example.com/openpi:overridden",
@@ -240,6 +245,9 @@ policy_config: custom-pi0-config
     assert "name: cli-experiment" not in rendered
     assert "name: eval_runner" in rendered
     assert "name: policy_server" in rendered
+    tasks = _workflow_tasks(_rendered_workflow(rendered))
+    assert tasks[0]["image"] == "registry.example.com/evaluator:branch"
+    assert tasks[1]["image"] == "registry.example.com/openpi:overridden"
     assert "image: registry.example.com/openpi:overridden" in rendered
     assert "image: registry.example.com/openpi:test" not in rendered
     assert "--policy.config=overridden-pi0-config" in rendered
@@ -352,6 +360,7 @@ def test_submitter_runs_zero_action_experiment_without_server(tmp_path, capsys):
 
     tasks = _workflow_tasks(_rendered_workflow(capsys.readouterr().out))
     assert [task["name"] for task in tasks] == ["eval_runner"]
+    assert tasks[0]["image"] == DEFAULT_EVAL_RUNNER_IMAGE
 
 
 def test_submitter_rejects_server_without_matching_run(tmp_path):

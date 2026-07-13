@@ -11,6 +11,7 @@ Example:
         --experiment_config path/to/experiment.yaml \\
         --server_config path/to/policy_server.yaml \\
         --osmo_config osmo/config/workflow.yaml \\
+        --image nvcr.io/example/isaaclab_arena:experiment_runner \\
         --dry_run \\
         osmo_config.pool=isaac-dev-l40-03 \\
         server_config.policy_config=my_pi0_config
@@ -30,7 +31,9 @@ from pathlib import Path
 
 from omegaconf import OmegaConf
 
+from isaaclab_arena.cli.dataclass_cli import add_dataclass_cli_args, dataclass_from_cli
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
+from osmo.tasks.eval_runner_task import EvalRunnerTaskCfg
 from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow, Pi0ArenaExperimentWorkflow
 from osmo.workflows.workflow import WorkflowCfg
 
@@ -49,6 +52,7 @@ def submit_arena_experiment_workflow(
     osmo_config_overrides: list[str] | None = None,
     server_config_overrides: list[str] | None = None,
     dry_run: bool = False,
+    eval_runner_task_cfg: EvalRunnerTaskCfg | None = None,
 ) -> int:
     """Build and submit one OSMO workflow for a complete Arena Experiment.
 
@@ -60,6 +64,7 @@ def submit_arena_experiment_workflow(
         osmo_config_overrides: Dotlist overrides applied after the OSMO configuration YAML.
         server_config_overrides: Dotlist overrides applied after the policy server definition YAML.
         dry_run: Whether to render the OSMO workflow without submitting it.
+        eval_runner_task_cfg: OSMO eval-runner task configuration.
 
     Returns:
         The OSMO submission process status.
@@ -80,6 +85,7 @@ def submit_arena_experiment_workflow(
         workflow = ArenaExperimentWorkflow(
             workflow_cfg=workflow_cfg,
             experiment_config_path=experiment_config,
+            task_cfg=eval_runner_task_cfg,
             experiment_overrides=overrides,
         )
     else:
@@ -108,6 +114,7 @@ def submit_arena_experiment_workflow(
             workflow_cfg=workflow_cfg,
             experiment_config_path=experiment_config,
             server_task_cfg=server_task_cfg,
+            task_cfg=eval_runner_task_cfg,
             experiment_overrides=overrides,
         )
     return workflow.submit_workflow()
@@ -132,6 +139,7 @@ def main(cli_args: list[str] | None = None) -> int:
         default=None,
         help="Generic OSMO workflow configuration YAML",
     )
+    add_dataclass_cli_args(parser, EvalRunnerTaskCfg)
     parser.add_argument("--dry_run", action="store_true", help="Render the OSMO workflow without submitting it")
     args, trailing_overrides = parser.parse_known_args(cli_args)
     assert_hydra_overrides(trailing_overrides, parser)
@@ -150,10 +158,12 @@ def main(cli_args: list[str] | None = None) -> int:
     if server_config_overrides and args.server_config is None:
         parser.error("server_config.* overrides require --server_config")
 
+    eval_runner_task_cfg = dataclass_from_cli(EvalRunnerTaskCfg, args)
     return submit_arena_experiment_workflow(
         experiment_config=args.experiment_config,
         server_config=args.server_config,
         osmo_config=args.osmo_config,
+        eval_runner_task_cfg=eval_runner_task_cfg,
         experiment_overrides=experiment_overrides,
         osmo_config_overrides=osmo_config_overrides,
         server_config_overrides=server_config_overrides,
