@@ -13,7 +13,7 @@ The check launches its own SimulationApp, so the pytest entry point runs it in a
 it isolated from the shared persistent-SimApp tests. Runs only in the cuRobo image (build with
 ``./docker/run_docker.sh -c``); the base image has no cuRobo. Run it with::
 
-    MPLCONFIGDIR=/tmp/mpl /isaac-sim/python.sh -m pytest -sv -m curobo_deps isaaclab_arena_curobo/tests/
+    /isaac-sim/python.sh -m pytest -sv -m curobo_deps isaaclab_arena_curobo/tests/
 """
 
 from __future__ import annotations
