@@ -16,12 +16,14 @@ import subprocess
 import sys
 
 
-def test_manager_cfg_import_survives_configclass_shadowing():
+def test_arena_imports_survive_configclass_shadowing():
     code = (
         "from isaaclab.envs.mimic_env_cfg import MimicEnvCfg; "
         "import isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg as _m; "
+        "import isaaclab_arena.recording.progress_terms as _p; "
+        "import isaaclab_arena.variations.light_direction_variation as _v; "
         "print('IMPORT_OK')"
     )
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
-    assert result.returncode == 0, f"manager cfg import failed:\n{result.stderr}"
+    assert result.returncode == 0, f"Arena configclass import failed:\n{result.stderr}"
     assert "IMPORT_OK" in result.stdout

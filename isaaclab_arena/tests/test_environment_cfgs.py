@@ -32,6 +32,11 @@ from isaaclab_arena_environments.gr1_put_and_close_door_environment import GR1Pu
 from isaaclab_arena_environments.gr1_table_multi_object_no_collision_environment import (
     GR1TableMultiObjectNoCollisionEnvironment,
 )
+from isaaclab_arena_environments.libero_object_packing_environment import (
+    LiberoObjectPackingEnvironment,
+    LiberoObjectPackingEnvironmentCfg,
+    _make_libero_placer_params,
+)
 from isaaclab_arena_environments.lift_object_environment import LiftObjectEnvironment
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import (
     PickAndPlaceMapleTableEnvironment,
@@ -105,6 +110,11 @@ def test_generated_cli_arguments_and_cfg_validation():
             ["--light_intensity", "750", "--additional_table_objects", "apple", "banana"],
             {"light_intensity": 750.0, "additional_table_objects": ["apple", "banana"]},
         ),
+        (
+            LiberoObjectPackingEnvironment,
+            ["--objects", "soup", "tomato", "--control", "droid_joint_pos", "--eval_task", "stock_sort"],
+            {"objects": ["soup", "tomato"], "control": "droid_joint_pos", "eval_task": "stock_sort"},
+        ),
     ]
 
     for environment_factory_type, cli_args, expected_values in test_cases:
@@ -116,6 +126,25 @@ def test_generated_cli_arguments_and_cfg_validation():
     invalid_mode_args = _parse_legacy_arguments(GR1TableMultiObjectNoCollisionEnvironment, ["--mode", "unsupported"])
     with pytest.raises(AssertionError, match="Unsupported placement mode"):
         _environment_cfg_from_cli(GR1TableMultiObjectNoCollisionEnvironment, invalid_mode_args)
+
+
+def test_libero_placement_defaults_preserve_clearance_without_owning_run_overrides():
+    """Keep scene-specific clearance in the environment and seed/reset controls in the builder."""
+    placer_params = _make_libero_placer_params()
+
+    assert placer_params.solver_params.clearance_m == 0.06
+    assert placer_params.placement_seed is None
+    assert placer_params.resolve_on_reset is True
+
+
+def test_cap_environment_configs_validate_string_choices():
+    """Keep Hydra-compatible string fields constrained to their supported values."""
+    with pytest.raises(AssertionError, match="Unsupported control mode"):
+        LiberoObjectPackingEnvironmentCfg(control="velocity")
+    with pytest.raises(AssertionError, match="Unsupported evaluation task"):
+        LiberoObjectPackingEnvironmentCfg(eval_task="unsupported")
+    with pytest.raises(AssertionError, match="Unsupported object-bin side"):
+        PickAndPlaceMapleTableEnvironmentCfg(object_bin_side="left")
 
 
 def test_build_environment_from_cli_calls_typed_build(monkeypatch):

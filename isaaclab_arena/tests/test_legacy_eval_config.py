@@ -17,6 +17,7 @@ from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEn
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
+from isaaclab_arena_environments.libero_object_packing_environment import LiberoObjectPackingEnvironmentCfg
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 
 
@@ -70,6 +71,40 @@ def test_legacy_jobs_become_concrete_run_configs():
     assert run.policy == ZeroActionPolicyCfg()
     assert run.rollout_limit.num_steps == 20
     assert run.variations == {"light": {"intensity": {"enabled": True}}}
+
+
+def test_legacy_libero_job_separates_environment_and_placement_configs():
+    """Translate LIBERO scene controls into its config and placement controls into the builder."""
+    legacy_config = {
+        "jobs": [{
+            "name": "libero_packing",
+            "arena_env_args": {
+                "environment": "libero_object_packing",
+                "enable_cameras": True,
+                "objects": ["soup", "tomato"],
+                "basket": "grey_bin_robolab",
+                "control": "droid_joint_pos",
+                "eval_task": "stock_sort",
+                "placement_seed": 7,
+                "resolve_on_reset": False,
+            },
+            "policy_type": "zero_action",
+            "num_episodes": 2,
+        }]
+    }
+
+    (run,) = run_cfgs_from_legacy_eval_config(legacy_config, device="cuda:0")
+
+    assert run.environment == LiberoObjectPackingEnvironmentCfg(
+        enable_cameras=True,
+        objects=["soup", "tomato"],
+        basket="grey_bin_robolab",
+        control="droid_joint_pos",
+        eval_task="stock_sort",
+    )
+    assert run.environment_builder.placement_seed == 7
+    assert run.environment_builder.resolve_on_reset is False
+    assert run.rollout_limit.num_episodes == 2
 
 
 def test_legacy_graph_environment_stays_in_the_existing_cli_path():
