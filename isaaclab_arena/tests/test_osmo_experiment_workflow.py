@@ -89,6 +89,13 @@ def test_workflow_and_server_configs_reject_each_others_fields(tmp_path):
     with pytest.raises(ConfigKeyError, match="policy_variant"):
         submit_arena_experiment_workflow(experiment_path, osmo_config=workflow_path, dry_run=True)
 
+    with pytest.raises(ConfigKeyError, match="policy_variant"):
+        submit_arena_experiment_workflow(
+            experiment_path,
+            osmo_config_overrides=["policy_variant=pi05"],
+            dry_run=True,
+        )
+
     server_path = tmp_path / "server.yaml"
     server_path.write_text("type: pi0\nworkflow_name: experiment\n", encoding="utf-8")
     with pytest.raises(ConfigKeyError, match="workflow_name"):
@@ -209,6 +216,7 @@ policy_config: custom-pi0-config
         "--osmo_config",
         str(osmo_path),
         "--dry_run",
+        "osmo_config.workflow_name=overridden-experiment",
         "runs.first.rollout_limit.num_steps=4",
         "runs.first.policy.ping_timeout=450.0",
     ])
@@ -216,13 +224,52 @@ policy_config: custom-pi0-config
     assert return_code == 0
     rendered = capsys.readouterr().out
     assert "[dry-run] Rendered workflow YAML" in rendered
-    assert "name: cli-experiment" in rendered
+    assert "name: overridden-experiment" in rendered
+    assert "name: cli-experiment" not in rendered
     assert "name: eval_runner" in rendered
     assert "name: policy_server" in rendered
     assert "image: registry.example.com/openpi:test" in rendered
     assert "--policy.config=custom-pi0-config" in rendered
     assert "runs.first.policy.ping_timeout=450.0" in rendered
     assert "runs.first.rollout_limit.num_steps=4" in rendered
+
+
+def test_cli_overrides_osmo_submission_pool(tmp_path, monkeypatch):
+    """Apply a namespaced OSMO override after the workflow configuration YAML."""
+    experiment_path = tmp_path / "experiment.yaml"
+    experiment_path.write_text(
+        """runs:
+- name: baseline
+  environment:
+    type: test
+  policy:
+    type: zero_action
+""",
+        encoding="utf-8",
+    )
+    osmo_path = tmp_path / "osmo.yaml"
+    osmo_path.write_text("pool: yaml-pool\n", encoding="utf-8")
+    submitted_command = None
+
+    def capture_submission(command):
+        nonlocal submitted_command
+        submitted_command = command
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr("osmo.workflows.workflow.subprocess.run", capture_submission)
+
+    return_code = main([
+        "--experiment_config",
+        str(experiment_path),
+        "--osmo_config",
+        str(osmo_path),
+        "osmo_config.pool=isaac-dev-l40-03",
+    ])
+
+    assert return_code == 0
+    assert submitted_command is not None
+    pool_flag_index = submitted_command.index("--pool")
+    assert submitted_command[pool_flag_index + 1] == "isaac-dev-l40-03"
 
 
 def test_pi0_workflow_rejects_variant_mismatch_and_uses_last_exact_override(tmp_path):
