@@ -20,6 +20,7 @@ from isaaclab_arena.evaluation.policy_runner_cli import (
     add_policy_runner_arguments,
     build_policy_from_cli,
 )
+from isaaclab_arena.evaluation.datagen_collector import DatagenCollectorBase
 from isaaclab_arena.evaluation.episode_outcome import classify_outcome
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
@@ -150,16 +151,14 @@ def _run_datagen_rollout(
         ended_by = _manual_episode_done(env, reset_terms)
         hit_cap = steps_in_episode >= max_episode_length
         if ended_by is not None or hit_cap:
-            collector.end_episode(env, outcome=classify_outcome(ended_by))
+            collector.on_episode_end(env, outcome=classify_outcome(ended_by))
             num_episodes_completed += 1
             if num_episodes is not None:
                 pbar.update(1)
                 if num_episodes_completed >= num_episodes:
                     break
-            # Re-aim the datagen cameras before the reset so the reset's RTX rerenders
-            # (num_rerenders_on_reset) flush the new poses; otherwise the next episode's
-            # first frame is rendered from the previous layout.
-            collector.resample_cameras()
+            # The reset must come after on_episode_end: its RTX rerenders (num_rerenders_on_reset)
+            # flush any camera poses the collector re-aimed for the next episode.
             obs, _ = env.reset()
             policy.reset()
             steps_in_episode = 0
@@ -171,7 +170,7 @@ def rollout_policy(
     num_steps: int | None,
     num_episodes: int | None,
     language_instruction: str | None = None,
-    collector: Any = None,
+    collector: DatagenCollectorBase | None = None,
     datagen_reset_terms: list | None = None,
     max_episode_length: int | None = None,
 ) -> MetricsDataCollection | None:
@@ -180,8 +179,8 @@ def rollout_policy(
     Args:
         collector: Optional data collector. When provided, ``collector.on_step(env,
             obs, actions, step_idx)`` is called after every environment step and
-            ``collector.finalize(env)`` once the rollout finishes. Duck-typed so
-            core does not depend on any specific datagen collection package.
+            ``collector.finalize(env)`` once the rollout finishes. Implementations
+            live in the collecting package (see :class:`DatagenCollectorBase`).
         datagen_reset_terms: Stashed termination terms returned by
             :func:`prepare_env_cfg_for_datagen`. Required whenever a collector is
             given: with the env's auto-reset disabled, the loop evaluates these terms
