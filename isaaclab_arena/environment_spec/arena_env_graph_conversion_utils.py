@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import build_task_from_spec
 from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
@@ -115,16 +116,18 @@ def _instantiate_assets_from_spec(
             "name": ref.id,
             "prim_path": prim_path,
             "parent_asset": assets_by_node_id[ref.parent_id],
-            "object_type": ref.object_type,
             **ref_params,
         }
         if openable_joint_name is not None:
+            assert (
+                ref.object_type == ObjectType.ARTICULATION
+            ), f"Openable object reference '{ref.id}' must use object_type='articulation'"
             assets_by_node_id[ref.id] = OpenableObjectReference(
                 openable_joint_name=openable_joint_name,
                 **common_kwargs,
             )
         else:
-            assets_by_node_id[ref.id] = ObjectReference(**common_kwargs)
+            assets_by_node_id[ref.id] = ObjectReference(object_type=ref.object_type, **common_kwargs)
 
     return assets_by_node_id
 

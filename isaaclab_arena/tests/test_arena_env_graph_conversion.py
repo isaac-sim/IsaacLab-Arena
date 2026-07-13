@@ -163,3 +163,65 @@ def test_default_light_is_injected_when_scene_has_none():
 
     result = run_simulation_app_function(_test_default_light_is_injected_when_scene_has_none)
     assert result
+
+
+def _test_openable_reference_is_instantiated_without_duplicate_object_type(simulation_app):
+    from types import SimpleNamespace
+
+    from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.environment_spec import arena_env_graph_conversion_utils
+
+    class AssetRegistry:
+        def get_asset_by_name(self, registry_name):
+            return lambda **params: SimpleNamespace(name=registry_name, params=params)
+
+    graph_spec = SimpleNamespace(
+        embodiment=SimpleNamespace(id="robot", registry_name="robot", params={}),
+        background=SimpleNamespace(id="kitchen", registry_name="kitchen", params={}),
+        objects=[],
+        object_references=[
+            SimpleNamespace(
+                id="fridge",
+                parent_id="kitchen",
+                prim_path="fridge",
+                object_type=ObjectType.ARTICULATION,
+                params={"openable_joint_name": "fridge_door_joint"},
+            )
+        ],
+    )
+    captured = {}
+
+    def make_openable_reference(*, openable_joint_name, name, prim_path, parent_asset):
+        captured.update(
+            openable_joint_name=openable_joint_name,
+            name=name,
+            prim_path=prim_path,
+            parent_asset=parent_asset,
+        )
+        return SimpleNamespace(**captured)
+
+    original_openable_reference = arena_env_graph_conversion_utils.OpenableObjectReference
+    arena_env_graph_conversion_utils.OpenableObjectReference = make_openable_reference
+    try:
+        assets = arena_env_graph_conversion_utils._instantiate_assets_from_spec(graph_spec, AssetRegistry())
+    finally:
+        arena_env_graph_conversion_utils.OpenableObjectReference = original_openable_reference
+
+    assert assets["fridge"].openable_joint_name == "fridge_door_joint"
+    assert assets["fridge"].prim_path == "{ENV_REGEX_NS}/kitchen/fridge"
+    assert assets["fridge"].parent_asset is assets["kitchen"]
+
+    graph_spec.object_references[0].object_type = ObjectType.RIGID
+    with pytest.raises(AssertionError, match="must use object_type='articulation'"):
+        arena_env_graph_conversion_utils._instantiate_assets_from_spec(graph_spec, AssetRegistry())
+
+    return True
+
+
+def test_openable_reference_is_instantiated_without_duplicate_object_type():
+    pytest.importorskip("isaaclab.app")
+
+    from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+
+    result = run_simulation_app_function(_test_openable_reference_is_instantiated_without_duplicate_object_type)
+    assert result
