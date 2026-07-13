@@ -21,6 +21,7 @@ def test_arena_imports_survive_configclass_shadowing():
         "from isaaclab.envs.mimic_env_cfg import MimicEnvCfg; "
         "import isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg as _m; "
         "import isaaclab_arena.recording.progress_terms as _p; "
+        "import isaaclab_arena.variations.light_color_variation as _c; "
         "import isaaclab_arena.variations.light_direction_variation as _v; "
         "print('IMPORT_OK')"
     )

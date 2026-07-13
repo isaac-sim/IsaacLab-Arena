@@ -171,8 +171,13 @@ def _assert_five_bananas_parallel_pick_and_place_spec(spec: ArenaEnvGraphSpec) -
     assert bin_id not in pick_ids, f"destination {bin_id!r} should not be among pick objects"
 
 
+requires_nv_api_key = pytest.mark.skipif(
+    not os.environ.get("NV_API_KEY"), reason="live endpoint test requires NV_API_KEY"
+)
+
+
 # Requires a live OpenAI-compatible endpoint and credentials; skip when not configured.
-@pytest.mark.skipif(not os.environ.get("NV_API_KEY"), reason="live endpoint test requires NV_API_KEY")
+@requires_nv_api_key
 # Marked flaky to absorb intermittent wire-level hiccups on the inference endpoint.
 # TODO(qianl): drop the flaky marker once production-side retry is implemented.
 @pytest.mark.flaky(max_runs=3, min_passes=1)
@@ -185,6 +190,7 @@ def test_generate_spec_atomic_pick_and_place_against_live_endpoint():
     _assert_atomic_pick_and_place_spec(spec)
 
 
+@requires_nv_api_key
 @pytest.mark.flaky(max_runs=3, min_passes=1)
 def test_generate_spec_five_bananas_parallel_pick_and_place_against_live_endpoint():
     """Live test: five bananas into one bin yields a parallel composite task."""
@@ -195,6 +201,7 @@ def test_generate_spec_five_bananas_parallel_pick_and_place_against_live_endpoin
     _assert_five_bananas_parallel_pick_and_place_spec(spec)
 
 
+@requires_nv_api_key
 @pytest.mark.flaky(max_runs=3, min_passes=1)
 def test_resolve_usd_prim_robocasa_kitchen_counter_and_fridge():
     """End-to-end pass-1 + pass-2 prim resolution for Robocasa kitchen counter and fridge."""
