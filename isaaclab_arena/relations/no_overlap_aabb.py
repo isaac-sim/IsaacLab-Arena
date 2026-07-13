@@ -15,11 +15,11 @@ from isaaclab_arena.relations.collision_mode import CollisionMode, object_uses_m
 from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import On
-from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
 
 @dataclass(frozen=True)

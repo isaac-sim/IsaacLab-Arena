@@ -33,7 +33,6 @@ from isaaclab_arena.relations.relations import (
     RotateAroundSolution,
     get_anchor_objects,
 )
-from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, mesh_sdf
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
@@ -49,6 +48,7 @@ from isaaclab_arena.utils.yaw import (
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
 
 RelationT = TypeVar("RelationT", bound=RelationBase)
@@ -843,6 +843,8 @@ class ObjectPlacer:
     def _get_cpu_mesh_manager(self) -> WarpMeshAndSphereCache:
         """Return the CPU-device mesh manager, creating it on first call."""
         if self._cpu_mesh_manager is None:
+            from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+
             self._cpu_mesh_manager = WarpMeshAndSphereCache(
                 num_spheres=self.params.solver_params.num_spheres,
                 device="cpu",

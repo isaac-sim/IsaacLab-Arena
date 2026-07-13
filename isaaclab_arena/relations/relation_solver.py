@@ -20,12 +20,12 @@ from isaaclab_arena.relations.relation_loss_strategies import (
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import On, Relation, RelationBase, UnaryRelation
-from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.mesh_pair_cache import MeshPairCache
+    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
@@ -255,6 +255,8 @@ class RelationSolver:
             self._mesh_orientations = orientations
             device_str = str(state.device)
             if self._mesh_manager is None or self._mesh_manager.device != device_str:
+                from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+
                 self._mesh_manager = WarpMeshAndSphereCache(num_spheres=self.params.num_spheres, device=device_str)
             self._mesh_cache = prepare_mesh_collision_cache(
                 state,

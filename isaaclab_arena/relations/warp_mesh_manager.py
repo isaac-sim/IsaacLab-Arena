@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING
 
 import warp as wp
 
-from isaaclab_arena.assets.object import Object
 from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, sdf_sentinel_count
 
 if TYPE_CHECKING:
@@ -146,6 +145,8 @@ class WarpMeshAndSphereCache:
 
     def get_collision_mesh(self, obj: CollisionObject) -> trimesh.Trimesh | None:
         """Return the cached collision mesh, extracting from USD on first access."""
+        from isaaclab_arena.assets.object import Object
+
         if not isinstance(obj, Object) or obj.usd_path is None:
             return obj.get_collision_mesh()
         usd_path = obj.usd_path
@@ -173,6 +174,8 @@ class WarpMeshAndSphereCache:
 
     def _cache_key(self, mesh: trimesh.Trimesh, obj: CollisionObject | None = None) -> tuple:
         """Compute cache key. Uses (usd_path, scale) for USD objects, content hash otherwise."""
+        from isaaclab_arena.assets.object import Object
+
         repair_non_watertight = obj.repair_collision_mesh_non_watertight if obj is not None else True
         if isinstance(obj, Object) and obj.usd_path is not None:
             return (obj.usd_path, tuple(obj.scale), repair_non_watertight, self._num_spheres, self._sphere_radius)
