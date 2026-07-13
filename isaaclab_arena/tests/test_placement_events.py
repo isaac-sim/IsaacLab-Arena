@@ -348,7 +348,7 @@ def test_solve_and_place_objects_writes_invalid_fallback_layout(capsys):
     assert set(env._assets) == {box1.name, box2.name}
     assert env._assets[box1.name].write_root_pose_to_sim.call_count == 1
     assert env._assets[box2.name].write_root_pose_to_sim.call_count == 1
-    assert "Writing best-loss fallback placement" in captured.out
+    assert "Writing best-loss fallback placement for env 0; failed checks: ['valid']." in captured.out
 
 
 def test_solve_and_place_objects_partial_reset_env_indexed_uses_absolute_env_result():

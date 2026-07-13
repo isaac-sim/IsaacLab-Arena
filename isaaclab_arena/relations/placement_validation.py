@@ -27,6 +27,9 @@ class PlacementCheck(StrEnum):
     """Build-time check: every ``NotNextTo`` relation holds — child has cleared the keep-out zone
     beside the parent, within the relation's ``tolerance_m``."""
 
+    FACE_TO = "face_to"
+    """Build-time check: every ``FaceTo`` subject has a defined target direction and facing yaw."""
+
     PHYSICS_SETTLED = "physics_settled"
     """Run-time check: after stepping physics the movable objects' velocities fall
     below threshold, i.e. the layout is stable and does not drift or topple."""
@@ -63,7 +66,7 @@ class PlacementValidationResults:
     @property
     def get_failed_validation_check_names(self) -> list[str]:
         """Get the failed validation check names."""
-        return [check for check in self.validation_results.keys() if not self.validation_results[check]]
+        return [str(check) for check, passed in self.validation_results.items() if not passed]
 
     def report(self) -> str:
         """One-line report check items and their results."""

@@ -6,9 +6,8 @@
 import math
 import torch
 
-from isaaclab_arena.utils.pose import (
-    Pose,
-    PosePerEnv,
+from isaaclab_arena.utils.pose import Pose, PosePerEnv
+from isaaclab_arena.utils.yaw import (
     rotate_points_by_yaw,
     rotate_points_by_yaw_batch,
     rotate_quat_by_yaw,
