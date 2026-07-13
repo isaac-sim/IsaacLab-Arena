@@ -9,10 +9,8 @@ import copy
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.assets.background import Background
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
 from isaaclab_arena.relations.placement_events import get_rotation_xyzw, solve_and_place_objects
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import get_anchor_objects
@@ -62,6 +60,8 @@ def solve_and_apply_relation_placement(
         placer_params = copy.copy(placer_params)
     placer_params.apply_positions_to_objects = False
     if collision_objects is None and scene_assets is not None:
+        from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
+
         scene_assets = list(scene_assets)
         collision_objects = get_passive_collision_objects(
             scene_assets,
@@ -99,6 +99,8 @@ def _should_include_background_mesh(
     default_collision_mode: CollisionMode,
 ) -> bool:
     """Return True when the default mode or any object/Background override resolves to MESH."""
+    from isaaclab_arena.assets.background import Background
+
     if default_collision_mode == CollisionMode.MESH:
         return True
     if any(get_object_collision_mode(obj, default_collision_mode) == CollisionMode.MESH for obj in objects):
