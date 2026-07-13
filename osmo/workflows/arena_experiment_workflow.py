@@ -11,7 +11,7 @@ import yaml
 from collections.abc import Sequence
 from pathlib import Path
 
-from isaaclab_arena.hydra.experiment_composition import load_arena_experiment_run_values_from_yaml
+from isaaclab_arena.hydra.typed_experiment_loader import load_experiment_run_definitions_from_yaml
 from osmo.tasks.base_task import BaseTask, TaskCfg
 from osmo.tasks.eval_runner_task import EvalRunnerTask
 from osmo.tasks.pi0_server_task import DEFAULT_PI0_POLICY_VARIANT, Pi0ServerTask, Pi0ServerTaskCfg
@@ -106,7 +106,7 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
 
     def _read_pi0_run_variants(self) -> dict[str, str]:
         """Return literal pi0-remote Run variants needed for compatibility checks."""
-        run_values_by_name = load_arena_experiment_run_values_from_yaml(self.experiment_config_path)
+        run_values_by_name = load_experiment_run_definitions_from_yaml(self.experiment_config_path)
         pi0_run_variants = {}
         for run_name, run_value in run_values_by_name.items():
             policy_values = run_value.get("policy")

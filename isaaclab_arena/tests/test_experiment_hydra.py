@@ -14,7 +14,7 @@ from hydra.core.config_store import ConfigStore
 from hydra.core.global_hydra import GlobalHydra
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
-from isaaclab_arena.hydra.experiment_composition import load_arena_experiment_from_yaml
+from isaaclab_arena.hydra.typed_experiment_loader import load_arena_experiment_from_yaml
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
