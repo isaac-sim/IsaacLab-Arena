@@ -23,18 +23,6 @@ import isaaclab.utils.math as PoseUtils
 os.environ.setdefault("CUROBO_TORCH_CUDA_GRAPH_RESET", "1")
 
 
-def get_current_joint_config(planner) -> torch.Tensor:
-    """Return the robot's current joint positions on the cuRobo device.
-
-    Args:
-        planner: ``CuroboPlanner`` instance.
-
-    Returns:
-        Joint position tensor of shape ``(1, dof)``.
-    """
-    return planner._get_current_joint_state_for_curobo().position.detach().clone()
-
-
 def check_ik_feasibility_per_goal_pose(
     planner,
     target_pose: torch.Tensor,
@@ -60,7 +48,9 @@ def check_ik_feasibility_per_goal_pose(
     target_pos, target_rot = PoseUtils.unmake_pose(target_pose_cuda)
     goal_pose = planner._make_pose(
         position=target_pos,
+        # in xyzw
         quaternion=PoseUtils.quat_from_matrix(target_rot),
+        quat_is_xyzw=True,
     )
 
     ik_seed = None
@@ -119,7 +109,9 @@ def check_ik_feasibility_batch_goal_poses(
     positions, rotations = PoseUtils.unmake_pose(target_poses)
     goal_pose = planner._make_pose(
         position=positions,
+        # in xyzw
         quaternion=PoseUtils.quat_from_matrix(rotations),
+        quat_is_xyzw=True,
     )
 
     ik_seed = None

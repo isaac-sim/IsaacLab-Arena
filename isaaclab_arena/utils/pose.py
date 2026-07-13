@@ -7,6 +7,8 @@ import math
 import torch
 from dataclasses import dataclass
 
+import isaaclab.utils.math as math_utils
+
 
 @dataclass
 class Pose:
@@ -51,6 +53,11 @@ class Pose:
 
     def multiply(self, other: "Pose") -> "Pose":
         return compose_poses(self, other)
+
+    def make_pose(self, device: torch.device) -> torch.Tensor:
+        """Make a 4x4 homogeneous transform from the pose."""
+        rotation = math_utils.matrix_from_quat(torch.tensor(self.rotation_xyzw, device=device))
+        return math_utils.make_pose(torch.tensor(self.position_xyz, device=device), rotation)
 
 
 def wrap_angle_to_pi(angle_rad: float) -> float:

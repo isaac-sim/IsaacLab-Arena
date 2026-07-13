@@ -52,6 +52,7 @@ def _build_droid_two_object_env(args_cli):
     Returns the unwrapped env and the embodiment driving it.
     """
     from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse
     from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -78,7 +79,7 @@ def _build_droid_two_object_env(args_cli):
                 scene=scene,
                 task=None,
             ),
-            args_cli,
+            arena_env_builder_cfg_from_argparse(args_cli),
         )
         .make_registered()
         .unwrapped
@@ -99,7 +100,11 @@ def _set_object_world_xyz(env, name, xyz) -> None:
 
 def _run_reachability_check(args_cli) -> bool:
     """Place one object in-reach and one out-of-reach; return True iff IK agrees with that split."""
-    from isaaclab_arena_curobo.curobo_planner_utils import make_curobo_planner, top_down_grasp_pose_in_robot_frame
+    from isaaclab_arena_curobo.curobo_planner_utils import (
+        make_curobo_planner,
+        sync_object_poses_in_robot_base_frame,
+        top_down_grasp_pose_in_robot_frame,
+    )
     from isaaclab_arena_curobo.ik_utils import check_ik_feasibility_batch_goal_poses
 
     env, embodiment = _build_droid_two_object_env(args_cli)
@@ -116,8 +121,7 @@ def _run_reachability_check(args_cli) -> bool:
     _set_object_world_xyz(env, NEAR_OBJECT, ee_pos_w)
     _set_object_world_xyz(env, FAR_OBJECT, far_pos_w)
 
-    # Mirror the validation pipeline: sync obstacles into the (robot-base-frame) collision world.
-    planner._sync_object_poses_with_isaaclab()
+    sync_object_poses_in_robot_base_frame(planner)
 
     grasp_poses = torch.stack([
         top_down_grasp_pose_in_robot_frame(env, NEAR_OBJECT, GRASP_Z_OFFSET),

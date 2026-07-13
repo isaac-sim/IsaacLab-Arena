@@ -23,7 +23,10 @@ from isaaclab_arena.relations.placement_events import (
 )
 from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.relations import get_anchor_objects
-from isaaclab_arena_curobo.curobo_planner_utils import top_down_grasp_pose_in_robot_frame
+from isaaclab_arena_curobo.curobo_planner_utils import (
+    sync_object_poses_in_robot_base_frame,
+    top_down_grasp_pose_in_robot_frame,
+)
 from isaaclab_arena_curobo.ik_utils import check_ik_feasibility_batch_goal_poses
 
 if TYPE_CHECKING:
@@ -110,7 +113,8 @@ def validate_pool_ik(
     for src_env_id in range(num_envs):
         for episode_index, layout in enumerate(layouts_per_env[src_env_id]):
             write_layout_to_sim(env.unwrapped, 0, layout, anchor_objects_set, base_rotations)
-            planner._sync_object_poses_with_isaaclab()
+            # Sync the object poses into the robot base frame for collision world.
+            sync_object_poses_in_robot_base_frame(planner)
             reachable = _layout_is_ik_reachable(
                 env.unwrapped,
                 planner,

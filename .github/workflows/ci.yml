@@ -291,8 +291,6 @@ jobs:
       - *git_lfs_step
       - *install_project_step
 
-      # Pure import checks (no SimulationApp): the cuRobo + isaaclab_mimic deps come from the image,
-      # the isaaclab_arena_curobo code from this checkout.
       - name: Run cuRobo dependency check
         run: |
           MPLCONFIGDIR=/tmp/mpl /isaac-sim/python.sh -m pytest -sv --durations=0 -m curobo_deps \

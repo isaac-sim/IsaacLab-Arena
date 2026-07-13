@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import tempfile
 import torch
-import types
 import yaml
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -19,19 +18,16 @@ from isaaclab.utils.assets import retrieve_file_path
 from isaaclab_mimic.motion_planners.curobo.curobo_planner import CuroboPlanner
 from isaaclab_mimic.motion_planners.curobo.curobo_planner_cfg import CuroboPlannerCfg
 
+from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena_curobo.embodiment_curobo_registry import get_curobo_cfg_for
+
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 
-# Top-down grasp orientation (gripper pointing -Z) expressed in the robot base frame, (w, x, y, z).
-DOWN_FACING_QUAT_WXYZ = torch.tensor([0.0, 1.0, 0.0, 0.0], dtype=torch.float32)
-
-
-def pose_from_pos_quat(pos_xyz: torch.Tensor, quat_wxyz: torch.Tensor) -> torch.Tensor:
-    """Build a 4x4 homogeneous transform from a position and a (w, x, y, z) quaternion."""
-    rot = math_utils.matrix_from_quat(quat_wxyz.unsqueeze(0))[0]
-    return math_utils.make_pose(pos_xyz, rot)
+# Top-down grasp orientation (gripper approach axis pointing -Z) in the robot base frame, (x, y, z, w).
+DOWN_FACING_QUAT_XYZW = torch.tensor([0.0, 1.0, 0.0, 0.0], dtype=torch.float32)
 
 
 def make_planner_cfg(
@@ -41,19 +37,16 @@ def make_planner_cfg(
     """Build a CuroboPlannerCfg from an embodiment's cuRobo description.
 
     Reads the robot identity and planner tuning (asset paths, link/joint names, gripper targets,
-    approach/retreat/time-dilation) off ``embodiment.get_curobo_cfg()``, patches the bundled robot
-    config with the downloaded URDF path and the gripper open/closed joint targets, and returns a
-    config ready for ``CuroboPlanner``.
+    approach/retreat/time-dilation) from the cuRobo embodiment registry (keyed by ``embodiment.name``),
+    patches the bundled robot config with the downloaded URDF path and the gripper open/closed joint
+    targets, and returns a config ready for ``CuroboPlanner``.
 
     Args:
-        embodiment: Embodiment that must expose a CuroboEmbodimentCfg via ``get_curobo_cfg()``.
+        embodiment: Embodiment whose name has a registered CuroboEmbodimentCfg (see
+            ``embodiment_curobo_registry``).
         debug_planner: Enable cuRobo planner debug output.
     """
-    curobo_cfg = embodiment.get_curobo_cfg()
-    assert curobo_cfg is not None, (
-        f"Embodiment '{embodiment.name}' has no cuRobo config; set its `curobo_config` "
-        "(CuroboEmbodimentCfg) before building a cuRobo planner."
-    )
+    curobo_cfg = get_curobo_cfg_for(embodiment)
 
     # cuRobo reads real on-disk files, so pull the robot config + URDF from the Nucleus/S3 asset server.
     robot_cfg_path = retrieve_file_path(curobo_cfg.robot_cfg_template)
@@ -95,57 +88,55 @@ def make_planner_cfg(
     )
 
 
-def fix_planner_object_sync_frame(planner) -> None:
-    """Replace the planner's object-pose sync so obstacle poses are expressed in the robot base frame.
+def sync_object_poses_in_robot_base_frame(planner) -> None:
+    """Push every dynamic object's pose into the planner's collision world, in the robot base frame.
 
-    ``CuroboPlanner`` defaults to world-frame obstacle poses; this validation drives goals
-    in the robot base frame, so the collision world must match. Re-bind the sync method to
-    transform every rigid object into the robot frame before updating the planner's world model.
+    We drive IK goals in the robot base frame, so the collision world must be in that frame too. The
+    planner's own ``_sync_object_poses_with_isaaclab`` syncs in world frame; this is the robot-base-frame
+    counterpart, called explicitly instead of replacing that method (the planner only invokes its own
+    sync from ``update_world``/``plan_motion``, neither of which the IK-feasibility path touches). Call
+    it after writing a new layout into the sim and before the next IK solve.
     """
-
-    def _sync_robot_base_frame(self):
-        # USD prim path per scene object, used as the key into cuRobo's collision world model.
-        object_mappings = self._get_object_mappings()
-        world_model = self.motion_gen.world_coll_checker.world_model
-        rigid_objects = self.env.scene.rigid_objects
-        # Robot base pose in world frame (warp arrays -> torch before indexing in this Newton build).
-        # Naming follows the ASL transform convention: X_B_A maps a vector in frame A to frame B
-        # (t_B = X_B_A @ t_A), and t_A_B_in_F is the A->B translation expressed in frame F.
-        # Frames: W = world, R = robot base, O = object.
-        t_W_R_in_W = wp.to_torch(self.robot.data.root_pos_w)[self.env_id, :3]
-        q_W_R_wxyz = wp.to_torch(self.robot.data.root_quat_w)[self.env_id, :4]
-        # World->robot rotation (R_R_W = R_W_R^T) for positions; inverse quaternion (q_R_W) for orientations.
-        R_R_W = math_utils.matrix_from_quat(q_W_R_wxyz.unsqueeze(0))[0].T
-        q_R_W_wxyz = math_utils.quat_inv(q_W_R_wxyz.unsqueeze(0))[0]
-        updated_count = 0
-        for object_name, object_path in object_mappings.items():
-            # Skip objects flagged static in the planner config (e.g. the table) — they aren't re-synced.
-            static_objects = getattr(self.config, "static_objects", [])
-            if object_name in rigid_objects and not any(s in object_name.lower() for s in static_objects):
-                obj = rigid_objects[object_name]
-                # Object pose in world frame (warp -> torch).
-                t_W_O_in_W = wp.to_torch(obj.data.root_pos_w)[self.env_id, :3]
-                q_W_O_wxyz = wp.to_torch(obj.data.root_quat_w)[self.env_id, :4]
-                # Re-express the object pose in the robot base frame so it matches the IK goal frame.
-                t_R_O_in_R = (R_R_W @ (t_W_O_in_W - t_W_R_in_W).unsqueeze(-1)).squeeze(-1)
-                q_R_O_wxyz = math_utils.quat_mul(q_R_W_wxyz.unsqueeze(0), q_W_O_wxyz.unsqueeze(0))[0]
-                pos_c = self._to_curobo_device(t_R_O_in_R)
-                quat_c = self._to_curobo_device(q_R_O_wxyz)
-                # cuRobo's world-model writer wants a flat [x, y, z, qw, qx, qy, qz] list.
-                pose_list = torch.cat((pos_c, quat_c)).tolist()
-                # Update the CPU-side world model first; only push to the GPU collision checker if it took.
-                if self._update_object_in_world_model(world_model, object_name, object_path, pose_list):
-                    curobo_pose = self._make_pose(position=pos_c, quaternion=quat_c)
-                    self.motion_gen.world_coll_checker.update_obstacle_pose(
-                        object_path, curobo_pose, update_cpu_reference=True
-                    )
-                    updated_count += 1
-        self.logger.debug(f"SYNC (robot-base frame): Updated {updated_count} object poses")
-        # Block until the pose writes land so the next IK solve sees the synced world.
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-
-    planner._sync_object_poses_with_isaaclab = types.MethodType(_sync_robot_base_frame, planner)
+    # USD prim path per scene object, used as the key into cuRobo's collision world model.
+    object_mappings = planner._get_object_mappings()
+    world_model = planner.motion_gen.world_coll_checker.world_model
+    rigid_objects = planner.env.scene.rigid_objects
+    # Robot base pose in world frame.
+    # Frames: W = world, R = robot base, O = object. root_quat_w is (x, y, z, w)
+    t_W_R = wp.to_torch(planner.robot.data.root_pos_w)[planner.env_id, :3]
+    q_W_R_xyzw = wp.to_torch(planner.robot.data.root_quat_w)[planner.env_id, :4]
+    # World->robot rotation (R_R_W = R_W_R^T) for positions; inverse quaternion (q_R_W) for orientations.
+    R_R_W = math_utils.matrix_from_quat(q_W_R_xyzw.unsqueeze(0))[0].T
+    q_R_W_xyzw = math_utils.quat_inv(q_W_R_xyzw.unsqueeze(0))[0]
+    updated_count = 0
+    for object_name, object_path in object_mappings.items():
+        # Skip objects flagged static in the planner config (e.g. the table) — they aren't re-synced.
+        static_objects = getattr(planner.config, "static_objects", [])
+        if object_name in rigid_objects and not any(s in object_name.lower() for s in static_objects):
+            obj = rigid_objects[object_name]
+            # Object pose in world frame (warp -> torch).
+            t_W_O = wp.to_torch(obj.data.root_pos_w)[planner.env_id, :3]
+            q_W_O_xyzw = wp.to_torch(obj.data.root_quat_w)[planner.env_id, :4]
+            # Re-express the object pose in the robot base frame so it matches the IK goal frame.
+            t_R_O = (R_R_W @ (t_W_O - t_W_R).unsqueeze(-1)).squeeze(-1)
+            q_R_O_xyzw = math_utils.quat_mul(q_R_W_xyzw.unsqueeze(0), q_W_O_xyzw.unsqueeze(0))[0]
+            # Convert the object pose to the cuRobo device.
+            pos_c = planner._to_curobo_device(t_R_O)
+            quat_c_xyzw = planner._to_curobo_device(q_R_O_xyzw)
+            # The world-model writer wants a flat [x, y, z, qw, qx, qy, qz] list (position + wxyz quat).
+            quat_c_wxyz = math_utils.convert_quat(quat_c_xyzw, to="wxyz")
+            pose_list = torch.cat((pos_c, quat_c_wxyz)).tolist()
+            # Update the CPU-side world model first; only push to the GPU collision checker if it takes.
+            if planner._update_object_in_world_model(world_model, object_name, object_path, pose_list):
+                curobo_pose = planner._make_pose(position=pos_c, quaternion=quat_c_wxyz, quat_is_xyzw=False)
+                planner.motion_gen.world_coll_checker.update_obstacle_pose(
+                    object_path, curobo_pose, update_cpu_reference=True
+                )
+                updated_count += 1
+    planner.logger.debug(f"SYNC (robot-base frame): Updated {updated_count} object poses")
+    # Block until the pose writes land so the next IK solve sees the synced world.
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
 
 
 def make_curobo_planner(
@@ -157,12 +148,12 @@ def make_curobo_planner(
 ):
     """Construct a CuroboPlanner for an embodiment, bound to the env's robot and the robot base frame.
 
-    The robot identity and planner tuning come entirely from ``embodiment.get_curobo_cfg()`` (it
-    errors if the embodiment has no cuRobo config), so this is robot-agnostic.
+    The robot identity and planner tuning come entirely from the cuRobo embodiment registry (keyed by
+    ``embodiment.name``; it errors if none is registered), so this is robot-agnostic.
 
     Args:
         env: The (unwrapped) Isaac Lab env; must expose the robot articulation in its scene.
-        embodiment: Embodiment whose CuroboEmbodimentCfg describes the robot.
+        embodiment: Embodiment whose name has a registered CuroboEmbodimentCfg.
         env_id: Index of the parallel env the planner reads object/robot poses from.
         robot_scene_name: Scene key of the robot articulation. Defaults to the embodiment's scene name.
         debug_planner: Enable cuRobo planner debug output.
@@ -172,7 +163,6 @@ def make_curobo_planner(
     planner_cfg = make_planner_cfg(embodiment, debug_planner=debug_planner)
     # cuRobo-Lab's MotionGen/collision world is single-env only for now.
     planner = CuroboPlanner(env=env, robot=env.scene[robot_scene_name], config=planner_cfg, env_id=env_id)
-    fix_planner_object_sync_frame(planner)
     return planner
 
 
@@ -195,15 +185,18 @@ def top_down_grasp_pose_in_robot_frame(
     Returns:
         A 4x4 homogeneous transform (robot base frame) on the env's device.
     """
-    # Naming follows the ASL transform convention (see fix_planner_object_sync_frame):
     # X_B_A maps a vector in frame A to B. Frames: W = world, R = robot base, O = object.
+    # Robot base pose in world frame. root_quat_w is (x, y, z, w)
     robot = env.scene[robot_scene_name]
-    t_W_R_in_W = wp.to_torch(robot.data.root_pos_w)[env_id, :3]
-    q_W_R_wxyz = wp.to_torch(robot.data.root_quat_w)[env_id, :4]
-    R_R_W = math_utils.matrix_from_quat(q_W_R_wxyz.unsqueeze(0))[0].T
+    t_W_R = wp.to_torch(robot.data.root_pos_w)[env_id, :3]
+    q_W_R_xyzw = wp.to_torch(robot.data.root_quat_w)[env_id, :4]
+    R_R_W = math_utils.matrix_from_quat(q_W_R_xyzw.unsqueeze(0))[0].T
+    # Object pose in world frame.
+    t_W_O = wp.to_torch(env.scene[object_name].data.root_pos_w)[env_id, :3]
+    # Object pose in robot base frame.
+    t_R_O = (R_R_W @ (t_W_O - t_W_R).unsqueeze(-1)).squeeze(-1).clone()
+    # Add the grasp z offset.
+    t_R_O[2] += grasp_z_offset
 
-    t_W_O_in_W = wp.to_torch(env.scene[object_name].data.root_pos_w)[env_id, :3]
-    t_R_O_in_R = (R_R_W @ (t_W_O_in_W - t_W_R_in_W).unsqueeze(-1)).squeeze(-1).clone()
-    t_R_O_in_R[2] += grasp_z_offset
-
-    return pose_from_pos_quat(t_R_O_in_R, DOWN_FACING_QUAT_WXYZ.to(t_R_O_in_R.device))
+    pose = Pose(position_xyz=tuple(t_R_O.tolist()), rotation_xyzw=tuple(DOWN_FACING_QUAT_XYZW.tolist()))
+    return pose.make_pose(t_R_O.device)

@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Embodiment-owned cuRobo description."""
+"""Per-embodiment cuRobo description, owned by the cuRobo extension (not core)."""
 
 from __future__ import annotations
 
