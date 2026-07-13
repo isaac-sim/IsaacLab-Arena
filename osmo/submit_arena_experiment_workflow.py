@@ -11,7 +11,12 @@ Example:
         --experiment_config path/to/experiment.yaml \\
         --server_config path/to/policy_server.yaml \\
         --osmo_config osmo/config/workflow.yaml \\
-        --dry_run
+        --dry_run \\
+        osmo_config.pool=isaac-dev-l40-03
+
+Trailing ``osmo_config.<field>=<value>`` arguments override fields from the
+OSMO configuration YAML. Other trailing arguments are applied to the Arena
+Experiment through Hydra.
 """
 
 from __future__ import annotations
@@ -29,6 +34,7 @@ from osmo.workflows.workflow import WorkflowCfg
 POLICY_SERVER_WORKFLOWS = {
     "pi0": Pi0ArenaExperimentWorkflow,
 }
+OSMO_CONFIG_OVERRIDE_PREFIX = "osmo_config."
 
 
 def submit_arena_experiment_workflow(
@@ -36,6 +42,7 @@ def submit_arena_experiment_workflow(
     server_config: str | Path | None = None,
     osmo_config: str | Path | None = None,
     experiment_overrides: list[str] | None = None,
+    osmo_config_overrides: list[str] | None = None,
     dry_run: bool = False,
 ) -> int:
     """Build and submit one OSMO workflow for a complete Arena Experiment.
@@ -45,18 +52,20 @@ def submit_arena_experiment_workflow(
         server_config: Optional policy server definition YAML. When omitted, no server task is created.
         osmo_config: Optional generic OSMO workflow configuration YAML.
         experiment_overrides: Hydra overrides applied to the staged Experiment.
+        osmo_config_overrides: Dotlist overrides applied after the OSMO configuration YAML.
         dry_run: Whether to render the OSMO workflow without submitting it.
 
     Returns:
         The OSMO submission process status.
     """
     overrides = list(experiment_overrides or [])
-    workflow_cfg = WorkflowCfg()
+    workflow_cfg_sources = [OmegaConf.structured(WorkflowCfg)]
     if osmo_config is not None:
-        workflow_cfg = OmegaConf.to_object(
-            OmegaConf.merge(OmegaConf.structured(WorkflowCfg), OmegaConf.load(Path(osmo_config).expanduser()))
-        )
-        assert isinstance(workflow_cfg, WorkflowCfg)
+        workflow_cfg_sources.append(OmegaConf.load(Path(osmo_config).expanduser()))
+    if osmo_config_overrides:
+        workflow_cfg_sources.append(OmegaConf.from_dotlist(osmo_config_overrides))
+    workflow_cfg = OmegaConf.to_object(OmegaConf.merge(*workflow_cfg_sources))
+    assert isinstance(workflow_cfg, WorkflowCfg)
     if dry_run:
         workflow_cfg = replace(workflow_cfg, dry_run=True)
 
@@ -112,15 +121,29 @@ def main(cli_args: list[str] | None = None) -> int:
         help="Generic OSMO workflow configuration YAML",
     )
     parser.add_argument("--dry_run", action="store_true", help="Render the OSMO workflow without submitting it")
-    args, experiment_overrides = parser.parse_known_args(cli_args)
-    unknown_flags = [argument for argument in experiment_overrides if argument.startswith("-")]
+    args, trailing_overrides = parser.parse_known_args(cli_args)
+    unknown_flags = [argument for argument in trailing_overrides if argument.startswith("-")]
     if unknown_flags:
         parser.error(f"Unrecognized arguments: {' '.join(unknown_flags)}")
+
+    experiment_overrides = []
+    osmo_config_overrides = []
+    for override in trailing_overrides:
+        if not override.startswith(OSMO_CONFIG_OVERRIDE_PREFIX):
+            experiment_overrides.append(override)
+            continue
+        osmo_config_override = override.removeprefix(OSMO_CONFIG_OVERRIDE_PREFIX)
+        field, separator, _ = osmo_config_override.partition("=")
+        if not separator or not field:
+            parser.error(f"OSMO configuration override must assign a field: {override}")
+        osmo_config_overrides.append(osmo_config_override)
+
     return submit_arena_experiment_workflow(
         experiment_config=args.experiment_config,
         server_config=args.server_config,
         osmo_config=args.osmo_config,
         experiment_overrides=experiment_overrides,
+        osmo_config_overrides=osmo_config_overrides,
         dry_run=args.dry_run,
     )
 
