@@ -105,6 +105,15 @@ def test_workflow_and_server_configs_reject_each_others_fields(tmp_path):
     with pytest.raises(ConfigKeyError, match="client_ping_timeout"):
         submit_arena_experiment_workflow(experiment_path, server_config=server_path, dry_run=True)
 
+    server_path.write_text("type: pi0\n", encoding="utf-8")
+    with pytest.raises(ConfigKeyError, match="workflow_name"):
+        submit_arena_experiment_workflow(
+            experiment_path,
+            server_config=server_path,
+            server_config_overrides=["workflow_name=experiment"],
+            dry_run=True,
+        )
+
 
 def test_renders_eval_runner_and_shared_pi0_server_with_trailing_endpoints(tmp_path):
     """Wire every matching pi0 Run to one server after all user Experiment overrides."""
@@ -217,6 +226,9 @@ policy_config: custom-pi0-config
         str(osmo_path),
         "--dry_run",
         "osmo_config.workflow_name=overridden-experiment",
+        "server_config.image=registry.example.com/openpi:overridden",
+        "server_config.policy_config=overridden-pi0-config",
+        "server_config.policy_dir=gs://overridden/checkpoint",
         "runs.first.rollout_limit.num_steps=4",
         "runs.first.policy.ping_timeout=450.0",
     ])
@@ -228,8 +240,11 @@ policy_config: custom-pi0-config
     assert "name: cli-experiment" not in rendered
     assert "name: eval_runner" in rendered
     assert "name: policy_server" in rendered
-    assert "image: registry.example.com/openpi:test" in rendered
-    assert "--policy.config=custom-pi0-config" in rendered
+    assert "image: registry.example.com/openpi:overridden" in rendered
+    assert "image: registry.example.com/openpi:test" not in rendered
+    assert "--policy.config=overridden-pi0-config" in rendered
+    assert "--policy.config=custom-pi0-config" not in rendered
+    assert "--policy.dir=gs://overridden/checkpoint" in rendered
     assert "runs.first.policy.ping_timeout=450.0" in rendered
     assert "runs.first.rollout_limit.num_steps=4" in rendered
 
@@ -270,6 +285,30 @@ def test_cli_overrides_osmo_submission_pool(tmp_path, monkeypatch):
     assert submitted_command is not None
     pool_flag_index = submitted_command.index("--pool")
     assert submitted_command[pool_flag_index + 1] == "isaac-dev-l40-03"
+
+
+def test_cli_rejects_server_override_without_server_definition(tmp_path, capsys):
+    """Require a server definition before applying namespaced server overrides."""
+    experiment_path = tmp_path / "experiment.yaml"
+    experiment_path.write_text(
+        """runs:
+- name: baseline
+  environment:
+    type: test
+  policy:
+    type: zero_action
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit):
+        main([
+            "--experiment_config",
+            str(experiment_path),
+            "server_config.policy_config=my-config",
+        ])
+
+    assert "server_config.* overrides require --server_config" in capsys.readouterr().err
 
 
 def test_pi0_workflow_rejects_variant_mismatch_and_uses_last_exact_override(tmp_path):
