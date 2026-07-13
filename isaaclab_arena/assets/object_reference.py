@@ -15,7 +15,12 @@ from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.relations.relations import IsAnchor, RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_prim, extract_trimesh_from_prim, open_stage
+from isaaclab_arena.utils.usd_helpers import (
+    NoCollisionMeshError,
+    compute_local_bounding_box_from_prim,
+    extract_trimesh_from_prim,
+    open_stage,
+)
 from isaaclab_arena.utils.usd_pose_helpers import get_prim_pose_in_default_prim_frame
 
 
@@ -25,13 +30,13 @@ class ObjectReference(ObjectBase):
     def __init__(self, parent_asset: Object, **kwargs):
         super().__init__(**kwargs)
         self.parent_asset = parent_asset
-        # Store parent's scale for bounding box calculations
-        self._parent_scale = getattr(parent_asset, "scale", (1.0, 1.0, 1.0))
+        self._parent_scale = parent_asset.scale
         # Get the prim's transform pose (not geometry center - solver is origin-agnostic)
         self.initial_pose_relative_to_parent = self._get_referenced_prim_pose_relative_to_parent(parent_asset)
         self.object_cfg = self._init_object_cfg()
         self._bounding_box: AxisAlignedBoundingBox | None = None
         self._collision_mesh: trimesh.Trimesh | None = None
+        # None is a valid cached result for meshless prims; this flag distinguishes that from not-yet-loaded.
         self._collision_mesh_loaded = False
 
     def get_initial_pose(self) -> Pose:
@@ -100,9 +105,7 @@ class ObjectReference(ObjectBase):
                 # _collision_mesh_loaded false and retry on the next call.
                 print(f"Could not extract collision mesh for object reference '{self.name}': {e}")
                 return None
-            except ValueError as e:
-                if "No mesh geometry found" not in str(e):
-                    raise
+            except NoCollisionMeshError as e:
                 print(f"Could not extract collision mesh for object reference '{self.name}': {e}")
             self._collision_mesh_loaded = True
         return self._collision_mesh

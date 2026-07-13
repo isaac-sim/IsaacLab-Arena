@@ -119,6 +119,7 @@ def test_object_reference_get_collision_mesh_extracts_referenced_prim(monkeypatc
 def test_object_reference_get_collision_mesh_returns_none_on_extraction_failure(monkeypatch):
     """Meshless references fall back to AABB collision instead of aborting aggregation."""
     from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.utils.usd_helpers import NoCollisionMeshError
 
     calls = {"extract_count": 0}
     obj_ref = ObjectReference.__new__(ObjectReference)
@@ -152,13 +153,55 @@ def test_object_reference_get_collision_mesh_returns_none_on_extraction_failure(
 
     def fail_extract(stage, prim_path, scale):
         calls["extract_count"] += 1
-        raise ValueError("No mesh geometry found under /World/counter")
+        raise NoCollisionMeshError("No mesh geometry found under /World/counter")
 
     monkeypatch.setattr("isaaclab_arena.assets.object_reference.extract_trimesh_from_prim", fail_extract)
 
     assert obj_ref.get_collision_mesh() is None
     assert obj_ref.get_collision_mesh() is None
     assert calls["extract_count"] == 1
+
+
+def test_object_reference_get_collision_mesh_returns_none_on_unsupported_geometry(monkeypatch):
+    """Unsupported reference geometry falls back to AABB collision."""
+    from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.utils.usd_helpers import UnsupportedCollisionGeometryError
+
+    obj_ref = ObjectReference.__new__(ObjectReference)
+    obj_ref.name = "counter"
+    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen")
+    obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/counter"
+    obj_ref._parent_scale = (1.0, 1.0, 1.0)
+    obj_ref._collision_mesh = None
+    obj_ref._collision_mesh_loaded = False
+
+    class OpenStage:
+        def __init__(self, path):
+            pass
+
+        def __enter__(self):
+            class Stage:
+                def GetPrimAtPath(self, prim_path):
+                    return object()
+
+            return Stage()
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr("isaaclab_arena.assets.object_reference.open_stage", OpenStage)
+    monkeypatch.setattr(
+        ObjectReference,
+        "isaaclab_prim_path_to_original_prim_path",
+        staticmethod(lambda prim_path, parent, stage: "/World/counter"),
+    )
+
+    def fail_extract(stage, prim_path, scale):
+        raise UnsupportedCollisionGeometryError("Unsupported non-mesh geometry under /World/counter: /World/cube")
+
+    monkeypatch.setattr("isaaclab_arena.assets.object_reference.extract_trimesh_from_prim", fail_extract)
+
+    assert obj_ref.get_collision_mesh() is None
 
 
 def test_object_reference_get_collision_mesh_raises_on_missing_prim(monkeypatch):

@@ -15,6 +15,7 @@ import warp as wp
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.collision_object import CollisionObject
 
 
 class MeshPairEntry(NamedTuple):
@@ -26,16 +27,16 @@ class MeshPairEntry(NamedTuple):
     subject: ObjectBase
     """Subject (sphere source) object."""
 
-    obstacle: ObjectBase
+    obstacle: ObjectBase | CollisionObject
     """Obstacle (mesh target) object."""
 
-    is_anchor: bool
+    obstacle_is_fixed: bool
     """True when obstacle is fixed in world coordinates."""
 
-    anchor_pos: torch.Tensor | None
+    fixed_obstacle_pos: torch.Tensor | None
     """(3,) world-frame position of the fixed obstacle; None for non-fixed obstacles."""
 
-    anchor_yaw: float
+    fixed_obstacle_yaw: float
     """Fixed obstacle Z-yaw in radians (0.0 for non-fixed obstacles)."""
 
     centers_local: torch.Tensor
@@ -88,19 +89,19 @@ class MeshPairCache:
     pair_subject_objs: list[ObjectBase]
     """(P,) subject (sphere source) object reference per pair."""
 
-    pair_obstacle_objs: list[ObjectBase]
+    pair_obstacle_objs: list[ObjectBase | CollisionObject]
     """(P,) obstacle (mesh target) object reference per pair."""
 
     pair_subject_applies_yaw: list[bool]
     """(P,) True when subject sphere centers are in the subject's unrotated local frame."""
 
-    pair_is_anchor: list[bool]
+    pair_obstacle_is_fixed: list[bool]
     """(P,) True if the obstacle is fixed in world coordinates."""
 
-    pair_anchor_pos: list[torch.Tensor | None]
+    pair_fixed_obstacle_pos: list[torch.Tensor | None]
     """(P,) world position for fixed obstacles (None for non-fixed obstacles)."""
 
-    pair_anchor_yaw: list[float]
+    pair_fixed_obstacle_yaw: list[float]
     """(P,) fixed obstacle yaw in radians (0.0 for non-fixed obstacles)."""
 
     pair_subject_bbox_min: torch.Tensor
@@ -152,11 +153,11 @@ class MeshPairCache:
         assert (
             len(self.pair_obstacle_bbox_includes_yaw) == self.num_pairs
         ), "pair_obstacle_bbox_includes_yaw length mismatch"
-        assert len(self.pair_is_anchor) == self.num_pairs, "pair_is_anchor length mismatch"
+        assert len(self.pair_obstacle_is_fixed) == self.num_pairs, "pair_obstacle_is_fixed length mismatch"
         assert self.all_centers_local.shape[0] == self.total_spheres, "all_centers_local size mismatch"
         assert self.all_radii.shape[0] == self.total_spheres, "all_radii size mismatch"
         assert self.sphere_pair_id.shape[0] == self.total_spheres, "sphere_pair_id size mismatch"
         assert self.sphere_mesh_idx.shape[0] == self.total_spheres, "sphere_mesh_idx size mismatch"
         assert int(self.pair_sphere_count.sum().item()) == self.total_spheres, "pair_sphere_count sum mismatch"
-        for i, (is_anchor, pos) in enumerate(zip(self.pair_is_anchor, self.pair_anchor_pos)):
-            assert not is_anchor or pos is not None, f"pair {i}: is_anchor=True but anchor_pos is None"
+        for i, (is_fixed, pos) in enumerate(zip(self.pair_obstacle_is_fixed, self.pair_fixed_obstacle_pos)):
+            assert not is_fixed or pos is not None, f"pair {i}: obstacle_is_fixed=True but fixed_obstacle_pos is None"

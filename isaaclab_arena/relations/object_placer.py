@@ -48,6 +48,7 @@ from isaaclab_arena.utils.yaw import (
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.collision_object import CollisionObject
 
 
 RelationT = TypeVar("RelationT", bound=RelationBase)
@@ -103,7 +104,7 @@ class ObjectPlacer:
         self,
         objects: list[ObjectBase],
         num_envs: int = 1,
-        collision_objects: list[ObjectBase] | None = None,
+        collision_objects: list[CollisionObject] | None = None,
     ) -> list[PlacementResult]:
         """Place objects according to their spatial relations.
 
@@ -157,7 +158,7 @@ class ObjectPlacer:
         objects: list[ObjectBase],
         num_envs: int,
         results_per_env: int,
-        collision_objects: list[ObjectBase] | None = None,
+        collision_objects: list[CollisionObject] | None = None,
     ) -> list[list[PlacementResult]]:
         """Return ranked placement candidates per env.
 
@@ -229,7 +230,7 @@ class ObjectPlacer:
         candidates_per_env: int,
         attempts_per_result: int,
         generator: torch.Generator | None,
-        collision_objects: list[ObjectBase] | None = None,
+        collision_objects: list[CollisionObject] | None = None,
     ) -> list[list[PlacementResult]]:
         """Solve and rank placement candidates per environment.
 
@@ -721,7 +722,7 @@ class ObjectPlacer:
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
-        collision_objects: list[ObjectBase] | None = None,
+        collision_objects: list[CollisionObject] | None = None,
         skip_mesh_pairs: bool = False,
     ) -> bool:
         """AABB overlap check on pre-rotated env_bboxes. Skips On-pairs and anchor-anchor pairs."""
@@ -853,7 +854,7 @@ class ObjectPlacer:
         positions: dict[ObjectBase, tuple[float, float, float]],
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
         orientations: dict[ObjectBase, float] | None = None,
-        collision_objects: list[ObjectBase] | None = None,
+        collision_objects: list[CollisionObject] | None = None,
     ) -> bool:
         """Sphere-to-SDF overlap check; both-meshless pairs fall back to AABB validation."""
         clearance_m = self.params.solver_params.clearance_m
@@ -976,7 +977,7 @@ class ObjectPlacer:
         source_applies_yaw: bool,
         source_uses_pose_yaw: bool,
         source_pos: torch.Tensor,
-        target: ObjectBase,
+        target: ObjectBase | CollisionObject,
         target_mesh: trimesh.Trimesh,
         target_pos: torch.Tensor,
         target_uses_pose_yaw: bool,
@@ -984,7 +985,11 @@ class ObjectPlacer:
         tolerance: float,
         orientations: dict[ObjectBase, float] | None,
     ) -> bool:
-        """True if source's spheres penetrate target's mesh or if BVH returns no-face sentinel."""
+        """True if source's spheres penetrate target's mesh or if BVH returns no-face sentinel.
+
+        source_applies_yaw describes whether sphere centers need sampled-yaw rotation.
+        *_uses_pose_yaw controls whether fixed anchors/passive obstacles contribute pose yaw.
+        """
         spheres = mesh_manager.get_query_spheres(source_mesh, obj=source_sphere_cache_obj)
         warp_mesh = mesh_manager.get_warp_mesh(target_mesh, obj=target)
         centers = self._centers_in_target_frame(
@@ -1067,7 +1072,7 @@ class ObjectPlacer:
         positions: dict[ObjectBase, tuple[float, float, float]],
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox],
         orientations: dict[ObjectBase, float] | None = None,
-        collision_objects: list[ObjectBase] | None = None,
+        collision_objects: list[CollisionObject] | None = None,
     ) -> PlacementValidationResults:
         """Validate overlap and all supported placement relations.
 
@@ -1145,7 +1150,7 @@ class ObjectPlacer:
     def _should_validate_mesh(
         self,
         positions: dict[ObjectBase, tuple[float, float, float]],
-        collision_objects: list[ObjectBase] | None,
+        collision_objects: list[CollisionObject] | None,
     ) -> bool:
         """Return True when any object in this validation uses mesh collision."""
         default_collision_mode = self.params.solver_params.collision_mode

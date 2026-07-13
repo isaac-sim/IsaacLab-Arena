@@ -6,9 +6,13 @@
 from __future__ import annotations
 
 import copy
+from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.assets.background import Background
+from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
 from isaaclab_arena.relations.placement_events import get_rotation_xyzw, solve_and_place_objects
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import get_anchor_objects
@@ -18,14 +22,18 @@ from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 if TYPE_CHECKING:
     from isaaclab.managers import EventTermCfg
 
+    from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+    from isaaclab_arena.relations.collision_object import CollisionObject
 
 
 def solve_and_apply_relation_placement(
     objects: list[ObjectBase],
     num_envs: int,
     placer_params: ObjectPlacerParams | None = None,
-    collision_objects: list[ObjectBase] | None = None,
+    collision_objects: list[CollisionObject] | None = None,
+    scene_assets: Iterable[Asset | RigidObjectSet] | None = None,
 ) -> EventTermCfg | None:
     """Solve relation placement and apply the result to object reset/static state.
 
@@ -36,6 +44,8 @@ def solve_and_apply_relation_placement(
             this function can force pooled placement without mutating the caller's instance.
         collision_objects: Fixed obstacles avoided during placement but never optimized
             or relation-constrained.
+        scene_assets: Optional scene assets to scan for passive collision objects
+            when collision_objects is not supplied.
 
     Returns:
         Reset event config to attach to the environment when placement should be
@@ -51,7 +61,14 @@ def solve_and_apply_relation_placement(
     else:
         placer_params = copy.copy(placer_params)
     placer_params.apply_positions_to_objects = False
-
+    if collision_objects is None and scene_assets is not None:
+        scene_assets = list(scene_assets)
+        collision_objects = get_passive_collision_objects(
+            scene_assets,
+            include_background=_should_include_background_mesh(
+                objects, scene_assets, placer_params.solver_params.collision_mode
+            ),
+        )
     # TODO(xinjieyao, 2026-05-22): Add joint object/embodiment placement once task-dependent
     # reachability constraints are available. For now this always uses the object-only placer.
     placement_pool = PooledObjectPlacer(
@@ -73,6 +90,22 @@ def solve_and_apply_relation_placement(
         placer_params=placer_params,
         placement_pool=placement_pool,
         num_envs=num_envs,
+    )
+
+
+def _should_include_background_mesh(
+    objects: list[ObjectBase],
+    scene_assets: Iterable[Asset | RigidObjectSet],
+    default_collision_mode: CollisionMode,
+) -> bool:
+    """Return True when the default mode or any object/Background override resolves to MESH."""
+    if default_collision_mode == CollisionMode.MESH:
+        return True
+    if any(get_object_collision_mode(obj, default_collision_mode) == CollisionMode.MESH for obj in objects):
+        return True
+    return any(
+        isinstance(asset, Background) and get_object_collision_mode(asset, default_collision_mode) == CollisionMode.MESH
+        for asset in scene_assets
     )
 
 

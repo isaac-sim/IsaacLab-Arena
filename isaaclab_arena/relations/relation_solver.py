@@ -24,6 +24,7 @@ from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.mesh_pair_cache import MeshPairCache
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
@@ -187,7 +188,7 @@ class RelationSolver:
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
         env_bboxes_include_yaw: bool = False,
         orientations: list[dict[ObjectBase, float]] | None = None,
-        collision_objects: list[ObjectBase] | None = None,
+        collision_objects: list[CollisionObject] | None = None,
     ) -> list[dict[ObjectBase, tuple[float, float, float]]]:
         """Solve for optimal positions of all objects.
 

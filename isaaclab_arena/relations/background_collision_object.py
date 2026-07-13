@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import numpy as np
 import trimesh
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
@@ -15,9 +14,10 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.trimesh import bounding_box_from_mesh, mesh_in_world_frame
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.relations import RelationBase
 
 
@@ -31,10 +31,11 @@ class FixedCollisionObject:
     ) -> None:
         self.name = name
         self.collision_mode = CollisionMode.MESH
+        # Whole-scene fixed meshes should use raw geometry rather than convex-hull repair.
         self.repair_collision_mesh_non_watertight = False
         self._pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
         self._mesh = mesh
-        self._bounding_box = _bounding_box_from_mesh(self._mesh)
+        self._bounding_box = bounding_box_from_mesh(self._mesh)
 
     @property
     def is_anchor(self) -> bool:
@@ -66,7 +67,7 @@ class FixedCollisionObject:
         return self._mesh
 
 
-def make_fixed_collision_objects(objects: Sequence[ObjectBase]) -> list[ObjectBase | FixedCollisionObject]:
+def make_fixed_collision_objects(objects: Sequence[CollisionObject]) -> list[CollisionObject]:
     """Combine the objects' collision meshes into one FixedCollisionObject.
 
     Objects in BBOX mode or without an extractable mesh are returned unchanged;
@@ -75,7 +76,7 @@ def make_fixed_collision_objects(objects: Sequence[ObjectBase]) -> list[ObjectBa
     from isaaclab_arena.assets.background import Background
 
     mesh, skipped_objects = _combine_fixed_meshes(objects)
-    collision_objects: list[ObjectBase | FixedCollisionObject] = []
+    collision_objects: list[CollisionObject] = []
     if mesh is not None:
         collision_objects.append(FixedCollisionObject(mesh))
     if skipped_objects:
@@ -103,7 +104,7 @@ def make_fixed_collision_objects(objects: Sequence[ObjectBase]) -> list[ObjectBa
     return collision_objects
 
 
-def _combine_fixed_meshes(objects: Sequence[ObjectBase]) -> tuple[trimesh.Trimesh | None, list[ObjectBase]]:
+def _combine_fixed_meshes(objects: Sequence[CollisionObject]) -> tuple[trimesh.Trimesh | None, list[CollisionObject]]:
     from isaaclab_arena.assets.background import Background
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
@@ -122,24 +123,7 @@ def _combine_fixed_meshes(objects: Sequence[ObjectBase]) -> tuple[trimesh.Trimes
         if pose is None and isinstance(obj, Background):
             pose = Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
         assert isinstance(pose, Pose), f"Fixed collision object '{obj.name}' must have a fixed Pose."
-        meshes.append(_mesh_in_world_frame(mesh, pose))
+        meshes.append(mesh_in_world_frame(mesh, pose))
     if not meshes:
         return None, skipped_objects
     return trimesh.util.concatenate(meshes), skipped_objects
-
-
-def _mesh_in_world_frame(mesh: trimesh.Trimesh, pose: Pose) -> trimesh.Trimesh:
-    transformed = mesh.copy()
-    qx, qy, qz, qw = pose.rotation_xyzw
-    transform = trimesh.transformations.quaternion_matrix([qw, qx, qy, qz])
-    transform[:3, 3] = np.asarray(pose.position_xyz, dtype=np.float64)
-    transformed.apply_transform(transform)
-    return transformed
-
-
-def _bounding_box_from_mesh(mesh: trimesh.Trimesh) -> AxisAlignedBoundingBox:
-    bounds = mesh.bounds
-    return AxisAlignedBoundingBox(
-        min_point=tuple(float(v) for v in bounds[0]),
-        max_point=tuple(float(v) for v in bounds[1]),
-    )

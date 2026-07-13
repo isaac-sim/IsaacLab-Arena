@@ -702,3 +702,78 @@ def test_pooled_placer_falls_back_when_no_valid_layouts(capsys):
     assert pool.had_fallbacks
     assert "Falling back to best-loss layouts" in captured.out
     assert not pool.sample_without_replacement(1)[0].success
+
+
+def test_pooled_placer_only_falls_back_on_final_batch(capsys):
+    """Fallbacks should only be accepted on the last configured solve batch."""
+
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.relations import IsAnchor, On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.pose import Pose
+
+    desk = DummyObject(
+        name="desk",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.01, 0.01, 0.01)),
+    )
+    desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    desk.add_relation(IsAnchor())
+
+    big = DummyObject(
+        name="big",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(5.0, 5.0, 5.0)),
+    )
+    big.add_relation(On(desk))
+
+    solver_params = RelationSolverParams(max_iters=10, convergence_threshold=1e-6)
+    placer_params = ObjectPlacerParams(solver_params=solver_params, max_placement_attempts=2)
+
+    pool = PooledObjectPlacer(objects=[desk, big], placer_params=placer_params, pool_size=1)
+    captured = capsys.readouterr()
+
+    assert pool.had_fallbacks
+    assert captured.out.count("Placement pool solved") == 2
+    assert not pool.sample_without_replacement(1)[0].success
+
+
+def test_pooled_placer_can_reject_best_loss_fallbacks():
+    """PooledObjectPlacer should fail loudly when fallback layouts are disabled."""
+
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.relations import IsAnchor, On
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.pose import Pose
+
+    desk = DummyObject(
+        name="desk",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.01, 0.01, 0.01)),
+    )
+    desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+    desk.add_relation(IsAnchor())
+
+    big1 = DummyObject(
+        name="big1",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(5.0, 5.0, 5.0)),
+    )
+    big2 = DummyObject(
+        name="big2",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(5.0, 5.0, 5.0)),
+    )
+    big1.add_relation(On(desk))
+    big2.add_relation(On(desk))
+
+    solver_params = RelationSolverParams(max_iters=50, convergence_threshold=1e-6)
+    placer_params = ObjectPlacerParams(
+        solver_params=solver_params,
+        max_placement_attempts=1,
+        allow_best_loss_fallbacks=False,
+    )
+
+    with pytest.raises(RuntimeError, match="could not fill"):
+        PooledObjectPlacer(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)

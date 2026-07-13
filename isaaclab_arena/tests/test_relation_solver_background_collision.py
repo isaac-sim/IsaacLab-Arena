@@ -136,6 +136,33 @@ def test_background_collision_objects_reject_failed_whole_background(monkeypatch
         make_fixed_collision_objects([left, kitchen])
 
 
+def test_warp_mesh_cache_caches_unsupported_usd_geometry(monkeypatch):
+    """Unsupported USD geometry degrades to cached meshless collision."""
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+    from isaaclab_arena.utils.usd_helpers import UnsupportedCollisionGeometryError
+
+    obj = Object.__new__(Object)
+    obj.name = "kitchen"
+    obj.usd_path = "/tmp/kitchen.usd"
+    obj.scale = (1.0, 1.0, 1.0)
+    obj.object_type = ObjectType.BASE
+    obj.repair_collision_mesh_non_watertight = True
+    calls = {"count": 0}
+
+    def fail_extract(usd_path, scale):
+        calls["count"] += 1
+        raise UnsupportedCollisionGeometryError("Unsupported non-mesh geometry in /tmp/kitchen.usd: /World/cube")
+
+    monkeypatch.setattr("isaaclab_arena.utils.usd_helpers.extract_trimesh_from_usd", fail_extract)
+    manager = WarpMeshAndSphereCache(device="cpu")
+
+    assert manager.get_collision_mesh(obj) is None
+    assert manager.get_collision_mesh(obj) is None
+    assert calls["count"] == 1
+
+
 def test_background_collision_objects_treat_background_none_pose_as_identity(monkeypatch):
     """A Background with no initial pose is fixed at the USD origin for mesh aggregation."""
     import torch
@@ -183,13 +210,13 @@ def test_mesh_in_world_frame_applies_pose_rotation():
     import torch
     import trimesh
 
-    from isaaclab_arena.relations.background_collision_object import _mesh_in_world_frame
     from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena.utils.trimesh import mesh_in_world_frame
 
     mesh = trimesh.creation.box(extents=(2.0, 1.0, 1.0))
     yaw_90 = (0.0, 0.0, 2**-0.5, 2**-0.5)
 
-    transformed = _mesh_in_world_frame(
+    transformed = mesh_in_world_frame(
         mesh,
         Pose(position_xyz=(3.0, 4.0, 0.0), rotation_xyzw=yaw_90),
     )
@@ -227,6 +254,28 @@ def test_collision_objects_add_no_overlap_loss():
     # Box-desk is an On pair (skipped), so the obstacle is the only overlap source.
     assert loss_without == 0.0
     assert loss_with > 0.0
+
+
+def test_fixed_collision_object_from_factory_adds_mesh_loss():
+    """Factory-built fixed meshes participate in MESH no-overlap loss."""
+    from isaaclab_arena.relations.background_collision_object import FixedCollisionObject, make_fixed_collision_objects
+    from isaaclab_arena.relations.relation_solver import RelationSolver
+    from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
+    from isaaclab_arena.relations.relation_solver_state import RelationSolverState
+    from isaaclab_arena.relations.relations import On
+
+    desk = _make_desk()
+    box = _make_box()
+    box.add_relation(On(desk))
+    fixture = _mesh_box("fixture", (0.4, 0.4, 0.4), (0.35, 0.35, 0.2))
+    collision_objects = make_fixed_collision_objects([fixture])
+    assert isinstance(collision_objects[0], FixedCollisionObject)
+
+    initial_positions = [{desk: (0.0, 0.0, 0.0), box: (0.3, 0.3, 0.1)}]
+    solver = RelationSolver(RelationSolverParams(collision_mode=CollisionMode.MESH, verbose=False))
+    state = RelationSolverState([desk, box], initial_positions, collision_objects=collision_objects)
+
+    assert solver._compute_no_overlap_loss(state).sum().item() > 0.0
 
 
 def test_solver_pushes_object_off_background_obstacle():
@@ -363,6 +412,30 @@ def test_get_passive_collision_objects_filters():
     assert result, "get_passive_collision_objects() returned the wrong subset"
 
 
+def test_background_with_pose_range_rejected_for_aggregate_collision():
+    from unittest.mock import MagicMock
+
+    import pytest
+
+    from isaaclab_arena.assets.background import Background
+    from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
+    from isaaclab_arena.utils.pose import PoseRange
+
+    background = MagicMock(spec=Background)
+    background.name = "varying_background"
+    background.usd_path = "background.usd"
+    background.get_relations.return_value = []
+    background.get_initial_pose.return_value = PoseRange(
+        position_xyz_min=(0.0, 0.0, 0.0),
+        position_xyz_max=(1.0, 0.0, 0.0),
+        rpy_min=(0.0, 0.0, 0.0),
+        rpy_max=(0.0, 0.0, 0.0),
+    )
+
+    with pytest.raises(AssertionError, match="must have a fixed Pose or no initial_pose"):
+        get_passive_collision_objects([background], include_background=True)
+
+
 def test_object_placer_place_forwards_collision_objects():
     """ObjectPlacer.place threads collision_objects into the solve and validation, yielding a clear layout."""
     from isaaclab_arena.relations.object_placer import ObjectPlacer
@@ -454,7 +527,7 @@ def test_pooled_object_placer_multi_env_avoids_obstacle():
 
 
 def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch):
-    """Relation solving automatically includes passive scene collision objects."""
+    """Relation solving forwards scene assets for passive collision discovery."""
     from types import SimpleNamespace
 
     import isaaclab_arena.environments.arena_env_builder as builder_module
@@ -473,19 +546,16 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
         def get_objects_with_relations(self):
             return objects_with_relations
 
-    def fake_get_passive_collision_objects(assets, include_background: bool = False):
-        calls["assets"] = list(assets)
-        calls["include_background"] = include_background
-        return [background_collision]
-
-    def fake_solve_and_apply_relation_placement(objects, num_envs, placer_params, collision_objects):
+    def fake_solve_and_apply_relation_placement(
+        objects, num_envs, placer_params, collision_objects=None, scene_assets=None
+    ):
         calls["objects"] = objects
         calls["num_envs"] = num_envs
         calls["placer_params"] = placer_params
+        calls["scene_assets"] = list(scene_assets)
         calls["collision_objects"] = collision_objects
         return "placement_event"
 
-    monkeypatch.setattr(builder_module, "get_passive_collision_objects", fake_get_passive_collision_objects)
     monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH))
     arena_env = SimpleNamespace(scene=Scene(), placer_params=placer_params)
@@ -493,17 +563,16 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
 
     builder._solve_relations()
 
-    assert calls["assets"] == [background_collision]
-    assert calls["include_background"] is True
     assert calls["objects"] == objects_with_relations
     assert calls["num_envs"] == 2
     assert calls["placer_params"] is placer_params
-    assert calls["collision_objects"] == [background_collision]
+    assert calls["scene_assets"] == [background_collision]
+    assert calls["collision_objects"] is None
     assert builder._placement_event_cfg == "placement_event"
 
 
-def test_arena_env_builder_uses_individual_background_collisions_for_bbox(monkeypatch):
-    """BBOX mode skips passive discovery when there are no relation-solved objects."""
+def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
+    """Builder keeps one relation-placement call even when the relation graph is empty."""
     from types import SimpleNamespace
 
     import isaaclab_arena.environments.arena_env_builder as builder_module
@@ -518,79 +587,75 @@ def test_arena_env_builder_uses_individual_background_collisions_for_bbox(monkey
         def get_objects_with_relations(self):
             return []
 
-    def fake_get_passive_collision_objects(assets, include_background: bool = False):
-        raise AssertionError("passive collision discovery should not run without relation objects")
-
-    def fake_solve_and_apply_relation_placement(objects, num_envs, placer_params, collision_objects):
+    def fake_solve_and_apply_relation_placement(
+        objects, num_envs, placer_params, collision_objects=None, scene_assets=None
+    ):
+        calls["objects"] = objects
+        calls["scene_assets"] = list(scene_assets)
         calls["collision_objects"] = collision_objects
 
-    monkeypatch.setattr(builder_module, "get_passive_collision_objects", fake_get_passive_collision_objects)
     monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
     arena_env = SimpleNamespace(scene=Scene(), placer_params=None)
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())
 
     builder._solve_relations()
 
-    assert calls["collision_objects"] == []
+    assert calls["objects"] == []
+    assert calls["scene_assets"] == []
+    assert calls["collision_objects"] is None
 
 
-def test_arena_env_builder_includes_background_mesh_for_object_mesh_override(monkeypatch):
+def test_relation_placement_includes_background_mesh_for_object_mesh_override(monkeypatch):
     """Object-level MESH override enables aggregate background meshes."""
-    from types import SimpleNamespace
-
-    import isaaclab_arena.environments.arena_env_builder as builder_module
+    import isaaclab_arena.environments.relation_solver_interface as interface_module
     from isaaclab_arena.assets.dummy_object import DummyObject
-    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
+    from isaaclab_arena.relations.relations import IsAnchor
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     mesh_object = DummyObject(
         "mesh_object",
         bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)),
     )
+    mesh_object.add_relation(IsAnchor())
     mesh_object.collision_mode = CollisionMode.MESH
     calls = {}
-
-    class Scene:
-        assets = {}
-
-        def get_objects_with_relations(self):
-            return [mesh_object]
 
     def fake_get_passive_collision_objects(assets, include_background: bool = False):
         calls["assets"] = list(assets)
         calls["include_background"] = include_background
         return []
 
-    def fake_solve_and_apply_relation_placement(objects, num_envs, placer_params, collision_objects):
-        calls["objects"] = objects
+    class FakePooledObjectPlacer:
+        had_fallbacks = False
 
-    monkeypatch.setattr(builder_module, "get_passive_collision_objects", fake_get_passive_collision_objects)
-    monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
+        def __init__(self, objects, placer_params, pool_size, num_envs, collision_objects):
+            calls["objects"] = objects
+            calls["collision_objects"] = collision_objects
+
+    monkeypatch.setattr(interface_module, "get_passive_collision_objects", fake_get_passive_collision_objects)
+    monkeypatch.setattr(interface_module, "PooledObjectPlacer", FakePooledObjectPlacer)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX))
-    arena_env = SimpleNamespace(scene=Scene(), placer_params=placer_params)
-    builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())
 
-    builder._solve_relations()
+    solve_and_apply_relation_placement([mesh_object], num_envs=1, placer_params=placer_params, scene_assets=[])
 
     assert calls["assets"] == []
     assert calls["include_background"] is True
     assert calls["objects"] == [mesh_object]
+    assert calls["collision_objects"] == []
 
 
-def test_arena_env_builder_includes_background_mesh_for_background_override(monkeypatch):
+def test_relation_placement_includes_background_mesh_for_background_override(monkeypatch):
     """A passive Background can opt into mesh collision when the solver default is BBOX."""
-    from types import SimpleNamespace
-
-    import isaaclab_arena.environments.arena_env_builder as builder_module
+    import isaaclab_arena.environments.relation_solver_interface as interface_module
     from isaaclab_arena.assets.background import Background
     from isaaclab_arena.assets.dummy_object import DummyObject
-    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
+    from isaaclab_arena.relations.relations import IsAnchor
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     background = Background.__new__(Background)
@@ -599,30 +664,76 @@ def test_arena_env_builder_includes_background_mesh_for_background_override(monk
         "placed_object",
         bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)),
     )
+    placed_object.add_relation(IsAnchor())
     calls = {}
-
-    class Scene:
-        assets = {"background": background}
-
-        def get_objects_with_relations(self):
-            return [placed_object]
 
     def fake_get_passive_collision_objects(assets, include_background: bool = False):
         calls["assets"] = list(assets)
         calls["include_background"] = include_background
         return []
 
-    def fake_solve_and_apply_relation_placement(objects, num_envs, placer_params, collision_objects):
-        calls["objects"] = objects
+    class FakePooledObjectPlacer:
+        had_fallbacks = False
 
-    monkeypatch.setattr(builder_module, "get_passive_collision_objects", fake_get_passive_collision_objects)
-    monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
+        def __init__(self, objects, placer_params, pool_size, num_envs, collision_objects):
+            calls["objects"] = objects
+            calls["collision_objects"] = collision_objects
+
+    monkeypatch.setattr(interface_module, "get_passive_collision_objects", fake_get_passive_collision_objects)
+    monkeypatch.setattr(interface_module, "PooledObjectPlacer", FakePooledObjectPlacer)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX))
-    arena_env = SimpleNamespace(scene=Scene(), placer_params=placer_params)
-    builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())
 
-    builder._solve_relations()
+    solve_and_apply_relation_placement(
+        [placed_object], num_envs=1, placer_params=placer_params, scene_assets=[background]
+    )
 
     assert calls["assets"] == [background]
     assert calls["include_background"] is True
     assert calls["objects"] == [placed_object]
+    assert calls["collision_objects"] == []
+
+
+def test_relation_placement_skips_background_mesh_for_default_bbox(monkeypatch):
+    """Default BBOX mode uses individual passive objects, not aggregate whole-scene meshes."""
+    import isaaclab_arena.environments.relation_solver_interface as interface_module
+    from isaaclab_arena.assets.background import Background
+    from isaaclab_arena.assets.dummy_object import DummyObject
+    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
+    from isaaclab_arena.relations.relations import IsAnchor
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    background = Background.__new__(Background)
+    background.collision_mode = None
+    placed_object = DummyObject(
+        "placed_object",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)),
+    )
+    placed_object.add_relation(IsAnchor())
+    calls = {}
+
+    def fake_get_passive_collision_objects(assets, include_background: bool = False):
+        calls["assets"] = list(assets)
+        calls["include_background"] = include_background
+        return []
+
+    class FakePooledObjectPlacer:
+        had_fallbacks = False
+
+        def __init__(self, objects, placer_params, pool_size, num_envs, collision_objects):
+            calls["objects"] = objects
+            calls["collision_objects"] = collision_objects
+
+    monkeypatch.setattr(interface_module, "get_passive_collision_objects", fake_get_passive_collision_objects)
+    monkeypatch.setattr(interface_module, "PooledObjectPlacer", FakePooledObjectPlacer)
+    placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX))
+
+    solve_and_apply_relation_placement(
+        [placed_object], num_envs=1, placer_params=placer_params, scene_assets=[background]
+    )
+
+    assert calls["assets"] == [background]
+    assert calls["include_background"] is False
+    assert calls["objects"] == [placed_object]
+    assert calls["collision_objects"] == []

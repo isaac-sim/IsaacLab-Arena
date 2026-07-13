@@ -17,6 +17,7 @@ from isaaclab_arena.utils.random import get_rngs
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.collision_object import CollisionObject
 
 
 @dataclass
@@ -73,7 +74,7 @@ class PooledObjectPlacer:
         placer_params: ObjectPlacerParams,
         pool_size: int = 100,
         num_envs: int | None = None,
-        collision_objects: list[ObjectBase] | None = None,
+        collision_objects: list[CollisionObject] | None = None,
     ) -> None:
         assert pool_size >= 1, f"pool_size must be >= 1, got {pool_size}"
         assert not (
@@ -89,6 +90,7 @@ class PooledObjectPlacer:
         self._placer = ObjectPlacer(params=replace(placer_params, apply_positions_to_objects=False))
         self._pool_size = pool_size
         self._had_fallbacks = False
+        self._allow_best_loss_fallbacks = placer_params.allow_best_loss_fallbacks
         self._base_placement_seed = placer_params.placement_seed
         self._next_seed_offset = 0
         # Per-env sampling RNG keyed by (placement_seed, env_id): env i's draws are reproducible
@@ -143,7 +145,7 @@ class PooledObjectPlacer:
                 return
 
             batch_size = max_missing * self._num_envs
-            allow_fallback = batch_idx == max_solve_batches - 1
+            allow_fallback = self._allow_best_loss_fallbacks and batch_idx == max_solve_batches - 1
             ranked_results_per_env, layouts_per_env = self._solve_env_ranked_layouts(batch_size)
             self._store_env_matched_results(
                 ranked_results_per_env,

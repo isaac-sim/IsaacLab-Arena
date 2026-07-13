@@ -31,8 +31,8 @@ if TYPE_CHECKING:
     from isaacsim import SimulationApp
 
 _KITCHEN = "lightwheel_robocasa_kitchen"
-_COUNTER_PRIM = "{ENV_REGEX_NS}/" + _KITCHEN + "/counter_main_main_group"
-_DEMO_SOLVER_MAX_ITERS = 80
+_COUNTER_PRIM = "{ENV_REGEX_NS}/" + _KITCHEN + "/counter_right_main_group/top_geometry"
+_DEMO_SOLVER_MAX_ITERS = 250
 _DEMO_NUM_SPHERES = 8
 
 
@@ -47,8 +47,6 @@ def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, a
     Returns:
         The names of the background collision obstacles used by the builder.
     """
-    import torch
-
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -86,8 +84,10 @@ def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, a
     print(f"Using background collision obstacles: {collision_names}", flush=True)
 
     placer_params = ObjectPlacerParams(
-        max_placement_attempts=2,
+        max_placement_attempts=10,
         min_unique_layouts_per_env=1,
+        allow_best_loss_fallbacks=False,
+        resolve_on_reset=False,
         random_yaw_init=True,
         solver_params=RelationSolverParams(
             collision_mode=CollisionMode.MESH,
@@ -105,14 +105,12 @@ def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, a
     # reset() applies the relation-solved layout (position + yaw) via the reset event terms.
     env.reset()
 
-    # Idle with zero actions so the solved layout stays on screen.
-    action = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+    # Render without stepping physics so the solved placement stays on screen.
     step = 0
     while simulation_app.is_running():
         if view_steps and step >= view_steps:
             break
-        with torch.inference_mode():
-            env.step(action)
+        env.unwrapped.sim.render()
         step += 1
 
     return collision_names

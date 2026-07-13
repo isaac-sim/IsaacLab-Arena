@@ -13,6 +13,7 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.collision_object import CollisionObject
 
 
 class RelationSolverState:
@@ -31,7 +32,7 @@ class RelationSolverState:
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]],
         device: torch.device | None = None,
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
-        collision_objects: list[ObjectBase] | None = None,
+        collision_objects: list[CollisionObject] | None = None,
     ):
         """Initialize optimization state.
 
@@ -53,7 +54,7 @@ class RelationSolverState:
         self._all_objects = objects
         self._anchor_objects: set[ObjectBase] = set(anchor_objects)
         self._optimizable_objects = [obj for obj in objects if obj not in self._anchor_objects]
-        self._collision_objects: list[ObjectBase] = list(collision_objects) if collision_objects else []
+        self._collision_objects: list[CollisionObject] = list(collision_objects) if collision_objects else []
         assert not (set(self._collision_objects) & set(objects)), (
             "collision_objects must be disjoint from placed objects; an object cannot be "
             "both optimized and a fixed collision obstacle."
@@ -109,7 +110,7 @@ class RelationSolverState:
 
         # Anchors and background collision objects are fixed, so their world bounding boxes are
         # constant during the solve. Cache them once instead of recomputing every gradient step.
-        self._fixed_obstacle_world_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] = {
+        self._fixed_obstacle_world_bboxes: dict[ObjectBase | CollisionObject, AxisAlignedBoundingBox] = {
             obj: obj.get_world_bounding_box().to(self._device)
             for obj in (*self._anchor_objects, *self._collision_objects)
         }
@@ -143,7 +144,7 @@ class RelationSolverState:
         return self._anchor_objects
 
     @property
-    def collision_objects(self) -> list[ObjectBase]:
+    def collision_objects(self) -> list[CollisionObject]:
         """Copy of the collision-only fixed obstacles (constant world pose, no relation constraints)."""
         return list(self._collision_objects)
 
@@ -168,7 +169,7 @@ class RelationSolverState:
         opt_idx = self._global_to_opt_idx[idx]
         return self._optimizable_positions[:, opt_idx, :]
 
-    def get_fixed_obstacle_world_bbox(self, obj: ObjectBase) -> AxisAlignedBoundingBox:
+    def get_fixed_obstacle_world_bbox(self, obj: ObjectBase | CollisionObject) -> AxisAlignedBoundingBox:
         """Return the cached constant world bounding box for an anchor or collision object."""
         assert (
             obj in self._fixed_obstacle_world_bboxes

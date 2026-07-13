@@ -24,6 +24,7 @@ from isaaclab_arena.utils.yaw import rotate_points_by_yaw_batch, yaw_from_quat_x
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
@@ -62,14 +63,14 @@ def compute_no_overlap_loss_mesh(
         )
         obstacle_positions = torch.stack([
             (
-                mesh_cache.pair_anchor_pos[p]
-                if mesh_cache.pair_is_anchor[p]
+                mesh_cache.pair_fixed_obstacle_pos[p]
+                if mesh_cache.pair_obstacle_is_fixed[p]
                 else state.get_position(mesh_cache.pair_obstacle_objs[p])[b].detach()
             )
             for p in range(num_pairs)
         ])
 
-        fixed_obstacle_yaws = mesh_cache.pair_anchor_yaw
+        fixed_obstacle_yaws = mesh_cache.pair_fixed_obstacle_yaw
         has_any_yaw = orientations is not None or any(y != 0.0 for y in fixed_obstacle_yaws)
         if has_any_yaw:
             ori_b = orientations[b] if orientations is not None else {}
@@ -210,7 +211,7 @@ def _collect_mesh_pairs(
     state: RelationSolverState,
     manager: WarpMeshAndSphereCache,
     non_anchor_objects: list,
-    fixed_obstacles: list,
+    fixed_obstacles: list[ObjectBase | CollisionObject],
     on_pairs: set[tuple[int, int]],
     device: torch.device,
     warned_no_mesh: set[str],
@@ -268,9 +269,9 @@ def _collect_mesh_pairs(
                 MeshPairEntry(
                     subject=child,
                     obstacle=obstacle,
-                    is_anchor=True,
-                    anchor_pos=torch.tensor(pose.position_xyz, dtype=torch.float32, device=device),
-                    anchor_yaw=yaw_from_quat_xyzw(pose.rotation_xyzw),
+                    obstacle_is_fixed=True,
+                    fixed_obstacle_pos=torch.tensor(pose.position_xyz, dtype=torch.float32, device=device),
+                    fixed_obstacle_yaw=yaw_from_quat_xyzw(pose.rotation_xyzw),
                     centers_local=child_spheres[:, :3],
                     subject_applies_yaw=child_applies_yaw,
                     radii=child_spheres[:, 3],
@@ -312,9 +313,9 @@ def _collect_mesh_pairs(
                     MeshPairEntry(
                         subject=child,
                         obstacle=other,
-                        is_anchor=False,
-                        anchor_pos=None,
-                        anchor_yaw=0.0,
+                        obstacle_is_fixed=False,
+                        fixed_obstacle_pos=None,
+                        fixed_obstacle_yaw=0.0,
                         centers_local=child_spheres[:, :3],
                         subject_applies_yaw=child_applies_yaw,
                         radii=child_spheres[:, 3],
@@ -338,9 +339,9 @@ def _collect_mesh_pairs(
                     MeshPairEntry(
                         subject=other,
                         obstacle=child,
-                        is_anchor=False,
-                        anchor_pos=None,
-                        anchor_yaw=0.0,
+                        obstacle_is_fixed=False,
+                        fixed_obstacle_pos=None,
+                        fixed_obstacle_yaw=0.0,
                         centers_local=other_spheres[:, :3],
                         subject_applies_yaw=other_applies_yaw,
                         radii=other_spheres[:, 3],
@@ -406,9 +407,9 @@ def _finalize_mesh_cache(entries: list[MeshPairEntry], device: torch.device) -> 
         pair_subject_objs=[e.subject for e in entries],
         pair_obstacle_objs=[e.obstacle for e in entries],
         pair_subject_applies_yaw=[e.subject_applies_yaw for e in entries],
-        pair_is_anchor=[e.is_anchor for e in entries],
-        pair_anchor_pos=[e.anchor_pos for e in entries],
-        pair_anchor_yaw=[e.anchor_yaw for e in entries],
+        pair_obstacle_is_fixed=[e.obstacle_is_fixed for e in entries],
+        pair_fixed_obstacle_pos=[e.fixed_obstacle_pos for e in entries],
+        pair_fixed_obstacle_yaw=[e.fixed_obstacle_yaw for e in entries],
         pair_subject_bbox_min=torch.stack([e.subject_bbox_min for e in entries]),
         pair_subject_bbox_max=torch.stack([e.subject_bbox_max for e in entries]),
         pair_subject_bbox_includes_yaw=[e.subject_bbox_includes_yaw for e in entries],

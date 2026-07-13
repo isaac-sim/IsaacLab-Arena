@@ -15,6 +15,14 @@ from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
+class NoCollisionMeshError(ValueError):
+    """No extractable collision mesh exists at the requested USD location."""
+
+
+class UnsupportedCollisionGeometryError(NoCollisionMeshError):
+    """USD geometry exists but cannot be represented as a collision mesh."""
+
+
 def get_all_prims(
     stage: Usd.Stage, prim: Usd.Prim | None = None, prims_list: list[Usd.Prim] | None = None
 ) -> list[Usd.Prim]:
@@ -257,10 +265,11 @@ def extract_trimesh_from_usd(
     usd_path: str,
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
 ) -> trimesh.Trimesh:
-    """Extract all mesh prims from a USD into a single trimesh.
+    """Extract all UsdGeom.Mesh prims from a USD into a single trimesh.
 
     Scale is applied per-vertex in local frame before the prim-to-world transform.
     All scale components must be positive (negative flips winding/SDF sign).
+    Other Gprim geometry is rejected, not silently dropped.
 
     Args:
         usd_path: Path to the .usd/.usda/.usdc file.
@@ -279,10 +288,13 @@ def extract_trimesh_from_usd(
 
     all_verts: list[np.ndarray] = []
     all_faces: list[list[int]] = []
+    skipped_gprims: list[str] = []
     offset = 0
 
     for prim in stage.Traverse():
         if not prim.IsA(UsdGeom.Mesh):
+            if prim.IsA(UsdGeom.Gprim):
+                skipped_gprims.append(str(prim.GetPath()))
             continue
         mesh_prim = UsdGeom.Mesh(prim)
         points = mesh_prim.GetPointsAttr().Get()
@@ -313,9 +325,15 @@ def extract_trimesh_from_usd(
         all_verts.append(verts_world)
         offset += len(verts_world)
 
-    if not all_verts:
-        raise ValueError(f"No mesh geometry found in {usd_path}")
-    return trimesh.Trimesh(vertices=np.vstack(all_verts), faces=np.array(all_faces, dtype=np.int32))
+    if all_verts:
+        if skipped_gprims:
+            print(f"Unsupported non-mesh geometry in {usd_path}: {', '.join(skipped_gprims)}")
+        return trimesh.Trimesh(vertices=np.vstack(all_verts), faces=np.array(all_faces, dtype=np.int32))
+    if skipped_gprims:
+        raise UnsupportedCollisionGeometryError(
+            f"Unsupported non-mesh geometry in {usd_path}: {', '.join(skipped_gprims)}"
+        )
+    raise NoCollisionMeshError(f"No mesh geometry found in {usd_path}")
 
 
 def extract_trimesh_from_prim(
@@ -323,7 +341,10 @@ def extract_trimesh_from_prim(
     prim_path: str,
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
 ) -> trimesh.Trimesh:
-    """Extract mesh geometry under a prim into the prim's local frame."""
+    """Extract UsdGeom.Mesh geometry under a prim into the prim's local frame.
+
+    Other Gprim geometry is rejected, not silently dropped.
+    """
     assert all(
         s > 0 for s in scale
     ), f"All scale components must be positive (negative scale flips winding/SDF sign), got {scale}"
@@ -340,10 +361,13 @@ def extract_trimesh_from_prim(
 
     all_verts: list[np.ndarray] = []
     all_faces: list[list[int]] = []
+    skipped_gprims: list[str] = []
     offset = 0
 
     for prim in Usd.PrimRange(root_prim):
         if not prim.IsA(UsdGeom.Mesh):
+            if prim.IsA(UsdGeom.Gprim):
+                skipped_gprims.append(str(prim.GetPath()))
             continue
         mesh_prim = UsdGeom.Mesh(prim)
         points = mesh_prim.GetPointsAttr().Get()
@@ -371,6 +395,12 @@ def extract_trimesh_from_prim(
         all_verts.append(verts_root)
         offset += len(verts_root)
 
-    if not all_verts:
-        raise ValueError(f"No mesh geometry found under {prim_path}")
-    return trimesh.Trimesh(vertices=np.vstack(all_verts), faces=np.array(all_faces, dtype=np.int32))
+    if all_verts:
+        if skipped_gprims:
+            print(f"Unsupported non-mesh geometry under {prim_path}: {', '.join(skipped_gprims)}")
+        return trimesh.Trimesh(vertices=np.vstack(all_verts), faces=np.array(all_faces, dtype=np.int32))
+    if skipped_gprims:
+        raise UnsupportedCollisionGeometryError(
+            f"Unsupported non-mesh geometry under {prim_path}: {', '.join(skipped_gprims)}"
+        )
+    raise NoCollisionMeshError(f"No mesh geometry found under {prim_path}")
