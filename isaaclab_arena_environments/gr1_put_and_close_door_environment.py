@@ -50,6 +50,7 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
     def build(self, cfg: GR1PutAndCloseDoorEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
         from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
+        from isaaclab.sensors import CameraCfg
         from isaaclab.utils import configclass
 
         from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
@@ -116,8 +117,11 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
                     setattr(self.datagen_config, key, value)
 
         camera_offset = Pose(position_xyz=(0.12515, 0.0, 0.06776), rotation_xyzw=(0.11204, -0.17712, -0.79108, 0.57469))
-        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(
-            enable_cameras=cfg.enable_cameras, camera_offset=camera_offset
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
+        embodiment.camera_config.robot_pov_cam.offset = CameraCfg.OffsetCfg(
+            pos=camera_offset.position_xyz,
+            rot=camera_offset.rotation_xyzw,
+            convention="opengl",
         )
         kitchen_background = self.asset_registry.get_asset_by_name("lightwheel_robocasa_kitchen")(
             style_id=cfg.kitchen_style

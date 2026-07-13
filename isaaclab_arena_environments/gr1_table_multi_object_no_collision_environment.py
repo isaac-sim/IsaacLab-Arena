@@ -117,6 +117,8 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
 
     def build(self, cfg: GR1TableMultiObjectNoCollisionEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
+        from isaaclab.sensors import CameraCfg
+
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import IsAnchor
@@ -128,11 +130,13 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
             position_xyz=(0.12515, 0.0, 0.06776),
             rotation_xyzw=(0.11204, -0.17712, -0.79108, 0.57469),
         )
-        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(
-            enable_cameras=cfg.enable_cameras,
-            camera_offset=camera_offset,
-            use_tiled_camera=(cfg.num_envs > 1),
+        embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
+        embodiment.camera_config.robot_pov_cam.offset = CameraCfg.OffsetCfg(
+            pos=camera_offset.position_xyz,
+            rot=camera_offset.rotation_xyzw,
+            convention="opengl",
         )
+        embodiment.camera_config.set_use_tiled_camera(cfg.num_envs > 1)
         embodiment.set_initial_pose(
             Pose(
                 position_xyz=(1.2, 0.0, 0.995),

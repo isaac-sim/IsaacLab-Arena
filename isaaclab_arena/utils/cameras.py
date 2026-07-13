@@ -30,8 +30,8 @@ class ArenaCameraCfg:
     env builder resolves it via :meth:`get_cfg`.
     """
 
-    _use_tiled_camera: ClassVar[bool] = False
-    """Backing flag. Kept as a ClassVar so it is not treated as a camera field; instances shadow it."""
+    _use_tiled_camera: ClassVar[bool] = True
+    """Backing flag; tiled by default. Kept as a ClassVar so it is not treated as a camera field; instances shadow it."""
 
     @property
     def use_tiled_camera(self) -> bool:

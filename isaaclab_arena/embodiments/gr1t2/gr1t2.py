@@ -21,7 +21,7 @@ from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
-from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
+from isaaclab.sensors import CameraCfg
 from isaaclab.utils import configclass
 from isaaclab_assets.robots.fourier import GR1T2_CFG
 from isaaclab_tasks.manager_based.manipulation.pick_place.pickplace_gr1t2_env_cfg import ActionsCfg as GR1T2ActionsCfg
@@ -33,6 +33,7 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.common.mimic_utils import get_rigid_and_articulated_object_poses
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.terms.events import reset_all_articulation_joints
+from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 
 ARM_JOINT_NAMES_LIST = [
@@ -128,18 +129,12 @@ class GR1T2JointEmbodiment(GR1T2EmbodimentBase):
         self,
         enable_cameras: bool = False,
         initial_pose: Pose | None = None,
-        camera_offset: Pose | None = _DEFAULT_CAMERA_OFFSET,
-        use_tiled_camera: bool = True,  # Default to tiled for parallel evaluation
     ):
         super().__init__(enable_cameras, initial_pose)
         # Joint positional control
         self.action_config = GR1T2JointPositionActionCfg()
         # Tuned arm joints pd gains, smoother motions and less oscillations
         self.scene_config = GR1T2HighPDSceneCfg()
-        # Create camera config with private attributes to avoid scene parser issues
-        self.camera_config._is_tiled_camera = use_tiled_camera
-        self.camera_config._camera_offset = camera_offset
-        self.camera_config.__post_init__()  # Re-run to apply any custom offset
         # Lock waist joints
         self.scene_config.robot.actuators["trunk"] = ImplicitActuatorCfg(
             joint_names_expr=["waist_.*"],
@@ -152,10 +147,7 @@ class GR1T2JointEmbodiment(GR1T2EmbodimentBase):
 
 @register_asset
 class GR1T2PinkEmbodiment(GR1T2EmbodimentBase):
-    """Embodiment for the GR1T2 robot with PINK IK end-effector control.
-
-    By default uses regular camera for single-environment applications.
-    """
+    """Embodiment for the GR1T2 robot with PINK IK end-effector control."""
 
     name = "gr1_pink"
     tags = ["embodiment", "default"]
@@ -164,16 +156,10 @@ class GR1T2PinkEmbodiment(GR1T2EmbodimentBase):
         self,
         enable_cameras: bool = False,
         initial_pose: Pose | None = None,
-        camera_offset: Pose | None = _DEFAULT_CAMERA_OFFSET,
-        use_tiled_camera: bool = False,  # Default to regular for single env
     ):
         super().__init__(enable_cameras, initial_pose)
         # Pink IK EEF control
         self.action_config = GR1T2ActionsCfg()
-        # Create camera config with private attributes to avoid scene parser issues
-        self.camera_config._is_tiled_camera = use_tiled_camera
-        self.camera_config._camera_offset = camera_offset
-        self.camera_config.__post_init__()  # Re-run to apply any custom offset
 
         # Lock waist joints
         self.scene_config.robot.actuators["trunk"] = ImplicitActuatorCfg(
@@ -359,35 +345,27 @@ class GR1T2HighPDSceneCfg:
 
 
 @configclass
-class GR1T2CameraCfg:
-    """Configuration for cameras."""
+class GR1T2CameraCfg(ArenaCameraCfg):
+    """GR1T2 head POV camera rig using a standard (untiled) camera.
 
-    robot_pov_cam: CameraCfg | TiledCameraCfg = MISSING
+    Source of truth for the POV-camera intrinsics and default pose. Tiling is selected via the
+    inherited :class:`~isaaclab_arena.utils.cameras.ArenaCameraCfg`; the offset is set from the
+    embodiment's ``camera_offset``.
+    """
 
-    def __post_init__(self):
-        # Get configuration from private attributes set by embodiment constructor
-        # These use getattr with defaults to avoid scene parser treating them as assets
-        is_tiled_camera = getattr(self, "_is_tiled_camera", True)
-        camera_offset = getattr(self, "_camera_offset", _DEFAULT_CAMERA_OFFSET)
-
-        CameraClass = TiledCameraCfg if is_tiled_camera else CameraCfg
-        OffsetClass = CameraClass.OffsetCfg
-
-        common_kwargs = dict(
-            prim_path="{ENV_REGEX_NS}/Robot/head_yaw_link/RobotPOVCam",
-            update_period=0.0,
-            height=512,
-            width=512,
-            data_types=["rgb"],
-            spawn=sim_utils.PinholeCameraCfg(focal_length=18.15, clipping_range=(0.01, 1.0e5)),
-        )
-        offset = OffsetClass(
-            pos=camera_offset.position_xyz,
-            rot=camera_offset.rotation_xyzw,
+    robot_pov_cam: CameraCfg = CameraCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/head_yaw_link/RobotPOVCam",
+        update_period=0.0,
+        height=512,
+        width=512,
+        data_types=["rgb"],
+        spawn=sim_utils.PinholeCameraCfg(focal_length=18.15, clipping_range=(0.01, 1.0e5)),
+        offset=CameraCfg.OffsetCfg(
+            pos=_DEFAULT_CAMERA_OFFSET.position_xyz,
+            rot=_DEFAULT_CAMERA_OFFSET.rotation_xyzw,
             convention="opengl",
-        )
-
-        self.robot_pov_cam = CameraClass(offset=offset, **common_kwargs)
+        ),
+    )
 
 
 # NOTE(alexmillane, 2025.07.25): This is partially copied from pickplace_gr1t2_env_cfg.py
