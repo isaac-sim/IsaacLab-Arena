@@ -124,8 +124,7 @@ def validate_pool_ik(
                 ik_rot_threshold,
             )
             # TODO(xinjieyao, 2026-07-01): Make this persisted verdict reproducible/auditable.
-            if PlacementCheck.IK_REACHABLE not in layout.validation_results.validation_results:
-                layout.validation_results.add_validation_check(PlacementCheck.IK_REACHABLE, reachable)
+            layout.validation_results.validation_results[PlacementCheck.IK_REACHABLE] = reachable
             results.append((src_env_id, episode_index, layout.validation_results))
 
     results.sort(key=lambda item: (item[0], item[1]))

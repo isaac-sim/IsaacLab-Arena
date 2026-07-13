@@ -327,7 +327,7 @@ jobs:
     name: Build & push NGC image (post-merge)
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 60
-    needs: [test]       # base image only needs the base tests; cuRobo failures must not block it
+    needs: [test]       # only push if tests passed
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     container:

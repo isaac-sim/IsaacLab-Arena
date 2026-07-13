@@ -172,6 +172,7 @@ def top_down_grasp_pose_in_robot_frame(
     grasp_z_offset: float = 0.02,
     env_id: int = 0,
     robot_scene_name: str = "robot",
+    align_yaw_to_object: bool = True,
 ) -> torch.Tensor:
     """Top-down grasp pose at an object's center, expressed in the robot base frame.
 
@@ -181,6 +182,7 @@ def top_down_grasp_pose_in_robot_frame(
         grasp_z_offset: Height (m) added above the object center for the grasp.
         env_id: Index of the parallel env to read poses from.
         robot_scene_name: Scene key of the robot articulation.
+        align_yaw_to_object: Rotate the grasp about the vertical to match the object's yaw.
 
     Returns:
         A 4x4 homogeneous transform (robot base frame) on the env's device.
@@ -193,10 +195,30 @@ def top_down_grasp_pose_in_robot_frame(
     R_R_W = math_utils.matrix_from_quat(q_W_R_xyzw.unsqueeze(0))[0].T
     # Object pose in world frame.
     t_W_O = wp.to_torch(env.scene[object_name].data.root_pos_w)[env_id, :3]
+    q_W_O_xyzw = wp.to_torch(env.scene[object_name].data.root_quat_w)[env_id, :4]
     # Object pose in robot base frame.
     t_R_O = (R_R_W @ (t_W_O - t_W_R).unsqueeze(-1)).squeeze(-1).clone()
     # Add the grasp z offset.
     t_R_O[2] += grasp_z_offset
 
-    pose = Pose(position_xyz=tuple(t_R_O.tolist()), rotation_xyzw=tuple(DOWN_FACING_QUAT_XYZW.tolist()))
-    return pose.make_pose(t_R_O.device)
+    device = t_R_O.device
+    R_down = math_utils.matrix_from_quat(DOWN_FACING_QUAT_XYZW.to(device).unsqueeze(0))[0]
+    if align_yaw_to_object:
+        # Object yaw in the robot base frame, about the vertical axis.
+        q_R_O_xyzw = math_utils.quat_mul(math_utils.quat_inv(q_W_R_xyzw.unsqueeze(0)), q_W_O_xyzw.unsqueeze(0))[0]
+        R_R_O = math_utils.matrix_from_quat(q_R_O_xyzw.unsqueeze(0))[0]
+        yaw = torch.atan2(R_R_O[1, 0], R_R_O[0, 0])
+        # A parallel-jaw grasp is symmetric under a 180 deg spin about the approach axis, so fold the
+        # yaw into [-pi/2, pi/2] to keep the wrist away from its joint limit while matching the object.
+        yaw = torch.remainder(yaw + torch.pi / 2, torch.pi) - torch.pi / 2
+        cos_y, sin_y = torch.cos(yaw), torch.sin(yaw)
+        R_yaw = torch.eye(3, device=device, dtype=t_R_O.dtype)
+        R_yaw[0, 0], R_yaw[0, 1] = cos_y, -sin_y
+        R_yaw[1, 0], R_yaw[1, 1] = sin_y, cos_y
+        R_grasp = R_yaw @ R_down
+    else:
+        R_grasp = R_down
+
+    grasp_quat_xyzw = math_utils.quat_from_matrix(R_grasp.unsqueeze(0))[0]
+    pose = Pose(position_xyz=tuple(t_R_O.tolist()), rotation_xyzw=tuple(grasp_quat_xyzw.tolist()))
+    return pose.to_transform_matrix(device)

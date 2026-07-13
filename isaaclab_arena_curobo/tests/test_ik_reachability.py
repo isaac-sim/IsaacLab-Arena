@@ -32,10 +32,13 @@ from isaaclab_arena.tests.utils.subprocess import run_subprocess
 # load only after ``_main`` launches the SimulationApp (the Arena/Isaac Lab app-first convention);
 # torch and warp have no such constraint and live at module top.
 
-NEAR_OBJECT = "dex_cube"
-FAR_OBJECT = "red_cube"
+# red_cube lands as a cuRobo collision obstacle; dex_cube's USD is instanceable, so cuRobo's
+# get_obstacles_from_stage doesn't extract collision geometry for it. The sync test needs the object
+# that is actually present in the collision world (red_cube) to read its synced pose back.
+OBSTACLE_OBJECT = "red_cube"
+NON_OBSTACLE_OBJECT = "dex_cube"
 GRASP_Z_OFFSET = 0.05
-# Lateral shift (m) that puts the far object well outside the Franka's ~0.85 m reach.
+# Lateral shift (m) that puts the out-of-reach object well outside the Franka's ~0.85 m reach.
 UNREACHABLE_OFFSET_M = 3.0
 
 
@@ -75,13 +78,13 @@ def _build_droid_two_object_env(args_cli, robot_initial_pose=None):
     registry = AssetRegistry()
     background = registry.get_asset_by_name("table")()
     light = registry.get_asset_by_name("light")()
-    near_object = registry.get_asset_by_name(NEAR_OBJECT)()
-    far_object = registry.get_asset_by_name(FAR_OBJECT)()
+    obstacle_object = registry.get_asset_by_name(OBSTACLE_OBJECT)()
+    non_obstacle_object = registry.get_asset_by_name(NON_OBSTACLE_OBJECT)()
     # Spawn them apart so they don't start interpenetrating; the test overrides both poses after reset.
-    near_object.set_initial_pose(Pose(position_xyz=(0.45, -0.1, 0.2)))
-    far_object.set_initial_pose(Pose(position_xyz=(0.45, 0.1, 0.2)))
+    obstacle_object.set_initial_pose(Pose(position_xyz=(0.45, -0.1, 0.2)))
+    non_obstacle_object.set_initial_pose(Pose(position_xyz=(0.45, 0.1, 0.2)))
 
-    scene = Scene(assets=[background, light, near_object, far_object])
+    scene = Scene(assets=[background, light, obstacle_object, non_obstacle_object])
     embodiment = DroidAbsoluteJointPositionEmbodiment()
     if robot_initial_pose is not None:
         embodiment.set_initial_pose(robot_initial_pose)
@@ -158,9 +161,9 @@ def _run_sync_pose_check(args_cli) -> bool:
     )
     planner = make_curobo_planner(env, embodiment, env_id=0)
 
-    # FAR_OBJECT (red_cube) is the one that actually lands as a cuRobo obstacle: the near object's USD
-    # is instanceable, so cuRobo's get_obstacles_from_stage doesn't extract collision geometry for it.
-    sync_object = FAR_OBJECT
+    # Only the obstacle object actually lands in cuRobo's collision world (the other is instanceable
+    # and isn't extracted), so it's the one whose synced pose we can read back and check.
+    sync_object = OBSTACLE_OBJECT
     # Put the object at a known world pose with a non-identity (45 deg about Z) orientation.
     _set_object_world_pose(env, sync_object, (0.55, 0.15, 0.30), (0.0, 0.0, 0.38268343, 0.92387953))
     sync_object_poses_in_robot_base_frame(planner)
@@ -211,25 +214,31 @@ def _run_reachability_check(args_cli) -> bool:
     planner = make_curobo_planner(env, embodiment, env_id=0)
 
     # Anchor reachability to the arm's own workspace: the current end-effector position is reachable by
-    # construction, so the near object goes there and the far object is shifted out of reach.
+    # construction, so one object goes there and the other is shifted well out of reach.
     robot = env.scene["robot"]
     ee_idx = robot.data.body_names.index(planner.config.ee_link_name)
     ee_pos_w = wp.to_torch(robot.data.body_pos_w)[0, ee_idx, :3].clone()
 
     far_pos_w = ee_pos_w.clone()
     far_pos_w[1] += UNREACHABLE_OFFSET_M
-    _set_object_world_xyz(env, NEAR_OBJECT, ee_pos_w)
-    _set_object_world_xyz(env, FAR_OBJECT, far_pos_w)
+    _set_object_world_xyz(env, OBSTACLE_OBJECT, ee_pos_w)
+    _set_object_world_xyz(env, NON_OBSTACLE_OBJECT, far_pos_w)
 
     sync_object_poses_in_robot_base_frame(planner)
 
     grasp_poses = torch.stack([
-        top_down_grasp_pose_in_robot_frame(env, NEAR_OBJECT, GRASP_Z_OFFSET),
-        top_down_grasp_pose_in_robot_frame(env, FAR_OBJECT, GRASP_Z_OFFSET),
+        top_down_grasp_pose_in_robot_frame(env, OBSTACLE_OBJECT, GRASP_Z_OFFSET),
+        top_down_grasp_pose_in_robot_frame(env, NON_OBSTACLE_OBJECT, GRASP_Z_OFFSET),
     ])
     feasible, pos_err, rot_err = check_ik_feasibility_batch_goal_poses(planner, grasp_poses)
-    print(f"near: feasible={bool(feasible[0])} pos_err={float(pos_err[0]):.4f}m rot_err={float(rot_err[0]):.4f}rad")
-    print(f"far:  feasible={bool(feasible[1])} pos_err={float(pos_err[1]):.4f}m rot_err={float(rot_err[1]):.4f}rad")
+    print(
+        f"reach: feasible={bool(feasible[0])} pos_err={float(pos_err[0]):.4f}m rot_err={float(rot_err[0]):.4f}rad",
+        flush=True,
+    )
+    print(
+        f"far:   feasible={bool(feasible[1])} pos_err={float(pos_err[1]):.4f}m rot_err={float(rot_err[1]):.4f}rad",
+        flush=True,
+    )
 
     return bool(feasible[0].item()) and not bool(feasible[1].item())
 
