@@ -17,7 +17,7 @@ from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironme
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
-from isaaclab_arena.hydra.experiment_composition import load_arena_experiment_from_yaml
+from isaaclab_arena.hydra.typed_experiment_loader import load_arena_experiment_from_yaml
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena_environments.cli import ensure_environments_registered
 
