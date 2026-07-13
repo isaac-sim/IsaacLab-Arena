@@ -39,8 +39,8 @@ class RelationBase:
     in its relations list.
     """
 
-    def validate_configuration(self, subject: ObjectBase, objects: set[ObjectBase]) -> None:
-        """Validate this relation for its subject and participating objects."""
+    def validate_placement_configuration(self, subject: ObjectBase, objects: set[ObjectBase]) -> None:
+        """Validate this relation for placement among the participating objects."""
 
 
 class UnaryRelation(RelationBase):
@@ -96,7 +96,7 @@ class FaceTo(RelationBase):
         """Return whether the relation constrains a single object."""
         return False
 
-    def validate_configuration(self, subject: ObjectBase, objects: set[ObjectBase]) -> None:
+    def validate_placement_configuration(self, subject: ObjectBase, objects: set[ObjectBase]) -> None:
         """Validate the facing relation for its subject and target."""
         face_to_count = sum(isinstance(relation, FaceTo) for relation in subject.get_relations())
         assert face_to_count == 1, f"Object '{subject.name}' has more than one FaceTo relation."

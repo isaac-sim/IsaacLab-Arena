@@ -12,8 +12,9 @@ from isaaclab.envs import ManagerBasedEnv
 
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
-from isaaclab_arena.utils.pose import Pose, rotate_quat_by_yaw, yaw_from_quat_xyzw
+from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.velocity import Velocity
+from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase

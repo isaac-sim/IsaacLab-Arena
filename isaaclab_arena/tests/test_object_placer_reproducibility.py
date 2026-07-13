@@ -18,7 +18,8 @@ from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, RotateAroundSolution, Side
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, get_random_pose_within_bounding_box
-from isaaclab_arena.utils.pose import Pose, PosePerEnv, rotate_quat_by_yaw, wrap_angle_to_pi
+from isaaclab_arena.utils.pose import Pose, PosePerEnv
+from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, wrap_angle_to_pi
 
 
 def _create_test_objects():

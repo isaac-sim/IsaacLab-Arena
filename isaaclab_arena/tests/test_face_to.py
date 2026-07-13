@@ -24,14 +24,8 @@ from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import AtPosition, FaceTo, IsAnchor, RandomAroundSolution, RotateAroundSolution
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.pose import (
-    Pose,
-    PosePerEnv,
-    PoseRange,
-    wrap_angle_to_pi,
-    yaw_from_quat_xyzw,
-    yaw_toward_positions,
-)
+from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
+from isaaclab_arena.utils.yaw import wrap_angle_to_pi, yaw_from_quat_xyzw, yaw_toward_positions
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
@@ -108,7 +102,7 @@ def test_yaw_toward_positions_is_translation_invariant_and_batched():
 
 
 def test_yaw_toward_positions_rejects_near_coincident_xy():
-    from isaaclab_arena.utils.pose import MINIMUM_FACING_DIRECTION_XY_M
+    from isaaclab_arena.utils.yaw import MINIMUM_FACING_DIRECTION_XY_M
 
     epsilon = MINIMUM_FACING_DIRECTION_XY_M
     subjects = torch.zeros((3, 3))

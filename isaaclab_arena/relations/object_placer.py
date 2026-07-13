@@ -30,16 +30,15 @@ from isaaclab_arena.relations.relations import (
 from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, mesh_sdf
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.pose import (
-    Pose,
-    PosePerEnv,
+from isaaclab_arena.utils.pose import Pose, PosePerEnv
+from isaaclab_arena.utils.random import get_random_rotation
+from isaaclab_arena.utils.yaw import (
     centers_in_target_frame,
     rotate_quat_by_yaw,
     wrap_angle_to_pi,
     yaw_from_quat_xyzw,
     yaw_toward_positions,
 )
-from isaaclab_arena.utils.random import get_random_rotation
 
 if TYPE_CHECKING:
     import trimesh
@@ -184,7 +183,7 @@ class ObjectPlacer:
                 "at least one relation (e.g., On(), NextTo(), or IsAnchor())."
             )
             for relation in obj.get_relations():
-                relation.validate_configuration(obj, object_set)
+                relation.validate_placement_configuration(obj, object_set)
 
         anchor_objects = get_anchor_objects(objects)
         assert len(anchor_objects) > 0, (
@@ -982,16 +981,16 @@ class ObjectPlacer:
                 continue
 
             rotate_marker = self._get_relation(obj, RotateAroundSolution)
-            base_rotation = rotate_marker.get_rotation_xyzw() if rotate_marker else (0.0, 0.0, 0.0, 1.0)
-            marker_yaw = yaw_from_quat_xyzw(base_rotation)
+            marker_rotation = rotate_marker.get_rotation_xyzw() if rotate_marker else (0.0, 0.0, 0.0, 1.0)
+            marker_yaw = yaw_from_quat_xyzw(marker_rotation)
 
             def _yaw_delta(env_idx: int) -> float:
-                """Return the yaw to compose with the base rotation."""
+                """Return the yaw to compose with the RotateAroundSolution marker rotation."""
                 return orientations_per_env[env_idx].get(obj, marker_yaw) - marker_yaw
 
             if num_envs == 1:
                 pos = positions_per_env[0][obj]
-                rotation_xyzw = rotate_quat_by_yaw(base_rotation, _yaw_delta(0))
+                rotation_xyzw = rotate_quat_by_yaw(marker_rotation, _yaw_delta(0))
                 random_marker = self._get_relation(obj, RandomAroundSolution)
                 if random_marker is not None:
                     obj.set_initial_pose(random_marker.to_pose_range_centered_at(pos, rotation_xyzw=rotation_xyzw))
@@ -1001,7 +1000,7 @@ class ObjectPlacer:
                 poses = [
                     Pose(
                         position_xyz=positions_per_env[env_idx][obj],
-                        rotation_xyzw=rotate_quat_by_yaw(base_rotation, _yaw_delta(env_idx)),
+                        rotation_xyzw=rotate_quat_by_yaw(marker_rotation, _yaw_delta(env_idx)),
                     )
                     for env_idx in range(num_envs)
                 ]
