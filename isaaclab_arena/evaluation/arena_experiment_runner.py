@@ -11,9 +11,9 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     load_arena_experiment_from_config_file,
     validate_experiment_config_path,
 )
+from isaaclab_arena.evaluation.arena_experiment_runner_cli import parse_arena_experiment_runner_args
 from isaaclab_arena.evaluation.arena_run import build_runs_info_table
-from isaaclab_arena.evaluation.eval_runner_cli import parse_eval_runner_args
-from isaaclab_arena.evaluation.legacy_eval_runner import (
+from isaaclab_arena.evaluation.legacy_arena_experiment_runner import (
     legacy_json_experiment_requires_cameras,
     load_legacy_json_experiment_config,
     run_legacy_json_in_chunks,
@@ -36,7 +36,7 @@ def list_variations(experiment: ArenaExperiment) -> None:
 
 
 # TODO(cvolk, 2026-07-10): [typed-config-migration] Typed YAML is composed only
-# after SimulationApp starts, so eval_runner cannot determine camera requirements
+# after SimulationApp starts, so arena_experiment_runner cannot determine camera requirements
 # in time to configure AppLauncher. Add enable_cameras to ArenaEnvironmentCfg,
 # update each factory to honor it or reject unsupported cameras, and apply YAML
 # values and Hydra overrides before startup. Enable AppLauncher when any Run enables
@@ -51,7 +51,7 @@ def _assert_camera_support_enabled(experiment: ArenaExperiment, enable_cameras: 
 
 
 def main():
-    args_cli, experiment_overrides = parse_eval_runner_args()
+    args_cli, experiment_overrides = parse_arena_experiment_runner_args()
     experiment_config_path = validate_experiment_config_path(args_cli.experiment_config)
     legacy_experiment_config = load_legacy_json_experiment_config(
         experiment_config_path,
