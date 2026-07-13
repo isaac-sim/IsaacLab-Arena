@@ -24,64 +24,6 @@ DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
 DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
 
 
-def _ping(client: OpenAI, model: str) -> str:
-    """Smoke-test the endpoint + API key + model with a minimal request.
-
-    Args:
-        client: An OpenAI-compatible client (typically ``openai.OpenAI``).
-        model: Model identifier forwarded to
-            ``client.chat.completions.create(model=...)``.
-
-    Returns:
-        The model's response text.
-    """
-    # TODO(qianl): wrap with transient-error retry.
-    resp = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": "Respond with exactly: OK"}],
-        temperature=0,
-        max_tokens=8,
-    )
-    choices = getattr(resp, "choices", None) or []
-    assert choices, (
-        f"ping to model {model!r} returned HTTP 200 with no choices "
-        "(content filter / guardrail / rate-limit response with empty body)."
-    )
-    return choices[0].message.content or ""
-
-
-def build_strict_schema(model_cls: type[BaseModel]) -> dict[str, Any]:
-    """Return ``model_cls``'s JSON schema munged for OpenAI strict mode."""
-    schema = copy.deepcopy(model_cls.model_json_schema())
-    _apply_strict_constraints(schema)
-    return schema
-
-
-def _apply_strict_constraints(node: dict | list) -> None:
-    """Recursively apply OpenAI strict-mode constraints to a JSON-schema node."""
-    if isinstance(node, dict):
-        if node.get("type") == "object" and "properties" in node:
-            node["additionalProperties"] = False
-            node["required"] = list(node["properties"].keys())
-        # Strict mode forbids ``default`` keys (every field is required, so
-        # defaults can never apply). Drop them defensively at every level.
-        node.pop("default", None)
-        for v in node.values():
-            _apply_strict_constraints(v)
-    elif isinstance(node, list):
-        for v in node:
-            _apply_strict_constraints(v)
-
-
-def _extract_response_text(message: ChatCompletionMessage) -> str | None:
-    """Pull structured-output text from a chat-completion message."""
-    if message.content:
-        return message.content
-    # ``reasoning_content`` is NVIDIA DeepSeek's provider-specific
-    # channel; it is not a declared field on ``ChatCompletionMessage``
-    return getattr(message, "reasoning_content", None)
-
-
 @dataclass(frozen=True)
 class StructuredOutputRequest:
     """One JSON-schema structured-output chat completion."""
@@ -194,3 +136,61 @@ class InferenceBackend:
             f"Model {self._model!r} failed {request.retry_label} after "
             f"{1 + self._max_retries} attempts. Last error: {last_exc}"
         ) from last_exc
+
+
+def build_strict_schema(model_cls: type[BaseModel]) -> dict[str, Any]:
+    """Return ``model_cls``'s JSON schema munged for OpenAI strict mode."""
+    schema = copy.deepcopy(model_cls.model_json_schema())
+    _apply_strict_constraints(schema)
+    return schema
+
+
+def _ping(client: OpenAI, model: str) -> str:
+    """Smoke-test the endpoint + API key + model with a minimal request.
+
+    Args:
+        client: An OpenAI-compatible client (typically ``openai.OpenAI``).
+        model: Model identifier forwarded to
+            ``client.chat.completions.create(model=...)``.
+
+    Returns:
+        The model's response text.
+    """
+    # TODO(qianl): wrap with transient-error retry.
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": "Respond with exactly: OK"}],
+        temperature=0,
+        max_tokens=8,
+    )
+    choices = getattr(resp, "choices", None) or []
+    assert choices, (
+        f"ping to model {model!r} returned HTTP 200 with no choices "
+        "(content filter / guardrail / rate-limit response with empty body)."
+    )
+    return choices[0].message.content or ""
+
+
+def _apply_strict_constraints(node: dict | list) -> None:
+    """Recursively apply OpenAI strict-mode constraints to a JSON-schema node."""
+    if isinstance(node, dict):
+        if node.get("type") == "object" and "properties" in node:
+            node["additionalProperties"] = False
+            node["required"] = list(node["properties"].keys())
+        # Strict mode forbids ``default`` keys (every field is required, so
+        # defaults can never apply). Drop them defensively at every level.
+        node.pop("default", None)
+        for v in node.values():
+            _apply_strict_constraints(v)
+    elif isinstance(node, list):
+        for v in node:
+            _apply_strict_constraints(v)
+
+
+def _extract_response_text(message: ChatCompletionMessage) -> str | None:
+    """Pull structured-output text from a chat-completion message."""
+    if message.content:
+        return message.content
+    # ``reasoning_content`` is NVIDIA DeepSeek's provider-specific
+    # channel; it is not a declared field on ``ChatCompletionMessage``
+    return getattr(message, "reasoning_content", None)

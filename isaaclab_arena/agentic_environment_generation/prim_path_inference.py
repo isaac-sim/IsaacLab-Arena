@@ -25,6 +25,86 @@ if TYPE_CHECKING:
     from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
 
 
+class PrimPathInference:
+    """Identify object_reference prim_path from the background USD."""
+
+    def __init__(self, inference_backend: InferenceBackend):
+        self._inference_backend = inference_backend
+        self._schema = build_strict_schema(ResolvedObjectReferences)
+
+    def infer(
+        self,
+        spec: ArenaEnvGraphSpec,
+        traces: list[str],
+    ) -> ArenaEnvGraphSpec | None:
+        """Resolve the background USD prim_path for object references using semantic/physical hints.
+
+        The input spec carries object_references inferred from the natural-language
+        prompt, each with semantic hints and an object_type but no prim_path.
+        This step maps them to prim paths drawn from the background prim tree.
+
+        Args:
+            spec: Spec whose object references have unresolved ``prim_path`` values.
+            traces: Accumulator for validation error lines, extended in place when the
+                model output fails schema or prim-tree validation.
+
+        Returns:
+            A copy of ``spec`` with resolved prim paths on success, otherwise ``None``
+            (with error lines appended to ``traces``).
+        """
+        # Defer pxr import until call time to avoid conflict with SimulationApp.
+        from isaaclab_arena.utils.usd_prim_tree import load_usd_prim_tree
+
+        usd_path = spec.background.resolve_usd_path()
+        prim_tree = load_usd_prim_tree(usd_path)
+        data = self._inference_backend.run_json(
+            StructuredOutputRequest(
+                schema_name="ResolvedObjectReferences",
+                schema=self._schema,
+                system=self._system_prompt(),
+                user=self._user_message(spec, prim_tree),
+                retry_label="resolve_usd_prim",
+            )
+        )
+        try:
+            parsed = ResolvedObjectReferences.model_validate(data)
+            _validate_against_prim_tree(parsed.object_references, prim_tree)
+            return _merge_resolved_object_references(spec, parsed.object_references)
+        except ValidationError as exc:
+            traces.extend(format_validation_error(exc))
+            return None
+        except AssertionError as exc:
+            traces.append(str(exc))
+            return None
+
+    @staticmethod
+    def _user_message(spec: ArenaEnvGraphSpec, prim_tree: list[UsdPrimRecord]) -> str:
+        return f"{_prim_tree_catalog(prim_tree)}\n\n{_object_reference_context(spec)}"
+
+    @staticmethod
+    def _system_prompt() -> str:
+        return """\
+You resolve object_reference prim_path values for an ArenaEnvGraphSpec.
+
+GUIDANCE:
+- BACKGROUND PRIM TREE lists prims in nested form: each indented line shows a path suffix
+  under its parent; join ancestor suffixes with '/' to form the full relative_path for prim_path.
+- Pick prim_path only from those full relative_path values.
+- prim_path must be a relative suffix under the parent background — never include
+  {ENV_REGEX_NS} or the background registry name.
+- Respect each input object_reference object_type: pick a prim_path whose object_type in
+  BACKGROUND PRIM TREE matches the object_type from the input spec. Do not change object_type.
+- When the input object_type is articulation, pick the articulation root prim (the line that
+  lists joint names), not a rigid child mesh or collision prim under it.
+- When the input object_type is base, pick an anchor-surface prim (counter top, shelf, etc.).
+- When an OpenDoorTask targets an articulation object_reference, set params.openable_joint_name
+  to one of the joint names listed for that prim.
+- Return one object_references entry per unresolved reference from the input, preserving id,
+  parent_id, and object_type. Only change prim_path and params.
+- Do not invent prim paths absent from BACKGROUND PRIM TREE.
+"""
+
+
 def _prim_tree_catalog(prim_tree: list[UsdPrimRecord]) -> str:
     """Format the background USD prim tree for the user message.
 
@@ -135,84 +215,3 @@ def _merge_resolved_object_references(
             )
         )
     return spec.model_copy(update={"object_references": merged_refs})
-
-
-class PrimPathInference:
-    """Resolve object_reference prim_path values against background USD."""
-
-    def __init__(self, inference_backend: InferenceBackend):
-        """Wire prim-path inference to a structured-output backend.
-
-        Args:
-            inference_backend: Shared LLM client for JSON-schema completion requests.
-        """
-        self._inference_backend = inference_backend
-        self._schema = build_strict_schema(ResolvedObjectReferences)
-
-    def infer(
-        self,
-        spec: ArenaEnvGraphSpec,
-        traces: list[str],
-    ) -> ArenaEnvGraphSpec | None:
-        """Resolve object_reference prim_path values against the background USD prim tree.
-
-        Args:
-            spec: Spec whose object references carry unresolved prim paths.
-            traces: Accumulator for validation error lines, extended in place when the
-                model output fails prim-tree validation.
-
-        Returns:
-            The spec with resolved prim paths on success, otherwise ``None`` (with
-            error lines appended to ``traces``).
-        """
-        # Defer pxr import until call time to avoid conflict with SimulationApp.
-        from isaaclab_arena.utils.usd_prim_tree import load_usd_prim_tree
-
-        usd_path = spec.background.resolve_usd_path()
-        prim_tree = load_usd_prim_tree(usd_path)
-        data = self._inference_backend.run_json(
-            StructuredOutputRequest(
-                schema_name="ResolvedObjectReferences",
-                schema=self._schema,
-                system=self._system_prompt(),
-                user=self._user_message(spec, prim_tree),
-                retry_label="resolve_usd_prim",
-            )
-        )
-        try:
-            parsed = ResolvedObjectReferences.model_validate(data)
-            _validate_against_prim_tree(parsed.object_references, prim_tree)
-            return _merge_resolved_object_references(spec, parsed.object_references)
-        except ValidationError as exc:
-            traces.extend(format_validation_error(exc))
-            return None
-        except AssertionError as exc:
-            traces.append(str(exc))
-            return None
-
-    @staticmethod
-    def _user_message(spec: ArenaEnvGraphSpec, prim_tree: list[UsdPrimRecord]) -> str:
-        return f"{_prim_tree_catalog(prim_tree)}\n\n{_object_reference_context(spec)}"
-
-    @staticmethod
-    def _system_prompt() -> str:
-        return """\
-You resolve object_reference prim_path values for an ArenaEnvGraphSpec.
-
-GUIDANCE:
-- BACKGROUND PRIM TREE lists prims in nested form: each indented line shows a path suffix
-  under its parent; join ancestor suffixes with '/' to form the full relative_path for prim_path.
-- Pick prim_path only from those full relative_path values.
-- prim_path must be a relative suffix under the parent background — never include
-  {ENV_REGEX_NS} or the background registry name.
-- Respect each input object_reference object_type: pick a prim_path whose object_type in
-  BACKGROUND PRIM TREE matches the object_type from the input spec. Do not change object_type.
-- When the input object_type is articulation, pick the articulation root prim (the line that
-  lists joint names), not a rigid child mesh or collision prim under it.
-- When the input object_type is base, pick an anchor-surface prim (counter top, shelf, etc.).
-- When an OpenDoorTask targets an articulation object_reference, set params.openable_joint_name
-  to one of the joint names listed for that prim.
-- Return one object_references entry per unresolved reference from the input, preserving id,
-  parent_id, and object_type. Only change prim_path and params.
-- Do not invent prim paths absent from BACKGROUND PRIM TREE.
-"""

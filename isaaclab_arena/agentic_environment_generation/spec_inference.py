@@ -24,14 +24,9 @@ from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSp
 
 
 class SpecInference:
-    """Natural-language prompt -> ArenaEnvGraphSpec JSON."""
+    """Infers ArenaEnvGraphSpec from a natural-language prompt."""
 
     def __init__(self, inference_backend: InferenceBackend):
-        """Wire spec inference to a structured-output backend.
-
-        Args:
-            inference_backend: Shared LLM client for JSON-schema completion requests.
-        """
         self._inference_backend = inference_backend
         self._schema = build_strict_schema(ArenaEnvGraphSpec)
 

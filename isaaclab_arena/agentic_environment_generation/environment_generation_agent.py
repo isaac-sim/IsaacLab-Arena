@@ -19,6 +19,101 @@ from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSp
 from isaaclab_arena.relations.relations import RelationBase
 
 # ---------------------------------------------------------------------------
+# Environment generation agent
+# ---------------------------------------------------------------------------
+
+
+class EnvironmentGenerationAgent:
+    """Parses a natural-language env-generation prompt into an ArenaEnvGraphSpec."""
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str | None = None,
+        base_url: str | None = None,
+        temperature: float = 0.2,
+        max_tokens: int = 4096,
+        max_retries: int = 3,
+    ):
+        """Configure the OpenAI-compatible client and validate the model.
+
+        Args:
+            api_key: API token for the inference endpoint. Falls back
+                to the ``NV_API_KEY`` environment variable.
+            model: Model identifier at the inference endpoint.
+                Must support OpenAI-compatible structured outputs.
+            base_url: OpenAI-compatible inference endpoint.
+            temperature: Sampling temperature forwarded to the model. Kept
+                low by default (0.2) because spec generation is a
+                deterministic-ish translation task — high temperature
+                yields creative but invalid schemas.
+            max_tokens: Hard cap on the response length.
+            max_retries: Number of additional attempts after a recoverable failure
+                (network errors, timeouts, empty responses, malformed JSON). Each
+                retry is a fresh API call.
+        """
+        inference_backend = InferenceBackend(
+            api_key=api_key,
+            model=model,
+            base_url=base_url,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            max_retries=max_retries,
+        )
+        self.spec_inference = SpecInference(inference_backend)
+        self.prim_path_inference = PrimPathInference(inference_backend)
+        self._traces: list[str] = []
+
+    @property
+    def traces(self) -> tuple[str, ...]:
+        """Diagnostic lines from the most recent :meth:`generate_spec` call."""
+        return tuple(self._traces)
+
+    def generate_spec(
+        self,
+        prompt: str,
+        asset_catalog: AssetCatalogue | None = None,
+        relation_catalog: RelationCatalogue | None = None,
+        task_catalog: TaskCatalogue | None = None,
+    ) -> tuple[ArenaEnvGraphSpec | None, dict[str, Any] | None]:
+        """Call the model with user prompt and return the parsed ArenaEnvGraphSpec.
+
+        Args:
+            prompt: Natural-language env description from the end user.
+            asset_catalog: Pre-built asset vocabulary. When ``None``, built
+                from the live ``AssetRegistry``.
+            relation_catalog: Pre-built relation vocabulary. When ``None``, built
+                from the live ``ObjectRelationLibraryRegistry``.
+            task_catalog: Pre-built task vocabulary. When ``None``, built from
+                ``TaskRegistry`` tasks marked ``@agent_ready``.
+
+        Returns:
+            A ``(spec, data)`` tuple. On success, ``spec`` is validated and
+            ``data`` is None. On failure, ``spec`` is None and ``data`` is the corresponding JSON dict.
+            When validation fails, ``agent.traces`` holds the diagnostic trace.
+        """
+        self._traces = []
+        asset_catalog = asset_catalog or build_asset_catalogue()
+        relation_catalog = relation_catalog or build_relation_catalogue()
+        task_catalog = task_catalog or build_task_catalogue()
+        spec, data = self.spec_inference.infer(
+            prompt,
+            self._traces,
+            asset_catalog=asset_catalog,
+            relation_catalog=relation_catalog,
+            task_catalog=task_catalog,
+        )
+        if spec is None:
+            return None, data
+        if spec.object_references:
+            resolved = self.prim_path_inference.infer(spec, self._traces)
+            if resolved is None:
+                return None, spec.to_dict()
+            spec = resolved
+        return spec, None
+
+
+# ---------------------------------------------------------------------------
 # Asset catalogue (AssetRegistry → user-prompt blocks)
 # ---------------------------------------------------------------------------
 
@@ -180,93 +275,3 @@ def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
             )
         )
     return catalogue
-
-
-# ---------------------------------------------------------------------------
-# Environment generation agent
-# ---------------------------------------------------------------------------
-
-
-class EnvironmentGenerationAgent:
-    """Parses a natural-language env-generation prompt into an ArenaEnvGraphSpec."""
-
-    def __init__(
-        self,
-        api_key: str | None = None,
-        model: str | None = None,
-        base_url: str | None = None,
-        temperature: float = 0.2,
-        max_tokens: int = 4096,
-        max_retries: int = 3,
-    ):
-        """Configure the OpenAI-compatible client and validate the model.
-
-        Args:
-            api_key: API token for the inference endpoint. Falls back
-                to the ``NV_API_KEY`` environment variable.
-            model: Model identifier at the inference endpoint.
-                Must support OpenAI-compatible structured outputs.
-            base_url: OpenAI-compatible inference endpoint.
-            temperature: Sampling temperature forwarded to the model. Kept
-                low by default (0.2) because spec generation is a
-                deterministic-ish translation task — high temperature
-                yields creative but invalid schemas.
-            max_tokens: Hard cap on the response length.
-            max_retries: Number of additional attempts after a recoverable failure
-                (network errors, timeouts, empty responses, malformed JSON). Each
-                retry is a fresh API call.
-        """
-        inference_backend = InferenceBackend(
-            api_key=api_key,
-            model=model,
-            base_url=base_url,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            max_retries=max_retries,
-        )
-        self.spec_inference = SpecInference(inference_backend)
-        self.prim_path_inference = PrimPathInference(inference_backend)
-        self.traces: list[str] = []
-
-    def generate_spec(
-        self,
-        prompt: str,
-        asset_catalog: AssetCatalogue | None = None,
-        relation_catalog: RelationCatalogue | None = None,
-        task_catalog: TaskCatalogue | None = None,
-    ) -> tuple[ArenaEnvGraphSpec | None, dict[str, Any] | None]:
-        """Call the model with user prompt and return the parsed ArenaEnvGraphSpec.
-
-        Args:
-            prompt: Natural-language env description from the end user.
-            asset_catalog: Pre-built asset vocabulary. When ``None``, built
-                from the live ``AssetRegistry``.
-            relation_catalog: Pre-built relation vocabulary. When ``None``, built
-                from the live ``ObjectRelationLibraryRegistry``.
-            task_catalog: Pre-built task vocabulary. When ``None``, built from
-                ``TaskRegistry`` tasks marked ``@agent_ready``.
-
-        Returns:
-            A ``(spec, data)`` tuple. On success, ``spec`` is validated and
-            ``data`` is None. On failure, ``spec`` is None and ``data`` is the corresponding JSON dict.
-            When validation fails, ``agent.traces`` holds the error trace.
-        """
-        self.traces = []
-        asset_catalog = asset_catalog or build_asset_catalogue()
-        relation_catalog = relation_catalog or build_relation_catalogue()
-        task_catalog = task_catalog or build_task_catalogue()
-        spec, data = self.spec_inference.infer(
-            prompt,
-            self.traces,
-            asset_catalog=asset_catalog,
-            relation_catalog=relation_catalog,
-            task_catalog=task_catalog,
-        )
-        if spec is None:
-            return None, data
-        if spec.object_references:
-            resolved = self.prim_path_inference.infer(spec, self.traces)
-            if resolved is None:
-                return None, spec.to_dict()
-            spec = resolved
-        return spec, None
