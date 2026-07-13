@@ -5,14 +5,15 @@
 
 from __future__ import annotations
 
-import argparse
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment
-from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 
 # Plain (no-stand) Franka panda so the robot is ground-mounted at the origin, matching the
 # LIBERO floor scene (the default franka_ik USD is mounted on a table-height stand).
@@ -33,23 +34,67 @@ _REACH_BOX = dict(x_min=0.15, x_max=0.42, y_min=-0.22, y_max=0.22)
 # Tabletop height. Robot base + basket + groceries all sit on the table at this z; raising everything by
 # the same amount preserves the base->object geometry, so reachability/grasps are unchanged vs the floor.
 _TABLE_TOP_Z = 0.40
+_PLACEMENT_CLEARANCE_M = 0.06
+_DEFAULT_OBJECTS = [
+    "alphabet_soup_can_hope_robolab",
+    "tomato_sauce_can_hope_robolab",
+    "milk_carton_hope_robolab",
+]
+
+
+def _make_libero_placer_params() -> ObjectPlacerParams:
+    """Return LIBERO placement defaults for the Arena builder to compose."""
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+
+    return ObjectPlacerParams(
+        solver_params=RelationSolverParams(
+            clearance_m=_PLACEMENT_CLEARANCE_M,
+            verbose=False,
+            save_position_history=False,
+        )
+    )
+
+
+@dataclass
+class LiberoObjectPackingEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the LIBERO grocery-packing environment."""
+
+    enable_cameras: bool = False
+    objects: list[str] = field(default_factory=lambda: list(_DEFAULT_OBJECTS))
+    basket: str = "grey_bin_robolab"
+    control: str = "ik"
+    teleop_device: str | None = None
+    eval_task: str = "none"
+
+    def __post_init__(self) -> None:
+        assert self.control in {
+            "ik",
+            "joint_pos",
+            "droid_joint_pos",
+        }, f"Unsupported control mode: {self.control}"
+        assert self.eval_task in {
+            "none",
+            "pick_place_in_basket",
+            "stock_pick_place",
+            "stock_sort",
+        }, f"Unsupported evaluation task: {self.eval_task}"
 
 
 @register_environment
-class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
-    """LIBERO grocery-packing scene on the floor, placed by the relation solver.
+class LiberoObjectPackingEnvironment(ArenaEnvironmentFactory[LiberoObjectPackingEnvironmentCfg]):
+    """Build the LIBERO grocery-packing scene on a table.
 
-    A basket plus six HOPE groceries; positions are solved (On a thin invisible surface,
-    bounded to the Franka reach box, jittered per reset) rather than hardcoded.
+    A basket plus configurable HOPE groceries are relation-solved within the Franka reach box.
     """
 
     name = "libero_object_packing"
+    _legacy_argparse_cfg_type = LiberoObjectPackingEnvironmentCfg
 
-    def get_env(self, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+    def build(self, cfg: LiberoObjectPackingEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
 
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-        from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
         from isaaclab_arena.relations.relations import IsAnchor, On, PositionLimits
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.no_task import NoTask
@@ -68,13 +113,13 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
         # which the viewer and smoke tests rely on), absolute joint position for the GaP bridge
         # (where the action IS the target q), or droid_joint_pos for the DROID Franka+Robotiq variant.
         # A zero action under joint-position control drives every joint to 0, so this is not a safe default.
-        if args_cli.control == "droid_joint_pos":
+        if cfg.control == "droid_joint_pos":
             # DROID Franka+Robotiq: use the embodiment's own absolute-joint-pos action, USD, PD gains,
             # and stand. Do NOT apply the Panda-specific overrides (plain panda USD, HIGH_PD, panda_joint.*
             # action term, 9-dof _HOME_Q) — they would drop the Robotiq gripper and mismatch the 13-DOF dof.
             from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
 
-            embodiment = DroidAbsoluteJointPositionEmbodiment(enable_cameras=args_cli.enable_cameras)
+            embodiment = DroidAbsoluteJointPositionEmbodiment(enable_cameras=cfg.enable_cameras)
             # The DROID stand USD (Arena/srl_robolab_assets) is not hosted on the public S3 Nucleus and
             # is redundant with the libero table anyway; swap its spawn for a tiny invisible cuboid. The
             # stand AssetBaseCfg object is kept (the embodiment's _update_scene_cfg_with_robot_initial_pose
@@ -86,19 +131,19 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
                 Pose(position_xyz=(-0.20, 0.0, _TABLE_TOP_Z), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
             )
             embodiment.set_initial_joint_pose(initial_joint_pose=_DROID_HOME_Q)
-            if args_cli.enable_cameras:
+            if cfg.enable_cameras:
                 from isaaclab_arena_environments.libero_cameras import LiberoDroidPerceptionCameraCfg
 
                 embodiment.camera_config = LiberoDroidPerceptionCameraCfg()
         else:
-            embodiment_name = "franka_joint_pos" if args_cli.control == "joint_pos" else "franka_ik"
-            embodiment = self.asset_registry.get_asset_by_name(embodiment_name)(enable_cameras=args_cli.enable_cameras)
+            embodiment_name = "franka_joint_pos" if cfg.control == "joint_pos" else "franka_ik"
+            embodiment = self.asset_registry.get_asset_by_name(embodiment_name)(enable_cameras=cfg.enable_cameras)
             embodiment.set_initial_pose(
                 Pose(position_xyz=(-0.20, 0.0, _TABLE_TOP_Z), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
             )
             embodiment.set_initial_joint_pose(initial_joint_pose=_HOME_Q)
             embodiment.scene_config.robot.spawn.usd_path = _PLAIN_PANDA
-            if args_cli.control == "joint_pos":
+            if cfg.control == "joint_pos":
                 from isaaclab.envs.mdp.actions.actions_cfg import JointPositionActionCfg
                 from isaaclab_assets.robots.franka import FRANKA_PANDA_HIGH_PD_CFG
 
@@ -119,14 +164,12 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
                     scale=1.0,
                     use_default_offset=False,
                 )
-            if args_cli.enable_cameras:
+            if cfg.enable_cameras:
                 from isaaclab_arena_environments.libero_cameras import LiberoPerceptionCameraCfg
 
                 embodiment.camera_config = LiberoPerceptionCameraCfg()
 
-        teleop_device = (
-            self.device_registry.get_device_by_name(args_cli.teleop_device)() if args_cli.teleop_device else None
-        )
+        teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)() if cfg.teleop_device else None
 
         # Visible static table: a thick kinematic cuboid (floor -> table top) that also serves as the
         # relation solver's On()/anchor surface. Center at z=H/2 so the top is at z=_TABLE_TOP_Z; robot,
@@ -154,17 +197,16 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
         # it rather than spawning inter-penetrating and getting ejected by physics. The LIBERO quat
         # is a clean 90 deg yaw (opening up); the source data's ~0.0017 x/y noise is dropped so the
         # anchor bbox path (yaw-only, 1e-3 tolerance) accepts it.
-        basket = self.asset_registry.get_asset_by_name(args_cli.basket)()
+        basket = self.asset_registry.get_asset_by_name(cfg.basket)()
         basket.set_initial_pose(
             Pose(position_xyz=(0.28, 0.42, _TABLE_TOP_Z), rotation_xyzw=q(0.70710678, 0.0, 0.0, 0.70710678))
         )
         basket.add_relation(IsAnchor())
 
         # Groceries: relation-solved placement (On surface, within reach, jittered per reset).
-        # The object set is data-driven via --objects (job_manager expands a JSON list into --objects a b ...),
-        # so 2-3 object variations are configured from the job config, not hardcoded here.
+        # The object set is data-driven so 2-3 object variations are configured by the run, not hardcoded here.
         objects = []
-        for obj_name in args_cli.objects:
+        for obj_name in cfg.objects:
             obj = self.asset_registry.get_asset_by_name(obj_name)()
             obj.add_relation(On(surface, edge_margin_m=0.03))
             obj.add_relation(PositionLimits(**_REACH_BOX))
@@ -172,13 +214,13 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
 
         scene = Scene(assets=[ground, light, surface, basket, *objects])
 
-        if args_cli.eval_task == "pick_place_in_basket":
+        if cfg.eval_task == "pick_place_in_basket":
             task = _make_libero_packing_task(
                 object_asset_names=[obj.name for obj in objects],
                 basket_asset_name=basket.name,
                 episode_length_s=150.0 * len(objects) + 150.0,
             )
-        elif args_cli.eval_task == "stock_pick_place":
+        elif cfg.eval_task == "stock_pick_place":
             # Hybrid metric-pivot (STEP 2a): reuse the libero scene's proven exterior_cam + pose_mat, but score
             # with the STOCK PickAndPlaceTask / object_on_destination (contact-on-destination + low velocity)
             # instead of our custom resting_in_bin. Single object (objects[0]) -> basket. Fires success the moment
@@ -192,11 +234,11 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
                 background_scene=surface,
                 episode_length_s=180.0,
             )
-        elif args_cli.eval_task == "stock_sort":
+        elif cfg.eval_task == "stock_sort":
             # Multi-object (N) pure-stock pick-place: the STOCK SortMultiObjectTask scores per-object
             # object_on_destination composed under SuccessMode.ALL (all objects into the grey_bin), building one
             # destination-filtered contact sensor per object. Authoritative metric kept identical to the single-object
-            # stock_pick_place for VLA comparability. Data-driven N via --objects.
+            # stock_pick_place for VLA comparability. The object list controls N.
             from isaaclab_arena.tasks.sorting_task import SortMultiObjectTask
 
             task = SortMultiObjectTask(
@@ -215,64 +257,13 @@ class LiberoObjectPackingEnvironment(ExampleEnvironmentBase):
         else:
             task = NoTask()
 
-        placer_params = ObjectPlacerParams(
-            placement_seed=args_cli.placement_seed,
-            solver_params=RelationSolverParams(
-                clearance_m=0.06,
-                verbose=False,
-                save_position_history=False,
-            ),
-        )
-        if args_cli.resolve_on_reset is not None:
-            placer_params.resolve_on_reset = args_cli.resolve_on_reset
-
         return IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
             scene=scene,
             task=task,
             teleop_device=teleop_device,
-            placer_params=placer_params,
-        )
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "--objects",
-            nargs="*",
-            default=[
-                "alphabet_soup_can_hope_robolab",
-                "tomato_sauce_can_hope_robolab",
-                "milk_carton_hope_robolab",
-            ],
-            help="grocery assets to pack (relation-solved placement)",
-        )
-        parser.add_argument("--basket", type=str, default="grey_bin_robolab", help="container asset")
-        parser.add_argument(
-            "--control",
-            type=str,
-            default="ik",
-            choices=["ik", "joint_pos", "droid_joint_pos"],
-            help=(
-                "Arm action term: 'ik' (relative differential IK, default), 'joint_pos' "
-                "(absolute joint-position targets, for the GaP bridge), or 'droid_joint_pos' "
-                "(DROID Franka+Robotiq absolute joint targets, Robotiq binary gripper)."
-            ),
-        )
-        parser.add_argument("--teleop_device", type=str, default=None)
-        parser.add_argument(
-            "--eval_task",
-            type=str,
-            choices=["none", "pick_place_in_basket", "stock_pick_place", "stock_sort"],
-            default="none",
-            help=(
-                "Scoring task to attach for eval_runner. "
-                "'none' = NoTask (viewer/bridge runs unaffected); "
-                "'pick_place_in_basket' = custom multi-object resting_in_bin success; "
-                "'stock_pick_place' = STOCK PickAndPlaceTask/object_on_destination (single object -> basket); "
-                "'stock_sort' = STOCK SortMultiObjectTask: N objects (from --objects) scored per-object "
-                "object_on_destination under SuccessMode.ALL into the basket."
-            ),
+            placer_params=_make_libero_placer_params(),
         )
 
 

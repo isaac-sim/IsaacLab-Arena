@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import datetime
 import gymnasium as gym
+from dataclasses import replace
 from typing import Any
 
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
@@ -79,7 +80,8 @@ class ArenaEnvBuilder:
 
         Behaviour on reset depends on ``ObjectPlacerParams.resolve_on_reset``.
         When the environment does not provide placer parameters, the builder creates
-        them from ``ArenaEnvBuilderCfg``.
+        them from ``ArenaEnvBuilderCfg``. Environment-specific parameters are copied
+        before explicitly configured builder seed/reset values are applied.
 
         * **True** (default) — registers a reset event that draws a fresh layout
           from the pool for each resetting environment.
@@ -96,6 +98,13 @@ class ArenaEnvBuilder:
             )
             if self.cfg.resolve_on_reset is not None:
                 placer_params.resolve_on_reset = self.cfg.resolve_on_reset
+        else:
+            overrides = {}
+            if self.cfg.placement_seed is not None:
+                overrides["placement_seed"] = self.cfg.placement_seed
+            if self.cfg.resolve_on_reset is not None:
+                overrides["resolve_on_reset"] = self.cfg.resolve_on_reset
+            placer_params = replace(placer_params, **overrides)
         self._placement_event_cfg = solve_and_apply_relation_placement(
             objects_with_relations,
             num_envs=self.cfg.num_envs,
@@ -256,7 +265,7 @@ class ArenaEnvBuilder:
             progress_tracking_events_cfg,
         )
         external_policy_termination_cfg = None
-        if not self.args.mimic:
+        if not self.cfg.mimic:
             external_policy_termination_cfg = make_configclass(
                 "ExternalPolicyTerminationCfg",
                 [(

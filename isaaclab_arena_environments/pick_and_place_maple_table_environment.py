@@ -11,7 +11,7 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from isaaclab_arena.assets.register import register_environment
@@ -245,12 +245,18 @@ class PickAndPlaceMapleTableEnvironmentCfg(ArenaEnvironmentCfg):
     gap_profile: bool = False
     episode_length_s: float = 20.0
     object_bin_gap_m: float | None = None
-    object_bin_side: Literal["positive_y", "negative_y"] = "positive_y"
+    object_bin_side: str = "positive_y"
     object_pick_center_x: float = 0.38
     object_bin_center_x: float = 0.46
     object_bin_pair_midpoint_y: float = 0.01
     placement_clearance_m: float | None = None
     use_staging_assets: bool = False
+
+    def __post_init__(self) -> None:
+        assert self.object_bin_side in {
+            "positive_y",
+            "negative_y",
+        }, f"Unsupported object-bin side: {self.object_bin_side}"
 
 
 @register_environment
@@ -269,7 +275,7 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
         from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-        from isaaclab_arena.relations.relations import IsAnchor, On, PositionLimits, Side
+        from isaaclab_arena.relations.relations import IsAnchor, On, PositionLimits
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
         from isaaclab_arena.utils.pose import Pose

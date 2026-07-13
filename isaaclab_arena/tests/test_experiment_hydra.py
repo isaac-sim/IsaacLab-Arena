@@ -16,6 +16,7 @@ from isaaclab_arena.hydra.experiment_composition import load_arena_experiment_fr
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
+from isaaclab_arena_environments.libero_object_packing_environment import LiberoObjectPackingEnvironmentCfg
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 
 GETTING_STARTED_EXPERIMENT_PATH = (
@@ -26,7 +27,10 @@ GETTING_STARTED_EXPERIMENT_PATH = (
 def _load_experiment(config_path: str | Path, overrides: list[str] | None = None):
     return load_arena_experiment_from_yaml(
         config_path,
-        environment_cfg_types={"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+        environment_cfg_types={
+            "libero_object_packing": LiberoObjectPackingEnvironmentCfg,
+            "pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg,
+        },
         policy_cfg_types={"zero_action": ZeroActionPolicyCfg},
         overrides=overrides,
     )
@@ -62,6 +66,33 @@ def test_getting_started_experiment_composes_typed_runs():
     assert [run.environment_builder.num_envs for run in runs] == [1, 1, 1, 64]
     assert runs[3].environment_builder.env_spacing == 2.5
     assert [run.rollout_limit.num_steps for run in runs] == [50, 50, 50, 100]
+
+
+def test_libero_experiment_composes_typed_environment(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+runs:
+  - name: libero
+    environment:
+      type: libero_object_packing
+      control: droid_joint_pos
+      eval_task: stock_sort
+      objects: [soup, tomato]
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_episodes: 1
+""",
+    )
+
+    (run,) = _load_experiment(config_path)
+
+    assert run.environment == LiberoObjectPackingEnvironmentCfg(
+        control="droid_joint_pos",
+        eval_task="stock_sort",
+        objects=["soup", "tomato"],
+    )
 
 
 def test_experiment_composition_preserves_caller_owned_hydra_context():

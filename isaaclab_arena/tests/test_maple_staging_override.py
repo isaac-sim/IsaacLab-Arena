@@ -20,31 +20,37 @@ from isaaclab_arena_environments.pick_and_place_maple_table_environment import (
 )
 
 
-def test_pick_targets_cli_is_fail_closed():
-    """--pick_targets uses nargs='+' / default None: absent -> single-object; a present flag must carry names."""
+def test_pick_targets_typed_cli_preserves_absent_and_explicit_lists():
+    """Keep absent, populated, and explicitly empty typed list values distinct."""
     import argparse
 
-    import pytest
-
+    from isaaclab_arena_environments.cli import _environment_cfg_from_cli, add_environment_cli_args
     from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironment
 
     parser = argparse.ArgumentParser()
-    PickAndPlaceMapleTableEnvironment.add_cli_args(parser)
+    add_environment_cli_args(parser, PickAndPlaceMapleTableEnvironment)
 
     # Absent -> None (stock single-object path, unchanged).
-    assert parser.parse_args([]).pick_targets is None
+    assert _environment_cfg_from_cli(PickAndPlaceMapleTableEnvironment, parser.parse_args([])).pick_targets is None
     # Present with names -> ordered list.
-    assert parser.parse_args(["--pick_targets", "a", "b", "c"]).pick_targets == ["a", "b", "c"]
-    assert parser.parse_args(["--pick_targets", "a", "b", "c", "d", "e"]).pick_targets == [
+    assert _environment_cfg_from_cli(
+        PickAndPlaceMapleTableEnvironment, parser.parse_args(["--pick_targets", "a", "b", "c"])
+    ).pick_targets == ["a", "b", "c"]
+    assert _environment_cfg_from_cli(
+        PickAndPlaceMapleTableEnvironment, parser.parse_args(["--pick_targets", "a", "b", "c", "d", "e"])
+    ).pick_targets == [
         "a",
         "b",
         "c",
         "d",
         "e",
     ]
-    # Present but empty is rejected (nargs='+'), so it cannot silently fall back to single-object.
-    with pytest.raises(SystemExit):
-        parser.parse_args(["--pick_targets"])
+    # Explicitly empty remains [] rather than silently falling back to the None/single-object path.
+    # The factory's 2-5 target validation rejects this value before constructing target assets.
+    assert (
+        _environment_cfg_from_cli(PickAndPlaceMapleTableEnvironment, parser.parse_args(["--pick_targets"])).pick_targets
+        == []
+    )
 
 
 def test_droid_stand_staging_override_is_instance_local():
