@@ -723,7 +723,7 @@ class PurpleCrate(LibraryObject):
 
     name = "purple_crate"
     tags = ["object", "container"]
-    usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/KLT_Bin/small_KLT.usd"
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/KLT_Bin/small_KLT.usd"
 
 
 @register_asset
