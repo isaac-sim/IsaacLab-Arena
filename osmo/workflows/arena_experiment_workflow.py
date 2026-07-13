@@ -12,8 +12,8 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from isaaclab_arena.hydra.typed_experiment_loader import load_experiment_run_definitions_from_yaml
-from osmo.tasks.base_task import BaseTask, TaskCfg
-from osmo.tasks.eval_runner_task import EvalRunnerTask
+from osmo.tasks.base_task import BaseTask
+from osmo.tasks.eval_runner_task import EvalRunnerTask, EvalRunnerTaskCfg
 from osmo.tasks.pi0_server_task import DEFAULT_PI0_POLICY_VARIANT, Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.workflows.workflow import Workflow, WorkflowCfg
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
@@ -23,6 +23,7 @@ class ArenaExperimentWorkflow(Workflow):
     """Run a complete Arena Experiment without deploying a policy server."""
 
     task_cls_list = [EvalRunnerTask]
+    task_cfg_type = EvalRunnerTaskCfg
     lead_list = [True]
 
     def __init__(
@@ -31,6 +32,7 @@ class ArenaExperimentWorkflow(Workflow):
         experiment_config_path: str | Path,
         experiment_overrides: Sequence[str] = (),
         group_name: str = "arena",
+        task_cfg: EvalRunnerTaskCfg | None = None,
     ) -> None:
         experiment_path = Path(experiment_config_path).expanduser().resolve()
         assert experiment_path.is_file(), f"Experiment config does not exist: {experiment_path}"
@@ -41,7 +43,7 @@ class ArenaExperimentWorkflow(Workflow):
 
         super().__init__(
             workflow_cfg=workflow_cfg,
-            task_cfg=TaskCfg(),
+            task_cfg=task_cfg or EvalRunnerTaskCfg(),
             group_name=group_name,
         )
 
@@ -52,6 +54,7 @@ class ArenaExperimentWorkflow(Workflow):
     def _create_eval_runner_task(self) -> EvalRunnerTask:
         """Create the Experiment's lead eval-runner task."""
         return EvalRunnerTask(
+            task_cfg=self.task_cfg,
             experiment_config_path=self.experiment_config_path,
             experiment_overrides=self.experiment_overrides,
             lead=self.lead_flags[0],
@@ -74,11 +77,13 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
         server_task_cfg: Pi0ServerTaskCfg,
         experiment_overrides: Sequence[str] = (),
         group_name: str = "arena",
+        task_cfg: EvalRunnerTaskCfg | None = None,
     ) -> None:
         self.pi0_server_task_cfg = server_task_cfg
         super().__init__(
             workflow_cfg=workflow_cfg,
             experiment_config_path=experiment_config_path,
+            task_cfg=task_cfg,
             experiment_overrides=experiment_overrides,
             group_name=group_name,
         )
