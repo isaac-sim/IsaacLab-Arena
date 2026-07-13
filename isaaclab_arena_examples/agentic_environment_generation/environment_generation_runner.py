@@ -49,6 +49,8 @@ DEFAULT_PROMPT = "Franka picks up a cube from the maple table and places it into
 
 
 def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None:
+    from isaaclab_arena.agentic_environment_generation.simready_asset_search import SimReadySourceKind
+
     group = parser.add_argument_group("Agentic Environment Generation Runner")
     group.add_argument(
         "--mode",
@@ -92,6 +94,53 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
         default=DEFAULT_AGENTIC_OUTPUT_DIR,
         help="Directory for the generated YAML files (default: isaaclab_arena_environments/agent_generated).",
     )
+    group.add_argument(
+        "--enable_simready_search",
+        action="store_true",
+        help="Run SimReady search on normalized object phrases before spec inference.",
+    )
+    group.add_argument(
+        "--simready_source",
+        type=str,
+        choices=tuple(kind.value for kind in SimReadySourceKind),
+        default="isaac-sim-ga",
+        help="SimReady search backend (default: isaac-sim-ga Isaac Sim 6.0 GA props).",
+    )
+    group.add_argument(
+        "--simready_s3_url",
+        type=str,
+        default=None,
+        help="Override S3 root for simready s3/isaac-sim-ga sources.",
+    )
+    group.add_argument(
+        "--simready_service_url",
+        type=str,
+        default=None,
+        help="Override hosted USD Search service URL for simready service fallback.",
+    )
+    group.add_argument(
+        "--simready_project_config",
+        type=str,
+        default=None,
+        help="Local project_config.toml path for simready cache source.",
+    )
+    group.add_argument(
+        "--simready_indexed_dir",
+        type=str,
+        default=None,
+        help="Directory or S3 prefix for simready indexed source.",
+    )
+    group.add_argument(
+        "--simready_max_results_per_object",
+        type=int,
+        default=1,
+        help="Maximum SimReady hits to keep per normalized object phrase (default: 1).",
+    )
+    group.add_argument(
+        "--simready_service_fallback",
+        action="store_true",
+        help="Fall back to hosted phrase search when the primary SimReady source returns no hits.",
+    )
 
 
 def resolve_env_spec(args_cli: argparse.Namespace) -> Path:
@@ -102,6 +151,7 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path:
         build_relation_catalogue,
         build_task_catalogue,
     )
+    from isaaclab_arena.agentic_environment_generation.simready_asset_search import simready_search_config_from_cli
 
     print(f"\n[runner] prompt: {args_cli.prompt!r}", flush=True)
 
@@ -109,7 +159,21 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path:
     relation_catalog = build_relation_catalogue()
     task_catalog = build_task_catalogue()
 
-    agent_kwargs: dict = {"temperature": args_cli.temperature}
+    simready_config = simready_search_config_from_cli(
+        enabled=args_cli.enable_simready_search,
+        source=args_cli.simready_source,
+        s3_url=args_cli.simready_s3_url,
+        service_url=args_cli.simready_service_url,
+        project_config_path=args_cli.simready_project_config,
+        indexed_path=args_cli.simready_indexed_dir,
+        max_results_per_object=args_cli.simready_max_results_per_object,
+        use_service_fallback=args_cli.simready_service_fallback,
+    )
+    agent_kwargs: dict = {
+        "temperature": args_cli.temperature,
+        "enable_simready_search": args_cli.enable_simready_search,
+        "simready_config": simready_config,
+    }
     if args_cli.model:
         agent_kwargs["model"] = args_cli.model
     agent = EnvironmentGenerationAgent(**agent_kwargs)
@@ -118,6 +182,7 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path:
         asset_catalog=asset_catalog,
         relation_catalog=relation_catalog,
         task_catalog=task_catalog,
+        enable_simready_search=args_cli.enable_simready_search,
     )
     # agent.traces holds one line per failure, e.g.
     #   "embodiment.registry_name: Unknown asset registry_name 'not_a_real_asset'"
@@ -126,9 +191,14 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path:
         print("\n[runner] validation traces:", flush=True)
         for line in agent.traces:
             print(f"  {line}", flush=True)
-        invalid_path = write_env_graph_dict(data, args_cli.out_dir)
-        print(f"[runner] wrote invalid spec YAML to {invalid_path}", flush=True)
+        if data is not None:
+            invalid_path = write_env_graph_dict(data, args_cli.out_dir)
+            print(f"[runner] wrote invalid spec YAML to {invalid_path}", flush=True)
         assert False, f"Agent returned an invalid spec. Validation traces: {agent.traces}"
+    if args_cli.enable_simready_search and agent.traces:
+        print("\n[runner] generation traces:", flush=True)
+        for line in agent.traces:
+            print(f"  {line}", flush=True)
     print_env_graph(env_graph_spec)
     print(
         f"[runner] generated → {env_graph_spec.summary()}, env_name={env_graph_spec.env_name!r}",

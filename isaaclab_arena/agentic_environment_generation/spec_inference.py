@@ -16,6 +16,7 @@ from isaaclab_arena.agentic_environment_generation.inference_backend import (
     StructuredOutputRequest,
     build_strict_schema,
 )
+from isaaclab_arena.agentic_environment_generation.simready_asset_search import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.agentic_environment_generation.spec_validation import (
     collect_agent_ready_task_validation_traces,
     format_validation_error,
@@ -37,6 +38,9 @@ class SpecInference:
         asset_catalog: Any,
         relation_catalog: Any,
         task_catalog: Any,
+        *,
+        normalized_prompt_block: str | None = None,
+        simready_candidate_catalog: Any | None = None,
     ) -> tuple[ArenaEnvGraphSpec | None, dict[str, Any]]:
         """Generate an ArenaEnvGraphSpec from a natural-language prompt.
 
@@ -46,6 +50,8 @@ class SpecInference:
             asset_catalog: Embodiment, background, and object vocabulary for the user message.
             relation_catalog: Relation vocabulary for the user message.
             task_catalog: Task vocabulary for the user message.
+            normalized_prompt_block: Optional normalized section descriptions from pass 0.
+            simready_candidate_catalog: Optional SimReady hits for prompt-scoped object params.
 
         Returns:
             A ``(spec, data)`` tuple. On success, ``spec`` is validated and ``data`` is the
@@ -56,12 +62,14 @@ class SpecInference:
             StructuredOutputRequest(
                 schema_name="ArenaEnvGraphSpec",
                 schema=self._schema,
-                system=self._system_prompt(),
+                system=self._system_prompt(has_simready_candidates=bool(simready_candidate_catalog)),
                 user=self._user_message(
                     prompt,
                     asset_catalog,
                     relation_catalog,
                     task_catalog,
+                    normalized_prompt_block=normalized_prompt_block,
+                    simready_candidate_catalog=simready_candidate_catalog,
                 ),
                 retry_label="generate_spec",
             )
@@ -80,17 +88,36 @@ class SpecInference:
         asset_catalog: Any,
         relation_catalog: Any,
         task_catalog: Any,
+        *,
+        normalized_prompt_block: str | None = None,
+        simready_candidate_catalog: Any | None = None,
     ) -> str:
-        vocabulary = (
-            f"{asset_catalog.to_catalog_string()}\n\n"
-            f"{relation_catalog.to_catalog_string()}\n\n"
-            f"{task_catalog.to_catalog_string()}"
-        )
+        blocks = [
+            asset_catalog.to_catalog_string(),
+            relation_catalog.to_catalog_string(),
+            task_catalog.to_catalog_string(),
+        ]
+        if simready_candidate_catalog is not None:
+            simready_block = simready_candidate_catalog.to_catalog_string()
+            if simready_block:
+                blocks.append(simready_block)
+        if normalized_prompt_block:
+            blocks.append(normalized_prompt_block)
+        vocabulary = "\n\n".join(blocks)
         return f"{vocabulary}\n\nUSER PROMPT:\n{prompt}"
 
     @staticmethod
-    def _system_prompt() -> str:
-        return """\
+    def _system_prompt(*, has_simready_candidates: bool = False) -> str:
+        simready_rules = ""
+        if has_simready_candidates:
+            simready_rules = f"""
+- When an object matches a SIMREADY_OBJECT_CANDIDATES entry, use
+  ``registry_name: {SIMREADY_USD_OBJECT_REGISTRY_NAME!r}`` and copy that candidate's
+  ``params`` exactly (including ``usd_path`` and ``tags``).
+- Prefer a SimReady candidate over inventing a new OBJECTS registry name when the candidate
+  clearly matches the requested object phrase.
+"""
+        return f"""\
 You are an environment-generator for robot manipulation tasks.
 Convert a natural-language prompt into an ArenaEnvGraphSpec.
 
@@ -114,4 +141,4 @@ GUIDANCE:
 - REQUIRED: include an ``is_anchor`` relation on the resting surface (background or an
   ``object_reference`` within it).
 - All objects need an ``on`` relation with that anchor as ``reference``.
-"""
+{simready_rules}"""

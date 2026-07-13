@@ -12,6 +12,15 @@ from typing import Any
 
 from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
 from isaaclab_arena.agentic_environment_generation.prim_path_inference import PrimPathInference
+from isaaclab_arena.agentic_environment_generation.prompt_normalization import (
+    PromptNormalizationInference,
+    format_normalized_prompt_block,
+)
+from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
+    SimReadyCandidateCatalogue,
+    SimReadySearchConfig,
+    search_simready_objects,
+)
 from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
 from isaaclab_arena.agentic_environment_generation.spec_validation import required_task_init_param_names
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
@@ -34,6 +43,9 @@ class EnvironmentGenerationAgent:
         temperature: float = 0.2,
         max_tokens: int = 4096,
         max_retries: int = 3,
+        *,
+        enable_simready_search: bool = False,
+        simready_config: SimReadySearchConfig | None = None,
     ):
         """Configure the OpenAI-compatible client and validate the model.
 
@@ -51,6 +63,8 @@ class EnvironmentGenerationAgent:
             max_retries: Number of additional attempts after a recoverable failure
                 (network errors, timeouts, empty responses, malformed JSON). Each
                 retry is a fresh API call.
+            enable_simready_search: When ``True``, run SimReady search on normalized object phrases.
+            simready_config: Optional SimReady search configuration.
         """
         inference_backend = InferenceBackend(
             api_key=api_key,
@@ -60,8 +74,11 @@ class EnvironmentGenerationAgent:
             max_tokens=max_tokens,
             max_retries=max_retries,
         )
+        self.prompt_normalization = PromptNormalizationInference(inference_backend)
         self.spec_inference = SpecInference(inference_backend)
         self.prim_path_inference = PrimPathInference(inference_backend)
+        self.enable_simready_search = enable_simready_search
+        self.simready_config = simready_config or SimReadySearchConfig(enabled=enable_simready_search)
         self._traces: list[str] = []
 
     @property
@@ -75,6 +92,8 @@ class EnvironmentGenerationAgent:
         asset_catalog: AssetCatalogue | None = None,
         relation_catalog: RelationCatalogue | None = None,
         task_catalog: TaskCatalogue | None = None,
+        *,
+        enable_simready_search: bool | None = None,
     ) -> tuple[ArenaEnvGraphSpec | None, dict[str, Any] | None]:
         """Call the model with user prompt and return the parsed ArenaEnvGraphSpec.
 
@@ -86,6 +105,7 @@ class EnvironmentGenerationAgent:
                 from the live ``ObjectRelationLibraryRegistry``.
             task_catalog: Pre-built task vocabulary. When ``None``, built from
                 ``TaskRegistry`` tasks marked ``@agent_ready``.
+            enable_simready_search: Override the agent-level SimReady search flag.
 
         Returns:
             A ``(spec, data)`` tuple. On success, ``spec`` is validated and
@@ -93,6 +113,32 @@ class EnvironmentGenerationAgent:
             When validation fails, ``agent.traces`` holds the diagnostic trace.
         """
         self._traces = []
+        normalized = self.prompt_normalization.infer(prompt, self._traces)
+        if normalized is None:
+            return None, None
+
+        normalized_block = format_normalized_prompt_block(normalized)
+        self._traces.append(normalized_block)
+
+        use_simready = self.enable_simready_search if enable_simready_search is None else enable_simready_search
+        simready_catalog: SimReadyCandidateCatalogue | None = None
+        if use_simready:
+            simready_config = SimReadySearchConfig(
+                enabled=True,
+                source=self.simready_config.source,
+                s3_url=self.simready_config.s3_url,
+                service_url=self.simready_config.service_url,
+                project_config_path=self.simready_config.project_config_path,
+                indexed_path=self.simready_config.indexed_path,
+                indexed_directory_type=self.simready_config.indexed_directory_type,
+                max_results_per_object=self.simready_config.max_results_per_object,
+                use_service_fallback=self.simready_config.use_service_fallback,
+            )
+            simready_catalog = search_simready_objects(normalized.objects, simready_config, self._traces)
+            simready_block = simready_catalog.to_catalog_string()
+            if simready_block:
+                self._traces.append(simready_block)
+
         asset_catalog = asset_catalog or build_asset_catalogue()
         relation_catalog = relation_catalog or build_relation_catalogue()
         task_catalog = task_catalog or build_task_catalogue()
@@ -102,6 +148,8 @@ class EnvironmentGenerationAgent:
             asset_catalog=asset_catalog,
             relation_catalog=relation_catalog,
             task_catalog=task_catalog,
+            normalized_prompt_block=normalized_block,
+            simready_candidate_catalog=simready_catalog,
         )
         if spec is None:
             return None, data

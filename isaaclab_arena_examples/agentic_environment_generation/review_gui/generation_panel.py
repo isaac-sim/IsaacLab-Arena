@@ -21,6 +21,10 @@ from isaaclab_arena.agentic_environment_generation.environment_generation_agent 
     build_relation_catalogue,
     build_task_catalogue,
 )
+from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
+    SimReadySourceKind,
+    simready_search_config_from_cli,
+)
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
     SpecParseResult,
@@ -53,22 +57,53 @@ def get_catalogue_bundle() -> CatalogueBundle:
     )
 
 
+def _simready_config_from_session() -> tuple[bool, object]:
+    """Read SimReady GUI settings from Streamlit session state."""
+    enabled = bool(st.session_state.get("enable_simready_search", False))
+    config = simready_search_config_from_cli(
+        enabled=enabled,
+        source=st.session_state.get("simready_source", SimReadySourceKind.ISAAC_SIM_GA.value),
+        s3_url=st.session_state.get("simready_s3_url") or None,
+        service_url=st.session_state.get("simready_service_url") or None,
+        project_config_path=st.session_state.get("simready_project_config") or None,
+        indexed_path=st.session_state.get("simready_indexed_dir") or None,
+        max_results_per_object=int(st.session_state.get("simready_max_results_per_object", 1)),
+        use_service_fallback=bool(st.session_state.get("simready_service_fallback", False)),
+    )
+    return enabled, config
+
+
 def _get_generation_agent() -> EnvironmentGenerationAgent | None:
     """Lazy-init the LLM agent when ``NV_API_KEY`` is available."""
     if st.session_state.get("generation_agent_error"):
         return None
-    agent = st.session_state.get("generation_agent")
+    simready_enabled, simready_config = _simready_config_from_session()
+    agent_key = (
+        "generation_agent",
+        simready_enabled,
+        simready_config.source.value,
+        simready_config.s3_url,
+        simready_config.service_url,
+        simready_config.project_config_path,
+        simready_config.indexed_path,
+        simready_config.max_results_per_object,
+        simready_config.use_service_fallback,
+    )
+    agent = st.session_state.get(agent_key)
     if agent is not None:
         return agent
     try:
-        agent = EnvironmentGenerationAgent()
+        agent = EnvironmentGenerationAgent(
+            enable_simready_search=simready_enabled,
+            simready_config=simready_config,
+        )
     except AssertionError as exc:
         st.session_state["generation_agent_error"] = str(exc)
         return None
     except Exception as exc:
         st.session_state["generation_agent_error"] = f"{type(exc).__name__}: {exc}"
         return None
-    st.session_state["generation_agent"] = agent
+    st.session_state[agent_key] = agent
     st.session_state.pop("generation_agent_error", None)
     return agent
 
@@ -117,18 +152,20 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
         return False, traceback.format_exc()
 
     try:
+        simready_enabled, _ = _simready_config_from_session()
         spec, data = agent.generate_spec(
             prompt,
             asset_catalog=catalogues.asset_catalogue,
             relation_catalog=catalogues.relation_catalogue,
             task_catalog=catalogues.task_catalogue,
+            enable_simready_search=simready_enabled,
         )
     except Exception:
         return False, traceback.format_exc()
 
     try:
         yaml_text = yaml.safe_dump(
-            spec.to_dict() if spec is not None else data,
+            spec.to_dict() if spec is not None else (data or {}),
             sort_keys=False,
         )
     except Exception:
@@ -144,11 +181,14 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
 
     out_dir = Path(st.session_state["out_dir"])
     path, error = try_save_env_graph_spec(spec, out_dir)
+    trace_suffix = ""
+    if simready_enabled and agent.traces:
+        trace_suffix = "\n\nGeneration traces:\n" + "\n".join(agent.traces)
     if error is not None:
-        return True, f"Spec generated and loaded into the YAML editor, but save failed: {error}"
+        return True, f"Spec generated and loaded into the YAML editor, but save failed: {error}{trace_suffix}"
 
     st.session_state["save_path"] = str(path)
-    return True, f"Spec generated, loaded into the YAML editor, and saved to {path}."
+    return True, f"Spec generated, loaded into the YAML editor, and saved to {path}.{trace_suffix}"
 
 
 def render_generation_panel() -> None:
@@ -167,6 +207,42 @@ def render_generation_panel() -> None:
     agent_error = st.session_state.get("generation_agent_error")
     if agent_error:
         st.info(f"LLM agent unavailable: {agent_error}", icon="ℹ️")
+
+    with st.expander("SimReady search", expanded=bool(st.session_state.get("enable_simready_search", False))):
+        st.session_state["enable_simready_search"] = st.checkbox(
+            "Enable SimReady search",
+            value=bool(st.session_state.get("enable_simready_search", False)),
+            help="Search Isaac Sim GA SimReady props for normalized object phrases before spec inference.",
+        )
+        source_options = [kind.value for kind in SimReadySourceKind]
+        st.session_state["simready_source"] = st.selectbox(
+            "SimReady source",
+            options=source_options,
+            index=source_options.index(st.session_state.get("simready_source", SimReadySourceKind.ISAAC_SIM_GA.value)),
+        )
+        st.session_state["simready_max_results_per_object"] = st.number_input(
+            "Max results per object",
+            min_value=1,
+            max_value=10,
+            value=int(st.session_state.get("simready_max_results_per_object", 1)),
+        )
+        st.session_state["simready_service_fallback"] = st.checkbox(
+            "Use hosted phrase-search fallback",
+            value=bool(st.session_state.get("simready_service_fallback", False)),
+        )
+        st.session_state["simready_s3_url"] = st.text_input(
+            "S3 URL override",
+            value=st.session_state.get("simready_s3_url", ""),
+            placeholder="Leave empty for Isaac Sim 6.0 GA SimReady default",
+        )
+        st.session_state["simready_project_config"] = st.text_input(
+            "project_config.toml path",
+            value=st.session_state.get("simready_project_config", ""),
+        )
+        st.session_state["simready_indexed_dir"] = st.text_input(
+            "Indexed directory or S3 prefix",
+            value=st.session_state.get("simready_indexed_dir", ""),
+        )
 
     if st.button("Generate spec", type="primary", width="stretch"):
         with st.spinner("Generating spec (LLM call)…"):
