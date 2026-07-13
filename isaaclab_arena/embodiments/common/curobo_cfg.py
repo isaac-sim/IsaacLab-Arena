@@ -41,6 +41,15 @@ class CuroboEmbodimentCfg:
     grasp_gripper_open_val: float = 10.0
     """cuRobo grasp-approach gripper opening value."""
 
+    approach_distance: float = 0.04
+    """Straight-line distance (m) cuRobo approaches the grasp along before closing."""
+
+    retreat_distance: float = 0.06
+    """Straight-line distance (m) cuRobo retreats after grasping."""
+
+    time_dilation_factor: float = 0.6
+    """Scales the planned trajectory speed (1.0 = full speed)."""
+
     collision_activation_distance: float = 0.05
     """Distance (m) at which cuRobo starts penalizing collisions."""
 

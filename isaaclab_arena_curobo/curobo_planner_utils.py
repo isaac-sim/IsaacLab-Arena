@@ -36,23 +36,17 @@ def pose_from_pos_quat(pos_xyz: torch.Tensor, quat_wxyz: torch.Tensor) -> torch.
 
 def make_planner_cfg(
     embodiment: EmbodimentBase,
-    approach_distance: float = 0.04,
-    retreat_distance: float = 0.06,
-    time_dilation_factor: float = 0.6,
     debug_planner: bool = False,
 ):
     """Build a CuroboPlannerCfg from an embodiment's cuRobo description.
 
-    Reads the robot identity (asset paths, link/joint names, gripper targets) off
-    ``embodiment.get_curobo_cfg()``, patches the bundled robot config with the downloaded URDF path
-    and the gripper open/closed joint targets, and returns a config ready for ``CuroboPlanner``.
-    The distance/time defaults match the dev/stark pick-and-place CLI.
+    Reads the robot identity and planner tuning (asset paths, link/joint names, gripper targets,
+    approach/retreat/time-dilation) off ``embodiment.get_curobo_cfg()``, patches the bundled robot
+    config with the downloaded URDF path and the gripper open/closed joint targets, and returns a
+    config ready for ``CuroboPlanner``.
 
     Args:
         embodiment: Embodiment that must expose a CuroboEmbodimentCfg via ``get_curobo_cfg()``.
-        approach_distance: cuRobo approach distance (m).
-        retreat_distance: cuRobo retreat distance (m).
-        time_dilation_factor: cuRobo time dilation factor.
         debug_planner: Enable cuRobo planner debug output.
     """
     curobo_cfg = embodiment.get_curobo_cfg()
@@ -88,9 +82,9 @@ def make_planner_cfg(
         gripper_closed_positions=gripper_closed_positions,
         hand_link_names=curobo_cfg.hand_link_names,
         grasp_gripper_open_val=curobo_cfg.grasp_gripper_open_val,
-        approach_distance=approach_distance,
-        retreat_distance=retreat_distance,
-        time_dilation_factor=time_dilation_factor,
+        approach_distance=curobo_cfg.approach_distance,
+        retreat_distance=curobo_cfg.retreat_distance,
+        time_dilation_factor=curobo_cfg.time_dilation_factor,
         collision_activation_distance=curobo_cfg.collision_activation_distance,
         motion_step_size=None,
         trajopt_tsteps=curobo_cfg.trajopt_tsteps,
@@ -115,11 +109,14 @@ def fix_planner_object_sync_frame(planner) -> None:
         world_model = self.motion_gen.world_coll_checker.world_model
         rigid_objects = self.env.scene.rigid_objects
         # Robot base pose in world frame (warp arrays -> torch before indexing in this Newton build).
-        robot_pos_w = wp.to_torch(self.robot.data.root_pos_w)[self.env_id, :3]
-        robot_quat_w = wp.to_torch(self.robot.data.root_quat_w)[self.env_id, :4]
-        # World->robot rotation: transpose of the base rotation matrix; quat inverse for orientations.
-        r_w2r = math_utils.matrix_from_quat(robot_quat_w.unsqueeze(0))[0].T
-        robot_quat_inv = math_utils.quat_inv(robot_quat_w.unsqueeze(0))[0]
+        # Naming follows the ASL transform convention: X_B_A maps a vector in frame A to frame B
+        # (t_B = X_B_A @ t_A), and t_A_B_in_F is the A->B translation expressed in frame F.
+        # Frames: W = world, R = robot base, O = object.
+        t_W_R_in_W = wp.to_torch(self.robot.data.root_pos_w)[self.env_id, :3]
+        q_W_R_wxyz = wp.to_torch(self.robot.data.root_quat_w)[self.env_id, :4]
+        # World->robot rotation (R_R_W = R_W_R^T) for positions; inverse quaternion (q_R_W) for orientations.
+        R_R_W = math_utils.matrix_from_quat(q_W_R_wxyz.unsqueeze(0))[0].T
+        q_R_W_wxyz = math_utils.quat_inv(q_W_R_wxyz.unsqueeze(0))[0]
         updated_count = 0
         for object_name, object_path in object_mappings.items():
             # Skip objects flagged static in the planner config (e.g. the table) — they aren't re-synced.
@@ -127,23 +124,15 @@ def fix_planner_object_sync_frame(planner) -> None:
             if object_name in rigid_objects and not any(s in object_name.lower() for s in static_objects):
                 obj = rigid_objects[object_name]
                 # Object pose in world frame (warp -> torch).
-                obj_pos_w = wp.to_torch(obj.data.root_pos_w)[self.env_id, :3]
-                obj_quat_w = wp.to_torch(obj.data.root_quat_w)[self.env_id, :4]
+                t_W_O_in_W = wp.to_torch(obj.data.root_pos_w)[self.env_id, :3]
+                q_W_O_wxyz = wp.to_torch(obj.data.root_quat_w)[self.env_id, :4]
                 # Re-express the object pose in the robot base frame so it matches the IK goal frame.
-                pos_robot = (r_w2r @ (obj_pos_w - robot_pos_w).unsqueeze(-1)).squeeze(-1)
-                quat_robot = math_utils.quat_mul(robot_quat_inv.unsqueeze(0), obj_quat_w.unsqueeze(0))[0]
-                pos_c = self._to_curobo_device(pos_robot)
-                quat_c = self._to_curobo_device(quat_robot)
+                t_R_O_in_R = (R_R_W @ (t_W_O_in_W - t_W_R_in_W).unsqueeze(-1)).squeeze(-1)
+                q_R_O_wxyz = math_utils.quat_mul(q_R_W_wxyz.unsqueeze(0), q_W_O_wxyz.unsqueeze(0))[0]
+                pos_c = self._to_curobo_device(t_R_O_in_R)
+                quat_c = self._to_curobo_device(q_R_O_wxyz)
                 # cuRobo's world-model writer wants a flat [x, y, z, qw, qx, qy, qz] list.
-                pose_list = [
-                    float(pos_c[0]),
-                    float(pos_c[1]),
-                    float(pos_c[2]),
-                    float(quat_c[0]),
-                    float(quat_c[1]),
-                    float(quat_c[2]),
-                    float(quat_c[3]),
-                ]
+                pose_list = torch.cat((pos_c, quat_c)).tolist()
                 # Update the CPU-side world model first; only push to the GPU collision checker if it took.
                 if self._update_object_in_world_model(world_model, object_name, object_path, pose_list):
                     curobo_pose = self._make_pose(position=pos_c, quaternion=quat_c)
@@ -164,35 +153,23 @@ def make_curobo_planner(
     embodiment: EmbodimentBase,
     env_id: int = 0,
     robot_scene_name: str | None = None,
-    approach_distance: float = 0.04,
-    retreat_distance: float = 0.06,
-    time_dilation_factor: float = 0.6,
     debug_planner: bool = False,
 ):
     """Construct a CuroboPlanner for an embodiment, bound to the env's robot and the robot base frame.
 
-    The robot identity comes entirely from ``embodiment.get_curobo_cfg()`` (it errors if the
-    embodiment has no cuRobo config), so this is robot-agnostic.
+    The robot identity and planner tuning come entirely from ``embodiment.get_curobo_cfg()`` (it
+    errors if the embodiment has no cuRobo config), so this is robot-agnostic.
 
     Args:
         env: The (unwrapped) Isaac Lab env; must expose the robot articulation in its scene.
         embodiment: Embodiment whose CuroboEmbodimentCfg describes the robot.
         env_id: Index of the parallel env the planner reads object/robot poses from.
         robot_scene_name: Scene key of the robot articulation. Defaults to the embodiment's scene name.
-        approach_distance: cuRobo approach distance (m).
-        retreat_distance: cuRobo retreat distance (m).
-        time_dilation_factor: cuRobo time dilation factor.
         debug_planner: Enable cuRobo planner debug output.
     """
     if robot_scene_name is None:
         robot_scene_name = embodiment.get_embodiment_name_in_scene()
-    planner_cfg = make_planner_cfg(
-        embodiment,
-        approach_distance=approach_distance,
-        retreat_distance=retreat_distance,
-        time_dilation_factor=time_dilation_factor,
-        debug_planner=debug_planner,
-    )
+    planner_cfg = make_planner_cfg(embodiment, debug_planner=debug_planner)
     # cuRobo-Lab's MotionGen/collision world is single-env only for now.
     planner = CuroboPlanner(env=env, robot=env.scene[robot_scene_name], config=planner_cfg, env_id=env_id)
     fix_planner_object_sync_frame(planner)
@@ -218,13 +195,15 @@ def top_down_grasp_pose_in_robot_frame(
     Returns:
         A 4x4 homogeneous transform (robot base frame) on the env's device.
     """
+    # Naming follows the ASL transform convention (see fix_planner_object_sync_frame):
+    # X_B_A maps a vector in frame A to B. Frames: W = world, R = robot base, O = object.
     robot = env.scene[robot_scene_name]
-    robot_pos_w = wp.to_torch(robot.data.root_pos_w)[env_id, :3]
-    robot_quat_w = wp.to_torch(robot.data.root_quat_w)[env_id, :4]
-    r_w2r = math_utils.matrix_from_quat(robot_quat_w.unsqueeze(0))[0].T
+    t_W_R_in_W = wp.to_torch(robot.data.root_pos_w)[env_id, :3]
+    q_W_R_wxyz = wp.to_torch(robot.data.root_quat_w)[env_id, :4]
+    R_R_W = math_utils.matrix_from_quat(q_W_R_wxyz.unsqueeze(0))[0].T
 
-    obj_pos_w = wp.to_torch(env.scene[object_name].data.root_pos_w)[env_id, :3]
-    pos_robot = (r_w2r @ (obj_pos_w - robot_pos_w).unsqueeze(-1)).squeeze(-1).clone()
-    pos_robot[2] += grasp_z_offset
+    t_W_O_in_W = wp.to_torch(env.scene[object_name].data.root_pos_w)[env_id, :3]
+    t_R_O_in_R = (R_R_W @ (t_W_O_in_W - t_W_R_in_W).unsqueeze(-1)).squeeze(-1).clone()
+    t_R_O_in_R[2] += grasp_z_offset
 
-    return pose_from_pos_quat(pos_robot, DOWN_FACING_QUAT_WXYZ.to(pos_robot.device))
+    return pose_from_pos_quat(t_R_O_in_R, DOWN_FACING_QUAT_WXYZ.to(t_R_O_in_R.device))

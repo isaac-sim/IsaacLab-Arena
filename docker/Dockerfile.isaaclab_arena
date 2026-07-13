@@ -129,10 +129,10 @@ RUN /isaac-sim/python.sh -m pip install -e "${WORKDIR}/[dev]"
 ################################
 # Install cuRobo (optional)
 ################################
-COPY docker/setup/install_cuda.sh /tmp/install_cuda_curobo.sh
+COPY docker/setup/install_cuda.sh /tmp/install_cuda.sh
 ARG INSTALL_CUROBO=false
 RUN if [ "$INSTALL_CUROBO" = "true" ]; then \
-      bash /tmp/install_cuda_curobo.sh && \
+      bash /tmp/install_cuda.sh && \
       export CUDA_HOME=/usr/local/cuda-12.8 && \
       export PATH=${CUDA_HOME}/bin:${PATH} && \
       export LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-} && \
@@ -143,7 +143,7 @@ RUN if [ "$INSTALL_CUROBO" = "true" ]; then \
       echo 'export PATH=${CUDA_HOME}/bin:${PATH}' >> /etc/profile.d/cuda.sh && \
       echo 'export LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}' >> /etc/profile.d/cuda.sh; \
     else echo "Skipping cuRobo installation"; fi && \
-    rm -f /tmp/install_cuda_curobo.sh
+    rm -f /tmp/install_cuda.sh
 
 # Set an alias to run the isaac lab python interpreter.
 RUN echo "alias python='/isaac-sim/python.sh'" >> /etc/bash.bashrc

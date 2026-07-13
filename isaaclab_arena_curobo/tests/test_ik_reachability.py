@@ -19,11 +19,18 @@ it isolated from the shared persistent-SimApp tests. Runs only in the cuRobo ima
 from __future__ import annotations
 
 import sys
+import torch
 
 import pytest
+import warp as wp
 
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
+
+# The test entry point above only shells out via run_subprocess, so module import stays light. The
+# isaaclab / isaaclab_mimic / env-building imports below are kept function-local because they must
+# load only after ``_main`` launches the SimulationApp (the Arena/Isaac Lab app-first convention);
+# torch and warp have no such constraint and live at module top.
 
 NEAR_OBJECT = "dex_cube"
 FAR_OBJECT = "red_cube"
@@ -82,8 +89,6 @@ def _build_droid_two_object_env(args_cli):
 
 def _set_object_world_xyz(env, name, xyz) -> None:
     """Teleport a scene object to a world-frame position (orientation left identity)."""
-    import torch
-
     from isaaclab_arena.utils.pose import Pose
 
     env_ids = torch.tensor([0], device=env.device)
@@ -94,10 +99,6 @@ def _set_object_world_xyz(env, name, xyz) -> None:
 
 def _run_reachability_check(args_cli) -> bool:
     """Place one object in-reach and one out-of-reach; return True iff IK agrees with that split."""
-    import torch
-
-    import warp as wp
-
     from isaaclab_arena_curobo.curobo_planner_utils import make_curobo_planner, top_down_grasp_pose_in_robot_frame
     from isaaclab_arena_curobo.ik_utils import check_ik_feasibility_batch_goal_poses
 
