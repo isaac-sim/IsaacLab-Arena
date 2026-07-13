@@ -80,6 +80,32 @@ def minimal_spec_dict() -> dict[str, Any]:
     return load_test_yaml("minimal_maple_table_env_graph.yaml")
 
 
+def minimal_normalized_dict() -> dict[str, Any]:
+    """Return normalized prompt descriptions aligned with ``minimal_spec_dict``."""
+    return {
+        "env_name": "pick_and_place_maple_table",
+        "embodiment": "franka robot",
+        "background": "maple table",
+        "object_references": "",
+        "objects": ["avocado", "bowl"],
+        "relations": "objects on table",
+        "task": "pick avocado and place in bowl",
+    }
+
+
+def kitchen_normalized_dict() -> dict[str, Any]:
+    """Return normalized prompt descriptions aligned with ``kitchen_pass1_dict``."""
+    return {
+        "env_name": "kitchen_pick_and_place",
+        "embodiment": "droid robot",
+        "background": "robocasa kitchen",
+        "object_references": "counter top and fridge door",
+        "objects": ["avocado", "plate", "broccoli", "sweet potato"],
+        "relations": "avocado and plate on counter; veggies as distractors",
+        "task": "pick avocado onto plate, then open fridge door",
+    }
+
+
 def kitchen_pass1_dict() -> dict[str, Any]:
     """Return the kitchen pass-1 graph spec with unresolved object references."""
     return load_test_yaml("kitchen_pass1_env_graph.yaml")

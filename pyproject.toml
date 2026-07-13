@@ -34,6 +34,9 @@ dev = [
     "streamlit>=1.30",
     "streamlit-ace>=0.1.1",
 ]
+simready = [
+    "simready-search>=2026.4.2",
+]
 
 # PEP 735 dependency groups for the native uv install: the sim stack the
 # Docker build does not want. pip (used by the Docker build) ignores PEP 735

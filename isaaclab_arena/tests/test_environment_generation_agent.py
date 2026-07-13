@@ -12,14 +12,20 @@ from unittest.mock import patch
 import pytest
 
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import EnvironmentGenerationAgent
+from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
+    SimReadyCandidateCatalogue,
+    SimReadyObjectCandidate,
+)
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import TaskCompositionType
 from isaaclab_arena.tests.utils.agentic_environment_generation import (
     catalog,
     chat_response,
+    kitchen_normalized_dict,
     kitchen_pass1_dict,
     kitchen_prim_tree,
     kitchen_resolve_response,
+    minimal_normalized_dict,
     minimal_spec_dict,
     relation_catalog,
 )
@@ -47,7 +53,10 @@ def agent(stub_openai):
 class TestGenerateSpec:
     def test_builds_catalogues_from_singleton_registries_when_none(self, agent):
         agent_obj, client = agent
-        client.chat.completions.create.return_value = chat_response(content=json.dumps(minimal_spec_dict()))
+        client.chat.completions.create.side_effect = [
+            chat_response(content=json.dumps(minimal_normalized_dict())),
+            chat_response(content=json.dumps(minimal_spec_dict())),
+        ]
         with (
             patch(
                 "isaaclab_arena.agentic_environment_generation.environment_generation_agent.build_asset_catalogue",
@@ -74,6 +83,7 @@ class TestGenerateSpec:
         mock_resolve_usd.return_value = "/tmp/scene.usd"
         mock_load_tree.return_value = kitchen_prim_tree()
         client.chat.completions.create.side_effect = [
+            chat_response(content=json.dumps(kitchen_normalized_dict())),
             chat_response(content=json.dumps(kitchen_pass1_dict())),
             chat_response(content=json.dumps(kitchen_resolve_response())),
         ]
@@ -85,7 +95,7 @@ class TestGenerateSpec:
         )
         assert isinstance(spec, ArenaEnvGraphSpec)
         assert data is None
-        assert client.chat.completions.create.call_count == 2
+        assert client.chat.completions.create.call_count == 3
         assert spec.object_references
 
     @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
@@ -103,6 +113,7 @@ class TestGenerateSpec:
             }]
         }
         client.chat.completions.create.side_effect = [
+            chat_response(content=json.dumps(kitchen_normalized_dict())),
             chat_response(content=json.dumps(kitchen_pass1_dict())),
             chat_response(content=json.dumps(bad_resolve)),
         ]
@@ -114,8 +125,39 @@ class TestGenerateSpec:
         )
         assert spec is None
         assert isinstance(data, dict)
-        assert client.chat.completions.create.call_count == 2
+        assert client.chat.completions.create.call_count == 3
         assert any("is not in the background prim tree" in line for line in agent_obj.traces)
+
+    @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
+    def test_generate_spec_runs_normalization_then_simready_then_spec(self, mock_search, agent):
+        agent_obj, client = agent
+        mock_search.return_value = SimReadyCandidateCatalogue(
+            candidates=[
+                SimReadyObjectCandidate(
+                    search_phrase="red hammer",
+                    usd_path="s3://bucket/red_hammer.usd",
+                )
+            ]
+        )
+        agent_obj.enable_simready_search = True
+        client.chat.completions.create.side_effect = [
+            chat_response(content=json.dumps(minimal_normalized_dict())),
+            chat_response(content=json.dumps(minimal_spec_dict())),
+        ]
+        spec, data = agent_obj.generate_spec(
+            "p",
+            asset_catalog=catalog("catalog"),
+            relation_catalog=relation_catalog("RELATIONS"),
+            task_catalog=make_task_catalog("TASKS"),
+            enable_simready_search=True,
+        )
+        assert isinstance(spec, ArenaEnvGraphSpec)
+        assert data is None
+        mock_search.assert_called_once()
+        search_phrases = mock_search.call_args.args[0]
+        assert search_phrases == minimal_normalized_dict()["objects"]
+        assert any("SIMREADY_OBJECT_CANDIDATES" in line for line in agent_obj.traces)
+        assert client.chat.completions.create.call_count == 2
 
 
 # ---------------------------------------------------------------------------

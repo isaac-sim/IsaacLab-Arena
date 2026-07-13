@@ -12,12 +12,22 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from isaaclab_arena.agentic_environment_generation.prompt_normalization import (
+    NormalizedPromptDescriptions,
+    format_normalized_prompt_block,
+)
+from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
+    SIMREADY_USD_OBJECT_REGISTRY_NAME,
+    SimReadyCandidateCatalogue,
+    SimReadyObjectCandidate,
+)
 from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.tests.utils.agentic_environment_generation import catalog as make_catalog
 from isaaclab_arena.tests.utils.agentic_environment_generation import (
     chat_response,
     inference_backend,
+    minimal_normalized_dict,
     minimal_spec_dict,
 )
 from isaaclab_arena.tests.utils.agentic_environment_generation import relation_catalog as make_relation_catalog
@@ -39,6 +49,8 @@ def _infer(
     asset_catalog=None,
     relation_catalog=None,
     task_catalog=None,
+    normalized_prompt_block: str | None = None,
+    simready_candidate_catalog=None,
     traces: list[str] | None = None,
 ):
     traces = traces if traces is not None else []
@@ -48,6 +60,8 @@ def _infer(
         asset_catalog=asset_catalog or make_catalog("catalog"),
         relation_catalog=relation_catalog or make_relation_catalog("RELATIONS"),
         task_catalog=task_catalog or make_task_catalog("TASKS"),
+        normalized_prompt_block=normalized_prompt_block,
+        simready_candidate_catalog=simready_candidate_catalog,
     )
 
 
@@ -105,3 +119,29 @@ def test_infer_returns_none_with_validation_traces_on_invalid_spec(spec_inferenc
     assert data["embodiment"]["registry_name"] == "not_a_real_asset"
     assert traces
     assert any("registry_name" in line for line in traces)
+
+
+def test_infer_user_message_includes_normalized_and_simready_blocks(spec_inference):
+    inference, client = spec_inference
+    client.chat.completions.create.return_value = chat_response(content=json.dumps(minimal_spec_dict()))
+    normalized = format_normalized_prompt_block(NormalizedPromptDescriptions.model_validate(minimal_normalized_dict()))
+    simready_catalog = SimReadyCandidateCatalogue(
+        candidates=[
+            SimReadyObjectCandidate(
+                search_phrase="red hammer",
+                usd_path="s3://bucket/red_hammer.usd",
+            )
+        ]
+    )
+    _infer(
+        inference,
+        client,
+        normalized_prompt_block=normalized,
+        simready_candidate_catalog=simready_catalog,
+    )
+    user_msg = client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
+    system_msg = client.chat.completions.create.call_args.kwargs["messages"][0]["content"]
+    assert "NORMALIZED PROMPT:" in user_msg
+    assert "SIMREADY_OBJECT_CANDIDATES" in user_msg
+    assert SIMREADY_USD_OBJECT_REGISTRY_NAME in user_msg
+    assert SIMREADY_USD_OBJECT_REGISTRY_NAME in system_msg
