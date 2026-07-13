@@ -3,10 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Test the typed OpenPI Experiment configuration."""
+"""Test OpenPI policy composition through typed Arena Experiment YAML."""
 
 from pathlib import Path
 
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
+from isaaclab_arena.evaluation import arena_experiment_config_loader
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
@@ -98,3 +100,48 @@ def test_openpi_experiment_loads_all_typed_runs():
         assert run_cfg.policy.openpi_embodiment_adapter == "droid"
         assert run_cfg.rollout_limit.num_episodes == 3
         assert run_cfg.environment_builder.device == "cuda:1"
+
+
+def _write_openpi_experiment(path: Path) -> Path:
+    path.write_text(
+        """
+runs:
+- name: remote
+  environment:
+    type: test_environment
+  policy:
+    type: pi0_remote
+    openpi_embodiment_adapter: droid
+    remote_host: localhost
+    remote_port: 8000
+  rollout_limit:
+    num_steps: 1
+""",
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_typed_openpi_experiment_composes_runtime_endpoint_overrides(tmp_path, monkeypatch):
+    """Compose OpenPI and apply the runtime server endpoint through Hydra overrides."""
+    experiment_path = _write_openpi_experiment(tmp_path / "openpi.yaml")
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_registered_environment_cfg_types",
+        lambda: {"test_environment": ArenaEnvironmentCfg},
+    )
+
+    experiment = load_arena_experiment_from_config_file(
+        experiment_path,
+        device="cuda:1",
+        overrides=[
+            "runs.remote.policy.remote_host='{{host:policy_server}}'",
+            "runs.remote.policy.remote_port=8123",
+        ],
+    )
+
+    assert len(experiment) == 1
+    assert isinstance(experiment[0].policy, Pi0RemotePolicyCfg)
+    assert experiment[0].policy.remote_host == "{{host:policy_server}}"
+    assert experiment[0].policy.remote_port == 8123
+    assert experiment[0].environment_builder.device == "cuda:1"

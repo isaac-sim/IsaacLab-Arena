@@ -1,0 +1,11 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# pi0 inference-server defaults.
+type: pi0
+image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:openpi_server
+policy_variant: pi05
+policy_config: pi05_droid_jointpos_polaris
+policy_dir: gs://openpi-assets-simeval/pi05_droid_jointpos
