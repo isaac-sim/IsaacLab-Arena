@@ -16,6 +16,8 @@ RUNTIME_DEPS = [
     "pytest",
     "pydantic>=2.0",
     "openai>=2.0",
+    # openpi remote policy client
+    "openpi-client",
     # Sensitivity analysis (isaaclab_arena.analysis.sensitivity), imported at module level.
     "sbi",
     "scipy",
