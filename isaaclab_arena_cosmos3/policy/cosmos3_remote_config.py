@@ -23,3 +23,6 @@ class Cosmos3RemotePolicyArgs:
 
     remote_port: int = 8000
     """Port the cosmos3 inference server listens on."""
+
+    policy_device: str = "cuda"
+    """Torch device for action tensors (e.g. 'cuda', 'cuda:0', 'cpu')."""

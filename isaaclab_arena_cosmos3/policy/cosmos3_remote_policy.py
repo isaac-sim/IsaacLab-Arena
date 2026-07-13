@@ -71,6 +71,7 @@ class Cosmos3RemotePolicy(PolicyBase):
 
         self._remote_host = config.remote_host
         self._remote_port = config.remote_port
+        self.device = config.policy_device
 
         print(f"[Cosmos3RemotePolicy] Connecting to cosmos3 server at {self._remote_host}:{self._remote_port} ...")
         self._websocket_client = websocket_client_policy.WebsocketClientPolicy(
@@ -100,6 +101,12 @@ class Cosmos3RemotePolicy(PolicyBase):
         )
         group.add_argument("--remote_host", type=str, default="localhost", help="Cosmos3 server host.")
         group.add_argument("--remote_port", type=int, default=8000, help="Cosmos3 server port.")
+        group.add_argument(
+            "--policy_device",
+            type=str,
+            default="cuda",
+            help="Torch device for action tensors (e.g. 'cuda', 'cuda:0', 'cpu').",
+        )
         return parser
 
     @staticmethod
@@ -109,6 +116,7 @@ class Cosmos3RemotePolicy(PolicyBase):
             Cosmos3RemotePolicyArgs(
                 remote_host=args.remote_host,
                 remote_port=args.remote_port,
+                policy_device=getattr(args, "policy_device", "cuda"),
             ),
             cosmos3_embodiment_adapter=cosmos3_embodiment_adapter,
         )
@@ -140,8 +148,7 @@ class Cosmos3RemotePolicy(PolicyBase):
         actions = []
         for env_id in range(num_envs):
             chunk_exhausted = (
-                self._cached_action_chunks[env_id] is None
-                or self._next_chunk_steps[env_id] >= self._open_loop_horizon
+                self._cached_action_chunks[env_id] is None or self._next_chunk_steps[env_id] >= self._open_loop_horizon
             )
             if chunk_exhausted:
                 self._cached_action_chunks[env_id] = self._fetch_action_chunk(observation, env_id)
@@ -150,7 +157,7 @@ class Cosmos3RemotePolicy(PolicyBase):
             self._next_chunk_steps[env_id] += 1
 
         batch = np.stack(actions)  # (num_envs, action_dim)
-        return torch.from_numpy(batch).to(dtype=torch.float32, device=env.unwrapped.device)
+        return torch.from_numpy(batch).to(dtype=torch.float32, device=self.device)
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         if self._cached_action_chunks is None:
@@ -244,6 +251,7 @@ class Cosmos3RemotePolicy(PolicyBase):
     @property
     def is_remote(self) -> bool:
         return True
+
 
 def _close_websocket_best_effort(client: websocket_client_policy.WebsocketClientPolicy | None) -> None:
     """Best-effort close of the websocket inside ``client``.
