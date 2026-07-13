@@ -390,7 +390,10 @@ class LightBase(LibraryObject, ABC):
         self.object_cfg = self._init_object_cfg()
 
     def set_color_temperature(self, color_temperature: float) -> None:
-        """Enable and set the light's white-point color temperature in Kelvin, in [1000, 10000]."""
+        """Enable and set the light's white-point color temperature in Kelvin.
+
+        The range is limited to [1000, 10000] K, the valid range documented by Isaac Lab's light cfg.
+        """
         assert (
             1000.0 <= color_temperature <= 10000.0
         ), f"Light color temperature must be in [1000, 10000] K, got {color_temperature}."

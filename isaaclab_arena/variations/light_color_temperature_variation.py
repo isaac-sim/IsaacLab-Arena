@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 class LightColorTemperatureVariationCfg(VariationBaseCfg):
     """Configuration for LightColorTemperatureVariation."""
 
-    sampler_cfg: UniformSamplerCfg = field(default_factory=lambda: UniformSamplerCfg(low=[2000.0], high=[10000.0]))
+    sampler_cfg: UniformSamplerCfg = field(default_factory=lambda: UniformSamplerCfg(low=[1000.0], high=[10000.0]))
     """Uniform distribution over color temperature in Kelvin, from warm (low) to cool (high)."""
 
 
