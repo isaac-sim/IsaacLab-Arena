@@ -71,6 +71,8 @@ def check_ik_feasibility_per_goal_pose(
     best_pos_err = float(pos_err[best_idx].item())
     best_rot_err = float(rot_err[best_idx].item())
 
+    # Pose-residual only; deliberately not gated on ik_result.success — see the note in
+    # check_ik_feasibility_batch_goal_poses (the grasp target is itself a collision obstacle).
     feasible = best_pos_err < position_threshold and best_rot_err < rotation_threshold
 
     joint_solution = None
@@ -128,6 +130,12 @@ def check_ik_feasibility_batch_goal_poses(
     best_idx = pos_err.argmin(dim=1, keepdim=True)
     best_pos_err = pos_err.gather(1, best_idx).squeeze(1)
     best_rot_err = rot_err.gather(1, best_idx).squeeze(1)
+    # Feasibility is pose-residual only and deliberately does NOT gate on ik_result.success. success
+    # folds in world-collision feasibility, but each grasp target is itself a synced collision
+    # obstacle sitting directly under its own top-down grasp pose, so gating on it would mark every
+    # grasp as colliding and report all objects unreachable. Joint-limit-induced unreachability still
+    # shows up here: cuRobo optimizes within joint bounds, so an out-of-reach goal leaves a large
+    # residual.
     feasible = (best_pos_err < position_threshold) & (best_rot_err < rotation_threshold)
 
     planner.logger.debug(f"Batch IK feasibility: {int(feasible.sum().item())}/{num_poses} feasible")
