@@ -106,16 +106,16 @@ def _write_openpi_experiment(path: Path) -> Path:
     path.write_text(
         """
 runs:
-- name: remote
-  environment:
-    type: test_environment
-  policy:
-    type: pi0_remote
-    openpi_embodiment_adapter: droid
-    remote_host: localhost
-    remote_port: 8000
-  rollout_limit:
-    num_steps: 1
+  remote:
+    environment:
+      type: test_environment
+    policy:
+      type: pi0_remote
+      openpi_embodiment_adapter: droid
+      remote_host: localhost
+      remote_port: 8000
+    rollout_limit:
+      num_steps: 1
 """,
         encoding="utf-8",
     )
