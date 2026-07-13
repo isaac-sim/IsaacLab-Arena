@@ -6,6 +6,7 @@
 """Test Hydra composition of typed YAML Experiments."""
 
 from pathlib import Path
+from yaml.constructor import ConstructorError
 
 import pytest
 from hydra import initialize
@@ -80,7 +81,7 @@ def test_repeated_composition_reuses_config_store_entries(tmp_path):
         tmp_path,
         """
 runs:
-  - name: first
+  first:
     environment:
       type: pick_and_place_maple_table
       light_intensity: 600.0
@@ -97,7 +98,7 @@ runs:
             tmp_path,
             """
 runs:
-  - name: second
+  second:
     environment:
       type: pick_and_place_maple_table
       light_intensity: 700.0
@@ -142,13 +143,13 @@ def test_runs_keep_yaml_order_and_hydra_overrides_take_precedence(tmp_path):
         tmp_path,
         """
 runs:
-  - name: first
+  first:
     environment:
       type: pick_and_place_maple_table
       light_intensity: 600.0
     policy:
       type: zero_action
-  - name: second
+  second:
     environment:
       type: pick_and_place_maple_table
     policy:
@@ -205,25 +206,40 @@ runs:
     ],
 )
 def test_invalid_run_configuration_is_rejected(tmp_path, run_contents, exception_type, error):
-    config_path = _write_experiment(tmp_path, f"runs:\n  - name: invalid{run_contents}")
+    config_path = _write_experiment(tmp_path, f"runs:\n  invalid:{run_contents}")
 
     with pytest.raises(exception_type, match=error):
         _load_experiment(config_path)
 
 
-def test_run_name_is_required(tmp_path):
+def test_runs_must_be_a_mapping(tmp_path):
     config_path = _write_experiment(
         tmp_path,
         """
 runs:
-  - environment:
+  - name: baseline
+    environment:
       type: pick_and_place_maple_table
     policy:
       type: zero_action
 """,
     )
 
-    with pytest.raises(AssertionError, match="must define a non-empty string 'name'"):
+    with pytest.raises(AssertionError, match="must be a mapping from Run names"):
+        _load_experiment(config_path)
+
+
+def test_experiment_requires_at_least_one_run(tmp_path):
+    config_path = _write_experiment(tmp_path, "runs: {}\n")
+
+    with pytest.raises(AssertionError, match="must define at least one Run"):
+        _load_experiment(config_path)
+
+
+def test_run_name_must_be_non_empty(tmp_path):
+    config_path = _write_experiment(tmp_path, 'runs:\n  "": {}\n')
+
+    with pytest.raises(AssertionError, match="Run names must be non-empty strings"):
         _load_experiment(config_path)
 
 
@@ -232,7 +248,7 @@ def test_run_name_must_be_hydra_compatible(tmp_path):
         tmp_path,
         """
 runs:
-  - name: 01_baseline
+  "01_baseline":
     environment:
       type: pick_and_place_maple_table
     policy:
@@ -244,17 +260,40 @@ runs:
         _load_experiment(config_path)
 
 
-def test_duplicate_run_name_is_rejected(tmp_path):
+def test_duplicate_run_mapping_key_is_rejected(tmp_path):
     config_path = _write_experiment(
         tmp_path,
         """
 runs:
-  - name: maple_table
-    environment:
-      type: pick_and_place_maple_table
-    policy:
-      type: zero_action
-  - name: maple_table
+  maple_table: {}
+  maple_table: {}
+""",
+    )
+
+    with pytest.raises(ConstructorError, match="duplicate key maple_table"):
+        _load_experiment(config_path)
+
+
+def test_run_configuration_must_be_a_mapping(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+runs:
+  maple_table: true
+""",
+    )
+
+    with pytest.raises(AssertionError, match="Run 'maple_table' must be a mapping"):
+        _load_experiment(config_path)
+
+
+def test_run_must_not_repeat_its_mapping_key_as_name(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+runs:
+  maple_table:
+    name: other_name
     environment:
       type: pick_and_place_maple_table
     policy:
@@ -262,8 +301,25 @@ runs:
 """,
     )
 
-    with pytest.raises(AssertionError, match="Run name 'maple_table' is duplicated"):
+    with pytest.raises(AssertionError, match="must not define 'name'"):
         _load_experiment(config_path)
+
+
+def test_run_mapping_key_cannot_be_overridden(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+runs:
+  maple_table:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+""",
+    )
+
+    with pytest.raises(AssertionError, match="cannot be overridden"):
+        _load_experiment(config_path, overrides=["runs.maple_table.name=other_name"])
 
 
 def test_unknown_hydra_override_is_rejected(tmp_path):
@@ -271,7 +327,7 @@ def test_unknown_hydra_override_is_rejected(tmp_path):
         tmp_path,
         """
 runs:
-  - name: maple_table
+  maple_table:
     environment:
       type: pick_and_place_maple_table
     policy:
