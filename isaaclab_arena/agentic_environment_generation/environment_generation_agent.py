@@ -228,11 +228,6 @@ class EnvironmentGenerationAgent:
         self.prim_path_inference = PrimPathInference(inference_backend)
         self.traces: list[str] = []
 
-    @property
-    def last_validation_traces(self) -> list[str]:
-        """Backward-compatible alias for ``self.traces``."""
-        return self.traces
-
     def generate_spec(
         self,
         prompt: str,

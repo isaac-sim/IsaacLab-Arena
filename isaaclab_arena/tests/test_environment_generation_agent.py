@@ -128,7 +128,7 @@ class TestGenerateSpec:
         assert spec is None
         assert isinstance(data, dict)
         assert _agent_client(agent).chat.completions.create.call_count == 2
-        assert any("is not in the background prim tree" in line for line in agent.last_validation_traces)
+        assert any("is not in the background prim tree" in line for line in agent.traces)
 
 
 # ---------------------------------------------------------------------------
@@ -189,7 +189,7 @@ def test_generate_spec_atomic_pick_and_place_against_live_endpoint():
     """Live test: avocado into bowl yields an atomic pick-and-place task."""
     agent = EnvironmentGenerationAgent()
     spec, data = agent.generate_spec(_ATOMIC_PICK_AND_PLACE_PROMPT)
-    assert isinstance(spec, ArenaEnvGraphSpec), f"spec validation failed: {agent.last_validation_traces}"
+    assert isinstance(spec, ArenaEnvGraphSpec), f"spec validation failed: {agent.traces}"
     assert data is None
     _assert_atomic_pick_and_place_spec(spec)
 
@@ -199,7 +199,7 @@ def test_generate_spec_five_bananas_parallel_pick_and_place_against_live_endpoin
     """Live test: five bananas into one bin yields a parallel composite task."""
     agent = EnvironmentGenerationAgent()
     spec, data = agent.generate_spec(_FIVE_BANANAS_PROMPT)
-    assert isinstance(spec, ArenaEnvGraphSpec), f"spec validation failed: {agent.last_validation_traces}"
+    assert isinstance(spec, ArenaEnvGraphSpec), f"spec validation failed: {agent.traces}"
     assert data is None
     _assert_five_bananas_parallel_pick_and_place_spec(spec)
 
@@ -231,7 +231,7 @@ def test_resolve_usd_prim_robocasa_kitchen_counter_and_fridge():
         asset_catalog=asset_catalog,
         task_catalog=tasks,
     )
-    assert isinstance(spec, ArenaEnvGraphSpec), f"spec validation failed: {agent.last_validation_traces}"
+    assert isinstance(spec, ArenaEnvGraphSpec), f"spec validation failed: {agent.traces}"
     assert data is None
     assert spec.object_references, "expected object_references for counter and fridge"
 

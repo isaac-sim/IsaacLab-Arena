@@ -119,16 +119,16 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path:
         relation_catalog=relation_catalog,
         task_catalog=task_catalog,
     )
-    # last_validation_traces holds one line per failure, e.g.
+    # agent.traces holds one line per failure, e.g.
     #   "embodiment.registry_name: Unknown asset registry_name 'not_a_real_asset'"
     #   "Task 'PickAndPlaceTask' is missing required param 'pick_up_object'"
     if env_graph_spec is None:
         print("\n[runner] validation traces:", flush=True)
-        for line in agent.last_validation_traces:
+        for line in agent.traces:
             print(f"  {line}", flush=True)
         invalid_path = write_env_graph_dict(data, args_cli.out_dir)
         print(f"[runner] wrote invalid spec YAML to {invalid_path}", flush=True)
-        assert False, f"Agent returned an invalid spec. Validation traces: {agent.last_validation_traces}"
+        assert False, f"Agent returned an invalid spec. Validation traces: {agent.traces}"
     print_env_graph(env_graph_spec)
     print(
         f"[runner] generated → {env_graph_spec.summary()}, env_name={env_graph_spec.env_name!r}",
