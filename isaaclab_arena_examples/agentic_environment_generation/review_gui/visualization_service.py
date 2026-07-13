@@ -18,14 +18,18 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.cl
     SimAppError,
     simapp_socket_from_env,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import (
+    panorama_cache_dir,
+    thumbnail_cache_dir,
+)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
     clear_simapp_client,
     ensure_simapp,
 )
 
 
-def _spec_render_key(spec: ArenaEnvGraphSpec) -> str:
-    payload = json.dumps(spec.to_dict(), sort_keys=True)
+def _spec_render_key(spec: ArenaEnvGraphSpec, *, background_panorama: bool) -> str:
+    payload = json.dumps({"spec": spec.to_dict(), "background_panorama": background_panorama}, sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -40,6 +44,21 @@ def _cached_dashboard_html(spec_key: str) -> str | None:
 
 def _store_dashboard_html(spec_key: str, html: str) -> None:
     st.session_state["_dashboard_render_cache"] = {"key": spec_key, "html": html}
+
+
+def clear_snapshot_render_caches() -> int:
+    """Delete cached review GUI snapshot PNGs and return how many files were removed."""
+    removed = 0
+    for cache_dir in (thumbnail_cache_dir(), panorama_cache_dir()):
+        for path in cache_dir.glob("*.png"):
+            path.unlink()
+            removed += 1
+    return removed
+
+
+def clear_dashboard_render_cache() -> None:
+    """Drop the in-memory dashboard HTML cache for the current Streamlit session."""
+    st.session_state.pop("_dashboard_render_cache", None)
 
 
 def _warn_simapp_unavailable_once() -> None:
@@ -63,27 +82,31 @@ def _show_simapp_render_error_once(exc: SimAppError) -> None:
     )
 
 
-def render_dashboard_with_thumbnails(spec: ArenaEnvGraphSpec) -> str:
+def render_dashboard_with_thumbnails(spec: ArenaEnvGraphSpec, *, background_panorama: bool = False) -> str:
     """Render review HTML, asking the SimApp server for live USD thumbnails when available."""
-    spec_key = _spec_render_key(spec)
+    spec_key = _spec_render_key(spec, background_panorama=background_panorama)
     cached_html = _cached_dashboard_html(spec_key)
     if cached_html is not None:
         return cached_html
+
+    panorama_node_ids: set[str] = set()
+    if background_panorama and spec.background is not None:
+        panorama_node_ids.add(spec.background.id)
 
     simapp_expected = simapp_socket_from_env() is not None
     client = ensure_simapp() if simapp_expected else None
     if client is None:
         if simapp_expected:
             _warn_simapp_unavailable_once()
-        html = render_dashboard_html(spec)
+        html = render_dashboard_html(spec, panorama_node_ids=panorama_node_ids)
         _store_dashboard_html(spec_key, html)
         return html
 
     try:
-        thumbnails, aabb_dimensions_m = client.render_spec(spec)
+        thumbnails, aabb_dimensions_m = client.render_spec(spec, background_panorama=background_panorama)
     except SimAppError as exc:
         _show_simapp_render_error_once(exc)
-        html = render_dashboard_html(spec)
+        html = render_dashboard_html(spec, panorama_node_ids=panorama_node_ids)
         _store_dashboard_html(spec_key, html)
         return html
     finally:
@@ -94,6 +117,7 @@ def render_dashboard_with_thumbnails(spec: ArenaEnvGraphSpec) -> str:
         spec,
         thumbnails=thumbnails if thumbnails else None,
         aabb_dimensions_m=aabb_dimensions_m or None,
+        panorama_node_ids=panorama_node_ids,
     )
     _store_dashboard_html(spec_key, html)
     return html

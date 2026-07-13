@@ -61,11 +61,13 @@ table.tasks pre { padding: 6px 8px; font-size: 11px; }
 .node-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .node-card { background: var(--bg-elev2); border: 1px solid var(--border); border-radius: 8px;
              padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.node-card--panorama { grid-column: 1 / -1; }
 .thumb-wrap { display: flex; flex-direction: column; gap: 4px; }
 .node-card .thumb { aspect-ratio: 1 / 1; background: linear-gradient(135deg, #2a2f37, #1c2026); /* placeholder gradient */
                     border-radius: 6px; display: flex; flex-direction: column;
                     align-items: center; justify-content: center; color: var(--fg-muted);
                     position: relative; overflow: hidden; }
+.node-card .thumb--panorama { aspect-ratio: 2 / 1; }
 .node-card .thumb-rendered { background: #0e1115; }
 .node-card .thumb-zoomable { cursor: zoom-in; outline: none; }
 .node-card .thumb-zoomable:focus-visible { box-shadow: 0 0 0 2px var(--accent); }

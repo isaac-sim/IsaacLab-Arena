@@ -30,12 +30,19 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.as
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import (
     PRE_CAPTURE_UPDATES,
     capture_viewport_png,
+    panorama_cache_dir,
     pump_app,
     thumbnail_cache_dir,
     wait_for_stage_load,
 )
 
 COLLIDER_SELECTION_PUMP_UPDATES = PRE_CAPTURE_UPDATES + 3
+PANORAMA_CAMERA_PRIM_PATH = "/World/_ReviewPanoramaCamera"
+PANORAMA_EYE_HEIGHT_M = 1.35
+PANORAMA_ROTATION_XYZ_DEG = (90.0, 0.0, 0.0)
+# Extra pump frames after restoring the pinhole camera so the RTX renderer drops the
+# fisheyeSpherical projection before an object_reference is captured on the same stage.
+PANORAMA_RESTORE_PUMP_UPDATES = PRE_CAPTURE_UPDATES + 5
 
 
 @dataclass
@@ -46,6 +53,7 @@ class _UsdSnapshotJob:
     viewer_cfg: object | None = None
     asset_captures: list[tuple[str, Path]] = field(default_factory=list)
     ref_captures: list[tuple[str, ObjectReferenceUsdTarget, Path]] = field(default_factory=list)
+    panorama_captures: list[tuple[str, Path]] = field(default_factory=list)
 
 
 def _usd_cache_key(usd_path: str) -> str:
@@ -53,7 +61,12 @@ def _usd_cache_key(usd_path: str) -> str:
     return hashlib.sha1(usd_path.encode("utf-8")).hexdigest()[:16]
 
 
-def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, Path], dict[str, AabbDimensionsM]]:
+def render_thumbnails_with_app(
+    app,
+    spec: ArenaEnvGraphSpec,
+    *,
+    background_panorama: bool = False,
+) -> tuple[dict[str, Path], dict[str, AabbDimensionsM]]:
     """Render cache-missed node thumbnails and return png paths plus AABB sizes in meters."""
     asset_paths = resolve_node_usd_paths(spec)
     reference_targets = resolve_object_reference_usd_targets(spec)
@@ -63,10 +76,22 @@ def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, 
         return {}, {}
 
     cache_dir = thumbnail_cache_dir()
+    panorama_dir = panorama_cache_dir()
+    background_id = spec.background.id if spec.background is not None else None
 
     resolved: dict[str, Path] = {}
     to_render: dict[str, tuple[str, Path, object | None]] = {}
+    panorama_to_render: dict[str, tuple[str, Path]] = {}
     for node_id, usd_path in asset_paths.items():
+        use_panorama = background_panorama and node_id == background_id
+        if use_panorama:
+            cache_path = panorama_dir / f"{_usd_cache_key(usd_path)}_panorama.png"
+            if cache_path.exists() and cache_path.stat().st_size > 0:
+                resolved[node_id] = cache_path
+            else:
+                panorama_to_render[node_id] = (usd_path, cache_path)
+            continue
+
         cache_path = cache_dir / f"{_usd_cache_key(usd_path)}.png"
         if cache_path.exists() and cache_path.stat().st_size > 0:
             resolved[node_id] = cache_path
@@ -81,17 +106,20 @@ def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, 
         else:
             reference_to_render[node_id] = (target, cache_path)
 
-    if to_render or reference_to_render:
+    if to_render or reference_to_render or panorama_to_render:
         print(
-            f"[thumbnail_capture] rendering {len(to_render)} asset and "
+            f"[thumbnail_capture] rendering {len(to_render)} asset, "
+            f"{len(panorama_to_render)} panorama, and "
             f"{len(reference_to_render)} object_reference thumbnail(s) "
-            f"(reusing {len(resolved)} from cache at {cache_dir})...",
+            f"(reusing {len(resolved)} from cache)...",
             file=sys.stderr,
         )
-        jobs = _build_usd_snapshot_jobs(spec, to_render, reference_to_render)
+        jobs = _build_usd_snapshot_jobs(spec, to_render, reference_to_render, panorama_to_render)
         captured = _capture_usd_snapshot_jobs(app, jobs)
-        for node_id, cache_path in [(nid, cp) for nid, (_usd, cp, _cfg) in to_render.items()] + [
-            (nid, cp) for nid, (_tgt, cp) in reference_to_render.items()
+        for node_id, cache_path in [
+            *((nid, cp) for nid, (_usd, cp, _cfg) in to_render.items()),
+            *((nid, cp) for nid, (_usd, cp) in panorama_to_render.items()),
+            *((nid, cp) for nid, (_tgt, cp) in reference_to_render.items()),
         ]:
             if node_id in captured and cache_path.exists() and cache_path.stat().st_size > 0:
                 resolved[node_id] = cache_path
@@ -105,6 +133,7 @@ def _build_usd_snapshot_jobs(
     spec: ArenaEnvGraphSpec,
     to_render: dict[str, tuple[str, Path, object | None]],
     reference_to_render: dict[str, tuple[ObjectReferenceUsdTarget, Path]],
+    panorama_to_render: dict[str, tuple[str, Path]],
 ) -> list[_UsdSnapshotJob]:
     """Group asset and object_reference captures by parent USD path."""
     jobs_by_usd: dict[str, _UsdSnapshotJob] = {}
@@ -115,7 +144,11 @@ def _build_usd_snapshot_jobs(
             job.viewer_cfg = viewer_cfg
         job.asset_captures.append((node_id, cache_path))
 
-    ref_by_id = {ref.id: ref for ref in spec.object_references}
+    for node_id, (usd_path, cache_path) in panorama_to_render.items():
+        job = jobs_by_usd.setdefault(usd_path, _UsdSnapshotJob(usd_path=usd_path))
+        job.panorama_captures.append((node_id, cache_path))
+
+    ref_by_id = {ref.id: ref for ref in (spec.object_references or [])}
     for node_id, (target, cache_path) in reference_to_render.items():
         job = jobs_by_usd.setdefault(target.usd_path, _UsdSnapshotJob(usd_path=target.usd_path))
         job.ref_captures.append((node_id, target, cache_path))
@@ -165,10 +198,18 @@ def _capture_usd_snapshot_job(app, job: _UsdSnapshotJob) -> dict[str, bytes]:
             for node_id, _cache_path in job.asset_captures:
                 out[node_id] = png_bytes
 
+    if job.panorama_captures:
+        cache_path = job.panorama_captures[0][1]
+        png_bytes = _capture_background_panorama(app, stage, cache_path)
+        if png_bytes:
+            for node_id, _cache_path in job.panorama_captures:
+                out[node_id] = png_bytes
+
     if job.ref_captures:
+        # Object references are framed tightly on their own prim via frame_viewport_prims;
+        # the background's viewer_cfg camera (e.g. a kitchen eye/lookat aimed at a wall)
+        # must not be applied here or the capture points away from the target.
         _configure_collision_mesh_visualization()
-        if job.viewer_cfg is not None:
-            _apply_viewer_cfg(app, job.viewer_cfg)
 
         for node_id, target, cache_path in job.ref_captures:
             root_path = _absolute_prim_path(stage, target.relative_prim_path)
@@ -225,6 +266,57 @@ def _capture_stage_snapshot(
         return png_bytes
     print(f"[thumbnail_capture]   capture produced no file: {cache_path}", file=sys.stderr)
     return None
+
+
+def _capture_background_panorama(app, stage, cache_path: Path) -> bytes | None:
+    """Capture a raw fisheyeSpherical 360 panorama from the stage centroid."""
+    if stage.GetPrimAtPath(PANORAMA_CAMERA_PRIM_PATH):
+        stage.RemovePrim(Sdf.Path(PANORAMA_CAMERA_PRIM_PATH))
+
+    cache = UsdGeom.BBoxCache(0, [UsdGeom.Tokens.default_])
+    root = stage.GetDefaultPrim() or stage.GetPseudoRoot()
+    bbox = cache.ComputeWorldBound(root).ComputeAlignedBox()
+    min_pt, max_pt = bbox.GetMin(), bbox.GetMax()
+    centroid = Gf.Vec3d(
+        (min_pt[0] + max_pt[0]) * 0.5,
+        (min_pt[1] + max_pt[1]) * 0.5,
+        PANORAMA_EYE_HEIGHT_M,
+    )
+
+    camera = UsdGeom.Camera.Define(stage, Sdf.Path(PANORAMA_CAMERA_PRIM_PATH))
+    xform = UsdGeom.Xformable(camera.GetPrim())
+    xform.ClearXformOpOrder()
+    xform.AddTranslateOp().Set(centroid)
+    xform.AddRotateXYZOp().Set(Gf.Vec3f(*PANORAMA_ROTATION_XYZ_DEG))
+
+    cam_prim = camera.GetPrim()
+    cam_prim.CreateAttribute("cameraProjectionType", Sdf.ValueTypeNames.Token).Set("fisheyeSpherical")
+    for attr_name, value in (
+        ("fthetaWidth", 1024.0),
+        ("fthetaHeight", 1024.0),
+        ("fthetaMaxFov", 360.0),
+    ):
+        cam_prim.CreateAttribute(attr_name, Sdf.ValueTypeNames.Float).Set(value)
+
+    viewport = get_active_viewport()
+    # Remember the pinhole camera so we can restore it: later object_reference
+    # captures on the same stage must not inherit the fisheyeSpherical projection.
+    prior_camera_path = str(viewport.camera_path)
+    viewport.camera_path = PANORAMA_CAMERA_PRIM_PATH
+    pump_app(app, count=PRE_CAPTURE_UPDATES)
+
+    try:
+        png_bytes = capture_viewport_png(app, cache_path, pre_capture_updates=PRE_CAPTURE_UPDATES)
+        if png_bytes is None:
+            print(f"[thumbnail_capture]   panorama capture produced no file: {cache_path}", file=sys.stderr)
+        return png_bytes
+    finally:
+        # Restore the pinhole camera and drop the panorama prim before any other capture.
+        if prior_camera_path and prior_camera_path != PANORAMA_CAMERA_PRIM_PATH:
+            viewport.camera_path = prior_camera_path
+        if stage.GetPrimAtPath(PANORAMA_CAMERA_PRIM_PATH):
+            stage.RemovePrim(Sdf.Path(PANORAMA_CAMERA_PRIM_PATH))
+        pump_app(app, count=PANORAMA_RESTORE_PUMP_UPDATES)
 
 
 def _apply_viewer_cfg(app, viewer_cfg) -> None:

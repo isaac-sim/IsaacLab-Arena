@@ -37,6 +37,7 @@ def render_asset_thumbnail(
     aabb_dimensions_m: tuple[float, float, float] | None = None,
     *,
     is_object_reference: bool = False,
+    is_panorama: bool = False,
 ) -> str:
     """Per-asset thumbnail: USD capture if available, else two-letter placeholder."""
     if is_object_reference and png_bytes is None:
@@ -46,17 +47,25 @@ def render_asset_thumbnail(
     collision_note = (
         '<span class="thumb-note">Collision mesh preview</span>' if is_object_reference and png_bytes else ""
     )
+    panorama_note = '<span class="thumb-note">360° panorama</span>' if is_panorama and png_bytes else ""
+    thumb_classes = ["thumb"]
+    if png_bytes:
+        thumb_classes.extend(["thumb-rendered", "thumb-zoomable"])
+    if is_panorama:
+        thumb_classes.append("thumb--panorama")
+    thumb_class = " ".join(thumb_classes)
     if png_bytes:
         b64 = base64.b64encode(png_bytes).decode("ascii")
         title = html_lib.escape(registry_name, quote=True)
         src = f"data:image/png;base64,{b64}"
         return (
             '<div class="thumb-wrap">'
-            '<div class="thumb thumb-rendered thumb-zoomable" role="button" tabindex="0" '
+            f'<div class="{thumb_class}" role="button" tabindex="0" '
             f'aria-label="Zoom {title} snapshot" data-zoom-src="{src}" data-zoom-title="{title}">'
             f'<img src="{src}" alt="{title} thumbnail">'
             f'<span class="thumb-name">{html_lib.escape(registry_name)}</span>'
             f"{collision_note}"
+            f"{panorama_note}"
             "</div>"
             f"{dims_html}"
             "</div>"

@@ -84,10 +84,13 @@ def render_dashboard_html(
     spec: ArenaEnvGraphSpec,
     thumbnails: dict[str, bytes] | None = None,
     aabb_dimensions_m: dict[str, tuple[float, float, float]] | None = None,
+    *,
+    panorama_node_ids: set[str] | None = None,
 ) -> str:
     """Render the self-contained review dashboard HTML for ``spec``."""
     thumbnails = thumbnails or {}
     aabb_dimensions_m = aabb_dimensions_m or {}
+    panorama_node_ids = panorama_node_ids or set()
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -104,7 +107,7 @@ def render_dashboard_html(
 <main>
   <section class="panel nodes-panel">
     <h2>Assets</h2>
-    <div class="node-grid">{render_node_cards(spec, thumbnails, aabb_dimensions_m)}</div>
+    <div class="node-grid">{render_node_cards(spec, thumbnails, aabb_dimensions_m, panorama_node_ids)}</div>
   </section>
   <section class="panel graph-panel">
     <h2>Spatial graph</h2>

@@ -73,10 +73,12 @@ def render_node_cards(
     spec: ArenaEnvGraphSpec,
     thumbnails: dict[str, bytes] | None = None,
     aabb_dimensions_m: dict[str, tuple[float, float, float]] | None = None,
+    panorama_node_ids: set[str] | None = None,
 ) -> str:
     """Render one card per asset for the dashboard nodes panel."""
     thumbnails = thumbnails or {}
     aabb_dimensions_m = aabb_dimensions_m or {}
+    panorama_node_ids = panorama_node_ids or set()
     entries = [
         ("background", spec.background),
         *(("object_reference", ref) for ref in (spec.object_references or [])),
@@ -94,7 +96,15 @@ def render_node_cards(
             )
         else:
             assert isinstance(asset, AssetSpec)
-            cards.append(render_node_card(role, asset, thumbnails.get(asset.id), aabb_dimensions_m.get(asset.id)))
+            cards.append(
+                render_node_card(
+                    role,
+                    asset,
+                    thumbnails.get(asset.id),
+                    aabb_dimensions_m.get(asset.id),
+                    is_panorama=asset.id in panorama_node_ids,
+                )
+            )
     return "\n".join(cards)
 
 
@@ -103,11 +113,19 @@ def render_node_card(
     asset: AssetSpec,
     png_bytes: bytes | None = None,
     aabb_dimensions_m: tuple[float, float, float] | None = None,
+    *,
+    is_panorama: bool = False,
 ) -> str:
     """Render a single asset card with USD snapshot or placeholder thumbnail and YAML dump."""
     node_yaml = yaml.safe_dump(asset.model_dump(mode="json", exclude_none=True), sort_keys=False).rstrip()
-    thumb = render_asset_thumbnail(asset.registry_name, png_bytes, aabb_dimensions_m)
-    return f"""<article class="node-card type-{html_lib.escape(role)}">
+    thumb = render_asset_thumbnail(
+        asset.registry_name,
+        png_bytes,
+        aabb_dimensions_m,
+        is_panorama=is_panorama,
+    )
+    card_class = "node-card node-card--panorama" if is_panorama else "node-card"
+    return f"""<article class="{card_class} type-{html_lib.escape(role)}">
   {thumb}
   <div class="node-meta">
     <div class="node-id">{html_lib.escape(asset.id)}</div>
