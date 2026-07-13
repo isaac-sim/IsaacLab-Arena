@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -30,27 +30,12 @@ from isaaclab_arena.tests.utils.agentic_environment_generation import task_catal
 
 
 @pytest.fixture
-def stub_openai():
-    """Patch ``openai.OpenAI`` so ``EnvironmentGenerationAgent()`` never hits the wire."""
-    with patch("isaaclab_arena.agentic_environment_generation.inference_backend.OpenAI") as mock_cls:
-        client = MagicMock()
-        client.chat.completions.create.return_value = chat_response(content="OK")
-        mock_cls.return_value = client
-        yield mock_cls
-
-
-def _agent_client(agent: EnvironmentGenerationAgent):
-    return agent.spec_inference._inference_backend.client
-
-
-@pytest.fixture
 def agent(stub_openai):
     """A constructed ``EnvironmentGenerationAgent`` with a fully mocked openai client."""
+    _, client = stub_openai
     a = EnvironmentGenerationAgent(api_key="test-key")
-    client = _agent_client(a)
-    client.chat.completions.create.side_effect = None
     client.chat.completions.create.reset_mock()
-    return a
+    return a, client
 
 
 # ---------------------------------------------------------------------------
@@ -60,9 +45,8 @@ def agent(stub_openai):
 
 class TestGenerateSpec:
     def test_builds_catalogues_from_singleton_registries_when_none(self, agent):
-        _agent_client(agent).chat.completions.create.return_value = chat_response(
-            content=json.dumps(minimal_spec_dict())
-        )
+        agent_obj, client = agent
+        client.chat.completions.create.return_value = chat_response(content=json.dumps(minimal_spec_dict()))
         with (
             patch(
                 "isaaclab_arena.agentic_environment_generation.environment_generation_agent.build_asset_catalogue",
@@ -77,7 +61,7 @@ class TestGenerateSpec:
             mock_build_assets.return_value = catalog("<<ASSET-CATALOG>>")
             mock_build_relations.return_value = relation_catalog("<<RELATION-CATALOG>>")
             mock_build_tasks.return_value = make_task_catalog("<<TASK-CATALOG>>")
-            agent.generate_spec("p")
+            agent_obj.generate_spec("p")
         mock_build_assets.assert_called_once_with()
         mock_build_relations.assert_called_once_with()
         mock_build_tasks.assert_called_once_with()
@@ -85,13 +69,14 @@ class TestGenerateSpec:
     @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
     @patch("isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path")
     def test_two_pass_generate_spec_resolves_object_references(self, mock_resolve_usd, mock_load_tree, agent):
+        agent_obj, client = agent
         mock_resolve_usd.return_value = "/tmp/scene.usd"
         mock_load_tree.return_value = kitchen_prim_tree()
-        _agent_client(agent).chat.completions.create.side_effect = [
+        client.chat.completions.create.side_effect = [
             chat_response(content=json.dumps(kitchen_pass1_dict())),
             chat_response(content=json.dumps(kitchen_resolve_response())),
         ]
-        spec, data = agent.generate_spec(
+        spec, data = agent_obj.generate_spec(
             "kitchen task",
             asset_catalog=catalog("catalog"),
             relation_catalog=relation_catalog("RELATIONS"),
@@ -99,12 +84,13 @@ class TestGenerateSpec:
         )
         assert isinstance(spec, ArenaEnvGraphSpec)
         assert data is None
-        assert _agent_client(agent).chat.completions.create.call_count == 2
+        assert client.chat.completions.create.call_count == 2
         assert spec.object_references
 
     @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
     @patch("isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path")
     def test_two_pass_generate_spec_returns_dict_on_pass2_failure(self, mock_resolve_usd, mock_load_tree, agent):
+        agent_obj, client = agent
         mock_resolve_usd.return_value = "/tmp/scene.usd"
         mock_load_tree.return_value = kitchen_prim_tree()
         bad_resolve = {
@@ -115,11 +101,11 @@ class TestGenerateSpec:
                 "object_type": "base",
             }]
         }
-        _agent_client(agent).chat.completions.create.side_effect = [
+        client.chat.completions.create.side_effect = [
             chat_response(content=json.dumps(kitchen_pass1_dict())),
             chat_response(content=json.dumps(bad_resolve)),
         ]
-        spec, data = agent.generate_spec(
+        spec, data = agent_obj.generate_spec(
             "kitchen task",
             asset_catalog=catalog("catalog"),
             relation_catalog=relation_catalog("RELATIONS"),
@@ -127,8 +113,8 @@ class TestGenerateSpec:
         )
         assert spec is None
         assert isinstance(data, dict)
-        assert _agent_client(agent).chat.completions.create.call_count == 2
-        assert any("is not in the background prim tree" in line for line in agent.traces)
+        assert client.chat.completions.create.call_count == 2
+        assert any("is not in the background prim tree" in line for line in agent_obj.traces)
 
 
 # ---------------------------------------------------------------------------

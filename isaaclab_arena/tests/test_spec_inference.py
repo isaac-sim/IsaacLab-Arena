@@ -12,23 +12,23 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
 from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.tests.utils.agentic_environment_generation import catalog as make_catalog
-from isaaclab_arena.tests.utils.agentic_environment_generation import chat_response, minimal_spec_dict
+from isaaclab_arena.tests.utils.agentic_environment_generation import (
+    chat_response,
+    inference_backend,
+    minimal_spec_dict,
+)
 from isaaclab_arena.tests.utils.agentic_environment_generation import relation_catalog as make_relation_catalog
 from isaaclab_arena.tests.utils.agentic_environment_generation import task_catalog as make_task_catalog
 
 
 @pytest.fixture
-def spec_inference():
+def spec_inference(stub_openai):
     """A ``SpecInference`` backed by a mocked OpenAI client."""
-    client = MagicMock()
-    client.chat.completions.create.return_value = chat_response(content="OK")
-    inference = SpecInference(InferenceBackend(client=client, model="test-model"))
-    client.chat.completions.create.reset_mock()
-    return inference, client
+    _, client = stub_openai
+    return SpecInference(inference_backend(stub_openai)), client
 
 
 def _infer(

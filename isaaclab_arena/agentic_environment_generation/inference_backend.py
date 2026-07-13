@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from openai import OpenAI
+from openai.types.chat import ChatCompletionMessage
 from pydantic import BaseModel
 
 MAX_RETRIES_LIMIT = 10
@@ -23,12 +24,11 @@ DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
 DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
 
 
-def _ping(client: Any, model: str) -> str:
+def _ping(client: OpenAI, model: str) -> str:
     """Smoke-test the endpoint + API key + model with a minimal request.
 
     Args:
-        client: An OpenAI-compatible client (typically
-            ``openai.OpenAI`` or a compatible mock).
+        client: An OpenAI-compatible client (typically ``openai.OpenAI``).
         model: Model identifier forwarded to
             ``client.chat.completions.create(model=...)``.
 
@@ -57,7 +57,7 @@ def build_strict_schema(model_cls: type[BaseModel]) -> dict[str, Any]:
     return schema
 
 
-def _apply_strict_constraints(node: Any) -> None:
+def _apply_strict_constraints(node: dict | list) -> None:
     """Recursively apply OpenAI strict-mode constraints to a JSON-schema node."""
     if isinstance(node, dict):
         if node.get("type") == "object" and "properties" in node:
@@ -73,25 +73,13 @@ def _apply_strict_constraints(node: Any) -> None:
             _apply_strict_constraints(v)
 
 
-def _extract_response_text(message: Any) -> tuple[str, str]:
-    """Pull the agent's structured-output text from the chat-completion message.
-
-    Returns ``(text, route)`` where ``route`` is one of:
-
-      * ``"content"`` — the standard OpenAI-compatible channel.
-      * ``"reasoning_content"`` — NVIDIA DeepSeek's provider-specific
-        channel; the model emits structured outputs here instead of
-        ``content``. We treat it as equivalent.
-      * ``"empty"`` — both channels were empty / missing; the caller
-        should surface a clear error.
-    """
-    content = getattr(message, "content", None)
-    if content:
-        return content, "content"
-    reasoning = getattr(message, "reasoning_content", None)
-    if reasoning:
-        return reasoning, "reasoning_content"
-    return "", "empty"
+def _extract_response_text(message: ChatCompletionMessage) -> str | None:
+    """Pull structured-output text from a chat-completion message."""
+    if message.content:
+        return message.content
+    # ``reasoning_content`` is NVIDIA DeepSeek's provider-specific
+    # channel; it is not a declared field on ``ChatCompletionMessage``
+    return getattr(message, "reasoning_content", None)
 
 
 @dataclass(frozen=True)
@@ -116,33 +104,28 @@ class InferenceBackend:
         temperature: float = 0.2,
         max_tokens: int = 4096,
         max_retries: int = 3,
-        *,
-        client: Any | None = None,
     ):
         """Configure an OpenAI-compatible structured-output client.
 
         Args:
             api_key: API token for the inference endpoint. Falls back to the
-                ``NV_API_KEY`` environment variable when ``client`` is not provided.
+                ``NV_API_KEY`` environment variable.
             model: Model identifier passed to the chat completion API.
             base_url: OpenAI-compatible inference endpoint.
             temperature: Sampling temperature for completion requests.
             max_tokens: Maximum tokens in each completion response.
             max_retries: Additional attempts after a recoverable failure; must be in
                 ``[0, MAX_RETRIES_LIMIT)``.
-            client: Optional pre-built client for tests; when set, ``api_key`` and
-                ``base_url`` are not used.
         """
         assert (
             0 <= max_retries < MAX_RETRIES_LIMIT
         ), f"max_retries must be in [0, {MAX_RETRIES_LIMIT}), got {max_retries}"
+        resolved_api_key = api_key or os.getenv("NV_API_KEY")
+        assert resolved_api_key, "API key required: set NV_API_KEY or pass api_key."
+        resolved_base_url = base_url or DEFAULT_BASE_URL
         resolved_model = model or DEFAULT_MODEL
-        if client is None:
-            resolved_api_key = api_key or os.getenv("NV_API_KEY")
-            assert resolved_api_key, "API key required: set NV_API_KEY or pass api_key."
-            resolved_base_url = base_url or DEFAULT_BASE_URL
-            client = OpenAI(api_key=resolved_api_key, base_url=resolved_base_url)
-        self._client = client
+        client = OpenAI(api_key=resolved_api_key, base_url=resolved_base_url)
+        self._client: OpenAI = client
         self._model = resolved_model
         self._temperature = temperature
         self._max_tokens = max_tokens
@@ -155,7 +138,7 @@ class InferenceBackend:
         return self._model
 
     @property
-    def client(self) -> Any:
+    def client(self) -> OpenAI:
         """OpenAI-compatible client used for completion requests."""
         return self._client
 
@@ -196,8 +179,8 @@ class InferenceBackend:
                     f"Model {self._model!r} returned HTTP 200 with no choices "
                     "(content filter / guardrail / rate-limit response with empty body)."
                 )
-                text, route = _extract_response_text(choices[0].message)
-                assert route != "empty", (
+                text = _extract_response_text(choices[0].message)
+                assert text, (
                     f"Model {self._model!r} returned an empty structured-outputs envelope. "
                     "Verify the endpoint/model supports response_format=json_schema."
                 )

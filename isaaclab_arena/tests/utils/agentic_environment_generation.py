@@ -11,17 +11,39 @@ import json
 import yaml
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import (
     AssetCatalogue,
     RelationCatalogue,
     TaskCatalogue,
 )
+from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
 
 _TEST_DATA_DIR = Path(__file__).resolve().parent.parent / "test_data"
+_OPENAI_PATCH = "isaaclab_arena.agentic_environment_generation.inference_backend.OpenAI"
+
+
+@pytest.fixture
+def stub_openai():
+    """Patch ``OpenAI`` and yield ``(constructor_mock, client_mock)``."""
+    with patch(_OPENAI_PATCH) as mock_cls:
+        client = MagicMock()
+        client.chat.completions.create.return_value = chat_response(content="OK")
+        mock_cls.return_value = client
+        yield mock_cls, client
+
+
+def inference_backend(stub_openai, *, model: str = "test-model", max_retries: int = 3) -> InferenceBackend:
+    """Build an ``InferenceBackend`` against the patched OpenAI client from ``stub_openai``."""
+    _, client = stub_openai
+    backend = InferenceBackend(api_key="test-key", model=model, max_retries=max_retries)
+    client.chat.completions.create.reset_mock()
+    return backend
 
 
 def load_test_yaml(name: str) -> dict[str, Any]:

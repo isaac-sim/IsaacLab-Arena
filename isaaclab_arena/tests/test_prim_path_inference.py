@@ -8,16 +8,16 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
 from isaaclab_arena.agentic_environment_generation.prim_path_inference import PrimPathInference, _prim_tree_catalog
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.tests.utils.agentic_environment_generation import (
     chat_response,
+    inference_backend,
     kitchen_pass1_dict,
     kitchen_prim_tree,
     kitchen_resolve_response,
@@ -39,14 +39,12 @@ def test_prim_tree_catalog_nested_format():
 
 @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
 @patch("isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path")
-def test_prim_path_inference_infer_merges_llm_output(mock_resolve_usd, mock_load_tree):
+def test_prim_path_inference_infer_merges_llm_output(mock_resolve_usd, mock_load_tree, stub_openai):
     mock_resolve_usd.return_value = "/tmp/scene.usd"
     mock_load_tree.return_value = kitchen_prim_tree()
-    client = MagicMock()
-    client.chat.completions.create.return_value = chat_response(content="OK")
-    backend = InferenceBackend(client=client, model="test-model")
-    client.chat.completions.create.return_value = chat_response(json.dumps(kitchen_resolve_response()))
-    client.chat.completions.create.reset_mock()
+    _, client = stub_openai
+    backend = inference_backend(stub_openai)
+    client.chat.completions.create.return_value = chat_response(content=json.dumps(kitchen_resolve_response()))
     inference = PrimPathInference(backend)
     spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
     merged = inference.infer(spec, [])
@@ -60,17 +58,15 @@ def test_prim_path_inference_infer_merges_llm_output(mock_resolve_usd, mock_load
 
 @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
 @patch("isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path")
-def test_prim_path_inference_strips_leading_slash(mock_resolve_usd, mock_load_tree):
+def test_prim_path_inference_strips_leading_slash(mock_resolve_usd, mock_load_tree, stub_openai):
     mock_resolve_usd.return_value = "/tmp/scene.usd"
     mock_load_tree.return_value = kitchen_prim_tree()
     response = kitchen_resolve_response()
     for ref in response["object_references"]:
         ref["prim_path"] = "/" + ref["prim_path"]
-    client = MagicMock()
-    client.chat.completions.create.return_value = chat_response(content="OK")
-    backend = InferenceBackend(client=client, model="test-model")
-    client.chat.completions.create.return_value = chat_response(json.dumps(response))
-    client.chat.completions.create.reset_mock()
+    _, client = stub_openai
+    backend = inference_backend(stub_openai)
+    client.chat.completions.create.return_value = chat_response(content=json.dumps(response))
     inference = PrimPathInference(backend)
     spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
     merged = inference.infer(spec, [])
@@ -123,16 +119,15 @@ def test_prim_path_inference_strips_leading_slash(mock_resolve_usd, mock_load_tr
 def test_prim_path_inference_infer_records_invalid_llm_output(
     mock_resolve_usd,
     mock_load_tree,
+    stub_openai,
     response,
     match,
 ):
     mock_resolve_usd.return_value = "/tmp/scene.usd"
     mock_load_tree.return_value = kitchen_prim_tree()
-    client = MagicMock()
-    client.chat.completions.create.return_value = chat_response(content="OK")
-    backend = InferenceBackend(client=client, model="test-model")
-    client.chat.completions.create.return_value = chat_response(json.dumps(response))
-    client.chat.completions.create.reset_mock()
+    _, client = stub_openai
+    backend = inference_backend(stub_openai)
+    client.chat.completions.create.return_value = chat_response(content=json.dumps(response))
     inference = PrimPathInference(backend)
     spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
     traces: list[str] = []
