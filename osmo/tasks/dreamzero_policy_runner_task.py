@@ -5,10 +5,10 @@
 
 """DreamZero policy-runner task for the Isaac Lab Arena OSMO workflow."""
 
-import re
 from dataclasses import dataclass
 
 from osmo.tasks.policy_runner_task import PolicyRunnerTask, PolicyRunnerTaskCfg
+from osmo.workflows.utils.workflow_id import is_valid_workflow_id
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 SERVER_WAIT_ATTEMPTS = 240
@@ -54,9 +54,9 @@ class DreamZeroPolicyRunnerTask(PolicyRunnerTask):
         lead: bool | None = None,
     ) -> None:
         super().__init__(task_cfg=task_cfg, lead=lead)
-        # The ID is interpolated into the bash entry script; reject anything that
-        # word-splits or expands there.
-        assert re.fullmatch(r"[A-Za-z0-9._-]+", server_workflow_id), f"Invalid OSMO workflow ID: {server_workflow_id!r}"
+        # This ID is spliced unquoted into the generated bash entry script, so reject any
+        # value that could word-split or inject there (see is_valid_workflow_id).
+        assert is_valid_workflow_id(server_workflow_id), f"Invalid OSMO workflow ID: {server_workflow_id!r}"
         self.server_workflow_id = server_workflow_id
 
     def _get_credentials(self) -> dict[str, dict[str, str]]:
