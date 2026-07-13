@@ -30,7 +30,7 @@ class Cosmos3DroidObservation:
 class Cosmos3DroidAdapter(Cosmos3EmbodimentAdapter):
     """Wire format for upstream cosmos3 DROID checkpoint.
 
-    Cosmos3 composes three camera views into a single 720×640 image
+    Cosmos3 composes three camera views into a single 540×640 image
     and sends it under the ``observation/image`` key (unlike pi0 which
     sends separate per-camera keys).
     """
@@ -71,7 +71,7 @@ class Cosmos3DroidAdapter(Cosmos3EmbodimentAdapter):
     def pack_request(self, extracted: Cosmos3DroidObservation, language_instruction: str) -> dict[str, Any]:
         """Build the cosmos3 wire-format request.
 
-        Composes a single 720×640 image by vertically stacking:
+        Composes a single 540×640 image by vertically stacking:
         - wrist image resized to (360, 640)
         - left + right images each downsampled to (180, 320) and stacked horizontally
         """
@@ -91,11 +91,10 @@ class Cosmos3DroidAdapter(Cosmos3EmbodimentAdapter):
         right_t = F.interpolate(right_t, size=half_size, mode="bilinear", align_corners=False)
         right = right_t.squeeze(0).permute(1, 2, 0).numpy().astype(wrist.dtype)
 
-        # Compose: vstack(wrist, hstack(left, right)) → (720, 640, 3)
+        # Compose: vstack(wrist, hstack(left, right)) → (540, 640, 3)
         image = np.concatenate((wrist, np.concatenate((left, right), axis=1)), axis=0)
-        assert image.shape == (self.image_h + self.image_h // 2, self.image_w, 3), (
-            f"Expected composed image shape (720, 640, 3); got {image.shape}"
-        )
+        expected_shape = (self.image_h + self.image_h // 2, self.image_w, 3)  # (540, 640, 3)
+        assert image.shape == expected_shape, f"Expected composed image shape {expected_shape}; got {image.shape}"
 
         return {
             "observation/image": image,

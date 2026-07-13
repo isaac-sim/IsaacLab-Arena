@@ -13,7 +13,7 @@ import pytest
 import websockets.exceptions
 from openpi_client import websocket_client_policy
 
-from isaaclab_arena_cosmos3.policy.cosmos3_remote_config import MAX_RECONNECT_ATTEMPTS, Cosmos3RemotePolicyArgs
+from isaaclab_arena_cosmos3.policy.cosmos3_remote_config import Cosmos3RemotePolicyArgs
 from isaaclab_arena_cosmos3.policy.cosmos3_remote_policy import Cosmos3RemotePolicy
 from isaaclab_arena_cosmos3.policy.droid_adapter import Cosmos3DroidAdapter
 
@@ -88,8 +88,8 @@ def test_droid_adapter_uses_cosmos3_wire_keys():
         "observation/gripper_position",
         "prompt",
     }
-    # Cosmos3 composes three cameras into a single 720×640 image.
-    assert server_request["observation/image"].shape == (720, 640, 3)
+    # Cosmos3 composes three cameras into a single 540×640 image.
+    assert server_request["observation/image"].shape == (540, 640, 3)
     assert server_request["observation/image"].dtype == np.uint8
     assert server_request["observation/joint_position"].shape == (7,)
     assert server_request["observation/gripper_position"].shape == (1,)
@@ -278,6 +278,7 @@ def test_get_action_asserts_when_no_task_description(make_policy):
 
 def test_fetch_action_chunk_asserts_on_shape_mismatch(monkeypatch):
     """_fetch_action_chunk asserts when response action has wrong action_dim."""
+
     def bad_shape_infer(self, request):
         return {"action": np.zeros((32, 6), dtype=np.float32)}  # expects 8
 
@@ -291,6 +292,7 @@ def test_fetch_action_chunk_asserts_on_shape_mismatch(monkeypatch):
 
 def test_fetch_action_chunk_truncates_chunk_to_horizon(monkeypatch):
     """When the server returns more than horizon steps, only horizon are kept."""
+
     def oversized_infer(self, request):
         return {"action": np.ones((40, 8), dtype=np.float32)}
 

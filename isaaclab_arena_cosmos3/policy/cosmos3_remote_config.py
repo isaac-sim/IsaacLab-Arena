@@ -23,10 +23,3 @@ class Cosmos3RemotePolicyArgs:
 
     remote_port: int = 8000
     """Port the cosmos3 inference server listens on."""
-
-    num_envs: int = 1
-    """Number of parallel simulation environments.
-
-    Used to pre-allocate per-environment action caches.  Must match the
-    ``--num_envs`` value passed to the environment builder.
-    """
