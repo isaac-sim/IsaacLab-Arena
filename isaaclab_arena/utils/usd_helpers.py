@@ -11,6 +11,7 @@ from contextlib import contextmanager
 
 from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
 
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
@@ -66,6 +67,46 @@ def is_articulation_root(prim: Usd.Prim) -> bool:
 def is_rigid_body(prim: Usd.Prim) -> bool:
     """Check if prim is rigidbody"""
     return prim.HasAPI(UsdPhysics.RigidBodyAPI)
+
+
+def has_physics_or_collision(prim: Usd.Prim) -> bool:
+    """Return True when prim participates in physics simulation or collision."""
+    if is_articulation_root(prim) or is_rigid_body(prim):
+        return True
+    return prim.HasAPI(UsdPhysics.CollisionAPI)
+
+
+def object_type_for_prim(prim: Usd.Prim) -> ObjectType:
+    """Classify a prim for object-reference resolution."""
+    if is_articulation_root(prim):
+        return ObjectType.ARTICULATION
+    if is_rigid_body(prim):
+        return ObjectType.RIGID
+    return ObjectType.BASE
+
+
+def relative_path_from_default_prim(stage: Usd.Stage, prim_path: str) -> str:
+    """Return the prim path suffix relative to the stage default prim."""
+    default_prim = stage.GetDefaultPrim()
+    assert default_prim, f"USD stage has no default prim: {stage.GetRootLayer().identifier}"
+    default_prefix = str(default_prim.GetPath())
+    if default_prefix == "/":
+        return prim_path.lstrip("/")
+    if prim_path == default_prefix:
+        return ""
+    prefix = default_prefix if default_prefix.endswith("/") else default_prefix + "/"
+    if prim_path.startswith(prefix):
+        return prim_path[len(prefix) :]
+    return prim_path.lstrip("/")
+
+
+def articulation_joint_names(articulation_prim: Usd.Prim) -> tuple[str, ...]:
+    """Return sorted movable joint names under an articulation root."""
+    joint_names: list[str] = []
+    for desc in Usd.PrimRange(articulation_prim):
+        if desc.IsA(UsdPhysics.RevoluteJoint) or desc.IsA(UsdPhysics.PrismaticJoint):
+            joint_names.append(desc.GetName())
+    return tuple(sorted(set(joint_names)))
 
 
 def get_prim_depth(prim: Usd.Prim) -> int:

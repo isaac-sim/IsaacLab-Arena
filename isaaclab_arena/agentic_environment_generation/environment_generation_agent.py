@@ -7,26 +7,110 @@
 
 from __future__ import annotations
 
-import json
-import os
 from dataclasses import dataclass, field
 from typing import Any
 
-from openai import OpenAI
-
-from isaaclab_arena.agentic_environment_generation.agent_utils import build_strict_schema, extract_response_text, ping
-from isaaclab_arena.agentic_environment_generation.spec_validation import (
-    collect_agent_ready_task_validation_traces,
-    required_task_init_param_names,
-    try_parse_env_graph_spec,
-)
+from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
+from isaaclab_arena.agentic_environment_generation.prim_path_inference import PrimPathInference
+from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
+from isaaclab_arena.agentic_environment_generation.spec_validation import required_task_init_param_names
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.relations.relations import RelationBase
 
-# TODO(qianl): This is currently Nvidia internal. Switch to public endpoint.
-DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
-DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
+# ---------------------------------------------------------------------------
+# Environment generation agent
+# ---------------------------------------------------------------------------
+
+
+class EnvironmentGenerationAgent:
+    """Parses a natural-language env-generation prompt into an ArenaEnvGraphSpec."""
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str | None = None,
+        base_url: str | None = None,
+        temperature: float = 0.2,
+        max_tokens: int = 4096,
+        max_retries: int = 3,
+    ):
+        """Configure the OpenAI-compatible client and validate the model.
+
+        Args:
+            api_key: API token for the inference endpoint. Falls back
+                to the ``NV_API_KEY`` environment variable.
+            model: Model identifier at the inference endpoint.
+                Must support OpenAI-compatible structured outputs.
+            base_url: OpenAI-compatible inference endpoint.
+            temperature: Sampling temperature forwarded to the model. Kept
+                low by default (0.2) because spec generation is a
+                deterministic-ish translation task — high temperature
+                yields creative but invalid schemas.
+            max_tokens: Hard cap on the response length.
+            max_retries: Number of additional attempts after a recoverable failure
+                (network errors, timeouts, empty responses, malformed JSON). Each
+                retry is a fresh API call.
+        """
+        inference_backend = InferenceBackend(
+            api_key=api_key,
+            model=model,
+            base_url=base_url,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            max_retries=max_retries,
+        )
+        self.spec_inference = SpecInference(inference_backend)
+        self.prim_path_inference = PrimPathInference(inference_backend)
+        self._traces: list[str] = []
+
+    @property
+    def traces(self) -> tuple[str, ...]:
+        """Diagnostic lines from the most recent :meth:`generate_spec` call."""
+        return tuple(self._traces)
+
+    def generate_spec(
+        self,
+        prompt: str,
+        asset_catalog: AssetCatalogue | None = None,
+        relation_catalog: RelationCatalogue | None = None,
+        task_catalog: TaskCatalogue | None = None,
+    ) -> tuple[ArenaEnvGraphSpec | None, dict[str, Any] | None]:
+        """Call the model with user prompt and return the parsed ArenaEnvGraphSpec.
+
+        Args:
+            prompt: Natural-language env description from the end user.
+            asset_catalog: Pre-built asset vocabulary. When ``None``, built
+                from the live ``AssetRegistry``.
+            relation_catalog: Pre-built relation vocabulary. When ``None``, built
+                from the live ``ObjectRelationLibraryRegistry``.
+            task_catalog: Pre-built task vocabulary. When ``None``, built from
+                ``TaskRegistry`` tasks marked ``@agent_ready``.
+
+        Returns:
+            A ``(spec, data)`` tuple. On success, ``spec`` is validated and
+            ``data`` is None. On failure, ``spec`` is None and ``data`` is the corresponding JSON dict.
+            When validation fails, ``agent.traces`` holds the diagnostic trace.
+        """
+        self._traces = []
+        asset_catalog = asset_catalog or build_asset_catalogue()
+        relation_catalog = relation_catalog or build_relation_catalogue()
+        task_catalog = task_catalog or build_task_catalogue()
+        spec, data = self.spec_inference.infer(
+            prompt,
+            self._traces,
+            asset_catalog=asset_catalog,
+            relation_catalog=relation_catalog,
+            task_catalog=task_catalog,
+        )
+        if spec is None:
+            return None, data
+        if spec.object_references:
+            resolved = self.prim_path_inference.infer(spec, self._traces)
+            if resolved is None:
+                return None, spec.to_dict()
+            spec = resolved
+        return spec, None
 
 
 # ---------------------------------------------------------------------------
@@ -191,160 +275,3 @@ def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
             )
         )
     return catalogue
-
-
-# ---------------------------------------------------------------------------
-# Environment generation agent
-# ---------------------------------------------------------------------------
-
-
-class EnvironmentGenerationAgent:
-    """Parses a natural-language env-generation prompt into an ArenaEnvGraphSpec."""
-
-    def __init__(
-        self,
-        api_key: str | None = None,
-        model: str | None = None,
-        base_url: str | None = None,
-    ):
-        """Configure the OpenAI-compatible client and validate the model.
-
-        Args:
-            api_key: API token for the inference endpoint. Falls back
-                to the ``NV_API_KEY`` environment variable.
-            model: Model identifier at the inference endpoint.
-                Must support OpenAI-compatible structured outputs.
-            base_url: OpenAI-compatible inference endpoint.
-        """
-        self.api_key = api_key or os.getenv("NV_API_KEY")
-        assert self.api_key, "API key required: set NV_API_KEY or pass api_key."
-        self.model = model or DEFAULT_MODEL
-        base_url = base_url or DEFAULT_BASE_URL
-        self.client = OpenAI(api_key=self.api_key, base_url=base_url)
-        # Validate basic connection and key authentication.
-        ping(self.client, self.model)
-        self._spec_schema = build_strict_schema(ArenaEnvGraphSpec)
-        self.last_validation_traces: list[str] = []
-
-    def generate_spec(
-        self,
-        prompt: str,
-        asset_catalog: AssetCatalogue | None = None,
-        relation_catalog: RelationCatalogue | None = None,
-        task_catalog: TaskCatalogue | None = None,
-        temperature: float = 0.2,
-        max_tokens: int = 4096,
-        max_retries: int = 3,
-    ) -> tuple[ArenaEnvGraphSpec | None, dict[str, Any]]:
-        """Call the model with user prompt and return the parsed ArenaEnvGraphSpec.
-
-        Args:
-            prompt: Natural-language env description from the end user.
-            asset_catalog: Pre-built asset vocabulary. When ``None``, built
-                from the live ``AssetRegistry``.
-            relation_catalog: Pre-built relation vocabulary. When ``None``, built
-                from the live ``ObjectRelationLibraryRegistry``.
-            task_catalog: Pre-built task vocabulary. When ``None``, built from
-                ``TaskRegistry`` tasks marked ``@agent_ready``.
-            temperature: Sampling temperature forwarded to the model. Kept
-                low by default (0.2) because spec generation is a
-                deterministic-ish translation task — high temperature
-                yields creative but invalid schemas.
-            max_tokens: Hard cap on the response length.
-            max_retries: Number of additional attempts after a recoverable failure
-                (network errors, timeouts, empty responses, malformed JSON). Each
-                retry is a fresh API call.
-
-        Returns:
-            A ``(ArenaEnvGraphSpec | None, data)`` tuple. ``data`` is the parsed
-            JSON object from the model. When schema validation fails, ``spec`` is
-            ``None`` and ``agent.last_validation_traces`` holds the error trace.
-        """
-        asset_catalog = asset_catalog or build_asset_catalogue()
-        relation_catalog = relation_catalog or build_relation_catalogue()
-        task_catalog = task_catalog or build_task_catalogue()
-        vocabulary = (
-            f"{asset_catalog.to_catalog_string()}\n\n"
-            f"{relation_catalog.to_catalog_string()}\n\n"
-            f"{task_catalog.to_catalog_string()}"
-        )
-        system = self._system_prompt()
-        user = f"{vocabulary}\n\nUSER PROMPT:\n{prompt}"
-        messages = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ]
-
-        last_exc: Exception | None = None
-        for attempt in range(1 + max_retries):
-            if attempt > 0:
-                print(f"[generate_spec] retry {attempt}/{max_retries} after: {last_exc}", flush=True)
-
-            try:
-                resp = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    response_format={
-                        "type": "json_schema",
-                        "json_schema": {
-                            "name": "ArenaEnvGraphSpec",
-                            "strict": True,
-                            "schema": self._spec_schema,
-                        },
-                    },
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                )
-                choices = getattr(resp, "choices", None) or []
-                assert choices, (
-                    f"Model {self.model!r} returned HTTP 200 with no choices "
-                    "(content filter / guardrail / rate-limit response with empty body)."
-                )
-                text, route = extract_response_text(choices[0].message)
-                assert route != "empty", (
-                    f"Model {self.model!r} returned an empty structured-outputs envelope. "
-                    "Verify the endpoint/model supports response_format=json_schema."
-                )
-                # ``strict=False`` lets json.loads accept unescaped control characters
-                # (e.g. literal tabs) inside JSON strings — DeepSeek-v4-flash is known
-                # to emit these.
-                data = json.loads(text, strict=False)
-                # TODO(qianl): add fuzzy-match support for registry_name matching.
-                spec, traces = try_parse_env_graph_spec(data)
-                if spec is not None:
-                    traces = [*traces, *collect_agent_ready_task_validation_traces(spec)]
-                self.last_validation_traces = traces
-                return spec, data
-            except Exception as exc:
-                last_exc = exc
-
-        raise RuntimeError(
-            f"Model {self.model!r} failed after {1 + max_retries} attempts. Last error: {last_exc}"
-        ) from last_exc
-
-    def _system_prompt(self) -> str:
-        return """\
-You are an environment-generator for robot manipulation tasks.
-Convert a natural-language prompt into an ArenaEnvGraphSpec.
-
-GUIDANCE:
-- Follow the per-field ``description`` strings in the schema.
-- Use only exact names from the catalog for ``registry_name``:
-  EMBODIMENTS for ``embodiment``, BACKGROUNDS for ``background``, and OBJECTS for ``objects``.
-- Do NOT hallucinate asset names — every ``registry_name`` must appear verbatim in the catalog.
-  If the prompt includes the exact registry name, use it.
-  If no reasonable match can be found, return empty string.
-  If multiple reasonable matches are found, return the closest match or the one with the most specific name.
-- For embodiment, if the prompt only mention the robot family (driod/franka) and there are multiple
-  variance of that family in EMBODIMENTS, pick the one with the default tag.
-- For multiple instances of the same registry asset, use semantic (left/right) or numerical (1/2/3)
-  suffixes in ``id``.
-- Only populate ``object_references`` when the prompt explicitly mentions surfaces or appliances
-  inside the background; otherwise leave it unset.
-- For each ``object_reference``, leave ``prim_path`` empty.
-- REQUIRED: include an ``is_anchor`` relation on the resting surface (background or an
-  ``object_reference`` within it).
-- All objects need an ``on`` relation with that anchor as ``reference``.
-- For repeated objects (e.g. five bananas into one bin), create separate object ids and one
-  ``PickAndPlaceTask`` leaf per object under a ``parallel`` root task.
-"""

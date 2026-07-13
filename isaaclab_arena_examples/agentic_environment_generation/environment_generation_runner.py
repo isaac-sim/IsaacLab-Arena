@@ -109,25 +109,26 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path:
     relation_catalog = build_relation_catalogue()
     task_catalog = build_task_catalogue()
 
-    agent_kwargs = {"model": args_cli.model} if args_cli.model else {}
+    agent_kwargs: dict = {"temperature": args_cli.temperature}
+    if args_cli.model:
+        agent_kwargs["model"] = args_cli.model
     agent = EnvironmentGenerationAgent(**agent_kwargs)
     env_graph_spec, data = agent.generate_spec(
         args_cli.prompt,
         asset_catalog=asset_catalog,
         relation_catalog=relation_catalog,
         task_catalog=task_catalog,
-        temperature=args_cli.temperature,
     )
-    # last_validation_traces holds one line per failure, e.g.
+    # agent.traces holds one line per failure, e.g.
     #   "embodiment.registry_name: Unknown asset registry_name 'not_a_real_asset'"
     #   "Task 'PickAndPlaceTask' is missing required param 'pick_up_object'"
     if env_graph_spec is None:
         print("\n[runner] validation traces:", flush=True)
-        for line in agent.last_validation_traces:
+        for line in agent.traces:
             print(f"  {line}", flush=True)
         invalid_path = write_env_graph_dict(data, args_cli.out_dir)
         print(f"[runner] wrote invalid spec YAML to {invalid_path}", flush=True)
-        assert False, f"Agent returned an invalid spec. Validation traces: {agent.last_validation_traces}"
+        assert False, f"Agent returned an invalid spec. Validation traces: {agent.traces}"
     print_env_graph(env_graph_spec)
     print(
         f"[runner] generated → {env_graph_spec.summary()}, env_name={env_graph_spec.env_name!r}",
@@ -167,8 +168,6 @@ def _iter_printable_assets(spec: ArenaEnvGraphSpec):
     yield "background", spec.background.id, spec.background.registry_name, spec.background.params
     for obj in spec.objects:
         yield "object", obj.id, obj.registry_name, obj.params
-    for ref in spec.object_references or []:
-        yield "object_reference", ref.id, ref.id, ref.params
 
 
 def print_env_graph(spec: ArenaEnvGraphSpec) -> None:
@@ -179,6 +178,12 @@ def print_env_graph(spec: ArenaEnvGraphSpec) -> None:
     for role, asset_id, registry_name, params in _iter_printable_assets(spec):
         params_str = f"  params={params}" if params else ""
         print(f"  {asset_id:24s} role={role:18s} registry_name={registry_name}{params_str}")
+
+    if spec.object_references:
+        print("\nobject_references:")
+        for ref in spec.object_references:
+            params_str = f"  params={ref.params}" if ref.params else ""
+            print(f"  {ref.id:24s} parent={ref.parent_id}  prim_path={ref.prim_path}{params_str}")
 
     print("\nrelations:")
     for relation in spec.relations:
