@@ -23,22 +23,22 @@ from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 def _write_pi0_experiment(path: Path, first_variant: str = "pi05") -> bytes:
     source = f"""# Preserve this source exactly.
 runs:
-- name: first
-  environment:
-    type: pick_and_place_maple_table
-  policy:
-    type: pi0_remote
-    policy_variant: {first_variant}
-- name: second
-  environment:
-    type: pick_and_place_maple_table
-  policy:
-    type: pi0_remote
-- name: local
-  environment:
-    type: pick_and_place_maple_table
-  policy:
-    type: zero_action
+  first:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: pi0_remote
+      policy_variant: {first_variant}
+  second:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: pi0_remote
+  local:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
 """.encode()
     path.write_bytes(source)
     return source
@@ -261,11 +261,11 @@ def test_cli_overrides_osmo_submission_pool(tmp_path, monkeypatch):
     experiment_path = tmp_path / "experiment.yaml"
     experiment_path.write_text(
         """runs:
-- name: baseline
-  environment:
-    type: test
-  policy:
-    type: zero_action
+  baseline:
+    environment:
+      type: test
+    policy:
+      type: zero_action
 """,
         encoding="utf-8",
     )
@@ -299,11 +299,11 @@ def test_cli_rejects_server_override_without_server_definition(tmp_path, capsys)
     experiment_path = tmp_path / "experiment.yaml"
     experiment_path.write_text(
         """runs:
-- name: baseline
-  environment:
-    type: test
-  policy:
-    type: zero_action
+  baseline:
+    environment:
+      type: test
+    policy:
+      type: zero_action
 """,
         encoding="utf-8",
     )
@@ -346,11 +346,11 @@ def test_submitter_runs_zero_action_experiment_without_server(tmp_path, capsys):
     experiment_path = tmp_path / "experiment.yaml"
     experiment_path.write_text(
         """runs:
-- name: baseline
-  environment:
-    type: test
-  policy:
-    type: zero_action
+  baseline:
+    environment:
+      type: test
+    policy:
+      type: zero_action
 """,
         encoding="utf-8",
     )
@@ -367,11 +367,11 @@ def test_submitter_rejects_server_without_matching_run(tmp_path):
     experiment_path = tmp_path / "experiment.yaml"
     experiment_path.write_text(
         """runs:
-- name: baseline
-  environment:
-    type: test
-  policy:
-    type: zero_action
+  baseline:
+    environment:
+      type: test
+    policy:
+      type: zero_action
 """,
         encoding="utf-8",
     )
@@ -391,13 +391,13 @@ def test_submitter_does_not_inject_endpoint_without_server(tmp_path, capsys):
     experiment_path = tmp_path / "experiment.yaml"
     experiment_path.write_text(
         """runs:
-- name: externally_hosted
-  environment:
-    type: test
-  policy:
-    type: pi0_remote
-    remote_host: external.example.com
-    remote_port: 8123
+  externally_hosted:
+    environment:
+      type: test
+    policy:
+      type: pi0_remote
+      remote_host: external.example.com
+      remote_port: 8123
 """,
         encoding="utf-8",
     )
