@@ -11,15 +11,15 @@ Example:
         --experiment_config path/to/experiment.yaml \\
         --server_config path/to/policy_server.yaml \\
         --osmo_config osmo/config/workflow.yaml \\
-        --image nvcr.io/example/isaaclab_arena:experiment_runner \\
         --dry_run \\
         osmo_config.pool=isaac-dev-l40-03 \\
+        eval_runner_config.image=nvcr.io/example/isaaclab_arena:experiment_runner \\
         server_config.policy_config=my_pi0_config
 
-Trailing ``osmo_config.<field>=<value>`` and
-``server_config.<field>=<value>`` arguments override fields from their
-respective YAML files. Other trailing arguments are applied to the Arena
-Experiment through Hydra.
+Trailing ``osmo_config.<field>=<value>``, ``eval_runner_config.<field>=<value>``,
+and ``server_config.<field>=<value>`` arguments configure their respective
+workflow components. Other trailing arguments are applied to the Arena Experiment
+through Hydra.
 """
 
 from __future__ import annotations
@@ -31,7 +31,6 @@ from pathlib import Path
 
 from omegaconf import OmegaConf
 
-from isaaclab_arena.cli.dataclass_cli import add_dataclass_cli_args, dataclass_from_cli
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from osmo.tasks.eval_runner_task import EvalRunnerTaskCfg
 from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow, Pi0ArenaExperimentWorkflow
@@ -41,6 +40,7 @@ POLICY_SERVER_WORKFLOWS = {
     "pi0": Pi0ArenaExperimentWorkflow,
 }
 OSMO_CONFIG_OVERRIDE_PREFIX = "osmo_config."
+EVAL_RUNNER_CONFIG_OVERRIDE_PREFIX = "eval_runner_config."
 SERVER_CONFIG_OVERRIDE_PREFIX = "server_config."
 
 
@@ -139,17 +139,19 @@ def main(cli_args: list[str] | None = None) -> int:
         default=None,
         help="Generic OSMO workflow configuration YAML",
     )
-    add_dataclass_cli_args(parser, EvalRunnerTaskCfg)
     parser.add_argument("--dry_run", action="store_true", help="Render the OSMO workflow without submitting it")
     args, trailing_overrides = parser.parse_known_args(cli_args)
     assert_hydra_overrides(trailing_overrides, parser)
 
     experiment_overrides = []
     osmo_config_overrides = []
+    eval_runner_config_overrides = []
     server_config_overrides = []
     for override in trailing_overrides:
         if override.startswith(OSMO_CONFIG_OVERRIDE_PREFIX):
             osmo_config_overrides.append(override.removeprefix(OSMO_CONFIG_OVERRIDE_PREFIX))
+        elif override.startswith(EVAL_RUNNER_CONFIG_OVERRIDE_PREFIX):
+            eval_runner_config_overrides.append(override.removeprefix(EVAL_RUNNER_CONFIG_OVERRIDE_PREFIX))
         elif override.startswith(SERVER_CONFIG_OVERRIDE_PREFIX):
             server_config_overrides.append(override.removeprefix(SERVER_CONFIG_OVERRIDE_PREFIX))
         else:
@@ -158,7 +160,13 @@ def main(cli_args: list[str] | None = None) -> int:
     if server_config_overrides and args.server_config is None:
         parser.error("server_config.* overrides require --server_config")
 
-    eval_runner_task_cfg = dataclass_from_cli(EvalRunnerTaskCfg, args)
+    eval_runner_task_cfg = OmegaConf.to_object(
+        OmegaConf.merge(
+            OmegaConf.structured(EvalRunnerTaskCfg),
+            OmegaConf.from_dotlist(eval_runner_config_overrides),
+        )
+    )
+    assert isinstance(eval_runner_task_cfg, EvalRunnerTaskCfg)
     return submit_arena_experiment_workflow(
         experiment_config=args.experiment_config,
         server_config=args.server_config,
