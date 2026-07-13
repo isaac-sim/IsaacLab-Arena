@@ -53,10 +53,10 @@ import sys
 from isaaclab_arena.cli.dataclass_cli import add_dataclass_cli_args, dataclass_from_cli
 from osmo.workflows.dreamzero_split_workflows import DreamZeroEvaluationWorkflow
 from osmo.workflows.server_plus_policy_runner_workflow import Gr00tPolicyRunnerWorkflow, Pi0PlusPolicyRunnerWorkflow
-from osmo.workflows.workflow import Workflow
+from osmo.workflows.workflow import SubmittableWorkflow
 from osmo.workflows.zero_action_policy_runner_workflow import ZeroActionPolicyRunnerWorkflow
 
-POLICIES: dict[str, type[Workflow]] = {
+POLICIES: dict[str, type[SubmittableWorkflow]] = {
     "zero_action": ZeroActionPolicyRunnerWorkflow,
     "pi0": Pi0PlusPolicyRunnerWorkflow,
     "gr00t": Gr00tPolicyRunnerWorkflow,
@@ -84,7 +84,7 @@ def main(cli_args: list[str] | None = None) -> int:
     workflow_cfg = dataclass_from_cli(workflow_cls.workflow_cfg_type, args)
     task_cfg = dataclass_from_cli(workflow_cls.task_cfg_type, args)
     workflow = workflow_cls(workflow_cfg=workflow_cfg, task_cfg=task_cfg)
-    return workflow.submit_workflow()
+    return workflow.submit_workflow().returncode
 
 
 if __name__ == "__main__":
