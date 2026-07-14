@@ -167,9 +167,10 @@ def _capture_usd_snapshot_job(app, job: _UsdSnapshotJob) -> dict[str, bytes]:
                 out[node_id] = png_bytes
 
     if job.ref_captures:
-        # Object references are framed tightly on their own prim via frame_viewport_prims;
-        # the background's viewer_cfg camera (e.g. a kitchen eye/lookat aimed at a wall)
-        # must not be applied here or the capture points away from the target.
+        # Seed the camera with the background viewer_cfg orientation before framing.
+        # frame_viewport_prims preserves the incoming view direction.
+        if job.viewer_cfg is not None:
+            _apply_viewer_cfg(app, job.viewer_cfg)
         _configure_collision_mesh_visualization()
 
         for node_id, target, cache_path in job.ref_captures:
