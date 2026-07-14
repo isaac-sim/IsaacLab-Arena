@@ -5,6 +5,13 @@
 
 """Compose and submit one Arena Experiment as an OSMO workflow.
 
+Experiment Definitions must be direct ``.yaml`` or ``.yml`` files in
+``isaaclab_arena_environments/experiment_configs``. Select one by filename
+stem with ``experiment_definition=<name>``; for example,
+``experiment_definition=openpi_experiment`` selects
+``isaaclab_arena_environments/experiment_configs/openpi_experiment.yaml``.
+Arbitrary Experiment Definition paths are not supported.
+
 Example:
 
     python -m osmo.submit_arena_experiment_workflow \
