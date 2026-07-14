@@ -13,7 +13,7 @@ from copy import deepcopy
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentDefinitionCfg
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 from osmo.tasks.base_task import BaseTask
-from osmo.tasks.eval_runner_task import EvalRunnerTask, EvalRunnerTaskCfg
+from osmo.tasks.experiment_runner_task import ExperimentRunnerTask, ExperimentRunnerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.workflows.workflow import Workflow, WorkflowCfg
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
@@ -22,8 +22,8 @@ from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 class ArenaExperimentWorkflow(Workflow):
     """Run a complete Arena Experiment without deploying a policy server."""
 
-    task_cls_list = [EvalRunnerTask]
-    task_cfg_type = EvalRunnerTaskCfg
+    task_cls_list = [ExperimentRunnerTask]
+    task_cfg_type = ExperimentRunnerTaskCfg
     lead_list = [True]
 
     def __init__(
@@ -31,24 +31,24 @@ class ArenaExperimentWorkflow(Workflow):
         workflow_cfg: WorkflowCfg,
         experiment_definition: ArenaExperimentDefinitionCfg,
         group_name: str = "arena",
-        task_cfg: EvalRunnerTaskCfg | None = None,
+        task_cfg: ExperimentRunnerTaskCfg | None = None,
     ) -> None:
         assert isinstance(experiment_definition, ArenaExperimentDefinitionCfg)
         self.experiment_definition = deepcopy(experiment_definition)
 
         super().__init__(
             workflow_cfg=workflow_cfg,
-            task_cfg=task_cfg or EvalRunnerTaskCfg(),
+            task_cfg=task_cfg or ExperimentRunnerTaskCfg(),
             group_name=group_name,
         )
 
     def _get_tasks(self) -> list[BaseTask]:
         """Create the lead evaluator."""
-        return [self._create_eval_runner_task()]
+        return [self._create_experiment_runner_task()]
 
-    def _create_eval_runner_task(self) -> EvalRunnerTask:
-        """Create the Experiment's lead eval-runner task."""
-        return EvalRunnerTask(
+    def _create_experiment_runner_task(self) -> ExperimentRunnerTask:
+        """Create the lead Experiment Runner task."""
+        return ExperimentRunnerTask(
             task_cfg=self.task_cfg,
             experiment_definition=self.experiment_definition,
             lead=self.lead_flags[0],
@@ -58,7 +58,7 @@ class ArenaExperimentWorkflow(Workflow):
 class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
     """Run an Arena Experiment with one shared pi0 policy server."""
 
-    task_cls_list = [EvalRunnerTask, Pi0ServerTask]
+    task_cls_list = [ExperimentRunnerTask, Pi0ServerTask]
     server_task_cfg_type = Pi0ServerTaskCfg
     """Configuration type loaded from the selected server definition."""
 
@@ -70,7 +70,7 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
         experiment_definition: ArenaExperimentDefinitionCfg,
         server_task_cfg: Pi0ServerTaskCfg,
         group_name: str = "arena",
-        task_cfg: EvalRunnerTaskCfg | None = None,
+        task_cfg: ExperimentRunnerTaskCfg | None = None,
     ) -> None:
         self.pi0_server_task_cfg = server_task_cfg
         super().__init__(
@@ -96,7 +96,7 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
     def _get_tasks(self) -> list[BaseTask]:
         """Create the lead evaluator and non-lead pi0 server."""
         return [
-            self._create_eval_runner_task(),
+            self._create_experiment_runner_task(),
             Pi0ServerTask(self.pi0_server_task_cfg, lead=self.lead_flags[1]),
         ]
 
