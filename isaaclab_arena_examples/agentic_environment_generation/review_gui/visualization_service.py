@@ -81,11 +81,7 @@ def _show_simapp_render_error_once(exc: SimAppError) -> None:
 
 
 def build_asset_cards_with_thumbnails(spec: ArenaEnvGraphSpec) -> list[AssetCard]:
-    """Build per-node asset cards, asking the SimApp server for live USD thumbnails when available.
-
-    Returns per-node AssetCards for native Streamlit rendering; graph and tasks are derived from
-    ``spec`` at display time in the visualization panel.
-    """
+    """Build per-node asset cards, asking the SimApp server for live USD thumbnails when available."""
     spec_key = _spec_render_key(spec)
     cached = _cached_asset_cards(spec_key)
     if cached is not None:

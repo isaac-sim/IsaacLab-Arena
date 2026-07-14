@@ -58,14 +58,12 @@ def _render_asset_card(card: AssetCard) -> None:
             st.image(card.png_bytes, use_container_width=True)
         else:
             st.caption("No snapshot available")
-        note = f"{card.role} · {card.label}"
+        note = card.label
         if card.aabb_dimensions_m is not None:
             x, y, z = card.aabb_dimensions_m
             note += f" · [{x:.3f}, {y:.3f}, {z:.3f}]"
-        st.markdown(
-            f"**{card.node_id}**<br><span style='color:gray; font-size:0.8em'>{note}</span>",
-            unsafe_allow_html=True,
-        )
+        st.markdown(f"**[{card.role}] {card.node_id}**")
+        st.caption(note)
 
 
 def _render_asset_grid(cards: list[AssetCard]) -> None:
