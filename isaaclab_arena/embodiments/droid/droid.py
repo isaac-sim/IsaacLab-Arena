@@ -380,26 +380,20 @@ class DroidEventCfg:
             ],
         },
     )
-    randomize_franka_joint_state = None
-    # EventTerm(
-    #     func=franka_stack_events.randomize_joint_by_gaussian_offset,
-    #     mode="reset",
-    #     params={
-    #         "mean": 0.0,
-    #         "std": 0.02,
-    #         "asset_cfg": SceneEntityCfg("robot"),
-    #     },
-    # )
+    randomize_franka_joint_state = EventTerm(
+        func=franka_stack_events.randomize_joint_by_gaussian_offset,
+        mode="reset",
+        params={
+            "mean": 0.0,
+            "std": 0.02,
+            "asset_cfg": SceneEntityCfg("robot"),
+        },
+    )
 
 
 @configclass
 class DroidCameraCfg(ArenaCameraCfg):
-    """DROID three-camera rig using standard (untiled) cameras, mounted with pre-set poses.
-
-    This is the source of truth for the DROID camera poses and intrinsics. Inherits
-    :class:`~isaaclab_arena.utils.cameras.ArenaCameraCfg`, whose ``get_cfg`` returns the untiled
-    rig or a tiled copy per ``use_tiled_camera``.
-    """
+    """Configuration for cameras. DROID cameras are mounted with pre-set poses."""
 
     external_camera: CameraCfg = CameraCfg(
         prim_path="{ENV_REGEX_NS}/Robot/external_camera",

@@ -136,7 +136,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
             rot=camera_offset.rotation_xyzw,
             convention="opengl",
         )
-        embodiment.camera_config.set_use_tiled_camera(cfg.num_envs > 1)
+        embodiment.camera_config.use_tiled_camera = cfg.num_envs > 1
         embodiment.set_initial_pose(
             Pose(
                 position_xyz=(1.2, 0.0, 0.995),

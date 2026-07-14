@@ -238,12 +238,7 @@ class FrankaSceneCfg:
 
 @configclass
 class FrankaCameraCfg(ArenaCameraCfg):
-    """Franka wrist-camera rig using a standard (untiled) camera.
-
-    Source of truth for the wrist-camera intrinsics and default pose. Tiling is selected via
-    the inherited :class:`~isaaclab_arena.utils.cameras.ArenaCameraCfg`; the offset is set from
-    the embodiment's ``camera_offset``.
-    """
+    """Configuration for cameras."""
 
     wrist_cam: CameraCfg = CameraCfg(
         prim_path="{ENV_REGEX_NS}/Robot/panda_hand/wrist_cam",
