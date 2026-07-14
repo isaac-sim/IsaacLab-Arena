@@ -81,7 +81,6 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
         ),
     )
     decimation: int = 4
-    episode_length_s: float = 50.0
     wait_for_textures: bool = False
 
 
@@ -94,4 +93,7 @@ class IsaacArenaManagerBasedMimicEnvCfg(IsaacLabArenaManagerBasedRLEnvCfg, Mimic
     # datagen_config: DataGenConfig = DataGenConfig()
     # subtask_configs: dict[str, list[SubTaskConfig]] = {}
     # task_constraint_configs: list[SubTaskConstraintConfig] = []
-    pass
+
+    # Data generation keeps the longer historical default so demos are not truncated; the task's
+    # (shorter) episode length is only applied to non-mimic RL/eval envs by the env builder.
+    episode_length_s: float = 50.0

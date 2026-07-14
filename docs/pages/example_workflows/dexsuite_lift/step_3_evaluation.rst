@@ -107,7 +107,7 @@ For statistically significant results, run across many environments in parallel:
 Batch Evaluation
 ^^^^^^^^^^^^^^^^
 
-To evaluate multiple checkpoints in sequence, use ``eval_runner.py`` with a
+To evaluate multiple checkpoints in sequence, use ``experiment_runner.py`` with a
 JSON config.
 
 **1. Create an evaluation config**
@@ -151,7 +151,7 @@ Create a file ``eval_config.json``:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py --presets newton --eval_jobs_config eval_config.json
+   python isaaclab_arena/evaluation/experiment_runner.py --presets newton --eval_jobs_config eval_config.json
 
 
 Understanding the Metrics

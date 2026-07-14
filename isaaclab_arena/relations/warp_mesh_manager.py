@@ -19,7 +19,7 @@ import warp as wp
 from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, sdf_sentinel_count
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.collision_object import CollisionObject
 
 
 def _mesh_content_hash(mesh: trimesh.Trimesh) -> int:
@@ -125,6 +125,7 @@ class WarpMeshAndSphereCache:
         self._sphere_cache: dict[tuple, torch.Tensor] = {}
         self._trimesh_cache: dict[tuple, trimesh.Trimesh | None] = {}
         self._sentinel_warned: bool = False
+        self._raw_open_mesh_warned: set[tuple] = set()
 
     def reset_sentinel_warning(self) -> None:
         """Re-arm for a new solve/validation pass."""
@@ -142,13 +143,14 @@ class WarpMeshAndSphereCache:
                 "(no mesh face found). Collision detection may be incomplete for these points."
             )
 
-    def get_collision_mesh(self, obj: ObjectBase) -> trimesh.Trimesh | None:
+    def get_collision_mesh(self, obj: CollisionObject) -> trimesh.Trimesh | None:
         """Return the cached collision mesh, extracting from USD on first access."""
-        # ObjectBase doesn't guarantee usd_path; only Object subclasses set it.
-        usd_path = getattr(obj, "usd_path", None)
-        if usd_path is None:
+        from isaaclab_arena.assets.object import Object
+
+        if not isinstance(obj, Object) or obj.usd_path is None:
             return obj.get_collision_mesh()
-        scale = tuple(getattr(obj, "scale", (1.0, 1.0, 1.0)))
+        usd_path = obj.usd_path
+        scale = tuple(obj.scale)
         key = (usd_path, scale)
         if key not in self._trimesh_cache:
             from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd  # deferred: pxr import
@@ -170,29 +172,36 @@ class WarpMeshAndSphereCache:
         """Target Warp device string (e.g. 'cuda:0', 'cpu')."""
         return self._device
 
-    def _cache_key(self, mesh: trimesh.Trimesh, obj: ObjectBase | None = None) -> tuple:
+    def _cache_key(self, mesh: trimesh.Trimesh, obj: CollisionObject | None = None) -> tuple:
         """Compute cache key. Uses (usd_path, scale) for USD objects, content hash otherwise."""
-        usd_path = getattr(obj, "usd_path", None) if obj is not None else None
-        if usd_path is not None:
-            scale = tuple(getattr(obj, "scale", (1.0, 1.0, 1.0)))
-            return (usd_path, scale, self._num_spheres, self._sphere_radius)
-        return (_mesh_content_hash(mesh), self._num_spheres, self._sphere_radius)
+        from isaaclab_arena.assets.object import Object
 
-    def get_warp_mesh(self, mesh: trimesh.Trimesh, obj: ObjectBase | None = None) -> wp.Mesh:
+        repair_non_watertight = obj.repair_collision_mesh_non_watertight if obj is not None else True
+        if isinstance(obj, Object) and obj.usd_path is not None:
+            return (obj.usd_path, tuple(obj.scale), repair_non_watertight, self._num_spheres, self._sphere_radius)
+        return (_mesh_content_hash(mesh), repair_non_watertight, self._num_spheres, self._sphere_radius)
+
+    def get_warp_mesh(self, mesh: trimesh.Trimesh, obj: CollisionObject | None = None) -> wp.Mesh:
         """Get or create a Warp BVH mesh for SDF queries.
 
-        Non-watertight meshes are replaced by their convex hull to ensure
-        correct inside/outside signs.
+        Non-watertight meshes are replaced by their convex hull for reliable
+        inside/outside signs unless ``repair_collision_mesh_non_watertight`` is False,
+        which preserves concavities but may yield unreliable SDF signs.
         """
         key = self._cache_key(mesh, obj)
         if key not in self._warp_mesh_cache:
-            if not mesh.is_watertight:
+            repair_non_watertight = obj.repair_collision_mesh_non_watertight if obj is not None else True
+            if not mesh.is_watertight and repair_non_watertight:
                 name = obj.name if obj is not None else repr(mesh)
                 print(
                     f"  [WarpMeshAndSphereCache] '{name}' mesh is not watertight — using convex hull (concavities will"
                     " be filled)"
                 )
-            work_mesh = mesh if mesh.is_watertight else mesh.convex_hull
+            if not mesh.is_watertight and not repair_non_watertight and key not in self._raw_open_mesh_warned:
+                self._raw_open_mesh_warned.add(key)
+                name = obj.name if obj is not None else repr(mesh)
+                print(f"  [WarpMeshAndSphereCache] '{name}' raw mesh is not watertight; SDF signs may be unreliable.")
+            work_mesh = mesh if mesh.is_watertight or not repair_non_watertight else mesh.convex_hull
             vertices = wp.array(np.asarray(work_mesh.vertices, dtype=np.float32), dtype=wp.vec3, device=self._device)
             indices = wp.array(
                 np.asarray(work_mesh.faces, dtype=np.int32).flatten(), dtype=wp.int32, device=self._device
@@ -200,7 +209,7 @@ class WarpMeshAndSphereCache:
             self._warp_mesh_cache[key] = wp.Mesh(points=vertices, indices=indices)
         return self._warp_mesh_cache[key]
 
-    def get_query_spheres(self, mesh: trimesh.Trimesh, obj: ObjectBase | None = None) -> torch.Tensor:
+    def get_query_spheres(self, mesh: trimesh.Trimesh, obj: CollisionObject | None = None) -> torch.Tensor:
         """Get or compute sphere decomposition as (K, 4) tensor [cx, cy, cz, radius]."""
         key = self._cache_key(mesh, obj)
         if key not in self._sphere_cache:

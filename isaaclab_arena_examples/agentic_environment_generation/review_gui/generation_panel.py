@@ -135,7 +135,7 @@ def run_generation_pipeline(prompt: str) -> tuple[bool, str]:
         return False, traceback.format_exc()
 
     if spec is None:
-        traces = "\n".join(agent.last_validation_traces) or "unknown validation error"
+        traces = "\n".join(agent.traces) or "unknown validation error"
         error = f"Agent returned an invalid spec:\n{traces}"
         _apply_generated_yaml(yaml_text, validation_error=error)
         return True, f"Invalid spec loaded into the YAML editor.\n{traces}"

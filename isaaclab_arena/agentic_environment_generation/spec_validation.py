@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any
 
 from pydantic import ValidationError
 
@@ -48,21 +47,6 @@ def format_validation_error(exc: ValidationError) -> list[str]:
         loc = ".".join(str(part) for part in err["loc"])
         lines.append(f"{loc}: {msg}" if loc else msg)
     return lines
-
-
-def try_parse_env_graph_spec(data: dict[str, Any]) -> tuple[ArenaEnvGraphSpec | None, list[str]]:
-    """Parse agent output into an ``ArenaEnvGraphSpec`` without raising.
-
-    Args:
-        data: Parsed JSON object from the model response.
-
-    Returns:
-        A ``(spec, validation_traces)`` tuple. ``spec`` is ``None`` when parsing fails.
-    """
-    try:
-        return ArenaEnvGraphSpec.model_validate(data), []
-    except ValidationError as exc:
-        return None, format_validation_error(exc)
 
 
 def collect_agent_ready_task_validation_traces(spec: ArenaEnvGraphSpec) -> list[str]:

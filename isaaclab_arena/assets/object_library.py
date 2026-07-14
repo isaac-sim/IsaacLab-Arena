@@ -382,6 +382,13 @@ class LightBase(LibraryObject, ABC):
         self.spawner_cfg.intensity = intensity
         self.object_cfg = self._init_object_cfg()
 
+    def set_color(self, color: tuple[float, float, float]) -> None:
+        """Set the light's RGB color, with each channel in [0, 1]."""
+        assert len(color) == 3, f"Light color must be an (r, g, b) triple, got {color}."
+        assert all(0.0 <= c <= 1.0 for c in color), f"Light color channels must be in [0, 1], got {color}."
+        self.spawner_cfg.color = tuple(color)
+        self.object_cfg = self._init_object_cfg()
+
 
 @register_asset
 class DomeLight(LightBase):
@@ -417,6 +424,7 @@ class DomeLight(LightBase):
         hdr: "HDRImage | None" = None,  # noqa: F821
     ):
         from isaaclab_arena.variations.hdr_image_variation import HDRImageVariation
+        from isaaclab_arena.variations.light_color_variation import LightColorVariation
         from isaaclab_arena.variations.light_intensity_variation import LightIntensityVariation
 
         super().__init__(
@@ -426,6 +434,7 @@ class DomeLight(LightBase):
             self.add_hdr(hdr)
         self.add_variation(HDRImageVariation(self))
         self.add_variation(LightIntensityVariation(self))
+        self.add_variation(LightColorVariation(self))
 
     def add_hdr(self, hdr: "HDRImage") -> None:  # noqa: F821
         """Attach an HDR environment map texture to this dome light.
@@ -464,7 +473,9 @@ class DirectionalLight(LightBase):
         initial_pose: Pose | None = None,
         spawner_cfg: sim_utils.DistantLightCfg = default_spawner_cfg,
     ):
+        from isaaclab_arena.variations.light_color_variation import LightColorVariation
         from isaaclab_arena.variations.light_direction_variation import LightDirectionVariation
+        from isaaclab_arena.variations.light_intensity_variation import LightIntensityVariation
 
         super().__init__(
             instance_name=instance_name,
@@ -473,6 +484,8 @@ class DirectionalLight(LightBase):
             spawner_cfg=spawner_cfg,
         )
         self.add_variation(LightDirectionVariation(self))
+        self.add_variation(LightIntensityVariation(self))
+        self.add_variation(LightColorVariation(self))
 
     def set_orientation(self, rotation_xyzw: tuple[float, float, float, float]) -> None:
         """Set the light's orientation."""
@@ -723,7 +736,7 @@ class PurpleCrate(LibraryObject):
 
     name = "purple_crate"
     tags = ["object", "container"]
-    usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/KLT_Bin/small_KLT.usd"
+    usd_path = f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/KLT_Bin/small_KLT.usd"
 
 
 @register_asset

@@ -13,6 +13,7 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.collision_object import CollisionObject
 
 
 class RelationSolverState:
@@ -31,6 +32,7 @@ class RelationSolverState:
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]],
         device: torch.device | None = None,
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
+        collision_objects: list[CollisionObject] | None = None,
     ):
         """Initialize optimization state.
 
@@ -41,9 +43,9 @@ class RelationSolverState:
                 length > 1 = batched.
             device: Torch device for all tensors. Defaults to CPU.
             env_bboxes: Optional per-env bounding boxes keyed by object.
-                ObjectPlacer always supplies these for placement solves. Direct
-                solver/debug calls may omit them to use each object's default
-                get_bounding_box().
+            collision_objects: Optional fixed background obstacles that participate in
+                no-overlap collision only (never in relation constraints). They keep a
+                constant world bounding box and are not optimized. Must be disjoint from objects.
         """
         assert len(initial_positions) >= 1, "initial_positions must contain at least one dict."
         anchor_objects = get_anchor_objects(objects)
@@ -52,6 +54,11 @@ class RelationSolverState:
         self._all_objects = objects
         self._anchor_objects: set[ObjectBase] = set(anchor_objects)
         self._optimizable_objects = [obj for obj in objects if obj not in self._anchor_objects]
+        self._collision_objects: list[CollisionObject] = list(collision_objects) if collision_objects else []
+        assert not (set(self._collision_objects) & set(objects)), (
+            "collision_objects must be disjoint from placed objects; an object cannot be "
+            "both optimized and a fixed collision obstacle."
+        )
 
         # Build object-to-index mapping
         self._obj_to_idx: dict[ObjectBase, int] = {obj: i for i, obj in enumerate(objects)}
@@ -101,6 +108,13 @@ class RelationSolverState:
 
         self._env_bboxes = env_bboxes
 
+        # Anchors and background collision objects are fixed, so their world bounding boxes are
+        # constant during the solve. Cache them once instead of recomputing every gradient step.
+        self._fixed_obstacle_world_bboxes: dict[ObjectBase | CollisionObject, AxisAlignedBoundingBox] = {
+            obj: obj.get_world_bounding_box().to(self._device)
+            for obj in (*self._anchor_objects, *self._collision_objects)
+        }
+
     @property
     def device(self) -> torch.device:
         """Torch device for all position tensors."""
@@ -129,6 +143,11 @@ class RelationSolverState:
         """Set of anchor objects (fixed during optimization)."""
         return self._anchor_objects
 
+    @property
+    def collision_objects(self) -> list[CollisionObject]:
+        """Copy of the collision-only fixed obstacles (constant world pose, no relation constraints)."""
+        return list(self._collision_objects)
+
     def get_position(self, obj: ObjectBase) -> torch.Tensor:
         """Get current position for an object.
 
@@ -149,6 +168,13 @@ class RelationSolverState:
             raise RuntimeError(f"No optimizable positions available for object '{obj.name}'")
         opt_idx = self._global_to_opt_idx[idx]
         return self._optimizable_positions[:, opt_idx, :]
+
+    def get_fixed_obstacle_world_bbox(self, obj: ObjectBase | CollisionObject) -> AxisAlignedBoundingBox:
+        """Return the cached constant world bounding box for an anchor or collision object."""
+        assert (
+            obj in self._fixed_obstacle_world_bboxes
+        ), f"'{obj.name}' is not a fixed obstacle (anchor or collision object) tracked by this state."
+        return self._fixed_obstacle_world_bboxes[obj]
 
     def get_bbox(self, obj: ObjectBase) -> AxisAlignedBoundingBox:
         """Return the local bounding box for obj, moved to the state's device."""

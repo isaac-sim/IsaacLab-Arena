@@ -42,10 +42,10 @@ def test_getting_started_experiment_composes_typed_runs():
     runs = _load_experiment(GETTING_STARTED_EXPERIMENT_PATH)
 
     assert [run.name for run in runs] == [
-        "01_baseline",
-        "02_swap_objects",
-        "03_change_background_hdr",
-        "04_parallel_envs",
+        "baseline",
+        "swap_objects",
+        "change_background_hdr",
+        "parallel_envs",
     ]
     assert runs[0].environment == PickAndPlaceMapleTableEnvironmentCfg(
         embodiment="droid_rel_joint_pos",
@@ -124,7 +124,7 @@ def _test_getting_started_experiment_executes_baseline_run(simulation_app, outpu
 
     result = build_and_run(baseline_run, output_dir=output_dir)
 
-    assert result.run_name == "01_baseline"
+    assert result.run_name == "baseline"
     assert result.status is RunStatus.COMPLETED
     return True
 
@@ -224,6 +224,23 @@ runs:
     )
 
     with pytest.raises(AssertionError, match="must define a non-empty string 'name'"):
+        _load_experiment(config_path)
+
+
+def test_run_name_must_be_hydra_compatible(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+runs:
+  - name: 01_baseline
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+""",
+    )
+
+    with pytest.raises(AssertionError, match="must start with a letter or underscore"):
         _load_experiment(config_path)
 
 
