@@ -83,8 +83,8 @@ To use with variations, append the variation overrides after the environment sou
     ``droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true``, can be appended
     after the environment source.
 
-Run with Eval Runner
---------------------
+Run with Experiment Runner
+--------------------------------
 
 For repeatable evaluation, put the generated environment graph spec YAML in an
 eval jobs config. The ``environment`` field points at the graph spec YAML, and the
@@ -119,11 +119,11 @@ OpenPI connection options go in ``policy_config_dict``:
        ]
    }
 
-Then run the sequential batch evaluation runner:
+Then run the Experiment Runner:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/eval_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
       --viz kit \
       --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/agentic_openpi_jobs_config.json
 

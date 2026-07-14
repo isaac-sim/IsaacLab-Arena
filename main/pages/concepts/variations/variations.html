@@ -611,7 +611,7 @@ extrinsics jitter range to ±10 mm per axis.</p>
 </section>
 <section id="configuring-variations-in-an-eval-jobs-config">
 <h2>Configuring variations in an eval jobs config<a class="headerlink" href="#configuring-variations-in-an-eval-jobs-config" title="Link to this heading">#</a></h2>
-<p>When running batches of jobs with <code class="docutils literal notranslate"><span class="pre">eval_runner.py</span></code>, variations are configured per job via a
+<p>When running batches of jobs with <code class="docutils literal notranslate"><span class="pre">experiment_runner.py</span></code>, variations are configured per job via a
 dedicated <code class="docutils literal notranslate"><span class="pre">variations</span></code> field instead of command-line override tokens.  The field is a nested
 dict that mirrors the dotted Hydra paths: each level of nesting corresponds to one segment of
 the <code class="docutils literal notranslate"><span class="pre">&lt;asset&gt;.&lt;variation_name&gt;.&lt;cfg_field&gt;</span></code> path.  For example, the nested entry
@@ -649,15 +649,15 @@ enables three variations on a single job:</p>
 </pre></div>
 </div>
 <p>Run it with:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--eval_jobs_config<span class="w"> </span>isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">--list-variations</span></code> works with <code class="docutils literal notranslate"><span class="pre">eval_runner.py</span></code> too, printing the variations catalogue for
+<p><code class="docutils literal notranslate"><span class="pre">--list-variations</span></code> works with <code class="docutils literal notranslate"><span class="pre">experiment_runner.py</span></code> too, printing the variations catalogue for
 each job’s environment:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--list-variations<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--eval_jobs_config<span class="w"> </span>isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json

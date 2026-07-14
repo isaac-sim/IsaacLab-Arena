@@ -504,7 +504,7 @@
 <p>Agentic environment generation creates Arena environments from natural-language
 prompts, then reuses the generated environment graph specs for downstream policy
 evaluation. This workflow shows how agentically composed environments can be
-used by the policy runner, the sequential batch evaluation runner with the
+used by the policy runner, the Experiment Runner and its
 variation system, and policy-specific evaluation flows such as GR00T and PI.</p>
 <p>Behind the scenes, this workflow uses the <code class="docutils literal notranslate"><span class="pre">ArenaEnvGraphSpec</span></code> schema for scene
 layout, tasks, and spatial relations.</p>
@@ -608,8 +608,8 @@ sensitivity.</span><a class="headerlink" href="#id2" title="Link to this image">
 </figcaption>
 </figure>
 </section>
-<section id="sequential-batch-evaluation-runner-with-variations">
-<h3>Sequential Batch Evaluation Runner with Variations<a class="headerlink" href="#sequential-batch-evaluation-runner-with-variations" title="Link to this heading">#</a></h3>
+<section id="experiment-runner-with-variations">
+<h3>Experiment Runner with Variations<a class="headerlink" href="#experiment-runner-with-variations" title="Link to this heading">#</a></h3>
 <p>Evaluation jobs can also point their environment source at an environment graph
 spec YAML with variations, instead of a registered example-environment name:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -710,7 +710,7 @@ evaluation integrations may change across releases.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#available-generated-specs">Available Generated Specs</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-a-generated-environment">Run a Generated Environment</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#policy-runner-with-variations">Policy Runner with Variations</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#sequential-batch-evaluation-runner-with-variations">Sequential Batch Evaluation Runner with Variations</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#experiment-runner-with-variations">Experiment Runner with Variations</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#evaluation-policies-workflow-steps">Evaluation Policies Workflow Steps</a></li>
 </ul>
 </li>

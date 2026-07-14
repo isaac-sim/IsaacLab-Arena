@@ -503,7 +503,7 @@
 <h1>Policy<a class="headerlink" href="#policy" title="Link to this heading">#</a></h1>
 <p>A policy in Arena is a standard interface between your model and the evaluation
 pipeline. You implement one method — <code class="docutils literal notranslate"><span class="pre">get_action(env,</span> <span class="pre">obs)</span></code> — and the policy
-plugs into both the single-job runner and the batch eval runner without any
+plugs into both the single-job runner and the Experiment Runner without any
 changes to either. In bare IsaacLab you would write an ad-hoc inference loop
 for each model; Arena’s <code class="docutils literal notranslate"><span class="pre">PolicyBase</span></code> gives a consistent contract that all
 runners depend on.</p>
@@ -563,7 +563,7 @@ its accompanying <code class="docutils literal notranslate"><span class="pre">pa
 </pre></div>
 </div>
 <p>The typed registration lets the single-job runner generate CLI flags from
-<code class="docutils literal notranslate"><span class="pre">MyPolicyCfg</span></code> and lets the batch eval runner convert the current
+<code class="docutils literal notranslate"><span class="pre">MyPolicyCfg</span></code> and lets the Experiment Runner convert the current
 <code class="docutils literal notranslate"><span class="pre">Job.policy_config_dict</span></code> representation into that same type. See
 <a class="reference internal" href="concept_evaluation_types.html"><span class="doc">Evaluation Types</span></a> for details.</p>
 <p>Config fields named <code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">num_envs</span></code> reuse the corresponding shared

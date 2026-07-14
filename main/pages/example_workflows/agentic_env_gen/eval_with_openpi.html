@@ -573,8 +573,8 @@ environment graph spec.</p></li>
 after the environment source.</p>
 </div>
 </section>
-<section id="run-with-eval-runner">
-<h2>Run with Eval Runner<a class="headerlink" href="#run-with-eval-runner" title="Link to this heading">#</a></h2>
+<section id="run-with-experiment-runner">
+<h2>Run with Experiment Runner<a class="headerlink" href="#run-with-experiment-runner" title="Link to this heading">#</a></h2>
 <p>For repeatable evaluation, put the generated environment graph spec YAML in an
 eval jobs config. The <code class="docutils literal notranslate"><span class="pre">environment</span></code> field points at the graph spec YAML, and the
 OpenPI connection options go in <code class="docutils literal notranslate"><span class="pre">policy_config_dict</span></code>:</p>
@@ -606,8 +606,8 @@ OpenPI connection options go in <code class="docutils literal notranslate"><span
 <span class="p">}</span>
 </pre></div>
 </div>
-<p>Then run the sequential batch evaluation runner:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span><span class="se">\</span>
+<p>Then run the Experiment Runner:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--eval_jobs_config<span class="w"> </span>isaaclab_arena_environments/eval_jobs_configs/agentic_openpi_jobs_config.json
 </pre></div>
@@ -668,7 +668,7 @@ settings, and variation settings in one reusable config.</p>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#start-the-openpi-server">Start the OpenPI Server</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-the-generated-environment">Run the Generated Environment</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-with-eval-runner">Run with Eval Runner</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-with-experiment-runner">Run with Experiment Runner</a></li>
 </ul>
   </nav></div>
 

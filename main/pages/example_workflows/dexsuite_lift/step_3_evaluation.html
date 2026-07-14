@@ -590,7 +590,7 @@ evaluated with PhysX.</p>
 </section>
 <section id="batch-evaluation">
 <h2>Batch Evaluation<a class="headerlink" href="#batch-evaluation" title="Link to this heading">#</a></h2>
-<p>To evaluate multiple checkpoints in sequence, use <code class="docutils literal notranslate"><span class="pre">eval_runner.py</span></code> with a
+<p>To evaluate multiple checkpoints in sequence, use <code class="docutils literal notranslate"><span class="pre">experiment_runner.py</span></code> with a
 JSON config.</p>
 <p><strong>1. Create an evaluation config</strong></p>
 <p>Create a file <code class="docutils literal notranslate"><span class="pre">eval_config.json</span></code>:</p>
@@ -627,7 +627,7 @@ JSON config.</p>
 </pre></div>
 </div>
 <p><strong>2. Run</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span>--presets<span class="w"> </span>newton<span class="w"> </span>--eval_jobs_config<span class="w"> </span>eval_config.json
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span>--presets<span class="w"> </span>newton<span class="w"> </span>--eval_jobs_config<span class="w"> </span>eval_config.json
 </pre></div>
 </div>
 </section>

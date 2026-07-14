@@ -506,7 +506,7 @@
   <section id="evaluation-types">
 <h1>Evaluation Types<a class="headerlink" href="#evaluation-types" title="Link to this heading">#</a></h1>
 <p>Isaac Lab Arena supports two main ways to run policy evaluation: a single-job
-<strong>policy runner</strong> (single or multi-GPU) and a <strong>sequential batch eval runner</strong> for
+<strong>policy runner</strong> (single or multi-GPU) and an <strong>Experiment Runner</strong> for
 multiple jobs in one process. This section summarizes when to use each and how
 they work. Each section below links to the relevant concept docs:
 <a class="reference internal" href="index.html"><span class="doc">Policy Design</span></a>,
@@ -547,9 +547,9 @@ example workflows.</p>
 <td><p><code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code></p></td>
 <td><p>Yes (torchrun)</p></td>
 </tr>
-<tr class="row-odd"><td><p>Sequential batch eval runner</p></td>
+<tr class="row-odd"><td><p>Experiment Runner</p></td>
 <td><p>Multiple jobs (env/policy combos) in sequence</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">eval_runner.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">experiment_runner.py</span></code></p></td>
 <td><p>No</p></td>
 </tr>
 </tbody>
@@ -639,9 +639,9 @@ device per rank (e.g. <code class="docutils literal notranslate"><span class="pr
 <p>The remaining environment arguments come from the Arena environments CLI. For
 registered policies, policy-specific flags are generated from their <code class="docutils literal notranslate"><span class="pre">PolicyCfg</span></code>.</p>
 </section>
-<section id="sequential-batch-eval-runner-batch-jobs">
-<span id="sequential-batch-eval-runner"></span><h2>2. Sequential batch eval runner — batch jobs<a class="headerlink" href="#sequential-batch-eval-runner-batch-jobs" title="Link to this heading">#</a></h2>
-<p>The <strong>sequential batch eval runner</strong> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena/evaluation/eval_runner.py</span></code>)
+<section id="experiment-runner-batch-jobs">
+<span id="sequential-batch-experiment-runner"></span><h2>2. Experiment Runner — batch jobs<a class="headerlink" href="#experiment-runner-batch-jobs" title="Link to this heading">#</a></h2>
+<p>The <strong>Experiment Runner</strong> (<code class="docutils literal notranslate"><span class="pre">isaaclab_arena/evaluation/experiment_runner.py</span></code>)
 runs a <strong>batch</strong> of evaluation jobs sequentially in a single process. Each job can have
 a different environment (scene/object/embodiment), policy type, policy config,
 and length (steps or episodes). This is suited for benchmarking many
@@ -660,13 +660,13 @@ before the next job.</p></li>
 <li><p>If a job fails, the runner continues with the next job and marks the failed
 job accordingly.</p></li>
 <li><p>Metrics are aggregated and printed at the end (e.g. via <code class="docutils literal notranslate"><span class="pre">MetricsLogger</span></code>).</p></li>
-<li><p><strong>Distributed evaluation is not supported</strong>: the sequential batch eval runner
+<li><p><strong>Distributed evaluation is not supported</strong>: the Experiment Runner
 runs in a single process. For multi-GPU, use multiple policy runner
 invocations (e.g. with <code class="docutils literal notranslate"><span class="pre">torchrun</span></code>) or split the batch across machines.</p></li>
 </ul>
 <div class="admonition-todo admonition" id="id1">
 <p class="admonition-title">Todo</p>
-<p>Experiment with distributed evaluation in the sequential batch eval runner.</p>
+<p>Experiment with distributed evaluation in the Experiment Runner.</p>
 </div>
 <p><strong>Jobs config format</strong></p>
 <p>The config file must be a JSON object with a <code class="docutils literal notranslate"><span class="pre">&quot;jobs&quot;</span></code> array. Each job is an
@@ -720,15 +720,15 @@ default (e.g. <code class="docutils literal notranslate"><span class="pre">--num
 <span class="p">}</span>
 </pre></div>
 </div>
-<p><strong>Running the sequential batch eval runner</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span><span class="se">\</span>
+<p><strong>Running the Experiment Runner</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--eval_jobs_config<span class="w"> </span>path/to/eval_jobs_config.json<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">1000</span>
 </pre></div>
 </div>
 <p>If any job needs cameras, set <code class="docutils literal notranslate"><span class="pre">enable_cameras:</span> <span class="pre">true</span></code> in that job’s
-<code class="docutils literal notranslate"><span class="pre">arena_env_args</span></code>; the sequential batch eval runner automatically enables camera support if any job requires it.</p>
+<code class="docutils literal notranslate"><span class="pre">arena_env_args</span></code>; the Experiment Runner automatically enables camera support if any job requires it.</p>
 </section>
 <section id="choosing-an-evaluation-type">
 <h2>Choosing an evaluation type<a class="headerlink" href="#choosing-an-evaluation-type" title="Link to this heading">#</a></h2>
@@ -792,7 +792,7 @@ runner</strong> with a jobs JSON; use <code class="docutils literal notranslate"
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary">Summary</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#policy-runner-single-job-single-gpu-and-multi-gpu">1. Policy runner — single job (single GPU and multi-GPU)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#sequential-batch-eval-runner-batch-jobs">2. Sequential batch eval runner — batch jobs</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#experiment-runner-batch-jobs">2. Experiment Runner — batch jobs</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-an-evaluation-type">Choosing an evaluation type</a></li>
 </ul>
   </nav></div>

@@ -568,7 +568,7 @@ Rubik’s cube and destination bowl, with the home_office_robolab HDR.</span><a 
 </figure>
 <p><strong>Sequential batch evaluation across object variations</strong></p>
 <p>To measure success rates across several variations of the environment in a single command:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--eval_jobs_config<span class="w"> </span>isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_openpi_jobs_config.json
 </pre></div>
@@ -635,10 +635,10 @@ for a cross-model comparison.</p>
 </section>
 <section id="viewing-rollouts-as-an-html-report">
 <h2>Viewing rollouts as an HTML report<a class="headerlink" href="#viewing-rollouts-as-an-html-report" title="Link to this heading">#</a></h2>
-<p>Both <code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code> and <code class="docutils literal notranslate"><span class="pre">eval_runner.py</span></code> can collect the rollouts into a browsable
+<p>Both <code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code> and <code class="docutils literal notranslate"><span class="pre">experiment_runner.py</span></code> can collect the rollouts into a browsable
 HTML evaluation report. For visualization add <code class="docutils literal notranslate"><span class="pre">--record_camera_video</span></code> to record one mp4 per camera, per
 episode; the runner writes an <code class="docutils literal notranslate"><span class="pre">index.html</span></code> which is then served over HTTP.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--eval_jobs_config<span class="w"> </span>isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_openpi_jobs_config.json<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--output_base_dir<span class="w"> </span>./output<span class="w"> </span><span class="se">\</span>

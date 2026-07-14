@@ -749,7 +749,7 @@ just over-fitting to a single object mesh.</p>
 </section>
 <section id="step-4-sequential-batch-evaluation">
 <h2>Step 4: Sequential Batch Evaluation<a class="headerlink" href="#step-4-sequential-batch-evaluation" title="Link to this heading">#</a></h2>
-<p>A sequential batch of jobs, i.e. different tasks, objects, embodiments or policies, can be evaluated by the <code class="docutils literal notranslate"><span class="pre">eval_runner.py</span></code> script.
+<p>A sequential batch of jobs, i.e. different tasks, objects, embodiments or policies, can be evaluated by the <code class="docutils literal notranslate"><span class="pre">experiment_runner.py</span></code> script.
 It minimizes the overhead of reloading system modules and environment classes for each job while keeping the simulation application alive.
 The evaluation batch can be specified in a config file, with examples shown below.</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
@@ -799,7 +799,7 @@ The evaluation batch can be specified in a config file, with examples shown belo
 </div>
 </div>
 </details><p>Run the batch evaluation:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/eval_runner.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--eval_jobs_config<span class="w"> </span>isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.json
 </pre></div>
