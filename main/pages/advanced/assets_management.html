@@ -503,6 +503,11 @@
 <h1>Assets Management<a class="headerlink" href="#assets-management" title="Link to this heading">#</a></h1>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
+<p><strong>Internal NVIDIA use only.</strong> This page documents workflows and infrastructure (OV Nucleus Server,
+staging/production S3 buckets, internal ticketing) that are only accessible to NVIDIA employees.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
 <p>These steps are only required if you are adding your own assets to Isaac Lab Arena’s production S3 buckets.
 Assets and files that are used by Isaac Lab Arena by default are publicly available without additional authentication.</p>
 </div>
@@ -515,6 +520,11 @@ Isaac Lab Arena uses the following environment variables to access those S3 buck
 from the Nucleus Server (omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/). Those assets have not yet reviewed by legal team – use in production at your own risk.
 Prior to each major release, the staging assets will be uploaded to the production bucket after being cleared by the legal team.</p></li>
 </ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>In Isaac Lab 3.0-alpha, <code class="docutils literal notranslate"><span class="pre">ISAACLAB_NUCLEUS_DIR</span></code> currently points to the <em>staging</em> S3 bucket rather than the production bucket.
+See the <a class="reference external" href="https://github.com/isaac-sim/IsaacLab/blob/55df2c34390ba94b22d41879514c5485c5115462/apps/isaaclab.python.kit#L309">Isaac Lab staging-bucket configuration</a>.</p>
+</div>
 <section id="adding-assets">
 <h2>Adding assets<a class="headerlink" href="#adding-assets" title="Link to this heading">#</a></h2>
 <p>To add your own assets to Isaac Lab Arena’s <em>staging</em> S3 bucket, you can follow the following steps:</p>
@@ -534,6 +544,14 @@ For example, if you want to use a new object, you can register the object in <co
 <li><p>Wait for at most 6 hours for the assets to be synced to the staging S3 bucket.</p></li>
 <li><p>Run Isaac Lab Arena to verify that the assets are loaded correctly.</p></li>
 </ol>
+</section>
+<section id="syncing-assets-from-ov-nucleus-to-s3-production">
+<h2>Syncing assets from OV Nucleus to S3 production<a class="headerlink" href="#syncing-assets-from-ov-nucleus-to-s3-production" title="Link to this heading">#</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Syncing assets from the OV Nucleus Server to the <em>production</em> S3 bucket requires filing a ticket:
+<a class="reference external" href="https://jirasw.nvidia.com/browse/ISIM-5044">https://jirasw.nvidia.com/browse/ISIM-5044</a></p>
+</div>
 </section>
 </section>
 
@@ -587,6 +605,7 @@ For example, if you want to use a new object, you can register the object in <co
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#adding-assets">Adding assets</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#syncing-assets-from-ov-nucleus-to-s3-production">Syncing assets from OV Nucleus to S3 production</a></li>
 </ul>
   </nav></div>
 
