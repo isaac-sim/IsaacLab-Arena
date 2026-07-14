@@ -7,10 +7,10 @@ from __future__ import annotations
 
 import html as html_lib
 import yaml
+from dataclasses import dataclass
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec, ObjectReferenceSpec, SpatialRelationSpec
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnails import render_asset_thumbnail
 
 
 def render_unary_constraints(relations: list[SpatialRelationSpec]) -> str:
@@ -69,88 +69,74 @@ def render_tasks_table(spec: ArenaEnvGraphSpec) -> str:
     )
 
 
-def render_node_cards(
+@dataclass(frozen=True)
+class AssetCard:
+    """Structured per-asset data for rendering a snapshot card as native Streamlit widgets."""
+
+    node_id: str
+    """Graph node id shown as the card heading."""
+    role: str
+    """Node role: ``background``, ``object``, or ``object_reference``."""
+    label: str
+    """Registry name for assets, or the node id for object references."""
+    yaml_text: str
+    """Pretty-printed spec YAML for the node."""
+    png_bytes: bytes | None = None
+    """USD snapshot PNG, or ``None`` when no capture is available."""
+    aabb_dimensions_m: tuple[float, float, float] | None = None
+    """Axis-aligned bounding box size in metres, when known."""
+    is_panorama: bool = False
+    """Whether the snapshot is a 360 panorama capture (rendered full width)."""
+    is_object_reference: bool = False
+    """Whether the node is an object_reference (collision-mesh preview)."""
+    prim_unresolved: bool = False
+    """Object reference whose prim_path is unresolved, so no snapshot exists."""
+
+
+def build_asset_cards(
     spec: ArenaEnvGraphSpec,
     thumbnails: dict[str, bytes] | None = None,
     aabb_dimensions_m: dict[str, tuple[float, float, float]] | None = None,
     panorama_node_ids: set[str] | None = None,
-) -> str:
-    """Render one card per asset for the dashboard nodes panel."""
+) -> list[AssetCard]:
+    """Build one AssetCard per node (background, object references, objects) for native rendering."""
     thumbnails = thumbnails or {}
     aabb_dimensions_m = aabb_dimensions_m or {}
     panorama_node_ids = panorama_node_ids or set()
-    entries = [
-        ("background", spec.background),
-        *(("object_reference", ref) for ref in (spec.object_references or [])),
-        *(("object", obj) for obj in spec.objects),
-    ]
-    cards: list[str] = []
+    entries: list[tuple[str, AssetSpec | ObjectReferenceSpec]] = []
+    if spec.background is not None:
+        entries.append(("background", spec.background))
+    entries.extend(("object_reference", ref) for ref in (spec.object_references or []))
+    entries.extend(("object", obj) for obj in spec.objects)
+
+    cards: list[AssetCard] = []
     for role, asset in entries:
+        png_bytes = thumbnails.get(asset.id)
+        node_yaml = yaml.safe_dump(asset.model_dump(mode="json", exclude_none=True), sort_keys=False).rstrip()
         if role == "object_reference":
             assert isinstance(asset, ObjectReferenceSpec)
             cards.append(
-                render_object_reference_card(
-                    asset,
-                    thumbnails.get(asset.id),
+                AssetCard(
+                    node_id=asset.id,
+                    role=role,
+                    label=asset.id,
+                    yaml_text=node_yaml,
+                    png_bytes=png_bytes,
+                    is_object_reference=True,
+                    prim_unresolved=png_bytes is None,
                 )
             )
         else:
             assert isinstance(asset, AssetSpec)
             cards.append(
-                render_node_card(
-                    role,
-                    asset,
-                    thumbnails.get(asset.id),
-                    aabb_dimensions_m.get(asset.id),
+                AssetCard(
+                    node_id=asset.id,
+                    role=role,
+                    label=asset.registry_name,
+                    yaml_text=node_yaml,
+                    png_bytes=png_bytes,
+                    aabb_dimensions_m=aabb_dimensions_m.get(asset.id),
                     is_panorama=asset.id in panorama_node_ids,
                 )
             )
-    return "\n".join(cards)
-
-
-def render_node_card(
-    role: str,
-    asset: AssetSpec,
-    png_bytes: bytes | None = None,
-    aabb_dimensions_m: tuple[float, float, float] | None = None,
-    *,
-    is_panorama: bool = False,
-) -> str:
-    """Render a single asset card with USD snapshot or placeholder thumbnail and YAML dump."""
-    node_yaml = yaml.safe_dump(asset.model_dump(mode="json", exclude_none=True), sort_keys=False).rstrip()
-    thumb = render_asset_thumbnail(
-        asset.registry_name,
-        png_bytes,
-        aabb_dimensions_m,
-        is_panorama=is_panorama,
-    )
-    card_class = "node-card node-card--panorama" if is_panorama else "node-card"
-    return f"""<article class="{card_class} type-{html_lib.escape(role)}">
-  {thumb}
-  <div class="node-meta">
-    <div class="node-id">{html_lib.escape(asset.id)}</div>
-    <span class="badge type-{html_lib.escape(role)}">{html_lib.escape(role)}</span>
-  </div>
-  <pre class="node-yaml">{html_lib.escape(node_yaml)}</pre>
-</article>"""
-
-
-def render_object_reference_card(
-    ref: ObjectReferenceSpec,
-    png_bytes: bytes | None = None,
-) -> str:
-    """Render a single object_reference card with optional collision-mesh snapshot."""
-    node_yaml = yaml.safe_dump(ref.model_dump(mode="json", exclude_none=True), sort_keys=False).rstrip()
-    thumb = render_asset_thumbnail(
-        ref.id,
-        png_bytes,
-        is_object_reference=True,
-    )
-    return f"""<article class="node-card type-object_reference">
-  {thumb}
-  <div class="node-meta">
-    <div class="node-id">{html_lib.escape(ref.id)}</div>
-    <span class="badge type-object_reference">object_reference</span>
-  </div>
-  <pre class="node-yaml">{html_lib.escape(node_yaml)}</pre>
-</article>"""
+    return cards

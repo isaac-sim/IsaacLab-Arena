@@ -13,7 +13,11 @@ import json
 import streamlit as st
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import render_dashboard_html
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import (
+    DashboardRender,
+    render_dashboard_html,
+)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.panels import build_asset_cards
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppError,
     simapp_socket_from_env,
@@ -33,17 +37,17 @@ def _spec_render_key(spec: ArenaEnvGraphSpec, *, background_panorama: bool) -> s
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def _cached_dashboard_html(spec_key: str) -> str | None:
+def _cached_dashboard_render(spec_key: str) -> DashboardRender | None:
     cache = st.session_state.get("_dashboard_render_cache")
     if isinstance(cache, dict) and cache.get("key") == spec_key:
-        html = cache.get("html")
-        if isinstance(html, str):
-            return html
+        render = cache.get("render")
+        if isinstance(render, DashboardRender):
+            return render
     return None
 
 
-def _store_dashboard_html(spec_key: str, html: str) -> None:
-    st.session_state["_dashboard_render_cache"] = {"key": spec_key, "html": html}
+def _store_dashboard_render(spec_key: str, render: DashboardRender) -> None:
+    st.session_state["_dashboard_render_cache"] = {"key": spec_key, "render": render}
 
 
 def clear_snapshot_render_caches() -> int:
@@ -82,42 +86,46 @@ def _show_simapp_render_error_once(exc: SimAppError) -> None:
     )
 
 
-def render_dashboard_with_thumbnails(spec: ArenaEnvGraphSpec, *, background_panorama: bool = False) -> str:
-    """Render review HTML, asking the SimApp server for live USD thumbnails when available."""
+def render_dashboard_with_thumbnails(spec: ArenaEnvGraphSpec, *, background_panorama: bool = False) -> DashboardRender:
+    """Render the review dashboard, asking the SimApp server for live USD thumbnails when available.
+
+    Returns the graph/tasks HTML plus per-node AssetCards; the caller renders the cards as native
+    Streamlit images so they inherit the built-in fullscreen zoom.
+    """
     spec_key = _spec_render_key(spec, background_panorama=background_panorama)
-    cached_html = _cached_dashboard_html(spec_key)
-    if cached_html is not None:
-        return cached_html
+    cached = _cached_dashboard_render(spec_key)
+    if cached is not None:
+        return cached
 
     panorama_node_ids: set[str] = set()
     if background_panorama and spec.background is not None:
         panorama_node_ids.add(spec.background.id)
+
+    html = render_dashboard_html(spec)
+    thumbnails: dict[str, bytes] = {}
+    aabb_dimensions_m: dict[str, tuple[float, float, float]] = {}
 
     simapp_expected = simapp_socket_from_env() is not None
     client = ensure_simapp() if simapp_expected else None
     if client is None:
         if simapp_expected:
             _warn_simapp_unavailable_once()
-        html = render_dashboard_html(spec, panorama_node_ids=panorama_node_ids)
-        _store_dashboard_html(spec_key, html)
-        return html
+    else:
+        try:
+            thumbnails, aabb_dimensions_m = client.render_spec(spec, background_panorama=background_panorama)
+        except SimAppError as exc:
+            _show_simapp_render_error_once(exc)
+            thumbnails, aabb_dimensions_m = {}, {}
+        finally:
+            # Release the socket so the sequential SimApp server can accept other tabs.
+            clear_simapp_client()
 
-    try:
-        thumbnails, aabb_dimensions_m = client.render_spec(spec, background_panorama=background_panorama)
-    except SimAppError as exc:
-        _show_simapp_render_error_once(exc)
-        html = render_dashboard_html(spec, panorama_node_ids=panorama_node_ids)
-        _store_dashboard_html(spec_key, html)
-        return html
-    finally:
-        # Release the socket so the sequential SimApp server can accept other tabs.
-        clear_simapp_client()
-
-    html = render_dashboard_html(
+    asset_cards = build_asset_cards(
         spec,
-        thumbnails=thumbnails if thumbnails else None,
-        aabb_dimensions_m=aabb_dimensions_m or None,
-        panorama_node_ids=panorama_node_ids,
+        thumbnails or None,
+        aabb_dimensions_m or None,
+        panorama_node_ids,
     )
-    _store_dashboard_html(spec_key, html)
-    return html
+    render = DashboardRender(html=html, asset_cards=asset_cards)
+    _store_dashboard_render(spec_key, render)
+    return render
