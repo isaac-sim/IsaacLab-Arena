@@ -6,7 +6,6 @@
 
 import torch
 from collections.abc import Sequence
-from dataclasses import MISSING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 import isaaclab.sim as sim_utils
@@ -25,7 +24,7 @@ from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import RewardTermCfg, SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
-from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
+from isaaclab.sensors import CameraCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
@@ -38,6 +37,7 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.common.mimic_utils import get_rigid_and_articulated_object_poses
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.observations import gripper_pos
+from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
 
@@ -72,8 +72,6 @@ class FrankaEmbodimentBase(EmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
-        camera_offset: Pose | None = _DEFAULT_CAMERA_OFFSET,
-        is_tiled_camera: bool = False,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         self.event_config = FrankaEventCfg()
@@ -82,8 +80,6 @@ class FrankaEmbodimentBase(EmbodimentBase):
         self.reward_config = FrankaRewardsCfg()
         self.mimic_env = FrankaMimicEnv
         self.camera_config = FrankaCameraCfg()
-        self.camera_config._is_tiled_camera = is_tiled_camera
-        self.camera_config._camera_offset = camera_offset
         self.scene_config = FrankaSceneCfg()
         self.observation_config = FrankaObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
@@ -110,8 +106,6 @@ class FrankaIKEmbodiment(FrankaEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
-        camera_offset: Pose | None = _DEFAULT_CAMERA_OFFSET,
-        is_tiled_camera: bool = False,
     ):
         super().__init__(
             enable_cameras=enable_cameras,
@@ -119,8 +113,6 @@ class FrankaIKEmbodiment(FrankaEmbodimentBase):
             initial_joint_pose=initial_joint_pose,
             concatenate_observation_terms=concatenate_observation_terms,
             arm_mode=arm_mode,
-            camera_offset=camera_offset,
-            is_tiled_camera=is_tiled_camera,
         )
         self.scene_config.robot = _FRANKA_IK_REL_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
         self.action_config = FrankaIKActionCfg()
@@ -167,8 +159,6 @@ class FrankaJointPosEmbodiment(FrankaEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
-        camera_offset: Pose | None = _DEFAULT_CAMERA_OFFSET,
-        is_tiled_camera: bool = False,
     ):
         super().__init__(
             enable_cameras=enable_cameras,
@@ -176,8 +166,6 @@ class FrankaJointPosEmbodiment(FrankaEmbodimentBase):
             initial_joint_pose=initial_joint_pose,
             concatenate_observation_terms=concatenate_observation_terms,
             arm_mode=arm_mode,
-            camera_offset=camera_offset,
-            is_tiled_camera=is_tiled_camera,
         )
         self.action_config = FrankaJointPosActionsCfg()
         self.scene_config.robot = _FRANKA_JOINT_POS_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
@@ -249,35 +237,29 @@ class FrankaSceneCfg:
 
 
 @configclass
-class FrankaCameraCfg:
-    """Configuration for cameras."""
+class FrankaCameraCfg(ArenaCameraCfg):
+    """Franka wrist-camera rig using a standard (untiled) camera.
 
-    wrist_cam: CameraCfg | TiledCameraCfg = MISSING
+    Source of truth for the wrist-camera intrinsics and default pose. Tiling is selected via
+    the inherited :class:`~isaaclab_arena.utils.cameras.ArenaCameraCfg`; the offset is set from
+    the embodiment's ``camera_offset``.
+    """
 
-    def __post_init__(self):
-        is_tiled_camera = getattr(self, "_is_tiled_camera", False)
-        camera_offset = getattr(self, "_camera_offset", _DEFAULT_CAMERA_OFFSET)
-
-        CameraClass = TiledCameraCfg if is_tiled_camera else CameraCfg
-        OffsetClass = CameraClass.OffsetCfg
-
-        common_kwargs = dict(
-            prim_path="{ENV_REGEX_NS}/Robot/panda_hand/wrist_cam",
-            update_period=0.0,
-            height=84,
-            width=84,
-            data_types=["rgb"],
-            spawn=sim_utils.PinholeCameraCfg(
-                focal_length=2.8, focus_distance=28, horizontal_aperture=5.376, vertical_aperture=3.024
-            ),
-        )
-        offset = OffsetClass(
-            pos=camera_offset.position_xyz,
-            rot=camera_offset.rotation_xyzw,
+    wrist_cam: CameraCfg = CameraCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/panda_hand/wrist_cam",
+        update_period=0.0,
+        height=84,
+        width=84,
+        data_types=["rgb"],
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=2.8, focus_distance=28, horizontal_aperture=5.376, vertical_aperture=3.024
+        ),
+        offset=CameraCfg.OffsetCfg(
+            pos=_DEFAULT_CAMERA_OFFSET.position_xyz,
+            rot=_DEFAULT_CAMERA_OFFSET.rotation_xyzw,
             convention="ros",
-        )
-
-        self.wrist_cam = CameraClass(offset=offset, **common_kwargs)
+        ),
+    )
 
 
 @configclass

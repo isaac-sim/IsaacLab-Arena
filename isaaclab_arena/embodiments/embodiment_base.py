@@ -11,7 +11,7 @@ from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.utils.cameras import make_camera_observation_cfg
+from isaaclab_arena.utils.cameras import ArenaCameraCfg, make_camera_observation_cfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances
 from isaaclab_arena.utils.pose import Pose
 
@@ -67,7 +67,7 @@ class EmbodimentBase(Asset):
                 return combine_configclass_instances(
                     "SceneCfg",
                     self.scene_config,
-                    self.camera_config,
+                    self.get_camera_cfg(),
                 )
         return self.scene_config
 
@@ -107,6 +107,16 @@ class EmbodimentBase(Asset):
         """Optional USD prim path for rebasing teleop poses (e.g. robot base link). Returns None if not set."""
 
     def get_camera_cfg(self) -> Any:
+        """Return the concrete camera-rig configclass to build the scene from.
+
+        For a rig that mixes in :class:`ArenaCameraCfg`, resolves via its ``get_cfg`` (tiled or
+        untiled per its flag). Embodiments not yet migrated assign a raw camera-rig configclass
+        to ``camera_config``, which is returned as-is.
+        """
+        if self.camera_config is None:
+            return None
+        if isinstance(self.camera_config, ArenaCameraCfg):
+            return self.camera_config.get_cfg()
         return self.camera_config
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
