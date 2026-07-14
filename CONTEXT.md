@@ -8,22 +8,6 @@ Isaac Lab-Arena composes robotics environments and evaluates policies against th
 A coherent evaluation composed of one or more Runs.
 _Avoid_: Job batch, Run
 
-**Experiment Runner**:
-The component that executes one complete Experiment and produces its results.
-_Avoid_: Eval Runner, Arena Experiment Runner, Sequential Batch Runner
-
-**Evaluation Configuration**:
-Process-level settings and optional Hydra overrides for executing one Experiment and producing its results. It references an Experiment but does not define Runs or deployment infrastructure.
-_Avoid_: Experiment, Eval Job Config, OSMO Configuration
-
-**OSMO Configuration**:
-Infrastructure settings for executing an Experiment on OSMO, including scheduling, containers, storage, and supporting services. It does not define Runs or local evaluation defaults.
-_Avoid_: Experiment Configuration, Policy Runner Configuration
-
-**OSMO Workflow**:
-The remote execution unit for one complete Experiment, including the Experiment Runner and any supporting policy services.
-_Avoid_: Job, Run
-
 **Run**:
 A named, independently dispatchable evaluation setup that pairs an environment with a policy and defines its rollout and requested rebuilds. It contains no execution status or metrics.
 _Avoid_: Job, Trial, Experiment, Environment
