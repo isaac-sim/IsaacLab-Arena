@@ -75,7 +75,7 @@ TAGS
 # Agent generated environments
 *isaaclab_arena_environments/agent_generated/
 
-# Local domain-modeling artifacts
+# Local planning files
 CONTEXT.md
 CONTEXT-MAP.md
 
