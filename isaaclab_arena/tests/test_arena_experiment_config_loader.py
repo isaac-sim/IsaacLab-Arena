@@ -10,13 +10,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from isaaclab_arena.evaluation import arena_experiment_config_loader, arena_experiment_runner
+from isaaclab_arena.evaluation import arena_experiment_config_loader, experiment_runner
 from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     load_arena_experiment_from_config_file,
     validate_experiment_config_path,
 )
-from isaaclab_arena.evaluation.arena_experiment_runner import _assert_camera_support_enabled
-from isaaclab_arena.evaluation.legacy_arena_experiment_runner import legacy_json_experiment_requires_cameras
+from isaaclab_arena.evaluation.experiment_runner import _assert_camera_support_enabled
+from isaaclab_arena.evaluation.legacy_experiment_runner import legacy_json_experiment_requires_cameras
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
@@ -59,7 +59,7 @@ def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
     assert all(run.environment_builder.device == "cuda:1" for run in experiment)
 
 
-def test_arena_experiment_runner_loads_typed_experiment_after_simulation_starts(monkeypatch):
+def test_experiment_runner_loads_typed_experiment_after_simulation_starts(monkeypatch):
     simulation_is_running = False
 
     class _SimulationAppContext:
@@ -78,22 +78,20 @@ def test_arena_experiment_runner_loads_typed_experiment_after_simulation_starts(
         assert simulation_is_running
         return []
 
-    monkeypatch.setattr(arena_experiment_runner, "SimulationAppContext", _SimulationAppContext)
-    monkeypatch.setattr(
-        arena_experiment_runner, "load_arena_experiment_from_config_file", load_experiment_after_startup
-    )
-    monkeypatch.setattr(arena_experiment_runner, "list_variations", lambda _experiment: None)
+    monkeypatch.setattr(experiment_runner, "SimulationAppContext", _SimulationAppContext)
+    monkeypatch.setattr(experiment_runner, "load_arena_experiment_from_config_file", load_experiment_after_startup)
+    monkeypatch.setattr(experiment_runner, "list_variations", lambda _experiment: None)
     monkeypatch.setattr(
         "sys.argv",
         [
-            "arena_experiment_runner.py",
+            "experiment_runner.py",
             "--experiment_config",
             str(GETTING_STARTED_YAML_PATH),
             "--list_variations",
         ],
     )
 
-    arena_experiment_runner.main()
+    experiment_runner.main()
 
 
 def test_typed_camera_run_requires_prelaunch_camera_flag():
@@ -114,11 +112,11 @@ def test_legacy_json_camera_detection_is_preserved():
     assert legacy_json_experiment_requires_cameras(legacy_experiment_config)
 
 
-def test_arena_experiment_runner_rejects_yaml_chunking_before_starting_simulation(monkeypatch):
+def test_experiment_runner_rejects_yaml_chunking_before_starting_simulation(monkeypatch):
     monkeypatch.setattr(
         "sys.argv",
         [
-            "arena_experiment_runner.py",
+            "experiment_runner.py",
             "--experiment_config",
             str(GETTING_STARTED_YAML_PATH),
             "--chunk_size",
@@ -127,7 +125,7 @@ def test_arena_experiment_runner_rejects_yaml_chunking_before_starting_simulatio
     )
 
     with pytest.raises(AssertionError, match="only legacy JSON Experiments"):
-        arena_experiment_runner.main()
+        experiment_runner.main()
 
 
 def test_legacy_json_experiment_rejects_hydra_overrides():
@@ -139,11 +137,11 @@ def test_legacy_json_experiment_rejects_hydra_overrides():
         )
 
 
-def test_arena_experiment_runner_rejects_native_hydra_overrides_for_legacy_json(monkeypatch):
+def test_experiment_runner_rejects_native_hydra_overrides_for_legacy_json(monkeypatch):
     monkeypatch.setattr(
         "sys.argv",
         [
-            "arena_experiment_runner.py",
+            "experiment_runner.py",
             "--experiment_config",
             str(GETTING_STARTED_JSON_PATH),
             "runs.baseline.rollout_limit.num_steps=2",
@@ -151,7 +149,7 @@ def test_arena_experiment_runner_rejects_native_hydra_overrides_for_legacy_json(
     )
 
     with pytest.raises(AssertionError, match="only for typed YAML"):
-        arena_experiment_runner.main()
+        experiment_runner.main()
 
 
 def test_unknown_experiment_config_file_type_is_rejected(tmp_path):

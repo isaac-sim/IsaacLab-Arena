@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Legacy JSON preflight and subprocess dispatch for the Arena Experiment Runner."""
+"""Legacy JSON preflight and subprocess dispatch for the Experiment Runner."""
 
 from __future__ import annotations
 
@@ -52,8 +52,8 @@ def legacy_json_experiment_requires_cameras(experiment_config: dict) -> bool:
 
 
 def _run_legacy_json_chunk(chunk_label: str, legacy_job_configs: list[dict]) -> int:
-    """Run legacy JSON entries in a fresh arena_experiment_runner subprocess."""
-    print(f"[arena_experiment_runner] {chunk_label}", flush=True)
+    """Run legacy JSON entries in a fresh experiment_runner subprocess."""
+    print(f"[experiment_runner] {chunk_label}", flush=True)
     # Serialize this chunk's jobs to a temp config the child loads via --experiment_config.
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
         json.dump({"jobs": legacy_job_configs}, tmp)
@@ -83,7 +83,7 @@ def run_legacy_json_in_chunks(args_cli: argparse.Namespace, legacy_experiment_co
     chunk_size = args_cli.chunk_size
     assert chunk_size > 0, f"--chunk_size must be positive, got {chunk_size}"
     n_chunks = math.ceil(len(jobs) / chunk_size)
-    print(f"[arena_experiment_runner] {len(jobs)} Runs → {n_chunks} chunks of <= {chunk_size}", flush=True)
+    print(f"[experiment_runner] {len(jobs)} Runs → {n_chunks} chunks of <= {chunk_size}", flush=True)
 
     if args_cli.serve_evaluation_report:
         print("--serve_evaluation_report is ignored with --chunk_size.", flush=True)
@@ -94,5 +94,5 @@ def run_legacy_json_in_chunks(args_cli: argparse.Namespace, legacy_experiment_co
         chunk_label = f"chunk {chunk_idx + 1}/{n_chunks}: Runs {start}..{end - 1}"
         returncode = _run_legacy_json_chunk(chunk_label, jobs[start:end])
         if returncode != 0:
-            print(f"[arena_experiment_runner] chunk {chunk_idx} failed (exit {returncode}).", flush=True)
+            print(f"[experiment_runner] chunk {chunk_idx} failed (exit {returncode}).", flush=True)
             sys.exit(returncode)
