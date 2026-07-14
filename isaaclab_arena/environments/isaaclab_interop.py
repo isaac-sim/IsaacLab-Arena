@@ -99,7 +99,7 @@ def _purge_leaked_isaaclab_assets_presets() -> None:
 
     Dropping the leaked preset modules forces Arena's embodiments to re-import them against the
     restored (canonical) cfg classes, keeping the robot cfg on the same ``ArticulationCfg`` the
-    scene checks. See ARTICULATION_CFG_LAZY_EXPORT_ISSUE.md for the full analysis.
+    scene checks.
     """
     import sys
 

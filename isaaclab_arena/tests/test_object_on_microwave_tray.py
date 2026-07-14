@@ -3,15 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Verify the microwave-tray contact fires a pick-and-place success termination.
-
-Teleports the dex_cube just above the microwave turntable, lets it fall under gravity
-with zero robot actions, and checks that resting on the tray registers contact and
-fires the task's ``success`` termination. The contact filter targets the
-``Microwave039_Disc001`` rigid body, which relies on the
-``/physics/tensors/recursiveLeafPatternMatch`` carb workaround (IsaacLab #6424) so a body
-with multiple collision shapes still resolves to a single filter entry.
-"""
+"""Verify the microwave-tray contact fires a pick-and-place success termination."""
 
 import torch
 import traceback
@@ -20,26 +12,6 @@ from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 NUM_STEPS = 120
 HEADLESS = True
-
-_MICROWAVE_POS = (0.4, -0.00586, 0.22773)
-_MICROWAVE_ROT_XYZW = (0.0, 0.0, -0.7071068, 0.7071068)
-_DISC_BODY_SUBPATH = "microwave/Microwave039_Disc001"
-_DROP_HEIGHT = 0.06
-
-
-def _tray_world_pos(env, env_index: int = 0) -> torch.Tensor:
-    """World-frame position of the tray collision prim for ``env_index``."""
-    import isaaclab.sim as sim_utils
-    from pxr import Usd, UsdGeom
-
-    env_ns = env.unwrapped.scene.env_regex_ns.replace(".*", str(env_index))
-    prim_path = f"{env_ns}/{_DISC_BODY_SUBPATH}"
-    stage = sim_utils.get_current_stage()
-    prim = stage.GetPrimAtPath(prim_path)
-    assert prim.IsValid(), f"Tray collision prim not found: {prim_path}"
-    transform = UsdGeom.XformCache(Usd.TimeCode.Default()).GetLocalToWorldTransform(prim)
-    t = transform.ExtractTranslation()
-    return torch.tensor([t[0], t[1], t[2]], device=env.unwrapped.device, dtype=torch.float32)
 
 
 def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
@@ -61,13 +33,15 @@ def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
     microwave = asset_registry.get_asset_by_name("microwave")()
     dex_cube = asset_registry.get_asset_by_name("dex_cube")()
 
-    microwave.set_initial_pose(Pose(position_xyz=_MICROWAVE_POS, rotation_xyzw=_MICROWAVE_ROT_XYZW))
+    microwave.set_initial_pose(
+        Pose(position_xyz=(0.4, -0.00586, 0.22773), rotation_xyzw=(0.0, 0.0, -0.7071068, 0.7071068))
+    )
 
     # Destination reference targeting the microwave turntable rigid body (the filter under test).
     destination_ref = ObjectReference(
         name="microwave_disc",
         parent_asset=microwave,
-        prim_path="{ENV_REGEX_NS}/" + _DISC_BODY_SUBPATH,
+        prim_path="{ENV_REGEX_NS}/microwave/Microwave039_Disc001",
         object_type=ObjectType.RIGID,
     )
 
@@ -84,9 +58,9 @@ def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
 
     try:
         # Teleport the cube just above the tray and drop it (zero velocity, zero actions).
+        # Tray world position (microwave x/y) plus a 0.06 m drop height.
         cube_asset = env.unwrapped.scene[dex_cube.name]
-        target_pos = _tray_world_pos(env)
-        target_pos[2] += _DROP_HEIGHT
+        target_pos = torch.tensor([0.4, -0.00586, 0.28773], device=env.unwrapped.device)
         root_pose = torch.zeros((1, 7), device=env.unwrapped.device)
         root_pose[0, :3] = target_pos
         root_pose[0, 3] = 1.0  # identity quaternion (w, x, y, z)

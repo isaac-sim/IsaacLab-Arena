@@ -81,10 +81,7 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
                 # Workaround for IsaacLab #6424: stop the physx-tensors filter matcher from
                 # recursing into leaf collision shapes so a contact filter pointing at a rigid
                 # body with multiple collision shapes resolves to a single entry (otherwise the
-                # view fails with "expected 1, found N"). Set via render carb_settings because
-                # those are applied during SimulationContext init -- before any contact view is
-                # created -- for every Arena env, regardless of how the app was launched.
-                # TODO: remove once the upstream fix lands (https://github.com/isaac-sim/IsaacLab/issues/6424).
+                # view fails with "expected 1, found N").
                 "/physics/tensors/recursiveLeafPatternMatch": False,
             },
         ),
