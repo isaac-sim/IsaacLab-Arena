@@ -26,6 +26,7 @@ from osmo.submit_arena_experiment_workflow import (
     main,
     submit_arena_experiment_workflow,
 )
+from osmo.tasks.base_task import TaskCfg
 from osmo.tasks.eval_runner_task import DEFAULT_EVAL_RUNNER_IMAGE, REMOTE_EXPERIMENT_PATH, EvalRunnerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow, Pi0ArenaExperimentWorkflow
@@ -97,23 +98,41 @@ def test_declares_server_workflow():
     assert Pi0ArenaExperimentWorkflow.server_task_cfg_type is Pi0ServerTaskCfg
 
 
-def test_policy_server_config_requires_known_type():
-    """Require an explicit supported selector rather than guessing from fields."""
-    base_cfg = ArenaExperimentSubmissionCfg(
+def test_server_config_group_composes_typed_defaults():
+    """Compose the selected server directly from its typed configuration defaults."""
+    submission_cfg = compose_arena_experiment_submission([
+        "experiment_config=openpi_experiment",
+        "server_config=pi0",
+    ])
+
+    assert submission_cfg.osmo_config == WorkflowCfg()
+    assert submission_cfg.eval_runner_config == EvalRunnerTaskCfg()
+    assert submission_cfg.server_config == Pi0ServerTaskCfg()
+
+    with pytest.raises(ConfigCompositionException, match="unknown"):
+        compose_arena_experiment_submission([
+            "experiment_config=openpi_experiment",
+            "server_config=unknown",
+        ])
+
+    with pytest.raises(AssertionError, match="policy_variant must be one of"):
+        compose_arena_experiment_submission([
+            "experiment_config=openpi_experiment",
+            "server_config=pi0",
+            "server_config.policy_variant=unknown",
+        ])
+
+
+def test_submitter_rejects_unregistered_server_config_type():
+    """Reject a typed server config without a registered workflow implementation."""
+    submission_cfg = ArenaExperimentSubmissionCfg(
         experiment_config=_pi0_experiment(),
         osmo_config=WorkflowCfg(dry_run=True),
+        server_config=TaskCfg(),
     )
-    base_cfg.server_config = {"image": "registry.example.com/server:test"}
-    with pytest.raises(AssertionError, match="must define a non-empty string 'type'"):
-        submit_arena_experiment_workflow(base_cfg)
 
-    base_cfg.server_config = {"type": "unknown"}
-    with pytest.raises(AssertionError, match="Unknown policy server type 'unknown'"):
-        submit_arena_experiment_workflow(base_cfg)
-
-    base_cfg.server_config = {"type": "pi0", "policy_variant": "unknown"}
-    with pytest.raises(AssertionError, match="policy_variant must be one of"):
-        submit_arena_experiment_workflow(base_cfg)
+    with pytest.raises(AssertionError, match="No policy-server workflow.*TaskCfg"):
+        submit_arena_experiment_workflow(submission_cfg)
 
 
 @pytest.mark.parametrize("config_path", ["osmo_config.not_a_field", "eval_runner_config.not_a_field"])
@@ -216,12 +235,10 @@ def test_submission_removes_temporary_workflow(monkeypatch):
 
 
 def test_cli_composes_named_groups_and_overrides(capsys):
-    """Compose selected files once and apply CLI overrides with native Hydra semantics."""
+    """Compose typed defaults and selected groups before applying CLI overrides."""
     return_code = main([
         "experiment_config=openpi_experiment",
         "server_config=pi0",
-        "osmo_config=workflow",
-        "eval_runner_config=default",
         "osmo_config.dry_run=true",
         "osmo_config.workflow_name=overridden-experiment",
         "eval_runner_config.image=registry.example.com/evaluator:branch",
@@ -265,10 +282,11 @@ def test_embedded_openpi_experiment_composes_through_eval_runner_loader(tmp_path
         "experiment_config=openpi_experiment",
         "server_config=pi0",
     ])
+    assert isinstance(submission_cfg.server_config, Pi0ServerTaskCfg)
     workflow = Pi0ArenaExperimentWorkflow(
         workflow_cfg=submission_cfg.osmo_config,
         experiment_config=submission_cfg.experiment_config,
-        server_task_cfg=Pi0ServerTaskCfg(),
+        server_task_cfg=submission_cfg.server_config,
         task_cfg=submission_cfg.eval_runner_config,
     )
     experiment_path = tmp_path / "effective_experiment.yaml"
@@ -284,7 +302,7 @@ def test_embedded_openpi_experiment_composes_through_eval_runner_loader(tmp_path
 
 
 def test_cli_overrides_osmo_submission_resources(monkeypatch):
-    """Apply scheduler overrides after the selected OSMO configuration file."""
+    """Apply scheduler overrides after the typed workflow defaults."""
     submitted_command = None
     submitted_resources = None
 
@@ -316,15 +334,6 @@ def test_cli_requires_experiment_group():
     """Require one named Experiment selection at the Hydra root."""
     with pytest.raises(MissingMandatoryValue, match="experiment_config"):
         compose_arena_experiment_submission([])
-
-
-def test_cli_rejects_server_override_without_server_selection():
-    """Require a server group before applying server fields."""
-    with pytest.raises(ConfigCompositionException, match="server_config"):
-        compose_arena_experiment_submission([
-            "experiment_config=getting_started_experiment",
-            "server_config.policy_config=my-config",
-        ])
 
 
 def test_structural_policy_override_is_checked_against_server_variant():
@@ -369,7 +378,7 @@ def test_submitter_rejects_server_without_matching_run():
     submission_cfg = ArenaExperimentSubmissionCfg(
         experiment_config=_zero_action_experiment(),
         osmo_config=WorkflowCfg(dry_run=True),
-        server_config={"type": "pi0"},
+        server_config=Pi0ServerTaskCfg(),
     )
 
     with pytest.raises(AssertionError, match="requires at least one Run with policy.type 'pi0_remote'"):

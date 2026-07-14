@@ -37,6 +37,7 @@ from omegaconf import MISSING, OmegaConf
 
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
+from osmo.tasks.base_task import TaskCfg
 from osmo.tasks.eval_runner_task import EvalRunnerTaskCfg
 from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow, Pi0ArenaExperimentWorkflow
 from osmo.workflows.workflow import WorkflowCfg
@@ -63,11 +64,14 @@ class ArenaExperimentSubmissionCfg:
     eval_runner_config: EvalRunnerTaskCfg = field(default_factory=EvalRunnerTaskCfg)
     """Configuration for the task that executes ``eval_runner.py``."""
 
-    server_config: dict[str, Any] = field(default_factory=dict)
+    server_config: TaskCfg | None = None
     """Optional policy-server definition."""
 
 
-ConfigStore.instance().store(name=SUBMISSION_SCHEMA_NAME, node=ArenaExperimentSubmissionCfg)
+_config_store = ConfigStore.instance()
+_config_store.store(name=SUBMISSION_SCHEMA_NAME, node=ArenaExperimentSubmissionCfg)
+for server_name, workflow_cls in POLICY_SERVER_WORKFLOWS.items():
+    _config_store.store(group="server_config", name=server_name, node=workflow_cls.server_task_cfg_type)
 
 
 def compose_arena_experiment_submission(overrides: list[str] | None = None) -> ArenaExperimentSubmissionCfg:
@@ -102,28 +106,21 @@ def submit_arena_experiment_workflow(submission_cfg: ArenaExperimentSubmissionCf
         The OSMO submission process status.
     """
     experiment_config = _validated_experiment_config(submission_cfg.experiment_config)
-    server_config = deepcopy(submission_cfg.server_config)
-    if not server_config:
+    server_task_cfg = deepcopy(submission_cfg.server_config)
+    if server_task_cfg is None:
         workflow = ArenaExperimentWorkflow(
             workflow_cfg=submission_cfg.osmo_config,
             experiment_config=experiment_config,
             task_cfg=submission_cfg.eval_runner_config,
         )
     else:
-        server_type = server_config.pop("type", None)
+        workflows_by_server_cfg_type = {
+            workflow_type.server_task_cfg_type: workflow_type for workflow_type in POLICY_SERVER_WORKFLOWS.values()
+        }
+        workflow_cls = workflows_by_server_cfg_type.get(type(server_task_cfg))
         assert (
-            isinstance(server_type, str) and server_type
-        ), "Policy server config must define a non-empty string 'type'"
-        available_server_types = ", ".join(sorted(POLICY_SERVER_WORKFLOWS)) or "(none)"
-        assert (
-            server_type in POLICY_SERVER_WORKFLOWS
-        ), f"Unknown policy server type '{server_type}'. Available types: {available_server_types}"
-        workflow_cls = POLICY_SERVER_WORKFLOWS[server_type]
-        server_task_cfg_type = workflow_cls.server_task_cfg_type
-        server_task_cfg = OmegaConf.to_object(
-            OmegaConf.merge(OmegaConf.structured(server_task_cfg_type), server_config)
-        )
-        assert isinstance(server_task_cfg, server_task_cfg_type)
+            workflow_cls is not None
+        ), f"No policy-server workflow is registered for configuration type {type(server_task_cfg).__name__}"
         workflow = workflow_cls(
             workflow_cfg=submission_cfg.osmo_config,
             experiment_config=experiment_config,
@@ -154,10 +151,9 @@ def _register_typed_experiment_configs() -> None:
     experiment_config_dir = Path(isaaclab_arena_environments.__file__).parent / "experiment_configs"
     config_paths = sorted([*experiment_config_dir.glob("*.yaml"), *experiment_config_dir.glob("*.yml")])
     assert config_paths, f"No Arena Experiment configs found in '{experiment_config_dir}'"
-    config_store = ConfigStore.instance()
     for config_path in config_paths:
         experiment = load_arena_experiment_from_config_file(config_path, device="cuda:0")
-        config_store.store(
+        _config_store.store(
             group="experiment_config",
             name=config_path.stem,
             node={"runs": {run_cfg.name: run_cfg for run_cfg in experiment}},
