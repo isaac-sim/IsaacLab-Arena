@@ -12,18 +12,15 @@ import streamlit as st
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import SpecParseResult
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.asset_cards import AssetCard
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.mermaid_graph import (
     estimate_mermaid_height_px,
     render_mermaid_html,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnail_render import (
-    AssetCard,
-    ThumbnailRender,
-)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.visualization_service import (
-    clear_dashboard_render_cache,
+    build_asset_cards_with_thumbnails,
+    clear_asset_cards_cache,
     clear_snapshot_render_caches,
-    render_dashboard_with_thumbnails,
 )
 
 _ASSET_GRID_COLS = 3
@@ -113,15 +110,15 @@ def _render_asset_grid(cards: list[AssetCard]) -> None:
     _flush_row()
 
 
-def render_thumbnail(spec: ArenaEnvGraphSpec, render: ThumbnailRender) -> None:
+def render_thumbnail(spec: ArenaEnvGraphSpec, asset_cards: list[AssetCard]) -> None:
     """Render the visualization panel as native Streamlit widgets."""
     st.markdown(f"**{spec.env_name}**")
     summary = spec.summary()
     if summary:
         st.caption(summary)
-    if render.asset_cards:
+    if asset_cards:
         st.markdown("**Assets**")
-        _render_asset_grid(render.asset_cards)
+        _render_asset_grid(asset_cards)
 
     st.markdown("**Spatial graph**")
     graph_col, unary_col = st.columns([3, 1])
@@ -139,7 +136,7 @@ def render_thumbnail(spec: ArenaEnvGraphSpec, render: ThumbnailRender) -> None:
 
 
 def render_visualization_panel(validation: SpecParseResult) -> None:
-    """Render the dashboard in the right column as native Streamlit widgets."""
+    """Render the visualization panel in the right column as native Streamlit widgets."""
     st.subheader("Visualization")
 
     if st.button(
@@ -147,7 +144,7 @@ def render_visualization_panel(validation: SpecParseResult) -> None:
         help="Delete cached snapshot PNGs on disk and render this spec again.",
     ):
         removed = clear_snapshot_render_caches()
-        clear_dashboard_render_cache()
+        clear_asset_cards_cache()
         st.session_state["last_rendered_text"] = ""
         st.toast(f"Cleared {removed} cached snapshot(s).", icon="🗑️")
         st.rerun()
@@ -171,13 +168,13 @@ def render_visualization_panel(validation: SpecParseResult) -> None:
             st.caption("Rendering visualization…")
         else:
             with st.spinner("Rendering node snapshots…"):
-                st.session_state["rendered_visualization"] = render_dashboard_with_thumbnails(validation.spec)
+                st.session_state["rendered_visualization"] = build_asset_cards_with_thumbnails(validation.spec)
             st.session_state["last_rendered_text"] = st.session_state["edited_text"]
             st.toast("Visualization updated.", icon="🔄")
 
-    render = st.session_state.get("rendered_visualization")
-    if isinstance(render, ThumbnailRender):
+    asset_cards = st.session_state.get("rendered_visualization")
+    if isinstance(asset_cards, list):
         st.caption("Updates automatically when the YAML is valid.")
-        render_thumbnail(validation.spec, render)
+        render_thumbnail(validation.spec, asset_cards)
     elif not st.session_state.get("_defer_viz_render"):
         st.caption("Rendering visualization…")

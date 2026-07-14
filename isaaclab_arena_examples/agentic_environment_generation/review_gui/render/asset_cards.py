@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import yaml
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec, ObjectReferenceSpec
@@ -34,14 +34,6 @@ class AssetCard:
     """Whether the node is an object_reference (collision-mesh preview)."""
     prim_unresolved: bool = False
     """Object reference whose prim_path is unresolved, so no snapshot exists."""
-
-
-@dataclass(frozen=True)
-class ThumbnailRender:
-    """Cached thumbnail output: per-node asset cards rendered as native Streamlit widgets."""
-
-    asset_cards: list[AssetCard] = field(default_factory=list)
-    """Per-node snapshot cards rendered natively so they get Streamlit's fullscreen zoom."""
 
 
 def build_asset_cards(

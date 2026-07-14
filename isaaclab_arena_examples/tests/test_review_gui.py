@@ -24,12 +24,12 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.generatio
     _apply_generated_yaml,
     run_generation_pipeline,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.asset_cards import build_asset_cards
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.mermaid_graph import (
     estimate_mermaid_height_px,
     render_mermaid_graph,
     render_mermaid_html,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnail_render import build_asset_cards
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppClient,
     spawn_simapp_process,

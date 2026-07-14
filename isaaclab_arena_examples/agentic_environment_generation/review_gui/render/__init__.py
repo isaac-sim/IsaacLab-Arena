@@ -3,4 +3,4 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Rendering helpers for the environment graph spec review dashboard."""
+"""Rendering helpers for the environment graph spec review visualization panel."""

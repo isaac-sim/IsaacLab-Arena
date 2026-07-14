@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Orchestrate review GUI dashboard rendering with optional SimApp thumbnails."""
+"""Build review GUI asset cards with optional SimApp thumbnails."""
 
 from __future__ import annotations
 
@@ -13,8 +13,8 @@ import json
 import streamlit as st
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnail_render import (
-    ThumbnailRender,
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.asset_cards import (
+    AssetCard,
     build_asset_cards,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
@@ -33,17 +33,17 @@ def _spec_render_key(spec: ArenaEnvGraphSpec) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def _cached_dashboard_render(spec_key: str) -> ThumbnailRender | None:
-    cache = st.session_state.get("_dashboard_render_cache")
+def _cached_asset_cards(spec_key: str) -> list[AssetCard] | None:
+    cache = st.session_state.get("_asset_cards_cache")
     if isinstance(cache, dict) and cache.get("key") == spec_key:
-        render = cache.get("render")
-        if isinstance(render, ThumbnailRender):
-            return render
+        asset_cards = cache.get("asset_cards")
+        if isinstance(asset_cards, list):
+            return asset_cards
     return None
 
 
-def _store_dashboard_render(spec_key: str, render: ThumbnailRender) -> None:
-    st.session_state["_dashboard_render_cache"] = {"key": spec_key, "render": render}
+def _store_asset_cards(spec_key: str, asset_cards: list[AssetCard]) -> None:
+    st.session_state["_asset_cards_cache"] = {"key": spec_key, "asset_cards": asset_cards}
 
 
 def clear_snapshot_render_caches() -> int:
@@ -56,9 +56,9 @@ def clear_snapshot_render_caches() -> int:
     return removed
 
 
-def clear_dashboard_render_cache() -> None:
-    """Drop the in-memory dashboard HTML cache for the current Streamlit session."""
-    st.session_state.pop("_dashboard_render_cache", None)
+def clear_asset_cards_cache() -> None:
+    """Drop the in-memory asset-card cache for the current Streamlit session."""
+    st.session_state.pop("_asset_cards_cache", None)
 
 
 def _warn_simapp_unavailable_once() -> None:
@@ -82,14 +82,14 @@ def _show_simapp_render_error_once(exc: SimAppError) -> None:
     )
 
 
-def render_dashboard_with_thumbnails(spec: ArenaEnvGraphSpec) -> ThumbnailRender:
-    """Render the review dashboard, asking the SimApp server for live USD thumbnails when available.
+def build_asset_cards_with_thumbnails(spec: ArenaEnvGraphSpec) -> list[AssetCard]:
+    """Build per-node asset cards, asking the SimApp server for live USD thumbnails when available.
 
     Returns per-node AssetCards for native Streamlit rendering; graph and tasks are derived from
     ``spec`` at display time in the visualization panel.
     """
     spec_key = _spec_render_key(spec)
-    cached = _cached_dashboard_render(spec_key)
+    cached = _cached_asset_cards(spec_key)
     if cached is not None:
         return cached
 
@@ -116,6 +116,5 @@ def render_dashboard_with_thumbnails(spec: ArenaEnvGraphSpec) -> ThumbnailRender
         thumbnails or None,
         aabb_dimensions_m or None,
     )
-    render = ThumbnailRender(asset_cards=asset_cards)
-    _store_dashboard_render(spec_key, render)
-    return render
+    _store_asset_cards(spec_key, asset_cards)
+    return asset_cards
