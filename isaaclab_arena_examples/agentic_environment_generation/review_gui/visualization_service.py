@@ -13,11 +13,10 @@ import json
 import streamlit as st
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import (
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.panels import (
     DashboardRender,
-    render_dashboard_html,
+    build_asset_cards,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.panels import build_asset_cards
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppError,
     simapp_socket_from_env,
@@ -89,8 +88,8 @@ def _show_simapp_render_error_once(exc: SimAppError) -> None:
 def render_dashboard_with_thumbnails(spec: ArenaEnvGraphSpec, *, background_panorama: bool = False) -> DashboardRender:
     """Render the review dashboard, asking the SimApp server for live USD thumbnails when available.
 
-    Returns the graph/tasks HTML plus per-node AssetCards; the caller renders the cards as native
-    Streamlit images so they inherit the built-in fullscreen zoom.
+    Returns per-node AssetCards for native Streamlit rendering; graph and tasks are derived from
+    ``spec`` at display time in the visualization panel.
     """
     spec_key = _spec_render_key(spec, background_panorama=background_panorama)
     cached = _cached_dashboard_render(spec_key)
@@ -101,7 +100,6 @@ def render_dashboard_with_thumbnails(spec: ArenaEnvGraphSpec, *, background_pano
     if background_panorama and spec.background is not None:
         panorama_node_ids.add(spec.background.id)
 
-    html = render_dashboard_html(spec)
     thumbnails: dict[str, bytes] = {}
     aabb_dimensions_m: dict[str, tuple[float, float, float]] = {}
 
@@ -126,6 +124,6 @@ def render_dashboard_with_thumbnails(spec: ArenaEnvGraphSpec, *, background_pano
         aabb_dimensions_m or None,
         panorama_node_ids,
     )
-    render = DashboardRender(html=html, asset_cards=asset_cards)
+    render = DashboardRender(asset_cards=asset_cards)
     _store_dashboard_render(spec_key, render)
     return render

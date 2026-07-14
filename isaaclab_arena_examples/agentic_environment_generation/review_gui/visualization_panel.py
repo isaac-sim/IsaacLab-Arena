@@ -5,12 +5,18 @@
 
 from __future__ import annotations
 
+import yaml
+
 import streamlit as st
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import SpecParseResult
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.dashboard import DashboardRender
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.panels import AssetCard
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.mermaid_graph import (
+    estimate_mermaid_height_px,
+    render_mermaid_html,
+)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.panels import AssetCard, DashboardRender
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnails import format_aabb_dimensions_m
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.visualization_service import (
     clear_dashboard_render_cache,
@@ -18,13 +24,43 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.visualiza
     render_dashboard_with_thumbnails,
 )
 
-_IFRAME_HEIGHT_PX = 760
 _ASSET_GRID_COLS = 3
 
 
 def reset_viz_render_state() -> None:
     """Clear deferred-render bookkeeping so a new spec triggers a fresh preview."""
     st.session_state.pop("_defer_viz_render", None)
+
+
+def _render_unary_constraints(relations: list[SpatialRelationSpec]) -> None:
+    """Render unary spatial relations beside the Mermaid graph."""
+    unary = [relation for relation in relations if relation.reference is None]
+    st.markdown(f"**Unary constraints** ({len(unary)})")
+    if not unary:
+        st.caption("No unary constraints.")
+        return
+    for relation in unary:
+        params = f" `{yaml.safe_dump(relation.params, default_flow_style=True).rstrip()}`" if relation.params else ""
+        st.markdown(f"- `{relation.kind}` on `{relation.subject}`{params}")
+
+
+def _render_tasks_table(spec: ArenaEnvGraphSpec) -> None:
+    """Render task rows as a native Streamlit dataframe."""
+    rows: list[dict[str, str]] = [{
+        "#": "root",
+        "kind": str(spec.task.composition),
+        "description": spec.task.description,
+        "params": "(composite root)",
+    }]
+    for index, task in enumerate(spec.task.subtasks):
+        params_str = yaml.safe_dump(task.params, sort_keys=False).rstrip() if task.params else "(empty)"
+        rows.append({
+            "#": str(index),
+            "kind": task.kind,
+            "description": "—",
+            "params": params_str,
+        })
+    st.dataframe(rows, hide_index=True, use_container_width=True)
 
 
 def _render_asset_card(card: AssetCard) -> None:
@@ -75,7 +111,7 @@ def _render_asset_grid(cards: list[AssetCard]) -> None:
 
 
 def _render_dashboard(spec: ArenaEnvGraphSpec, render: DashboardRender) -> None:
-    """Render native asset snapshots followed by the embedded graph + tasks HTML."""
+    """Render the full review dashboard as native Streamlit widgets."""
     st.markdown(f"**{spec.env_name}**")
     summary = spec.summary()
     if summary:
@@ -83,11 +119,24 @@ def _render_dashboard(spec: ArenaEnvGraphSpec, render: DashboardRender) -> None:
     if render.asset_cards:
         st.markdown("**Assets**")
         _render_asset_grid(render.asset_cards)
-    st.components.v1.html(render.html, height=_IFRAME_HEIGHT_PX, scrolling=True)
+
+    st.markdown("**Spatial graph**")
+    graph_col, unary_col = st.columns([3, 1])
+    with graph_col:
+        st.components.v1.html(
+            render_mermaid_html(spec),
+            height=estimate_mermaid_height_px(spec),
+            scrolling=True,
+        )
+    with unary_col:
+        _render_unary_constraints(spec.relations)
+
+    st.markdown("**Tasks**")
+    _render_tasks_table(spec)
 
 
 def render_visualization_panel(validation: SpecParseResult) -> None:
-    """Render the dashboard in the right column: native asset snapshots + embedded graph/tasks."""
+    """Render the dashboard in the right column as native Streamlit widgets."""
     st.subheader("Visualization")
     st.session_state.setdefault("background_panorama", False)
     controls_col, actions_col = st.columns([3, 1])

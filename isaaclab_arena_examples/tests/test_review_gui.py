@@ -24,6 +24,11 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.generatio
     _apply_generated_yaml,
     run_generation_pipeline,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.mermaid_graph import (
+    estimate_mermaid_height_px,
+    render_mermaid_graph,
+    render_mermaid_html,
+)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.panels import build_asset_cards
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnails import format_aabb_dimensions_m
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
@@ -121,6 +126,17 @@ class TestBuildAssetCards:
         assert ref.is_object_reference
         assert ref.png_bytes == b"fake"
         assert not ref.prim_unresolved
+
+
+class TestMermaidHtml:
+    def test_render_mermaid_html_includes_syntax_and_initialize(self, valid_spec: ArenaEnvGraphSpec):
+        html = render_mermaid_html(valid_spec)
+        assert "mermaid.initialize" in html
+        assert render_mermaid_graph(valid_spec) in html
+
+    def test_estimate_mermaid_height_px_scales_with_nodes(self, valid_spec: ArenaEnvGraphSpec):
+        height = estimate_mermaid_height_px(valid_spec)
+        assert 260 <= height <= 900
 
 
 class TestObjectReferenceUsdTargets:
