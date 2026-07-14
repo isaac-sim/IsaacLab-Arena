@@ -239,7 +239,7 @@ class TestApplyGeneratedYaml:
     def test_without_spec_clears_preview_and_validation_cache(self, session_state):
         session_state["_validation_text"] = "old"
         session_state["_validation_result"] = SpecParseResult(spec=None, error="old")
-        session_state["rendered_visualization"] = "<html>old</html>"
+        session_state["rendered_visualization"] = ["stale"]
         _apply_generated_yaml("edited:\n  yaml: true\n", spec=None)
         assert session_state["edited_text"] == "edited:\n  yaml: true\n"
         assert session_state["rendered_visualization"] is None

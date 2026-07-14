@@ -48,12 +48,10 @@ def _store_asset_cards(spec_key: str, asset_cards: list[AssetCard]) -> None:
 
 def clear_snapshot_render_caches() -> int:
     """Delete cached review GUI snapshot PNGs and return how many files were removed."""
-    removed = 0
-    for cache_dir in (thumbnail_cache_dir(),):
-        for path in cache_dir.glob("*.png"):
-            path.unlink()
-            removed += 1
-    return removed
+    paths = list(thumbnail_cache_dir().glob("*.png"))
+    for path in paths:
+        path.unlink()
+    return len(paths)
 
 
 def clear_asset_cards_cache() -> None:

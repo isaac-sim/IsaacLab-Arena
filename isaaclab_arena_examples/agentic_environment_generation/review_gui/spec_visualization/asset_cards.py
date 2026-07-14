@@ -16,18 +16,18 @@ from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec
 class AssetCard:
     """Structured per-asset data for rendering a snapshot card as native Streamlit widgets."""
 
+    # Graph node id shown as the card heading.
     node_id: str
-    """Graph node id shown as the card heading."""
+    # Node role: ``background`` or ``object``.
     role: str
-    """Node role: ``background`` or ``object``."""
+    # Registry name for the asset.
     label: str
-    """Registry name for the asset."""
+    # Pretty-printed spec YAML for the node.
     yaml_text: str
-    """Pretty-printed spec YAML for the node."""
+    # USD snapshot PNG, or ``None`` when no capture is available.
     png_bytes: bytes | None = None
-    """USD snapshot PNG, or ``None`` when no capture is available."""
+    # Axis-aligned bounding box size in metres, when known.
     aabb_dimensions_m: tuple[float, float, float] | None = None
-    """Axis-aligned bounding box size in metres, when known."""
 
 
 def build_asset_cards(
