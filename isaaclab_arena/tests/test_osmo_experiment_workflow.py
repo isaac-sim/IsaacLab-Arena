@@ -13,7 +13,7 @@ import pytest
 from hydra.errors import ConfigCompositionException
 from omegaconf.errors import MissingMandatoryValue
 
-from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentDefinitionCfg
+from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
@@ -39,8 +39,8 @@ from osmo.workflows.workflow import WorkflowCfg
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 
-def _pi0_experiment_definition(first_variant: str = "pi05") -> ArenaExperimentDefinitionCfg:
-    return ArenaExperimentDefinitionCfg(
+def _pi0_experiment_definition(first_variant: str = "pi05") -> ArenaExperimentCfg:
+    return ArenaExperimentCfg(
         runs={
             "first": ArenaRunCfg(
                 name="first",
@@ -66,8 +66,8 @@ def _pi0_experiment_definition(first_variant: str = "pi05") -> ArenaExperimentDe
     )
 
 
-def _zero_action_experiment_definition() -> ArenaExperimentDefinitionCfg:
-    return ArenaExperimentDefinitionCfg(
+def _zero_action_experiment_definition() -> ArenaExperimentCfg:
+    return ArenaExperimentCfg(
         runs={
             "baseline": ArenaRunCfg(
                 name="baseline",
@@ -110,7 +110,7 @@ def test_server_config_group_composes_typed_defaults():
         "server_config=pi0",
     ])
 
-    assert isinstance(submission_cfg.experiment_definition, ArenaExperimentDefinitionCfg)
+    assert isinstance(submission_cfg.experiment_definition, ArenaExperimentCfg)
     assert isinstance(submission_cfg.experiment_definition.runs["openpi_maple_table"].policy, Pi0RemotePolicyCfg)
     assert submission_cfg.osmo_config == WorkflowCfg()
     assert submission_cfg.experiment_runner_config == ExperimentRunnerTaskCfg()
@@ -301,12 +301,13 @@ def test_embedded_openpi_experiment_composes_through_experiment_runner_loader(tm
     experiment_file = _task_file(_workflow_tasks(workflow.generate_workflow())[0], REMOTE_EXPERIMENT_PATH)
     experiment_path.write_text(experiment_file["contents"], encoding="utf-8")
 
-    experiment = load_arena_experiment_from_config_file(experiment_path, device="cuda:0")
+    experiment_cfg = load_arena_experiment_from_config_file(experiment_path, device="cuda:0")
+    run_cfg = experiment_cfg.runs["openpi_maple_table"]
 
-    assert len(experiment) == 1
-    assert isinstance(experiment[0].policy, Pi0RemotePolicyCfg)
-    assert experiment[0].policy.remote_host == Pi0ServerTask.host_token()
-    assert experiment[0].policy.remote_port == POLICY_SERVER_PORT
+    assert list(experiment_cfg.runs) == ["openpi_maple_table"]
+    assert isinstance(run_cfg.policy, Pi0RemotePolicyCfg)
+    assert run_cfg.policy.remote_host == Pi0ServerTask.host_token()
+    assert run_cfg.policy.remote_port == POLICY_SERVER_PORT
 
 
 def test_cli_overrides_osmo_submission_resources(monkeypatch):
@@ -395,7 +396,7 @@ def test_submitter_rejects_server_without_matching_run():
 
 def test_submitter_preserves_external_endpoint_without_server(capsys):
     """Preserve an externally hosted remote policy when no server is selected."""
-    experiment_definition = ArenaExperimentDefinitionCfg(
+    experiment_definition = ArenaExperimentCfg(
         runs={
             "externally_hosted": ArenaRunCfg(
                 name="externally_hosted",

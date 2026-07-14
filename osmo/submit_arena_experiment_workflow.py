@@ -35,8 +35,8 @@ from hydra import main as hydra_main
 from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING, OmegaConf
 
-from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentDefinitionCfg
-from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_definition_from_config_file
+from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
 from osmo.tasks.base_task import TaskCfg
 from osmo.tasks.experiment_runner_task import ExperimentRunnerTaskCfg
 from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow, Pi0ArenaExperimentWorkflow
@@ -55,7 +55,7 @@ POLICY_SERVER_WORKFLOWS = {
 class ArenaExperimentSubmissionCfg:
     """Combine an Experiment Definition with its OSMO execution settings."""
 
-    experiment_definition: ArenaExperimentDefinitionCfg = MISSING
+    experiment_definition: ArenaExperimentCfg = MISSING
     """Evaluation semantics executed by ``experiment_runner.py``."""
 
     osmo_config: WorkflowCfg = field(default_factory=WorkflowCfg)
@@ -138,7 +138,7 @@ def _register_experiment_definitions() -> None:
     config_paths = sorted([*experiment_definition_dir.glob("*.yaml"), *experiment_definition_dir.glob("*.yml")])
     assert config_paths, f"No Arena Experiment Definitions found in '{experiment_definition_dir}'"
     for config_path in config_paths:
-        experiment_definition = load_arena_experiment_definition_from_config_file(config_path, device="cuda:0")
+        experiment_definition = load_arena_experiment_from_config_file(config_path, device="cuda:0")
         _config_store.store(
             group="experiment_definition",
             name=config_path.stem,

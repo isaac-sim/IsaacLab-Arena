@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from copy import deepcopy
 
-from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentDefinitionCfg
+from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 from osmo.tasks.base_task import BaseTask
 from osmo.tasks.experiment_runner_task import ExperimentRunnerTask, ExperimentRunnerTaskCfg
@@ -29,11 +29,11 @@ class ArenaExperimentWorkflow(Workflow):
     def __init__(
         self,
         workflow_cfg: WorkflowCfg,
-        experiment_definition: ArenaExperimentDefinitionCfg,
+        experiment_definition: ArenaExperimentCfg,
         group_name: str = "arena",
         task_cfg: ExperimentRunnerTaskCfg | None = None,
     ) -> None:
-        assert isinstance(experiment_definition, ArenaExperimentDefinitionCfg)
+        assert isinstance(experiment_definition, ArenaExperimentCfg)
         self.experiment_definition = deepcopy(experiment_definition)
 
         super().__init__(
@@ -67,7 +67,7 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
     def __init__(
         self,
         workflow_cfg: WorkflowCfg,
-        experiment_definition: ArenaExperimentDefinitionCfg,
+        experiment_definition: ArenaExperimentCfg,
         server_task_cfg: Pi0ServerTaskCfg,
         group_name: str = "arena",
         task_cfg: ExperimentRunnerTaskCfg | None = None,

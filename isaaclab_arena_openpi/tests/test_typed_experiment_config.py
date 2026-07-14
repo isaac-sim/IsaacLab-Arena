@@ -131,7 +131,7 @@ def test_typed_openpi_experiment_composes_runtime_endpoint_overrides(tmp_path, m
         lambda: {"test_environment": ArenaEnvironmentCfg},
     )
 
-    experiment = load_arena_experiment_from_config_file(
+    experiment_cfg = load_arena_experiment_from_config_file(
         experiment_path,
         device="cuda:1",
         overrides=[
@@ -140,8 +140,9 @@ def test_typed_openpi_experiment_composes_runtime_endpoint_overrides(tmp_path, m
         ],
     )
 
-    assert len(experiment) == 1
-    assert isinstance(experiment[0].policy, Pi0RemotePolicyCfg)
-    assert experiment[0].policy.remote_host == "{{host:policy_server}}"
-    assert experiment[0].policy.remote_port == 8123
-    assert experiment[0].environment_builder.device == "cuda:1"
+    run_cfg = experiment_cfg.runs["remote"]
+    assert list(experiment_cfg.runs) == ["remote"]
+    assert isinstance(run_cfg.policy, Pi0RemotePolicyCfg)
+    assert run_cfg.policy.remote_host == "{{host:policy_server}}"
+    assert run_cfg.policy.remote_port == 8123
+    assert run_cfg.environment_builder.device == "cuda:1"
