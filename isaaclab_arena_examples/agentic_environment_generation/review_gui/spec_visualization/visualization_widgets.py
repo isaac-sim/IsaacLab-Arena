@@ -17,7 +17,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visu
     render_mermaid_html,
 )
 
-_ASSET_GRID_COLS = 3
+_ASSET_GRID_COLS = 4
 
 
 def _render_unary_constraints(relations: list[SpatialRelationSpec]) -> None:
@@ -56,15 +56,16 @@ def _render_asset_card(card: AssetCard) -> None:
     with st.container(border=True):
         if card.png_bytes is not None:
             st.image(card.png_bytes, use_container_width=True)
-            if card.aabb_dimensions_m is not None:
-                x, y, z = card.aabb_dimensions_m
-                st.caption(f"AABB {x:.3f} × {y:.3f} × {z:.3f} m")
         else:
             st.caption("No snapshot available")
-        st.markdown(f"**{card.node_id}**")
-        st.caption(card.role if card.label == card.node_id else f"{card.role} · {card.label}")
-        with st.expander("spec"):
-            st.code(card.yaml_text, language="yaml")
+        note = f"{card.role} · {card.label}"
+        if card.aabb_dimensions_m is not None:
+            x, y, z = card.aabb_dimensions_m
+            note += f" · [{x:.3f}, {y:.3f}, {z:.3f}]"
+        st.markdown(
+            f"**{card.node_id}**<br><span style='color:gray; font-size:0.8em'>{note}</span>",
+            unsafe_allow_html=True,
+        )
 
 
 def _render_asset_grid(cards: list[AssetCard]) -> None:

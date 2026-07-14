@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import yaml
 from dataclasses import dataclass
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -22,8 +21,6 @@ class AssetCard:
     role: str
     # Registry name for the asset.
     label: str
-    # Pretty-printed spec YAML for the node.
-    yaml_text: str
     # USD snapshot PNG, or ``None`` when no capture is available.
     png_bytes: bytes | None = None
     # Axis-aligned bounding box size in metres, when known.
@@ -45,13 +42,11 @@ def build_asset_cards(
 
     cards: list[AssetCard] = []
     for role, asset in entries:
-        node_yaml = yaml.safe_dump(asset.model_dump(mode="json", exclude_none=True), sort_keys=False).rstrip()
         cards.append(
             AssetCard(
                 node_id=asset.id,
                 role=role,
                 label=asset.registry_name,
-                yaml_text=node_yaml,
                 png_bytes=thumbnails.get(asset.id),
                 aabb_dimensions_m=aabb_dimensions_m.get(asset.id),
             )
