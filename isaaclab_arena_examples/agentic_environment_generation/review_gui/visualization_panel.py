@@ -16,8 +16,10 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.me
     estimate_mermaid_height_px,
     render_mermaid_html,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.panels import AssetCard, DashboardRender
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnails import format_aabb_dimensions_m
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnail_render import (
+    AssetCard,
+    ThumbnailRender,
+)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.visualization_service import (
     clear_dashboard_render_cache,
     clear_snapshot_render_caches,
@@ -74,7 +76,8 @@ def _render_asset_card(card: AssetCard) -> None:
             elif card.is_object_reference:
                 notes.append("Collision mesh preview")
             if card.aabb_dimensions_m is not None:
-                notes.append(f"AABB {format_aabb_dimensions_m(card.aabb_dimensions_m)}")
+                x, y, z = card.aabb_dimensions_m
+                notes.append(f"AABB {x:.3f} × {y:.3f} × {z:.3f} m")
             if notes:
                 st.caption(" · ".join(notes))
         elif card.prim_unresolved:
@@ -110,8 +113,8 @@ def _render_asset_grid(cards: list[AssetCard]) -> None:
     _flush_row()
 
 
-def _render_dashboard(spec: ArenaEnvGraphSpec, render: DashboardRender) -> None:
-    """Render the full review dashboard as native Streamlit widgets."""
+def render_thumbnail(spec: ArenaEnvGraphSpec, render: ThumbnailRender) -> None:
+    """Render the visualization panel as native Streamlit widgets."""
     st.markdown(f"**{spec.env_name}**")
     summary = spec.summary()
     if summary:
@@ -157,7 +160,7 @@ def render_visualization_panel(validation: SpecParseResult) -> None:
     if not validation.is_valid:
         pending = st.session_state["edited_text"] != st.session_state.get("last_rendered_text", "")
         if pending:
-            st.session_state["rendered_dashboard"] = None
+            st.session_state["rendered_visualization"] = None
             st.session_state["last_rendered_text"] = st.session_state["edited_text"]
         st.caption("Fix YAML errors to see the visualization.")
         return
@@ -168,13 +171,13 @@ def render_visualization_panel(validation: SpecParseResult) -> None:
             st.caption("Rendering visualization…")
         else:
             with st.spinner("Rendering node snapshots…"):
-                st.session_state["rendered_dashboard"] = render_dashboard_with_thumbnails(validation.spec)
+                st.session_state["rendered_visualization"] = render_dashboard_with_thumbnails(validation.spec)
             st.session_state["last_rendered_text"] = st.session_state["edited_text"]
             st.toast("Visualization updated.", icon="🔄")
 
-    render = st.session_state.get("rendered_dashboard")
-    if isinstance(render, DashboardRender):
+    render = st.session_state.get("rendered_visualization")
+    if isinstance(render, ThumbnailRender):
         st.caption("Updates automatically when the YAML is valid.")
-        _render_dashboard(validation.spec, render)
+        render_thumbnail(validation.spec, render)
     elif not st.session_state.get("_defer_viz_render"):
         st.caption("Rendering visualization…")

@@ -29,8 +29,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.me
     render_mermaid_graph,
     render_mermaid_html,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.panels import build_asset_cards
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnails import format_aabb_dimensions_m
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnail_render import build_asset_cards
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppClient,
     spawn_simapp_process,
@@ -83,9 +82,6 @@ class TestSimPreviewParams:
 
 
 class TestBuildAssetCards:
-    def test_format_aabb_dimensions_m(self):
-        assert format_aabb_dimensions_m((0.1, 0.2, 0.3)) == "0.100 × 0.200 × 0.300 m"
-
     def test_attaches_snapshot_and_aabb(self, valid_spec: ArenaEnvGraphSpec):
         bg_id = valid_spec.background.id
         cards = build_asset_cards(
@@ -96,7 +92,6 @@ class TestBuildAssetCards:
         background = next(card for card in cards if card.node_id == bg_id)
         assert background.png_bytes == b"fake"
         assert background.aabb_dimensions_m == (0.05, 0.05, 0.12)
-        assert format_aabb_dimensions_m(background.aabb_dimensions_m) == "0.050 × 0.050 × 0.120 m"
 
     def test_flags_panorama_background(self, valid_spec: ArenaEnvGraphSpec):
         bg_id = valid_spec.background.id
@@ -219,7 +214,7 @@ class TestInitializeState:
         assert session_state["original_text"] == valid_spec_yaml
         assert session_state["save_path"] == str(spec_path)
         assert session_state["last_rendered_text"] == ""
-        assert session_state["rendered_dashboard"] is None
+        assert session_state["rendered_visualization"] is None
 
     def test_skips_reinitialization_for_same_path(self, session_state, tmp_path: Path):
         spec_path = tmp_path / "opened.yaml"
@@ -251,7 +246,7 @@ class TestApplyGeneratedYaml:
         assert session_state["edited_text"] == yaml_text
         assert session_state["editor_version"] == 3
         assert session_state["last_rendered_text"] == ""
-        assert session_state["rendered_dashboard"] is None
+        assert session_state["rendered_visualization"] is None
         assert session_state["_defer_viz_render"] is True
         assert session_state["_validation_text"] == yaml_text
         assert session_state["_validation_result"].spec is valid_spec
@@ -259,10 +254,10 @@ class TestApplyGeneratedYaml:
     def test_without_spec_clears_preview_and_validation_cache(self, session_state):
         session_state["_validation_text"] = "old"
         session_state["_validation_result"] = SpecParseResult(spec=None, error="old")
-        session_state["rendered_dashboard"] = "<html>old</html>"
+        session_state["rendered_visualization"] = "<html>old</html>"
         _apply_generated_yaml("edited:\n  yaml: true\n", spec=None)
         assert session_state["edited_text"] == "edited:\n  yaml: true\n"
-        assert session_state["rendered_dashboard"] is None
+        assert session_state["rendered_visualization"] is None
         assert "_validation_text" not in session_state
         assert "_validation_result" not in session_state
 

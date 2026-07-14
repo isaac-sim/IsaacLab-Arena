@@ -37,8 +37,8 @@ class AssetCard:
 
 
 @dataclass(frozen=True)
-class DashboardRender:
-    """Cached dashboard output: per-node asset cards rendered as native Streamlit widgets."""
+class ThumbnailRender:
+    """Cached thumbnail output: per-node asset cards rendered as native Streamlit widgets."""
 
     asset_cards: list[AssetCard] = field(default_factory=list)
     """Per-node snapshot cards rendered natively so they get Streamlit's fullscreen zoom."""
