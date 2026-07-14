@@ -43,6 +43,7 @@ setup(
             "isaaclab_arena_curobo*",
             "isaaclab_arena_environments*",
             "isaaclab_arena_examples*",
+            "isaaclab_arena_dreamzero*",
             "isaaclab_arena_g1*",
             "isaaclab_arena_gr00t*",
             "isaaclab_arena_openpi*",
