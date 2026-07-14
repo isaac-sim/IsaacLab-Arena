@@ -8,10 +8,6 @@ Isaac Lab-Arena composes robotics environments and evaluates policies against th
 A coherent evaluation composed of one or more Runs.
 _Avoid_: Job batch, Run
 
-**Experiment Runner**:
-The component that executes one complete Experiment and produces its results.
-_Avoid_: Eval Runner, Arena Experiment Runner, Sequential Batch Runner
-
 **Run**:
 A named, independently dispatchable evaluation setup that pairs an environment with a policy and defines its rollout and requested rebuilds. It contains no execution status or metrics.
 _Avoid_: Job, Trial, Experiment, Environment
