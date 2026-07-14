@@ -635,7 +635,7 @@ def test_relation_placement_includes_background_mesh_for_object_mesh_override(mo
             calls["objects"] = objects
             calls["collision_objects"] = collision_objects
 
-    monkeypatch.setattr(interface_module, "get_passive_collision_objects", fake_get_passive_collision_objects)
+    monkeypatch.setattr(interface_module, "_get_passive_collision_objects", fake_get_passive_collision_objects)
     monkeypatch.setattr(interface_module, "PooledObjectPlacer", FakePooledObjectPlacer)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX))
 
@@ -679,7 +679,7 @@ def test_relation_placement_includes_background_mesh_for_background_override(mon
             calls["objects"] = objects
             calls["collision_objects"] = collision_objects
 
-    monkeypatch.setattr(interface_module, "get_passive_collision_objects", fake_get_passive_collision_objects)
+    monkeypatch.setattr(interface_module, "_get_passive_collision_objects", fake_get_passive_collision_objects)
     monkeypatch.setattr(interface_module, "PooledObjectPlacer", FakePooledObjectPlacer)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX))
 
@@ -725,7 +725,7 @@ def test_relation_placement_skips_background_mesh_for_default_bbox(monkeypatch):
             calls["objects"] = objects
             calls["collision_objects"] = collision_objects
 
-    monkeypatch.setattr(interface_module, "get_passive_collision_objects", fake_get_passive_collision_objects)
+    monkeypatch.setattr(interface_module, "_get_passive_collision_objects", fake_get_passive_collision_objects)
     monkeypatch.setattr(interface_module, "PooledObjectPlacer", FakePooledObjectPlacer)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX))
 

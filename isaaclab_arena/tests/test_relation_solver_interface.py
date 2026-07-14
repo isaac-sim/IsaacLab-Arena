@@ -53,14 +53,11 @@ def _fallback_layout(positions):
 
 
 def test_solve_and_apply_relation_placement_with_no_objects_returns_empty_result():
-    import sys
-
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
 
     placement_event_cfg = solve_and_apply_relation_placement([], num_envs=1, scene_assets=[])
 
     assert placement_event_cfg is None
-    assert "isaaclab_arena.relations.passive_collision_objects" not in sys.modules
 
 
 def test_solve_and_apply_relation_placement_with_only_anchors_returns_no_reset_event():

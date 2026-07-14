@@ -67,7 +67,9 @@ def _set_solver_results(
         objects: list[ObjectBase],
         initial_positions: list[dict[ObjectBase, tuple[float, float, float]]],
         env_bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None,
-        orientations: list[dict[ObjectBase, float]] | None,
+        env_bboxes_include_yaw: bool = False,
+        orientations: list[dict[ObjectBase, float]] | None = None,
+        collision_objects=None,
     ) -> list[dict[ObjectBase, tuple[float, float, float]]]:
         assert len(initial_positions) == len(layouts)
         placer._solver._last_loss_per_env = torch.tensor(losses or [0.0] * len(layouts))
@@ -334,8 +336,8 @@ def test_mesh_validation_receives_final_face_to_yaw(monkeypatch):
     placer = ObjectPlacer(params)
     received = {}
 
-    def _capture_orientations(candidate_positions, candidate_orientations):
-        received.update(candidate_orientations)
+    def _capture_orientations(candidate_positions, env_bboxes, candidate_orientations=None, collision_objects=None):
+        received.update(candidate_orientations or {})
         return True
 
     monkeypatch.setattr(placer, "_validate_no_overlap_mesh", _capture_orientations)

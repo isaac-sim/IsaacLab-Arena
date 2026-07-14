@@ -26,6 +26,16 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
 
 
+def _get_passive_collision_objects(
+    assets: Iterable[Asset | RigidObjectSet],
+    include_background: bool = False,
+) -> list[CollisionObject]:
+    """Load passive collision discovery only when relation placement needs it."""
+    from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
+
+    return get_passive_collision_objects(assets, include_background=include_background)
+
+
 def solve_and_apply_relation_placement(
     objects: list[ObjectBase],
     num_envs: int,
@@ -60,10 +70,8 @@ def solve_and_apply_relation_placement(
         placer_params = copy.copy(placer_params)
     placer_params.apply_positions_to_objects = False
     if collision_objects is None and scene_assets is not None:
-        from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
-
         scene_assets = list(scene_assets)
-        collision_objects = get_passive_collision_objects(
+        collision_objects = _get_passive_collision_objects(
             scene_assets,
             include_background=_should_include_background_mesh(
                 objects, scene_assets, placer_params.solver_params.collision_mode
