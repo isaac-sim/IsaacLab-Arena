@@ -66,9 +66,9 @@ def _render_asset_card(card: AssetCard) -> None:
             note = f"parent `{spec.parent_id}` · prim `{spec.prim_path or '—'}` · {spec.object_type.value}"
         else:
             note = spec.registry_name
-            if card.aabb_dimensions_m is not None:
-                x, y, z = card.aabb_dimensions_m
-                note += f" · [{x:.3f}, {y:.3f}, {z:.3f}]"
+        if card.aabb_dimensions_m is not None:
+            x, y, z = card.aabb_dimensions_m
+            note += f" · [{x:.3f}, {y:.3f}, {z:.3f}]"
         st.markdown(f"**[{card.role}] {spec.id}**")
         st.caption(note)
 

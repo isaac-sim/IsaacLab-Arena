@@ -14,7 +14,11 @@ from dataclasses import dataclass
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec
-from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
+from isaaclab_arena.utils.usd_helpers import (
+    compute_local_bounding_box_from_prim,
+    compute_local_bounding_box_from_usd,
+    open_stage,
+)
 
 AabbDimensionsM = tuple[float, float, float]
 
@@ -183,3 +187,43 @@ def resolve_object_reference_usd_targets(spec: ArenaEnvGraphSpec) -> dict[str, O
                 file=sys.stderr,
             )
     return targets
+
+
+def _absolute_prim_path(stage, relative_suffix: str) -> str:
+    """Join a default-prim-relative suffix to the stage default prim."""
+    default_prim = stage.GetDefaultPrim()
+    assert default_prim and default_prim.IsValid(), "USD stage has no default prim"
+    base = str(default_prim.GetPath())
+    if not relative_suffix:
+        return base
+    return f"{base}/{relative_suffix.lstrip('/')}"
+
+
+def resolve_object_reference_aabb_dimensions_m(spec: ArenaEnvGraphSpec) -> dict[str, AabbDimensionsM]:
+    """Return axis-aligned bounding box sizes in meters for each resolved object_reference prim."""
+    targets = resolve_object_reference_usd_targets(spec)
+    if not targets:
+        return {}
+
+    by_usd: dict[str, list[tuple[str, str]]] = {}
+    for ref_id, target in targets.items():
+        by_usd.setdefault(target.usd_path, []).append((ref_id, target.relative_prim_path))
+
+    dimensions: dict[str, AabbDimensionsM] = {}
+    for usd_path, refs in by_usd.items():
+        try:
+            with open_stage(usd_path) as stage:
+                for ref_id, relative_prim_path in refs:
+                    try:
+                        abs_path = _absolute_prim_path(stage, relative_prim_path)
+                        bbox = compute_local_bounding_box_from_prim(stage, abs_path)
+                        size = bbox.size[0]
+                        dimensions[ref_id] = (float(size[0]), float(size[1]), float(size[2]))
+                    except Exception as exc:
+                        print(
+                            f"[asset_usd]   {ref_id}: bbox failed for prim '{relative_prim_path}': {exc}",
+                            file=sys.stderr,
+                        )
+        except Exception as exc:
+            print(f"[asset_usd]   bbox failed to open {usd_path}: {exc}", file=sys.stderr)
+    return dimensions

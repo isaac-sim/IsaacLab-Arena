@@ -27,6 +27,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.generatio
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
     is_resolved_prim_path,
+    resolve_object_reference_aabb_dimensions_m,
     resolve_object_reference_usd_targets,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
@@ -131,6 +132,12 @@ class TestObjectReferenceUsdTargets:
 
         spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
         assert resolve_object_reference_usd_targets(spec) == {}
+
+    def test_resolve_object_reference_aabb_dimensions_m_skips_unresolved(self):
+        from isaaclab_arena.tests.utils.agentic_environment_generation import kitchen_pass1_dict
+
+        spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
+        assert resolve_object_reference_aabb_dimensions_m(spec) == {}
 
     def test_resolve_object_reference_usd_targets_resolved(self, monkeypatch):
         from isaaclab_arena.tests.utils.agentic_environment_generation import kitchen_pass1_dict

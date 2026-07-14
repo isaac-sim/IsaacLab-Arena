@@ -24,6 +24,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.as
     resolve_background_viewer_cfgs,
     resolve_node_aabb_dimensions_m,
     resolve_node_usd_paths,
+    resolve_object_reference_aabb_dimensions_m,
     resolve_object_reference_usd_targets,
     viewer_cfg_for_asset_spec,
 )
@@ -99,7 +100,9 @@ def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, 
     else:
         print(f"[thumbnail_capture] all {len(resolved)} thumbnail(s) served from cache.", file=sys.stderr)
 
-    return resolved, resolve_node_aabb_dimensions_m(spec)
+    aabb_dimensions_m = resolve_node_aabb_dimensions_m(spec)
+    aabb_dimensions_m.update(resolve_object_reference_aabb_dimensions_m(spec))
+    return resolved, aabb_dimensions_m
 
 
 def _build_usd_snapshot_jobs(
