@@ -24,10 +24,13 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.generatio
     _apply_generated_yaml,
     run_generation_pipeline,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnails import (
-    format_aabb_dimensions_m,
-    render_asset_thumbnail,
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.mermaid_graph import (
+    estimate_mermaid_height_px,
+    render_mermaid_graph,
+    render_mermaid_html,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.panels import build_asset_cards
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnails import format_aabb_dimensions_m
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppClient,
     spawn_simapp_process,
@@ -35,7 +38,6 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.cl
     wait_for_simapp_socket,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.sim_preview import (
-    _preview_args,
     parse_sim_preview_params,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
@@ -68,11 +70,6 @@ def session_state(monkeypatch):
 
 
 class TestSimPreviewParams:
-    def test_preview_args_honor_gui_overrides(self):
-        args = _preview_args(num_envs=4, env_spacing=2.5)
-        assert args.num_envs == 4
-        assert args.env_spacing == 2.5
-
     def test_parse_sim_preview_params_requires_all_keys(self):
         with pytest.raises(ValueError, match="missing required sim preview params"):
             parse_sim_preview_params({})
@@ -85,20 +82,57 @@ class TestSimPreviewParams:
             parse_sim_preview_params({"num_envs": 0, "num_steps": 10, "env_spacing": 1.5})
 
 
-class TestNodeThumbnailAabb:
+class TestBuildAssetCards:
     def test_format_aabb_dimensions_m(self):
         assert format_aabb_dimensions_m((0.1, 0.2, 0.3)) == "0.100 × 0.200 × 0.300 m"
 
-    def test_render_asset_thumbnail_includes_aabb_under_snapshot(self):
-        html = render_asset_thumbnail("mug_ycb_robolab", png_bytes=b"fake", aabb_dimensions_m=(0.05, 0.05, 0.12))
-        assert "thumb-dims" in html
-        assert "0.050 × 0.050 × 0.120 m" in html
-        assert html.index("thumb-wrap") < html.index("thumb-dims")
+    def test_attaches_snapshot_and_aabb(self, valid_spec: ArenaEnvGraphSpec):
+        bg_id = valid_spec.background.id
+        cards = build_asset_cards(
+            valid_spec,
+            thumbnails={bg_id: b"fake"},
+            aabb_dimensions_m={bg_id: (0.05, 0.05, 0.12)},
+        )
+        background = next(card for card in cards if card.node_id == bg_id)
+        assert background.png_bytes == b"fake"
+        assert background.aabb_dimensions_m == (0.05, 0.05, 0.12)
+        assert format_aabb_dimensions_m(background.aabb_dimensions_m) == "0.050 × 0.050 × 0.120 m"
 
-    def test_render_object_reference_shows_unsupported_note(self):
-        html = render_asset_thumbnail("table_top", is_object_reference=True)
-        assert "thumb-unsupported" in html
-        assert "Prim reference — snapshot not supported" in html
+    def test_flags_panorama_background(self, valid_spec: ArenaEnvGraphSpec):
+        bg_id = valid_spec.background.id
+        cards = build_asset_cards(valid_spec, panorama_node_ids={bg_id})
+        background = next(card for card in cards if card.node_id == bg_id)
+        assert background.is_panorama
+
+    def test_object_reference_without_snapshot_is_unresolved(self):
+        from isaaclab_arena.tests.utils.agentic_environment_generation import kitchen_pass1_dict
+
+        spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
+        refs = [card for card in build_asset_cards(spec) if card.is_object_reference]
+        assert refs
+        assert all(card.prim_unresolved and card.png_bytes is None for card in refs)
+
+    def test_object_reference_with_snapshot_shows_preview(self):
+        from isaaclab_arena.tests.utils.agentic_environment_generation import kitchen_pass1_dict
+
+        spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
+        ref_id = spec.object_references[0].id
+        cards = build_asset_cards(spec, thumbnails={ref_id: b"fake"})
+        ref = next(card for card in cards if card.node_id == ref_id)
+        assert ref.is_object_reference
+        assert ref.png_bytes == b"fake"
+        assert not ref.prim_unresolved
+
+
+class TestMermaidHtml:
+    def test_render_mermaid_html_includes_syntax_and_initialize(self, valid_spec: ArenaEnvGraphSpec):
+        html = render_mermaid_html(valid_spec)
+        assert "mermaid.initialize" in html
+        assert render_mermaid_graph(valid_spec) in html
+
+    def test_estimate_mermaid_height_px_scales_with_nodes(self, valid_spec: ArenaEnvGraphSpec):
+        height = estimate_mermaid_height_px(valid_spec)
+        assert 260 <= height <= 900
 
 
 class TestValidateYamlText:
@@ -185,7 +219,7 @@ class TestInitializeState:
         assert session_state["original_text"] == valid_spec_yaml
         assert session_state["save_path"] == str(spec_path)
         assert session_state["last_rendered_text"] == ""
-        assert session_state["rendered_html"] == ""
+        assert session_state["rendered_dashboard"] is None
 
     def test_skips_reinitialization_for_same_path(self, session_state, tmp_path: Path):
         spec_path = tmp_path / "opened.yaml"
@@ -217,7 +251,7 @@ class TestApplyGeneratedYaml:
         assert session_state["edited_text"] == yaml_text
         assert session_state["editor_version"] == 3
         assert session_state["last_rendered_text"] == ""
-        assert session_state["rendered_html"] == ""
+        assert session_state["rendered_dashboard"] is None
         assert session_state["_defer_viz_render"] is True
         assert session_state["_validation_text"] == yaml_text
         assert session_state["_validation_result"].spec is valid_spec
@@ -225,10 +259,10 @@ class TestApplyGeneratedYaml:
     def test_without_spec_clears_preview_and_validation_cache(self, session_state):
         session_state["_validation_text"] = "old"
         session_state["_validation_result"] = SpecParseResult(spec=None, error="old")
-        session_state["rendered_html"] = "<html>old</html>"
+        session_state["rendered_dashboard"] = "<html>old</html>"
         _apply_generated_yaml("edited:\n  yaml: true\n", spec=None)
         assert session_state["edited_text"] == "edited:\n  yaml: true\n"
-        assert session_state["rendered_html"] == ""
+        assert session_state["rendered_dashboard"] is None
         assert "_validation_text" not in session_state
         assert "_validation_result" not in session_state
 

@@ -71,7 +71,7 @@ def initialize_state(yaml_path: Path | None, out_dir: Path) -> None:
         st.session_state["original_text"] = ""
         st.session_state["edited_text"] = ""
         st.session_state["last_rendered_text"] = ""
-        st.session_state["rendered_html"] = ""
+        st.session_state["rendered_dashboard"] = None
         st.session_state["save_path"] = ""
         return
 
@@ -80,7 +80,7 @@ def initialize_state(yaml_path: Path | None, out_dir: Path) -> None:
     st.session_state["original_text"] = original_text
     st.session_state["edited_text"] = original_text
     st.session_state["last_rendered_text"] = ""
-    st.session_state["rendered_html"] = ""
+    st.session_state["rendered_dashboard"] = None
     st.session_state["save_path"] = str(yaml_path)
 
 
