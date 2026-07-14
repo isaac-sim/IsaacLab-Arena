@@ -14,9 +14,13 @@ from pathlib import Path
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperiment
+from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
 from isaaclab_arena.hydra.experiment_composition import load_arena_experiment_from_yaml
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena_environments.cli import ensure_environments_registered
+
+# Import the first-party extension so its typed policy is registered during composition.
+from isaaclab_arena_openpi.policy import pi0_remote_policy  # noqa: F401
 
 
 def validate_experiment_config_path(experiment_config: str | Path) -> Path:
@@ -50,8 +54,6 @@ def load_arena_experiment_from_config_file(
     path = validate_experiment_config_path(experiment_config_path)
 
     if path.suffix.lower() == ".json":
-        from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
-
         assert not overrides, "Experiment overrides are supported only for typed YAML Experiments"
         with path.open(encoding="utf-8") as experiment_config_file:
             legacy_experiment_config = json.load(experiment_config_file)
@@ -91,12 +93,6 @@ def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
 
 def _registered_policy_cfg_types() -> dict[str, type[PolicyCfg]]:
     """Return registered policy selector names and their config types."""
-    # First-party policy extensions register explicitly so typed Experiment loading
-    # stays independent of the deprecated policy_runner import path. This function
-    # is reached after SimulationApp startup by the Experiment Runner.
-    from isaaclab_arena_openpi.policy import ensure_openpi_policy_registered
-
-    ensure_openpi_policy_registered()
     registry = PolicyRegistry()
     policy_cfg_types: dict[str, type[PolicyCfg]] = {}
     for name in registry.get_all_keys():

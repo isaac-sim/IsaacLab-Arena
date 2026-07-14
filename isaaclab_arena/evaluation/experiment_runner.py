@@ -12,24 +12,38 @@ import os
 import sys
 from dataclasses import replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
 
+from isaaclab_arena.evaluation.arena_experiment import ArenaExperiment
+from isaaclab_arena.evaluation.arena_experiment_config_loader import (
+    load_arena_experiment_from_config_file,
+    validate_experiment_config_path,
+)
+from isaaclab_arena.evaluation.arena_run import build_runs_info_table
+from isaaclab_arena.evaluation.experiment_runner_cfg import ExperimentRunnerCfg, load_experiment_runner_cfg
+from isaaclab_arena.evaluation.experiment_runner_local_cli import parse_local_experiment_runner_args
 from isaaclab_arena.evaluation.experiment_runner_route import (
     parse_experiment_runner_route,
     print_experiment_runner_help,
     should_show_experiment_runner_help,
     uses_experiment_runner_cfg,
 )
-
-if TYPE_CHECKING:
-    from isaaclab_arena.evaluation.arena_experiment import ArenaExperiment
-    from isaaclab_arena.evaluation.experiment_runner_cfg import ExperimentRunnerCfg
+from isaaclab_arena.evaluation.legacy_experiment_runner import (
+    legacy_json_experiment_requires_cameras,
+    load_legacy_json_experiment_config,
+    run_legacy_json_in_chunks,
+)
+from isaaclab_arena.evaluation.legacy_experiment_runner_cli import parse_legacy_experiment_runner_args
+from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg, execute_experiment
+from isaaclab_arena.metrics.metrics_logger import MetricsLogger
+from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+from isaaclab_arena.video.video_recording import timestamped_run_dir
+from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
+from osmo.experiment_dispatcher import submit_experiment_to_osmo
 
 
 def list_variations(experiment: ArenaExperiment) -> None:
     """Print the Hydra-configurable variations for each run's environment."""
-    from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg
-
     for run_cfg in experiment:
         arena_builder = build_arena_builder_from_run_cfg(run_cfg)
         print(f"=== Variations for run '{run_cfg.name}' ===", flush=True)
@@ -51,22 +65,6 @@ def _assert_camera_support_enabled(experiment: ArenaExperiment, enable_cameras: 
     )
 
 
-def _get_simulation_app_context_type() -> Any:
-    """Import the local SimulationApp context only after local execution is selected."""
-    from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext as context_type
-
-    return context_type
-
-
-def _get_experiment_loader() -> Any:
-    """Import the typed Experiment loader only after local execution is selected."""
-    from isaaclab_arena.evaluation.arena_experiment_config_loader import (
-        load_arena_experiment_from_config_file as experiment_loader,
-    )
-
-    return experiment_loader
-
-
 def _execute_experiment_and_report(
     experiment: ArenaExperiment,
     *,
@@ -78,12 +76,6 @@ def _execute_experiment_and_report(
     evaluation_report_port: int,
 ) -> None:
     """Execute a loaded Experiment and produce its metrics and report."""
-    from isaaclab_arena.evaluation.arena_run import build_runs_info_table
-    from isaaclab_arena.evaluation.run_execution import execute_experiment
-    from isaaclab_arena.metrics.metrics_logger import MetricsLogger
-    from isaaclab_arena.video.video_recording import timestamped_run_dir
-    from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
-
     metrics_logger = MetricsLogger()
     print(build_runs_info_table(experiment, []))
 
@@ -118,10 +110,8 @@ def _run_experiment_runner_cfg_locally(cfg: ExperimentRunnerCfg, app_launcher_ar
     if cfg.record_camera_video:
         app_launcher_args.enable_cameras = True
 
-    simulation_app_context_type = _get_simulation_app_context_type()
-    experiment_loader = _get_experiment_loader()
-    with simulation_app_context_type(app_launcher_args):
-        experiment = experiment_loader(
+    with SimulationAppContext(app_launcher_args):
+        experiment = load_arena_experiment_from_config_file(
             cfg.experiment_config,
             device=app_launcher_args.device,
             overrides=cfg.experiment_overrides,
@@ -142,27 +132,13 @@ def _run_experiment_runner_cfg_locally(cfg: ExperimentRunnerCfg, app_launcher_ar
     return 0
 
 
-def _load_experiment_runner_cfg(config_path: str) -> ExperimentRunnerCfg:
-    """Load the typed execution config without importing local runtime modules."""
-    from isaaclab_arena.evaluation.experiment_runner_cfg import load_experiment_runner_cfg
-
-    return load_experiment_runner_cfg(config_path)
-
-
-def _parse_local_app_launcher_args(cli_args: list[str]) -> tuple[argparse.Namespace, list[str]]:
-    """Parse AppLauncher arguments only after the local route is selected."""
-    from isaaclab_arena.evaluation.experiment_runner_local_cli import parse_local_experiment_runner_args
-
-    return parse_local_experiment_runner_args(cli_args)
-
-
 def _run_experiment_runner_cfg_route(cli_args: list[str]) -> int:
     """Run the typed Experiment Runner route."""
     route, backend_args = parse_experiment_runner_route(cli_args)
-    cfg = _load_experiment_runner_cfg(route.config_path)
+    cfg = load_experiment_runner_cfg(route.config_path)
 
     if route.local:
-        app_launcher_args, trailing_experiment_overrides = _parse_local_app_launcher_args(backend_args)
+        app_launcher_args, trailing_experiment_overrides = parse_local_experiment_runner_args(backend_args)
     else:
         trailing_experiment_overrides = backend_args
 
@@ -170,28 +146,16 @@ def _run_experiment_runner_cfg_route(cli_args: list[str]) -> int:
         cfg,
         experiment_overrides=[*cfg.experiment_overrides, *trailing_experiment_overrides],
     )
-    from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
-
     parser = argparse.ArgumentParser(add_help=False)
     assert_hydra_overrides(cfg.experiment_overrides, parser)
     if route.local:
         return _run_experiment_runner_cfg_locally(cfg, app_launcher_args)
-
-    from osmo.experiment_dispatcher import submit_experiment_to_osmo
 
     return submit_experiment_to_osmo(cfg, route.osmo_config_path)
 
 
 def _run_legacy_experiment_runner(cli_args: list[str]) -> int:
     """Run the deprecated argparse/Namespace evaluation path unchanged."""
-    from isaaclab_arena.evaluation.arena_experiment_config_loader import validate_experiment_config_path
-    from isaaclab_arena.evaluation.legacy_experiment_runner import (
-        legacy_json_experiment_requires_cameras,
-        load_legacy_json_experiment_config,
-        run_legacy_json_in_chunks,
-    )
-    from isaaclab_arena.evaluation.legacy_experiment_runner_cli import parse_legacy_experiment_runner_args
-
     args_cli, experiment_overrides = parse_legacy_experiment_runner_args(cli_args)
     experiment_config_path = validate_experiment_config_path(args_cli.experiment_config)
     legacy_experiment_config = load_legacy_json_experiment_config(
@@ -204,11 +168,9 @@ def _run_legacy_experiment_runner(cli_args: list[str]) -> int:
     ):
         args_cli.enable_cameras = True
 
-    simulation_app_context_type = _get_simulation_app_context_type()
-    experiment_loader = _get_experiment_loader()
     if args_cli.list_variations:
-        with simulation_app_context_type(args_cli):
-            experiment = experiment_loader(
+        with SimulationAppContext(args_cli):
+            experiment = load_arena_experiment_from_config_file(
                 experiment_config_path,
                 device=args_cli.device,
                 overrides=experiment_overrides,
@@ -223,8 +185,8 @@ def _run_legacy_experiment_runner(cli_args: list[str]) -> int:
             run_legacy_json_in_chunks(args_cli, legacy_experiment_config)
             return 0
 
-    with simulation_app_context_type(args_cli):
-        experiment = experiment_loader(
+    with SimulationAppContext(args_cli):
+        experiment = load_arena_experiment_from_config_file(
             experiment_config_path,
             device=args_cli.device,
             overrides=experiment_overrides,

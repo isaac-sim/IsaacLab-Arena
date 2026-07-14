@@ -56,7 +56,7 @@ def test_parse_experiment_runner_route_rejects_osmo_config_for_local_execution()
 def test_typed_experiment_runner_help_exposes_primary_interface(cli_args, capsys, monkeypatch):
     monkeypatch.setattr(
         experiment_runner,
-        "_load_experiment_runner_cfg",
+        "load_experiment_runner_cfg",
         lambda _path: pytest.fail("help must not load a configuration"),
     )
 
@@ -98,10 +98,10 @@ def test_typed_local_route_combines_yaml_and_trailing_overrides(monkeypatch):
     app_launcher_args = SimpleNamespace(device="cuda:0", enable_cameras=False)
     received = None
 
-    monkeypatch.setattr(experiment_runner, "_load_experiment_runner_cfg", lambda _path: cfg)
+    monkeypatch.setattr(experiment_runner, "load_experiment_runner_cfg", lambda _path: cfg)
     monkeypatch.setattr(
         experiment_runner,
-        "_parse_local_app_launcher_args",
+        "parse_local_experiment_runner_args",
         lambda backend_args: (
             app_launcher_args,
             ["runs.demo.rollout_limit.num_steps=4"],
@@ -115,7 +115,8 @@ def test_typed_local_route_combines_yaml_and_trailing_overrides(monkeypatch):
 
     monkeypatch.setattr(experiment_runner, "_run_experiment_runner_cfg_locally", run_locally)
     monkeypatch.setattr(
-        "osmo.experiment_dispatcher.submit_experiment_to_osmo",
+        experiment_runner,
+        "submit_experiment_to_osmo",
         lambda *_args: pytest.fail("local invocation must not submit an OSMO workflow"),
     )
 
@@ -142,10 +143,10 @@ def test_typed_remote_route_submits_without_entering_local_runtime(monkeypatch):
     cfg = ExperimentRunnerCfg(experiment_config="experiment.yaml")
     received = None
 
-    monkeypatch.setattr(experiment_runner, "_load_experiment_runner_cfg", lambda _path: cfg)
+    monkeypatch.setattr(experiment_runner, "load_experiment_runner_cfg", lambda _path: cfg)
     monkeypatch.setattr(
         experiment_runner,
-        "_parse_local_app_launcher_args",
+        "parse_local_experiment_runner_args",
         lambda _args: pytest.fail("remote submission must not parse AppLauncher arguments"),
     )
     monkeypatch.setattr(
@@ -159,7 +160,7 @@ def test_typed_remote_route_submits_without_entering_local_runtime(monkeypatch):
         received = (effective_cfg, osmo_config_path)
         return 23
 
-    monkeypatch.setattr("osmo.experiment_dispatcher.submit_experiment_to_osmo", submit)
+    monkeypatch.setattr(experiment_runner, "submit_experiment_to_osmo", submit)
 
     result = experiment_runner.main([
         "--config",
@@ -210,8 +211,8 @@ def test_local_typed_execution_applies_experiment_runner_settings(monkeypatch):
         nonlocal execution_call
         execution_call = (experiment, kwargs)
 
-    monkeypatch.setattr(experiment_runner, "_get_simulation_app_context_type", lambda: SimulationContext)
-    monkeypatch.setattr(experiment_runner, "_get_experiment_loader", lambda: load_experiment)
+    monkeypatch.setattr(experiment_runner, "SimulationAppContext", SimulationContext)
+    monkeypatch.setattr(experiment_runner, "load_arena_experiment_from_config_file", load_experiment)
     monkeypatch.setattr(experiment_runner, "_execute_experiment_and_report", execute)
 
     assert experiment_runner._run_experiment_runner_cfg_locally(cfg, app_launcher_args) == 0
