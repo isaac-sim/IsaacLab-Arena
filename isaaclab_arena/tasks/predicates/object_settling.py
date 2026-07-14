@@ -7,7 +7,7 @@
 
 The ``objects_settled`` predicate reports when all specified objects in the env come to a rest.
 When an object settles, its initial resting position is recorded by the ``ObjectInitialRestPoseRecorder`` object.
-Downstream predicates can read the positions via the ``get_object_settled_state`` function.
+Downstream predicates can read the positions via the ``get_object_initial_rest_state`` function.
 Resetting and clearing of positions are handled by the progress tracker on env reset.
 """
 
@@ -111,7 +111,7 @@ def objects_settled(
     """True per env when every object in the env is at rest, records each object's rest pose on first settle.
 
     An object is at rest when both its linear speed (m/s) and its angular speed (rad/s) are below the
-    respective thresholds. The recorded rest poses are readable via ``get_object_settled_state``.
+    respective thresholds. The recorded rest poses are readable via ``get_object_initial_rest_state``.
     """
 
     lin_speeds = torch.stack(
