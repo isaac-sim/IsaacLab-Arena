@@ -10,6 +10,9 @@ frame (S·(R·v+t)), which matters for translated/rotated child prims under non-
 """
 
 import numpy as np
+import tempfile
+
+import pytest
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
@@ -94,6 +97,172 @@ def _test_extract_trimesh_translated_child_nonuniform_scale(simulation_app):
     assert np.isclose(verts[:, 1].max(), 0.5, atol=1e-5)
     assert np.isclose(verts[:, 2].min(), -0.5, atol=1e-5)
     assert np.isclose(verts[:, 2].max(), 0.5, atol=1e-5)
+
+    return True
+
+
+def _test_extract_trimesh_from_prim_scales_in_root_frame(simulation_app):
+    """extract_trimesh_from_prim applies parent scale in the referenced prim frame."""
+    from pxr import Gf, Usd, UsdGeom
+
+    from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_prim
+
+    stage = Usd.Stage.CreateInMemory()
+    root_xform = UsdGeom.Xform.Define(stage, "/root")
+    root_xform.AddTranslateOp().Set(Gf.Vec3d(10.0, 0.0, 0.0))
+    root_xform.AddRotateZOp().Set(90.0)
+    root = root_xform.GetPrim()
+    stage.SetDefaultPrim(root)
+
+    child_xform = UsdGeom.Xform.Define(stage, "/root/child")
+    child_xform.AddTranslateOp().Set(Gf.Vec3d(1.0, 0.0, 0.0))
+
+    mesh_prim = UsdGeom.Mesh.Define(stage, "/root/child/cube")
+    points = [
+        Gf.Vec3f(-0.5, -0.5, -0.5),
+        Gf.Vec3f(0.5, -0.5, -0.5),
+        Gf.Vec3f(0.5, 0.5, -0.5),
+        Gf.Vec3f(-0.5, 0.5, -0.5),
+        Gf.Vec3f(-0.5, -0.5, 0.5),
+        Gf.Vec3f(0.5, -0.5, 0.5),
+        Gf.Vec3f(0.5, 0.5, 0.5),
+        Gf.Vec3f(-0.5, 0.5, 0.5),
+    ]
+    face_vertex_counts = [4, 4, 4, 4, 4, 4]
+    face_vertex_indices = [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        0,
+        1,
+        5,
+        4,
+        2,
+        3,
+        7,
+        6,
+        0,
+        3,
+        7,
+        4,
+        1,
+        2,
+        6,
+        5,
+    ]
+    mesh_prim.GetPointsAttr().Set(points)
+    mesh_prim.GetFaceVertexCountsAttr().Set(face_vertex_counts)
+    mesh_prim.GetFaceVertexIndicesAttr().Set(face_vertex_indices)
+
+    tri = extract_trimesh_from_prim(stage, "/root", scale=(2.0, 1.0, 1.0))
+    verts = tri.vertices
+
+    # Root-frame scale: child center x=1 scales to x=2, so cube x bounds become [1, 3].
+    assert np.isclose(verts[:, 0].min(), 1.0, atol=1e-5), f"got {verts[:, 0].min():.4f}"
+    assert np.isclose(verts[:, 0].max(), 3.0, atol=1e-5), f"got {verts[:, 0].max():.4f}"
+    assert np.isclose(verts[:, 1].min(), -0.5, atol=1e-5)
+    assert np.isclose(verts[:, 1].max(), 0.5, atol=1e-5)
+
+    return True
+
+
+def _test_extract_trimesh_from_prim_keeps_mesh_with_unsupported_geometry(simulation_app):
+    """extract_trimesh_from_prim keeps extracted meshes when analytic geometry is present."""
+    from pxr import Gf, Usd, UsdGeom
+
+    from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_prim
+
+    stage = Usd.Stage.CreateInMemory()
+    root = stage.DefinePrim("/root", "Xform")
+    stage.SetDefaultPrim(root)
+
+    mesh_prim = UsdGeom.Mesh.Define(stage, "/root/mesh")
+    mesh_prim.GetPointsAttr().Set([
+        Gf.Vec3f(-0.5, -0.5, 0.0),
+        Gf.Vec3f(0.5, -0.5, 0.0),
+        Gf.Vec3f(0.0, 0.5, 0.0),
+    ])
+    mesh_prim.GetFaceVertexCountsAttr().Set([3])
+    mesh_prim.GetFaceVertexIndicesAttr().Set([0, 1, 2])
+    UsdGeom.Cube.Define(stage, "/root/analytic_cube")
+
+    tri = extract_trimesh_from_prim(stage, "/root")
+    assert len(tri.vertices) == 3
+
+    return True
+
+
+def _test_extract_trimesh_from_prim_rejects_analytic_only_geometry(simulation_app):
+    """extract_trimesh_from_prim rejects geometry with no mesh subset."""
+    from pxr import Usd, UsdGeom
+
+    from isaaclab_arena.utils.usd_helpers import UnsupportedCollisionGeometryError, extract_trimesh_from_prim
+
+    stage = Usd.Stage.CreateInMemory()
+    root = stage.DefinePrim("/root", "Xform")
+    stage.SetDefaultPrim(root)
+    UsdGeom.Cube.Define(stage, "/root/analytic_cube")
+
+    with pytest.raises(UnsupportedCollisionGeometryError):
+        extract_trimesh_from_prim(stage, "/root")
+
+    return True
+
+
+def _test_extract_trimesh_from_usd_keeps_mesh_with_unsupported_geometry(simulation_app):
+    """extract_trimesh_from_usd keeps extracted meshes when analytic geometry is present."""
+    from pxr import Gf, Usd, UsdGeom
+
+    from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd
+
+    stage = Usd.Stage.CreateInMemory()
+    root = stage.DefinePrim("/root", "Xform")
+    stage.SetDefaultPrim(root)
+
+    mesh_prim = UsdGeom.Mesh.Define(stage, "/root/mesh")
+    mesh_prim.GetPointsAttr().Set([
+        Gf.Vec3f(-0.5, -0.5, 0.0),
+        Gf.Vec3f(0.5, -0.5, 0.0),
+        Gf.Vec3f(0.0, 0.5, 0.0),
+    ])
+    mesh_prim.GetFaceVertexCountsAttr().Set([3])
+    mesh_prim.GetFaceVertexIndicesAttr().Set([0, 1, 2])
+    UsdGeom.Cube.Define(stage, "/root/analytic_cube")
+
+    with tempfile.NamedTemporaryFile(suffix=".usda", delete=False) as f:
+        usd_path = f.name
+    stage.Export(usd_path)
+
+    tri = extract_trimesh_from_usd(usd_path)
+    assert len(tri.vertices) == 3
+
+    return True
+
+
+def _test_extract_trimesh_from_usd_rejects_analytic_only_geometry(simulation_app):
+    """extract_trimesh_from_usd rejects geometry with no mesh subset."""
+    import tempfile
+
+    from pxr import Usd, UsdGeom
+
+    from isaaclab_arena.utils.usd_helpers import UnsupportedCollisionGeometryError, extract_trimesh_from_usd
+
+    stage = Usd.Stage.CreateInMemory()
+    root = stage.DefinePrim("/root", "Xform")
+    stage.SetDefaultPrim(root)
+    UsdGeom.Cube.Define(stage, "/root/analytic_cube")
+
+    with tempfile.NamedTemporaryFile(suffix=".usda", delete=False) as f:
+        usd_path = f.name
+    stage.Export(usd_path)
+
+    with pytest.raises(UnsupportedCollisionGeometryError):
+        extract_trimesh_from_usd(usd_path)
 
     return True
 
@@ -260,6 +429,39 @@ def _test_both_paths_agree_origin_prim(simulation_app):
 
 def test_extract_trimesh_translated_child_nonuniform_scale():
     result = run_simulation_app_function(_test_extract_trimesh_translated_child_nonuniform_scale, headless=HEADLESS)
+    assert result
+
+
+def test_extract_trimesh_from_prim_scales_in_root_frame():
+    result = run_simulation_app_function(_test_extract_trimesh_from_prim_scales_in_root_frame, headless=HEADLESS)
+    assert result
+
+
+def test_extract_trimesh_from_prim_keeps_mesh_with_unsupported_geometry():
+    result = run_simulation_app_function(
+        _test_extract_trimesh_from_prim_keeps_mesh_with_unsupported_geometry, headless=HEADLESS
+    )
+    assert result
+
+
+def test_extract_trimesh_from_prim_rejects_analytic_only_geometry():
+    result = run_simulation_app_function(
+        _test_extract_trimesh_from_prim_rejects_analytic_only_geometry, headless=HEADLESS
+    )
+    assert result
+
+
+def test_extract_trimesh_from_usd_keeps_mesh_with_unsupported_geometry():
+    result = run_simulation_app_function(
+        _test_extract_trimesh_from_usd_keeps_mesh_with_unsupported_geometry, headless=HEADLESS
+    )
+    assert result
+
+
+def test_extract_trimesh_from_usd_rejects_analytic_only_geometry():
+    result = run_simulation_app_function(
+        _test_extract_trimesh_from_usd_rejects_analytic_only_geometry, headless=HEADLESS
+    )
     assert result
 
 

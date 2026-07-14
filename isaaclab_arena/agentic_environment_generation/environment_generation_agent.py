@@ -3,28 +3,114 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Agent for parsing natural-language env-generation prompts into an EnvironmentIntentSpec."""
+"""Agent for parsing natural-language env-generation prompts into an ArenaEnvGraphSpec."""
 
 from __future__ import annotations
 
-import json
-import os
 from dataclasses import dataclass, field
 from typing import Any
 
-from openai import OpenAI
-
-from isaaclab_arena.agentic_environment_generation.agent_utils import build_strict_schema, extract_response_text, ping
-from isaaclab_arena.agentic_environment_generation.environment_intent_spec import (
-    EnvironmentIntentSpec,
-    required_task_init_param_names,
-)
+from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
+from isaaclab_arena.agentic_environment_generation.prim_path_inference import PrimPathInference
+from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
+from isaaclab_arena.agentic_environment_generation.spec_validation import required_task_init_param_names
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.relations.relations import RelationBase
 
-# TODO(qianl): This is currently Nvidia internal. Switch to public endpoint.
-DEFAULT_BASE_URL = "https://inference-api.nvidia.com"
-DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
+# ---------------------------------------------------------------------------
+# Environment generation agent
+# ---------------------------------------------------------------------------
+
+
+class EnvironmentGenerationAgent:
+    """Parses a natural-language env-generation prompt into an ArenaEnvGraphSpec."""
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str | None = None,
+        base_url: str | None = None,
+        temperature: float = 0.2,
+        max_tokens: int = 4096,
+        max_retries: int = 3,
+    ):
+        """Configure the OpenAI-compatible client and validate the model.
+
+        Args:
+            api_key: API token for the inference endpoint. Falls back
+                to the ``NV_API_KEY`` environment variable.
+            model: Model identifier at the inference endpoint.
+                Must support OpenAI-compatible structured outputs.
+            base_url: OpenAI-compatible inference endpoint.
+            temperature: Sampling temperature forwarded to the model. Kept
+                low by default (0.2) because spec generation is a
+                deterministic-ish translation task — high temperature
+                yields creative but invalid schemas.
+            max_tokens: Hard cap on the response length.
+            max_retries: Number of additional attempts after a recoverable failure
+                (network errors, timeouts, empty responses, malformed JSON). Each
+                retry is a fresh API call.
+        """
+        inference_backend = InferenceBackend(
+            api_key=api_key,
+            model=model,
+            base_url=base_url,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            max_retries=max_retries,
+        )
+        self.spec_inference = SpecInference(inference_backend)
+        self.prim_path_inference = PrimPathInference(inference_backend)
+        self._traces: list[str] = []
+
+    @property
+    def traces(self) -> tuple[str, ...]:
+        """Diagnostic lines from the most recent :meth:`generate_spec` call."""
+        return tuple(self._traces)
+
+    def generate_spec(
+        self,
+        prompt: str,
+        asset_catalog: AssetCatalogue | None = None,
+        relation_catalog: RelationCatalogue | None = None,
+        task_catalog: TaskCatalogue | None = None,
+    ) -> tuple[ArenaEnvGraphSpec | None, dict[str, Any] | None]:
+        """Call the model with user prompt and return the parsed ArenaEnvGraphSpec.
+
+        Args:
+            prompt: Natural-language env description from the end user.
+            asset_catalog: Pre-built asset vocabulary. When ``None``, built
+                from the live ``AssetRegistry``.
+            relation_catalog: Pre-built relation vocabulary. When ``None``, built
+                from the live ``ObjectRelationLibraryRegistry``.
+            task_catalog: Pre-built task vocabulary. When ``None``, built from
+                ``TaskRegistry`` tasks marked ``@agent_ready``.
+
+        Returns:
+            A ``(spec, data)`` tuple. On success, ``spec`` is validated and
+            ``data`` is None. On failure, ``spec`` is None and ``data`` is the corresponding JSON dict.
+            When validation fails, ``agent.traces`` holds the diagnostic trace.
+        """
+        self._traces = []
+        asset_catalog = asset_catalog or build_asset_catalogue()
+        relation_catalog = relation_catalog or build_relation_catalogue()
+        task_catalog = task_catalog or build_task_catalogue()
+        spec, data = self.spec_inference.infer(
+            prompt,
+            self._traces,
+            asset_catalog=asset_catalog,
+            relation_catalog=relation_catalog,
+            task_catalog=task_catalog,
+        )
+        if spec is None:
+            return None, data
+        if spec.object_references:
+            resolved = self.prim_path_inference.infer(spec, self._traces)
+            if resolved is None:
+                return None, spec.to_dict()
+            spec = resolved
+        return spec, None
 
 
 # ---------------------------------------------------------------------------
@@ -36,21 +122,27 @@ DEFAULT_MODEL = "nvidia/deepseek-ai/deepseek-v4-flash"
 class AssetCatalogue:
     """Registered asset vocabulary grouped for the agent prompt."""
 
-    # A list of embodiment names for agent to choose from.
-    embodiments: list[str] = field(default_factory=list)
-    # A list of background names for agent to choose from.
-    backgrounds: list[str] = field(default_factory=list)
+    # A list of embodiment names and their tags for agent to choose from.
+    embodiments: list[dict[str, Any]] = field(default_factory=list)
+    # A list of background names and their tags for agent to choose from.
+    backgrounds: list[dict[str, Any]] = field(default_factory=list)
     # A list of object names and their tags for agent to choose from.
     objects: list[dict[str, Any]] = field(default_factory=list)
 
     def to_catalog_string(self) -> str:
         """Format this catalogue as the user-message vocabulary block."""
+        embodiment_lines = "\n".join(
+            f"- {e['name']}  tags={e['tags']}" for e in sorted(self.embodiments, key=lambda e: e["name"])
+        )
+        background_lines = "\n".join(
+            f"- {b['name']}  tags={b['tags']}" for b in sorted(self.backgrounds, key=lambda b: b["name"])
+        )
         object_lines = "\n".join(
             f"- {o['name']}  tags={o['tags']}" for o in sorted(self.objects, key=lambda o: o["name"])
         )
         return (
-            f"EMBODIMENTS: {', '.join(sorted(self.embodiments))}\n\n"
-            f"BACKGROUNDS: {', '.join(sorted(self.backgrounds))}\n\n"
+            f"EMBODIMENTS ({len(self.embodiments)}):\n{embodiment_lines}\n\n"
+            f"BACKGROUNDS ({len(self.backgrounds)}):\n{background_lines}\n\n"
             f"OBJECTS ({len(self.objects)}):\n{object_lines}"
         )
 
@@ -67,9 +159,9 @@ def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalog
         cls = registry.get_asset_by_name(name)
         tags = getattr(cls, "tags", None) or []
         if "embodiment" in tags:
-            catalogue.embodiments.append(name)
+            catalogue.embodiments.append({"name": name, "tags": [t for t in tags if t != "embodiment"]})
         elif "background" in tags:
-            catalogue.backgrounds.append(name)
+            catalogue.backgrounds.append({"name": name, "tags": [t for t in tags if t != "background"]})
         elif "object" in tags:
             catalogue.objects.append({"name": name, "tags": [t for t in tags if t != "object"]})
     return catalogue
@@ -183,156 +275,3 @@ def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
             )
         )
     return catalogue
-
-
-# ---------------------------------------------------------------------------
-# Environment generation agent
-# ---------------------------------------------------------------------------
-
-
-class EnvironmentGenerationAgent:
-    """Parses a natural-language env-generation prompt into an EnvironmentIntentSpec."""
-
-    def __init__(
-        self,
-        api_key: str | None = None,
-        model: str | None = None,
-        base_url: str | None = None,
-    ):
-        """Configure the OpenAI-compatible client and validate the model.
-
-        Args:
-            api_key: API token for the inference endpoint. Falls back
-                to the ``NV_API_KEY`` environment variable.
-            model: Model identifier at the inference endpoint.
-                Must support OpenAI-compatible structured outputs.
-            base_url: OpenAI-compatible inference endpoint.
-        """
-        self.api_key = api_key or os.getenv("NV_API_KEY")
-        assert self.api_key, "API key required: set NV_API_KEY or pass api_key."
-        self.model = model or DEFAULT_MODEL
-        base_url = base_url or DEFAULT_BASE_URL
-        self.client = OpenAI(api_key=self.api_key, base_url=base_url)
-        # Validate basic connection and key authentication.
-        ping(self.client, self.model)
-        self._spec_schema = build_strict_schema(EnvironmentIntentSpec)
-
-    def generate_spec(
-        self,
-        prompt: str,
-        asset_catalog: AssetCatalogue | None = None,
-        relation_catalog: RelationCatalogue | None = None,
-        task_catalog: TaskCatalogue | None = None,
-        temperature: float = 0.2,
-        max_tokens: int = 4096,
-        max_retries: int = 3,
-    ) -> tuple[EnvironmentIntentSpec, str]:
-        """Call the model with user prompt and return the parsed EnvironmentIntentSpec.
-
-        Args:
-            prompt: Natural-language env description from the end user.
-            asset_catalog: Pre-built asset vocabulary. When ``None``, built
-                from the live ``AssetRegistry``.
-            relation_catalog: Pre-built relation vocabulary. When ``None``, built
-                from the live ``ObjectRelationLibraryRegistry``.
-            task_catalog: Pre-built task vocabulary. When ``None``, built from
-                ``TaskRegistry`` tasks marked ``@agent_ready``.
-            temperature: Sampling temperature forwarded to the model. Kept
-                low by default (0.2) because EnvironmentIntentSpec generation is a
-                deterministic-ish translation task — high temperature
-                yields creative but invalid schemas.
-            max_tokens: Hard cap on the response length.
-            max_retries: Number of additional attempts after a recoverable failure
-                (network errors, timeouts, empty responses, malformed JSON). Each
-                retry is a fresh API call.
-
-        Returns:
-            A ``(EnvironmentIntentSpec, raw_response)`` tuple. The raw text is
-            useful for debugging.
-        """
-        asset_catalog = asset_catalog or build_asset_catalogue()
-        relation_catalog = relation_catalog or build_relation_catalogue()
-        task_catalog = task_catalog or build_task_catalogue()
-        vocabulary = (
-            f"{asset_catalog.to_catalog_string()}\n\n"
-            f"{relation_catalog.to_catalog_string()}\n\n"
-            f"{task_catalog.to_catalog_string()}"
-        )
-        system = self._system_prompt()
-        user = f"{vocabulary}\n\nUSER PROMPT:\n{prompt}"
-        messages = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ]
-
-        last_exc: Exception | None = None
-        for attempt in range(1 + max_retries):
-            if attempt > 0:
-                print(f"[generate_spec] retry {attempt}/{max_retries} after: {last_exc}", flush=True)
-
-            try:
-                resp = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    response_format={
-                        "type": "json_schema",
-                        "json_schema": {
-                            "name": "EnvironmentIntentSpec",
-                            "strict": True,
-                            "schema": self._spec_schema,
-                        },
-                    },
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                )
-                choices = getattr(resp, "choices", None) or []
-                assert choices, (
-                    f"Model {self.model!r} returned HTTP 200 with no choices "
-                    "(content filter / guardrail / rate-limit response with empty body)."
-                )
-                text, route = extract_response_text(choices[0].message)
-                assert route != "empty", (
-                    f"Model {self.model!r} returned an empty structured-outputs envelope. "
-                    "Verify the endpoint/model supports response_format=json_schema."
-                )
-                # ``strict=False`` lets json.loads accept unescaped control characters
-                # (e.g. literal tabs) inside JSON strings — DeepSeek-v4-flash is known
-                # to emit these.
-                data = json.loads(text, strict=False)
-                spec = EnvironmentIntentSpec.model_validate(data)
-                return spec, text
-            except Exception as exc:
-                last_exc = exc
-
-        raise RuntimeError(
-            f"Model {self.model!r} failed after {1 + max_retries} attempts. Last error: {last_exc}"
-        ) from last_exc
-
-    def _system_prompt(self) -> str:
-        return """\
-You are an env-generation parser for robot manipulation tasks.
-Convert a natural-language prompt into an EnvironmentIntentSpec.
-
-GUIDANCE:
-- Follow the per-field ``description`` strings in the schema for what each field expects.
-- Use only asset names from EMBODIMENTS / BACKGROUNDS / OBJECTS, relation kinds from \
-RELATIONS, and task kinds from TASKS in the user message.
-- If the prompt does not specify a value for an optional field, output null.
-  Do NOT hallucinate values — the resolver tolerates nulls; it cannot fix invented data.
-- For binary relations (e.g. on), subject is the placed object and reference is \
-the surface it is relative to (typically the background name).
-- REQUIRED: include an is_anchor (unary) relation for the surface other objects rest on.
-- Articulated objects (microwave, fridge, cabinet) still need an 'on' relation in \
-initial_state_graph (subject=object, reference=background) to anchor them.
-- Distractor items around the appliance need the same 'on' pattern in initial_state_graph.
-- Do not invent relation or task kinds absent from RELATIONS / TASKS.
-- Each task entry needs kind, params (all required keys from TASKS), and description.
-- params values are node ids or the background name, not registry asset names.
-- NODE IDS: an item's id is its instance_name if set, else its query. For multiple
-  items of the same kind, give each a unique instance_name and use those exact ids everywhere.
-- Use underscore_connected identifiers for every query and instance_name (e.g.
-  'bbq_sauce_bottle', not 'bbq sauce bottle') so node ids are valid Python identifiers.
-- Every relation subject/reference and object task param must name one node id — never
-  a bare query that maps to several instances. Each must name exactly one;
-  if the prompt doesn't say which, pick any.
-"""

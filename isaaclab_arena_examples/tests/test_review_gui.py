@@ -12,29 +12,21 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from isaaclab_arena.agentic_environment_generation.asset_matcher import ASSET_ERROR_STAGES
-from isaaclab_arena.agentic_environment_generation.spec_io import (
-    initial_spec_path,
-    linked_spec_path,
-    save_initial_graph_spec,
-)
-from isaaclab_arena.assets.object_base import ObjectType
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
-from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphNodeSpec, ArenaEnvGraphNodeType
+from isaaclab_arena.agentic_environment_generation.spec_io import env_graph_spec_path, write_env_graph_spec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
     SpecParseResult,
-    try_save_initial_graph_spec,
+    try_save_env_graph_spec,
     validate_yaml_text,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel import (
     DEFAULT_GENERATION_PROMPT,
     _apply_generated_yaml,
-    _format_trace_lines,
     run_generation_pipeline,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnails import (
     format_aabb_dimensions_m,
-    render_node_thumbnail,
+    render_asset_thumbnail,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppClient,
@@ -54,7 +46,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_co
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.streamlit_ui import initialize_state, parse_args
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_VALID_SPEC_YAML_PATH = _REPO_ROOT / "isaaclab_arena/tests/test_data/pick_and_place_maple_table_init_env_graph.yaml"
+_VALID_SPEC_YAML_PATH = _REPO_ROOT / "isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml"
 
 
 @pytest.fixture
@@ -63,8 +55,8 @@ def valid_spec_yaml() -> str:
 
 
 @pytest.fixture
-def valid_spec(valid_spec_yaml: str) -> ArenaEnvInitialGraphSpec:
-    return ArenaEnvInitialGraphSpec.from_yaml(_VALID_SPEC_YAML_PATH)
+def valid_spec(valid_spec_yaml: str) -> ArenaEnvGraphSpec:
+    return ArenaEnvGraphSpec.from_yaml(_VALID_SPEC_YAML_PATH)
 
 
 @pytest.fixture
@@ -97,24 +89,14 @@ class TestNodeThumbnailAabb:
     def test_format_aabb_dimensions_m(self):
         assert format_aabb_dimensions_m((0.1, 0.2, 0.3)) == "0.100 × 0.200 × 0.300 m"
 
-    def test_render_node_thumbnail_includes_aabb_under_snapshot(self):
-        node = ArenaEnvGraphNodeSpec(id="mug", name="mug_ycb_robolab", type=ArenaEnvGraphNodeType.OBJECT)
-        html = render_node_thumbnail(node, png_bytes=b"fake", aabb_dimensions_m=(0.05, 0.05, 0.12))
+    def test_render_asset_thumbnail_includes_aabb_under_snapshot(self):
+        html = render_asset_thumbnail("mug_ycb_robolab", png_bytes=b"fake", aabb_dimensions_m=(0.05, 0.05, 0.12))
         assert "thumb-dims" in html
         assert "0.050 × 0.050 × 0.120 m" in html
         assert html.index("thumb-wrap") < html.index("thumb-dims")
 
     def test_render_object_reference_shows_unsupported_note(self):
-        from isaaclab_arena.environments.arena_env_graph_types import ArenaEnvGraphObjectReferenceNodeSpec
-
-        node = ArenaEnvGraphObjectReferenceNodeSpec(
-            id="table_top",
-            name="table_top",
-            parent="kitchen",
-            prim_path="/World/kitchen/table",
-            object_type=ObjectType.RIGID,
-        )
-        html = render_node_thumbnail(node)
+        html = render_asset_thumbnail("table_top", is_object_reference=True)
         assert "thumb-unsupported" in html
         assert "Prim reference — snapshot not supported" in html
 
@@ -129,7 +111,7 @@ class TestValidateYamlText:
         assert session_state["_validation_text"] == text
         assert session_state["_validation_result"] is result
 
-    def test_valid_spec_yaml(self, session_state, valid_spec_yaml: str, valid_spec: ArenaEnvInitialGraphSpec):
+    def test_valid_spec_yaml(self, session_state, valid_spec_yaml: str, valid_spec: ArenaEnvGraphSpec):
         result = validate_yaml_text(valid_spec_yaml)
         assert result.is_valid
         assert result.error is None
@@ -154,7 +136,7 @@ class TestValidateYamlText:
     def test_caches_result_for_same_text(self, session_state, valid_spec_yaml: str):
         first = validate_yaml_text(valid_spec_yaml)
         with patch(
-            "isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel.ArenaEnvInitialGraphSpec.from_dict",
+            "isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel.ArenaEnvGraphSpec.from_dict",
         ) as mock_from_dict:
             second = validate_yaml_text(valid_spec_yaml)
             mock_from_dict.assert_not_called()
@@ -165,14 +147,14 @@ class TestParseArgs:
     def test_defaults_to_none_spec_path(self, monkeypatch):
         monkeypatch.setattr(sys, "argv", ["streamlit_ui.py"])
         args = parse_args()
-        assert args.env_initial_graph_spec is None
+        assert args.env_graph_spec_yaml is None
 
-    def test_parses_env_initial_graph_spec(self, monkeypatch, tmp_path: Path):
+    def test_parses_env_graph_spec_yaml(self, monkeypatch, tmp_path: Path):
         spec_path = tmp_path / "spec.yaml"
         spec_path.write_text("env_name: x\n", encoding="utf-8")
-        monkeypatch.setattr(sys, "argv", ["streamlit_ui.py", "--env_initial_graph_spec", str(spec_path)])
+        monkeypatch.setattr(sys, "argv", ["streamlit_ui.py", "--env_graph_spec_yaml", str(spec_path)])
         args = parse_args()
-        assert args.env_initial_graph_spec == spec_path
+        assert args.env_graph_spec_yaml == spec_path
 
     def test_parses_out_dir(self, monkeypatch, tmp_path: Path):
         monkeypatch.setattr(sys, "argv", ["streamlit_ui.py", "--out_dir", str(tmp_path / "generated")])
@@ -227,31 +209,8 @@ class TestInitializeState:
         assert session_state["edited_text"] == "env_name: second\n"
 
 
-class TestFormatTraceLines:
-    def test_formats_all_events(self):
-        trace = [
-            {"stage": "asset.match", "query": "bowl", "chosen": "bowl_ycb", "note": ""},
-            {"stage": "asset.no_match", "query": "missing", "chosen": None, "note": "fallback"},
-        ]
-        lines = _format_trace_lines(trace)
-        assert "asset.match" in lines
-        assert "bowl_ycb" in lines
-        assert "<none>" in lines
-        assert "[fallback]" in lines
-
-    def test_errors_only_filters_non_error_stages(self):
-        error_stage = next(iter(ASSET_ERROR_STAGES))
-        trace = [
-            {"stage": "asset.match", "query": "bowl", "chosen": "bowl_ycb", "note": ""},
-            {"stage": error_stage, "query": "missing", "chosen": None, "note": ""},
-        ]
-        lines = _format_trace_lines(trace, errors_only=True)
-        assert error_stage in lines
-        assert "asset.match" not in lines
-
-
 class TestApplyGeneratedYaml:
-    def test_with_spec_updates_editor_and_validation_cache(self, session_state, valid_spec: ArenaEnvInitialGraphSpec):
+    def test_with_spec_updates_editor_and_validation_cache(self, session_state, valid_spec: ArenaEnvGraphSpec):
         session_state["editor_version"] = 2
         yaml_text = yaml.safe_dump(valid_spec.to_dict(), sort_keys=False)
         _apply_generated_yaml(yaml_text, spec=valid_spec)
@@ -297,56 +256,33 @@ class TestRunGenerationPipeline:
         assert "registry unavailable" in message
 
     def test_success_loads_generated_yaml_into_session(
-        self, session_state, valid_spec: ArenaEnvInitialGraphSpec, tmp_path: Path
+        self, session_state, valid_spec: ArenaEnvGraphSpec, tmp_path: Path
     ):
         session_state["out_dir"] = str(tmp_path)
         mock_agent = MagicMock()
-        mock_intent = MagicMock(reasoning="picked assets")
-        mock_agent.generate_spec.return_value = (mock_intent, "{}")
+        mock_agent.generate_spec.return_value = (valid_spec, None)
         session_state["generation_agent"] = mock_agent
 
         mock_catalogues = MagicMock()
-        mock_compiler = MagicMock()
-        mock_compiler.compile.return_value = valid_spec
-        mock_compiler.trace = []
-        mock_compiler.has_resolution_errors = False
 
-        with (
-            patch(
-                "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.get_catalogue_bundle",
-                return_value=mock_catalogues,
-            ),
-            patch(
-                "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.IntentCompiler",
-                return_value=mock_compiler,
-            ),
+        with patch(
+            "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.get_catalogue_bundle",
+            return_value=mock_catalogues,
         ):
             ok, message = run_generation_pipeline("pick up a cube")
 
         assert ok
         assert "loaded into the YAML editor" in message
-        assert session_state["last_generation_reasoning"] == "picked assets"
         assert session_state["save_path"]
         assert Path(session_state["save_path"]).is_file()
-        linked_path = Path(session_state["save_path"]).with_name(
-            Path(session_state["save_path"]).name.replace("_initial.yaml", "_linked.yaml")
-        )
-        assert linked_path.is_file()
 
-    def test_save_failure_still_reports_success_and_persists_reasoning(
-        self, session_state, valid_spec: ArenaEnvInitialGraphSpec, tmp_path: Path
-    ):
+    def test_save_failure_still_reports_success(self, session_state, valid_spec: ArenaEnvGraphSpec, tmp_path: Path):
         session_state["out_dir"] = str(tmp_path)
         mock_agent = MagicMock()
-        mock_intent = MagicMock(reasoning="picked assets")
-        mock_agent.generate_spec.return_value = (mock_intent, "{}")
+        mock_agent.generate_spec.return_value = (valid_spec, None)
         session_state["generation_agent"] = mock_agent
 
         mock_catalogues = MagicMock()
-        mock_compiler = MagicMock()
-        mock_compiler.compile.return_value = valid_spec
-        mock_compiler.trace = []
-        mock_compiler.has_resolution_errors = False
 
         with (
             patch(
@@ -354,11 +290,7 @@ class TestRunGenerationPipeline:
                 return_value=mock_catalogues,
             ),
             patch(
-                "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.IntentCompiler",
-                return_value=mock_compiler,
-            ),
-            patch(
-                "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.try_save_initial_graph_spec",
+                "isaaclab_arena_examples.agentic_environment_generation.review_gui.generation_panel.try_save_env_graph_spec",
                 return_value=(None, "Save failed: disk full"),
             ),
         ):
@@ -366,28 +298,25 @@ class TestRunGenerationPipeline:
 
         assert ok
         assert "save failed" in message.lower()
-        assert session_state["last_generation_reasoning"] == "picked assets"
         assert session_state["edited_text"]
         assert "save_path" not in session_state
 
 
-class TestSaveInitialGraphSpec:
-    def test_writes_initial_and_linked_yaml(self, valid_spec: ArenaEnvInitialGraphSpec, tmp_path: Path):
-        initial_path, linked_path = save_initial_graph_spec(valid_spec, tmp_path)
-        assert initial_path == initial_spec_path(valid_spec.env_name, tmp_path)
-        assert linked_path == linked_spec_path(valid_spec.env_name, tmp_path)
-        assert initial_path.is_file()
-        assert linked_path.is_file()
+class TestSaveEnvGraphSpec:
+    def test_writes_graph_spec_yaml(self, valid_spec: ArenaEnvGraphSpec, tmp_path: Path):
+        path = write_env_graph_spec(valid_spec, tmp_path)
+        assert path == env_graph_spec_path(valid_spec.env_name, tmp_path)
+        assert path.is_file()
 
 
-class TestTrySaveInitialGraphSpec:
-    def test_returns_error_when_link_fails(self, valid_spec: ArenaEnvInitialGraphSpec, tmp_path: Path):
+class TestTrySaveEnvGraphSpec:
+    def test_returns_error_when_save_fails(self, valid_spec: ArenaEnvGraphSpec, tmp_path: Path):
         with patch(
-            "isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel.save_initial_graph_spec",
+            "isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel.write_env_graph_spec",
             side_effect=ValueError("unknown node reference"),
         ):
-            paths, error = try_save_initial_graph_spec(valid_spec, tmp_path)
-        assert paths is None
+            path, error = try_save_env_graph_spec(valid_spec, tmp_path)
+        assert path is None
         assert "ValueError" in error
         assert "unknown node reference" in error
 

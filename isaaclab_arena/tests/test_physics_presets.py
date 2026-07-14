@@ -37,7 +37,7 @@ def _test_arena_physics_cfg_presets(simulation_app) -> bool:
 def _build_env_cfg(presets: str | None):
     """Build a real env cfg through ArenaEnvBuilder.compose_manager_cfg with the given preset."""
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -59,7 +59,7 @@ def _build_env_cfg(presets: str | None):
         scene=scene,
     )
 
-    builder = ArenaEnvBuilder(arena_env, args_cli)
+    builder = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli))
     env_cfg, _ = builder.compose_manager_cfg()
     return env_cfg
 

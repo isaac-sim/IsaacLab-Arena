@@ -40,6 +40,7 @@ setup(
     packages=find_packages(
         include=[
             "isaaclab_arena*",
+            "isaaclab_arena_curobo*",
             "isaaclab_arena_environments*",
             "isaaclab_arena_examples*",
             "isaaclab_arena_g1*",

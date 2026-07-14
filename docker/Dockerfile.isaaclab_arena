@@ -94,7 +94,6 @@ RUN (type -p wget >/dev/null || (apt update && apt install wget -y)) \
     apt update && \
     apt install -y gh
 
-# Copy GR00T
 COPY ./submodules/Isaac-GR00T ${WORKDIR}/submodules/Isaac-GR00T
 # Make the `gr00t` package importable so the lightweight remote
 # PolicyClient (gr00t.policy.server_client) works in the base container.
@@ -116,6 +115,7 @@ RUN OPENPI_COMMIT=$(tr -d '[:space:]' < /tmp/openpi_commit) && \
 # Copy the rest of the files
 COPY *.* ${WORKDIR}/
 COPY isaaclab_arena ${WORKDIR}/isaaclab_arena
+COPY isaaclab_arena_curobo ${WORKDIR}/isaaclab_arena_curobo
 COPY isaaclab_arena_g1 ${WORKDIR}/isaaclab_arena_g1
 COPY isaaclab_arena_gr00t ${WORKDIR}/isaaclab_arena_gr00t
 COPY isaaclab_arena_openpi ${WORKDIR}/isaaclab_arena_openpi
@@ -125,6 +125,25 @@ COPY docs ${WORKDIR}/docs
 
 # Install IsaacLab Arena (runtime + dev deps declared in setup.py)
 RUN /isaac-sim/python.sh -m pip install -e "${WORKDIR}/[dev]"
+
+################################
+# Install cuRobo (optional)
+################################
+COPY docker/setup/install_cuda.sh /tmp/install_cuda.sh
+ARG INSTALL_CUROBO=false
+RUN if [ "$INSTALL_CUROBO" = "true" ]; then \
+      bash /tmp/install_cuda.sh && \
+      export CUDA_HOME=/usr/local/cuda-12.8 && \
+      export PATH=${CUDA_HOME}/bin:${PATH} && \
+      export LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-} && \
+      export TORCH_CUDA_ARCH_LIST="8.0+PTX;8.6+PTX;8.9+PTX;9.0+PTX" && \
+      /isaac-sim/python.sh -m pip install --no-build-isolation \
+        "nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8" && \
+      echo 'export CUDA_HOME=/usr/local/cuda-12.8' > /etc/profile.d/cuda.sh && \
+      echo 'export PATH=${CUDA_HOME}/bin:${PATH}' >> /etc/profile.d/cuda.sh && \
+      echo 'export LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}' >> /etc/profile.d/cuda.sh; \
+    else echo "Skipping cuRobo installation"; fi && \
+    rm -f /tmp/install_cuda.sh
 
 # Set an alias to run the isaac lab python interpreter.
 RUN echo "alias python='/isaac-sim/python.sh'" >> /etc/bash.bashrc

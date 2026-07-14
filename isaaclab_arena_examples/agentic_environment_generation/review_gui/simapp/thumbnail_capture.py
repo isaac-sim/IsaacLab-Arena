@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import sys
 from pathlib import Path
 
@@ -14,12 +15,11 @@ import omni.usd
 from omni.kit.viewport.utility import frame_viewport_prims, get_active_viewport
 from pxr import Gf, Sdf, UsdGeom, UsdLux
 
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
     AabbDimensionsM,
     resolve_node_aabb_dimensions_m,
     resolve_node_usd_paths,
-    usd_cache_key,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import (
     capture_viewport_png,
@@ -28,9 +28,12 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.ki
 )
 
 
-def render_thumbnails_with_app(
-    app, spec: ArenaEnvInitialGraphSpec
-) -> tuple[dict[str, Path], dict[str, AabbDimensionsM]]:
+def _usd_cache_key(usd_path: str) -> str:
+    """Return a stable short hash for caching thumbnails keyed by USD path."""
+    return hashlib.sha1(usd_path.encode("utf-8")).hexdigest()[:16]
+
+
+def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, Path], dict[str, AabbDimensionsM]]:
     """Render cache-missed node thumbnails and return png paths plus AABB sizes in meters."""
     asset_paths = resolve_node_usd_paths(spec)
     if not asset_paths:
@@ -42,7 +45,7 @@ def render_thumbnails_with_app(
     resolved: dict[str, Path] = {}
     to_render: dict[str, tuple[str, Path]] = {}
     for node_id, usd_path in asset_paths.items():
-        cache_path = cache_dir / f"{usd_cache_key(usd_path)}.png"
+        cache_path = cache_dir / f"{_usd_cache_key(usd_path)}.png"
         if cache_path.exists() and cache_path.stat().st_size > 0:
             resolved[node_id] = cache_path
         else:

@@ -4,88 +4,55 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: rubiks_cube_banana_bowl
-nodes:
-- id: maple_table_robolab
-  name: maple_table_robolab
-  type: background
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
   params: {}
-- id: droid
-  name: droid_abs_joint_pos
-  type: embodiment
+background:
+  id: maple_table_robolab
+  registry_name: maple_table_robolab
   params: {}
+objects:
 - id: banana
-  name: banana_ycb_robolab
-  type: object
+  registry_name: banana_ycb_robolab
   params: {}
 - id: cube
-  name: dex_cube
-  type: object
+  registry_name: dex_cube
   params: {}
 - id: bowl
-  name: bowl_ycb_robolab
-  type: object
+  registry_name: bowl_ycb_robolab
   params: {}
-tasks:
-- kind: PickAndPlaceTask
-  params:
-    pick_up_object: banana
-    destination_location: bowl
-    background_scene: maple_table_robolab
-    episode_length_s: 20.0
-  description: pick up the banana and place it in the bowl
-  id: task_0_PickAndPlaceTask
-  initial_state_spec_id: state_initial
-  success_state_spec_id: state_spec_1
-- kind: PickAndPlaceTask
-  params:
-    pick_up_object: cube
-    destination_location: bowl
-    background_scene: maple_table_robolab
-    episode_length_s: 20.0
-  description: pick up the cube and place it in the bowl
-  id: task_1_PickAndPlaceTask
-  initial_state_spec_id: state_spec_1
-  success_state_spec_id: state_spec_2
-state_specs:
-- id: state_initial
-  is_delta: false
-  spatial_constraints:
-  - kind: is_anchor
-    subject: maple_table_robolab
-    params: {}
-    id: state_initial_0_is_anchor_maple_table_robolab
-  - kind: 'on'
-    subject: bowl
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_1_on_maple_table_robolab_bowl
-  - kind: 'on'
-    subject: banana
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_2_on_maple_table_robolab_banana
-  - kind: 'on'
-    subject: cube
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_3_on_maple_table_robolab_cube
-  task_constraints: []
-- id: state_spec_1
-  is_delta: true
-  spatial_constraints:
-  - kind: 'on'
-    subject: banana
-    reference: bowl
-    params: {}
-    id: state_spec_1_banana_on_bowl
-  task_constraints: []
-- id: state_spec_2
-  is_delta: true
-  spatial_constraints:
-  - kind: 'on'
-    subject: cube
-    reference: bowl
-    params: {}
-    id: state_spec_2_cube_on_bowl
-  task_constraints: []
-cli_override_specs: []
+relations:
+- kind: is_anchor
+  subject: maple_table_robolab
+  reference: null
+  params: {}
+- kind: 'on'
+  subject: bowl
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: banana
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: cube
+  reference: maple_table_robolab
+  params: {}
+task:
+  composition: sequential
+  description: pick up the banana and place it in the bowl ; pick up the cube and
+    place it in the bowl
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: banana
+      destination_location: bowl
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: cube
+      destination_location: bowl
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0

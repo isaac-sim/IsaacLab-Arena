@@ -11,10 +11,10 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
 from isaaclab_arena.cli.dataclass_cli import add_dataclass_cli_args, dataclass_from_cli
-from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import CliOverrideSpec
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
-from isaaclab_arena.environments.graph_spec_utils import add_cli_override_args
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
@@ -38,7 +38,7 @@ def ensure_environments_registered():
 # retired, this section generates their environment-subcommand flags and reconstructs
 # the same typed config from the resulting Namespace. External factories that still
 # inherit ExampleEnvironmentBase continue using their own add_cli_args() and get_env().
-# TODO(cvolk, 2026-07-03): Delete this section and the factories'
+# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this section and the factories'
 # _legacy_argparse_cfg_type declarations when runners receive typed configs directly.
 _FIELDS_PROVIDED_BY_SHARED_PARSERS = {"auto", "enable_cameras", "mimic", "num_envs"}
 
@@ -129,6 +129,22 @@ def parse_and_return_external_environment_from_string(
     return name, environment_class
 
 
+def add_cli_override_args(parser: argparse.ArgumentParser, override_specs: list[CliOverrideSpec]) -> None:
+    """Add each declared override to the CLI ``parser`` as a ``--flag``."""
+    for override in override_specs:
+        flag = f"--{override.arg}"
+        assert flag not in parser._option_string_actions, (  # noqa: SLF001
+            f"CLI override flag '{flag}' (asset '{override.target_node_id}') is already a parser flag "
+            "(e.g. --num_envs/--seed or an AppLauncher flag); rename its 'arg' in the YAML."
+        )
+        parser.add_argument(
+            flag,
+            type=str,
+            default=None,
+            help=f"Override the registry name behind graph asset '{override.target_node_id}'.",
+        )
+
+
 def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     ensure_environments_registered()
     env_registry = EnvironmentRegistry()
@@ -160,6 +176,9 @@ def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> a
     return args_parser
 
 
+# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this environment-subparser pipeline with the
+# per-environment add_cli_args() and get_env(args_cli) adapters after runner scripts
+# receive typed environment configs.
 def get_isaaclab_arena_environments_cli_parser(
     args_parser: argparse.ArgumentParser | None = None,
 ) -> argparse.ArgumentParser:
@@ -171,6 +190,9 @@ def get_isaaclab_arena_environments_cli_parser(
     return args_parser
 
 
+# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this construction pipeline after eval_runner,
+# policy_runner, imitation-learning scripts, and notebooks pass typed environment and
+# builder configs instead of an argparse Namespace.
 def get_arena_builder_from_cli(
     args_cli: argparse.Namespace,
     hydra_overrides: list[str] | None = None,
@@ -199,7 +221,8 @@ def get_arena_builder_from_cli(
         if env_graph_spec_yaml is not None
         else _arena_env_from_example_name(example_environment, args_cli)
     )
-    return ArenaEnvBuilder(arena_env, args_cli, hydra_overrides=hydra_overrides)
+    builder_cfg = arena_env_builder_cfg_from_argparse(args_cli)
+    return ArenaEnvBuilder(arena_env, builder_cfg, hydra_overrides=hydra_overrides)
 
 
 def _arena_env_from_graph_spec(env_graph_spec_yaml: str, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:

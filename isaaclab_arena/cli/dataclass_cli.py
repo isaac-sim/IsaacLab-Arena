@@ -10,11 +10,12 @@ from __future__ import annotations
 import argparse
 from collections.abc import Collection
 from dataclasses import MISSING, Field, fields, is_dataclass
+from enum import Enum
 from typing import Any, Literal, TypeVar, get_args, get_origin, get_type_hints
 
 CfgT = TypeVar("CfgT")
 
-# TODO(cvolk, 2026-07-03): Delete this module when Arena frontends receive typed
+# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this module when Arena frontends receive typed
 # configuration objects instead of reconstructing them from argparse Namespaces.
 
 
@@ -101,14 +102,17 @@ def _get_argparse_options(config_field: Field[Any], field_type: Any) -> dict[str
     cli_value_type = _unwrap_optional_type(field_type)
     if get_origin(cli_value_type) is list:
         (list_item_type,) = get_args(cli_value_type)
-        argument_options.update(type=list_item_type, nargs="*")
+        argument_options.update(type=list_item_type, nargs="+" if default is MISSING else "*")
     elif get_origin(cli_value_type) is Literal:
         choices = get_args(cli_value_type)
         choice_types = {type(choice) for choice in choices}
         assert len(choice_types) == 1, f"{config_field.name} Literal choices must have one value type"
         argument_options.update(type=choice_types.pop(), choices=choices)
+    elif isinstance(cli_value_type, type) and issubclass(cli_value_type, Enum):
+        argument_options.update(type=cli_value_type, choices=[member.value for member in cli_value_type])
     elif cli_value_type is bool:
         argument_options["action"] = "store_true" if default is False else argparse.BooleanOptionalAction
     else:
+        assert get_origin(cli_value_type) is None, f"{config_field.name}: unsupported field type {field_type!r}"
         argument_options["type"] = cli_value_type
     return argument_options

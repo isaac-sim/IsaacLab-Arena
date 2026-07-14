@@ -19,7 +19,7 @@ import yaml
 from pathlib import Path
 from typing import Any, TextIO
 
-from isaaclab_arena.environments.arena_env_graph_spec import ArenaEnvInitialGraphSpec
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
 SIMAPP_SOCKET_ENV = "ARENA_REVIEW_SIMAPP_SOCKET"
 
@@ -70,9 +70,7 @@ class SimAppClient:
                 pass
             self._close_handles()
 
-    def render_spec(
-        self, spec: ArenaEnvInitialGraphSpec
-    ) -> tuple[dict[str, bytes], dict[str, tuple[float, float, float]]]:
+    def render_spec(self, spec: ArenaEnvGraphSpec) -> tuple[dict[str, bytes], dict[str, tuple[float, float, float]]]:
         """Ask the SimApp server to render thumbnails for ``spec``."""
         yaml_text = yaml.safe_dump(spec.to_dict(), sort_keys=False)
         with self._lock:

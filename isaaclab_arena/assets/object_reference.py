@@ -3,32 +3,41 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import trimesh
+
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from pxr import Usd
 
 from isaaclab_arena.affordances.openable import Openable
-from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
 from isaaclab_arena.relations.relations import IsAnchor, RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_prim, open_stage
+from isaaclab_arena.utils.usd_helpers import (
+    NoCollisionMeshError,
+    compute_local_bounding_box_from_prim,
+    extract_trimesh_from_prim,
+    open_stage,
+)
 from isaaclab_arena.utils.usd_pose_helpers import get_prim_pose_in_default_prim_frame
 
 
 class ObjectReference(ObjectBase):
     """An object which *refers* to an existing element in the scene"""
 
-    def __init__(self, parent_asset: Asset, **kwargs):
+    def __init__(self, parent_asset: Object, **kwargs):
         super().__init__(**kwargs)
         self.parent_asset = parent_asset
-        # Store parent's scale for bounding box calculations
-        self._parent_scale = getattr(parent_asset, "scale", (1.0, 1.0, 1.0))
+        self._parent_scale = parent_asset.scale
         # Get the prim's transform pose (not geometry center - solver is origin-agnostic)
         self.initial_pose_relative_to_parent = self._get_referenced_prim_pose_relative_to_parent(parent_asset)
         self.object_cfg = self._init_object_cfg()
         self._bounding_box: AxisAlignedBoundingBox | None = None
+        self._collision_mesh: trimesh.Trimesh | None = None
+        # None is a valid cached result for meshless prims; this flag distinguishes that from not-yet-loaded.
+        self._collision_mesh_loaded = False
 
     def get_initial_pose(self) -> Pose:
         if self.parent_asset.initial_pose is None:
@@ -73,14 +82,43 @@ class ObjectReference(ObjectBase):
         return self._bounding_box
 
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Get bounding box in world coordinates (local bbox rotated and translated).
+        """Bounding box in world coordinates.
 
-        Only 90° rotations around Z axis are supported for AxisAlignedBoundingBox.
-        An assertion error is raised for any other rotation.
+        get_bounding_box() is already axis-aligned in the parent's frame, so only the parent's
+        placement rotation (identity or a 90° Z multiple) and the prim's world position are applied.
         """
-        pose = self.get_initial_pose()
-        quarters = quaternion_to_90_deg_z_quarters(pose.rotation_xyzw)
-        return self.get_bounding_box().rotated_90_around_z(quarters).translated(pose.position_xyz)
+        box = self.get_bounding_box()
+        world_position = self.get_initial_pose().position_xyz
+        parent_pose = self.parent_asset.initial_pose
+        if parent_pose is None:
+            return box.translated(world_position)
+        quarters = quaternion_to_90_deg_z_quarters(parent_pose.rotation_xyzw)
+        return box.rotated_90_around_z(quarters).translated(world_position)
+
+    def get_collision_mesh(self) -> trimesh.Trimesh | None:
+        """Return the referenced prim's collision mesh in its local frame, or None if unavailable."""
+        if not self._collision_mesh_loaded:
+            try:
+                self._collision_mesh = self._extract_collision_mesh()
+            except OSError as e:
+                # Stage/file errors can be transient in Isaac Sim startup paths, so leave
+                # _collision_mesh_loaded false and retry on the next call.
+                print(f"Could not extract collision mesh for object reference '{self.name}': {e}")
+                return None
+            except NoCollisionMeshError as e:
+                print(f"Could not extract collision mesh for object reference '{self.name}': {e}")
+            self._collision_mesh_loaded = True
+        return self._collision_mesh
+
+    def _extract_collision_mesh(self) -> trimesh.Trimesh:
+        """Extract the referenced prim mesh from the parent asset USD."""
+        with open_stage(self.parent_asset.usd_path) as parent_stage:
+            prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(
+                self.prim_path, self.parent_asset, parent_stage
+            )
+            if not parent_stage.GetPrimAtPath(prim_path_in_usd):
+                raise ValueError(f"No prim found with path {prim_path_in_usd} in {self.parent_asset.usd_path}")
+            return extract_trimesh_from_prim(parent_stage, prim_path_in_usd, self._parent_scale)
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         # NOTE(alexmillane): Right now this requires that the object
@@ -131,7 +169,7 @@ class ObjectReference(ObjectBase):
         )
         return object_cfg
 
-    def _get_referenced_prim_pose_relative_to_parent(self, parent_asset: Asset) -> Pose:
+    def _get_referenced_prim_pose_relative_to_parent(self, parent_asset: Object) -> Pose:
         """Get the prim's transform pose relative to the parent's default prim.
 
         The position is scaled by the parent's scale factor.
@@ -150,8 +188,9 @@ class ObjectReference(ObjectBase):
             )
             return Pose(position_xyz=scaled_pos, rotation_xyzw=prim_pose.rotation_xyzw)
 
+    @staticmethod
     def isaaclab_prim_path_to_original_prim_path(
-        self, isaaclab_prim_path: str, parent_asset: Asset, stage: Usd.Stage
+        isaaclab_prim_path: str, parent_asset: Object, stage: Usd.Stage
     ) -> str:
         """Convert an IsaacLab prim path to the prim path in the original USD stage.
 
@@ -162,6 +201,8 @@ class ObjectReference(ObjectBase):
 
         Args:
             isaaclab_prim_path: The IsaacLab prim path.
+            parent_asset: The asset the prim belongs to; its name is stripped from the path.
+            stage: The parent asset's opened USD stage, used to resolve the default prim.
 
         Returns:
             The prim path in the original USD stage.

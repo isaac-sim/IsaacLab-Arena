@@ -38,7 +38,6 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
 
     def build(self, cfg: PickAndPlaceMapleTableEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
-        import isaaclab.sim as sim_utils
         from isaaclab.envs.common import ViewerCfg
 
         from isaaclab_arena.assets.object_base import ObjectType
@@ -72,11 +71,11 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
             obj.add_relation(On(table_reference))
 
         # Step 3: Configure lighting
-        light = self.asset_registry.get_asset_by_name("light")(
-            spawner_cfg=sim_utils.DomeLightCfg(intensity=cfg.light_intensity),
-        )
+        light = self.asset_registry.get_asset_by_name("light")()
+        light.set_intensity(cfg.light_intensity)
         if cfg.hdr is not None:
             light.add_hdr(self.hdr_registry.get_hdr_by_name(cfg.hdr)())
+        directional_light = self.asset_registry.get_asset_by_name("directional_light")()
 
         # Step 4: Select the embodiment
         embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(
@@ -85,7 +84,15 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
 
         # Step 5: Compose the scene
         scene = Scene(
-            assets=[background, light, pick_up_object, destination_location, table_reference, *additional_table_objects]
+            assets=[
+                background,
+                light,
+                directional_light,
+                pick_up_object,
+                destination_location,
+                table_reference,
+                *additional_table_objects,
+            ]
         )
 
         # Step 6: Define the task
@@ -111,7 +118,7 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
         )
         return isaaclab_arena_environment
 
-    # TODO(cvolk, 2026-07-03): Delete this CLI-only option when teleoperation runners
+    # TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this CLI-only option when teleoperation runners
     # receive typed configuration instead of the environment subparser namespace.
     @staticmethod
     def _add_legacy_cli_only_args(parser: argparse.ArgumentParser) -> None:

@@ -9,11 +9,16 @@ Child classes define the task-specific entry script, inputs, image, and credenti
 assembles the dict that OSMO consumes under ``workflow.groups[*].tasks``.
 """
 
-import argparse
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any
 
-from workflows.utils.yaml_utils import block_literal_str
+from osmo.workflows.utils.yaml_utils import block_literal_str
+
+
+@dataclass
+class TaskCfg:
+    """Base config for an OSMO task. Server-style tasks that need no parameters use this as-is."""
 
 
 class BaseTask(ABC):
@@ -21,23 +26,11 @@ class BaseTask(ABC):
 
     def __init__(
         self,
-        workflow_args: argparse.Namespace,
-        task_args: argparse.Namespace,
+        task_cfg: TaskCfg | None = None,
         lead: bool | None = None,
     ) -> None:
-        self.workflow_args = workflow_args
-        self.task_args = task_args
+        self.task_cfg = task_cfg
         self.lead = lead
-
-    @staticmethod
-    def add_task_arguments(parser: argparse.ArgumentParser) -> None:
-        """Register the CLI arguments this task needs.
-
-        Subclasses override this to declare their own arguments.
-
-        Args:
-            parser: The parser to add task-specific arguments to.
-        """
 
     def create_task_dict(self) -> dict[str, Any]:
         """Assemble the task dict consumed by OSMO."""

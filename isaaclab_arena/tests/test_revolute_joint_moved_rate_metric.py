@@ -29,7 +29,7 @@ def _test_revolute_joint_moved_rate(simulation_app):
     """Returns a scene which we use for these tests."""
 
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -55,7 +55,7 @@ def _test_revolute_joint_moved_rate(simulation_app):
 
     # Build the cfg, but dont register so we can make some adjustments.
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
-    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, args_cli)
+    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env_cfg, env_kwargs = env_builder.compose_manager_cfg()
     env_cfg.episode_length_s = 0.10
     env = env_builder.make_registered(env_cfg, env_kwargs)

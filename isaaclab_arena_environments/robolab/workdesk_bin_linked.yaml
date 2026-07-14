@@ -4,152 +4,119 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: workdesk_bin
-nodes:
-- id: maple_table_robolab
-  name: maple_table_robolab
-  type: background
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
   params: {}
-- id: droid
-  name: droid_abs_joint_pos
-  type: embodiment
+background:
+  id: maple_table_robolab
+  registry_name: maple_table_robolab
   params: {}
+objects:
 - id: lizard_figurine
-  name: lizard_figurine_hot3d_robolab
-  type: object
+  registry_name: lizard_figurine_hot3d_robolab
   params: {}
 - id: grey_bin
-  name: grey_bin_robolab
-  type: object
+  registry_name: grey_bin_robolab
   params: {}
 - id: ceramic_mug
-  name: ceramic_mug_hot3d_robolab
-  type: object
+  registry_name: ceramic_mug_hot3d_robolab
   params: {}
 - id: glasses
-  name: glasses_hot3d_robolab
-  type: object
+  registry_name: glasses_hot3d_robolab
   params: {}
 - id: marker
-  name: marker_hot3d_robolab
-  type: object
+  registry_name: marker_hot3d_robolab
   params: {}
 - id: remote_control
-  name: remote_control_hot3d_robolab
-  type: object
+  registry_name: remote_control_hot3d_robolab
   params: {}
 - id: smartphone
-  name: smartphone_hot3d_robolab
-  type: object
+  registry_name: smartphone_hot3d_robolab
   params: {}
 - id: wooden_bowl
-  name: wooden_bowl_hot3d_robolab
-  type: object
+  registry_name: wooden_bowl_hot3d_robolab
   params:
-    scale: [0.5, 0.5, 0.5]
+    scale:
+    - 0.5
+    - 0.5
+    - 0.5
 - id: spoon_big
-  name: spoon_big_vomp_robolab
-  type: object
+  registry_name: spoon_big_vomp_robolab
   params: {}
 - id: computer_mouse
-  name: computer_mouse_hot3d_robolab
-  type: object
+  registry_name: computer_mouse_hot3d_robolab
   params: {}
 - id: yogurt_cup
-  name: yogurt_cup_hope_robolab
-  type: object
+  registry_name: yogurt_cup_hope_robolab
   params: {}
 - id: granola_bar
-  name: granola_bars_hope_robolab
-  type: object
+  registry_name: granola_bars_hope_robolab
   params: {}
-tasks:
-- kind: PickAndPlaceTask
-  params:
-    pick_up_object: lizard_figurine
-    destination_location: grey_bin
-    background_scene: maple_table_robolab
-    episode_length_s: 20.0
-    max_separation: [0.1, 0.1, 0.1]
+relations:
+- kind: is_anchor
+  subject: maple_table_robolab
+  reference: null
+  params: {}
+- kind: 'on'
+  subject: lizard_figurine
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: grey_bin
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: ceramic_mug
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: glasses
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: marker
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: remote_control
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: smartphone
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: wooden_bowl
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: spoon_big
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: computer_mouse
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: yogurt_cup
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: granola_bar
+  reference: maple_table_robolab
+  params: {}
+task:
+  composition: atomic
   description: place the lizard figurine into the grey bin on the table
-  id: task_0_PickAndPlaceTask
-  initial_state_spec_id: state_initial
-  success_state_spec_id: state_spec_1
-state_specs:
-- id: state_initial
-  is_delta: false
-  spatial_constraints:
-  - kind: is_anchor
-    subject: maple_table_robolab
-    params: {}
-    id: state_initial_0_is_anchor_maple_table_robolab
-  - kind: 'on'
-    subject: lizard_figurine
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_1_on_maple_table_robolab_lizard_figurine
-  - kind: 'on'
-    subject: grey_bin
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_2_on_maple_table_robolab_grey_bin
-  - kind: 'on'
-    subject: ceramic_mug
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_3_on_maple_table_robolab_ceramic_mug
-  - kind: 'on'
-    subject: glasses
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_4_on_maple_table_robolab_glasses
-  - kind: 'on'
-    subject: marker
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_5_on_maple_table_robolab_marker
-  - kind: 'on'
-    subject: remote_control
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_6_on_maple_table_robolab_remote_control
-  - kind: 'on'
-    subject: smartphone
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_7_on_maple_table_robolab_smartphone
-  - kind: 'on'
-    subject: wooden_bowl
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_8_on_maple_table_robolab_wooden_bowl
-  - kind: 'on'
-    subject: spoon_big
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_9_on_maple_table_robolab_spoon_big
-  - kind: 'on'
-    subject: computer_mouse
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_10_on_maple_table_robolab_computer_mouse
-  - kind: 'on'
-    subject: yogurt_cup
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_11_on_maple_table_robolab_yogurt_cup
-  - kind: 'on'
-    subject: granola_bar
-    reference: maple_table_robolab
-    params: {}
-    id: state_initial_12_on_maple_table_robolab_granola_bar
-  task_constraints: []
-- id: state_spec_1
-  is_delta: true
-  spatial_constraints:
-  - kind: 'on'
-    subject: lizard_figurine
-    reference: grey_bin
-    params: {}
-    id: state_spec_1_lizard_figurine_on_grey_bin
-  task_constraints: []
-cli_override_specs: []
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: lizard_figurine
+      destination_location: grey_bin
+      background_scene: maple_table_robolab
+      episode_length_s: 20.0
+      max_separation:
+      - 0.1
+      - 0.1
+      - 0.1

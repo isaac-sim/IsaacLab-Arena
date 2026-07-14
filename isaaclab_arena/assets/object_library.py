@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+from abc import ABC
 from typing import TYPE_CHECKING, Any
 
 import isaaclab.sim as sim_utils
@@ -367,8 +368,31 @@ class Sphere(LibraryObject):
         )
 
 
+class LightBase(LibraryObject, ABC):
+    """Abstract base for spawnable lights.
+
+    Concrete subclasses set default_spawner_cfg to an Isaac Lab light cfg.
+    """
+
+    object_type = ObjectType.BASE
+    tags = ["light"]
+
+    def set_intensity(self, intensity: float) -> None:
+        """Set the light's intensity."""
+        assert intensity >= 0.0, f"Light intensity must be non-negative, got {intensity}."
+        self.spawner_cfg.intensity = intensity
+        self.object_cfg = self._init_object_cfg()
+
+    def set_color(self, color: tuple[float, float, float]) -> None:
+        """Set the light's RGB color, with each channel in [0, 1]."""
+        assert len(color) == 3, f"Light color must be an (r, g, b) triple, got {color}."
+        assert all(0.0 <= c <= 1.0 for c in color), f"Light color channels must be in [0, 1], got {color}."
+        self.spawner_cfg.color = tuple(color)
+        self.object_cfg = self._init_object_cfg()
+
+
 @register_asset
-class DomeLight(LibraryObject):
+class DomeLight(LightBase):
     """A dome light, optionally textured with an HDR image environment map.
 
     The light can be used plain (uniform color) or combined with an HDR image
@@ -385,10 +409,8 @@ class DomeLight(LibraryObject):
     """
 
     name = "light"
-    tags = ["light"]
     # Setting a global prim path for the dome light. Will not get repeated for each environment.
     default_prim_path = "/World/Light"
-    object_type = ObjectType.BASE
     default_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=500.0)
 
     spawner_cfg: sim_utils.DomeLightCfg
@@ -403,6 +425,7 @@ class DomeLight(LibraryObject):
         hdr: "HDRImage | None" = None,  # noqa: F821
     ):
         from isaaclab_arena.variations.hdr_image_variation import HDRImageVariation
+        from isaaclab_arena.variations.light_color_variation import LightColorVariation
         from isaaclab_arena.variations.light_intensity_variation import LightIntensityVariation
 
         super().__init__(
@@ -412,6 +435,7 @@ class DomeLight(LibraryObject):
             self.add_hdr(hdr)
         self.add_variation(HDRImageVariation(self))
         self.add_variation(LightIntensityVariation(self))
+        self.add_variation(LightColorVariation(self))
 
     def add_hdr(self, hdr: "HDRImage") -> None:  # noqa: F821
         """Attach an HDR environment map texture to this dome light.
@@ -426,18 +450,48 @@ class DomeLight(LibraryObject):
         self.spawner_cfg.texture_file = hdr.texture_file
         self.spawner_cfg.texture_format = hdr.texture_format  # type: ignore[assignment]
         self.spawner_cfg.visible_in_primary_ray = True
-        # Re-initialize the object cfg so the scene picks up the change.
         self.object_cfg = self._init_object_cfg()
 
-    def set_intensity(self, intensity: float) -> None:
-        """Set the dome light's intensity and refresh the object cfg.
 
-        Args:
-            intensity: The new dome light intensity. Must be non-negative.
-        """
-        assert intensity >= 0.0, f"Dome light intensity must be non-negative, got {intensity}."
-        self.spawner_cfg.intensity = intensity
-        # Re-initialize the object cfg so the scene picks up the change.
+@register_asset
+class DirectionalLight(LightBase):
+    """A distant (directional) light, emulating a far-away source such as the sun.
+
+    The light emits parallel rays along its local -Z axis.
+    """
+
+    name = "directional_light"
+    default_prim_path = "/World/DirectionalLight"
+    default_spawner_cfg = sim_utils.DistantLightCfg(intensity=1000.0)
+    default_initial_pose = Pose(position_xyz=(0.0, 0.0, 5.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+
+    spawner_cfg: sim_utils.DistantLightCfg
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = default_prim_path,
+        initial_pose: Pose | None = None,
+        spawner_cfg: sim_utils.DistantLightCfg = default_spawner_cfg,
+    ):
+        from isaaclab_arena.variations.light_color_variation import LightColorVariation
+        from isaaclab_arena.variations.light_direction_variation import LightDirectionVariation
+        from isaaclab_arena.variations.light_intensity_variation import LightIntensityVariation
+
+        super().__init__(
+            instance_name=instance_name,
+            prim_path=prim_path,
+            initial_pose=initial_pose if initial_pose is not None else self.default_initial_pose,
+            spawner_cfg=spawner_cfg,
+        )
+        self.add_variation(LightDirectionVariation(self))
+        self.add_variation(LightIntensityVariation(self))
+        self.add_variation(LightColorVariation(self))
+
+    def set_orientation(self, rotation_xyzw: tuple[float, float, float, float]) -> None:
+        """Set the light's orientation."""
+        position_xyz = self.initial_pose.position_xyz if self.initial_pose is not None else (0.0, 0.0, 0.0)
+        self.initial_pose = Pose(position_xyz=position_xyz, rotation_xyzw=tuple(rotation_xyzw))
         self.object_cfg = self._init_object_cfg()
 
 
@@ -683,7 +737,7 @@ class PurpleCrate(LibraryObject):
 
     name = "purple_crate"
     tags = ["object", "container"]
-    usd_path = f"{ISAAC_NUCLEUS_DIR}/Props/KLT_Bin/small_KLT.usd"
+    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/KLT_Bin/small_KLT.usd"
 
 
 @register_asset
