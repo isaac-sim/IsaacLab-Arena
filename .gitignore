@@ -76,8 +76,8 @@ TAGS
 *isaaclab_arena_environments/agent_generated/
 
 # Local planning files
-CONTEXT.md
-CONTEXT-MAP.md
+/CONTEXT.md
+/CONTEXT-MAP.md
 
 # Datasets
 *datasets/
