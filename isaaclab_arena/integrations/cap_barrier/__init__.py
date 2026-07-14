@@ -5,13 +5,16 @@
 
 """Kit-side client for the CAP ROS shared-memory barrier."""
 
-from .protocol import ControllerTimingSpec, FrameKind, JointState, ProtocolError
-from .shared_memory import ArenaBarrierClient
+from .protocol import ControllerTimingSpec, FrameKind, JointState, ProtocolError, ServiceabilityState
+from .shared_memory import ArenaBarrierClient, BarrierInterrupted, BarrierStatus
 
 __all__ = [
     "ArenaBarrierClient",
+    "BarrierInterrupted",
+    "BarrierStatus",
     "ControllerTimingSpec",
     "FrameKind",
     "JointState",
     "ProtocolError",
+    "ServiceabilityState",
 ]

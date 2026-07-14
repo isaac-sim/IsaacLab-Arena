@@ -27,6 +27,7 @@ from isaaclab_arena.integrations.cap_barrier.protocol import (
     FrameKind,
     JointState,
     ProtocolError,
+    ServiceabilityState,
     StateFrame,
     make_command_frame,
     make_state_frame,
@@ -128,4 +129,5 @@ def test_protocol_enum_widths_and_values_are_fixed() -> None:
     assert FrameDirection.COMMAND == 2
     assert FrameKind.PHYSICS == 1
     assert FrameKind.FENCE == 2
+    assert list(ServiceabilityState) == [ServiceabilityState(value) for value in range(4)]
     assert list(FaultCode) == [FaultCode(value) for value in range(11)]

@@ -13,6 +13,7 @@ import errno
 import mmap
 import os
 import time
+from dataclasses import dataclass
 from types import TracebackType
 
 from .protocol import (
@@ -23,6 +24,7 @@ from .protocol import (
     CommandFrame,
     FaultCode,
     ProtocolError,
+    ServiceabilityState,
     SharedMemoryLayout,
     StateFrame,
     clone_struct,
@@ -84,6 +86,32 @@ class _NativeSync:
 _SYNC = _NativeSync()
 
 
+@dataclass(frozen=True)
+class BarrierStatus:
+    """Owner state observed by the Kit producer at a quiescent frame boundary."""
+
+    active_generation: int | None
+    phase: BarrierPhase
+    serviceability: ServiceabilityState
+
+    @property
+    def consumer_serviceable(self) -> bool:
+        """Return whether a producer may attempt to reserve the barrier."""
+        return self.serviceability == ServiceabilityState.SERVICEABLE
+
+    def permits_publish(self, generation: int) -> bool:
+        """Return whether the attached generation may publish its next frame."""
+        return (
+            self.active_generation == generation
+            and self.phase == BarrierPhase.AWAIT_STATE
+            and self.serviceability == ServiceabilityState.SERVICEABLE
+        )
+
+
+class BarrierInterrupted(RuntimeError):
+    """Reset intent won before the producer reserved its next frame."""
+
+
 class ArenaBarrierClient:
     """Non-owning Kit-side endpoint; the ROS sidecar creates and unlinks the region."""
 
@@ -105,6 +133,7 @@ class ArenaBarrierClient:
         self._expected_tick = 0
         self._has_pending_state = False
         self._pending_state: StateFrame | None = None
+        self._has_producer_reservation = False
 
     @staticmethod
     def _normalize_name(name: str) -> str:
@@ -152,11 +181,11 @@ class ArenaBarrierClient:
     def _store8(self, field_name: str, value: int, order: int = _MEMORY_ORDER_RELEASE) -> None:
         _SYNC.store8(self._field_address(field_name), value, order)
 
-    def _compare_exchange_phase(self, expected: BarrierPhase, desired: BarrierPhase) -> bool:
+    def _compare_exchange4(self, field_name: str, expected: int, desired: int) -> tuple[bool, int]:
         expected_value = ctypes.c_uint32(expected)
-        return bool(
+        exchanged = bool(
             _SYNC.compare_exchange4(
-                self._field_address("phase"),
+                self._field_address(field_name),
                 ctypes.byref(expected_value),
                 desired,
                 False,
@@ -164,6 +193,11 @@ class ArenaBarrierClient:
                 _MEMORY_ORDER_ACQUIRE,
             )
         )
+        return exchanged, int(expected_value.value)
+
+    def _compare_exchange_phase(self, expected: BarrierPhase, desired: BarrierPhase) -> bool:
+        exchanged, _ = self._compare_exchange4("phase", expected, desired)
+        return exchanged
 
     def _wait_until_initialized(self, timeout_s: float) -> None:
         deadline = time.monotonic() + timeout_s
@@ -186,6 +220,44 @@ class ArenaBarrierClient:
         if self._load4("generation_initialized") == 0:
             return None
         return self._load8("active_generation")
+
+    @property
+    def status(self) -> BarrierStatus:
+        """Return a coherent best-effort snapshot of generation serviceability.
+
+        The generation and serviceability word are independent ABI atomics. Reading each
+        twice prevents returning a snapshot assembled across an observed transition. The
+        owner may still request a transition after this method returns; ``begin_exchange``
+        atomically arbitrates that race through the serviceability reservation.
+        """
+        self._throw_if_faulted()
+        while True:
+            initialized_before = self._load4("generation_initialized")
+            generation_before = self._load8("active_generation") if initialized_before else None
+            serviceability_before = self._load4("wait_interrupted")
+            phase_value = self._load4("phase")
+            serviceability_after = self._load4("wait_interrupted")
+            initialized_after = self._load4("generation_initialized")
+            generation_after = self._load8("active_generation") if initialized_after else None
+            if (
+                initialized_before == initialized_after
+                and generation_before == generation_after
+                and serviceability_before == serviceability_after
+            ):
+                break
+        try:
+            phase = BarrierPhase(phase_value)
+            serviceability = ServiceabilityState(serviceability_after)
+        except ValueError as error:
+            raise ProtocolError(
+                FaultCode.BARRIER_STATE_VIOLATION,
+                "barrier has an invalid phase or serviceability state",
+            ) from error
+        return BarrierStatus(
+            active_generation=generation_after,
+            phase=phase,
+            serviceability=serviceability,
+        )
 
     @property
     def attached_generation(self) -> int | None:
@@ -230,7 +302,7 @@ class ArenaBarrierClient:
             if (
                 self.active_generation == generation
                 and self._load4("phase") == BarrierPhase.AWAIT_STATE
-                and self._load4("wait_interrupted") == 0
+                and self._load4("wait_interrupted") == ServiceabilityState.SERVICEABLE
             ):
                 break
             if time.monotonic() >= deadline:
@@ -241,6 +313,80 @@ class ArenaBarrierClient:
         self._expected_tick = 0
         self._has_pending_state = False
         self._pending_state = None
+        self._has_producer_reservation = False
+
+    def _reserve_producer(self) -> None:
+        if self._has_producer_reservation:
+            raise ProtocolError(FaultCode.BARRIER_STATE_VIOLATION, "producer reservation is already held")
+        try:
+            exchanged, observed = self._compare_exchange4(
+                "wait_interrupted",
+                ServiceabilityState.SERVICEABLE,
+                ServiceabilityState.PRODUCER_RESERVED,
+            )
+            if exchanged:
+                self._has_producer_reservation = True
+                return
+        except BaseException:
+            # Python may deliver an asynchronous exception after the native CAS succeeds but
+            # before local ownership is recorded. The profile has one producer, so an otherwise
+            # untracked 2/3 reservation belongs to this endpoint and must be retired normally.
+            serviceability = self._load4("wait_interrupted")
+            if serviceability in (
+                ServiceabilityState.PRODUCER_RESERVED,
+                ServiceabilityState.PRODUCER_RESERVED_INTERRUPT_PENDING,
+            ):
+                self._has_producer_reservation = True
+                self._fault_and_release_abandoned_producer()
+            raise
+        try:
+            state = ServiceabilityState(observed)
+        except ValueError as error:
+            raise ProtocolError(
+                FaultCode.BARRIER_STATE_VIOLATION,
+                f"invalid serviceability state {observed}",
+            ) from error
+        if state in (
+            ServiceabilityState.INTERRUPTED,
+            ServiceabilityState.PRODUCER_RESERVED_INTERRUPT_PENDING,
+        ):
+            raise BarrierInterrupted("barrier consumer is interrupted for reset")
+        raise ProtocolError(
+            FaultCode.BARRIER_STATE_VIOLATION,
+            f"producer reservation unavailable in state {state.name}",
+        )
+
+    def _release_producer(self) -> None:
+        if not getattr(self, "_has_producer_reservation", False):
+            return
+        exchanged, observed = self._compare_exchange4(
+            "wait_interrupted",
+            ServiceabilityState.PRODUCER_RESERVED,
+            ServiceabilityState.SERVICEABLE,
+        )
+        if not exchanged and observed == ServiceabilityState.PRODUCER_RESERVED_INTERRUPT_PENDING:
+            exchanged, observed = self._compare_exchange4(
+                "wait_interrupted",
+                ServiceabilityState.PRODUCER_RESERVED_INTERRUPT_PENDING,
+                ServiceabilityState.INTERRUPTED,
+            )
+        self._has_producer_reservation = False
+        if not exchanged:
+            raise ProtocolError(
+                FaultCode.BARRIER_STATE_VIOLATION,
+                f"producer reservation release observed invalid state {observed}",
+            )
+
+    def _fault_and_release_abandoned_producer(self) -> None:
+        if not getattr(self, "_has_producer_reservation", False):
+            return
+        state = getattr(self, "_pending_state", None)
+        generation = state.header.generation if state is not None else (self._generation or 0)
+        sequence = state.header.sequence if state is not None else self._expected_sequence
+        self._latch_fault(FaultCode.BARRIER_STATE_VIOLATION, generation, sequence)
+        self._has_pending_state = False
+        self._pending_state = None
+        self._release_producer()
 
     def _latch_fault(self, code: FaultCode, generation: int, sequence: int) -> None:
         if code == FaultCode.NONE:
@@ -298,19 +444,34 @@ class ArenaBarrierClient:
         Keeping ``COMMAND_READY`` asserted until then makes ``AWAIT_STATE`` a
         true simulator-quiescence point for CR-20 generation resets.
         """
-        if self._generation is None or self._has_pending_state:
+        if self._generation is None or self._has_pending_state or self._has_producer_reservation:
             generation = self._generation or state.header.generation
             self._latch_fault(FaultCode.BARRIER_STATE_VIOLATION, generation, self._expected_sequence)
             raise ProtocolError(FaultCode.BARRIER_STATE_VIOLATION, "Arena is not ready to publish state")
+        self._throw_if_faulted()
+        try:
+            validate_state_frame(state)
+        except ProtocolError as error:
+            self._latch_fault(error.code, state.header.generation, state.header.sequence)
+            raise
+        if state.header.generation != self._generation:
+            self._latch_fault(FaultCode.STALE_GENERATION, state.header.generation, state.header.sequence)
+            raise ProtocolError(FaultCode.STALE_GENERATION, "Arena published stale generation")
+        if state.header.sequence != self._expected_sequence:
+            self._latch_fault(FaultCode.SEQUENCE_MISMATCH, state.header.generation, state.header.sequence)
+            raise ProtocolError(FaultCode.SEQUENCE_MISMATCH, "Arena state sequence is not exact-next")
+        if state.header.physics_tick != self._expected_tick:
+            self._latch_fault(FaultCode.TICK_MISMATCH, state.header.generation, state.header.sequence)
+            raise ProtocolError(FaultCode.TICK_MISMATCH, "Arena physics tick is not exact-next")
+        try:
+            self._reserve_producer()
+        except BarrierInterrupted:
+            raise
+        except ProtocolError as error:
+            self._latch_fault(error.code, state.header.generation, state.header.sequence)
+            raise
         try:
             self._throw_if_faulted()
-            validate_state_frame(state)
-            if state.header.generation != self._generation:
-                raise ProtocolError(FaultCode.STALE_GENERATION, "Arena published stale generation")
-            if state.header.sequence != self._expected_sequence:
-                raise ProtocolError(FaultCode.SEQUENCE_MISMATCH, "Arena state sequence is not exact-next")
-            if state.header.physics_tick != self._expected_tick:
-                raise ProtocolError(FaultCode.TICK_MISMATCH, "Arena physics tick is not exact-next")
             if self.active_generation != self._generation:
                 raise ProtocolError(FaultCode.STALE_GENERATION, "barrier generation changed before state publish")
 
@@ -335,11 +496,20 @@ class ArenaBarrierClient:
             return command
         except ProtocolError as error:
             self._latch_fault(error.code, state.header.generation, state.header.sequence)
+            self._has_pending_state = False
+            self._pending_state = None
+            self._release_producer()
             raise
         except OSError as error:
             code = FaultCode.BARRIER_STATE_VIOLATION
             self._latch_fault(code, state.header.generation, state.header.sequence)
+            self._has_pending_state = False
+            self._pending_state = None
+            self._release_producer()
             raise ProtocolError(code, f"native barrier synchronization failed: {error}") from error
+        except BaseException:
+            self._fault_and_release_abandoned_producer()
+            raise
 
     def complete_exchange(self) -> None:
         """Release a received command after Kit has applied or discarded it."""
@@ -350,12 +520,20 @@ class ArenaBarrierClient:
         state = self._pending_state
         if not self._compare_exchange_phase(BarrierPhase.COMMAND_READY, BarrierPhase.AWAIT_STATE):
             self._latch_fault(FaultCode.BARRIER_STATE_VIOLATION, state.header.generation, state.header.sequence)
+            self._has_pending_state = False
+            self._pending_state = None
+            self._release_producer()
             raise ProtocolError(FaultCode.BARRIER_STATE_VIOLATION, "cannot complete command exchange")
         self._expected_sequence += 1
         if state.header.frame_kind == 1:
             self._expected_tick += 1
         self._has_pending_state = False
         self._pending_state = None
+        try:
+            self._release_producer()
+        except ProtocolError as error:
+            self._latch_fault(error.code, state.header.generation, state.header.sequence)
+            raise
 
     def fail_pending_exchange(self, code: FaultCode = FaultCode.BARRIER_STATE_VIOLATION) -> None:
         """Latch a protocol fault when Kit cannot finish a received command."""
@@ -363,14 +541,20 @@ class ArenaBarrierClient:
         generation = state.header.generation if state is not None else (self._generation or 0)
         sequence = state.header.sequence if state is not None else self._expected_sequence
         self._latch_fault(code, generation, sequence)
+        self._has_pending_state = False
+        self._pending_state = None
+        self._release_producer()
 
     def close(self) -> None:
         if getattr(self, "_mapping", None) is None:
             return
-        if hasattr(self, "_layout"):
-            del self._layout
-        self._mapping.close()
-        self._mapping = None
+        try:
+            self._fault_and_release_abandoned_producer()
+        finally:
+            if hasattr(self, "_layout"):
+                del self._layout
+            self._mapping.close()
+            self._mapping = None
 
     def __enter__(self) -> ArenaBarrierClient:
         return self

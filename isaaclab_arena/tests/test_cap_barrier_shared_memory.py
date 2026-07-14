@@ -15,6 +15,7 @@ from collections.abc import Sequence
 
 import pytest
 
+import isaaclab_arena.integrations.cap_barrier.shared_memory as shared_memory_module
 from isaaclab_arena.integrations.cap_barrier.joint_mapping import PANDA_ARM_JOINTS, make_franka_joint_mapping
 from isaaclab_arena.integrations.cap_barrier.lockstep_manager import ArenaLockstepManager
 from isaaclab_arena.integrations.cap_barrier.protocol import (
@@ -27,7 +28,9 @@ from isaaclab_arena.integrations.cap_barrier.protocol import (
     FrameKind,
     JointState,
     ProtocolError,
+    ServiceabilityState,
     SharedMemoryLayout,
+    StateFrame,
     clone_struct,
     make_command_frame,
     make_state_frame,
@@ -39,6 +42,7 @@ from isaaclab_arena.integrations.cap_barrier.shared_memory import (
     _MEMORY_ORDER_RELEASE,
     _SYNC,
     ArenaBarrierClient,
+    BarrierInterrupted,
 )
 
 
@@ -107,7 +111,43 @@ class _OwnedTestBarrier:
             )
         )
 
+    def compare_serviceability(self, expected: ServiceabilityState, desired: ServiceabilityState) -> bool:
+        expected_value = ctypes.c_uint32(expected)
+        return bool(
+            _SYNC.compare_exchange4(
+                self.address("wait_interrupted"),
+                ctypes.byref(expected_value),
+                desired,
+                False,
+                _MEMORY_ORDER_ACQ_REL,
+                _MEMORY_ORDER_ACQUIRE,
+            )
+        )
+
+    def request_interrupt(self) -> None:
+        while True:
+            state = ServiceabilityState(self.load4("wait_interrupted"))
+            if state == ServiceabilityState.SERVICEABLE:
+                if self.compare_serviceability(state, ServiceabilityState.INTERRUPTED):
+                    return
+            elif state == ServiceabilityState.PRODUCER_RESERVED:
+                if self.compare_serviceability(state, ServiceabilityState.PRODUCER_RESERVED_INTERRUPT_PENDING):
+                    return
+            elif state in (
+                ServiceabilityState.INTERRUPTED,
+                ServiceabilityState.PRODUCER_RESERVED_INTERRUPT_PENDING,
+            ):
+                return
+
+    def clear_interrupt(self) -> None:
+        assert self.compare_serviceability(
+            ServiceabilityState.INTERRUPTED,
+            ServiceabilityState.SERVICEABLE,
+        )
+
     def begin_generation(self, generation: int) -> None:
+        if self.load4("generation_initialized"):
+            assert self.load4("wait_interrupted") == ServiceabilityState.INTERRUPTED
         assert self.load4("phase") in (BarrierPhase.UNINITIALIZED, BarrierPhase.AWAIT_STATE)
         ctypes.memset(self.address("state"), 0, ctypes.sizeof(self.layout.state))
         ctypes.memset(self.address("command"), 0, ctypes.sizeof(self.layout.command))
@@ -187,6 +227,18 @@ class _QuiescenceCheckingSimulation:
         self.positions = [0.0] * 9
 
 
+def _state_frame(*, sequence: int = 0, physics_tick: int = 0) -> StateFrame:
+    return make_state_frame(
+        generation=1,
+        sequence=sequence,
+        physics_tick=physics_tick,
+        physics_dt_ns=5_000_000,
+        frame_kind=FrameKind.PHYSICS,
+        controller_specs=[ControllerTimingSpec("hold_controller")],
+        joints=[JointState(0.0, 0.0, 0.0)],
+    )
+
+
 def test_real_shm_semaphores_and_atomics_hold_quiescence_until_sim_step() -> None:
     barrier = _OwnedTestBarrier()
     client = ArenaBarrierClient(barrier.name)
@@ -219,7 +271,9 @@ def test_stale_generation_fails_closed_for_both_frame_kinds(frame_kind: FrameKin
     client = ArenaBarrierClient(barrier.name)
     try:
         client.attach_generation(1)
+        barrier.request_interrupt()
         barrier.begin_generation(2)
+        barrier.clear_interrupt()
         state = make_state_frame(
             generation=1,
             sequence=0,
@@ -243,16 +297,147 @@ def test_generation_attach_waits_for_consumer_serviceability_latch() -> None:
     barrier = _OwnedTestBarrier()
     client = ArenaBarrierClient(barrier.name)
     try:
-        barrier.store4("wait_interrupted", 1)
+        barrier.request_interrupt()
         barrier.begin_generation(2)
+        interrupted_status = client.status
+        assert interrupted_status.active_generation == 2
+        assert interrupted_status.phase == BarrierPhase.AWAIT_STATE
+        assert not interrupted_status.consumer_serviceable
+        assert not interrupted_status.permits_publish(2)
         with pytest.raises(ProtocolError) as error:
             client.attach_generation(2, timeout_s=0.01)
         assert error.value.code == FaultCode.RESET_VIOLATION
 
-        barrier.store4("wait_interrupted", 0)
+        barrier.clear_interrupt()
         client.attach_generation(2)
         assert client.attached_generation == 2
+        assert client.status.permits_publish(2)
     finally:
+        client.close()
+        barrier.close()
+
+
+def test_owner_reset_intent_wins_before_state_copy_without_latching_fault() -> None:
+    barrier = _OwnedTestBarrier()
+    client = ArenaBarrierClient(barrier.name)
+    try:
+        client.attach_generation(1)
+        ctypes.memset(barrier.address("state"), 0xA5, ctypes.sizeof(StateFrame))
+        state_before = ctypes.string_at(barrier.address("state"), ctypes.sizeof(StateFrame))
+        barrier.request_interrupt()
+
+        with pytest.raises(BarrierInterrupted):
+            client.begin_exchange(_state_frame())
+
+        assert barrier.load4("wait_interrupted") == ServiceabilityState.INTERRUPTED
+        assert barrier.load4("phase") == BarrierPhase.AWAIT_STATE
+        assert barrier.load4("fault_code") == FaultCode.NONE
+        assert ctypes.string_at(barrier.address("state"), ctypes.sizeof(StateFrame)) == state_before
+    finally:
+        client.close()
+        barrier.close()
+
+
+def test_inflight_exchange_completes_and_releases_pending_interrupt() -> None:
+    barrier = _OwnedTestBarrier()
+    client = ArenaBarrierClient(barrier.name)
+    try:
+        client.attach_generation(1)
+        thread = barrier.serve(1)
+        client.begin_exchange(_state_frame())
+        assert barrier.load4("wait_interrupted") == ServiceabilityState.PRODUCER_RESERVED
+
+        barrier.request_interrupt()
+        assert barrier.load4("wait_interrupted") == ServiceabilityState.PRODUCER_RESERVED_INTERRUPT_PENDING
+        client.complete_exchange()
+
+        assert barrier.load4("wait_interrupted") == ServiceabilityState.INTERRUPTED
+        assert barrier.load4("phase") == BarrierPhase.AWAIT_STATE
+        assert barrier.load4("fault_code") == FaultCode.NONE
+        thread.join(timeout=1.0)
+        assert not thread.is_alive()
+        assert barrier.thread_errors == []
+    finally:
+        client.close()
+        barrier.close()
+
+
+def test_pending_interrupt_prevents_next_old_generation_frame_admission() -> None:
+    barrier = _OwnedTestBarrier()
+    client = ArenaBarrierClient(barrier.name)
+    try:
+        client.attach_generation(1)
+        thread = barrier.serve(1)
+        client.begin_exchange(_state_frame())
+        barrier.request_interrupt()
+        client.complete_exchange()
+        shared_state = ctypes.string_at(barrier.address("state"), ctypes.sizeof(StateFrame))
+
+        with pytest.raises(BarrierInterrupted):
+            client.begin_exchange(_state_frame(sequence=1, physics_tick=1))
+
+        assert barrier.load4("wait_interrupted") == ServiceabilityState.INTERRUPTED
+        assert barrier.load4("fault_code") == FaultCode.NONE
+        assert ctypes.string_at(barrier.address("state"), ctypes.sizeof(StateFrame)) == shared_state
+        thread.join(timeout=1.0)
+        assert not thread.is_alive()
+        assert barrier.thread_errors == []
+    finally:
+        client.close()
+        barrier.close()
+
+
+def test_generation_reset_cannot_race_state_copy_while_producer_reserved(monkeypatch) -> None:
+    barrier = _OwnedTestBarrier()
+    client = ArenaBarrierClient(barrier.name)
+    allow_state_copy = threading.Event()
+    state_copy_started = threading.Event()
+    producer_errors: list[BaseException] = []
+    try:
+        client.attach_generation(1)
+        server_thread = barrier.serve(1)
+        native_memmove = ctypes.memmove
+        client_state_address = client._base_address + SharedMemoryLayout.state.offset
+
+        def block_state_copy(destination, source, size):
+            if destination == client_state_address:
+                assert barrier.load4("wait_interrupted") == ServiceabilityState.PRODUCER_RESERVED
+                state_copy_started.set()
+                assert allow_state_copy.wait(timeout=1.0)
+            return native_memmove(destination, source, size)
+
+        monkeypatch.setattr(shared_memory_module.ctypes, "memmove", block_state_copy)
+
+        def exchange() -> None:
+            try:
+                client.begin_exchange(_state_frame())
+                client.complete_exchange()
+            except BaseException as error:
+                producer_errors.append(error)
+
+        producer_thread = threading.Thread(target=exchange, daemon=True)
+        producer_thread.start()
+        assert state_copy_started.wait(timeout=1.0), producer_errors
+        barrier.request_interrupt()
+        shared_state = ctypes.string_at(barrier.address("state"), ctypes.sizeof(StateFrame))
+
+        with pytest.raises(AssertionError):
+            barrier.begin_generation(2)
+        assert barrier.load4("active_generation") == 1
+        assert ctypes.string_at(barrier.address("state"), ctypes.sizeof(StateFrame)) == shared_state
+
+        allow_state_copy.set()
+        producer_thread.join(timeout=1.0)
+        assert not producer_thread.is_alive()
+        assert producer_errors == []
+        assert barrier.load4("wait_interrupted") == ServiceabilityState.INTERRUPTED
+        barrier.begin_generation(2)
+        assert barrier.load4("active_generation") == 2
+        server_thread.join(timeout=1.0)
+        assert not server_thread.is_alive()
+        assert barrier.thread_errors == []
+    finally:
+        allow_state_copy.set()
         client.close()
         barrier.close()
 
@@ -277,7 +462,153 @@ def test_corrupt_command_name_bytes_latch_fault_instead_of_wedging() -> None:
         assert error.value.code == FaultCode.TIMING_MISMATCH
         assert barrier.load4("fault_code") == FaultCode.TIMING_MISMATCH
         assert barrier.load4("phase") == BarrierPhase.FAULT
+        assert barrier.load4("wait_interrupted") == ServiceabilityState.SERVICEABLE
         thread.join(timeout=1.0)
+        assert barrier.thread_errors == []
+    finally:
+        client.close()
+        barrier.close()
+
+
+def test_fault_releases_pending_interrupt_to_interrupted(monkeypatch) -> None:
+    barrier = _OwnedTestBarrier()
+    client = ArenaBarrierClient(barrier.name)
+    try:
+        client.attach_generation(1)
+        thread = barrier.serve(1, corrupt_controller_name=True)
+        native_wait = client._sem_timedwait
+
+        def interrupt_then_wait(field_name: str, timeout_s: float) -> bool:
+            barrier.request_interrupt()
+            return native_wait(field_name, timeout_s)
+
+        monkeypatch.setattr(client, "_sem_timedwait", interrupt_then_wait)
+        with pytest.raises(ProtocolError) as error:
+            client.begin_exchange(_state_frame())
+
+        assert error.value.code == FaultCode.TIMING_MISMATCH
+        assert barrier.load4("wait_interrupted") == ServiceabilityState.INTERRUPTED
+        assert barrier.load4("fault_code") == FaultCode.TIMING_MISMATCH
+        thread.join(timeout=1.0)
+        assert not thread.is_alive()
+        assert barrier.thread_errors == []
+    finally:
+        client.close()
+        barrier.close()
+
+
+def test_base_exception_during_reserved_exchange_faults_before_release(monkeypatch) -> None:
+    class InjectedAbort(BaseException):
+        pass
+
+    barrier = _OwnedTestBarrier()
+    client = ArenaBarrierClient(barrier.name)
+    try:
+        client.attach_generation(1)
+
+        def abort_wait(_field_name: str, _timeout_s: float) -> bool:
+            raise InjectedAbort
+
+        monkeypatch.setattr(client, "_sem_timedwait", abort_wait)
+        with pytest.raises(InjectedAbort):
+            client.begin_exchange(_state_frame())
+
+        assert barrier.load4("fault_code") == FaultCode.BARRIER_STATE_VIOLATION
+        assert barrier.load4("phase") == BarrierPhase.FAULT
+        assert barrier.load4("wait_interrupted") == ServiceabilityState.SERVICEABLE
+    finally:
+        client.close()
+        barrier.close()
+
+
+@pytest.mark.parametrize(
+    ("interrupt_pending", "expected_serviceability"),
+    [
+        (False, ServiceabilityState.SERVICEABLE),
+        (True, ServiceabilityState.INTERRUPTED),
+    ],
+)
+def test_base_exception_after_reservation_cas_recovers_and_releases(
+    monkeypatch,
+    interrupt_pending: bool,
+    expected_serviceability: ServiceabilityState,
+) -> None:
+    class InjectedAbort(BaseException):
+        pass
+
+    barrier = _OwnedTestBarrier()
+    client = ArenaBarrierClient(barrier.name)
+    try:
+        client.attach_generation(1)
+        compare_exchange = client._compare_exchange4
+
+        def reserve_then_abort(field_name: str, expected: int, desired: int) -> tuple[bool, int]:
+            result = compare_exchange(field_name, expected, desired)
+            if (
+                field_name == "wait_interrupted"
+                and desired == ServiceabilityState.PRODUCER_RESERVED
+                and result[0]
+            ):
+                if interrupt_pending:
+                    barrier.request_interrupt()
+                raise InjectedAbort
+            return result
+
+        monkeypatch.setattr(client, "_compare_exchange4", reserve_then_abort)
+        with pytest.raises(InjectedAbort):
+            client.begin_exchange(_state_frame())
+
+        assert barrier.load4("fault_code") == FaultCode.BARRIER_STATE_VIOLATION
+        assert barrier.load4("phase") == BarrierPhase.FAULT
+        assert barrier.load4("wait_interrupted") == expected_serviceability
+        assert not client._has_producer_reservation
+        client.close()
+        assert barrier.load4("wait_interrupted") == expected_serviceability
+    finally:
+        client.close()
+        barrier.close()
+
+
+def test_close_with_pending_command_faults_before_release() -> None:
+    barrier = _OwnedTestBarrier()
+    client = ArenaBarrierClient(barrier.name)
+    try:
+        client.attach_generation(1)
+        thread = barrier.serve(1)
+        client.begin_exchange(_state_frame())
+        assert barrier.load4("phase") == BarrierPhase.COMMAND_READY
+        assert barrier.load4("wait_interrupted") == ServiceabilityState.PRODUCER_RESERVED
+
+        client.close()
+
+        assert barrier.load4("fault_code") == FaultCode.BARRIER_STATE_VIOLATION
+        assert barrier.load4("phase") == BarrierPhase.FAULT
+        assert barrier.load4("wait_interrupted") == ServiceabilityState.SERVICEABLE
+        thread.join(timeout=1.0)
+        assert not thread.is_alive()
+        assert barrier.thread_errors == []
+    finally:
+        client.close()
+        barrier.close()
+
+
+def test_invalid_producer_reservation_release_fails_closed() -> None:
+    barrier = _OwnedTestBarrier()
+    client = ArenaBarrierClient(barrier.name)
+    try:
+        client.attach_generation(1)
+        thread = barrier.serve(1)
+        client.begin_exchange(_state_frame())
+        barrier.store4("wait_interrupted", ServiceabilityState.SERVICEABLE)
+
+        with pytest.raises(ProtocolError) as error:
+            client.complete_exchange()
+
+        assert error.value.code == FaultCode.BARRIER_STATE_VIOLATION
+        assert barrier.load4("fault_code") == FaultCode.BARRIER_STATE_VIOLATION
+        assert barrier.load4("phase") == BarrierPhase.FAULT
+        thread.join(timeout=1.0)
+        assert not thread.is_alive()
         assert barrier.thread_errors == []
     finally:
         client.close()
@@ -309,6 +640,7 @@ def test_native_sync_errors_latch_barrier_fault(monkeypatch, failure_point: str)
         assert error.value.code == FaultCode.BARRIER_STATE_VIOLATION
         assert barrier.load4("fault_code") == FaultCode.BARRIER_STATE_VIOLATION
         assert barrier.load4("phase") == BarrierPhase.FAULT
+        assert barrier.load4("wait_interrupted") == ServiceabilityState.SERVICEABLE
     finally:
         client.close()
         barrier.close()

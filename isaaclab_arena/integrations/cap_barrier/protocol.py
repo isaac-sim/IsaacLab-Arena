@@ -61,6 +61,15 @@ class BarrierPhase(IntEnum):
     FAULT = 4
 
 
+class ServiceabilityState(IntEnum):
+    """Atomic producer/reset reservation state stored in ``wait_interrupted``."""
+
+    SERVICEABLE = 0
+    INTERRUPTED = 1
+    PRODUCER_RESERVED = 2
+    PRODUCER_RESERVED_INTERRUPT_PENDING = 3
+
+
 class ProtocolError(RuntimeError):
     """A fail-closed barrier protocol violation."""
 

@@ -13,7 +13,7 @@ from typing import Protocol
 
 from .joint_mapping import JointOrderMapping
 from .protocol import ControllerTimingSpec, FaultCode, FrameKind, JointState, make_state_frame
-from .shared_memory import ArenaBarrierClient
+from .shared_memory import ArenaBarrierClient, BarrierStatus
 
 
 class SimulationAdapter(Protocol):
@@ -77,6 +77,11 @@ class ArenaLockstepManager:
     @property
     def physics_tick(self) -> int:
         return self._client.expected_physics_tick
+
+    @property
+    def barrier_status(self) -> BarrierStatus:
+        """Return owner generation/serviceability observed between frame exchanges."""
+        return self._client.status
 
     def attach_initial_generation(self, *, timeout_s: float = 10.0) -> int:
         generation = self._client.wait_for_generation(timeout_s=timeout_s)
