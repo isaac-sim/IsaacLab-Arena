@@ -30,7 +30,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visu
 )
 
 
-def resolve_background_prim_tree_catalog(spec: ArenaEnvGraphSpec) -> list[UsdPrimRecord]:
+def resolve_background_prim_tree(spec: ArenaEnvGraphSpec) -> list[UsdPrimRecord]:
     """Return the background USD prim tree records, empty when unavailable."""
     from isaaclab_arena.utils.usd_prim_tree import load_usd_prim_tree
 
@@ -123,7 +123,7 @@ def build_asset_cards_with_thumbnails(spec: ArenaEnvGraphSpec) -> tuple[list[Ass
 
     thumbnails: dict[str, bytes] = {}
     aabb_dimensions_m: dict[str, tuple[float, float, float]] = {}
-    prim_tree = resolve_background_prim_tree_catalog(spec)
+    prim_tree = resolve_background_prim_tree(spec)
 
     simapp_expected = simapp_socket_from_env() is not None
     client = ensure_simapp() if simapp_expected else None

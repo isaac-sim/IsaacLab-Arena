@@ -20,6 +20,7 @@ from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSp
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
     AabbDimensionsM,
     ObjectReferenceUsdTarget,
+    absolute_prim_path,
     object_reference_cache_key,
     resolve_background_viewer_cfgs,
     resolve_node_aabb_dimensions_m,
@@ -177,7 +178,7 @@ def _capture_usd_snapshot_job(app, job: _UsdSnapshotJob) -> dict[str, bytes]:
         _configure_collision_mesh_visualization()
 
         for node_id, target, cache_path in job.ref_captures:
-            root_path = _absolute_prim_path(stage, target.relative_prim_path)
+            root_path = absolute_prim_path(stage, target.relative_prim_path)
             collision_paths = _collect_collision_prim_paths(stage, root_path)
             _select_collision_prims(app, collision_paths)
             viewport = get_active_viewport()
@@ -263,16 +264,6 @@ def _render_object_reference(
     )
     captured = _capture_usd_snapshot_job(app, job)
     return captured.get("ref")
-
-
-def _absolute_prim_path(stage, relative_suffix: str) -> str:
-    """Join a default-prim-relative suffix to the stage default prim."""
-    default_prim = stage.GetDefaultPrim()
-    assert default_prim and default_prim.IsValid(), "USD stage has no default prim"
-    base = str(default_prim.GetPath())
-    if not relative_suffix:
-        return base
-    return f"{base}/{relative_suffix.lstrip('/')}"
 
 
 def _collect_collision_prim_paths(stage, root_path: str) -> list[str]:

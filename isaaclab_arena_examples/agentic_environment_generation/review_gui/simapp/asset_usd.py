@@ -189,7 +189,7 @@ def resolve_object_reference_usd_targets(spec: ArenaEnvGraphSpec) -> dict[str, O
     return targets
 
 
-def _absolute_prim_path(stage, relative_suffix: str) -> str:
+def absolute_prim_path(stage, relative_suffix: str) -> str:
     """Join a default-prim-relative suffix to the stage default prim."""
     default_prim = stage.GetDefaultPrim()
     assert default_prim and default_prim.IsValid(), "USD stage has no default prim"
@@ -215,7 +215,7 @@ def resolve_object_reference_aabb_dimensions_m(spec: ArenaEnvGraphSpec) -> dict[
             with open_stage(usd_path) as stage:
                 for ref_id, relative_prim_path in refs:
                     try:
-                        abs_path = _absolute_prim_path(stage, relative_prim_path)
+                        abs_path = absolute_prim_path(stage, relative_prim_path)
                         bbox = compute_local_bounding_box_from_prim(stage, abs_path)
                         size = bbox.size[0]
                         dimensions[ref_id] = (float(size[0]), float(size[1]), float(size[2]))

@@ -60,7 +60,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visu
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.streamlit_ui import initialize_state, parse_args
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.visualization_service import (
-    resolve_background_prim_tree_catalog,
+    resolve_background_prim_tree,
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -184,7 +184,7 @@ class TestObjectReferenceUsdTargets:
         assert targets["counter_top"].relative_prim_path == "counter_right_main_group/top_geometry"
 
 
-class TestBackgroundPrimTreeCatalog:
+class TestBackgroundPrimTree:
     def test_returns_loaded_prim_tree_records(self, monkeypatch):
         from isaaclab_arena.tests.utils.agentic_environment_generation import kitchen_pass1_dict, kitchen_prim_tree
 
@@ -197,7 +197,7 @@ class TestBackgroundPrimTreeCatalog:
             "isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree",
             lambda *_args, **_kwargs: kitchen_prim_tree(),
         )
-        prim_tree = resolve_background_prim_tree_catalog(spec)
+        prim_tree = resolve_background_prim_tree(spec)
         assert any(record.relative_path == "fridge_main_group" for record in prim_tree)
 
 
