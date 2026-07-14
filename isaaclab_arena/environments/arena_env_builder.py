@@ -45,7 +45,7 @@ from isaaclab_arena.utils.configclass import combine_configclass_instances, make
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.variations import variations_hydra, variations_printing
-from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBase
+from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 
@@ -144,18 +144,19 @@ class ArenaEnvBuilder:
         return VariationsEventCfg()
 
     def _apply_build_time_variations(self) -> None:
-        """Sample and apply every enabled :class:`BuildTimeVariationBase`.
+        """Apply every enabled variation's build-time effects before ``scene_cfg`` is materialised.
 
-        These mutate asset configs in place (e.g. a dome light's spawner
-        texture), so this must run before ``scene_cfg`` is materialised.
+        Calls ``apply_build_time_effects`` on each enabled variation regardless of type: a
+        :class:`BuildTimeVariationBase` realises its whole effect there (e.g. a dome light's
+        spawner texture), while a run-time variation uses it for build-time preconditions (e.g.
+        forcing its camera untiled). These mutate asset configs in place, so this must run before
+        the scene is materialised.
         """
         for asset_variations in self.get_all_variations().values():
             for variation in asset_variations:
                 if not variation.enabled:
                     continue
-                if not isinstance(variation, BuildTimeVariationBase):
-                    continue
-                variation.apply()
+                variation.apply_build_time_effects()
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""

@@ -57,7 +57,7 @@ class HDRImageVariation(BuildTimeVariationBase):
         super().__init__(cfg=cfg if cfg is not None else HDRImageVariationCfg(), name=name)
         self._light = light
 
-    def apply(self) -> None:
+    def apply_build_time_effects(self) -> None:
         from isaaclab_arena.assets.hdr_image import HDRImage  # noqa: PLC0415
         from isaaclab_arena.assets.registries import HDRImageRegistry  # noqa: PLC0415
 

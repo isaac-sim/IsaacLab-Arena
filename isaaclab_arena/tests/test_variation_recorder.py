@@ -46,7 +46,7 @@ class _RecorderTestVariation(BuildTimeVariationBase):
     def __init__(self, cfg: _RecorderTestVariationCfg | None = None, name: str = "recorder_test"):
         super().__init__(cfg=cfg if cfg is not None else _RecorderTestVariationCfg(), name=name)
 
-    def apply(self) -> None:
+    def apply_build_time_effects(self) -> None:
         assert self.sampler is not None
         self.sampler.sample(num_samples=1)
 
@@ -99,7 +99,7 @@ def test_recorder_records_build_time_sample_for_every_episode():
     record = recorder["asset.recorder_test"]
     assert record.sample_for_episode(0, 0) is None
 
-    variation.apply()
+    variation.apply_build_time_effects()
 
     value = record.sample_for_episode(0, 0)
     # Tensor samples are stored detached on CPU.
@@ -203,7 +203,7 @@ def _test_hdr_variation_recorder_captures_chosen_hdr_name(simulation_app):
     record = recorder["light.hdr_image"]
     assert record.sample_for_episode(0, 0) is None
 
-    variation.apply()
+    variation.apply_build_time_effects()
 
     # The HDR draw is build-time (env_ids=None), so it applies to every env/episode.
     value = record.sample_for_episode(0, 0)
