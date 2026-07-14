@@ -175,27 +175,32 @@ def _capture_usd_snapshot_job(app, job: _UsdSnapshotJob) -> dict[str, bytes]:
         # frame_viewport_prims preserves the incoming view direction.
         if job.viewer_cfg is not None:
             _apply_viewer_cfg(app, job.viewer_cfg)
-        _configure_collision_mesh_visualization()
-
-        for node_id, target, cache_path in job.ref_captures:
-            root_path = absolute_prim_path(stage, target.relative_prim_path)
-            collision_paths = _collect_collision_prim_paths(stage, root_path)
-            _select_collision_prims(app, collision_paths)
-            viewport = get_active_viewport()
-            framed = frame_viewport_prims(viewport, prims=[root_path])
-            if not framed:
-                print(
-                    f"[thumbnail_capture]   warning: frame_viewport_prims failed for {root_path}",
-                    file=sys.stderr,
-                )
-            png_bytes = capture_viewport_png(app, cache_path, pre_capture_updates=PRE_CAPTURE_UPDATES)
-            if png_bytes:
-                out[node_id] = png_bytes
-            else:
-                print(
-                    f"[thumbnail_capture]   capture produced no file for {target.relative_prim_path}: {cache_path}",
-                    file=sys.stderr,
-                )
+        _set_collision_mesh_visualization(enabled=True)
+        try:
+            for node_id, target, cache_path in job.ref_captures:
+                root_path = absolute_prim_path(stage, target.relative_prim_path)
+                collision_paths = _collect_collision_prim_paths(stage, root_path)
+                _select_collision_prims(app, collision_paths)
+                viewport = get_active_viewport()
+                framed = frame_viewport_prims(viewport, prims=[root_path])
+                if not framed:
+                    print(
+                        f"[thumbnail_capture]   warning: frame_viewport_prims failed for {root_path}",
+                        file=sys.stderr,
+                    )
+                png_bytes = capture_viewport_png(app, cache_path, pre_capture_updates=PRE_CAPTURE_UPDATES)
+                if png_bytes:
+                    out[node_id] = png_bytes
+                else:
+                    print(
+                        f"[thumbnail_capture]   capture produced no file for {target.relative_prim_path}: {cache_path}",
+                        file=sys.stderr,
+                    )
+        finally:
+            # The collider-viz carb settings are persistent, so disable them and clear the
+            # selection to avoid leaking collider wireframes into later asset captures.
+            omni.usd.get_context().get_selection().clear_selected_prim_paths()
+            _set_collision_mesh_visualization(enabled=False)
 
     return out
 
@@ -224,7 +229,7 @@ def _capture_stage_snapshot(
             )
 
     if collision_paths:
-        _configure_collision_mesh_visualization()
+        _set_collision_mesh_visualization(enabled=True)
         _select_collision_prims(app, collision_paths)
 
     png_bytes = capture_viewport_png(app, cache_path)
@@ -282,15 +287,15 @@ def _collect_collision_prim_paths(stage, root_path: str) -> list[str]:
     return paths
 
 
-def _configure_collision_mesh_visualization() -> None:
-    """Enable viewport Show By Type → Physics → Colliders → Selected."""
+def _set_collision_mesh_visualization(*, enabled: bool) -> None:
+    """Toggle viewport Show By Type → Physics → Colliders → Selected."""
     import carb.settings
 
     # VisualizerMode: 0=None, 1=Selected, 2=All. Use Selected so only the picked
     # object_reference subtree shows collider wireframes, not the whole scene.
     settings = carb.settings.get_settings()
-    settings.set_bool("/persistent/physics/visualizationCollisionMesh", True)
-    settings.set_int("/persistent/physics/visualizationDisplayColliders", 1)
+    settings.set_bool("/persistent/physics/visualizationCollisionMesh", enabled)
+    settings.set_int("/persistent/physics/visualizationDisplayColliders", 1 if enabled else 0)
 
 
 def _select_collision_prims(app, selected_prim_paths: list[str]) -> None:
