@@ -10,7 +10,7 @@ import yaml
 import streamlit as st
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec, SpatialRelationSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.asset_cards import AssetCard
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.mermaid_graph import (
     estimate_mermaid_height_px,
@@ -53,16 +53,23 @@ def _render_tasks_table(spec: ArenaEnvGraphSpec) -> None:
 
 def _render_asset_card(card: AssetCard) -> None:
     """Render one asset snapshot card; ``st.image`` provides the native fullscreen zoom."""
+    spec = card.spec
+    is_reference = isinstance(spec, ObjectReferenceSpec)
     with st.container(border=True):
         if card.thumbnail_bytes is not None:
             st.image(card.thumbnail_bytes, use_container_width=True)
+        elif is_reference and spec.prim_path is None:
+            st.caption("⛔ Resolve prim_path to enable collision-mesh snapshot")
         else:
             st.caption("No snapshot available")
-        note = card.asset.registry_name
-        if card.aabb_dimensions_m is not None:
-            x, y, z = card.aabb_dimensions_m
-            note += f" · [{x:.3f}, {y:.3f}, {z:.3f}]"
-        st.markdown(f"**[{card.role}] {card.asset.id}**")
+        if is_reference:
+            note = f"parent `{spec.parent_id}` · prim `{spec.prim_path or '—'}` · {spec.object_type.value}"
+        else:
+            note = spec.registry_name
+            if card.aabb_dimensions_m is not None:
+                x, y, z = card.aabb_dimensions_m
+                note += f" · [{x:.3f}, {y:.3f}, {z:.3f}]"
+        st.markdown(f"**[{card.role}] {spec.id}**")
         st.caption(note)
 
 

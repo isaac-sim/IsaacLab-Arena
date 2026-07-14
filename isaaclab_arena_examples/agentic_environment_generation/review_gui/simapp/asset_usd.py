@@ -7,7 +7,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import sys
+from dataclasses import dataclass
 
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -15,6 +17,27 @@ from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
 
 AabbDimensionsM = tuple[float, float, float]
+
+
+@dataclass(frozen=True)
+class ObjectReferenceUsdTarget:
+    """Parent USD plus a default-prim-relative suffix for an object_reference snapshot."""
+
+    usd_path: str
+    relative_prim_path: str
+
+
+def object_reference_cache_key(usd_path: str, relative_prim_path: str) -> str:
+    """Return a stable cache key for an object_reference subtree snapshot."""
+    return hashlib.sha1(f"{usd_path}::{relative_prim_path}".encode()).hexdigest()[:16]
+
+
+def is_resolved_prim_path(prim_path: str | None) -> bool:
+    """Return True when an object_reference prim_path is ready for USD rendering."""
+    if prim_path is None:
+        return False
+    cleaned = prim_path.strip()
+    return bool(cleaned) and cleaned.lower() != "unknown"
 
 
 def _snapshot_asset_specs(spec: ArenaEnvGraphSpec) -> list[AssetSpec]:
@@ -124,3 +147,39 @@ def resolve_node_aabb_dimensions_m(spec: ArenaEnvGraphSpec) -> dict[str, AabbDim
                 file=sys.stderr,
             )
     return dimensions
+
+
+def resolve_object_reference_usd_targets(spec: ArenaEnvGraphSpec) -> dict[str, ObjectReferenceUsdTarget]:
+    """Map ``object_reference.id`` to parent USD and resolved prim suffix for snapshots."""
+    if not spec.object_references:
+        return {}
+
+    registry = AssetRegistry()
+    targets: dict[str, ObjectReferenceUsdTarget] = {}
+    for ref in spec.object_references:
+        if not is_resolved_prim_path(ref.prim_path):
+            continue
+        try:
+            parent_spec = spec._asset_by_id(ref.parent_id)
+        except KeyError:
+            print(
+                f"[asset_usd]   {ref.id}: parent '{ref.parent_id}' not found, skipping object_reference snapshot.",
+                file=sys.stderr,
+            )
+            continue
+        try:
+            if not registry.is_registered(parent_spec.registry_name):
+                continue
+            usd_path = parent_spec.resolve_usd_path()
+            if not usd_path:
+                continue
+            targets[ref.id] = ObjectReferenceUsdTarget(
+                usd_path=usd_path,
+                relative_prim_path=ref.prim_path.strip(),  # type: ignore[union-attr]
+            )
+        except Exception as exc:
+            print(
+                f"[asset_usd]   {ref.id}: object_reference lookup failed for parent '{ref.parent_id}': {exc}",
+                file=sys.stderr,
+            )
+    return targets

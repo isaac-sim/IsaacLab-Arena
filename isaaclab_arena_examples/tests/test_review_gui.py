@@ -25,6 +25,10 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.generatio
     _apply_generated_yaml,
     run_generation_pipeline,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
+    is_resolved_prim_path,
+    resolve_object_reference_usd_targets,
+)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppClient,
     spawn_simapp_process,
@@ -92,17 +96,17 @@ class TestBuildAssetCards:
             thumbnails={bg_id: b"fake"},
             aabb_dimensions_m={bg_id: (0.05, 0.05, 0.12)},
         )
-        background = next(card for card in cards if card.asset.id == bg_id)
+        background = next(card for card in cards if card.spec.id == bg_id)
         assert background.thumbnail_bytes == b"fake"
         assert background.aabb_dimensions_m == (0.05, 0.05, 0.12)
 
-    def test_excludes_object_references(self):
+    def test_includes_object_references(self):
         from isaaclab_arena.tests.utils.agentic_environment_generation import kitchen_pass1_dict
 
         spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
-        card_ids = {card.asset.id for card in build_asset_cards(spec)}
+        card_ids = {card.spec.id for card in build_asset_cards(spec)}
         assert card_ids
-        assert all(ref.id not in card_ids for ref in spec.object_references)
+        assert any(ref.id in card_ids for ref in spec.object_references)
 
 
 class TestMermaidHtml:
@@ -114,6 +118,33 @@ class TestMermaidHtml:
     def test_estimate_mermaid_height_px_scales_with_nodes(self, valid_spec: ArenaEnvGraphSpec):
         height = estimate_mermaid_height_px(valid_spec)
         assert 260 <= height <= 900
+
+
+class TestObjectReferenceUsdTargets:
+    def test_is_resolved_prim_path(self):
+        assert not is_resolved_prim_path(None)
+        assert not is_resolved_prim_path("unknown")
+        assert is_resolved_prim_path("counter_right_main_group/top_geometry")
+
+    def test_resolve_object_reference_usd_targets_skips_unresolved(self):
+        from isaaclab_arena.tests.utils.agentic_environment_generation import kitchen_pass1_dict
+
+        spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
+        assert resolve_object_reference_usd_targets(spec) == {}
+
+    def test_resolve_object_reference_usd_targets_resolved(self, monkeypatch):
+        from isaaclab_arena.tests.utils.agentic_environment_generation import kitchen_pass1_dict
+
+        data = kitchen_pass1_dict()
+        data["object_references"][0]["prim_path"] = "counter_right_main_group/top_geometry"
+        spec = ArenaEnvGraphSpec.model_validate(data)
+        monkeypatch.setattr(
+            "isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path",
+            lambda self, *_args, **_kwargs: "/tmp/scene.usd",
+        )
+        targets = resolve_object_reference_usd_targets(spec)
+        assert set(targets) == {"counter_top"}
+        assert targets["counter_top"].relative_prim_path == "counter_right_main_group/top_geometry"
 
 
 class TestValidateYamlText:
