@@ -128,6 +128,12 @@ def add_env_graph_spec_cli_args(parser: argparse.ArgumentParser) -> None:
             " the YAML declares under `cli_override_specs` are added to the parser dynamically."
         ),
     )
+    env_graph_spec_group.add_argument(
+        "--use_staging_assets",
+        action="store_true",
+        default=False,
+        help="For graph-spec environments, use the CAP staging asset route for the Maple table and DROID stand.",
+    )
 
 
 def add_external_environments_cli_args(parser: argparse.ArgumentParser) -> None:

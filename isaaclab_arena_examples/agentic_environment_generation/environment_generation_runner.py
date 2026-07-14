@@ -28,6 +28,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -202,9 +203,27 @@ def build_env_from_env_graph_spec(env_graph_spec_path: Path, args_cli: argparse.
     """Build a gymnasium env from an environment graph spec YAML."""
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena_environments.cap_asset_overrides import (
+        apply_cap_asset_overrides,
+        cap_asset_registry_overrides_for_graph_spec,
+    )
 
     loaded_env_graph_spec = ArenaEnvGraphSpec.from_yaml(env_graph_spec_path)
-    arena_env = loaded_env_graph_spec.to_arena_env()
+    configured_local_root = os.environ.get("CAP_LOCAL_ASSET_ROOT")
+    local_asset_root = Path(configured_local_root).expanduser().resolve() if configured_local_root else None
+    use_staging_assets = getattr(args_cli, "use_staging_assets", False)
+    # USD-backed graph assets may open their USDs during construction, so route classes before to_arena_env().
+    with cap_asset_registry_overrides_for_graph_spec(
+        loaded_env_graph_spec,
+        use_staging_assets=use_staging_assets,
+        local_asset_root=local_asset_root,
+    ):
+        arena_env = loaded_env_graph_spec.to_arena_env(enable_cameras=args_cli.enable_cameras)
+    apply_cap_asset_overrides(
+        arena_env,
+        use_staging_assets=use_staging_assets,
+        local_asset_root=local_asset_root,
+    )
     # TODO(cvolk, 2026-07-06): [typed-config-migration] Pass ArenaEnvBuilderCfg into this function after this
     # runner stops carrying all configuration in one argparse Namespace.
     builder = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli))

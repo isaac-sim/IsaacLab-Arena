@@ -14,7 +14,12 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
+from isaaclab_arena.assets.registries import (
+    AssetRegistry,
+    CameraProfileRegistry,
+    ObjectRelationLibraryRegistry,
+    TaskRegistry,
+)
 
 
 def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
@@ -66,6 +71,26 @@ class AssetSpec(BaseModel):
         usd_path = _extract_asset_usd_path(asset_cls, **self.params)
         assert usd_path, f"asset {self.registry_name!r} has no usd_path"
         return usd_path
+
+
+class EmbodimentSpec(AssetSpec):
+    """Registered embodiment node with an optional reviewed camera profile."""
+
+    camera_profile: str | None = Field(
+        default=None,
+        description=(
+            "Optional exact registered camera-profile name compatible with this embodiment. "
+            "Leave unset to use the embodiment's default cameras."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate_camera_profile(self) -> EmbodimentSpec:
+        if self.camera_profile is None:
+            return self
+        profile_cls = CameraProfileRegistry().get_camera_profile_by_name(self.camera_profile)
+        profile_cls.assert_compatible(self.registry_name)
+        return self
 
 
 class ObjectReferenceSpec(BaseModel):

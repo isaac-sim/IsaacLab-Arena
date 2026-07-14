@@ -105,3 +105,9 @@ def test_infer_returns_none_with_validation_traces_on_invalid_spec(spec_inferenc
     assert data["embodiment"]["registry_name"] == "not_a_real_asset"
     assert traces
     assert any("registry_name" in line for line in traces)
+
+
+def test_system_prompt_explains_camera_profile_selection():
+    prompt = SpecInference._system_prompt()
+    assert "camera_profile" in prompt
+    assert "Use only exact camera-profile names listed for the selected embodiment" in prompt

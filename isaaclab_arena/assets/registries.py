@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.assets.hdr_image import HDRImage
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
+    from isaaclab_arena.embodiments.camera_profile import CameraProfileBase
     from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
     from isaaclab_arena.relations.relations import RelationBase
@@ -265,6 +266,28 @@ class HDRImageRegistry(Registry):
         return random.choice(hdrs)
 
 
+class CameraProfileRegistry(Registry):
+    """Registry for named embodiment camera profiles."""
+
+    def get_camera_profile_by_name(self, name: str) -> type["CameraProfileBase"]:
+        ensure_assets_registered()
+        return self.get_component_by_name(name)
+
+    def get_compatible_profile_names(self, embodiment_registry_name: str) -> list[str]:
+        ensure_assets_registered()
+        names = [
+            name
+            for name, profile in self._components.items()
+            if embodiment_registry_name in profile.compatible_embodiments
+        ]
+        return sorted(names)
+
+    def apply_camera_profile(self, profile_name: str, embodiment_registry_name: str, embodiment: Any) -> None:
+        profile = self.get_camera_profile_by_name(profile_name)
+        profile.assert_compatible(embodiment_registry_name)
+        profile.apply(embodiment)
+
+
 class EnvironmentRegistry(Registry):
     """Registry for Arena environment factories and their configs."""
 
@@ -350,6 +373,7 @@ REGISTRIES = (
     RetargeterRegistry,
     PolicyRegistry,
     HDRImageRegistry,
+    CameraProfileRegistry,
     ObjectRelationLibraryRegistry,
     TaskRegistry,
 )

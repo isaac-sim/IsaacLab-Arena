@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, get_args, get_origin
 
 from isaaclab_arena.assets.registries import (
     AssetRegistry,
+    CameraProfileRegistry,
     DeviceRegistry,
     EnvironmentRegistry,
     HDRImageRegistry,
@@ -67,6 +68,15 @@ def register_hdr(cls):
         print(f"WARNING: HDRImage {cls.name} is already registered. Doing nothing.")
     else:
         HDRImageRegistry().register(cls, cls.name)
+    return cls
+
+
+def register_camera_profile(cls):
+    registry = CameraProfileRegistry()
+    if registry.is_registered(cls.name, ensure_loaded=False):
+        print(f"WARNING: Camera profile {cls.name} is already registered. Doing nothing.")
+    else:
+        registry.register(cls, cls.name)
     return cls
 
 

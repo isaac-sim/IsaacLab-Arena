@@ -38,3 +38,20 @@ def test_agentview_quat_is_xyzw_and_looks_at_target():
     # Quaternions are equal up to sign; compare with the sign aligned.
     sign = 1.0 if float((torch.tensor(q_xyzw) * q_roundtrip).sum()) >= 0 else -1.0
     assert torch.allclose(torch.tensor(q_xyzw, dtype=torch.float32), sign * q_roundtrip, atol=1e-5)
+
+
+def test_droid_workspace_profile_installs_exterior_rgbd_camera():
+    from isaaclab_arena.assets.registries import AssetRegistry, CameraProfileRegistry
+
+    embodiment = AssetRegistry().get_asset_by_name("droid_abs_joint_pos")(enable_cameras=True)
+    CameraProfileRegistry().apply_camera_profile(
+        "droid_workspace_exterior_rgbd",
+        "droid_abs_joint_pos",
+        embodiment,
+    )
+
+    camera_cfg = embodiment.camera_config.exterior_cam
+    assert camera_cfg.height == 512
+    assert camera_cfg.width == 800
+    assert camera_cfg.data_types == ["rgb", "distance_to_image_plane"]
+    assert "camera_extrinsics_exterior_cam" in embodiment.variations

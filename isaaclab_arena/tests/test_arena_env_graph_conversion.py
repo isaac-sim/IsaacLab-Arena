@@ -20,6 +20,7 @@ from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSp
 from isaaclab_arena.environment_spec.arena_env_graph_types import (
     AssetSpec,
     CompositeTaskSpec,
+    EmbodimentSpec,
     TaskCompositionType,
     TaskSpec,
 )
@@ -27,12 +28,25 @@ from isaaclab_arena.environment_spec.arena_env_graph_types import (
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
 
 
+def test_graph_yaml_cli_accepts_use_staging_assets_flag(monkeypatch):
+    import sys
+
+    from isaaclab_arena_environments.cli import get_isaaclab_arena_environments_cli_parser
+
+    yaml_path = str(TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml")
+    monkeypatch.setattr(sys, "argv", ["policy_runner.py", "--env_graph_spec_yaml", yaml_path, "--use_staging_assets"])
+    args = get_isaaclab_arena_environments_cli_parser().parse_args()
+    assert args.use_staging_assets is True
+
+
 def _test_arena_env_graph_conversion_builds_sequential_pick_and_place_task(simulation_app):
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
+    from isaaclab_arena_environments.cap_asset_overrides import cap_asset_registry_overrides_for_graph_spec
 
     spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml")
-    arena_env = spec.to_arena_env()
+    with cap_asset_registry_overrides_for_graph_spec(spec, use_staging_assets=True, local_asset_root=None):
+        arena_env = spec.to_arena_env()
 
     assert arena_env.name == "pick_and_place_maple_table_default"
     assert isinstance(arena_env.task, SequentialTaskBase)
@@ -66,7 +80,7 @@ def _test_get_arena_builder_from_cli_builds_env_from_graph_yaml(simulation_app):
 
     # --env_graph_spec_yaml with no example-environment subcommand: parses (subcommand is
     # optional) and the runner builds the env from the graph spec instead of the registry.
-    sys.argv = ["policy_runner.py", "--env_graph_spec_yaml", yaml_path]
+    sys.argv = ["policy_runner.py", "--env_graph_spec_yaml", yaml_path, "--use_staging_assets"]
     args = get_isaaclab_arena_environments_cli_parser().parse_args()
 
     builder = get_arena_builder_from_cli(args)
@@ -113,7 +127,7 @@ def test_get_arena_builder_from_cli_builds_env_from_graph_yaml():
 def _minimal_scene_spec(*, objects: list[AssetSpec]) -> ArenaEnvGraphSpec:
     return ArenaEnvGraphSpec(
         env_name="lighting_test",
-        embodiment=AssetSpec(id="robot", registry_name="droid_abs_joint_pos"),
+        embodiment=EmbodimentSpec(id="robot", registry_name="droid_abs_joint_pos"),
         background=AssetSpec(id="background", registry_name="maple_table_robolab"),
         objects=objects,
         task=CompositeTaskSpec(
@@ -135,11 +149,13 @@ def _minimal_scene_spec(*, objects: list[AssetSpec]) -> ArenaEnvGraphSpec:
 
 def _test_default_light_is_injected_when_scene_has_none(simulation_app):
     from isaaclab_arena.assets.object_library import DomeLight
+    from isaaclab_arena_environments.cap_asset_overrides import cap_asset_registry_overrides_for_graph_spec
 
     # A single YCB object with no light asset and no light baked into its USD: the converter
     # must inject a default light so the env does not render black.
     spec = _minimal_scene_spec(objects=[AssetSpec(id="mug", registry_name="mug_ycb_robolab")])
-    arena_env = spec.to_arena_env()
+    with cap_asset_registry_overrides_for_graph_spec(spec, use_staging_assets=True, local_asset_root=None):
+        arena_env = spec.to_arena_env()
 
     assert any(isinstance(asset, DomeLight) for asset in arena_env.scene.assets.values())
 
@@ -150,7 +166,8 @@ def _test_default_light_is_injected_when_scene_has_none(simulation_app):
             AssetSpec(id="my_light", registry_name="light"),
         ]
     )
-    explicit_env = explicit.to_arena_env()
+    with cap_asset_registry_overrides_for_graph_spec(explicit, use_staging_assets=True, local_asset_root=None):
+        explicit_env = explicit.to_arena_env()
     assert sum(isinstance(asset, DomeLight) for asset in explicit_env.scene.assets.values()) == 1
 
     return True
@@ -225,3 +242,42 @@ def test_openable_reference_is_instantiated_without_duplicate_object_type():
 
     result = run_simulation_app_function(_test_openable_reference_is_instantiated_without_duplicate_object_type)
     assert result
+
+
+def test_instantiate_assets_applies_selected_camera_profile(monkeypatch):
+    from types import SimpleNamespace
+
+    from isaaclab_arena.environment_spec import arena_env_graph_conversion_utils as conversion
+
+    class AssetRegistry:
+        def get_asset_by_name(self, registry_name):
+            return lambda **params: SimpleNamespace(name=registry_name, params=params)
+
+    calls = []
+
+    class Registry:
+        def apply_camera_profile(self, profile_name, embodiment_registry_name, embodiment):
+            calls.append((profile_name, embodiment_registry_name, embodiment.name, embodiment.params))
+
+    graph_spec = SimpleNamespace(
+        embodiment=SimpleNamespace(
+            id="robot",
+            registry_name="droid_abs_joint_pos",
+            camera_profile="unit_test_droid_profile",
+            params={},
+        ),
+        background=SimpleNamespace(id="background", registry_name="maple_table_robolab", params={}),
+        objects=[],
+        object_references=[],
+    )
+    monkeypatch.setattr(conversion, "CameraProfileRegistry", Registry)
+
+    assets = conversion._instantiate_assets_from_spec(graph_spec, AssetRegistry(), enable_cameras=True)
+
+    assert assets["robot"].params["enable_cameras"] is True
+    assert calls == [(
+        "unit_test_droid_profile",
+        "droid_abs_joint_pos",
+        "droid_abs_joint_pos",
+        {"enable_cameras": True},
+    )]

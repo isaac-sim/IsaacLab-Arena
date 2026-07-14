@@ -293,3 +293,52 @@ def test_graph_spec_omits_empty_optional_fields_from_dict():
     assert "object_references" not in dumped
     assert "cli_override_specs" not in dumped
     assert spec.cli_override_specs is None
+
+
+def _register_unit_test_droid_camera_profile():
+    from isaaclab_arena.assets.register import register_camera_profile
+    from isaaclab_arena.assets.registries import CameraProfileRegistry
+    from isaaclab_arena.embodiments.camera_profile import CameraProfileBase
+
+    registry = CameraProfileRegistry()
+    if registry.is_registered("unit_test_droid_profile", ensure_loaded=False):
+        return
+
+    @register_camera_profile
+    class UnitTestDroidProfile(CameraProfileBase):
+        name = "unit_test_droid_profile"
+        description = "Unit-test RGB-D profile."
+        compatible_embodiments = frozenset({"droid_abs_joint_pos"})
+
+        @classmethod
+        def apply(cls, embodiment):
+            return None
+
+
+def test_graph_spec_embodiment_accepts_camera_profile():
+    _register_unit_test_droid_camera_profile()
+    data = _minimal_env_graph_data()
+    data["embodiment"] = {
+        "id": "robot",
+        "registry_name": "droid_abs_joint_pos",
+        "camera_profile": "unit_test_droid_profile",
+        "params": {},
+    }
+    spec = ArenaEnvGraphSpec.from_dict(data)
+    assert spec.embodiment.camera_profile == "unit_test_droid_profile"
+    assert spec.to_dict()["embodiment"]["camera_profile"] == "unit_test_droid_profile"
+
+
+def test_graph_spec_rejects_camera_profile_for_incompatible_embodiment():
+    _register_unit_test_droid_camera_profile()
+    data = _minimal_env_graph_data()
+    data["embodiment"]["camera_profile"] = "unit_test_droid_profile"
+    with pytest.raises(ValidationError, match="is not compatible with embodiment"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
+def test_graph_spec_rejects_unknown_camera_profile():
+    data = _minimal_env_graph_data()
+    data["embodiment"]["camera_profile"] = "missing_camera_profile"
+    with pytest.raises(ValidationError, match="component missing_camera_profile not found"):
+        ArenaEnvGraphSpec.from_dict(data)

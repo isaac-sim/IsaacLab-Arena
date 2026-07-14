@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import os
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
@@ -229,8 +231,28 @@ def _arena_env_from_graph_spec(env_graph_spec_yaml: str, args_cli: argparse.Name
     """Build the arena env from a graph spec YAML, applying any CLI node overrides."""
     spec = ArenaEnvGraphSpec.from_yaml(env_graph_spec_yaml)
     spec.apply_cli_override_args(args_cli)
-    # cameras are enabled in embodiment, need to pass along to the env
-    return spec.to_arena_env(enable_cameras=args_cli.enable_cameras)
+    from isaaclab_arena_environments.cap_asset_overrides import (
+        apply_cap_asset_overrides,
+        cap_asset_registry_overrides_for_graph_spec,
+    )
+
+    configured_local_root = os.environ.get("CAP_LOCAL_ASSET_ROOT")
+    local_asset_root = Path(configured_local_root).expanduser().resolve() if configured_local_root else None
+    use_staging_assets = getattr(args_cli, "use_staging_assets", False)
+    # USD-backed graph assets may open their USDs during construction, so route classes before to_arena_env().
+    with cap_asset_registry_overrides_for_graph_spec(
+        spec,
+        use_staging_assets=use_staging_assets,
+        local_asset_root=local_asset_root,
+    ):
+        # cameras are enabled in embodiment, need to pass along to the env
+        arena_env = spec.to_arena_env(enable_cameras=args_cli.enable_cameras)
+    apply_cap_asset_overrides(
+        arena_env,
+        use_staging_assets=use_staging_assets,
+        local_asset_root=local_asset_root,
+    )
+    return arena_env
 
 
 def _arena_env_from_example_name(example_environment: str, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:

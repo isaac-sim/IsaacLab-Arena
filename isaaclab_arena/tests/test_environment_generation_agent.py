@@ -118,6 +118,125 @@ class TestGenerateSpec:
         assert any("is not in the background prim tree" in line for line in agent_obj.traces)
 
 
+def test_asset_catalogue_lists_compatible_camera_profiles():
+    from isaaclab_arena.agentic_environment_generation.environment_generation_agent import AssetCatalogue
+
+    catalogue = AssetCatalogue(
+        embodiments=[{
+            "name": "droid_abs_joint_pos",
+            "tags": ["default"],
+            "camera_profiles": [{
+                "name": "droid_workspace_exterior_rgbd",
+                "description": "Exterior RGB-D workspace camera.",
+            }],
+        }]
+    )
+    text = catalogue.to_catalog_string()
+    assert "- droid_abs_joint_pos  tags=['default']" in text
+    assert "camera_profiles=[droid_workspace_exterior_rgbd: Exterior RGB-D workspace camera.]" in text
+
+
+def test_agentic_build_preview_forwards_enable_cameras(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+
+    from isaaclab_arena_examples.agentic_environment_generation import environment_generation_runner as runner
+
+    yaml_path = tmp_path / "env.yaml"
+    yaml_path.write_text("env_name: unused\n", encoding="utf-8")
+    calls = []
+
+    class Spec:
+        embodiment = SimpleNamespace(registry_name="droid_abs_joint_pos")
+
+        @classmethod
+        def from_yaml(cls, path):
+            assert path == yaml_path
+            return cls()
+
+        def to_arena_env(self, enable_cameras=False):
+            calls.append(enable_cameras)
+            return SimpleNamespace(name="env")
+
+    class Builder:
+        def __init__(self, arena_env, cfg):
+            self.arena_env = arena_env
+
+        def make_registered(self):
+            return SimpleNamespace()
+
+    monkeypatch.setattr(runner, "arena_env_builder_cfg_from_argparse", lambda args: SimpleNamespace())
+    monkeypatch.setattr("isaaclab_arena.environment_spec.arena_env_graph_spec.ArenaEnvGraphSpec", Spec)
+    monkeypatch.setattr("isaaclab_arena.environments.arena_env_builder.ArenaEnvBuilder", Builder)
+
+    runner.build_env_from_env_graph_spec(yaml_path, SimpleNamespace(enable_cameras=True))
+    assert calls == [True]
+
+
+def test_agentic_build_preview_routes_cap_asset_overrides(monkeypatch, tmp_path):
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+
+    from isaaclab_arena_examples.agentic_environment_generation import environment_generation_runner as runner
+
+    yaml_path = tmp_path / "env.yaml"
+    yaml_path.write_text("env_name: unused\n", encoding="utf-8")
+    calls = []
+
+    class Spec:
+        embodiment = SimpleNamespace(registry_name="droid_abs_joint_pos")
+
+        @classmethod
+        def from_yaml(cls, path):
+            assert path == yaml_path
+            return cls()
+
+        def to_arena_env(self, enable_cameras=False):
+            calls.append(("to_arena_env", enable_cameras))
+            return SimpleNamespace(name="env")
+
+    class Builder:
+        def __init__(self, arena_env, cfg):
+            calls.append(("builder", arena_env, cfg))
+
+        def make_registered(self):
+            calls.append(("make_registered",))
+            return SimpleNamespace()
+
+    @contextmanager
+    def override_context(spec, *, use_staging_assets, local_asset_root):
+        calls.append(("override_enter", spec, use_staging_assets, local_asset_root))
+        yield
+        calls.append(("override_exit",))
+
+    def apply_overrides(arena_env, *, use_staging_assets, local_asset_root):
+        calls.append(("apply_overrides", arena_env, use_staging_assets, local_asset_root))
+
+    monkeypatch.delenv("CAP_LOCAL_ASSET_ROOT", raising=False)
+    monkeypatch.setattr(runner, "arena_env_builder_cfg_from_argparse", lambda args: SimpleNamespace(kind="cfg"))
+    monkeypatch.setattr("isaaclab_arena.environment_spec.arena_env_graph_spec.ArenaEnvGraphSpec", Spec)
+    monkeypatch.setattr("isaaclab_arena.environments.arena_env_builder.ArenaEnvBuilder", Builder)
+    monkeypatch.setattr(
+        "isaaclab_arena_environments.cap_asset_overrides.cap_asset_registry_overrides_for_graph_spec",
+        override_context,
+    )
+    monkeypatch.setattr(
+        "isaaclab_arena_environments.cap_asset_overrides.apply_cap_asset_overrides",
+        apply_overrides,
+    )
+
+    runner.build_env_from_env_graph_spec(
+        yaml_path,
+        SimpleNamespace(enable_cameras=True, use_staging_assets=True),
+    )
+
+    assert calls[0][0] == "override_enter"
+    assert calls[0][2:] == (True, None)
+    assert calls[1] == ("to_arena_env", True)
+    assert calls[2][0] == "override_exit"
+    assert calls[3][0] == "apply_overrides"
+    assert calls[3][2:] == (True, None)
+
+
 # ---------------------------------------------------------------------------
 # Live endpoint (network + auth required)
 # ---------------------------------------------------------------------------

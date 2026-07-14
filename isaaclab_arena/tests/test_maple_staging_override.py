@@ -8,16 +8,18 @@
 import json
 from types import SimpleNamespace
 
-from isaaclab_arena_environments.pick_and_place_maple_table_environment import (
-    _PROD_NUCLEUS_HOST,
-    _STAGING_NUCLEUS_HOST,
-    _apply_local_droid_asset_override,
-    _load_local_asset_provenance,
-    _local_asset_path,
-    _local_asset_subclass,
-    _staging_subclass,
-    _to_staging_url,
+from isaaclab_arena_environments.cap_asset_overrides import _PROD_NUCLEUS_HOST, _STAGING_NUCLEUS_HOST
+from isaaclab_arena_environments.cap_asset_overrides import (
+    apply_local_droid_asset_override as _apply_local_droid_asset_override,
 )
+from isaaclab_arena_environments.cap_asset_overrides import (
+    apply_staging_stand_override as _apply_staging_stand_override,
+)
+from isaaclab_arena_environments.cap_asset_overrides import load_local_asset_provenance as _load_local_asset_provenance
+from isaaclab_arena_environments.cap_asset_overrides import local_asset_path as _local_asset_path
+from isaaclab_arena_environments.cap_asset_overrides import local_asset_subclass as _local_asset_subclass
+from isaaclab_arena_environments.cap_asset_overrides import staging_subclass as _staging_subclass
+from isaaclab_arena_environments.cap_asset_overrides import to_staging_url as _to_staging_url
 
 
 def test_pick_targets_typed_cli_preserves_absent_and_explicit_lists():
@@ -60,7 +62,6 @@ def test_droid_stand_staging_override_is_instance_local():
     the shared object in place. (Deferred imports: instantiating the embodiment needs the booted app.)
     """
     from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
-    from isaaclab_arena_environments.pick_and_place_maple_table_environment import _apply_staging_stand_override
 
     staged_emb = DroidAbsoluteJointPositionEmbodiment(enable_cameras=False)
     prod_url = staged_emb.scene_config.stand.spawn.usd_path
@@ -174,3 +175,88 @@ def test_local_asset_provenance_requires_schema_and_tree_hash(tmp_path, monkeypa
     provenance_path.write_text(json.dumps({"schema_version": 1, "tree_sha256": "nope"}), encoding="utf-8")
     with pytest.raises(RuntimeError, match="invalid baked CAP asset provenance"):
         _load_local_asset_provenance(tmp_path)
+
+
+def test_apply_cap_asset_overrides_routes_graph_env_maple_and_droid_staging():
+    from isaaclab_arena_environments.cap_asset_overrides import apply_cap_asset_overrides
+
+    table_url = f"https://{_PROD_NUCLEUS_HOST}/Assets/Isaac/6.0/Isaac/IsaacLab/Arena/x/maple_table.usda"
+    stand_url = f"https://{_PROD_NUCLEUS_HOST}/Assets/Isaac/6.0/Isaac/IsaacLab/Arena/x/droid_stand.usda"
+    table = SimpleNamespace(name="maple_table_robolab", usd_path=table_url, bounding_box=object())
+    stand = SimpleNamespace(spawn=SimpleNamespace(usd_path=stand_url))
+    robot = SimpleNamespace(spawn=SimpleNamespace(usd_path=f"https://{_PROD_NUCLEUS_HOST}/Assets/robot.usd"))
+    embodiment = SimpleNamespace(
+        name="droid_abs_joint_pos",
+        scene_config=SimpleNamespace(robot=robot, stand=stand),
+    )
+    arena_env = SimpleNamespace(scene=SimpleNamespace(assets={"table": table}), embodiment=embodiment)
+
+    provenance = apply_cap_asset_overrides(arena_env, use_staging_assets=True, local_asset_root=None)
+
+    assert _STAGING_NUCLEUS_HOST in table.usd_path
+    assert table.bounding_box is None
+    assert embodiment.scene_config.stand is not stand
+    assert embodiment.scene_config.stand.spawn.usd_path != stand_url
+    assert _STAGING_NUCLEUS_HOST in embodiment.scene_config.stand.spawn.usd_path
+    assert stand.spawn.usd_path == stand_url
+    assert provenance["table_source_usd"] == table_url
+    assert provenance["table_resolved_usd"] == table.usd_path
+    assert provenance["droid_stand_staging_usd"] == embodiment.scene_config.stand.spawn.usd_path
+
+
+def test_graph_spec_asset_registry_override_is_temporary():
+    from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena_environments.cap_asset_overrides import cap_asset_registry_overrides_for_graph_spec
+
+    registry = AssetRegistry()
+    original_cls = registry.get_asset_by_name("maple_table_robolab")
+    graph_spec = SimpleNamespace(
+        embodiment=SimpleNamespace(registry_name="droid_abs_joint_pos"),
+        background=SimpleNamespace(registry_name="maple_table_robolab"),
+        objects=[],
+    )
+
+    with cap_asset_registry_overrides_for_graph_spec(
+        graph_spec,
+        use_staging_assets=True,
+        local_asset_root=None,
+    ):
+        staged_cls = registry.get_asset_by_name("maple_table_robolab")
+        assert staged_cls is not original_cls
+        assert _STAGING_NUCLEUS_HOST in staged_cls.usd_path
+
+    assert registry.get_asset_by_name("maple_table_robolab") is original_cls
+
+
+def test_graph_spec_local_asset_root_rejects_non_droid_embodiment(tmp_path):
+    import pytest
+
+    from isaaclab_arena_environments.cap_asset_overrides import cap_asset_registry_overrides_for_graph_spec
+
+    graph_spec = SimpleNamespace(
+        embodiment=SimpleNamespace(registry_name="franka_ik"),
+        background=SimpleNamespace(registry_name="maple_table_robolab"),
+        objects=[],
+    )
+
+    with pytest.raises(AssertionError, match="CAP_LOCAL_ASSET_ROOT contains the CAP DROID scene closure"):
+        with cap_asset_registry_overrides_for_graph_spec(
+            graph_spec,
+            use_staging_assets=False,
+            local_asset_root=tmp_path,
+        ):
+            pass
+
+
+def test_apply_cap_asset_overrides_local_asset_root_rejects_non_droid_embodiment(tmp_path):
+    import pytest
+
+    from isaaclab_arena_environments.cap_asset_overrides import apply_cap_asset_overrides
+
+    arena_env = SimpleNamespace(
+        scene=SimpleNamespace(assets={}),
+        embodiment=SimpleNamespace(name="franka_ik"),
+    )
+
+    with pytest.raises(AssertionError, match="CAP_LOCAL_ASSET_ROOT contains the CAP DROID scene closure"):
+        apply_cap_asset_overrides(arena_env, use_staging_assets=False, local_asset_root=tmp_path)

@@ -131,8 +131,17 @@ class AssetCatalogue:
 
     def to_catalog_string(self) -> str:
         """Format this catalogue as the user-message vocabulary block."""
+
+        def _profile_suffix(entry: dict[str, Any]) -> str:
+            profiles = entry.get("camera_profiles", [])
+            if not profiles:
+                return "  camera_profiles=[]"
+            rendered = ", ".join(f"{p['name']}: {p['description']}" for p in profiles)
+            return f"  camera_profiles=[{rendered}]"
+
         embodiment_lines = "\n".join(
-            f"- {e['name']}  tags={e['tags']}" for e in sorted(self.embodiments, key=lambda e: e["name"])
+            f"- {e['name']}  tags={e['tags']}{_profile_suffix(e)}"
+            for e in sorted(self.embodiments, key=lambda e: e["name"])
         )
         background_lines = "\n".join(
             f"- {b['name']}  tags={b['tags']}" for b in sorted(self.backgrounds, key=lambda b: b["name"])
@@ -149,7 +158,10 @@ class AssetCatalogue:
 
 def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalogue:
     """Collect registered embodiments, backgrounds, and pick-up objects from ``AssetRegistry``."""
+    from isaaclab_arena.assets.registries import CameraProfileRegistry
+
     registry = registry or AssetRegistry()
+    camera_profiles = CameraProfileRegistry()
     catalogue = AssetCatalogue()
     # TODO(qianl): handle optional lights and hdr images.
     # TODO(qianl): add tag to filter out validated/agent-ready assets only.
@@ -159,7 +171,17 @@ def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalog
         cls = registry.get_asset_by_name(name)
         tags = getattr(cls, "tags", None) or []
         if "embodiment" in tags:
-            catalogue.embodiments.append({"name": name, "tags": [t for t in tags if t != "embodiment"]})
+            catalogue.embodiments.append({
+                "name": name,
+                "tags": [t for t in tags if t != "embodiment"],
+                "camera_profiles": [
+                    {
+                        "name": profile_name,
+                        "description": camera_profiles.get_camera_profile_by_name(profile_name).description,
+                    }
+                    for profile_name in camera_profiles.get_compatible_profile_names(name)
+                ],
+            })
         elif "background" in tags:
             catalogue.backgrounds.append({"name": name, "tags": [t for t in tags if t != "background"]})
         elif "object" in tags:

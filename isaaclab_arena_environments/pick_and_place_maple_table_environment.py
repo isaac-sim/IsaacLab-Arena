@@ -6,16 +6,23 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse
 
 from isaaclab_arena.assets.register import register_environment
+from isaaclab_arena.assets.registries import CameraProfileRegistry
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
+from isaaclab_arena_environments.cap_asset_overrides import (
+    apply_local_droid_asset_override as _apply_local_droid_asset_override,
+)
+from isaaclab_arena_environments.cap_asset_overrides import (
+    apply_staging_stand_override as _apply_staging_stand_override,
+)
+from isaaclab_arena_environments.cap_asset_overrides import load_local_asset_provenance as _load_local_asset_provenance
+from isaaclab_arena_environments.cap_asset_overrides import local_asset_subclass as _local_asset_subclass
+from isaaclab_arena_environments.cap_asset_overrides import staging_subclass as _staging_subclass
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -27,25 +34,21 @@ if TYPE_CHECKING:
 # Only applied under --gap_profile.
 _REACH_BOX = dict(x_min=0.05, x_max=0.45, y_min=-0.25, y_max=0.25)
 
-# Opt-in dev override for the two unpromoted srl_robolab assets from PR #786 (the Maple table and the DROID
-# stand): both 404 on the production Nucleus but 200 on the Isaac staging bucket (CI used staging). The
-# override is a targeted production->staging HOST swap for ONLY those two files; everything else (robolab
-# objects, etc.) stays on production. Off by default (production, documented promotion blocker); never a
-# silent fallback. Enable with --use_staging_assets for development/evaluation until the assets are promoted.
-_PROD_NUCLEUS_HOST = "omniverse-content-production.s3-us-west-2.amazonaws.com"
-_STAGING_NUCLEUS_HOST = "omniverse-content-staging.s3.us-west-2.amazonaws.com"
-_LOCAL_ASSET_HOSTS = {
-    _PROD_NUCLEUS_HOST,
-    _STAGING_NUCLEUS_HOST,
-    "omniverse-content-production.s3.us-west-2.amazonaws.com",
-}
-_ASSET_PROVENANCE_FILE = "CAP_ASSET_PROVENANCE.json"
 # Keep exact-layout bodies just above the tabletop. A larger drop introduces avoidable lateral drift before
 # the policy's first observation, which weakens millimeter-scale distance control.
 _CONTROLLED_ON_CLEARANCE_M = 0.001
 _CONTROLLED_TABLE_EDGE_MARGIN_M = 0.05
 _CONTROLLED_PICK_WORKSPACE = dict(x_min=0.05, x_max=0.45, y_min=-0.25, y_max=0.25)
 _CONTROLLED_DESTINATION_WORKSPACE = dict(x_min=0.45, x_max=0.55, y_min=-0.25, y_max=0.25)
+
+
+def _apply_gap_camera_profile(embodiment_registry_name: str, embodiment) -> None:
+    """Apply the reviewed DROID exterior RGB-D camera profile used by GaP."""
+    CameraProfileRegistry().apply_camera_profile(
+        "droid_workspace_exterior_rgbd",
+        embodiment_registry_name,
+        embodiment,
+    )
 
 
 def _compute_controlled_object_bin_layout(
@@ -127,107 +130,6 @@ def _compute_controlled_object_bin_layout(
             raise ValueError(f"controlled layout puts {name} origin outside the DROID workspace: {position}")
 
     return pick_position, destination_position, actual_gap_m
-
-
-def _to_staging_url(url: str) -> str:
-    """Rewrite a production Nucleus asset URL to its Isaac staging-bucket equivalent (host swap only)."""
-    staged = url.replace(_PROD_NUCLEUS_HOST, _STAGING_NUCLEUS_HOST)
-    assert staged != url, f"staging override did not rewrite the production host in: {url}"
-    return staged
-
-
-def _staging_subclass(asset_cls: type) -> tuple[type, str]:
-    """Return a subclass of ``asset_cls`` whose ``usd_path`` points at staging, plus that URL.
-
-    A dynamic subclass is used (not an in-place edit of ``asset_cls.usd_path``) because the asset registry
-    hands back a SHARED class; mutating it would leak the staging URL into later non-staging jobs/rebuilds in
-    the same eval_runner process. The registered class is left untouched.
-    """
-    staged = _to_staging_url(asset_cls.usd_path)
-    return type(f"{asset_cls.__name__}Staging", (asset_cls,), {"usd_path": staged}), staged
-
-
-def _local_asset_path(source_url: str, local_root: str | Path) -> str:
-    """Map one approved Isaac asset URL into the image's host-qualified local mirror."""
-    parsed = urlparse(source_url)
-    if parsed.scheme != "https" or parsed.netloc not in _LOCAL_ASSET_HOSTS:
-        raise RuntimeError(f"unsupported CAP asset source URL: {source_url}")
-    root = Path(local_root).expanduser().resolve()
-    target = (root / parsed.netloc / parsed.path.lstrip("/")).resolve()
-    if not target.is_relative_to(root):
-        raise RuntimeError(f"CAP asset source escapes the local asset root: {source_url}")
-    if not target.is_file():
-        raise FileNotFoundError(f"baked CAP asset is missing: {target} (source: {source_url})")
-    return str(target)
-
-
-def _local_asset_subclass(asset_cls: type, local_root: str | Path) -> tuple[type, str, str]:
-    """Return an instance-local asset subclass backed by the baked mirror."""
-    source_url = getattr(asset_cls, "usd_path", None)
-    if not source_url:
-        raise RuntimeError(f"CAP asset class has no usd_path: {asset_cls.__name__}")
-    local_path = _local_asset_path(source_url, local_root)
-    localized = type(f"{asset_cls.__name__}Local", (asset_cls,), {"usd_path": local_path})
-    return localized, source_url, local_path
-
-
-def _load_local_asset_provenance(local_root: str | Path) -> dict:
-    path = Path(local_root).expanduser().resolve() / _ASSET_PROVENANCE_FILE
-    try:
-        provenance = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"invalid baked CAP asset provenance: {path}") from exc
-    tree_hash = provenance.get("tree_sha256")
-    if (
-        provenance.get("schema_version") != 1
-        or not isinstance(tree_hash, str)
-        or not re.fullmatch(r"[0-9a-f]{64}", tree_hash)
-    ):
-        raise RuntimeError(f"invalid baked CAP asset provenance schema or tree hash: {path}")
-    expected_tree_hash = os.environ.get("CAP_IMAGE_ASSET_TREE_SHA256")
-    if expected_tree_hash and tree_hash != expected_tree_hash:
-        raise RuntimeError(f"baked CAP asset tree hash {tree_hash} does not match image pin {expected_tree_hash}")
-    return provenance
-
-
-def _apply_staging_stand_override(embodiment) -> str:
-    """Point a DROID embodiment's stand at the staging asset, INSTANCE-LOCALLY, and return the staged URL.
-
-    The stand AssetBaseCfg is a class-level configclass default shared across embodiment instances, so the
-    spawn cfg is deep-copied before its usd_path is rewritten and the copy is reassigned — editing in place
-    would leak the staging URL into other (stock) embodiments. Asserts the stand has a rewritable usd_path.
-    """
-    import copy
-
-    stand_usd = getattr(embodiment.scene_config.stand.spawn, "usd_path", None)
-    assert stand_usd, (
-        "--use_staging_assets set but the DROID stand has no spawn.usd_path to rewrite "
-        f"(stand spawn: {type(embodiment.scene_config.stand.spawn).__name__})."
-    )
-    staged = _to_staging_url(stand_usd)  # asserts the production host was actually rewritten
-    stand = copy.deepcopy(embodiment.scene_config.stand)
-    stand.spawn.usd_path = staged
-    embodiment.scene_config.stand = stand
-    return staged
-
-
-def _apply_local_droid_asset_override(embodiment, local_root: str | Path) -> dict[str, str]:
-    """Localize DROID robot and stand spawn configs without mutating shared defaults."""
-    import copy
-
-    source_urls = {}
-    local_paths = {}
-    for name in ("robot", "stand"):
-        asset_cfg = getattr(embodiment.scene_config, name)
-        source_url = getattr(asset_cfg.spawn, "usd_path", None)
-        if not source_url:
-            raise RuntimeError(f"DROID {name} has no spawn.usd_path to localize")
-        localized_cfg = copy.deepcopy(asset_cfg)
-        localized_cfg.spawn.usd_path = _local_asset_path(source_url, local_root)
-        setattr(embodiment.scene_config, name, localized_cfg)
-        source_urls[f"{name}_source_usd"] = source_url
-        local_paths[f"{name}_local_usd"] = localized_cfg.spawn.usd_path
-    return {**source_urls, **local_paths}
 
 
 @dataclass
@@ -476,11 +378,7 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
         # (stock DROID only varies wrist_camera). The GaP job enables the Hydra key
         # camera_extrinsics_exterior_cam.enabled=true to activate the variation.
         if gap_profile:  # asserted above to imply enable_cameras + DROID
-            from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
-            from isaaclab_arena_environments.maple_cameras import MapleDroidPerceptionCameraCfg
-
-            embodiment.camera_config = MapleDroidPerceptionCameraCfg()
-            embodiment.add_variation(CameraExtrinsicsVariation(camera_name="exterior_cam"))
+            _apply_gap_camera_profile(cfg.embodiment, embodiment)
 
         # Step 5: Compose the scene
         scene = Scene(

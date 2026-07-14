@@ -104,6 +104,10 @@ GUIDANCE:
   If multiple reasonable matches are found, return the closest match or the one with the most specific name.
 - For embodiment, if the prompt only mention the robot family (driod/franka) and there are multiple
   variance of that family in EMBODIMENTS, pick the one with the default tag.
+- If an EMBODIMENT entry lists camera_profiles, put one of those exact names in
+  ``embodiment.camera_profile`` only when the prompt asks for that camera setup.
+- Use only exact camera-profile names listed for the selected embodiment. Leave
+  ``embodiment.camera_profile`` unset when no listed profile is requested.
 - For multiple instances of the same registry asset, use semantic (left/right) or numerical (1/2/3)
   suffixes in ``id``.
 - Only populate ``object_references`` when the prompt explicitly mentions surfaces or appliances

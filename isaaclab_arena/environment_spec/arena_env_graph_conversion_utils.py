@@ -7,14 +7,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
+from isaaclab_arena.assets.registries import AssetRegistry, CameraProfileRegistry, ObjectRelationLibraryRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import build_task_from_spec
 from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
-from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_helpers import has_light, open_stage
 
@@ -22,7 +18,12 @@ _DEFAULT_LIGHT_ASSET_NAME = "light"
 _DEFAULT_LIGHT_NODE_ID = "auto_dome_light"
 
 if TYPE_CHECKING:
+    from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+
+
+ObjectReference = None
+OpenableObjectReference = None
 
 
 def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False) -> Any:
@@ -32,6 +33,9 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
         graph_spec: A validated graph spec (asset refs exist, ids unique, etc.).
         enable_cameras: Forwarded to the embodiment so its cameras are added.
     """
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
+
     assets_by_node_id = _instantiate_assets_from_spec(graph_spec, AssetRegistry(), enable_cameras=enable_cameras)
     _ensure_scene_lighting(graph_spec, assets_by_node_id)
     _attach_spatial_relations_to_assets(graph_spec.relations, assets_by_node_id)
@@ -85,18 +89,43 @@ def _prim_path_for_relative(registry_name: str, prim_path: str) -> str:
     return f"{{ENV_REGEX_NS}}/{registry_name}/{prim_path.lstrip('/')}"
 
 
+def _object_reference_classes() -> tuple[Any, Any]:
+    """Lazily import object-reference classes after SimulationApp has initialized pxr extensions."""
+    global ObjectReference, OpenableObjectReference
+    if ObjectReference is None or OpenableObjectReference is None:
+        from isaaclab_arena.assets.object_reference import ObjectReference as _ObjectReference
+        from isaaclab_arena.assets.object_reference import OpenableObjectReference as _OpenableObjectReference
+
+        if ObjectReference is None:
+            ObjectReference = _ObjectReference
+        if OpenableObjectReference is None:
+            OpenableObjectReference = _OpenableObjectReference
+    return ObjectReference, OpenableObjectReference
+
+
 def _instantiate_assets_from_spec(
     graph_spec: ArenaEnvGraphSpec, asset_registry: Any, enable_cameras: bool = False
 ) -> dict[str, type[Asset]]:
     """Return ``{asset.id: live_asset}`` after materializing the typed graph spec."""
     assets_by_node_id: dict[str, type[Asset]] = {}
 
-    embodiment_params = dict(graph_spec.embodiment.params)
+    embodiment_spec = graph_spec.embodiment
+    embodiment_params = dict(embodiment_spec.params)
     if enable_cameras:
         embodiment_params.setdefault("enable_cameras", True)
-    assets_by_node_id[graph_spec.embodiment.id] = asset_registry.get_asset_by_name(graph_spec.embodiment.registry_name)(
-        **embodiment_params
-    )
+    embodiment = asset_registry.get_asset_by_name(embodiment_spec.registry_name)(**embodiment_params)
+    camera_profile = getattr(embodiment_spec, "camera_profile", None)
+    if camera_profile is not None:
+        assert enable_cameras, (
+            f"Embodiment '{embodiment_spec.registry_name}' selects camera_profile "
+            f"'{camera_profile}', but cameras are disabled. Pass --enable_cameras."
+        )
+        CameraProfileRegistry().apply_camera_profile(
+            camera_profile,
+            embodiment_spec.registry_name,
+            embodiment,
+        )
+    assets_by_node_id[embodiment_spec.id] = embodiment
 
     assets_by_node_id[graph_spec.background.id] = asset_registry.get_asset_by_name(graph_spec.background.registry_name)(
         **graph_spec.background.params
@@ -108,6 +137,7 @@ def _instantiate_assets_from_spec(
         assets_by_node_id[obj.id] = asset_registry.get_asset_by_name(obj.registry_name)(**params)
 
     for ref in graph_spec.object_references or []:
+        object_reference_cls, openable_object_reference_cls = _object_reference_classes()
         assert ref.prim_path is not None, "Object reference must have a prim path"
         ref_params = dict(ref.params)
         openable_joint_name = ref_params.pop("openable_joint_name", None)
@@ -122,12 +152,12 @@ def _instantiate_assets_from_spec(
             assert (
                 ref.object_type == ObjectType.ARTICULATION
             ), f"Openable object reference '{ref.id}' must use object_type='articulation'"
-            assets_by_node_id[ref.id] = OpenableObjectReference(
+            assets_by_node_id[ref.id] = openable_object_reference_cls(
                 openable_joint_name=openable_joint_name,
                 **common_kwargs,
             )
         else:
-            assets_by_node_id[ref.id] = ObjectReference(object_type=ref.object_type, **common_kwargs)
+            assets_by_node_id[ref.id] = object_reference_cls(object_type=ref.object_type, **common_kwargs)
 
     return assets_by_node_id
 

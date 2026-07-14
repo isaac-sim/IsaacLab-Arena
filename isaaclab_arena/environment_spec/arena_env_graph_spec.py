@@ -15,6 +15,7 @@ from isaaclab_arena.environment_spec.arena_env_graph_types import (
     AssetSpec,
     CliOverrideSpec,
     CompositeTaskSpec,
+    EmbodimentSpec,
     ObjectReferenceSpec,
     SpatialRelationSpec,
     TaskSpec,
@@ -30,7 +31,7 @@ class ArenaEnvGraphSpec(BaseModel):
     """Environment graph spec — the single source of truth for scene layout and tasks."""
 
     env_name: str = Field(min_length=1, description="Short snake_case label summarizing the scene and tasks.")
-    embodiment: AssetSpec = Field(description="The robot that performs the tasks.")
+    embodiment: EmbodimentSpec = Field(description="The robot that performs the tasks.")
     background: AssetSpec = Field(description="The static scene the robot and objects sit in.")
     objects: list[AssetSpec] = Field(default_factory=list, description="Movable scene objects, including distractors.")
     object_references: list[ObjectReferenceSpec] | None = Field(
