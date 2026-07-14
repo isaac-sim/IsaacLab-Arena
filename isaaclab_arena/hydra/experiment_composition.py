@@ -59,7 +59,7 @@ def load_arena_experiment_from_yaml(
     Returns:
         Typed Runs in YAML declaration order.
     """
-    run_values_by_name = _read_and_validate_yaml_runs_as_values(yaml_path)
+    run_values_by_name = read_arena_experiment_run_values(yaml_path)
     config_store = ConfigStore.instance()
     # Reuse these internal names so repeated loads replace their process-global ConfigStore entries.
     hydra_config_namespace = "isaaclab_arena_experiment_composition"
@@ -97,7 +97,7 @@ def _assert_run_name_is_hydra_compatible(run_name: str) -> None:
     )
 
 
-def _read_and_validate_yaml_runs_as_values(yaml_path: str | Path) -> dict[str, dict[str, Any]]:
+def read_arena_experiment_run_values(yaml_path: str | Path) -> dict[str, dict[str, Any]]:
     """Read an Arena Experiment YAML file and return its Run values by name.
 
     This validates the shared YAML envelope. Fields belonging to a Run,

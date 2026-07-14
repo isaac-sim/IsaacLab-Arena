@@ -119,64 +119,67 @@ where:
 
 Use ``--list-variations`` on any environment to discover the exact paths available.
 
-Configuring variations in an eval jobs config
+Configuring variations in an Arena Experiment
 ---------------------------------------------
 
-When running batches of jobs with ``experiment_runner.py``, variations are configured per job via a
-dedicated ``variations`` field instead of command-line override tokens.  The field is a nested
-dict that mirrors the dotted Hydra paths: each level of nesting corresponds to one segment of
-the ``<asset>.<variation_name>.<cfg_field>`` path.  For example, the nested entry
-``{"light": {"hdr_image": {"enabled": true}}}`` is equivalent to the command-line override
-``light.hdr_image.enabled=true``.
+In typed Experiment YAML, each Run has a ``variations`` mapping. The nested
+keys mirror the dotted Hydra paths: each level corresponds to one segment of
+``<asset>.<variation_name>.<cfg_field>``. For example,
+``light.hdr_image.enabled: true`` is equivalent to the trailing override
+``light.hdr_image.enabled=true`` used by the legacy single-run examples above.
 
-The example config ``isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json``
-enables three variations on a single job:
+This Experiment enables three variations on one Run:
 
-.. code-block:: json
+.. code-block:: yaml
 
-   {
-       "jobs": [
-           {
-               "name": "variations_demo",
-               "arena_env_args": {
-                   "environment": "pick_and_place_maple_table",
-                   "embodiment": "droid_rel_joint_pos",
-                   "pick_up_object": "rubiks_cube_hot3d_robolab",
-                   "destination_location": "bowl_ycb_robolab",
-                   "hdr": "home_office_robolab"
-               },
-               "num_steps": 10,
-               "num_rebuilds": 5,
-               "policy_type": "zero_action",
-               "policy_config_dict": {},
-               "variations": {
-                   "light": {
-                       "hdr_image": { "enabled": true },
-                       "intensity": { "enabled": true }
-                   },
-                   "droid_rel_joint_pos": {
-                       "camera_extrinsics_wrist_camera": { "enabled": true }
-                   }
-               }
-           }
-       ]
-   }
+   runs:
+   - name: variations_demo
+     environment:
+       type: pick_and_place_maple_table
+       enable_cameras: true
+       embodiment: droid_rel_joint_pos
+       pick_up_object: rubiks_cube_hot3d_robolab
+       destination_location: bowl_ycb_robolab
+       hdr: home_office_robolab
+     policy:
+       type: zero_action
+     rollout_limit:
+       num_steps: 10
+     num_rebuilds: 5
+     variations:
+       light:
+         hdr_image:
+           enabled: true
+         intensity:
+           enabled: true
+       droid_rel_joint_pos:
+         camera_extrinsics_wrist_camera:
+           enabled: true
 
-Run it with:
+Point a runner configuration at that Experiment:
 
-.. code-block:: bash
+.. code-block:: yaml
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
-     --headless \
-     --enable_cameras \
-     --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json
+   experiment_config: variations_experiment.yaml
+   output_base_dir: ./output
 
-``--list-variations`` works with ``experiment_runner.py`` too, printing the variations catalogue for
-each job's environment:
+Then execute it locally:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py \
+   /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
+     --config path/to/runner.yaml \
+     --local \
      --headless \
-     --list-variations \
-     --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_variations_config.json
+     --enable_cameras
+
+Use ``--list_variations`` on the local route to print the catalogue for each
+Run's environment and exit before rollout:
+
+.. code-block:: bash
+
+   /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
+     --config path/to/runner.yaml \
+     --local \
+     --headless \
+     --list_variations

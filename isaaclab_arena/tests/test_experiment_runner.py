@@ -9,7 +9,7 @@ import subprocess
 
 import pytest
 
-from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
+from isaaclab_arena.evaluation.legacy_experiment_runner_cli import parse_legacy_experiment_runner_args
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function, run_subprocess
 
@@ -19,7 +19,7 @@ DEFAULT_VISUALIZER = "kit"
 
 
 def test_experiment_runner_parses_native_hydra_overrides():
-    args_cli, experiment_overrides = parse_experiment_runner_args([
+    args_cli, experiment_overrides = parse_legacy_experiment_runner_args([
         "--experiment_config",
         "experiment.yaml",
         "runs.baseline.rollout_limit.num_steps=2",
@@ -119,6 +119,47 @@ runs:
         ],
         capture_output=True,
     )
+    assert result is not None
+    run_row = next(line for line in result.stdout.splitlines() if "yaml_baseline" in line and "pending" in line)
+    run_cells = [cell.strip() for cell in run_row.split("|")[1:-1]]
+    assert run_cells[4] == "2"
+
+
+@pytest.mark.with_subprocess
+def test_experiment_runner_cfg_executes_locally(tmp_path):
+    """Execute an Experiment Runner YAML locally with a trailing Experiment override."""
+    experiment_config_path = tmp_path / "experiment.yaml"
+    experiment_config_path.write_text(
+        """runs:
+- name: yaml_baseline
+  environment:
+    type: pick_and_place_maple_table
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_steps: 10
+""",
+        encoding="utf-8",
+    )
+    experiment_runner_config_path = tmp_path / "evaluation.yaml"
+    output_path = tmp_path / "output"
+    experiment_runner_config_path.write_text(
+        f"""experiment_config: {experiment_config_path.name}
+output_base_dir: {output_path}
+""",
+        encoding="utf-8",
+    )
+
+    result = run_experiment_runner(
+        str(experiment_runner_config_path),
+        config_option="--config",
+        extra_args=[
+            "--local",
+            "runs.yaml_baseline.rollout_limit.num_steps=2",
+        ],
+        capture_output=True,
+    )
+
     assert result is not None
     run_row = next(line for line in result.stdout.splitlines() if "yaml_baseline" in line and "pending" in line)
     run_cells = [cell.strip() for cell in run_row.split("|")[1:-1]]

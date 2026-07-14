@@ -151,24 +151,26 @@ class Workflow:
         return tasks
 
     def _submit_rendered_workflow(self, rendered: str) -> int:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", prefix="arena_", delete=False) as f:
-            f.write(rendered)
-            rendered_path = f.name
+        with tempfile.TemporaryDirectory(prefix="arena_") as staging_dir_str:
+            staging_dir = Path(staging_dir_str)
+            rendered_path = staging_dir / "workflow.yaml"
+            rendered_path.write_text(rendered, encoding="utf-8")
+            self._stage_submission_files(staging_dir)
 
-        cmd = ["osmo", "workflow", "submit", rendered_path]
-        if self.workflow_cfg.pool:
-            cmd.extend(["--pool", self.workflow_cfg.pool])
-        if self.workflow_cfg.priority:
-            cmd.extend(["--priority", self.workflow_cfg.priority.value])
+            cmd = ["osmo", "workflow", "submit", rendered_path.name]
+            if self.workflow_cfg.pool:
+                cmd.extend(["--pool", self.workflow_cfg.pool])
+            if self.workflow_cfg.priority:
+                cmd.extend(["--priority", self.workflow_cfg.priority.value])
 
-        print(f"Submitting workflow '{self.workflow_cfg.workflow_name}':")
-        print(f"  {' '.join(cmd)}\n")
+            print(f"Submitting workflow '{self.workflow_cfg.workflow_name}':")
+            print(f"  {' '.join(cmd)}\n")
 
-        try:
-            result = subprocess.run(cmd)
+            result = subprocess.run(cmd, cwd=staging_dir)
             return result.returncode
-        finally:
-            Path(rendered_path).unlink(missing_ok=True)
+
+    def _stage_submission_files(self, staging_dir: Path) -> None:
+        """Stage local files referenced by the workflow alongside its rendered YAML."""
 
     def _create_resource_dict(self) -> dict[str, Any]:
         return {

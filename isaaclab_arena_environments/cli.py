@@ -190,9 +190,9 @@ def get_isaaclab_arena_environments_cli_parser(
     return args_parser
 
 
-# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this construction pipeline after experiment_runner,
-# policy_runner, imitation-learning scripts, and notebooks pass typed environment and
-# builder configs instead of an argparse Namespace.
+# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this construction pipeline after the legacy Arena
+# Experiment Runner interface, deprecated Policy Runner, imitation-learning scripts, and notebooks pass typed
+# environment and builder configs instead of an argparse Namespace.
 def get_arena_builder_from_cli(
     args_cli: argparse.Namespace,
     hydra_overrides: list[str] | None = None,

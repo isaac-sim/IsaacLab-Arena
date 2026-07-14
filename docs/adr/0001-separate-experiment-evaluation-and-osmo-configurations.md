@@ -1,0 +1,5 @@
+# Separate Experiment, evaluation, and OSMO configurations
+
+An Arena Experiment YAML owns its Runs, an Evaluation Configuration YAML owns the process-level settings and optional Hydra overrides used to execute that Experiment, and an OSMO Configuration YAML owns remote infrastructure. The Experiment Runner consumes the same Experiment and Evaluation Configuration for local execution or OSMO submission. We keep these as independently parsed contracts instead of nesting deployment settings in the Evaluation Configuration or reconstructing evaluation behavior from OSMO command-line flags, so Experiment definitions do not acquire runner or deployment concerns.
+
+For remote execution, the OSMO Workflow derives an in-memory Evaluation Configuration that points at the staged Experiment, writes to OSMO's output directory, disables the local report server, and appends any supporting-service endpoint overrides. The Experiment Runner executes every Run in that workflow while supporting policy services remain separate workflow tasks. Neither source YAML is modified.

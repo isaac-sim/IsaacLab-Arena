@@ -78,8 +78,8 @@ def test_experiment_runner_loads_typed_experiment_after_simulation_starts(monkey
         assert simulation_is_running
         return []
 
-    monkeypatch.setattr(experiment_runner, "SimulationAppContext", _SimulationAppContext)
-    monkeypatch.setattr(experiment_runner, "load_arena_experiment_from_config_file", load_experiment_after_startup)
+    monkeypatch.setattr(experiment_runner, "_get_simulation_app_context_type", lambda: _SimulationAppContext)
+    monkeypatch.setattr(experiment_runner, "_get_experiment_loader", lambda: load_experiment_after_startup)
     monkeypatch.setattr(experiment_runner, "list_variations", lambda _experiment: None)
     monkeypatch.setattr(
         "sys.argv",

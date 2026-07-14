@@ -119,7 +119,7 @@ OpenPI connection options go in ``policy_config_dict``:
        ]
    }
 
-Then run the Experiment Runner:
+Then run the Experiment Runner's deprecated JSON compatibility path:
 
 .. code-block:: bash
 

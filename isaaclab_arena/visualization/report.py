@@ -108,7 +108,7 @@ def _scan_jobs(root: pathlib.Path) -> list[JobReport]:
     """Recursively scan ``root`` for episode results and recorder mp4s and group them by job.
 
     Intended for use with two different output folder structures:
-    - The experiment_runner.py writes one per-job sub-directory under ``root``.
+    - The Experiment Runner writes one per-Run subdirectory under ``root``.
     - The policy_runner.py writes directly under ``root``.
 
     Files that do not match the recorder's naming pattern are ignored.

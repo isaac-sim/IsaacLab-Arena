@@ -227,7 +227,7 @@ class DreamZeroRemotePolicy(PolicyBase):
 
     @classmethod
     def from_dict(cls, config_dict: dict[str, Any]) -> DreamZeroRemotePolicy:
-        """JSON-jobs-config path used by ``experiment_runner``.
+        """Legacy JSON Experiment path used by the Experiment Runner.
 
         Overrides ``PolicyBase.from_dict`` because our ``__init__`` takes an
         adapter alongside the config dataclass. An optional

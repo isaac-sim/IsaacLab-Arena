@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import dataclass
-from typing import Literal
 
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
@@ -21,7 +20,7 @@ MAX_RECONNECT_ATTEMPTS = 3
 class Pi0RemotePolicyCfg(PolicyCfg):
     """Connection + runtime config for ``Pi0RemotePolicy``."""
 
-    openpi_embodiment_adapter: Literal["droid"] = "droid"
+    openpi_embodiment_adapter: str = "droid"
     """Adapter used to translate Arena observations and policy actions."""
 
     policy_variant: str = DEFAULT_VARIANT
@@ -34,3 +33,7 @@ class Pi0RemotePolicyCfg(PolicyCfg):
 
     ping_timeout: float | None = 20.0
     """Seconds to wait for a keepalive pong before dropping, or None to wait indefinitely."""
+
+    def __post_init__(self) -> None:
+        if self.openpi_embodiment_adapter != "droid":
+            raise ValueError(f"Unknown openpi_embodiment_adapter {self.openpi_embodiment_adapter!r}; expected 'droid'")

@@ -20,14 +20,14 @@ from isaaclab_arena.evaluation.policy_runner import get_policy_cls
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena_environments.cli import ensure_environments_registered
 
-# TODO(cvolk, 2026-07-07): [typed-config-migration] Delete this adapter when experiment_runner loads typed YAML
-# experiment files directly. The current JSON format identifies environments and policies
+# TODO(cvolk, 2026-07-07): [typed-config-migration] Delete this adapter when the legacy JSON
+# Experiment interface is retired. The JSON format identifies environments and policies
 # by name and mixes environment-specific and builder values in ``arena_env_args``.
 # This module resolves those names, separates the values into their concrete typed
 # configs, and marks graph-YAML environments for the narrow argparse compatibility
 # path in ``legacy_graph_environment_cli``.
-# The planned Hydra/YAML frontend will compose typed run configs directly, so none
-# of this JSON translation or argparse fallback will be needed.
+# The typed YAML interface already composes Run configurations directly, so none of
+# this JSON translation or argparse fallback is used by the primary route.
 
 
 @dataclass(frozen=True)

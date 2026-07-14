@@ -19,8 +19,8 @@ from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
     LegacyGraphEnvironmentCfg,
     build_arena_builder_from_legacy_graph,
 )
-from isaaclab_arena.evaluation.policy_runner import rollout_policy
 from isaaclab_arena.evaluation.resource_cleanup import close_run_resources
+from isaaclab_arena.evaluation.rollout import rollout_policy
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video

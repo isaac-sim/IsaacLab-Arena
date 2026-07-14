@@ -135,15 +135,15 @@ across hundreds of object and scene combinations in a single run.
    :align: center
 
 
-Sequential Batch Evaluation
----------------------------
+Legacy Sequential Batch Evaluation
+----------------------------------
 
 The four experiments above run one variation at a time. In practice, Arena is used to evaluate
 a policy across hundreds of object, scene, and embodiment combinations in a single run. The
-``experiment_runner.py`` script reads a JSON job config that lists any number of jobs — each with its
-own environment arguments, policy, and step count — and runs them sequentially within one Isaac
-Sim process, collecting success metrics for each. ``getting_started_jobs_config.json`` bundles
-the four experiments above into a single config:
+``getting_started_jobs_config.json`` bundles the four experiments above for the
+Experiment Runner's deprecated JSON compatibility path. It lists each
+job's environment arguments, policy, and step count and runs them sequentially
+within one Isaac Sim process:
 
 .. code-block:: bash
 
@@ -156,7 +156,8 @@ the four experiments above into a single config:
    :align: center
 
 At the end of the run you get a per-job summary of success rates. See
-:ref:`sequential-batch-experiment-runner` for full details on the job config format and available options.
+:ref:`sequential-batch-experiment-runner` for the typed YAML replacement
+and its local and OSMO routes.
 
 All of the above used a zero-action policy — the robot stays still and success rates are zero.
 The next page swaps in a real pre-trained model and runs it in closed loop:

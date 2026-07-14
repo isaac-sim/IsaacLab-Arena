@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Parse the deprecated Namespace-based Experiment Runner interface."""
+
 import argparse
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
@@ -11,8 +13,8 @@ from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 _DEFAULT_EXPERIMENT_CONFIG_PATH = "isaaclab_arena_environments/eval_jobs_configs/zero_action_jobs_config.json"
 
 
-def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add Experiment Runner specific arguments to the parser."""
+def add_legacy_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add deprecated Experiment Runner arguments to the parser."""
     # TODO(cvolk, 2026-07-09): [typed-config-migration] Remove the --eval_jobs_config alias
     # when legacy JSON Experiments are retired. Both flags currently populate experiment_config.
     parser.add_argument(
@@ -78,14 +80,14 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def parse_experiment_runner_args(argv: list[str] | None = None) -> tuple[argparse.Namespace, list[str]]:
-    """Parse experiment-runner arguments and return native Hydra override tokens separately.
+def parse_legacy_experiment_runner_args(argv: list[str] | None = None) -> tuple[argparse.Namespace, list[str]]:
+    """Parse deprecated runner arguments and return native Hydra override tokens separately.
 
     Args:
         argv: Arguments to parse, or None to read the process arguments.
     """
     parser = get_isaaclab_arena_cli_parser()
-    add_experiment_runner_arguments(parser)
+    add_legacy_experiment_runner_arguments(parser)
     parser.allow_abbrev = False
     args_cli, experiment_overrides = parser.parse_known_args(argv)
     assert_hydra_overrides(experiment_overrides, parser)

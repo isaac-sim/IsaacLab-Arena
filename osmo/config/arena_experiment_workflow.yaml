@@ -1,0 +1,29 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# OSMO infrastructure defaults for an Arena Experiment workflow.
+workflow:
+  workflow_name: arena-experiment
+  pool: isaac-dev-l40s-04
+  priority: NORMAL
+  cpus: 15
+  gpus: 1
+  memory: 128Gi
+  storage: 200Gi
+  platform: ovx-l40s
+  exec_timeout: 1d
+  queue_timeout: 2d
+  dry_run: false
+
+experiment_runner_task:
+  image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+  output_url: swift://pdx.s8k.io/AUTH_team-isaac/isaaclab_arena/workflows/{{workflow_id}}
+
+openpi_server:
+  image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:openpi_server
+  policy_variant: pi05
+  client_ping_timeout: 300.0
+  policy_config: pi05_droid_jointpos_polaris
+  policy_dir: gs://openpi-assets-simeval/pi05_droid_jointpos

@@ -52,7 +52,7 @@ def legacy_json_experiment_requires_cameras(experiment_config: dict) -> bool:
 
 
 def _run_legacy_json_chunk(chunk_label: str, legacy_job_configs: list[dict]) -> int:
-    """Run legacy JSON entries in a fresh experiment_runner subprocess."""
+    """Run legacy JSON entries in a fresh Experiment Runner subprocess."""
     print(f"[experiment_runner] {chunk_label}", flush=True)
     # Serialize this chunk's jobs to a temp config the child loads via --experiment_config.
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:

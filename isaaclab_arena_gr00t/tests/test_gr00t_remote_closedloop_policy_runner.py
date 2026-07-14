@@ -119,7 +119,7 @@ def test_policy_runner_with_gr00t_remote_closedloop_policy_multi_env():
 
 
 def test_experiment_runner_with_gr00t_remote_closedloop_policy(tmp_path):
-    """Run the Experiment Runner with the GR00T remote closed-loop policy."""
+    """Run experiment_runner with the GR00T remote closed-loop policy."""
     remote_host, remote_port, timeout_sec = _get_gr00t_remote_server()
     config_path = _write_eval_jobs_config(tmp_path, remote_host, remote_port)
 

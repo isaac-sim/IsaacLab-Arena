@@ -1,0 +1,18 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Submit to OSMO:
+#   /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
+#     --config isaaclab_arena_environments/evaluation_configs/openpi.yaml
+# Run locally against an already-running OpenPI server:
+#   /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
+#     --config isaaclab_arena_environments/evaluation_configs/openpi.yaml --local --enable_cameras
+experiment_config: ../experiment_configs/openpi_experiment.yaml
+output_base_dir: /eval/output
+record_viewport_video: false
+record_camera_video: false
+continue_on_error: false
+serve_evaluation_report: false
+evaluation_report_port: 8000
