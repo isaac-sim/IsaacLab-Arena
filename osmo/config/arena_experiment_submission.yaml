@@ -5,17 +5,12 @@
 
 defaults:
   - arena_experiment_submission_schema
-  - osmo_config: workflow
-  - eval_runner_config: default
   - server_config: null
   - experiment_config: null
   - override hydra/job_logging: disabled
-  - override hydra/hydra_logging: disabled
   - _self_
 
 hydra:
   run:
     dir: .
   output_subdir: null
-  job:
-    chdir: false
