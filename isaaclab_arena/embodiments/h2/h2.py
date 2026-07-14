@@ -37,13 +37,32 @@ from isaaclab_arena.utils.pose import Pose
 ROBOT_MENAGERIE_ROOT_ENV_VAR = "ROBOT_MENAGERIE_ROOT"
 """Optional root of a robot_menagerie checkout/cache containing ``unitree/h2``."""
 
-H2_LEG_JOINT_NAMES = (
+H2_ROOT_FRAME_NAME = "pelvis"
+"""H2 base/root link name in the robot_menagerie asset."""
+
+H2_LEFT_WRIST_LINK_NAME = "left_wrist_yaw_link"
+"""Terminal left wrist link used as the left hand frame for H2 bringup."""
+
+H2_RIGHT_WRIST_LINK_NAME = "right_wrist_yaw_link"
+"""Terminal right wrist link used as the right hand frame for H2 bringup."""
+
+H2_HAND_FRAME_NAMES = {
+    "left": H2_LEFT_WRIST_LINK_NAME,
+    "right": H2_RIGHT_WRIST_LINK_NAME,
+}
+"""H2 hand-frame names keyed by arm side."""
+
+H2_LEFT_LEG_JOINT_NAMES = (
     "left_hip_pitch_joint",
     "left_hip_roll_joint",
     "left_hip_yaw_joint",
     "left_knee_joint",
     "left_ankle_roll_joint",
     "left_ankle_pitch_joint",
+)
+"""H2 left leg joint names."""
+
+H2_RIGHT_LEG_JOINT_NAMES = (
     "right_hip_pitch_joint",
     "right_hip_roll_joint",
     "right_hip_yaw_joint",
@@ -51,6 +70,9 @@ H2_LEG_JOINT_NAMES = (
     "right_ankle_roll_joint",
     "right_ankle_pitch_joint",
 )
+"""H2 right leg joint names."""
+
+H2_LEG_JOINT_NAMES = H2_LEFT_LEG_JOINT_NAMES + H2_RIGHT_LEG_JOINT_NAMES
 """H2 leg joint names from robot_menagerie/unitree/h2/urdf/H2_simple_colliders.urdf."""
 
 H2_WAIST_JOINT_NAMES = (
@@ -66,7 +88,7 @@ H2_HEAD_JOINT_NAMES = (
 )
 """H2 head joint names."""
 
-H2_ARM_JOINT_NAMES = (
+H2_LEFT_ARM_JOINT_NAMES = (
     "left_shoulder_pitch_joint",
     "left_shoulder_roll_joint",
     "left_shoulder_yaw_joint",
@@ -74,6 +96,10 @@ H2_ARM_JOINT_NAMES = (
     "left_wrist_roll_joint",
     "left_wrist_pitch_joint",
     "left_wrist_yaw_joint",
+)
+"""H2 left arm joint names."""
+
+H2_RIGHT_ARM_JOINT_NAMES = (
     "right_shoulder_pitch_joint",
     "right_shoulder_roll_joint",
     "right_shoulder_yaw_joint",
@@ -82,10 +108,27 @@ H2_ARM_JOINT_NAMES = (
     "right_wrist_pitch_joint",
     "right_wrist_yaw_joint",
 )
+"""H2 right arm joint names."""
+
+H2_ARM_JOINT_NAMES = H2_LEFT_ARM_JOINT_NAMES + H2_RIGHT_ARM_JOINT_NAMES
 """H2 arm joint names."""
 
 H2_JOINT_NAMES = H2_LEG_JOINT_NAMES + H2_WAIST_JOINT_NAMES + H2_HEAD_JOINT_NAMES + H2_ARM_JOINT_NAMES
 """All actuated H2 joint names expected by the debug embodiment."""
+
+H2_JOINT_GROUPS: dict[str, tuple[str, ...]] = {
+    "left_leg": H2_LEFT_LEG_JOINT_NAMES,
+    "right_leg": H2_RIGHT_LEG_JOINT_NAMES,
+    "legs": H2_LEG_JOINT_NAMES,
+    "waist": H2_WAIST_JOINT_NAMES,
+    "head": H2_HEAD_JOINT_NAMES,
+    "left_arm": H2_LEFT_ARM_JOINT_NAMES,
+    "right_arm": H2_RIGHT_ARM_JOINT_NAMES,
+    "arms": H2_ARM_JOINT_NAMES,
+    "upper_body": H2_WAIST_JOINT_NAMES + H2_HEAD_JOINT_NAMES + H2_ARM_JOINT_NAMES,
+    "body": H2_JOINT_NAMES,
+}
+"""Named H2 joint groups used by debug bringup and later controller wiring."""
 
 H2_DEFAULT_JOINT_POS = {joint_name: 0.0 for joint_name in H2_JOINT_NAMES}
 """Neutral H2 joint pose used for spawn/debug rollouts."""
@@ -273,7 +316,14 @@ class H2DebugEmbodiment(EmbodimentBase):
         self.event_config = H2DebugEventCfg()
 
     def get_teleop_target_frame_prim_path(self) -> str | None:
-        return "/World/envs/env_0/Robot/pelvis"
+        return f"/World/envs/env_0/Robot/{H2_ROOT_FRAME_NAME}"
+
+    def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
+        if arm_mode == ArmMode.LEFT:
+            return H2_LEFT_WRIST_LINK_NAME
+        if arm_mode in (ArmMode.RIGHT, ArmMode.SINGLE_ARM):
+            return H2_RIGHT_WRIST_LINK_NAME
+        return ""
 
 
 @register_asset

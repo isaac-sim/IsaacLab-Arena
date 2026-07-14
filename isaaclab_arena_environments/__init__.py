@@ -8,7 +8,7 @@ import pkgutil
 
 import isaaclab_arena_environments
 
-_NON_ENVIRONMENT_MODULES = {"cli", "example_environment_base"}
+_NON_ENVIRONMENT_MODULES = {"cli", "example_environment_base", "galileo_static_apple_scene"}
 
 for _importer, _modname, _ispkg in pkgutil.iter_modules(isaaclab_arena_environments.__path__):
     if not _ispkg and _modname not in _NON_ENVIRONMENT_MODULES:

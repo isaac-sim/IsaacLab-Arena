@@ -11,6 +11,8 @@ The test passes if no environment errors out during startup or stepping.
 """
 
 import argparse
+import os
+from pathlib import Path
 
 import pytest
 
@@ -43,6 +45,9 @@ def _build_jobs_for_all_envs() -> list[dict]:
     env_names = sorted(EnvironmentRegistry().get_all_keys())
     jobs = []
     for env_name in env_names:
+        is_available = OPTIONAL_ASSET_ENVIRONMENTS.get(env_name)
+        if is_available is not None and not is_available():
+            continue
         arena_env_args = {"environment": env_name}
         arena_env_args.update(ENV_ARG_OVERRIDES.get(env_name, {}))
         jobs.append({
@@ -53,6 +58,23 @@ def _build_jobs_for_all_envs() -> list[dict]:
             "policy_config_dict": {},
         })
     return jobs
+
+
+def _h2_usd_available() -> bool:
+    robot_menagerie_root = Path(os.environ.get("ROBOT_MENAGERIE_ROOT", "/workspaces/robot_menagerie"))
+    return any(
+        candidate.is_file()
+        for candidate in (
+            robot_menagerie_root / "unitree/h2/usd/H2_simple_colliders.usd",
+            robot_menagerie_root / "unitree/h2/usd/H2.usd",
+        )
+    )
+
+
+OPTIONAL_ASSET_ENVIRONMENTS = {
+    "galileo_h2_static_pick_and_place_debug": _h2_usd_available,
+    "h2_debug_stand": _h2_usd_available,
+}
 
 
 @pytest.mark.with_subprocess

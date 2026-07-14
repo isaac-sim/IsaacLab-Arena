@@ -46,6 +46,34 @@ def test_h2_joint_motion():
     assert result
 
 
+def test_h2_debug_stand_environment_when_asset_available():
+    usd_path = _resolve_h2_usd_path_without_isaaclab_import()
+    if not usd_path.is_file():
+        pytest.skip(
+            "H2 USD is not available in this container. Mount robot_menagerie/unitree/h2. "
+            f"Current resolved path: {usd_path}"
+        )
+
+    result = run_simulation_app_function(_test_h2_debug_stand_environment, headless=True, enable_cameras=False)
+    assert result
+
+
+def test_galileo_h2_static_pick_and_place_debug_environment_when_asset_available():
+    usd_path = _resolve_h2_usd_path_without_isaaclab_import()
+    if not usd_path.is_file():
+        pytest.skip(
+            "H2 USD is not available in this container. Mount robot_menagerie/unitree/h2. "
+            f"Current resolved path: {usd_path}"
+        )
+
+    result = run_simulation_app_function(
+        _test_galileo_h2_static_pick_and_place_debug_environment,
+        headless=True,
+        enable_cameras=False,
+    )
+    assert result
+
+
 def test_h2_debug_registered():
     from isaaclab_arena.assets.registries import AssetRegistry
 
@@ -55,29 +83,61 @@ def test_h2_debug_registered():
 
 
 def test_h2_debug_joint_metadata():
+    from isaaclab_arena.embodiments.common.arm_mode import ArmMode
     from isaaclab_arena.embodiments.h2.h2 import (
         H2_ARM_JOINT_NAMES,
         H2_CFG,
         H2_DEBUG_CFG,
         H2_DEFAULT_JOINT_POS,
+        H2_HAND_FRAME_NAMES,
         H2_HEAD_JOINT_NAMES,
+        H2_JOINT_GROUPS,
         H2_JOINT_NAMES,
+        H2_LEFT_ARM_JOINT_NAMES,
+        H2_LEFT_LEG_JOINT_NAMES,
+        H2_LEFT_WRIST_LINK_NAME,
         H2_LEG_JOINT_NAMES,
+        H2_RIGHT_ARM_JOINT_NAMES,
+        H2_RIGHT_LEG_JOINT_NAMES,
+        H2_RIGHT_WRIST_LINK_NAME,
+        H2_ROOT_FRAME_NAME,
         H2_WAIST_JOINT_NAMES,
+        H2DebugEmbodiment,
         H2DebugJointPositionActionsCfg,
     )
 
+    assert H2_ROOT_FRAME_NAME == "pelvis"
+    assert H2_HAND_FRAME_NAMES == {
+        "left": H2_LEFT_WRIST_LINK_NAME,
+        "right": H2_RIGHT_WRIST_LINK_NAME,
+    }
+    assert len(H2_LEFT_LEG_JOINT_NAMES) == 6
+    assert len(H2_RIGHT_LEG_JOINT_NAMES) == 6
     assert len(H2_LEG_JOINT_NAMES) == 12
     assert len(H2_WAIST_JOINT_NAMES) == 3
     assert len(H2_HEAD_JOINT_NAMES) == 2
+    assert len(H2_LEFT_ARM_JOINT_NAMES) == 7
+    assert len(H2_RIGHT_ARM_JOINT_NAMES) == 7
     assert len(H2_ARM_JOINT_NAMES) == 14
     assert len(H2_JOINT_NAMES) == 31
+    assert H2_LEG_JOINT_NAMES == H2_LEFT_LEG_JOINT_NAMES + H2_RIGHT_LEG_JOINT_NAMES
+    assert H2_ARM_JOINT_NAMES == H2_LEFT_ARM_JOINT_NAMES + H2_RIGHT_ARM_JOINT_NAMES
+    assert H2_JOINT_GROUPS["arms"] == H2_ARM_JOINT_NAMES
+    assert H2_JOINT_GROUPS["upper_body"] == H2_WAIST_JOINT_NAMES + H2_HEAD_JOINT_NAMES + H2_ARM_JOINT_NAMES
+    assert H2_JOINT_GROUPS["body"] == H2_JOINT_NAMES
     assert len(set(H2_JOINT_NAMES)) == len(H2_JOINT_NAMES)
     assert set(H2_DEFAULT_JOINT_POS) == set(H2_JOINT_NAMES)
     assert H2_CFG.spawn.articulation_props.fix_root_link is None
     assert H2_DEBUG_CFG.spawn.articulation_props.fix_root_link is True
     assert H2_DEBUG_CFG.actuators.keys() == {"legs", "feet", "waist", "head", "arms"}
     assert H2DebugJointPositionActionsCfg().joint_pos.joint_names == list(H2_JOINT_NAMES)
+
+    embodiment = H2DebugEmbodiment()
+    assert embodiment.get_teleop_target_frame_prim_path() == "/World/envs/env_0/Robot/pelvis"
+    assert embodiment.get_ee_frame_name(ArmMode.LEFT) == H2_LEFT_WRIST_LINK_NAME
+    assert embodiment.get_ee_frame_name(ArmMode.RIGHT) == H2_RIGHT_WRIST_LINK_NAME
+    assert embodiment.get_ee_frame_name(ArmMode.SINGLE_ARM) == H2_RIGHT_WRIST_LINK_NAME
+    assert embodiment.get_ee_frame_name(ArmMode.DUAL_ARM) == ""
 
 
 def test_h2_debug_robot_menagerie_root_env_override(monkeypatch, tmp_path):
@@ -180,6 +240,51 @@ def _test_h2_debug_joint_pos_periodic_action(simulation_app, steps: int, visuali
             step += 1
 
         assert visualize or max_abs_joint_pos > 0.05
+    finally:
+        env.close()
+    return True
+
+
+def _test_h2_debug_stand_environment(simulation_app) -> bool:
+    import torch
+
+    from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
+
+    args_cli = get_isaaclab_arena_environments_cli_parser().parse_args(["h2_debug_stand"])
+    env = get_arena_builder_from_cli(args_cli).make_registered()
+    try:
+        env.reset()
+        assert env.action_space.shape[-1] == 31
+        assert "robot" in env.unwrapped.scene.keys()
+        with torch.inference_mode():
+            env.step(torch.zeros(env.action_space.shape, device=env.unwrapped.device))
+    finally:
+        env.close()
+    return True
+
+
+def _test_galileo_h2_static_pick_and_place_debug_environment(simulation_app) -> bool:
+    import torch
+
+    from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
+    from isaaclab_arena_environments.mdp.galileo_h2_static_pick_and_place_debug.robot_configs import (
+        H2_STATIC_DEBUG_OPEN_ARM_JOINT_POS,
+    )
+
+    args_cli = get_isaaclab_arena_environments_cli_parser().parse_args(["galileo_h2_static_pick_and_place_debug"])
+    builder = get_arena_builder_from_cli(args_cli)
+    robot_init_joint_pos = builder.arena_env.embodiment.scene_config.robot.init_state.joint_pos
+    for joint_name, joint_pos in H2_STATIC_DEBUG_OPEN_ARM_JOINT_POS.items():
+        assert robot_init_joint_pos[joint_name] == joint_pos
+
+    env = builder.make_registered()
+    try:
+        env.reset()
+        assert env.action_space.shape[-1] == 31
+        scene_keys = set(env.unwrapped.scene.keys())
+        assert {"robot", "apple_01_objaverse_robolab", "clay_plates_hot3d_robolab"}.issubset(scene_keys)
+        with torch.inference_mode():
+            env.step(torch.zeros(env.action_space.shape, device=env.unwrapped.device))
     finally:
         env.close()
     return True
