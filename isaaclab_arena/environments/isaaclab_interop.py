@@ -100,6 +100,9 @@ def _purge_leaked_isaaclab_assets_presets() -> None:
     Dropping the leaked preset modules forces Arena's embodiments to re-import them against the
     restored (canonical) cfg classes, keeping the robot cfg on the same ``ArticulationCfg`` the
     scene checks.
+
+    Tracked upstream at https://github.com/isaac-sim/IsaacLab/issues/6514.
+    TODO: remove this workaround once IsaacLab #6514 is resolved.
     """
     import sys
 
