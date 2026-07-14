@@ -36,6 +36,8 @@ if TYPE_CHECKING:
     from isaaclab.sensors.camera.camera_cfg import CameraCfg
     from isaaclab.sensors.camera.tiled_camera_cfg import TiledCameraCfg
 
+    from isaaclab_arena.utils.cameras import ArenaCameraCfg
+
 
 @configclass
 class CameraIntrinsicsVariationCfg(VariationBaseCfg):
@@ -114,7 +116,7 @@ class CameraIntrinsicsBuildTimeVariation(BuildTimeVariationBase):
         self._nominal_horizontal_aperture = camera_cfg.spawn.horizontal_aperture
         self._nominal_vertical_aperture = camera_cfg.spawn.vertical_aperture
 
-    def apply(self) -> None:
+    def apply_build_time_effects(self) -> None:
         assert self.sampler is not None, "CameraIntrinsicsBuildTimeVariation: sampler not set."
         d_fx, d_fy, d_cx, d_cy = self.sampler.sample(num_samples=1)[0].tolist()
         params = _perturbed_aperture_params(
@@ -139,8 +141,14 @@ class CameraIntrinsicsRunTimeVariation(RunTimeVariationBase):
     perturbed USD pinhole parameters on the live camera prim. Nominal apertures are
     snapshotted on the first event call so perturbations do not compound.
 
+    Tiled cameras share one USD sensor across envs, so a per-env intrinsic edit would leak
+    across all tiles. When ``camera_rig`` is provided, this variation forces that rig untiled
+    at build time (via :meth:`apply_build_time_effects`) so the per-env perturbation takes effect.
+
     Args:
         camera_name: Scene-entity name of the target camera.
+        camera_rig: The camera-rig cfg to force untiled when this variation is enabled. Pass the
+            embodiment's ``camera_config``. When ``None`` the camera is assumed already untiled.
         cfg: Tunable parameters. Override the perturbation distribution via ``cfg.sampler_cfg``.
         name: Identifier under which this variation is registered on the asset.
             Defaults to ``"camera_intrinsics_{camera_name}"``.
@@ -151,6 +159,7 @@ class CameraIntrinsicsRunTimeVariation(RunTimeVariationBase):
     def __init__(
         self,
         camera_name: str,
+        camera_rig: ArenaCameraCfg | None = None,
         cfg: CameraIntrinsicsRunTimeVariationCfg | None = None,
         name: str | None = None,
     ):
@@ -158,6 +167,12 @@ class CameraIntrinsicsRunTimeVariation(RunTimeVariationBase):
         name = name if name is not None else f"camera_intrinsics_{camera_name}"
         super().__init__(cfg=cfg, name=name)
         self.camera_name = camera_name
+        self._camera_rig = camera_rig
+
+    def apply_build_time_effects(self) -> None:
+        """Force the target camera's rig untiled so the per-env run-time perturbation takes effect."""
+        if self._camera_rig is not None:
+            self._camera_rig.set_use_tiled_camera(False)
 
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
         assert self._sampler is not None, (

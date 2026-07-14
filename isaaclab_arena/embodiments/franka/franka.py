@@ -85,7 +85,7 @@ class FrankaEmbodimentBase(EmbodimentBase):
         self.observation_config = FrankaObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.add_variation(CameraExtrinsicsVariation(camera_name="wrist_cam"))
-        self.add_variation(CameraIntrinsicsRunTimeVariation(camera_name="wrist_cam"))
+        self.add_variation(CameraIntrinsicsRunTimeVariation(camera_name="wrist_cam", camera_rig=self.camera_config))
 
     def set_initial_joint_pose(self, initial_joint_pose: list[float]) -> None:
         self.event_config.init_franka_arm_pose.params["default_pose"] = initial_joint_pose

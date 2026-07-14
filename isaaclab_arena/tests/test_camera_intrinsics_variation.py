@@ -141,6 +141,42 @@ def _test_enabled_run_time_camera_intrinsics_variation_in_events_cfg(simulation_
     return True
 
 
+def _test_disabled_run_time_camera_intrinsics_variation_keeps_tiled_camera(simulation_app):
+    from isaaclab.sensors import TiledCameraCfg
+
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+
+    arena_env = get_run_time_test_environment(camera_intrinsics_enabled=False)
+    args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
+    env_cfg, _ = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).compose_manager_cfg()
+
+    camera_cfg = getattr(env_cfg.scene, CAMERA_NAME)
+    assert isinstance(camera_cfg, TiledCameraCfg), (
+        "With the run-time intrinsics variation disabled, the camera should keep the embodiment's "
+        f"tiled default; got {type(camera_cfg).__name__}."
+    )
+    return True
+
+
+def _test_enabled_run_time_camera_intrinsics_variation_forces_untiled_camera(simulation_app):
+    from isaaclab.sensors import CameraCfg, TiledCameraCfg
+
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+
+    arena_env = get_run_time_test_environment(camera_intrinsics_enabled=True)
+    args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
+    env_cfg, _ = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).compose_manager_cfg()
+
+    camera_cfg = getattr(env_cfg.scene, CAMERA_NAME)
+    assert isinstance(camera_cfg, CameraCfg) and not isinstance(camera_cfg, TiledCameraCfg), (
+        "Enabling the run-time intrinsics variation must force the camera untiled so per-env "
+        f"perturbations take effect; got {type(camera_cfg).__name__}."
+    )
+    return True
+
+
 def _test_run_time_camera_intrinsics_variation_realized_at_runtime(simulation_app):
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -197,6 +233,24 @@ def test_disabled_run_time_camera_intrinsics_variation_not_in_events_cfg():
 def test_enabled_run_time_camera_intrinsics_variation_in_events_cfg():
     assert run_simulation_app_function(
         _test_enabled_run_time_camera_intrinsics_variation_in_events_cfg,
+        headless=HEADLESS,
+        enable_cameras=ENABLE_CAMERAS,
+    )
+
+
+@pytest.mark.with_cameras
+def test_disabled_run_time_camera_intrinsics_variation_keeps_tiled_camera():
+    assert run_simulation_app_function(
+        _test_disabled_run_time_camera_intrinsics_variation_keeps_tiled_camera,
+        headless=HEADLESS,
+        enable_cameras=ENABLE_CAMERAS,
+    )
+
+
+@pytest.mark.with_cameras
+def test_enabled_run_time_camera_intrinsics_variation_forces_untiled_camera():
+    assert run_simulation_app_function(
+        _test_enabled_run_time_camera_intrinsics_variation_forces_untiled_camera,
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,
     )

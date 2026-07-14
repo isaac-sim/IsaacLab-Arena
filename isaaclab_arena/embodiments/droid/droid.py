@@ -73,7 +73,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self.reward_config = None
         self.mimic_env = None
         self.add_variation(CameraExtrinsicsVariation(camera_name="wrist_camera"))
-        self.add_variation(CameraIntrinsicsRunTimeVariation(camera_name="wrist_camera"))
+        self.add_variation(CameraIntrinsicsRunTimeVariation(camera_name="wrist_camera", camera_rig=self.camera_config))
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
         # We override the default initial pose setting function in order to also set
