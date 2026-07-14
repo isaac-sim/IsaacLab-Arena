@@ -14,6 +14,7 @@ Resetting and clearing of positions are handled by the progress tracker on env r
 from __future__ import annotations
 
 import torch
+from weakref import WeakKeyDictionary
 
 from isaaclab_arena.tasks.predicates.predicate_utils import (
     get_env,
@@ -23,7 +24,7 @@ from isaaclab_arena.tasks.predicates.predicate_utils import (
     select,
 )
 
-_INITIAL_REST_POSE_RECORDER_ATTR = "_object_initial_rest_pose_recorder"
+_recorders: WeakKeyDictionary[object, ObjectInitialRestPoseRecorder] = WeakKeyDictionary()
 
 
 class ObjectInitialRestPoseRecorder:
@@ -76,17 +77,17 @@ def get_rest_pose_recorder(env) -> ObjectInitialRestPoseRecorder:
     """Return the env's ``ObjectInitialRestPoseRecorder``, lazily creating and caching it on first use."""
 
     env = get_env(env)
-    recorder = getattr(env, _INITIAL_REST_POSE_RECORDER_ATTR, None)
+    recorder = _recorders.get(env)
     if recorder is None:
         recorder = ObjectInitialRestPoseRecorder(env.num_envs, env.device)
-        setattr(env, _INITIAL_REST_POSE_RECORDER_ATTR, recorder)
+        _recorders[env] = recorder
     return recorder
 
 
 def reset_rest_pose_recorder(env, env_ids=None) -> None:
     """Clear recorded initial rest poses for ``env_ids``. Invoked by the progress tracker on env reset."""
 
-    recorder = getattr(get_env(env), _INITIAL_REST_POSE_RECORDER_ATTR, None)
+    recorder = _recorders.get(get_env(env))
     if recorder is not None:
         recorder.reset(env_ids)
 
