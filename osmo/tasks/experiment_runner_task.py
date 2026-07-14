@@ -18,7 +18,7 @@ from typing import Any
 from omegaconf import OmegaConf
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
-from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentDefinitionCfg
+from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from osmo.tasks.base_task import BaseTask, TaskCfg
 from osmo.workflows.utils.yaml_utils import block_literal_str
@@ -43,11 +43,11 @@ class ExperimentRunnerTask(BaseTask):
     def __init__(
         self,
         task_cfg: ExperimentRunnerTaskCfg,
-        experiment_definition: ArenaExperimentDefinitionCfg,
+        experiment_definition: ArenaExperimentCfg,
         lead: bool | None = None,
     ) -> None:
         super().__init__(task_cfg=task_cfg, lead=lead)
-        assert isinstance(experiment_definition, ArenaExperimentDefinitionCfg)
+        assert isinstance(experiment_definition, ArenaExperimentCfg)
         self.experiment_definition = deepcopy(experiment_definition)
 
     @staticmethod
