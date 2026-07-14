@@ -1017,13 +1017,13 @@ class ObjectPlacer:
 
     @staticmethod
     def _effective_yaw(
-        obj: ObjectBase,
+        obj: ObjectBase | CollisionObject,
         orientations: dict[ObjectBase, float] | None,
         use_pose_yaw: bool,
     ) -> float:
         """Resolve effective Z-yaw from sampled orientations or, when allowed, fixed initial pose."""
         if orientations is not None and obj in orientations:
-            return orientations[obj]
+            return orientations[cast("ObjectBase", obj)]
         if not use_pose_yaw:
             return 0.0
         pose = obj.get_initial_pose()
@@ -1054,7 +1054,7 @@ class ObjectPlacer:
     def _centers_in_target_frame(
         centers_local: torch.Tensor,
         source_obj: ObjectBase,
-        target_obj: ObjectBase,
+        target_obj: ObjectBase | CollisionObject,
         source_pos: torch.Tensor,
         target_pos: torch.Tensor,
         orientations: dict[ObjectBase, float] | None,
