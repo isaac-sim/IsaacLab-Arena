@@ -42,6 +42,22 @@ def get_placement_pool(env) -> PooledObjectPlacer | None:
     return term_cfg.params.get("placement_pool")
 
 
+def get_placement_pool_from_cfg(env_cfg) -> PooledObjectPlacer | None:
+    """Return the pooled placer embedded in an env cfg's placement-reset event, or ``None`` when absent.
+
+    Reaches the pool from the composed cfg before the env is constructed, so a build-time validator can
+    filter it in place and have every env later built from that same cfg draw only the surviving layouts.
+
+    Args:
+        env_cfg: The composed ManagerBased env cfg whose ``events`` may hold the placement-reset term.
+    """
+    events_cfg = getattr(env_cfg, "events", None)
+    term_cfg = getattr(events_cfg, PLACEMENT_RESET_EVENT_NAME, None) if events_cfg is not None else None
+    if term_cfg is None:
+        return None
+    return term_cfg.params.get("placement_pool")
+
+
 def get_rotation_xyzw(obj: ObjectBase) -> tuple[float, float, float, float]:
     """Return the RotateAroundSolution rotation for *obj*, or identity if none."""
     rotate_marker = next((r for r in obj.get_relations() if isinstance(r, RotateAroundSolution)), None)

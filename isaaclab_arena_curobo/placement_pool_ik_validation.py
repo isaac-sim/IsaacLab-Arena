@@ -131,6 +131,126 @@ def validate_pool_ik(
     return results
 
 
+def _stamp_unvalidated_layouts(
+    env: ManagerBasedEnv,
+    planner,
+    placement_pool: PooledObjectPlacer,
+    movable_object_names: list[str],
+    anchor_objects_set: set,
+    base_rotations: dict,
+    grasp_z_offset: float,
+    ik_pos_threshold: float,
+    ik_rot_threshold: float,
+) -> None:
+    """Stamp ``IK_REACHABLE`` on every stored layout that lacks it, by IK-checking it in the sim.
+
+    The planner is bound to env 0, so each candidate is written into env 0 and checked there. Layouts
+    already carrying a verdict are skipped so refill rounds only re-check freshly solved candidates.
+    """
+    for layouts in placement_pool.layouts_per_env():
+        for layout in layouts:
+            if PlacementCheck.IK_REACHABLE in layout.validation_results.validation_results:
+                continue
+            write_layout_to_sim(env.unwrapped, 0, layout, anchor_objects_set, base_rotations)
+            sync_object_poses_in_robot_base_frame(planner)
+            reachable = _layout_is_ik_reachable(
+                env.unwrapped,
+                planner,
+                movable_object_names,
+                grasp_z_offset,
+                ik_pos_threshold,
+                ik_rot_threshold,
+            )
+            layout.validation_results.validation_results[PlacementCheck.IK_REACHABLE] = reachable
+
+
+def filter_pool_by_ik_reachability(
+    env: ManagerBasedEnv,
+    planner,
+    placement_pool: PooledObjectPlacer | None = None,
+    target_reachable_per_env: int | None = None,
+    grasp_z_offset: float = 0.02,
+    ik_pos_threshold: float = 0.01,
+    ik_rot_threshold: float = 0.1,
+    max_refill_rounds: int = 5,
+) -> PooledObjectPlacer | None:
+    """Prune a placement pool to IK-reachable layouts, refilling geometry until the target is met.
+
+    Reject-&-refill: every stored layout is IK-checked in the sim and stamped; only layouts whose every
+    movable-object top-down grasp is reachable are retained. When an env falls short of
+    ``target_reachable_per_env``, fresh geometry layouts are solved and re-checked, up to
+    ``max_refill_rounds``. The pool is mutated in place so a later env built from the same config draws
+    only reachable layouts. Intended to run on a throwaway env, leaving the eval env's pool untouched.
+
+    Args:
+        env: The Isaac Lab env; must expose a ``robot`` articulation in its scene.
+        planner: A ``CuroboPlanner`` bound to env 0 (see ``make_curobo_planner``).
+        placement_pool: Pool to filter. When ``None`` it is derived from the env's registered layouts.
+        target_reachable_per_env: Reachable layouts each env must retain. Defaults to the pool's
+            ``min_unique_layouts_per_env`` worth (its per-env stored count at entry).
+        grasp_z_offset: Height (m) above each object center for the grasp pose.
+        ik_pos_threshold: Max IK position error (m) for a grasp to count as reachable.
+        ik_rot_threshold: Max IK rotation error (rad) for a grasp to count as reachable.
+        max_refill_rounds: Cap on solve-and-recheck rounds before returning best-effort.
+
+    Returns:
+        The filtered pool, or ``None`` when ``placement_pool`` is omitted and the env has no pooled layouts.
+    """
+    if placement_pool is None:
+        placement_pool = get_placement_pool(env)
+        if placement_pool is None:
+            return None
+
+    if target_reachable_per_env is None:
+        target_reachable_per_env = min((len(layouts) for layouts in placement_pool.layouts_per_env()), default=1)
+    target_reachable_per_env = max(1, target_reachable_per_env)
+
+    objects = placement_pool.objects
+    anchor_objects_set = set(get_anchor_objects(objects))
+    base_rotations = get_base_rotation_per_object(objects)
+    movable_object_names = get_movable_object_names(objects, anchor_objects_set)
+
+    def _is_reachable(layout) -> bool:
+        return bool(layout.validation_results.validation_results.get(PlacementCheck.IK_REACHABLE))
+
+    # Each round ends on stamp+retain so the pool never carries unvalidated layouts out of the loop;
+    # a refill (which appends unvalidated candidates) only runs when another round will re-check them.
+    for round_idx in range(max_refill_rounds):
+        _stamp_unvalidated_layouts(
+            env,
+            planner,
+            placement_pool,
+            movable_object_names,
+            anchor_objects_set,
+            base_rotations,
+            grasp_z_offset,
+            ik_pos_threshold,
+            ik_rot_threshold,
+        )
+        placement_pool.retain_layouts_per_env(_is_reachable)
+        reachable_per_env = [len(layouts) for layouts in placement_pool.layouts_per_env()]
+        if min(reachable_per_env, default=0) >= target_reachable_per_env:
+            print(f"IK filter: reached target {target_reachable_per_env} reachable/env {reachable_per_env}.")
+            return placement_pool
+        if round_idx == max_refill_rounds - 1:
+            break
+        try:
+            placement_pool.refill_geometry_layouts(target_reachable_per_env)
+        except RuntimeError as refill_error:
+            print(
+                f"IK filter: geometry refill fell short of target ({refill_error}); "
+                f"stopping with reachable/env {reachable_per_env}."
+            )
+            return placement_pool
+
+    print(
+        f"IK filter: after {max_refill_rounds} rounds reachable/env "
+        f"{[len(layouts) for layouts in placement_pool.layouts_per_env()]}, "
+        f"target was {target_reachable_per_env} (best effort)."
+    )
+    return placement_pool
+
+
 def print_ik_validation_results(results: list[tuple[int, int, PlacementValidationResults]]) -> None:
     """Print each layout's validation results and an IK-reachable pass/fail summary."""
     if not results:

@@ -16,6 +16,8 @@ from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.utils.random import get_rngs
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.collision_object import CollisionObject
 
@@ -322,7 +324,7 @@ class PooledObjectPlacer:
         return self._total_available()
 
     # ------------------------------------------------------------------
-    # Pool introspection for the offline layout validator (sim-free)
+    # Pool introspection and post-solve filtering for layout validators
     # ------------------------------------------------------------------
 
     @property
@@ -333,3 +335,30 @@ class PooledObjectPlacer:
     def layouts_per_env(self) -> list[list[PlacementResult]]:
         """Flattened list of every stored layout, grouped by env pool index."""
         return [list(pool.layouts) for pool in self._env_pools]
+
+    def retain_layouts_per_env(self, keep: Callable[[PlacementResult], bool]) -> None:
+        """Drop stored layouts that fail *keep*, per env, and reset the read cursors.
+
+        Lets an external post-solve validator (e.g. cuRobo IK on a throwaway env) prune the pool to the
+        layouts that passed a sim-based check. Considers every stored layout, not just unread ones, and
+        resets each cursor to 0 so the survivors are all unread for the real env's first draw.
+
+        Args:
+            keep: Predicate returning True for layouts to keep.
+        """
+        for pool in self._env_pools:
+            pool.layouts = [layout for layout in pool.layouts if keep(layout)]
+            pool.cursor = 0
+
+    def refill_geometry_layouts(self, target_per_env: int) -> None:
+        """Solve and store geometry-valid layouts until each env has at least target_per_env unread.
+
+        Appends fresh candidates via the geometry solver; newly stored layouts carry only build-time
+        (geometry/relation) verdicts, so a sim-based validator must re-check them. Bounded by
+        max_placement_attempts; raises if the target cannot be met.
+
+        Args:
+            target_per_env: Minimum number of unread layouts each env pool should hold afterward.
+        """
+        assert target_per_env >= 1, f"target_per_env must be >= 1, got {target_per_env}"
+        self._solve_and_store(target_per_env * self._num_envs)

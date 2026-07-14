@@ -777,3 +777,54 @@ def test_pooled_placer_can_reject_best_loss_fallbacks():
 
     with pytest.raises(RuntimeError, match="could not fill"):
         PooledObjectPlacer(objects=[desk, big1, big2], placer_params=placer_params, pool_size=5)
+
+
+def _make_filterable_pool(num_envs: int, min_layouts_per_env: int):
+    """Build a small valid pool over the desk/box fixtures for filtering tests."""
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+
+    objects = list(_create_test_objects())
+    params = ObjectPlacerParams(
+        solver_params=RelationSolverParams(max_iters=200, convergence_threshold=1e-3),
+        apply_positions_to_objects=False,
+        min_unique_layouts_per_env=min_layouts_per_env,
+        placement_seed=7,
+    )
+    return PooledObjectPlacer(
+        objects=objects,
+        placer_params=params,
+        pool_size=num_envs * min_layouts_per_env,
+        num_envs=num_envs,
+    )
+
+
+def test_retain_layouts_per_env_filters_and_resets_cursor():
+    """retain_layouts_per_env keeps only matching layouts per env and resets read cursors to 0."""
+    pool = _make_filterable_pool(num_envs=2, min_layouts_per_env=3)
+
+    before = pool.layouts_per_env()
+    assert all(len(env_layouts) >= 1 for env_layouts in before)
+    # Keep only the first stored layout of each env pool.
+    keep_ids = {id(env_layouts[0]) for env_layouts in before}
+
+    pool.retain_layouts_per_env(lambda layout: id(layout) in keep_ids)
+
+    after = pool.layouts_per_env()
+    assert all(len(env_layouts) == 1 for env_layouts in after)
+    # Cursor reset means the single survivor is unread in every env pool.
+    assert pool.remaining == 1
+
+
+def test_refill_geometry_layouts_tops_up_to_target():
+    """refill_geometry_layouts re-solves geometry until each env holds at least target unread layouts."""
+    pool = _make_filterable_pool(num_envs=2, min_layouts_per_env=2)
+
+    pool.retain_layouts_per_env(lambda layout: False)
+    assert all(env_layouts == [] for env_layouts in pool.layouts_per_env())
+
+    pool.refill_geometry_layouts(target_per_env=3)
+
+    assert all(len(env_layouts) >= 3 for env_layouts in pool.layouts_per_env())
+    assert pool.remaining >= 3
