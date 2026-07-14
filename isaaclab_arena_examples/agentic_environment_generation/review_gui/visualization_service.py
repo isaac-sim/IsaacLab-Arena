@@ -13,10 +13,6 @@ import json
 import streamlit as st
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.asset_cards import (
-    AssetCard,
-    build_asset_cards,
-)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppError,
     simapp_socket_from_env,
@@ -25,6 +21,10 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.ki
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
     clear_simapp_client,
     ensure_simapp,
+)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.asset_cards import (
+    AssetCard,
+    build_asset_cards,
 )
 
 

@@ -24,12 +24,6 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.generatio
     _apply_generated_yaml,
     run_generation_pipeline,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.asset_cards import build_asset_cards
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.mermaid_graph import (
-    estimate_mermaid_height_px,
-    render_mermaid_graph,
-    render_mermaid_html,
-)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppClient,
     spawn_simapp_process,
@@ -43,6 +37,14 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_co
     ENV_SPACING_M,
     NUM_ENVS,
     NUM_STEPS,
+)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.asset_cards import (
+    build_asset_cards,
+)
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.mermaid_graph import (
+    estimate_mermaid_height_px,
+    render_mermaid_graph,
+    render_mermaid_html,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.streamlit_ui import initialize_state, parse_args
 
