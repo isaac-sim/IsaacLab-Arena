@@ -40,7 +40,8 @@ dev = [
 # flags), but pip's `pip install -e .[dev]` path -- which the Docker build uses --
 # does NOT read PEP 735 groups. This is the load-bearing reason these pins live
 # here and NOT in [project.dependencies]: the Docker image installs IsaacLab from
-# the arena submodule (version 4.5.24, editable, --no-deps) and Isaac Sim from
+# the beta-2 submodule (reporting its internal extension version, editable,
+# --no-deps) and Isaac Sim from
 # the base image; resolving `isaaclab==3.0.0b2` against that editable install
 # would force pip to download the public wheel + Isaac Sim (~20 GB) and corrupt
 # the staged, ABI-sensitive Newton/MuJoCo setup. Keeping the public wheels in a

@@ -69,10 +69,8 @@ is currently Docker-only, see the note):
 .. note::
    The third, subprocess-based phase (``-m with_subprocess``) also runs
    natively. A few of its tests skip outside Docker, with the reason stated in
-   the skip marker: some load assets not yet promoted to the public Nucleus,
-   and two hit API differences between the Docker Isaac Lab build and the
-   public wheel (to be removed once the Isaac Lab versions converge). The
-   Docker workflow below runs the full set.
+   the skip marker: they load assets not yet promoted to the public Nucleus.
+   The Docker workflow below runs the full set.
 
 .. note::
    Known upstream limitation: ``isaacsim-kernel`` 6.0.0 pins both

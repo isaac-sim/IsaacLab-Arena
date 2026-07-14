@@ -129,6 +129,7 @@ jobs:
 
           package_roots = (
               "isaaclab_arena",
+              "isaaclab_arena_curobo",
               "isaaclab_arena_environments",
               "isaaclab_arena_examples",
               "isaaclab_arena_g1",

@@ -12,7 +12,6 @@ import time
 import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
-from isaaclab_arena.tests.utils.markers import requires_docker_isaaclab
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 NUM_STEPS = 2
@@ -83,7 +82,6 @@ def run_policy_runner(checkpoint_path: str, example_environment: str, embodiment
 
 # TODO(xinjie.yao, 2026.04.01): Add a test case for num_episodes once it's enabled
 @pytest.mark.with_subprocess
-@requires_docker_isaaclab  # RL training env build hits the ArticulationCfg difference on the public wheel
 def test_rl_train_and_eval_lift_object():
     checkpoint_path = run_rl_train(
         example_environment="lift_object",
