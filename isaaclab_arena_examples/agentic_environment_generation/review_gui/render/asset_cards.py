@@ -9,7 +9,7 @@ import yaml
 from dataclasses import dataclass
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec, ObjectReferenceSpec
+from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec
 
 
 @dataclass(frozen=True)
@@ -19,67 +19,41 @@ class AssetCard:
     node_id: str
     """Graph node id shown as the card heading."""
     role: str
-    """Node role: ``background``, ``object``, or ``object_reference``."""
+    """Node role: ``background`` or ``object``."""
     label: str
-    """Registry name for assets, or the node id for object references."""
+    """Registry name for the asset."""
     yaml_text: str
     """Pretty-printed spec YAML for the node."""
     png_bytes: bytes | None = None
     """USD snapshot PNG, or ``None`` when no capture is available."""
     aabb_dimensions_m: tuple[float, float, float] | None = None
     """Axis-aligned bounding box size in metres, when known."""
-    is_panorama: bool = False
-    """Whether the snapshot is a 360 panorama capture (rendered full width)."""
-    is_object_reference: bool = False
-    """Whether the node is an object_reference (collision-mesh preview)."""
-    prim_unresolved: bool = False
-    """Object reference whose prim_path is unresolved, so no snapshot exists."""
 
 
 def build_asset_cards(
     spec: ArenaEnvGraphSpec,
     thumbnails: dict[str, bytes] | None = None,
     aabb_dimensions_m: dict[str, tuple[float, float, float]] | None = None,
-    panorama_node_ids: set[str] | None = None,
 ) -> list[AssetCard]:
-    """Build one AssetCard per node (background, object references, objects) for native rendering."""
+    """Build one AssetCard per node (background, objects) for native rendering."""
     thumbnails = thumbnails or {}
     aabb_dimensions_m = aabb_dimensions_m or {}
-    panorama_node_ids = panorama_node_ids or set()
-    entries: list[tuple[str, AssetSpec | ObjectReferenceSpec]] = []
+    entries: list[tuple[str, AssetSpec]] = []
     if spec.background is not None:
         entries.append(("background", spec.background))
-    entries.extend(("object_reference", ref) for ref in (spec.object_references or []))
     entries.extend(("object", obj) for obj in spec.objects)
 
     cards: list[AssetCard] = []
     for role, asset in entries:
-        png_bytes = thumbnails.get(asset.id)
         node_yaml = yaml.safe_dump(asset.model_dump(mode="json", exclude_none=True), sort_keys=False).rstrip()
-        if role == "object_reference":
-            assert isinstance(asset, ObjectReferenceSpec)
-            cards.append(
-                AssetCard(
-                    node_id=asset.id,
-                    role=role,
-                    label=asset.id,
-                    yaml_text=node_yaml,
-                    png_bytes=png_bytes,
-                    is_object_reference=True,
-                    prim_unresolved=png_bytes is None,
-                )
+        cards.append(
+            AssetCard(
+                node_id=asset.id,
+                role=role,
+                label=asset.registry_name,
+                yaml_text=node_yaml,
+                png_bytes=thumbnails.get(asset.id),
+                aabb_dimensions_m=aabb_dimensions_m.get(asset.id),
             )
-        else:
-            assert isinstance(asset, AssetSpec)
-            cards.append(
-                AssetCard(
-                    node_id=asset.id,
-                    role=role,
-                    label=asset.registry_name,
-                    yaml_text=node_yaml,
-                    png_bytes=png_bytes,
-                    aabb_dimensions_m=aabb_dimensions_m.get(asset.id),
-                    is_panorama=asset.id in panorama_node_ids,
-                )
-            )
+        )
     return cards

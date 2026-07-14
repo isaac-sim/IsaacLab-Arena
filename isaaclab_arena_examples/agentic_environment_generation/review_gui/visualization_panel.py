@@ -67,18 +67,9 @@ def _render_asset_card(card: AssetCard) -> None:
     with st.container(border=True):
         if card.png_bytes is not None:
             st.image(card.png_bytes, use_container_width=True)
-            notes: list[str] = []
-            if card.is_panorama:
-                notes.append("360° panorama")
-            elif card.is_object_reference:
-                notes.append("Collision mesh preview")
             if card.aabb_dimensions_m is not None:
                 x, y, z = card.aabb_dimensions_m
-                notes.append(f"AABB {x:.3f} × {y:.3f} × {z:.3f} m")
-            if notes:
-                st.caption(" · ".join(notes))
-        elif card.prim_unresolved:
-            st.caption("⛔ Resolve prim_path to enable collision-mesh snapshot")
+                st.caption(f"AABB {x:.3f} × {y:.3f} × {z:.3f} m")
         else:
             st.caption("No snapshot available")
         st.markdown(f"**{card.node_id}**")
@@ -88,7 +79,7 @@ def _render_asset_card(card: AssetCard) -> None:
 
 
 def _render_asset_grid(cards: list[AssetCard]) -> None:
-    """Lay out asset cards in a grid; panorama cards span the full width on their own row."""
+    """Lay out asset cards in a grid."""
     row: list[AssetCard] = []
 
     def _flush_row() -> None:
@@ -100,13 +91,9 @@ def _render_asset_grid(cards: list[AssetCard]) -> None:
         row.clear()
 
     for card in cards:
-        if card.is_panorama:
+        row.append(card)
+        if len(row) == _ASSET_GRID_COLS:
             _flush_row()
-            _render_asset_card(card)
-        else:
-            row.append(card)
-            if len(row) == _ASSET_GRID_COLS:
-                _flush_row()
     _flush_row()
 
 

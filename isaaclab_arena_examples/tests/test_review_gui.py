@@ -93,30 +93,13 @@ class TestBuildAssetCards:
         assert background.png_bytes == b"fake"
         assert background.aabb_dimensions_m == (0.05, 0.05, 0.12)
 
-    def test_flags_panorama_background(self, valid_spec: ArenaEnvGraphSpec):
-        bg_id = valid_spec.background.id
-        cards = build_asset_cards(valid_spec, panorama_node_ids={bg_id})
-        background = next(card for card in cards if card.node_id == bg_id)
-        assert background.is_panorama
-
-    def test_object_reference_without_snapshot_is_unresolved(self):
+    def test_excludes_object_references(self):
         from isaaclab_arena.tests.utils.agentic_environment_generation import kitchen_pass1_dict
 
         spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
-        refs = [card for card in build_asset_cards(spec) if card.is_object_reference]
-        assert refs
-        assert all(card.prim_unresolved and card.png_bytes is None for card in refs)
-
-    def test_object_reference_with_snapshot_shows_preview(self):
-        from isaaclab_arena.tests.utils.agentic_environment_generation import kitchen_pass1_dict
-
-        spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
-        ref_id = spec.object_references[0].id
-        cards = build_asset_cards(spec, thumbnails={ref_id: b"fake"})
-        ref = next(card for card in cards if card.node_id == ref_id)
-        assert ref.is_object_reference
-        assert ref.png_bytes == b"fake"
-        assert not ref.prim_unresolved
+        card_ids = {card.node_id for card in build_asset_cards(spec)}
+        assert card_ids
+        assert all(ref.id not in card_ids for ref in spec.object_references)
 
 
 class TestMermaidHtml:
