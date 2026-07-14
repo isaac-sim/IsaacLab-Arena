@@ -7,6 +7,17 @@ import os
 import sys
 
 
+def _get_python_path(repo_root: str) -> str:
+    """Return the interpreter used to spawn subprocess-based tests.
+
+    Docker bundles Isaac Sim's ``python.sh`` under the IsaacLab submodule; the
+    native uv environment has no such bundle, so fall back to the current
+    interpreter (the uv venv python, which carries the isaaclab wheel).
+    """
+    docker_python = f"{repo_root}/submodules/IsaacLab/_isaac_sim/python.sh"
+    return docker_python if os.path.exists(docker_python) else sys.executable
+
+
 class _TestConstants:
     """Class for storing test data paths"""
 
@@ -26,12 +37,7 @@ class _TestConstants:
 
         self.scripts_dir = f"{self.repo_root}/isaaclab_arena/scripts"
 
-        # Interpreter used to spawn subprocess-based tests. Docker bundles Isaac Sim's
-        # python.sh under the submodule; the native uv env has no submodule, so fall back
-        # to the current interpreter (the uv venv python, which carries the isaaclab wheel).
-        docker_python = f"{self.repo_root}/submodules/IsaacLab/_isaac_sim/python.sh"
-        self.is_docker = os.path.exists(docker_python)
-        self.python_path = docker_python if self.is_docker else sys.executable
+        self.python_path = _get_python_path(self.repo_root)
 
         self.test_data_dir = f"{self.test_dir}/test_data"
 

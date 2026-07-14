@@ -11,7 +11,6 @@ import pytest
 
 from isaaclab_arena.evaluation.eval_runner_cli import parse_eval_runner_args
 from isaaclab_arena.tests.utils.constants import TestConstants
-from isaaclab_arena.tests.utils.markers import requires_docker_assets
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function, run_subprocess
 
 HEADLESS = True
@@ -234,7 +233,6 @@ def test_eval_runner_from_existing_config():
 
 
 @pytest.mark.with_subprocess
-@requires_docker_assets  # builds pick_and_place_maple_table
 def test_eval_runner_with_variations(tmp_path):
     """Test eval_runner applies a per-job variations block via Hydra overrides."""
     jobs = [
@@ -291,7 +289,6 @@ def test_eval_runner_enable_cameras(tmp_path):
 
 
 @pytest.mark.with_subprocess
-@requires_docker_assets  # builds the maple-table graph-spec env
 def test_eval_runner_graph_spec_with_variation(tmp_path):
     """Eval a graph-spec env (built from YAML) with --enable_cameras and a camera variation.
 

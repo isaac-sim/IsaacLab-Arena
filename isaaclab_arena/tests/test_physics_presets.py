@@ -3,26 +3,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for the ArenaPhysicsCfg preset system and ArenaEnvBuilder integration.
-
-All imports of Isaac Lab / Arena config classes are deferred into the inner
-functions that run inside the ``SimulationApp`` context. Importing them at
-module (collection) time would construct ``ArenaPhysicsCfg`` before the app is
-initialized, which fails under the Isaac Lab pip wheel (``configclass`` resolves
-lazily) and leaves Isaac Lab half-imported -- duplicating ``ArticulationCfg`` and
-breaking ``isinstance`` checks in every test collected afterwards.
-"""
+"""Tests for the ArenaPhysicsCfg preset system and ArenaEnvBuilder integration."""
 
 import pytest
 
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
 
 HEADLESS = True
-
-
-# ---------------------------------------------------------------------------
-# ArenaPhysicsCfg preset lookup (resolved inside the SimulationApp context)
-# ---------------------------------------------------------------------------
 
 
 def _test_arena_physics_cfg_presets(simulation_app) -> bool:
@@ -45,11 +32,6 @@ def _test_arena_physics_cfg_presets(simulation_app) -> bool:
     # Newton solver tuning
     assert cfg.newton.solver_cfg.solver == "newton"
     return True
-
-
-# ---------------------------------------------------------------------------
-# ArenaEnvBuilder end-to-end preset tests (requires SimulationApp)
-# ---------------------------------------------------------------------------
 
 
 def _build_env_cfg(presets: str | None):

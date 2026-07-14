@@ -45,7 +45,6 @@ def add_eval_runner_arguments(parser: argparse.ArgumentParser) -> None:
         help=(
             "Base directory for evaluation outputs (videos, per-episode results, report); a"
             " reverse-dated Experiment subdirectory and per-Run subdirectory are added."
-            " Defaults to ./outputs; pass e.g. /eval/output to write to Docker's eval mount."
         ),
     )
     parser.add_argument(

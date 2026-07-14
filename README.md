@@ -74,29 +74,19 @@ Arena solves this by making environment variation a first-class concept. Swap an
 **Native developer setup with uv:**
 
 ```bash
+# 1. Clone the repository
 git clone git@github.com:isaac-sim/IsaacLab-Arena.git
 cd IsaacLab-Arena
+
+# 2. Create the locked environment (Isaac Lab, Isaac Sim, PyTorch, and Newton wheels)
 uv sync
+
+# 3. Accept the Isaac Sim EULA
+export OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y
+
+# 4. Verify the installation
+uv run pytest -sv -m "not with_cameras" isaaclab_arena/tests/
 ```
-
-`uv sync` creates a Python 3.12 virtual environment in `.venv/`, installs Isaac Lab-Arena, and pulls `isaaclab[isaacsim,all]==3.0.0b2` with the matching Isaac Sim 6.0, PyTorch, and Newton wheels — the committed lockfile pins the complete environment. Accept the Isaac Sim EULA non-interactively and run the non-camera and camera smoke tests:
-
-```bash
-export OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y   # accept the Isaac Sim EULA non-interactively
-uv run pytest -q isaaclab_arena/tests/test_achieve_cube_goal_pose.py::test_achieve_cube_goal_pose_initial_state
-uv run pytest -q isaaclab_arena/tests/test_camera_observation.py::test_camera_observation
-```
-
-Launch a short rollout:
-
-```bash
-uv run python isaaclab_arena/evaluation/policy_runner.py \
-  --headless --policy_type zero_action --num_steps 20 cube_goal_pose
-```
-
-> Outputs land in `./outputs` by default (both natively and in Docker); pass `--output_base_dir` to redirect them, e.g. to Docker's `/eval` mount.
->
-> The subprocess-based eval phase (`-m with_subprocess`) also runs natively; a few tests skip outside Docker (unpromoted assets) — see the installation guide.
 
 **Source install inside Docker:**
 

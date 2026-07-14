@@ -12,10 +12,6 @@ import pytest
 
 from isaaclab_arena.tests.test_policy_runner import NUM_STEPS, run_policy_runner
 from isaaclab_arena.tests.utils.constants import TestConstants
-from isaaclab_arena.tests.utils.markers import requires_docker_assets
-
-# All tests here boot pick_and_place_maple_table, whose table asset is not yet on the public Nucleus.
-pytestmark = requires_docker_assets
 
 
 @pytest.mark.with_subprocess

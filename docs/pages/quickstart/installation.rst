@@ -26,10 +26,10 @@ the complete environment.
     cd IsaacLab-Arena
     uv sync
 
-``uv sync`` creates a Python 3.12 virtual environment in ``.venv/`` (pinned by
-``.python-version``), installs Isaac Lab Arena, and pulls
-``isaaclab[isaacsim,all]==3.0.0b2`` together with the matching Isaac Sim 6.0,
-PyTorch, and Newton wheels.
+``uv sync`` creates a Python virtual environment in ``.venv/`` (pinned by
+``.python-version``), installs Isaac Lab Arena, and pulls Isaac Lab together
+with the matching Isaac Sim, PyTorch, and Newton wheels at the versions pinned
+by the committed lockfile.
 
 Accept the Isaac Sim EULA so the first launch is non-interactive:
 
@@ -37,49 +37,22 @@ Accept the Isaac Sim EULA so the first launch is non-interactive:
 
     export OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y
 
-Verify both in-process execution modes with one non-camera and one camera smoke
-test:
-
-.. code-block:: bash
-
-    uv run pytest -q isaaclab_arena/tests/test_achieve_cube_goal_pose.py::test_achieve_cube_goal_pose_initial_state
-    uv run pytest -q isaaclab_arena/tests/test_camera_observation.py::test_camera_observation
-
-Launch a short zero-action rollout:
+Launch a short zero-action rollout as a visual validation that things are
+running:
 
 .. code-block:: bash
 
     uv run python isaaclab_arena/evaluation/policy_runner.py \
       --headless --policy_type zero_action --num_steps 20 cube_goal_pose
 
-Optionally verify the installation by running the in-process test phases (the
-same phases the Docker workflow runs below; the third, subprocess-based phase
-is currently Docker-only, see the note):
+Optionally verify the installation by running the test phases (the same phases
+the Docker workflow runs below):
 
 .. code-block:: bash
 
-    uv run pytest -sv -m "with_cameras and not with_subprocess" isaaclab_arena/tests/
     uv run pytest -sv -m "not with_cameras and not with_subprocess" isaaclab_arena/tests/
-
-.. note::
-   The policy and evaluation runners write to ``./outputs`` under the current
-   working directory by default (natively and in Docker alike). Pass
-   ``--output_base_dir`` to redirect, e.g. to Docker's ``/eval`` mount.
-
-.. note::
-   The third, subprocess-based phase (``-m with_subprocess``) also runs
-   natively. A few of its tests skip outside Docker, with the reason stated in
-   the skip marker: they load assets not yet promoted to the public Nucleus.
-   The Docker workflow below runs the full set.
-
-.. note::
-   Known upstream limitation: ``isaacsim-kernel`` 6.0.0 pins both
-   ``numpy==2.3.1`` and ``coverage==7.4.4``, but every ``numba`` that supports
-   numpy 2.3.1 needs a newer coverage API, so ``import numba`` fails in the
-   native ``uv`` environment. Isaac Lab Arena never imports ``numba`` itself;
-   the native smoke tests and in-process test coverage work without it.
-   ``numba``-backed *upstream* Isaac Lab functionality is outside the validated
-   native-``uv`` scope -- use the Docker workflow for that.
+    uv run pytest -sv -m "with_cameras and not with_subprocess" isaaclab_arena/tests/
+    uv run pytest -sv -m with_subprocess isaaclab_arena/tests/
 
 With ``isaaclab_arena`` installed you're ready to build your first environment;
 see :doc:`first_arena_env`.

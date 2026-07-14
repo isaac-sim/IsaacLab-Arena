@@ -16,7 +16,6 @@ import pytest
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
 from isaaclab_arena.tests.test_eval_runner import run_eval_runner, write_jobs_config_to_file
-from isaaclab_arena.tests.utils.markers import requires_docker_assets
 from isaaclab_arena_environments.cli import add_environment_cli_args, ensure_environments_registered
 
 NUM_STEPS = 2
@@ -57,7 +56,6 @@ def _build_jobs_for_all_envs() -> list[dict]:
 
 
 @pytest.mark.with_subprocess
-@requires_docker_assets  # sweeps every registered env, incl. ones whose assets are unpromoted
 def test_eval_runner_all_environments(tmp_path):
     """Boot every registered environment for a few steps with the zero_action policy."""
     jobs = _build_jobs_for_all_envs()
