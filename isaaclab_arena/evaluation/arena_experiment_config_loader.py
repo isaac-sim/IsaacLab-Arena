@@ -13,9 +13,10 @@ from pathlib import Path
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation.arena_experiment import ArenaExperiment
+from isaaclab_arena.evaluation.arena_experiment import ArenaExperiment, ArenaExperimentDefinitionCfg
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
-from isaaclab_arena.hydra.experiment_composition import load_arena_experiment_from_yaml
+from isaaclab_arena.hydra.experiment_composition import load_arena_experiment_definition_from_yaml
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena_environments.cli import ensure_environments_registered
 
@@ -56,7 +57,33 @@ def load_arena_experiment_from_config_file(
             legacy_experiment_config = json.load(experiment_config_file)
         return run_cfgs_from_legacy_eval_config(legacy_experiment_config, device=device)
 
-    yaml_experiment = load_arena_experiment_from_yaml(
+    experiment_definition = load_arena_experiment_definition_from_config_file(
+        path,
+        device=device,
+        overrides=overrides,
+    )
+    return list(experiment_definition.runs.values())
+
+
+def load_arena_experiment_definition_from_config_file(
+    experiment_config_path: str | Path,
+    *,
+    device: str,
+    overrides: list[str] | None = None,
+) -> ArenaExperimentDefinitionCfg:
+    """Load a typed YAML Experiment Definition and apply its process device.
+
+    Args:
+        experiment_config_path: Path to a typed YAML Experiment Definition.
+        device: Process-wide simulation device applied to every Run.
+        overrides: Hydra overrides applied after the YAML values.
+
+    Returns:
+        The composed Experiment Definition with typed Runs.
+    """
+    path = validate_experiment_config_path(experiment_config_path)
+    assert path.suffix.lower() in {".yaml", ".yml"}, "Experiment Definitions must use typed YAML"
+    experiment_definition = load_arena_experiment_definition_from_yaml(
         path,
         environment_cfg_types=_registered_environment_cfg_types(),
         policy_cfg_types=_registered_policy_cfg_types(),
@@ -66,15 +93,15 @@ def load_arena_experiment_from_config_file(
     # TODO(cvolk, 2026-07-09): [typed-config-migration] Make device a process-level
     # evaluation setting shared by AppLauncher and Run execution. Then remove device
     # from ArenaEnvBuilderCfg and delete this per-Run copy.
-    experiment_with_process_device: ArenaExperiment = []
-    for run_config in yaml_experiment:
+    runs_with_process_device: dict[str, ArenaRunCfg] = {}
+    for run_name, run_config in experiment_definition.runs.items():
         environment_builder_with_process_device = replace(run_config.environment_builder, device=device)
         run_config_with_process_device = replace(
             run_config,
             environment_builder=environment_builder_with_process_device,
         )
-        experiment_with_process_device.append(run_config_with_process_device)
-    return experiment_with_process_device
+        runs_with_process_device[run_name] = run_config_with_process_device
+    return ArenaExperimentDefinitionCfg(runs=runs_with_process_device)
 
 
 def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:

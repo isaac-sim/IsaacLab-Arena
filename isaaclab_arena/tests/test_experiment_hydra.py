@@ -13,7 +13,11 @@ from hydra import initialize
 from hydra.core.config_store import ConfigStore
 from hydra.core.global_hydra import GlobalHydra
 
-from isaaclab_arena.hydra.experiment_composition import load_arena_experiment_from_yaml
+from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentDefinitionCfg
+from isaaclab_arena.hydra.experiment_composition import (
+    load_arena_experiment_definition_from_yaml,
+    load_arena_experiment_from_yaml,
+)
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
@@ -33,6 +37,15 @@ def _load_experiment(config_path: str | Path, overrides: list[str] | None = None
     )
 
 
+def _load_experiment_definition(config_path: str | Path, overrides: list[str] | None = None):
+    return load_arena_experiment_definition_from_yaml(
+        config_path,
+        environment_cfg_types={"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+        policy_cfg_types={"zero_action": ZeroActionPolicyCfg},
+        overrides=overrides,
+    )
+
+
 def _write_experiment(tmp_path: Path, contents: str) -> Path:
     config_path = tmp_path / "experiment.yaml"
     config_path.write_text(contents, encoding="utf-8")
@@ -40,29 +53,31 @@ def _write_experiment(tmp_path: Path, contents: str) -> Path:
 
 
 def test_getting_started_experiment_composes_typed_runs():
-    runs = _load_experiment(GETTING_STARTED_EXPERIMENT_PATH)
+    experiment_definition = _load_experiment_definition(GETTING_STARTED_EXPERIMENT_PATH)
+    runs = experiment_definition.runs
 
-    assert [run.name for run in runs] == [
+    assert isinstance(experiment_definition, ArenaExperimentDefinitionCfg)
+    assert list(runs) == [
         "baseline",
         "swap_objects",
         "change_background_hdr",
         "parallel_envs",
     ]
-    assert runs[0].environment == PickAndPlaceMapleTableEnvironmentCfg(
+    assert runs["baseline"].environment == PickAndPlaceMapleTableEnvironmentCfg(
         embodiment="droid_rel_joint_pos",
         hdr="home_office_robolab",
     )
-    assert runs[1].environment == PickAndPlaceMapleTableEnvironmentCfg(
+    assert runs["swap_objects"].environment == PickAndPlaceMapleTableEnvironmentCfg(
         embodiment="droid_rel_joint_pos",
         pick_up_object="mustard_bottle_hot3d_robolab",
         destination_location="wooden_bowl_hot3d_robolab",
         hdr="home_office_robolab",
     )
-    assert runs[2].environment.hdr == "billiard_hall_robolab"
-    assert all(run.policy == ZeroActionPolicyCfg() for run in runs)
-    assert [run.environment_builder.num_envs for run in runs] == [1, 1, 1, 64]
-    assert runs[3].environment_builder.env_spacing == 2.5
-    assert [run.rollout_limit.num_steps for run in runs] == [50, 50, 50, 100]
+    assert runs["change_background_hdr"].environment.hdr == "billiard_hall_robolab"
+    assert all(run.policy == ZeroActionPolicyCfg() for run in runs.values())
+    assert [run.environment_builder.num_envs for run in runs.values()] == [1, 1, 1, 64]
+    assert runs["parallel_envs"].environment_builder.env_spacing == 2.5
+    assert [run.rollout_limit.num_steps for run in runs.values()] == [50, 50, 50, 100]
 
 
 def test_experiment_composition_preserves_caller_owned_hydra_context():
@@ -157,7 +172,7 @@ runs:
 """,
     )
 
-    runs = _load_experiment(
+    experiment_definition = _load_experiment_definition(
         config_path,
         overrides=[
             "runs.first.environment.light_intensity=750.0",
@@ -165,9 +180,9 @@ runs:
         ],
     )
 
-    assert [run.name for run in runs] == ["first", "second"]
-    assert runs[0].environment.light_intensity == 750.0
-    assert runs[1].environment.enable_cameras is True
+    assert list(experiment_definition.runs) == ["first", "second"]
+    assert experiment_definition.runs["first"].environment.light_intensity == 750.0
+    assert experiment_definition.runs["second"].environment.enable_cameras is True
 
 
 @pytest.mark.parametrize(

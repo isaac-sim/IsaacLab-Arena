@@ -12,6 +12,7 @@ import pytest
 
 from isaaclab_arena.evaluation import arena_experiment_config_loader, experiment_runner
 from isaaclab_arena.evaluation.arena_experiment_config_loader import (
+    load_arena_experiment_definition_from_config_file,
     load_arena_experiment_from_config_file,
     validate_experiment_config_path,
 )
@@ -41,13 +42,14 @@ def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
         lambda: {"zero_action": ZeroActionPolicyCfg},
     )
 
-    experiment = load_arena_experiment_from_config_file(
+    experiment_definition = load_arena_experiment_definition_from_config_file(
         GETTING_STARTED_YAML_PATH,
         device="cuda:1",
         overrides=["runs.baseline.environment.light_intensity=750.0"],
     )
+    experiment = list(experiment_definition.runs.values())
 
-    assert [run.name for run in experiment] == [
+    assert list(experiment_definition.runs) == [
         "baseline",
         "swap_objects",
         "change_background_hdr",
@@ -57,6 +59,14 @@ def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
     assert experiment[0].environment.light_intensity == 750.0
     assert all(run.policy == ZeroActionPolicyCfg() for run in experiment)
     assert all(run.environment_builder.device == "cuda:1" for run in experiment)
+
+    runtime_experiment = load_arena_experiment_from_config_file(
+        GETTING_STARTED_YAML_PATH,
+        device="cuda:1",
+        overrides=["runs.baseline.environment.light_intensity=750.0"],
+    )
+    assert isinstance(runtime_experiment, list)
+    assert runtime_experiment == experiment
 
 
 def test_experiment_runner_loads_typed_experiment_after_simulation_starts(monkeypatch):
