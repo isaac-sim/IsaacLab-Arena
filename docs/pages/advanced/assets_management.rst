@@ -3,6 +3,11 @@ Assets Management
 
 .. note::
 
+   **Internal NVIDIA use only.** This page documents workflows and infrastructure (OV Nucleus Server,
+   staging/production S3 buckets, internal ticketing) that are only accessible to NVIDIA employees.
+
+.. note::
+
    These steps are only required if you are adding your own assets to Isaac Lab Arena's production S3 buckets.
    Assets and files that are used by Isaac Lab Arena by default are publicly available without additional authentication.
 
@@ -19,7 +24,7 @@ Isaac Lab Arena uses the following environment variables to access those S3 buck
 .. note::
 
    In Isaac Lab 3.0-alpha, ``ISAACLAB_NUCLEUS_DIR`` currently points to the *staging* S3 bucket rather than the production bucket.
-   See https://github.com/isaac-sim/IsaacLab/blob/55df2c34390ba94b22d41879514c5485c5115462/apps/isaaclab.python.kit#L309.
+   See the `Isaac Lab staging-bucket configuration <https://github.com/isaac-sim/IsaacLab/blob/55df2c34390ba94b22d41879514c5485c5115462/apps/isaaclab.python.kit#L309>`__.
 
 Adding assets
 -------------
