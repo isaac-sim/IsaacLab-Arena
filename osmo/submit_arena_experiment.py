@@ -41,15 +41,15 @@ from hydra.core.config_store import ConfigStore
 from omegaconf import OmegaConf
 
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
-from osmo.arena_experiment_submission import (
-    POLICY_SERVER_WORKFLOWS,
-    ArenaExperimentSubmissionCfg,
-    submit_arena_experiment,
-)
+from osmo.arena_experiment_submission import ArenaExperimentSubmissionCfg, submit_arena_experiment
+from osmo.tasks.pi0_server_task import Pi0ServerTaskCfg
 
 CONFIG_DIR = Path(__file__).parent / "config"
 SUBMISSION_CONFIG_NAME = "arena_experiment_submission"
 SUBMISSION_SCHEMA_NAME = "arena_experiment_submission_schema"
+SERVER_CONFIG_BY_NAME = {
+    "pi0": Pi0ServerTaskCfg,
+}
 
 
 def compose_arena_experiment_submission(overrides: list[str] | None = None) -> ArenaExperimentSubmissionCfg:
@@ -79,8 +79,8 @@ def _register_hydra_configs() -> None:
     """Register the submission schema and named config-group choices."""
     config_store = ConfigStore.instance()
     config_store.store(name=SUBMISSION_SCHEMA_NAME, node=ArenaExperimentSubmissionCfg)
-    for server_name, workflow_cls in POLICY_SERVER_WORKFLOWS.items():
-        config_store.store(group="server_config", name=server_name, node=workflow_cls.server_task_cfg_type)
+    for server_name, server_config_type in SERVER_CONFIG_BY_NAME.items():
+        config_store.store(group="server_config", name=server_name, node=server_config_type)
 
     import isaaclab_arena_environments
 

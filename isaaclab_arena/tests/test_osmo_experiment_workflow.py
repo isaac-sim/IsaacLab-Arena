@@ -21,11 +21,11 @@ from isaaclab_arena_environments.pick_and_place_maple_table_environment import P
 from isaaclab_arena_openpi.policy import pi0_remote_policy  # noqa: F401
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 from osmo.arena_experiment_submission import (
-    POLICY_SERVER_WORKFLOWS,
+    SERVER_WORKFLOW_BY_CONFIG_TYPE,
     ArenaExperimentSubmissionCfg,
     submit_arena_experiment,
 )
-from osmo.submit_arena_experiment import compose_arena_experiment_submission
+from osmo.submit_arena_experiment import SERVER_CONFIG_BY_NAME, compose_arena_experiment_submission
 from osmo.tasks.base_task import TaskCfg
 from osmo.tasks.experiment_runner_task import (
     DEFAULT_EXPERIMENT_RUNNER_IMAGE,
@@ -99,9 +99,10 @@ def _compose_and_submit(overrides: list[str]) -> int:
     return submit_arena_experiment(compose_arena_experiment_submission(overrides))
 
 
-def test_declares_server_workflow():
-    """Keep server dispatch explicit."""
-    assert POLICY_SERVER_WORKFLOWS == {"pi0": Pi0ArenaExperimentWorkflow}
+def test_declares_server_config_and_workflow_mappings():
+    """Keep CLI selection and runtime workflow dispatch explicit."""
+    assert SERVER_CONFIG_BY_NAME == {"pi0": Pi0ServerTaskCfg}
+    assert SERVER_WORKFLOW_BY_CONFIG_TYPE == {Pi0ServerTaskCfg: Pi0ArenaExperimentWorkflow}
     assert ArenaExperimentWorkflow.task_cfg_type is ExperimentRunnerTaskCfg
     assert Pi0ArenaExperimentWorkflow.server_task_cfg_type is Pi0ServerTaskCfg
 
