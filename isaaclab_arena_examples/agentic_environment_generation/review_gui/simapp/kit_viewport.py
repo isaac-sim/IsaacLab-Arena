@@ -15,6 +15,7 @@ PRE_CAPTURE_UPDATES = 5
 CAPTURE_DONE_TAIL_UPDATES = 3
 CAPTURE_WAIT_MAX_UPDATES = 10
 THUMBNAIL_CACHE_SUBDIR = "agentic_env_gen_thumbnails"
+PANORAMA_CACHE_SUBDIR = "agentic_env_gen_panorama_thumbnails"
 SIM_PREVIEW_CACHE_SUBDIR = "agentic_env_gen_sim_preview"
 
 
@@ -28,6 +29,11 @@ def review_gui_cache_dir(subdir: str) -> Path:
 def thumbnail_cache_dir() -> Path:
     """Cache directory for per-node USD thumbnail PNGs."""
     return review_gui_cache_dir(THUMBNAIL_CACHE_SUBDIR)
+
+
+def panorama_cache_dir() -> Path:
+    """Cache directory for background 360 panorama PNGs."""
+    return review_gui_cache_dir(PANORAMA_CACHE_SUBDIR)
 
 
 def sim_preview_cache_dir() -> Path:

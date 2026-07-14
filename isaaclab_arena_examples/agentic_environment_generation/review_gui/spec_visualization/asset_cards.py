@@ -19,16 +19,19 @@ class AssetCard:
     role: str
     thumbnail_bytes: bytes | None = None
     aabb_dimensions_m: tuple[float, float, float] | None = None
+    is_panorama: bool = False
 
 
 def build_asset_cards(
     spec: ArenaEnvGraphSpec,
     thumbnails: dict[str, bytes] | None = None,
     aabb_dimensions_m: dict[str, tuple[float, float, float]] | None = None,
+    panorama_node_ids: set[str] | None = None,
 ) -> list[AssetCard]:
     """Build one AssetCard per node (background, object references, objects) for native rendering."""
     thumbnails = thumbnails or {}
     aabb_dimensions_m = aabb_dimensions_m or {}
+    panorama_node_ids = panorama_node_ids or set()
     entries: list[tuple[str, AssetSpec | ObjectReferenceSpec]] = []
     entries.append(("background", spec.background))
     entries.extend(("object_reference", ref) for ref in (spec.object_references or []))
@@ -40,6 +43,7 @@ def build_asset_cards(
             role=role,
             thumbnail_bytes=thumbnails.get(asset.id),
             aabb_dimensions_m=aabb_dimensions_m.get(asset.id),
+            is_panorama=asset.id in panorama_node_ids,
         )
         for role, asset in entries
     ]
