@@ -7,11 +7,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from copy import deepcopy
-from typing import Any
 
-from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
+from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentDefinitionCfg
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 from osmo.tasks.base_task import BaseTask
 from osmo.tasks.eval_runner_task import EvalRunnerTask, EvalRunnerTaskCfg
@@ -30,15 +29,12 @@ class ArenaExperimentWorkflow(Workflow):
     def __init__(
         self,
         workflow_cfg: WorkflowCfg,
-        experiment_config: Mapping[str, Any],
+        experiment_definition: ArenaExperimentDefinitionCfg,
         group_name: str = "arena",
         task_cfg: EvalRunnerTaskCfg | None = None,
     ) -> None:
-        assert isinstance(experiment_config, Mapping), "Experiment config must be a mapping"
-        runs = experiment_config.get("runs")
-        assert isinstance(runs, Mapping) and runs, "Experiment config must define a non-empty 'runs' mapping"
-        assert all(isinstance(run_cfg, ArenaRunCfg) for run_cfg in runs.values()), "Every Run must be an ArenaRunCfg"
-        self.experiment_config = deepcopy(dict(experiment_config))
+        assert isinstance(experiment_definition, ArenaExperimentDefinitionCfg)
+        self.experiment_definition = deepcopy(experiment_definition)
 
         super().__init__(
             workflow_cfg=workflow_cfg,
@@ -54,7 +50,7 @@ class ArenaExperimentWorkflow(Workflow):
         """Create the Experiment's lead eval-runner task."""
         return EvalRunnerTask(
             task_cfg=self.task_cfg,
-            experiment_config=self.experiment_config,
+            experiment_definition=self.experiment_definition,
             lead=self.lead_flags[0],
         )
 
@@ -71,7 +67,7 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
     def __init__(
         self,
         workflow_cfg: WorkflowCfg,
-        experiment_config: Mapping[str, Any],
+        experiment_definition: ArenaExperimentDefinitionCfg,
         server_task_cfg: Pi0ServerTaskCfg,
         group_name: str = "arena",
         task_cfg: EvalRunnerTaskCfg | None = None,
@@ -79,7 +75,7 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
         self.pi0_server_task_cfg = server_task_cfg
         super().__init__(
             workflow_cfg=workflow_cfg,
-            experiment_config=experiment_config,
+            experiment_definition=experiment_definition,
             task_cfg=task_cfg,
             group_name=group_name,
         )
@@ -107,7 +103,7 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
     def _get_pi0_run_variants(self) -> dict[str, str]:
         """Return effective pi0-remote Run variants needed for compatibility checks."""
         pi0_run_variants = {}
-        for run_name, run_cfg in self.experiment_config["runs"].items():
+        for run_name, run_cfg in self.experiment_definition.runs.items():
             if not isinstance(run_cfg.policy, Pi0RemotePolicyCfg):
                 continue
             pi0_run_variants[run_name] = run_cfg.policy.policy_variant
@@ -117,7 +113,7 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
         """Connect matching pi0 Runs to the shared server task."""
         host_token = Pi0ServerTask.host_token()
         for run_name in run_names:
-            policy_cfg = self.experiment_config["runs"][run_name].policy
+            policy_cfg = self.experiment_definition.runs[run_name].policy
             assert isinstance(policy_cfg, Pi0RemotePolicyCfg)
             policy_cfg.remote_host = host_token
             policy_cfg.remote_port = POLICY_SERVER_PORT

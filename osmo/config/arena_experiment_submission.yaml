@@ -6,7 +6,7 @@
 defaults:
   - arena_experiment_submission_schema
   - server_config: null
-  - experiment_config: null
+  - experiment_definition: null
   - override hydra/job_logging: disabled
   - _self_
 

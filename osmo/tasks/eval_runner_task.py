@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import shlex
 import yaml
-from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
@@ -19,6 +18,7 @@ from typing import Any
 from omegaconf import OmegaConf
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
+from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentDefinitionCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from osmo.tasks.base_task import BaseTask, TaskCfg
 from osmo.workflows.utils.yaml_utils import block_literal_str
@@ -43,11 +43,12 @@ class EvalRunnerTask(BaseTask):
     def __init__(
         self,
         task_cfg: EvalRunnerTaskCfg,
-        experiment_config: Mapping[str, Any],
+        experiment_definition: ArenaExperimentDefinitionCfg,
         lead: bool | None = None,
     ) -> None:
         super().__init__(task_cfg=task_cfg, lead=lead)
-        self.experiment_config = deepcopy(dict(experiment_config))
+        assert isinstance(experiment_definition, ArenaExperimentDefinitionCfg)
+        self.experiment_definition = deepcopy(experiment_definition)
 
     @staticmethod
     def get_task_name() -> str:
@@ -64,18 +65,18 @@ class EvalRunnerTask(BaseTask):
 
     def _get_files(self) -> list[dict[str, Any]]:
         """Embed the effective Experiment at the path consumed by ``eval_runner.py``."""
-        experiment_yaml = yaml.safe_dump(self._get_experiment_yaml_values(), sort_keys=False)
+        experiment_yaml = yaml.safe_dump(self._get_experiment_definition_yaml_values(), sort_keys=False)
         return [
             *super()._get_files(),
             {"path": REMOTE_EXPERIMENT_PATH, "contents": block_literal_str(experiment_yaml)},
         ]
 
-    def _get_experiment_yaml_values(self) -> dict[str, Any]:
+    def _get_experiment_definition_yaml_values(self) -> dict[str, Any]:
         """Restore YAML selectors around the effective typed Run configs."""
         environment_registry = EnvironmentRegistry()
         policy_registry = PolicyRegistry()
         run_values_by_name = {}
-        for run_name, run_cfg in self.experiment_config["runs"].items():
+        for run_name, run_cfg in self.experiment_definition.runs.items():
             assert isinstance(run_cfg, ArenaRunCfg)
             run_values = OmegaConf.to_container(
                 OmegaConf.structured(run_cfg),
