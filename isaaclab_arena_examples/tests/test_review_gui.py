@@ -14,7 +14,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from isaaclab_arena.agentic_environment_generation.spec_io import env_graph_spec_path, write_env_graph_spec
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
     SpecParseResult,
     try_save_env_graph_spec,
@@ -52,7 +54,14 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visu
     render_mermaid_graph,
     render_mermaid_html,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.prim_tree_view import (
+    build_prim_nodes,
+    render_prim_tree_html,
+)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.streamlit_ui import initialize_state, parse_args
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.visualization_service import (
+    resolve_background_prim_tree_catalog,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _VALID_SPEC_YAML_PATH = _REPO_ROOT / "isaaclab_arena/tests/test_data/pick_and_place_maple_table_env_graph.yaml"
@@ -121,6 +130,27 @@ class TestMermaidHtml:
         assert 260 <= height <= 900
 
 
+class TestPrimTreeView:
+    _TREE = [
+        UsdPrimRecord("cab_1_main_group", ObjectType.ARTICULATION, ("right_door_joint",)),
+        UsdPrimRecord("cab_1_main_group/corpus", ObjectType.RIGID),
+        UsdPrimRecord("cab_1_main_group/corpus/back", ObjectType.BASE),
+    ]
+
+    def test_build_prim_nodes_nests_by_relative_path(self):
+        roots = build_prim_nodes(self._TREE)
+        assert len(roots) == 1
+        assert roots[0].text == "cab_1_main_group (articulation right_door_joint)"
+        assert roots[0].children[0].text == "corpus (rigid)"
+        assert roots[0].children[0].children[0].text == "back (base)"
+
+    def test_render_prim_tree_html_includes_search_and_nodes(self):
+        markup = render_prim_tree_html(self._TREE)
+        assert 'id="search"' in markup
+        assert "corpus (rigid)" in markup
+        assert "cab_1_main_group/corpus" in markup
+
+
 class TestObjectReferenceUsdTargets:
     def test_is_resolved_prim_path(self):
         assert not is_resolved_prim_path(None)
@@ -152,6 +182,23 @@ class TestObjectReferenceUsdTargets:
         targets = resolve_object_reference_usd_targets(spec)
         assert set(targets) == {"counter_top"}
         assert targets["counter_top"].relative_prim_path == "counter_right_main_group/top_geometry"
+
+
+class TestBackgroundPrimTreeCatalog:
+    def test_returns_loaded_prim_tree_records(self, monkeypatch):
+        from isaaclab_arena.tests.utils.agentic_environment_generation import kitchen_pass1_dict, kitchen_prim_tree
+
+        spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
+        monkeypatch.setattr(
+            "isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path",
+            lambda self, *_args, **_kwargs: "/tmp/scene.usd",
+        )
+        monkeypatch.setattr(
+            "isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree",
+            lambda *_args, **_kwargs: kitchen_prim_tree(),
+        )
+        prim_tree = resolve_background_prim_tree_catalog(spec)
+        assert any(record.relative_path == "fridge_main_group" for record in prim_tree)
 
 
 class TestValidateYamlText:
