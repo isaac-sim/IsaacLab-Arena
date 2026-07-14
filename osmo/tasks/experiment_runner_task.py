@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""OSMO task that executes a complete Arena Experiment through ``eval_runner.py``."""
+"""OSMO task that executes a complete Arena Experiment through ``experiment_runner.py``."""
 
 from __future__ import annotations
 
@@ -24,25 +24,25 @@ from osmo.tasks.base_task import BaseTask, TaskCfg
 from osmo.workflows.utils.yaml_utils import block_literal_str
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 
-EVAL_RUNNER_SCRIPT = "isaaclab_arena/evaluation/eval_runner.py"
-DEFAULT_EVAL_RUNNER_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
+EXPERIMENT_RUNNER_SCRIPT = "isaaclab_arena/evaluation/experiment_runner.py"
+DEFAULT_EXPERIMENT_RUNNER_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
 REMOTE_EXPERIMENT_PATH = "/tmp/arena_experiment.yaml"
 
 
 @dataclass
-class EvalRunnerTaskCfg(TaskCfg):
-    """Configuration for an OSMO eval-runner task."""
+class ExperimentRunnerTaskCfg(TaskCfg):
+    """Configuration for an OSMO Experiment Runner task."""
 
-    image: str = DEFAULT_EVAL_RUNNER_IMAGE
+    image: str = DEFAULT_EXPERIMENT_RUNNER_IMAGE
     """Container image that runs the Arena Experiment."""
 
 
-class EvalRunnerTask(BaseTask):
+class ExperimentRunnerTask(BaseTask):
     """Lead OSMO task that runs every Run in one effective Arena Experiment."""
 
     def __init__(
         self,
-        task_cfg: EvalRunnerTaskCfg,
+        task_cfg: ExperimentRunnerTaskCfg,
         experiment_definition: ArenaExperimentDefinitionCfg,
         lead: bool | None = None,
     ) -> None:
@@ -52,7 +52,7 @@ class EvalRunnerTask(BaseTask):
 
     @staticmethod
     def get_task_name() -> str:
-        return "eval_runner"
+        return "experiment_runner"
 
     def _get_image(self) -> str:
         return self.task_cfg.image
@@ -64,7 +64,7 @@ class EvalRunnerTask(BaseTask):
         return [{"url": DATASET_SWIFT_URL}]
 
     def _get_files(self) -> list[dict[str, Any]]:
-        """Embed the effective Experiment at the path consumed by ``eval_runner.py``."""
+        """Embed the effective Experiment at the path consumed by ``experiment_runner.py``."""
         experiment_yaml = yaml.safe_dump(self._get_experiment_definition_yaml_values(), sort_keys=False)
         return [
             *super()._get_files(),
@@ -99,7 +99,7 @@ class EvalRunnerTask(BaseTask):
     def _get_run_script(self) -> str:
         command = [
             "/isaac-sim/python.sh",
-            EVAL_RUNNER_SCRIPT,
+            EXPERIMENT_RUNNER_SCRIPT,
             "--experiment_config",
             REMOTE_EXPERIMENT_PATH,
             "--output_base_dir",

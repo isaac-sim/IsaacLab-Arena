@@ -14,11 +14,11 @@ Example:
         osmo_config.platform=ovx-l40 \
         osmo_config.memory=120Gi \
         osmo_config.workflow_name=my-evaluation \
-        eval_runner_config.image=nvcr.io/example/isaaclab_arena:experiment_runner \
+        experiment_runner_config.image=nvcr.io/example/isaaclab_arena:experiment_runner \
         experiment_definition.runs.openpi_maple_table.rollout_limit.num_episodes=4
 
 The named config groups select an Experiment Definition, optional policy-server
-definition, OSMO scheduling settings, and eval-runner task settings. Hydra
+definition, OSMO scheduling settings, and Experiment Runner task settings. Hydra
 applies trailing field overrides after the selected files.
 """
 
@@ -38,7 +38,7 @@ from omegaconf import MISSING, OmegaConf
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentDefinitionCfg
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_definition_from_config_file
 from osmo.tasks.base_task import TaskCfg
-from osmo.tasks.eval_runner_task import EvalRunnerTaskCfg
+from osmo.tasks.experiment_runner_task import ExperimentRunnerTaskCfg
 from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow, Pi0ArenaExperimentWorkflow
 from osmo.workflows.workflow import WorkflowCfg
 
@@ -56,13 +56,13 @@ class ArenaExperimentSubmissionCfg:
     """Combine an Experiment Definition with its OSMO execution settings."""
 
     experiment_definition: ArenaExperimentDefinitionCfg = MISSING
-    """Evaluation semantics executed by ``eval_runner.py``."""
+    """Evaluation semantics executed by ``experiment_runner.py``."""
 
     osmo_config: WorkflowCfg = field(default_factory=WorkflowCfg)
     """OSMO scheduling, resource, and timeout configuration."""
 
-    eval_runner_config: EvalRunnerTaskCfg = field(default_factory=EvalRunnerTaskCfg)
-    """Configuration for the task that executes ``eval_runner.py``."""
+    experiment_runner_config: ExperimentRunnerTaskCfg = field(default_factory=ExperimentRunnerTaskCfg)
+    """Configuration for the task that executes ``experiment_runner.py``."""
 
     server_config: TaskCfg | None = None
     """Optional policy-server definition."""
@@ -110,7 +110,7 @@ def submit_arena_experiment_workflow(submission_cfg: ArenaExperimentSubmissionCf
         workflow = ArenaExperimentWorkflow(
             workflow_cfg=submission_cfg.osmo_config,
             experiment_definition=submission_cfg.experiment_definition,
-            task_cfg=submission_cfg.eval_runner_config,
+            task_cfg=submission_cfg.experiment_runner_config,
         )
     else:
         workflows_by_server_cfg_type = {
@@ -124,7 +124,7 @@ def submit_arena_experiment_workflow(submission_cfg: ArenaExperimentSubmissionCf
             workflow_cfg=submission_cfg.osmo_config,
             experiment_definition=submission_cfg.experiment_definition,
             server_task_cfg=server_task_cfg,
-            task_cfg=submission_cfg.eval_runner_config,
+            task_cfg=submission_cfg.experiment_runner_config,
         )
     return workflow.submit_workflow()
 

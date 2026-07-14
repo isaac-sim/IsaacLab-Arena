@@ -28,7 +28,11 @@ from osmo.submit_arena_experiment_workflow import (
     submit_arena_experiment_workflow,
 )
 from osmo.tasks.base_task import TaskCfg
-from osmo.tasks.eval_runner_task import DEFAULT_EVAL_RUNNER_IMAGE, REMOTE_EXPERIMENT_PATH, EvalRunnerTaskCfg
+from osmo.tasks.experiment_runner_task import (
+    DEFAULT_EXPERIMENT_RUNNER_IMAGE,
+    REMOTE_EXPERIMENT_PATH,
+    ExperimentRunnerTaskCfg,
+)
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow, Pi0ArenaExperimentWorkflow
 from osmo.workflows.workflow import WorkflowCfg
@@ -95,7 +99,7 @@ def _workflow_tasks(workflow: dict) -> list[dict]:
 def test_declares_server_workflow():
     """Keep server dispatch explicit."""
     assert POLICY_SERVER_WORKFLOWS == {"pi0": Pi0ArenaExperimentWorkflow}
-    assert ArenaExperimentWorkflow.task_cfg_type is EvalRunnerTaskCfg
+    assert ArenaExperimentWorkflow.task_cfg_type is ExperimentRunnerTaskCfg
     assert Pi0ArenaExperimentWorkflow.server_task_cfg_type is Pi0ServerTaskCfg
 
 
@@ -109,7 +113,7 @@ def test_server_config_group_composes_typed_defaults():
     assert isinstance(submission_cfg.experiment_definition, ArenaExperimentDefinitionCfg)
     assert isinstance(submission_cfg.experiment_definition.runs["openpi_maple_table"].policy, Pi0RemotePolicyCfg)
     assert submission_cfg.osmo_config == WorkflowCfg()
-    assert submission_cfg.eval_runner_config == EvalRunnerTaskCfg()
+    assert submission_cfg.experiment_runner_config == ExperimentRunnerTaskCfg()
     assert submission_cfg.server_config == Pi0ServerTaskCfg()
 
     with pytest.raises(ConfigCompositionException, match="unknown"):
@@ -138,7 +142,7 @@ def test_submitter_rejects_unregistered_server_config_type():
         submit_arena_experiment_workflow(submission_cfg)
 
 
-@pytest.mark.parametrize("config_path", ["osmo_config.not_a_field", "eval_runner_config.not_a_field"])
+@pytest.mark.parametrize("config_path", ["osmo_config.not_a_field", "experiment_runner_config.not_a_field"])
 def test_hydra_rejects_unknown_typed_config_fields(config_path):
     """Let the structured Hydra root reject fields outside their owning config."""
     with pytest.raises(ConfigCompositionException, match="not_a_field"):
@@ -159,7 +163,7 @@ def test_server_config_rejects_workflow_fields():
         ])
 
 
-def test_renders_eval_runner_and_shared_pi0_server_with_effective_endpoints():
+def test_renders_experiment_runner_and_shared_pi0_server_with_effective_endpoints():
     """Wire every matching pi0 Run in the effective Experiment to one server."""
     source_experiment_definition = _pi0_experiment_definition()
     workflow = Pi0ArenaExperimentWorkflow(
@@ -169,7 +173,7 @@ def test_renders_eval_runner_and_shared_pi0_server_with_effective_endpoints():
     )
 
     tasks = _workflow_tasks(workflow.generate_workflow())
-    assert [task["name"] for task in tasks] == ["eval_runner", "policy_server"]
+    assert [task["name"] for task in tasks] == ["experiment_runner", "policy_server"]
     assert [task["lead"] for task in tasks] == [True, False]
 
     eval_task = tasks[0]
@@ -184,7 +188,7 @@ def test_renders_eval_runner_and_shared_pi0_server_with_effective_endpoints():
     assert source_experiment_definition.runs["first"].policy.remote_host == "user-host"
 
     command = _task_file(eval_task, "/tmp/entry.sh")["contents"]
-    assert "eval_runner.py" in command
+    assert "experiment_runner.py" in command
     assert f"--experiment_config {REMOTE_EXPERIMENT_PATH}" in command
     assert "--enable_cameras" in command
     assert "policy_runner.py" not in command
@@ -201,7 +205,7 @@ def test_embeds_effective_experiment_yaml():
     workflow = ArenaExperimentWorkflow(
         workflow_cfg=WorkflowCfg(),
         experiment_definition=experiment_definition,
-        task_cfg=EvalRunnerTaskCfg(image="registry.example.com/evaluator:typed-api"),
+        task_cfg=ExperimentRunnerTaskCfg(image="registry.example.com/evaluator:typed-api"),
     )
 
     eval_task = _workflow_tasks(workflow.generate_workflow())[0]
@@ -245,7 +249,7 @@ def test_cli_composes_named_groups_and_overrides(capsys):
         "server_config=pi0",
         "osmo_config.dry_run=true",
         "osmo_config.workflow_name=overridden-experiment",
-        "eval_runner_config.image=registry.example.com/evaluator:branch",
+        "experiment_runner_config.image=registry.example.com/evaluator:branch",
         "server_config.image=registry.example.com/openpi:overridden",
         "server_config.policy_config=overridden-pi0-config",
         "server_config.policy_dir=gs://overridden/checkpoint",
@@ -261,7 +265,7 @@ def test_cli_composes_named_groups_and_overrides(capsys):
     workflow = _rendered_workflow(rendered)
     assert workflow["workflow"]["name"] == "overridden-experiment"
     tasks = _workflow_tasks(workflow)
-    assert [task["name"] for task in tasks] == ["eval_runner", "policy_server"]
+    assert [task["name"] for task in tasks] == ["experiment_runner", "policy_server"]
     assert tasks[0]["image"] == "registry.example.com/evaluator:branch"
     assert tasks[1]["image"] == "registry.example.com/openpi:overridden"
 
@@ -280,8 +284,8 @@ def test_cli_composes_named_groups_and_overrides(capsys):
     assert "--policy.dir=gs://overridden/checkpoint" in server_command
 
 
-def test_embedded_openpi_experiment_composes_through_eval_runner_loader(tmp_path):
-    """Keep the rendered OSMO handoff compatible with eval_runner's typed loader."""
+def test_embedded_openpi_experiment_composes_through_experiment_runner_loader(tmp_path):
+    """Keep the rendered OSMO handoff compatible with the Experiment Runner loader."""
     submission_cfg = compose_arena_experiment_submission([
         "experiment_definition=openpi_experiment",
         "server_config=pi0",
@@ -291,7 +295,7 @@ def test_embedded_openpi_experiment_composes_through_eval_runner_loader(tmp_path
         workflow_cfg=submission_cfg.osmo_config,
         experiment_definition=submission_cfg.experiment_definition,
         server_task_cfg=submission_cfg.server_config,
-        task_cfg=submission_cfg.eval_runner_config,
+        task_cfg=submission_cfg.experiment_runner_config,
     )
     experiment_path = tmp_path / "effective_experiment.yaml"
     experiment_file = _task_file(_workflow_tasks(workflow.generate_workflow())[0], REMOTE_EXPERIMENT_PATH)
@@ -364,7 +368,7 @@ def test_server_variant_cannot_relabel_known_pi05_model():
 
 
 def test_submitter_runs_zero_action_experiment_without_server(capsys):
-    """Render exactly one eval-runner task when no policy server is selected."""
+    """Render exactly one Experiment Runner task when no policy server is selected."""
     submission_cfg = ArenaExperimentSubmissionCfg(
         experiment_definition=_zero_action_experiment_definition(),
         osmo_config=WorkflowCfg(dry_run=True),
@@ -373,8 +377,8 @@ def test_submitter_runs_zero_action_experiment_without_server(capsys):
     assert submit_arena_experiment_workflow(submission_cfg) == 0
 
     tasks = _workflow_tasks(_rendered_workflow(capsys.readouterr().out))
-    assert [task["name"] for task in tasks] == ["eval_runner"]
-    assert tasks[0]["image"] == DEFAULT_EVAL_RUNNER_IMAGE
+    assert [task["name"] for task in tasks] == ["experiment_runner"]
+    assert tasks[0]["image"] == DEFAULT_EXPERIMENT_RUNNER_IMAGE
 
 
 def test_submitter_rejects_server_without_matching_run():
