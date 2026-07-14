@@ -3,100 +3,114 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Submit one typed Arena Experiment to OSMO with an optional policy server.
+"""Compose and submit one Arena Experiment as an OSMO workflow.
 
 Example:
 
-    python -m osmo.submit_arena_experiment_workflow \\
-        --experiment_config path/to/experiment.yaml \\
-        --server_config path/to/policy_server.yaml \\
-        --osmo_config osmo/config/workflow.yaml \\
-        --dry_run \\
-        osmo_config.pool=isaac-dev-l40-03 \\
-        eval_runner_config.image=nvcr.io/example/isaaclab_arena:experiment_runner \\
-        server_config.policy_config=my_pi0_config
+    python -m osmo.submit_arena_experiment_workflow \
+        experiment_config=openpi_experiment \
+        server_config=pi0 \
+        osmo_config.pool=isaac-dev-l40-03 \
+        osmo_config.platform=ovx-l40 \
+        osmo_config.memory=120Gi \
+        osmo_config.workflow_name=my-evaluation \
+        eval_runner_config.image=nvcr.io/example/isaaclab_arena:experiment_runner \
+        experiment_config.runs.openpi_maple_table.rollout_limit.num_episodes=4
 
-Trailing ``osmo_config.<field>=<value>``, ``eval_runner_config.<field>=<value>``,
-and ``server_config.<field>=<value>`` arguments configure their respective
-workflow components. Other trailing arguments are applied to the Arena Experiment
-through Hydra.
+The named config groups select an Experiment definition, optional policy-server
+definition, OSMO scheduling settings, and eval-runner task settings. Hydra
+applies trailing field overrides after the selected files.
 """
 
 from __future__ import annotations
 
-import argparse
-import sys
-from dataclasses import replace
+from copy import deepcopy
+from dataclasses import dataclass, field
+from functools import cache
 from pathlib import Path
+from typing import Any
 
-from omegaconf import OmegaConf
+from hydra import compose, initialize_config_dir
+from hydra import main as hydra_main
+from hydra.core.config_store import ConfigStore
+from omegaconf import MISSING, OmegaConf
 
-from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
+from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from osmo.tasks.eval_runner_task import EvalRunnerTaskCfg
 from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow, Pi0ArenaExperimentWorkflow
 from osmo.workflows.workflow import WorkflowCfg
 
+CONFIG_DIR = Path(__file__).parent / "config"
+SUBMISSION_CONFIG_NAME = "arena_experiment_submission"
+SUBMISSION_SCHEMA_NAME = "arena_experiment_submission_schema"
+
 POLICY_SERVER_WORKFLOWS = {
     "pi0": Pi0ArenaExperimentWorkflow,
 }
-OSMO_CONFIG_OVERRIDE_PREFIX = "osmo_config."
-EVAL_RUNNER_CONFIG_OVERRIDE_PREFIX = "eval_runner_config."
-SERVER_CONFIG_OVERRIDE_PREFIX = "server_config."
 
 
-def submit_arena_experiment_workflow(
-    experiment_config: str | Path,
-    server_config: str | Path | None = None,
-    osmo_config: str | Path | None = None,
-    experiment_overrides: list[str] | None = None,
-    osmo_config_overrides: list[str] | None = None,
-    server_config_overrides: list[str] | None = None,
-    dry_run: bool = False,
-    eval_runner_task_cfg: EvalRunnerTaskCfg | None = None,
-) -> int:
-    """Build and submit one OSMO workflow for a complete Arena Experiment.
+@dataclass
+class ArenaExperimentSubmissionCfg:
+    """Configuration domains composed for one OSMO Experiment submission."""
+
+    experiment_config: dict[str, Any] = MISSING
+    """Selected Arena Experiment definition."""
+
+    osmo_config: WorkflowCfg = field(default_factory=WorkflowCfg)
+    """OSMO scheduling, resource, and timeout configuration."""
+
+    eval_runner_config: EvalRunnerTaskCfg = field(default_factory=EvalRunnerTaskCfg)
+    """Configuration for the task that executes ``eval_runner.py``."""
+
+    server_config: dict[str, Any] = field(default_factory=dict)
+    """Optional policy-server definition."""
+
+
+ConfigStore.instance().store(name=SUBMISSION_SCHEMA_NAME, node=ArenaExperimentSubmissionCfg)
+
+
+def compose_arena_experiment_submission(overrides: list[str] | None = None) -> ArenaExperimentSubmissionCfg:
+    """Compose the submission config from its named groups and Hydra overrides.
 
     Args:
-        experiment_config: Typed Arena Experiment YAML to stage and evaluate.
-        server_config: Optional policy server definition YAML. When omitted, no server task is created.
-        osmo_config: Optional generic OSMO workflow configuration YAML.
-        experiment_overrides: Hydra overrides applied to the staged Experiment.
-        osmo_config_overrides: Dotlist overrides applied after the OSMO configuration YAML.
-        server_config_overrides: Dotlist overrides applied after the policy server definition YAML.
-        dry_run: Whether to render the OSMO workflow without submitting it.
-        eval_runner_task_cfg: OSMO eval-runner task configuration.
+        overrides: Hydra config-group selections and field overrides.
+
+    Returns:
+        The fully composed typed submission configuration.
+    """
+    _register_typed_experiment_configs()
+    with initialize_config_dir(version_base=None, config_dir=str(CONFIG_DIR.resolve())):
+        composed = compose(config_name=SUBMISSION_CONFIG_NAME, overrides=overrides or [])
+    return _submission_cfg_from_hydra(composed)
+
+
+def _submission_cfg_from_hydra(composed: Any) -> ArenaExperimentSubmissionCfg:
+    """Convert Hydra's composed object into the typed submission root."""
+    submission_cfg = OmegaConf.to_object(composed)
+    assert isinstance(submission_cfg, ArenaExperimentSubmissionCfg)
+    return submission_cfg
+
+
+def submit_arena_experiment_workflow(submission_cfg: ArenaExperimentSubmissionCfg) -> int:
+    """Build and submit the OSMO workflow described by ``submission_cfg``.
+
+    Args:
+        submission_cfg: Composed Experiment, task, server, and OSMO configuration.
 
     Returns:
         The OSMO submission process status.
     """
-    assert server_config is not None or not server_config_overrides, "server_config.* overrides require --server_config"
-    overrides = list(experiment_overrides or [])
-    workflow_cfg_sources = [OmegaConf.structured(WorkflowCfg)]
-    if osmo_config is not None:
-        workflow_cfg_sources.append(OmegaConf.load(Path(osmo_config).expanduser()))
-    if osmo_config_overrides:
-        workflow_cfg_sources.append(OmegaConf.from_dotlist(osmo_config_overrides))
-    workflow_cfg = OmegaConf.to_object(OmegaConf.merge(*workflow_cfg_sources))
-    assert isinstance(workflow_cfg, WorkflowCfg)
-    if dry_run:
-        workflow_cfg = replace(workflow_cfg, dry_run=True)
-
-    if server_config is None:
+    experiment_config = _validated_experiment_config(submission_cfg.experiment_config)
+    server_config = deepcopy(submission_cfg.server_config)
+    if not server_config:
         workflow = ArenaExperimentWorkflow(
-            workflow_cfg=workflow_cfg,
-            experiment_config_path=experiment_config,
-            task_cfg=eval_runner_task_cfg,
-            experiment_overrides=overrides,
+            workflow_cfg=submission_cfg.osmo_config,
+            experiment_config=experiment_config,
+            task_cfg=submission_cfg.eval_runner_config,
         )
     else:
-        server_config_values = OmegaConf.load(Path(server_config).expanduser())
-        assert OmegaConf.is_dict(server_config_values), "Policy server config must be a mapping"
-        if server_config_overrides:
-            server_config_values = OmegaConf.merge(
-                server_config_values,
-                OmegaConf.from_dotlist(server_config_overrides),
-            )
-        server_type = server_config_values.pop("type", None)
+        server_type = server_config.pop("type", None)
         assert (
             isinstance(server_type, str) and server_type
         ), "Policy server config must define a non-empty string 'type'"
@@ -107,77 +121,65 @@ def submit_arena_experiment_workflow(
         workflow_cls = POLICY_SERVER_WORKFLOWS[server_type]
         server_task_cfg_type = workflow_cls.server_task_cfg_type
         server_task_cfg = OmegaConf.to_object(
-            OmegaConf.merge(OmegaConf.structured(server_task_cfg_type), server_config_values)
+            OmegaConf.merge(OmegaConf.structured(server_task_cfg_type), server_config)
         )
         assert isinstance(server_task_cfg, server_task_cfg_type)
         workflow = workflow_cls(
-            workflow_cfg=workflow_cfg,
-            experiment_config_path=experiment_config,
+            workflow_cfg=submission_cfg.osmo_config,
+            experiment_config=experiment_config,
             server_task_cfg=server_task_cfg,
-            task_cfg=eval_runner_task_cfg,
-            experiment_overrides=overrides,
+            task_cfg=submission_cfg.eval_runner_config,
         )
     return workflow.submit_workflow()
 
 
-def main(cli_args: list[str] | None = None) -> int:
-    """Parse submission arguments and submit the Arena Experiment workflow."""
-    parser = argparse.ArgumentParser(
-        description="Submit one Arena Experiment to OSMO with an optional co-scheduled policy server.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__,
-        allow_abbrev=False,
-    )
-    parser.add_argument("--experiment_config", required=True, help="Typed Arena Experiment YAML")
-    parser.add_argument(
-        "--server_config",
-        default=None,
-        help="Policy server definition YAML (omit for an eval-only workflow)",
-    )
-    parser.add_argument(
-        "--osmo_config",
-        default=None,
-        help="Generic OSMO workflow configuration YAML",
-    )
-    parser.add_argument("--dry_run", action="store_true", help="Render the OSMO workflow without submitting it")
-    args, trailing_overrides = parser.parse_known_args(cli_args)
-    assert_hydra_overrides(trailing_overrides, parser)
+def _validated_experiment_config(experiment_config: dict[str, Any]) -> dict[str, Any]:
+    """Return an independent Arena Experiment mapping with a valid envelope."""
+    assert isinstance(experiment_config, dict), "Experiment config must be a mapping"
+    unknown_fields = sorted(set(experiment_config) - {"runs"})
+    assert not unknown_fields, f"Unknown Experiment fields: {', '.join(unknown_fields)}"
+    runs = experiment_config.get("runs")
+    assert isinstance(runs, dict) and runs, "Experiment config must define a non-empty 'runs' mapping"
+    for run_name, run_cfg in runs.items():
+        assert isinstance(run_cfg, ArenaRunCfg), f"Run '{run_name}' must be a typed ArenaRunCfg"
+        assert run_cfg.name == run_name, f"Run key '{run_name}' does not match its typed name '{run_cfg.name}'"
+    return deepcopy(experiment_config)
 
-    experiment_overrides = []
-    osmo_config_overrides = []
-    eval_runner_config_overrides = []
-    server_config_overrides = []
-    for override in trailing_overrides:
-        if override.startswith(OSMO_CONFIG_OVERRIDE_PREFIX):
-            osmo_config_overrides.append(override.removeprefix(OSMO_CONFIG_OVERRIDE_PREFIX))
-        elif override.startswith(EVAL_RUNNER_CONFIG_OVERRIDE_PREFIX):
-            eval_runner_config_overrides.append(override.removeprefix(EVAL_RUNNER_CONFIG_OVERRIDE_PREFIX))
-        elif override.startswith(SERVER_CONFIG_OVERRIDE_PREFIX):
-            server_config_overrides.append(override.removeprefix(SERVER_CONFIG_OVERRIDE_PREFIX))
-        else:
-            experiment_overrides.append(override)
 
-    if server_config_overrides and args.server_config is None:
-        parser.error("server_config.* overrides require --server_config")
+@cache
+def _register_typed_experiment_configs() -> None:
+    """Expose repository Experiment YAML files as typed Hydra group options."""
+    import isaaclab_arena_environments
 
-    eval_runner_task_cfg = OmegaConf.to_object(
-        OmegaConf.merge(
-            OmegaConf.structured(EvalRunnerTaskCfg),
-            OmegaConf.from_dotlist(eval_runner_config_overrides),
+    experiment_config_dir = Path(isaaclab_arena_environments.__file__).parent / "experiment_configs"
+    config_paths = sorted([*experiment_config_dir.glob("*.yaml"), *experiment_config_dir.glob("*.yml")])
+    assert config_paths, f"No Arena Experiment configs found in '{experiment_config_dir}'"
+    config_store = ConfigStore.instance()
+    for config_path in config_paths:
+        experiment = load_arena_experiment_from_config_file(config_path, device="cuda:0")
+        config_store.store(
+            group="experiment_config",
+            name=config_path.stem,
+            node={"runs": {run_cfg.name: run_cfg for run_cfg in experiment}},
         )
-    )
-    assert isinstance(eval_runner_task_cfg, EvalRunnerTaskCfg)
-    return submit_arena_experiment_workflow(
-        experiment_config=args.experiment_config,
-        server_config=args.server_config,
-        osmo_config=args.osmo_config,
-        eval_runner_task_cfg=eval_runner_task_cfg,
-        experiment_overrides=experiment_overrides,
-        osmo_config_overrides=osmo_config_overrides,
-        server_config_overrides=server_config_overrides,
-        dry_run=args.dry_run,
-    )
+
+
+@hydra_main(version_base=None, config_path="config", config_name=SUBMISSION_CONFIG_NAME)
+def _hydra_cli(composed: Any) -> None:
+    """Submit the workflow composed by Hydra's command-line frontend."""
+    status = submit_arena_experiment_workflow(_submission_cfg_from_hydra(composed))
+    if status:
+        raise SystemExit(status)
+
+
+def main(cli_args: list[str] | None = None) -> int:
+    """Run the Hydra CLI, or compose explicit overrides for an in-process caller."""
+    if cli_args is None:
+        _register_typed_experiment_configs()
+        _hydra_cli()
+        return 0
+    return submit_arena_experiment_workflow(compose_arena_experiment_submission(cli_args))
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+    raise SystemExit(main())
