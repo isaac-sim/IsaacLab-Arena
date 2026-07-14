@@ -7,14 +7,15 @@
 
 from __future__ import annotations
 
-import yaml
-from collections.abc import Sequence
-from pathlib import Path
+from collections.abc import Mapping, Sequence
+from copy import deepcopy
+from typing import Any
 
-from isaaclab_arena.hydra.typed_experiment_loader import load_experiment_run_definitions_from_yaml
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
+from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 from osmo.tasks.base_task import BaseTask
 from osmo.tasks.eval_runner_task import EvalRunnerTask, EvalRunnerTaskCfg
-from osmo.tasks.pi0_server_task import DEFAULT_PI0_POLICY_VARIANT, Pi0ServerTask, Pi0ServerTaskCfg
+from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.workflows.workflow import Workflow, WorkflowCfg
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
@@ -29,17 +30,15 @@ class ArenaExperimentWorkflow(Workflow):
     def __init__(
         self,
         workflow_cfg: WorkflowCfg,
-        experiment_config_path: str | Path,
-        experiment_overrides: Sequence[str] = (),
+        experiment_config: Mapping[str, Any],
         group_name: str = "arena",
         task_cfg: EvalRunnerTaskCfg | None = None,
     ) -> None:
-        experiment_path = Path(experiment_config_path).expanduser().resolve()
-        assert experiment_path.is_file(), f"Experiment config does not exist: {experiment_path}"
-        assert experiment_path.suffix.lower() in {".yaml", ".yml"}, "OSMO supports typed YAML Experiments only"
-
-        self.experiment_config_path = experiment_path
-        self.experiment_overrides = list(experiment_overrides)
+        assert isinstance(experiment_config, Mapping), "Experiment config must be a mapping"
+        runs = experiment_config.get("runs")
+        assert isinstance(runs, Mapping) and runs, "Experiment config must define a non-empty 'runs' mapping"
+        assert all(isinstance(run_cfg, ArenaRunCfg) for run_cfg in runs.values()), "Every Run must be an ArenaRunCfg"
+        self.experiment_config = deepcopy(dict(experiment_config))
 
         super().__init__(
             workflow_cfg=workflow_cfg,
@@ -55,8 +54,7 @@ class ArenaExperimentWorkflow(Workflow):
         """Create the Experiment's lead eval-runner task."""
         return EvalRunnerTask(
             task_cfg=self.task_cfg,
-            experiment_config_path=self.experiment_config_path,
-            experiment_overrides=self.experiment_overrides,
+            experiment_config=self.experiment_config,
             lead=self.lead_flags[0],
         )
 
@@ -73,24 +71,21 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
     def __init__(
         self,
         workflow_cfg: WorkflowCfg,
-        experiment_config_path: str | Path,
+        experiment_config: Mapping[str, Any],
         server_task_cfg: Pi0ServerTaskCfg,
-        experiment_overrides: Sequence[str] = (),
         group_name: str = "arena",
         task_cfg: EvalRunnerTaskCfg | None = None,
     ) -> None:
         self.pi0_server_task_cfg = server_task_cfg
         super().__init__(
             workflow_cfg=workflow_cfg,
-            experiment_config_path=experiment_config_path,
+            experiment_config=experiment_config,
             task_cfg=task_cfg,
-            experiment_overrides=experiment_overrides,
             group_name=group_name,
         )
 
-        pi0_run_variants = self._read_pi0_run_variants()
+        pi0_run_variants = self._get_pi0_run_variants()
         assert pi0_run_variants, "pi0 server requires at least one Run with policy.type 'pi0_remote'"
-        self._apply_variant_overrides(pi0_run_variants)
         incompatible_runs = {
             run_name: variant
             for run_name, variant in pi0_run_variants.items()
@@ -100,7 +95,7 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
             f"pi0_remote Runs require variants {incompatible_runs}, but the pi0 server is configured for "
             f"'{self.pi0_server_task_cfg.policy_variant}'"
         )
-        self.experiment_overrides.extend(self._get_endpoint_overrides(list(pi0_run_variants)))
+        self._connect_pi0_runs(list(pi0_run_variants))
 
     def _get_tasks(self) -> list[BaseTask]:
         """Create the lead evaluator and non-lead pi0 server."""
@@ -109,43 +104,20 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
             Pi0ServerTask(self.pi0_server_task_cfg, lead=self.lead_flags[1]),
         ]
 
-    def _read_pi0_run_variants(self) -> dict[str, str]:
-        """Return literal pi0-remote Run variants needed for compatibility checks."""
-        run_values_by_name = load_experiment_run_definitions_from_yaml(self.experiment_config_path)
+    def _get_pi0_run_variants(self) -> dict[str, str]:
+        """Return effective pi0-remote Run variants needed for compatibility checks."""
         pi0_run_variants = {}
-        for run_name, run_value in run_values_by_name.items():
-            policy_values = run_value.get("policy")
-            if not isinstance(policy_values, dict) or policy_values.get("type") != "pi0_remote":
+        for run_name, run_cfg in self.experiment_config["runs"].items():
+            if not isinstance(run_cfg.policy, Pi0RemotePolicyCfg):
                 continue
-            policy_variant = policy_values.get("policy_variant", DEFAULT_PI0_POLICY_VARIANT)
-            assert isinstance(policy_variant, str), f"pi0 Run '{run_name}' policy_variant must be a string"
-            pi0_run_variants[run_name] = policy_variant
+            pi0_run_variants[run_name] = run_cfg.policy.policy_variant
         return pi0_run_variants
 
-    def _apply_variant_overrides(self, run_variants: dict[str, str]) -> None:
-        """Apply exact per-Run policy-variant overrides in declaration order."""
-        variant_paths = {f"runs.{run_name}.policy.policy_variant": run_name for run_name in run_variants}
-        for override in self.experiment_overrides:
-            override_path, separator, raw_value = override.partition("=")
-            run_name = variant_paths.get(override_path.lstrip("+"))
-            if run_name is None:
-                continue
-            assert separator, f"pi0 policy_variant override must assign a value: {override}"
-            try:
-                policy_variant = yaml.safe_load(raw_value)
-            except yaml.YAMLError as exc:
-                raise AssertionError(f"Invalid pi0 policy_variant override: {override}") from exc
-            assert isinstance(policy_variant, str), f"pi0 policy_variant override must be a string: {override}"
-            run_variants[run_name] = policy_variant
-
-    @staticmethod
-    def _get_endpoint_overrides(run_names: Sequence[str]) -> list[str]:
+    def _connect_pi0_runs(self, run_names: Sequence[str]) -> None:
         """Connect matching pi0 Runs to the shared server task."""
         host_token = Pi0ServerTask.host_token()
-        overrides = []
         for run_name in run_names:
-            overrides.extend([
-                f'runs.{run_name}.policy.remote_host="{host_token}"',
-                f"runs.{run_name}.policy.remote_port={POLICY_SERVER_PORT}",
-            ])
-        return overrides
+            policy_cfg = self.experiment_config["runs"][run_name].policy
+            assert isinstance(policy_cfg, Pi0RemotePolicyCfg)
+            policy_cfg.remote_host = host_token
+            policy_cfg.remote_port = POLICY_SERVER_PORT

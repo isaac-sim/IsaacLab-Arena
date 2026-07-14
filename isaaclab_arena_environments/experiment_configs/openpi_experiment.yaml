@@ -14,7 +14,7 @@ runs:
       destination_location: bowl_ycb_robolab
       hdr: home_office_robolab
     policy:
-      type: pi0_remote
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
       policy_variant: pi05
       ping_timeout: 300.0
     rollout_limit:
