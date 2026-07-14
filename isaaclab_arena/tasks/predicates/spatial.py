@@ -27,7 +27,7 @@ def object_is_above_height(
 ) -> torch.Tensor:
     """Checks if an object is above a certain height.
 
-    The reference height iseither a fixed ``surface_height`` or, when ``use_settled_state`` is set, the
+    The reference height is either a fixed ``surface_height`` or, when ``use_settled_state`` is set, the
     object's recorded resting height (see ``objects_settled``). For envs where no settled state
     has been recorded, the result is always False.
 
@@ -145,7 +145,10 @@ def objects_on_destinations(
     See `object_on_destination` for details on the single-object logic.
     """
 
-    if len(object_cfg_list) != len(contact_sensor_cfg_list):
+    assert len(object_cfg_list) == len(contact_sensor_cfg_list), (
+        "object_cfg_list and contact_sensor_cfg_list must have equal length, got "
+        f"{len(object_cfg_list)} objects and {len(contact_sensor_cfg_list)} sensors"
+    )
         raise ValueError(
             "object_cfg_list and contact_sensor_cfg_list must have equal length, got "
             f"{len(object_cfg_list)} objects and {len(contact_sensor_cfg_list)} sensors"
