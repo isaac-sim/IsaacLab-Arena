@@ -18,11 +18,14 @@ from pxr import Gf, Sdf, UsdGeom, UsdLux
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
     AabbDimensionsM,
+    resolve_background_viewer_cfgs,
     resolve_node_aabb_dimensions_m,
     resolve_node_usd_paths,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import (
+    PRE_CAPTURE_UPDATES,
     capture_viewport_png,
+    pump_app,
     thumbnail_cache_dir,
     wait_for_stage_load,
 )
@@ -36,6 +39,7 @@ def _usd_cache_key(usd_path: str) -> str:
 def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, Path], dict[str, AabbDimensionsM]]:
     """Render cache-missed node thumbnails and return png paths plus AABB sizes in meters."""
     asset_paths = resolve_node_usd_paths(spec)
+    viewer_cfgs = resolve_background_viewer_cfgs(spec)
     if not asset_paths:
         print("[thumbnail_capture] no asset USD paths resolved; skipping thumbnail rendering.", file=sys.stderr)
         return {}, {}
@@ -43,13 +47,13 @@ def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, 
     cache_dir = thumbnail_cache_dir()
 
     resolved: dict[str, Path] = {}
-    to_render: dict[str, tuple[str, Path]] = {}
+    to_render: dict[str, tuple[str, Path, object | None]] = {}
     for node_id, usd_path in asset_paths.items():
         cache_path = cache_dir / f"{_usd_cache_key(usd_path)}.png"
         if cache_path.exists() and cache_path.stat().st_size > 0:
             resolved[node_id] = cache_path
         else:
-            to_render[node_id] = (usd_path, cache_path)
+            to_render[node_id] = (usd_path, cache_path, viewer_cfgs.get(node_id))
 
     if to_render:
         print(
@@ -58,7 +62,7 @@ def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, 
             file=sys.stderr,
         )
         captured = _capture_usd_thumbnails(app, to_render)
-        for node_id, (_usd_path, cache_path) in to_render.items():
+        for node_id, (_usd_path, cache_path, _viewer_cfg) in to_render.items():
             if node_id in captured and cache_path.exists() and cache_path.stat().st_size > 0:
                 resolved[node_id] = cache_path
     else:
@@ -67,20 +71,23 @@ def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, 
     return resolved, resolve_node_aabb_dimensions_m(spec)
 
 
-def _capture_usd_thumbnails(app, to_render: dict[str, tuple[str, Path]]) -> dict[str, bytes]:
+def _capture_usd_thumbnails(app, to_render: dict[str, tuple[str, Path, object | None]]) -> dict[str, bytes]:
     """Capture queued USDs under one booted ``SimulationApp``, deduplicated by path."""
     out: dict[str, bytes] = {}
 
     path_to_node_ids: dict[str, list[str]] = {}
     path_to_cache: dict[str, Path] = {}
-    for node_id, (usd_path, cache_path) in to_render.items():
+    path_to_cfg: dict[str, object] = {}
+    for node_id, (usd_path, cache_path, viewer_cfg) in to_render.items():
         path_to_node_ids.setdefault(usd_path, []).append(node_id)
         path_to_cache[usd_path] = cache_path
+        if viewer_cfg is not None:
+            path_to_cfg[usd_path] = viewer_cfg
 
     for usd_path, node_ids in path_to_node_ids.items():
         cache_path = path_to_cache[usd_path]
         try:
-            png_bytes = _render_one_usd(app, usd_path, cache_path)
+            png_bytes = _render_one_usd(app, usd_path, cache_path, viewer_cfg=path_to_cfg.get(usd_path))
         except Exception as exc:
             print(f"[thumbnail_capture]   render failed for {usd_path}: {exc}", file=sys.stderr)
             continue
@@ -91,8 +98,8 @@ def _capture_usd_thumbnails(app, to_render: dict[str, tuple[str, Path]]) -> dict
     return out
 
 
-def _render_one_usd(app, usd_path: str, cache_path: Path) -> bytes | None:
-    """Open ``usd_path`` as the stage root, frame the default prim, capture PNG."""
+def _render_one_usd(app, usd_path: str, cache_path: Path, *, viewer_cfg=None) -> bytes | None:
+    """Open ``usd_path`` as the stage root, frame the default prim (or apply a viewer cfg), capture PNG."""
     ctx = omni.usd.get_context()
     if not ctx.open_stage(usd_path):
         print(f"[thumbnail_capture]   open_stage failed: {usd_path}", file=sys.stderr)
@@ -102,20 +109,30 @@ def _render_one_usd(app, usd_path: str, cache_path: Path) -> bytes | None:
     wait_for_stage_load(app, ctx)
     _ensure_default_lighting(stage)
 
-    target_prim = stage.GetDefaultPrim()
-    if not target_prim or not target_prim.IsValid():
-        target_prim = stage.GetPrimAtPath(Sdf.Path("/"))
-
-    viewport = get_active_viewport()
-    framed = frame_viewport_prims(viewport, prims=[str(target_prim.GetPath())])
-    if not framed:
-        print(f"[thumbnail_capture]   warning: frame_viewport_prims failed for {usd_path}", file=sys.stderr)
+    if viewer_cfg is not None:
+        _apply_viewer_cfg(app, viewer_cfg)
+    else:
+        target_prim = stage.GetDefaultPrim()
+        if not target_prim or not target_prim.IsValid():
+            target_prim = stage.GetPrimAtPath(Sdf.Path("/"))
+        viewport = get_active_viewport()
+        framed = frame_viewport_prims(viewport, prims=[str(target_prim.GetPath())])
+        if not framed:
+            print(f"[thumbnail_capture]   warning: frame_viewport_prims failed for {usd_path}", file=sys.stderr)
 
     png_bytes = capture_viewport_png(app, cache_path)
     if png_bytes is not None:
         return png_bytes
     print(f"[thumbnail_capture]   capture produced no file: {cache_path}", file=sys.stderr)
     return None
+
+
+def _apply_viewer_cfg(app, viewer_cfg) -> None:
+    """Point the active viewport camera at ``viewer_cfg`` eye/lookat (world frame)."""
+    from isaacsim.core.utils.viewports import set_camera_view
+
+    set_camera_view(list(viewer_cfg.eye), list(viewer_cfg.lookat))
+    pump_app(app, count=PRE_CAPTURE_UPDATES)
 
 
 def _ensure_default_lighting(stage) -> None:
