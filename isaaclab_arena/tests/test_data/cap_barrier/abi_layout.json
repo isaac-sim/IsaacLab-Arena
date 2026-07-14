@@ -1,0 +1,38 @@
+{
+  "endianness": "little",
+  "protocol": {
+    "magic_hex": "0x43415041524e4131",
+    "shared_memory_magic_hex": "0x43415053484d3031",
+    "major": 1,
+    "minor": 0,
+    "max_controllers": 32,
+    "max_joints": 64,
+    "controller_name_size": 64
+  },
+  "enum_values": {
+    "frame_direction": {"state": 1, "command": 2},
+    "frame_kind": {"physics": 1, "fence": 2},
+    "barrier_phase": {"uninitialized": 0, "await_state": 1, "state_ready": 2, "command_ready": 3, "fault": 4},
+    "fault_code": {"none": 0, "abi_mismatch": 1, "invalid_frame": 2, "stale_generation": 3, "sequence_mismatch": 4, "tick_mismatch": 5, "timing_mismatch": 6, "barrier_state_violation": 7, "timeout": 8, "controller_error": 9, "reset_violation": 10}
+  },
+  "structs": {
+    "ControllerTiming": {"size": 80, "alignment": 8, "offsets": {"name": 0, "nominal_dt_ns": 64, "decimation": 72, "reserved": 76}},
+    "FrameHeader": {"size": 72, "alignment": 8, "offsets": {"magic": 0, "frame_size": 8, "protocol_major": 12, "protocol_minor": 14, "direction": 16, "frame_kind": 18, "controller_count": 20, "joint_count": 24, "reserved": 28, "generation": 32, "sequence": 40, "physics_tick": 48, "physics_dt_ns": 56, "nominal_controller_due_mask": 64}},
+    "JointStateSample": {"size": 24, "alignment": 8, "offsets": {"position": 0, "velocity": 8, "effort": 16}},
+    "JointCommandSample": {"size": 40, "alignment": 8, "offsets": {"position": 0, "velocity": 8, "effort": 16, "kp": 24, "kd": 32}},
+    "StateFrame": {"size": 4168, "alignment": 8, "offsets": {"header": 0, "controller_timing": 72, "joints": 2632}},
+    "CommandFrame": {"size": 5192, "alignment": 8, "offsets": {"header": 0, "controller_timing": 72, "joints": 2632}},
+    "SharedMemoryLayout": {"size": 9536, "alignment": 64, "offsets": {"magic": 0, "layout_size": 8, "protocol_major": 12, "protocol_minor": 14, "initialized": 16, "phase": 20, "fault_code": 24, "wait_interrupted": 28, "generation_initialized": 32, "active_generation": 40, "fault_generation": 48, "fault_sequence": 56, "state_ready": 64, "command_ready": 96, "state": 128, "command": 4296}}
+  },
+  "golden_fixture": {
+    "encoding": "raw StateFrame followed by raw CommandFrame",
+    "size": 9360,
+    "state_offset": 0,
+    "command_offset": 4168,
+    "generation_hex": "0x0102030405060708",
+    "sequence_hex": "0x1112131415161718",
+    "physics_tick_hex": "0x2122232425262728",
+    "physics_dt_ns": 5000000,
+    "due_mask_hex": "0x00000000a5a55a5a"
+  }
+}
