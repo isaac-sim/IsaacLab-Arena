@@ -13,11 +13,8 @@ from hydra import initialize
 from hydra.core.config_store import ConfigStore
 from hydra.core.global_hydra import GlobalHydra
 
-from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentDefinitionCfg
-from isaaclab_arena.hydra.experiment_composition import (
-    load_arena_experiment_definition_from_yaml,
-    load_arena_experiment_from_yaml,
-)
+from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+from isaaclab_arena.hydra.experiment_composition import load_arena_experiment_from_yaml
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_simulation_app_function
@@ -37,15 +34,6 @@ def _load_experiment(config_path: str | Path, overrides: list[str] | None = None
     )
 
 
-def _load_experiment_definition(config_path: str | Path, overrides: list[str] | None = None):
-    return load_arena_experiment_definition_from_yaml(
-        config_path,
-        environment_cfg_types={"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
-        policy_cfg_types={"zero_action": ZeroActionPolicyCfg},
-        overrides=overrides,
-    )
-
-
 def _write_experiment(tmp_path: Path, contents: str) -> Path:
     config_path = tmp_path / "experiment.yaml"
     config_path.write_text(contents, encoding="utf-8")
@@ -53,10 +41,10 @@ def _write_experiment(tmp_path: Path, contents: str) -> Path:
 
 
 def test_getting_started_experiment_composes_typed_runs():
-    experiment_definition = _load_experiment_definition(GETTING_STARTED_EXPERIMENT_PATH)
-    runs = experiment_definition.runs
+    experiment_cfg = _load_experiment(GETTING_STARTED_EXPERIMENT_PATH)
+    runs = experiment_cfg.runs
 
-    assert isinstance(experiment_definition, ArenaExperimentDefinitionCfg)
+    assert isinstance(experiment_cfg, ArenaExperimentCfg)
     assert list(runs) == [
         "baseline",
         "swap_objects",
@@ -125,10 +113,8 @@ runs:
 
         assert set(ConfigStore.instance().repo) == config_store_names_after_first_load
 
-    assert first_experiment[0].name == "first"
-    assert first_experiment[0].environment.light_intensity == 600.0
-    assert second_experiment[0].name == "second"
-    assert second_experiment[0].environment.light_intensity == 700.0
+    assert first_experiment.runs["first"].environment.light_intensity == 600.0
+    assert second_experiment.runs["second"].environment.light_intensity == 700.0
 
 
 def _test_getting_started_experiment_executes_baseline_run(simulation_app, output_dir: Path):
@@ -136,7 +122,7 @@ def _test_getting_started_experiment_executes_baseline_run(simulation_app, outpu
     from isaaclab_arena.evaluation.arena_run import RunStatus
     from isaaclab_arena.evaluation.run_execution import build_and_run
 
-    baseline_run = _load_experiment(GETTING_STARTED_EXPERIMENT_PATH)[0]
+    baseline_run = _load_experiment(GETTING_STARTED_EXPERIMENT_PATH).runs["baseline"]
 
     result = build_and_run(baseline_run, output_dir=output_dir)
 
@@ -172,7 +158,7 @@ runs:
 """,
     )
 
-    experiment_definition = _load_experiment_definition(
+    experiment_cfg = _load_experiment(
         config_path,
         overrides=[
             "runs.first.environment.light_intensity=750.0",
@@ -180,9 +166,9 @@ runs:
         ],
     )
 
-    assert list(experiment_definition.runs) == ["first", "second"]
-    assert experiment_definition.runs["first"].environment.light_intensity == 750.0
-    assert experiment_definition.runs["second"].environment.enable_cameras is True
+    assert list(experiment_cfg.runs) == ["first", "second"]
+    assert experiment_cfg.runs["first"].environment.light_intensity == 750.0
+    assert experiment_cfg.runs["second"].environment.enable_cameras is True
 
 
 @pytest.mark.parametrize(

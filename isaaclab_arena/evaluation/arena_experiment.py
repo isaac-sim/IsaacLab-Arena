@@ -3,17 +3,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Represent declarative and executable Arena Experiments."""
+"""Represent Arena Experiment configurations."""
 
 from dataclasses import dataclass
-from typing import TypeAlias
 
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 
 
 @dataclass
-class ArenaExperimentDefinitionCfg:
-    """Declare the named Runs that form one Arena Experiment."""
+class ArenaExperimentCfg:
+    """Configure the named Runs that form one Arena Experiment."""
 
     runs: dict[str, ArenaRunCfg]
     """Runs keyed by the names used for overrides, execution, and results."""
@@ -27,7 +26,3 @@ class ArenaExperimentDefinitionCfg:
                 "Run name is defined by its Experiment Definition mapping key and cannot be overridden: "
                 f"expected '{run_name}', got '{run_cfg.name}'"
             )
-
-
-ArenaExperiment: TypeAlias = list[ArenaRunCfg]
-"""An Experiment expressed as its ordered list of Runs."""

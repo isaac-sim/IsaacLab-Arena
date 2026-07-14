@@ -10,7 +10,7 @@ from dataclasses import dataclass
 import pytest
 
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentDefinitionCfg
+from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
@@ -29,14 +29,14 @@ def _run(name: str) -> ArenaRunCfg:
     return ArenaRunCfg(name=name, environment=_EnvironmentCfg(), policy=_PolicyCfg())
 
 
-def test_experiment_definition_preserves_named_run_order():
+def test_experiment_cfg_preserves_named_run_order():
     second = _run("second")
     first = _run("first")
 
-    definition = ArenaExperimentDefinitionCfg(runs={"second": second, "first": first})
+    experiment_cfg = ArenaExperimentCfg(runs={"second": second, "first": first})
 
-    assert list(definition.runs) == ["second", "first"]
-    assert list(definition.runs.values()) == [second, first]
+    assert list(experiment_cfg.runs) == ["second", "first"]
+    assert list(experiment_cfg.runs.values()) == [second, first]
 
 
 @pytest.mark.parametrize(
@@ -48,6 +48,6 @@ def test_experiment_definition_preserves_named_run_order():
         ({"mapping_name": _run("run_name")}, "cannot be overridden"),
     ],
 )
-def test_experiment_definition_rejects_invalid_named_runs(runs, error):
+def test_experiment_cfg_rejects_invalid_named_runs(runs, error):
     with pytest.raises(AssertionError, match=error):
-        ArenaExperimentDefinitionCfg(runs=runs)
+        ArenaExperimentCfg(runs=runs)

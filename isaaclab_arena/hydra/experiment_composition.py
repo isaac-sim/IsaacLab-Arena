@@ -20,7 +20,7 @@ from omegaconf import OmegaConf
 from omegaconf.errors import OmegaConfBaseException
 
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation.arena_experiment import ArenaExperiment, ArenaExperimentDefinitionCfg
+from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
@@ -36,13 +36,13 @@ def _get_new_hydra_context_if_none_exists() -> AbstractContextManager[None]:
     return initialize(version_base=None, config_path=None)
 
 
-def load_arena_experiment_definition_from_yaml(
+def load_arena_experiment_from_yaml(
     yaml_path: str | Path,
     *,
     environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
     policy_cfg_types: dict[str, type[PolicyCfg]],
     overrides: list[str] | None = None,
-) -> ArenaExperimentDefinitionCfg:
+) -> ArenaExperimentCfg:
     """Load a YAML Arena Experiment Definition as a typed named-Run mapping.
 
     Each mapping entry below runs declares one Run using its key as the Run
@@ -81,42 +81,15 @@ def load_arena_experiment_definition_from_yaml(
             hydra_experiment_config_name = f"{hydra_config_namespace}_root"
             config_store.store(
                 name=hydra_experiment_config_name,
-                node=ArenaExperimentDefinitionCfg(runs=arena_runs_by_name),
+                node=ArenaExperimentCfg(runs=arena_runs_by_name),
             )
             composed_experiment = compose(config_name=hydra_experiment_config_name, overrides=overrides or [])
-            experiment_definition = OmegaConf.to_object(composed_experiment)
+            experiment_cfg = OmegaConf.to_object(composed_experiment)
     except (HydraException, OmegaConfBaseException, TypeError, ValueError) as exc:
         raise ValueError(f"Could not compose Arena Experiment '{yaml_path}': {exc}") from exc
 
-    assert isinstance(experiment_definition, ArenaExperimentDefinitionCfg)
-    return experiment_definition
-
-
-def load_arena_experiment_from_yaml(
-    yaml_path: str | Path,
-    *,
-    environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
-    policy_cfg_types: dict[str, type[PolicyCfg]],
-    overrides: list[str] | None = None,
-) -> ArenaExperiment:
-    """Load a YAML Arena Experiment as an ordered list of typed Runs.
-
-    Args:
-        yaml_path: Path to the Arena Experiment YAML file.
-        environment_cfg_types: Environment selector names mapped to typed configuration classes.
-        policy_cfg_types: Policy selector names mapped to typed configuration classes.
-        overrides: Hydra overrides rooted at runs, applied after the YAML values.
-
-    Returns:
-        Typed Runs in Experiment Definition mapping order.
-    """
-    experiment_definition = load_arena_experiment_definition_from_yaml(
-        yaml_path,
-        environment_cfg_types=environment_cfg_types,
-        policy_cfg_types=policy_cfg_types,
-        overrides=overrides,
-    )
-    return list(experiment_definition.runs.values())
+    assert isinstance(experiment_cfg, ArenaExperimentCfg)
+    return experiment_cfg
 
 
 def _assert_run_name_is_hydra_compatible(run_name: str) -> None:
