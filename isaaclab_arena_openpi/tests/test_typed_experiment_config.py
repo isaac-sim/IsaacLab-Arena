@@ -110,7 +110,7 @@ runs:
     environment:
       type: test_environment
     policy:
-      type: pi0_remote
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
       openpi_embodiment_adapter: droid
       remote_host: localhost
       remote_port: 8000
