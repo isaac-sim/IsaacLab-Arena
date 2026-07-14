@@ -21,6 +21,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.cl
     SimAppError,
     simapp_socket_from_env,
 )
+from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import thumbnail_cache_dir
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_connector import (
     clear_simapp_client,
     ensure_simapp,
@@ -43,6 +44,21 @@ def _cached_dashboard_render(spec_key: str) -> DashboardRender | None:
 
 def _store_dashboard_render(spec_key: str, render: DashboardRender) -> None:
     st.session_state["_dashboard_render_cache"] = {"key": spec_key, "render": render}
+
+
+def clear_snapshot_render_caches() -> int:
+    """Delete cached review GUI snapshot PNGs and return how many files were removed."""
+    removed = 0
+    for cache_dir in (thumbnail_cache_dir(),):
+        for path in cache_dir.glob("*.png"):
+            path.unlink()
+            removed += 1
+    return removed
+
+
+def clear_dashboard_render_cache() -> None:
+    """Drop the in-memory dashboard HTML cache for the current Streamlit session."""
+    st.session_state.pop("_dashboard_render_cache", None)
 
 
 def _warn_simapp_unavailable_once() -> None:

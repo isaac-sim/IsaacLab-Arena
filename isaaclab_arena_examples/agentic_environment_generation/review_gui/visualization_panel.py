@@ -19,6 +19,8 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.me
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.panels import AssetCard, DashboardRender
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.render.thumbnails import format_aabb_dimensions_m
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.visualization_service import (
+    clear_dashboard_render_cache,
+    clear_snapshot_render_caches,
     render_dashboard_with_thumbnails,
 )
 
@@ -136,6 +138,16 @@ def _render_dashboard(spec: ArenaEnvGraphSpec, render: DashboardRender) -> None:
 def render_visualization_panel(validation: SpecParseResult) -> None:
     """Render the dashboard in the right column as native Streamlit widgets."""
     st.subheader("Visualization")
+
+    if st.button(
+        "Clear cache & rerender",
+        help="Delete cached snapshot PNGs on disk and render this spec again.",
+    ):
+        removed = clear_snapshot_render_caches()
+        clear_dashboard_render_cache()
+        st.session_state["last_rendered_text"] = ""
+        st.toast(f"Cleared {removed} cached snapshot(s).", icon="🗑️")
+        st.rerun()
 
     edited_text = st.session_state.get("edited_text", "").strip()
     if not edited_text:
