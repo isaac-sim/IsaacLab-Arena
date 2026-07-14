@@ -149,10 +149,6 @@ def objects_on_destinations(
         "object_cfg_list and contact_sensor_cfg_list must have equal length, got "
         f"{len(object_cfg_list)} objects and {len(contact_sensor_cfg_list)} sensors"
     )
-        raise ValueError(
-            "object_cfg_list and contact_sensor_cfg_list must have equal length, got "
-            f"{len(object_cfg_list)} objects and {len(contact_sensor_cfg_list)} sensors"
-        )
 
     unwrapped_env = get_env(env)
     condition_met = torch.ones((unwrapped_env.num_envs), device=unwrapped_env.device, dtype=torch.bool)
