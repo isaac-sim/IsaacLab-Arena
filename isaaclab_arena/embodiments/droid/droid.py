@@ -42,6 +42,9 @@ from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
 
+# Default per-axis scale for the base stand.
+_DEFAULT_STAND_SCALE: tuple[float, float, float] = (1.2, 1.2, 1.7)
+
 
 class DroidEmbodimentBase(EmbodimentBase, ABC):
     """Abstract base class for DROID embodiments (https://droid-dataset.github.io/droid/docs/hardware-setup).
@@ -60,9 +63,11 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        stand_scale: tuple[float, float, float] = _DEFAULT_STAND_SCALE,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
         self.scene_config = DroidSceneCfg()
+        self.scene_config.stand.spawn.scale = stand_scale
         self.action_config = None
         self.camera_config = DroidCameraCfg()
         self.observation_config = DroidObservationsCfg()
@@ -108,8 +113,16 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        stand_scale: tuple[float, float, float] = _DEFAULT_STAND_SCALE,
     ):
-        super().__init__(enable_cameras, initial_pose, initial_joint_pose, concatenate_observation_terms, arm_mode)
+        super().__init__(
+            enable_cameras,
+            initial_pose,
+            initial_joint_pose,
+            concatenate_observation_terms,
+            arm_mode,
+            stand_scale,
+        )
         self.action_config = DroidDifferentialIKActionsCfg()
 
 
@@ -127,8 +140,16 @@ class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        stand_scale: tuple[float, float, float] = _DEFAULT_STAND_SCALE,
     ):
-        super().__init__(enable_cameras, initial_pose, initial_joint_pose, concatenate_observation_terms, arm_mode)
+        super().__init__(
+            enable_cameras,
+            initial_pose,
+            initial_joint_pose,
+            concatenate_observation_terms,
+            arm_mode,
+            stand_scale,
+        )
         self.action_config = DroidRelativeJointPositionActionsCfg()
 
 
@@ -147,8 +168,16 @@ class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        stand_scale: tuple[float, float, float] = _DEFAULT_STAND_SCALE,
     ):
-        super().__init__(enable_cameras, initial_pose, initial_joint_pose, concatenate_observation_terms, arm_mode)
+        super().__init__(
+            enable_cameras,
+            initial_pose,
+            initial_joint_pose,
+            concatenate_observation_terms,
+            arm_mode,
+            stand_scale,
+        )
         self.action_config = DroidAbsoluteJointPositionActionsCfg()
 
 
@@ -222,7 +251,7 @@ class DroidSceneCfg:
             usd_path=(
                 f"{ISAACLAB_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/robots/franka_stand_grey.usda"
             ),
-            scale=(1.2, 1.2, 1.7),
+            scale=_DEFAULT_STAND_SCALE,
             activate_contact_sensors=False,
         ),
     )
