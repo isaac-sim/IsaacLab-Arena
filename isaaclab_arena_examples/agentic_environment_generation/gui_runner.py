@@ -20,9 +20,6 @@ Usage::
     # Custom output directory for generated YAML:
     python isaaclab_arena_examples/agentic_environment_generation/gui_runner.py \\
         --out_dir isaaclab_arena_environments/agent_generated
-
-When generation triggers pass-2 prim-path resolution, the review GUI renders
-object_reference snapshots with collision meshes highlighted.
 """
 
 from __future__ import annotations

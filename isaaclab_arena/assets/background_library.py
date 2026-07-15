@@ -190,8 +190,7 @@ class LightwheelKitchenBackground(LibraryBackground):
         super().__init__()
 
     def get_viewer_cfg(self) -> ViewerCfg:
-        # World-frame pose framing the kitchen interior (cabinets, counters, appliances,
-        # fridge) from an elevated 3/4 angle looking in through the open front.
+        # Looking in through the open front.
         return ViewerCfg(eye=(2.75, -5.5, 1.5), lookat=(2.75, -1.4, 0.9))
 
 
