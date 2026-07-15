@@ -44,14 +44,11 @@ def test_arena_env_graph_spec_from_yaml_resolves_robolab_task_include():
     assert spec.task.subtasks[0].params["pick_up_object"] == "banana"
 
 
-def test_load_env_graph_spec_dict_rejects_missing_include():
-    path = TEST_DATA_DIR / "_missing_include.yaml"
+def test_load_env_graph_spec_dict_rejects_missing_include(tmp_path):
+    path = tmp_path / "_missing_include.yaml"
     path.write_text("external_yamls:\n  - does_not_exist.yaml\nenv_name: broken\n", encoding="utf-8")
-    try:
-        with pytest.raises(AssertionError, match="Env graph spec YAML not found"):
-            load_env_graph_spec_dict(path)
-    finally:
-        path.unlink(missing_ok=True)
+    with pytest.raises(AssertionError, match="Env graph spec YAML not found"):
+        load_env_graph_spec_dict(path)
 
 
 def test_robolab_task_yaml_loads_scene_include():
@@ -62,14 +59,10 @@ def test_robolab_task_yaml_loads_scene_include():
     assert spec.task.subtasks[0].params["pick_up_object"] == "banana"
 
 
-def test_load_env_graph_spec_dict_rejects_cyclic_includes():
-    a = TEST_DATA_DIR / "_cycle_a.yaml"
-    b = TEST_DATA_DIR / "_cycle_b.yaml"
-    a.write_text("external_yamls:\n  - _cycle_b.yaml\nenv_name: a\n", encoding="utf-8")
-    b.write_text("external_yamls:\n  - _cycle_a.yaml\nenv_name: b\n", encoding="utf-8")
-    try:
-        with pytest.raises(AssertionError, match="Cyclic env graph spec external_yamls include"):
-            load_env_graph_spec_dict(a)
-    finally:
-        a.unlink(missing_ok=True)
-        b.unlink(missing_ok=True)
+def test_load_env_graph_spec_dict_rejects_cyclic_includes(tmp_path):
+    a = tmp_path / "_cycle_a.yaml"
+    b = tmp_path / "_cycle_b.yaml"
+    a.write_text(f"external_yamls:\n  - {b}\nenv_name: a\n", encoding="utf-8")
+    b.write_text(f"external_yamls:\n  - {a}\nenv_name: b\n", encoding="utf-8")
+    with pytest.raises(AssertionError, match="Cyclic env graph spec external_yamls include"):
+        load_env_graph_spec_dict(a)
