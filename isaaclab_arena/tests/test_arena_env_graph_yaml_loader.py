@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict, merge_env_graph_dicts
+from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import _merge_env_graph_dicts, load_env_graph_spec_dict
 
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
 
@@ -18,7 +18,7 @@ TEST_DATA_DIR = Path(__file__).parent / "test_data"
 def test_merge_combines_disjoint_keys():
     base = {"embodiment": {"id": "droid", "params": {}}, "objects": [{"id": "a"}]}
     override = {"background": {"id": "table"}, "tasks": [{"kind": "NoTask"}]}
-    merged = merge_env_graph_dicts(base, override)
+    merged = _merge_env_graph_dicts(base, override)
     assert merged == {
         "embodiment": {"id": "droid", "params": {}},
         "objects": [{"id": "a"}],
@@ -31,7 +31,7 @@ def test_merge_rejects_duplicate_key():
     base = {"embodiment": {"id": "droid"}}
     override = {"embodiment": {"registry_name": "droid_abs_joint_pos"}}
     with pytest.raises(AssertionError, match="Duplicate env graph spec key across includes: 'embodiment'"):
-        merge_env_graph_dicts(base, override)
+        _merge_env_graph_dicts(base, override)
 
 
 def test_load_env_graph_spec_dict_resolves_yaml_includes():

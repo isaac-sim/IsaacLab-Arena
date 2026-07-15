@@ -13,30 +13,6 @@ from typing import Any
 _YAML_INCLUDE_KEY = "external_yaml"
 
 
-def merge_env_graph_dicts(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    """Merge two env-graph dicts, asserting that no top-level key appears in both.
-
-    The ``external_yaml`` include key is ignored on both sides.
-    """
-    merged = copy.deepcopy(base)
-    for key, value in override.items():
-        if key == _YAML_INCLUDE_KEY:
-            continue
-        assert key not in merged, f"Duplicate env graph spec key across includes: '{key}'"
-        merged[key] = copy.deepcopy(value)
-    return merged
-
-
-def _load_yaml_dict(path: str | Path) -> dict[str, Any]:
-    """Read a single YAML file and assert it parses to a mapping."""
-    path = Path(path).resolve()
-    assert path.is_file(), f"Env graph spec YAML not found: {path}"
-    with path.open("r", encoding="utf-8") as f:
-        raw = yaml.safe_load(f)
-    assert isinstance(raw, dict), f"Env graph spec must be a dict, got {type(raw).__name__}"
-    return raw
-
-
 def load_env_graph_spec_dict(path: str | Path) -> dict[str, Any]:
     """Load an env-graph YAML file, resolving its top-level ``external_yaml`` include.
 
@@ -63,4 +39,23 @@ def load_env_graph_spec_dict(path: str | Path) -> dict[str, Any]:
         f"Nested '{_YAML_INCLUDE_KEY}' is not allowed; only the top-level env graph spec YAML "
         f"may declare an include: {include_path}"
     )
-    return merge_env_graph_dicts(included, raw)
+    return _merge_env_graph_dicts(included, raw)
+
+
+def _load_yaml_dict(path: str | Path) -> dict[str, Any]:
+    """Read a single YAML file and assert it parses to a mapping."""
+    path = Path(path).resolve()
+    assert path.is_file(), f"Env graph spec YAML not found: {path}"
+    with path.open("r", encoding="utf-8") as f:
+        raw = yaml.safe_load(f)
+    assert isinstance(raw, dict), f"Env graph spec must be a dict, got {type(raw).__name__}"
+    return raw
+
+
+def _merge_env_graph_dicts(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Merge two env-graph dicts, asserting that no top-level key appears in both."""
+    merged = copy.deepcopy(base)
+    for key, value in override.items():
+        assert key not in merged, f"Duplicate env graph spec key across includes: '{key}'"
+        merged[key] = copy.deepcopy(value)
+    return merged
