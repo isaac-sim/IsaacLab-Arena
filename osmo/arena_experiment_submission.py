@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import dataclass, field
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
@@ -50,7 +49,7 @@ def submit_arena_experiment(submission_cfg: ArenaExperimentSubmissionCfg) -> int
     """
     workflow_cfg = submission_cfg.osmo
     experiment_runner_task_cfg = submission_cfg.experiment_runner
-    policy_server_task_cfg = deepcopy(submission_cfg.policy_server)
+    policy_server_task_cfg = submission_cfg.policy_server
     if policy_server_task_cfg is None:
         # Local and externally hosted policies need only the Experiment Runner task.
         workflow = ArenaExperimentWorkflow(
