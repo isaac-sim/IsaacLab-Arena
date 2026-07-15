@@ -69,4 +69,4 @@ def submit_arena_experiment(submission_cfg: ArenaExperimentSubmissionCfg) -> int
             server_task_cfg=policy_server_task_cfg,
             task_cfg=experiment_runner_task_cfg,
         )
-    return workflow.submit_workflow()
+    return workflow.submit_workflow().returncode

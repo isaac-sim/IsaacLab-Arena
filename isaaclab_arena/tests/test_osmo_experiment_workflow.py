@@ -250,19 +250,20 @@ def test_submission_removes_temporary_workflow(monkeypatch):
     )
     captured_workflow_path = None
 
-    def capture_submission(command):
+    def capture_submission(command, **kwargs):
         nonlocal captured_workflow_path
+        assert kwargs["text"] is True
         assert command[:3] == ["osmo", "workflow", "submit"]
         captured_workflow_path = Path(command[3])
         assert captured_workflow_path.is_file()
         submitted_workflow = yaml.safe_load(captured_workflow_path.read_text(encoding="utf-8"))
         embedded_experiment = _embedded_experiment(_workflow_tasks(submitted_workflow)[0])
         assert embedded_experiment["runs"]["baseline"]["policy"]["type"] == "zero_action"
-        return SimpleNamespace(returncode=23)
+        return SimpleNamespace(returncode=23, stdout="")
 
     monkeypatch.setattr("osmo.workflows.workflow.subprocess.run", capture_submission)
 
-    assert workflow.submit_workflow() == 23
+    assert workflow.submit_workflow().returncode == 23
     assert captured_workflow_path is not None
     assert not captured_workflow_path.exists()
 
@@ -354,12 +355,13 @@ def test_submission_overrides_osmo_resources(monkeypatch):
     submitted_command = None
     submitted_resources = None
 
-    def capture_submission(command):
+    def capture_submission(command, **kwargs):
         nonlocal submitted_command, submitted_resources
+        assert kwargs["text"] is True
         submitted_command = command
         submitted_workflow = yaml.safe_load(Path(command[3]).read_text(encoding="utf-8"))
         submitted_resources = submitted_workflow["workflow"]["resources"]["default"]
-        return SimpleNamespace(returncode=0)
+        return SimpleNamespace(returncode=0, stdout="")
 
     monkeypatch.setattr("osmo.workflows.workflow.subprocess.run", capture_submission)
 
