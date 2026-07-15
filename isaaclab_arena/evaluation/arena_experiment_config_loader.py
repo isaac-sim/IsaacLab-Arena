@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
+from importlib import import_module
 from pathlib import Path
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation.arena_experiment import ArenaExperiment
+from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_eval_config
 from isaaclab_arena.hydra.experiment_composition import load_arena_experiment_from_yaml
 from isaaclab_arena.policy.policy_base import PolicyCfg
@@ -37,7 +39,7 @@ def load_arena_experiment_from_config_file(
     *,
     device: str,
     overrides: list[str] | None = None,
-) -> ArenaExperiment:
+) -> ArenaExperimentCfg:
     """Load a JSON or YAML Arena Experiment and apply its process device.
 
     Args:
@@ -46,7 +48,7 @@ def load_arena_experiment_from_config_file(
         overrides: Hydra overrides applied to typed YAML Experiments.
 
     Returns:
-        The ordered typed Runs that make up the Experiment.
+        The loaded, typed Experiment configuration with the process device applied.
     """
     path = validate_experiment_config_path(experiment_config_path)
 
@@ -54,27 +56,28 @@ def load_arena_experiment_from_config_file(
         assert not overrides, "Experiment overrides are supported only for typed YAML Experiments"
         with path.open(encoding="utf-8") as experiment_config_file:
             legacy_experiment_config = json.load(experiment_config_file)
-        return run_cfgs_from_legacy_eval_config(legacy_experiment_config, device=device)
+        run_cfgs = run_cfgs_from_legacy_eval_config(legacy_experiment_config, device=device)
+        return ArenaExperimentCfg(runs={run_cfg.name: run_cfg for run_cfg in run_cfgs})
 
-    yaml_experiment = load_arena_experiment_from_yaml(
+    experiment_cfg = load_arena_experiment_from_yaml(
         path,
         environment_cfg_types=_registered_environment_cfg_types(),
-        policy_cfg_types=_registered_policy_cfg_types(),
+        policy_cfg_type_resolver=_resolve_policy_cfg_type_from_name_or_class_path,
         overrides=overrides,
     )
 
     # TODO(cvolk, 2026-07-09): [typed-config-migration] Make device a process-level
     # evaluation setting shared by AppLauncher and Run execution. Then remove device
     # from ArenaEnvBuilderCfg and delete this per-Run copy.
-    experiment_with_process_device: ArenaExperiment = []
-    for run_config in yaml_experiment:
+    runs_with_process_device: dict[str, ArenaRunCfg] = {}
+    for run_name, run_config in experiment_cfg.runs.items():
         environment_builder_with_process_device = replace(run_config.environment_builder, device=device)
         run_config_with_process_device = replace(
             run_config,
             environment_builder=environment_builder_with_process_device,
         )
-        experiment_with_process_device.append(run_config_with_process_device)
-    return experiment_with_process_device
+        runs_with_process_device[run_name] = run_config_with_process_device
+    return ArenaExperimentCfg(runs=runs_with_process_device)
 
 
 def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
@@ -88,11 +91,15 @@ def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
     return environment_cfg_types
 
 
-def _registered_policy_cfg_types() -> dict[str, type[PolicyCfg]]:
-    """Return registered policy selector names and their config types."""
+def _resolve_policy_cfg_type_from_name_or_class_path(policy_name_or_class_path: str) -> type[PolicyCfg]:
+    """Return the config type for a registered policy name or dotted class path."""
     registry = PolicyRegistry()
-    policy_cfg_types: dict[str, type[PolicyCfg]] = {}
-    for name in registry.get_all_keys():
-        policy_type = registry.get_component_by_name(name)
-        policy_cfg_types[name] = registry.get_policy_cfg_type(policy_type)
-    return policy_cfg_types
+    if registry.is_registered(policy_name_or_class_path):
+        policy_type = registry.get_policy(policy_name_or_class_path)
+    else:
+        assert (
+            "." in policy_name_or_class_path
+        ), f"Policy type must be a registered name or dotted Python class path, got {policy_name_or_class_path!r}"
+        module_path, class_name = policy_name_or_class_path.rsplit(".", 1)
+        policy_type = getattr(import_module(module_path), class_name)
+    return registry.get_policy_cfg_type(policy_type)

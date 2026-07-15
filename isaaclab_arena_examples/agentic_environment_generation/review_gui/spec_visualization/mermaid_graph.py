@@ -23,6 +23,12 @@ def _mermaid_nodes(spec: ArenaEnvGraphSpec) -> list[tuple[str, str]]:
     return nodes
 
 
+def estimate_mermaid_height_px(spec: ArenaEnvGraphSpec) -> int:
+    """Heuristic iframe height from node count so typical graphs fit without excessive scrolling."""
+    num_nodes = len(_mermaid_nodes(spec))
+    return max(260, min(900, 70 * num_nodes))
+
+
 def render_mermaid_graph(spec: ArenaEnvGraphSpec) -> str:
     """Build left-to-right Mermaid flowchart syntax for spatial and reference edges."""
     lines = ["graph LR"]
@@ -69,6 +75,29 @@ def render_mermaid_graph(spec: ArenaEnvGraphSpec) -> str:
         lines.append(f"  style {_mermaid_id(node_id)} fill:{fill},color:#fff,stroke:{stroke}")
 
     return "\n".join(lines)
+
+
+def render_mermaid_html(spec: ArenaEnvGraphSpec) -> str:
+    """Render a minimal self-contained HTML document that draws the spatial graph via mermaid.js."""
+    import html as html_lib
+
+    syntax = html_lib.escape(render_mermaid_graph(spec))
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  body {{ margin: 0; padding: 8px; background: transparent; }}
+  .mermaid {{ display: flex; align-items: center; justify-content: center; min-height: 200px; }}
+</style>
+</head>
+<body>
+<pre class="mermaid">{syntax}</pre>
+<script>mermaid.initialize({{ startOnLoad: true, theme: 'dark', themeVariables: {{ fontFamily: 'ui-monospace, monospace' }} }});</script>
+</body>
+</html>
+"""
 
 
 def _mermaid_id(value: str) -> str:
