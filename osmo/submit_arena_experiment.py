@@ -13,10 +13,10 @@ accessible to the submission process.
 Example:
 
     python -m osmo.submit_arena_experiment \
-        --experiment-definition isaaclab_arena_environments/experiment_configs/openpi_experiment.yaml \
+        --experiment-definition isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml \
         --policy-server pi0 \
         osmo.workflow_name=my-evaluation \
-        experiment_definition.runs.openpi_maple_table.rollout_limit.num_episodes=4
+        experiment_definition.runs.droid_pnp_srl_openpi_billiard_hall.rollout_limit.num_episodes=4
 
 The policy server is optional. Omit it when the Experiment uses only local
 policies or connects to an externally hosted policy server. Hydra applies the
