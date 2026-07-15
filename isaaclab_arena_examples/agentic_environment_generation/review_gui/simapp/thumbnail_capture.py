@@ -102,9 +102,7 @@ def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, 
     return resolved, aabb_dimensions_m
 
 
-def _usd_cache_key(usd_path: str) -> str:
-    """Return a stable short hash for caching thumbnails keyed by USD path."""
-    return hashlib.sha1(usd_path.encode("utf-8")).hexdigest()[:16]
+# Spec resolution — materialize graph assets and look up USD paths / viewer cfg.
 
 
 def _instantiate_snapshot_assets(spec: ArenaEnvGraphSpec) -> dict[str, object]:
@@ -136,6 +134,14 @@ def _background_viewer_cfg(asset: object) -> object | None:
     if viewer_cfg.eye == default.eye and viewer_cfg.lookat == default.lookat:
         return None
     return viewer_cfg
+
+
+def _usd_cache_key(usd_path: str) -> str:
+    """Return a stable short hash for caching thumbnails keyed by USD path."""
+    return hashlib.sha1(usd_path.encode("utf-8")).hexdigest()[:16]
+
+
+# Capture orchestration — group work by parent USD, open each stage once, write PNGs.
 
 
 def _build_usd_snapshot_jobs(
@@ -266,6 +272,9 @@ def _capture_stage_snapshot(
     return None
 
 
+# Viewport and stage setup — camera, lighting, and collision-mesh overlay.
+
+
 def _apply_viewer_cfg(app, viewer_cfg) -> None:
     """Point the active viewport camera at ``viewer_cfg`` eye/lookat (world frame)."""
     from isaacsim.core.utils.viewports import set_camera_view
@@ -274,28 +283,27 @@ def _apply_viewer_cfg(app, viewer_cfg) -> None:
     pump_app(app, count=PRE_CAPTURE_UPDATES)
 
 
-def _render_one_usd(app, usd_path: str, cache_path: Path, *, viewer_cfg=None) -> bytes | None:
-    """Open ``usd_path`` and capture one asset snapshot (debug helper)."""
-    job = _UsdSnapshotJob(usd_path=usd_path, viewer_cfg=viewer_cfg, asset_captures=[("asset", cache_path)])
-    captured = _capture_usd_snapshot_job(app, job)
-    return captured.get("asset")
+def _ensure_default_lighting(stage) -> None:
+    """Add dome + key lights when the stage has none (standalone object USDs)."""
+    for prim in stage.Traverse():
+        if (
+            prim.HasAPI(UsdLux.LightAPI)
+            or prim.IsA(UsdLux.BoundableLightBase)
+            or prim.IsA(UsdLux.NonboundableLightBase)
+        ):
+            return
 
+    dome = UsdLux.DomeLight.Define(stage, Sdf.Path("/_ReviewDomeLight"))
+    dome.CreateIntensityAttr(800.0)
+    dome.CreateColorAttr(Gf.Vec3f(1.0, 1.0, 1.0))
 
-def _render_object_reference(
-    app,
-    target: ObjectReferenceUsdTarget,
-    cache_path: Path,
-    *,
-    viewer_cfg=None,
-) -> bytes | None:
-    """Open the parent USD and capture one object_reference snapshot (debug helper)."""
-    job = _UsdSnapshotJob(
-        usd_path=target.usd_path,
-        viewer_cfg=viewer_cfg,
-        ref_captures=[("ref", target, cache_path)],
-    )
-    captured = _capture_usd_snapshot_job(app, job)
-    return captured.get("ref")
+    key = UsdLux.DistantLight.Define(stage, Sdf.Path("/_ReviewKeyLight"))
+    key.CreateIntensityAttr(2500.0)
+    key.CreateAngleAttr(2.0)
+    key_xformable = UsdGeom.Xformable(key.GetPrim())
+    key_xformable.ClearXformOpOrder()
+    rot = key_xformable.AddRotateXYZOp()
+    rot.Set(Gf.Vec3f(-45.0, 30.0, 0.0))
 
 
 def _collect_collision_prim_paths(stage, root_path: str) -> list[str]:
@@ -330,26 +338,3 @@ def _select_collision_prims(app, selected_prim_paths: list[str]) -> None:
     if selected_prim_paths:
         omni.usd.get_context().get_selection().set_selected_prim_paths(selected_prim_paths, True)
     pump_app(app, count=COLLIDER_SELECTION_PUMP_UPDATES)
-
-
-def _ensure_default_lighting(stage) -> None:
-    """Add dome + key lights when the stage has none (standalone object USDs)."""
-    for prim in stage.Traverse():
-        if (
-            prim.HasAPI(UsdLux.LightAPI)
-            or prim.IsA(UsdLux.BoundableLightBase)
-            or prim.IsA(UsdLux.NonboundableLightBase)
-        ):
-            return
-
-    dome = UsdLux.DomeLight.Define(stage, Sdf.Path("/_ReviewDomeLight"))
-    dome.CreateIntensityAttr(800.0)
-    dome.CreateColorAttr(Gf.Vec3f(1.0, 1.0, 1.0))
-
-    key = UsdLux.DistantLight.Define(stage, Sdf.Path("/_ReviewKeyLight"))
-    key.CreateIntensityAttr(2500.0)
-    key.CreateAngleAttr(2.0)
-    key_xformable = UsdGeom.Xformable(key.GetPrim())
-    key_xformable.ClearXformOpOrder()
-    rot = key_xformable.AddRotateXYZOp()
-    rot.Set(Gf.Vec3f(-45.0, 30.0, 0.0))
