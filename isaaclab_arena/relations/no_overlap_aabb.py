@@ -17,8 +17,8 @@ from isaaclab_arena.relations.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import On
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.placement_entity import PlacementEntity
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
 
@@ -83,7 +83,7 @@ def compute_no_overlap_loss_aabb(
                 on_pairs.add((id(obj), id(rel.parent)))
                 on_pairs.add((id(rel.parent), id(obj)))
 
-    extents: dict[ObjectBase | CollisionObject, tuple[torch.Tensor, torch.Tensor]] = {}
+    extents: dict[PlacementEntity | CollisionObject, tuple[torch.Tensor, torch.Tensor]] = {}
     for obj in non_anchor_objects:
         pos = state.get_position(obj)
         bbox = state.get_bbox(obj)
@@ -157,7 +157,7 @@ def compute_no_overlap_loss_aabb(
 
 def _fixed_pair_is_covered_by_mesh_collision(
     state: RelationSolverState,
-    subject: ObjectBase,
+    subject: PlacementEntity,
     obstacle: CollisionObject,
     mesh_manager: WarpMeshAndSphereCache,
     default_collision_mode: CollisionMode,
@@ -175,8 +175,8 @@ def _fixed_pair_is_covered_by_mesh_collision(
 
 def _dynamic_pair_is_covered_by_mesh_collision(
     state: RelationSolverState,
-    a: ObjectBase,
-    b: ObjectBase,
+    a: PlacementEntity,
+    b: PlacementEntity,
     mesh_manager: WarpMeshAndSphereCache,
     default_collision_mode: CollisionMode,
 ) -> bool:
@@ -192,7 +192,7 @@ def _dynamic_pair_is_covered_by_mesh_collision(
 
 def _has_mesh_or_invariant_bbox(
     state: RelationSolverState,
-    obj: ObjectBase,
+    obj: PlacementEntity,
     mesh_manager: WarpMeshAndSphereCache,
     default_collision_mode: CollisionMode,
 ) -> bool:

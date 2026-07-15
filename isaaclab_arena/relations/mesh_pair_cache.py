@@ -14,8 +14,8 @@ from typing import TYPE_CHECKING, NamedTuple
 import warp as wp
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.placement_entity import PlacementEntity
 
 
 class MeshPairEntry(NamedTuple):
@@ -24,10 +24,10 @@ class MeshPairEntry(NamedTuple):
     Dimensions: S = sphere count for this pair's subject, B = batch_size.
     """
 
-    subject: ObjectBase
+    subject: PlacementEntity
     """Subject (sphere source) object."""
 
-    obstacle: ObjectBase | CollisionObject
+    obstacle: PlacementEntity | CollisionObject
     """Obstacle (mesh target) object."""
 
     obstacle_is_fixed: bool
@@ -86,10 +86,10 @@ class MeshPairCache:
     all_radii: torch.Tensor
     """(S,) sphere radii, concatenated across pairs."""
 
-    pair_subject_objs: list[ObjectBase]
+    pair_subject_objs: list[PlacementEntity]
     """(P,) subject (sphere source) object reference per pair."""
 
-    pair_obstacle_objs: list[ObjectBase | CollisionObject]
+    pair_obstacle_objs: list[PlacementEntity | CollisionObject]
     """(P,) obstacle (mesh target) object reference per pair."""
 
     pair_subject_applies_yaw: list[bool]

@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
@@ -12,6 +13,7 @@ from isaaclab_arena.relations.placement_events import (
     get_base_rotation_per_object,
     get_movable_object_names,
     get_placement_pool,
+    get_placement_scene_entity_names,
     write_layout_to_sim,
 )
 from isaaclab_arena.relations.placement_validation import PlacementCheck
@@ -21,7 +23,7 @@ from isaaclab_arena.utils import physics_settle
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
-    from isaaclab_arena.relations.object_base import ObjectBase
+    from isaaclab_arena.relations.placement_entity import PlacementEntity
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.placement_validation import PlacementValidationResults
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
@@ -33,7 +35,8 @@ def _write_layout_to_envs_for_episode_index(
     num_envs: int,
     episode_index: int,
     anchor_objects_set: set,
-    base_rotations: dict[ObjectBase, tuple[float, float, float, float]],
+    base_rotations: dict[PlacementEntity, tuple[float, float, float, float]],
+    scene_entity_names: Mapping[str, str],
 ) -> list[tuple[int, PlacementResult]]:
     """Write one layout per env for this episode; return the ``(env_id, layout)`` layouts written.
 
@@ -45,7 +48,14 @@ def _write_layout_to_envs_for_episode_index(
         layouts = layouts_per_env[env_id]
         if episode_index < len(layouts):
             layout = layouts[episode_index]
-            write_layout_to_sim(env.unwrapped, env_id, layout, anchor_objects_set, base_rotations)
+            write_layout_to_sim(
+                env.unwrapped,
+                env_id,
+                layout,
+                anchor_objects_set,
+                base_rotations,
+                scene_entity_names,
+            )
             layouts_written.append((env_id, layout))
     return layouts_written
 
@@ -79,6 +89,7 @@ def validate_pool_layouts(
     placement_pool: PooledObjectPlacer | None = None,
     settle_params: PhysicsSettleParams | None = None,
     render: bool = False,
+    scene_entity_names: Mapping[str, str] | None = None,
 ) -> list[tuple[int, int, PlacementValidationResults]] | None:
     """Physics-validate every layout in a placement pool, recording the result on its validation results.
 
@@ -92,12 +103,13 @@ def validate_pool_layouts(
         settle_params: Settle-check tuning params. Defaults to
             ``PhysicsSettleParams()`` when omitted.
         render: When True, render each settle step so the sweep is visible in the GUI. Defaults to False.
+        scene_entity_names: Isaac Lab scene name for each placement entity.
 
     Returns:
         ``(env_id, episode_index, checklist)`` for every layout, in ``(env_id, episode_index)`` order,
         or ``None`` when ``placement_pool`` is omitted and the env has no pooled layouts.
     """
-    # No-ops when no layouts are stored in the pool
+    placement_pool_from_event = placement_pool is None
     if placement_pool is None:
         placement_pool = get_placement_pool(env)
         if placement_pool is None:
@@ -108,7 +120,12 @@ def validate_pool_layouts(
     objects = placement_pool.objects
     anchor_objects_set = set(get_anchor_objects(objects))
     base_rotations = get_base_rotation_per_object(objects)
-    movable_object_names = get_movable_object_names(objects, anchor_objects_set)
+    if scene_entity_names is None:
+        scene_entity_names = get_placement_scene_entity_names(env)
+    if scene_entity_names is None:
+        assert not placement_pool_from_event, "Placement reset event is missing scene_entity_names"
+        scene_entity_names = {obj.name: obj.name for obj in objects}
+    movable_object_names = get_movable_object_names(objects, anchor_objects_set, scene_entity_names)
 
     # The length of each env queue is controlled by min_unique_layouts_per_env in ObjectPlacerParams.
     layouts_per_env = placement_pool.layouts_per_env()
@@ -127,7 +144,13 @@ def validate_pool_layouts(
     for episode_index in range(max_episodes):
         # Set layout, then settle and collect results in parallel.
         layouts = _write_layout_to_envs_for_episode_index(
-            env, layouts_per_env, num_envs, episode_index, anchor_objects_set, base_rotations
+            env,
+            layouts_per_env,
+            num_envs,
+            episode_index,
+            anchor_objects_set,
+            base_rotations,
+            scene_entity_names,
         )
         if layouts:
             physics_settle.step_physics(env, num_physics_steps, render=render)

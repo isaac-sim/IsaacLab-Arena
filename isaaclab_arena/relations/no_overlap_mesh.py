@@ -22,8 +22,8 @@ from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_points_by_yaw_batch, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
-    from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.relations.collision_object import CollisionObject
+    from isaaclab_arena.relations.placement_entity import PlacementEntity
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
@@ -32,7 +32,7 @@ def compute_no_overlap_loss_mesh(
     state: RelationSolverState,
     mesh_cache: MeshPairCache | None,
     mesh_manager: WarpMeshAndSphereCache,
-    orientations: list[dict[ObjectBase, float]] | None,
+    orientations: list[dict[PlacementEntity, float]] | None,
     clearance_m: float,
     slope: float,
     debug: bool,
@@ -211,7 +211,7 @@ def _collect_mesh_pairs(
     state: RelationSolverState,
     manager: WarpMeshAndSphereCache,
     non_anchor_objects: list,
-    fixed_obstacles: list[ObjectBase | CollisionObject],
+    fixed_obstacles: list[PlacementEntity | CollisionObject],
     on_pairs: set[tuple[int, int]],
     device: torch.device,
     warned_no_mesh: set[str],
@@ -361,7 +361,7 @@ def _collect_mesh_pairs(
 def _get_subject_spheres(
     mesh: trimesh.Trimesh | None,
     bbox: AxisAlignedBoundingBox,
-    obj: ObjectBase,
+    obj: PlacementEntity,
     manager: WarpMeshAndSphereCache,
     device: torch.device,
 ) -> torch.Tensor | None:
