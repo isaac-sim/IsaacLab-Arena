@@ -1,6 +1,6 @@
 # RoboLab Task Catalog
 
-[120 Robolab tasks](https://github.com/NVlabs/RoboLab/blob/main/robolab/tasks/README.md) and their Arena counterparts when available. Arena specs are split into reusable scene YAMLs under `scenes/` and task YAMLs under `tasks/` that include the scene via a top-level `external_yamls:` list.
+[120 Robolab tasks](https://github.com/NVlabs/RoboLab/blob/main/robolab/tasks/README.md) and their Arena counterparts when available. Arena specs are split into reusable scene YAMLs under `scenes/` and task YAMLs under `tasks/` that include the scene via a top-level `external_yaml:` path.
 
 <style>
 /* Fit the 3-column catalog within the Sphinx article width (no horizontal

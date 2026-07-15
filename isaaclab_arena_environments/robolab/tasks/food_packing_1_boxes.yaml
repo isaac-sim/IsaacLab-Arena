@@ -4,8 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: food_packing_1_boxes
-external_yamls:
-- ../scenes/foodpacking_1bin_1box_1can.yaml
+external_yaml: ../scenes/foodpacking_1bin_1box_1can.yaml
 task:
   composition: atomic
   description: pick up the cheez it box and place it into the bin

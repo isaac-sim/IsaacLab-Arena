@@ -4,8 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: coffee_pot_in_bin
-external_yamls:
-- ../scenes/bin_condiments.yaml
+external_yaml: ../scenes/bin_condiments.yaml
 task:
   composition: atomic
   description: pick up the coffee pot and place it into the grey bin

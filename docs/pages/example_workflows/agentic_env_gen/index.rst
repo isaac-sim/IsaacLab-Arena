@@ -76,7 +76,7 @@ Available Generated Specs
 
 The ``isaaclab_arena_environments/robolab`` subfolder contains Arena environment graph specs for
 RoboLab scenes and tasks. Scene YAMLs live in ``robolab/scenes/``; task YAMLs in
-``robolab/tasks/`` include their scene via a top-level ``external_yamls:`` list. See
+``robolab/tasks/`` include their scene via a top-level ``external_yaml:`` path. See
 :doc:`../robolab_task_catalog` for the list of RoboLab tasks currently supported in Arena.
 
 Run a Generated Environment

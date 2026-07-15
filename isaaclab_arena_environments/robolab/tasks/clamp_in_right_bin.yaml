@@ -4,8 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: clamp_in_right_bin
-external_yamls:
-- ../scenes/tools_container.yaml
+external_yaml: ../scenes/tools_container.yaml
 task:
   composition: atomic
   description: pick up the spring clamp and place it in the right bin

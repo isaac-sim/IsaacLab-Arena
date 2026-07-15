@@ -4,8 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: mouse_on_keyboard
-external_yamls:
-- ../scenes/workdesk.yaml
+external_yaml: ../scenes/workdesk.yaml
 task:
   composition: atomic
   description: place the computer mouse on the keyboard

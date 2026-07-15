@@ -4,8 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: throw_away_apple
-external_yamls:
-- ../scenes/workdesk_snacks.yaml
+external_yaml: ../scenes/workdesk_snacks.yaml
 task:
   composition: atomic
   description: place the apple into the plasticpail on the table

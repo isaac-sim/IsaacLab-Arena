@@ -4,8 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: big_pumpkin_in_bin
-external_yamls:
-- ../scenes/clutter_fruit_bottle_bluebin.yaml
+external_yaml: ../scenes/clutter_fruit_bottle_bluebin.yaml
 task:
   composition: atomic
   description: pick up the large pumpkin and place it into the bin

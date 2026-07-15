@@ -4,8 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: mustard_above_raisin
-external_yamls:
-- ../scenes/mustard_raisin_box.yaml
+external_yaml: ../scenes/mustard_raisin_box.yaml
 task:
   composition: atomic
   description: Pick up the mustard bottle and place it on the raisin box.

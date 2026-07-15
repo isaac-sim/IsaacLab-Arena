@@ -10,55 +10,57 @@ import yaml
 from pathlib import Path
 from typing import Any
 
-_YAML_INCLUDE_KEY = "external_yamls"
+_YAML_INCLUDE_KEY = "external_yaml"
 
 
-def deep_merge_env_graph_dicts(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    """Merge two env-graph dicts, with ``override`` winning on key conflicts.
+def merge_env_graph_dicts(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Merge two env-graph dicts, asserting that no top-level key appears in both.
 
-    Nested dict values are merged recursively. Lists and scalars are replaced
-    entirely when the override defines the key.
+    The ``external_yaml`` include key is ignored on both sides.
     """
     merged = copy.deepcopy(base)
     for key, value in override.items():
         if key == _YAML_INCLUDE_KEY:
             continue
-        if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
-            merged[key] = deep_merge_env_graph_dicts(merged[key], value)
-        else:
-            # TODO(qianl): For ``relations``, extend the base list instead of replacing it wholesale.
-            merged[key] = copy.deepcopy(value)
+        assert key not in merged, f"Duplicate env graph spec key across includes: '{key}'"
+        merged[key] = copy.deepcopy(value)
     return merged
 
 
-def load_env_graph_spec_dict(path: str | Path, *, _stack: tuple[Path, ...] = ()) -> dict[str, Any]:
-    """Load an env-graph YAML file, recursively resolving ``external_yamls`` includes.
+def _load_yaml_dict(path: str | Path) -> dict[str, Any]:
+    """Read a single YAML file and assert it parses to a mapping."""
+    path = Path(path).resolve()
+    assert path.is_file(), f"Env graph spec YAML not found: {path}"
+    with path.open("r", encoding="utf-8") as f:
+        raw = yaml.safe_load(f)
+    assert isinstance(raw, dict), f"Env graph spec must be a dict, got {type(raw).__name__}"
+    return raw
+
+
+def load_env_graph_spec_dict(path: str | Path) -> dict[str, Any]:
+    """Load an env-graph YAML file, resolving its top-level ``external_yaml`` include.
+
+    Only the entry YAML may declare ``external_yaml``; the included file must not
+    contain a further include (no nesting).
 
     Args:
         path: Path to the root YAML file.
-        _stack: Active include chain used to detect cycles.
 
     Returns:
         A merged mapping ready for :class:`ArenaEnvGraphSpec` validation.
     """
     path = Path(path).resolve()
-    assert path.is_file(), f"Env graph spec YAML not found: {path}"
-    assert path not in _stack, "Cyclic env graph spec external_yamls include: " + " -> ".join(
-        str(p) for p in (*_stack, path)
+    raw = _load_yaml_dict(path)
+
+    include = raw.pop(_YAML_INCLUDE_KEY, None)
+    if include is None:
+        return raw
+    assert isinstance(include, str), f"'{_YAML_INCLUDE_KEY}' must be a file path string, got {type(include).__name__}"
+
+    include_path = (path.parent / include).resolve()
+    included = _load_yaml_dict(include_path)
+    assert _YAML_INCLUDE_KEY not in included, (
+        f"Nested '{_YAML_INCLUDE_KEY}' is not allowed; only the top-level env graph spec YAML "
+        f"may declare an include: {include_path}"
     )
-
-    with path.open("r", encoding="utf-8") as f:
-        raw = yaml.safe_load(f)
-    assert isinstance(raw, dict), f"Env graph spec must be a dict, got {type(raw).__name__}"
-
-    includes = raw.pop(_YAML_INCLUDE_KEY, None) or []
-    assert isinstance(includes, list), f"'{_YAML_INCLUDE_KEY}' must be a list of file paths"
-    for include in includes:
-        assert isinstance(include, str), f"'{_YAML_INCLUDE_KEY}' entries must be strings, got {type(include).__name__}"
-
-    merged: dict[str, Any] = {}
-    for include in includes:
-        include_path = (path.parent / include).resolve()
-        included = load_env_graph_spec_dict(include_path, _stack=(*_stack, path))
-        merged = deep_merge_env_graph_dicts(merged, included)
-    return deep_merge_env_graph_dicts(merged, raw)
+    return merge_env_graph_dicts(included, raw)

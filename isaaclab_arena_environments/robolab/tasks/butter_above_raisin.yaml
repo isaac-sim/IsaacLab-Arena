@@ -4,8 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: butter_above_raisin
-external_yamls:
-- ../scenes/butter_raisin_box.yaml
+external_yaml: ../scenes/butter_raisin_box.yaml
 task:
   composition: atomic
   description: pick up the butter box and place it on top of the raisin box

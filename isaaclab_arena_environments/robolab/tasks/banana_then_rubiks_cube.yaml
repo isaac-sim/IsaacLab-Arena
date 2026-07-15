@@ -4,8 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: banana_then_rubiks_cube
-external_yamls:
-- ../scenes/rubiks_cube_banana_bowl.yaml
+external_yaml: ../scenes/rubiks_cube_banana_bowl.yaml
 task:
   composition: sequential
   description: pick up the banana and place it in the bowl ; pick up the cube and place it in the bowl

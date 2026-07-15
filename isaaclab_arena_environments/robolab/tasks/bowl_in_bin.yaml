@@ -4,8 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: bowl_in_bin
-external_yamls:
-- ../scenes/bin_mug_mustard_marker_bowl.yaml
+external_yaml: ../scenes/bin_mug_mustard_marker_bowl.yaml
 task:
   composition: atomic
   description: Pick up the bowl and place it in the grey bin.

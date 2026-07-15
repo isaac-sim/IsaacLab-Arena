@@ -4,8 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: rubiks_cube
-external_yamls:
-- ../scenes/rubiks_cube_bowl.yaml
+external_yaml: ../scenes/rubiks_cube_bowl.yaml
 task:
   composition: atomic
   description: put the rubiks cube in the bowl

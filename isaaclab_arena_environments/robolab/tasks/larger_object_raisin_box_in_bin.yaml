@@ -4,8 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: larger_object_raisin_box_in_bin
-external_yamls:
-- ../scenes/butter_raisin_box_grey_bin.yaml
+external_yaml: ../scenes/butter_raisin_box_grey_bin.yaml
 task:
   composition: atomic
   description: Pick up the red raisin box and place it into the grey bin on the maple table.

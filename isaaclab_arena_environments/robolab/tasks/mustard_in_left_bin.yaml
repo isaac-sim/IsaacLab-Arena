@@ -4,8 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: mustard_in_left_bin
-external_yamls:
-- ../scenes/two_bin.yaml
+external_yaml: ../scenes/two_bin.yaml
 task:
   composition: atomic
   description: put the mustard in the left bin

@@ -4,8 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: banana_on_plate
-external_yamls:
-- ../scenes/bagel_plate_banana_bowl.yaml
+external_yaml: ../scenes/bagel_plate_banana_bowl.yaml
 task:
   composition: atomic
   description: Pick up the banana and place it on the plate.

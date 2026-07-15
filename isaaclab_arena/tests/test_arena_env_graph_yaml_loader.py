@@ -10,21 +10,28 @@ from pathlib import Path
 import pytest
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import (
-    deep_merge_env_graph_dicts,
-    load_env_graph_spec_dict,
-)
+from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict, merge_env_graph_dicts
 
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
 
 
-def test_deep_merge_nested_dicts_and_replaces_lists():
+def test_merge_combines_disjoint_keys():
     base = {"embodiment": {"id": "droid", "params": {}}, "objects": [{"id": "a"}]}
-    override = {"embodiment": {"registry_name": "droid_abs_joint_pos"}, "tasks": [{"kind": "NoTask"}]}
-    merged = deep_merge_env_graph_dicts(base, override)
-    assert merged["embodiment"] == {"id": "droid", "params": {}, "registry_name": "droid_abs_joint_pos"}
-    assert merged["objects"] == [{"id": "a"}]
-    assert merged["tasks"] == [{"kind": "NoTask"}]
+    override = {"background": {"id": "table"}, "tasks": [{"kind": "NoTask"}]}
+    merged = merge_env_graph_dicts(base, override)
+    assert merged == {
+        "embodiment": {"id": "droid", "params": {}},
+        "objects": [{"id": "a"}],
+        "background": {"id": "table"},
+        "tasks": [{"kind": "NoTask"}],
+    }
+
+
+def test_merge_rejects_duplicate_key():
+    base = {"embodiment": {"id": "droid"}}
+    override = {"embodiment": {"registry_name": "droid_abs_joint_pos"}}
+    with pytest.raises(AssertionError, match="Duplicate env graph spec key across includes: 'embodiment'"):
+        merge_env_graph_dicts(base, override)
 
 
 def test_load_env_graph_spec_dict_resolves_yaml_includes():
@@ -33,7 +40,7 @@ def test_load_env_graph_spec_dict_resolves_yaml_includes():
     assert len(data["objects"]) == 2
     assert len(data["task"]["subtasks"]) == 1
     assert data["background"]["registry_name"] == "maple_table_robolab"
-    assert "external_yamls" not in data
+    assert "external_yaml" not in data
 
 
 def test_arena_env_graph_spec_from_yaml_resolves_robolab_task_include():
@@ -46,7 +53,7 @@ def test_arena_env_graph_spec_from_yaml_resolves_robolab_task_include():
 
 def test_load_env_graph_spec_dict_rejects_missing_include(tmp_path):
     path = tmp_path / "_missing_include.yaml"
-    path.write_text("external_yamls:\n  - does_not_exist.yaml\nenv_name: broken\n", encoding="utf-8")
+    path.write_text("external_yaml: does_not_exist.yaml\nenv_name: broken\n", encoding="utf-8")
     with pytest.raises(AssertionError, match="Env graph spec YAML not found"):
         load_env_graph_spec_dict(path)
 
@@ -59,10 +66,12 @@ def test_robolab_task_yaml_loads_scene_include():
     assert spec.task.subtasks[0].params["pick_up_object"] == "banana"
 
 
-def test_load_env_graph_spec_dict_rejects_cyclic_includes(tmp_path):
-    a = tmp_path / "_cycle_a.yaml"
-    b = tmp_path / "_cycle_b.yaml"
-    a.write_text(f"external_yamls:\n  - {b}\nenv_name: a\n", encoding="utf-8")
-    b.write_text(f"external_yamls:\n  - {a}\nenv_name: b\n", encoding="utf-8")
-    with pytest.raises(AssertionError, match="Cyclic env graph spec external_yamls include"):
-        load_env_graph_spec_dict(a)
+def test_load_env_graph_spec_dict_rejects_nested_includes(tmp_path):
+    entry = tmp_path / "_entry.yaml"
+    mid = tmp_path / "_mid.yaml"
+    leaf = tmp_path / "_leaf.yaml"
+    leaf.write_text("env_name: leaf\n", encoding="utf-8")
+    mid.write_text("external_yaml: _leaf.yaml\nembodiment: {}\n", encoding="utf-8")
+    entry.write_text("external_yaml: _mid.yaml\nenv_name: entry\n", encoding="utf-8")
+    with pytest.raises(AssertionError, match="Nested 'external_yaml' is not allowed"):
+        load_env_graph_spec_dict(entry)

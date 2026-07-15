@@ -4,8 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: sauce_bottles_crate
-external_yamls:
-- ../scenes/bottles_crate.yaml
+external_yaml: ../scenes/bottles_crate.yaml
 task:
   composition: atomic
   description: place the bbq sauce bottle into the purple crate on the table
