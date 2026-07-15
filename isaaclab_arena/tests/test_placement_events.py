@@ -160,6 +160,7 @@ def _solve_and_place_with_pool(env, env_ids, objects, pool):
         env_ids,
         objects=objects,
         placement_pool=pool,
+        scene_entity_names={obj.name: obj.name for obj in objects},
     )
 
 
@@ -221,10 +222,59 @@ def test_solve_and_place_objects_uses_runtime_pool():
         torch.tensor([0]),
         objects=[desk, box1],
         placement_pool=Pool(),
+        scene_entity_names={"desk": "desk", "box1": "box1"},
     )
 
     assert "desk" not in env._assets
     env._assets["box1"].write_root_pose_to_sim.assert_called_once()
+
+
+def test_static_layout_event_writes_embodiment_to_mapped_scene_asset():
+    from isaaclab_arena.assets.dummy_embodiment import DummyEmbodiment
+    from isaaclab_arena.relations.placement_events import place_entities_from_layouts
+    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    robot = DummyEmbodiment(
+        name="droid",
+        bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.2, 0.0), max_point=(0.2, 0.2, 1.0)),
+    )
+    layouts = [
+        PlacementResult(
+            validation_results=_checklist(True),
+            positions={robot: (0.1, 0.2, 0.0)},
+            final_loss=0.0,
+            attempts=1,
+        ),
+        PlacementResult(
+            validation_results=_checklist(True),
+            positions={robot: (0.4, 0.5, 0.0)},
+            final_loss=0.0,
+            attempts=1,
+        ),
+    ]
+    env = _make_mock_env(num_envs=2)
+
+    place_entities_from_layouts(
+        env,
+        torch.tensor([1]),
+        objects=[robot],
+        layouts=layouts,
+        scene_entity_names={"droid": "robot"},
+    )
+
+    assert "droid" not in env._assets
+    pose = env._assets["robot"].write_root_pose_to_sim.call_args.args[0]
+    assert torch.allclose(pose[0, :3], torch.tensor([0.4, 0.5, 0.0]))
+
+    with pytest.raises(AssertionError, match="Static layouts must match"):
+        place_entities_from_layouts(
+            env,
+            torch.tensor([0]),
+            objects=[robot],
+            layouts=layouts[:1],
+            scene_entity_names={"droid": "robot"},
+        )
 
 
 def test_get_placement_pool_returns_runtime_pool():
@@ -577,6 +627,10 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
         def set_initial_pose(self, pose):
             raise AssertionError("resolve_on_reset init seeding must not register per-object reset events")
 
+        def set_placement_initial_pose(self, pose):
+            self.object_cfg.init_state.pos = pose.position_xyz
+            self.object_cfg.init_state.rot = pose.rotation_xyzw
+
     class EnvIndexedPool:
         num_envs = 3
         sample_count = None
@@ -602,6 +656,7 @@ def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
         objects=[anchor, box],
         placement_pool=pool,
         anchor_objects_set={anchor},
+        scene_entity_names={"desk": "desk", "box": "box"},
     )
 
     assert pool.sample_count == 1

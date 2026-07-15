@@ -3,20 +3,26 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
-from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.relations.placement_entity import PlacementEntity
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.cameras import ArenaCameraCfg, make_camera_observation_cfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
+
+if TYPE_CHECKING:
+    import trimesh
 
 
-class EmbodimentBase(Asset):
+class EmbodimentBase(PlacementEntity):
 
     name: str | None = None
     tags: list[str] = ["embodiment"]
@@ -50,14 +56,43 @@ class EmbodimentBase(Asset):
         self.xr: Any | None = None
         self.termination_cfg: Any | None = None
 
-    def set_initial_pose(self, pose: Pose) -> None:
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Return root-relative bounds for the USD-authored articulation pose."""
+        from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
+
+        assert self.scene_config is not None, "scene_config must be populated before placement"
+        spawn = self.scene_config.robot.spawn
+        assert spawn.usd_path is not None, "scene_config.robot must use a USD spawn for placement"
+        scale = tuple(spawn.scale or (1.0, 1.0, 1.0))
+        # TODO: Compute bounds at configured initial joint positions when joint_pos is not None.
+        return compute_local_bounding_box_from_usd(spawn.usd_path, scale)
+
+    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Return bounds transformed by the configured root pose."""
+        bounding_box = self.get_bounding_box()
+        if self.initial_pose is None:
+            return bounding_box
+        quarters = quaternion_to_90_deg_z_quarters(self.initial_pose.rotation_xyzw)
+        return bounding_box.rotated_90_around_z(quarters).translated(self.initial_pose.position_xyz)
+
+    def get_collision_mesh(self) -> trimesh.Trimesh | None:
+        """Return no mesh because embodiment placement uses bounds."""
+
+    def set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
+        """Set the embodiment root pose."""
+        assert isinstance(pose, Pose), "Embodiments require one root Pose"
         self.initial_pose = pose
+
+    def supports_per_env_initial_pose(self) -> bool:
+        """Return False because embodiment configs store one root pose."""
+        return False
 
     def set_joint_initial_pos(self, joint_pos: Mapping[str, float]) -> None:
         """Update the robot's initial joint positions by joint name."""
-        if self.scene_config is None or not hasattr(self.scene_config, "robot"):
-            raise RuntimeError("scene_config must be populated with a `robot` before calling `set_joint_initial_pos`.")
-        self.scene_config.robot.init_state.joint_pos.update(joint_pos)
+        assert self.scene_config is not None, "scene_config.robot must be populated before setting joint positions"
+        robot = self.scene_config.robot
+        assert robot is not None, "scene_config.robot must be populated before setting joint positions"
+        robot.init_state.joint_pos.update(joint_pos)
 
     def get_scene_cfg(self) -> Any:
         if self.initial_pose is not None:
@@ -116,10 +151,11 @@ class EmbodimentBase(Asset):
         return self.camera_config.get_cfg()
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
-        if scene_config is None or not hasattr(scene_config, "robot"):
-            raise RuntimeError("scene_config must be populated with a `robot` before calling `set_robot_initial_pose`.")
-        scene_config.robot.init_state.pos = pose.position_xyz
-        scene_config.robot.init_state.rot = pose.rotation_xyzw
+        assert scene_config is not None, "scene_config.robot must be populated before setting the root pose"
+        robot = scene_config.robot
+        assert robot is not None, "scene_config.robot must be populated before setting the root pose"
+        robot.init_state.pos = pose.position_xyz
+        robot.init_state.rot = pose.rotation_xyzw
         return scene_config
 
     def get_recorder_term_cfg(self) -> RecorderManagerBaseCfg:
