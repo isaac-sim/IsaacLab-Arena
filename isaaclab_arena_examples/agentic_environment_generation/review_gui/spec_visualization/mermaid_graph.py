@@ -79,7 +79,9 @@ def render_mermaid_graph(spec: ArenaEnvGraphSpec) -> str:
 
 def render_mermaid_html(spec: ArenaEnvGraphSpec) -> str:
     """Render a minimal self-contained HTML document that draws the spatial graph via mermaid.js."""
-    syntax = render_mermaid_graph(spec)
+    import html as html_lib
+
+    syntax = html_lib.escape(render_mermaid_graph(spec))
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
