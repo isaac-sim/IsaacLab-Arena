@@ -48,24 +48,26 @@ def submit_arena_experiment(submission_cfg: ArenaExperimentSubmissionCfg) -> int
     Returns:
         The OSMO submission process status.
     """
-    server_task_cfg = deepcopy(submission_cfg.policy_server)
-    if server_task_cfg is None:
+    workflow_cfg = submission_cfg.osmo
+    experiment_runner_task_cfg = submission_cfg.experiment_runner
+    policy_server_task_cfg = deepcopy(submission_cfg.policy_server)
+    if policy_server_task_cfg is None:
         # Local and externally hosted policies need only the Experiment Runner task.
         workflow = ArenaExperimentWorkflow(
-            workflow_cfg=submission_cfg.osmo,
+            workflow_cfg=workflow_cfg,
             experiment_definition=submission_cfg.experiment_definition,
-            task_cfg=submission_cfg.experiment_runner,
+            task_cfg=experiment_runner_task_cfg,
         )
     else:
         # A selected server uses a workflow variant that adds and connects its policy-server task.
-        workflow_cls = POLICY_SERVER_WORKFLOW_BY_CONFIG_TYPE.get(type(server_task_cfg))
+        workflow_cls = POLICY_SERVER_WORKFLOW_BY_CONFIG_TYPE.get(type(policy_server_task_cfg))
         assert (
             workflow_cls is not None
-        ), f"No policy-server workflow is registered for configuration type {type(server_task_cfg).__name__}"
+        ), f"No policy-server workflow is registered for configuration type {type(policy_server_task_cfg).__name__}"
         workflow = workflow_cls(
-            workflow_cfg=submission_cfg.osmo,
+            workflow_cfg=workflow_cfg,
             experiment_definition=submission_cfg.experiment_definition,
-            server_task_cfg=server_task_cfg,
-            task_cfg=submission_cfg.experiment_runner,
+            server_task_cfg=policy_server_task_cfg,
+            task_cfg=experiment_runner_task_cfg,
         )
     return workflow.submit_workflow()
