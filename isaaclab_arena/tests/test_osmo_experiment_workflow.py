@@ -38,8 +38,9 @@ from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
 OPENPI_EXPERIMENT_DEFINITION_PATH = (
-    REPOSITORY_ROOT / "isaaclab_arena_environments/experiment_configs/openpi_experiment.yaml"
+    REPOSITORY_ROOT / "isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml"
 )
+OPENPI_RUN_NAME = "droid_pnp_srl_openpi_billiard_hall"
 GETTING_STARTED_EXPERIMENT_DEFINITION_PATH = (
     REPOSITORY_ROOT / "isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml"
 )
@@ -135,7 +136,8 @@ def test_explicit_experiment_and_policy_server_selector_compose_typed_defaults()
     submission_cfg = _compose_submission()
 
     assert isinstance(submission_cfg.experiment_definition, ArenaExperimentCfg)
-    assert isinstance(submission_cfg.experiment_definition.runs["openpi_maple_table"].policy, Pi0RemotePolicyCfg)
+    assert len(submission_cfg.experiment_definition.runs) == 9
+    assert isinstance(submission_cfg.experiment_definition.runs[OPENPI_RUN_NAME].policy, Pi0RemotePolicyCfg)
     assert submission_cfg.osmo == WorkflowCfg()
     assert submission_cfg.osmo.pool == "isaac-dev-l40-03"
     assert submission_cfg.osmo.platform == "ovx-l40"
@@ -333,9 +335,9 @@ def test_embedded_openpi_experiment_composes_through_experiment_runner_loader(tm
     experiment_path.write_text(experiment_file["contents"], encoding="utf-8")
 
     experiment_cfg = load_arena_experiment_from_config_file(experiment_path, device="cuda:0")
-    run_cfg = experiment_cfg.runs["openpi_maple_table"]
+    run_cfg = experiment_cfg.runs[OPENPI_RUN_NAME]
 
-    assert list(experiment_cfg.runs) == ["openpi_maple_table"]
+    assert list(experiment_cfg.runs) == list(submission_cfg.experiment_definition.runs)
     assert isinstance(run_cfg.policy, Pi0RemotePolicyCfg)
     assert run_cfg.policy.remote_host == Pi0ServerTask.host_token()
     assert run_cfg.policy.remote_port == POLICY_SERVER_PORT
@@ -447,7 +449,7 @@ def test_structural_policy_override_is_checked_against_server_variant():
     with pytest.raises(AssertionError, match="pi0 server is configured for 'pi05'"):
         _compose_and_submit([
             "osmo.dry_run=true",
-            "experiment_definition.runs.openpi_maple_table.policy={policy_variant:pi0}",
+            f"experiment_definition.runs.{OPENPI_RUN_NAME}.policy={{policy_variant:pi0}}",
         ])
 
 
@@ -456,7 +458,7 @@ def test_server_variant_cannot_relabel_known_pi05_model():
     with pytest.raises(AssertionError, match="policy_config.*serves variant 'pi05'.*policy_variant 'pi0'"):
         _compose_and_submit([
             "osmo.dry_run=true",
-            "experiment_definition.runs.openpi_maple_table.policy.policy_variant=pi0",
+            f"experiment_definition.runs.{OPENPI_RUN_NAME}.policy.policy_variant=pi0",
             "policy_server.policy_variant=pi0",
         ])
 
