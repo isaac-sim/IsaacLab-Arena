@@ -12,11 +12,8 @@ import sys
 from dataclasses import dataclass
 from typing import Any
 
-from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_reference import ObjectReference
-from isaaclab_arena.assets.registries import AssetRegistry
-from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.utils.usd_helpers import open_stage
 
 AabbDimensionsM = tuple[float, float, float]
@@ -35,40 +32,6 @@ def object_reference_cache_key(usd_path: str, relative_prim_path: str) -> str:
     return hashlib.sha1(f"{usd_path}::{relative_prim_path}".encode()).hexdigest()[:16]
 
 
-def instantiate_snapshot_assets(spec: ArenaEnvGraphSpec) -> dict[str, Any]:
-    """Return ``{node_id: live_asset}`` for review GUI snapshots, skipping unresolved object references."""
-    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import _instantiate_assets_from_spec
-
-    resolved_refs = [ref for ref in (spec.object_references or []) if ref.prim_path is not None]
-    snapshot_spec = spec.model_copy(update={"object_references": resolved_refs or None})
-    return _instantiate_assets_from_spec(snapshot_spec, AssetRegistry())
-
-
-def resolve_node_usd_paths(assets_by_node_id: dict[str, Any], *, embodiment_id: str) -> dict[str, str]:
-    """Map snapshot ``node_id → usd_path`` for instantiated background and object assets."""
-    paths: dict[str, str] = {}
-    for node_id, asset in assets_by_node_id.items():
-        if node_id == embodiment_id or isinstance(asset, ObjectReference):
-            continue
-        usd_path = getattr(asset, "usd_path", None)
-        if usd_path:
-            paths[node_id] = usd_path
-    return paths
-
-
-def background_viewer_cfg(background: Any) -> object | None:
-    """Return a custom :class:`ViewerCfg` for snapshot rendering, or ``None`` to auto-frame."""
-    from isaaclab.envs.common import ViewerCfg
-
-    if not isinstance(background, Background):
-        return None
-    viewer_cfg = background.get_viewer_cfg()
-    default = ViewerCfg()
-    if viewer_cfg.eye == default.eye and viewer_cfg.lookat == default.lookat:
-        return None
-    return viewer_cfg
-
-
 def aabb_dimensions_from_asset(asset: Any) -> AabbDimensionsM | None:
     """Return local axis-aligned bounding box size (x, y, z) in meters for one live asset."""
     if not isinstance(asset, (Object, ObjectReference)):
@@ -83,12 +46,10 @@ def aabb_dimensions_from_asset(asset: Any) -> AabbDimensionsM | None:
         return None
 
 
-def resolve_aabb_dimensions_m(assets_by_node_id: dict[str, Any], *, embodiment_id: str) -> dict[str, AabbDimensionsM]:
-    """Return axis-aligned bounding box sizes in meters for each snapshot asset."""
+def resolve_aabb_dimensions_m(assets_by_node_id: dict[str, Any]) -> dict[str, AabbDimensionsM]:
+    """Return axis-aligned bounding box sizes in meters for each snapshot asset (objects and references)."""
     dimensions: dict[str, AabbDimensionsM] = {}
     for node_id, asset in assets_by_node_id.items():
-        if node_id == embodiment_id:
-            continue
         dims = aabb_dimensions_from_asset(asset)
         if dims is not None:
             dimensions[node_id] = dims

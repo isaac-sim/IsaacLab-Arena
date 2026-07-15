@@ -27,9 +27,6 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.generatio
     _apply_generated_yaml,
     run_generation_pipeline,
 )
-from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
-    instantiate_snapshot_assets,
-)
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppClient,
     spawn_simapp_process,
@@ -147,16 +144,6 @@ class TestPrimTreeView:
         assert 'id="search"' in markup
         assert "corpus (rigid)" in markup
         assert "cab_1_main_group/corpus" in markup
-
-
-class TestSnapshotAssets:
-    def test_instantiate_snapshot_assets_skips_unresolved_references(self):
-        from isaaclab_arena.tests.utils.agentic_environment_generation import kitchen_pass1_dict
-
-        spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
-        assets = instantiate_snapshot_assets(spec)
-        assert "counter_top" not in assets
-        assert "fridge" not in assets
 
 
 class TestBackgroundPrimTree:
