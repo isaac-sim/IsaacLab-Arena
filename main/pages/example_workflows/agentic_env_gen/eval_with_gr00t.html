@@ -534,7 +534,7 @@ details on GR00T server setup, model downloads, and batch-evaluation examples.</
 <span class="w">   </span>--remote_port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--num_steps<span class="w"> </span><span class="m">1000</span><span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml
+<span class="w">   </span>--env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/robolab/tasks/mustard_above_raisin.yaml
 </pre></div>
 </div>
 <p>The important pieces are:</p>
@@ -557,7 +557,7 @@ environment graph spec.</p></li>
 <span class="w">   </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--num_steps<span class="w"> </span><span class="m">1000</span><span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--language_instruction<span class="w"> </span><span class="s2">&quot;Pick up the mustard bottle and place it in the raisin box.&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml
+<span class="w">   </span>--env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/robolab/tasks/mustard_above_raisin.yaml
 </pre></div>
 </div>
 <p>To use with variations, append the variation overrides after the environment source, e.g. to enable camera extrinsics variations:</p>
@@ -570,7 +570,7 @@ environment graph spec.</p></li>
 <span class="w">   </span>--language_instruction<span class="w"> </span><span class="s2">&quot;Pick up the mustard bottle and place it in the raisin box.&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--num_steps<span class="w"> </span><span class="m">1000</span><span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/robolab/mustard_raisin_box_linked.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/robolab/tasks/mustard_above_raisin.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled<span class="o">=</span><span class="nb">true</span>
 </pre></div>
 </div>

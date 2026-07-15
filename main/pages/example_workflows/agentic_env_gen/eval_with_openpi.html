@@ -531,7 +531,7 @@ details on OpenPI variants, rebuild flags, and server setup.</p>
 <span class="w">   </span>--num_steps<span class="w"> </span><span class="m">1000</span><span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--env_spacing<span class="w"> </span><span class="m">1</span>.5<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/robolab/butter_raisin_box_grey_bin_linked.yaml
+<span class="w">   </span>--env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/robolab/tasks/larger_object_raisin_box_in_bin.yaml
 </pre></div>
 </div>
 <p>Important flags:</p>
@@ -551,7 +551,7 @@ environment graph spec.</p></li>
 <span class="w">   </span>--env_spacing<span class="w"> </span><span class="m">1</span>.5<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--language_instruction<span class="w"> </span><span class="s2">&quot;Pick up the red raisin box and place it in the grey bin.&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/robolab/butter_raisin_box_grey_bin_linked.yaml
+<span class="w">   </span>--env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/robolab/tasks/larger_object_raisin_box_in_bin.yaml
 </pre></div>
 </div>
 <p>To use with variations, append the variation overrides after the environment source, e.g. to enable camera extrinsics variations:</p>
@@ -562,7 +562,7 @@ environment graph spec.</p></li>
 <span class="w">   </span>--num_steps<span class="w"> </span><span class="m">1000</span><span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--env_spacing<span class="w"> </span><span class="m">1</span>.5<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/robolab/butter_raisin_box_grey_bin_linked.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--env_graph_spec_yaml<span class="w"> </span>isaaclab_arena_environments/robolab/tasks/larger_object_raisin_box_in_bin.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled<span class="o">=</span><span class="nb">true</span>
 </pre></div>
 </div>
@@ -584,7 +584,7 @@ OpenPI connection options go in <code class="docutils literal notranslate"><span
 <span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;agentic_openpi_butter_raisin_box_grey_bin&quot;</span><span class="p">,</span>
 <span class="w">            </span><span class="nt">&quot;arena_env_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">                </span><span class="nt">&quot;enable_cameras&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;isaaclab_arena_environments/robolab/butter_raisin_box_grey_bin_linked.yaml&quot;</span>
+<span class="w">                </span><span class="nt">&quot;environment&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;isaaclab_arena_environments/robolab/tasks/larger_object_raisin_box_in_bin.yaml&quot;</span>
 <span class="w">            </span><span class="p">},</span>
 <span class="w">            </span><span class="nt">&quot;num_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span>
 <span class="w">            </span><span class="nt">&quot;language_instruction&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Pick up the red raisin box and place it in the grey bin.&quot;</span><span class="p">,</span>

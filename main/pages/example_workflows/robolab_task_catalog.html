@@ -500,7 +500,7 @@
                   
   <section id="robolab-task-catalog">
 <h1>RoboLab Task Catalog<a class="headerlink" href="#robolab-task-catalog" title="Link to this heading">#</a></h1>
-<p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/robolab/tasks/README.md">120 Robolab tasks</a> and their Arena counterpart if available.</p>
+<p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/robolab/tasks/README.md">120 Robolab tasks</a> and their Arena counterparts when available. Arena specs are split into reusable scene YAMLs under <code class="docutils literal notranslate"><span class="pre">scenes/</span></code> and task YAMLs under <code class="docutils literal notranslate"><span class="pre">tasks/</span></code> that include the scene via a top-level <code class="docutils literal notranslate"><span class="pre">external_yaml:</span></code> path.</p>
 <style>
 /* Fit the 3-column catalog within the Sphinx article width (no horizontal
    scroller). The theme wraps tables in .pst-scrollable-table-container. */
@@ -544,13 +544,13 @@
 </style>
 <div class="pst-scrollable-table-container"><table class="table">
 <thead>
-<tr class="row-odd"><th class="head"><p>Arena environment spec</p></th>
+<tr class="row-odd"><th class="head"><p>Arena task spec</p></th>
 <th class="head"><p>RoboLab scene image</p></th>
 <th class="head"><p>RoboLab task</p></th>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="reference external" href="banana_bowl_linked.yaml">banana_bowl_linked.yaml</a><br>prompt: droid Pick up the banana and place it in the bowl. Using maple table background.</p></td>
+<tr class="row-even"><td><p><a class="reference external" href="tasks/banana_in_bowl.yaml">banana_in_bowl.yaml</a><br>scene: <a class="reference external" href="scenes/banana_bowl.yaml">banana_bowl.yaml</a><br>prompt: droid Pick up the banana and place it in the bowl. Using maple table background.</p></td>
 <td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/banana_bowl.png" alt="banana_bowl.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/banana_bowl.png">banana_bowl.png</a><br>object count: 2</p></td>
 <td><p>BananaInBowlTask<br>Pick up the banana and place it in the bowl<br>subtask count: 1</p></td>
 </tr>
@@ -562,19 +562,19 @@
 <td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bowls_2_table.png">bowls_2_table.png</a></p></td>
 <td><p>BowlStackingRightOnLeftTask<br>Stack the right bowl on the left bowl<br>subtask count: 1</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="butter_raisin_box_linked.yaml">butter_raisin_box_linked.yaml</a><br>prompt: droid Pick up the butter box and place it on top of the raisin box. Using maple table background</p></td>
+<tr class="row-odd"><td><p><a class="reference external" href="tasks/butter_above_raisin.yaml">butter_above_raisin.yaml</a><br>scene: <a class="reference external" href="scenes/butter_raisin_box.yaml">butter_raisin_box.yaml</a><br>prompt: droid Pick up the butter box and place it on top of the raisin box. Using maple table background</p></td>
 <td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/butter_raisin_box.png" alt="butter_raisin_box.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/butter_raisin_box.png">butter_raisin_box.png</a><br>object count: 2</p></td>
 <td><p>ButterAboveRaisinTask<br>Pick up the butter box and place it on top of the raisin box<br>subtask count: 1</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference external" href="mustard_raisin_box_linked.yaml">mustard_raisin_box_linked.yaml</a><br>prompt: droid Place the mustard on the raisin box. Using maple table background</p></td>
+<tr class="row-even"><td><p><a class="reference external" href="tasks/mustard_above_raisin.yaml">mustard_above_raisin.yaml</a><br>scene: <a class="reference external" href="scenes/mustard_raisin_box.yaml">mustard_raisin_box.yaml</a><br>prompt: droid Place the mustard on the raisin box. Using maple table background</p></td>
 <td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/mustard_raisin_box.png" alt="mustard_raisin_box.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/mustard_raisin_box.png">mustard_raisin_box.png</a><br>object count: 2</p></td>
 <td><p>MustardAboveRaisinTask<br>Place the mustard on the raisin box.<br>subtask count: 1</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="rubiks_cube_bowl_linked.yaml">rubiks_cube_bowl_linked.yaml</a><br>prompt: droid put the rubiks cube in the bowl. Using maple table background</p></td>
+<tr class="row-odd"><td><p><a class="reference external" href="tasks/rubiks_cube.yaml">rubiks_cube.yaml</a><br>scene: <a class="reference external" href="scenes/rubiks_cube_bowl.yaml">rubiks_cube_bowl.yaml</a><br>prompt: droid put the rubiks cube in the bowl. Using maple table background</p></td>
 <td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/rubiks_cube_bowl.png" alt="rubiks_cube_bowl.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/rubiks_cube_bowl.png">rubiks_cube_bowl.png</a><br>object count: 2</p></td>
 <td><p>RubiksCubeTask<br>Put the cube in the bowl<br>subtask count: 1</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference external" href="butter_raisin_box_grey_bin_linked.yaml">butter_raisin_box_grey_bin_linked.yaml</a><br>prompt: droid place the raisin box into the grey bin on the maple table. Other objects on the table as distractors: butter</p></td>
+<tr class="row-even"><td><p><a class="reference external" href="tasks/larger_object_raisin_box_in_bin.yaml">larger_object_raisin_box_in_bin.yaml</a><br>scene: <a class="reference external" href="scenes/butter_raisin_box_grey_bin.yaml">butter_raisin_box_grey_bin.yaml</a><br>prompt: droid place the raisin box into the grey bin on the maple table. Other objects on the table as distractors: butter</p></td>
 <td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/butter_raisin_box_grey_bin.png" alt="butter_raisin_box_grey_bin.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/butter_raisin_box_grey_bin.png">butter_raisin_box_grey_bin.png</a><br>object count: 3</p></td>
 <td><p>LargerObjectRaisinBoxInBinTask<br>Place the larger object in the grey bin.<br>subtask count: 1</p></td>
 </tr>
@@ -586,7 +586,7 @@
 <td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/rubiks_cube_banana_bowl.png" alt="rubiks_cube_banana_bowl.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/rubiks_cube_banana_bowl.png">rubiks_cube_banana_bowl.png</a><br>object count: 3</p></td>
 <td><p>RubiksCubeOrBananaTask<br>Put the cube or the banana in the bowl<br>subtask count: 1</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="rubiks_cube_banana_bowl_linked.yaml">rubiks_cube_banana_bowl_linked.yaml</a><br>prompt: droid put the banana then the cube in the bowl. Using maple table background</p></td>
+<tr class="row-odd"><td><p><a class="reference external" href="tasks/banana_then_rubiks_cube.yaml">banana_then_rubiks_cube.yaml</a><br>scene: <a class="reference external" href="scenes/rubiks_cube_banana_bowl.yaml">rubiks_cube_banana_bowl.yaml</a><br>prompt: droid put the banana then the cube in the bowl. Using maple table background</p></td>
 <td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/rubiks_cube_banana_bowl.png">rubiks_cube_banana_bowl.png</a></p></td>
 <td><p>BananaThenRubiksCubeTask<br>put the banana then the cube in the bowl<br>subtask count: 2</p></td>
 </tr>
@@ -610,7 +610,7 @@
 <td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/rubiks_cube_banana_bowl.png">rubiks_cube_banana_bowl.png</a></p></td>
 <td><p>RubiksCubeLeftOfBowlTask<br>Put the rubiks cube to the left of the bowl<br>subtask count: 3</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="two_bin_linked.yaml">two_bin_linked.yaml</a><br>prompt: Two grey bins and a mustard on the maple table. Left grey bin is on the left of the right grey bin. Droid put the mustard in the left bin.</p></td>
+<tr class="row-odd"><td><p><a class="reference external" href="tasks/mustard_in_left_bin.yaml">mustard_in_left_bin.yaml</a><br>scene: <a class="reference external" href="scenes/two_bin.yaml">two_bin.yaml</a><br>prompt: Two grey bins and a mustard on the maple table. Left grey bin is on the left of the right grey bin. Droid put the mustard in the left bin.</p></td>
 <td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/two_bin.png" alt="two_bin.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/two_bin.png">two_bin.png</a><br>object count: 3</p></td>
 <td><p>MustardInLeftBinTask<br>Put the mustard in the left bin<br>subtask count: 1</p></td>
 </tr>
@@ -626,11 +626,11 @@
 <td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/rubiks_cube_3.png" alt="rubiks_cube_3.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/rubiks_cube_3.png">rubiks_cube_3.png</a><br>object count: 3</p></td>
 <td><p>Stack3RubiksCubeTask<br>Stack the rubiks cubes in a tower<br>subtask count: 2</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="bottles_crate_linked.yaml">bottles_crate_linked.yaml</a><br>prompt: Using maple table background. Droid place the bbq sauce bottle into the purple crate on the table. Other objects on the table as distractors: ceramic mug, salad dressing bottle</p></td>
+<tr class="row-odd"><td><p><a class="reference external" href="tasks/sauce_bottles_crate.yaml">sauce_bottles_crate.yaml</a><br>scene: <a class="reference external" href="scenes/bottles_crate.yaml">bottles_crate.yaml</a><br>prompt: Using maple table background. Droid place the bbq sauce bottle into the purple crate on the table. Other objects on the table as distractors: ceramic mug, salad dressing bottle</p></td>
 <td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/bottles_crate.png" alt="bottles_crate.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bottles_crate.png">bottles_crate.png</a><br>object count: 4</p></td>
 <td><p>SauceBottlesCrateTask<br>Put the red bbq sauce bottle in the crate<br>subtask count: 1</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference external" href="foodpacking_1bin_1box_1can_linked.yaml">foodpacking_1bin_1box_1can_linked.yaml</a><br>prompt: Using maple table background. Droid place the cheez it box into the bin a06 on the table. Other objects on the table as distractors: mustard, tomato soup can</p></td>
+<tr class="row-even"><td><p><a class="reference external" href="tasks/food_packing_1_boxes.yaml">food_packing_1_boxes.yaml</a><br>scene: <a class="reference external" href="scenes/foodpacking_1bin_1box_1can.yaml">foodpacking_1bin_1box_1can.yaml</a><br>prompt: Using maple table background. Droid place the cheez it box into the bin a06 on the table. Other objects on the table as distractors: mustard, tomato soup can</p></td>
 <td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/foodpacking_1bin_1box_1can.png" alt="foodpacking_1bin_1box_1can.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/foodpacking_1bin_1box_1can.png">foodpacking_1bin_1box_1can.png</a><br>object count: 4</p></td>
 <td><p>FoodPacking1BoxesTask<br>Pack boxed foods into the bin<br>subtask count: 1</p></td>
 </tr>
@@ -650,7 +650,7 @@
 <td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/colored_blocks.png">colored_blocks.png</a></p></td>
 <td><p>BlockStackingSpecifiedOrderTask<br>Stack the blocks in the order from bottom to top: red, blue, green, yellow<br>subtask count: 3</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="bagel_plate_banana_bowl_linked.yaml">bagel_plate_banana_bowl_linked.yaml</a><br>prompt: droid pick up the banana and put it on the plate. Using maple table background. Other objects on the table as distractors: two bagels, bowl</p></td>
+<tr class="row-odd"><td><p><a class="reference external" href="tasks/banana_on_plate.yaml">banana_on_plate.yaml</a><br>scene: <a class="reference external" href="scenes/bagel_plate_banana_bowl.yaml">bagel_plate_banana_bowl.yaml</a><br>prompt: droid pick up the banana and put it on the plate. Using maple table background. Other objects on the table as distractors: two bagels, bowl</p></td>
 <td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/bagel_plate_banana_bowl.png" alt="bagel_plate_banana_bowl.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bagel_plate_banana_bowl.png">bagel_plate_banana_bowl.png</a><br>object count: 5</p></td>
 <td><p>BananaOnPlateTask<br>Pick up the banana and put it on the plate<br>subtask count: 1</p></td>
 </tr>
@@ -658,7 +658,7 @@
 <td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bagel_plate_banana_bowl.png">bagel_plate_banana_bowl.png</a></p></td>
 <td><p>BagelsOnPlateTask<br>Put the bagels on the plate<br>subtask count: 2</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="bin_mug_marker_bowl_linked.yaml">bin_mug_marker_bowl_linked.yaml</a><br>prompt: droid put the bowl in the grey bin. Using maple table background. Other objects on the table as distractors: mustard, dry erase marker, mug</p></td>
+<tr class="row-odd"><td><p><a class="reference external" href="tasks/bowl_in_bin.yaml">bowl_in_bin.yaml</a><br>scene: <a class="reference external" href="scenes/bin_mug_mustard_marker_bowl.yaml">bin_mug_mustard_marker_bowl.yaml</a><br>prompt: droid put the bowl in the grey bin. Using maple table background. Other objects on the table as distractors: mustard, dry erase marker, mug</p></td>
 <td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/bin_mug_mustard_marker_bowl.png" alt="bin_mug_mustard_marker_bowl.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bin_mug_mustard_marker_bowl.png">bin_mug_mustard_marker_bowl.png</a><br>object count: 5</p></td>
 <td><p>BowlInBinTask<br>put the bowl in the grey bin<br>subtask count: 1</p></td>
 </tr>
@@ -702,7 +702,7 @@
 <td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/bananas_5_in_crate.png" alt="bananas_5_in_crate.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bananas_5_in_crate.png">bananas_5_in_crate.png</a><br>object count: 6</p></td>
 <td><p>BananasInCrateTask<br>Put 2 bananas in the crate<br>subtask count: 1</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference external" href="tools_container_linked.yaml">tools_container_linked.yaml</a><br>prompt: Two bins on maple table. container_f24 bin is on the left of bin_b04 bin. droid put the spring clamp in the right bin. Other objects on the table as distractors: two hammers, cordless drill</p></td>
+<tr class="row-even"><td><p><a class="reference external" href="tasks/clamp_in_right_bin.yaml">clamp_in_right_bin.yaml</a><br>scene: <a class="reference external" href="scenes/tools_container.yaml">tools_container.yaml</a><br>prompt: Two bins on maple table. container_f24 bin is on the left of bin_b04 bin. droid put the spring clamp in the right bin. Other objects on the table as distractors: two hammers, cordless drill</p></td>
 <td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/tools_container.png" alt="tools_container.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/tools_container.png">tools_container.png</a><br>object count: 6</p></td>
 <td><p>ClampInRightBinTask<br>Put the spring clamp in the right bin<br>subtask count: 1</p></td>
 </tr>
@@ -866,7 +866,7 @@
 <td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/bin_condiments.png" alt="bin_condiments.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bin_condiments.png">bin_condiments.png</a><br>object count: 12</p></td>
 <td><p>CannedFoodInBinTask<br>Put the canned food in the grey bin<br>subtask count: 1</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="bin_condiments_linked.yaml">bin_condiments_linked.yaml</a><br>prompt: Using maple table background: droid place the coffee pot into the grey bin on the table. Other objects on the table as distractors: mug, mustard, bowl, ranch dressing, two bbq sauce bottles, oatmeal raisin cookies, canned tuna, soft scrub, wood block</p></td>
+<tr class="row-odd"><td><p><a class="reference external" href="tasks/coffee_pot_in_bin.yaml">coffee_pot_in_bin.yaml</a><br>scene: <a class="reference external" href="scenes/bin_condiments.yaml">bin_condiments.yaml</a><br>prompt: Using maple table background: droid place the coffee pot into the grey bin on the table. Other objects on the table as distractors: mug, mustard, bowl, ranch dressing, two bbq sauce bottles, oatmeal raisin cookies, canned tuna, soft scrub, wood block</p></td>
 <td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/bin_condiments.png">bin_condiments.png</a></p></td>
 <td><p>CoffeePotInBinTask<br>Put the coffee pot in the grey bin<br>subtask count: 1</p></td>
 </tr>
@@ -906,7 +906,7 @@
 <td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/workdesk_bin.png">workdesk_bin.png</a></p></td>
 <td><p>SpoonInMugTask<br>Put the metal spoon that’s in the wooden bowl in the mug<br>subtask count: 1</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference external" href="workdesk_bin_linked.yaml">workdesk_bin_linked.yaml</a><br>prompt: Using maple table background. Droid place the lizard figurine into the grey bin on the table. Other objects on the table as distractors: ceramic mug, glasses, marker, remote control, smartphone, wooden bowl, spoon big, computer mouse, yogurt cup and granola bar.</p></td>
+<tr class="row-odd"><td><p><a class="reference external" href="tasks/toy_in_bin.yaml">toy_in_bin.yaml</a><br>scene: <a class="reference external" href="scenes/workdesk_bin.yaml">workdesk_bin.yaml</a><br>prompt: Using maple table background. Droid place the lizard figurine into the grey bin on the table. Other objects on the table as distractors: ceramic mug, glasses, marker, remote control, smartphone, wooden bowl, spoon big, computer mouse, yogurt cup and granola bar.</p></td>
 <td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/workdesk_bin.png">workdesk_bin.png</a></p></td>
 <td><p>ToyInBinTask<br>Put the lizard away in the bin<br>subtask count: 1</p></td>
 </tr>
@@ -918,7 +918,7 @@
 <td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/workdesk_bin.png">workdesk_bin.png</a></p></td>
 <td><p>BlackItemsInBinTask<br>Put the black items in the grey bin<br>subtask count: 5</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference external" href="workdesk_snacks_linked.yaml">workdesk_snacks_linked.yaml</a><br>prompt: Using maple table background. droid place the apple into the plasticpail on the table. Other objects on the table as distractors: ceramic mug, glasses, keyboard, marker, remote control, smartphone, wooden bowl, spoon big, computer mouse, yogurt cup and pitcher</p></td>
+<tr class="row-even"><td><p><a class="reference external" href="tasks/throw_away_apple.yaml">throw_away_apple.yaml</a><br>scene: <a class="reference external" href="scenes/workdesk_snacks.yaml">workdesk_snacks.yaml</a><br>prompt: Using maple table background. droid place the apple into the plasticpail on the table. Other objects on the table as distractors: ceramic mug, glasses, keyboard, marker, remote control, smartphone, wooden bowl, spoon big, computer mouse, yogurt cup and pitcher</p></td>
 <td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/workdesk_snacks.png" alt="workdesk_snacks.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/workdesk_snacks.png">workdesk_snacks.png</a><br>object count: 13</p></td>
 <td><p>ThrowAwayAppleTask<br>Throw away the apple<br>subtask count: 1</p></td>
 </tr>
@@ -934,7 +934,7 @@
 <td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/workdesk.png" alt="workdesk.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/workdesk.png">workdesk.png</a><br>object count: 14</p></td>
 <td><p>MarkerInMugTask<br>Put the whiteboard marker in the mug<br>subtask count: 1</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference external" href="workdesk_linked.yaml">workdesk_linked.yaml</a><br>prompt: Using maple table background. Droid place the computer mouse into the keyboard on the table. Other objects on the table as distractors: ceramic mug, glasses, lizard figurine, marker, remote control, rubiks cube, smartphone, wooden bowl, big spoon, yogurt cup, oatmeal raisin cookies and granola bar</p></td>
+<tr class="row-even"><td><p><a class="reference external" href="tasks/mouse_on_keyboard.yaml">mouse_on_keyboard.yaml</a><br>scene: <a class="reference external" href="scenes/workdesk.yaml">workdesk.yaml</a><br>prompt: Using maple table background. Droid place the computer mouse into the keyboard on the table. Other objects on the table as distractors: ceramic mug, glasses, lizard figurine, marker, remote control, rubiks cube, smartphone, wooden bowl, big spoon, yogurt cup, oatmeal raisin cookies and granola bar</p></td>
 <td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/workdesk.png">workdesk.png</a></p></td>
 <td><p>MouseOnKeyboardTask<br>Put the computer mouse on the keyboard<br>subtask count: 1</p></td>
 </tr>
@@ -990,7 +990,7 @@
 <td><p><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/fruits_in_basket.png">fruits_in_basket.png</a></p></td>
 <td><p>WoodSpatulaToBowlTask<br>Put the wooden spatula in the bowl<br>subtask count: 1</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference external" href="clutter_fruit_bottle_bluebin_linked.yaml">clutter_fruit_bottle_bluebin_linked.yaml</a><br>prompt: Using a maple table background. There are two pumpkins on the table, a larger one and a smaller one. Droid picks and places the pumpkin large into the blue bin on the table. Other objects on the table as distractors: two lemons, two limes, two oranges, a pomegranate, white packer bottle, avocado, crabbypenholder, serving_bowl, utilityjug and red_onion</p></td>
+<tr class="row-even"><td><p><a class="reference external" href="tasks/big_pumpkin_in_bin.yaml">big_pumpkin_in_bin.yaml</a><br>scene: <a class="reference external" href="scenes/clutter_fruit_bottle_bluebin.yaml">clutter_fruit_bottle_bluebin.yaml</a><br>prompt: Using a maple table background. There are two pumpkins on the table, a larger one and a smaller one. Droid picks and places the pumpkin large into the blue bin on the table. Other objects on the table as distractors: two lemons, two limes, two oranges, a pomegranate, white packer bottle, avocado, crabbypenholder, serving_bowl, utilityjug and red_onion</p></td>
 <td><p><img src="https://media.githubusercontent.com/media/NVlabs/RoboLab/main/assets/scenes/_images/clutter_fruit_bottle_bluebin.png" alt="clutter_fruit_bottle_bluebin.png" width="210" /><br><a class="reference external" href="https://github.com/NVlabs/RoboLab/blob/main/assets/scenes/_images/clutter_fruit_bottle_bluebin.png">clutter_fruit_bottle_bluebin.png</a><br>object count: 17</p></td>
 <td><p>BigPumpkinInBinTask<br>Put the bigger pumpkin in the bin<br>subtask count: 1</p></td>
 </tr>
