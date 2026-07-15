@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-r"""Submit an Arena Experiment Definition from an explicit file path.
+r"""Submit a typed Arena Experiment Definition from an explicit YAML path.
 
 The Experiment Definition describes the named Runs evaluated by the Experiment
 Runner. An optional policy-server selector adds a built-in server task that OSMO
@@ -14,13 +14,13 @@ Example:
 
     python -m osmo.submit_arena_experiment \
         --experiment-definition isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml \
-        --policy-server pi0 \
-        osmo.workflow_name=my-evaluation \
-        experiment_definition.runs.droid_pnp_srl_openpi_billiard_hall.rollout_limit.num_episodes=4
+        --policy-server pi0
 
 The policy server is optional. Omit it when the Experiment uses only local
 policies or connects to an externally hosted policy server. Hydra applies the
-trailing field overrides after typed defaults and Experiment file values.
+optional trailing field overrides after typed defaults and Experiment file
+values. Files referenced by the Experiment must already exist in the runner
+image or be remotely accessible; the submitter does not copy referenced files.
 """
 
 from __future__ import annotations
@@ -36,7 +36,10 @@ from omegaconf import OmegaConf
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from osmo.arena_experiment_submission import ArenaExperimentSubmissionCfg, submit_arena_experiment
+from osmo.tasks.experiment_runner_task import ExperimentRunnerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTaskCfg
+from osmo.workflows.workflow import WorkflowCfg
+from osmo.workflows.workflow_constants import DATASET_SWIFT_URL
 
 SUBMISSION_CONFIG_NAME = "osmo_arena_experiment_submission"
 POLICY_SERVER_TASK_CFG_BY_NAME = {
@@ -59,9 +62,12 @@ def build_arena_experiment_submission_cfg(
     Returns:
         The fully composed typed submission configuration.
     """
-    experiment_definition = load_arena_experiment_from_config_file(
-        Path(experiment_definition_path).expanduser(), device="cuda:0"
-    )
+    experiment_definition_path = Path(experiment_definition_path).expanduser()
+    assert experiment_definition_path.suffix.lower() in {
+        ".yaml",
+        ".yml",
+    }, f"OSMO Experiment submission requires a typed YAML Experiment Definition; got '{experiment_definition_path}'"
+    experiment_definition = load_arena_experiment_from_config_file(experiment_definition_path, device="cuda:0")
     policy_server = None
     if policy_server_name is not None:
         available_names = ", ".join(sorted(POLICY_SERVER_TASK_CFG_BY_NAME))
@@ -87,35 +93,64 @@ def build_arena_experiment_submission_cfg(
 def _create_argument_parser() -> argparse.ArgumentParser:
     """Create the path-first submission command-line parser."""
     policy_server_choices = ",".join(POLICY_SERVER_TASK_CFG_BY_NAME)
+    workflow_defaults = WorkflowCfg()
+    experiment_runner_defaults = ExperimentRunnerTaskCfg()
+    pi0_server_defaults = Pi0ServerTaskCfg()
+    result_url = DATASET_SWIFT_URL.replace("{{workflow_id}}", "WORKFLOW_ID")
     parser = argparse.ArgumentParser(
         usage=(
             f"%(prog)s [-h] --experiment-definition PATH [--policy-server {{{policy_server_choices}}}] [OVERRIDE ...]"
         ),
         description="Submit a typed Arena Experiment as an OSMO workflow.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=r"""
-The Experiment Definition may be a YAML file at any filesystem location.
+        epilog=rf"""
+The Experiment Definition must be typed YAML at a filesystem location visible
+inside the submitting container or process.
 
-Example:
+Minimal Pi0 example:
 
   python -m osmo.submit_arena_experiment \
-    --experiment-definition path/to/experiment.yaml \
-    --policy-server pi0 \
-    osmo.workflow_name=my-evaluation
+    --experiment-definition isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml \
+    --policy-server pi0
 
-The optional --policy-server selects a built-in server implementation using its
-typed defaults. Override those values with policy_server.<field>=<value>.
+The optional --policy-server deploys and connects a built-in server
+implementation; it does not select the policy evaluated by the Experiment.
+With --policy-server pi0, the Experiment YAML must already select
+Pi0RemotePolicy with a compatible policy_variant. Override deployment values
+with policy_server.<field>=<value>.
 
 Values are resolved in this order:
 
   typed defaults < Experiment file values < trailing Hydra overrides
 
-Override examples:
+Trailing Hydra overrides are optional. Examples:
 
+  osmo.workflow_name=my-evaluation
   osmo.pool=isaac-dev-l40-03
-  experiment_runner.image=registry.example.com/arena:runner
-  policy_server.image=registry.example.com/arena:openpi
+  osmo.dry_run=true
   experiment_definition.runs.my_run.rollout_limit.num_episodes=4
+
+Current defaults, which can be overridden through the same field paths:
+
+  osmo.pool={workflow_defaults.pool}
+  osmo.platform={workflow_defaults.platform}
+  osmo.memory={workflow_defaults.memory}
+  experiment_runner.image={experiment_runner_defaults.image}
+  policy_server.image={pi0_server_defaults.image}
+  policy_server.client_ping_timeout={pi0_server_defaults.client_ping_timeout}
+
+Referenced model, checkpoint, and config paths are not copied from the
+submission container. They must exist in experiment_runner.image or refer to
+storage the remote task can access.
+
+Reports and episode results are uploaded to:
+
+  {result_url}
+
+After replacing WORKFLOW_ID with the ID printed by OSMO, download them with:
+
+  mkdir -p results
+  osmo data download {result_url} results
 """,
     )
     parser.add_argument(
@@ -123,7 +158,7 @@ Override examples:
         required=True,
         type=Path,
         metavar="PATH",
-        help="Arena Experiment Definition YAML or legacy JSON file",
+        help="typed Arena Experiment Definition YAML file",
     )
     parser.add_argument(
         "--policy-server",

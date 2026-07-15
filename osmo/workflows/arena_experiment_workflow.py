@@ -83,7 +83,7 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
         # The Experiment selects policies independently from the OSMO submission's server.
         # Verify compatibility before connecting matching Runs to that server.
         pi0_run_variants = self._get_pi0_run_variants()
-        assert pi0_run_variants, "pi0 server requires at least one Run with policy.type 'pi0_remote'"
+        assert pi0_run_variants, "pi0 server requires at least one Run using Pi0RemotePolicy"
         incompatible_runs = {
             run_name: variant
             for run_name, variant in pi0_run_variants.items()
@@ -119,3 +119,6 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
             assert isinstance(policy_cfg, Pi0RemotePolicyCfg)
             policy_cfg.remote_host = host_token
             policy_cfg.remote_port = POLICY_SERVER_PORT
+            # The first OSMO inference may compile longer than the policy's normal
+            # keepalive timeout. Use the timeout owned by this server deployment.
+            policy_cfg.ping_timeout = self.pi0_server_task_cfg.client_ping_timeout

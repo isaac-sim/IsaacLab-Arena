@@ -15,6 +15,7 @@ from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 OPENPI_APP_DIR = "/app"
 XLA_PYTHON_CLIENT_MEM_FRACTION = "0.5"
 DEFAULT_PI0_POLICY_VARIANT = "pi05"
+DEFAULT_PI0_CLIENT_PING_TIMEOUT = 300.0
 PI0_POLICY_VARIANTS = frozenset({"pi0", "pi05"})
 PI0_VARIANT_BY_POLICY_CONFIG = {
     "pi0_droid_jointpos_polaris": "pi0",
@@ -41,6 +42,9 @@ class Pi0ServerTaskCfg(TaskCfg):
 
     policy_dir: str = "gs://openpi-assets-simeval/pi05_droid_jointpos"
     """openpi checkpoint directory."""
+
+    client_ping_timeout: float | None = DEFAULT_PI0_CLIENT_PING_TIMEOUT
+    """Seconds Arena clients wait for a pong while the OSMO server compiles its first inference."""
 
     def __post_init__(self) -> None:
         assert (

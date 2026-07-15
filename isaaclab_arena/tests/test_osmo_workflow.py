@@ -29,6 +29,7 @@ def test_typed_workflow_config_renders_policy_runner_and_server():
     assert workflow_dict["workflow"]["name"] == "typed-evaluation"
     assert [task["name"] for task in tasks] == ["policy_runner", "policy_server"]
     assert "--remote_host {{host:policy_server}}" in policy_runner_command
+    assert "--ping_timeout 300" in policy_runner_command
     assert "--num_envs 2" in policy_runner_command
     assert "example_environment light.hdr_image.enabled=true" in policy_runner_command
 

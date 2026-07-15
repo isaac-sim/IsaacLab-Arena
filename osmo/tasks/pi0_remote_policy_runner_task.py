@@ -5,6 +5,7 @@
 
 """Remote pi0 policy-runner task for the Isaac Lab Arena OSMO workflow."""
 
+from osmo.tasks.pi0_server_task import DEFAULT_PI0_CLIENT_PING_TIMEOUT
 from osmo.tasks.policy_runner_task import PolicyRunnerTask, PolicyRunnerTaskCfg
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
@@ -33,5 +34,5 @@ class Pi0RemotePolicyRunnerTask(PolicyRunnerTask):
             # Raised from the default: on OSMO the first inference timed out while the
             # server was still compiling kernels, which dropped the connection.
             "--ping_timeout",
-            "300",
+            f"{DEFAULT_PI0_CLIENT_PING_TIMEOUT:g}",
         ]
