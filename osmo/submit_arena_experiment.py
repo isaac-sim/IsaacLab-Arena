@@ -3,113 +3,151 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Compose and submit one Arena Experiment to OSMO.
+r"""Submit an Arena Experiment Definition from an explicit file path.
 
-Experiment Definitions must be direct ``.yaml`` or ``.yml`` files in
-``isaaclab_arena_environments/experiment_configs``. Select one by filename
-stem with ``experiment_definition=<name>``; for example,
-``experiment_definition=openpi_experiment`` selects
-``isaaclab_arena_environments/experiment_configs/openpi_experiment.yaml``.
-Arbitrary Experiment Definition paths are not supported.
+The Experiment Definition describes the named Runs evaluated by the Experiment
+Runner. An optional policy-server selector adds a built-in server task that OSMO
+starts alongside that runner. The Experiment Definition may live anywhere
+accessible to the submission process.
 
 Example:
 
     python -m osmo.submit_arena_experiment \
-        experiment_definition=openpi_experiment \
-        server_config=pi0 \
-        osmo_config.pool=isaac-dev-l40-03 \
-        osmo_config.platform=ovx-l40 \
-        osmo_config.memory=120Gi \
-        osmo_config.workflow_name=my-evaluation \
-        experiment_runner_config.image=nvcr.io/example/isaaclab_arena:experiment_runner \
+        --experiment-definition isaaclab_arena_environments/experiment_configs/openpi_experiment.yaml \
+        --policy-server pi0 \
+        osmo.workflow_name=my-evaluation \
         experiment_definition.runs.openpi_maple_table.rollout_limit.num_episodes=4
 
-The named config groups select an Experiment Definition, optional policy-server
-definition, OSMO scheduling settings, and Experiment Runner task settings. Hydra
-applies trailing field overrides after the selected files.
+The policy server is optional. Omit it when the Experiment uses only local
+policies or connects to an externally hosted policy server. Hydra applies the
+trailing field overrides after typed defaults and Experiment file values.
 """
 
 from __future__ import annotations
 
-from functools import cache
+import argparse
+import sys
 from pathlib import Path
-from typing import Any
 
-from hydra import compose, initialize_config_dir
-from hydra import main as hydra_main
+from hydra import compose, initialize
 from hydra.core.config_store import ConfigStore
 from omegaconf import OmegaConf
 
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
+from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from osmo.arena_experiment_submission import ArenaExperimentSubmissionCfg, submit_arena_experiment
 from osmo.tasks.pi0_server_task import Pi0ServerTaskCfg
 
-CONFIG_DIR = Path(__file__).parent / "config"
-SUBMISSION_CONFIG_NAME = "arena_experiment_submission"
-SUBMISSION_SCHEMA_NAME = "arena_experiment_submission_schema"
-SERVER_CONFIG_BY_NAME = {
+SUBMISSION_CONFIG_NAME = "osmo_arena_experiment_submission"
+POLICY_SERVER_TASK_CFG_BY_NAME = {
     "pi0": Pi0ServerTaskCfg,
 }
 
 
-def compose_arena_experiment_submission(overrides: list[str] | None = None) -> ArenaExperimentSubmissionCfg:
-    """Compose a typed submission from named config groups and Hydra overrides.
+def build_arena_experiment_submission_cfg(
+    experiment_definition_path: str | Path,
+    policy_server_name: str | None = None,
+    overrides: list[str] | None = None,
+) -> ArenaExperimentSubmissionCfg:
+    """Load an Experiment, select its optional server, and apply typed overrides.
 
     Args:
-        overrides: Hydra config-group selections and field overrides.
+        experiment_definition_path: Arena Experiment configuration file.
+        policy_server_name: Optional built-in policy-server implementation name.
+        overrides: Hydra field overrides rooted at the composed submission.
 
     Returns:
         The fully composed typed submission configuration.
     """
-    _register_hydra_configs()
-    with initialize_config_dir(version_base=None, config_dir=str(CONFIG_DIR.resolve())):
+    experiment_definition = load_arena_experiment_from_config_file(
+        Path(experiment_definition_path).expanduser(), device="cuda:0"
+    )
+    policy_server = None
+    if policy_server_name is not None:
+        available_names = ", ".join(sorted(POLICY_SERVER_TASK_CFG_BY_NAME))
+        assert (
+            policy_server_name in POLICY_SERVER_TASK_CFG_BY_NAME
+        ), f"Unknown policy server '{policy_server_name}'. Available policy servers: {available_names}"
+        policy_server = POLICY_SERVER_TASK_CFG_BY_NAME[policy_server_name]()
+    base_submission = ArenaExperimentSubmissionCfg(
+        experiment_definition=experiment_definition,
+        policy_server=policy_server,
+    )
+
+    # The Experiment file and policy-server selector determine the concrete config types.
+    # Register that concrete root so Hydra validates every trailing override against it.
+    ConfigStore.instance().store(name=SUBMISSION_CONFIG_NAME, node=base_submission)
+    with initialize(version_base=None, config_path=None):
         composed = compose(config_name=SUBMISSION_CONFIG_NAME, overrides=overrides or [])
-    return _submission_cfg_from_hydra(composed)
-
-
-def _submission_cfg_from_hydra(composed: Any) -> ArenaExperimentSubmissionCfg:
-    """Convert Hydra's composed object into the typed submission root."""
     submission_cfg = OmegaConf.to_object(composed)
     assert isinstance(submission_cfg, ArenaExperimentSubmissionCfg)
     return submission_cfg
 
 
-@cache
-def _register_hydra_configs() -> None:
-    """Register the submission schema and named config-group choices."""
-    config_store = ConfigStore.instance()
-    config_store.store(name=SUBMISSION_SCHEMA_NAME, node=ArenaExperimentSubmissionCfg)
-    for server_name, server_config_type in SERVER_CONFIG_BY_NAME.items():
-        config_store.store(group="server_config", name=server_name, node=server_config_type)
+def _create_argument_parser() -> argparse.ArgumentParser:
+    """Create the path-first submission command-line parser."""
+    policy_server_choices = ",".join(POLICY_SERVER_TASK_CFG_BY_NAME)
+    parser = argparse.ArgumentParser(
+        usage=(
+            f"%(prog)s [-h] --experiment-definition PATH [--policy-server {{{policy_server_choices}}}] [OVERRIDE ...]"
+        ),
+        description="Submit a typed Arena Experiment as an OSMO workflow.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=r"""
+The Experiment Definition may be a YAML file at any filesystem location.
 
-    import isaaclab_arena_environments
+Example:
 
-    experiment_definition_dir = Path(isaaclab_arena_environments.__file__).parent / "experiment_configs"
-    config_paths = sorted([*experiment_definition_dir.glob("*.yaml"), *experiment_definition_dir.glob("*.yml")])
-    assert config_paths, f"No Arena Experiment Definitions found in '{experiment_definition_dir}'"
-    for config_path in config_paths:
-        experiment_definition = load_arena_experiment_from_config_file(config_path, device="cuda:0")
-        config_store.store(
-            group="experiment_definition",
-            name=config_path.stem,
-            node=experiment_definition,
-        )
+  python -m osmo.submit_arena_experiment \
+    --experiment-definition path/to/experiment.yaml \
+    --policy-server pi0 \
+    osmo.workflow_name=my-evaluation
+
+The optional --policy-server selects a built-in server implementation using its
+typed defaults. Override those values with policy_server.<field>=<value>.
+
+Values are resolved in this order:
+
+  typed defaults < Experiment file values < trailing Hydra overrides
+
+Override examples:
+
+  osmo.pool=isaac-dev-l40-03
+  experiment_runner.image=registry.example.com/arena:runner
+  policy_server.image=registry.example.com/arena:openpi
+  experiment_definition.runs.my_run.rollout_limit.num_episodes=4
+""",
+    )
+    parser.add_argument(
+        "--experiment-definition",
+        required=True,
+        type=Path,
+        metavar="PATH",
+        help="Arena Experiment Definition YAML or legacy JSON file",
+    )
+    parser.add_argument(
+        "--policy-server",
+        choices=POLICY_SERVER_TASK_CFG_BY_NAME,
+        help="optional co-scheduled policy-server implementation",
+    )
+    parser.allow_abbrev = False
+    return parser
 
 
-@hydra_main(version_base=None, config_path="config", config_name=SUBMISSION_CONFIG_NAME)
-def _submit_arena_experiment_from_hydra(composed: Any) -> None:
-    """Submit the Arena Experiment composed by Hydra's command-line frontend."""
-    status = submit_arena_experiment(_submission_cfg_from_hydra(composed))
-    if status:
-        raise SystemExit(status)
-
-
-def main() -> int:
-    """Run the Hydra submission CLI."""
-    _register_hydra_configs()
-    _submit_arena_experiment_from_hydra()
-    return 0
+def main(cli_args: list[str] | None = None) -> int:
+    """Load the Experiment, apply overrides, and submit its OSMO workflow."""
+    # Argparse resolves the Experiment path and server selector first; they determine
+    # the concrete configs Hydra receives for its remaining overrides.
+    parser = _create_argument_parser()
+    args, overrides = parser.parse_known_args(cli_args)
+    assert_hydra_overrides(overrides, parser)
+    submission_cfg = build_arena_experiment_submission_cfg(
+        experiment_definition_path=args.experiment_definition,
+        policy_server_name=args.policy_server,
+        overrides=overrides,
+    )
+    return submit_arena_experiment(submission_cfg)
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))
