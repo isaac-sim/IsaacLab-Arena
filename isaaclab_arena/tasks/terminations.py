@@ -12,7 +12,6 @@ from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.envs.mdp.terminations import root_height_below_minimum
 from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
-from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 from isaaclab.utils.math import combine_frame_transforms
 
 
@@ -77,93 +76,6 @@ def check_success(
 
 # NOTE(alexmillane, 2025.09.15): The velocity threshold is set high because some stationary
 # seem to generate a "small" velocity.
-def object_on_destination(
-    env: ManagerBasedRLEnv,
-    object_cfg: SceneEntityCfg = SceneEntityCfg("pick_up_object"),
-    contact_sensor_cfg: SceneEntityCfg = SceneEntityCfg("pick_up_object_contact_sensor"),
-    force_threshold: float = 1.0,
-    velocity_threshold: float = 0.5,
-) -> torch.Tensor:
-    object: RigidObject = env.unwrapped.scene[object_cfg.name]
-    sensor: ContactSensor = env.unwrapped.scene[contact_sensor_cfg.name]
-
-    # force_matrix_w shape is (N, B, M, 3), where N is the number of sensors, B is number of bodies in each sensor
-    # and ``M`` is the number of filtered bodies.
-    # We assume B = 1 and M = 1
-    assert sensor.data.force_matrix_w.shape[2] == 1
-    assert sensor.data.force_matrix_w.shape[1] == 1
-    # NOTE(alexmillane, 2025-08-04): We expect the binary flags to have shape (N, )
-    # where N is the number of envs.
-    force_matrix_norm = torch.norm(wp.to_torch(sensor.data.force_matrix_w), dim=-1).reshape(-1)
-    force_above_threshold = force_matrix_norm > force_threshold
-
-    velocity_w = wp.to_torch(object.data.root_lin_vel_w)
-    velocity_w_norm = torch.norm(velocity_w, dim=-1)
-    velocity_below_threshold = velocity_w_norm < velocity_threshold
-
-    condition_met = torch.logical_and(force_above_threshold, velocity_below_threshold)
-
-    return condition_met
-
-
-def objects_on_destinations(
-    env: ManagerBasedRLEnv,
-    object_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("pick_up_object")],
-    contact_sensor_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("pick_up_object_contact_sensor")],
-    force_threshold: float = 1.0,
-    velocity_threshold: float = 0.5,
-) -> torch.Tensor:
-    """Multi-object version of `object_on_destination`.
-
-    Returns True only when ALL objects in the list satisfy the destination condition.
-    See `object_on_destination` for details on the single-object logic.
-    """
-    condition_met = torch.ones((env.unwrapped.num_envs), device=env.unwrapped.device, dtype=torch.bool)
-    for object_cfg, contact_sensor_cfg in zip(object_cfg_list, contact_sensor_cfg_list):
-        single_condition = object_on_destination(
-            env=env,
-            object_cfg=object_cfg,
-            contact_sensor_cfg=contact_sensor_cfg,
-            force_threshold=force_threshold,
-            velocity_threshold=velocity_threshold,
-        )
-        condition_met = torch.logical_and(condition_met, single_condition)
-    return condition_met
-
-
-def objects_in_proximity(
-    env: ManagerBasedRLEnv,
-    object_cfg: SceneEntityCfg,
-    target_object_cfg: SceneEntityCfg,
-    max_y_separation: float,
-    max_x_separation: float,
-    max_z_separation: float,
-) -> torch.Tensor:
-    """Determine if two objects are within a certain proximity of each other.
-
-    Returns:
-        Boolean tensor indicating when objects are within a certain proximity of each other.
-    """
-    # Get object entities from the scene
-    object: RigidObject = env.scene[object_cfg.name]
-    target_object: RigidObject = env.scene[target_object_cfg.name]
-
-    # Get positions relative to environment origin
-    object_pos = wp.to_torch(object.data.root_pos_w) - env.scene.env_origins
-    target_object_pos = wp.to_torch(target_object.data.root_pos_w) - env.scene.env_origins
-
-    # object to target object
-    x_separation = torch.abs(object_pos[:, 0] - target_object_pos[:, 0])
-    y_separation = torch.abs(object_pos[:, 1] - target_object_pos[:, 1])
-    z_separation = torch.abs(object_pos[:, 2] - target_object_pos[:, 2])
-
-    done = x_separation < max_x_separation
-    done = torch.logical_and(done, y_separation < max_y_separation)
-    done = torch.logical_and(done, z_separation < max_z_separation)
-
-    return done
-
-
 def lift_object_il_success(
     env: ManagerBasedRLEnv,
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
