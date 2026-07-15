@@ -12,7 +12,7 @@ _CUSTOM_STAND_HEIGHT = 2.0
 _EXPECTED_CUSTOM_SCALE = (1.2, 1.2, 2.0)
 
 
-def _test_droid_stand_scale(simulation_app) -> bool:
+def _test_droid_stand_height(simulation_app) -> bool:
     """Check ``stand_height`` sets only the stand z-scale and lifts the robot base to match."""
 
     from isaaclab_arena.assets.registries import AssetRegistry
@@ -63,11 +63,11 @@ def _test_droid_stand_scale(simulation_app) -> bool:
     return True
 
 
-def test_droid_stand_scale():
-    """Pytest entry point for the Droid stand-scale configuration test."""
-    result = run_simulation_app_function(_test_droid_stand_scale, headless=True)
-    assert result, f"Test {test_droid_stand_scale.__name__} failed"
+def test_droid_stand_height():
+    """Pytest entry point for the Droid stand-height configuration test."""
+    result = run_simulation_app_function(_test_droid_stand_height, headless=True)
+    assert result, f"Test {test_droid_stand_height.__name__} failed"
 
 
 if __name__ == "__main__":
-    test_droid_stand_scale()
+    test_droid_stand_height()

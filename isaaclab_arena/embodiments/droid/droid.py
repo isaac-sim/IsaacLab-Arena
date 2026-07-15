@@ -57,7 +57,7 @@ _DEFAULT_STAND_HEIGHT_SCALE: float = 1.7
 _FALLBACK_STAND_UNIT_HEIGHT_M: float = 0.795
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _stand_unit_height_m(usd_path: str) -> float:
     """Native (scale=1.0) z-height of the stand USD in meters, cached per asset path.
 
