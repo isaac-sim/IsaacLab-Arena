@@ -25,7 +25,7 @@ from osmo.workflows.utils.yaml_utils import block_literal_str
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 
 EXPERIMENT_RUNNER_SCRIPT = "isaaclab_arena/evaluation/experiment_runner.py"
-DEFAULT_EXPERIMENT_RUNNER_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
+DEFAULT_EXPERIMENT_RUNNER_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:experiment_osmo_runner"
 REMOTE_EXPERIMENT_PATH = "/tmp/arena_experiment.yaml"
 
 
