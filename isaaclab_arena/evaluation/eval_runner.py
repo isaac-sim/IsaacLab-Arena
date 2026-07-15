@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.evaluation.datagen_collector import DatagenRunManagerBase
 from isaaclab_arena.evaluation.eval_runner_cli import add_eval_runner_arguments
 from isaaclab_arena.evaluation.job_manager import Job, JobManager, Status
 from isaaclab_arena.evaluation.policy_runner import get_policy_cls, prepare_env_cfg_for_datagen, rollout_policy
@@ -207,13 +208,14 @@ def _run_in_chunks(args_cli: argparse.Namespace, master_cfg: dict) -> None:
             sys.exit(returncode)
 
 
-def main(collector_provider=None):
+def main(datagen_run_manager: DatagenRunManagerBase | None = None):
     """Run all jobs in an eval config.
 
     Args:
-        collector_provider: Optional datagen provider (see Task 8's
-            ``nvblox_next`` implementation). When ``None``, no datagen
-            collection runs and behavior matches the plain evaluation path.
+        datagen_run_manager: Optional datagen run manager. It spawns and owns one
+            data collector per job (implementations live in the collecting package).
+            When ``None``, no datagen collection runs and behavior matches the plain
+            evaluation path.
     """
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli, unknown = args_parser.parse_known_args()
@@ -253,8 +255,11 @@ def main(collector_provider=None):
     # each rollout, writing one HDF5 file per episode.
     datagen_defaults = eval_jobs_config.get("datagen")
 
-    if collector_provider is not None and datagen_defaults is not None:
-        collector_provider.start_run(eval_jobs_config, args_cli.datagen_description, args_cli.device)
+    # Injecting a run manager enables collection for every job; start_run asserts that
+    # the config actually configures collection (datagen block with an output_dir).
+    datagen_is_enabled = datagen_run_manager is not None
+    if datagen_is_enabled:
+        datagen_run_manager.start_run(eval_jobs_config, args_cli.datagen_description, args_cli.device)
 
     # Check if any job requires cameras and enable them if needed before starting simulation
     if args_cli.record_camera_video:
@@ -292,10 +297,8 @@ def main(collector_provider=None):
             # num_episodes is the total across rebuilds, so split it over the rebuilds.
             num_episodes_per_rebuild = _split_episodes_across_rebuilds(job.num_episodes, job.num_rebuilds, job.name)
 
-            # Datagen is active for this job when the provider is enabled for it (top-level
-            # defaults overridden by the job's own datagen block).
-            job_datagen = {**(datagen_defaults or {}), **(job.datagen or {})}
-            is_datagen = collector_provider is not None and collector_provider.is_enabled(job_datagen)
+            # Top-level datagen defaults overridden by the job's own datagen block.
+            datagen_job_dict = {**(datagen_defaults or {}), **(job.datagen or {})}
 
             # Rebuild the environment and re-run the rollout job.num_rebuilds times, then
             # aggregate the metrics across rebuilds into a single result.
@@ -318,7 +321,7 @@ def main(collector_provider=None):
                         variations=job.variations,
                         render_mode=video_cfg.render_mode,
                         language_instruction=job.language_instruction,
-                        disable_auto_reset=is_datagen,
+                        disable_auto_reset=datagen_is_enabled,
                     )
 
                     # Write per-episode results to disk.
@@ -343,12 +346,16 @@ def main(collector_provider=None):
 
                     env = wrap_env_for_video(env, video_cfg, job.num_steps, num_episodes_this_rebuild)
 
-                    collector = collector_provider.create(job.name, job_datagen, env) if is_datagen else None
+                    collector = (
+                        datagen_run_manager.create_collector(job.name, datagen_job_dict, env)
+                        if datagen_is_enabled
+                        else None
+                    )
 
                     # Per-episode step cap for datagen, bounded by the env's own cap.
                     max_episode_length = int(env.unwrapped.max_episode_length)
-                    if is_datagen:
-                        max_episode_length = collector_provider.max_episode_length_cap(job_datagen, max_episode_length)
+                    if collector is not None:
+                        max_episode_length = collector.cap_episode_length(max_episode_length)
 
                     metrics = rollout_policy(
                         env,
@@ -376,12 +383,12 @@ def main(collector_provider=None):
 
                 finally:
                     try:
-                        # Release datagen cameras BEFORE tearing down the stage, so
-                        # their replicator annotators do not leak into the next job.
+                        # on_job_finished closes the job's collector, releasing its cameras
+                        # BEFORE the stage teardown so their replicator annotators do not
+                        # leak into the next job.
                         if collector is not None:
-                            collector.close(env)
                             try:
-                                collector_provider.on_job_finished(job, collector, env, job.status.value)
+                                datagen_run_manager.on_job_finished(job, env)
                             except Exception as exc:  # never let datagen bookkeeping fail a run
                                 print(f"[datagen] Warning: failed to record job '{job.name}': {exc}")
                     finally:
@@ -398,8 +405,8 @@ def main(collector_provider=None):
                 aggregated_metrics = aggregate_metrics(metrics_per_run)
                 metrics_logger.append_job_metrics(job.name, aggregated_metrics)
 
-        if collector_provider is not None and datagen_defaults is not None:
-            collector_provider.finish_run()
+        if datagen_is_enabled:
+            datagen_run_manager.finish_run()
 
         job_manager.print_jobs_info()
         metrics_logger.print_metrics()

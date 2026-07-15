@@ -6,8 +6,10 @@
 
 from __future__ import annotations
 
+from isaaclab_arena.evaluation.datagen_collector import EpisodeOutcome
 
-def classify_outcome(ended_by: str | None) -> str:
+
+def classify_outcome(ended_by: str | None) -> EpisodeOutcome:
     """Classify an episode outcome from the termination term that ended it.
 
     Args:
