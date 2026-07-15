@@ -48,14 +48,14 @@ def load_arena_experiment_from_yaml(
 
     Each entry in the runs mapping declares one Run using its key as the Run
     name. The environment.type selector chooses from the supplied mapping,
-    policy.type is resolved when its Run is built, and Hydra overrides are
-    applied after YAML values.
+    policy.type is resolved when its Run is built. Hydra overrides can update
+    fields on Runs declared in YAML, but cannot add Runs.
 
     Args:
         yaml_path: Path to the Arena Experiment YAML file.
         environment_cfg_types: Environment selector names mapped to typed configuration classes.
         policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
-        overrides: Hydra overrides rooted at runs, applied after the YAML values.
+        overrides: Hydra field overrides for Runs already declared in YAML.
 
     Returns:
         The typed Experiment Definition, preserving YAML mapping declaration order.
