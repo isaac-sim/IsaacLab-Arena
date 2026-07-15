@@ -47,8 +47,8 @@ def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
     )
     monkeypatch.setattr(
         arena_experiment_config_loader,
-        "_registered_policy_cfg_types",
-        lambda: {"zero_action": ZeroActionPolicyCfg},
+        "_resolve_policy_cfg_type_from_name_or_class_path",
+        lambda policy_name_or_class_path: {"zero_action": ZeroActionPolicyCfg}[policy_name_or_class_path],
     )
 
     experiment_cfg = load_arena_experiment_from_config_file(
@@ -69,6 +69,14 @@ def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
     assert runs["baseline"].environment.light_intensity == 750.0
     assert all(run.policy == ZeroActionPolicyCfg() for run in runs.values())
     assert all(run.environment_builder.device == "cuda:1" for run in runs.values())
+
+
+def test_policy_config_type_resolves_from_dotted_class_path():
+    policy_cfg_type = arena_experiment_config_loader._resolve_policy_cfg_type_from_name_or_class_path(
+        "isaaclab_arena.policy.zero_action_policy.ZeroActionPolicy"
+    )
+
+    assert policy_cfg_type is ZeroActionPolicyCfg
 
 
 def test_load_legacy_json_experiment_returns_canonical_cfg(tmp_path, monkeypatch):

@@ -25,11 +25,15 @@ GETTING_STARTED_EXPERIMENT_PATH = (
 )
 
 
+def _policy_cfg_type_for_name_or_class_path(policy_name_or_class_path: str) -> type[ZeroActionPolicyCfg]:
+    return {"zero_action": ZeroActionPolicyCfg}[policy_name_or_class_path]
+
+
 def _load_experiment(config_path: str | Path, overrides: list[str] | None = None):
     return load_arena_experiment_from_yaml(
         config_path,
         environment_cfg_types={"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
-        policy_cfg_types={"zero_action": ZeroActionPolicyCfg},
+        policy_cfg_type_resolver=_policy_cfg_type_for_name_or_class_path,
         overrides=overrides,
     )
 

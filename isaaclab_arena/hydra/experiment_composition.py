@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 from typing import Any
@@ -40,20 +41,20 @@ def load_arena_experiment_from_yaml(
     yaml_path: str | Path,
     *,
     environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
-    policy_cfg_types: dict[str, type[PolicyCfg]],
+    policy_cfg_type_resolver: Callable[[str], type[PolicyCfg]],
     overrides: list[str] | None = None,
 ) -> ArenaExperimentCfg:
     """Load a YAML Arena Experiment Definition as a typed named-Run mapping.
 
-    Each mapping entry below runs declares one Run using its key as the Run
-    name. The environment.type and policy.type selectors choose concrete
-    configuration classes from the supplied mappings, and Hydra overrides are
+    Each entry in the runs mapping declares one Run using its key as the Run
+    name. The environment.type selector chooses from the supplied mapping,
+    policy.type is resolved when its Run is built, and Hydra overrides are
     applied after YAML values.
 
     Args:
         yaml_path: Path to the Arena Experiment YAML file.
         environment_cfg_types: Environment selector names mapped to typed configuration classes.
-        policy_cfg_types: Policy selector names mapped to typed configuration classes.
+        policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
         overrides: Hydra overrides rooted at runs, applied after the YAML values.
 
     Returns:
@@ -74,7 +75,7 @@ def load_arena_experiment_from_yaml(
                     run_name,
                     run_values,
                     environment_cfg_types,
-                    policy_cfg_types,
+                    policy_cfg_type_resolver,
                 )
                 for index, (run_name, run_values) in enumerate(run_values_by_name.items())
             }
@@ -149,7 +150,7 @@ def _build_arena_run_cfg_from_yaml_values(
     run_name: str,
     run_values: dict[str, Any],
     environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
-    policy_cfg_types: dict[str, type[PolicyCfg]],
+    policy_cfg_type_resolver: Callable[[str], type[PolicyCfg]],
 ) -> ArenaRunCfg:
     """Build one typed Arena Run from its unresolved YAML values.
 
@@ -160,7 +161,7 @@ def _build_arena_run_cfg_from_yaml_values(
         run_name: Name declared by the Run's YAML mapping key.
         run_values: Unresolved values declared for the Run.
         environment_cfg_types: Environment selectors mapped to typed configuration classes.
-        policy_cfg_types: Policy selectors mapped to typed configuration classes.
+        policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
 
     Returns:
         The fully composed typed Run configuration.
@@ -181,6 +182,11 @@ def _build_arena_run_cfg_from_yaml_values(
         environment_cfg_types,
         ArenaEnvironmentCfg,
     )
+    policy_cfg_types: dict[str, type[PolicyCfg]] = {}
+    if isinstance(policy_values, dict):
+        policy_selector = policy_values.get("type")
+        if isinstance(policy_selector, str) and policy_selector:
+            policy_cfg_types[policy_selector] = policy_cfg_type_resolver(policy_selector)
     policy = _compose_typed_config_from_yaml_selector(
         config_store,
         hydra_policy_config_name,

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
+from importlib import import_module
 from pathlib import Path
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
@@ -61,7 +62,7 @@ def load_arena_experiment_from_config_file(
     experiment_cfg = load_arena_experiment_from_yaml(
         path,
         environment_cfg_types=_registered_environment_cfg_types(),
-        policy_cfg_types=_registered_policy_cfg_types(),
+        policy_cfg_type_resolver=_resolve_policy_cfg_type_from_name_or_class_path,
         overrides=overrides,
     )
 
@@ -90,11 +91,15 @@ def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
     return environment_cfg_types
 
 
-def _registered_policy_cfg_types() -> dict[str, type[PolicyCfg]]:
-    """Return registered policy selector names and their config types."""
+def _resolve_policy_cfg_type_from_name_or_class_path(policy_name_or_class_path: str) -> type[PolicyCfg]:
+    """Return the config type for a registered policy name or dotted class path."""
     registry = PolicyRegistry()
-    policy_cfg_types: dict[str, type[PolicyCfg]] = {}
-    for name in registry.get_all_keys():
-        policy_type = registry.get_component_by_name(name)
-        policy_cfg_types[name] = registry.get_policy_cfg_type(policy_type)
-    return policy_cfg_types
+    if registry.is_registered(policy_name_or_class_path):
+        policy_type = registry.get_policy(policy_name_or_class_path)
+    else:
+        assert (
+            "." in policy_name_or_class_path
+        ), f"Policy type must be a registered name or dotted Python class path, got {policy_name_or_class_path!r}"
+        module_path, class_name = policy_name_or_class_path.rsplit(".", 1)
+        policy_type = getattr(import_module(module_path), class_name)
+    return registry.get_policy_cfg_type(policy_type)
