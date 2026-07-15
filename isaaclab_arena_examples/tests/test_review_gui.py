@@ -91,15 +91,15 @@ class TestBuildAssetCards:
             thumbnails={bg_id: b"fake"},
             aabb_dimensions_m={bg_id: (0.05, 0.05, 0.12)},
         )
-        background = next(card for card in cards if card.node_id == bg_id)
-        assert background.png_bytes == b"fake"
+        background = next(card for card in cards if card.asset.id == bg_id)
+        assert background.thumbnail_bytes == b"fake"
         assert background.aabb_dimensions_m == (0.05, 0.05, 0.12)
 
     def test_excludes_object_references(self):
         from isaaclab_arena.tests.utils.agentic_environment_generation import kitchen_pass1_dict
 
         spec = ArenaEnvGraphSpec.model_validate(kitchen_pass1_dict())
-        card_ids = {card.node_id for card in build_asset_cards(spec)}
+        card_ids = {card.asset.id for card in build_asset_cards(spec)}
         assert card_ids
         assert all(ref.id not in card_ids for ref in spec.object_references)
 

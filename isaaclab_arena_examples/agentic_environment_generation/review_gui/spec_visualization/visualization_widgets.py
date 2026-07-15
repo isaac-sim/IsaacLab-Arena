@@ -54,15 +54,15 @@ def _render_tasks_table(spec: ArenaEnvGraphSpec) -> None:
 def _render_asset_card(card: AssetCard) -> None:
     """Render one asset snapshot card; ``st.image`` provides the native fullscreen zoom."""
     with st.container(border=True):
-        if card.png_bytes is not None:
-            st.image(card.png_bytes, use_container_width=True)
+        if card.thumbnail_bytes is not None:
+            st.image(card.thumbnail_bytes, use_container_width=True)
         else:
             st.caption("No snapshot available")
-        note = card.label
+        note = card.asset.registry_name
         if card.aabb_dimensions_m is not None:
             x, y, z = card.aabb_dimensions_m
             note += f" · [{x:.3f}, {y:.3f}, {z:.3f}]"
-        st.markdown(f"**[{card.role}] {card.node_id}**")
+        st.markdown(f"**[{card.role}] {card.asset.id}**")
         st.caption(note)
 
 
