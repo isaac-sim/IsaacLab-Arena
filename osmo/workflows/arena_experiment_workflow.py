@@ -60,7 +60,7 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
 
     task_cls_list = [ExperimentRunnerTask, Pi0ServerTask]
     server_task_cfg_type = Pi0ServerTaskCfg
-    """Configuration type loaded from the selected server definition."""
+    """Configuration type used by this policy-server workflow."""
 
     lead_list = [True, False]
 
@@ -80,6 +80,8 @@ class Pi0ArenaExperimentWorkflow(ArenaExperimentWorkflow):
             group_name=group_name,
         )
 
+        # The Experiment selects policies independently from the OSMO submission's server.
+        # Verify compatibility before connecting matching Runs to that server.
         pi0_run_variants = self._get_pi0_run_variants()
         assert pi0_run_variants, "pi0 server requires at least one Run with policy.type 'pi0_remote'"
         incompatible_runs = {

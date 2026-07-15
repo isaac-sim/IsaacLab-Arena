@@ -43,7 +43,7 @@ class WorkflowCfg:
     workflow_name: str = "arena-workflow"
     """OSMO workflow name."""
 
-    pool: str = "isaac-dev-l40s-04"
+    pool: str = "isaac-dev-l40-03"
     """Target OSMO compute pool."""
 
     priority: WorkflowPriority = WorkflowPriority.NORMAL
@@ -61,7 +61,7 @@ class WorkflowCfg:
     storage: str = "200Gi"
     """Requested storage."""
 
-    platform: str = "ovx-l40s"
+    platform: str = "ovx-l40"
     """Target hardware platform."""
 
     exec_timeout: str = "1d"

@@ -17,7 +17,7 @@ from osmo.tasks.pi0_server_task import Pi0ServerTaskCfg
 from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow, Pi0ArenaExperimentWorkflow
 from osmo.workflows.workflow import WorkflowCfg
 
-SERVER_WORKFLOW_BY_CONFIG_TYPE = {
+POLICY_SERVER_WORKFLOW_BY_CONFIG_TYPE = {
     Pi0ServerTaskCfg: Pi0ArenaExperimentWorkflow,
 }
 
@@ -29,13 +29,13 @@ class ArenaExperimentSubmissionCfg:
     experiment_definition: ArenaExperimentCfg
     """Evaluation semantics executed by ``experiment_runner.py``."""
 
-    osmo_config: WorkflowCfg = field(default_factory=WorkflowCfg)
+    osmo: WorkflowCfg = field(default_factory=WorkflowCfg)
     """OSMO scheduling, resource, and timeout configuration."""
 
-    experiment_runner_config: ExperimentRunnerTaskCfg = field(default_factory=ExperimentRunnerTaskCfg)
+    experiment_runner: ExperimentRunnerTaskCfg = field(default_factory=ExperimentRunnerTaskCfg)
     """Configuration for the task that executes ``experiment_runner.py``."""
 
-    server_config: TaskCfg | None = None
+    policy_server: TaskCfg | None = None
     """Optional co-scheduled policy server; omit for local or externally hosted policies."""
 
 
@@ -48,24 +48,24 @@ def submit_arena_experiment(submission_cfg: ArenaExperimentSubmissionCfg) -> int
     Returns:
         The OSMO submission process status.
     """
-    server_task_cfg = deepcopy(submission_cfg.server_config)
+    server_task_cfg = deepcopy(submission_cfg.policy_server)
     if server_task_cfg is None:
         # Local and externally hosted policies need only the Experiment Runner task.
         workflow = ArenaExperimentWorkflow(
-            workflow_cfg=submission_cfg.osmo_config,
+            workflow_cfg=submission_cfg.osmo,
             experiment_definition=submission_cfg.experiment_definition,
-            task_cfg=submission_cfg.experiment_runner_config,
+            task_cfg=submission_cfg.experiment_runner,
         )
     else:
         # A selected server uses a workflow variant that adds and connects its policy-server task.
-        workflow_cls = SERVER_WORKFLOW_BY_CONFIG_TYPE.get(type(server_task_cfg))
+        workflow_cls = POLICY_SERVER_WORKFLOW_BY_CONFIG_TYPE.get(type(server_task_cfg))
         assert (
             workflow_cls is not None
         ), f"No policy-server workflow is registered for configuration type {type(server_task_cfg).__name__}"
         workflow = workflow_cls(
-            workflow_cfg=submission_cfg.osmo_config,
+            workflow_cfg=submission_cfg.osmo,
             experiment_definition=submission_cfg.experiment_definition,
             server_task_cfg=server_task_cfg,
-            task_cfg=submission_cfg.experiment_runner_config,
+            task_cfg=submission_cfg.experiment_runner,
         )
     return workflow.submit_workflow()

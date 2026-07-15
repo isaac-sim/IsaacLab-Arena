@@ -11,7 +11,6 @@ from types import SimpleNamespace
 
 import pytest
 from hydra.errors import ConfigCompositionException
-from omegaconf.errors import MissingMandatoryValue
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
@@ -21,11 +20,11 @@ from isaaclab_arena_environments.pick_and_place_maple_table_environment import P
 from isaaclab_arena_openpi.policy import pi0_remote_policy  # noqa: F401
 from isaaclab_arena_openpi.policy.pi0_remote_config import Pi0RemotePolicyCfg
 from osmo.arena_experiment_submission import (
-    SERVER_WORKFLOW_BY_CONFIG_TYPE,
+    POLICY_SERVER_WORKFLOW_BY_CONFIG_TYPE,
     ArenaExperimentSubmissionCfg,
     submit_arena_experiment,
 )
-from osmo.submit_arena_experiment import SERVER_CONFIG_BY_NAME, compose_arena_experiment_submission
+from osmo.submit_arena_experiment import POLICY_SERVER_TASK_CFG_BY_NAME, build_arena_experiment_submission_cfg, main
 from osmo.tasks.base_task import TaskCfg
 from osmo.tasks.experiment_runner_task import (
     DEFAULT_EXPERIMENT_RUNNER_IMAGE,
@@ -36,6 +35,14 @@ from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow, Pi0ArenaExperimentWorkflow
 from osmo.workflows.workflow import WorkflowCfg
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
+
+REPOSITORY_ROOT = Path(__file__).parents[2]
+OPENPI_EXPERIMENT_DEFINITION_PATH = (
+    REPOSITORY_ROOT / "isaaclab_arena_environments/experiment_configs/openpi_experiment.yaml"
+)
+GETTING_STARTED_EXPERIMENT_DEFINITION_PATH = (
+    REPOSITORY_ROOT / "isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml"
+)
 
 
 def _pi0_experiment_definition(first_variant: str = "pi05") -> ArenaExperimentCfg:
@@ -95,75 +102,83 @@ def _workflow_tasks(workflow: dict) -> list[dict]:
     return workflow["workflow"]["groups"][0]["tasks"]
 
 
-def _compose_and_submit(overrides: list[str]) -> int:
-    return submit_arena_experiment(compose_arena_experiment_submission(overrides))
+def _compose_submission(
+    overrides: list[str] | None = None,
+    experiment_definition_path: Path = OPENPI_EXPERIMENT_DEFINITION_PATH,
+    policy_server_name: str | None = "pi0",
+) -> ArenaExperimentSubmissionCfg:
+    return build_arena_experiment_submission_cfg(
+        experiment_definition_path,
+        policy_server_name,
+        overrides,
+    )
 
 
-def test_declares_server_config_and_workflow_mappings():
-    """Keep CLI selection and runtime workflow dispatch explicit."""
-    assert SERVER_CONFIG_BY_NAME == {"pi0": Pi0ServerTaskCfg}
-    assert SERVER_WORKFLOW_BY_CONFIG_TYPE == {Pi0ServerTaskCfg: Pi0ArenaExperimentWorkflow}
+def _compose_and_submit(
+    overrides: list[str],
+    experiment_definition_path: Path = OPENPI_EXPERIMENT_DEFINITION_PATH,
+    policy_server_name: str | None = "pi0",
+) -> int:
+    return submit_arena_experiment(_compose_submission(overrides, experiment_definition_path, policy_server_name))
+
+
+def test_declares_policy_server_name_and_workflow_mappings():
+    """Keep policy-server selection and runtime workflow dispatch explicit."""
+    assert POLICY_SERVER_TASK_CFG_BY_NAME == {"pi0": Pi0ServerTaskCfg}
+    assert POLICY_SERVER_WORKFLOW_BY_CONFIG_TYPE == {Pi0ServerTaskCfg: Pi0ArenaExperimentWorkflow}
     assert ArenaExperimentWorkflow.task_cfg_type is ExperimentRunnerTaskCfg
     assert Pi0ArenaExperimentWorkflow.server_task_cfg_type is Pi0ServerTaskCfg
 
 
-def test_server_config_group_composes_typed_defaults():
-    """Compose the selected server directly from its typed configuration defaults."""
-    submission_cfg = compose_arena_experiment_submission([
-        "experiment_definition=openpi_experiment",
-        "server_config=pi0",
-    ])
+def test_explicit_experiment_and_policy_server_selector_compose_typed_defaults():
+    """Compose an explicit Experiment path and built-in policy-server defaults."""
+    submission_cfg = _compose_submission()
 
     assert isinstance(submission_cfg.experiment_definition, ArenaExperimentCfg)
     assert isinstance(submission_cfg.experiment_definition.runs["openpi_maple_table"].policy, Pi0RemotePolicyCfg)
-    assert submission_cfg.osmo_config == WorkflowCfg()
-    assert submission_cfg.experiment_runner_config == ExperimentRunnerTaskCfg()
-    assert submission_cfg.server_config == Pi0ServerTaskCfg()
+    assert submission_cfg.osmo == WorkflowCfg()
+    assert submission_cfg.osmo.pool == "isaac-dev-l40-03"
+    assert submission_cfg.osmo.platform == "ovx-l40"
+    assert submission_cfg.experiment_runner == ExperimentRunnerTaskCfg()
+    assert submission_cfg.experiment_runner.image == "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:experiment_osmo_runner"
+    assert submission_cfg.policy_server == Pi0ServerTaskCfg()
 
-    with pytest.raises(ConfigCompositionException, match="unknown"):
-        compose_arena_experiment_submission([
-            "experiment_definition=openpi_experiment",
-            "server_config=unknown",
-        ])
+    with pytest.raises(AssertionError, match="Unknown policy server 'unknown'.*pi0"):
+        _compose_submission(policy_server_name="unknown")
 
     with pytest.raises(AssertionError, match="policy_variant must be one of"):
-        compose_arena_experiment_submission([
-            "experiment_definition=openpi_experiment",
-            "server_config=pi0",
-            "server_config.policy_variant=unknown",
-        ])
+        _compose_submission(["policy_server.policy_variant=unknown"])
 
 
-def test_submitter_rejects_unregistered_server_config_type():
-    """Reject a typed server config without a registered workflow implementation."""
+def test_submitter_rejects_unregistered_policy_server_type():
+    """Reject a typed policy server without a registered workflow implementation."""
     submission_cfg = ArenaExperimentSubmissionCfg(
         experiment_definition=_pi0_experiment_definition(),
-        osmo_config=WorkflowCfg(dry_run=True),
-        server_config=TaskCfg(),
+        osmo=WorkflowCfg(dry_run=True),
+        policy_server=TaskCfg(),
     )
 
     with pytest.raises(AssertionError, match="No policy-server workflow.*TaskCfg"):
         submit_arena_experiment(submission_cfg)
 
 
-@pytest.mark.parametrize("config_path", ["osmo_config.not_a_field", "experiment_runner_config.not_a_field"])
+@pytest.mark.parametrize("config_path", ["osmo.not_a_field", "experiment_runner.not_a_field"])
 def test_hydra_rejects_unknown_typed_config_fields(config_path):
     """Let the structured Hydra root reject fields outside their owning config."""
     with pytest.raises(ConfigCompositionException, match="not_a_field"):
-        compose_arena_experiment_submission([
-            "experiment_definition=getting_started_experiment",
-            f"{config_path}=true",
-        ])
+        _compose_submission(
+            [f"{config_path}=true"],
+            GETTING_STARTED_EXPERIMENT_DEFINITION_PATH,
+            None,
+        )
 
 
-def test_server_config_rejects_workflow_fields():
-    """Validate the selected server definition against its task config type."""
+def test_policy_server_rejects_workflow_fields():
+    """Validate server overrides against the selected task config type."""
     with pytest.raises(ConfigCompositionException, match="workflow_name"):
         _compose_and_submit([
-            "experiment_definition=openpi_experiment",
-            "server_config=pi0",
-            "server_config.workflow_name=experiment",
-            "osmo_config.dry_run=true",
+            "policy_server.workflow_name=experiment",
+            "osmo.dry_run=true",
         ])
 
 
@@ -246,22 +261,37 @@ def test_submission_removes_temporary_workflow(monkeypatch):
     assert not captured_workflow_path.exists()
 
 
-def test_submission_composes_named_groups_and_overrides(capsys):
-    """Compose typed defaults and selected groups before applying CLI overrides."""
-    return_code = _compose_and_submit([
-        "experiment_definition=openpi_experiment",
-        "server_config=pi0",
-        "osmo_config.dry_run=true",
-        "osmo_config.workflow_name=overridden-experiment",
-        "experiment_runner_config.image=registry.example.com/evaluator:branch",
-        "server_config.image=registry.example.com/openpi:overridden",
-        "server_config.policy_config=overridden-pi0-config",
-        "server_config.policy_dir=gs://overridden/checkpoint",
-        "experiment_definition.runs.openpi_maple_table.rollout_limit.num_episodes=4",
-        "experiment_definition.runs.openpi_maple_table.environment_builder.num_envs=2",
-        "experiment_definition.runs.openpi_maple_table.policy.ping_interval=33.0",
-        "experiment_definition.runs.openpi_maple_table.policy.ping_timeout=450.0",
-    ])
+def test_submission_composes_defaults_experiment_and_overrides(tmp_path, capsys):
+    """Resolve typed defaults, Experiment values, then CLI overrides."""
+    experiment_path = tmp_path / "experiment.yaml"
+    experiment_path.write_text(
+        """runs:
+  openpi_maple_table:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+      ping_timeout: 300.0
+    rollout_limit:
+      num_episodes: 2
+""",
+        encoding="utf-8",
+    )
+    return_code = _compose_and_submit(
+        [
+            "osmo.dry_run=true",
+            "osmo.workflow_name=overridden-experiment",
+            "experiment_runner.image=registry.example.com/evaluator:branch",
+            "policy_server.image=registry.example.com/openpi:overridden",
+            "policy_server.policy_config=overridden-pi0-config",
+            "experiment_definition.runs.openpi_maple_table.rollout_limit.num_episodes=4",
+            "experiment_definition.runs.openpi_maple_table.environment_builder.num_envs=2",
+            "experiment_definition.runs.openpi_maple_table.policy.ping_interval=33.0",
+            "experiment_definition.runs.openpi_maple_table.policy.ping_timeout=450.0",
+        ],
+        experiment_path,
+        "pi0",
+    )
 
     assert return_code == 0
     rendered = capsys.readouterr().out
@@ -285,21 +315,18 @@ def test_submission_composes_named_groups_and_overrides(capsys):
 
     server_command = _task_file(tasks[1], "/tmp/entry.sh")["contents"]
     assert "--policy.config=overridden-pi0-config" in server_command
-    assert "--policy.dir=gs://overridden/checkpoint" in server_command
+    assert "--policy.dir=gs://openpi-assets-simeval/pi05_droid_jointpos" in server_command
 
 
 def test_embedded_openpi_experiment_composes_through_experiment_runner_loader(tmp_path):
     """Keep the rendered OSMO handoff compatible with the Experiment Runner loader."""
-    submission_cfg = compose_arena_experiment_submission([
-        "experiment_definition=openpi_experiment",
-        "server_config=pi0",
-    ])
-    assert isinstance(submission_cfg.server_config, Pi0ServerTaskCfg)
+    submission_cfg = _compose_submission()
+    assert isinstance(submission_cfg.policy_server, Pi0ServerTaskCfg)
     workflow = Pi0ArenaExperimentWorkflow(
-        workflow_cfg=submission_cfg.osmo_config,
+        workflow_cfg=submission_cfg.osmo,
         experiment_definition=submission_cfg.experiment_definition,
-        server_task_cfg=submission_cfg.server_config,
-        task_cfg=submission_cfg.experiment_runner_config,
+        server_task_cfg=submission_cfg.policy_server,
+        task_cfg=submission_cfg.experiment_runner,
     )
     experiment_path = tmp_path / "effective_experiment.yaml"
     experiment_file = _task_file(_workflow_tasks(workflow.generate_workflow())[0], REMOTE_EXPERIMENT_PATH)
@@ -328,12 +355,15 @@ def test_submission_overrides_osmo_resources(monkeypatch):
 
     monkeypatch.setattr("osmo.workflows.workflow.subprocess.run", capture_submission)
 
-    return_code = _compose_and_submit([
-        "experiment_definition=getting_started_experiment",
-        "osmo_config.pool=isaac-dev-l40-03",
-        "osmo_config.platform=ovx-l40",
-        "osmo_config.memory=120Gi",
-    ])
+    return_code = _compose_and_submit(
+        [
+            "osmo.pool=isaac-dev-l40-03",
+            "osmo.platform=ovx-l40",
+            "osmo.memory=120Gi",
+        ],
+        GETTING_STARTED_EXPERIMENT_DEFINITION_PATH,
+        None,
+    )
 
     assert return_code == 0
     assert submitted_command is not None
@@ -343,19 +373,80 @@ def test_submission_overrides_osmo_resources(monkeypatch):
     assert submitted_resources["memory"] == "120Gi"
 
 
-def test_cli_requires_experiment_definition_group():
-    """Require one named Experiment selection at the Hydra root."""
-    with pytest.raises(MissingMandatoryValue, match="experiment_definition"):
-        compose_arena_experiment_submission([])
+def test_cli_requires_experiment_definition_path(capsys):
+    """Require the Experiment Definition path at the CLI boundary."""
+    with pytest.raises(SystemExit, match="2"):
+        main([])
+    assert "--experiment-definition" in capsys.readouterr().err
+
+
+def test_cli_help_explains_paths_and_override_names(capsys):
+    """Describe the Experiment path, server selector, and typed override namespaces."""
+    with pytest.raises(SystemExit, match="0"):
+        main(["--help"])
+    help_text = capsys.readouterr().out
+    assert "--experiment-definition PATH" in help_text
+    assert "any filesystem location" in help_text
+    assert "--policy-server {pi0}" in help_text
+    assert "built-in server implementation" in help_text
+    assert "typed defaults < Experiment file values < trailing Hydra overrides" in help_text
+    assert "osmo.pool=" in help_text
+    assert "experiment_runner.image=" in help_text
+    assert "policy_server.image=" in help_text
+    assert "experiment_definition.runs.my_run" in help_text
+    assert "experiment_definition=<name>" not in help_text
+
+
+def test_cli_accepts_arbitrary_paths_and_trailing_overrides(tmp_path, capsys):
+    """Submit an arbitrary Experiment path through the real CLI parser."""
+    experiment_path = tmp_path / "my_experiment.yaml"
+    experiment_path.write_text(
+        """runs:
+  openpi:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+""",
+        encoding="utf-8",
+    )
+    assert (
+        main([
+            "--experiment-definition",
+            str(experiment_path),
+            "--policy-server",
+            "pi0",
+            "osmo.dry_run=true",
+            "osmo.workflow_name=path-based-submission",
+            "experiment_runner.image=registry.example.com/evaluator:cli",
+        ])
+        == 0
+    )
+
+    workflow = _rendered_workflow(capsys.readouterr().out)
+    assert workflow["workflow"]["name"] == "path-based-submission"
+    tasks = _workflow_tasks(workflow)
+    assert [task["name"] for task in tasks] == ["experiment_runner", "policy_server"]
+    assert tasks[0]["image"] == "registry.example.com/evaluator:cli"
+
+
+def test_experiment_path_is_relative_to_the_invocation_directory(tmp_path, monkeypatch):
+    """Resolve a relative Experiment path from the caller's working directory."""
+    experiment_path = tmp_path / "experiment.yaml"
+    experiment_path.write_text(GETTING_STARTED_EXPERIMENT_DEFINITION_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    submission_cfg = build_arena_experiment_submission_cfg("experiment.yaml", "pi0")
+
+    assert isinstance(submission_cfg.experiment_definition, ArenaExperimentCfg)
+    assert isinstance(submission_cfg.policy_server, Pi0ServerTaskCfg)
 
 
 def test_structural_policy_override_is_checked_against_server_variant():
     """Check server compatibility against the effective structurally overridden policy."""
     with pytest.raises(AssertionError, match="pi0 server is configured for 'pi05'"):
         _compose_and_submit([
-            "experiment_definition=openpi_experiment",
-            "server_config=pi0",
-            "osmo_config.dry_run=true",
+            "osmo.dry_run=true",
             "experiment_definition.runs.openpi_maple_table.policy={policy_variant:pi0}",
         ])
 
@@ -364,11 +455,9 @@ def test_server_variant_cannot_relabel_known_pi05_model():
     """Reject a client-compatible label when the selected server model remains pi05."""
     with pytest.raises(AssertionError, match="policy_config.*serves variant 'pi05'.*policy_variant 'pi0'"):
         _compose_and_submit([
-            "experiment_definition=openpi_experiment",
-            "server_config=pi0",
-            "osmo_config.dry_run=true",
+            "osmo.dry_run=true",
             "experiment_definition.runs.openpi_maple_table.policy.policy_variant=pi0",
-            "server_config.policy_variant=pi0",
+            "policy_server.policy_variant=pi0",
         ])
 
 
@@ -376,7 +465,7 @@ def test_submitter_runs_zero_action_experiment_without_server(capsys):
     """Render exactly one Experiment Runner task when no policy server is selected."""
     submission_cfg = ArenaExperimentSubmissionCfg(
         experiment_definition=_zero_action_experiment_definition(),
-        osmo_config=WorkflowCfg(dry_run=True),
+        osmo=WorkflowCfg(dry_run=True),
     )
 
     assert submit_arena_experiment(submission_cfg) == 0
@@ -390,8 +479,8 @@ def test_submitter_rejects_server_without_matching_run():
     """Reject an explicitly selected server that cannot serve any Experiment Run."""
     submission_cfg = ArenaExperimentSubmissionCfg(
         experiment_definition=_zero_action_experiment_definition(),
-        osmo_config=WorkflowCfg(dry_run=True),
-        server_config=Pi0ServerTaskCfg(),
+        osmo=WorkflowCfg(dry_run=True),
+        policy_server=Pi0ServerTaskCfg(),
     )
 
     with pytest.raises(AssertionError, match="requires at least one Run with policy.type 'pi0_remote'"):
@@ -414,7 +503,7 @@ def test_submitter_preserves_external_endpoint_without_server(capsys):
     )
     submission_cfg = ArenaExperimentSubmissionCfg(
         experiment_definition=experiment_definition,
-        osmo_config=WorkflowCfg(dry_run=True),
+        osmo=WorkflowCfg(dry_run=True),
     )
 
     assert submit_arena_experiment(submission_cfg) == 0
