@@ -62,7 +62,7 @@ def render_visualization_panel(validation: SpecParseResult) -> None:
             st.toast("Visualization updated.", icon="🔄")
 
     asset_cards = st.session_state.get("rendered_visualization")
-    if isinstance(asset_cards, list) and all(isinstance(card, AssetCard) for card in asset_cards):
+    if isinstance(asset_cards, list):
         st.caption("Updates automatically when the YAML is valid.")
         render_visualization_widgets(validation.spec, asset_cards)
     elif not st.session_state.get("_defer_viz_render"):
