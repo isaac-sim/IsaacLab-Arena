@@ -7,7 +7,9 @@ embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
   params:
-    stand_scale: [1.2, 1.2, 1.7]
+    # Height (z-axis scale factor) of the robot base stand. The robot base is lifted to match so the
+    # stand stays on the floor; footprint and robot size are unaffected.
+    stand_height: 1.7
 background:
   id: maple_table_robolab
   registry_name: maple_table_robolab
