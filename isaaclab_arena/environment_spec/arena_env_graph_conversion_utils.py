@@ -12,8 +12,6 @@ from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObje
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import build_task_from_spec
 from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelationSpec
-from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_helpers import has_light, open_stage
 
@@ -31,6 +29,9 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
         graph_spec: A validated graph spec (asset refs exist, ids unique, etc.).
         enable_cameras: Forwarded to the embodiment so its cameras are added.
     """
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
+
     assets_by_node_id = _instantiate_assets_from_spec(graph_spec, AssetRegistry(), enable_cameras=enable_cameras)
     _ensure_scene_lighting(graph_spec, assets_by_node_id)
     _attach_spatial_relations_to_assets(graph_spec.relations, assets_by_node_id)

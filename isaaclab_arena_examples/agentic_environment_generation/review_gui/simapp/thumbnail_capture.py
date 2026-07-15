@@ -16,18 +16,18 @@ import omni.usd
 from omni.kit.viewport.utility import frame_viewport_prims, get_active_viewport
 from pxr import Gf, Sdf, UsdGeom, UsdLux
 
+from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.asset_usd import (
     AabbDimensionsM,
     ObjectReferenceUsdTarget,
     absolute_prim_path,
+    background_viewer_cfg,
+    instantiate_snapshot_assets,
     object_reference_cache_key,
-    resolve_background_viewer_cfgs,
-    resolve_node_aabb_dimensions_m,
+    resolve_aabb_dimensions_m,
     resolve_node_usd_paths,
-    resolve_object_reference_aabb_dimensions_m,
     resolve_object_reference_usd_targets,
-    viewer_cfg_for_asset_spec,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.kit_viewport import (
     PRE_CAPTURE_UPDATES,
@@ -57,9 +57,11 @@ def _usd_cache_key(usd_path: str) -> str:
 
 def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, Path], dict[str, AabbDimensionsM]]:
     """Render cache-missed node thumbnails and return png paths plus AABB sizes in meters."""
-    asset_paths = resolve_node_usd_paths(spec)
-    reference_targets = resolve_object_reference_usd_targets(spec)
-    viewer_cfgs = resolve_background_viewer_cfgs(spec)
+    assets_by_node_id = instantiate_snapshot_assets(spec)
+    embodiment_id = spec.embodiment.id
+    asset_paths = resolve_node_usd_paths(assets_by_node_id, embodiment_id=embodiment_id)
+    reference_targets = resolve_object_reference_usd_targets(assets_by_node_id)
+    background_viewer = background_viewer_cfg(assets_by_node_id[spec.background.id])
     if not asset_paths and not reference_targets:
         print("[thumbnail_capture] no asset USD paths resolved; skipping thumbnail rendering.", file=sys.stderr)
         return {}, {}
@@ -73,7 +75,8 @@ def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, 
         if cache_path.exists() and cache_path.stat().st_size > 0:
             resolved[node_id] = cache_path
         else:
-            to_render[node_id] = (usd_path, cache_path, viewer_cfgs.get(node_id))
+            viewer_cfg = background_viewer if node_id == spec.background.id else None
+            to_render[node_id] = (usd_path, cache_path, viewer_cfg)
 
     reference_to_render: dict[str, tuple[ObjectReferenceUsdTarget, Path]] = {}
     for node_id, target in reference_targets.items():
@@ -90,7 +93,7 @@ def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, 
             f"(reusing {len(resolved)} from cache)...",
             file=sys.stderr,
         )
-        jobs = _build_usd_snapshot_jobs(spec, to_render, reference_to_render)
+        jobs = _build_usd_snapshot_jobs(assets_by_node_id, to_render, reference_to_render)
         captured = _capture_usd_snapshot_jobs(app, jobs)
         for node_id, cache_path in [
             *((nid, cp) for nid, (_usd, cp, _cfg) in to_render.items()),
@@ -101,13 +104,12 @@ def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, 
     else:
         print(f"[thumbnail_capture] all {len(resolved)} thumbnail(s) served from cache.", file=sys.stderr)
 
-    aabb_dimensions_m = resolve_node_aabb_dimensions_m(spec)
-    aabb_dimensions_m.update(resolve_object_reference_aabb_dimensions_m(spec))
+    aabb_dimensions_m = resolve_aabb_dimensions_m(assets_by_node_id, embodiment_id=embodiment_id)
     return resolved, aabb_dimensions_m
 
 
 def _build_usd_snapshot_jobs(
-    spec: ArenaEnvGraphSpec,
+    assets_by_node_id: dict[str, object],
     to_render: dict[str, tuple[str, Path, object | None]],
     reference_to_render: dict[str, tuple[ObjectReferenceUsdTarget, Path]],
 ) -> list[_UsdSnapshotJob]:
@@ -120,17 +122,12 @@ def _build_usd_snapshot_jobs(
             job.viewer_cfg = viewer_cfg
         job.asset_captures.append((node_id, cache_path))
 
-    ref_by_id = {ref.id: ref for ref in (spec.object_references or [])}
     for node_id, (target, cache_path) in reference_to_render.items():
         job = jobs_by_usd.setdefault(target.usd_path, _UsdSnapshotJob(usd_path=target.usd_path))
         job.ref_captures.append((node_id, target, cache_path))
-        ref = ref_by_id.get(node_id)
-        if ref is not None and job.viewer_cfg is None:
-            try:
-                parent_spec = spec._asset_by_id(ref.parent_id)
-                job.viewer_cfg = viewer_cfg_for_asset_spec(parent_spec)
-            except KeyError:
-                pass
+        ref = assets_by_node_id.get(node_id)
+        if isinstance(ref, ObjectReference) and job.viewer_cfg is None:
+            job.viewer_cfg = background_viewer_cfg(ref.parent_asset)
 
     return list(jobs_by_usd.values())
 
