@@ -31,7 +31,7 @@ from osmo.tasks.experiment_runner_task import (
     REMOTE_EXPERIMENT_PATH,
     ExperimentRunnerTaskCfg,
 )
-from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
+from osmo.tasks.pi0_server_task import DEFAULT_PI0_CLIENT_PING_TIMEOUT, Pi0ServerTask, Pi0ServerTaskCfg
 from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow, Pi0ArenaExperimentWorkflow
 from osmo.workflows.workflow import WorkflowCfg
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
@@ -144,6 +144,7 @@ def test_explicit_experiment_and_policy_server_selector_compose_typed_defaults()
     assert submission_cfg.experiment_runner == ExperimentRunnerTaskCfg()
     assert submission_cfg.experiment_runner.image == "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:experiment_osmo_runner"
     assert submission_cfg.policy_server == Pi0ServerTaskCfg()
+    assert submission_cfg.policy_server.client_ping_timeout == DEFAULT_PI0_CLIENT_PING_TIMEOUT
 
     with pytest.raises(AssertionError, match="Unknown policy server 'unknown'.*pi0"):
         _compose_submission(policy_server_name="unknown")
@@ -202,11 +203,14 @@ def test_renders_experiment_runner_and_shared_pi0_server_with_effective_endpoint
     server_host = Pi0ServerTask.host_token()
     assert experiment["runs"]["first"]["policy"]["remote_host"] == server_host
     assert experiment["runs"]["first"]["policy"]["remote_port"] == POLICY_SERVER_PORT
+    assert experiment["runs"]["first"]["policy"]["ping_timeout"] == DEFAULT_PI0_CLIENT_PING_TIMEOUT
     assert experiment["runs"]["second"]["policy"]["remote_host"] == server_host
     assert experiment["runs"]["second"]["policy"]["remote_port"] == POLICY_SERVER_PORT
+    assert experiment["runs"]["second"]["policy"]["ping_timeout"] == DEFAULT_PI0_CLIENT_PING_TIMEOUT
     assert "remote_host" not in experiment["runs"]["local"]["policy"]
     assert "remote_port" not in experiment["runs"]["local"]["policy"]
     assert source_experiment_definition.runs["first"].policy.remote_host == "user-host"
+    assert source_experiment_definition.runs["first"].policy.ping_timeout == 10
 
     command = _task_file(eval_task, "/tmp/entry.sh")["contents"]
     assert "experiment_runner.py" in command
@@ -286,6 +290,7 @@ def test_submission_composes_defaults_experiment_and_overrides(tmp_path, capsys)
             "experiment_runner.image=registry.example.com/evaluator:branch",
             "policy_server.image=registry.example.com/openpi:overridden",
             "policy_server.policy_config=overridden-pi0-config",
+            "policy_server.client_ping_timeout=600.0",
             "experiment_definition.runs.openpi_maple_table.rollout_limit.num_episodes=4",
             "experiment_definition.runs.openpi_maple_table.environment_builder.num_envs=2",
             "experiment_definition.runs.openpi_maple_table.policy.ping_interval=33.0",
@@ -310,9 +315,9 @@ def test_submission_composes_defaults_experiment_and_overrides(tmp_path, capsys)
     assert experiment["runs"]["openpi_maple_table"]["rollout_limit"]["num_episodes"] == 4
     assert experiment["runs"]["openpi_maple_table"]["environment_builder"]["num_envs"] == 2
     assert policy["ping_interval"] == 33.0
-    assert policy["ping_timeout"] == 450.0
     assert policy["remote_host"] == Pi0ServerTask.host_token()
     assert policy["remote_port"] == POLICY_SERVER_PORT
+    assert policy["ping_timeout"] == 600.0
     assert "experiment_definition.runs" not in _task_file(tasks[0], "/tmp/entry.sh")["contents"]
 
     server_command = _task_file(tasks[1], "/tmp/entry.sh")["contents"]
@@ -341,6 +346,7 @@ def test_embedded_openpi_experiment_composes_through_experiment_runner_loader(tm
     assert isinstance(run_cfg.policy, Pi0RemotePolicyCfg)
     assert run_cfg.policy.remote_host == Pi0ServerTask.host_token()
     assert run_cfg.policy.remote_port == POLICY_SERVER_PORT
+    assert run_cfg.policy.ping_timeout == DEFAULT_PI0_CLIENT_PING_TIMEOUT
 
 
 def test_submission_overrides_osmo_resources(monkeypatch):
@@ -387,16 +393,36 @@ def test_cli_help_explains_paths_and_override_names(capsys):
     with pytest.raises(SystemExit, match="0"):
         main(["--help"])
     help_text = capsys.readouterr().out
+    normalized_help_text = " ".join(help_text.split())
     assert "--experiment-definition PATH" in help_text
-    assert "any filesystem location" in help_text
+    assert "typed Arena Experiment Definition YAML file" in help_text
+    assert "visible inside the submitting container or process" in normalized_help_text
+    assert "droid_pnp_srl_openpi_experiment.yaml" in help_text
     assert "--policy-server {pi0}" in help_text
-    assert "built-in server implementation" in help_text
+    assert "built-in server implementation" in normalized_help_text
+    assert "does not select the policy evaluated by the Experiment" in normalized_help_text
+    assert "must already select Pi0RemotePolicy" in normalized_help_text
     assert "typed defaults < Experiment file values < trailing Hydra overrides" in help_text
     assert "osmo.pool=" in help_text
+    assert "osmo.platform=" in help_text
+    assert "osmo.memory=" in help_text
+    assert "osmo.dry_run=true" in help_text
     assert "experiment_runner.image=" in help_text
     assert "policy_server.image=" in help_text
+    assert "policy_server.client_ping_timeout=300.0" in help_text
     assert "experiment_definition.runs.my_run" in help_text
+    assert "Referenced model, checkpoint, and config paths are not copied" in help_text
+    assert "swift://pdx.s8k.io/AUTH_team-isaac/isaaclab_arena/workflows/WORKFLOW_ID" in help_text
     assert "experiment_definition=<name>" not in help_text
+
+
+def test_submission_rejects_legacy_json_experiment(tmp_path):
+    """Limit OSMO submission to typed YAML that can be embedded for the remote runner."""
+    experiment_path = tmp_path / "legacy.json"
+    experiment_path.write_text("{}", encoding="utf-8")
+
+    with pytest.raises(AssertionError, match="requires a typed YAML Experiment Definition"):
+        build_arena_experiment_submission_cfg(experiment_path)
 
 
 def test_cli_accepts_arbitrary_paths_and_trailing_overrides(tmp_path, capsys):
@@ -485,7 +511,7 @@ def test_submitter_rejects_server_without_matching_run():
         policy_server=Pi0ServerTaskCfg(),
     )
 
-    with pytest.raises(AssertionError, match="requires at least one Run with policy.type 'pi0_remote'"):
+    with pytest.raises(AssertionError, match="requires at least one Run using Pi0RemotePolicy"):
         submit_arena_experiment(submission_cfg)
 
 
