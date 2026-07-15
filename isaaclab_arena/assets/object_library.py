@@ -499,9 +499,9 @@ class DirectionalLight(LightBase):
             spawner_cfg=spawner_cfg,
         )
         self.add_variation(LightDirectionVariation(self))
+        self.add_variation(LightIntensityVariation(self))
         self.add_variation(LightColorVariation(self))
         self.add_variation(LightColorTemperatureVariation(self))
-        self.add_variation(LightIntensityVariation(self))
 
     def set_orientation(self, rotation_xyzw: tuple[float, float, float, float]) -> None:
         """Set the light's orientation."""
