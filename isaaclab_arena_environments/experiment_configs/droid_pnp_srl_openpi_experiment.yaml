@@ -12,7 +12,8 @@ runs:
       hdr: billiard_hall_robolab
     environment_builder:
       language_instruction: Pick up the Rubik's cube and place it in the bowl.
-    policy:
+    # This YAML anchor keeps the shared OpenPI policy configuration in one place.
+    policy: &openpi_policy
       type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
       policy_variant: pi05
       policy_device: cuda:0
@@ -32,13 +33,7 @@ runs:
       hdr: home_office_robolab
     environment_builder:
       language_instruction: Pick up the Rubik's cube and place it in the bowl.
-    policy:
-      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
-      policy_variant: pi05
-      policy_device: cuda:0
-      remote_host: 127.0.0.1
-      remote_port: 8000
-      openpi_embodiment_adapter: droid
+    policy: *openpi_policy
     rollout_limit:
       num_episodes: 3
 
@@ -52,13 +47,7 @@ runs:
       hdr: empty_warehouse_robolab
     environment_builder:
       language_instruction: Pick up the soup can and place it in the bowl.
-    policy:
-      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
-      policy_variant: pi05
-      policy_device: cuda:0
-      remote_host: 127.0.0.1
-      remote_port: 8000
-      openpi_embodiment_adapter: droid
+    policy: *openpi_policy
     rollout_limit:
       num_episodes: 3
 
@@ -72,13 +61,7 @@ runs:
       hdr: aerodynamics_workshop_robolab
     environment_builder:
       language_instruction: Pick up the orange and place it in the bowl.
-    policy:
-      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
-      policy_variant: pi05
-      policy_device: cuda:0
-      remote_host: 127.0.0.1
-      remote_port: 8000
-      openpi_embodiment_adapter: droid
+    policy: *openpi_policy
     rollout_limit:
       num_episodes: 3
 
@@ -92,13 +75,7 @@ runs:
       hdr: wooden_lounge_robolab
     environment_builder:
       language_instruction: Pick up the lemon and place it in the bowl.
-    policy:
-      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
-      policy_variant: pi05
-      policy_device: cuda:0
-      remote_host: 127.0.0.1
-      remote_port: 8000
-      openpi_embodiment_adapter: droid
+    policy: *openpi_policy
     rollout_limit:
       num_episodes: 3
 
@@ -112,13 +89,7 @@ runs:
       hdr: garage_robolab
     environment_builder:
       language_instruction: Pick up the tomato sauce can and place it in the bowl.
-    policy:
-      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
-      policy_variant: pi05
-      policy_device: cuda:0
-      remote_host: 127.0.0.1
-      remote_port: 8000
-      openpi_embodiment_adapter: droid
+    policy: *openpi_policy
     rollout_limit:
       num_episodes: 3
 
@@ -132,13 +103,7 @@ runs:
       hdr: kiara_interior_robolab
     environment_builder:
       language_instruction: Pick up the mustard bottle and place it in the bowl.
-    policy:
-      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
-      policy_variant: pi05
-      policy_device: cuda:0
-      remote_host: 127.0.0.1
-      remote_port: 8000
-      openpi_embodiment_adapter: droid
+    policy: *openpi_policy
     rollout_limit:
       num_episodes: 3
 
@@ -152,13 +117,7 @@ runs:
       hdr: brown_photostudio_robolab
     environment_builder:
       language_instruction: Pick up the sugar box and place it in the bowl.
-    policy:
-      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
-      policy_variant: pi05
-      policy_device: cuda:0
-      remote_host: 127.0.0.1
-      remote_port: 8000
-      openpi_embodiment_adapter: droid
+    policy: *openpi_policy
     rollout_limit:
       num_episodes: 3
 
@@ -172,12 +131,6 @@ runs:
       hdr: carpentry_shop_robolab
     environment_builder:
       language_instruction: Pick up the mug and place it in the bowl.
-    policy:
-      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
-      policy_variant: pi05
-      policy_device: cuda:0
-      remote_host: 127.0.0.1
-      remote_port: 8000
-      openpi_embodiment_adapter: droid
+    policy: *openpi_policy
     rollout_limit:
       num_episodes: 3
