@@ -11,7 +11,7 @@ from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.utils.cameras import make_camera_observation_cfg
+from isaaclab_arena.utils.cameras import ArenaCameraCfg, make_camera_observation_cfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances
 from isaaclab_arena.utils.pose import Pose
 
@@ -67,7 +67,7 @@ class EmbodimentBase(Asset):
                 return combine_configclass_instances(
                     "SceneCfg",
                     self.scene_config,
-                    self.camera_config,
+                    self.get_camera_cfg(),
                 )
         return self.scene_config
 
@@ -107,7 +107,13 @@ class EmbodimentBase(Asset):
         """Optional USD prim path for rebasing teleop poses (e.g. robot base link). Returns None if not set."""
 
     def get_camera_cfg(self) -> Any:
-        return self.camera_config
+        if self.camera_config is None:
+            return None
+        # In Arena we expect camera configs to inherit from ArenaCameraCfg.
+        assert isinstance(
+            self.camera_config, ArenaCameraCfg
+        ), f"Expected camera_config to inherit from ArenaCameraCfg; got {type(self.camera_config).__name__}."
+        return self.camera_config.get_cfg()
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
         if scene_config is None or not hasattr(scene_config, "robot"):
