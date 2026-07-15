@@ -43,7 +43,15 @@ running:
 .. code-block:: bash
 
     uv run python isaaclab_arena/evaluation/policy_runner.py \
-      --headless --policy_type zero_action --num_steps 20 cube_goal_pose
+      --policy_type zero_action --num_steps 20 cube_goal_pose
+
+Optionally, watch the rollout in the GUI visualizer by adding ``--viz kit`` (and
+a few more steps so there is time to see it):
+
+.. code-block:: bash
+
+    uv run python isaaclab_arena/evaluation/policy_runner.py \
+      --viz kit --policy_type zero_action --num_steps 200 cube_goal_pose
 
 Optionally verify the installation by running the test phases (the same phases
 the Docker workflow runs below):
