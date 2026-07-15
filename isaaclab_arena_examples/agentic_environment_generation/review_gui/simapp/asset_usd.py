@@ -14,7 +14,7 @@ from typing import Any
 
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_reference import ObjectReference
-from isaaclab_arena.utils.usd_helpers import open_stage
+from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec
 
 AabbDimensionsM = tuple[float, float, float]
 
@@ -56,27 +56,22 @@ def resolve_aabb_dimensions_m(assets_by_node_id: dict[str, Any]) -> dict[str, Aa
     return dimensions
 
 
-def resolve_object_reference_usd_targets(assets_by_node_id: dict[str, Any]) -> dict[str, ObjectReferenceUsdTarget]:
-    """Map ``object_reference.id`` to parent USD and resolved prim suffix for snapshots."""
+def resolve_object_reference_usd_targets(
+    object_references: list[ObjectReferenceSpec] | None,
+    parent_usd_paths: dict[str, str],
+) -> dict[str, ObjectReferenceUsdTarget]:
+    """Map each resolved object_reference id to its parent USD and default-prim-relative prim suffix."""
     targets: dict[str, ObjectReferenceUsdTarget] = {}
-    for node_id, asset in assets_by_node_id.items():
-        if not isinstance(asset, ObjectReference):
+    for ref in object_references or []:
+        if ref.prim_path is None:
             continue
-        parent = asset.parent_asset
-        usd_path = getattr(parent, "usd_path", None)
+        usd_path = parent_usd_paths.get(ref.parent_id)
         if not usd_path:
             continue
-        try:
-            with open_stage(usd_path) as stage:
-                abs_path = asset.isaaclab_prim_path_to_original_prim_path(asset.prim_path, parent, stage)
-                default_prim_path = str(stage.GetDefaultPrim().GetPath())
-                relative_prim_path = abs_path.removeprefix(default_prim_path).lstrip("/")
-                targets[node_id] = ObjectReferenceUsdTarget(
-                    usd_path=usd_path,
-                    relative_prim_path=relative_prim_path,
-                )
-        except Exception as exc:
-            print(f"[asset_usd]   {node_id}: object_reference target failed: {exc}", file=sys.stderr)
+        targets[ref.id] = ObjectReferenceUsdTarget(
+            usd_path=usd_path,
+            relative_prim_path=ref.prim_path.lstrip("/"),
+        )
     return targets
 
 

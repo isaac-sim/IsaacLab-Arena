@@ -36,8 +36,6 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.ki
     wait_for_stage_load,
 )
 
-COLLIDER_SELECTION_PUMP_UPDATES = PRE_CAPTURE_UPDATES + 3
-
 
 @dataclass
 class _UsdSnapshotJob:
@@ -51,10 +49,10 @@ class _UsdSnapshotJob:
 
 def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, Path], dict[str, AabbDimensionsM]]:
     """Render cache-missed node thumbnails and return png paths plus AABB sizes in meters."""
-    assets_by_node_id = _instantiate_snapshot_assets(spec)
+    assets_by_node_id = _instantiate_assets_from_spec(spec, AssetRegistry())
     asset_node_ids = [spec.background.id, *(obj.id for obj in spec.objects)]
     asset_paths = _resolve_node_usd_paths(assets_by_node_id, asset_node_ids)
-    reference_targets = resolve_object_reference_usd_targets(assets_by_node_id)
+    reference_targets = resolve_object_reference_usd_targets(spec.object_references, asset_paths)
     background_viewer = _background_viewer_cfg(assets_by_node_id[spec.background.id])
     if not asset_paths and not reference_targets:
         print("[thumbnail_capture] no asset USD paths resolved; skipping thumbnail rendering.", file=sys.stderr)
@@ -103,13 +101,6 @@ def render_thumbnails_with_app(app, spec: ArenaEnvGraphSpec) -> tuple[dict[str, 
 
 
 # Spec resolution — materialize graph assets and look up USD paths / viewer cfg.
-
-
-def _instantiate_snapshot_assets(spec: ArenaEnvGraphSpec) -> dict[str, object]:
-    """Materialize the graph spec, dropping object references whose prim_path is unresolved."""
-    resolved_refs = [ref for ref in (spec.object_references or []) if ref.prim_path is not None]
-    snapshot_spec = spec.model_copy(update={"object_references": resolved_refs or None})
-    return _instantiate_assets_from_spec(snapshot_spec, AssetRegistry())
 
 
 def _resolve_node_usd_paths(assets_by_node_id: dict[str, object], node_ids: list[str]) -> dict[str, str]:
@@ -197,7 +188,6 @@ def _capture_usd_snapshot_job(app, job: _UsdSnapshotJob) -> dict[str, bytes]:
             stage,
             cache_path,
             viewer_cfg=job.viewer_cfg,
-            collision_paths=None,
         )
         if png_bytes:
             for node_id, _cache_path in job.asset_captures:
@@ -212,8 +202,9 @@ def _capture_usd_snapshot_job(app, job: _UsdSnapshotJob) -> dict[str, bytes]:
         try:
             for node_id, target, cache_path in job.ref_captures:
                 root_path = absolute_prim_path(stage, target.relative_prim_path)
-                collision_paths = _collect_collision_prim_paths(stage, root_path)
-                _select_collision_prims(app, collision_paths)
+                # Selecting the subtree root is enough; Kit shows colliders for all prims below it.
+                omni.usd.get_context().get_selection().set_selected_prim_paths([root_path], True)
+                pump_app(app, count=PRE_CAPTURE_UPDATES)
                 viewport = get_active_viewport()
                 framed = frame_viewport_prims(viewport, prims=[root_path])
                 if not framed:
@@ -244,7 +235,6 @@ def _capture_stage_snapshot(
     cache_path: Path,
     *,
     viewer_cfg,
-    collision_paths: list[str] | None,
 ) -> bytes | None:
     """Capture the active viewport for an already-open stage."""
     if viewer_cfg is not None:
@@ -260,10 +250,6 @@ def _capture_stage_snapshot(
                 f"[thumbnail_capture]   warning: frame_viewport_prims failed for {target_prim.GetPath()}",
                 file=sys.stderr,
             )
-
-    if collision_paths:
-        _set_collision_mesh_visualization(enabled=True)
-        _select_collision_prims(app, collision_paths)
 
     png_bytes = capture_viewport_png(app, cache_path)
     if png_bytes is not None:
@@ -306,22 +292,6 @@ def _ensure_default_lighting(stage) -> None:
     rot.Set(Gf.Vec3f(-45.0, 30.0, 0.0))
 
 
-def _collect_collision_prim_paths(stage, root_path: str) -> list[str]:
-    """Return collision/physics prim paths under ``root_path`` (including the root)."""
-    from pxr import Usd
-
-    from isaaclab_arena.utils.usd_helpers import has_physics_or_collision
-
-    root = stage.GetPrimAtPath(root_path)
-    assert root and root.IsValid(), f"Prim not found: {root_path}"
-    paths = [root_path]
-    for prim in Usd.PrimRange(root):
-        path = str(prim.GetPath())
-        if path != root_path and has_physics_or_collision(prim):
-            paths.append(path)
-    return paths
-
-
 def _set_collision_mesh_visualization(*, enabled: bool) -> None:
     """Toggle viewport Show By Type → Physics → Colliders → Selected."""
     import carb.settings
@@ -331,10 +301,3 @@ def _set_collision_mesh_visualization(*, enabled: bool) -> None:
     settings = carb.settings.get_settings()
     settings.set_bool("/persistent/physics/visualizationCollisionMesh", enabled)
     settings.set_int("/persistent/physics/visualizationDisplayColliders", 1 if enabled else 0)
-
-
-def _select_collision_prims(app, selected_prim_paths: list[str]) -> None:
-    """Select collision prims and pump Kit so the viewport overlay updates."""
-    if selected_prim_paths:
-        omni.usd.get_context().get_selection().set_selected_prim_paths(selected_prim_paths, True)
-    pump_app(app, count=COLLIDER_SELECTION_PUMP_UPDATES)
