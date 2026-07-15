@@ -68,21 +68,11 @@ def _render_asset_card(card: AssetCard) -> None:
 
 def _render_asset_grid(cards: list[AssetCard]) -> None:
     """Lay out asset cards in a grid."""
-    row: list[AssetCard] = []
-
-    def _flush_row() -> None:
-        if not row:
-            return
-        for column, card in zip(st.columns(_ASSET_GRID_COLS), row):
+    for start in range(0, len(cards), _ASSET_GRID_COLS):
+        columns = st.columns(_ASSET_GRID_COLS)
+        for column, card in zip(columns, cards[start : start + _ASSET_GRID_COLS]):
             with column:
                 _render_asset_card(card)
-        row.clear()
-
-    for card in cards:
-        row.append(card)
-        if len(row) == _ASSET_GRID_COLS:
-            _flush_row()
-    _flush_row()
 
 
 def render_visualization_widgets(spec: ArenaEnvGraphSpec, asset_cards: list[AssetCard]) -> None:
