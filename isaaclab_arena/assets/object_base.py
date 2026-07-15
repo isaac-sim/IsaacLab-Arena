@@ -54,6 +54,10 @@ class ObjectBase(Asset, ABC):
             prim_path = "{ENV_REGEX_NS}/" + self.name
         self.prim_path = prim_path
         self.object_type = object_type
+        if self.object_type == ObjectType.RIGID:
+            from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation  # noqa: PLC0415
+
+            self.add_variation(ObjectMassVariation(self.name))
         self.initial_pose: Pose | PoseRange | PosePerEnv | None = None
         self.initial_velocity: Velocity | None = None
         self.object_cfg = None
