@@ -84,7 +84,11 @@ To measure success rates across several variations of the environment in a singl
 
    python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_openpi_jobs_config.json
+     --enable_cameras \
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml
+
+The Experiment config adds cameras to each environment, while ``--enable_cameras`` enables camera support in
+Isaac Sim before the Experiment is loaded. Both are currently required.
 
 This runs nine jobs sequentially — each varying the object, background, and destination — and reports a per-job success rate.
 Each evaluation is run without restarting Isaac Sim to save on the startup time.
@@ -161,7 +165,8 @@ episode; the runner writes an ``index.html`` which is then served over HTTP.
 
    python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --eval_jobs_config isaaclab_arena_environments/eval_jobs_configs/droid_pnp_srl_openpi_jobs_config.json \
+     --enable_cameras \
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml \
      --output_base_dir ./output \
      --record_camera_video --serve_evaluation_report
 

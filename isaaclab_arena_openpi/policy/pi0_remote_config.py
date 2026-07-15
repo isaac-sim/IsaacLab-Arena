@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import dataclass
-from typing import Literal
 
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
@@ -21,7 +20,7 @@ MAX_RECONNECT_ATTEMPTS = 3
 class Pi0RemotePolicyCfg(PolicyCfg):
     """Connection + runtime config for ``Pi0RemotePolicy``."""
 
-    openpi_embodiment_adapter: Literal["droid"] = "droid"
+    openpi_embodiment_adapter: str = "droid"
     """Adapter used to translate Arena observations and policy actions."""
 
     policy_variant: str = DEFAULT_VARIANT
